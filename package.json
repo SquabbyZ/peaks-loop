@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
   "license": "SEE LICENSE IN LICENSE",
@@ -22,6 +22,7 @@
     "scripts/install-skills.mjs",
     "scripts/watch.mjs",
     "skills/**",
+    "output-styles/**",
     "schemas/*.json"
   ],
   "scripts": {

@@ -7,9 +7,13 @@ import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, test } from 'vitest';
 
 type InstallBundledSkills = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
+type InstallBundledOutputStyles = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
 
 const scriptUrl = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
-const { installBundledSkills } = (await import(scriptUrl)) as { installBundledSkills: InstallBundledSkills };
+const { installBundledSkills, installBundledOutputStyles } = (await import(scriptUrl)) as {
+  installBundledSkills: InstallBundledSkills;
+  installBundledOutputStyles: InstallBundledOutputStyles;
+};
 
 const originalSkip = process.env.PEAKS_SKIP_SKILL_INSTALL;
 
@@ -21,13 +25,19 @@ afterEach(() => {
   process.env.PEAKS_SKIP_SKILL_INSTALL = originalSkip;
 });
 
-function createPackageRoot(skillNames: string[]) {
+function createPackageRoot(skillNames: string[], outputStyleNames: string[] = []) {
   const packageRoot = mkdtempSync(join(tmpdir(), 'peaks-package-'));
 
   for (const skillName of skillNames) {
     const skillRoot = join(packageRoot, 'skills', skillName);
     mkdirSync(skillRoot, { recursive: true });
     writeFileSync(join(skillRoot, 'SKILL.md'), `# ${skillName}`);
+  }
+
+  for (const outputStyleName of outputStyleNames) {
+    const outputStylesRoot = join(packageRoot, 'output-styles');
+    mkdirSync(outputStylesRoot, { recursive: true });
+    writeFileSync(join(outputStylesRoot, `${outputStyleName}.md`), `---\nname: ${outputStyleName}\n---\n`);
   }
 
   return packageRoot;
@@ -167,15 +177,78 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: [] });
   });
 
-  test('links skills when the postinstall script runs directly', async () => {
-    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+  test('copies bundled output styles into the Claude output styles directory', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(join(targetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('name: peaks-skill-swarm');
+    await expect(readFile(join(targetRoot, 'peaks-skill-swarm.md.peaks-managed'), 'utf8')).resolves.toBe(`${join(packageRoot, 'output-styles', 'peaks-skill-swarm.md')}\n`);
+    expect(existsSync(join(targetRoot, 'peaks-skill-swarm.md.peaks-managed'))).toBe(true);
+    expect(result).toEqual({ installed: ['peaks-skill-swarm.md'], skipped: [] });
+  });
+
+  test('does not overwrite existing user-authored output styles', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    writeFileSync(targetPath, 'custom output style', 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('custom output style');
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('replaces stale Peaks-managed output styles', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    writeFileSync(targetPath, 'old output style', 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'output-styles', 'peaks-skill-swarm.md')}\n`, 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toContain('name: peaks-skill-swarm');
+    expect(result).toEqual({ installed: ['peaks-skill-swarm.md'], skipped: [] });
+  });
+
+  test('does not overwrite output styles with non-Peaks managed markers', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    writeFileSync(targetPath, 'custom output style', 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'other-tool', 'peaks-skill-swarm.md')}\n`, 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('custom output style');
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('skips output style installation when requested by environment', async () => {
+    process.env.PEAKS_SKIP_SKILL_INSTALL = '1';
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(lstat(join(targetRoot, 'peaks-skill-swarm.md'))).rejects.toThrow();
+    expect(result).toEqual({ installed: [], skipped: [] });
+  });
+
+  test('links skills and copies output styles when the postinstall script runs directly', async () => {
+    const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
 
     execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
-      env: { ...process.env, PEAKS_CLAUDE_SKILLS_DIR: targetRoot },
+      env: { ...process.env, PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot, PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot },
       stdio: 'pipe'
     });
 
-    const stats = await lstat(join(targetRoot, 'peaks-rd'));
+    const stats = await lstat(join(skillsTargetRoot, 'peaks-rd'));
     expect(stats.isSymbolicLink()).toBe(true);
+    await expect(readFile(join(outputStylesTargetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('Peaks Skill Swarm');
   });
 });
