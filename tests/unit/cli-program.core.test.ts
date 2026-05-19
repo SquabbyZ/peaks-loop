@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { CLI_VERSION } from '../../src/shared/version.js';
 import { parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
 describe('createProgram', () => {
@@ -10,6 +11,30 @@ describe('createProgram', () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+  });
+
+  test('prints version with -v alias', async () => {
+    const result = await runCommand(['-v']);
+
+    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
+    expect(result.stderr).toEqual([]);
+    expect(result.exitCode).toBeUndefined();
+  });
+
+  test('prints version with -V alias', async () => {
+    const result = await runCommand(['-V']);
+
+    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
+    expect(result.stderr).toEqual([]);
+    expect(result.exitCode).toBeUndefined();
+  });
+
+  test('prints version with --version', async () => {
+    const result = await runCommand(['--version']);
+
+    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
+    expect(result.stderr).toEqual([]);
+    expect(result.exitCode).toBeUndefined();
   });
 
   test('prints skill list as JSON envelope', async () => {

@@ -7,7 +7,7 @@ Peaks 是一个面向 Claude Code 的全局 CLI 工具和短技能族，用来�
 ## 安装
 
 ```bash
-npm install -g @peaks/cli
+npm install -g peaks-cli
 ```
 
 安装后可直接使用：

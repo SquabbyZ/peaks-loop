@@ -7,7 +7,7 @@ If you are a user, think of Peaks as an installed command-line tool: configure a
 ## Installation
 
 ```bash
-npm install -g @peaks/cli
+npm install -g peaks-cli
 ```
 
 After installation, run:

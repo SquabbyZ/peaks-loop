@@ -35,7 +35,7 @@ pnpm install
 pnpm dev:watch
 
 # 在另一个项目里
-pnpm link @peaks/cli
+pnpm link peaks-cli
 peaks ...
 ```
 

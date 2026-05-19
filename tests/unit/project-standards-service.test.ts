@@ -1,8 +1,7 @@
-import * as nodeFs from 'node:fs';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { createProjectStandardsInitPlan, createProjectStandardsUpdatePlan, executeProjectStandardsInit, executeProjectStandardsUpdate, summarizeProjectStandardsInitResult, summarizeProjectStandardsUpdateResult } from '../../src/services/standards/project-standards-service.js';
 
 function createProjectRoot(prefix = 'peaks-standards-project-'): string {
@@ -173,25 +172,14 @@ describe('project standards service', () => {
     expect(() => createProjectStandardsUpdatePlan({ projectRoot: unsafeClaudeProjectRoot, language: 'typescript' })).toThrow('Project standards directory must stay inside the project root');
   });
 
-  test('rejects symlinked CLAUDE.md files during standards update planning', async () => {
+  test('rejects symlinked CLAUDE.md files during standards update planning', () => {
     const projectRoot = createProjectRoot('peaks-standards-unsafe-claude-md-');
     const claudeMdPath = join(projectRoot, 'CLAUDE.md');
-    writeFileSync(claudeMdPath, '# Linked\n', 'utf8');
+    const linkedTarget = join(projectRoot, 'outside', 'CLAUDE.md');
+    mkdirSync(join(projectRoot, 'outside'), { recursive: true });
+    writeFileSync(linkedTarget, '# Linked\n', 'utf8');
+    symlinkSync(linkedTarget, claudeMdPath, 'junction');
 
-    vi.resetModules();
-    vi.doMock('node:fs', () => ({
-      ...nodeFs,
-      lstatSync: (path: Parameters<typeof nodeFs.lstatSync>[0], options?: Parameters<typeof nodeFs.lstatSync>[1]) => {
-        const actualStat = nodeFs.lstatSync(path, options);
-        return String(path) === claudeMdPath ? { ...actualStat, isSymbolicLink: () => true } : actualStat;
-      }
-    }));
-    try {
-      const mockedStandardsService = await import('../../src/services/standards/project-standards-service.js');
-      expect(() => mockedStandardsService.createProjectStandardsUpdatePlan({ projectRoot, language: 'typescript' })).toThrow('Project standards CLAUDE.md must stay inside the project root');
-    } finally {
-      vi.doUnmock('node:fs');
-      vi.resetModules();
-    }
+    expect(() => createProjectStandardsUpdatePlan({ projectRoot, language: 'typescript' })).toThrow('Project standards CLAUDE.md must stay inside the project root');
   });
 });

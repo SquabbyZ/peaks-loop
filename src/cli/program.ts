@@ -1,14 +1,28 @@
 import { Command } from 'commander';
+import { CLI_VERSION } from '../shared/version.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
-
 export function createProgram(io: ProgramIO = { stdout: (text) => console.log(text), stderr: (text) => console.error(text) }): Command {
   const program = new Command();
-  program.name('peaks').description('Peaks CLI and short skill family runtime manager').version('0.1.0').exitOverride();
+  program
+    .name('peaks')
+    .description('Peaks CLI and short skill family runtime manager')
+    .configureOutput({
+      writeOut: (text) => io.stdout(text.trimEnd()),
+      writeErr: (text) => io.stderr(text.trimEnd())
+    })
+    .version(CLI_VERSION, '-v, --version')
+    .option('-V', 'output the version number')
+    .action(() => {
+      if (program.opts<{ V?: boolean }>().V) {
+        io.stdout(CLI_VERSION);
+      }
+    })
+    .exitOverride();
 
   registerCoreAndArtifactCommands(program, io);
   registerWorkflowCommands(program, io);

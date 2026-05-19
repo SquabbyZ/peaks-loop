@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -44,6 +44,7 @@ describe('install skills script', () => {
     const stats = await lstat(targetPath);
     expect(stats.isSymbolicLink()).toBe(true);
     expect(readlinkSync(targetPath)).toBe(join(packageRoot, 'skills', 'peaks-rd'));
+    expect(existsSync(`${targetPath}.peaks-managed`)).toBe(true);
     expect(result).toEqual({ installed: ['peaks-rd'], skipped: [] });
   });
 
@@ -86,17 +87,64 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: ['peaks-rd'] });
   });
 
-  test('skips stale broken skill symlinks without aborting installation', () => {
-    const packageRoot = createPackageRoot(['peaks-rd', 'peaks-qa']);
+  test('does not claim existing matching symlinks as managed', () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
-    const staleTargetPath = join(targetRoot, 'peaks-rd');
+    const targetPath = join(targetRoot, 'peaks-rd');
     mkdirSync(targetRoot, { recursive: true });
-    symlinkSync(join(targetRoot, 'missing-skill'), staleTargetPath, process.platform === 'win32' ? 'junction' : 'dir');
+    symlinkSync(join(packageRoot, 'skills', 'peaks-rd'), targetPath, process.platform === 'win32' ? 'junction' : 'dir');
 
     const result = installBundledSkills({ packageRoot, targetRoot });
 
-    expect(readlinkSync(staleTargetPath)).toBe(join(targetRoot, 'missing-skill'));
-    expect(result).toEqual({ installed: ['peaks-qa'], skipped: ['peaks-rd'] });
+    expect(readlinkSync(targetPath)).toBe(join(packageRoot, 'skills', 'peaks-rd'));
+    expect(existsSync(`${targetPath}.peaks-managed`)).toBe(false);
+    expect(result).toEqual({ installed: ['peaks-rd'], skipped: [] });
+  });
+
+  test('replaces stale broken skill symlinks created by Peaks', () => {
+    const packageRoot = createPackageRoot(['peaks-rd', 'peaks-qa']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const staleTargetPath = join(targetRoot, 'peaks-rd');
+    const stalePeaksCliRoot = join(targetRoot, '-peaks-cli');
+    mkdirSync(stalePeaksCliRoot, { recursive: true });
+    const staleTarget = join(stalePeaksCliRoot, 'skills', 'peaks-rd');
+    symlinkSync(staleTarget, staleTargetPath, process.platform === 'win32' ? 'junction' : 'dir');
+    writeFileSync(`${staleTargetPath}.peaks-managed`, `${staleTarget}\n`, 'utf8');
+
+    const result = installBundledSkills({ packageRoot, targetRoot });
+
+    expect(readlinkSync(staleTargetPath)).toBe(join(packageRoot, 'skills', 'peaks-rd'));
+    expect(result.installed).toEqual(expect.arrayContaining(['peaks-rd', 'peaks-qa']));
+    expect(result.skipped).toEqual([]);
+  });
+
+  test('skips custom broken skill symlinks', () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const targetPath = join(targetRoot, 'peaks-rd');
+    const customTarget = join(targetRoot, 'somewhere-else', 'peaks-rd');
+    mkdirSync(targetRoot, { recursive: true });
+    symlinkSync(customTarget, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
+
+    const result = installBundledSkills({ packageRoot, targetRoot });
+
+    expect(readlinkSync(targetPath)).toBe(customTarget);
+    expect(result).toEqual({ installed: [], skipped: ['peaks-rd'] });
+  });
+
+  test('skips custom broken skill symlinks with stale managed markers', () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const targetPath = join(targetRoot, 'peaks-rd');
+    const customTarget = join(targetRoot, 'somewhere-else', 'peaks-rd');
+    mkdirSync(targetRoot, { recursive: true });
+    symlinkSync(customTarget, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'skills', 'peaks-rd')}\n`, 'utf8');
+
+    const result = installBundledSkills({ packageRoot, targetRoot });
+
+    expect(readlinkSync(targetPath)).toBe(customTarget);
+    expect(result).toEqual({ installed: [], skipped: ['peaks-rd'] });
   });
 
   test('skips installation when requested by environment', async () => {

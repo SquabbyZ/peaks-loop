@@ -248,7 +248,7 @@ pnpm run dev:watch
 Run from the other project:
 
 ```bash
-pnpm link @peaks/cli
+pnpm link peaks-cli
 peaks --help
 ```
 

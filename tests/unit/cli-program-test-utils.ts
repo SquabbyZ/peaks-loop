@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join as pathJoin } from 'node:path';
+import { CommanderError } from 'commander';
 import { vi } from 'vitest';
 
 const cliProgramTestState = vi.hoisted(() => {
@@ -72,6 +73,10 @@ export async function runCommand(args: string[], env: Record<string, string> = {
   }
   try {
     await harness.program.parseAsync(['node', 'peaks', ...args], { from: 'node' });
+  } catch (error: unknown) {
+    if (!(error instanceof CommanderError && error.code === 'commander.version')) {
+      throw error;
+    }
   } finally {
     for (const [key, value] of previousEnv.entries()) {
       if (value === undefined) {

@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
   "license": "SEE LICENSE IN LICENSE",
@@ -18,13 +18,14 @@
     "dist/src/**/*.js",
     "dist/src/**/*.d.ts",
     "scripts/clean-dist.mjs",
+    "scripts/sync-version.mjs",
     "scripts/install-skills.mjs",
     "scripts/watch.mjs",
     "skills/**",
     "schemas/*.json"
   ],
   "scripts": {
-    "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
     "prepack": "npm run build",
     "postinstall": "node ./scripts/install-skills.mjs",
     "dev": "tsx src/cli/index.ts",

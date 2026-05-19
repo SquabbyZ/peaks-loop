@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, symlinkSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -12,12 +12,21 @@ function getPathStats(path) {
   }
 }
 
-function linksToSamePath(targetPath, sourcePath) {
-  try {
-    return realpathSync(targetPath) === realpathSync(sourcePath);
-  } catch {
-    return false;
+function isBrokenSymlink(stats, targetPath) {
+  return stats.isSymbolicLink() && !existsSync(targetPath);
+}
+
+function getManagedTarget(targetPath) {
+  const markerPath = `${targetPath}.peaks-managed`;
+  if (!existsSync(markerPath)) {
+    return null;
   }
+  return readFileSync(markerPath, 'utf8').trim();
+}
+
+function markManagedPeaksLink(targetPath, sourcePath) {
+  const markerPath = `${targetPath}.peaks-managed`;
+  writeFileSync(markerPath, `${sourcePath}\n`, 'utf8');
 }
 
 export function installBundledSkills(options = {}) {
@@ -44,15 +53,22 @@ export function installBundledSkills(options = {}) {
 
     const current = getPathStats(targetPath);
     if (current) {
-      if (!current.isSymbolicLink() || !linksToSamePath(targetPath, sourcePath)) {
+      const managedTarget = getManagedTarget(targetPath);
+      if (current.isSymbolicLink() && readlinkSync(targetPath) === sourcePath) {
+        installed.push(skillName);
+        continue;
+      }
+      if (isBrokenSymlink(current, targetPath) && managedTarget === readlinkSync(targetPath)) {
+        unlinkSync(targetPath);
+        unlinkSync(`${targetPath}.peaks-managed`);
+      } else {
         skipped.push(skillName);
         continue;
       }
-      installed.push(skillName);
-      continue;
     }
 
     symlinkSync(sourcePath, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
+    markManagedPeaksLink(targetPath, sourcePath);
     installed.push(skillName);
   }
 

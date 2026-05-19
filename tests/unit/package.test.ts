@@ -5,24 +5,29 @@ import { describe, expect, test } from 'vitest';
 const packagePath = resolve('package.json');
 const binPath = resolve('bin', 'peaks.js');
 const tsconfigPath = resolve('tsconfig.json');
+const versionPath = resolve('src', 'shared', 'version.ts');
 
 describe('package publishing configuration', () => {
   test('publishes the CLI bin and its compiled entrypoint', async () => {
     const packageJson = JSON.parse(await readFile(packagePath, 'utf8')) as {
       bin: { peaks: string };
       files: string[];
+      version: string;
       scripts: { build: string; prepack: string; postinstall: string; dev: string; 'dev:watch': string };
     };
     const binSource = await readFile(binPath, 'utf8');
+    const versionSource = await readFile(versionPath, 'utf8');
 
+    expect(versionSource).toBe(`export const CLI_VERSION = ${JSON.stringify(packageJson.version)};\n`);
     expect(packageJson.bin.peaks).toBe('./bin/peaks.js');
     expect(packageJson.files).toContain('bin/peaks.js');
     expect(packageJson.files).toContain('dist/src/cli/index.js');
     expect(packageJson.files).toContain('scripts/clean-dist.mjs');
+    expect(packageJson.files).toContain('scripts/sync-version.mjs');
     expect(packageJson.files).toContain('scripts/install-skills.mjs');
     expect(packageJson.files).toContain('scripts/watch.mjs');
     expect(packageJson.files).toContain('skills/**');
-    expect(packageJson.scripts.build).toBe('node ./scripts/clean-dist.mjs && tsc -p tsconfig.json');
+    expect(packageJson.scripts.build).toBe('node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json');
     expect(packageJson.scripts.prepack).toBe('npm run build');
     expect(packageJson.scripts.postinstall).toBe('node ./scripts/install-skills.mjs');
     expect(packageJson.scripts.dev).toBe('tsx src/cli/index.ts');
