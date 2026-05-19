@@ -1,0 +1,28 @@
+<h2>蜂群能力在 Peaks 里的合理位置</h2>
+<p class="subtitle">核心判断：蜂群不是产品主语，而是 Workflow 执行层的一种加速器。它应该在“需要并行判断/验证/产物生成”时被推荐和启用。</p>
+
+<div class="mockup">
+  <div class="mockup-header">Peaks Workflow-first Architecture</div>
+  <div class="mockup-body">
+    <div style="display:grid;gap:14px">
+      <div class="placeholder"><strong>User Intent</strong><br>我要重构 / 做 UI / QA / ship / 调研</div>
+      <div style="text-align:center">↓</div>
+      <div class="placeholder"><strong>Workflow Router</strong><br>选择 peaks-solo refactor/ui/qa/ship 等场景工作流</div>
+      <div style="text-align:center">↓</div>
+      <div class="placeholder"><strong>Consultative Recommendation</strong><br>推荐 skills / MCP / agents / profiles / 是否启用 swarm</div>
+      <div style="text-align:center">↓</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div class="placeholder"><strong>Single-agent path</strong><br>低复杂度<br>低风险</div>
+        <div class="placeholder" style="border:2px solid #8b5cf6"><strong>Swarm path</strong><br>并行扫描<br>并行评审<br>并行验证</div>
+        <div class="placeholder"><strong>External capability path</strong><br>MCP / specialist skill</div>
+      </div>
+      <div style="text-align:center">↓</div>
+      <div class="placeholder"><strong>CLI Execution + Evidence</strong><br>dry-run · doctor · artifacts · rollback · report</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>我的建议</h3>
+  <p>蜂群只在 Peaks 已经有清晰工作流和产物契约后介入；它提升吞吐，不替代决策。用户看到的是“推荐启用蜂群：预计并行处理这些子任务”，而不是直接暴露一堆 agent。</p>
+</div>

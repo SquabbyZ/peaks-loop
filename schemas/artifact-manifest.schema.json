@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Artifact Manifest",
+  "type": "object",
+  "required": ["artifactId", "artifactType", "ownerSkill", "status"],
+  "properties": {
+    "artifactId": { "type": "string" },
+    "artifactType": { "type": "string" },
+    "ownerSkill": { "type": "string" },
+    "scenario": { "type": "string" },
+    "status": { "type": "string" },
+    "inputs": { "type": "array", "items": { "type": "string" } },
+    "outputs": { "type": "array", "items": { "type": "string" } },
+    "evidence": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Artifact Workspace",
+  "type": "object",
+  "required": ["workspaceId", "localPath"],
+  "properties": {
+    "workspaceId": { "type": "string" },
+    "artifactRepo": {
+      "type": "object",
+      "required": ["provider", "owner", "name"],
+      "properties": {
+        "provider": { "type": "string", "enum": ["github", "gitlab"] },
+        "owner": { "type": "string" },
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" }
+      }
+    },
+    "localPath": { "type": "string" },
+    "lastSync": { "type": "string", "format": "date-time" },
+    "syncStatus": { "type": "string", "enum": ["synced", "pending", "out-of-sync", "unknown"] }
+  }
+}

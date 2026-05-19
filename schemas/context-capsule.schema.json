@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Context Capsule",
+  "type": "object",
+  "required": ["sourceSkill", "audience", "purpose"],
+  "properties": {
+    "sourceSkill": { "type": "string" },
+    "audience": { "type": "array", "items": { "type": "string" } },
+    "purpose": { "type": "string" },
+    "confirmedDecisions": { "type": "array" },
+    "assumptions": { "type": "array" },
+    "discardedOptions": { "type": "array" },
+    "risks": { "type": "array" },
+    "staleness": { "type": "object" }
+  }
+}

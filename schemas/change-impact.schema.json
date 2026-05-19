@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Change Impact",
+  "type": "object",
+  "required": ["changeId", "sourceArtifacts", "affectedModules"],
+  "properties": {
+    "changeId": { "type": "string" },
+    "sourceArtifacts": { "type": "array", "items": { "type": "string" } },
+    "affectedModules": { "type": "array", "items": { "type": "string" } },
+    "affectedFiles": { "type": "array", "items": { "type": "string" } },
+    "qaImpact": { "type": "object" },
+    "riskImpact": { "type": "object" },
+    "syncPointers": { "type": "object" }
+  }
+}

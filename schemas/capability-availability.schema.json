@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Capability Availability",
+  "type": "object",
+  "required": ["capabilityId", "type", "status", "requiredFor", "fallback"],
+  "properties": {
+    "capabilityId": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["skill", "mcp", "cli", "agent", "profile"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["available", "missing", "installable", "disabled", "unknown"]
+    },
+    "requiredFor": { "type": "array", "items": { "type": "string" } },
+    "installPlan": {
+      "type": "object",
+      "properties": {
+        "available": { "type": "boolean" },
+        "commandPreview": { "type": "string" },
+        "requiresApproval": { "type": "boolean" }
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["mode", "qualityImpact"],
+      "properties": {
+        "mode": { "type": "string" },
+        "qualityImpact": { "type": "string" },
+        "nextAction": { "type": "string" }
+      }
+    },
+    "risk": { "type": "string", "enum": ["low", "medium", "high"] }
+  }
+}

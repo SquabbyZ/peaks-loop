@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Capability Item",
+  "type": "object",
+  "required": ["capabilityId", "sourceId", "itemType", "category", "workflows", "riskLevel", "fallback"],
+  "properties": {
+    "capabilityId": { "type": "string" },
+    "sourceId": { "type": "string" },
+    "name": { "type": "string" },
+    "itemType": {
+      "type": "string",
+      "enum": ["skill", "agent", "mcp", "rule", "hook", "template", "workflow", "doc", "cli"]
+    },
+    "category": { "type": "string" },
+    "workflows": { "type": "array", "items": { "type": "string" } },
+    "audience": { "type": "array", "items": { "type": "string" } },
+    "riskLevel": { "type": "string", "enum": ["low", "medium", "high"] },
+    "inputContract": { "type": "string" },
+    "outputContract": { "type": "string" },
+    "fallback": {
+      "type": "object",
+      "required": ["mode", "qualityImpact"],
+      "properties": {
+        "mode": { "type": "string" },
+        "qualityImpact": { "type": "string" },
+        "nextAction": { "type": "string" }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "object" },
+        "description": { "type": "object" }
+      }
+    }
+  }
+}

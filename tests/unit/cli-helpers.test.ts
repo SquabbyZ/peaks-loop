@@ -1,0 +1,32 @@
+import { Command } from 'commander';
+import { describe, expect, test } from 'vitest';
+import { addJsonOption, isMiniMaxHttpsUrl, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
+import { ok } from '../../src/shared/result.js';
+
+describe('cli helpers', () => {
+  test('prints warnings and next actions for non-json success output', () => {
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+
+    printResult({ stdout: (text) => stdout.push(text), stderr: (text) => stderr.push(text) }, ok('helper.test', { ok: true }, ['be careful'], ['retry later']));
+
+    expect(stdout.join('\n')).toContain('"ok": true');
+    expect(stdout).toContain('next: retry later');
+    expect(stderr).toContain('warning: be careful');
+  });
+
+  test('adds the shared json flag to commands', () => {
+    const command = addJsonOption(new Command('demo'));
+
+    expect(command.options.some((option) => option.long === '--json')).toBe(true);
+  });
+
+  test('rejects malformed MiniMax URLs', () => {
+    expect(isMiniMaxHttpsUrl('not a url')).toBe(false);
+  });
+
+  test('accumulates repeated command option values', () => {
+    expect(multipleOption('second', ['first'])).toEqual(['first', 'second']);
+    expect(multipleOption('first', undefined as unknown as string[])).toEqual(['first']);
+  });
+});

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Approval Record",
+  "type": "object",
+  "required": ["approvedArtifact", "decision"],
+  "properties": {
+    "approvedBy": { "type": "string" },
+    "approvedAt": { "type": "string" },
+    "approvedArtifact": { "type": "string" },
+    "decision": { "type": "string" },
+    "acceptedRisks": { "type": "array" },
+    "conditions": { "type": "array" }
+  }
+}

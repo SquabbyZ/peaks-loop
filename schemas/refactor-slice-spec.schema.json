@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Refactor Slice Spec",
+  "type": "object",
+  "required": ["sliceId", "functionalBoundary", "coverageRequirement", "acceptanceChecks", "commitRequired"],
+  "properties": {
+    "sliceId": { "type": "string" },
+    "functionalBoundary": { "type": "string" },
+    "preRefactorBehavior": { "type": "string" },
+    "targetStructure": { "type": "string" },
+    "nonGoals": { "type": "array" },
+    "unitTestRequirements": { "type": "array" },
+    "coverageRequirement": { "type": "number", "minimum": 95 },
+    "acceptanceChecks": { "type": "array" },
+    "rollbackPlan": { "type": "string" },
+    "requiredArtifacts": { "type": "array" },
+    "commitRequired": { "type": "boolean", "const": true }
+  }
+}

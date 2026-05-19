@@ -1,0 +1,67 @@
+<h2>全链路蜂群：先在 Refactor Workflow 里试点</h2>
+<p class="subtitle">每个环节都可以用蜂群，但必须被 workflow 和 artifact contract 约束，否则会变成并行噪音。</p>
+
+<div class="mockup">
+  <div class="mockup-header">peaks-solo refactor --profile swarm</div>
+  <div class="mockup-body">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:stretch">
+      <div class="placeholder" style="border-color:#60a5fa">
+        <strong>1. Explore</strong><br>
+        code-map agent<br>
+        standards agent<br>
+        capability scout<br>
+        risk scout
+      </div>
+      <div class="placeholder" style="border-color:#a78bfa">
+        <strong>2. Design Review</strong><br>
+        PRD agent<br>
+        RD agent<br>
+        QA agent<br>
+        Security/DX agent
+      </div>
+      <div class="placeholder" style="border-color:#34d399">
+        <strong>3. Execute</strong><br>
+        slice worker<br>
+        test worker<br>
+        docs/artifact worker<br>
+        reviewer
+      </div>
+      <div class="placeholder" style="border-color:#f59e0b">
+        <strong>4. Verify</strong><br>
+        unit/coverage<br>
+        CLI golden<br>
+        schema checks<br>
+        acceptance report
+      </div>
+    </div>
+    <div style="text-align:center;margin:16px 0">↓ every phase writes structured artifacts ↓</div>
+    <div class="placeholder" style="border:2px solid #8b5cf6">
+      <strong>Peaks Synthesizer</strong><br>
+      汇总成一个用户可读决策面：推荐路线 · 备选路线 · 风险 · 证据 · 下一步确认门
+    </div>
+    <div style="text-align:center;margin:16px 0">↓</div>
+    <div class="placeholder">
+      <strong>CLI Safety Layer</strong><br>
+      dry-run · doctor · profile permissions · artifacts · rollback · commit boundary
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>适合全链路蜂群的原因</h4>
+    <ul>
+      <li>探索、评审、验证天然可并行</li>
+      <li>不同角色能减少单 agent 盲区</li>
+      <li>Refactor 有明确 gates，容易约束蜂群输出</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>必须防止的问题</h4>
+    <ul>
+      <li>agent 输出太多，用户无法消费</li>
+      <li>并行执行互相踩文件</li>
+      <li>没有统一 artifact schema 导致不可验证</li>
+    </ul>
+  </div>
+</div>

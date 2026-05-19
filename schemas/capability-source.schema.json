@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Capability Source",
+  "type": "object",
+  "required": ["sourceId", "sourceType", "title", "url", "discoveryStatus", "items"],
+  "properties": {
+    "sourceId": { "type": "string" },
+    "sourceType": {
+      "type": "string",
+      "enum": ["repo", "skills-package", "mcp-collection", "website", "local-install"]
+    },
+    "title": { "type": "string" },
+    "url": { "type": "string" },
+    "trustSignals": {
+      "type": "object",
+      "properties": {
+        "sourceReputation": { "type": "string" },
+        "stars": { "type": "number" },
+        "installs": { "type": "number" },
+        "maintainer": { "type": "string" },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "discoveryStatus": {
+      "type": "string",
+      "enum": ["unscanned", "indexed", "verified", "deprecated"]
+    },
+    "items": { "type": "array", "items": { "type": "string" } }
+  }
+}

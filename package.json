@@ -1,0 +1,49 @@
+{
+  "name": "@peaks/cli",
+  "version": "1.0.0",
+  "description": "Peaks CLI and short skill family for Claude Code automation.",
+  "author": "SquabbyZ",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "packageManager": "pnpm@10.11.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "peaks": "./bin/peaks.js"
+  },
+  "files": [
+    "bin/peaks.js",
+    "dist/src/cli/index.js",
+    "dist/src/**/*.js",
+    "dist/src/**/*.d.ts",
+    "scripts/clean-dist.mjs",
+    "scripts/install-skills.mjs",
+    "scripts/watch.mjs",
+    "skills/**",
+    "schemas/*.json"
+  ],
+  "scripts": {
+    "build": "node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "postinstall": "node ./scripts/install-skills.mjs",
+    "dev": "tsx src/cli/index.ts",
+    "dev:watch": "node ./scripts/watch.mjs",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@vitest/coverage-v8": "^2.1.8",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

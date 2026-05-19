@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Artifact Retention Report",
+  "type": "object",
+  "required": ["sliceId", "prdArtifacts", "rdArtifacts", "qaArtifacts", "commitStatus"],
+  "properties": {
+    "sliceId": { "type": "string" },
+    "prdArtifacts": { "type": "array", "items": { "type": "string" } },
+    "rdArtifacts": { "type": "array", "items": { "type": "string" } },
+    "qaArtifacts": { "type": "array", "items": { "type": "string" } },
+    "coverageArtifacts": { "type": "array", "items": { "type": "string" } },
+    "reviewArtifacts": { "type": "array", "items": { "type": "string" } },
+    "codeChanges": { "type": "array", "items": { "type": "string" } },
+    "commitStatus": { "type": "string" },
+    "rollbackPoint": { "type": "string" }
+  }
+}

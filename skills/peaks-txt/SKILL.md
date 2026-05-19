@@ -1,0 +1,48 @@
+---
+name: peaks-txt
+description: Context and knowledge skill for Peaks. Use when a workflow needs context capsules, role-specific context slices, decision records, assumptions, discarded options, staleness checks, lessons, or reusable project memory.
+---
+
+# Peaks TXT
+
+Peaks TXT compresses workflow context into portable, role-specific artifacts.
+
+## Responsibilities
+
+- generate context capsules;
+- slice context for PRD, RD, QA, UI, and SC consumers;
+- record decisions, assumptions, discarded options, and staleness conditions;
+- archive lessons from refactor slices.
+
+## Refactor role
+
+For refactors, create initial context before RD analysis and final context after validation and artifact retention.
+
+## Project memory guidance
+
+When a skill artifact contains reusable project facts, decisions, rules, or constraints, mark only the stable extract with:
+
+```markdown
+<!-- peaks-memory:start -->
+title: Short project memory title
+kind: project
+---
+Stable memory body.
+<!-- peaks-memory:end -->
+```
+
+The primary write target is the target project's `.claude/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` only after the user or active profile allows durable project memory writes.
+
+## External capability guidance
+
+Use `peaks capabilities --json` before recommending memory or context-management resources.
+
+- claude-mem and context-mode can inform reusable context workflows only when durable memory is explicitly approved.
+- Never store secrets, credentials, private customer data, or non-exportable business data in memory artifacts.
+- Prefer Peaks TXT context capsules when external persistence is unavailable or not authorized.
+
+## Boundaries
+
+Do not choose the refactor plan or install runtime resources. Use artifacts produced by other skills and CLI reports.
+
+Reference: `references/context-capsule.md`.
