@@ -29,6 +29,14 @@ If the repo needs a first-time standards bundle, treat `standards init` as the c
 
 For refactors, QA must be involved before implementation. It defines the regression and acceptance surface, then verifies the same surface after implementation.
 
+## GStack integration
+
+Use gstack as a concrete QA workflow reference for the `Review → Test → Ship` stages:
+
+- map `/qa` and `/qa-only` browser validation concepts to Peaks regression matrices and validation reports;
+- map regression-test creation to Peaks acceptance checks and coverage evidence;
+- keep Peaks QA as the acceptance authority, with gstack browser and QA patterns as references only when capabilities and user approval allow them.
+
 ## Compact handoff
 
 Before QA work stops, finishes, blocks, or hands off, emit a short resumable capsule: validation surface, coverage status, commands run, pass/fail summary, artifact paths, residual risks, blockers, and next action. Link to logs, coverage reports, regression matrices, and validation reports instead of pasting full outputs.

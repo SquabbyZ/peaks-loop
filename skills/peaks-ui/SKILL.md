@@ -19,6 +19,14 @@ Peaks UI handles experience, interaction, visual direction, and UI-specific refa
 
 Only engage when the refactor affects UI, interaction, styling, page structure, design system, or frontend user behavior.
 
+## GStack integration
+
+Use gstack as a concrete design-review workflow reference for the `Plan → Review → Test` UI stages:
+
+- map design review concepts to Peaks UX flow, page-state, interaction, and visual constraint artifacts;
+- map browser walkthrough concepts to UI regression seeds when runtime validation is approved;
+- keep accessibility, performance, and product-specific visual direction as Peaks UI acceptance inputs.
+
 ## External capability guidance
 
 Use `peaks capabilities --json` before recommending design, browser, or UI reference resources.

@@ -31,6 +31,15 @@ Peaks Solo must not silently:
 
 Use the Peaks CLI for runtime side effects.
 
+## GStack integration
+
+Use gstack as a concrete orchestration reference for the full `Think → Plan → Build → Review → Test → Ship → Reflect` loop:
+
+- map gstack role reviews to Peaks PRD, RD, UI, QA, SC, and TXT artifacts;
+- map `/autoplan`-style review pipelines to Peaks mode selection and role handoffs;
+- map `/retro` to Peaks TXT final context and reusable lessons;
+- preserve Peaks confirmation gates, artifact workspace boundaries, and role separation instead of delegating orchestration to gstack commands.
+
 ## Mode selection
 
 When the user invokes Peaks Solo without explicitly selecting an execution profile, use `AskUserQuestion` before orchestration starts. Present the recommended full-auto path as the first/default option, and give every option a practical description so users can choose quickly.

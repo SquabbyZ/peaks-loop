@@ -22,6 +22,14 @@ For refactors, create initial context before RD analysis and final context after
 
 When used alone or when a workflow needs portable artifacts that must survive session compaction, end with a short structured capsule: mode, validated decisions, artifact paths, standards deltas, open questions, and next action. Prefer links or paths over long narrative. Do not duplicate the full workflow log when a compact capsule is enough.
 
+## GStack integration
+
+Use gstack as a concrete context and reflection workflow reference for the `Reflect` stage:
+
+- map `/retro` summaries to Peaks lessons, discarded options, and staleness conditions;
+- map documentation-release ideas to compact downstream context for PRD, RD, QA, UI, and SC;
+- keep durable memory writes behind Peaks memory extraction and user-approved persistence.
+
 ## Project memory guidance
 
 When a skill artifact contains reusable project facts, decisions, rules, or constraints, mark only the stable extract with:

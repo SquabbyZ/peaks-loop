@@ -26,6 +26,14 @@ For refactor workflows, avoid writing a full product PRD unless needed. Produce 
 - risk notes;
 - user confirmation record.
 
+## GStack integration
+
+Use gstack as a concrete workflow reference for the product-facing parts of `Think → Plan → Build → Review → Test → Ship → Reflect`:
+
+- map `/office-hours`-style exploration to Peaks goal, non-goal, and design-doc artifacts;
+- map CEO/product plan review to user-confirmable product assumptions and acceptance criteria;
+- preserve Peaks artifact gates instead of copying gstack commands verbatim.
+
 ## External capability guidance
 
 Use `peaks capabilities --source mcp-server --json` before recommending product or workflow methodology resources.
