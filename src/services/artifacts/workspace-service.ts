@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
-import { basename, dirname, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { resolve } from 'node:path';
 import { isInsidePath, stablePath } from '../../shared/path-utils.js';
 import { readConfig, getCurrentWorkspaceConfig } from '../config/config-service.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
@@ -39,8 +40,10 @@ function canonicalChildPath(parentPath: string, ...segments: string[]): string {
 }
 
 export function getLocalArtifactPath(workspace: WorkspaceConfig): string {
-  const rootPath = resolve(workspace.rootPath);
-  return resolve(dirname(rootPath), `${basename(rootPath)}.peaks-artifacts`);
+  if (workspace.artifactStorage?.localPath) {
+    return resolve(workspace.artifactStorage.localPath);
+  }
+  return resolve(homedir(), '.peaks', 'workspaces', workspace.workspaceId, 'artifacts');
 }
 
 export function isArtifactWorkspaceOutsideTarget(workspace: WorkspaceConfig, artifactWorkspacePath = getLocalArtifactPath(workspace)): boolean {
@@ -69,14 +72,24 @@ export function hasValidArtifactWorkspace(workspace: WorkspaceConfig, artifactWo
   return true;
 }
 
-function getPublicRemoteUrl(artifactRepo: WorkspaceConfig['artifactRepo']): string | null {
+export function getArtifactRemoteRepo(workspace: WorkspaceConfig): WorkspaceConfig['artifactRepo'] | null {
+  if (workspace.artifactStorage?.mode === 'local-with-remote-sync') {
+    return workspace.artifactStorage.remote;
+  }
+  if (workspace.artifactStorage?.mode === 'local') {
+    return null;
+  }
+  return workspace.artifactRepo ?? null;
+}
+
+function getPublicRemoteUrl(artifactRepo: WorkspaceConfig['artifactRepo'] | null): string | null {
   if (!artifactRepo) return null;
   return artifactRepo.provider === 'github'
     ? `https://github.com/${artifactRepo.owner}/${artifactRepo.name}.git`
     : `https://gitlab.com/${artifactRepo.owner}/${artifactRepo.name}.git`;
 }
 
-function getGitAuthEnv(artifactRepo: WorkspaceConfig['artifactRepo']): NodeJS.ProcessEnv | undefined {
+function getGitAuthEnv(artifactRepo: WorkspaceConfig['artifactRepo'] | null): NodeJS.ProcessEnv | undefined {
   if (!artifactRepo || artifactRepo.provider !== 'github') return undefined;
 
   const token = process.env.GH_TOKEN;
@@ -107,7 +120,7 @@ export async function executeArtifactSync(workspaceId?: string): Promise<SyncRes
     ? readConfig().workspaces.find((w) => w.workspaceId === workspaceId) ?? null
     : getCurrentWorkspaceConfig();
 
-  if (!workspace || !workspace.artifactRepo) {
+  if (!workspace) {
     return {
       workspaceId: workspaceId ?? 'unknown',
       success: false,
@@ -115,7 +128,7 @@ export async function executeArtifactSync(workspaceId?: string): Promise<SyncRes
       remoteUrl: null,
       commands: [],
       output: [],
-      error: 'No artifact repository configured for this workspace'
+      error: 'Workspace not found'
     };
   }
 
@@ -132,8 +145,20 @@ export async function executeArtifactSync(workspaceId?: string): Promise<SyncRes
     };
   }
 
-  const remoteUrl = getPublicRemoteUrl(workspace.artifactRepo);
-  const gitAuthEnv = getGitAuthEnv(workspace.artifactRepo);
+  const artifactRepo = getArtifactRemoteRepo(workspace);
+  if (!artifactRepo) {
+    return {
+      workspaceId: workspace.workspaceId,
+      success: true,
+      localPath,
+      remoteUrl: null,
+      commands: [],
+      output: ['Local artifact storage is configured']
+    };
+  }
+
+  const remoteUrl = getPublicRemoteUrl(artifactRepo);
+  const gitAuthEnv = getGitAuthEnv(artifactRepo);
   if (!remoteUrl) {
     return {
       workspaceId: workspace.workspaceId,
@@ -220,10 +245,10 @@ export function getArtifactWorkspaceStatus(workspaceId?: string): ArtifactWorksp
 
   const localPath = getLocalArtifactPath(workspace);
   const hasLocalDir = existsSync(localPath);
-  const hasArtifactRepo = !!workspace.artifactRepo;
+  const artifactRepo = getArtifactRemoteRepo(workspace);
   const hasSafeBoundary = isArtifactWorkspaceOutsideTarget(workspace, localPath);
 
-  const syncStatus: SyncStatus = !hasArtifactRepo || !hasSafeBoundary
+  const syncStatus: SyncStatus = !hasSafeBoundary
     ? 'unknown'
     : !hasLocalDir
     ? 'pending'
@@ -232,16 +257,16 @@ export function getArtifactWorkspaceStatus(workspaceId?: string): ArtifactWorksp
   return {
     workspaceId: workspace.workspaceId,
     localPath,
-    configured: hasArtifactRepo && hasSafeBoundary,
+    configured: hasSafeBoundary,
     syncStatus,
     lastSync: null,
     hasLocalChanges: false,
-    artifactRepo: workspace.artifactRepo ?? null,
+    artifactRepo,
     nextActions: !hasSafeBoundary
       ? ['Configure artifact workspace outside the target repository.']
-      : hasArtifactRepo
+      : artifactRepo
       ? [`Run peaks artifacts sync --workspace ${workspace.workspaceId} --dry-run`]
-      : [`Configure artifact repo: peaks config workspace add --id ${workspace.workspaceId} --provider github --repo-owner <owner> --repo-name <name>`]
+      : [`Local artifact storage ready at ${localPath}`]
   };
 }
 
@@ -256,7 +281,7 @@ export function planArtifactSync(workspaceId?: string, dryRun = true): {
     ? readConfig().workspaces.find((w) => w.workspaceId === workspaceId) ?? null
     : getCurrentWorkspaceConfig();
 
-  if (!workspace || !workspace.artifactRepo) {
+  if (!workspace) {
     return {
       workspaceId: workspaceId ?? 'unknown',
       dryRun,
@@ -277,22 +302,27 @@ export function planArtifactSync(workspaceId?: string, dryRun = true): {
     };
   }
 
-  const remoteUrl = workspace.artifactRepo.provider === 'github'
-    ? `https://github.com/${workspace.artifactRepo.owner}/${workspace.artifactRepo.name}.git`
-    : `https://gitlab.com/${workspace.artifactRepo.owner}/${workspace.artifactRepo.name}.git`;
+  const artifactRepo = getArtifactRemoteRepo(workspace);
+  const remoteUrl = getPublicRemoteUrl(artifactRepo);
 
-  const plannedCommands = dryRun
-    ? [
-        `# Sync plan for workspace ${workspace.workspaceId}`,
-        `# Local: ${localPath}`,
-        `# Remote: ${remoteUrl}`,
-        '# peaks artifacts sync --workspace ' + workspace.workspaceId,
-        '# (dry-run only — no changes made)'
-      ]
+  const plannedCommands = artifactRepo
+    ? dryRun
+      ? [
+          `# Sync plan for workspace ${workspace.workspaceId}`,
+          `# Local: ${localPath}`,
+          `# Remote: ${remoteUrl}`,
+          '# peaks artifacts sync --workspace ' + workspace.workspaceId,
+          '# (dry-run only — no changes made)'
+        ]
+      : [
+          `# Sync execution for workspace ${workspace.workspaceId}`,
+          `# Confirm: will sync ${localPath} with ${remoteUrl}`,
+          '# Exit 1 if not confirmed'
+        ]
     : [
-        `# Sync execution for workspace ${workspace.workspaceId}`,
-        `# Confirm: will sync ${localPath} with ${remoteUrl}`,
-        '# Exit 1 if not confirmed'
+        `# Local artifact storage for workspace ${workspace.workspaceId}`,
+        `# Local: ${localPath}`,
+        '# No remote repository is configured or required'
       ];
 
   return {

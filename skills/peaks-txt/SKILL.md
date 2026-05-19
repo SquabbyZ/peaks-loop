@@ -18,6 +18,10 @@ Peaks TXT compresses workflow context into portable, role-specific artifacts.
 
 For refactors, create initial context before RD analysis and final context after validation and artifact retention.
 
+## Compaction-safe outputs
+
+When used alone or when a workflow needs portable artifacts that must survive session compaction, end with a short structured capsule: mode, validated decisions, artifact paths, standards deltas, open questions, and next action. Prefer links or paths over long narrative. Do not duplicate the full workflow log when a compact capsule is enough.
+
 ## Project memory guidance
 
 When a skill artifact contains reusable project facts, decisions, rules, or constraints, mark only the stable extract with:

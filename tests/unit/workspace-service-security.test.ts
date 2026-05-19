@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { Buffer } from 'node:buffer';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 
@@ -51,7 +51,7 @@ describe('executeArtifactSync security', () => {
   test('rejects artifact workspace links that resolve inside the target repository', () => {
     const workspaceRoot = join(tmpdir(), `peaks-link-root-${Date.now()}`);
     const targetArtifactRoot = join(workspaceRoot, '.peaks-artifacts-target');
-    const linkedArtifactRoot = join(dirname(workspaceRoot), `${basename(workspaceRoot)}.peaks-artifacts`);
+    const linkedArtifactRoot = join(tmpdir(), `peaks-linked-artifacts-${Date.now()}`);
     mkdirSync(targetArtifactRoot, { recursive: true });
     symlinkSync(targetArtifactRoot, linkedArtifactRoot, 'junction');
     currentWorkspace = {
@@ -67,7 +67,7 @@ describe('executeArtifactSync security', () => {
 
   test('rejects artifact workspaces whose .peaks link resolves inside the target repository', () => {
     const workspaceRoot = join(tmpdir(), `peaks-peaks-link-root-${Date.now()}`);
-    const artifactRoot = join(dirname(workspaceRoot), `${basename(workspaceRoot)}.peaks-artifacts`);
+    const artifactRoot = join(tmpdir(), `peaks-artifacts-${Date.now()}`);
     const internalPeaks = join(workspaceRoot, '.peaks-internal');
     mkdirSync(join(internalPeaks, 'changes'), { recursive: true });
     mkdirSync(artifactRoot, { recursive: true });
@@ -87,7 +87,7 @@ describe('executeArtifactSync security', () => {
 
   test('rejects artifact workspaces whose .peaks changes link resolves inside the target repository', () => {
     const workspaceRoot = join(tmpdir(), `peaks-changes-link-root-${Date.now()}`);
-    const artifactRoot = join(dirname(workspaceRoot), `${basename(workspaceRoot)}.peaks-artifacts`);
+    const artifactRoot = join(tmpdir(), `peaks-artifacts-${Date.now()}`);
     const internalChanges = join(workspaceRoot, '.peaks-internal-changes');
     mkdirSync(internalChanges, { recursive: true });
     mkdirSync(join(artifactRoot, '.peaks'), { recursive: true });
@@ -112,11 +112,12 @@ describe('executeArtifactSync security', () => {
 
     expect(result.success).toBe(true);
     expect(result.remoteUrl).toBe('https://github.com/acme/artifact-repo.git');
+    const expectedLocalPath = join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-secure', 'artifacts');
     expect(result.commands.join('\n')).not.toContain('secret-token');
-    expect(result.commands).toContain(`git clone https://github.com/acme/artifact-repo.git "${join(dirname((currentWorkspace as WorkspaceConfig).rootPath), `${basename((currentWorkspace as WorkspaceConfig).rootPath)}.peaks-artifacts`)}"`);
+    expect(result.commands).toContain(`git clone https://github.com/acme/artifact-repo.git "${expectedLocalPath}"`);
     expect(execCalls[0]).toMatchObject({
       command: 'git',
-      args: ['clone', 'https://github.com/acme/artifact-repo.git', join(dirname((currentWorkspace as WorkspaceConfig).rootPath), `${basename((currentWorkspace as WorkspaceConfig).rootPath)}.peaks-artifacts`)]
+      args: ['clone', 'https://github.com/acme/artifact-repo.git', expectedLocalPath]
     });
     expect(execCalls[0]?.env?.GIT_CONFIG_VALUE_0).toContain('AUTHORIZATION: basic ');
     expect(execCalls[0]?.env?.GIT_CONFIG_VALUE_0).not.toContain('secret-token');

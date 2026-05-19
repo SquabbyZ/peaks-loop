@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { addWorkspace, getConfig, getMiniMaxProviderConfig, getMiniMaxProviderStatus, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, type ConfigLayer } from '../../services/config/config-service.js';
+import type { ArtifactStorageConfig } from '../../services/config/config-types.js';
 import { testMiniMaxProvider } from '../../services/providers/minimax-provider-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, isArtifactProvider, isArtifactRepoSegment, isMiniMaxHttpsUrl, parseConfigLayer, printInvalidConfigLayer, printResult, redactSensitiveErrorMessage, summarizeMiniMaxSmokeResult, type ProgramIO } from '../cli-helpers.js';
@@ -169,14 +170,15 @@ function registerWorkspaceCommands(config: Command, io: ProgramIO): void {
     const artifactRepo = parseArtifactRepoInput(io, options, options.json);
     if (artifactRepo === null) return;
 
-    const workspace = { workspaceId: options.id, name: options.name, rootPath: options.path, installedCapabilityIds: [] as string[] };
+    const artifactStorage: ArtifactStorageConfig = artifactRepo ? { mode: 'local-with-remote-sync', remote: artifactRepo } : { mode: 'local' };
+    const workspace = { workspaceId: options.id, name: options.name, rootPath: options.path, installedCapabilityIds: [] as string[], artifactStorage };
     const configLayer = layer ?? 'user';
     if (artifactRepo) {
       addWorkspace({ ...workspace, artifactRepo }, configLayer);
     } else {
       addWorkspace(workspace, configLayer);
     }
-    printResult(io, ok('config.workspace.add', { workspaceId: options.id, name: options.name, rootPath: options.path, artifactRepo }), options.json);
+    printResult(io, ok('config.workspace.add', { workspaceId: options.id, name: options.name, rootPath: options.path, artifactRepo, artifactStorage }), options.json);
   });
 
   addJsonOption(configWorkspace.command('remove').description('Remove a workspace').requiredOption('--id <id>', 'workspace identifier').option('--layer <layer>', 'user or project')).action((options: { id: string; layer?: string; json?: boolean }) => {

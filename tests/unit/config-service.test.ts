@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => configTestHome };
 });
 
-import { addWorkspace, containsSensitiveConfigValue, getConfig, getMiniMaxProviderConfig, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
+import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, getConfig, getMiniMaxProviderConfig, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
 
 // Test helper path parsing logic directly
 // The actual config service uses these functions internally
@@ -203,6 +203,22 @@ describe('secret config handling', () => {
     }
   });
 
+  test('keeps project tokens from overriding user tokens', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeConfig({ tokens: { GitHubToken: { env: 'USER_GITHUB_TOKEN' } } }, 'user');
+    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ tokens: { GitHubToken: { env: 'PROJECT_GITHUB_TOKEN' } } }), 'utf8');
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+    try {
+      expect(readConfig().tokens.GitHubToken).toEqual({ env: 'USER_GITHUB_TOKEN' });
+      expect(getConfig({ key: 'tokens.GitHubToken.env' })).toBe('USER_GITHUB_TOKEN');
+      expect(getConfig({ layer: 'project', key: 'tokens.GitHubToken.env' })).toBeUndefined();
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
   test('ignores project-only proxy config', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
@@ -256,6 +272,91 @@ describe('secret config handling', () => {
     expect(config.tokens?.AnthropicApiKey).toBeUndefined();
     expect(config.tokens?.GitLabToken).toBeUndefined();
     expect(config.tokens?.ExtraToken).toBeUndefined();
+  });
+
+  test('accepts local and remote artifactStorage entries for workspaces', () => {
+    writeConfig({
+      workspaces: [
+        {
+          workspaceId: 'ws-local-artifacts',
+          name: 'Local Artifacts',
+          rootPath: '/tmp/ws-local-artifacts',
+          installedCapabilityIds: [],
+          artifactStorage: { mode: 'local' }
+        },
+        {
+          workspaceId: 'ws-remote-artifacts',
+          name: 'Remote Artifacts',
+          rootPath: '/tmp/ws-remote-artifacts',
+          installedCapabilityIds: [],
+          artifactStorage: {
+            mode: 'local-with-remote-sync',
+            remote: { provider: 'gitlab', owner: 'acme', name: 'peaks-artifacts' }
+          }
+        }
+      ]
+    } as never, 'user');
+
+    expect(readConfig().workspaces).toMatchObject([
+      { workspaceId: 'ws-local-artifacts', artifactStorage: { mode: 'local' } },
+      { workspaceId: 'ws-remote-artifacts', artifactStorage: { mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'peaks-artifacts' } } }
+    ]);
+  });
+
+  test('drops invalid artifactStorage entries while preserving valid workspace fields', () => {
+    writeConfig({
+      workspaces: [
+        {
+          workspaceId: 'ws-invalid-artifacts',
+          name: 'Invalid Artifacts',
+          rootPath: '/tmp/ws-invalid-artifacts',
+          installedCapabilityIds: [],
+          artifactStorage: { mode: 'remote', remote: { provider: 'gitea', owner: 'acme', name: 'repo' } }
+        }
+      ]
+    } as never, 'user');
+
+    const workspace = readConfig().workspaces.find((item) => item.workspaceId === 'ws-invalid-artifacts');
+
+    expect(workspace).toMatchObject({ workspaceId: 'ws-invalid-artifacts', name: 'Invalid Artifacts' });
+    expect((workspace as { artifactStorage?: unknown } | undefined)?.artifactStorage).toBeUndefined();
+  });
+
+  test('drops workspaces with unsafe workspace ids', () => {
+    writeConfig({
+      workspaces: [
+        { workspaceId: '../escape', name: 'Escape', rootPath: '/tmp/escape', installedCapabilityIds: [] },
+        { workspaceId: 'nested/path', name: 'Nested', rootPath: '/tmp/nested', installedCapabilityIds: [] },
+        { workspaceId: 'safe-workspace_1', name: 'Safe', rootPath: '/tmp/safe', installedCapabilityIds: [] }
+      ]
+    } as never, 'user');
+
+    expect(readConfig().workspaces.map((workspace) => workspace.workspaceId)).toEqual(['safe-workspace_1']);
+  });
+
+  test('drops artifact remote repos with unsafe owner or name segments', () => {
+    writeConfig({
+      workspaces: [
+        {
+          workspaceId: 'unsafe-legacy-remote',
+          name: 'Unsafe Legacy Remote',
+          rootPath: '/tmp/unsafe-legacy-remote',
+          installedCapabilityIds: [],
+          artifactRepo: { provider: 'github', owner: '../acme', name: 'repo' }
+        },
+        {
+          workspaceId: 'unsafe-storage-remote',
+          name: 'Unsafe Storage Remote',
+          rootPath: '/tmp/unsafe-storage-remote',
+          installedCapabilityIds: [],
+          artifactStorage: { mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'repo/escape' } }
+        }
+      ]
+    } as never, 'user');
+
+    const workspaces = readConfig().workspaces;
+    expect(workspaces.find((workspace) => workspace.workspaceId === 'unsafe-legacy-remote')?.artifactRepo).toBeUndefined();
+    expect(workspaces.find((workspace) => workspace.workspaceId === 'unsafe-storage-remote')?.artifactStorage).toBeUndefined();
   });
 
   test('workspace helpers tolerate malformed layer config and use the requested layer', () => {
@@ -333,6 +434,75 @@ describe('project config discovery', () => {
     } finally {
       cwdSpy.mockRestore();
     }
+  });
+
+  test('bootstraps project language config from natural-language first use', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const configPath = join(projectRoot, '.peaks', 'config.json');
+
+    expect(existsSync(configPath)).toBe(false);
+
+    bootstrapProjectLanguageConfig(projectRoot, '请使用 peaks-solo 帮我重构这个项目');
+
+    expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({ language: 'zh-CN' });
+    expect(readConfig(projectRoot).language).toBe('zh-CN');
+  });
+
+  test('bootstraps English project language from natural-language first use', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+
+    bootstrapProjectLanguageConfig(projectRoot, 'Please use peaks-solo to refactor this project');
+
+    expect(JSON.parse(readFileSync(join(projectRoot, '.peaks', 'config.json'), 'utf8'))).toEqual({ language: 'en' });
+  });
+
+  test('rejects bootstrap when the project .peaks directory resolves outside the project root', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    symlinkSync(outsideRoot, join(projectRoot, '.peaks'), 'junction');
+
+    expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Project config path must stay inside the project root');
+    expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
+  });
+
+  test('rejects bootstrap when the project .peaks directory resolves to another project directory', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const sourceRoot = join(projectRoot, 'src');
+    mkdirSync(sourceRoot, { recursive: true });
+    symlinkSync(sourceRoot, join(projectRoot, '.peaks'), 'junction');
+
+    expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Project config path must stay inside the project root');
+    expect(existsSync(join(sourceRoot, 'config.json'))).toBe(false);
+  });
+
+  test('rejects bootstrap when project config is a symlink outside the project root', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    symlinkSync(outsideRoot, join(projectRoot, '.peaks', 'config.json'), 'junction');
+
+    expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Project config path must stay inside the project root');
+    expect(existsSync(join(outsideRoot, 'language'))).toBe(false);
+  });
+
+  test('keeps existing project language when bootstrap runs again', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ language: 'zh-CN', economyMode: false }), 'utf8');
+
+    bootstrapProjectLanguageConfig(projectRoot, 'en');
+
+    expect(JSON.parse(readFileSync(join(projectRoot, '.peaks', 'config.json'), 'utf8'))).toEqual({ language: 'zh-CN', economyMode: false });
+  });
+
+  test('does not overwrite malformed project config during language bootstrap', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const configPath = join(projectRoot, '.peaks', 'config.json');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(configPath, '{bad', 'utf8');
+
+    expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Project config must contain valid JSON');
+    expect(readFileSync(configPath, 'utf8')).toBe('{bad');
   });
 });
 

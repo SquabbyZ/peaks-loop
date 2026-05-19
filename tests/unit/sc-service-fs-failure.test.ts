@@ -14,6 +14,7 @@ vi.mock('../../src/services/config/config-service.js', () => ({
 }));
 
 vi.mock('../../src/services/artifacts/workspace-service.js', () => ({
+  getArtifactRemoteRepo: (workspace: WorkspaceConfig) => workspace.artifactRepo ?? null,
   getLocalArtifactPath: (workspace: WorkspaceConfig) => `${workspace.rootPath}.peaks-artifacts`,
   getArtifactWorkspaceStatus: () => ({
     workspaceId: currentWorkspace?.workspaceId ?? 'unknown',

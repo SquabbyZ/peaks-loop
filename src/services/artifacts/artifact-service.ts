@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { getCurrentWorkspaceConfig } from '../config/config-service.js';
-import { getLocalArtifactPath } from './workspace-service.js';
+import { getArtifactRemoteRepo, getLocalArtifactPath } from './workspace-service.js';
 
 export type ArtifactProvider = 'github' | 'gitlab';
 
@@ -86,7 +86,7 @@ export function createArtifactInitPlan(options: {
 
 export function createGuidedArtifactSetup(): GuidedArtifactSetup {
   const workspace = getCurrentWorkspaceConfig();
-  const artifactRepo = workspace?.artifactRepo ?? null;
+  const artifactRepo = workspace ? getArtifactRemoteRepo(workspace) : null;
   const validationResult = {
     workspaceExists: workspace !== null,
     gitAvailable: hasGit(),
@@ -107,7 +107,7 @@ export function createGuidedArtifactSetup(): GuidedArtifactSetup {
     localPath,
     remoteUrl,
     validationResult,
-    nextStep: workspace ? (artifactRepo ? 'validate' : 'configure') : 'configure',
+    nextStep: workspace ? (artifactRepo ? 'validate' : 'complete') : 'configure',
     guidance: [
       'Step 1: Detect current workspace and environment',
       `  - Workspace: ${workspace?.workspaceId ?? 'not configured'}`,
@@ -116,6 +116,7 @@ export function createGuidedArtifactSetup(): GuidedArtifactSetup {
       `  - SSH key for code push: ${validationResult.sshKeyAvailable ? 'available' : 'not found'}`,
       '',
       'Step 2: Configure artifact repository',
+      '  - Optional for local-only storage',
       '  - Run: peaks artifacts init --provider github --name <repo> --dry-run',
       '  - Or add to workspace: peaks config workspace add --id <id> --provider github --repo-owner <owner> --repo-name <name>',
       '',
@@ -124,7 +125,7 @@ export function createGuidedArtifactSetup(): GuidedArtifactSetup {
       '  - Run: peaks artifacts workspace',
       '',
       'Step 4: Complete',
-      '  - Artifact sync is ready when workspace has artifactRepo configured'
+      artifactRepo ? '  - Artifact sync is ready when workspace has remote artifact storage configured' : '  - Local artifact storage is ready'
     ]
   };
 }

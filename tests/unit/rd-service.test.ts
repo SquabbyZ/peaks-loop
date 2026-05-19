@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
+import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createRdSwarmPlan } from '../../src/services/rd/rd-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 
@@ -16,19 +17,20 @@ function createArtifactWorkspace(): string {
 }
 
 function createWorkspaceWithArtifactWorkspace(): { workspace: WorkspaceConfig; artifactWorkspace: string } {
-  const workspace = createWorkspace();
-  const artifactWorkspace = `${workspace.rootPath}.peaks-artifacts`;
+  const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-rd-default-artifacts-'));
+  const workspace = createWorkspace(undefined, artifactWorkspace);
   mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
   writeFileSync(join(artifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
-  return { workspace, artifactWorkspace };
+  return { workspace, artifactWorkspace: getLocalArtifactPath(workspace) };
 }
 
-function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-'))): WorkspaceConfig {
+function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-')), artifactWorkspace?: string): WorkspaceConfig {
   return {
     workspaceId: 'ws-rd',
     name: 'RD Workspace',
     rootPath,
-    installedCapabilityIds: []
+    installedCapabilityIds: [],
+    ...(artifactWorkspace ? { artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace } } : {})
   };
 }
 

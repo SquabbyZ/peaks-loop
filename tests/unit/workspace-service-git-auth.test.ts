@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 
@@ -51,9 +51,10 @@ describe('executeArtifactSync git auth', () => {
     expect(result.success).toBe(true);
     expect(result.remoteUrl).toBe('https://github.com/acme/artifact-repo.git');
     expect(result.commands.join('\n')).not.toContain('secret-token');
+    const expectedLocalPath = join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-auth', 'artifacts');
     expect(execCalls[0]).toMatchObject({
       command: 'git',
-      args: ['clone', 'https://github.com/acme/artifact-repo.git', join(dirname((currentWorkspace as WorkspaceConfig).rootPath), `${basename((currentWorkspace as WorkspaceConfig).rootPath)}.peaks-artifacts`)]
+      args: ['clone', 'https://github.com/acme/artifact-repo.git', expectedLocalPath]
     });
     expect(execCalls[0]?.env?.GIT_CONFIG_COUNT).toBe('1');
     expect(execCalls[0]?.env?.GIT_CONFIG_KEY_0).toBe('http.https://github.com/.extraheader');

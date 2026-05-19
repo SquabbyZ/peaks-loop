@@ -104,7 +104,7 @@ describe('createProgram', () => {
     expect(result.exitCode).toBe(1);
   });
 
-  test('config workspace add with artifact repo', async () => {
+  test('config workspace add with artifact repo configures remote sync storage', async () => {
     const result = await runCommand([
       'config', 'workspace', 'add',
       '--id', 'test-cli-add',
@@ -116,14 +116,16 @@ describe('createProgram', () => {
       '--repo-name', 'test-repo',
       '--json'
     ]);
-    const output = parseJsonOutput(result.stdout);
+    const output = parseJsonOutput<{ artifactRepo?: unknown; artifactStorage?: unknown }>(result.stdout);
     expect(output.ok).toBe(true);
+    expect(output.data.artifactRepo).toEqual({ provider: 'github', owner: 'testowner', name: 'test-repo' });
+    expect(output.data.artifactStorage).toEqual({ mode: 'local-with-remote-sync', remote: { provider: 'github', owner: 'testowner', name: 'test-repo' } });
 
     // cleanup
     await runCommand(['config', 'workspace', 'remove', '--id', 'test-cli-add', '--json']);
   });
 
-  test('config workspace add without artifact repo options', async () => {
+  test('config workspace add without artifact repo options configures local storage', async () => {
     const result = await runCommand([
       'config', 'workspace', 'add',
       '--id', 'test-cli-plain',
@@ -131,8 +133,9 @@ describe('createProgram', () => {
       '--path', '/tmp/test-cli-plain',
       '--json'
     ]);
-    const output = parseJsonOutput(result.stdout);
+    const output = parseJsonOutput<{ artifactStorage?: unknown }>(result.stdout);
     expect(output.ok).toBe(true);
+    expect(output.data.artifactStorage).toEqual({ mode: 'local' });
 
     // cleanup
     await runCommand(['config', 'workspace', 'remove', '--id', 'test-cli-plain', '--json']);

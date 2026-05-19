@@ -122,7 +122,8 @@ describe('cli command branch handling', () => {
       workspaceId: 'branch-add',
       name: 'Branch Add',
       rootPath: '/tmp/branch-add',
-      installedCapabilityIds: []
+      installedCapabilityIds: [],
+      artifactStorage: { mode: 'local' }
     }, 'user');
 
     branchState.removeWorkspace.mockReturnValueOnce(false);

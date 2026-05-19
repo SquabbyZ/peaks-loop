@@ -33,15 +33,31 @@ export type ProxyConfig = {
   httpProxy?: string;
 };
 
+export type ArtifactProvider = 'github' | 'gitlab';
+
+export type ArtifactRemoteRepoConfig = {
+  provider: ArtifactProvider;
+  owner: string;
+  name: string;
+};
+
+export type ArtifactStorageConfig =
+  | {
+      mode: 'local';
+      localPath?: string;
+    }
+  | {
+      mode: 'local-with-remote-sync';
+      localPath?: string;
+      remote: ArtifactRemoteRepoConfig;
+    };
+
 export type WorkspaceConfig = {
   workspaceId: string;
   name: string;
   rootPath: string;
-  artifactRepo?: {
-    provider: 'github' | 'gitlab';
-    owner: string;
-    name: string;
-  };
+  artifactRepo?: ArtifactRemoteRepoConfig;
+  artifactStorage?: ArtifactStorageConfig;
   installedCapabilityIds: string[];
 };
 

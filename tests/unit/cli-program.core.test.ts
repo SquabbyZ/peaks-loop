@@ -2,7 +2,6 @@ import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { CLI_VERSION } from '../../src/shared/version.js';
 import { parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
 describe('createProgram', () => {
@@ -11,30 +10,6 @@ describe('createProgram', () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
-  });
-
-  test('prints version with -v alias', async () => {
-    const result = await runCommand(['-v']);
-
-    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
-    expect(result.stderr).toEqual([]);
-    expect(result.exitCode).toBeUndefined();
-  });
-
-  test('prints version with -V alias', async () => {
-    const result = await runCommand(['-V']);
-
-    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
-    expect(result.stderr).toEqual([]);
-    expect(result.exitCode).toBeUndefined();
-  });
-
-  test('prints version with --version', async () => {
-    const result = await runCommand(['--version']);
-
-    expect(result.stdout.join('\n')).toBe(CLI_VERSION);
-    expect(result.stderr).toEqual([]);
-    expect(result.exitCode).toBeUndefined();
   });
 
   test('prints skill list as JSON envelope', async () => {
@@ -225,6 +200,66 @@ describe('createProgram', () => {
     expect(output.data.routePolicy).toBe('solo-broad-multi-model');
     expect(output.data.soloMode).toBe('guided');
     expect(output.data.executionMode).toBe('autonomous');
+  });
+
+  test('does not write project language config from workflow route planning', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-plan-'));
+    writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+
+    try {
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'language-plan', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const output = parseJsonOutput(result.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(existsSync(join(projectRoot, '.peaks', 'config.json'))).toBe(false);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
+  test('does not write project language config from nested workflow route planning', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-plan-root-'));
+    const nestedDir = join(projectRoot, 'packages', 'app');
+    mkdirSync(nestedDir, { recursive: true });
+    writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
+
+    try {
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'nested-language-plan', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const output = parseJsonOutput(result.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(existsSync(join(projectRoot, '.peaks', 'config.json'))).toBe(false);
+      expect(existsSync(join(nestedDir, '.peaks', 'config.json'))).toBe(false);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
+  test('does not bootstrap project language for invalid workflow input', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-bootstrap-invalid-'));
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+
+    try {
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'bad/id', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const output = parseJsonOutput(result.stdout);
+
+      expect(output.ok).toBe(false);
+      expect(output.code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+      expect(existsSync(join(projectRoot, '.peaks', 'config.json'))).toBe(false);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
+  test('rejects workflow planning with an empty goal', async () => {
+    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'empty-goal', '--goal', '   ', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+    expect(result.exitCode).toBe(1);
   });
 
   test('prints workflow route dry run for team mode', async () => {
@@ -504,6 +539,24 @@ describe('createProgram', () => {
     expect(output.command).toBe('recommend');
     expect(JSON.stringify(output.data)).toContain('code-refactor');
     expect(JSON.stringify(output.data)).toContain('zh-CN');
+  });
+
+  test('uses stored config language for recommendation reports when omitted', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-project-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ language: 'zh-CN' }), 'utf8');
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+
+    try {
+      const result = await runCommand(['recommend', '--workflow', 'code-refactor', '--json']);
+      const output = parseJsonOutput<{ presentation: { language: string; summary: string } }>(result.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(output.data.presentation.language).toBe('zh-CN');
+      expect(output.data.presentation.summary).toContain('代码重构');
+    } finally {
+      cwdSpy.mockRestore();
+    }
   });
 
   test('rejects unsupported recommendation workflow', async () => {

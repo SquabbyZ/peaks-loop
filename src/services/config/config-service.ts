@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
@@ -43,10 +43,75 @@ function findProjectRoot(startPath: string): string | null {
   return null;
 }
 
+export function resolveProjectRootForConfig(startPath: string): string {
+  const start = resolve(startPath);
+  const homePath = resolve(homedir());
+  let current = start;
+  let parent = dirname(current);
+
+  while (current !== parent && current !== homePath) {
+    if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
+      return current;
+    }
+    if (existsSync(resolve(current, 'package.json')) || existsSync(resolve(current, '.git'))) {
+      return current;
+    }
+    parent = current;
+    current = dirname(parent);
+  }
+
+  return start;
+}
+
 function getProjectConfigPath(projectRoot: string | null): string | null {
   if (!projectRoot) return null;
   if (!isSafeProjectConfigMarker(projectRoot)) return null;
   return resolve(projectRoot, '.peaks', 'config.json');
+}
+
+function getProjectBootstrapConfigPath(projectRoot: string): string {
+  const projectRootPath = resolve(projectRoot);
+  const peaksPath = resolve(projectRootPath, '.peaks');
+  const configPath = resolve(peaksPath, 'config.json');
+  if (!isInsidePath(configPath, projectRootPath)) {
+    throw new Error('Project config path must stay inside the project root');
+  }
+
+  if (!existsSync(peaksPath)) {
+    mkdirSync(peaksPath, { recursive: true });
+  }
+
+  validateProjectBootstrapConfigPath(projectRootPath, peaksPath, configPath);
+  return configPath;
+}
+
+function validateProjectBootstrapConfigPath(projectRootPath: string, peaksPath: string, configPath: string): void {
+  const projectRootReal = realpathSync(projectRootPath);
+  const peaksStats = lstatSync(peaksPath);
+  const peaksReal = realpathSync(peaksPath);
+  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(projectRootReal, '.peaks')) {
+    throw new Error('Project config path must stay inside the project root');
+  }
+
+  try {
+    const markerStats = lstatSync(configPath);
+    if (!markerStats.isFile() || markerStats.isSymbolicLink()) {
+      throw new Error('Project config path must stay inside the project root');
+    }
+    const markerReal = realpathSync(configPath);
+    if (!isInsidePath(markerReal, projectRootReal) || !isInsidePath(markerReal, peaksReal)) {
+      throw new Error('Project config path must stay inside the project root');
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+function validateProjectBootstrapConfigPathForWrite(projectRoot: string, configPath: string): void {
+  const projectRootPath = resolve(projectRoot);
+  validateProjectBootstrapConfigPath(projectRootPath, resolve(projectRootPath, '.peaks'), configPath);
 }
 
 function readJsonFile(path: string | null): Partial<PeaksConfig> | null {
@@ -55,6 +120,15 @@ function readJsonFile(path: string | null): Partial<PeaksConfig> | null {
     return JSON.parse(readFileSync(path, 'utf-8')) as Partial<PeaksConfig>;
   } catch {
     return null;
+  }
+}
+
+function readExistingJsonFile(path: string, errorMessage: string): Partial<PeaksConfig> | null {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as Partial<PeaksConfig>;
+  } catch {
+    throw new Error(errorMessage);
   }
 }
 
@@ -108,9 +182,9 @@ function setNestedValue(obj: Record<string, unknown>, path: string, value: unkno
   current[last] = value;
 }
 
-function removeProjectProviderSecrets(config: Partial<PeaksConfig>): Partial<PeaksConfig> {
-  const { providers, ...safeConfig } = config;
-  return safeConfig;
+function removeProjectSensitiveConfig(config: Partial<PeaksConfig>): Partial<PeaksConfig> {
+  const { providers, proxy, tokens, ...safeConfig } = config;
+  return Object.fromEntries(Object.entries(safeConfig).filter(([key, value]) => !isSecretKey(key) && !containsSensitiveConfigValue(value))) as Partial<PeaksConfig>;
 }
 
 export function isConfigLayer(value: string): value is ConfigLayer {
@@ -242,17 +316,49 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isSafeConfigSegment(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
+}
+
+function toArtifactRemoteRepoConfig(value: unknown): WorkspaceConfig['artifactRepo'] | null {
+  if (!isRecord(value) || (value.provider !== 'github' && value.provider !== 'gitlab') || typeof value.owner !== 'string' || typeof value.name !== 'string') {
+    return null;
+  }
+  if (!isSafeConfigSegment(value.owner) || !isSafeConfigSegment(value.name)) {
+    return null;
+  }
+  return { provider: value.provider, owner: value.owner, name: value.name };
+}
+
+function toArtifactStorageConfig(value: unknown): WorkspaceConfig['artifactStorage'] | null {
+  if (!isRecord(value)) return null;
+  const localPath = typeof value.localPath === 'string' ? { localPath: value.localPath } : {};
+  if (value.mode === 'local') {
+    return { mode: 'local', ...localPath };
+  }
+  const remote = toArtifactRemoteRepoConfig(value.remote);
+  if (value.mode === 'local-with-remote-sync' && remote) {
+    return { mode: 'local-with-remote-sync', ...localPath, remote };
+  }
+  return null;
+}
+
 function toWorkspaceConfig(value: unknown): WorkspaceConfig | null {
   if (!isRecord(value)) return null;
   const { workspaceId, name, rootPath, installedCapabilityIds } = value;
-  if (typeof workspaceId !== 'string' || typeof name !== 'string' || typeof rootPath !== 'string' || !Array.isArray(installedCapabilityIds) || !installedCapabilityIds.every((id) => typeof id === 'string')) {
+  if (typeof workspaceId !== 'string' || !isSafeConfigSegment(workspaceId) || typeof name !== 'string' || typeof rootPath !== 'string' || !Array.isArray(installedCapabilityIds) || !installedCapabilityIds.every((id) => typeof id === 'string')) {
     return null;
   }
-  let artifactRepo: WorkspaceConfig['artifactRepo'];
-  if (isRecord(value.artifactRepo) && (value.artifactRepo.provider === 'github' || value.artifactRepo.provider === 'gitlab') && typeof value.artifactRepo.owner === 'string' && typeof value.artifactRepo.name === 'string') {
-    artifactRepo = { provider: value.artifactRepo.provider, owner: value.artifactRepo.owner, name: value.artifactRepo.name };
-  }
-  return artifactRepo ? { workspaceId, name, rootPath, installedCapabilityIds, artifactRepo } : { workspaceId, name, rootPath, installedCapabilityIds };
+  const artifactRepo = toArtifactRemoteRepoConfig(value.artifactRepo);
+  const artifactStorage = toArtifactStorageConfig(value.artifactStorage);
+  return {
+    workspaceId,
+    name,
+    rootPath,
+    installedCapabilityIds,
+    ...(artifactRepo ? { artifactRepo } : {}),
+    ...(artifactStorage ? { artifactStorage } : {})
+  };
 }
 
 function toWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
@@ -405,6 +511,20 @@ export function setMiniMaxProviderConfig(input: MiniMaxProviderConfig): MiniMaxP
   return createMiniMaxProviderStatus(providers.minimax ?? {});
 }
 
+function inferHumanLanguage(value: string): string {
+  const normalized = value.trim();
+  if (!normalized) {
+    throw new Error('Language must be non-empty');
+  }
+  if (/^zh(?:-|$)/i.test(normalized) || /[㐀-鿿]/u.test(normalized)) {
+    return 'zh-CN';
+  }
+  if (/^en(?:-|$)/i.test(normalized)) {
+    return 'en';
+  }
+  return 'en';
+}
+
 function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
   if (!isRecord(value)) return {};
   const proxy = toProxyConfig(value.proxy);
@@ -422,13 +542,24 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
   };
 }
 
+export function bootstrapProjectLanguageConfig(projectRoot: string, language: string): void {
+  const inferredLanguage = inferHumanLanguage(language);
+  const projectPath = getProjectBootstrapConfigPath(projectRoot);
+  const existing = readExistingJsonFile(projectPath, 'Project config must contain valid JSON') ?? {};
+  if (typeof existing.language === 'string' && existing.language.trim().length > 0) {
+    return;
+  }
+  validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath);
+  writeFileSync(projectPath, JSON.stringify({ ...existing, language: inferredLanguage }, null, 2), 'utf-8');
+}
+
 export function readConfig(projectRoot?: string | null): PeaksConfig {
   const detectedRoot = projectRoot ?? findProjectRoot(process.cwd());
   const userPath = getUserConfigPath();
   const projectPath = getProjectConfigPath(detectedRoot);
 
   const userConfig = toPeaksConfig(readJsonFile(userPath));
-  const projectConfig = removeProjectProviderSecrets(toPeaksConfig(readJsonFile(projectPath)));
+  const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readJsonFile(projectPath)));
   const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
 
   return {
@@ -469,7 +600,7 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
 export function getConfig(options: ConfigGetOptions = {}): unknown {
   const projectRoot = findProjectRoot(process.cwd());
   const userConfig = readJsonFile(getUserConfigPath()) ?? {};
-  const projectConfig = removeProjectProviderSecrets(readJsonFile(getProjectConfigPath(projectRoot)) ?? {});
+  const projectConfig = removeProjectSensitiveConfig(readJsonFile(getProjectConfigPath(projectRoot)) ?? {});
   const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
   const source = options.layer === 'user' ? userConfig : options.layer === 'project' ? projectConfig : { ...userConfig, ...projectConfigWithoutProxy };
   const config = isRecord(source) ? { ...source, ...(source.tokens !== undefined ? { tokens: toTokenConfig(source.tokens) } : {}) } : source;
@@ -527,6 +658,9 @@ function readLayerConfig(layer: ConfigLayer): { currentWorkspace: string | null;
 }
 
 export function addWorkspace(workspace: WorkspaceConfig, layer: ConfigLayer = 'user'): void {
+  if (!isSafeConfigSegment(workspace.workspaceId)) {
+    throw new Error('Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal');
+  }
   const config = readLayerConfig(layer);
   const workspaces = config.workspaces;
   const existing = workspaces.findIndex((w) => w.workspaceId === workspace.workspaceId);
@@ -537,6 +671,7 @@ export function addWorkspace(workspace: WorkspaceConfig, layer: ConfigLayer = 'u
 }
 
 export function removeWorkspace(workspaceId: string, layer: ConfigLayer = 'user'): boolean {
+  if (!isSafeConfigSegment(workspaceId)) return false;
   const config = readLayerConfig(layer);
   const workspaces = config.workspaces;
   const idx = workspaces.findIndex((w) => w.workspaceId === workspaceId);
@@ -550,6 +685,7 @@ export function removeWorkspace(workspaceId: string, layer: ConfigLayer = 'user'
 }
 
 export function setCurrentWorkspace(workspaceId: string, layer: ConfigLayer = 'user'): boolean {
+  if (!isSafeConfigSegment(workspaceId)) return false;
   const config = readLayerConfig(layer);
   const workspaces = config.workspaces;
   const exists = workspaces.some((w) => w.workspaceId === workspaceId);

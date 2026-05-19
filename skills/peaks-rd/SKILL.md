@@ -39,6 +39,38 @@ If a request is refactor, cleanup, architecture adjustment, module split, or tec
 8. require 100% acceptance for the slice;
 9. require code and intermediate artifacts to be committed before continuing.
 
+## OpenSpec usage
+
+For non-trivial RD changes, use OpenSpec when the project already has `openspec/` or the user approves adding OpenSpec. Create or update `openspec/changes/<change-id>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/spec.md` before implementation slices begin.
+
+OpenSpec artifacts are durable project specification files, not Peaks runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks artifact workspace outside the target repository.
+
+Peaks PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
+
+## Frontend project generation
+
+When RD work creates a frontend application and the user has not specified a technology stack, and the current scan plus existing project standards still do not establish a frontend stack, default to React + Vite + shadcn/ui with:
+
+- `pnpm dlx shadcn@latest init --preset [CODE] --template vite`
+
+`[CODE]` is the preset code supplied by the shadcn registry or user workflow; if it is unknown, stop and resolve the intended preset before scaffolding.
+
+If the user specifies a frontend stack or scaffold command, use the specified technology. If the scaffold emits JavaScript, convert generated application files to TypeScript before continuing; if conversion is not practical, ask for a TypeScript-compatible scaffold.
+
+Application projects generated through this skill must not contain JavaScript source or config files. Generate TypeScript only (`.ts`, `.tsx`, and TypeScript config equivalents), including when adapting examples from libraries or templates.
+
+## Artifact and standards output
+
+When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks artifact workspace outside the target repository, not the repository root. If the artifact workspace is unknown, stop and resolve it before writing generated outputs. Use one session directory inside that workspace consistently so generated outputs stay grouped.
+
+When project-local `CLAUDE.md` or project-local `.claude/rules/**` is created or updated, route the mutation through `peaks standards init` or `peaks standards update`; do not hand-write standards mutations. Derive the content from the current scan results and existing project standards. Keep only the rules that match the project's languages, frameworks, tooling, and repository layout. Do not emit generic templates, copy-pasted boilerplate, or rules unrelated to the current scan evidence. Do not update user-global `~/.claude/rules/**` from this workflow.
+
+If the scan results are insufficient to justify a rule, leave it out or surface a review-only suggestion instead of writing it into project standards.
+
+## Compact handoff
+
+Before RD work stops, finishes, blocks, or hands off to another role, emit a short resumable capsule: mode, scope, coverage status, validated decisions, current slice, artifact paths, blockers, and next action. Link to scan reports, matrices, plans, and task graphs instead of restating them.
+
 ## External capability guidance
 
 Use `peaks capabilities --source access-repo --json` and `peaks capabilities --source mcp-server --json` as the source of truth before recommending external resources.
@@ -46,7 +78,7 @@ Use `peaks capabilities --source access-repo --json` and `peaks capabilities --s
 - Context7 can support current library/API documentation lookup when the map says it is available or the user authorizes MCP access.
 - SearchCode can support external code discovery only after confirming the query will not expose secrets or private code.
 - everything-claude-code, Claude Code Best Practice, mattpocock/skills, and andrej-karpathy-skills are RD guidance or review references; apply project-local conventions first.
-- OpenSpec can shape spec-first RD artifacts, but Peaks PRD/RD/QA gates remain authoritative.
+- OpenSpec should structure durable spec-first RD changes when available or approved, but Peaks PRD/RD/QA gates remain authoritative.
 - GitNexus remains a future proxied repository-intelligence boundary; do not install or run it directly.
 
 ## Boundaries

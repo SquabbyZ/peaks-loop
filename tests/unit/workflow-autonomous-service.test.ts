@@ -2,32 +2,30 @@ import * as nodeFs from 'node:fs';
 import type { Stats } from 'node:fs';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
-import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
+import { DEFAULT_CONFIG, type WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createAutonomousWorkflowPlan } from '../../src/services/workflow/workflow-autonomous-service.js';
 
-function createWorkspace(rootPath = join(tmpdir(), `peaks-autonomous-root-${Date.now()}-${Math.random()}`)): WorkspaceConfig {
+function createWorkspace(rootPath = join(tmpdir(), `peaks-autonomous-root-${Date.now()}-${Math.random()}`), artifactWorkspace?: string): WorkspaceConfig {
   return {
     workspaceId: 'ws-autonomous',
     name: 'Autonomous Workspace',
     rootPath,
-    installedCapabilityIds: []
+    installedCapabilityIds: [],
+    ...(artifactWorkspace ? { artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace } } : {})
   };
 }
 
-function getArtifactWorkspacePathFromRoot(rootPath: string): string {
-  return join(dirname(rootPath), `${basename(rootPath)}.peaks-artifacts`);
-}
-
 function createWorkspaceWithArtifactWorkspace(): { workspace: WorkspaceConfig; artifactWorkspace: string } {
-  const workspace = createWorkspace();
-  const artifactWorkspace = getArtifactWorkspacePathFromRoot(workspace.rootPath);
-  mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
-  writeFileSync(join(artifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
-  return { workspace, artifactWorkspace };
+  const artifactWorkspace = join(tmpdir(), `peaks-autonomous-artifacts-${Date.now()}-${Math.random()}`);
+  const workspace = createWorkspace(undefined, artifactWorkspace);
+  const workspaceArtifactPath = getLocalArtifactPath(workspace);
+  mkdirSync(join(workspaceArtifactPath, '.peaks'), { recursive: true });
+  writeFileSync(join(workspaceArtifactPath, '.peaks', 'config.json'), '{}', 'utf8');
+  return { workspace, artifactWorkspace: workspaceArtifactPath };
 }
 
 function writeApprovedTechArtifacts(artifactWorkspace: string, changeId: string): void {
@@ -118,6 +116,119 @@ describe('createAutonomousWorkflowPlan', () => {
     expect(plan.mvpPackage.capabilityCountBySurface.expert).toBeGreaterThan(0);
   });
 
+  test('maps installed non-MCP capabilities to available activation', () => {
+    const workspace = createWorkspace();
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId: 'installed-agent-capability',
+      goal: 'Plan with an installed code review agent',
+      dryRun: true,
+      workspace: {
+        ...workspace,
+        installedCapabilityIds: ['everything-claude-code.code-review-agent']
+      }
+    });
+
+    expect(plan.capabilityPlan.candidates.find((candidate) => candidate.id === 'everything-claude-code.code-review-agent')?.activation).toBe('available');
+  });
+
+  test('maps catalog capability activation states from availability', async () => {
+    vi.resetModules();
+    const items = [
+      {
+        capabilityId: 'local-template.installable',
+        sourceId: 'local-peaks-skills',
+        name: 'Local Template',
+        itemType: 'template' as const,
+        category: 'custom-local-category',
+        workflows: ['code-refactor'],
+        audience: ['engineer'],
+        riskLevel: 'low' as const,
+        fallback: { mode: 'manual-local-template', qualityImpact: 'same' },
+        presentation: { displayName: { en: 'Local Template' }, description: { en: 'Local template.' } }
+      },
+      {
+        capabilityId: 'external-mcp.installable',
+        sourceId: 'external-mcp-source',
+        name: 'External MCP',
+        itemType: 'mcp' as const,
+        category: 'docs-lookup',
+        workflows: ['code-refactor'],
+        audience: ['engineer'],
+        riskLevel: 'medium' as const,
+        fallback: { mode: 'manual-docs', qualityImpact: 'lower' },
+        presentation: { displayName: { en: 'External MCP' }, description: { en: 'External MCP.' } }
+      },
+      {
+        capabilityId: 'disabled-agent.capability',
+        sourceId: 'agent-source',
+        name: 'Disabled Agent',
+        itemType: 'agent' as const,
+        category: 'code-review',
+        workflows: ['code-refactor'],
+        audience: ['engineer'],
+        riskLevel: 'low' as const,
+        fallback: { mode: 'manual-review', qualityImpact: 'lower' },
+        presentation: { displayName: { en: 'Disabled Agent' }, description: { en: 'Disabled agent.' } }
+      },
+      {
+        capabilityId: 'missing-mcp-availability.capability',
+        sourceId: 'mcp-source',
+        name: 'Missing MCP Availability',
+        itemType: 'mcp' as const,
+        category: 'custom-mcp-category',
+        workflows: ['code-refactor'],
+        audience: ['engineer'],
+        riskLevel: 'medium' as const,
+        fallback: { mode: 'manual-mcp', qualityImpact: 'lower' },
+        presentation: { displayName: { en: 'Missing MCP Availability' }, description: { en: 'Missing MCP availability.' } }
+      }
+    ];
+    vi.doMock('../../src/services/recommendations/capability-map-service.js', () => ({
+      createCapabilityMapPlan: () => ({
+        dryRunOnly: true,
+        executionPolicy: { allowInstall: false, allowClone: false, allowConfigWrite: false, allowSecretExfiltration: false },
+        sources: [],
+        items,
+        mappings: [],
+        availability: [
+          { capabilityId: 'local-template.installable', type: 'skill', status: 'installable', requiredFor: [], fallback: items[0]?.fallback, risk: 'low' },
+          { capabilityId: 'external-mcp.installable', type: 'mcp', status: 'installable', requiredFor: [], fallback: items[1]?.fallback, risk: 'medium' },
+          { capabilityId: 'disabled-agent.capability', type: 'agent', status: 'disabled', requiredFor: [], fallback: items[2]?.fallback, risk: 'low' }
+        ],
+        constraints: [],
+        warnings: []
+      })
+    }));
+
+    try {
+      const mockedWorkflow = await import('../../src/services/workflow/workflow-autonomous-service.js');
+      const plan = mockedWorkflow.createAutonomousWorkflowPlan({
+        mode: 'solo',
+        changeId: 'catalog-activation-states',
+        goal: 'Plan with mocked catalog activation states',
+        dryRun: true,
+        config: { ...DEFAULT_CONFIG, swarmMode: false }
+      });
+
+      expect(plan.capabilityPlan.candidates.find((candidate) => candidate.id === 'local-template.installable')).toMatchObject({
+        purpose: 'workflow-guidance',
+        trustLevel: 'local',
+        activation: 'needs-install'
+      });
+      expect(plan.capabilityPlan.candidates.find((candidate) => candidate.id === 'external-mcp.installable')?.activation).toBe('needs-credentials');
+      expect(plan.capabilityPlan.candidates.find((candidate) => candidate.id === 'disabled-agent.capability')?.activation).toBe('not-active');
+      expect(plan.capabilityPlan.candidates.find((candidate) => candidate.id === 'missing-mcp-availability.capability')).toMatchObject({
+        purpose: 'docs-lookup',
+        activation: 'needs-credentials'
+      });
+      expect(plan.rdPlan.swarmMode).toBe(false);
+    } finally {
+      vi.doUnmock('../../src/services/recommendations/capability-map-service.js');
+      vi.resetModules();
+    }
+  });
+
   test('returns preview-safe next actions when artifact workspace is unavailable', () => {
     const plan = createAutonomousWorkflowPlan({
       mode: 'team',
@@ -145,7 +256,7 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(false);
     expect(plan.blockedReasons).toContain('artifact-workspace-unavailable');
-    expect(getLocalArtifactPath(workspace)).toBe(getArtifactWorkspacePathFromRoot(workspace.rootPath));
+    expect(getLocalArtifactPath(workspace)).toBe(join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-autonomous', 'artifacts'));
     expect(plan.storagePlan.scope).toBe('user-local');
     expect(plan.storagePlan.artifactWorkspacePath).toBe(getLocalArtifactPath(workspace));
     expect(plan.storagePlan.memoryBackupPath).toBe(join(getLocalArtifactPath(workspace), '.peaks', 'memory-backups', 'project-memory-primary'));

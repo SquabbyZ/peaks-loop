@@ -29,6 +29,10 @@ If the repo needs a first-time standards bundle, treat `standards init` as the c
 
 For refactors, QA must be involved before implementation. It defines the regression and acceptance surface, then verifies the same surface after implementation.
 
+## Compact handoff
+
+Before QA work stops, finishes, blocks, or hands off, emit a short resumable capsule: validation surface, coverage status, commands run, pass/fail summary, artifact paths, residual risks, blockers, and next action. Link to logs, coverage reports, regression matrices, and validation reports instead of pasting full outputs.
+
 ## External capability guidance
 
 Use `peaks capabilities --source access-repo --json` before recommending browser or validation MCPs.

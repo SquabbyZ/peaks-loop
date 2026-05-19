@@ -1,30 +1,34 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
+import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 import { createWorkflowRouterPlan } from '../../src/services/workflow/workflow-router-service.js';
 
 function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig; artifactWorkspace: string } {
   const rootPath = mkdtempSync(join(tmpdir(), 'peaks-workflow-root-'));
-  const artifactWorkspace = join(dirname(rootPath), `${basename(rootPath)}.peaks-artifacts`);
-  const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', changeId, 'architecture');
-  mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
+  const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-workflow-artifacts-'));
+  const workspace = {
+    workspaceId: 'ws-workflow',
+    name: 'Workflow Workspace',
+    rootPath,
+    installedCapabilityIds: [],
+    artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace }
+  };
+  const workspaceArtifactPath = getLocalArtifactPath(workspace);
+  const architectureRoot = join(workspaceArtifactPath, '.peaks', 'changes', changeId, 'architecture');
+  mkdirSync(join(workspaceArtifactPath, '.peaks'), { recursive: true });
   mkdirSync(architectureRoot, { recursive: true });
-  writeFileSync(join(artifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
+  writeFileSync(join(workspaceArtifactPath, '.peaks', 'config.json'), '{}', 'utf8');
   for (const artifact of TECH_REQUIRED_ARTIFACTS) {
     writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
   }
 
   return {
-    workspace: {
-      workspaceId: 'ws-workflow',
-      name: 'Workflow Workspace',
-      rootPath,
-      installedCapabilityIds: []
-    },
-    artifactWorkspace
+    workspace,
+    artifactWorkspace: workspaceArtifactPath
   };
 }
 

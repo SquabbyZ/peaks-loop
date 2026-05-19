@@ -31,6 +31,19 @@ Peaks Solo must not silently:
 
 Use the Peaks CLI for runtime side effects.
 
+## Mode selection
+
+When the user invokes Peaks Solo without explicitly selecting an execution profile, use `AskUserQuestion` before orchestration starts. Present the recommended full-auto path as the first/default option, and give every option a practical description so users can choose quickly.
+
+Offer these profiles unless the active command narrows the valid set:
+
+1. **Full auto (Recommended, Solo profile)** — Peaks handles planning, role coordination, validation, and compact handoff end-to-end while preserving required confirmation gates for risky or shared-state actions.
+2. **Assisted** — Peaks proposes plans, artifacts, and checks, then pauses for user decisions at major workflow boundaries.
+3. **Swarm** — Peaks maximizes safe parallel role/worker execution for larger RD or QA workloads while keeping reducer validation and artifact boundaries explicit.
+4. **Strict** — Peaks uses the most conservative gates: explicit confirmations, strict slice specs, coverage evidence, QA acceptance, and commit boundaries before continuing.
+
+If the user already names a profile, do not ask again unless the request crosses a risk boundary or the named profile conflicts with required Peaks gates.
+
 ## Project standards preflight
 
 Before orchestrating an end-to-end code repository workflow, gather the project standards preflight status from RD and QA by calling the Peaks CLI:
@@ -55,6 +68,12 @@ It must enforce the shared refactor red lines:
 5. require strict verifiable specs before each slice;
 6. require 100% acceptance for each slice;
 7. require code and intermediate artifacts to be committed before the next slice.
+
+## Completion handoff
+
+After a Peaks Solo workflow reaches final validation, refresh the project-local standards from the current scan-backed evidence before the handoff closes. Route project-local `CLAUDE.md` and project-local `.claude/rules/**` writes through `peaks standards init` or `peaks standards update`; do not hand-write standards mutations. If write authorization exists, apply an incremental merge of scan-backed changes into existing project-local standards. Preserve existing hand-maintained content unless the user explicitly confirms deletion or rewrite. If write authorization or the CLI path is unavailable, keep the standards output as the next action instead of writing it.
+
+Use Peaks TXT for the final, blocked, or interrupted handoff capsule. Keep that capsule compact: current mode, validated decisions, artifact paths, standards deltas, open questions, and next action. Do not restate the full workflow log when a short handoff plus artifact links will do.
 
 ## Optional capabilities
 
