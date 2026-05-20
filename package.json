@@ -7,7 +7,7 @@
   "type": "module",
   "packageManager": "pnpm@10.11.0",
   "publishConfig": {
-    "access": "private"
+    "access": "public"
   },
   "bin": {
     "peaks": "./bin/peaks.js"
