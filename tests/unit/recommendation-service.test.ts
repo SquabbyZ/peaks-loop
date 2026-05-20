@@ -35,6 +35,25 @@ describe('seed capability catalog', () => {
     expect(seedCapabilityItems.filter((item) => item.sourceId === 'mattpocock-skills')).toHaveLength(expectedCapabilityIds.length);
   });
 
+  test('models codegraph as indexed local analysis capabilities for Peaks skills', () => {
+    const expectedCapabilityIds = [
+      'codegraph.project-indexing',
+      'codegraph.semantic-query',
+      'codegraph.impact-analysis',
+      'codegraph.context-pack'
+    ];
+    const source = seedCapabilitySources.find((candidate) => candidate.sourceId === 'codegraph');
+    const items = seedCapabilityItems.filter((item) => item.sourceId === 'codegraph');
+
+    expect(source?.sourceType).toBe('repo');
+    expect(source?.sourceGroup).toBe('access-repo');
+    expect(source?.discoveryStatus).toBe('indexed');
+    expect(source?.trustSignals?.notes?.join('\n')).toContain('Use through peaks codegraph only');
+    expect(source?.items).toEqual(expectedCapabilityIds);
+    expect(items.map((item) => item.capabilityId)).toEqual(expectedCapabilityIds);
+    expect(items.every((item) => item.fallback.qualityImpact === 'same')).toBe(true);
+  });
+
   test('models MCP collections as sources and concrete MCPs as items', () => {
     const source = seedCapabilitySources.find((candidate) => candidate.sourceId === 'modelcontextprotocol-servers');
     const context7 = seedCapabilityItems.find((candidate) => candidate.capabilityId === 'context7.docs-lookup');

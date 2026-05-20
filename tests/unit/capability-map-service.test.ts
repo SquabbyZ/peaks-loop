@@ -142,4 +142,22 @@ describe('createCapabilityMapPlan', () => {
     expect(plan.mappings.find((mapping) => mapping.capabilityId === 'mattpocock-skills.git-guardrails')?.landingKind).toBe('catalog');
     expect(plan.mappings.filter((mapping) => mapping.sourceId === 'mattpocock-skills').every((mapping) => mapping.dryRunOnly)).toBe(true);
   });
+
+  test('maps codegraph local analysis capabilities into Peaks skill landings', () => {
+    const plan = createCapabilityMapPlan({ source: 'access-repo' });
+    const source = plan.sources.find((candidate) => candidate.sourceId === 'codegraph');
+    const targetsFor = (capabilityId: string) =>
+      plan.mappings
+        .filter((mapping) => mapping.capabilityId === capabilityId)
+        .map((mapping) => mapping.target)
+        .sort();
+
+    expect(source?.discoveryStatus).toBe('indexed');
+    expect(targetsFor('codegraph.project-indexing')).toEqual(['peaks-rd']);
+    expect(targetsFor('codegraph.semantic-query')).toEqual(['peaks-rd']);
+    expect(targetsFor('codegraph.impact-analysis')).toEqual(['peaks-qa', 'peaks-rd']);
+    expect(targetsFor('codegraph.context-pack')).toEqual(['peaks-rd', 'peaks-solo', 'peaks-txt']);
+    expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').every((mapping) => mapping.dryRunOnly)).toBe(true);
+    expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').map((mapping) => mapping.commandPreview)).not.toContain('npx @colbymchenry/codegraph install');
+  });
 });

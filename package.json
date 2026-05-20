@@ -1,13 +1,13 @@
 {
   "name": "peaks-cli",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
   "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "packageManager": "pnpm@10.11.0",
   "publishConfig": {
-    "access": "public"
+    "access": "private"
   },
   "bin": {
     "peaks": "./bin/peaks.js"

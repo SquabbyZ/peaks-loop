@@ -3,6 +3,7 @@ import { CLI_VERSION } from '../shared/version.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
+import { registerCodegraphCommands } from './commands/codegraph-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -27,6 +28,7 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
   registerCoreAndArtifactCommands(program, io);
   registerWorkflowCommands(program, io);
   registerCapabilityWorkerConfigAndSCCommands(program, io);
+  registerCodegraphCommands(program, io);
 
   return program;
 }
