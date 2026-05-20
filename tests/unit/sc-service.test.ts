@@ -93,13 +93,12 @@ function getTestArtifactRoot(workspace: WorkspaceConfig): string {
 }
 
 function prepareChangeDir(workspace: WorkspaceConfig, changeId: string): string {
-  const changeDir = join(getTestArtifactRoot(workspace), '.peaks', 'changes', changeId);
-  mkdirSync(join(changeDir, 'product'), { recursive: true });
-  mkdirSync(join(changeDir, 'architecture'), { recursive: true });
+  const changeDir = join(getTestArtifactRoot(workspace), '.peaks', changeId);
+  mkdirSync(join(changeDir, 'prd'), { recursive: true });
+  mkdirSync(join(changeDir, 'rd'), { recursive: true });
   mkdirSync(join(changeDir, 'qa'), { recursive: true });
-  mkdirSync(join(changeDir, 'review'), { recursive: true });
   mkdirSync(join(changeDir, 'sc'), { recursive: true });
-  mkdirSync(join(changeDir, 'checkpoints'), { recursive: true });
+  mkdirSync(join(changeDir, 'txt'), { recursive: true });
   return changeDir;
 }
 
@@ -143,12 +142,12 @@ describe('peaks-sc service', () => {
     expect(result.missingArtifacts).toContain('No workspace configured');
   });
 
-  test.each(['../outside', '.', '..'])('rejects artifact retention validation outside the changes directory: %s', (sliceId) => {
+  test.each(['../outside', '.', '..'])('rejects artifact retention validation outside the session directory: %s', (sliceId) => {
     const result = validateArtifactRetention(sliceId);
 
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toContain('Invalid slice id');
-    expect(result.warnings).toContain('Slice id must stay inside .peaks/changes and only contain letters, numbers, dots, underscores, or hyphens');
+    expect(result.warnings).toContain('Slice id must stay inside .peaks/<session-id> and only contain letters, numbers, dots, underscores, or hyphens');
   });
 
   test('renders SC help text', () => {
@@ -162,10 +161,9 @@ describe('peaks-sc service', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const changeDir = prepareChangeDir(workspace, '2026-05-15-test-change');
     writeFileSync(join(getTestArtifactRoot(workspace), '.peaks', 'current-change'), '2026-05-15-test-change', 'utf-8');
-    writeFileSync(join(changeDir, 'qa', 'artifact-retention-report.md'), 'retention', 'utf-8');
     writeFileSync(join(changeDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
-    writeFileSync(join(changeDir, 'checkpoints', 'commit-boundary.md'), 'boundary', 'utf-8');
-    writeFileSync(join(changeDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(changeDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
+    writeFileSync(join(changeDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
 
     const status = getChangeTraceabilityStatus();
 
@@ -181,7 +179,7 @@ describe('peaks-sc service', () => {
     expect(status.changeId).toBeNull();
     expect(status.hasArtifactRepo).toBe(true);
     expect(status.nextActions[0]).toBe('Set the current change in .peaks/current-change');
-    expect(status.requiredArtifacts[0]?.path).toContain('<change-id>');
+    expect(status.requiredArtifacts[0]?.path).toContain('<session-id>');
   });
 
   test('resolves current change from directory link target', () => {
@@ -190,15 +188,13 @@ describe('peaks-sc service', () => {
     const peaksPath = join(artifactRoot, '.peaks');
     const changeId = '2026-05-15-symlink-change';
 
-    const changeDir = join(artifactRoot, 'changes', changeId);
+    const changeDir = join(artifactRoot, '.peaks', changeId);
     mkdirSync(peaksPath, { recursive: true });
     mkdirSync(changeDir, { recursive: true });
-    mkdirSync(join(changeDir, 'product'), { recursive: true });
-    mkdirSync(join(changeDir, 'architecture'), { recursive: true });
+    mkdirSync(join(changeDir, 'prd'), { recursive: true });
+    mkdirSync(join(changeDir, 'rd'), { recursive: true });
     mkdirSync(join(changeDir, 'qa'), { recursive: true });
-    mkdirSync(join(changeDir, 'review'), { recursive: true });
     mkdirSync(join(changeDir, 'sc'), { recursive: true });
-    mkdirSync(join(changeDir, 'checkpoints'), { recursive: true });
 
     createDirectoryLinkSync(changeDir, join(peaksPath, 'current-change'));
 
@@ -210,7 +206,7 @@ describe('peaks-sc service', () => {
     const artifactRoot = getTestArtifactRoot(workspace);
     const peaksPath = join(artifactRoot, '.peaks');
     const changeId = '2026-05-15-broken-change';
-    const changeDir = join(artifactRoot, 'changes', changeId);
+    const changeDir = join(artifactRoot, '.peaks', changeId);
 
     mkdirSync(peaksPath, { recursive: true });
     mkdirSync(changeDir, { recursive: true });
@@ -220,12 +216,28 @@ describe('peaks-sc service', () => {
     expect(getChangeTraceabilityStatus().changeId).toBeNull();
   });
 
-  test('ignores empty or unreadable current-change values', () => {
+  test('returns null when current-change directory link target escapes .peaks', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
-    mkdirSync(join(getTestArtifactRoot(workspace), '.peaks'), { recursive: true });
-    writeFileSync(join(getTestArtifactRoot(workspace), '.peaks', 'current-change'), '   ', 'utf-8');
+    const artifactRoot = getTestArtifactRoot(workspace);
+    const peaksPath = join(artifactRoot, '.peaks');
+    const outsideChangeDir = join(tmpdir(), `peaks-sc-current-outside-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+
+    mkdirSync(peaksPath, { recursive: true });
+    mkdirSync(outsideChangeDir, { recursive: true });
+    createDirectoryLinkSync(outsideChangeDir, join(peaksPath, 'current-change'));
 
     expect(getChangeTraceabilityStatus().changeId).toBeNull();
+  });
+
+  test('ignores empty or unsafe current-change values', () => {
+    const workspace = currentWorkspace as WorkspaceConfig;
+    const peaksPath = join(getTestArtifactRoot(workspace), '.peaks');
+    mkdirSync(peaksPath, { recursive: true });
+
+    for (const value of ['   ', '../outside', '/tmp/change', 'foo/bar', 'foo\\bar']) {
+      writeFileSync(join(peaksPath, 'current-change'), value, 'utf-8');
+      expect(getChangeTraceabilityStatus().changeId).toBeNull();
+    }
   });
 
   test('reports local-only artifact storage without requiring artifact repo configuration', () => {
@@ -254,28 +266,32 @@ describe('peaks-sc service', () => {
     const artifactRoot = getTestArtifactRoot(workspace);
     const changeId = '2026-05-15-artifact-workspace-change';
     const retentionSliceId = 'slice-artifact-workspace';
-    const changeDir = join(artifactRoot, '.peaks', 'changes', changeId);
-    const retentionDir = join(artifactRoot, '.peaks', 'changes', retentionSliceId);
+    const changeDir = join(artifactRoot, '.peaks', changeId);
+    const retentionDir = join(artifactRoot, '.peaks', retentionSliceId);
 
     mkdirSync(join(workspace.rootPath, '.peaks'), { recursive: true });
     writeFileSync(join(workspace.rootPath, '.peaks', 'current-change'), 'legacy-root-change', 'utf-8');
     mkdirSync(join(artifactRoot, '.peaks'), { recursive: true });
     writeFileSync(join(artifactRoot, '.peaks', 'current-change'), changeId, 'utf-8');
 
-    for (const folder of ['product', 'architecture', 'qa', 'review', 'sc', 'checkpoints']) {
+    for (const folder of ['prd', 'rd', 'qa', 'sc', 'txt']) {
       mkdirSync(join(changeDir, folder), { recursive: true });
       mkdirSync(join(retentionDir, folder), { recursive: true });
     }
 
-    writeFileSync(join(changeDir, 'qa', 'artifact-retention-report.md'), 'retention', 'utf-8');
     writeFileSync(join(changeDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
-    writeFileSync(join(changeDir, 'checkpoints', 'commit-boundary.md'), 'boundary', 'utf-8');
-    writeFileSync(join(changeDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
-    writeFileSync(join(retentionDir, 'product', 'prd.md'), 'prd', 'utf-8');
-    writeFileSync(join(retentionDir, 'architecture', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(changeDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
+    writeFileSync(join(changeDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(retentionDir, 'prd', 'refactor-goal.md'), 'prd', 'utf-8');
+    writeFileSync(join(retentionDir, 'rd', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(retentionDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(retentionDir, 'rd', 'code-review-report.md'), 'review', 'utf-8');
+    writeFileSync(join(retentionDir, 'rd', 'security-review-report.md'), 'security', 'utf-8');
+    writeFileSync(join(retentionDir, 'rd', 'post-check-dry-run.md'), 'dry-run', 'utf-8');
     writeFileSync(join(retentionDir, 'qa', 'validation-report.md'), 'qa', 'utf-8');
-    writeFileSync(join(retentionDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
-    writeFileSync(join(retentionDir, 'review', 'code-review.md'), 'review', 'utf-8');
+    writeFileSync(join(retentionDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
+    writeFileSync(join(retentionDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
+    writeFileSync(join(retentionDir, 'txt', 'context-capsule.md'), 'txt', 'utf-8');
 
     const status = getChangeTraceabilityStatus();
     const retention = validateArtifactRetention(retentionSliceId);
@@ -293,23 +309,34 @@ describe('peaks-sc service', () => {
     const currentChangeDir = prepareChangeDir(workspace, '2026-05-15-current');
     const requestedSliceDir = prepareChangeDir(workspace, 'slice-1');
     writeFileSync(join(getTestArtifactRoot(workspace), '.peaks', 'current-change'), '2026-05-15-current', 'utf-8');
-    writeFileSync(join(currentChangeDir, 'product', 'prd.md'), 'prd', 'utf-8');
-    writeFileSync(join(currentChangeDir, 'architecture', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'prd', 'refactor-goal.md'), 'prd', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'rd', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'rd', 'code-review-report.md'), 'review', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'rd', 'security-review-report.md'), 'security', 'utf-8');
+    writeFileSync(join(currentChangeDir, 'rd', 'post-check-dry-run.md'), 'dry-run', 'utf-8');
     writeFileSync(join(currentChangeDir, 'qa', 'validation-report.md'), 'qa', 'utf-8');
-    writeFileSync(join(currentChangeDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
-    writeFileSync(join(currentChangeDir, 'review', 'code-review.md'), 'review', 'utf-8');
 
     const missing = validateArtifactRetention('slice-1');
     expect(missing.valid).toBe(false);
-    expect(missing.missingArtifacts).toContain('product/prd.md');
+    expect(missing.missingArtifacts).toContain('prd/refactor-goal.md');
     expect(missing.missingArtifacts.every((artifactPath) => !artifactPath.includes(workspace.rootPath))).toBe(true);
 
-    writeFileSync(join(requestedSliceDir, 'product', 'prd.md'), 'prd', 'utf-8');
-    writeFileSync(join(requestedSliceDir, 'architecture', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'prd', 'refactor-goal.md'), 'prd', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'rd', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'rd', 'code-review-report.md'), 'review', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'rd', 'security-review-report.md'), 'security', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'rd', 'post-check-dry-run.md'), 'dry-run', 'utf-8');
     writeFileSync(join(requestedSliceDir, 'qa', 'validation-report.md'), 'qa', 'utf-8');
-    writeFileSync(join(requestedSliceDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
-    writeFileSync(join(requestedSliceDir, 'review', 'code-review.md'), 'review', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
+    writeFileSync(join(requestedSliceDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
 
+    const missingTxt = validateArtifactRetention('slice-1');
+    expect(missingTxt.valid).toBe(false);
+    expect(missingTxt.missingArtifacts).toContain('txt/context-capsule.md');
+
+    writeFileSync(join(requestedSliceDir, 'txt', 'context-capsule.md'), 'txt', 'utf-8');
     expect(validateArtifactRetention('slice-1').valid).toBe(true);
   });
 
@@ -319,28 +346,37 @@ describe('peaks-sc service', () => {
     const sliceId = 'slice-changes-root-escape';
     const outsideRoot = join(tmpdir(), `peaks-sc-outside-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     const outsideSliceDir = join(outsideRoot, sliceId);
-    mkdirSync(join(artifactRoot, '.peaks'), { recursive: true });
-    mkdirSync(join(outsideSliceDir, 'product'), { recursive: true });
-    mkdirSync(join(outsideSliceDir, 'architecture'), { recursive: true });
+    mkdirSync(artifactRoot, { recursive: true });
+    mkdirSync(join(outsideSliceDir, 'prd'), { recursive: true });
+    mkdirSync(join(outsideSliceDir, 'rd'), { recursive: true });
     mkdirSync(join(outsideSliceDir, 'qa'), { recursive: true });
-    mkdirSync(join(outsideSliceDir, 'review'), { recursive: true });
+    mkdirSync(join(outsideSliceDir, 'rd'), { recursive: true });
+    mkdirSync(join(outsideSliceDir, 'txt'), { recursive: true });
 
-    writeFileSync(join(outsideSliceDir, 'product', 'prd.md'), 'outside prd', 'utf-8');
-    writeFileSync(join(outsideSliceDir, 'architecture', 'slice-spec.md'), 'outside rd', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'prd', 'refactor-goal.md'), 'outside prd', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'rd', 'slice-spec.md'), 'outside rd', 'utf-8');
     writeFileSync(join(outsideSliceDir, 'qa', 'validation-report.md'), 'outside qa', 'utf-8');
-    writeFileSync(join(outsideSliceDir, 'qa', 'coverage-report.md'), 'outside coverage', 'utf-8');
-    writeFileSync(join(outsideSliceDir, 'review', 'code-review.md'), 'outside review', 'utf-8');
-    symlinkSync(outsideRoot, join(artifactRoot, '.peaks', 'changes'), 'junction');
+    writeFileSync(join(outsideSliceDir, 'rd', 'coverage-report.md'), 'outside coverage', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'rd', 'code-review-report.md'), 'outside review', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'rd', 'security-review-report.md'), 'outside security', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'rd', 'post-check-dry-run.md'), 'outside dry-run', 'utf-8');
+    writeFileSync(join(outsideSliceDir, 'txt', 'context-capsule.md'), 'outside txt', 'utf-8');
+    symlinkSync(outsideRoot, join(artifactRoot, '.peaks'), 'junction');
 
     const result = validateArtifactRetention(sliceId);
 
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toEqual([
-      'product/prd.md',
-      'architecture/slice-spec.md',
+      'prd/refactor-goal.md',
+      'rd/slice-spec.md',
+      'rd/coverage-report.md',
+      'rd/code-review-report.md',
+      'rd/security-review-report.md',
+      'rd/post-check-dry-run.md',
       'qa/validation-report.md',
-      'qa/coverage-report.md',
-      'review/code-review.md'
+      'sc/change-impact.json',
+      'sc/retention-boundary.md',
+      'txt/context-capsule.md'
     ]);
   });
 
@@ -349,16 +385,20 @@ describe('peaks-sc service', () => {
     const sliceId = 'slice-dir-escape';
     const sliceDir = prepareChangeDir(workspace, sliceId);
     const outsideDir = join(tmpdir(), `peaks-sc-outside-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-    mkdirSync(join(outsideDir, 'product'), { recursive: true });
-    mkdirSync(join(outsideDir, 'architecture'), { recursive: true });
+    mkdirSync(join(outsideDir, 'prd'), { recursive: true });
+    mkdirSync(join(outsideDir, 'rd'), { recursive: true });
     mkdirSync(join(outsideDir, 'qa'), { recursive: true });
-    mkdirSync(join(outsideDir, 'review'), { recursive: true });
+    mkdirSync(join(outsideDir, 'rd'), { recursive: true });
+    mkdirSync(join(outsideDir, 'txt'), { recursive: true });
 
-    writeFileSync(join(outsideDir, 'product', 'prd.md'), 'outside prd', 'utf-8');
-    writeFileSync(join(outsideDir, 'architecture', 'slice-spec.md'), 'outside rd', 'utf-8');
+    writeFileSync(join(outsideDir, 'prd', 'refactor-goal.md'), 'outside prd', 'utf-8');
+    writeFileSync(join(outsideDir, 'rd', 'slice-spec.md'), 'outside rd', 'utf-8');
     writeFileSync(join(outsideDir, 'qa', 'validation-report.md'), 'outside qa', 'utf-8');
-    writeFileSync(join(outsideDir, 'qa', 'coverage-report.md'), 'outside coverage', 'utf-8');
-    writeFileSync(join(outsideDir, 'review', 'code-review.md'), 'outside review', 'utf-8');
+    writeFileSync(join(outsideDir, 'rd', 'coverage-report.md'), 'outside coverage', 'utf-8');
+    writeFileSync(join(outsideDir, 'rd', 'code-review-report.md'), 'outside review', 'utf-8');
+    writeFileSync(join(outsideDir, 'rd', 'security-review-report.md'), 'outside security', 'utf-8');
+    writeFileSync(join(outsideDir, 'rd', 'post-check-dry-run.md'), 'outside dry-run', 'utf-8');
+    writeFileSync(join(outsideDir, 'txt', 'context-capsule.md'), 'outside txt', 'utf-8');
     rmSync(sliceDir, { recursive: true, force: true });
     symlinkSync(outsideDir, sliceDir, 'junction');
 
@@ -366,11 +406,16 @@ describe('peaks-sc service', () => {
 
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toEqual([
-      'product/prd.md',
-      'architecture/slice-spec.md',
+      'prd/refactor-goal.md',
+      'rd/slice-spec.md',
+      'rd/coverage-report.md',
+      'rd/code-review-report.md',
+      'rd/security-review-report.md',
+      'rd/post-check-dry-run.md',
       'qa/validation-report.md',
-      'qa/coverage-report.md',
-      'review/code-review.md'
+      'sc/change-impact.json',
+      'sc/retention-boundary.md',
+      'txt/context-capsule.md'
     ]);
   });
 
@@ -380,25 +425,31 @@ describe('peaks-sc service', () => {
     const outsideDir = join(tmpdir(), `peaks-sc-outside-${Date.now()}-${Math.random().toString(16).slice(2)}`);
     mkdirSync(outsideDir, { recursive: true });
 
-    writeFileSync(join(outsideDir, 'prd.md'), 'outside prd', 'utf-8');
-    rmSync(join(sliceDir, 'product'), { recursive: true, force: true });
-    symlinkSync(outsideDir, join(sliceDir, 'product'), 'junction');
-    writeFileSync(join(sliceDir, 'architecture', 'slice-spec.md'), 'rd', 'utf-8');
+    writeFileSync(join(outsideDir, 'refactor-goal.md'), 'outside prd', 'utf-8');
+    rmSync(join(sliceDir, 'prd'), { recursive: true, force: true });
+    symlinkSync(outsideDir, join(sliceDir, 'prd'), 'junction');
+    writeFileSync(join(sliceDir, 'rd', 'slice-spec.md'), 'rd', 'utf-8');
     writeFileSync(join(sliceDir, 'qa', 'validation-report.md'), 'qa', 'utf-8');
-    writeFileSync(join(sliceDir, 'qa', 'coverage-report.md'), 'coverage', 'utf-8');
-    writeFileSync(join(sliceDir, 'review', 'code-review.md'), 'review', 'utf-8');
+    writeFileSync(join(sliceDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
+    writeFileSync(join(sliceDir, 'rd', 'code-review-report.md'), 'review', 'utf-8');
+    writeFileSync(join(sliceDir, 'rd', 'security-review-report.md'), 'security', 'utf-8');
+    writeFileSync(join(sliceDir, 'rd', 'post-check-dry-run.md'), 'dry-run', 'utf-8');
+    writeFileSync(join(sliceDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
+    writeFileSync(join(sliceDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
+    writeFileSync(join(sliceDir, 'txt', 'context-capsule.md'), 'txt', 'utf-8');
 
     const result = validateArtifactRetention('slice-symlink-escape');
 
     expect(result.valid).toBe(false);
-    expect(result.missingArtifacts).toContain('product/prd.md');
+    expect(result.missingArtifacts).toContain('prd/refactor-goal.md');
   });
 
   test('creates artifact retention reports with defaults', () => {
     const report = createArtifactRetentionReport({ sliceId: 'slice-1' });
 
     expect(report.sliceId).toBe('slice-1');
-    expect(report.commitStatus).toBe('pending');
+    expect(report.retentionStatus).toBe('pending');
+    expect(report.commitHash).toBeNull();
     expect(report.rollbackPoint).toBeNull();
   });
 
@@ -413,7 +464,7 @@ describe('peaks-sc service', () => {
     expect(gitlabImpact.syncPointers.artifactRepo).toBe('https://gitlab.com/acme/artifact-repo.git');
   });
 
-  test('records commit boundary with current git commit as rollback point', () => {
+  test('records retention boundary with current git commit as optional rollback point', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const pendingBoundary = recordCommitBoundary({ sliceId: 'slice-1', artifacts: ['qa/report.md'], codeFiles: ['src/a.ts'] });
     expect(pendingBoundary.commitHash).toBe('abc123def456');

@@ -65,7 +65,7 @@ export function isUnsafeArtifactPath(path: string): boolean {
 export function buildArtifactRelativePath(changeId: string, ...segments: string[]): string {
   validateChangeIdOrThrow(changeId);
   const joined = segments.map((segment) => normalizeForwardSlashes(segment)).join('/');
-  const candidatePath = `.peaks/changes/${changeId}/${joined}`;
+  const candidatePath = `.peaks/${changeId}/${joined}`;
 
   if (isUnsafeArtifactPath(joined) || isUnsafeArtifactPath(candidatePath)) {
     throw new ChangeIdValidationError(changeId);

@@ -2,16 +2,37 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Peaks Artifact Retention Report",
   "type": "object",
-  "required": ["sliceId", "prdArtifacts", "rdArtifacts", "qaArtifacts", "commitStatus"],
+  "additionalProperties": false,
+  "required": ["sliceId", "prdArtifacts", "rdArtifacts", "qaArtifacts", "retentionStatus"],
   "properties": {
-    "sliceId": { "type": "string" },
-    "prdArtifacts": { "type": "array", "items": { "type": "string" } },
-    "rdArtifacts": { "type": "array", "items": { "type": "string" } },
-    "qaArtifacts": { "type": "array", "items": { "type": "string" } },
-    "coverageArtifacts": { "type": "array", "items": { "type": "string" } },
-    "reviewArtifacts": { "type": "array", "items": { "type": "string" } },
-    "codeChanges": { "type": "array", "items": { "type": "string" } },
-    "commitStatus": { "type": "string" },
-    "rollbackPoint": { "type": "string" }
+    "sliceId": { "type": "string", "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9._-]{1,128}$" },
+    "prdArtifacts": { "$ref": "#/$defs/artifactPaths" },
+    "rdArtifacts": { "$ref": "#/$defs/artifactPaths" },
+    "qaArtifacts": { "$ref": "#/$defs/artifactPaths" },
+    "coverageArtifacts": { "$ref": "#/$defs/artifactPaths" },
+    "reviewArtifacts": { "$ref": "#/$defs/artifactPaths" },
+    "codeChanges": { "type": "array", "maxItems": 500, "items": { "$ref": "#/$defs/repoRelativePath" } },
+    "retentionStatus": { "type": "string", "enum": ["local-ready", "pending", "explicitly-committed", "rolled-back"] },
+    "commitHash": { "anyOf": [{ "type": "string", "pattern": "^[A-Fa-f0-9]{7,64}$" }, { "type": "null" }] },
+    "rollbackPoint": { "anyOf": [{ "type": "string", "pattern": "^[A-Fa-f0-9]{7,64}$" }, { "type": "null" }] }
+  },
+  "$defs": {
+    "artifactPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!.*(?:^|/)\\.{1,2}(?:/|$))(prd|rd|ui|qa|sc|txt)/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "artifactPaths": {
+      "type": "array",
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/artifactPath" }
+    },
+    "repoRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*://)(?!.*(?:^|/)\\.{1,2}(?:/|$))[A-Za-z0-9._/-]+$"
+    }
   }
 }

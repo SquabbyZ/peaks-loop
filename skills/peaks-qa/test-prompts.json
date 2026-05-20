@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "验证 /Users/yuanyuan/Desktop/work/platform-rag-web 的前端需求实现。后端 swagger.json 不存在，当前实现使用 mock/API contract。",
+    "expected": "QA 运行相关测试/API 或 mock contract 验证，启动前端应用，用 gstack/browse/dist/browse 可见浏览器做 E2E，记录 route/actions/console/network/截图或观察，生成 .peaks/<session-id>/qa/validation-report.md，并包含安全和性能检查结果。"
+  },
+  {
+    "id": 2,
+    "prompt": "浏览器 E2E 中如果页面白屏、console 报错、网络 mock 失败、UI 有明显回归怎么办？",
+    "expected": "QA 必须带证据退回 RD 修复，不能通过 QA；修复后重新浏览器验证。"
+  }
+]

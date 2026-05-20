@@ -46,7 +46,8 @@ describe('service skeletons', () => {
 
     expect(dryRun.implementationAllowed).toBe(false);
     expect(dryRun.hardGates).toContain('Require UT coverage >= 95%');
-    expect(dryRun.requiredArtifacts).toContain('artifact-retention-report.md');
+    expect(dryRun.requiredArtifacts).toContain('retention-boundary.md');
+    expect(dryRun.hardGates).toContain('Commit or sync artifacts only after explicit authorization');
   });
 
   test('refactor dry run supports rd mode', () => {

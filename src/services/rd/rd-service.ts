@@ -216,7 +216,9 @@ function readArtifactFile(rootPath: string, artifactWorkspacePath: string, artif
   try {
     const artifactWorkspaceRealPath = stableRealPath(artifactWorkspacePath);
     const rootRealPath = stableRealPath(rootPath);
-    if (!isInsidePath(rootRealPath, artifactWorkspaceRealPath)) {
+    const rdRootPath = resolve(rootPath, '..');
+    const sessionRootPath = resolve(rdRootPath, '..');
+    if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(rdRootPath).isSymbolicLink() || lstatSync(rootPath).isSymbolicLink() || !isInsidePath(rootRealPath, artifactWorkspaceRealPath)) {
       return null;
     }
 
@@ -261,7 +263,7 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
     return [];
   }
 
-  const architectureRoot = join(artifactWorkspacePath, '.peaks', 'changes', request.changeId, 'architecture');
+  const architectureRoot = join(artifactWorkspacePath, '.peaks', request.changeId, 'rd', 'architecture');
   const candidates = TECH_REQUIRED_ARTIFACTS.flatMap((artifact) => {
     if (artifact === 'tech-approval-record.md') {
       return [];
@@ -281,7 +283,7 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
   const executionModelId = request.executionModelId?.trim() || getConfiguredExecutionModelId(undefined);
   const { workerTarget, blockedReasons } = resolveWorkerTarget(request.maxWorkers);
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
-  const artifactRoot = buildArtifactRelativePath(request.changeId, 'swarm');
+  const artifactRoot = buildArtifactRelativePath(request.changeId, 'rd', 'swarm');
   const techStatus = getTechStatus({
     changeId: request.changeId,
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
@@ -301,10 +303,10 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'swarm', 'task-graph.json'),
+        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'swarm', 'reducer-report.md'),
+        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
       gateStatus: {
         techApprovalRequired: requiresTechApproval,
@@ -327,10 +329,10 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'swarm', 'task-graph.json'),
+        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'swarm', 'reducer-report.md'),
+        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
       gateStatus: {
         techApprovalRequired: true,
@@ -352,10 +354,10 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'swarm', 'task-graph.json'),
+        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'swarm', 'reducer-report.md'),
+        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
       gateStatus: {
         techApprovalRequired: requiresTechApproval,
@@ -396,7 +398,7 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
 
   const tasks: RdTask[] = taskIds.map((taskId, index): RdTask => {
     const wave: RdWaveName = index < 8 ? 'discovery' : index < 16 ? 'planning' : index < taskIds.length - 8 ? 'implementation candidates' : index < taskIds.length - 5 ? 'unit-test execution' : index < taskIds.length - 1 ? 'quality gates' : 'reducer';
-    const briefPath = buildArtifactRelativePath(request.changeId, 'swarm', 'workers', taskId, 'brief.md');
+    const briefPath = buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'workers', taskId, 'brief.md');
     const implementationIndex = index - 16;
     const targetArea = wave === 'implementation candidates' && hasConcreteTargetAreas(concreteTargetAreas)
       ? selectConcreteTargetArea(concreteTargetAreas, implementationIndex)
@@ -428,7 +430,7 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
 
   const conflictGroups: RdConflictGroup[] = waves.map((wave) => ({
     groupId: `group-${wave.name.replace(/\s+/g, '-')}`,
-    ownedPaths: wave.taskIds.map((taskId) => buildArtifactRelativePath(request.changeId, 'swarm', 'workers', taskId, 'brief.md')),
+    ownedPaths: wave.taskIds.map((taskId) => buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'workers', taskId, 'brief.md')),
     parallelismPolicy: wave.taskIds.length > 1 ? 'parallel' : 'sequential',
     reason: `${wave.name} work is isolated by worker output path`,
   }));
@@ -443,10 +445,10 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
     conflictGroups,
     artifactRoot,
     outputs: {
-      taskGraph: buildArtifactRelativePath(request.changeId, 'swarm', 'task-graph.json'),
-      waveManifests: waves.map((wave, index) => buildArtifactRelativePath(request.changeId, 'swarm', 'waves', `wave-${index + 1}-${wave.name}.json`)),
+      taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
+      waveManifests: waves.map((wave, index) => buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'waves', `wave-${index + 1}-${wave.name}.json`)),
       workerBriefs: tasks.map((task) => task.outputs[0]),
-      reducerReport: buildArtifactRelativePath(request.changeId, 'swarm', 'reducer-report.md'),
+      reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
     },
     gateStatus: {
       techApprovalRequired: requiresTechApproval,

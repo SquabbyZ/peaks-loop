@@ -9,13 +9,17 @@
 
 ## Hard gates
 
-- UT coverage must be >= 95% before implementation.
+- UT coverage must be >= 95% before refactor implementation.
 - Missing, unknown, unverifiable, or failing coverage blocks refactoring.
+- For non-refactor development in legacy repos with pre-existing low coverage, require focused unit-test coverage for new or changed code.
 - Coverage success only allows analysis and spec generation.
 - Broad refactors must be split into minimal functional slices.
 - Each slice needs a strict verifiable spec before implementation.
+- Existing `openspec/` repos require OpenSpec change artifacts before non-trivial implementation.
+- Each implemented slice must pass unit tests, code review, and security review before RD dry-run.
+- The post-check dry-run runs after tests, CR, and security review, not before them.
 - Each slice must pass 100% acceptance.
-- Code and intermediate artifacts must be committed before the next slice.
+- Code changes and intermediate artifacts must be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync artifacts only when explicitly authorized.
 
 ## Required artifacts
 
@@ -27,5 +31,9 @@
 - `risk-matrix.md`
 - `rollback-plan.md`
 - `slice-spec.md`
+- `openspec-change-paths.md` when OpenSpec is required
+- `code-review-report.md`
+- `security-review-report.md`
+- `post-check-dry-run.md`
 - `validation-report.md`
-- `commit-required.md`
+- `retention-boundary.md` documenting local `.peaks/<session-id>/` traceability and any explicitly authorized commit/sync requirement

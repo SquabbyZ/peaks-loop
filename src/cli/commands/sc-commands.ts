@@ -38,7 +38,7 @@ function registerSCArtifactCommands(sc: Command, io: ProgramIO): void {
     printResult(io, ok('sc.validate', validateArtifactRetention(options.sliceId)), options.json);
   });
 
-  addJsonOption(sc.command('boundary').description('Record commit boundary for a slice').requiredOption('--slice-id <id>', 'slice identifier').option('--artifact <path>', 'artifact path', multipleOption).option('--code <file>', 'code file path', multipleOption)).action((options: { sliceId: string; artifact?: string[]; code?: string[]; json?: boolean }) => {
+  addJsonOption(sc.command('boundary').description('Record retention boundary for a slice').requiredOption('--slice-id <id>', 'slice identifier').option('--artifact <path>', 'artifact path', multipleOption).option('--code <file>', 'code file path', multipleOption)).action((options: { sliceId: string; artifact?: string[]; code?: string[]; json?: boolean }) => {
     printResult(io, ok('sc.boundary', recordCommitBoundary({ sliceId: options.sliceId, ...(options.artifact ? { artifacts: options.artifact } : {}), ...(options.code ? { codeFiles: options.code } : {}) })), options.json);
   });
 }

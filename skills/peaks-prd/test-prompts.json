@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "Feishu 文档 https://ycnxyh21dov9.feishu.cn/wiki/QoXpwCwnDihatDkitVvcWuz1nvd?fromScene=spaceOverview 是产品文档，需要登录。目标是 /Users/yuanyuan/Desktop/work/platform-rag-web 前端项目，请从文档提取可以交给 RD 实现、QA 复测的前端改动点。",
+    "expected": "使用 gstack/browse/dist/browse 访问并在登录时 handoff；登录后只提取产品实现逻辑、页面/路由/组件/状态/API contract/mock 假设/验收标准/联调问题，输出 .peaks/<session-id>/prd/ 下的实现型 PRD handoff。"
+  },
+  {
+    "id": 2,
+    "prompt": "产品文档业务背景很多，但用户明确只要落实到前端开发和 QA 验收，不要长篇业务叙述。当前没有 swagger.json，需要先 mock。",
+    "expected": "压缩业务背景，只输出待联调态 frontend delta、mock/API contract、后续 swagger 替换清单、QA 浏览器验收路径和阻塞问题。"
+  }
+]

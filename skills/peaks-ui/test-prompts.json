@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "根据产品文档做前端页面迭代，要求全自动模式下设计不要模板化，要比普通 Tailwind/shadcn 默认页更好看。",
+    "expected": "Peaks UI 走 awesome-design-md + taste-skill/design-taste-frontend 的参考和品味链路，先定义风格方向、字体、色彩、动效、密度和交互状态，避免默认卡片栅格、居中 hero、AI 紫蓝渐变，并用浏览器可见检查迭代。"
+  },
+  {
+    "id": 2,
+    "prompt": "前端实现已经完成，但页面看起来像默认模板。",
+    "expected": "Peaks UI 产出 taste report，指出弱层级、模板感、交互状态缺失、响应式问题，并退回设计/RD 迭代后再 QA。"
+  }
+]

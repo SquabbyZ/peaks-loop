@@ -1,4 +1,5 @@
 import * as nodeFs from 'node:fs';
+import type { Stats } from 'node:fs';
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
@@ -41,23 +42,23 @@ describe('createTechPlan', () => {
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
-    expect(plan.artifactRoot).toBe('.peaks/changes/checkout-refactor/architecture');
+    expect(plan.artifactRoot).toBe('.peaks/checkout-refactor/rd/architecture');
     expect(plan.waves.map((wave) => wave.name)).toEqual(['scan', 'document', 'review', 'reducer']);
     expect(plan.tasks).toHaveLength(23);
-    expect(plan.outputs.taskGraph).toBe('.peaks/changes/checkout-refactor/architecture/tech-task-graph.json');
-    expect(plan.outputs.reviewChecklist).toBe('.peaks/changes/checkout-refactor/architecture/tech-review-checklist.md');
-    expect(plan.outputs.approvalTemplate).toBe('.peaks/changes/checkout-refactor/architecture/tech-approval-record.template.md');
+    expect(plan.outputs.taskGraph).toBe('.peaks/checkout-refactor/rd/architecture/tech-task-graph.json');
+    expect(plan.outputs.reviewChecklist).toBe('.peaks/checkout-refactor/rd/architecture/tech-review-checklist.md');
+    expect(plan.outputs.approvalTemplate).toBe('.peaks/checkout-refactor/rd/architecture/tech-approval-record.template.md');
 
     for (const task of plan.tasks) {
       expect(task.taskId).toMatch(/^tech-/);
       expect(task.workerKind.length).toBeGreaterThan(0);
       expect(task.purpose).toContain('Refactor checkout API');
       expect(task.inputs.length).toBeGreaterThan(0);
-      expect(task.outputs.every((output) => output.startsWith('.peaks/changes/checkout-refactor/architecture/'))).toBe(true);
+      expect(task.outputs.every((output) => output.startsWith('.peaks/checkout-refactor/rd/architecture/'))).toBe(true);
       expect(task.outputs.every((output) => !output.includes('\\'))).toBe(true);
       expect(task.conflictGroup.length).toBeGreaterThan(0);
       expect(Array.isArray(task.dependsOn)).toBe(true);
-      expect(task.briefPath).toBe(`.peaks/changes/checkout-refactor/architecture/workers/${task.taskId}/brief.md`);
+      expect(task.briefPath).toBe(`.peaks/checkout-refactor/rd/architecture/workers/${task.taskId}/brief.md`);
     }
   });
 
@@ -68,7 +69,7 @@ describe('createTechPlan', () => {
     if (plan.available) return;
     expect(plan.behavior).toBe('preview');
     expect(plan.reason).toContain('artifact-workspace-unavailable');
-    expect(plan.preview.artifactRoot).toBe('.peaks/changes/checkout-refactor/architecture');
+    expect(plan.preview.artifactRoot).toBe('.peaks/checkout-refactor/rd/architecture');
     expect(plan.nextActions.length).toBeGreaterThan(0);
   });
 
@@ -78,7 +79,7 @@ describe('createTechPlan', () => {
     expect(plan.available).toBe(false);
     if (plan.available) return;
     expect(plan.reason).toContain('artifact-workspace-unavailable');
-    expect(plan.preview.artifactRoot).toBe('.peaks/changes/checkout-refactor/architecture');
+    expect(plan.preview.artifactRoot).toBe('.peaks/checkout-refactor/rd/architecture');
   });
 
   test('validates artifact workspace against the selected workspace root', () => {
@@ -151,7 +152,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record is missing or unapproved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS.filter((artifact) => artifact !== 'tech-approval-record.md')) {
       writeFileSync(join(architectureRoot, artifact), 'ready', 'utf8');
@@ -169,7 +170,7 @@ describe('getTechStatus', () => {
 
   test('keeps explicit missing artifacts in blocked status', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'frontend-tech-doc.md'), 'ready', 'utf8');
     writeFileSync(join(architectureRoot, 'tech-approval-record.md'), 'looks good', 'utf8');
@@ -183,7 +184,7 @@ describe('getTechStatus', () => {
 
   test('blocks approved records when required artifacts are still missing', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'tech-approval-record.md'), 'status: approved', 'utf8');
 
@@ -196,7 +197,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record becomes unreadable after existence check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -205,11 +206,11 @@ describe('getTechStatus', () => {
     vi.resetModules();
     vi.doMock('node:fs', () => ({
       ...nodeFs,
-      readFileSync: (path: Parameters<typeof nodeFs.readFileSync>[0], options?: Parameters<typeof nodeFs.readFileSync>[1]) => {
+      openSync: (path: Parameters<typeof nodeFs.openSync>[0], flags: Parameters<typeof nodeFs.openSync>[1], mode?: Parameters<typeof nodeFs.openSync>[2]) => {
         if (String(path).endsWith('tech-approval-record.md')) {
           throw new Error('approval unreadable');
         }
-        return nodeFs.readFileSync(path, options);
+        return nodeFs.openSync(path, flags, mode);
       }
     }));
     try {
@@ -226,7 +227,7 @@ describe('getTechStatus', () => {
 
   test('blocks when architecture root validation throws', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
 
     vi.resetModules();
@@ -254,11 +255,30 @@ describe('getTechStatus', () => {
 
   test('blocks when architecture root resolves outside the artifact workspace', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const changeRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor');
+    const rdRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-root-'));
-    mkdirSync(join(artifactWorkspace, '.peaks', 'changes'), { recursive: true });
+    mkdirSync(join(artifactWorkspace, '.peaks', 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
-    symlinkSync(outsideRoot, changeRoot, 'junction');
+    symlinkSync(outsideRoot, rdRoot, 'junction');
+    for (const artifact of TECH_REQUIRED_ARTIFACTS) {
+      writeFileSync(join(outsideRoot, 'architecture', artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
+    }
+
+    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+
+    expect(status.status).toBe('blocked');
+    expect(status.missingArtifacts).toEqual(TECH_REQUIRED_ARTIFACTS);
+    expect(status.approvalRecord).toBeNull();
+    expect(status.blockedReasons).toContain('tech-artifacts-missing');
+  });
+
+  test('blocks when rd root is a symbolic link', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const rdRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-rd-link-'));
+    mkdirSync(join(artifactWorkspace, '.peaks', 'checkout-refactor'), { recursive: true });
+    mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
+    symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(outsideRoot, 'architecture', artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
@@ -273,7 +293,7 @@ describe('getTechStatus', () => {
 
   test('blocks when a required artifact resolves outside the architecture root', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-artifact-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -294,7 +314,7 @@ describe('getTechStatus', () => {
 
   test('treats required artifact directories as missing artifacts', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       if (artifact === 'frontend-tech-doc.md') {
@@ -311,9 +331,44 @@ describe('getTechStatus', () => {
     expect(status.blockedReasons).toContain('tech-artifacts-missing');
   });
 
+  test('blocks when approval record identity changes after opening', async () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'approval-identity-change', 'rd', 'architecture');
+    mkdirSync(architectureRoot, { recursive: true });
+    for (const artifact of TECH_REQUIRED_ARTIFACTS) {
+      writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
+    }
+
+    vi.resetModules();
+    let approvalPath = '';
+    vi.doMock('node:fs', () => ({
+      ...nodeFs,
+      openSync: (path: Parameters<typeof nodeFs.openSync>[0], flags: Parameters<typeof nodeFs.openSync>[1], mode?: Parameters<typeof nodeFs.openSync>[2]) => {
+        if (String(path).endsWith('tech-approval-record.md')) {
+          approvalPath = String(path);
+        }
+        return nodeFs.openSync(path, flags, mode);
+      },
+      statSync: (path: Parameters<typeof nodeFs.statSync>[0], options?: Parameters<typeof nodeFs.statSync>[1]) => {
+        const actualStat = nodeFs.statSync(path, options) as Stats;
+        return String(path) === approvalPath ? { ...actualStat, ino: actualStat.ino + 1 } as Stats : actualStat;
+      }
+    }));
+    try {
+      const mockedTechService = await import('../../src/services/tech/tech-service.js');
+      const status = mockedTechService.getTechStatus({ changeId: 'approval-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
+
+      expect(status.status).toBe('blocked');
+      expect(status.blockedReasons).toContain('tech-approval-unreadable');
+    } finally {
+      vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
+  });
+
   test('blocks when approval record resolves outside the architecture root', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-approval-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -334,7 +389,7 @@ describe('getTechStatus', () => {
 
   test('treats artifact validation errors as missing artifacts', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -365,7 +420,7 @@ describe('getTechStatus', () => {
 
   test('treats artifact realpath escape as a missing artifact', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-realpath-outside-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -397,7 +452,7 @@ describe('getTechStatus', () => {
 
   test('returns approved only with canonical approval marker', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'changes', 'checkout-refactor', 'architecture');
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -406,7 +461,7 @@ describe('getTechStatus', () => {
     const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('approved');
-    expect(status.approvalRecord).toBe('.peaks/changes/checkout-refactor/architecture/tech-approval-record.md');
+    expect(status.approvalRecord).toBe('.peaks/checkout-refactor/rd/architecture/tech-approval-record.md');
     expect(status.blockedReasons).toEqual([]);
   });
 });

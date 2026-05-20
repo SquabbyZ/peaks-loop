@@ -12,7 +12,8 @@ Peaks TXT compresses workflow context into portable, role-specific artifacts.
 - generate context capsules;
 - slice context for PRD, RD, QA, UI, and SC consumers;
 - record decisions, assumptions, discarded options, and staleness conditions;
-- archive lessons from refactor slices.
+- archive lessons from refactor slices;
+- capture reusable Peaks skill usage habits and workflow lessons for future sessions.
 
 ## Refactor role
 
@@ -29,6 +30,20 @@ Use gstack as a concrete context and reflection workflow reference for the `Refl
 - map `/retro` summaries to Peaks lessons, discarded options, and staleness conditions;
 - map documentation-release ideas to compact downstream context for PRD, RD, QA, UI, and SC;
 - keep durable memory writes behind Peaks memory extraction and user-approved persistence.
+
+## Skill-usage learning capture
+
+When a Peaks workflow reveals a reusable skill usage habit, orchestration preference, artifact convention, browser/login rule, or repeated failure mode, capture it through Peaks TXT before the session ends.
+
+Default output path: `.peaks/<session-id>/txt/skill-usage-lessons.md` or the Peaks CLI-provided local artifact workspace. Keep this local by default and do not commit or sync it unless the user or active profile explicitly authorizes persistence.
+
+Each entry should include:
+
+- lesson or rule;
+- why it exists;
+- affected skills;
+- how future PRD/RD/UI/QA/SC/Solo workflows should apply it;
+- whether it is stable enough for `.claude/memory` extraction.
 
 ## Project memory guidance
 

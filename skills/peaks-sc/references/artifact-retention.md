@@ -1,6 +1,6 @@
 # Artifact Retention
 
-Each refactor slice must retain code and intermediate artifacts together.
+Each refactor slice must retain code and intermediate artifacts together, but the default retention target is local `.peaks/<session-id>/` storage rather than git.
 
 ## Required retained artifacts
 
@@ -9,6 +9,6 @@ Each refactor slice must retain code and intermediate artifacts together.
 - QA coverage and validation reports;
 - TXT context capsule and lessons;
 - SC change impact and sync state;
-- commit boundary report.
+- retention-boundary report, including commit details only when commits were explicitly authorized.
 
-The next slice cannot start until code and intermediate artifacts are committed or the user explicitly stops the run.
+The next slice cannot start until code changes and intermediate artifacts are traceable in local `.peaks/<session-id>/` storage. Commit or sync those artifacts only after explicit user confirmation or an active profile that clearly authorizes git/external retention.

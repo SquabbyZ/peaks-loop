@@ -103,19 +103,19 @@ describe('isUnsafePathInput', () => {
 });
 
 describe('buildArtifactRelativePath', () => {
-  test('generates artifact-relative path with single segment', () => {
-    const result = buildArtifactRelativePath('checkout-refactor', 'architecture');
-    expect(result).toBe('.peaks/changes/checkout-refactor/architecture');
+  test('generates artifact-relative path with role segment', () => {
+    const result = buildArtifactRelativePath('checkout-refactor', 'rd', 'architecture');
+    expect(result).toBe('.peaks/checkout-refactor/rd/architecture');
   });
 
-  test('generates artifact-relative path with nested segments', () => {
-    const result = buildArtifactRelativePath('my-change', 'swarm', 'workers', 'rd-impl-001');
-    expect(result).toBe('.peaks/changes/my-change/swarm/workers/rd-impl-001');
+  test('generates artifact-relative path with nested role-scoped segments', () => {
+    const result = buildArtifactRelativePath('my-change', 'rd', 'swarm', 'workers', 'rd-impl-001');
+    expect(result).toBe('.peaks/my-change/rd/swarm/workers/rd-impl-001');
   });
 
   test('normalizes backslashes to forward slashes', () => {
-    const result = buildArtifactRelativePath('my-change', 'wave-1\\discovery');
-    expect(result).toBe('.peaks/changes/my-change/wave-1/discovery');
+    const result = buildArtifactRelativePath('my-change', 'rd', 'waves\\wave-1-discovery');
+    expect(result).toBe('.peaks/my-change/rd/waves/wave-1-discovery');
   });
 
   test('rejects unsafe segments', () => {
@@ -133,31 +133,31 @@ describe('buildArtifactRelativePath', () => {
 
 describe('isPathInsideArtifactRoot', () => {
   test('returns true for path inside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/my-change/swarm/task-graph.json', '.peaks/changes/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/my-change/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(true);
   });
 
   test('returns true for artifact root itself', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/my-change', '.peaks/changes/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/my-change', '.peaks/my-change')).toBe(true);
   });
 
   test('returns false for sibling-prefix path outside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/my-change-evil/swarm/task-graph.json', '.peaks/changes/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/my-change-evil/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(false);
   });
 
   test('returns false for path outside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/other-change/swarm/task-graph.json', '.peaks/changes/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/other-change/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(false);
   });
 
   test('normalizes backslashes on Windows', () => {
-    expect(isPathInsideArtifactRoot('.peaks\\changes\\my-change\\swarm', '.peaks/changes/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks\\my-change\\rd\\swarm', '.peaks/my-change')).toBe(true);
   });
 
   test('handles trailing slashes consistently', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/my-change/', '.peaks/changes/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/my-change/', '.peaks/my-change')).toBe(true);
   });
 
   test('rejects traversal that escapes the root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/changes/my-change/../other-change/swarm', '.peaks/changes/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/my-change/../other-change/rd/swarm', '.peaks/my-change')).toBe(false);
   });
 
   test('returns false for empty normalized paths', () => {
@@ -198,7 +198,7 @@ describe('isUnsafeArtifactPath', () => {
   });
 
   test('returns false for safe artifact paths', () => {
-    expect(isUnsafeArtifactPath('.peaks/changes/my-change/swarm/task-graph.json')).toBe(false);
-    expect(isUnsafeArtifactPath('swarm/workers/rd-impl-001')).toBe(false);
+    expect(isUnsafeArtifactPath('.peaks/my-change/rd/swarm/task-graph.json')).toBe(false);
+    expect(isUnsafeArtifactPath('rd/swarm/workers/rd-impl-001')).toBe(false);
   });
 });

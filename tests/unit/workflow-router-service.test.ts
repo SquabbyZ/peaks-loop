@@ -18,7 +18,7 @@ function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig
     artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace }
   };
   const workspaceArtifactPath = getLocalArtifactPath(workspace);
-  const architectureRoot = join(workspaceArtifactPath, '.peaks', 'changes', changeId, 'architecture');
+  const architectureRoot = join(workspaceArtifactPath, '.peaks', changeId, 'rd', 'architecture');
   mkdirSync(join(workspaceArtifactPath, '.peaks'), { recursive: true });
   mkdirSync(architectureRoot, { recursive: true });
   writeFileSync(join(workspaceArtifactPath, '.peaks', 'config.json'), '{}', 'utf8');

@@ -377,10 +377,10 @@ function createGoalCommand(goalPackage: AutonomousGoalPackage): AutonomousGoalCo
 function getResumeRequiredArtifacts(changeId: string): string[] {
   return [
     buildArtifactRelativePath(changeId, 'prd', 'autonomous-goal-package.json'),
-    buildArtifactRelativePath(changeId, 'swarm', 'autonomous-rd-plan.json'),
-    buildArtifactRelativePath(changeId, 'swarm', 'checkpoints', 'checkpoint-1.json'),
-    buildArtifactRelativePath(changeId, 'swarm', 'evidence', 'validation-report.md'),
-    buildArtifactRelativePath(changeId, 'swarm', 'resume-instructions.md')
+    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'autonomous-rd-plan.json'),
+    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'),
+    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'),
+    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'resume-instructions.md')
   ];
 }
 
@@ -417,8 +417,31 @@ function readResumeArtifact(artifactWorkspacePath: string, artifact: string): st
       return null;
     }
 
+    const pathSegments = artifact.replace(/\\/g, '/').split('/');
+    if (pathSegments.length < 4 || pathSegments[0] !== '.peaks') {
+      return null;
+    }
+    const sessionRootPath = resolve(artifactWorkspacePath, '.peaks', pathSegments[1]!);
+    const roleRootPath = resolve(sessionRootPath, pathSegments[2]!);
+    if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(roleRootPath).isSymbolicLink()) {
+      return null;
+    }
+
+    let allowedRootRealPath: string;
+    if (pathSegments[2] === 'rd') {
+      const swarmRootPath = resolve(roleRootPath, 'swarm');
+      if (pathSegments[3] !== 'swarm' || lstatSync(swarmRootPath).isSymbolicLink()) {
+        return null;
+      }
+      allowedRootRealPath = realpathSync(swarmRootPath);
+    } else if (pathSegments[2] === 'prd') {
+      allowedRootRealPath = realpathSync(roleRootPath);
+    } else {
+      return null;
+    }
+
     const artifactRealPath = realpathSync(artifactPath);
-    if (!isInsidePath(artifactRealPath, artifactWorkspaceRealPath)) {
+    if (!isInsidePath(allowedRootRealPath, artifactWorkspaceRealPath) || !isInsidePath(artifactRealPath, allowedRootRealPath)) {
       return null;
     }
 
@@ -568,7 +591,7 @@ function isSafeEvidenceRef(ref: string): boolean {
 }
 
 function evidenceRefsExist(artifactWorkspacePath: string, changeId: string, refs: readonly string[]): boolean {
-  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'swarm', 'evidence', ref)) !== null);
+  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', ref)) !== null);
 }
 
 function hasMatchingEvidenceRefs(artifactWorkspacePath: string, changeId: string, validationReportContent: string, checkpointContent: string): boolean {
@@ -616,8 +639,8 @@ function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifac
     }
   }
 
-  const checkpointContent = artifactContents.get(buildArtifactRelativePath(changeId, 'swarm', 'checkpoints', 'checkpoint-1.json'));
-  const validationReportContent = artifactContents.get(buildArtifactRelativePath(changeId, 'swarm', 'evidence', 'validation-report.md'));
+  const checkpointContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'));
+  const validationReportContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'));
   if (!checkpointContent || !validationReportContent || !hasMatchingEvidenceRefs(artifactWorkspacePath, changeId, validationReportContent, checkpointContent)) {
     hasInvalidArtifact = true;
   }

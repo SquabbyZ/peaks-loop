@@ -22,6 +22,8 @@
     "scripts/install-skills.mjs",
     "scripts/watch.mjs",
     "skills/**",
+    "!skills/**/test-prompts.json",
+    "!skills/**/.DS_Store",
     "output-styles/**",
     "schemas/*.json"
   ],

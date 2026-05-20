@@ -11,13 +11,13 @@ Peaks SC records how product, RD, QA, code, and artifacts move together.
 
 - produce change-impact artifacts;
 - record commit boundaries;
-- ensure intermediate artifacts are retained with code changes;
-- track artifact repository pointers;
+- ensure intermediate artifacts are retained locally first;
+- track artifact repository pointers when external sync or git retention is explicitly authorized;
 - record sync state and rollback points.
 
 ## Refactor role
 
-Each refactor slice must leave a traceable commit boundary containing code changes and PRD/RD/QA/TXT intermediate artifacts.
+Each refactor slice must leave a traceable local artifact boundary in `.peaks/<session-id>/` by default. A git commit boundary containing code changes and PRD/RD/QA/TXT intermediate artifacts is required only when the user or active profile explicitly authorizes committing artifacts.
 
 ## GStack integration
 

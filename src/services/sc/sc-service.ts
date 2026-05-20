@@ -34,7 +34,8 @@ export type ArtifactRetentionReport = {
   coverageArtifacts: string[];
   reviewArtifacts: string[];
   codeChanges: string[];
-  commitStatus: 'committed' | 'pending' | 'rolled-back';
+  retentionStatus: 'local-ready' | 'pending' | 'explicitly-committed' | 'rolled-back';
+  commitHash: string | null;
   rollbackPoint: string | null;
 };
 
@@ -62,18 +63,22 @@ export type CommitBoundary = {
 };
 
 const REQUIRED_ARTIFACTS = [
-  { name: 'artifact-retention-report.md', path: ['qa', 'artifact-retention-report.md'] },
+  { name: 'retention-boundary.md', path: ['sc', 'retention-boundary.md'] },
   { name: 'change-impact.json', path: ['sc', 'change-impact.json'] },
-  { name: 'commit-boundary.md', path: ['checkpoints', 'commit-boundary.md'] },
-  { name: 'coverage-report.md', path: ['qa', 'coverage-report.md'] }
+  { name: 'coverage-report.md', path: ['rd', 'coverage-report.md'] }
 ] as const;
 
 const RETENTION_REQUIREMENTS = [
-  ['product', 'prd.md'],
-  ['architecture', 'slice-spec.md'],
+  ['prd', 'refactor-goal.md'],
+  ['rd', 'slice-spec.md'],
+  ['rd', 'coverage-report.md'],
+  ['rd', 'code-review-report.md'],
+  ['rd', 'security-review-report.md'],
+  ['rd', 'post-check-dry-run.md'],
   ['qa', 'validation-report.md'],
-  ['qa', 'coverage-report.md'],
-  ['review', 'code-review.md']
+  ['sc', 'change-impact.json'],
+  ['sc', 'retention-boundary.md'],
+  ['txt', 'context-capsule.md']
 ] as const;
 
 const SLICE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
@@ -89,12 +94,15 @@ function resolveCurrentChangeId(peaksPath: string): string | null {
   try {
     const stat = lstatSync(currentChangePath);
     if (stat.isSymbolicLink()) {
-      return basename(realpathSync(currentChangePath));
+      const targetPath = realpathSync(currentChangePath);
+      if (!isInsidePath(targetPath, realpathSync(peaksPath))) return null;
+      const targetId = basename(targetPath);
+      return SLICE_ID_PATTERN.test(targetId) ? targetId : null;
     }
 
     const raw = readFileSync(currentChangePath, 'utf-8').trim();
-    if (!raw) return null;
-    return basename(raw);
+    if (!raw || !SLICE_ID_PATTERN.test(raw)) return null;
+    return raw;
   } catch {
     return null;
   }
@@ -127,11 +135,11 @@ function mapSyncState(syncStatus: 'synced' | 'pending' | 'out-of-sync' | 'unknow
 function getCurrentArtifactDir(artifactWorkspacePath: string): { peaksPath: string; changeId: string | null; changeDir: string } {
   const peaksPath = getPeaksPath(artifactWorkspacePath);
   const changeId = resolveCurrentChangeId(peaksPath);
-  const effectiveChangeId = changeId ?? 'unknown-change';
+  const effectiveChangeId = changeId ?? 'unknown-session';
   return {
     peaksPath,
     changeId,
-    changeDir: resolve(peaksPath, 'changes', effectiveChangeId)
+    changeDir: resolve(peaksPath, effectiveChangeId)
   };
 }
 
@@ -140,7 +148,7 @@ function getRetentionChangeDir(artifactWorkspacePath: string, sliceId: string): 
   return {
     peaksPath,
     changeId: sliceId,
-    changeDir: resolve(peaksPath, 'changes', sliceId)
+    changeDir: resolve(peaksPath, sliceId)
   };
 }
 
@@ -152,7 +160,9 @@ function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string,
     const changesRootRealPath = realpathSync(changesRoot);
     const changeDirRealPath = realpathSync(changeDir);
     const fileRealPath = realpathSync(filePath);
-    return isInsidePath(changesRootRealPath, artifactWorkspaceRealPath)
+    return !lstatSync(changesRoot).isSymbolicLink()
+      && !lstatSync(changeDir).isSymbolicLink()
+      && isInsidePath(changesRootRealPath, artifactWorkspaceRealPath)
       && isInsidePath(changeDirRealPath, changesRootRealPath)
       && isInsidePath(fileRealPath, changeDirRealPath);
   } catch {
@@ -172,7 +182,7 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
       localArtifactPath: '.peaks-artifacts',
       requiredArtifacts: REQUIRED_ARTIFACTS.map((artifact) => ({
         name: artifact.name,
-        path: resolve('.peaks', 'changes', '<change-id>', ...artifact.path),
+        path: resolve('.peaks', '<session-id>', ...artifact.path),
         exists: false
       })),
       nextActions: ['Add a workspace: peaks config workspace add --id <id> --name <name> --path <path>']
@@ -183,12 +193,13 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
   const { peaksPath, changeId, changeDir } = getCurrentArtifactDir(artifactWorkspacePath);
   const artifactRepo = getArtifactRemoteRepo(workspace);
   const hasArtifactRepo = Boolean(artifactRepo);
+  const changesRoot = peaksPath;
   const requiredArtifacts = REQUIRED_ARTIFACTS.map((artifact) => {
     const artifactPath = resolve(changeDir, ...artifact.path);
     return {
       name: artifact.name,
-      path: resolve(peaksPath, 'changes', changeId ?? '<change-id>', ...artifact.path),
-      exists: existsSync(artifactPath)
+      path: resolve(peaksPath, changeId ?? '<session-id>', ...artifact.path),
+      exists: isRetainedArtifactFile(artifactPath, artifactWorkspacePath, changesRoot, changeDir)
     };
   });
 
@@ -258,7 +269,8 @@ export function createArtifactRetentionReport(options: {
     coverageArtifacts: options.coverageArtifacts ?? [],
     reviewArtifacts: options.reviewArtifacts ?? [],
     codeChanges: options.codeChanges ?? [],
-    commitStatus: 'pending',
+    retentionStatus: 'pending',
+    commitHash: null,
     rollbackPoint: null
   };
 }
@@ -301,13 +313,13 @@ export function validateArtifactRetention(sliceId: string): {
     return {
       valid: false,
       missingArtifacts: ['Invalid slice id'],
-      warnings: ['Slice id must stay inside .peaks/changes and only contain letters, numbers, dots, underscores, or hyphens']
+      warnings: ['Slice id must stay inside .peaks/<session-id> and only contain letters, numbers, dots, underscores, or hyphens']
     };
   }
 
   const artifactWorkspacePath = getLocalArtifactPath(workspace);
   const { peaksPath, changeDir } = getRetentionChangeDir(artifactWorkspacePath, sliceId);
-  const changesRoot = resolve(peaksPath, 'changes');
+  const changesRoot = peaksPath;
   const missingArtifacts = RETENTION_REQUIREMENTS
     .map(([folder, file]) => resolve(changeDir, folder, file))
     .filter((filePath) => !isRetainedArtifactFile(filePath, artifactWorkspacePath, changesRoot, changeDir))
@@ -326,12 +338,12 @@ export function getScHelpText(): string[] {
     'peaks sc impact --change-id <id>         Generate change impact artifact',
     'peaks sc retention --slice-id <id>        Create artifact retention report',
     'peaks sc validate --slice-id <id>         Validate artifact retention',
-    'peaks sc boundary --slice-id <id>         Record commit boundary for slice',
+    'peaks sc boundary --slice-id <id>         Record retention boundary for slice',
     '',
     'Change traceability workflow integration:',
     '  1. Run peaks sc status to check current state',
     '  2. After slice completion, run peaks sc retention --slice-id <id>',
-    '  3. Artifact sync is automatic when artifact repo is configured',
-    '  4. Commit boundary is recorded when code is committed'
+    '  3. Keep artifacts local in .peaks/<session-id>/ by default',
+    '  4. Commit or sync artifacts only after explicit authorization'
   ];
 }

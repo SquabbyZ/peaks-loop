@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, fstatSync, lstatSync, openSync, readSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isInsidePath, stableRealPath } from '../../shared/path-utils.js';
 import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared/change-id.js';
@@ -107,7 +107,7 @@ function assertNonEmptyGoal(goal: string): void {
 }
 
 function architectureRoot(changeId: string): string {
-  return buildArtifactRelativePath(changeId, 'architecture');
+  return buildArtifactRelativePath(changeId, 'rd', 'architecture');
 }
 
 function hasPlannerArtifactWorkspace(artifactWorkspacePath: string, workspace?: WorkspaceConfig): boolean {
@@ -120,9 +120,59 @@ function isEscapedArchitectureRoot(rootPath: string, artifactWorkspacePath: stri
   }
 
   try {
-    return !isInsidePath(stableRealPath(rootPath), stableRealPath(artifactWorkspacePath));
+    const rdRootPath = resolve(rootPath, '..');
+    const sessionRootPath = resolve(rdRootPath, '..');
+    return lstatSync(sessionRootPath).isSymbolicLink()
+      || lstatSync(rdRootPath).isSymbolicLink()
+      || lstatSync(rootPath).isSymbolicLink()
+      || !isInsidePath(stableRealPath(rootPath), stableRealPath(artifactWorkspacePath));
   } catch {
     return true;
+  }
+}
+
+const MAX_TECH_ARTIFACT_BYTES = 256_000;
+
+function readTechArtifactFile(rootPath: string, artifact: string): string | null {
+  const artifactPath = resolve(rootPath, artifact);
+  try {
+    const rootRealPath = stableRealPath(rootPath);
+    const artifactStat = lstatSync(artifactPath);
+    if (artifactStat.isSymbolicLink() || !artifactStat.isFile() || artifactStat.size > MAX_TECH_ARTIFACT_BYTES) {
+      return null;
+    }
+    if (!isInsidePath(stableRealPath(artifactPath), rootRealPath)) {
+      return null;
+    }
+
+    const fd = openSync(artifactPath, 'r');
+    try {
+      const openedStat = fstatSync(fd);
+      const currentStat = statSync(artifactPath);
+      if (!openedStat.isFile() || openedStat.size > MAX_TECH_ARTIFACT_BYTES || openedStat.dev !== artifactStat.dev || openedStat.ino !== artifactStat.ino || openedStat.dev !== currentStat.dev || openedStat.ino !== currentStat.ino) {
+        return null;
+      }
+
+      const buffer = Buffer.alloc(openedStat.size);
+      let offset = 0;
+      while (offset < openedStat.size) {
+        const bytesRead = readSync(fd, buffer, offset, openedStat.size - offset, offset);
+        if (bytesRead === 0) {
+          return null;
+        }
+        offset += bytesRead;
+      }
+
+      const finalStat = fstatSync(fd);
+      if (finalStat.dev !== openedStat.dev || finalStat.ino !== openedStat.ino) {
+        return null;
+      }
+      return buffer.toString('utf8');
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    return null;
   }
 }
 
@@ -140,7 +190,7 @@ function isValidArtifactFile(rootPath: string, artifact: string): boolean {
 }
 
 function waveManifestPath(changeId: string, index: number, wave: TechWaveName): string {
-  return buildArtifactRelativePath(changeId, 'architecture', 'waves', `wave-${index + 1}-${wave}.json`);
+  return buildArtifactRelativePath(changeId, 'rd', 'architecture', 'waves', `wave-${index + 1}-${wave}.json`);
 }
 
 function taskPurpose(taskId: string, goal: string): string {
@@ -164,7 +214,7 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
         : wave.name === 'review'
           ? [...documentTaskIds]
           : [...reviewTaskIds];
-    const briefPath = buildArtifactRelativePath(request.changeId, 'architecture', 'workers', taskId, 'brief.md');
+    const briefPath = buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'workers', taskId, 'brief.md');
     return {
       taskId,
       wave: wave.name,
@@ -187,10 +237,10 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
     waves,
     tasks,
     outputs: {
-      taskGraph: buildArtifactRelativePath(request.changeId, 'architecture', 'tech-task-graph.json'),
+      taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-task-graph.json'),
       waveManifests: waves.map((wave, index) => waveManifestPath(request.changeId, index, wave.name)),
-      reviewChecklist: buildArtifactRelativePath(request.changeId, 'architecture', 'tech-review-checklist.md'),
-      approvalTemplate: buildArtifactRelativePath(request.changeId, 'architecture', 'tech-approval-record.template.md'),
+      reviewChecklist: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-review-checklist.md'),
+      approvalTemplate: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-approval-record.template.md'),
     },
     blockedReasons: [],
     nextActions: [],
@@ -246,8 +296,8 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
     };
   }
 
-  const rootPath = resolve(options.artifactWorkspacePath, '.peaks', 'changes', options.changeId, 'architecture');
-  const approvalRecord = buildArtifactRelativePath(options.changeId, 'architecture', 'tech-approval-record.md');
+  const rootPath = resolve(options.artifactWorkspacePath, '.peaks', options.changeId, 'rd', 'architecture');
+  const approvalRecord = buildArtifactRelativePath(options.changeId, 'rd', 'architecture', 'tech-approval-record.md');
   if (isEscapedArchitectureRoot(rootPath, options.artifactWorkspacePath)) {
     return {
       changeId: options.changeId,
@@ -290,10 +340,8 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
   }
 
 
-  let approvalContent: string;
-  try {
-    approvalContent = readFileSync(join(rootPath, 'tech-approval-record.md'), 'utf8');
-  } catch {
+  const approvalContent = readTechArtifactFile(rootPath, 'tech-approval-record.md');
+  if (approvalContent === null) {
     return {
       changeId: options.changeId,
       status: 'blocked',
