@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => configTestHome };
 });
 
-import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, getConfig, getMiniMaxProviderConfig, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
+import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, getConfig, getMiniMaxProviderConfig, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, resolveProjectRootForConfig, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
 
 // Test helper path parsing logic directly
 // The actual config service uses these functions internally
@@ -382,6 +382,32 @@ describe('secret config handling', () => {
     expect(config.currentWorkspace === null || typeof config.currentWorkspace === 'string' || config.currentWorkspace === undefined).toBe(true);
   });
 
+  test('rejects user config writes when config.json is hardlinked', () => {
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    const outsideConfigPath = join(outsideRoot, 'config.json');
+    const configPath = join(configTestHome, '.peaks', 'config.json');
+    mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
+    writeFileSync(outsideConfigPath, '{}', 'utf8');
+    if (existsSync(configPath)) unlinkSync(configPath);
+    linkSync(outsideConfigPath, configPath);
+
+    expect(() => writeConfig({ language: 'zh-CN' }, 'user')).toThrow('Config path must not be hardlinked');
+    expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+  });
+
+  test('rejects user config writes when config.json is a symlink', () => {
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    const outsideConfigPath = join(outsideRoot, 'config.json');
+    const configPath = join(configTestHome, '.peaks', 'config.json');
+    mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
+    writeFileSync(outsideConfigPath, '{}', 'utf8');
+    if (existsSync(configPath)) unlinkSync(configPath);
+    symlinkSync(outsideConfigPath, configPath);
+
+    expect(() => setConfig({ key: 'language', value: 'zh-CN' })).toThrow('User config path must stay inside the user root');
+    expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+  });
+
   test('rejects MiniMax provider updates when an existing stored URL is invalid', () => {
     writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ providers: { minimax: { baseUrl: 'https://example.com/anthropic' } } }), 'utf8');
     expect(() => setMiniMaxProviderConfig({ apiKey: 'secret' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
@@ -416,6 +442,26 @@ describe('project config discovery', () => {
       expect(getConfig()).toMatchObject({ language: 'zh' });
     } finally {
       cwdSpy.mockRestore();
+    }
+  });
+
+  test('does not treat the user home .peaks config as a project config through a symlinked home path', () => {
+    const realHomeRoot = mkdtempSync(join(tmpdir(), 'peaks-real-home-'));
+    const linkedHomeRoot = join(tmpdir(), `peaks-linked-home-${Date.now()}`);
+    symlinkSync(realHomeRoot, linkedHomeRoot, 'junction');
+    mkdirSync(join(realHomeRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(realHomeRoot, '.peaks', 'config.json'), JSON.stringify({ language: 'zh-CN' }), 'utf8');
+
+    const originalHome = process.env.HOME;
+    process.env.HOME = linkedHomeRoot;
+    try {
+      expect(resolveProjectRootForConfig(join(realHomeRoot, 'nested'))).toBe(join(realHomeRoot, 'nested'));
+    } finally {
+      if (originalHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = originalHome;
+      }
     }
   });
 
@@ -483,6 +529,18 @@ describe('project config discovery', () => {
 
     expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Project config path must stay inside the project root');
     expect(existsSync(join(outsideRoot, 'language'))).toBe(false);
+  });
+
+  test('rejects bootstrap when project config is hardlinked', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    const outsideConfigPath = join(outsideRoot, 'config.json');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(outsideConfigPath, '{}', 'utf8');
+    linkSync(outsideConfigPath, join(projectRoot, '.peaks', 'config.json'));
+
+    expect(() => bootstrapProjectLanguageConfig(projectRoot, 'zh-CN')).toThrow('Config path must not be hardlinked');
+    expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
   });
 
   test('keeps existing project language when bootstrap runs again', () => {

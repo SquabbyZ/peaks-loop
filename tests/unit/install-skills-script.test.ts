@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 type InstallBundledSkills = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
 type InstallBundledOutputStyles = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
-type InstallConfig = (options?: { projectRoot?: string; userRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
+type InstallConfig = (options?: { packageRoot?: string; projectRoot?: string; userRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
 
 const scriptUrl = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
 const { installBundledSkills, installBundledOutputStyles, installProjectConfig, installUserConfig } = (await import(scriptUrl)) as {
@@ -42,8 +42,9 @@ afterEach(() => {
   }
 });
 
-function createPackageRoot(skillNames: string[], outputStyleNames: string[] = []) {
+function createPackageRoot(skillNames: string[], outputStyleNames: string[] = [], version = '9.8.7') {
   const packageRoot = mkdtempSync(join(tmpdir(), 'peaks-package-'));
+  writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ version }), 'utf8');
 
   for (const skillName of skillNames) {
     const skillRoot = join(packageRoot, 'skills', skillName);
@@ -196,13 +197,14 @@ describe('install skills script', () => {
 
   test('creates user config during install', async () => {
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const packageRoot = createPackageRoot([]);
 
-    const result = installUserConfig({ userRoot });
+    const result = installUserConfig({ userRoot, packageRoot });
 
     await expect(readFile(join(userRoot, '.peaks', 'config.json'), 'utf8')).resolves.toBe(
       `${JSON.stringify(
         {
-          version: '0.1.0',
+          version: '9.8.7',
           currentWorkspace: null,
           workspaces: [],
           language: 'en',
@@ -224,18 +226,19 @@ describe('install skills script', () => {
     expect(result).toEqual({ created: true, updated: false, skipped: false });
   });
 
-  test('adds new user config defaults without overwriting existing values', async () => {
+  test('adds new user config defaults and updates version without overwriting existing values', async () => {
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const packageRoot = createPackageRoot([], [], '9.8.8');
     const configPath = join(userRoot, '.peaks', 'config.json');
     mkdirSync(join(userRoot, '.peaks'), { recursive: true });
-    writeFileSync(configPath, JSON.stringify({ language: 'zh-CN', economyMode: false }, null, 2), 'utf8');
+    writeFileSync(configPath, JSON.stringify({ version: '1.0.0', language: 'zh-CN', economyMode: false }, null, 2), 'utf8');
 
-    const result = installUserConfig({ userRoot });
+    const result = installUserConfig({ userRoot, packageRoot });
 
     await expect(readFile(configPath, 'utf8').then(JSON.parse)).resolves.toEqual({
+      version: '9.8.8',
       language: 'zh-CN',
       economyMode: false,
-      version: '0.1.0',
       currentWorkspace: null,
       workspaces: [],
       model: 'sonnet',

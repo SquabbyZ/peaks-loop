@@ -38,9 +38,23 @@ function createInstallResult() {
   return { installed: [], skipped: [] };
 }
 
-const PROJECT_CONFIG_DEFAULTS = {
-  version: '0.1.0',
-  currentWorkspace: null,
+function resolvePackageRoot(options = {}) {
+  return resolve(options.packageRoot ?? join(dirname(fileURLToPath(import.meta.url)), '..'));
+}
+
+function readPackageVersion(packageRoot = resolvePackageRoot()) {
+  const packageJson = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
+  if (typeof packageJson.version !== 'string' || packageJson.version.length === 0) {
+    throw new Error('package.json version must be a non-empty string');
+  }
+
+  return packageJson.version;
+}
+
+function createConfigDefaults(packageRoot) {
+  return {
+    version: readPackageVersion(packageRoot),
+    currentWorkspace: null,
   workspaces: [],
   language: 'en',
   model: 'sonnet',
@@ -52,8 +66,9 @@ const PROJECT_CONFIG_DEFAULTS = {
       model: 'minimax-2.7'
     }
   },
-  proxy: {}
-};
+    proxy: {}
+  };
+}
 
 function createConfigResult(overrides = {}) {
   return { created: false, updated: false, skipped: false, ...overrides };
@@ -174,9 +189,9 @@ function resolveProjectRoot(options) {
   return projectRoot ? resolve(projectRoot) : null;
 }
 
-function writeMergedConfig(configPath, label, writeConfig) {
+function writeMergedConfig(configPath, label, defaults, writeConfig) {
   const existing = readConfigFile(configPath, label);
-  const next = existing === null ? PROJECT_CONFIG_DEFAULTS : mergeMissingConfigValues(existing, PROJECT_CONFIG_DEFAULTS);
+  const next = { ...(existing === null ? defaults : mergeMissingConfigValues(existing, defaults)), version: defaults.version };
   const currentJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
   const nextJson = `${JSON.stringify(next, null, 2)}\n`;
 
@@ -205,7 +220,7 @@ export function installUserConfig(options = {}) {
   }
   validateUserConfigPaths(userRoot, peaksRoot, configPath);
 
-  return writeMergedConfig(configPath, 'User', (content) => writeUserConfig(userRoot, peaksRoot, configPath, content));
+  return writeMergedConfig(configPath, 'User', createConfigDefaults(options.packageRoot), (content) => writeUserConfig(userRoot, peaksRoot, configPath, content));
 }
 
 export function installProjectConfig(options = {}) {
@@ -229,11 +244,11 @@ export function installProjectConfig(options = {}) {
   }
   validateProjectConfigPaths(projectRoot, peaksRoot, configPath);
 
-  return writeMergedConfig(configPath, 'Project', (content) => writeProjectConfig(projectRoot, peaksRoot, configPath, content));
+  return writeMergedConfig(configPath, 'Project', createConfigDefaults(options.packageRoot), (content) => writeProjectConfig(projectRoot, peaksRoot, configPath, content));
 }
 
 export function installBundledSkills(options = {}) {
-  const packageRoot = resolve(options.packageRoot ?? join(dirname(fileURLToPath(import.meta.url)), '..'));
+  const packageRoot = resolvePackageRoot(options);
   const skillsRoot = join(packageRoot, 'skills');
   const targetRoot = resolve(options.targetRoot ?? process.env.PEAKS_CLAUDE_SKILLS_DIR ?? join(homedir(), '.claude', 'skills'));
 
@@ -279,7 +294,7 @@ export function installBundledSkills(options = {}) {
 }
 
 export function installBundledOutputStyles(options = {}) {
-  const packageRoot = resolve(options.packageRoot ?? join(dirname(fileURLToPath(import.meta.url)), '..'));
+  const packageRoot = resolvePackageRoot(options);
   const outputStylesRoot = join(packageRoot, 'output-styles');
   const targetRoot = resolve(options.targetRoot ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR ?? join(homedir(), '.claude', 'output-styles'));
 
