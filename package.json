@@ -3,7 +3,7 @@
   "version": "1.0.5",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@10.11.0",
   "publishConfig": {

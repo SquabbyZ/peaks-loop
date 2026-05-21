@@ -423,7 +423,7 @@ Most CLI commands support `--json`. Automation should prefer it because the outp
 
 ## License
 
-This repository uses a closed-source non-commercial license. See [LICENSE](LICENSE). Commercial use, commercial-purpose modification, and commercial-purpose redistribution, sublicensing, sale, hosting, packaging, or bundling are prohibited without prior written permission from the copyright holder.
+This repository is fully open source under the MIT License. See [LICENSE](LICENSE).
 
 ## Design stance
 

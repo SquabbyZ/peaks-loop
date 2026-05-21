@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -8,21 +8,30 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 type InstallBundledSkills = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
 type InstallBundledOutputStyles = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
+type InstallProjectConfig = (options?: { projectRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
 
 const scriptUrl = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
-const { installBundledSkills, installBundledOutputStyles } = (await import(scriptUrl)) as {
+const { installBundledSkills, installBundledOutputStyles, installProjectConfig } = (await import(scriptUrl)) as {
   installBundledSkills: InstallBundledSkills;
   installBundledOutputStyles: InstallBundledOutputStyles;
+  installProjectConfig: InstallProjectConfig;
 };
 
 const originalSkip = process.env.PEAKS_SKIP_SKILL_INSTALL;
+const originalProjectConfigSkip = process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL;
 
 afterEach(() => {
   if (originalSkip === undefined) {
     delete process.env.PEAKS_SKIP_SKILL_INSTALL;
-    return;
+  } else {
+    process.env.PEAKS_SKIP_SKILL_INSTALL = originalSkip;
   }
-  process.env.PEAKS_SKIP_SKILL_INSTALL = originalSkip;
+
+  if (originalProjectConfigSkip === undefined) {
+    delete process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL;
+  } else {
+    process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL = originalProjectConfigSkip;
+  }
 });
 
 function createPackageRoot(skillNames: string[], outputStyleNames: string[] = []) {
@@ -177,6 +186,126 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: [] });
   });
 
+  test('creates project config during install', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+
+    const result = installProjectConfig({ projectRoot });
+
+    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).resolves.toBe(
+      `${JSON.stringify(
+        {
+          version: '0.1.0',
+          currentWorkspace: null,
+          workspaces: [],
+          language: 'en',
+          model: 'sonnet',
+          economyMode: true,
+          swarmMode: true,
+          tokens: {},
+          providers: {
+            minimax: {
+              model: 'minimax-2.7'
+            }
+          },
+          proxy: {}
+        },
+        null,
+        2
+      )}\n`
+    );
+    expect(result).toEqual({ created: true, updated: false, skipped: false });
+  });
+
+  test('adds new project config defaults without overwriting existing values', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+    const configPath = join(projectRoot, '.peaks', 'config.json');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(configPath, JSON.stringify({ language: 'zh-CN', economyMode: false }, null, 2), 'utf8');
+
+    const result = installProjectConfig({ projectRoot });
+
+    await expect(readFile(configPath, 'utf8').then(JSON.parse)).resolves.toEqual({
+      language: 'zh-CN',
+      economyMode: false,
+      version: '0.1.0',
+      currentWorkspace: null,
+      workspaces: [],
+      model: 'sonnet',
+      swarmMode: true,
+      tokens: {},
+      providers: {
+        minimax: {
+          model: 'minimax-2.7'
+        }
+      },
+      proxy: {}
+    });
+    expect(result).toEqual({ created: false, updated: true, skipped: false });
+  });
+
+  test('skips project config installation when requested by environment', async () => {
+    process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL = '1';
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+
+    const result = installProjectConfig({ projectRoot });
+
+    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).rejects.toThrow();
+    expect(result).toEqual({ created: false, updated: false, skipped: true });
+  });
+
+  test('rejects project config installation when .peaks is a symlink', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    symlinkSync(outsideRoot, join(projectRoot, '.peaks'), process.platform === 'win32' ? 'junction' : 'dir');
+
+    expect(() => installProjectConfig({ projectRoot })).toThrow('Project config path must stay inside the project root');
+    expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
+  });
+
+  test('rejects project config installation when config.json is a symlink', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(outsideRoot, 'config.json'), 'outside', 'utf8');
+    symlinkSync(join(outsideRoot, 'config.json'), join(projectRoot, '.peaks', 'config.json'));
+
+    expect(() => installProjectConfig({ projectRoot })).toThrow('Project config path must not be a symlink');
+    await expect(readFile(join(outsideRoot, 'config.json'), 'utf8')).resolves.toBe('outside');
+  });
+
+  test('rejects project config installation when config.json is hardlinked', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    const outsideConfigPath = join(outsideRoot, 'config.json');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(outsideConfigPath, '{}', 'utf8');
+    linkSync(outsideConfigPath, join(projectRoot, '.peaks', 'config.json'));
+
+    expect(() => installProjectConfig({ projectRoot })).toThrow('Project config path must not be hardlinked');
+    await expect(readFile(outsideConfigPath, 'utf8')).resolves.toBe('{}');
+  });
+
+  test('preserves malformed project config during direct postinstall', async () => {
+    const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+    const configPath = join(projectRoot, '.peaks', 'config.json');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(configPath, '{bad', 'utf8');
+
+    execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
+      env: {
+        ...process.env,
+        PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
+        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
+        PEAKS_PROJECT_ROOT: projectRoot
+      },
+      stdio: 'pipe'
+    });
+
+    await expect(readFile(configPath, 'utf8')).resolves.toBe('{bad');
+  });
+
   test('copies bundled output styles into the Claude output styles directory', async () => {
     const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
@@ -238,17 +367,24 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: [] });
   });
 
-  test('links skills and copies output styles when the postinstall script runs directly', async () => {
+  test('links skills, copies output styles, and creates project config when the postinstall script runs directly', async () => {
     const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
 
     execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
-      env: { ...process.env, PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot, PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot },
+      env: {
+        ...process.env,
+        PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
+        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
+        PEAKS_PROJECT_ROOT: projectRoot
+      },
       stdio: 'pipe'
     });
 
     const stats = await lstat(join(skillsTargetRoot, 'peaks-rd'));
     expect(stats.isSymbolicLink()).toBe(true);
     await expect(readFile(join(outputStylesTargetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('Peaks Skill Swarm');
+    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).resolves.toContain('"language": "en"');
   });
 });

@@ -1,52 +1,21 @@
-Peaks Closed-Source Non-Commercial License
-Peaks 闭源非商用许可协议
+MIT License
 
-English Version
+Copyright (c) 2026 Peaks contributors
 
-Copyright (c) 2026 Peaks contributors. All rights reserved.
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. License Grant
-You may use this software only for personal, internal evaluation, research, learning, or other non-commercial purposes authorized by the copyright holder.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-2. Commercial Use Prohibited
-Commercial use is prohibited without prior written permission from the copyright holder. Commercial use includes, but is not limited to, using the software to provide paid services, support commercial operations, generate revenue, integrate into commercial products, or use within a for-profit organization for business purposes.
-
-3. Modification Prohibited for Commercial Purposes
-You may not modify, adapt, translate, create derivative works from, or otherwise alter this software for any commercial purpose without prior written permission from the copyright holder.
-
-4. Redistribution Prohibited for Commercial Purposes
-You may not distribute, sublicense, sell, rent, lease, publish, host, mirror, package, bundle, or otherwise make this software or modified versions available to others for any commercial purpose without prior written permission from the copyright holder.
-
-5. No Open-Source License
-This software is closed source. No rights are granted except those expressly stated in this license. All rights not expressly granted are reserved by the copyright holder.
-
-6. No Warranty
-This software is provided "as is", without warranty of any kind, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement. The copyright holder is not liable for any claim, damages, or other liability arising from the software or its use.
-
-7. Additional Permission
-For commercial licensing, modification, distribution, or other permissions not granted by this license, contact the copyright holder and obtain written permission before proceeding.
-
-中文版本
-
-版权所有 (c) 2026 Peaks 贡献者。保留所有权利。
-
-1. 授权范围
-你仅可将本软件用于个人使用、内部评估、研究、学习，或版权持有人授权的其他非商业用途。
-
-2. 禁止商业使用
-未经版权持有人事先书面许可，禁止将本软件用于任何商业用途。商业用途包括但不限于：使用本软件提供付费服务、支持商业运营、产生收入、集成到商业产品中，或在营利性组织内用于业务目的。
-
-3. 禁止商业目的的修改
-未经版权持有人事先书面许可，你不得为了任何商业目的修改、改编、翻译、创作衍生作品，或以其他方式变更本软件。
-
-4. 禁止商业目的的分发
-未经版权持有人事先书面许可，你不得为了任何商业目的分发、再授权、销售、出租、租赁、发布、托管、镜像、打包、捆绑，或以其他方式向他人提供本软件或其修改版本。
-
-5. 非开源许可
-本软件为闭源软件。除本许可明确授予的权利外，不授予任何其他权利。所有未明确授予的权利均由版权持有人保留。
-
-6. 无担保
-本软件按“现状”提供，不附带任何明示或默示担保，包括但不限于适销性、特定用途适用性和不侵权担保。版权持有人不对因本软件或其使用产生的任何索赔、损害或其他责任承担责任。
-
-7. 额外许可
-如需商业授权、修改、分发或本许可未授予的其他权限，请在行动前联系版权持有人并取得书面许可。
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
