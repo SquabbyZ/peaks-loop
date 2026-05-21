@@ -27,7 +27,7 @@ Use gstack as a concrete design-review workflow reference for the `Plan → Revi
 - map browser walkthrough concepts to UI regression seeds when runtime validation is approved;
 - keep accessibility, performance, and product-specific visual direction as Peaks UI acceptance inputs.
 
-For frontend work, especially full-auto mode, prefer `gstack/browse/dist/browse` in headed or handoff mode to inspect the running page or prototype before accepting the UI direction. Verify that a visible browser actually opened when visual review matters. Capture visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA.
+For frontend work, especially full-auto mode, use headed `gstack/browse/dist/browse` to inspect the running page or prototype before accepting the UI direction. Verify that a visible browser actually opened. If login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
 ## Full-auto visual quality path
 
@@ -39,7 +39,7 @@ When Peaks UI is used in full-auto frontend design, default to the curated taste
 4. define design dials before generating UI: design variance, motion intensity, visual density, typography pair, palette, and interaction feel;
 5. reject centered stock heroes, default card grids, unmodified shadcn/library defaults, AI purple-blue gradients, generic three-card feature rows, and safe gray-on-white pages without a point of view;
 6. require loading, empty, error, hover, focus, active, and responsive states for meaningful surfaces;
-7. browser-check the result with `gstack/browse/dist/browse` and iterate until the UI looks intentional, memorable, and product-specific.
+7. browser-check the result with headed `gstack/browse/dist/browse`, wait for explicit user confirmation after any login challenge, and iterate until the UI looks intentional, memorable, and product-specific.
 
 Full-auto Peaks UI output must include a short taste report: visual direction, references used, rejected generic patterns, browser observations, remaining design risks, and the next visual iteration if the page is not yet good enough.
 

@@ -55,17 +55,17 @@ QA cannot pass a change until the report contains evidence for every applicable 
 
 1. **Unit tests** — run the project test command or a focused test command that covers new/changed code. For legacy projects below the target coverage, require coverage for the new or changed code rather than failing on pre-existing uncovered code.
 2. **API validation** — when the change touches API contracts, data loading, request handling, auth, or integrations, exercise the relevant API path and record request/response evidence or a justified local substitute.
-3. **Frontend browser validation** — when the repository has a frontend or the change affects UI, launch the app and use `gstack/browse/dist/browse` for real browser end-to-end validation. Use headed or handoff mode by default so a visible browser actually opens; verify the visible browser with `browse status`, screenshot evidence, or user confirmation. Do not call Playwright MCP for browser validation. Capture the route, actions, screenshots or observations, console errors, network failures, and acceptance result.
+3. **Frontend browser validation** — when the repository has a frontend or the change affects UI, launch the app and use headed `gstack/browse/dist/browse` for real browser end-to-end validation. Verify the visible browser with `browse status`, screenshot evidence, or user confirmation. If login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing. Capture sanitized route/actions, sanitized screenshots or observations, sanitized console/network failures, and acceptance result.
 4. **Browser-error feedback loop** — if `gstack/browse/dist/browse` shows a page error, console exception, broken network request, hydration/render failure, or visible regression, return the work to RD/development with the exact evidence. Do not pass QA until the fixed build is retested in the browser.
 5. **Security check** — run security review for the changed surface and dependency/config changes. Record findings, fixes, and unresolved risks.
 6. **Performance check** — run the project’s available performance check, build-size check, Lighthouse-equivalent check, or browser performance inspection appropriate to the change. Record baseline/after numbers when available.
-7. **Validation report** — write or link a report containing scope, environment, commands, browser evidence, security/performance results, pass/fail summary, residual risks, and next action.
+7. **Validation report** — write or link a report containing scope, environment, commands, sanitized browser evidence, security/performance results, pass/fail summary, residual risks, and next action.
 
-If a required tool is unavailable, mark the gate blocked with the missing capability and safest fallback. Fallbacks may provide diagnostic evidence, but they do not satisfy the mandatory frontend browser gate unless the user explicitly approves an exception path. Do not silently downgrade frontend validation to API-only testing.
+If headed `gstack/browse/dist/browse` is unavailable, mark the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 
 ## Local intermediate artifacts
 
-QA reports, browser evidence, logs, matrices, and validation summaries should be written to `.peaks/<session-id>/qa/` by default, or to the Peaks CLI-provided local artifact workspace. Do not default to git-backed storage or external artifact sync unless the user or active profile explicitly authorizes it.
+QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/<session-id>/qa/` by default, or to the Peaks CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync unless the user or active profile explicitly authorizes it.
 
 ## Compact handoff
 
@@ -91,10 +91,10 @@ External analysis cannot pass QA by itself. Treat codegraph output as untrusted 
 
 Use `peaks capabilities --source access-repo --json` before recommending browser or validation tooling.
 
-- Headed gstack browse is the default for controlled browser and E2E validation after the target app and environment are approved; confirm a visible browser opened.
+- Headed `gstack/browse/dist/browse` is mandatory for controlled browser and E2E validation after the target app and environment are approved; confirm a visible browser opened.
 - Chrome DevTools MCP can support console, network, accessibility, and performance inspection for QA evidence.
 - Agent Browser can support browser walkthroughs, but never submit forms, purchase, delete, or mutate authenticated state without explicit confirmation.
-- If browser automation is unavailable, fallback to local Playwright, screenshots, logs, and manual regression steps only as diagnostic evidence or an explicitly approved exception; do not count it as a passed frontend browser gate by default.
+- If headed `gstack/browse/dist/browse` is unavailable, mark frontend browser validation blocked; screenshots, logs, manual steps, or other tools must not substitute for the mandatory headed browser gate.
 
 ## Boundaries
 

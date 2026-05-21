@@ -21,11 +21,17 @@ A code workflow is not complete until Solo has linked or summarized:
 6. security-review evidence;
 7. RD post-check dry-run evidence;
 8. QA API validation when applicable;
-9. QA `gstack/browse/dist/browse` browser E2E evidence for frontend projects, preferably with headed/handoff visible-browser confirmation;
+9. sanitized QA headed `gstack/browse/dist/browse` browser E2E evidence for frontend projects, with mandatory visible-browser confirmation and without login URLs, cookies, headers, tokens, storage state, browser traces, or PII/SSO/MFA screenshots/logs;
 10. QA security, performance, and validation report evidence;
-11. TXT handoff capsule.
+11. RD repair evidence for every failed, blocked, missing, or unverified QA item;
+12. final QA report showing all acceptance items passed, or a blocked TXT handoff;
+13. TXT handoff capsule.
 
 For legacy repositories with pre-existing low UT coverage, do not require historical coverage cleanup as part of an unrelated change, but do require focused coverage evidence for the new or changed code.
+
+## RD QA loop
+
+Every RD implementation or repair slice must be followed by QA validation. If QA does not fully pass, Solo routes the report back to RD, then repeats RD repair and QA validation until QA is all green or the workflow is blocked. In full-auto mode, Claude Code's `goal` command may be used to keep the controller objective explicit while Peaks artifacts remain authoritative.
 
 ## Capability discovery
 

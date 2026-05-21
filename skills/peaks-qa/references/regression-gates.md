@@ -9,7 +9,7 @@ QA must be involved before refactor implementation.
 - baseline report;
 - acceptance checks;
 - API validation evidence when API behavior is in scope;
-- `gstack/browse/dist/browse` browser E2E evidence when a frontend exists or UI is in scope, preferably from headed/handoff mode with visible-browser confirmation;
+- headed `gstack/browse/dist/browse` browser E2E evidence when a frontend exists or UI is in scope, with mandatory visible-browser confirmation;
 - security check evidence;
 - performance check evidence;
 - validation report;

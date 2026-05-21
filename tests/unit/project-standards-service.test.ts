@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
@@ -6,6 +6,21 @@ import { createProjectStandardsInitPlan, createProjectStandardsUpdatePlan, execu
 
 function createProjectRoot(prefix = 'peaks-standards-project-'): string {
   return mkdtempSync(join(tmpdir(), prefix));
+}
+
+function canCreateFileSymlink(): boolean {
+  const root = createProjectRoot('peaks-standards-symlink-capability-');
+  const source = join(root, 'source.md');
+  const target = join(root, 'target.md');
+  try {
+    writeFileSync(source, '# Source\n', 'utf8');
+    symlinkSync(source, target);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 describe('project standards service', () => {
@@ -98,6 +113,17 @@ describe('project standards service', () => {
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
   });
 
+  test('rejects unsafe update targets before writing missing standards rules', () => {
+    const projectRoot = createProjectRoot('peaks-standards-update-unsafe-target-');
+    const outsideRoot = createProjectRoot('peaks-standards-update-outside-target-');
+    mkdirSync(join(projectRoot, '.claude', 'rules'), { recursive: true });
+    symlinkSync(outsideRoot, join(projectRoot, '.claude', 'rules', 'typescript'), 'junction');
+
+    expect(() => executeProjectStandardsUpdate({ projectRoot, language: 'typescript', apply: true })).toThrow('Project standards write target must stay inside the project root');
+    expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.claude', 'rules', 'common'))).toBe(false);
+  });
+
   test('does not duplicate an existing managed standards index', () => {
     const projectRoot = createProjectRoot('peaks-standards-update-existing-');
     writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
@@ -169,10 +195,11 @@ describe('project standards service', () => {
     expect(() => createProjectStandardsInitPlan({ projectRoot: invalidLanguageRoot, language: 'type/script' })).toThrow('Unsupported standards language');
     expect(() => createProjectStandardsInitPlan({ projectRoot: unsafeProjectRoot, language: 'typescript' })).toThrow('Project standards directory must stay inside the project root');
     expect(() => executeProjectStandardsInit({ projectRoot: nestedUnsafeProjectRoot, language: 'typescript', apply: true })).toThrow('Project standards write target must stay inside the project root');
+    expect(existsSync(join(nestedUnsafeProjectRoot, 'CLAUDE.md'))).toBe(false);
     expect(() => createProjectStandardsUpdatePlan({ projectRoot: unsafeClaudeProjectRoot, language: 'typescript' })).toThrow('Project standards directory must stay inside the project root');
   });
 
-  test('rejects symlinked CLAUDE.md files during standards update planning', () => {
+  test.skipIf(!canCreateFileSymlink())('rejects symlinked CLAUDE.md files during standards update planning', () => {
     const projectRoot = createProjectRoot('peaks-standards-unsafe-claude-md-');
     const outsideRoot = createProjectRoot('peaks-standards-outside-claude-md-');
     writeFileSync(join(outsideRoot, 'CLAUDE.md'), '# Linked\n', 'utf8');

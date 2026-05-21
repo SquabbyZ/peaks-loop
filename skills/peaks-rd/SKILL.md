@@ -59,9 +59,10 @@ RD cannot mark a development slice complete until all of these are true:
 1. OpenSpec change artifacts exist and are linked for non-trivial work when the target repo already has `openspec/`, or the user has approved adding it;
 2. unit tests covering the new or changed behavior have been added or updated and run successfully;
 3. if the repository is legacy and total UT coverage is below the project target, do not block on historical coverage, but require coverage evidence for newly added or changed code;
-4. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff;
-5. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes;
-6. the post-check dry-run has passed and is linked in the handoff.
+4. for frontend or UI-affecting slices, RD self-test has launched the app and used headed `gstack/browse/dist/browse` for real browser end-to-end validation with visible-browser confirmation, sanitized route/actions, sanitized console/network observations, and acceptance result recorded; if login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing;
+5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff;
+6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes;
+7. the post-check dry-run has passed and is linked in the handoff.
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
 
@@ -105,7 +106,7 @@ Application projects generated through this skill must not contain JavaScript so
 
 When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks artifact workspace. By default, use local non-git storage at `.peaks/<session-id>/rd/` in the target project or the Peaks CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/<session-id>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
 
-Do not default to a git-backed artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that clearly authorizes it.
+Do not default to a git-backed artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that clearly authorizes it. Browser evidence must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
 When project-local `CLAUDE.md` or project-local `.claude/rules/**` is created or updated, route the mutation through `peaks standards init` or `peaks standards update`; do not hand-write standards mutations. Derive the content from the current scan results and existing project standards. Keep only the rules that match the project's languages, frameworks, tooling, and repository layout. Do not emit generic templates, copy-pasted boilerplate, or rules unrelated to the current scan evidence. Do not update user-global `~/.claude/rules/**` from this workflow.
 

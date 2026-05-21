@@ -19,7 +19,7 @@
 - Each implemented slice must pass unit tests, code review, and security review before RD dry-run.
 - The post-check dry-run runs after tests, CR, and security review, not before them.
 - Each slice must pass 100% acceptance.
-- Code changes and intermediate artifacts must be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync artifacts only when explicitly authorized.
+- Code changes and sanitized intermediate artifacts must be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync sanitized artifacts only when explicitly authorized. Browser evidence must not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
 ## Required artifacts
 
@@ -36,4 +36,4 @@
 - `security-review-report.md`
 - `post-check-dry-run.md`
 - `validation-report.md`
-- `retention-boundary.md` documenting local `.peaks/<session-id>/` traceability and any explicitly authorized commit/sync requirement
+- `retention-boundary.md` documenting local `.peaks/<session-id>/` traceability, browser-evidence sanitization, and any explicitly authorized commit/sync requirement

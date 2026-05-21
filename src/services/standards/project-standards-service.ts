@@ -126,6 +126,14 @@ function assertRealPathInsideProject(path: string, projectRoot: string): void {
   }
 }
 
+function assertWritablePathInsideProject(path: string, projectRoot: string): void {
+  let currentPath = path;
+  while (!existsSync(currentPath)) {
+    currentPath = dirname(currentPath);
+  }
+  assertRealPathInsideProject(currentPath, projectRoot);
+}
+
 function assertSafeClaudeMdPath(filePath: string, projectRoot: string): void {
   if (!existsSync(filePath)) return;
   if (lstatSync(filePath).isSymbolicLink() || !isInsidePath(realpathSync(filePath), projectRoot)) {
@@ -264,15 +272,27 @@ function readFileIfExists(path: string): string | null {
   }
 }
 
-function writeMissingStandardsRules(plan: ProjectStandardsInitPlan): string[] {
-  const writtenFiles: string[] = [];
+function getPendingStandardsRuleWrites(plan: ProjectStandardsInitPlan): StandardsWrite[] {
+  return plan.plannedWrites.filter((write) => write.relativePath !== 'CLAUDE.md' && write.status !== 'existing');
+}
 
-  for (const write of plan.plannedWrites) {
-    if (write.relativePath === 'CLAUDE.md' || write.status === 'existing') continue;
+function prevalidateWrites(projectRoot: string, writes: StandardsWrite[]): void {
+  for (const write of writes) {
     const targetPath = resolve(write.filePath);
     const targetDir = dirname(targetPath);
-    mkdirSync(targetDir, { recursive: true });
-    assertRealPathInsideProject(targetDir, plan.projectRoot);
+    assertWritablePathInsideProject(targetDir, projectRoot);
+    if (write.relativePath === 'CLAUDE.md') {
+      assertSafeClaudeMdPath(targetPath, projectRoot);
+    }
+  }
+}
+
+function writeMissingStandardsRules(plan: ProjectStandardsInitPlan, writes = getPendingStandardsRuleWrites(plan)): string[] {
+  const writtenFiles: string[] = [];
+
+  for (const write of writes) {
+    const targetPath = resolve(write.filePath);
+    mkdirSync(dirname(targetPath), { recursive: true });
     writeNewFile(targetPath, write.content);
     writtenFiles.push(write.relativePath);
   }
@@ -414,15 +434,11 @@ export function executeProjectStandardsInit(options: ProjectStandardsInitOptions
 
   if (plan.apply) {
     assertSafeStandardsRoot(plan.projectRoot);
-    for (const write of plan.plannedWrites) {
-      if (write.status === 'existing') continue;
+    const pendingWrites = plan.plannedWrites.filter((write) => write.status !== 'existing');
+    prevalidateWrites(plan.projectRoot, pendingWrites);
+    for (const write of pendingWrites) {
       const targetPath = resolve(write.filePath);
-      const targetDir = dirname(targetPath);
-      mkdirSync(targetDir, { recursive: true });
-      assertRealPathInsideProject(targetDir, plan.projectRoot);
-      if (write.relativePath === 'CLAUDE.md') {
-        assertSafeClaudeMdPath(targetPath, plan.projectRoot);
-      }
+      mkdirSync(dirname(targetPath), { recursive: true });
       writeNewFile(targetPath, write.content);
       writtenFiles.push(write.relativePath);
     }
@@ -444,12 +460,11 @@ export function executeProjectStandardsUpdate(options: ProjectStandardsInitOptio
 
   if (plan.apply) {
     assertSafeStandardsRoot(plan.projectRoot);
-    writtenFiles.push(...writeMissingStandardsRules(plan));
+    const pendingRuleWrites = getPendingStandardsRuleWrites(plan);
+    prevalidateWrites(plan.projectRoot, pendingRuleWrites);
     const targetPath = resolve(claudeMd.filePath);
-    const targetDir = dirname(targetPath);
-    mkdirSync(targetDir, { recursive: true });
-    assertRealPathInsideProject(targetDir, plan.projectRoot);
-    assertSafeClaudeMdPath(targetPath, plan.projectRoot);
+    prevalidateWrites(plan.projectRoot, [claudeMd]);
+    writtenFiles.push(...writeMissingStandardsRules(plan, pendingRuleWrites));
 
     if (claudeMd.status === 'planned') {
       writeNewFile(targetPath, claudeMd.content);

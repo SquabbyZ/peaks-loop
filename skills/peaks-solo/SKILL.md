@@ -40,13 +40,15 @@ Use gstack as a concrete orchestration reference for the full `Think → Plan �
 - map `/retro` to Peaks TXT final context and reusable lessons;
 - preserve Peaks confirmation gates, artifact workspace boundaries, and role separation instead of delegating orchestration to gstack commands.
 
-For frontend workflows, Peaks Solo must ensure QA uses `gstack/browse/dist/browse` for real browser end-to-end validation. Prefer headed or handoff mode when visual/UI behavior matters, and verify that a visible browser actually opened when user login or visual inspection is required. If browser validation reports page, console, network, render, or visible UI errors, route the workflow back to RD for fixes before QA can pass.
+For frontend workflows, Peaks Solo must ensure RD self-test and QA validation use headed `gstack/browse/dist/browse` for real browser end-to-end validation. A visible browser opening is mandatory. If login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing. If browser validation reports page, console, network, render, or visible UI errors, route the workflow back to RD for fixes before QA can pass.
+
+Browser validation artifacts must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material in `.peaks` artifacts, and do not commit or sync sensitive browser evidence.
 
 ## Local intermediate artifact workspace
 
 Peaks Solo should establish or discover a local `.peaks/<session-id>/` workspace before role handoffs. Store PRD/RD/UI/QA/SC/TXT intermediate artifacts there by default, with role subdirectories such as `prd/`, `rd/`, `ui/`, `qa/`, `sc/`, and `txt/`.
 
-Do not default to a git-backed local artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Only include `.peaks` artifacts in git, sync them elsewhere, or create external artifact repositories after explicit user confirmation or an active profile that clearly authorizes it.
+Do not default to a git-backed local artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Only include sanitized `.peaks` artifacts in git, sync them elsewhere, or create external artifact repositories after explicit user confirmation or an active profile that clearly authorizes it.
 
 ## End-to-end code workflow gates
 
@@ -59,11 +61,25 @@ When Peaks Solo coordinates development in a code repository, keep this order ex
 5. unit tests for new/changed behavior, with focused new-code coverage accepted for legacy low-coverage repos;
 6. code review and security review with CRITICAL/HIGH issues fixed before progression; marked-blocked CRITICAL/HIGH issues only allow a blocked handoff, not QA or completion;
 7. RD post-check dry-run;
-8. QA validation, including API checks and `gstack/browse/dist/browse` browser E2E for frontend;
+8. QA validation, including API checks and headed `gstack/browse/dist/browse` browser E2E for frontend;
 9. QA security and performance checks plus validation report;
 10. TXT final handoff capsule, including reusable skill-usage lessons when the workflow revealed new habits or preferences.
 
 Do not close the Solo workflow as complete if RD or QA artifacts lack required test, review, security, dry-run, OpenSpec, browser, report, or performance evidence. Do not close a workflow that changed Peaks skill behavior without a `peaks-txt` capsule capturing reusable usage lessons and artifact paths.
+
+## Mandatory RD QA repair loop
+
+After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks Solo must route the result to `peaks-qa` before completion. A QA report with any failing, blocked, missing, or unverified acceptance item is not a pass.
+
+When QA reports problems:
+
+1. send the QA findings, evidence paths, and failing acceptance items back to `peaks-rd`;
+2. require RD to repair only the reported issues or explicitly mark a blocker;
+3. run the relevant RD checks again;
+4. run `peaks-qa` again on the repaired output;
+5. repeat until QA reports all acceptance items passed, or emit a blocked TXT handoff.
+
+For full-auto or long-running workflows, prefer using Claude Code's `goal` command to encode this loop goal: "RD fixes until QA passes all acceptance items." Do not treat `goal` as a replacement for Peaks role artifacts; it is only the controller objective for the RD↔QA loop.
 
 ## Mode selection
 
@@ -87,6 +103,15 @@ Before orchestrating an end-to-end code repository workflow, gather the project 
 
 Use `standards init` for first-time creation and `standards update` for existing `CLAUDE.md` append/review behavior. Apply only when write authorization exists; otherwise keep the CLI output as the next action and continue only when the selected workflow can safely proceed without writing standards. Do not hand-write standards file mutations inside the skill.
 
+For project-analysis requests such as "分析项目", the handoff must include an explicit **Standards increment** section. Report the current `CLAUDE.md` and `.claude/rules/**` status from the dry-run output as incremental deltas, not just a generic preflight note:
+
+- whether `CLAUDE.md` is missing, existing, planned, skipped, appended, or review-only;
+- which `.claude/rules/**` files are planned, existing, skipped, appended, or review-only;
+- whether writes were applied or intentionally left as dry-run because authorization or scope was absent;
+- the exact next action if standards should be applied later.
+
+If the dry-run output lacks enough detail to explain those deltas, say that the standards increment is unknown and keep standards application blocked until another `peaks standards init/update --dry-run` provides evidence.
+
 ## Refactor mode
 
 Read `references/refactor-mode.md` before handling refactor requests.
@@ -101,13 +126,13 @@ It must enforce the shared refactor red lines:
 4. split broad refactors into minimal functional slices;
 5. require strict verifiable specs before each slice;
 6. require 100% acceptance for each slice;
-7. require code changes and intermediate artifacts to be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync artifacts only when explicitly authorized.
+7. require code changes and sanitized intermediate artifacts to be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync sanitized artifacts only when explicitly authorized.
 
 ## Completion handoff
 
 After a Peaks Solo workflow reaches final validation, refresh the project-local standards from the current scan-backed evidence before the handoff closes. Route project-local `CLAUDE.md` and project-local `.claude/rules/**` writes through `peaks standards init` or `peaks standards update`; do not hand-write standards mutations. If write authorization exists, apply an incremental merge of scan-backed changes into existing project-local standards. Preserve existing hand-maintained content unless the user explicitly confirms deletion or rewrite. If write authorization or the CLI path is unavailable, keep the standards output as the next action instead of writing it.
 
-Use Peaks TXT for the final, blocked, or interrupted handoff capsule. Keep that capsule compact: current mode, validated decisions, artifact paths, standards deltas, open questions, and next action. Do not restate the full workflow log when a short handoff plus artifact links will do.
+Use Peaks TXT for the final, blocked, or interrupted handoff capsule. Keep that capsule compact: current mode, validated decisions, artifact paths, standards deltas, open questions, and next action. The standards deltas must name `CLAUDE.md` and `.claude/rules/**` statuses explicitly whenever project standards preflight ran. Do not restate the full workflow log when a short handoff plus artifact links will do.
 
 ## Codegraph orchestration context
 
