@@ -8,17 +8,19 @@ import { afterEach, describe, expect, test } from 'vitest';
 
 type InstallBundledSkills = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
 type InstallBundledOutputStyles = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
-type InstallProjectConfig = (options?: { projectRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
+type InstallConfig = (options?: { projectRoot?: string; userRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
 
 const scriptUrl = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
-const { installBundledSkills, installBundledOutputStyles, installProjectConfig } = (await import(scriptUrl)) as {
+const { installBundledSkills, installBundledOutputStyles, installProjectConfig, installUserConfig } = (await import(scriptUrl)) as {
   installBundledSkills: InstallBundledSkills;
   installBundledOutputStyles: InstallBundledOutputStyles;
-  installProjectConfig: InstallProjectConfig;
+  installProjectConfig: InstallConfig;
+  installUserConfig: InstallConfig;
 };
 
 const originalSkip = process.env.PEAKS_SKIP_SKILL_INSTALL;
 const originalProjectConfigSkip = process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL;
+const originalUserConfigSkip = process.env.PEAKS_SKIP_USER_CONFIG_INSTALL;
 
 afterEach(() => {
   if (originalSkip === undefined) {
@@ -31,6 +33,12 @@ afterEach(() => {
     delete process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL;
   } else {
     process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL = originalProjectConfigSkip;
+  }
+
+  if (originalUserConfigSkip === undefined) {
+    delete process.env.PEAKS_SKIP_USER_CONFIG_INSTALL;
+  } else {
+    process.env.PEAKS_SKIP_USER_CONFIG_INSTALL = originalUserConfigSkip;
   }
 });
 
@@ -186,12 +194,12 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: [] });
   });
 
-  test('creates project config during install', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+  test('creates user config during install', async () => {
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
 
-    const result = installProjectConfig({ projectRoot });
+    const result = installUserConfig({ userRoot });
 
-    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).resolves.toBe(
+    await expect(readFile(join(userRoot, '.peaks', 'config.json'), 'utf8')).resolves.toBe(
       `${JSON.stringify(
         {
           version: '0.1.0',
@@ -216,13 +224,13 @@ describe('install skills script', () => {
     expect(result).toEqual({ created: true, updated: false, skipped: false });
   });
 
-  test('adds new project config defaults without overwriting existing values', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
-    const configPath = join(projectRoot, '.peaks', 'config.json');
-    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+  test('adds new user config defaults without overwriting existing values', async () => {
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const configPath = join(userRoot, '.peaks', 'config.json');
+    mkdirSync(join(userRoot, '.peaks'), { recursive: true });
     writeFileSync(configPath, JSON.stringify({ language: 'zh-CN', economyMode: false }, null, 2), 'utf8');
 
-    const result = installProjectConfig({ projectRoot });
+    const result = installUserConfig({ userRoot });
 
     await expect(readFile(configPath, 'utf8').then(JSON.parse)).resolves.toEqual({
       language: 'zh-CN',
@@ -243,14 +251,46 @@ describe('install skills script', () => {
     expect(result).toEqual({ created: false, updated: true, skipped: false });
   });
 
-  test('skips project config installation when requested by environment', async () => {
-    process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL = '1';
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
+  test('skips user config installation when requested by environment', async () => {
+    process.env.PEAKS_SKIP_USER_CONFIG_INSTALL = '1';
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
 
-    const result = installProjectConfig({ projectRoot });
+    const result = installUserConfig({ userRoot });
 
-    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).rejects.toThrow();
+    await expect(readFile(join(userRoot, '.peaks', 'config.json'), 'utf8')).rejects.toThrow();
     expect(result).toEqual({ created: false, updated: false, skipped: true });
+  });
+
+  test('rejects user config installation when .peaks is a symlink', () => {
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    symlinkSync(outsideRoot, join(userRoot, '.peaks'), process.platform === 'win32' ? 'junction' : 'dir');
+
+    expect(() => installUserConfig({ userRoot })).toThrow('User config path must stay inside the user root');
+    expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
+  });
+
+  test('rejects user config installation when config.json is a symlink', async () => {
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    mkdirSync(join(userRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(outsideRoot, 'config.json'), 'outside', 'utf8');
+    symlinkSync(join(outsideRoot, 'config.json'), join(userRoot, '.peaks', 'config.json'));
+
+    expect(() => installUserConfig({ userRoot })).toThrow('User config path must not be a symlink');
+    await expect(readFile(join(outsideRoot, 'config.json'), 'utf8')).resolves.toBe('outside');
+  });
+
+  test('rejects user config installation when config.json is hardlinked', async () => {
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
+    const outsideConfigPath = join(outsideRoot, 'config.json');
+    mkdirSync(join(userRoot, '.peaks'), { recursive: true });
+    writeFileSync(outsideConfigPath, '{}', 'utf8');
+    linkSync(outsideConfigPath, join(userRoot, '.peaks', 'config.json'));
+
+    expect(() => installUserConfig({ userRoot })).toThrow('User config path must not be hardlinked');
+    await expect(readFile(outsideConfigPath, 'utf8')).resolves.toBe('{}');
   });
 
   test('rejects project config installation when .peaks is a symlink', () => {
@@ -285,20 +325,20 @@ describe('install skills script', () => {
     await expect(readFile(outsideConfigPath, 'utf8')).resolves.toBe('{}');
   });
 
-  test('preserves malformed project config during direct postinstall', async () => {
+  test('preserves malformed user config during direct postinstall', async () => {
     const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
-    const configPath = join(projectRoot, '.peaks', 'config.json');
-    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
+    const configPath = join(userRoot, '.peaks', 'config.json');
+    mkdirSync(join(userRoot, '.peaks'), { recursive: true });
     writeFileSync(configPath, '{bad', 'utf8');
 
     execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
       env: {
         ...process.env,
+        HOME: userRoot,
         PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
-        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
-        PEAKS_PROJECT_ROOT: projectRoot
+        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot
       },
       stdio: 'pipe'
     });
@@ -367,14 +407,16 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: [] });
   });
 
-  test('links skills, copies output styles, and creates project config when the postinstall script runs directly', async () => {
+  test('links skills, copies output styles, and creates user config when the postinstall script runs directly', async () => {
     const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
 
     execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
       env: {
         ...process.env,
+        HOME: userRoot,
         PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
         PEAKS_PROJECT_ROOT: projectRoot
@@ -385,6 +427,7 @@ describe('install skills script', () => {
     const stats = await lstat(join(skillsTargetRoot, 'peaks-rd'));
     expect(stats.isSymbolicLink()).toBe(true);
     await expect(readFile(join(outputStylesTargetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('Peaks Skill Swarm');
-    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).resolves.toContain('"language": "en"');
+    await expect(readFile(join(userRoot, '.peaks', 'config.json'), 'utf8')).resolves.toContain('"language": "en"');
+    await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).rejects.toThrow();
   });
 });

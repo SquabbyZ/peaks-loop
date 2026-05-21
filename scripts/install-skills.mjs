@@ -55,7 +55,7 @@ const PROJECT_CONFIG_DEFAULTS = {
   proxy: {}
 };
 
-function createProjectConfigResult(overrides = {}) {
+function createConfigResult(overrides = {}) {
   return { created: false, updated: false, skipped: false, ...overrides };
 }
 
@@ -83,7 +83,7 @@ function mergeMissingConfigValues(existing, defaults) {
   }, { ...existing });
 }
 
-function readProjectConfig(configPath) {
+function readConfigFile(configPath, label) {
   if (!existsSync(configPath)) {
     return null;
   }
@@ -91,60 +91,68 @@ function readProjectConfig(configPath) {
   try {
     const parsed = JSON.parse(readFileSync(configPath, 'utf8'));
     if (!isPlainObject(parsed)) {
-      throw new Error('Project config must contain a JSON object');
+      throw new Error(`${label} config must contain a JSON object`);
     }
 
     return parsed;
   } catch (error) {
-    const message = error instanceof SyntaxError ? 'Project config must contain valid JSON' : error instanceof Error ? error.message : String(error);
+    const message = error instanceof SyntaxError ? `${label} config must contain valid JSON` : error instanceof Error ? error.message : String(error);
     throw new Error(message);
   }
 }
 
-function validateProjectConfigPaths(projectRoot, peaksRoot, configPath) {
-  const projectRootReal = realpathSync(projectRoot);
+function validateConfigPath(root, peaksRoot, configPath, label) {
+  const rootReal = realpathSync(root);
   const peaksStats = lstatSync(peaksRoot);
   const peaksReal = realpathSync(peaksRoot);
-  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(projectRootReal, '.peaks')) {
-    throw new Error('Project config path must stay inside the project root');
+  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(rootReal, '.peaks')) {
+    throw new Error(`${label} config path must stay inside the ${label.toLowerCase()} root`);
   }
 
   const configStats = getPathStats(configPath);
   if (configStats?.isSymbolicLink()) {
-    throw new Error('Project config path must not be a symlink');
+    throw new Error(`${label} config path must not be a symlink`);
   }
   if (configStats && !configStats.isFile()) {
-    throw new Error('Project config path must be a file');
+    throw new Error(`${label} config path must be a file`);
   }
   if (configStats) {
     const configReal = realpathSync(configPath);
-    if (!isInsidePath(configReal, projectRootReal) || !isInsidePath(configReal, peaksReal)) {
-      throw new Error('Project config path must stay inside the project root');
+    if (!isInsidePath(configReal, rootReal) || !isInsidePath(configReal, peaksReal)) {
+      throw new Error(`${label} config path must stay inside the ${label.toLowerCase()} root`);
     }
   }
 }
 
-function validateOpenConfigFile(fd, configPath) {
+function validateProjectConfigPaths(projectRoot, peaksRoot, configPath) {
+  validateConfigPath(projectRoot, peaksRoot, configPath, 'Project');
+}
+
+function validateUserConfigPaths(userRoot, peaksRoot, configPath) {
+  validateConfigPath(userRoot, peaksRoot, configPath, 'User');
+}
+
+function validateOpenConfigFile(fd, configPath, label) {
   const fdStats = fstatSync(fd);
   const pathStats = lstatSync(configPath);
   if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
-    throw new Error('Project config path changed during write');
+    throw new Error(`${label} config path changed during write`);
   }
   if (fdStats.nlink !== 1 || pathStats.nlink !== 1) {
-    throw new Error('Project config path must not be hardlinked');
+    throw new Error(`${label} config path must not be hardlinked`);
   }
 }
 
-function writeProjectConfig(projectRoot, peaksRoot, configPath, content) {
-  validateProjectConfigPaths(projectRoot, peaksRoot, configPath);
+function writeConfigFile(configPath, content, label, validateBeforeWrite) {
+  validateBeforeWrite();
   if (typeof constants.O_NOFOLLOW !== 'number') {
-    throw new Error('Safe project config writes require O_NOFOLLOW support');
+    throw new Error('Safe config writes require O_NOFOLLOW support');
   }
 
   const fd = openSync(configPath, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
   try {
-    validateProjectConfigPaths(projectRoot, peaksRoot, configPath);
-    validateOpenConfigFile(fd, configPath);
+    validateBeforeWrite();
+    validateOpenConfigFile(fd, configPath, label);
     fchmodSync(fd, 0o600);
     ftruncateSync(fd, 0);
     writeFileSync(fd, content, 'utf8');
@@ -153,19 +161,61 @@ function writeProjectConfig(projectRoot, peaksRoot, configPath, content) {
   }
 }
 
+function writeProjectConfig(projectRoot, peaksRoot, configPath, content) {
+  writeConfigFile(configPath, content, 'Project', () => validateProjectConfigPaths(projectRoot, peaksRoot, configPath));
+}
+
+function writeUserConfig(userRoot, peaksRoot, configPath, content) {
+  writeConfigFile(configPath, content, 'User', () => validateUserConfigPaths(userRoot, peaksRoot, configPath));
+}
+
 function resolveProjectRoot(options) {
   const projectRoot = options.projectRoot ?? process.env.PEAKS_PROJECT_ROOT ?? process.env.INIT_CWD;
   return projectRoot ? resolve(projectRoot) : null;
 }
 
+function writeMergedConfig(configPath, label, writeConfig) {
+  const existing = readConfigFile(configPath, label);
+  const next = existing === null ? PROJECT_CONFIG_DEFAULTS : mergeMissingConfigValues(existing, PROJECT_CONFIG_DEFAULTS);
+  const currentJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
+  const nextJson = `${JSON.stringify(next, null, 2)}\n`;
+
+  if (currentJson === nextJson) {
+    return createConfigResult();
+  }
+
+  writeConfig(nextJson);
+  return createConfigResult(existing === null ? { created: true } : { updated: true });
+}
+
+export function installUserConfig(options = {}) {
+  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_USER_CONFIG_INSTALL === '1') {
+    return createConfigResult({ skipped: true });
+  }
+
+  const userRoot = resolve(options.userRoot ?? homedir());
+  const peaksRoot = resolve(userRoot, '.peaks');
+  const configPath = resolve(peaksRoot, 'config.json');
+  if (!isInsidePath(configPath, userRoot)) {
+    throw new Error('User config path must stay inside the user root');
+  }
+
+  if (!existsSync(peaksRoot)) {
+    mkdirSync(peaksRoot, { recursive: true });
+  }
+  validateUserConfigPaths(userRoot, peaksRoot, configPath);
+
+  return writeMergedConfig(configPath, 'User', (content) => writeUserConfig(userRoot, peaksRoot, configPath, content));
+}
+
 export function installProjectConfig(options = {}) {
   if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL === '1') {
-    return createProjectConfigResult({ skipped: true });
+    return createConfigResult({ skipped: true });
   }
 
   const projectRoot = resolveProjectRoot(options);
   if (!projectRoot) {
-    return createProjectConfigResult({ skipped: true });
+    return createConfigResult({ skipped: true });
   }
 
   const peaksRoot = resolve(projectRoot, '.peaks');
@@ -179,17 +229,7 @@ export function installProjectConfig(options = {}) {
   }
   validateProjectConfigPaths(projectRoot, peaksRoot, configPath);
 
-  const existing = readProjectConfig(configPath);
-  const next = existing === null ? PROJECT_CONFIG_DEFAULTS : mergeMissingConfigValues(existing, PROJECT_CONFIG_DEFAULTS);
-  const currentJson = existing === null ? null : `${JSON.stringify(existing, null, 2)}\n`;
-  const nextJson = `${JSON.stringify(next, null, 2)}\n`;
-
-  if (currentJson === nextJson) {
-    return createProjectConfigResult();
-  }
-
-  writeProjectConfig(projectRoot, peaksRoot, configPath, nextJson);
-  return createProjectConfigResult(existing === null ? { created: true } : { updated: true });
+  return writeMergedConfig(configPath, 'Project', (content) => writeProjectConfig(projectRoot, peaksRoot, configPath, content));
 }
 
 export function installBundledSkills(options = {}) {
@@ -283,12 +323,12 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
   try {
     const skillsResult = installBundledSkills();
     const outputStylesResult = installBundledOutputStyles();
-    let projectConfigResult = createProjectConfigResult({ skipped: true });
+    let userConfigResult = createConfigResult({ skipped: true });
     try {
-      projectConfigResult = installProjectConfig();
+      userConfigResult = installUserConfig();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`Peaks project config was not installed: ${message}\n`);
+      process.stderr.write(`Peaks user config was not installed: ${message}\n`);
     }
     if (skillsResult.installed.length > 0) {
       process.stdout.write(`Peaks skills linked: ${skillsResult.installed.join(', ')}\n`);
@@ -302,11 +342,11 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     if (outputStylesResult.skipped.length > 0) {
       process.stderr.write(`Peaks output styles skipped because local files already exist: ${outputStylesResult.skipped.join(', ')}\n`);
     }
-    if (projectConfigResult.created) {
-      process.stdout.write('Peaks project config created: .peaks/config.json\n');
+    if (userConfigResult.created) {
+      process.stdout.write('Peaks user config created: ~/.peaks/config.json\n');
     }
-    if (projectConfigResult.updated) {
-      process.stdout.write('Peaks project config updated: .peaks/config.json\n');
+    if (userConfigResult.updated) {
+      process.stdout.write('Peaks user config updated: ~/.peaks/config.json\n');
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
