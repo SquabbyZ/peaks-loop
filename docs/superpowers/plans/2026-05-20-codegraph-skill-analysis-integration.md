@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add codegraph as a local project-analysis engine for Peaks skills, with `peaks codegraph` acting only as the safe `npx @colbymchenry/codegraph` execution boundary.
+**Goal:** Add codegraph as a local project-analysis engine for Peaks skills, with `peaks codegraph` acting only as the safe pinned local `@colbymchenry/codegraph` execution boundary.
 
 **Architecture:** Add a focused codegraph service that validates project scope and builds/runs allowed upstream invocations. Register a `peaks codegraph` command family that delegates to that service, then expose the capability through existing recommendation seed data and Peaks skill guidance. Keep codegraph as supporting evidence for RD/Solo/TXT/QA; Peaks gates remain authoritative.
 
@@ -12,7 +12,7 @@
 
 ## File Structure
 
-- Create `src/services/codegraph/codegraph-service.ts` — owns project validation, allowed subcommand validation, upstream `npx @colbymchenry/codegraph` argument assembly, affected-file boundary checks, and process execution.
+- Create `src/services/codegraph/codegraph-service.ts` — owns project validation, allowed subcommand validation, pinned local `@colbymchenry/codegraph` argument assembly, affected-file boundary checks, and process execution.
 - Create `src/cli/commands/codegraph-commands.ts` — registers `peaks codegraph` subcommands and forwards each request to the codegraph service.
 - Modify `src/cli/program.ts` — imports and registers the new command family.
 - Modify `src/services/recommendations/capability-seed-sources.ts` — adds the `codegraph` source as `access-repo`.
@@ -770,7 +770,7 @@ Add this test to `tests/unit/capability-map-service.test.ts` after the Matt Poco
     expect(targetsFor('codegraph.impact-analysis')).toEqual(['peaks-qa', 'peaks-rd']);
     expect(targetsFor('codegraph.context-pack')).toEqual(['peaks-rd', 'peaks-solo', 'peaks-txt']);
     expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').every((mapping) => mapping.dryRunOnly)).toBe(true);
-    expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').map((mapping) => mapping.commandPreview)).not.toContain('npx @colbymchenry/codegraph install');
+    expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').map((mapping) => mapping.commandPreview)).not.toContain('codegraph install');
   });
 ```
 
@@ -862,7 +862,7 @@ function readSkill(skillName: string): string {
 
 function expectCodegraphGuardrails(content: string): void {
   expect(content).toContain('peaks codegraph');
-  expect(content).not.toContain('npx @colbymchenry/codegraph');
+  expect(content).not.toContain('direct upstream codegraph commands');
   expect(content).not.toContain('codegraph install');
   expect(content).not.toContain('serve --mcp');
   expect(content).not.toContain('configure MCP');
@@ -1048,7 +1048,7 @@ git diff -- src/services/codegraph src/cli src/services/recommendations skills t
 
 Expected:
 
-- No references instructing skills to run `npx @colbymchenry/codegraph` directly.
+- No references instructing skills to run direct upstream codegraph commands.
 - No references instructing users to run `codegraph install`.
 - No MCP installation, settings mutation, hooks mutation, or `.codegraph/` persistence code.
 - Codegraph command implementation only allows `status`, `init`, `index`, `query`, `files`, `context`, and `affected`.

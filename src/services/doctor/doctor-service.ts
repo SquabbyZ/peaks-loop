@@ -79,8 +79,8 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   const hasUserConfig = existsSync(userConfigPath);
   checks.push({
     id: 'config:user',
-    ok: hasUserConfig,
-    message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'User config not found at ~/.peaks/config.json'
+    ok: true,
+    message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'Optional user config not found at ~/.peaks/config.json'
   });
 
   const failed = checks.filter((check) => !check.ok).length;

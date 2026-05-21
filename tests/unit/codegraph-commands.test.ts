@@ -7,10 +7,11 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const codegraphMocks = vi.hoisted(() => ({
   executeCodegraphInvocation: vi.fn(),
   createCodegraphInvocation: vi.fn((options: { subcommand: string; project: string }) => ({
-    executable: 'npx',
-    args: ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', options.subcommand],
+    executable: process.execPath,
+    args: ['/mock/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js', options.subcommand],
     cwd: options.project,
-    packageName: '@colbymchenry/codegraph@0.7.10',
+    packageName: '@colbymchenry/codegraph',
+    packageVersion: '0.7.10',
     subcommand: options.subcommand
   }))
 }));

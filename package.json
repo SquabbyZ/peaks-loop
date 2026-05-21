@@ -41,7 +41,9 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "commander": "^12.1.0"
+    "@colbymchenry/codegraph": "0.7.10",
+    "commander": "^12.1.0",
+    "shadcn": "4.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

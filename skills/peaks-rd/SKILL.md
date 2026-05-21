@@ -93,7 +93,7 @@ Peaks PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec
 
 When RD work creates a frontend application and the user has not specified a technology stack, and the current scan plus existing project standards still do not establish a frontend stack, default to React + Vite + shadcn/ui with:
 
-- `pnpm dlx shadcn@latest init --preset [CODE] --template vite`
+- `peaks shadcn init --preset [CODE] --template vite`
 
 `[CODE]` is the preset code supplied by the shadcn registry or user workflow; if it is unknown, stop and resolve the intended preset before scaffolding.
 

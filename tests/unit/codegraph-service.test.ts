@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join } from 'node:path';
+import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import {
   createCodegraphInvocation,
@@ -17,14 +17,14 @@ function createProject(): string {
 }
 
 function expectCodegraphArgs(invocation: ReturnType<typeof createCodegraphInvocation>, expectedArgs: string[]): void {
-  const npxCliPath = invocation.args[0];
+  const binaryPath = invocation.args[0];
 
-  if (npxCliPath === undefined) {
-    throw new Error('Expected npx CLI path in invocation args');
+  if (binaryPath === undefined) {
+    throw new Error('Expected local codegraph binary path in invocation args');
   }
 
   expect(invocation.executable).toBe(process.execPath);
-  expect(basename(npxCliPath)).toMatch(/^npx-cli\.js$/);
+  expect(binaryPath).toMatch(/@colbymchenry[\\/]codegraph[\\/].*dist[\\/]bin[\\/]codegraph\.js$/);
   expect(invocation.args.slice(1)).toEqual(expectedArgs);
 }
 
@@ -37,10 +37,11 @@ describe('codegraph service', () => {
     expect(invocation).toMatchObject({
       executable: process.execPath,
       cwd: realpathSync.native(projectRoot),
-      packageName: '@colbymchenry/codegraph@0.7.10',
+      packageName: '@colbymchenry/codegraph',
+      packageVersion: '0.7.10',
       subcommand: 'status'
     });
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'status']);
+    expectCodegraphArgs(invocation, ['status']);
   });
 
   test('assembles query invocation with search, json, and limit flags', () => {
@@ -54,7 +55,7 @@ describe('codegraph service', () => {
       limit: 8
     });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'query', 'auth middleware', '--json', '--limit', '8']);
+    expectCodegraphArgs(invocation, ['query', 'auth middleware', '--json', '--limit', '8']);
     expect(invocation.cwd).toBe(realpathSync.native(projectRoot));
   });
 
@@ -67,7 +68,7 @@ describe('codegraph service', () => {
       yes: true
     });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'init', '--yes']);
+    expectCodegraphArgs(invocation, ['init', '--yes']);
   });
 
   test('assembles index invocation with force and quiet flags', () => {
@@ -80,7 +81,7 @@ describe('codegraph service', () => {
       quiet: true
     });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'index', '--force', '--quiet']);
+    expectCodegraphArgs(invocation, ['index', '--force', '--quiet']);
   });
 
   test('assembles context invocation with task as positional argument', () => {
@@ -92,7 +93,7 @@ describe('codegraph service', () => {
       task: 'plan checkout refactor'
     });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'context', 'plan checkout refactor']);
+    expectCodegraphArgs(invocation, ['context', 'plan checkout refactor']);
   });
 
   test('rejects blank context task', () => {
@@ -117,7 +118,7 @@ describe('codegraph service', () => {
       json: true
     });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'affected', 'src/index.ts', '--json']);
+    expectCodegraphArgs(invocation, ['affected', 'src/index.ts', '--json']);
   });
 
   test('rejects unsupported subcommands such as install', () => {
@@ -277,15 +278,15 @@ describe('codegraph service', () => {
     const result = await executeCodegraphInvocation(invocation, runner);
 
     expect(runner).toHaveBeenCalledWith(invocation);
-    expect(result.stdout).toMatch(/ran .*npx-cli\.js --no --package @colbymchenry\/codegraph@0\.7\.10 codegraph index --quiet$/);
+    expect(result.stdout).toMatch(/ran .*@colbymchenry[\\/]codegraph[\\/].*dist[\\/]bin[\\/]codegraph\.js index --quiet$/);
     expect(result.exitCode).toBe(0);
   });
 
-  test('runs npx through the current Node executable instead of project-local PATH lookup', () => {
+  test('runs local codegraph dependency through the current Node executable', () => {
     const projectRoot = createProject();
 
     const invocation = createCodegraphInvocation({ subcommand: 'status', project: projectRoot });
 
-    expectCodegraphArgs(invocation, ['--no', '--package', '@colbymchenry/codegraph@0.7.10', 'codegraph', 'status']);
+    expectCodegraphArgs(invocation, ['status']);
   });
 });

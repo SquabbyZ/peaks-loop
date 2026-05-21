@@ -3,10 +3,10 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph@0.7.10';
+const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
+const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
 const CODEGRAPH_EXECUTABLE = process.execPath;
-const CODEGRAPH_NPX_CLI_PATH = resolveNpxCliPath();
-const CODEGRAPH_BINARY_NAME = 'codegraph';
+const CODEGRAPH_BINARY_PATH = resolveCodegraphBinaryPath();
 const CODEGRAPH_PROCESS_TIMEOUT_MS = 600_000;
 const CODEGRAPH_OUTPUT_LIMIT_BYTES = 10 * 1024 * 1024;
 const NODE_OPTIONS_ENV_KEY = 'NODE_OPTIONS';
@@ -59,6 +59,7 @@ export type CodegraphInvocation = {
   args: string[];
   cwd: string;
   packageName: typeof CODEGRAPH_PACKAGE_NAME;
+  packageVersion: typeof CODEGRAPH_PACKAGE_VERSION;
   subcommand: CodegraphSubcommand;
 };
 
@@ -70,25 +71,16 @@ export type CodegraphExecutionResult = {
 
 export type CodegraphProcessRunner = (invocation: CodegraphInvocation) => Promise<CodegraphExecutionResult>;
 
-function resolveNpxCliPath(): string {
+function resolveCodegraphBinaryPath(): string {
   const require = createRequire(import.meta.url);
+  const packageJsonPath = require.resolve('@colbymchenry/codegraph/package.json');
+  const binaryPath = resolve(dirname(packageJsonPath), 'dist', 'bin', 'codegraph.js');
 
-  try {
-    return require.resolve('npm/bin/npx-cli.js');
-  } catch {
-    const nodeBinDirectory = dirname(process.execPath);
-    const candidatePaths = [
-      join(nodeBinDirectory, 'node_modules', 'npm', 'bin', 'npx-cli.js'),
-      resolve(nodeBinDirectory, '..', 'lib', 'node_modules', 'npm', 'bin', 'npx-cli.js')
-    ];
-    const npxCliPath = candidatePaths.find((candidatePath) => existsSync(candidatePath));
-
-    if (npxCliPath === undefined) {
-      throw new Error('Unable to resolve npm npx-cli.js from the current Node installation');
-    }
-
-    return npxCliPath;
+  if (!existsSync(binaryPath)) {
+    throw new Error('Unable to resolve local codegraph binary from @colbymchenry/codegraph');
   }
+
+  return binaryPath;
 }
 
 function assertSupportedSubcommand(subcommand: string): asserts subcommand is CodegraphSubcommand {
@@ -198,7 +190,7 @@ function buildAffectedFileArgs(projectRoot: string, files: string[] | undefined)
 }
 
 function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: string): string[] {
-  const args = [CODEGRAPH_NPX_CLI_PATH, '--no', '--package', CODEGRAPH_PACKAGE_NAME, CODEGRAPH_BINARY_NAME, options.subcommand];
+  const args = [CODEGRAPH_BINARY_PATH, options.subcommand];
 
   if (options.subcommand === 'query' && options.search) {
     args.push(options.search);
@@ -353,6 +345,7 @@ export function createCodegraphInvocation(options: CodegraphInvocationOptions): 
     args: buildCommandArgs(options, projectRoot),
     cwd: projectRoot,
     packageName: CODEGRAPH_PACKAGE_NAME,
+    packageVersion: CODEGRAPH_PACKAGE_VERSION,
     subcommand: options.subcommand
   };
 }

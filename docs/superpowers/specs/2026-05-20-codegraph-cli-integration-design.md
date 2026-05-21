@@ -2,11 +2,11 @@
 
 ## Goal
 
-Integrate `colbymchenry/codegraph` as a local analysis engine for the Peaks skill family. `peaks codegraph` is only the safe execution boundary that launches `npx @colbymchenry/codegraph` inside an explicit project scope.
+Integrate `colbymchenry/codegraph` as a local analysis engine for the Peaks skill family. `peaks codegraph` is only the safe execution boundary that launches the pinned local `@colbymchenry/codegraph` dependency inside an explicit project scope.
 
 ## Scope
 
-This iteration adds a Peaks CLI launcher for explicit `npx @colbymchenry/codegraph` execution, updates Peaks skill guidance to use the launcher during project analysis, and catalogs codegraph in the capability map. It does not install the codegraph MCP server, run the upstream installer, mutate Claude/Cursor/Codex settings, write hooks, or commit `.codegraph/` artifacts.
+This iteration adds a Peaks CLI launcher for explicit pinned local `@colbymchenry/codegraph` execution, updates Peaks skill guidance to use the launcher during project analysis, and catalogs codegraph in the capability map. It does not install the codegraph MCP server, run the upstream installer, mutate Claude/Cursor/Codex settings, write hooks, or commit `.codegraph/` artifacts.
 
 ## Peaks skill capability lift
 
@@ -24,7 +24,7 @@ Codegraph does not decide scope, approve changes, or replace Peaks gates. It is 
 
 ## Execution boundary
 
-Add a `peaks codegraph` command family. Peaks invokes the upstream CLI through `npx @colbymchenry/codegraph <subcommand>` but exposes only project-analysis actions by default:
+Add a `peaks codegraph` command family. Peaks invokes the upstream CLI through the pinned local `@colbymchenry/codegraph` dependency but exposes only project-analysis actions by default:
 
 - `peaks codegraph status --project <path>`
 - `peaks codegraph init --project <path> [--yes]`
@@ -38,7 +38,7 @@ The wrapper must require an explicit `--project` path, run within that project b
 
 ## Skill integration
 
-Peaks skills should reference `peaks codegraph ...` only. They must not direct users or agents to run `npx @colbymchenry/codegraph install`, configure MCP, or mutate agent settings.
+Peaks skills should reference `peaks codegraph ...` only. They must not direct users or agents to run direct upstream installer commands, configure MCP, or mutate agent settings.
 
 RD can use the launcher during project scanning and engineering analysis:
 
@@ -91,7 +91,7 @@ Implementation should be test-first.
 
 CLI tests should verify:
 
-- allowed subcommands assemble the expected `npx @colbymchenry/codegraph ...` invocation;
+- allowed subcommands assemble the expected pinned local `@colbymchenry/codegraph` invocation;
 - unsupported commands such as `install` are rejected by default;
 - `--project` is required;
 - unsafe project paths or path escapes fail;
