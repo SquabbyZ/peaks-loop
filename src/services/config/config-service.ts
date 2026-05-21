@@ -1,8 +1,9 @@
 import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
+import { stablePath } from '../../shared/path-utils.js';
 
 function getUserConfigPath(): string {
   return resolve(homedir(), '.peaks', 'config.json');
@@ -148,6 +149,49 @@ function validateUserConfigPathForWrite(configPath: string): void {
     const markerReal = realpathSync(configPath);
     if (!isInsidePath(markerReal, userRootReal) || !isInsidePath(markerReal, peaksReal)) {
       throw new Error('User config path must stay inside the user root');
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+function validateArtifactWorkspaceRoot(artifactRoot: string, workspaceRoot: string): void {
+  const artifactStats = lstatSync(artifactRoot);
+  if (!artifactStats.isDirectory() || artifactStats.isSymbolicLink()) {
+    throw new Error('Artifact workspace marker must stay inside the artifact workspace');
+  }
+  const artifactRootReal = realpathSync(artifactRoot);
+  const workspaceRootReal = realpathSync(workspaceRoot);
+  if (isInsidePath(artifactRootReal, workspaceRootReal)) {
+    throw new Error('Artifact workspace must stay outside the project root');
+  }
+}
+
+function validateArtifactWorkspaceMarkerPath(artifactRoot: string, peaksPath: string, markerPath: string): void {
+  const artifactStats = lstatSync(artifactRoot);
+  if (!artifactStats.isDirectory() || artifactStats.isSymbolicLink()) {
+    throw new Error('Artifact workspace marker must stay inside the artifact workspace');
+  }
+  const artifactRootReal = realpathSync(artifactRoot);
+  const peaksStats = lstatSync(peaksPath);
+  const peaksReal = realpathSync(peaksPath);
+  if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink() || peaksReal !== resolve(artifactRootReal, '.peaks')) {
+    throw new Error('Artifact workspace marker must stay inside the artifact workspace');
+  }
+
+  try {
+    const markerStats = lstatSync(markerPath);
+    if (!markerStats.isFile() || markerStats.isSymbolicLink()) {
+      throw new Error('Artifact workspace marker must stay inside the artifact workspace');
+    }
+    if (markerStats.nlink !== 1) {
+      throw new Error('Config path must not be hardlinked');
+    }
+    const markerReal = realpathSync(markerPath);
+    if (!isInsidePath(markerReal, artifactRootReal) || !isInsidePath(markerReal, peaksReal)) {
+      throw new Error('Artifact workspace marker must stay inside the artifact workspace');
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -399,6 +443,11 @@ function isSafeConfigSegment(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
 }
 
+function toSafeConfigSegment(value: string): string {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').replace(/\.+$/g, '');
+  return isSafeConfigSegment(normalized) ? normalized : 'workspace';
+}
+
 function toArtifactRemoteRepoConfig(value: unknown): WorkspaceConfig['artifactRepo'] | null {
   if (!isRecord(value) || (value.provider !== 'github' && value.provider !== 'gitlab') || typeof value.owner !== 'string' || typeof value.name !== 'string') {
     return null;
@@ -442,6 +491,16 @@ function toWorkspaceConfig(value: unknown): WorkspaceConfig | null {
 
 function toWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
   return Array.isArray(value) ? value.map(toWorkspaceConfig).filter((workspace): workspace is WorkspaceConfig => workspace !== null) : [];
+}
+
+function mergeWorkspaceConfigs(userWorkspaces: WorkspaceConfig[], projectWorkspaces: WorkspaceConfig[]): WorkspaceConfig[] {
+  const merged = new Map(userWorkspaces.map((workspace) => [workspace.workspaceId, workspace]));
+  for (const workspace of projectWorkspaces) {
+    if (!merged.has(workspace.workspaceId)) {
+      merged.set(workspace.workspaceId, workspace);
+    }
+  }
+  return [...merged.values()];
 }
 
 function toProviderModelConfig(value: unknown): MiniMaxProviderConfig {
@@ -643,12 +702,14 @@ export function readConfig(projectRoot?: string | null): PeaksConfig {
 
   const userConfig = toPeaksConfig(readJsonFile(userPath));
   const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readJsonFile(projectPath)));
-  const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
+  const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
+  const userWorkspaces = userConfig.workspaces ?? [];
 
   return {
     ...DEFAULT_CONFIG,
     ...userConfig,
-    ...projectConfigWithoutProxy
+    ...projectConfigWithoutProxy,
+    workspaces: mergeWorkspaceConfigs(userWorkspaces, projectWorkspaces ?? [])
   } as PeaksConfig;
 }
 
@@ -682,8 +743,16 @@ export function getConfig(options: ConfigGetOptions = {}): unknown {
   const projectRoot = findProjectRoot(process.cwd());
   const userConfig = readJsonFile(getUserConfigPath()) ?? {};
   const projectConfig = removeProjectSensitiveConfig(readJsonFile(getProjectConfigPath(projectRoot)) ?? {});
-  const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
-  const source = options.layer === 'user' ? userConfig : options.layer === 'project' ? projectConfig : { ...userConfig, ...projectConfigWithoutProxy };
+  const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
+  const source = options.layer === 'user'
+    ? userConfig
+    : options.layer === 'project'
+      ? projectConfig
+      : {
+        ...userConfig,
+        ...projectConfigWithoutProxy,
+        workspaces: mergeWorkspaceConfigs(toWorkspaceConfigs(userConfig.workspaces), toWorkspaceConfigs(projectWorkspaces))
+      };
   const config = isRecord(source) ? { ...source, ...(source.tokens !== undefined ? { tokens: toTokenConfig(source.tokens) } : {}) } : source;
 
   if (options.key !== undefined) {
@@ -786,6 +855,89 @@ export function getCurrentWorkspaceConfig(): WorkspaceConfig | null {
   const config = readConfig();
   if (!config.currentWorkspace) return null;
   return getWorkspaceConfig(config.currentWorkspace);
+}
+
+export function getWorkspaceConfigForPath(path = process.cwd()): WorkspaceConfig | null {
+  const config = readConfig(findProjectRoot(path));
+  return findWorkspaceForPath(config.workspaces, path);
+}
+
+function createWorkspaceId(projectRoot: string, existingIds: Set<string>): string {
+  const base = toSafeConfigSegment(basename(projectRoot));
+  if (!existingIds.has(base)) return base;
+
+  let suffix = 2;
+  while (existingIds.has(`${base}-${suffix}`)) {
+    suffix += 1;
+  }
+  return `${base}-${suffix}`;
+}
+
+function findWorkspaceForPath(workspaces: WorkspaceConfig[], path: string): WorkspaceConfig | null {
+  const targetPath = stablePath(path);
+  const matches = workspaces.flatMap((workspace) => {
+    if (!isAbsolute(workspace.rootPath) || !existsSync(workspace.rootPath)) return [];
+    const rootPath = stablePath(workspace.rootPath);
+    return isInsidePath(targetPath, rootPath) ? [{ workspace, rootPath }] : [];
+  });
+  if (matches.length === 0) return null;
+
+  return matches.reduce((best, match) => match.rootPath.length > best.rootPath.length ? match : best).workspace;
+}
+
+function getWorkspaceArtifactRoot(workspace: WorkspaceConfig): string {
+  return workspace.artifactStorage?.localPath ? resolve(workspace.artifactStorage.localPath) : resolve(homedir(), '.peaks', 'workspaces', workspace.workspaceId, 'artifacts');
+}
+
+function ensureArtifactWorkspaceMarker(workspace: WorkspaceConfig): void {
+  const artifactRoot = getWorkspaceArtifactRoot(workspace);
+  const peaksPath = resolve(artifactRoot, '.peaks');
+  const markerPath = resolve(peaksPath, 'config.json');
+  ensureDir(artifactRoot);
+  validateArtifactWorkspaceRoot(artifactRoot, workspace.rootPath);
+
+  ensureDir(peaksPath);
+  validateArtifactWorkspaceMarkerPath(artifactRoot, peaksPath, markerPath);
+  if (!existsSync(markerPath)) {
+    writeConfigFileSafely(markerPath, '{}\n', () => validateArtifactWorkspaceMarkerPath(artifactRoot, peaksPath, markerPath), 'Artifact workspace marker must stay inside the artifact workspace');
+  }
+}
+
+export function ensureWorkspaceConfigForPath(path = process.cwd()): WorkspaceConfig | null {
+  const projectRoot = resolveProjectRootForConfig(path);
+  if (!isAbsolute(projectRoot) || !existsSync(projectRoot)) return null;
+
+  const config = readLayerConfig('user');
+  const existingWorkspace = findWorkspaceForPath(config.workspaces, path);
+  if (existingWorkspace) {
+    ensureArtifactWorkspaceMarker(existingWorkspace);
+    if (!config.currentWorkspace) {
+      writeConfig({ currentWorkspace: existingWorkspace.workspaceId }, 'user');
+    }
+    return existingWorkspace;
+  }
+
+  const existingIds = new Set(config.workspaces.map((workspace) => workspace.workspaceId));
+  const workspaceId = createWorkspaceId(projectRoot, existingIds);
+  const workspace: WorkspaceConfig = {
+    workspaceId,
+    name: basename(projectRoot) || 'Workspace',
+    rootPath: stablePath(projectRoot),
+    artifactStorage: { mode: 'local', localPath: resolve(homedir(), '.peaks', 'workspaces', workspaceId, 'artifacts') },
+    installedCapabilityIds: []
+  };
+  ensureArtifactWorkspaceMarker(workspace);
+  const updatedWorkspaces = [...config.workspaces, workspace];
+  writeConfig({ workspaces: updatedWorkspaces, ...(!config.currentWorkspace ? { currentWorkspace: workspace.workspaceId } : {}) }, 'user');
+  return workspace;
+}
+
+export function getWorkspaceConfigForCurrentPath(): WorkspaceConfig | null {
+  return getWorkspaceConfigForPath(process.cwd());
+}
+
+export function ensureWorkspaceConfigForCurrentPath(): WorkspaceConfig | null {
+  return ensureWorkspaceConfigForPath(process.cwd());
 }
 
 export type { TokenRef, WorkspaceConfig, PeaksConfig, ConfigLayer };

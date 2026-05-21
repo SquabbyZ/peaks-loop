@@ -5,7 +5,7 @@ import { createWorkflowRouterPlan, isSoloMode, isWorkflowMode, type SoloMode } f
 import { createAutonomousWorkflowPlan } from '../../services/workflow/workflow-autonomous-service.js';
 import { createRecommendationPlan } from '../../services/recommendations/recommendation-service.js';
 import { createRefactorDryRun, type RefactorMode } from '../../services/refactor/refactor-service.js';
-import { getCurrentWorkspaceConfig, readConfig } from '../../services/config/config-service.js';
+import { ensureWorkspaceConfigForCurrentPath, getCurrentWorkspaceConfig, readConfig } from '../../services/config/config-service.js';
 import type { WorkspaceConfig } from '../../services/config/config-types.js';
 import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { getEconomyAwareExecutionModelId } from '../../services/config/model-routing.js';
@@ -50,10 +50,20 @@ interface SwarmPlanOptions {
   json?: boolean;
 }
 
-function getWorkspaceContext(): WorkspaceContext {
+function getCurrentWorkspaceContext(): WorkspaceContext {
   const workspace = getCurrentWorkspaceConfig();
   if (!workspace) return {};
   return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
+}
+
+function getWorkflowWorkspaceContext(): WorkspaceContext {
+  try {
+    const workspace = ensureWorkspaceConfigForCurrentPath() ?? getCurrentWorkspaceConfig();
+    if (!workspace) return {};
+    return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
+  } catch {
+    return {};
+  }
 }
 
 function parseMaxWorkers(io: ProgramIO, command: string, value: string, asJson?: boolean): number | null {
@@ -100,7 +110,7 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
 
   try {
     validatePlanningInput(options.changeId, options.goal);
-    const workspaceContext = getWorkspaceContext();
+    const workspaceContext = getCurrentWorkspaceContext();
     const plan = createTechPlan({
       changeId: options.changeId,
       goal: options.goal,
@@ -117,7 +127,7 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
 
 function runTechStatus(io: ProgramIO, options: TechStatusOptions): void {
   try {
-    const workspaceContext = getWorkspaceContext();
+    const workspaceContext = getCurrentWorkspaceContext();
     printResult(io, ok('tech.status', getTechStatus({ changeId: options.changeId, ...workspaceContext })), options.json);
   } catch (error) {
     printResult(io, fail('tech.status', 'INVALID_CHANGE_ID', getErrorMessage(error), {}, ['Use a safe change id']), options.json);
@@ -145,7 +155,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
 
   try {
     validatePlanningInput(options.changeId, options.goal);
-    const workspaceContext = getWorkspaceContext();
+    const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createWorkflowRouterPlan({
       changeId: options.changeId,
       goal: options.goal,
@@ -183,7 +193,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
 
   try {
     validatePlanningInput(options.changeId, options.goal);
-    const workspaceContext = getWorkspaceContext();
+    const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createAutonomousWorkflowPlan({
       changeId: options.changeId,
       goal: options.goal,
@@ -218,7 +228,7 @@ function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
 
   try {
     validatePlanningInput(options.changeId, options.goal);
-    const workspaceContext = getWorkspaceContext();
+    const workspaceContext = getWorkflowWorkspaceContext();
     const config = readConfig();
     const plan = createRdSwarmPlan({
       skill: 'rd',

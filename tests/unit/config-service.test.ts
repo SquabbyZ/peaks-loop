@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => configTestHome };
 });
 
-import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, getConfig, getMiniMaxProviderConfig, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, resolveProjectRootForConfig, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
+import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, ensureWorkspaceConfigForPath, getConfig, getMiniMaxProviderConfig, getWorkspaceConfigForPath, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, resolveProjectRootForConfig, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
 
 // Test helper path parsing logic directly
 // The actual config service uses these functions internally
@@ -359,6 +359,59 @@ describe('secret config handling', () => {
     expect(workspaces.find((workspace) => workspace.workspaceId === 'unsafe-storage-remote')?.artifactStorage).toBeUndefined();
   });
 
+  test('finds the most specific workspace containing a path', () => {
+    const parentRoot = mkdtempSync(join(tmpdir(), 'peaks-config-parent-workspace-'));
+    const childRoot = join(parentRoot, 'packages', 'app');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-workspace-'));
+    mkdirSync(childRoot, { recursive: true });
+    writeConfig({
+      workspaces: [
+        { workspaceId: 'parent-ws', name: 'Parent WS', rootPath: parentRoot, installedCapabilityIds: [] },
+        { workspaceId: 'child-ws', name: 'Child WS', rootPath: childRoot, installedCapabilityIds: [] },
+        { workspaceId: 'relative-ws', name: 'Relative WS', rootPath: '.', installedCapabilityIds: [] },
+        { workspaceId: 'missing-ws', name: 'Missing WS', rootPath: join(parentRoot, 'missing'), installedCapabilityIds: [] }
+      ]
+    } as never, 'user');
+
+    expect(getWorkspaceConfigForPath(join(childRoot, 'src', 'index.ts'))?.workspaceId).toBe('child-ws');
+    expect(getWorkspaceConfigForPath(outsideRoot)).toBeNull();
+  });
+
+  test('bootstraps missing repository workspace into the user config layer', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-auto-workspace-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ workspaces: [{ workspaceId: 'project-ws', name: 'Project WS', rootPath: projectRoot, installedCapabilityIds: [] }] }), 'utf8');
+
+    const workspace = ensureWorkspaceConfigForPath(projectRoot);
+    const userConfig = getConfig({ layer: 'user' }) as { currentWorkspace?: string; workspaces?: Array<{ workspaceId: string; rootPath: string; artifactStorage?: { localPath?: string } }> };
+
+    expect(workspace?.workspaceId).toMatch(/^peaks-config-auto-workspace-/);
+    expect(userConfig.currentWorkspace).toBe(workspace?.workspaceId);
+    expect(userConfig.workspaces?.find((item) => item.rootPath === workspace?.rootPath)).toBeDefined();
+    expect(readConfig().workspaces.find((item) => item.workspaceId === workspace?.workspaceId)).toBeDefined();
+    expect(existsSync(join(workspace?.artifactStorage?.localPath ?? '', '.peaks', 'config.json'))).toBe(true);
+  });
+
+  test('keeps user workspaces authoritative over project workspaces with the same id', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-shadow-project-'));
+    const userArtifactRoot = mkdtempSync(join(tmpdir(), 'peaks-config-user-artifacts-'));
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    writeConfig({
+      currentWorkspace: 'repo-ws',
+      workspaces: [{ workspaceId: 'repo-ws', name: 'User Repo WS', rootPath: projectRoot, installedCapabilityIds: [], artifactStorage: { mode: 'local', localPath: userArtifactRoot } }]
+    } as never, 'user');
+    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ workspaces: [{ workspaceId: 'repo-ws', name: 'Project Shadow WS', rootPath: '/tmp/project-shadow', installedCapabilityIds: [] }] }), 'utf8');
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
+    try {
+      const workspace = readConfig().workspaces.find((item) => item.workspaceId === 'repo-ws');
+      expect(workspace).toMatchObject({ name: 'User Repo WS', rootPath: projectRoot, artifactStorage: { localPath: userArtifactRoot } });
+      expect(getConfig({ key: 'workspaces[0].name' })).toBe('User Repo WS');
+    } finally {
+      cwdSpy.mockRestore();
+    }
+  });
+
   test('workspace helpers tolerate malformed layer config and use the requested layer', () => {
     writeConfig({ workspaces: 'broken' as never, currentWorkspace: 123 as never }, 'user');
     addWorkspace({ workspaceId: 'ws-a', name: 'Workspace A', rootPath: '/tmp/ws-a', installedCapabilityIds: [] }, 'user');
@@ -406,6 +459,35 @@ describe('secret config handling', () => {
 
     expect(() => setConfig({ key: 'language', value: 'zh-CN' })).toThrow('User config path must stay inside the user root');
     expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+    unlinkSync(configPath);
+    writeFileSync(configPath, '{}', 'utf8');
+  });
+
+  test('rejects artifact marker creation when artifact .peaks is a symlink', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-project-'));
+    const artifactRoot = mkdtempSync(join(tmpdir(), 'peaks-config-artifacts-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
+    symlinkSync(outsideRoot, join(artifactRoot, '.peaks'), 'junction');
+    writeConfig({
+      workspaces: [{ workspaceId: 'unsafe-artifact-marker', name: 'Unsafe Artifact Marker', rootPath: projectRoot, installedCapabilityIds: [], artifactStorage: { mode: 'local', localPath: artifactRoot } }]
+    } as never, 'user');
+
+    expect(() => ensureWorkspaceConfigForPath(projectRoot)).toThrow('Artifact workspace marker must stay inside the artifact workspace');
+    expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
+  });
+
+  test('rejects artifact marker creation when artifact root is a symlink into the project', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-project-'));
+    const artifactTarget = join(projectRoot, 'artifacts');
+    const artifactRoot = join(tmpdir(), `peaks-config-linked-artifacts-${Date.now()}`);
+    mkdirSync(artifactTarget, { recursive: true });
+    symlinkSync(artifactTarget, artifactRoot, 'junction');
+    writeConfig({
+      workspaces: [{ workspaceId: 'unsafe-artifact-root', name: 'Unsafe Artifact Root', rootPath: projectRoot, installedCapabilityIds: [], artifactStorage: { mode: 'local', localPath: artifactRoot } }]
+    } as never, 'user');
+
+    expect(() => ensureWorkspaceConfigForPath(projectRoot)).toThrow('Artifact workspace marker must stay inside the artifact workspace');
+    expect(existsSync(join(artifactTarget, '.peaks', 'config.json'))).toBe(false);
   });
 
   test('rejects MiniMax provider updates when an existing stored URL is invalid', () => {
