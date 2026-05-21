@@ -1,4 +1,5 @@
-import { closeSync, constants, existsSync, fchmodSync, fstatSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
@@ -19,7 +20,11 @@ function isSafeProjectConfigMarker(projectRoot: string): boolean {
   const markerPath = resolve(peaksPath, 'config.json');
   try {
     const projectRootReal = realpathSync(projectRoot);
+    const peaksStats = lstatSync(peaksPath);
     const peaksReal = realpathSync(peaksPath);
+    const markerStats = lstatSync(markerPath);
+    if (!peaksStats.isDirectory() || peaksStats.isSymbolicLink()) return false;
+    if (!markerStats.isFile() || markerStats.isSymbolicLink() || markerStats.nlink !== 1) return false;
     const markerReal = realpathSync(markerPath);
     if (!isInsidePath(peaksReal, projectRootReal)) return false;
     if (!isInsidePath(markerReal, projectRootReal)) return false;
@@ -115,6 +120,9 @@ function validateProjectBootstrapConfigPath(projectRootPath: string, peaksPath: 
     if (!markerStats.isFile() || markerStats.isSymbolicLink()) {
       throw new Error('Project config path must stay inside the project root');
     }
+    if (markerStats.nlink !== 1) {
+      throw new Error('Config path must not be hardlinked');
+    }
     const markerReal = realpathSync(configPath);
     if (!isInsidePath(markerReal, projectRootReal) || !isInsidePath(markerReal, peaksReal)) {
       throw new Error('Project config path must stay inside the project root');
@@ -145,6 +153,9 @@ function validateUserConfigPathForWrite(configPath: string): void {
     const markerStats = lstatSync(configPath);
     if (!markerStats.isFile() || markerStats.isSymbolicLink()) {
       throw new Error('User config path must stay inside the user root');
+    }
+    if (markerStats.nlink !== 1) {
+      throw new Error('Config path must not be hardlinked');
     }
     const markerReal = realpathSync(configPath);
     if (!isInsidePath(markerReal, userRootReal) || !isInsidePath(markerReal, peaksReal)) {
@@ -200,9 +211,9 @@ function validateArtifactWorkspaceMarkerPath(artifactRoot: string, peaksPath: st
   }
 }
 
-function validateOpenConfigFile(fd: number, configPath: string, errorMessage: string): void {
+function validateOpenConfigFile(fd: number, tempPath: string, errorMessage: string): void {
   const fdStats = fstatSync(fd);
-  const pathStats = lstatSync(configPath);
+  const pathStats = lstatSync(tempPath);
   if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
     throw new Error(errorMessage);
   }
@@ -211,21 +222,65 @@ function validateOpenConfigFile(fd: number, configPath: string, errorMessage: st
   }
 }
 
-function writeConfigFileSafely(configPath: string, content: string, validateBeforeWrite: () => void, errorMessage: string): void {
-  validateBeforeWrite();
-  if (typeof constants.O_NOFOLLOW !== 'number') {
-    throw new Error('Safe config writes require O_NOFOLLOW support');
-  }
+function getSafeTempOpenFlags(): number {
+  const baseFlags = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL;
+  return typeof constants.O_NOFOLLOW === 'number' ? baseFlags | constants.O_NOFOLLOW : baseFlags;
+}
 
-  const fd = openSync(configPath, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+function getSafeReadOpenFlags(): number {
+  return typeof constants.O_NOFOLLOW === 'number' ? constants.O_RDONLY | constants.O_NOFOLLOW : constants.O_RDONLY;
+}
+
+function readConfigFileSafely(configPath: string, errorMessage: string): string {
+  const fd = openSync(configPath, getSafeReadOpenFlags());
   try {
-    validateBeforeWrite();
     validateOpenConfigFile(fd, configPath, errorMessage);
-    fchmodSync(fd, 0o600);
-    ftruncateSync(fd, 0);
-    writeFileSync(fd, content, 'utf-8');
+    return readFileSync(fd, 'utf-8');
   } finally {
     closeSync(fd);
+  }
+}
+
+function writeConfigFileSafely(configPath: string, content: string, validateBeforeWrite: () => void, errorMessage: string): void {
+  validateBeforeWrite();
+
+  const tempPath = `${configPath}.${process.pid}.${randomUUID()}.tmp`;
+  let fd: number | null = openSync(tempPath, getSafeTempOpenFlags(), 0o600);
+  let renamed = false;
+  let closeError: unknown;
+  try {
+    validateOpenConfigFile(fd, tempPath, errorMessage);
+    fchmodSync(fd, 0o600);
+    writeFileSync(fd, content, 'utf-8');
+    const writeFd = fd;
+    fd = null;
+    closeSync(writeFd);
+    validateBeforeWrite();
+    const readFd = openSync(tempPath, getSafeReadOpenFlags());
+    try {
+      validateOpenConfigFile(readFd, tempPath, errorMessage);
+    } finally {
+      closeSync(readFd);
+    }
+    renameSync(tempPath, configPath);
+    renamed = true;
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd);
+      } catch (error: unknown) {
+        closeError = error;
+      }
+    }
+    try {
+      if (!renamed && existsSync(tempPath)) {
+        unlinkSync(tempPath);
+      }
+    } finally {
+      if (closeError) {
+        throw closeError;
+      }
+    }
   }
 }
 
@@ -237,22 +292,35 @@ function writeUserConfigFile(configPath: string, content: string): void {
   writeConfigFileSafely(configPath, content, () => validateUserConfigPathForWrite(configPath), 'User config path must stay inside the user root');
 }
 
-function readJsonFile(path: string | null): Partial<PeaksConfig> | null {
+function readJsonFile(path: string | null, validateBeforeRead?: () => void, errorMessage = 'Config path must stay inside the config root'): Partial<PeaksConfig> | null {
   if (!path || !existsSync(path)) return null;
+  validateBeforeRead?.();
+  const content = readConfigFileSafely(path, errorMessage);
   try {
-    return JSON.parse(readFileSync(path, 'utf-8')) as Partial<PeaksConfig>;
+    return JSON.parse(content) as Partial<PeaksConfig>;
   } catch {
     return null;
   }
 }
 
-function readExistingJsonFile(path: string, errorMessage: string): Partial<PeaksConfig> | null {
+function readExistingJsonFile(path: string, errorMessage: string, validateBeforeRead?: () => void): Partial<PeaksConfig> | null {
   if (!existsSync(path)) return null;
+  validateBeforeRead?.();
   try {
-    return JSON.parse(readFileSync(path, 'utf-8')) as Partial<PeaksConfig>;
+    return JSON.parse(readConfigFileSafely(path, errorMessage)) as Partial<PeaksConfig>;
   } catch {
     throw new Error(errorMessage);
   }
+}
+
+function readUserJsonFile(): Partial<PeaksConfig> | null {
+  const userPath = getUserConfigPath();
+  return readJsonFile(userPath, () => validateUserConfigPathForWrite(userPath), 'User config path must stay inside the user root');
+}
+
+function readProjectJsonFile(projectRoot: string | null): Partial<PeaksConfig> | null {
+  const projectPath = getProjectConfigPath(projectRoot);
+  return readJsonFile(projectPath, projectRoot && projectPath ? () => validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath) : undefined, 'Project config path must stay inside the project root');
 }
 
 function ensureDir(dirPath: string): void {
@@ -566,10 +634,6 @@ function getProjectWriteTarget(): { projectRoot: string; configPath: string } {
   return { projectRoot, configPath };
 }
 
-function getProjectWritePath(): string {
-  return getProjectWriteTarget().configPath;
-}
-
 export function containsSensitiveConfigValue(value: unknown): boolean {
   if (Array.isArray(value)) {
     return value.some(containsSensitiveConfigValue);
@@ -631,7 +695,7 @@ function createMiniMaxProviderStatus(config: MiniMaxProviderConfig): MiniMaxProv
 }
 
 export function getMiniMaxProviderConfig(): MiniMaxProviderConfig {
-  return toMiniMaxProviderConfig(readJsonFile(getUserConfigPath())?.providers?.minimax);
+  return toMiniMaxProviderConfig(readUserJsonFile()?.providers?.minimax);
 }
 
 export function getMiniMaxProviderStatus(): MiniMaxProviderStatus {
@@ -640,7 +704,7 @@ export function getMiniMaxProviderStatus(): MiniMaxProviderStatus {
 
 export function setMiniMaxProviderConfig(input: MiniMaxProviderConfig): MiniMaxProviderStatus {
   validateMiniMaxBaseUrl(input.baseUrl);
-  const userConfig = readJsonFile(getUserConfigPath()) ?? {};
+  const userConfig = readUserJsonFile() ?? {};
   const existingProviders = toModelProviderConfig(userConfig.providers);
   const providers: ModelProviderConfig = {
     ...existingProviders,
@@ -688,7 +752,7 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
 export function bootstrapProjectLanguageConfig(projectRoot: string, language: string): void {
   const inferredLanguage = inferHumanLanguage(language);
   const projectPath = getProjectBootstrapConfigPath(projectRoot);
-  const existing = readExistingJsonFile(projectPath, 'Project config must contain valid JSON') ?? {};
+  const existing = readExistingJsonFile(projectPath, 'Project config must contain valid JSON', () => validateProjectBootstrapConfigPathForWrite(projectRoot, projectPath)) ?? {};
   if (typeof existing.language === 'string' && existing.language.trim().length > 0) {
     return;
   }
@@ -697,11 +761,8 @@ export function bootstrapProjectLanguageConfig(projectRoot: string, language: st
 
 export function readConfig(projectRoot?: string | null): PeaksConfig {
   const detectedRoot = projectRoot ?? findProjectRoot(process.cwd());
-  const userPath = getUserConfigPath();
-  const projectPath = getProjectConfigPath(detectedRoot);
-
-  const userConfig = toPeaksConfig(readJsonFile(userPath));
-  const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readJsonFile(projectPath)));
+  const userConfig = toPeaksConfig(readUserJsonFile());
+  const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readProjectJsonFile(detectedRoot)));
   const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
   const userWorkspaces = userConfig.workspaces ?? [];
 
@@ -726,7 +787,7 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
   if (layer === 'project') {
     const { projectRoot, configPath } = getProjectWriteTarget();
     ensureDir(dirname(configPath));
-    const existing = readJsonFile(configPath) ?? {};
+    const existing = readJsonFile(configPath, () => validateProjectBootstrapConfigPathForWrite(projectRoot, configPath)) ?? {};
     const merged = { ...existing, ...partial };
     writeProjectConfigFile(projectRoot, configPath, JSON.stringify(merged, null, 2));
     return;
@@ -734,15 +795,15 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
 
   const userPath = getUserConfigPath();
   ensureDir(dirname(userPath));
-  const existing = readJsonFile(userPath) ?? {};
+  const existing = readJsonFile(userPath, () => validateUserConfigPathForWrite(userPath)) ?? {};
   const merged = { ...existing, ...partial };
   writeUserConfigFile(userPath, JSON.stringify(merged, null, 2));
 }
 
 export function getConfig(options: ConfigGetOptions = {}): unknown {
   const projectRoot = findProjectRoot(process.cwd());
-  const userConfig = readJsonFile(getUserConfigPath()) ?? {};
-  const projectConfig = removeProjectSensitiveConfig(readJsonFile(getProjectConfigPath(projectRoot)) ?? {});
+  const userConfig = readUserJsonFile() ?? {};
+  const projectConfig = removeProjectSensitiveConfig(readProjectJsonFile(projectRoot) ?? {});
   const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
   const source = options.layer === 'user'
     ? userConfig
@@ -787,7 +848,9 @@ export function setConfig(options: ConfigSetOptions): void {
   const targetPath = projectTarget?.configPath ?? getUserConfigPath();
 
   ensureDir(dirname(targetPath));
-  const existing = readJsonFile(targetPath) ?? {};
+  const existing = projectTarget
+    ? readJsonFile(targetPath, () => validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)) ?? {}
+    : readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {};
   const updated = { ...existing };
   setNestedValue(updated, options.key, options.value);
   const content = JSON.stringify(updated, null, 2);

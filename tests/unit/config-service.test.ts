@@ -1,7 +1,24 @@
-import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
+
+function canCreateFileSymlink(): boolean {
+  const root = mkdtempSync(join(tmpdir(), 'peaks-symlink-check-'));
+  try {
+    const target = join(root, 'target.txt');
+    const link = join(root, 'link.txt');
+    writeFileSync(target, 'target', 'utf8');
+    symlinkSync(target, link);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const fileSymlinkTest = canCreateFileSymlink() ? test : test.skip;
 
 const configTestHome = vi.hoisted(() => {
   const { mkdtempSync } = require('node:fs') as typeof import('node:fs');
@@ -444,11 +461,17 @@ describe('secret config handling', () => {
     if (existsSync(configPath)) unlinkSync(configPath);
     linkSync(outsideConfigPath, configPath);
 
-    expect(() => writeConfig({ language: 'zh-CN' }, 'user')).toThrow('Config path must not be hardlinked');
-    expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+    try {
+      expect(() => writeConfig({ language: 'zh-CN' }, 'user')).toThrow('Config path must not be hardlinked');
+      expect(() => getConfig({ layer: 'user' })).toThrow('Config path must not be hardlinked');
+      expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+    } finally {
+      if (existsSync(configPath)) unlinkSync(configPath);
+      writeFileSync(configPath, '{}', 'utf8');
+    }
   });
 
-  test('rejects user config writes when config.json is a symlink', () => {
+  fileSymlinkTest('rejects user config writes when config.json is a symlink', () => {
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-config-outside-'));
     const outsideConfigPath = join(outsideRoot, 'config.json');
     const configPath = join(configTestHome, '.peaks', 'config.json');
@@ -458,6 +481,7 @@ describe('secret config handling', () => {
     symlinkSync(outsideConfigPath, configPath);
 
     expect(() => setConfig({ key: 'language', value: 'zh-CN' })).toThrow('User config path must stay inside the user root');
+    expect(() => getConfig({ layer: 'user' })).toThrow('User config path must stay inside the user root');
     expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
     unlinkSync(configPath);
     writeFileSync(configPath, '{}', 'utf8');
@@ -703,8 +727,9 @@ describe('CLI integration via program', () => {
 
   test('config types are correctly exported from config-types', async () => {
     const { DEFAULT_CONFIG } = await import('../../src/services/config/config-types.js');
+    const { CLI_VERSION } = await import('../../src/shared/version.js');
     expect(DEFAULT_CONFIG).toBeDefined();
-    expect(DEFAULT_CONFIG.version).toBe('0.1.0');
+    expect(DEFAULT_CONFIG.version).toBe(CLI_VERSION);
     expect(DEFAULT_CONFIG.language).toBe('en');
     expect(DEFAULT_CONFIG.model).toBe('sonnet');
     expect(DEFAULT_CONFIG.economyMode).toBe(true);

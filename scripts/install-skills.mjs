@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { closeSync, constants, copyFileSync, existsSync, fchmodSync, fstatSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, readdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, readdirSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 function getPathStats(path) {
@@ -16,22 +17,140 @@ function isBrokenSymlink(stats, targetPath) {
   return stats.isSymbolicLink() && !existsSync(targetPath);
 }
 
+function validateManagedMarkerPath(markerPath) {
+  const markerStats = getPathStats(markerPath);
+  if (!markerStats) return;
+  if (markerStats.isSymbolicLink()) {
+    throw new Error('Peaks managed marker path must not be a symlink');
+  }
+  if (!markerStats.isFile()) {
+    throw new Error('Peaks managed marker path must be a file');
+  }
+  if (markerStats.nlink !== 1) {
+    throw new Error('Peaks managed marker path must not be hardlinked');
+  }
+}
+
+function validateOpenFile(fd, path, errorMessage) {
+  const fdStats = fstatSync(fd);
+  const pathStats = lstatSync(path);
+  if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
+    throw new Error(errorMessage);
+  }
+  if (fdStats.nlink !== 1 || pathStats.nlink !== 1) {
+    throw new Error(`${errorMessage}: hardlinked file`);
+  }
+}
+
+function createFileIdentity(path) {
+  const stats = lstatSync(path);
+  if (!stats.isFile() || stats.isSymbolicLink() || stats.nlink !== 1) {
+    return null;
+  }
+  return { dev: stats.dev, ino: stats.ino };
+}
+
+function isSameFileIdentity(path, identity) {
+  if (identity === null) return false;
+  const stats = getPathStats(path);
+  return Boolean(stats?.isFile() && !stats.isSymbolicLink() && stats.nlink === 1 && stats.dev === identity.dev && stats.ino === identity.ino);
+}
+
+function getSafeReadOpenFlags() {
+  return typeof constants.O_NOFOLLOW === 'number' ? constants.O_RDONLY | constants.O_NOFOLLOW : constants.O_RDONLY;
+}
+
+function readFileSafely(path, errorMessage) {
+  const fd = openSync(path, getSafeReadOpenFlags());
+  try {
+    validateOpenFile(fd, path, errorMessage);
+    return readFileSync(fd, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function getManagedTarget(targetPath) {
   const markerPath = `${targetPath}.peaks-managed`;
+  validateManagedMarkerPath(markerPath);
   if (!existsSync(markerPath)) {
     return null;
   }
-  return readFileSync(markerPath, 'utf8').trim();
+  return readFileSafely(markerPath, 'Peaks managed marker path changed during read').trim();
 }
 
 function markManagedPeaksLink(targetPath, sourcePath) {
   const markerPath = `${targetPath}.peaks-managed`;
-  writeFileSync(markerPath, `${sourcePath}\n`, 'utf8');
+  validateManagedMarkerPath(markerPath);
+  writeFileAtomically(markerPath, `${sourcePath}\n`, 'Peaks managed marker path changed during write', () => validateManagedMarkerPath(markerPath));
 }
 
-function isManagedPeaksOutputStyle(managedTarget, outputStyleName) {
-  if (managedTarget === null) return false;
-  return managedTarget.replaceAll('\\', '/').endsWith(`/output-styles/${outputStyleName}`);
+function readPackageSourceFile(path) {
+  const stats = lstatSync(path);
+  if (!stats.isFile() || stats.isSymbolicLink()) {
+    throw new Error('Peaks package source path must be a file');
+  }
+  return readFileSync(path, 'utf8');
+}
+
+function hashContent(content) {
+  return createHash('sha256').update(content).digest('hex');
+}
+
+function hashFileContent(path) {
+  return hashContent(readFileSafely(path, 'Peaks managed file path changed during read'));
+}
+
+function createManagedOutputStyleMarker(sourcePath, outputStyleName) {
+  const content = readPackageSourceFile(sourcePath);
+  return `${JSON.stringify({ version: 1, kind: 'output-style', outputStyleName, sourcePath, contentSha256: hashContent(content) })}\n`;
+}
+
+function parseManagedOutputStyleMarker(managedTarget) {
+  if (managedTarget === null) return null;
+  try {
+    const marker = JSON.parse(managedTarget);
+    if (marker?.version !== 1 || marker?.kind !== 'output-style' || typeof marker.outputStyleName !== 'string' || typeof marker.sourcePath !== 'string' || typeof marker.contentSha256 !== 'string') {
+      return null;
+    }
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) {
+  return marker.outputStyleName === outputStyleName && resolve(marker.sourcePath) === resolve(sourcePath) && basename(resolve(marker.sourcePath)) === outputStyleName;
+}
+
+function getManagedPeaksOutputStyleIdentity(managedTarget, targetPath, sourcePath, outputStyleName) {
+  const marker = parseManagedOutputStyleMarker(managedTarget);
+  const sourceHash = hashContent(readPackageSourceFile(sourcePath));
+  if (marker === null || !isTrustedOutputStyleSource(marker, sourcePath, outputStyleName) || !existsSync(targetPath) || hashFileContent(targetPath) !== sourceHash || marker.contentSha256 !== sourceHash) {
+    return null;
+  }
+  return createFileIdentity(targetPath);
+}
+
+function validateInstallRoot(targetRoot, label) {
+  const rootStats = lstatSync(targetRoot);
+  if (rootStats.isSymbolicLink()) {
+    throw new Error(`${label} install root must not be a symlink`);
+  }
+  if (!rootStats.isDirectory()) {
+    throw new Error(`${label} install root must be a directory`);
+  }
+  return rootStats;
+}
+
+function createInstallRootValidator(targetRoot, label) {
+  const expectedStats = validateInstallRoot(targetRoot, label);
+  return () => {
+    const rootStats = validateInstallRoot(targetRoot, label);
+    if (rootStats.dev !== expectedStats.dev || rootStats.ino !== expectedStats.ino) {
+      throw new Error(`${label} install root changed during write`);
+    }
+  };
 }
 
 function createInstallResult() {
@@ -104,7 +223,7 @@ function readConfigFile(configPath, label) {
   }
 
   try {
-    const parsed = JSON.parse(readFileSync(configPath, 'utf8'));
+    const parsed = JSON.parse(readFileSafely(configPath, `${label} config path changed during read`));
     if (!isPlainObject(parsed)) {
       throw new Error(`${label} config must contain a JSON object`);
     }
@@ -132,6 +251,9 @@ function validateConfigPath(root, peaksRoot, configPath, label) {
     throw new Error(`${label} config path must be a file`);
   }
   if (configStats) {
+    if (configStats.nlink !== 1) {
+      throw new Error(`${label} config path must not be hardlinked`);
+    }
     const configReal = realpathSync(configPath);
     if (!isInsidePath(configReal, rootReal) || !isInsidePath(configReal, peaksReal)) {
       throw new Error(`${label} config path must stay inside the ${label.toLowerCase()} root`);
@@ -147,41 +269,93 @@ function validateUserConfigPaths(userRoot, peaksRoot, configPath) {
   validateConfigPath(userRoot, peaksRoot, configPath, 'User');
 }
 
-function validateOpenConfigFile(fd, configPath, label) {
-  const fdStats = fstatSync(fd);
-  const pathStats = lstatSync(configPath);
-  if (!fdStats.isFile() || !pathStats.isFile() || fdStats.dev !== pathStats.dev || fdStats.ino !== pathStats.ino) {
-    throw new Error(`${label} config path changed during write`);
-  }
-  if (fdStats.nlink !== 1 || pathStats.nlink !== 1) {
-    throw new Error(`${label} config path must not be hardlinked`);
+function getSafeTempOpenFlags() {
+  const baseFlags = constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL;
+  return typeof constants.O_NOFOLLOW === 'number' ? baseFlags | constants.O_NOFOLLOW : baseFlags;
+}
+
+function writeFileExclusively(path, content, errorMessage, validateBeforeWrite) {
+  validateBeforeWrite();
+  let fd = openSync(path, getSafeTempOpenFlags(), 0o600);
+  let closeError = null;
+  let identity = null;
+  try {
+    validateOpenFile(fd, path, errorMessage);
+    validateBeforeWrite();
+    validateOpenFile(fd, path, errorMessage);
+    identity = createFileIdentity(path);
+    if (identity === null) {
+      throw new Error(errorMessage);
+    }
+    fchmodSync(fd, 0o600);
+    writeFileSync(fd, content, 'utf8');
+    const writeFd = fd;
+    fd = null;
+    closeSync(writeFd);
+    return identity;
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd);
+      } catch (error) {
+        closeError = error;
+      }
+    }
+    if (closeError) {
+      throw closeError;
+    }
   }
 }
 
-function writeConfigFile(configPath, content, label, validateBeforeWrite) {
+function writeFileAtomically(configPath, content, errorMessage, validateBeforeWrite) {
   validateBeforeWrite();
-  if (typeof constants.O_NOFOLLOW !== 'number') {
-    throw new Error('Safe config writes require O_NOFOLLOW support');
-  }
 
-  const fd = openSync(configPath, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+  const tempPath = `${configPath}.${process.pid}.${randomUUID()}.tmp`;
+  let fd = openSync(tempPath, getSafeTempOpenFlags(), 0o600);
+  let renamed = false;
+  let closeError = null;
   try {
-    validateBeforeWrite();
-    validateOpenConfigFile(fd, configPath, label);
+    validateOpenFile(fd, tempPath, errorMessage);
     fchmodSync(fd, 0o600);
-    ftruncateSync(fd, 0);
     writeFileSync(fd, content, 'utf8');
+    const writeFd = fd;
+    fd = null;
+    closeSync(writeFd);
+    validateBeforeWrite();
+    const readFd = openSync(tempPath, getSafeReadOpenFlags());
+    try {
+      validateOpenFile(readFd, tempPath, errorMessage);
+    } finally {
+      closeSync(readFd);
+    }
+    renameSync(tempPath, configPath);
+    renamed = true;
   } finally {
-    closeSync(fd);
+    if (fd !== null) {
+      try {
+        closeSync(fd);
+      } catch (error) {
+        closeError = error;
+      }
+    }
+    try {
+      if (!renamed && existsSync(tempPath)) {
+        unlinkSync(tempPath);
+      }
+    } finally {
+      if (closeError) {
+        throw closeError;
+      }
+    }
   }
 }
 
 function writeProjectConfig(projectRoot, peaksRoot, configPath, content) {
-  writeConfigFile(configPath, content, 'Project', () => validateProjectConfigPaths(projectRoot, peaksRoot, configPath));
+  writeFileAtomically(configPath, content, 'Project config path changed during write', () => validateProjectConfigPaths(projectRoot, peaksRoot, configPath));
 }
 
 function writeUserConfig(userRoot, peaksRoot, configPath, content) {
-  writeConfigFile(configPath, content, 'User', () => validateUserConfigPaths(userRoot, peaksRoot, configPath));
+  writeFileAtomically(configPath, content, 'User config path changed during write', () => validateUserConfigPaths(userRoot, peaksRoot, configPath));
 }
 
 function resolveProjectRoot(options) {
@@ -259,6 +433,7 @@ export function installBundledSkills(options = {}) {
   const installed = [];
   const skipped = [];
   mkdirSync(targetRoot, { recursive: true });
+  const validateSkillsRoot = createInstallRootValidator(targetRoot, 'Peaks skills');
 
   for (const skillName of readdirSync(skillsRoot)) {
     const sourcePath = join(skillsRoot, skillName);
@@ -272,12 +447,15 @@ export function installBundledSkills(options = {}) {
     const current = getPathStats(targetPath);
     if (current) {
       const managedTarget = getManagedTarget(targetPath);
-      if (current.isSymbolicLink() && readlinkSync(targetPath) === sourcePath) {
+      const linkTarget = current.isSymbolicLink() ? readlinkSync(targetPath) : null;
+      if (linkTarget === sourcePath) {
         installed.push(skillName);
         continue;
       }
-      if (isBrokenSymlink(current, targetPath) && managedTarget === readlinkSync(targetPath)) {
+      if ((current.isSymbolicLink() || isBrokenSymlink(current, targetPath)) && managedTarget === linkTarget) {
+        validateSkillsRoot();
         unlinkSync(targetPath);
+        validateSkillsRoot();
         unlinkSync(`${targetPath}.peaks-managed`);
       } else {
         skipped.push(skillName);
@@ -285,8 +463,19 @@ export function installBundledSkills(options = {}) {
       }
     }
 
+    validateSkillsRoot();
     symlinkSync(sourcePath, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
-    markManagedPeaksLink(targetPath, sourcePath);
+    try {
+      validateSkillsRoot();
+      markManagedPeaksLink(targetPath, sourcePath);
+    } catch (error) {
+      validateSkillsRoot();
+      const created = getPathStats(targetPath);
+      if (created?.isSymbolicLink() && readlinkSync(targetPath) === sourcePath) {
+        unlinkSync(targetPath);
+      }
+      throw error;
+    }
     installed.push(skillName);
   }
 
@@ -305,6 +494,7 @@ export function installBundledOutputStyles(options = {}) {
   const installed = [];
   const skipped = [];
   mkdirSync(targetRoot, { recursive: true });
+  const validateOutputStylesRoot = createInstallRootValidator(targetRoot, 'Peaks output styles');
 
   for (const outputStyleName of readdirSync(outputStylesRoot)) {
     const sourcePath = join(outputStylesRoot, outputStyleName);
@@ -317,8 +507,14 @@ export function installBundledOutputStyles(options = {}) {
     const current = getPathStats(targetPath);
     if (current) {
       const managedTarget = getManagedTarget(targetPath);
-      if (isManagedPeaksOutputStyle(managedTarget, outputStyleName)) {
+      const managedTargetIdentity = getManagedPeaksOutputStyleIdentity(managedTarget, targetPath, sourcePath, outputStyleName);
+      if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
+        validateOutputStylesRoot();
+        if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
+          throw new Error('Peaks output style path changed during unlink');
+        }
         unlinkSync(targetPath);
+        validateOutputStylesRoot();
         unlinkSync(`${targetPath}.peaks-managed`);
       } else {
         skipped.push(outputStyleName);
@@ -326,8 +522,25 @@ export function installBundledOutputStyles(options = {}) {
       }
     }
 
-    copyFileSync(sourcePath, targetPath);
-    markManagedPeaksLink(targetPath, sourcePath);
+    const markerPath = `${targetPath}.peaks-managed`;
+    validateManagedMarkerPath(markerPath);
+    if (!current && existsSync(markerPath)) {
+      validateOutputStylesRoot();
+      unlinkSync(markerPath);
+    }
+    const createdTargetIdentity = writeFileExclusively(targetPath, readPackageSourceFile(sourcePath), 'Peaks output style path changed during write', validateOutputStylesRoot);
+    try {
+      writeFileExclusively(markerPath, createManagedOutputStyleMarker(sourcePath, outputStyleName), 'Peaks managed marker path changed during write', () => {
+        validateOutputStylesRoot();
+        validateManagedMarkerPath(markerPath);
+      });
+    } catch (error) {
+      validateOutputStylesRoot();
+      if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
+        unlinkSync(targetPath);
+      }
+      throw error;
+    }
     installed.push(outputStyleName);
   }
 

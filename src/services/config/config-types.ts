@@ -1,3 +1,5 @@
+import { CLI_VERSION } from '../../shared/version.js';
+
 // Token reference types — tokens never stored raw, always via reference
 export type TokenRef =
   | { env: string }
@@ -88,7 +90,7 @@ export type ConfigSetOptions = {
 };
 
 export const DEFAULT_CONFIG: PeaksConfig = {
-  version: '0.1.0',
+  version: CLI_VERSION,
   currentWorkspace: null,
   workspaces: [],
   language: 'en',

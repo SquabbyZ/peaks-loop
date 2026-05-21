@@ -1,6 +1,7 @@
-import { existsSync, linkSync, mkdirSync, mkdtempSync, readlinkSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -41,6 +42,27 @@ afterEach(() => {
     process.env.PEAKS_SKIP_USER_CONFIG_INSTALL = originalUserConfigSkip;
   }
 });
+
+function canCreateFileSymlink(): boolean {
+  const root = mkdtempSync(join(tmpdir(), 'peaks-symlink-check-'));
+  try {
+    const target = join(root, 'target.txt');
+    const link = join(root, 'link.txt');
+    writeFileSync(target, 'target', 'utf8');
+    symlinkSync(target, link);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const fileSymlinkTest = canCreateFileSymlink() ? test : test.skip;
+
+function createOutputStyleMarker(sourcePath: string, outputStyleName = 'peaks-skill-swarm.md'): string {
+  return `${JSON.stringify({ version: 1, kind: 'output-style', outputStyleName, sourcePath, contentSha256: createHash('sha256').update(readFileSync(sourcePath, 'utf8')).digest('hex') })}\n`;
+}
 
 function createPackageRoot(skillNames: string[], outputStyleNames: string[] = [], version = '9.8.7') {
   const packageRoot = mkdtempSync(join(tmpdir(), 'peaks-package-'));
@@ -115,6 +137,24 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: ['peaks-rd'] });
   });
 
+  test('replaces stale Peaks-managed skill symlinks from older package installs', () => {
+    const oldPackageRoot = createPackageRoot(['peaks-rd']);
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const targetPath = join(targetRoot, 'peaks-rd');
+    const oldSourcePath = join(oldPackageRoot, 'skills', 'peaks-rd');
+    const sourcePath = join(packageRoot, 'skills', 'peaks-rd');
+    mkdirSync(targetRoot, { recursive: true });
+    symlinkSync(oldSourcePath, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
+    writeFileSync(`${targetPath}.peaks-managed`, `${oldSourcePath}\n`, 'utf8');
+
+    const result = installBundledSkills({ packageRoot, targetRoot });
+
+    expect(readlinkSync(targetPath)).toBe(sourcePath);
+    expect(readFileSync(`${targetPath}.peaks-managed`, 'utf8')).toBe(`${sourcePath}\n`);
+    expect(result).toEqual({ installed: ['peaks-rd'], skipped: [] });
+  });
+
   test('does not claim existing matching symlinks as managed', () => {
     const packageRoot = createPackageRoot(['peaks-rd']);
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
@@ -127,6 +167,44 @@ describe('install skills script', () => {
     expect(readlinkSync(targetPath)).toBe(join(packageRoot, 'skills', 'peaks-rd'));
     expect(existsSync(`${targetPath}.peaks-managed`)).toBe(false);
     expect(result).toEqual({ installed: ['peaks-rd'], skipped: [] });
+  });
+
+  test('rejects Peaks-managed skill marker hardlinks', () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const targetPath = join(targetRoot, 'peaks-rd');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-marker-'));
+    const outsideMarkerPath = join(outsideRoot, 'marker.txt');
+    mkdirSync(targetRoot, { recursive: true });
+    writeFileSync(outsideMarkerPath, 'outside', 'utf8');
+    linkSync(outsideMarkerPath, `${targetPath}.peaks-managed`);
+
+    expect(() => installBundledSkills({ packageRoot, targetRoot })).toThrow('Peaks managed marker path must not be hardlinked');
+    expect(readFileSync(outsideMarkerPath, 'utf8')).toBe('outside');
+  });
+
+  test('rejects symlinked skills install roots', () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = join(tmpdir(), `peaks-skills-link-${Date.now()}`);
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-outside-'));
+    symlinkSync(outsideRoot, targetRoot, process.platform === 'win32' ? 'junction' : 'dir');
+
+    expect(() => installBundledSkills({ packageRoot, targetRoot })).toThrow('Peaks skills install root must not be a symlink');
+    expect(existsSync(join(outsideRoot, 'peaks-rd'))).toBe(false);
+  });
+
+  test('removes newly linked skills when marker hardlink validation fails', async () => {
+    const packageRoot = createPackageRoot(['peaks-rd']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
+    const targetPath = join(targetRoot, 'peaks-rd');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-outside-'));
+    const outsideMarkerPath = join(outsideRoot, 'marker');
+    writeFileSync(outsideMarkerPath, 'outside', 'utf8');
+    linkSync(outsideMarkerPath, `${targetPath}.peaks-managed`);
+
+    expect(() => installBundledSkills({ packageRoot, targetRoot })).toThrow('Peaks managed marker path must not be hardlinked');
+    await expect(lstat(targetPath)).rejects.toThrow();
+    await expect(readFile(outsideMarkerPath, 'utf8')).resolves.toBe('outside');
   });
 
   test('replaces stale broken skill symlinks created by Peaks', () => {
@@ -273,7 +351,7 @@ describe('install skills script', () => {
     expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
   });
 
-  test('rejects user config installation when config.json is a symlink', async () => {
+  fileSymlinkTest('rejects user config installation when config.json is a symlink', async () => {
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
     mkdirSync(join(userRoot, '.peaks'), { recursive: true });
@@ -305,7 +383,7 @@ describe('install skills script', () => {
     expect(existsSync(join(outsideRoot, 'config.json'))).toBe(false);
   });
 
-  test('rejects project config installation when config.json is a symlink', async () => {
+  fileSymlinkTest('rejects project config installation when config.json is a symlink', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-outside-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
@@ -340,6 +418,7 @@ describe('install skills script', () => {
       env: {
         ...process.env,
         HOME: userRoot,
+        USERPROFILE: userRoot,
         PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot
       },
@@ -356,7 +435,11 @@ describe('install skills script', () => {
     const result = installBundledOutputStyles({ packageRoot, targetRoot });
 
     await expect(readFile(join(targetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('name: peaks-skill-swarm');
-    await expect(readFile(join(targetRoot, 'peaks-skill-swarm.md.peaks-managed'), 'utf8')).resolves.toBe(`${join(packageRoot, 'output-styles', 'peaks-skill-swarm.md')}\n`);
+    await expect(readFile(join(targetRoot, 'peaks-skill-swarm.md.peaks-managed'), 'utf8').then(JSON.parse)).resolves.toMatchObject({
+      version: 1,
+      kind: 'output-style',
+      sourcePath: join(packageRoot, 'output-styles', 'peaks-skill-swarm.md')
+    });
     expect(existsSync(join(targetRoot, 'peaks-skill-swarm.md.peaks-managed'))).toBe(true);
     expect(result).toEqual({ installed: ['peaks-skill-swarm.md'], skipped: [] });
   });
@@ -373,17 +456,140 @@ describe('install skills script', () => {
     expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
   });
 
-  test('replaces stale Peaks-managed output styles', async () => {
+  test('replaces stale output style markers when the target file is missing', async () => {
     const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
     const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
-    writeFileSync(targetPath, 'old output style', 'utf8');
-    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'output-styles', 'peaks-skill-swarm.md')}\n`, 'utf8');
+    const sourcePath = join(packageRoot, 'output-styles', 'peaks-skill-swarm.md');
+    writeFileSync(`${targetPath}.peaks-managed`, createOutputStyleMarker(sourcePath), 'utf8');
 
     const result = installBundledOutputStyles({ packageRoot, targetRoot });
 
     await expect(readFile(targetPath, 'utf8')).resolves.toContain('name: peaks-skill-swarm');
+    await expect(readFile(`${targetPath}.peaks-managed`, 'utf8').then(JSON.parse)).resolves.toMatchObject({
+      version: 1,
+      kind: 'output-style',
+      sourcePath
+    });
     expect(result).toEqual({ installed: ['peaks-skill-swarm.md'], skipped: [] });
+  });
+
+  test('skips output styles when the package source changes in place', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const sourcePath = join(packageRoot, 'output-styles', 'peaks-skill-swarm.md');
+    const oldContent = readFileSync(sourcePath, 'utf8');
+    writeFileSync(targetPath, oldContent, 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, createOutputStyleMarker(sourcePath), 'utf8');
+    writeFileSync(sourcePath, `${oldContent}updated`, 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe(oldContent);
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('skips stale output styles when the marker points to a different package path', async () => {
+    const oldPackageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const oldSourcePath = join(oldPackageRoot, 'output-styles', 'peaks-skill-swarm.md');
+    const oldContent = readFileSync(oldSourcePath, 'utf8');
+    writeFileSync(targetPath, oldContent, 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, createOutputStyleMarker(oldSourcePath), 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe(oldContent);
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('does not overwrite output styles with spoofed Peaks markers', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    writeFileSync(targetPath, 'custom output style', 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'output-styles', 'peaks-skill-swarm.md')}\n`, 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('custom output style');
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('does not overwrite output styles with forged structured Peaks markers', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const forgedSourcePath = join(targetRoot, 'fake-package', 'output-styles', 'peaks-skill-swarm.md');
+    mkdirSync(join(targetRoot, 'fake-package', 'output-styles'), { recursive: true });
+    writeFileSync(targetPath, 'custom output style', 'utf8');
+    writeFileSync(forgedSourcePath, 'custom output style', 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, createOutputStyleMarker(forgedSourcePath), 'utf8');
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('custom output style');
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('does not overwrite output styles with forged current-source structured Peaks markers', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const sourcePath = join(packageRoot, 'output-styles', 'peaks-skill-swarm.md');
+    const customContent = 'custom output style';
+    writeFileSync(targetPath, customContent, 'utf8');
+    writeFileSync(
+      `${targetPath}.peaks-managed`,
+      `${JSON.stringify({ version: 1, kind: 'output-style', outputStyleName: 'peaks-skill-swarm.md', sourcePath, contentSha256: createHash('sha256').update(customContent).digest('hex') })}\n`,
+      'utf8'
+    );
+
+    const result = installBundledOutputStyles({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe(customContent);
+    expect(result).toEqual({ installed: [], skipped: ['peaks-skill-swarm.md'] });
+  });
+
+  test('rejects symlinked output styles install roots', () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = join(tmpdir(), `peaks-output-styles-link-${Date.now()}`);
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-outside-'));
+    symlinkSync(outsideRoot, targetRoot, process.platform === 'win32' ? 'junction' : 'dir');
+
+    expect(() => installBundledOutputStyles({ packageRoot, targetRoot })).toThrow('Peaks output styles install root must not be a symlink');
+    expect(existsSync(join(outsideRoot, 'peaks-skill-swarm.md'))).toBe(false);
+  });
+
+  fileSymlinkTest('removes newly written output styles when marker symlink validation fails', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-outside-'));
+    const markerPath = `${targetPath}.peaks-managed`;
+    writeFileSync(join(outsideRoot, 'marker'), 'outside', 'utf8');
+    symlinkSync(join(outsideRoot, 'marker'), markerPath);
+
+    expect(() => installBundledOutputStyles({ packageRoot, targetRoot })).toThrow('Peaks managed marker path must not be a symlink');
+    await expect(readFile(targetPath, 'utf8')).rejects.toThrow();
+    await expect(readFile(join(outsideRoot, 'marker'), 'utf8')).resolves.toBe('outside');
+  });
+
+  test('removes newly written output styles when marker hardlink validation fails', async () => {
+    const packageRoot = createPackageRoot([], ['peaks-skill-swarm']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
+    const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-outside-'));
+    const outsideMarkerPath = join(outsideRoot, 'marker');
+    writeFileSync(outsideMarkerPath, 'outside', 'utf8');
+    linkSync(outsideMarkerPath, `${targetPath}.peaks-managed`);
+
+    expect(() => installBundledOutputStyles({ packageRoot, targetRoot })).toThrow('Peaks managed marker path must not be hardlinked');
+    await expect(readFile(targetPath, 'utf8')).rejects.toThrow();
+    await expect(readFile(outsideMarkerPath, 'utf8')).resolves.toBe('outside');
   });
 
   test('does not overwrite output styles with non-Peaks managed markers', async () => {
@@ -420,6 +626,7 @@ describe('install skills script', () => {
       env: {
         ...process.env,
         HOME: userRoot,
+        USERPROFILE: userRoot,
         PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
         PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
         PEAKS_PROJECT_ROOT: projectRoot
