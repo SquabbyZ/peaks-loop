@@ -253,6 +253,58 @@ describe('peaks openspec commands', () => {
     spy.mockRestore();
   });
 
+  test('archive returns a dry-run preview by default', async () => {
+    const project = await makeProjectWithOpenSpec();
+
+    const result = await runCommand(['openspec', 'archive', 'sample-change', '--project', project, '--json']);
+    const output = parseJsonOutput<{ applied: boolean; from: string; to: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('openspec.archive');
+    expect(output.data.applied).toBe(false);
+    expect(output.data.to).toContain('archive');
+  });
+
+  test('archive with --apply moves the change directory', async () => {
+    const project = await makeProjectWithOpenSpec();
+
+    const result = await runCommand(['openspec', 'archive', 'sample-change', '--project', project, '--apply', '--json']);
+    const output = parseJsonOutput<{ applied: boolean }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.applied).toBe(true);
+  });
+
+  test('archive with --archive-dir customizes the target subdirectory', async () => {
+    const project = await makeProjectWithOpenSpec();
+
+    const result = await runCommand(['openspec', 'archive', 'sample-change', '--project', project, '--apply', '--archive-dir', 'shipped', '--json']);
+    const output = parseJsonOutput<{ to: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.to).toContain(join('changes', 'shipped'));
+  });
+
+  test('archive returns OPENSPEC_CHANGE_NOT_FOUND when the source is missing', async () => {
+    const project = await makeProjectWithOpenSpec();
+
+    const result = await runCommand(['openspec', 'archive', 'never-existed', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_CHANGE_NOT_FOUND');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('archive returns OPENSPEC_ARCHIVE_FAILED on invalid changeId', async () => {
+    const result = await runCommand(['openspec', 'archive', '.hidden', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_ARCHIVE_FAILED');
+    expect(result.exitCode).toBe(1);
+  });
+
   test('normalizes trailing slash in --project path', async () => {
     const project = await makeProjectWithOpenSpec();
     const result = await runCommand(['openspec', 'list', '--project', `${project}/`, '--json']);

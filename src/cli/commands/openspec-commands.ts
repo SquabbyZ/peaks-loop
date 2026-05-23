@@ -4,6 +4,7 @@ import { loadOpenSpecChange, scanOpenSpec, type OpenSpecScanOptions } from '../.
 import { projectOpenSpecToRdInput } from '../../services/openspec/openspec-bridge-service.js';
 import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRequest } from '../../services/openspec/openspec-render-service.js';
 import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
+import { archiveOpenSpecChange, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -22,6 +23,11 @@ type OpenSpecRenderCommandOptions = OpenSpecListOptions & {
 
 type OpenSpecValidateCommandOptions = OpenSpecListOptions & {
   preferExternal?: boolean;
+};
+
+type OpenSpecArchiveCommandOptions = OpenSpecListOptions & {
+  apply?: boolean;
+  archiveDir?: string;
 };
 
 function resolveScanOptions(project: string | undefined): OpenSpecScanOptions {
@@ -195,6 +201,48 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       printResult(
         io,
         fail('openspec.validate', 'OPENSPEC_VALIDATE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    openspec
+      .command('archive')
+      .description('Move an OpenSpec change under openspec/changes/<archiveDir>/<id>/ (dry-run by default)')
+      .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
+      .option('--project <path>', 'project root containing an openspec/ directory')
+      .option('--apply', 'actually move the change directory')
+      .option('--archive-dir <name>', 'archive subdirectory name (default: archive)')
+  ).action(async (changeId: string, options: OpenSpecArchiveCommandOptions) => {
+    try {
+      const scan = resolveScanOptions(options.project);
+      const archiveOptions: OpenSpecArchiveOptions = {};
+      if (scan.openspecRoot !== undefined) {
+        archiveOptions.openspecRoot = scan.openspecRoot;
+      }
+      if (options.apply === true) {
+        archiveOptions.apply = true;
+      }
+      if (options.archiveDir !== undefined) {
+        archiveOptions.archiveDirName = options.archiveDir;
+      }
+      const result = await archiveOpenSpecChange(changeId, archiveOptions);
+      if (result === null) {
+        printResult(
+          io,
+          fail('openspec.archive', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('openspec.archive', result, [], result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('openspec.archive', 'OPENSPEC_ARCHIVE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
         options.json
       );
       process.exitCode = 1;
