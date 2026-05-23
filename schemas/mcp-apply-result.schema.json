@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks MCP Apply Result",
+  "type": "object",
+  "required": ["capabilityId", "action", "backup", "written", "envCheck"],
+  "properties": {
+    "capabilityId": { "type": "string", "minLength": 1 },
+    "action": {
+      "type": "string",
+      "enum": ["add", "update", "claimed", "noop"],
+      "description": "claimed is returned when an existing non-peaks-managed entry was overwritten with --claim."
+    },
+    "backup": {
+      "type": "object",
+      "required": ["path", "skipped"],
+      "properties": {
+        "path": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ],
+          "description": "Absolute path to the backup settings.json copy. Null when no prior settings existed or skipped is true."
+        },
+        "skipped": {
+          "type": "boolean",
+          "description": "True when action was noop and no write occurred."
+        }
+      }
+    },
+    "written": {
+      "type": "object",
+      "required": ["settingsPath", "managedMarkerPath"],
+      "properties": {
+        "settingsPath": { "type": "string", "minLength": 1 },
+        "managedMarkerPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "envCheck": {
+      "type": "object",
+      "required": ["missing"],
+      "properties": {
+        "missing": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

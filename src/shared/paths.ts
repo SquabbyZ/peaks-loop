@@ -42,5 +42,9 @@ export const requiredSchemaFiles = [
   'capability-item.schema.json',
   'capability-availability.schema.json',
   'recommendation-plan.schema.json',
-  'artifact-workspace.schema.json'
+  'artifact-workspace.schema.json',
+  'mcp-server.schema.json',
+  'mcp-install-spec.schema.json',
+  'mcp-install-plan.schema.json',
+  'mcp-apply-result.schema.json'
 ] as const;

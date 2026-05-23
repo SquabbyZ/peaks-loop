@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks MCP Install Plan",
+  "type": "object",
+  "required": ["capabilityId", "action", "spec", "current", "envCheck", "diff", "nextActions"],
+  "properties": {
+    "capabilityId": { "type": "string", "minLength": 1 },
+    "action": {
+      "type": "string",
+      "enum": ["add", "update", "noop", "conflict", "unknown-capability"]
+    },
+    "spec": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "mcp-install-spec.schema.json" }
+      ]
+    },
+    "current": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "mcp-server.schema.json" }
+      ]
+    },
+    "envCheck": {
+      "type": "object",
+      "required": ["missing"],
+      "properties": {
+        "missing": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Env var keys that are not set or are empty."
+        }
+      }
+    },
+    "diff": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "object",
+              "required": ["before", "after"],
+              "properties": {
+                "before": { "type": "string" },
+                "after": { "type": "string" }
+              }
+            },
+            "args": {
+              "type": "object",
+              "required": ["before", "after"],
+              "properties": {
+                "before": { "type": "array", "items": { "type": "string" } },
+                "after": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "envKeys": {
+              "type": "object",
+              "required": ["before", "after"],
+              "properties": {
+                "before": { "type": "array", "items": { "type": "string" } },
+                "after": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "nextActions": { "type": "array", "items": { "type": "string" } }
+  }
+}

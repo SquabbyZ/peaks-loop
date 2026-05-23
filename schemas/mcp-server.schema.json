@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks MCP Server Config",
+  "type": "object",
+  "required": ["name", "command", "args", "envKeys", "source", "scope"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "args": { "type": "array", "items": { "type": "string" } },
+    "envKeys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Names of env vars referenced by the server config. Values are never stored here."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["peaks", "cc-switch", "user", "unknown"]
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["global", "project"]
+    }
+  }
+}

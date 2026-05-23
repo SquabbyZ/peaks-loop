@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks MCP Install Spec",
+  "type": "object",
+  "required": ["capabilityId", "name", "scope", "command", "args", "envKeys"],
+  "properties": {
+    "capabilityId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Capability id from the Peaks capability map (e.g. context7.docs-lookup)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Server key written into .claude/settings.json mcpServers."
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["global", "project"]
+    },
+    "command": { "type": "string", "minLength": 1 },
+    "args": { "type": "array", "items": { "type": "string" } },
+    "envKeys": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Required env var names. Values are sourced from process.env at runtime and written as ${VAR} placeholders into settings.json."
+    }
+  }
+}
