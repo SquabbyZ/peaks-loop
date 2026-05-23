@@ -35,6 +35,38 @@ describe('mcp-install-registry', () => {
   test('returns null for unknown capability id', () => {
     expect(findMcpInstallSpec('does.not.exist')).toBeNull();
   });
+
+  test('exposes a Playwright MCP install spec with no required env vars', () => {
+    const spec = findMcpInstallSpec('playwright-mcp.browser-validation');
+
+    expect(spec).not.toBeNull();
+    expect(spec?.name).toBe('playwright');
+    expect(spec?.command).toBe('npx');
+    expect(spec?.envKeys).toEqual([]);
+  });
+
+  test('exposes a Chrome DevTools MCP install spec with no required env vars', () => {
+    const spec = findMcpInstallSpec('chrome-devtools-mcp.browser-debug');
+
+    expect(spec).not.toBeNull();
+    expect(spec?.name).toBe('chrome-devtools');
+    expect(spec?.envKeys).toEqual([]);
+  });
+
+  test('exposes a Figma Context MCP install spec that requires FIGMA_API_KEY', () => {
+    const spec = findMcpInstallSpec('figma-context-mcp.design-context');
+
+    expect(spec).not.toBeNull();
+    expect(spec?.name).toBe('figma');
+    expect(spec?.envKeys).toEqual(['FIGMA_API_KEY']);
+  });
+
+  test('every seed install spec uses npx so peaks mcp apply can write a portable settings entry', () => {
+    for (const spec of seedMcpInstalls) {
+      expect.soft(spec.command, `${spec.capabilityId} should be invoked through npx for portability`).toBe('npx');
+      expect.soft(spec.scope, `${spec.capabilityId} should default to global scope`).toBe('global');
+    }
+  });
 });
 
 describe('planMcpInstall', () => {
