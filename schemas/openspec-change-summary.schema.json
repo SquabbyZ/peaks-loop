@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks OpenSpec Change Summary",
+  "type": "object",
+  "required": ["id", "paths", "specs", "taskProgress"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "OpenSpec change directory name under openspec/changes/."
+    },
+    "paths": {
+      "type": "object",
+      "required": ["root", "proposal", "tasks", "design"],
+      "properties": {
+        "root": { "type": "string", "minLength": 1 },
+        "proposal": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "tasks": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "design": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "minLength": 1 }
+          ]
+        }
+      }
+    },
+    "specs": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Capability names found under specs/<capability>/spec.md."
+    },
+    "taskProgress": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["totalTodo", "doneTodo", "sections"],
+          "properties": {
+            "totalTodo": { "type": "integer", "minimum": 0 },
+            "doneTodo": { "type": "integer", "minimum": 0 },
+            "sections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["heading", "total", "done"],
+                "properties": {
+                  "heading": { "type": "string", "minLength": 1 },
+                  "total": { "type": "integer", "minimum": 0 },
+                  "done": { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

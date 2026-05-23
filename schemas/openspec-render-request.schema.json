@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks OpenSpec Render Request",
+  "type": "object",
+  "required": ["changeId", "why", "whatChanges", "acceptanceCriteria"],
+  "properties": {
+    "changeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "Safe directory name under openspec/changes/. Path traversal sequences are rejected."
+    },
+    "why": {
+      "type": "string",
+      "description": "Plain markdown content for the ## Why section. May be empty (rendered as _None_)."
+    },
+    "whatChanges": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Bullet items for the ## What Changes section. Empty array renders as _None_ but is a soft warning."
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Bullet items for ## Acceptance Criteria. Empty array renders as _None_ but is a hard validation error."
+    },
+    "outOfScope": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["heading", "todos"],
+        "properties": {
+          "heading": { "type": "string", "minLength": 1 },
+          "todos": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "doneItems": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "design": {
+      "type": "string",
+      "description": "Raw markdown body for design.md. Passthrough; not parsed by Peaks."
+    }
+  }
+}

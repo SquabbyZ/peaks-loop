@@ -46,5 +46,8 @@ export const requiredSchemaFiles = [
   'mcp-server.schema.json',
   'mcp-install-spec.schema.json',
   'mcp-install-plan.schema.json',
-  'mcp-apply-result.schema.json'
+  'mcp-apply-result.schema.json',
+  'openspec-change-summary.schema.json',
+  'openspec-render-request.schema.json',
+  'openspec-validation-result.schema.json'
 ] as const;

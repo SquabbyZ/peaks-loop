@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks OpenSpec Validation Result",
+  "type": "object",
+  "required": ["changeId", "valid", "source", "issues"],
+  "properties": {
+    "changeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "valid": { "type": "boolean" },
+    "source": {
+      "type": "string",
+      "enum": ["internal", "openspec-cli"]
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["level", "rule", "message"],
+        "properties": {
+          "level": { "type": "string", "enum": ["error", "warning"] },
+          "rule": {
+            "type": "string",
+            "description": "Stable rule id. Internal rules: proposal-exists, what-changes-non-empty, acceptance-non-empty, why-non-empty, change-id-format, openspec-cli-failed, openspec-cli-unavailable."
+          },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "cliOutput": {
+      "type": "string",
+      "description": "Combined stdout+stderr from the external openspec CLI. Only set when source is openspec-cli."
+    }
+  }
+}
