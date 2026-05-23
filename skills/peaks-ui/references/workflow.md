@@ -11,7 +11,7 @@ Use this path before generating or accepting frontend UI:
 3. Produce a concrete visual direction, not vague “clean modern” language.
 4. Reject generic AI UI tells: centered stock hero, uniform card grids, default shadcn/library styling, purple-blue gradients, three equal feature cards, generic placeholder copy, and static-only happy states.
 5. Require meaningful loading, empty, error, hover, focus, active, and responsive states.
-6. Use Chrome DevTools MCP on the running page or prototype to inspect real browser output (install via `peaks mcp plan/apply --capability chrome-devtools-mcp.browser-debug --yes` if not yet present; open with `mcp__chrome-devtools__new_page` / `navigate_page`, capture with `take_snapshot` and `take_screenshot`); visible browser confirmation is mandatory, and login/CAPTCHA/SSO/MFA requires waiting for explicit user confirmation before continuing.
+6. Use Playwright MCP on the running page or prototype to inspect real browser output (install via `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` if not yet present; open with `mcp__playwright__browser_navigate` / `navigate_page`, capture with `take_snapshot` and `take_screenshot`); visible browser confirmation is mandatory, and login/CAPTCHA/SSO/MFA requires waiting for explicit user confirmation before continuing.
 7. If the browser view looks generic, visually weak, broken, inaccessible, or has console/runtime errors, return to design/RD and iterate before handing off to QA.
 
 ## Outputs
@@ -21,7 +21,7 @@ Use this path before generating or accepting frontend UI:
 - visual direction with references;
 - design dials and rejected generic patterns;
 - interaction constraints;
-- Chrome DevTools MCP browser observations when frontend output exists (`mcp__chrome-devtools__take_snapshot`, `take_screenshot`, `list_console_messages`, `list_network_requests`);
+- Playwright MCP browser observations when frontend output exists (`mcp__playwright__browser_snapshot`, `take_screenshot`, `list_console_messages`, `list_network_requests`);
 - UI regression seeds;
 - accessibility notes;
 - taste report.

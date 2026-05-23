@@ -33,19 +33,19 @@ peaks request init --role ui --id <request-id> --project <repo> --json
 peaks request init --role ui --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role prd --project <repo> --json   # read linked PRD scope
 
-# 2. ensure Chrome DevTools MCP is available for the visible browser check
+# 2. ensure Playwright MCP is available for the visible browser check (it launches a headed browser on demand)
 peaks mcp list --json
-peaks mcp plan  --capability chrome-devtools-mcp.browser-debug --json
-peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes --json   # one-time
+peaks mcp plan  --capability playwright-mcp.browser-validation --json
+peaks mcp apply --capability playwright-mcp.browser-validation --yes --json   # one-time
 
 # 3. drive the running page or prototype through Claude Code MCP tools
 #    (these are not Peaks CLI commands; they are invoked by the host MCP runtime)
-#    mcp__chrome-devtools__new_page          → open visible Chrome
-#    mcp__chrome-devtools__navigate_page     → URL (after allow-list check)
-#    mcp__chrome-devtools__take_snapshot     → accessibility tree for regression seeds
-#    mcp__chrome-devtools__take_screenshot   → visible-browser confirmation
-#    mcp__chrome-devtools__list_console_messages → console errors
-#    mcp__chrome-devtools__list_network_requests → failed network
+#    mcp__playwright__browser_navigate         → URL (after allow-list check), launches headed browser
+#    mcp__playwright__browser_take_screenshot  → visible-browser confirmation
+#    mcp__playwright__browser_snapshot         → accessibility tree for regression seeds
+#    mcp__playwright__browser_console_messages → console errors
+#    mcp__playwright__browser_network_requests → failed network
+#    mcp__playwright__browser_close            → end the session cleanly
 
 # 4. record visual direction, rejected generic patterns, regression seeds in the artifact
 
@@ -68,7 +68,7 @@ Use gstack as a concrete design-review workflow reference for the `Plan → Revi
 - map browser walkthrough concepts to UI regression seeds when runtime validation is approved;
 - keep accessibility, performance, and product-specific visual direction as Peaks UI acceptance inputs.
 
-For frontend work, especially full-auto mode, use Chrome DevTools MCP (`mcp__chrome-devtools__new_page` / `navigate_page` / `take_snapshot` / `take_screenshot`) to inspect the running page or prototype before accepting the UI direction. Chrome DevTools MCP opens a headed Chrome window by default; if `peaks mcp list --json` does not include `chrome-devtools`, install it through `peaks mcp plan/apply --capability chrome-devtools-mcp.browser-debug --yes` before attempting to inspect. If login, CAPTCHA, SSO, or MFA appears, bring the visible window to the front with `mcp__chrome-devtools__select_page` (`bringToFront: true`) and wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-solo/references/browser-workflow.md`.
+For frontend work, especially full-auto mode, use Playwright MCP (`mcp__playwright__browser_navigate` / `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests` / `browser_close`) to inspect the running page or prototype before accepting the UI direction. Playwright MCP launches a headed browser on demand; if `peaks mcp list --json` does not include `playwright`, install it through `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` before attempting to inspect. (Chrome DevTools MCP is a secondary surface that connects to an already-running Chrome via `--remote-debugging-port=9222`; it does NOT launch a browser on its own.) If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-solo/references/browser-workflow.md`.
 
 ## Full-auto visual quality path
 
@@ -80,7 +80,7 @@ When Peaks UI is used in full-auto frontend design, default to the curated taste
 4. define design dials before generating UI: design variance, motion intensity, visual density, typography pair, palette, and interaction feel;
 5. reject centered stock heroes, default card grids, unmodified shadcn/library defaults, AI purple-blue gradients, generic three-card feature rows, and safe gray-on-white pages without a point of view;
 6. require loading, empty, error, hover, focus, active, and responsive states for meaningful surfaces;
-7. browser-check the result with Chrome DevTools MCP (install via `peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes` if not already installed; navigate with `mcp__chrome-devtools__navigate_page` then capture with `take_snapshot` and `take_screenshot`), wait for explicit user confirmation after any login challenge, and iterate until the UI looks intentional, memorable, and product-specific.
+7. browser-check the result with Playwright MCP (install via `peaks mcp apply --capability playwright-mcp.browser-validation --yes` if not already installed; navigate with `mcp__playwright__browser_navigate` then capture with `browser_snapshot` and `browser_take_screenshot`), wait for explicit user confirmation after any login challenge, and iterate until the UI looks intentional, memorable, and product-specific.
 
 Full-auto Peaks UI output must include a short taste report: visual direction, references used, rejected generic patterns, browser observations, remaining design risks, and the next visual iteration if the page is not yet good enough.
 

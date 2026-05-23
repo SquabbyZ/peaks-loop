@@ -16,32 +16,34 @@ async function read(relativePath: string): Promise<string> {
   return readFile(join(process.cwd(), relativePath), 'utf8');
 }
 
-describe('audit: Chrome DevTools MCP is the canonical headed-browser surface', () => {
-  test('the canonical browser-workflow.md reference exists and documents the three-stage pattern', async () => {
+describe('audit: Playwright MCP is the canonical headed-browser launch surface', () => {
+  test('the canonical browser-workflow.md reference documents Playwright as primary and Chrome DevTools as optional secondary', async () => {
     const body = await read(join('skills', 'peaks-solo', 'references', 'browser-workflow.md'));
 
-    expect(body).toMatch(/Chrome DevTools MCP/);
+    expect(body).toMatch(/Playwright MCP/);
     expect(body).toMatch(/peaks mcp plan/);
     expect(body).toMatch(/peaks mcp apply/);
-    expect(body).toMatch(/chrome-devtools-mcp\.browser-debug/);
+    expect(body).toMatch(/playwright-mcp\.browser-validation/);
     expect(body).toMatch(/URL allow-list/i);
     expect(body).toMatch(/Login \/ CAPTCHA \/ SSO \/ MFA/);
     expect(body).toMatch(/Sensitive data sanitization/);
-    expect(body).toMatch(/Fallback when Chrome DevTools MCP is not installed/);
+    expect(body).toMatch(/Fallback when Playwright MCP is not installed/);
+    expect(body).toMatch(/Chrome DevTools MCP/);
+    expect(body).toMatch(/does not launch|does NOT launch|optional secondary/i);
   });
 
-  test('every browser-touching SKILL.md references Chrome DevTools MCP', async () => {
+  test('every browser-touching SKILL.md references Playwright MCP', async () => {
     for (const name of BROWSER_TOUCHING_SKILLS) {
       const body = await read(join('skills', name, 'SKILL.md'));
-      expect.soft(body, `${name} SKILL.md should reference Chrome DevTools MCP`).toMatch(/Chrome DevTools MCP/);
-      expect.soft(body, `${name} SKILL.md should reference the mcp tool namespace`).toMatch(/mcp__chrome-devtools__/);
+      expect.soft(body, `${name} SKILL.md should reference Playwright MCP`).toMatch(/Playwright MCP/);
+      expect.soft(body, `${name} SKILL.md should reference the mcp__playwright__ tool namespace`).toMatch(/mcp__playwright__/);
     }
   });
 
-  test('every browser-touching SKILL.md routes installation through peaks mcp plan/apply', async () => {
+  test('every browser-touching SKILL.md routes installation through peaks mcp plan/apply for playwright', async () => {
     for (const name of BROWSER_TOUCHING_SKILLS) {
       const body = await read(join('skills', name, 'SKILL.md'));
-      expect.soft(body, `${name} SKILL.md should mention peaks mcp plan/apply for chrome-devtools install`).toMatch(/peaks mcp (plan|apply).*chrome-devtools-mcp\.browser-debug/);
+      expect.soft(body, `${name} SKILL.md should mention peaks mcp plan/apply for playwright install`).toMatch(/peaks mcp (plan|apply).*playwright-mcp\.browser-validation/);
     }
   });
 

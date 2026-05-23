@@ -65,19 +65,19 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
     expect.soft(section).toMatch(/peaks standards/);
   });
 
-  test('QA runbook references openspec validate and the chrome-devtools-mcp install path', async () => {
+  test('QA runbook references openspec validate and the playwright-mcp install path', async () => {
     const body = await readFile(join(SKILLS_ROOT, 'peaks-qa', 'SKILL.md'), 'utf8');
     const section = extractRunbookSection(body) ?? '';
 
     expect.soft(section).toMatch(/peaks openspec validate/);
-    expect.soft(section).toMatch(/peaks mcp apply --capability chrome-devtools-mcp\.browser-debug/);
+    expect.soft(section).toMatch(/peaks mcp apply --capability playwright-mcp\.browser-validation/);
   });
 
-  test('UI runbook references the chrome-devtools-mcp install path', async () => {
+  test('UI runbook references the playwright-mcp install path', async () => {
     const body = await readFile(join(SKILLS_ROOT, 'peaks-ui', 'SKILL.md'), 'utf8');
     const section = extractRunbookSection(body) ?? '';
 
-    expect(section).toMatch(/peaks mcp apply --capability chrome-devtools-mcp\.browser-debug/);
+    expect(section).toMatch(/peaks mcp apply --capability playwright-mcp\.browser-validation/);
   });
 
   test('PRD runbook references openspec and standards preflight commands', async () => {

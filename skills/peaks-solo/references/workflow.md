@@ -21,7 +21,7 @@ A code workflow is not complete until Solo has linked or summarized:
 6. security-review evidence;
 7. RD post-check dry-run evidence;
 8. QA API validation when applicable;
-9. sanitized QA Chrome DevTools MCP browser E2E evidence for frontend projects (`mcp__chrome-devtools__take_snapshot` / `take_screenshot` / `list_console_messages` / `list_network_requests`), with mandatory visible-browser confirmation and without login URLs, cookies, headers, tokens, storage state, browser traces, or PII/SSO/MFA screenshots/logs;
+9. sanitized QA Playwright MCP browser E2E evidence for frontend projects (`mcp__playwright__browser_snapshot` / `take_screenshot` / `list_console_messages` / `list_network_requests`), with mandatory visible-browser confirmation and without login URLs, cookies, headers, tokens, storage state, browser traces, or PII/SSO/MFA screenshots/logs;
 10. QA security, performance, and validation report evidence;
 11. RD repair evidence for every failed, blocked, missing, or unverified QA item;
 12. final QA report showing all acceptance items passed, or a blocked TXT handoff;
