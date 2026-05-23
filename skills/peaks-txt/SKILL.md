@@ -85,6 +85,8 @@ Use `peaks capabilities --json` before recommending memory or context-management
 - Never store secrets, credentials, private customer data, or non-exportable business data in memory artifacts.
 - Prefer Peaks TXT context capsules when external persistence is unavailable or not authorized.
 
+Peaks TXT context capsules and project memory extraction remain authoritative; external memory or context tools inform structure but do not replace the role artifacts.
+
 ## Boundaries
 
 Do not choose the refactor plan or install runtime resources. Use artifacts produced by other skills and CLI reports.
