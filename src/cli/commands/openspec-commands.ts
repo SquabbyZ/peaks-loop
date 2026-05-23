@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { loadOpenSpecChange, scanOpenSpec, type OpenSpecScanOptions } from '../../services/openspec/openspec-scan-service.js';
 import { projectOpenSpecToRdInput } from '../../services/openspec/openspec-bridge-service.js';
 import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRequest } from '../../services/openspec/openspec-render-service.js';
+import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -17,6 +18,10 @@ type OpenSpecRenderCommandOptions = OpenSpecListOptions & {
   request: string;
   apply?: boolean;
   overwrite?: boolean;
+};
+
+type OpenSpecValidateCommandOptions = OpenSpecListOptions & {
+  preferExternal?: boolean;
 };
 
 function resolveScanOptions(project: string | undefined): OpenSpecScanOptions {
@@ -143,6 +148,53 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       printResult(
         io,
         fail('openspec.render', 'OPENSPEC_RENDER_FAILED', getErrorMessage(error), { requestPath: options.request }, ['Check the request JSON shape and the openspec root before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    openspec
+      .command('validate')
+      .description('Validate an OpenSpec change against internal lint rules (and optionally the external openspec CLI)')
+      .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
+      .option('--project <path>', 'project root containing an openspec/ directory')
+      .option('--prefer-external', 'use the external openspec CLI when available, fall back to internal lint')
+  ).action(async (changeId: string, options: OpenSpecValidateCommandOptions) => {
+    try {
+      const scan = resolveScanOptions(options.project);
+      const validateOptions: OpenSpecValidateOptions = {};
+      if (scan.openspecRoot !== undefined) {
+        validateOptions.openspecRoot = scan.openspecRoot;
+      }
+      if (options.preferExternal === true) {
+        validateOptions.preferExternal = true;
+      }
+      const result = await validateOpenSpecChange(changeId, validateOptions);
+      if (result === null) {
+        printResult(
+          io,
+          fail('openspec.validate', 'OPENSPEC_CHANGE_NOT_FOUND', `OpenSpec change ${changeId} was not found`, { changeId }, [`Verify openspec/changes/${changeId}/ exists`]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (!result.valid) {
+        printResult(
+          io,
+          fail('openspec.validate', 'OPENSPEC_VALIDATE_INVALID', `OpenSpec change ${changeId} failed validation`, result, result.issues.map((issue) => `${issue.level}: ${issue.rule}: ${issue.message}`)),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('openspec.validate', result, result.issues.filter((issue) => issue.level === 'warning').map((issue) => `${issue.rule}: ${issue.message}`)), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('openspec.validate', 'OPENSPEC_VALIDATE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
         options.json
       );
       process.exitCode = 1;

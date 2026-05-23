@@ -200,6 +200,59 @@ describe('peaks openspec commands', () => {
     expect(result.exitCode).toBe(1);
   });
 
+  test('validates a real openspec change and reports success', async () => {
+    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--json']);
+    const output = parseJsonOutput<{ valid: boolean; source: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('openspec.validate');
+    expect(output.data.valid).toBe(true);
+    expect(output.data.source).toBe('internal');
+  });
+
+  test('returns OPENSPEC_CHANGE_NOT_FOUND when validating a missing change', async () => {
+    const result = await runCommand(['openspec', 'validate', 'no-such-change-id', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_CHANGE_NOT_FOUND');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('returns OPENSPEC_VALIDATE_INVALID when proposal is missing', async () => {
+    const project = await makeProjectWithOpenSpec();
+    await mkdir(join(project, 'openspec', 'changes', 'broken'), { recursive: true });
+
+    const result = await runCommand(['openspec', 'validate', 'broken', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_VALIDATE_INVALID');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('passes --prefer-external through to the validator', async () => {
+    const result = await runCommand(['openspec', 'validate', 'add-tech-dry-run-gate', '--prefer-external', '--json']);
+    const output = parseJsonOutput<{ source: string; issues: Array<{ rule: string }> }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.source).toBe('internal');
+    expect(output.data.issues.some((issue) => issue.rule === 'openspec-cli-unavailable')).toBe(true);
+  });
+
+  test('returns OPENSPEC_VALIDATE_FAILED when validation throws', async () => {
+    const module = await import('../../src/services/openspec/openspec-validate-service.js');
+    const spy = vi.spyOn(module, 'validateOpenSpecChange').mockRejectedValueOnce(new Error('synthetic validation failure'));
+
+    const result = await runCommand(['openspec', 'validate', 'anything', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_VALIDATE_FAILED');
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
+
   test('normalizes trailing slash in --project path', async () => {
     const project = await makeProjectWithOpenSpec();
     const result = await runCommand(['openspec', 'list', '--project', `${project}/`, '--json']);
