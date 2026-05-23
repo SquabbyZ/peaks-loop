@@ -48,7 +48,7 @@ Use the same `<request-id>` PRD assigned (`YYYY-MM-DD-<kebab-slug>`) so the PRD/
 ## Browser evidence
 
 - sanitized observations only — no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs with PII / SSO / MFA material
-- where the headed `gstack/browse/dist/browse` evidence is stored
+- where the Chrome DevTools MCP browser evidence is stored (`mcp__chrome-devtools__take_screenshot` / `take_snapshot` outputs, sanitized)
 
 ## Handoff
 

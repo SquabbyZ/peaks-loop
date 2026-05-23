@@ -45,7 +45,7 @@ For each PRD acceptance criterion:
 
 - unit tests: command + pass/fail + coverage delta
 - API validation (when applicable): request paths exercised, evidence
-- browser E2E (when frontend): headed `gstack/browse/dist/browse` visible-browser confirmation, sanitized route/actions, console/network observations
+- browser E2E (when frontend): Chrome DevTools MCP visible-browser confirmation (`mcp__chrome-devtools__take_screenshot` / `take_snapshot` / `list_pages`), sanitized route/actions, console/network observations (`list_console_messages`, `list_network_requests`)
 - browser-error feedback loop: page errors, console exceptions, broken network, hydration failures → return-to-RD evidence
 - security check: tool used, findings, fixes, unresolved risks
 - performance check: tool used, baseline vs after numbers when available
@@ -78,6 +78,6 @@ For each PRD acceptance criterion:
 
 - Do not skip the QA artifact even for "obvious" passes. The artifact is the trace future maintainers need.
 - Any failing acceptance criterion blocks verdict pass; route the QA findings back to RD per the Solo RD↔QA repair loop.
-- Headed `gstack/browse/dist/browse` is the only acceptable frontend browser gate. Screenshots, logs, or other tools do not substitute when frontend is in scope.
+- Chrome DevTools MCP is the only acceptable frontend browser gate. Screenshots from other tools, logs, or manual steps do not substitute when frontend is in scope.
 - Sanitize all browser/network/log evidence before writing.
 - Do not commit unless the user or active profile authorizes durable retention.

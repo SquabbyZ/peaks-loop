@@ -9,7 +9,7 @@ QA must be involved before refactor implementation.
 - baseline report;
 - acceptance checks;
 - API validation evidence when API behavior is in scope;
-- headed `gstack/browse/dist/browse` browser E2E evidence when a frontend exists or UI is in scope, with mandatory visible-browser confirmation;
+- Chrome DevTools MCP browser E2E evidence when a frontend exists or UI is in scope (install via `peaks mcp plan/apply --capability chrome-devtools-mcp.browser-debug --yes` if not present; capture with `mcp__chrome-devtools__take_snapshot`, `take_screenshot`, `list_console_messages`, `list_network_requests`), with mandatory visible-browser confirmation;
 - security check evidence;
 - performance check evidence;
 - validation report;

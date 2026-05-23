@@ -44,11 +44,11 @@ All of these must route through the Peaks CLI under the appropriate command (`pe
 
 Some references are not external skills but project-approved utilities and may be named directly without the discovery stage:
 
-- `gstack/browse/dist/browse` — a project-approved headed browser binary; the path-style reference is intentional. Login / CAPTCHA / SSO / MFA handoff rules still apply, and screenshots/cookies/tokens/storage state must be sanitized before retention.
 - `peaks` CLI commands (this binary).
 - `npx`, `npm`, `pnpm`, `yarn`, package managers — only as the underlying mechanism when a `peaks` CLI command spawns them.
+- `mcp__chrome-devtools__*` — Chrome DevTools MCP tools exposed by Claude Code's MCP runtime after `peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes`. Skill bodies invoke these tools directly because the MCP runtime is the host; they are not piped through `peaks mcp call`. Login / CAPTCHA / SSO / MFA handoff rules and sanitization rules in `browser-workflow.md` still apply.
 
-These are not subject to capability discovery because they are part of the Peaks engineering surface, not external skills.
+These are not subject to capability discovery because they are part of the Peaks engineering surface, not external skills. The previous `gstack/browse/dist/browse` binary reference is no longer endorsed — see `browser-workflow.md` for the migration recipe.
 
 ## Common phrasing the audit looks for
 

@@ -40,7 +40,9 @@ Use gstack as a concrete orchestration reference for the full `Think → Plan �
 - map `/retro` to Peaks TXT final context and reusable lessons;
 - preserve Peaks confirmation gates, artifact workspace boundaries, and role separation instead of delegating orchestration to gstack commands.
 
-For frontend workflows, Peaks Solo must ensure RD self-test and QA validation use headed `gstack/browse/dist/browse` for real browser end-to-end validation. A visible browser opening is mandatory. If login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing. If browser validation reports page, console, network, render, or visible UI errors, route the workflow back to RD for fixes before QA can pass.
+For frontend workflows, Peaks Solo must ensure RD self-test and QA validation use Chrome DevTools MCP for real browser end-to-end validation (install via `peaks mcp plan/apply --capability chrome-devtools-mcp.browser-debug --yes` if not yet present; Claude Code invokes the tools under the `mcp__chrome-devtools__*` namespace — navigate_page, take_snapshot, take_screenshot, list_pages, list_console_messages, list_network_requests, select_page). A visible browser opening is mandatory. If login, CAPTCHA, SSO, or MFA appears, wait for the user to complete login and explicitly confirm completion before continuing. If browser validation reports page, console, network, render, or visible UI errors, route the workflow back to RD for fixes before QA can pass.
+
+Canonical browser workflow (URL allow-list, login handoff, tool mapping from the previous gstack/browse pattern): `references/browser-workflow.md`.
 
 Browser validation artifacts must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material in `.peaks` artifacts, and do not commit or sync sensitive browser evidence.
 
@@ -61,7 +63,7 @@ When Peaks Solo coordinates development in a code repository, keep this order ex
 5. unit tests for new/changed behavior, with focused new-code coverage accepted for legacy low-coverage repos;
 6. code review and security review with CRITICAL/HIGH issues fixed before progression; marked-blocked CRITICAL/HIGH issues only allow a blocked handoff, not QA or completion;
 7. RD post-check dry-run;
-8. QA validation, including API checks and headed `gstack/browse/dist/browse` browser E2E for frontend;
+8. QA validation, including API checks and Chrome DevTools MCP headed browser E2E for frontend;
 9. QA security and performance checks plus validation report;
 10. TXT final handoff capsule, including reusable skill-usage lessons when the workflow revealed new habits or preferences.
 
