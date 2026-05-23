@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { pathExists } from '../../src/shared/fs.js';
-import { renderOpenSpecChange, type OpenSpecRenderRequest } from '../../src/services/openspec/openspec-render-service.js';
+import {
+  renderOpenSpecChange,
+  OpenSpecRenderRequestInvalidError,
+  type OpenSpecRenderRequest
+} from '../../src/services/openspec/openspec-render-service.js';
 
 async function makeOpenSpecRoot(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'peaks-openspec-render-'));
@@ -170,5 +174,74 @@ describe('renderOpenSpecChange (apply)', () => {
 
     expect(result.changeRoot).toBe(join(process.cwd(), 'openspec', 'changes', 'default-root-dryrun'));
     expect(result.applied).toBe(false);
+  });
+});
+
+describe('renderOpenSpecChange (schema validation)', () => {
+  test('rejects a request with path-traversal changeId via schema', async () => {
+    const root = await makeOpenSpecRoot();
+
+    let caught: OpenSpecRenderRequestInvalidError | null = null;
+    try {
+      await renderOpenSpecChange({ ...fullRequest(), changeId: '../escape' }, { openspecRoot: root });
+    } catch (error) {
+      if (error instanceof OpenSpecRenderRequestInvalidError) {
+        caught = error;
+      } else {
+        throw error;
+      }
+    }
+
+    expect(caught).not.toBeNull();
+    expect(caught?.issues.some((issue) => issue.path === '/changeId')).toBe(true);
+  });
+
+  test('rejects a request missing required fields via schema', async () => {
+    const root = await makeOpenSpecRoot();
+
+    await expect(
+      renderOpenSpecChange({ changeId: 'ok' } as unknown as OpenSpecRenderRequest, { openspecRoot: root })
+    ).rejects.toBeInstanceOf(OpenSpecRenderRequestInvalidError);
+  });
+
+  test('rejects empty bullets in whatChanges via schema items.minLength', async () => {
+    const root = await makeOpenSpecRoot();
+
+    await expect(
+      renderOpenSpecChange(
+        { changeId: 'ok', why: 'r', whatChanges: [''], acceptanceCriteria: ['a'] },
+        { openspecRoot: root }
+      )
+    ).rejects.toBeInstanceOf(OpenSpecRenderRequestInvalidError);
+  });
+
+  test('falls back to the inline changeId check when the schema file is missing', async () => {
+    const root = await makeOpenSpecRoot();
+    const missingSchema = join(root, 'does-not-exist.schema.json');
+
+    await expect(
+      renderOpenSpecChange({ ...fullRequest(), changeId: '.hidden' }, { openspecRoot: root, schemaPath: missingSchema })
+    ).rejects.toThrowError(/changeId/);
+  });
+
+  test('reuses the loaded schema when called multiple times with the same path', async () => {
+    const root = await makeOpenSpecRoot();
+    const schemaPath = join(root, 'cached.schema.json');
+    await writeFile(
+      schemaPath,
+      JSON.stringify({
+        type: 'object',
+        required: ['changeId'],
+        properties: { changeId: { type: 'string', pattern: '^[a-z]+$' } }
+      }),
+      'utf8'
+    );
+
+    await expect(
+      renderOpenSpecChange({ ...fullRequest(), changeId: 'lowercase' }, { openspecRoot: root, schemaPath })
+    ).resolves.toBeDefined();
+    await expect(
+      renderOpenSpecChange({ ...fullRequest(), changeId: 'BadCase' }, { openspecRoot: root, schemaPath })
+    ).rejects.toBeInstanceOf(OpenSpecRenderRequestInvalidError);
   });
 });

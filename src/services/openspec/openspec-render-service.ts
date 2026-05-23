@@ -1,6 +1,8 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { isDirectory } from '../../shared/fs.js';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isDirectory, pathExists } from '../../shared/fs.js';
+import { validateAgainstSchema, type JsonSchemaIssue, type JsonSchemaNode } from '../../shared/json-schema-mini.js';
 
 export type OpenSpecRenderTaskSection = {
   heading: string;
@@ -36,12 +38,50 @@ export type OpenSpecRenderOptions = {
   openspecRoot?: string;
   apply?: boolean;
   overwrite?: boolean;
+  schemaPath?: string;
 };
 
 const CHANGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 function defaultOpenSpecRoot(): string {
   return join(process.cwd(), 'openspec');
+}
+
+function defaultSchemaPath(): string {
+  const here = fileURLToPath(import.meta.url);
+  return resolve(here, '..', '..', '..', '..', 'schemas', 'openspec-render-request.schema.json');
+}
+
+let cachedSchema: JsonSchemaNode | null = null;
+let cachedSchemaPath: string | null = null;
+
+async function loadSchema(schemaPath: string): Promise<JsonSchemaNode | null> {
+  if (cachedSchema !== null && cachedSchemaPath === schemaPath) {
+    return cachedSchema;
+  }
+  if (!(await pathExists(schemaPath))) {
+    return null;
+  }
+  const raw = await readFile(schemaPath, 'utf8');
+  const parsed = JSON.parse(raw) as JsonSchemaNode;
+  cachedSchema = parsed;
+  cachedSchemaPath = schemaPath;
+  return parsed;
+}
+
+function formatSchemaIssue(issue: JsonSchemaIssue): string {
+  return `${issue.path}: ${issue.message}`;
+}
+
+export class OpenSpecRenderRequestInvalidError extends Error {
+  readonly issues: JsonSchemaIssue[];
+
+  constructor(issues: JsonSchemaIssue[]) {
+    const summary = issues.map(formatSchemaIssue).join('; ');
+    super(`OpenSpec render request failed schema validation: ${summary}`);
+    this.name = 'OpenSpecRenderRequestInvalidError';
+    this.issues = issues;
+  }
 }
 
 function renderBullets(items: string[] | undefined): string {
@@ -119,7 +159,14 @@ export async function renderOpenSpecChange(
   request: OpenSpecRenderRequest,
   options: OpenSpecRenderOptions = {}
 ): Promise<OpenSpecRenderResult> {
-  if (!CHANGE_ID_PATTERN.test(request.changeId)) {
+  const schemaPath = options.schemaPath ?? defaultSchemaPath();
+  const schema = await loadSchema(schemaPath);
+  if (schema !== null) {
+    const result = validateAgainstSchema(request, schema);
+    if (!result.valid) {
+      throw new OpenSpecRenderRequestInvalidError(result.errors);
+    }
+  } else if (!CHANGE_ID_PATTERN.test(request.changeId)) {
     throw new Error(`Invalid changeId: ${request.changeId} (expected letters, digits, dots, underscores, or dashes)`);
   }
 
