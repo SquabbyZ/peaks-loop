@@ -16,6 +16,14 @@ Peaks RD owns engineering analysis, implementation planning, and refactor execut
 - generate refactor options, risk matrix, rollback plan, and task graph preview;
 - implement only after strict specs and confirmations exist.
 
+## Mandatory per-request artifact
+
+Every RD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/rd/requests/<request-id>.md`. This is the canonical engineering record for that request; handoff to QA/SC is blocked while the artifact is missing or its state is `draft` or `spec-locked` without implementation evidence.
+
+Use the `<request-id>` PRD assigned. RD companion artifacts (task graph, scan report, coverage evidence, slice spec, dry-run output, MCP call results) live alongside this file under the same `rd/` workspace and are linked from it.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
 ## Project standards preflight
 
 Before RD planning or implementation work in a code repository, call the Peaks CLI:

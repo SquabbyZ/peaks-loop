@@ -17,6 +17,14 @@ Peaks PRD turns user intent into verifiable product artifacts.
 - create refactor goal artifacts;
 - produce product-side intermediate artifacts for downstream RD and QA skills.
 
+## Mandatory per-request artifact
+
+Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state.
+
+Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the user assigned) so PRD/UI/RD/QA/SC can cross-link the same request.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
 ## Refactor role
 
 For refactor workflows, avoid writing a full product PRD unless needed. Produce a focused refactor product package:

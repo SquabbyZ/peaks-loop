@@ -18,6 +18,14 @@ Peaks QA proves that planned changes are protected and accepted.
 - run or coordinate security and performance checks for the changed surface;
 - generate a validation report with commands, browser evidence, findings, and residual risks.
 
+## Mandatory per-request artifact
+
+Every QA invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/qa/requests/<request-id>.md`. This is the canonical verification record; the verdict in the artifact is authoritative over any chat conclusion. Solo's RD↔QA repair loop reads this artifact to decide whether to return work to RD or close the request.
+
+Use the `<request-id>` PRD assigned, so PRD/UI/RD/QA/SC all reference the same request. QA companion artifacts (regression matrix, browser evidence directory, coverage report, security report, performance report) live alongside under the same `qa/` workspace and are linked from this file.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
 ## Project standards preflight
 
 Before QA verification in a code repository, call the Peaks CLI:

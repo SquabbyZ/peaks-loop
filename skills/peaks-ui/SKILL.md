@@ -15,6 +15,14 @@ Peaks UI handles experience, interaction, visual direction, and UI-specific refa
 - create UI regression seeds;
 - review user-facing behavior preservation.
 
+## Mandatory per-request artifact
+
+Every UI invocation that touches user-visible behavior — including bug fixes that change visible flow — must write a durable artifact at `.peaks/<session-id>/ui/requests/<request-id>.md`. Handoff to RD/QA is blocked while the artifact is missing or in `draft` state.
+
+Use the `<request-id>` PRD assigned, so PRD/UI/RD/QA can cross-link the same request.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
 ## Refactor role
 
 Only engage when the refactor affects UI, interaction, styling, page structure, design system, or frontend user behavior.
