@@ -1,7 +1,10 @@
-import { Command } from 'commander';
+import { Command, InvalidArgumentError } from 'commander';
+import { readFile } from 'node:fs/promises';
 import { scanMcpServers } from '../../services/mcp/mcp-scan-service.js';
 import { planMcpInstall, type PlanMcpInstallOptions } from '../../services/mcp/mcp-plan-service.js';
 import { applyMcpInstall, rollbackMcpInstall, type McpApplyOptions } from '../../services/mcp/mcp-apply-service.js';
+import { callMcpTool, type McpCallTransportFactory } from '../../services/mcp/mcp-call-service.js';
+import { createStdioTransportFromSpec } from '../../services/mcp/mcp-stdio-transport.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -25,6 +28,40 @@ type McpRollbackCommandOptions = {
   backup: string;
   json?: boolean;
 };
+
+type McpCallCommandOptions = {
+  capability: string;
+  tool: string;
+  args?: string;
+  argsJson?: string;
+  timeout?: number;
+  json?: boolean;
+};
+
+function parsePositiveInteger(value: string): number {
+  if (!/^\d+$/.test(value)) {
+    throw new InvalidArgumentError('must be a positive integer');
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new InvalidArgumentError('must be a positive integer');
+  }
+  return parsed;
+}
+
+async function resolveCallArgs(options: McpCallCommandOptions): Promise<Record<string, unknown>> {
+  if (options.argsJson !== undefined && options.args !== undefined) {
+    throw new Error('Pass either --args-json or --args, not both');
+  }
+  const raw = options.argsJson !== undefined
+    ? options.argsJson
+    : options.args !== undefined ? await readFile(options.args, 'utf8') : '{}';
+  const parsed: unknown = JSON.parse(raw);
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('MCP tool arguments must be a JSON object');
+  }
+  return parsed as Record<string, unknown>;
+}
 
 export function registerMcpCommands(program: Command, io: ProgramIO): void {
   const mcp = program.command('mcp').description('Manage Claude Code MCP servers');
@@ -133,6 +170,40 @@ export function registerMcpCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('mcp.rollback', 'MCP_ROLLBACK_FAILED', getErrorMessage(error), { backupPath: options.backup }, ['Verify the backup path and rerun']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    mcp
+      .command('call')
+      .description('Invoke a tool on an installed MCP server via stdio (spawns the server, calls tools/call, closes)')
+      .requiredOption('--capability <id>', 'capability id from the MCP install registry')
+      .requiredOption('--tool <name>', 'MCP tool name to invoke')
+      .option('--args <path>', 'path to a JSON file describing the tool arguments object')
+      .option('--args-json <jsonString>', 'inline JSON object describing the tool arguments')
+      .option('--timeout <ms>', 'per-request timeout in milliseconds', parsePositiveInteger)
+  ).action(async (options: McpCallCommandOptions) => {
+    try {
+      const args = await resolveCallArgs(options);
+      const factory: McpCallTransportFactory = createStdioTransportFromSpec;
+      const callOptions: Parameters<typeof callMcpTool>[0] = {
+        capabilityId: options.capability,
+        toolName: options.tool,
+        args,
+        transportFactory: factory
+      };
+      if (options.timeout !== undefined) {
+        callOptions.timeoutMs = Number(options.timeout);
+      }
+      const result = await callMcpTool(callOptions);
+      printResult(io, ok('mcp.call', result), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('mcp.call', 'MCP_CALL_FAILED', getErrorMessage(error), { capabilityId: options.capability, toolName: options.tool }, ['Check the capability id, tool name, args JSON, and required env vars before retrying']),
         options.json
       );
       process.exitCode = 1;

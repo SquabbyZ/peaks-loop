@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import type { McpClientTransport } from './mcp-client-service.js';
+import type { McpInstallSpec } from './mcp-install-registry.js';
 
 export type StdioTransportOptions = {
   command: string;
@@ -54,4 +55,15 @@ export function createStdioTransport(options: StdioTransportOptions): McpClientT
         child.kill();
       })
   };
+}
+
+export function createStdioTransportFromSpec(
+  spec: McpInstallSpec,
+  env: Record<string, string | undefined>
+): McpClientTransport {
+  const transportEnv: Record<string, string | undefined> = {};
+  for (const key of spec.envKeys) {
+    transportEnv[key] = env[key];
+  }
+  return createStdioTransport({ command: spec.command, args: spec.args, env: transportEnv });
 }
