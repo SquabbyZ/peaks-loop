@@ -6,6 +6,7 @@ import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capabili
 import { registerCodegraphCommands } from './commands/codegraph-commands.js';
 import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerOpenSpecCommands } from './commands/openspec-commands.js';
+import { registerRequestCommands } from './commands/request-commands.js';
 import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
@@ -34,6 +35,7 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
   registerCodegraphCommands(program, io);
   registerMcpCommands(program, io);
   registerOpenSpecCommands(program, io);
+  registerRequestCommands(program, io);
   registerShadcnCommands(program, io);
 
   return program;
