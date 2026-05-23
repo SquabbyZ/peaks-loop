@@ -96,6 +96,16 @@ Use `peaks capabilities --source access-repo --json` before recommending browser
 - Agent Browser can support browser walkthroughs, but never submit forms, purchase, delete, or mutate authenticated state without explicit confirmation.
 - If headed `gstack/browse/dist/browse` is unavailable, mark frontend browser validation blocked; screenshots, logs, manual steps, or other tools must not substitute for the mandatory headed browser gate.
 
+## OpenSpec validation gate
+
+When the target repository has `openspec/`, QA must run validation on the change pack before passing or before archiving a shipped change.
+
+- `peaks openspec validate <id> --project <repo> --json` — required gate. `data.valid === true` is mandatory. Record every error and warning in the validation report.
+- `peaks openspec validate <id> --project <repo> --prefer-external --json` — preferred when the external `openspec` CLI is installed; falls back to internal lint with an explicit `openspec-cli-unavailable` warning when not.
+- `peaks openspec archive <id> --project <repo> [--apply] --json` — optional terminator after QA accepts a shipped change.
+
+Concrete rules and lint reference: `references/openspec-validation-gate.md`.
+
 ## Boundaries
 
 Do not own product scope or implementation. Do not modify runtime configuration.

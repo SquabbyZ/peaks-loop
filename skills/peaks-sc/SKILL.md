@@ -31,6 +31,16 @@ Use gstack as a concrete source-control and release workflow reference for the `
 
 Project `.claude/memory` is the primary source for durable project memory. At approved checkpoints, use `peaks memory sync --project <path> --workspace <artifact-workspace> --apply` to back up the full project memory directory into the artifact repository workspace; do not treat the artifact backup as a second writable memory source.
 
+## OpenSpec-derived commit boundaries
+
+When `openspec/changes/<id>/tasks.md` exists, derive commit boundaries from it through the Peaks CLI instead of redesigning them:
+
+- `peaks openspec to-rd <id> --project <repo> --json` returns `commitBoundaries[]`, one entry per tasks.md heading.
+- Default to one commit per heading. Each commit message references the change-id and the section heading.
+- If implementation produces diffs outside any todo, surface that as out-of-scope before closing SC.
+
+Concrete rules: `references/openspec-commit-boundaries.md`.
+
 ## Boundaries
 
 Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks CLI artifact commands.

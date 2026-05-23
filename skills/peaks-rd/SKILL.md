@@ -150,6 +150,17 @@ Use `peaks capabilities --source access-repo --json` and `peaks capabilities --s
 - OpenSpec should structure durable spec-first RD changes when available or approved, but Peaks PRD/RD/QA gates remain authoritative.
 - GitNexus remains a future proxied repository-intelligence boundary; do not install or run it directly.
 
+## OpenSpec and MCP CLI
+
+Read OpenSpec change packs and call MCP tools through the Peaks CLI. Do not hand-edit `openspec/changes/**` or `~/.claude/settings.json` from this skill body.
+
+- `peaks openspec show <id> --project <repo> --json` to read parsed proposal and tasks state.
+- `peaks openspec to-rd <id> --project <repo> --json` to project an existing change pack into RD slice input (acceptance, what-changes, dependencies, risks, out-of-scope, commit boundary candidates).
+- `peaks openspec render --request <jsonPath> --project <repo> [--apply] --json` to draft a new change pack; default dry-run, `--apply` writes.
+- `peaks mcp list / plan / apply / call --json` to consume external MCP servers (e.g. Context7 for library docs lookup) under the Peaks-managed install registry.
+
+Concrete recipes and rules: `references/openspec-mcp-cli.md`.
+
 ## Boundaries
 
 Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks CLI to handle runtime side effects.
