@@ -83,6 +83,57 @@ When QA reports problems:
 
 For full-auto or long-running workflows, prefer using Claude Code's `goal` command to encode this loop goal: "RD fixes until QA passes all acceptance items." Do not treat `goal` as a replacement for Peaks role artifacts; it is only the controller objective for the RD↔QA loop.
 
+## Default runbook
+
+The default end-to-end sequence Peaks Solo orchestrates when a user supplies a request (feature / bug / refactor / product-doc link) and selects the Solo (full-auto) profile. Each role's own Default runbook owns the per-role detail; Solo's job is to drive the cross-role state transitions in order and confirm the artifact chain is complete before declaring the workflow done.
+
+```bash
+# 0. snapshot the project before anything else
+peaks doctor --json
+peaks project dashboard --project <repo> --json     # one-call cross-role status
+
+# 1. PRD phase — capture the request as the canonical artifact
+peaks request init --role prd --id <request-id> --project <repo> --apply --json
+# (Solo executes peaks-prd Default runbook here, including authenticated
+#  document handling via Chrome DevTools MCP per peaks-solo/references/browser-workflow.md)
+peaks request transition <request-id> --role prd --state confirmed-by-user --project <repo> --json
+peaks request transition <request-id> --role prd --state handed-off --project <repo> --json
+
+# 2. UI phase — only when the request affects user-visible behavior
+peaks request init --role ui --id <request-id> --project <repo> --apply --json
+# (Solo executes peaks-ui Default runbook here)
+peaks request transition <request-id> --role ui --state direction-locked --project <repo> --json
+peaks request transition <request-id> --role ui --state handed-off --project <repo> --json
+
+# 3. RD phase — engineering planning + implementation
+peaks request init --role rd --id <request-id> --project <repo> --apply --json
+# (Solo executes peaks-rd Default runbook here: standards preflight + openspec entry gate +
+#  project-analysis evidence + implementation + openspec exit gate)
+peaks request transition <request-id> --role rd --state spec-locked   --project <repo> --json
+peaks request transition <request-id> --role rd --state implemented  --project <repo> --json
+peaks request transition <request-id> --role rd --state qa-handoff   --project <repo> --json
+
+# 4. QA phase — verification with the mandatory gates
+peaks request init --role qa --id <request-id> --project <repo> --apply --json
+# (Solo executes peaks-qa Default runbook here, including Chrome DevTools MCP frontend
+#  validation when frontend is in scope)
+peaks request transition <request-id> --role qa --state running         --project <repo> --json
+peaks request transition <request-id> --role qa --state verdict-issued  --project <repo> --json
+
+# 5. close the loop — final verification and optional OpenSpec archive
+peaks request list --project <repo> --json                          # every artifact reached its terminal state?
+peaks request show <request-id> --role qa --project <repo> --json   # QA verdict is pass?
+peaks openspec validate <change-id> --project <repo> --json         # exit gate (when openspec/ exists)
+peaks openspec archive  <change-id> --project <repo> --apply --json # only after QA verdict=pass
+
+# 6. final snapshot to confirm the workflow really closed
+peaks project dashboard --project <repo> --json
+```
+
+Solo's RD↔QA repair loop (`## Mandatory RD QA repair loop` above) applies if QA's verdict is `return-to-rd`. In that case, Solo re-runs phase 3 + phase 4 against the same `<request-id>` instead of starting a new one; the previous artifacts get appended with new transition notes via `--reason` rather than rewritten.
+
+For Assisted, Swarm, or Strict profiles, Solo pauses at the transition boundaries to confirm the next phase rather than running the chain straight through. The CLI sequence is the same; only the confirmation gate cadence differs.
+
 ## Mode selection
 
 When the user invokes Peaks Solo without explicitly selecting an execution profile, use `AskUserQuestion` before orchestration starts. Present the recommended full-auto path as the first/default option, and give every option a practical description so users can choose quickly.
