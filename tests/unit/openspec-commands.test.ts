@@ -130,6 +130,76 @@ describe('peaks openspec commands', () => {
     spy.mockRestore();
   });
 
+  test('renders an openspec change pack in dry-run mode without writing', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const requestPath = join(project, 'render-request.json');
+    await writeFile(requestPath, JSON.stringify({
+      changeId: 'rendered-from-cli',
+      why: 'CLI smoke',
+      whatChanges: ['add cli render'],
+      acceptanceCriteria: ['written']
+    }), 'utf8');
+
+    const result = await runCommand(['openspec', 'render', '--request', requestPath, '--project', project, '--json']);
+    const output = parseJsonOutput<{ applied: boolean; files: Array<{ path: string }> }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('openspec.render');
+    expect(output.data.applied).toBe(false);
+    expect(output.data.files.some((file) => file.path.endsWith('proposal.md'))).toBe(true);
+  });
+
+  test('renders an openspec change pack with --apply when no existing dir', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const requestPath = join(project, 'render-apply.json');
+    await writeFile(requestPath, JSON.stringify({
+      changeId: 'rendered-applied',
+      why: 'apply',
+      whatChanges: ['x'],
+      acceptanceCriteria: ['y'],
+      tasks: [{ heading: '1. Section', todos: ['t1'] }],
+      design: '# Design\n'
+    }), 'utf8');
+
+    const result = await runCommand(['openspec', 'render', '--request', requestPath, '--project', project, '--apply', '--json']);
+    const output = parseJsonOutput<{ applied: boolean }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.applied).toBe(true);
+  });
+
+  test('passes --overwrite through to render when --apply is set', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const requestPath = join(project, 'render-overwrite.json');
+    await writeFile(requestPath, JSON.stringify({
+      changeId: 'overwrite-target',
+      why: 'over',
+      whatChanges: ['y'],
+      acceptanceCriteria: ['z']
+    }), 'utf8');
+    await mkdir(join(project, 'openspec', 'changes', 'overwrite-target'), { recursive: true });
+    await writeFile(join(project, 'openspec', 'changes', 'overwrite-target', 'proposal.md'), 'old', 'utf8');
+
+    const result = await runCommand(['openspec', 'render', '--request', requestPath, '--project', project, '--apply', '--overwrite', '--json']);
+    const output = parseJsonOutput<{ applied: boolean }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.applied).toBe(true);
+  });
+
+  test('returns OPENSPEC_RENDER_FAILED when request JSON shape is invalid', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const requestPath = join(project, 'bad-request.json');
+    await writeFile(requestPath, '"not-an-object"', 'utf8');
+
+    const result = await runCommand(['openspec', 'render', '--request', requestPath, '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_RENDER_FAILED');
+    expect(result.exitCode).toBe(1);
+  });
+
   test('normalizes trailing slash in --project path', async () => {
     const project = await makeProjectWithOpenSpec();
     const result = await runCommand(['openspec', 'list', '--project', `${project}/`, '--json']);
