@@ -31,6 +31,7 @@ export default defineConfig({
         'src/services/mcp/mcp-types.ts',
         'src/services/mcp/mcp-stdio-transport.ts',
         'src/services/openspec/openspec-types.ts',
+        'src/services/understand/understand-types.ts',
       ],
       thresholds: {
         lines: 100,

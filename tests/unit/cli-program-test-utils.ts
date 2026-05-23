@@ -96,7 +96,15 @@ export async function runCommand(args: string[], env: Record<string, string> = {
 }
 
 export function parseJsonOutput<T = unknown>(stdout: string[]) {
-  return JSON.parse(stdout.join('\n')) as { ok: boolean; command: string; data: T; code?: string };
+  return JSON.parse(stdout.join('\n')) as {
+    ok: boolean;
+    command: string;
+    data: T;
+    code?: string;
+    message?: string;
+    warnings?: string[];
+    nextActions?: string[];
+  };
 }
 
 writeUserConfig();
