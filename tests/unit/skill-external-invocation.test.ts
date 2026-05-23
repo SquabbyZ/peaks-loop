@@ -24,7 +24,8 @@ const EXTERNAL_TOKENS = [
   'Claude Code Best Practice',
   'andrej-karpathy-skills',
   'GitNexus',
-  'Superpowers'
+  'Superpowers',
+  'understand-anything'
 ];
 
 const DISCOVERY_PATTERN = /(capability discovery|peaks capabilities)/i;

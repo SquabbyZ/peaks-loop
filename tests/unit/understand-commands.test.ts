@@ -103,3 +103,124 @@ describe('peaks understand status command', () => {
     spy.mockRestore();
   });
 });
+
+describe('peaks understand show command', () => {
+  beforeEach(() => {
+    process.exitCode = undefined;
+    resetCliProgramMocks();
+    writeUserConfig();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('summarizes the knowledge graph when it exists', async () => {
+    const project = await makeProject('understand-show-ok');
+    await mkdir(join(project, '.understand-anything'), { recursive: true });
+    await writeFile(
+      join(project, '.understand-anything', 'knowledge-graph.json'),
+      JSON.stringify({
+        generatedAt: '2026-05-23',
+        nodes: [{ id: 'a' }, { id: 'b' }],
+        layers: [{ name: 'API' }],
+        tours: ['intro']
+      }),
+      'utf8'
+    );
+
+    const result = await runCommand(['understand', 'show', '--project', project, '--json']);
+    const output = parseJsonOutput<{ counts: { nodes: number }; layerNames: string[]; tourNames: string[]; sampleNodes: string[] }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('understand.show');
+    expect(output.data.counts.nodes).toBe(2);
+    expect(output.data.layerNames).toEqual(['API']);
+    expect(output.data.tourNames).toEqual(['intro']);
+    expect(output.data.sampleNodes).toEqual(['a', 'b']);
+  });
+
+  test('honors --sample to limit returned sample node ids', async () => {
+    const project = await makeProject('understand-show-sample');
+    await mkdir(join(project, '.understand-anything'), { recursive: true });
+    await writeFile(
+      join(project, '.understand-anything', 'knowledge-graph.json'),
+      JSON.stringify({ nodes: Array.from({ length: 10 }, (_unused, i) => ({ id: `n-${i}` })) }),
+      'utf8'
+    );
+
+    const result = await runCommand(['understand', 'show', '--project', project, '--sample', '3', '--json']);
+    const output = parseJsonOutput<{ sampleNodes: string[] }>(result.stdout);
+
+    expect(output.data.sampleNodes).toHaveLength(3);
+  });
+
+  test('returns UNDERSTAND_GRAPH_MISSING when the artifact is absent', async () => {
+    const project = await makeProject('understand-show-missing');
+
+    const result = await runCommand(['understand', 'show', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('UNDERSTAND_GRAPH_MISSING');
+    expect(result.exitCode).toBe(1);
+    expect(output.nextActions ?? []).toEqual(expect.arrayContaining([expect.stringContaining('/plugin install')]));
+  });
+
+  test('returns UNDERSTAND_GRAPH_PARSE_ERROR when knowledge-graph.json is malformed', async () => {
+    const project = await makeProject('understand-show-bad');
+    await mkdir(join(project, '.understand-anything'), { recursive: true });
+    await writeFile(join(project, '.understand-anything', 'knowledge-graph.json'), '{ not json', 'utf8');
+
+    const result = await runCommand(['understand', 'show', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('UNDERSTAND_GRAPH_PARSE_ERROR');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('returns UNDERSTAND_SHOW_FAILED when the service throws', async () => {
+    const module = await import('../../src/services/understand/understand-scan-service.js');
+    const spy = vi.spyOn(module, 'summarizeKnowledgeGraph').mockRejectedValueOnce(new Error('synthetic summary failure'));
+
+    const project = await makeProject('understand-show-failure');
+    const result = await runCommand(['understand', 'show', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('UNDERSTAND_SHOW_FAILED');
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
+
+  test('rejects --sample 0 via the Commander parser', async () => {
+    const project = await makeProject('understand-show-bad-sample');
+
+    await expect(
+      runCommand(['understand', 'show', '--project', project, '--sample', '0', '--json'])
+    ).rejects.toThrowError(/positive integer/i);
+  });
+
+  test('rejects --sample with non-digit input via the Commander parser', async () => {
+    const project = await makeProject('understand-show-non-digit');
+
+    await expect(
+      runCommand(['understand', 'show', '--project', project, '--sample', 'abc', '--json'])
+    ).rejects.toThrowError(/positive integer/i);
+  });
+
+  test('honors --artifact-dir for show', async () => {
+    const project = await makeProject('understand-show-custom-dir');
+    const dir = join(project, 'alt-graph');
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'knowledge-graph.json'), JSON.stringify({ nodes: [{ id: 'alt' }] }), 'utf8');
+
+    const result = await runCommand(['understand', 'show', '--project', project, '--artifact-dir', dir, '--json']);
+    const output = parseJsonOutput<{ path: string; sampleNodes: string[] }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.path).toBe(join(dir, 'knowledge-graph.json'));
+    expect(output.data.sampleNodes).toEqual(['alt']);
+  });
+});
