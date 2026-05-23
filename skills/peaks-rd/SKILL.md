@@ -130,6 +130,24 @@ If a request is refactor, cleanup, architecture adjustment, module split, or tec
 8. require 100% acceptance for the slice;
 9. require code changes and intermediate artifacts to be traceable in local `.peaks/<session-id>/` storage before continuing; commit or sync artifacts only when explicitly authorized.
 
+## Unit-test coverage red line
+
+The 100% coverage target on testable files is meaningful coverage, not a score to chase. RD must not write coverage-padding tests.
+
+Rules:
+
+1. If a missing line or branch is a **defensive guard for an unreachable case** (caller invariant, type system, upstream contract), remove the guard rather than write a test that fabricates the impossible. Simpler code beats higher line count.
+2. If a missing line or branch is **IO / platform glue that cannot be tested cleanly** (real process spawn, homedir-default paths, registry side effects), add the file to `coverage.exclude` in `vitest.config.ts` with a one-line comment explaining why. This is the established Peaks pattern (`mcp-stdio-transport.ts`, `*-types.ts`, `doctor-service.ts`, `artifact-service.ts`, `workspace-service.ts`).
+3. If a missing line or branch is **real behavior a caller relies on**, write the test — but frame the assertion around the user-visible behavior ("uses the wall clock when no clock is injected and writes a real timestamp into the artifact body"), not the implementation branch ("covers the `?? defaultClock` fallback"). A test that would only fail if someone deleted a single branch is a smell.
+4. When the only way to reach 100% is to write a test that documents nothing a future maintainer would care about, the right answer is to **lower the target for that file via `coverage.exclude`** or to **simplify the production code to remove the dead branch**, never to write the padding test.
+5. Test names must describe behavior, not coverage targets. Tests titled like "covers line 73" or "exercises the default factory branch" are red flags during code review and must be rewritten or deleted.
+
+RD slice handoff must record the coverage verdict in the RD request artifact with one of:
+
+- `pass: <percent>%, no exclusions added in this slice` — clean 100%
+- `pass: <percent>%, added <file> to coverage.exclude — reason: <one-line>` — exclusion was the right call
+- `blocked: <percent>% with no meaningful path to 100%` — escalate; do not write padding to clear the gate
+
 ## OpenSpec usage
 
 For non-trivial RD changes, use OpenSpec when the project already has `openspec/` or the user approves adding OpenSpec. In repositories that already contain `openspec/`, missing OpenSpec change artifacts are a blocking pre-implementation issue, not an optional suggestion.
