@@ -30,6 +30,10 @@ const DEFAULT_CLI_CONFIG = { version: '0.1.0', currentWorkspace: null, workspace
 
 import { createProgram } from '../../src/cli/program.js';
 
+export function getMockedHomeDir(): string {
+  return cliProgramTestState.home;
+}
+
 export function getMinimaxSmokeTest() {
   return cliProgramTestState.smokeTest;
 }
