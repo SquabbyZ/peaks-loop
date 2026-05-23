@@ -23,6 +23,39 @@ Use the `<request-id>` PRD assigned, so PRD/UI/RD/QA can cross-link the same req
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## Default runbook
+
+The default sequence the UI skill should execute. Skip steps that do not apply; do not skip the artifact step.
+
+```bash
+# 1. capture the UI request as a durable artifact tied to the same PRD request id
+peaks request init --role ui --id <request-id> --project <repo> --json
+peaks request init --role ui --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role prd --project <repo> --json   # read linked PRD scope
+
+# 2. ensure Chrome DevTools MCP is available for the visible browser check
+peaks mcp list --json
+peaks mcp plan  --capability chrome-devtools-mcp.browser-debug --json
+peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes --json   # one-time
+
+# 3. drive the running page or prototype through Claude Code MCP tools
+#    (these are not Peaks CLI commands; they are invoked by the host MCP runtime)
+#    mcp__chrome-devtools__new_page          → open visible Chrome
+#    mcp__chrome-devtools__navigate_page     → URL (after allow-list check)
+#    mcp__chrome-devtools__take_snapshot     → accessibility tree for regression seeds
+#    mcp__chrome-devtools__take_screenshot   → visible-browser confirmation
+#    mcp__chrome-devtools__list_console_messages → console errors
+#    mcp__chrome-devtools__list_network_requests → failed network
+
+# 4. record visual direction, rejected generic patterns, regression seeds in the artifact
+
+# 5. hand off to RD / QA via the cross-linked request id
+peaks request list --project <repo> --json
+peaks request show <request-id> --role ui --project <repo> --json
+```
+
+Handoff is blocked until the UI artifact's `state` reaches `direction-locked` or `handed-off`.
+
 ## Refactor role
 
 Only engage when the refactor affects UI, interaction, styling, page structure, design system, or frontend user behavior.

@@ -24,6 +24,48 @@ Use the `<request-id>` PRD assigned. RD companion artifacts (task graph, scan re
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## Default runbook
+
+The default sequence the RD skill should execute for a code-touching request. Skip steps that do not apply to the request type; do not skip the artifact, coverage gate, or red-line scope steps.
+
+```bash
+# 1. capture the RD request artifact and read upstream PRD / UI scope
+peaks request init --role rd --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role prd --project <repo> --json
+peaks request show <request-id> --role ui  --project <repo> --json   # if UI involved
+
+# 2. standards preflight before planning any code edit
+peaks standards init   --project <repo> --dry-run --json
+peaks standards update --project <repo> --dry-run --json
+
+# 3. pull OpenSpec context when openspec/ exists in the repo
+peaks openspec list --project <repo> --json
+peaks openspec show     <change-id> --project <repo> --json
+peaks openspec validate <change-id> --project <repo> --json    # entry gate
+peaks openspec to-rd    <change-id> --project <repo> --json    # acceptance + commit boundaries
+
+# 4. project-analysis evidence
+peaks understand status --project <repo> --json
+peaks understand show   --project <repo> --json                # when UA artifact exists
+peaks codegraph context --project <repo> "<task>"
+peaks codegraph affected --project <repo> <changed-files...> --json
+
+# 5. optional library docs lookup through an installed MCP server
+peaks mcp list --json
+peaks mcp call --capability context7.docs-lookup --tool <name> --args-json '{...}' --json
+
+# 6. record red-line scope, slice contract, coverage status into the RD artifact, then implement
+
+# 7. self-validate before QA handoff
+peaks openspec validate <change-id> --project <repo> --json    # exit gate (re-run)
+
+# 8. hand off to QA via the cross-linked request id
+peaks request init --role qa --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role rd --project <repo> --json
+```
+
+For refactor work, the coverage ≥ 95% gate in `Refactor hard gates` still applies and must be recorded in the artifact before slicing begins.
+
 ## Project standards preflight
 
 Before RD planning or implementation work in a code repository, call the Peaks CLI:

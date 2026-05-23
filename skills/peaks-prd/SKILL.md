@@ -25,6 +25,45 @@ Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the use
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## Default runbook
+
+The default sequence the PRD skill should execute (or have the host agent execute on its behalf). Skip steps that do not apply to the current request type; do not skip the artifact step.
+
+For a feature / bug / clarification request with no authenticated source document:
+
+```bash
+# 1. capture the request as the canonical PRD artifact (preview, then apply)
+peaks request init --role prd --id <request-id> --project <repo> --json
+peaks request init --role prd --id <request-id> --project <repo> --apply --json
+
+# 2. record standards preflight so RD inherits the baseline
+peaks standards init   --project <repo> --dry-run --json
+peaks standards update --project <repo> --dry-run --json
+
+# 3. cross-link to OpenSpec when the repo already has openspec/
+peaks openspec list --project <repo> --json
+peaks openspec show <change-id> --project <repo> --json    # when relevant
+
+# 4. surface optional project-analysis evidence for the PRD body
+peaks understand status --project <repo> --json            # Chrome Code plugin output
+peaks codegraph status  --project <repo>                   # local index status
+
+# 5. write goals / non-goals / acceptance into the artifact body, then hand off
+peaks request show <request-id> --role prd --project <repo> --json
+```
+
+For an authenticated product document request (Feishu/Lark/wiki), add before step 5:
+
+```bash
+# install Chrome DevTools MCP once if missing
+peaks mcp list --json
+peaks mcp plan  --capability chrome-devtools-mcp.browser-debug --json
+peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes --json
+# then in Claude Code, drive the browser through mcp__chrome-devtools__* tools per references/workflow.md
+```
+
+Handoff is blocked until the request artifact's `state` reaches `confirmed-by-user` or `handed-off`. Update the state field in the artifact body before invoking RD/UI/QA.
+
 ## Refactor role
 
 For refactor workflows, avoid writing a full product PRD unless needed. Produce a focused refactor product package:

@@ -26,6 +26,49 @@ Use the `<request-id>` PRD assigned, so PRD/UI/RD/QA/SC all reference the same r
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## Default runbook
+
+The default sequence the QA skill should execute. Do not skip the boundary check, the unit test gate, the validation report, or — when frontend is in scope — the Chrome DevTools MCP browser gate.
+
+```bash
+# 1. capture the QA request artifact and read upstream scope
+peaks request init --role qa --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role prd --project <repo> --json
+peaks request show <request-id> --role rd  --project <repo> --json
+peaks request show <request-id> --role ui  --project <repo> --json   # if UI involved
+
+# 2. standards preflight and red-line boundary check against the diff
+peaks standards init   --project <repo> --dry-run --json
+peaks standards update --project <repo> --dry-run --json
+peaks codegraph affected --project <repo> <changed-files...> --json   # regression-surface hint
+
+# 3. OpenSpec exit gate when openspec/ exists
+peaks openspec validate <change-id> --project <repo> --json
+peaks openspec validate <change-id> --project <repo> --prefer-external --json   # optional
+
+# 4. unit tests + coverage (project test commands here, recorded in the artifact)
+
+# 5. frontend browser validation (when frontend is in scope)
+peaks mcp list --json
+peaks mcp plan  --capability chrome-devtools-mcp.browser-debug --json
+peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes --json
+# then drive the running app through Claude Code MCP tools:
+#   mcp__chrome-devtools__navigate_page → URL (after allow-list)
+#   mcp__chrome-devtools__list_pages + take_screenshot → visible-browser confirmation
+#   mcp__chrome-devtools__take_snapshot → accessibility tree per regression seed
+#   mcp__chrome-devtools__list_console_messages + list_network_requests → error feedback loop
+# Block QA pass if Chrome DevTools MCP is unavailable.
+
+# 6. write per-criterion acceptance results, regression matrix, security/performance findings,
+#    and the final verdict into the QA request artifact. Mark state=verdict-issued.
+
+# 7. on verdict=return-to-rd, route findings back through the request id; otherwise close.
+peaks request show <request-id> --role qa --project <repo> --json
+peaks openspec archive <change-id> --project <repo> --json   # preview, then --apply on full pass
+```
+
+Verdict `pass` is blocked until every applicable validation gate has evidence in the artifact.
+
 ## Project standards preflight
 
 Before QA verification in a code repository, call the Peaks CLI:
