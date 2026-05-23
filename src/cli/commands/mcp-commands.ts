@@ -1,11 +1,17 @@
 import { Command } from 'commander';
 import { scanMcpServers } from '../../services/mcp/mcp-scan-service.js';
+import { planMcpInstall, type PlanMcpInstallOptions } from '../../services/mcp/mcp-plan-service.js';
 import { fail, ok } from '../../shared/result.js';
-import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type McpListOptions = {
   project?: string;
   json?: boolean;
+};
+
+type McpPlanOptions = McpListOptions & {
+  capability: string;
+  dryRun?: boolean;
 };
 
 export function registerMcpCommands(program: Command, io: ProgramIO): void {
@@ -25,6 +31,43 @@ export function registerMcpCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('mcp.list', 'MCP_LIST_FAILED', getErrorMessage(error), {}, ['Check Claude settings path and permissions before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    mcp
+      .command('plan')
+      .description('Plan an MCP server install diff for a capability (dry-run only)')
+      .requiredOption('--capability <id>', 'capability id from the MCP install registry')
+      .option('--project <path>', 'project root for scoped scan')
+      .option('--dry-run', 'preview the install diff (always true)', true)
+      .option('--no-dry-run', 'unsupported: peaks mcp plan never writes settings')
+  ).action(async (options: McpPlanOptions) => {
+    if (options.dryRun === false) {
+      failUnsupportedNonDryRun(io, 'mcp.plan', options.json);
+      return;
+    }
+
+    try {
+      const planOptions: PlanMcpInstallOptions = options.project !== undefined ? { projectRoot: options.project } : {};
+      const plan = await planMcpInstall(options.capability, planOptions);
+      if (plan.action === 'unknown-capability') {
+        printResult(
+          io,
+          fail('mcp.plan', 'MCP_UNKNOWN_CAPABILITY', `No MCP install spec registered for capability ${options.capability}`, plan, plan.nextActions),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('mcp.plan', plan, [], plan.nextActions), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('mcp.plan', 'MCP_PLAN_FAILED', getErrorMessage(error), { capabilityId: options.capability }, ['Check Claude settings path and the capability id before retrying']),
         options.json
       );
       process.exitCode = 1;
