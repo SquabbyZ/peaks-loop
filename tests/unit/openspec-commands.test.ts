@@ -95,6 +95,41 @@ describe('peaks openspec commands', () => {
     spy.mockRestore();
   });
 
+  test('projects an openspec change to RD input shape', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const result = await runCommand(['openspec', 'to-rd', 'sample-change', '--project', project, '--json']);
+    const output = parseJsonOutput<{ changeId: string; acceptance: string[]; commitBoundaries: Array<{ heading: string }> }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('openspec.to-rd');
+    expect(output.data.changeId).toBe('sample-change');
+    expect(output.data.acceptance).toEqual(['accept-one']);
+    expect(output.data.commitBoundaries.map((boundary) => boundary.heading)).toEqual(['1. Section']);
+  });
+
+  test('returns OPENSPEC_CHANGE_NOT_FOUND when to-rd target is missing', async () => {
+    const project = await makeProjectWithOpenSpec();
+    const result = await runCommand(['openspec', 'to-rd', 'nope', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_CHANGE_NOT_FOUND');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('returns OPENSPEC_TO_RD_FAILED when projection throws', async () => {
+    const bridgeModule = await import('../../src/services/openspec/openspec-bridge-service.js');
+    const spy = vi.spyOn(bridgeModule, 'projectOpenSpecToRdInput').mockRejectedValueOnce(new Error('synthetic projection failure'));
+
+    const result = await runCommand(['openspec', 'to-rd', 'whatever', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('OPENSPEC_TO_RD_FAILED');
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
+
   test('normalizes trailing slash in --project path', async () => {
     const project = await makeProjectWithOpenSpec();
     const result = await runCommand(['openspec', 'list', '--project', `${project}/`, '--json']);
