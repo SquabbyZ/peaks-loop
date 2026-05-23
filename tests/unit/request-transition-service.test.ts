@@ -263,7 +263,7 @@ describe('transitionRequestArtifact (validation)', () => {
     expect(body).toContain('- state: confirmed-by-user');
   });
 
-  test('defaults the clock to the wall clock when not provided', async () => {
+  test('writes a real ISO timestamp into the Status block when no clock is injected', async () => {
     const project = await makeProject();
     await seed(project, 'rd', '2026-05-24-default-clock');
 

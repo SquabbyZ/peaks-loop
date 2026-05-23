@@ -108,7 +108,7 @@ describe('createMcpClient', () => {
     await expect(client.request('whatever')).rejects.toThrowError(/transport down/);
   });
 
-  test('wraps non-Error transport rejections in an Error', async () => {
+  test('preserves a non-Error transport rejection reason as a real Error message', async () => {
     const transport = createFakeTransport();
     transport.send = async () => {
       // eslint-disable-next-line @typescript-eslint/no-throw-literal
@@ -128,7 +128,7 @@ describe('createMcpClient', () => {
     expect(transport.closed).toBe(true);
   });
 
-  test('uses default timeout when timeoutMs is not provided', async () => {
+  test('applies the built-in request timeout when no timeoutMs is provided', async () => {
     const transport = createFakeTransport();
     const client = createMcpClient({ transport });
 

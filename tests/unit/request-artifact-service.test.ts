@@ -70,7 +70,7 @@ describe('createRequestArtifact (preview)', () => {
     expect(result.path).toContain(result.sessionId);
   });
 
-  test('defaults the clock to the wall clock when omitted', async () => {
+  test('writes a real ISO timestamp into the artifact body when no clock is injected', async () => {
     const project = await makeProject();
 
     const result = await createRequestArtifact({

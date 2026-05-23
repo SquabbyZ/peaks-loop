@@ -243,7 +243,7 @@ describe('scanMcpServers', () => {
     expect(report.servers[0]?.source).toBe('unknown');
   });
 
-  test('falls back to default global and managed marker paths in homedir when options are omitted', async () => {
+  test('resolves homedir-based settings and managed marker paths when no options are passed', async () => {
     await mkdir(join(mcpScanTestState.home, '.claude'), { recursive: true });
     await mkdir(join(mcpScanTestState.home, '.peaks'), { recursive: true });
     await writeJson(join(mcpScanTestState.home, '.claude', 'settings.json'), {

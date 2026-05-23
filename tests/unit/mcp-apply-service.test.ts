@@ -239,7 +239,7 @@ describe('applyMcpInstall', () => {
     expect(marker.other).toBe('value');
   });
 
-  test('falls back to homedir-based defaults when paths and clock are omitted', async () => {
+  test('writes the apply result into homedir-based defaults when paths and clock are omitted', async () => {
     const home = await makeHome();
     const previous = {
       HOME: process.env.HOME,

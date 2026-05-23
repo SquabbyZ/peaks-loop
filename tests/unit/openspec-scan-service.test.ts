@@ -156,7 +156,7 @@ describe('scanOpenSpec', () => {
     }
   });
 
-  test('defaults openspec root to <cwd>/openspec when no option is provided', async () => {
+  test('resolves <cwd>/openspec as scanOpenSpec default root when no option is provided', async () => {
     const report = await scanOpenSpec();
 
     expect(report.openspecRoot).toBe(join(process.cwd(), 'openspec'));
@@ -172,7 +172,7 @@ describe('loadOpenSpecChange', () => {
     expect(detail).toBeNull();
   });
 
-  test('defaults openspec root to <cwd>/openspec when no option is provided', async () => {
+  test('resolves <cwd>/openspec as loadOpenSpecChange default root when no option is provided', async () => {
     const detail = await loadOpenSpecChange('add-tech-dry-run-gate');
 
     expect(detail?.id).toBe('add-tech-dry-run-gate');

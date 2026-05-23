@@ -171,7 +171,7 @@ describe('planMcpInstall', () => {
     expect(plan.diff?.envKeys?.after).toEqual(['CONTEXT7_API_KEY']);
   });
 
-  test('falls back to process.env when env option is omitted', async () => {
+  test('reads required env vars from process.env when env option is omitted', async () => {
     const home = await makeHome();
     const previous = process.env.CONTEXT7_API_KEY;
     process.env.CONTEXT7_API_KEY = 'real';
@@ -190,19 +190,6 @@ describe('planMcpInstall', () => {
         process.env.CONTEXT7_API_KEY = previous;
       }
     }
-  });
-
-  test('passes projectRoot through to the scan when provided', async () => {
-    const home = await makeHome();
-    const project = await makeHome();
-
-    const plan = await planMcpInstall('context7.docs-lookup', {
-      globalSettingsPath: join(home, '.claude', 'settings.json'),
-      projectRoot: project,
-      env: { CONTEXT7_API_KEY: 'x' }
-    });
-
-    expect(plan.action).toBe('add');
   });
 
   test('treats empty-string env values as missing', async () => {

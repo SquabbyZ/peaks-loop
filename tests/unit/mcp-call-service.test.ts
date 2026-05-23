@@ -146,7 +146,7 @@ describe('callMcpTool', () => {
     expect(observations[0]?.env.CONTEXT7_API_KEY).toBe('real-value');
   });
 
-  test('defaults to process.env when env is not provided', async () => {
+  test('reads required env vars from process.env when no env override is provided', async () => {
     const { factory } = transportFactoryAutoRespond({ ok: true });
     const previous = process.env.CONTEXT7_API_KEY;
     process.env.CONTEXT7_API_KEY = 'process-env-value';
