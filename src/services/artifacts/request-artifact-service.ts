@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { pathExists } from '../../shared/fs.js';
+import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 
 export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa';
 
@@ -293,4 +293,132 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
   return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: true };
+}
+
+export type RequestArtifactSummary = {
+  role: RequestArtifactRole;
+  sessionId: string;
+  requestId: string;
+  path: string;
+  state: string;
+  createdAt?: string;
+};
+
+export type ListRequestArtifactsOptions = {
+  projectRoot: string;
+  sessionId?: string;
+  role?: RequestArtifactRole;
+};
+
+export type ShowRequestArtifactOptions = {
+  projectRoot: string;
+  role: RequestArtifactRole;
+  requestId: string;
+  sessionId?: string;
+};
+
+export type ShowRequestArtifactResult = RequestArtifactSummary & {
+  content: string;
+};
+
+function extractStateAndCreated(markdown: string): { state: string; createdAt?: string } {
+  let state = 'unknown';
+  let createdAt: string | undefined;
+  for (const rawLine of markdown.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(line);
+    if (stateMatch !== null && stateMatch[1] !== undefined) {
+      state = stateMatch[1];
+      continue;
+    }
+    const createdMatch = /^-\s*created:\s*(.+?)\s*$/.exec(line);
+    if (createdMatch !== null && createdMatch[1] !== undefined) {
+      createdAt = createdMatch[1];
+    }
+  }
+  return createdAt === undefined ? { state } : { state, createdAt };
+}
+
+async function readSummary(
+  projectRoot: string,
+  sessionId: string,
+  role: RequestArtifactRole,
+  fileName: string
+): Promise<RequestArtifactSummary> {
+  const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
+  const body = await readFile(path, 'utf8');
+  const { state, createdAt } = extractStateAndCreated(body);
+  const requestId = fileName.replace(/\.md$/, '');
+  const summary: RequestArtifactSummary = { role, sessionId, requestId, path, state };
+  if (createdAt !== undefined) {
+    summary.createdAt = createdAt;
+  }
+  return summary;
+}
+
+async function listMarkdownFiles(dir: string): Promise<string[]> {
+  if (!(await isDirectory(dir))) {
+    return [];
+  }
+  const entries = await readdir(dir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+export async function listRequestArtifacts(options: ListRequestArtifactsOptions): Promise<RequestArtifactSummary[]> {
+  const peaksRoot = join(options.projectRoot, '.peaks');
+  if (!(await isDirectory(peaksRoot))) {
+    return [];
+  }
+  const sessions = options.sessionId !== undefined ? [options.sessionId] : await listDirectories(peaksRoot);
+  const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
+  const summaries: RequestArtifactSummary[] = [];
+  for (const sessionId of sessions) {
+    for (const role of roles) {
+      const dir = join(peaksRoot, sessionId, role, 'requests');
+      const fileNames = await listMarkdownFiles(dir);
+      for (const fileName of fileNames) {
+        summaries.push(await readSummary(options.projectRoot, sessionId, role, fileName));
+      }
+    }
+  }
+  return summaries;
+}
+
+export async function showRequestArtifact(options: ShowRequestArtifactOptions): Promise<ShowRequestArtifactResult | null> {
+  if (!VALID_ROLES.has(options.role)) {
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, or qa)`);
+  }
+  if (!REQUEST_ID_PATTERN.test(options.requestId)) {
+    throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
+  }
+
+  const fileName = `${options.requestId}.md`;
+
+  if (options.sessionId !== undefined) {
+    const path = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests', fileName);
+    if (!(await pathExists(path))) {
+      return null;
+    }
+    const summary = await readSummary(options.projectRoot, options.sessionId, options.role, fileName);
+    const content = await readFile(path, 'utf8');
+    return { ...summary, content };
+  }
+
+  const peaksRoot = join(options.projectRoot, '.peaks');
+  if (!(await isDirectory(peaksRoot))) {
+    return null;
+  }
+  const sessions = await listDirectories(peaksRoot);
+  for (const sessionId of sessions) {
+    const path = join(peaksRoot, sessionId, options.role, 'requests', fileName);
+    if (await pathExists(path)) {
+      const summary = await readSummary(options.projectRoot, sessionId, options.role, fileName);
+      const content = await readFile(path, 'utf8');
+      return { ...summary, content };
+    }
+  }
+  return null;
 }
