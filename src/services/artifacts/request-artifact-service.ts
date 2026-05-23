@@ -422,3 +422,126 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   }
   return null;
 }
+
+export type RequestArtifactState =
+  | 'draft'
+  | 'confirmed-by-user'
+  | 'direction-locked'
+  | 'spec-locked'
+  | 'implemented'
+  | 'qa-handoff'
+  | 'running'
+  | 'verdict-issued'
+  | 'handed-off'
+  | 'blocked';
+
+const ALLOWED_STATES_PER_ROLE: Record<RequestArtifactRole, ReadonlyArray<RequestArtifactState>> = {
+  prd: ['draft', 'confirmed-by-user', 'handed-off', 'blocked'],
+  ui:  ['draft', 'direction-locked', 'handed-off', 'blocked'],
+  rd:  ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked'],
+  qa:  ['draft', 'running', 'verdict-issued', 'blocked']
+};
+
+export function allowedStatesForRole(role: RequestArtifactRole): ReadonlyArray<RequestArtifactState> {
+  return ALLOWED_STATES_PER_ROLE[role];
+}
+
+export type TransitionRequestArtifactOptions = {
+  role: RequestArtifactRole;
+  requestId: string;
+  projectRoot: string;
+  newState: RequestArtifactState;
+  sessionId?: string;
+  reason?: string;
+  clock?: () => string;
+};
+
+export type TransitionRequestArtifactResult = RequestArtifactSummary & {
+  previousState: string;
+  content: string;
+};
+
+function updateStatusBlock(markdown: string, newState: RequestArtifactState, timestamp: string, reason?: string): { updated: string; previousState: string } {
+  const lines = markdown.split(/\r?\n/);
+  let previousState = 'unknown';
+  let stateLineIndex = -1;
+  let lastUpdateLineIndex = -1;
+
+  for (const [index, raw] of lines.entries()) {
+    const trimmed = raw.trim();
+    const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(trimmed);
+    if (stateMatch !== null && stateMatch[1] !== undefined) {
+      previousState = stateMatch[1];
+      stateLineIndex = index;
+      continue;
+    }
+    if (/^-\s*last update:\s*/.test(trimmed)) {
+      lastUpdateLineIndex = index;
+    }
+  }
+
+  if (stateLineIndex >= 0) {
+    lines[stateLineIndex] = `- state: ${newState}`;
+  } else {
+    lines.push('', '## Status', '', `- state: ${newState}`);
+  }
+
+  if (lastUpdateLineIndex >= 0) {
+    lines[lastUpdateLineIndex] = `- last update: ${timestamp}`;
+  } else if (stateLineIndex >= 0) {
+    lines.splice(stateLineIndex, 0, `- last update: ${timestamp}`);
+  } else {
+    lines.push(`- last update: ${timestamp}`);
+  }
+
+  if (reason !== undefined && reason.length > 0) {
+    lines.push(`- transition note (${timestamp}): ${reason}`);
+  }
+
+  return { updated: lines.join('\n'), previousState };
+}
+
+export async function transitionRequestArtifact(options: TransitionRequestArtifactOptions): Promise<TransitionRequestArtifactResult | null> {
+  if (!VALID_ROLES.has(options.role)) {
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, or qa)`);
+  }
+  if (!REQUEST_ID_PATTERN.test(options.requestId)) {
+    throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
+  }
+  const allowed = ALLOWED_STATES_PER_ROLE[options.role];
+  if (!allowed.includes(options.newState)) {
+    throw new Error(`Invalid state for role ${options.role}: ${options.newState} (expected one of ${allowed.join(', ')})`);
+  }
+
+  const showOptions: ShowRequestArtifactOptions = {
+    projectRoot: options.projectRoot,
+    role: options.role,
+    requestId: options.requestId
+  };
+  if (options.sessionId !== undefined) {
+    showOptions.sessionId = options.sessionId;
+  }
+  const existing = await showRequestArtifact(showOptions);
+  if (existing === null) {
+    return null;
+  }
+
+  const clock = options.clock ?? defaultClock;
+  const timestamp = clock();
+  const { updated, previousState } = updateStatusBlock(existing.content, options.newState, timestamp, options.reason);
+  await writeFile(existing.path, updated, 'utf8');
+
+  const result: TransitionRequestArtifactResult = {
+    role: options.role,
+    sessionId: existing.sessionId,
+    requestId: options.requestId,
+    path: existing.path,
+    state: options.newState,
+    previousState,
+    content: updated
+  };
+  if (existing.createdAt !== undefined) {
+    result.createdAt = existing.createdAt;
+  }
+  return result;
+}

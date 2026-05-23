@@ -231,3 +231,82 @@ describe('peaks request show command', () => {
     expect(result.exitCode).toBe(1);
   });
 });
+
+describe('peaks request transition command', () => {
+  beforeEach(() => {
+    process.exitCode = undefined;
+    resetCliProgramMocks();
+    writeUserConfig();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('moves a PRD artifact from draft to confirmed-by-user', async () => {
+    const project = await makeProject('request-transition-ok');
+    await runCommand(['request', 'init', '--role', 'prd', '--id', '2026-05-24-feature', '--project', project, '--session-id', 's1', '--apply', '--json']);
+
+    const result = await runCommand(['request', 'transition', '2026-05-24-feature', '--role', 'prd', '--state', 'confirmed-by-user', '--project', project, '--session-id', 's1', '--json']);
+    const output = parseJsonOutput<{ state: string; previousState: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('request.transition');
+    expect(output.data.state).toBe('confirmed-by-user');
+    expect(output.data.previousState).toBe('draft');
+  });
+
+  test('appends a transition note when --reason is passed', async () => {
+    const project = await makeProject('request-transition-reason');
+    await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-24-blocked', '--project', project, '--session-id', 's1', '--apply', '--json']);
+
+    const result = await runCommand(['request', 'transition', '2026-05-24-blocked', '--role', 'rd', '--state', 'blocked', '--project', project, '--session-id', 's1', '--reason', 'awaiting QA bandwidth', '--json']);
+    const output = parseJsonOutput<{ content: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.content).toContain('awaiting QA bandwidth');
+  });
+
+  test('searches across sessions when --session-id is omitted', async () => {
+    const project = await makeProject('request-transition-cross');
+    await runCommand(['request', 'init', '--role', 'qa', '--id', '2026-05-24-anywhere', '--project', project, '--session-id', 'somewhere', '--apply', '--json']);
+
+    const result = await runCommand(['request', 'transition', '2026-05-24-anywhere', '--role', 'qa', '--state', 'running', '--project', project, '--json']);
+    const output = parseJsonOutput<{ sessionId: string; state: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.sessionId).toBe('somewhere');
+    expect(output.data.state).toBe('running');
+  });
+
+  test('returns REQUEST_NOT_FOUND when the target artifact is missing', async () => {
+    const project = await makeProject('request-transition-missing');
+
+    const result = await runCommand(['request', 'transition', '2026-05-24-missing', '--role', 'prd', '--state', 'blocked', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('REQUEST_NOT_FOUND');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('rejects --state values that are not allowed for the role via the Commander parser', async () => {
+    const project = await makeProject('request-transition-bad-state');
+    await runCommand(['request', 'init', '--role', 'prd', '--id', '2026-05-24-x', '--project', project, '--session-id', 's', '--apply', '--json']);
+
+    await expect(
+      runCommand(['request', 'transition', '2026-05-24-x', '--role', 'prd', '--state', 'verdict-issued', '--project', project, '--session-id', 's', '--json'])
+    ).rejects.toThrowError(/must be one of/);
+  });
+
+  test('returns REQUEST_TRANSITION_FAILED when the service throws on invalid request id format', async () => {
+    const project = await makeProject('request-transition-bad-id');
+
+    const result = await runCommand(['request', 'transition', '../escape', '--role', 'prd', '--state', 'blocked', '--project', project, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('REQUEST_TRANSITION_FAILED');
+    expect(result.exitCode).toBe(1);
+  });
+});

@@ -1,9 +1,12 @@
 import { Command, InvalidArgumentError } from 'commander';
 import {
+  allowedStatesForRole,
   createRequestArtifact,
   listRequestArtifacts,
   showRequestArtifact,
-  type RequestArtifactRole
+  transitionRequestArtifact,
+  type RequestArtifactRole,
+  type RequestArtifactState
 } from '../../services/artifacts/request-artifact-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -31,6 +34,15 @@ type RequestShowOptions = {
   json?: boolean;
 };
 
+type RequestTransitionOptions = {
+  role: RequestArtifactRole;
+  project: string;
+  state: RequestArtifactState;
+  sessionId?: string;
+  reason?: string;
+  json?: boolean;
+};
+
 const VALID_ROLES: ReadonlyArray<RequestArtifactRole> = ['prd', 'ui', 'rd', 'qa'];
 
 function parseRole(value: string): RequestArtifactRole {
@@ -38,6 +50,14 @@ function parseRole(value: string): RequestArtifactRole {
     throw new InvalidArgumentError(`must be one of ${VALID_ROLES.join(', ')}`);
   }
   return value as RequestArtifactRole;
+}
+
+function parseStateForRole(role: RequestArtifactRole, value: string): RequestArtifactState {
+  const allowed = allowedStatesForRole(role);
+  if (!(allowed as ReadonlyArray<string>).includes(value)) {
+    throw new InvalidArgumentError(`must be one of ${allowed.join(', ')} for role ${role}`);
+  }
+  return value as RequestArtifactState;
 }
 
 export function registerRequestCommands(program: Command, io: ProgramIO): void {
@@ -147,6 +167,56 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('request.show', 'REQUEST_SHOW_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Check role, request id, and project path before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    request
+      .command('transition')
+      .description('Move a per-request artifact to a new state defined by its role state machine')
+      .argument('<request-id>', 'request id, e.g. 2026-05-23-add-foo')
+      .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
+      .requiredOption('--state <state>', 'new state name; allowed values depend on role')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <session>', 'restrict to a specific session id')
+      .option('--reason <text>', 'optional reason appended as a transition note')
+  ).action(async (requestId: string, options: RequestTransitionOptions) => {
+    try {
+      const role = options.role;
+      const newState = parseStateForRole(role, options.state);
+      const transitionOptions: Parameters<typeof transitionRequestArtifact>[0] = {
+        role,
+        requestId,
+        projectRoot: options.project,
+        newState
+      };
+      if (options.sessionId !== undefined) {
+        transitionOptions.sessionId = options.sessionId;
+      }
+      if (options.reason !== undefined) {
+        transitionOptions.reason = options.reason;
+      }
+      const result = await transitionRequestArtifact(transitionOptions);
+      if (result === null) {
+        printResult(
+          io,
+          fail('request.transition', 'REQUEST_NOT_FOUND', `No artifact found for role=${role} requestId=${requestId}`, { role, requestId }, ['Verify the request id, role, and session id']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('request.transition', result), options.json);
+    } catch (error) {
+      if (error instanceof InvalidArgumentError) {
+        throw error;
+      }
+      printResult(
+        io,
+        fail('request.transition', 'REQUEST_TRANSITION_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Check role, request id, state, and project path before retrying']),
         options.json
       );
       process.exitCode = 1;
