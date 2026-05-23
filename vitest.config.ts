@@ -28,6 +28,7 @@ export default defineConfig({
         'src/services/skills/skill-registry.ts',
         'src/services/doctor/doctor-service.ts',
         'src/services/proxy/proxy-service.ts',
+        'src/services/mcp/mcp-types.ts',
       ],
       thresholds: {
         lines: 100,
