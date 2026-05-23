@@ -29,6 +29,7 @@ export default defineConfig({
         'src/services/doctor/doctor-service.ts',
         'src/services/proxy/proxy-service.ts',
         'src/services/mcp/mcp-types.ts',
+        'src/services/mcp/mcp-stdio-transport.ts',
         'src/services/openspec/openspec-types.ts',
       ],
       thresholds: {
