@@ -1,6 +1,8 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve as resolvePath } from 'node:path';
 import { readText } from '../../shared/fs.js';
 import { requiredSchemaFiles, requiredSkillNames, schemasDir } from '../../shared/paths.js';
 import { getErrorMessage } from '../../shared/result.js';
@@ -21,10 +23,33 @@ export type DoctorReport = {
   };
 };
 
+export type CodegraphCapabilityProbe = {
+  packagePath: string;
+  version: string;
+  binaryPath: string;
+  binaryExists: boolean;
+};
+
 export type DoctorOptions = {
   schemasBaseDir?: string;
   skillsBaseDir?: string;
+  codegraphProbe?: () => CodegraphCapabilityProbe;
 };
+
+const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
+
+function defaultCodegraphProbe(): CodegraphCapabilityProbe {
+  const require = createRequire(import.meta.url);
+  const packagePath = require.resolve('@colbymchenry/codegraph/package.json');
+  const pkg = require(packagePath) as { version?: string };
+  const binaryPath = resolvePath(dirname(packagePath), 'dist', 'bin', 'codegraph.js');
+  return {
+    packagePath,
+    version: pkg.version ?? 'unknown',
+    binaryPath,
+    binaryExists: existsSync(binaryPath)
+  };
+}
 
 const DESTRUCTIVE_APPLY_PATTERNS = [
   /peaks\s+memory\s+sync[^\n]*--apply/,
@@ -147,6 +172,37 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     ok: true,
     message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'Optional user config not found at ~/.peaks/config.json'
   });
+
+  const probe = options.codegraphProbe ?? defaultCodegraphProbe;
+  try {
+    const result = probe();
+    const versionOk = result.version === CODEGRAPH_EXPECTED_VERSION;
+    if (!versionOk) {
+      checks.push({
+        id: 'capability:codegraph',
+        ok: false,
+        message: `@colbymchenry/codegraph version mismatch: expected ${CODEGRAPH_EXPECTED_VERSION}, resolved ${result.version} at ${result.packagePath}`
+      });
+    } else if (!result.binaryExists) {
+      checks.push({
+        id: 'capability:codegraph',
+        ok: false,
+        message: `@colbymchenry/codegraph@${result.version} resolved at ${result.packagePath} but binary is missing at ${result.binaryPath}`
+      });
+    } else {
+      checks.push({
+        id: 'capability:codegraph',
+        ok: true,
+        message: `@colbymchenry/codegraph@${result.version} resolves with binary at ${result.binaryPath}`
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'capability:codegraph',
+      ok: false,
+      message: `@colbymchenry/codegraph not resolvable: ${getErrorMessage(error)}`
+    });
+  }
 
   try {
     const schemaText = await readText(join(schemaRoot, 'doctor-report.schema.json'));

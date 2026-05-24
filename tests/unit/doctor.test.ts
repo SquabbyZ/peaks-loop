@@ -198,3 +198,62 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
     }
   });
 });
+
+describe('runDoctor codegraph capability check', () => {
+  test('passes when the pinned @colbymchenry/codegraph package and binary resolve', async () => {
+    const report = await runDoctor();
+    const check = report.checks.find((item) => item.id === 'capability:codegraph');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('@colbymchenry/codegraph@0.7.10');
+    expect(check?.message).toContain('binary at');
+  });
+
+  test('fails when the resolved package version drifts from the pin', async () => {
+    const report = await runDoctor({
+      codegraphProbe: () => ({
+        packagePath: '/fake/node_modules/@colbymchenry/codegraph/package.json',
+        version: '0.7.11',
+        binaryPath: '/fake/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js',
+        binaryExists: true
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'capability:codegraph');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('version mismatch');
+    expect(check?.message).toContain('expected 0.7.10');
+    expect(check?.message).toContain('resolved 0.7.11');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('fails when the package resolves at the right version but the binary is missing', async () => {
+    const report = await runDoctor({
+      codegraphProbe: () => ({
+        packagePath: '/fake/node_modules/@colbymchenry/codegraph/package.json',
+        version: '0.7.10',
+        binaryPath: '/fake/node_modules/@colbymchenry/codegraph/dist/bin/codegraph.js',
+        binaryExists: false
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'capability:codegraph');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('binary is missing');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('fails when the probe throws (package not installed)', async () => {
+    const report = await runDoctor({
+      codegraphProbe: () => {
+        throw new Error('Cannot find module @colbymchenry/codegraph');
+      }
+    });
+    const check = report.checks.find((item) => item.id === 'capability:codegraph');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('not resolvable');
+    expect(check?.message).toContain('Cannot find module @colbymchenry/codegraph');
+    expect(report.summary.ok).toBe(false);
+  });
+});

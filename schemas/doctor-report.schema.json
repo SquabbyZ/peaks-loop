@@ -13,8 +13,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^(skill|skill-name|skill-parse|skill-runbook|skill-apply-note|schema|config|doctor-self):[A-Za-z0-9][A-Za-z0-9._-]*$",
-            "description": "Stable check id. Known prefixes: skill:<name> (required skill present), skill-name:<dir> (directory matches declared name), skill-parse:<dir> (skill metadata parsed), skill-runbook:<name> (Default runbook section exists), skill-apply-note:<name> (destructive --apply lines carry an authorization/--dry-run note), schema:<file> (schema file exists and is valid JSON), config:<scope> (optional config locations), doctor-self:<topic> (doctor validates its own output against this schema)."
+            "pattern": "^(skill|skill-name|skill-parse|skill-runbook|skill-apply-note|schema|config|doctor-self|capability):[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Stable check id. Known prefixes: skill:<name> (required skill present), skill-name:<dir> (directory matches declared name), skill-parse:<dir> (skill metadata parsed), skill-runbook:<name> (Default runbook section exists), skill-apply-note:<name> (destructive --apply lines carry an authorization/--dry-run note), schema:<file> (schema file exists and is valid JSON), config:<scope> (optional config locations), doctor-self:<topic> (doctor validates its own output against this schema), capability:<name> (third-party capability is resolvable at the pinned version)."
           },
           "ok": { "type": "boolean" },
           "message": { "type": "string", "minLength": 1 }
