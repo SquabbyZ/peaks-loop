@@ -60,6 +60,30 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     });
   }
 
+  const requiredSkillNameSet = new Set<string>(requiredSkillNames);
+  for (const skill of skills) {
+    if (!requiredSkillNameSet.has(skill.name)) {
+      continue;
+    }
+    try {
+      const body = await readText(skill.skillPath);
+      const hasRunbook = /## Default runbook\s/.test(body);
+      checks.push({
+        id: `skill-runbook:${skill.name}`,
+        ok: hasRunbook,
+        message: hasRunbook
+          ? `Skill ${skill.name} declares a Default runbook`
+          : `Skill ${skill.name} is missing a ## Default runbook section`
+      });
+    } catch (error) {
+      checks.push({
+        id: `skill-runbook:${skill.name}`,
+        ok: false,
+        message: `Skill ${skill.name} runbook check failed: ${getErrorMessage(error)}`
+      });
+    }
+  }
+
   const schemaRoot = options.schemasBaseDir ?? schemasDir;
 
   for (const schemaFile of requiredSchemaFiles) {

@@ -40,6 +40,36 @@ describe('runDoctor', () => {
   });
 });
 
+describe('runDoctor skill runbook completeness', () => {
+  test('reports each required skill declares a Default runbook', async () => {
+    const report = await runDoctor();
+
+    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo']) {
+      expect(report.checks).toContainEqual(
+        expect.objectContaining({ id: `skill-runbook:${name}`, ok: true })
+      );
+    }
+  });
+
+  test('flags a required skill that is missing its Default runbook section', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-runbook-'));
+    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+      await mkdir(join(root, name));
+      const body = name === 'peaks-rd'
+        ? `---\nname: ${name}\ndescription: ${name} skill\n---\n# Body without runbook\n`
+        : `---\nname: ${name}\ndescription: ${name} skill\n---\n# Body\n\n## Default runbook\n\n\`\`\`bash\npeaks doctor --json\n\`\`\`\n`;
+      await writeFile(join(root, name, 'SKILL.md'), body);
+    }
+
+    const report = await runDoctor({ skillsBaseDir: root });
+    const failing = report.checks.find((check) => check.id === 'skill-runbook:peaks-rd');
+
+    expect(failing).toMatchObject({ ok: false });
+    expect(failing?.message).toContain('missing a ## Default runbook');
+    expect(report.summary.ok).toBe(false);
+  });
+});
+
 describe('runDoctor recommendation schemas', () => {
   test('validates recommendation foundation schemas', async () => {
     const report = await runDoctor();
