@@ -110,8 +110,14 @@ export async function planMcpInstall(capabilityId: string, options: PlanMcpInsta
   if (options.managedMarkerPath !== undefined) {
     scanOptions.managedMarkerPath = options.managedMarkerPath;
   }
+  if (options.pluginsRegistryPath !== undefined) {
+    scanOptions.pluginsRegistryPath = options.pluginsRegistryPath;
+  }
   const report = await scanMcpServers(scanOptions);
   const current = report.servers.find((server) => server.name === spec.name && server.scope === spec.scope) ?? null;
+  const pluginDuplicate = report.servers.find(
+    (server) => server.source === 'plugin' && server.name === spec.name
+  ) ?? null;
 
   let action: McpInstallAction;
   let diff: McpInstallDiff | null = null;
@@ -124,6 +130,14 @@ export async function planMcpInstall(capabilityId: string, options: PlanMcpInsta
     action = diff === null ? 'noop' : 'update';
   }
 
+  const nextActions = buildNextActions(action, capabilityId, envCheck.missing);
+  if (pluginDuplicate !== null) {
+    const pluginLabel = pluginDuplicate.pluginName ?? 'a Claude Code plugin';
+    nextActions.push(
+      `An MCP server named "${spec.name}" is already loaded by plugin ${pluginLabel}; installing via peaks would duplicate it`
+    );
+  }
+
   return {
     capabilityId,
     action,
@@ -131,6 +145,6 @@ export async function planMcpInstall(capabilityId: string, options: PlanMcpInsta
     current,
     envCheck,
     diff,
-    nextActions: buildNextActions(action, capabilityId, envCheck.missing)
+    nextActions
   };
 }

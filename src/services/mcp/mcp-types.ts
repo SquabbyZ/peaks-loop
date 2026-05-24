@@ -1,6 +1,6 @@
-export type McpServerSource = 'peaks' | 'cc-switch' | 'user' | 'unknown';
+export type McpServerSource = 'peaks' | 'cc-switch' | 'user' | 'plugin' | 'unknown';
 
-export type McpServerScope = 'global' | 'project';
+export type McpServerScope = 'global' | 'project' | 'plugin';
 
 export type McpServerConfig = {
   name: string;
@@ -9,6 +9,7 @@ export type McpServerConfig = {
   envKeys: string[];
   source: McpServerSource;
   scope: McpServerScope;
+  pluginName?: string;
 };
 
 export type McpSettingsScopeReport = {
@@ -17,10 +18,19 @@ export type McpSettingsScopeReport = {
   parseError?: string;
 };
 
+export type McpPluginsReport = {
+  path: string;
+  exists: boolean;
+  parseError?: string;
+  pluginsScanned: number;
+  pluginsWithMcp: number;
+};
+
 export type McpScanReport = {
   servers: McpServerConfig[];
   scopes: {
     global: McpSettingsScopeReport;
     project: McpSettingsScopeReport | null;
+    plugins: McpPluginsReport;
   };
 };

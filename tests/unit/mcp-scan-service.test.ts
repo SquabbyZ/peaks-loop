@@ -277,3 +277,164 @@ describe('scanMcpServers', () => {
     expect(report.servers[0]?.envKeys).toEqual([]);
   });
 });
+
+describe('scanMcpServers plugin discovery', () => {
+  test('discovers plugin-loaded MCP server with source plugin and the owning plugin id', async () => {
+    const home = await makeRoot();
+    const pluginInstall = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeJson(join(pluginInstall, '.mcp.json'), {
+      playwright: { command: 'npx', args: ['@playwright/mcp@latest'] }
+    });
+    await writeJson(registryPath, {
+      version: 2,
+      plugins: {
+        'playwright@claude-plugins-official': [
+          { installPath: pluginInstall, version: '1.0.0' }
+        ]
+      }
+    });
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    const playwright = report.servers.find((server) => server.name === 'playwright');
+    expect(playwright).toMatchObject({
+      name: 'playwright',
+      command: 'npx',
+      args: ['@playwright/mcp@latest'],
+      source: 'plugin',
+      scope: 'plugin',
+      pluginName: 'playwright@claude-plugins-official'
+    });
+    expect(report.scopes.plugins.exists).toBe(true);
+    expect(report.scopes.plugins.pluginsScanned).toBe(1);
+    expect(report.scopes.plugins.pluginsWithMcp).toBe(1);
+  });
+
+  test('accepts both wrapped-mcpServers and direct .mcp.json formats', async () => {
+    const home = await makeRoot();
+    const wrappedInstall = await makeRoot();
+    const directInstall = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeJson(join(wrappedInstall, '.mcp.json'), {
+      mcpServers: { figma: { command: 'figma-mcp', args: [] } }
+    });
+    await writeJson(join(directInstall, '.mcp.json'), {
+      context7: { command: 'npx', args: ['-y', '@upstash/context7-mcp'] }
+    });
+    await writeJson(registryPath, {
+      plugins: {
+        'figma@claude-plugins-official': [{ installPath: wrappedInstall }],
+        'context7@claude-plugins-official': [{ installPath: directInstall }]
+      }
+    });
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    const names = report.servers.map((server) => server.name);
+    expect(names).toContain('figma');
+    expect(names).toContain('context7');
+    expect(report.scopes.plugins.pluginsScanned).toBe(2);
+    expect(report.scopes.plugins.pluginsWithMcp).toBe(2);
+  });
+
+  test('skips plugins that do not ship an .mcp.json (e.g. chrome-devtools-mcp uses server.json)', async () => {
+    const home = await makeRoot();
+    const pluginInstall = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeJson(registryPath, {
+      plugins: {
+        'chrome-devtools-mcp@claude-plugins-official': [{ installPath: pluginInstall }]
+      }
+    });
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    expect(report.servers).toEqual([]);
+    expect(report.scopes.plugins.pluginsScanned).toBe(1);
+    expect(report.scopes.plugins.pluginsWithMcp).toBe(0);
+  });
+
+  test('reports plugins scope as missing when installed_plugins.json does not exist', async () => {
+    const home = await makeRoot();
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: join(home, '.claude', 'plugins', 'installed_plugins.json')
+    });
+
+    expect(report.scopes.plugins.exists).toBe(false);
+    expect(report.scopes.plugins.pluginsScanned).toBe(0);
+  });
+
+  test('records parseError when installed_plugins.json is not valid JSON', async () => {
+    const home = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeFile(registryPath, '{ not json', 'utf8');
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    expect(report.servers).toEqual([]);
+    expect(report.scopes.plugins.exists).toBe(true);
+    expect(report.scopes.plugins.parseError).toMatch(/JSON|parse/i);
+  });
+
+  test('skips plugin entries whose .mcp.json is unreadable JSON', async () => {
+    const home = await makeRoot();
+    const pluginInstall = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeFile(join(pluginInstall, '.mcp.json'), 'not json', 'utf8');
+    await writeJson(registryPath, {
+      plugins: {
+        'broken@claude-plugins-official': [{ installPath: pluginInstall }]
+      }
+    });
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    expect(report.servers).toEqual([]);
+    expect(report.scopes.plugins.pluginsScanned).toBe(1);
+    expect(report.scopes.plugins.pluginsWithMcp).toBe(0);
+  });
+
+  test('skips plugin entries with missing installPath in the registry', async () => {
+    const home = await makeRoot();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeJson(registryPath, {
+      plugins: {
+        'no-install@claude-plugins-official': [{ version: '1.0.0' }],
+        'empty@claude-plugins-official': [],
+        'not-array@claude-plugins-official': 'oops'
+      }
+    });
+
+    const report = await scanMcpServers({
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath
+    });
+
+    expect(report.servers).toEqual([]);
+    expect(report.scopes.plugins.pluginsScanned).toBe(0);
+  });
+});

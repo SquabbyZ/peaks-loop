@@ -202,4 +202,34 @@ describe('planMcpInstall', () => {
 
     expect(plan.envCheck.missing).toEqual(['CONTEXT7_API_KEY']);
   });
+
+  test('surfaces a nextAction warning when the same MCP server is already loaded via a Claude Code plugin', async () => {
+    const home = await makeHome();
+    const pluginInstall = await makeHome();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeFile(
+      join(pluginInstall, '.mcp.json'),
+      JSON.stringify({ playwright: { command: 'npx', args: ['@playwright/mcp@latest'] } }),
+      'utf8'
+    );
+    await writeFile(
+      registryPath,
+      JSON.stringify({
+        plugins: {
+          'playwright@claude-plugins-official': [{ installPath: pluginInstall }]
+        }
+      }),
+      'utf8'
+    );
+
+    const plan = await planMcpInstall('playwright-mcp.browser-validation', {
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath,
+      env: {}
+    });
+
+    expect(plan.action).toBe('add');
+    expect(plan.nextActions.some((line) => /already loaded by plugin playwright@claude-plugins-official/.test(line))).toBe(true);
+  });
 });

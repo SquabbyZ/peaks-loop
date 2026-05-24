@@ -14,11 +14,16 @@
     },
     "source": {
       "type": "string",
-      "enum": ["peaks", "cc-switch", "user", "unknown"]
+      "enum": ["peaks", "cc-switch", "user", "plugin", "unknown"]
     },
     "scope": {
       "type": "string",
-      "enum": ["global", "project"]
+      "enum": ["global", "project", "plugin"]
+    },
+    "pluginName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Plugin id (e.g. playwright@claude-plugins-official) when source is plugin."
     }
   }
 }
