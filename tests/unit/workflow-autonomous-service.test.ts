@@ -408,6 +408,121 @@ describe('createAutonomousWorkflowPlan', () => {
     expect(plan.blockedReasons).toContain('resume-artifacts-missing');
   });
 
+  test('keeps resume preview when a resume artifact is oversized', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-oversized-artifact';
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+    writeResumeArtifacts(artifactWorkspace, changeId);
+    const checkpointPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    writeFileSync(checkpointPath, 'x'.repeat(256_001), 'utf8');
+
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId,
+      goal: 'Resume autonomous RD planning from artifacts',
+      maxWorkers: 40,
+      dryRun: true,
+      workspace,
+      artifactWorkspacePath: artifactWorkspace
+    });
+
+    expect(plan.available).toBe(false);
+    expect(plan.resumePlan.status).toBe('preview');
+    expect(plan.blockedReasons).toContain('resume-artifacts-missing');
+  });
+
+  test('keeps resume preview when RD resume artifacts are outside the swarm subtree', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-rd-outside-swarm';
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+    writeResumeArtifacts(artifactWorkspace, changeId);
+    const checkpointPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    rmSync(checkpointPath);
+    mkdirSync(join(artifactWorkspace, '.peaks', changeId, 'rd', 'checkpoints'), { recursive: true });
+    writeFileSync(join(artifactWorkspace, '.peaks', changeId, 'rd', 'checkpoints', 'checkpoint-1.json'), '{}', 'utf8');
+
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId,
+      goal: 'Resume autonomous RD planning from artifacts',
+      maxWorkers: 40,
+      dryRun: true,
+      workspace,
+      artifactWorkspacePath: artifactWorkspace
+    });
+
+    expect(plan.available).toBe(false);
+    expect(plan.resumePlan.status).toBe('preview');
+    expect(plan.blockedReasons).toContain('resume-artifacts-missing');
+  });
+
+  test('keeps resume preview when the RD swarm root is a directory link', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-swarm-link';
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+    writeResumeArtifacts(artifactWorkspace, changeId);
+    const swarmPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm');
+    const linkedSwarmPath = join(tmpdir(), `peaks-autonomous-linked-swarm-${Date.now()}-${Math.random()}`);
+    rmSync(swarmPath, { recursive: true, force: true });
+    mkdirSync(linkedSwarmPath, { recursive: true });
+    symlinkSync(linkedSwarmPath, swarmPath, 'junction');
+
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId,
+      goal: 'Resume autonomous RD planning from artifacts',
+      maxWorkers: 40,
+      dryRun: true,
+      workspace,
+      artifactWorkspacePath: artifactWorkspace
+    });
+
+    expect(plan.available).toBe(false);
+    expect(plan.resumePlan.status).toBe('preview');
+    expect(plan.blockedReasons).toContain('resume-artifacts-missing');
+  });
+
+  test('keeps resume preview when swarm root is detected as a symbolic link', async () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-swarm-lstat-link';
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+    writeResumeArtifacts(artifactWorkspace, changeId);
+
+    vi.resetModules();
+    vi.doMock('node:fs', () => ({
+      ...nodeFs,
+      lstatSync: (path: Parameters<typeof nodeFs.lstatSync>[0], options?: Parameters<typeof nodeFs.lstatSync>[1]) => {
+        const stat = nodeFs.lstatSync(path, options) as Stats;
+        if (String(path).includes(join('.peaks', changeId, 'rd', 'swarm')) && !String(path).includes(join('swarm', 'checkpoints')) && !String(path).includes(join('swarm', 'evidence')) && !String(path).endsWith('swarm')) {
+          return stat;
+        }
+        if (String(path).endsWith(join('.peaks', changeId, 'rd', 'swarm'))) {
+          return { ...stat, isSymbolicLink: () => true } as Stats;
+        }
+        return stat;
+      }
+    }));
+    try {
+      const mockedWorkflow = await import('../../src/services/workflow/workflow-autonomous-service.js');
+      const plan = mockedWorkflow.createAutonomousWorkflowPlan({
+        mode: 'solo',
+        changeId,
+        goal: 'Resume autonomous RD planning from artifacts',
+        maxWorkers: 40,
+        dryRun: true,
+        workspace,
+        artifactWorkspacePath: artifactWorkspace
+      });
+
+      expect(plan.available).toBe(false);
+      expect(plan.resumePlan.status).toBe('preview');
+      expect(plan.blockedReasons).toContain('resume-artifacts-missing');
+    } finally {
+      vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
+  });
+
   test('keeps resume preview when artifact realpath escapes the artifact workspace', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const changeId = 'resume-realpath-escape';
@@ -881,6 +996,56 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(true);
     expect(plan.resumePlan.status).toBe('ready');
+  });
+
+  test('keeps resume preview when session root is a directory link', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-session-link';
+    const sessionRoot = join(artifactWorkspace, '.peaks', changeId);
+    const outsideRoot = join(tmpdir(), `peaks-autonomous-session-link-${Date.now()}-${Math.random()}`);
+    writeResumeArtifacts(outsideRoot, changeId);
+    mkdirSync(dirname(sessionRoot), { recursive: true });
+    symlinkSync(join(outsideRoot, '.peaks', changeId), sessionRoot, 'junction');
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId,
+      goal: 'Resume autonomous RD planning from artifacts',
+      maxWorkers: 40,
+      dryRun: true,
+      workspace,
+      artifactWorkspacePath: artifactWorkspace
+    });
+
+    expect(plan.available).toBe(false);
+    expect(plan.resumePlan.status).toBe('preview');
+    expect(plan.blockedReasons).toContain('resume-artifacts-missing');
+  });
+
+  test('keeps resume preview when role root is a directory link', () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const changeId = 'resume-role-link';
+    const roleRoot = join(artifactWorkspace, '.peaks', changeId, 'rd');
+    const outsideRoot = join(tmpdir(), `peaks-autonomous-role-link-${Date.now()}-${Math.random()}`);
+    writeResumeArtifacts(outsideRoot, changeId);
+    mkdirSync(dirname(roleRoot), { recursive: true });
+    symlinkSync(join(outsideRoot, '.peaks', changeId, 'rd'), roleRoot, 'junction');
+    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+
+    const plan = createAutonomousWorkflowPlan({
+      mode: 'solo',
+      changeId,
+      goal: 'Resume autonomous RD planning from artifacts',
+      maxWorkers: 40,
+      dryRun: true,
+      workspace,
+      artifactWorkspacePath: artifactWorkspace
+    });
+
+    expect(plan.available).toBe(false);
+    expect(plan.resumePlan.status).toBe('preview');
+    expect(plan.blockedReasons).toContain('resume-artifacts-missing');
   });
 
   test('rejects invalid change id and empty goal', () => {

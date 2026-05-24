@@ -1,17 +1,12 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
-import { spawn, type ChildProcess } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { defaultCodegraphProcessRunner } from './codegraph-process-runner.js';
 
 const CODEGRAPH_PACKAGE_NAME = '@colbymchenry/codegraph';
 const CODEGRAPH_PACKAGE_VERSION = '0.7.10';
 const CODEGRAPH_EXECUTABLE = process.execPath;
 const CODEGRAPH_BINARY_PATH = resolveCodegraphBinaryPath();
-const CODEGRAPH_PROCESS_TIMEOUT_MS = 600_000;
-const CODEGRAPH_OUTPUT_LIMIT_BYTES = 10 * 1024 * 1024;
-const NODE_OPTIONS_ENV_KEY = 'NODE_OPTIONS';
-const NPM_CONFIG_PREFIX = 'npm_config_';
-const NPM_CONFIG_UPPER_PREFIX = 'NPM_CONFIG_';
 const POSITIONAL_ARGUMENT_PREFIX = '-';
 const ALLOWED_SUBCOMMANDS = ['status', 'init', 'index', 'query', 'files', 'context', 'affected'] as const;
 const NUMERIC_FLAG_NAMES = ['limit', 'maxDepth'] as const;
@@ -75,10 +70,6 @@ function resolveCodegraphBinaryPath(): string {
   const require = createRequire(import.meta.url);
   const packageJsonPath = require.resolve('@colbymchenry/codegraph/package.json');
   const binaryPath = resolve(dirname(packageJsonPath), 'dist', 'bin', 'codegraph.js');
-
-  if (!existsSync(binaryPath)) {
-    throw new Error('Unable to resolve local codegraph binary from @colbymchenry/codegraph');
-  }
 
   return binaryPath;
 }
@@ -161,10 +152,6 @@ function resolveExistingBoundary(absoluteFilePath: string): string {
   while (!existsSync(currentPath)) {
     const parentPath = dirname(currentPath);
 
-    if (parentPath === currentPath) {
-      return currentPath;
-    }
-
     currentPath = parentPath;
   }
 
@@ -233,102 +220,6 @@ function buildCommandArgs(options: CodegraphInvocationOptions, projectRoot: stri
   }
 
   return args;
-}
-
-function createCodegraphEnvironment(sourceEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const preservedKeys = ['PATH', 'Path', 'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'SystemRoot', 'WINDIR'] as const;
-  const environment: NodeJS.ProcessEnv = {};
-
-  for (const key of preservedKeys) {
-    const value = sourceEnv[key];
-
-    if (value !== undefined) {
-      environment[key] = value;
-    }
-  }
-
-  return environment;
-}
-
-function assertOutputLimit(currentSize: number, chunkSize: number): number {
-  const nextSize = currentSize + chunkSize;
-
-  if (nextSize > CODEGRAPH_OUTPUT_LIMIT_BYTES) {
-    throw new Error(`codegraph output exceeded ${CODEGRAPH_OUTPUT_LIMIT_BYTES} bytes`);
-  }
-
-  return nextSize;
-}
-
-function terminateCodegraphProcess(childProcess: ChildProcess): void {
-  if (childProcess.pid === undefined) {
-    childProcess.kill();
-    return;
-  }
-
-  if (process.platform === 'win32') {
-    const taskkillPath = process.env.SystemRoot ? join(process.env.SystemRoot, 'System32', 'taskkill.exe') : 'taskkill.exe';
-    spawn(taskkillPath, ['/pid', String(childProcess.pid), '/T', '/F'], { shell: false, stdio: 'ignore' });
-    return;
-  }
-
-  try {
-    process.kill(-childProcess.pid, 'SIGTERM');
-  } catch {
-    childProcess.kill('SIGTERM');
-  }
-}
-
-function defaultCodegraphProcessRunner(invocation: CodegraphInvocation): Promise<CodegraphExecutionResult> {
-  return new Promise((resolveResult, reject) => {
-    const childProcess = spawn(invocation.executable, invocation.args, {
-      cwd: invocation.cwd,
-      detached: process.platform !== 'win32',
-      env: createCodegraphEnvironment(),
-      shell: false
-    });
-    const timeout = setTimeout(() => {
-      terminateCodegraphProcess(childProcess);
-      reject(new Error(`codegraph process timed out after ${CODEGRAPH_PROCESS_TIMEOUT_MS}ms`));
-    }, CODEGRAPH_PROCESS_TIMEOUT_MS);
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let stdoutSize = 0;
-    let stderrSize = 0;
-
-    childProcess.stdout.on('data', (chunk: Buffer) => {
-      try {
-        stdoutSize = assertOutputLimit(stdoutSize, chunk.length);
-        stdoutChunks.push(chunk);
-      } catch (error) {
-        terminateCodegraphProcess(childProcess);
-        reject(error);
-      }
-    });
-
-    childProcess.stderr.on('data', (chunk: Buffer) => {
-      try {
-        stderrSize = assertOutputLimit(stderrSize, chunk.length);
-        stderrChunks.push(chunk);
-      } catch (error) {
-        terminateCodegraphProcess(childProcess);
-        reject(error);
-      }
-    });
-
-    childProcess.on('error', (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    childProcess.on('close', (exitCode) => {
-      clearTimeout(timeout);
-      resolveResult({
-        exitCode,
-        stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-        stderr: Buffer.concat(stderrChunks).toString('utf8')
-      });
-    });
-  });
 }
 
 export function createCodegraphInvocation(options: CodegraphInvocationOptions): CodegraphInvocation {

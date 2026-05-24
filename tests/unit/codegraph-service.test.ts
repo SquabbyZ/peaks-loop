@@ -121,6 +121,31 @@ describe('codegraph service', () => {
     expectCodegraphArgs(invocation, ['affected', 'src/index.ts', '--json']);
   });
 
+  test('assembles files invocation with json and max-depth flags', () => {
+    const projectRoot = createProject();
+
+    const invocation = createCodegraphInvocation({
+      subcommand: 'files',
+      project: projectRoot,
+      json: true,
+      maxDepth: 3
+    });
+
+    expectCodegraphArgs(invocation, ['files', '--json', '--max-depth', '3']);
+  });
+
+  test('rejects affected invocation without files', () => {
+    const projectRoot = createProject();
+
+    expect(() =>
+      createCodegraphInvocation({
+        subcommand: 'affected',
+        project: projectRoot,
+        files: []
+      })
+    ).toThrow('affected requires at least one file');
+  });
+
   test('rejects unsupported subcommands such as install', () => {
     const projectRoot = createProject();
 
@@ -199,6 +224,36 @@ describe('codegraph service', () => {
     expect(() => createCodegraphInvocation({ subcommand: 'status', project: projectRoot })).toThrow('Project path must exist and be a directory');
   });
 
+  test('rejects a file path used as the project root', () => {
+    const projectRoot = createProject();
+
+    expect(() => createCodegraphInvocation({ subcommand: 'status', project: join(projectRoot, 'package.json') })).toThrow('Project path must exist and be a directory');
+  });
+
+  test('normalizes affected files whose parent directories do not exist yet', () => {
+    const projectRoot = createProject();
+
+    const invocation = createCodegraphInvocation({
+      subcommand: 'affected',
+      project: projectRoot,
+      files: ['src/new/deep/file.ts']
+    });
+
+    expectCodegraphArgs(invocation, ['affected', 'src/new/deep/file.ts']);
+  });
+
+  test('rejects affected files when no existing ancestor stays inside the project', () => {
+    const projectRoot = createProject();
+
+    expect(() =>
+      createCodegraphInvocation({
+        subcommand: 'affected',
+        project: projectRoot,
+        files: ['../../missing/deep/file.ts']
+      })
+    ).toThrow('Affected files must stay inside the project');
+  });
+
   test('rejects affected files that escape the project root', () => {
     const projectRoot = createProject();
 
@@ -264,6 +319,15 @@ describe('codegraph service', () => {
         maxDepth: 0
       })
     ).toThrow('maxDepth must be a positive integer');
+
+    expect(() =>
+      createCodegraphInvocation({
+        subcommand: 'query',
+        project: projectRoot,
+        search: 'auth',
+        limit: 1.5
+      })
+    ).toThrow('limit must be a positive integer');
   });
 
   test('executes through an injectable runner for CLI tests', async () => {

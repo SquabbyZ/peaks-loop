@@ -51,6 +51,8 @@ For continuing turns in the same Peaks workflow, use a compact status header ins
 Peaks Skill: <skill-name> | Gate: <current gate> | Next: <one short action>
 ```
 
+**Persistence rule:** The active Peaks skill name and gate are persisted to `.peaks/.active-skill.json` by the skill's runbook. Check this file at the start of EVERY response when a Peaks skill workflow is active. If the file exists and contains a valid skill name, always show the compact header — even if this is the first turn of a new conversation, even after context compaction, and without exception. Only omit the header when `.peaks/.active-skill.json` is missing, invalid, or the file does not contain a `skill` field. This ensures users unfamiliar with Claude Code's skill system always see which Peaks skill is orchestrating their session.
+
 Structure active Peaks responses around:
 
 1. **Role** — name the active Peaks role or role chain, for example PRD → RD → QA → SC.

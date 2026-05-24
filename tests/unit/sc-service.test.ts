@@ -229,6 +229,19 @@ describe('peaks-sc service', () => {
     expect(getChangeTraceabilityStatus().changeId).toBeNull();
   });
 
+  test('returns null when current-change directory link target has an unsafe basename', () => {
+    const workspace = currentWorkspace as WorkspaceConfig;
+    const artifactRoot = getTestArtifactRoot(workspace);
+    const peaksPath = join(artifactRoot, '.peaks');
+    const unsafeChangeDir = join(peaksPath, 'bad change');
+
+    mkdirSync(peaksPath, { recursive: true });
+    mkdirSync(unsafeChangeDir, { recursive: true });
+    createDirectoryLinkSync(unsafeChangeDir, join(peaksPath, 'current-change'));
+
+    expect(getChangeTraceabilityStatus().changeId).toBeNull();
+  });
+
   test('ignores empty or unsafe current-change values', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const peaksPath = join(getTestArtifactRoot(workspace), '.peaks');

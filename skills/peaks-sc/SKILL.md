@@ -48,6 +48,7 @@ Use this sequence when SC owns the change-control pass for a refactor or release
 ```bash
 # 0. Confirm SC's own runbook integrity before recording boundary evidence
 peaks skill runbook peaks-sc --json
+peaks skill presence:set peaks-sc               # show persistent skill presence every turn
 
 # 1. Derive commit boundaries from OpenSpec when openspec/ exists
 peaks openspec to-rd <change-id> --project <repo> --json
@@ -71,6 +72,7 @@ peaks sc boundary --slice-id <slice-id> --artifact <artifact-path> --code <code-
 # 7. Sync memory and artifacts only when the user or active profile authorizes durable writes
 peaks memory sync --project <repo> --workspace <workspace> --apply --json
 peaks artifacts sync --workspace <workspace> --apply --json
+peaks skill presence:clear                      # SC complete, remove presence indicator
 ```
 
 The final two `--apply` calls require explicit authorization. Without it, default to `--dry-run` or omit the sync calls entirely and keep the boundary evidence local under `.peaks/<session-id>/`.

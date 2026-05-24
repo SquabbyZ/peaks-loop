@@ -428,15 +428,13 @@ describe('getTechStatus', () => {
     }
 
     vi.resetModules();
-    vi.doMock('node:fs', () => ({
-      ...nodeFs,
-      realpathSync: (path: Parameters<typeof nodeFs.realpathSync>[0]) => {
-        if (String(path).endsWith('frontend-tech-doc.md')) {
-          return join(outsideRoot, 'frontend-tech-doc.md');
-        }
-        return nodeFs.realpathSync(path);
-      }
-    }));
+    vi.doMock('../../src/shared/path-utils.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../src/shared/path-utils.js')>();
+      return {
+        ...actual,
+        stableRealPath: (path: string) => String(path).endsWith('frontend-tech-doc.md') ? join(outsideRoot, 'frontend-tech-doc.md') : actual.stableRealPath(path)
+      };
+    });
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
       const status = mockedTechService.getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
@@ -445,7 +443,122 @@ describe('getTechStatus', () => {
       expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
       expect(status.blockedReasons).toContain('tech-artifacts-missing');
     } finally {
+      vi.doUnmock('../../src/shared/path-utils.js');
+      vi.resetModules();
+    }
+  });
+
+  test('blocks when approval record identity changes after it is read', async () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'approval-final-identity-change', 'rd', 'architecture');
+    mkdirSync(architectureRoot, { recursive: true });
+    for (const artifact of TECH_REQUIRED_ARTIFACTS) {
+      writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
+    }
+
+    vi.resetModules();
+    let fstatCalls = 0;
+    vi.doMock('node:fs', () => ({
+      ...nodeFs,
+      fstatSync: (fd: number, options?: Parameters<typeof nodeFs.fstatSync>[1]) => {
+        const actualStat = nodeFs.fstatSync(fd, options) as Stats;
+        fstatCalls += 1;
+        if (fstatCalls > 1) {
+            const modifiedStat = { ...actualStat, ino: actualStat.ino + 1 };
+            return Object.defineProperties(modifiedStat, {
+              isFile: { value: actualStat.isFile.bind(actualStat), configurable: true },
+              isDirectory: { value: actualStat.isDirectory.bind(actualStat), configurable: true },
+              isBlockDevice: { value: actualStat.isBlockDevice.bind(actualStat), configurable: true },
+              isCharacterDevice: { value: actualStat.isCharacterDevice.bind(actualStat), configurable: true },
+              isSymbolicLink: { value: actualStat.isSymbolicLink.bind(actualStat), configurable: true },
+              isFIFO: { value: actualStat.isFIFO.bind(actualStat), configurable: true },
+              isSocket: { value: actualStat.isSocket.bind(actualStat), configurable: true }
+            }) as Stats;
+          }
+          return actualStat;
+      }
+    }));
+    try {
+      const mockedTechService = await import('../../src/services/tech/tech-service.js');
+      const status = mockedTechService.getTechStatus({ changeId: 'approval-final-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
+
+      expect(status.status).toBe('blocked');
+      expect(status.blockedReasons).toContain('tech-approval-unreadable');
+    } finally {
       vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
+  });
+
+  test('blocks when approval record becomes a non-file between validation and read', async () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'approval-nonfile-toctou', 'rd', 'architecture');
+    mkdirSync(architectureRoot, { recursive: true });
+    for (const artifact of TECH_REQUIRED_ARTIFACTS) {
+      writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
+    }
+
+    vi.resetModules();
+    let lstatCalls = 0;
+    vi.doMock('node:fs', () => ({
+      ...nodeFs,
+      lstatSync: (path: Parameters<typeof nodeFs.lstatSync>[0], options?: Parameters<typeof nodeFs.lstatSync>[1]) => {
+        const stat = nodeFs.lstatSync(path, options) as Stats;
+        if (String(path).endsWith('tech-approval-record.md')) {
+          lstatCalls += 1;
+          if (lstatCalls > 1) {
+            return { ...stat, isFile: () => false, isSymbolicLink: () => false } as Stats;
+          }
+        }
+        return stat;
+      }
+    }));
+    try {
+      const mockedTechService = await import('../../src/services/tech/tech-service.js');
+      const status = mockedTechService.getTechStatus({ changeId: 'approval-nonfile-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
+
+      expect(status.status).toBe('blocked');
+      expect(status.blockedReasons).toContain('tech-approval-unreadable');
+    } finally {
+      vi.doUnmock('node:fs');
+      vi.resetModules();
+    }
+  });
+
+  test('blocks when approval record realpath escapes between validation and read', async () => {
+    const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
+    const architectureRoot = join(artifactWorkspace, '.peaks', 'approval-realpath-toctou', 'rd', 'architecture');
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-approval-realpath-outside-'));
+    mkdirSync(architectureRoot, { recursive: true });
+    for (const artifact of TECH_REQUIRED_ARTIFACTS) {
+      writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
+    }
+
+    vi.resetModules();
+    let stableCalls = 0;
+    vi.doMock('../../src/shared/path-utils.js', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../../src/shared/path-utils.js')>();
+      return {
+        ...actual,
+        stableRealPath: (path: string) => {
+          if (String(path).endsWith('tech-approval-record.md')) {
+            stableCalls += 1;
+            if (stableCalls > 1) {
+              return join(outsideRoot, 'tech-approval-record.md');
+            }
+          }
+          return actual.stableRealPath(path);
+        }
+      };
+    });
+    try {
+      const mockedTechService = await import('../../src/services/tech/tech-service.js');
+      const status = mockedTechService.getTechStatus({ changeId: 'approval-realpath-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
+
+      expect(status.status).toBe('blocked');
+      expect(status.blockedReasons).toContain('tech-approval-unreadable');
+    } finally {
+      vi.doUnmock('../../src/shared/path-utils.js');
       vi.resetModules();
     }
   });

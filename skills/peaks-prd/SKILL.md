@@ -34,6 +34,7 @@ For a feature / bug / clarification request with no authenticated source documen
 ```bash
 # 0. confirm PRD's own runbook integrity before driving any phase
 peaks skill runbook peaks-prd --json
+peaks skill presence:set peaks-prd               # show persistent skill presence every turn
 
 # 1. capture the request as the canonical PRD artifact (preview, then apply)
 peaks request init --role prd --id <request-id> --project <repo> --json
@@ -53,6 +54,7 @@ peaks codegraph status  --project <repo>                   # local index status
 
 # 5. write goals / non-goals / acceptance into the artifact body, then hand off
 peaks request show <request-id> --role prd --project <repo> --json
+peaks skill presence:clear                      # handoff complete, remove presence indicator
 ```
 
 For an authenticated product document request (Feishu/Lark/wiki), add before step 5:

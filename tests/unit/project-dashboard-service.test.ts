@@ -1,9 +1,20 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { loadProjectDashboard } from '../../src/services/dashboard/project-dashboard-service.js';
 import { createRequestArtifact } from '../../src/services/artifacts/request-artifact-service.js';
+
+vi.mock('../../src/services/doctor/doctor-service.js', () => ({
+  runDoctor: async () => ({
+    summary: { ok: false, passed: 1, failed: 3 },
+    checks: [
+      { id: 'skill-runbook:peaks-rd', ok: false },
+      { id: 'skill-apply-note:peaks-qa', ok: false },
+      { id: 'other:check', ok: false }
+    ]
+  })
+}));
 
 async function makeProject(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'peaks-project-dashboard-'));
@@ -76,14 +87,12 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.mcp.scopes).toBeDefined();
   });
 
-  test('reports doctor summary counts (passed / failed) for the global Peaks repository skeleton', async () => {
+  test('reports doctor summary counts from the doctor service', async () => {
     const project = await makeProject();
 
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
-    expect(dashboard.doctor.passed).toBeGreaterThan(0);
-    expect(dashboard.doctor.failed).toBe(0);
-    expect(dashboard.doctor.ok).toBe(true);
+    expect(dashboard.doctor).toEqual({ ok: false, passed: 1, failed: 3 });
   });
 
   test('includes top-level Peaks capabilities so a UI can render the capability map without a second call', async () => {
@@ -125,16 +134,16 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.runbookHealth).toEqual({ ok: true, required: 0, healthy: 0, missingRunbook: [], applyNoteFailed: [] });
   });
 
-  test('reports a healthy runbookHealth for the global Peaks repository skeleton', async () => {
+  test('derives runbookHealth from failed doctor checks', async () => {
     const project = await makeProject();
 
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
-    expect(dashboard.runbookHealth.ok).toBe(true);
+    expect(dashboard.runbookHealth.ok).toBe(false);
     expect(dashboard.runbookHealth.required).toBe(7);
-    expect(dashboard.runbookHealth.healthy).toBe(7);
-    expect(dashboard.runbookHealth.missingRunbook).toEqual([]);
-    expect(dashboard.runbookHealth.applyNoteFailed).toEqual([]);
+    expect(dashboard.runbookHealth.healthy).toBe(5);
+    expect(dashboard.runbookHealth.missingRunbook).toEqual(['peaks-rd']);
+    expect(dashboard.runbookHealth.applyNoteFailed).toEqual(['peaks-qa']);
   });
 
   test('uses an injected runbookHealth override without calling the real doctor', async () => {

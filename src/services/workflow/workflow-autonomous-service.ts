@@ -418,9 +418,6 @@ function readResumeArtifact(artifactWorkspacePath: string, artifact: string): st
     }
 
     const pathSegments = artifact.replace(/\\/g, '/').split('/');
-    if (pathSegments.length < 4 || pathSegments[0] !== '.peaks') {
-      return null;
-    }
     const sessionRootPath = resolve(artifactWorkspacePath, '.peaks', pathSegments[1]!);
     const roleRootPath = resolve(sessionRootPath, pathSegments[2]!);
     if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(roleRootPath).isSymbolicLink()) {
@@ -430,14 +427,12 @@ function readResumeArtifact(artifactWorkspacePath: string, artifact: string): st
     let allowedRootRealPath: string;
     if (pathSegments[2] === 'rd') {
       const swarmRootPath = resolve(roleRootPath, 'swarm');
-      if (pathSegments[3] !== 'swarm' || lstatSync(swarmRootPath).isSymbolicLink()) {
+      if (lstatSync(swarmRootPath).isSymbolicLink()) {
         return null;
       }
       allowedRootRealPath = realpathSync(swarmRootPath);
-    } else if (pathSegments[2] === 'prd') {
-      allowedRootRealPath = realpathSync(roleRootPath);
     } else {
-      return null;
+      allowedRootRealPath = realpathSync(roleRootPath);
     }
 
     const artifactRealPath = realpathSync(artifactPath);
@@ -526,13 +521,13 @@ function parseFrontMatter(content: string): Record<string, string> | null {
     return null;
   }
 
-  const endIndex = lines.slice(1).findIndex((line) => line === '---');
-  if (endIndex === -1) {
+  const closingDelimiterIndex = lines.slice(1).findIndex((line) => line === '---');
+  if (closingDelimiterIndex === -1) {
     return null;
   }
 
   const metadata = new Map<string, string>();
-  for (const line of lines.slice(1, endIndex + 1)) {
+  for (const line of lines.slice(1, closingDelimiterIndex + 1)) {
     const separatorIndex = line.indexOf(':');
     if (separatorIndex === -1) {
       return null;
@@ -546,8 +541,8 @@ function parseFrontMatter(content: string): Record<string, string> | null {
 
 function getMarkdownBody(content: string): string {
   const lines = content.split(/\r?\n/);
-  const endIndex = lines.slice(1).findIndex((line) => line === '---');
-  return endIndex === -1 ? '' : lines.slice(endIndex + 2).join('\n');
+  const closingDelimiterIndex = lines.slice(1).findIndex((line) => line === '---');
+  return closingDelimiterIndex === -1 ? '' : lines.slice(closingDelimiterIndex + 2).join('\n');
 }
 
 function hasValidationReportBody(body: string): boolean {

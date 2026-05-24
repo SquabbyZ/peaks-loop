@@ -8,6 +8,7 @@ import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
+import { setSkillPresence, clearSkillPresence, getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -69,6 +70,39 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       );
       process.exitCode = 1;
     }
+  });
+
+  addJsonOption(
+    skill
+      .command('presence')
+      .description('Show the currently active Peaks skill')
+  ).action((options: { json?: boolean }) => {
+    const presence = getSkillPresence();
+    if (presence === null) {
+      printResult(io, ok('skill.presence', { active: false }), options.json);
+      return;
+    }
+    printResult(io, ok('skill.presence', { active: true, ...presence }), options.json);
+  });
+
+  addJsonOption(
+    skill
+      .command('presence:set <name>')
+      .description('Set the currently active Peaks skill for session-wide visibility')
+      .option('--mode <mode>', 'execution mode')
+      .option('--gate <gate>', 'current gate')
+  ).action((name: string, options: { mode?: string; gate?: string; json?: boolean }) => {
+    const presence = setSkillPresence(name, options.mode, options.gate);
+    printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
+  });
+
+  addJsonOption(
+    skill
+      .command('presence:clear')
+      .description('Clear the active Peaks skill presence indicator')
+  ).action((options: { json?: boolean }) => {
+    const removed = clearSkillPresence();
+    printResult(io, ok('skill.presence:clear', { active: false, removed }), options.json);
   });
 
   const profile = program.command('profile').description('Manage runtime profiles');

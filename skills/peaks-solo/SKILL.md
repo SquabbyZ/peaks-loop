@@ -92,6 +92,7 @@ The default end-to-end sequence Peaks Solo orchestrates when a user supplies a r
 peaks doctor --json
 peaks project dashboard --project <repo> --json     # one-call cross-role status
 peaks skill runbook peaks-solo --json               # confirm Solo's own runbook is intact + apply-gated
+peaks skill presence:set peaks-solo --mode solo     # show persistent skill presence every turn
 
 # 1. PRD phase — capture the request as the canonical artifact
 peaks request init --role prd --id <request-id> --project <repo> --apply --json
@@ -141,6 +142,7 @@ peaks memory extract --project <repo> --artifact <qa-artifact> --dry-run --json
 # 8. final snapshot to confirm the workflow really closed
 peaks project dashboard --project <repo> --json
 peaks skill doctor --json                            # all 7 required skills still healthy?
+peaks skill presence:clear                          # workflow complete, remove presence indicator
 ```
 
 Solo's RD↔QA repair loop (`## Mandatory RD QA repair loop` above) applies if QA's verdict is `return-to-rd`. In that case, Solo re-runs phase 3 + phase 4 against the same `<request-id>` instead of starting a new one; the previous artifacts get appended with new transition notes via `--reason` rather than rewritten.

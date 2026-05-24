@@ -199,6 +199,14 @@ describe('project standards service', () => {
     expect(() => createProjectStandardsUpdatePlan({ projectRoot: unsafeClaudeProjectRoot, language: 'typescript' })).toThrow('Project standards directory must stay inside the project root');
   });
 
+  test('rejects directory-linked CLAUDE.md targets during standards update planning', () => {
+    const projectRoot = createProjectRoot('peaks-standards-unsafe-claude-md-dir-');
+    const outsideRoot = createProjectRoot('peaks-standards-outside-claude-md-dir-');
+    symlinkSync(outsideRoot, join(projectRoot, 'CLAUDE.md'), 'junction');
+
+    expect(() => createProjectStandardsUpdatePlan({ projectRoot, language: 'typescript' })).toThrow('Project standards CLAUDE.md must stay inside the project root');
+  });
+
   test.skipIf(!canCreateFileSymlink())('rejects symlinked CLAUDE.md files during standards update planning', () => {
     const projectRoot = createProjectRoot('peaks-standards-unsafe-claude-md-');
     const outsideRoot = createProjectRoot('peaks-standards-outside-claude-md-');

@@ -31,6 +31,7 @@ The default sequence the RD skill should execute for a code-touching request. Sk
 ```bash
 # 0. confirm RD's own runbook integrity before any code edit
 peaks skill runbook peaks-rd --json
+peaks skill presence:set peaks-rd               # show persistent skill presence every turn
 
 # 1. capture the RD request artifact and read upstream PRD / UI scope
 peaks request init --role rd --id <request-id> --project <repo> --apply --json
@@ -65,6 +66,7 @@ peaks openspec validate <change-id> --project <repo> --json    # exit gate (re-r
 # 8. hand off to QA via the cross-linked request id
 peaks request init --role qa --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role rd --project <repo> --json
+peaks skill presence:clear                      # handoff complete, remove presence indicator
 ```
 
 For refactor work, the coverage ≥ 95% gate in `Refactor hard gates` still applies and must be recorded in the artifact before slicing begins.

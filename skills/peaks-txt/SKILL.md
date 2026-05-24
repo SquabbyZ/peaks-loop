@@ -105,6 +105,7 @@ Use this sequence when TXT compresses an in-flight workflow into a portable, com
 ```bash
 # 0. Confirm TXT's own runbook integrity before compressing a handoff
 peaks skill runbook peaks-txt --json
+peaks skill presence:set peaks-txt               # show persistent skill presence every turn
 
 # 1. Inventory per-role artifacts already produced for the request
 peaks request list --project <repo> --json
@@ -123,6 +124,7 @@ peaks capabilities --json
 # 5. Memory extraction — dry-run by default, apply only when authorized
 peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json
 peaks memory extract --project <repo> --artifact <artifact-path> --apply --json
+peaks skill presence:clear                      # handoff capsule complete, remove presence indicator
 ```
 
 The final `--apply` call requires explicit user or profile authorization. Without it, keep the capsule under `.peaks/<session-id>/txt/` and reference artifact paths from other roles instead of duplicating their content.

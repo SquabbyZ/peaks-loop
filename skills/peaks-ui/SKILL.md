@@ -30,6 +30,7 @@ The default sequence the UI skill should execute. Skip steps that do not apply; 
 ```bash
 # 0. confirm UI's own runbook integrity before driving any phase
 peaks skill runbook peaks-ui --json
+peaks skill presence:set peaks-ui               # show persistent skill presence every turn
 
 # 1. capture the UI request as a durable artifact tied to the same PRD request id
 peaks request init --role ui --id <request-id> --project <repo> --json
@@ -55,6 +56,7 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json   # 
 # 5. hand off to RD / QA via the cross-linked request id
 peaks request list --project <repo> --json
 peaks request show <request-id> --role ui --project <repo> --json
+peaks skill presence:clear                      # handoff complete, remove presence indicator
 ```
 
 Handoff is blocked until the UI artifact's `state` reaches `direction-locked` or `handed-off`.

@@ -104,7 +104,7 @@ function buildServerConfig(
     scope,
     source
   };
-  if (pluginName !== undefined) {
+  if (pluginName !== undefined && pluginName.length > 0) {
     config.pluginName = pluginName;
   }
   return config;

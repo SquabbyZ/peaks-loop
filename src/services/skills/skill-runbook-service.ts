@@ -25,7 +25,7 @@ export type SkillRunbookInspection = {
 
 function extractRunbookSection(body: string): string | null {
   const match = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body);
-  return match === null ? null : (match[1] ?? null);
+  return match === null ? null : match[1]!;
 }
 
 function findDestructiveApplyLines(section: string): string[] {

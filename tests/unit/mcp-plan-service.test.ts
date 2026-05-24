@@ -232,4 +232,25 @@ describe('planMcpInstall', () => {
     expect(plan.action).toBe('add');
     expect(plan.nextActions.some((line) => /already loaded by plugin playwright@claude-plugins-official/.test(line))).toBe(true);
   });
+
+  test('uses a generic duplicate-plugin label when registry metadata omits the plugin id', async () => {
+    const home = await makeHome();
+    const pluginInstall = await makeHome();
+    const registryPath = join(home, '.claude', 'plugins', 'installed_plugins.json');
+    await mkdir(join(home, '.claude', 'plugins'), { recursive: true });
+    await writeFile(
+      join(pluginInstall, '.mcp.json'),
+      JSON.stringify({ playwright: { command: 'npx', args: ['@playwright/mcp@latest'] } }),
+      'utf8'
+    );
+    await writeFile(registryPath, JSON.stringify({ plugins: { '': [{ installPath: pluginInstall }] } }), 'utf8');
+
+    const plan = await planMcpInstall('playwright-mcp.browser-validation', {
+      globalSettingsPath: join(home, '.claude', 'settings.json'),
+      pluginsRegistryPath: registryPath,
+      env: {}
+    });
+
+    expect(plan.nextActions.some((line) => /already loaded by plugin a Claude Code plugin/.test(line))).toBe(true);
+  });
 });
