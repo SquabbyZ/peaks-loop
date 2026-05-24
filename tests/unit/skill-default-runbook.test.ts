@@ -5,19 +5,19 @@ import { describe, expect, test } from 'vitest';
 const SKILLS_ROOT = join(process.cwd(), 'skills');
 
 const ROLE_SKILLS: Array<{ name: string; minPeaksCommands: number; mustReferenceArtifact: boolean }> = [
-  { name: 'peaks-prd', minPeaksCommands: 4, mustReferenceArtifact: true },
-  { name: 'peaks-ui', minPeaksCommands: 4, mustReferenceArtifact: true },
-  { name: 'peaks-rd', minPeaksCommands: 8, mustReferenceArtifact: true },
-  { name: 'peaks-qa', minPeaksCommands: 6, mustReferenceArtifact: true }
+  { name: 'peaks-prd', minPeaksCommands: 10, mustReferenceArtifact: true },
+  { name: 'peaks-ui', minPeaksCommands: 6, mustReferenceArtifact: true },
+  { name: 'peaks-rd', minPeaksCommands: 14, mustReferenceArtifact: true },
+  { name: 'peaks-qa', minPeaksCommands: 12, mustReferenceArtifact: true }
 ];
 
 const SUPPORT_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
-  { name: 'peaks-sc', minPeaksCommands: 6 },
-  { name: 'peaks-txt', minPeaksCommands: 6 }
+  { name: 'peaks-sc', minPeaksCommands: 8 },
+  { name: 'peaks-txt', minPeaksCommands: 7 }
 ];
 
 const ORCHESTRATOR_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
-  { name: 'peaks-solo', minPeaksCommands: 12 }
+  { name: 'peaks-solo', minPeaksCommands: 20 }
 ];
 
 function extractRunbookSection(body: string): string | null {
