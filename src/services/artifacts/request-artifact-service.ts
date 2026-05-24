@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 
-export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa';
+export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
 
 export type CreateRequestArtifactOptions = {
   role: RequestArtifactRole;
@@ -23,7 +23,7 @@ export type CreateRequestArtifactResult = {
 };
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-const VALID_ROLES: ReadonlySet<RequestArtifactRole> = new Set(['prd', 'ui', 'rd', 'qa']);
+const VALID_ROLES: ReadonlySet<RequestArtifactRole> = new Set(['prd', 'ui', 'rd', 'qa', 'sc']);
 
 function defaultClock(): string {
   return new Date().toISOString();
@@ -249,6 +249,59 @@ function renderQaTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
+function renderScTemplate(requestId: string, sessionId: string, timestamp: string): string {
+  return `# SC Request ${requestId}
+
+- session: ${sessionId}
+- linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
+- linked-rd:  .peaks/${sessionId}/rd/requests/${requestId}.md
+- linked-qa:  .peaks/${sessionId}/qa/requests/${requestId}.md
+- linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
+- type: feature | bug | refactor | clarification
+
+## Change impact
+
+- modules / files / routes / data models touched
+- blast radius: local | cross-cutting | release-critical
+- rollback strategy
+
+## Commit boundaries
+
+- one commit per OpenSpec heading (when openspec/ exists)
+- otherwise: list of slice ids → commit message + scope
+
+## Artifact retention
+
+- prd artifact: ...
+- rd artifact: ...
+- qa artifact: ...
+- ui artifact: ... (when UI involved)
+- coverage evidence: ...
+- code review evidence: ...
+
+## Sync / authorization
+
+- artifact workspace path: .peaks/${sessionId}/
+- memory sync authorized: yes | no
+- artifact sync authorized: yes | no
+- rationale if not authorized: keep local
+
+## Rollback points
+
+- commits / tags / branches that can revert each boundary
+
+## Handoff
+
+- to peaks-txt: .peaks/${sessionId}/txt/skill-usage-lessons.md (when reusable lesson exists)
+
+## Status
+
+- created: ${timestamp}
+- last update: ${timestamp}
+- state: draft
+`;
+}
+
 function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId: string, timestamp: string): string {
   switch (role) {
     case 'prd':
@@ -259,12 +312,14 @@ function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId:
       return renderRdTemplate(requestId, sessionId, timestamp);
     case 'qa':
       return renderQaTemplate(requestId, sessionId, timestamp);
+    case 'sc':
+      return renderScTemplate(requestId, sessionId, timestamp);
   }
 }
 
 export async function createRequestArtifact(options: CreateRequestArtifactOptions): Promise<CreateRequestArtifactResult> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, or qa)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
@@ -389,7 +444,7 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
 
 export async function showRequestArtifact(options: ShowRequestArtifactOptions): Promise<ShowRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, or qa)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
@@ -432,6 +487,8 @@ export type RequestArtifactState =
   | 'qa-handoff'
   | 'running'
   | 'verdict-issued'
+  | 'impact-recorded'
+  | 'boundary-recorded'
   | 'handed-off'
   | 'blocked';
 
@@ -439,7 +496,8 @@ const ALLOWED_STATES_PER_ROLE: Record<RequestArtifactRole, ReadonlyArray<Request
   prd: ['draft', 'confirmed-by-user', 'handed-off', 'blocked'],
   ui:  ['draft', 'direction-locked', 'handed-off', 'blocked'],
   rd:  ['draft', 'spec-locked', 'implemented', 'qa-handoff', 'handed-off', 'blocked'],
-  qa:  ['draft', 'running', 'verdict-issued', 'blocked']
+  qa:  ['draft', 'running', 'verdict-issued', 'blocked'],
+  sc:  ['draft', 'impact-recorded', 'boundary-recorded', 'handed-off', 'blocked']
 };
 
 export function allowedStatesForRole(role: RequestArtifactRole): ReadonlyArray<RequestArtifactState> {
@@ -503,7 +561,7 @@ function updateStatusBlock(markdown: string, newState: RequestArtifactState, tim
 
 export async function transitionRequestArtifact(options: TransitionRequestArtifactOptions): Promise<TransitionRequestArtifactResult | null> {
   if (!VALID_ROLES.has(options.role)) {
-    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, or qa)`);
+    throw new Error(`Invalid role: ${String(options.role)} (expected prd, ui, rd, qa, or sc)`);
   }
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);

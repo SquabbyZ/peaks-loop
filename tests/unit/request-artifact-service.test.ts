@@ -22,7 +22,7 @@ function commonOptions(role: RequestArtifactRole, projectRoot: string, requestId
   };
 }
 
-const ROLES: RequestArtifactRole[] = ['prd', 'ui', 'rd', 'qa'];
+const ROLES: RequestArtifactRole[] = ['prd', 'ui', 'rd', 'qa', 'sc'];
 
 describe('createRequestArtifact (preview)', () => {
   test('returns preview content without writing for every role', async () => {
@@ -157,5 +157,16 @@ describe('role-specific template content', () => {
     expect(result.content).toMatch(/## Acceptance checks/);
     expect(result.content).toMatch(/## Mandatory validation gates/);
     expect(result.content).toMatch(/## Verdict/);
+  });
+
+  test('sc template documents commit boundaries, artifact retention, and sync authorization', async () => {
+    const project = await makeProject();
+    const result = await createRequestArtifact(commonOptions('sc', project));
+
+    expect(result.content).toMatch(/## Change impact/);
+    expect(result.content).toMatch(/## Commit boundaries/);
+    expect(result.content).toMatch(/## Artifact retention/);
+    expect(result.content).toMatch(/## Sync \/ authorization/);
+    expect(result.content).toMatch(/## Rollback points/);
   });
 });

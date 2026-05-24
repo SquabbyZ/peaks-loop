@@ -43,7 +43,7 @@ type RequestTransitionOptions = {
   json?: boolean;
 };
 
-const VALID_ROLES: ReadonlyArray<RequestArtifactRole> = ['prd', 'ui', 'rd', 'qa'];
+const VALID_ROLES: ReadonlyArray<RequestArtifactRole> = ['prd', 'ui', 'rd', 'qa', 'sc'];
 
 function parseRole(value: string): RequestArtifactRole {
   if (!VALID_ROLES.includes(value as RequestArtifactRole)) {

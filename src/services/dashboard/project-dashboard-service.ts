@@ -92,7 +92,7 @@ function defaultClock(): string {
 }
 
 function groupRequestsByRole(items: RequestArtifactSummary[]): Record<RequestArtifactRole, RequestArtifactSummary[]> {
-  const byRole: Record<RequestArtifactRole, RequestArtifactSummary[]> = { prd: [], ui: [], rd: [], qa: [] };
+  const byRole: Record<RequestArtifactRole, RequestArtifactSummary[]> = { prd: [], ui: [], rd: [], qa: [], sc: [] };
   for (const item of items) {
     byRole[item.role].push(item);
   }

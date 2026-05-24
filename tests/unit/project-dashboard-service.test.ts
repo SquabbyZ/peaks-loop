@@ -32,6 +32,7 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.requests.byRole.ui).toEqual([]);
     expect(dashboard.requests.byRole.rd).toEqual([]);
     expect(dashboard.requests.byRole.qa).toEqual([]);
+    expect(dashboard.requests.byRole.sc).toEqual([]);
     expect(dashboard.openspec.exists).toBe(false);
     expect(dashboard.understand.exists).toBe(false);
   });

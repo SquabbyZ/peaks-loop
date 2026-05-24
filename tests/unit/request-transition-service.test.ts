@@ -115,6 +115,45 @@ describe('transitionRequestArtifact (valid state per role)', () => {
     expect(body).toContain('- transition note');
     expect(body).toContain('waiting on stakeholder confirmation');
   });
+
+  test('moves an SC artifact through impact-recorded → boundary-recorded → handed-off', async () => {
+    const project = await makeProject();
+    await seed(project, 'sc', '2026-05-24-release');
+
+    const first = await transitionRequestArtifact({
+      role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
+      newState: 'impact-recorded', sessionId: STABLE_SESSION,
+      clock: () => LATER_TIMESTAMP
+    });
+    const second = await transitionRequestArtifact({
+      role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
+      newState: 'boundary-recorded', sessionId: STABLE_SESSION,
+      clock: () => LATER_TIMESTAMP
+    });
+    const third = await transitionRequestArtifact({
+      role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
+      newState: 'handed-off', sessionId: STABLE_SESSION,
+      clock: () => LATER_TIMESTAMP
+    });
+
+    expect(first?.state).toBe('impact-recorded');
+    expect(second?.previousState).toBe('impact-recorded');
+    expect(second?.state).toBe('boundary-recorded');
+    expect(third?.previousState).toBe('boundary-recorded');
+    expect(third?.state).toBe('handed-off');
+  });
+
+  test('rejects an SC artifact transition to a non-SC state', async () => {
+    const project = await makeProject();
+    await seed(project, 'sc', '2026-05-24-bad-state');
+
+    await expect(
+      transitionRequestArtifact({
+        role: 'sc', requestId: '2026-05-24-bad-state', projectRoot: project,
+        newState: 'spec-locked', sessionId: STABLE_SESSION
+      })
+    ).rejects.toThrowError(/state for role sc/i);
+  });
 });
 
 describe('transitionRequestArtifact (validation)', () => {
