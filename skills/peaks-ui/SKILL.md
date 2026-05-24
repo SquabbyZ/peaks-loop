@@ -7,6 +7,16 @@ description: UI and experience skill for Peaks. Use when a workflow touches UI/U
 
 Peaks UI handles experience, interaction, visual direction, and UI-specific refactor artifacts.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-ui --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-ui | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-ui --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - identify when UI involvement is necessary;

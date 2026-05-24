@@ -7,6 +7,16 @@ description: Context and knowledge skill for Peaks. Use when a workflow needs co
 
 Peaks TXT compresses workflow context into portable, role-specific artifacts.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-txt --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-txt | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - generate context capsules;

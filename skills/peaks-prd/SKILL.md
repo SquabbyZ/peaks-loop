@@ -7,6 +7,16 @@ description: Product and requirement skill for Peaks. Use when a workflow needs 
 
 Peaks PRD turns user intent into verifiable product artifacts.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-prd --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-prd | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-prd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - clarify goals and non-goals;

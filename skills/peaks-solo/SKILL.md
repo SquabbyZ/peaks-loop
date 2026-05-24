@@ -9,6 +9,18 @@ Peaks Solo is the orchestration facade for the Peaks short skill family.
 
 Use this skill to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis, response, or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-solo --mode <mode> --gate startup
+```
+
+Then display the compact status header: `Peaks Skill: peaks-solo | Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
+
+Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. When the workflow ends, run `peaks skill presence:clear`.
+
 ## Boundaries
 
 Peaks Solo may:

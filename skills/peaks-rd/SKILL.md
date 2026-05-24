@@ -7,6 +7,16 @@ description: Research and development skill for Peaks. Use for engineering analy
 
 Peaks RD owns engineering analysis, implementation planning, and refactor execution contracts.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-rd --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-rd | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - scan the current project before changes;

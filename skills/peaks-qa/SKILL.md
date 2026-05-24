@@ -7,6 +7,16 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 Peaks QA proves that planned changes are protected and accepted.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-qa --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-qa | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-qa --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - inspect unit-test coverage evidence;

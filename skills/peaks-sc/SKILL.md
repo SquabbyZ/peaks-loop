@@ -7,6 +7,16 @@ description: Source control, sync, and change-control skill for Peaks. Use when 
 
 Peaks SC records how product, RD, QA, code, and artifacts move together.
 
+## Skill presence (MANDATORY first action)
+
+Before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-sc --mode <mode> --gate startup
+```
+
+Then display: `Peaks Skill: peaks-sc | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+
 ## Responsibilities
 
 - produce change-impact artifacts;
