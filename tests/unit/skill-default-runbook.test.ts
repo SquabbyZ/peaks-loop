@@ -30,6 +30,23 @@ function countPeaksCommandLines(section: string): number {
   return lines.filter((line) => /^\s*peaks\s+\w/.test(line)).length;
 }
 
+const DESTRUCTIVE_APPLY_PATTERNS = [
+  /peaks\s+memory\s+sync[^\n]*--apply/,
+  /peaks\s+memory\s+extract[^\n]*--apply/,
+  /peaks\s+artifacts\s+sync[^\n]*--apply/,
+  /peaks\s+openspec\s+archive[^\n]*--apply/,
+  /peaks\s+standards\s+(?:init|update)[^\n]*--apply/
+];
+
+const AUTHORIZATION_KEYWORDS = /authoriz|explicit|--dry-run|approv|only after|only when/i;
+
+function findDestructiveApplyLines(section: string): string[] {
+  const lines = section.split(/\r?\n/);
+  return lines.filter((line) => DESTRUCTIVE_APPLY_PATTERNS.some((pattern) => pattern.test(line)));
+}
+
+const ALL_RUNBOOK_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo'];
+
 describe('audit: role skills expose a Default runbook with peaks CLI commands', () => {
   for (const { name, minPeaksCommands, mustReferenceArtifact } of ROLE_SKILLS) {
     test(`${name} SKILL.md declares a Default runbook section`, async () => {
@@ -194,4 +211,24 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(section).toMatch(/peaks memory extract/);
     expect.soft(section).toMatch(/--dry-run/);
   });
+});
+
+describe('audit: destructive --apply commands carry an authorization or dry-run note', () => {
+  for (const name of ALL_RUNBOOK_SKILLS) {
+    test(`${name} runbook gates every destructive --apply with an authorization keyword`, async () => {
+      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const section = extractRunbookSection(body) ?? '';
+      const destructive = findDestructiveApplyLines(section);
+
+      if (destructive.length === 0) {
+        return;
+      }
+
+      const hasAuthorizationNote = AUTHORIZATION_KEYWORDS.test(section);
+      expect.soft(
+        hasAuthorizationNote,
+        `${name} runbook contains destructive --apply lines:\n${destructive.join('\n')}\nbut no authorization/dry-run note in the runbook section`
+      ).toBe(true);
+    });
+  }
 });
