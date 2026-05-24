@@ -148,6 +148,37 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'Optional user config not found at ~/.peaks/config.json'
   });
 
+  try {
+    const schemaText = await readText(join(schemaRoot, 'doctor-report.schema.json'));
+    const schema = JSON.parse(schemaText) as {
+      properties?: { checks?: { items?: { properties?: { id?: { pattern?: string } } } } };
+    };
+    const patternSource = schema.properties?.checks?.items?.properties?.id?.pattern;
+    if (typeof patternSource === 'string') {
+      const pattern = new RegExp(patternSource);
+      const mismatches = checks.filter((check) => !pattern.test(check.id)).map((check) => check.id);
+      checks.push({
+        id: 'doctor-self:check-id-pattern',
+        ok: mismatches.length === 0,
+        message: mismatches.length === 0
+          ? 'All doctor check IDs match the doctor-report schema pattern'
+          : `Doctor check IDs missing from schema pattern: ${mismatches.join(', ')}`
+      });
+    } else {
+      checks.push({
+        id: 'doctor-self:check-id-pattern',
+        ok: false,
+        message: 'doctor-report.schema.json does not declare a check.id pattern'
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'doctor-self:check-id-pattern',
+      ok: false,
+      message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(error)}`
+    });
+  }
+
   const failed = checks.filter((check) => !check.ok).length;
   return {
     checks,

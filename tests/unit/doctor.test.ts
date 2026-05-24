@@ -165,4 +165,23 @@ describe('doctor-report schema documents the check ID prefixes', () => {
     expect(schema.properties.checks.items.properties.id.pattern).toContain('skill-apply-note');
     expect(schema.properties.checks.items.properties.id.description).toContain('skill-apply-note');
   });
+
+  test('runDoctor emits a doctor-self:check-id-pattern self-validation check', async () => {
+    const report = await runDoctor();
+    const selfCheck = report.checks.find((check) => check.id === 'doctor-self:check-id-pattern');
+
+    expect(selfCheck).toMatchObject({ ok: true });
+    expect(selfCheck?.message).toContain('match the doctor-report schema pattern');
+  });
+
+  test('runDoctor fails the self-validation check when the schema file is missing', async () => {
+    const schemasRoot = await mkdtemp(join(tmpdir(), 'peaks-doctor-self-missing-'));
+
+    const report = await runDoctor({ schemasBaseDir: schemasRoot });
+    const selfCheck = report.checks.find((check) => check.id === 'doctor-self:check-id-pattern');
+
+    expect(selfCheck).toMatchObject({ ok: false });
+    expect(selfCheck?.message).toContain('Failed to load doctor-report.schema.json');
+    expect(report.summary.ok).toBe(false);
+  });
 });
