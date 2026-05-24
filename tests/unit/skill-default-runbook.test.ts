@@ -176,4 +176,22 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
 
     expect(section).toMatch(/peaks project dashboard/);
   });
+
+  test('Solo runbook drives SC change-control evidence (impact / retention / validate / boundary)', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
+    const section = extractRunbookSection(body) ?? '';
+
+    expect.soft(section).toMatch(/peaks sc impact/);
+    expect.soft(section).toMatch(/peaks sc retention/);
+    expect.soft(section).toMatch(/peaks sc validate/);
+    expect.soft(section).toMatch(/peaks sc boundary/);
+  });
+
+  test('Solo runbook drives TXT memory extraction as a dry-run by default', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
+    const section = extractRunbookSection(body) ?? '';
+
+    expect.soft(section).toMatch(/peaks memory extract/);
+    expect.soft(section).toMatch(/--dry-run/);
+  });
 });

@@ -120,13 +120,24 @@ peaks request init --role qa --id <request-id> --project <repo> --apply --json
 peaks request transition <request-id> --role qa --state running         --project <repo> --json
 peaks request transition <request-id> --role qa --state verdict-issued  --project <repo> --json
 
-# 5. close the loop — final verification and optional OpenSpec archive
+# 5. SC phase — record change-control evidence after QA passes
+# (Solo executes peaks-sc Default runbook here for the full sequence)
+peaks sc impact     --change-id <change-id> --module <module> --file <path>      --json
+peaks sc retention  --slice-id  <request-id> --prd <prd> --rd <rd> --qa <qa>     --json
+peaks sc validate   --slice-id  <request-id>                                     --json
+peaks sc boundary   --slice-id  <request-id> --artifact <artifact> --code <file> --json
+
+# 6. close the loop — final verification and optional OpenSpec archive
 peaks request list --project <repo> --json                          # every artifact reached its terminal state?
 peaks request show <request-id> --role qa --project <repo> --json   # QA verdict is pass?
 peaks openspec validate <change-id> --project <repo> --json         # exit gate (when openspec/ exists)
 peaks openspec archive  <change-id> --project <repo> --apply --json # only after QA verdict=pass
 
-# 6. final snapshot to confirm the workflow really closed
+# 7. TXT phase — compact handoff capsule
+# (Solo executes peaks-txt Default runbook here; durable extraction requires authorization)
+peaks memory extract --project <repo> --artifact <qa-artifact> --dry-run --json
+
+# 8. final snapshot to confirm the workflow really closed
 peaks project dashboard --project <repo> --json
 ```
 
