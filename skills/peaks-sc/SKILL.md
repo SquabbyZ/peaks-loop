@@ -41,6 +41,37 @@ When `openspec/changes/<id>/tasks.md` exists, derive commit boundaries from it t
 
 Concrete rules: `references/openspec-commit-boundaries.md`.
 
+## Default runbook
+
+Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks CLI.
+
+```bash
+# 1. Derive commit boundaries from OpenSpec when openspec/ exists
+peaks openspec to-rd <change-id> --project <repo> --json
+
+# 2. Inventory artifacts already produced by other roles for this session
+peaks artifacts status --project <repo> --json
+peaks artifacts workspace --workspace <session-id> --json
+
+# 3. Record change impact for the slice
+peaks sc impact --change-id <change-id> --module <module> --file <path> --json
+
+# 4. Record retention evidence linking PRD / RD / QA / coverage / review artifacts
+peaks sc retention --slice-id <slice-id> --prd <prd-path> --rd <rd-path> --qa <qa-path> --json
+
+# 5. Validate retention completeness
+peaks sc validate --slice-id <slice-id> --json
+
+# 6. Record the commit boundary for the slice
+peaks sc boundary --slice-id <slice-id> --artifact <artifact-path> --code <code-file> --json
+
+# 7. Sync memory and artifacts only when the user or active profile authorizes durable writes
+peaks memory sync --project <repo> --workspace <workspace> --apply --json
+peaks artifacts sync --workspace <workspace> --apply --json
+```
+
+The final two `--apply` calls require explicit authorization. Without it, default to `--dry-run` or omit the sync calls entirely and keep the boundary evidence local under `.peaks/<session-id>/`.
+
 ## Boundaries
 
 Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks CLI artifact commands.

@@ -98,6 +98,32 @@ Use `peaks capabilities --json` before recommending memory or context-management
 
 Peaks TXT context capsules and project memory extraction remain authoritative; external memory or context tools inform structure but do not replace the role artifacts.
 
+## Default runbook
+
+Use this sequence when TXT compresses an in-flight workflow into a portable, compaction-safe capsule. TXT never edits code; it only consumes other roles' artifacts and CLI reports.
+
+```bash
+# 1. Inventory per-role artifacts already produced for the request
+peaks request list --project <repo> --json
+peaks request show <request-id> --role rd --project <repo> --json
+
+# 2. Cross-role snapshot for capsule context
+peaks project dashboard --project <repo> --json
+
+# 3. Optional project-shape evidence when available
+peaks codegraph status --project <repo>
+peaks understand show --project <repo> --json
+
+# 4. Discover external capabilities before recommending memory or context tools
+peaks capabilities --json
+
+# 5. Memory extraction — dry-run by default, apply only when authorized
+peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json
+peaks memory extract --project <repo> --artifact <artifact-path> --apply --json
+```
+
+The final `--apply` call requires explicit user or profile authorization. Without it, keep the capsule under `.peaks/<session-id>/txt/` and reference artifact paths from other roles instead of duplicating their content.
+
 ## Boundaries
 
 Do not choose the refactor plan or install runtime resources. Use artifacts produced by other skills and CLI reports.

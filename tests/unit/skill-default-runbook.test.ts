@@ -11,6 +11,11 @@ const ROLE_SKILLS: Array<{ name: string; minPeaksCommands: number; mustReference
   { name: 'peaks-qa', minPeaksCommands: 6, mustReferenceArtifact: true }
 ];
 
+const SUPPORT_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
+  { name: 'peaks-sc', minPeaksCommands: 6 },
+  { name: 'peaks-txt', minPeaksCommands: 6 }
+];
+
 const ORCHESTRATOR_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
   { name: 'peaks-solo', minPeaksCommands: 12 }
 ];
@@ -86,6 +91,45 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
 
     expect.soft(section).toMatch(/peaks openspec/);
     expect.soft(section).toMatch(/peaks standards/);
+  });
+});
+
+describe('audit: support skills expose a Default runbook with peaks CLI commands', () => {
+  for (const { name, minPeaksCommands } of SUPPORT_SKILLS) {
+    test(`${name} SKILL.md declares a Default runbook section`, async () => {
+      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+
+      expect(body).toMatch(/## Default runbook/);
+      const section = extractRunbookSection(body);
+      expect(section).not.toBeNull();
+    });
+
+    test(`${name} Default runbook lists at least ${minPeaksCommands} peaks CLI command invocations`, async () => {
+      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const section = extractRunbookSection(body) ?? '';
+
+      const count = countPeaksCommandLines(section);
+      expect.soft(count, `${name} runbook has ${count} peaks commands; expected at least ${minPeaksCommands}`).toBeGreaterThanOrEqual(minPeaksCommands);
+    });
+  }
+
+  test('SC runbook records change-control via peaks sc impact / retention / validate / boundary', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-sc', 'SKILL.md'), 'utf8');
+    const section = extractRunbookSection(body) ?? '';
+
+    expect.soft(section).toMatch(/peaks sc impact/);
+    expect.soft(section).toMatch(/peaks sc retention/);
+    expect.soft(section).toMatch(/peaks sc validate/);
+    expect.soft(section).toMatch(/peaks sc boundary/);
+  });
+
+  test('TXT runbook composes capsules from request artifacts and project dashboard', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-txt', 'SKILL.md'), 'utf8');
+    const section = extractRunbookSection(body) ?? '';
+
+    expect.soft(section).toMatch(/peaks request show/);
+    expect.soft(section).toMatch(/peaks project dashboard/);
+    expect.soft(section).toMatch(/peaks memory extract/);
   });
 });
 
