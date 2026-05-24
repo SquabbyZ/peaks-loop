@@ -6,6 +6,8 @@ import type { McpScanReport } from '../mcp/mcp-types.js';
 import { scanUnderstandAnything } from '../understand/understand-scan-service.js';
 import { seedCapabilityItems } from '../recommendations/capability-seed-items.js';
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
+import { requiredSkillNames } from '../../shared/paths.js';
+import type { DoctorCheck } from '../doctor/doctor-service.js';
 
 export type ProjectDashboardRequests = {
   count: number;
@@ -37,6 +39,14 @@ export type ProjectDashboardDoctor = {
   failed: number;
 };
 
+export type ProjectDashboardRunbookHealth = {
+  ok: boolean;
+  required: number;
+  healthy: number;
+  missingRunbook: string[];
+  applyNoteFailed: string[];
+};
+
 export type ProjectDashboardCapabilities = {
   count: number;
   mcpCount: number;
@@ -51,6 +61,7 @@ export type ProjectDashboard = {
   understand: ProjectDashboardUnderstand;
   mcp: ProjectDashboardMcp;
   doctor: ProjectDashboardDoctor;
+  runbookHealth: ProjectDashboardRunbookHealth;
   capabilities: ProjectDashboardCapabilities;
 };
 
@@ -59,6 +70,7 @@ export type LoadProjectDashboardOptions = {
   sampleCapabilities?: number;
   clock?: () => string;
   doctorReport?: { ok: boolean; passed: number; failed: number };
+  runbookHealth?: ProjectDashboardRunbookHealth;
 };
 
 function defaultClock(): string {
@@ -81,15 +93,47 @@ function countRequestsByState(items: RequestArtifactSummary[]): Record<string, n
   return counts;
 }
 
-async function loadDoctorSummary(
-  override: { ok: boolean; passed: number; failed: number } | undefined
-): Promise<ProjectDashboardDoctor> {
-  if (override !== undefined) {
-    return override;
+async function loadDoctorAndRunbookHealth(
+  doctorOverride: { ok: boolean; passed: number; failed: number } | undefined,
+  runbookOverride: ProjectDashboardRunbookHealth | undefined
+): Promise<{ doctor: ProjectDashboardDoctor; runbookHealth: ProjectDashboardRunbookHealth }> {
+  if (doctorOverride !== undefined && runbookOverride !== undefined) {
+    return { doctor: doctorOverride, runbookHealth: runbookOverride };
+  }
+  if (doctorOverride !== undefined) {
+    return {
+      doctor: doctorOverride,
+      runbookHealth: { ok: true, required: 0, healthy: 0, missingRunbook: [], applyNoteFailed: [] }
+    };
   }
   const { runDoctor } = await import('../doctor/doctor-service.js');
   const report = await runDoctor();
-  return { ok: report.summary.ok, passed: report.summary.passed, failed: report.summary.failed };
+  return {
+    doctor: { ok: report.summary.ok, passed: report.summary.passed, failed: report.summary.failed },
+    runbookHealth: runbookOverride ?? summarizeRunbookHealth(report.checks)
+  };
+}
+
+function summarizeRunbookHealth(checks: DoctorCheck[]): ProjectDashboardRunbookHealth {
+  const missingRunbook: string[] = [];
+  const applyNoteFailed: string[] = [];
+  for (const check of checks) {
+    if (!check.ok && check.id.startsWith('skill-runbook:')) {
+      missingRunbook.push(check.id.slice('skill-runbook:'.length));
+    }
+    if (!check.ok && check.id.startsWith('skill-apply-note:')) {
+      applyNoteFailed.push(check.id.slice('skill-apply-note:'.length));
+    }
+  }
+  const required = requiredSkillNames.length;
+  const healthy = Math.max(0, required - missingRunbook.length - applyNoteFailed.length);
+  return {
+    ok: missingRunbook.length === 0 && applyNoteFailed.length === 0,
+    required,
+    healthy,
+    missingRunbook,
+    applyNoteFailed
+  };
 }
 
 function buildCapabilitiesSummary(sampleSize: number): ProjectDashboardCapabilities {
@@ -110,12 +154,12 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
   const clock = options.clock ?? defaultClock;
   const sampleSize = options.sampleCapabilities ?? 8;
 
-  const [items, openspecReport, mcpReport, understandReport, doctorSummary] = await Promise.all([
+  const [items, openspecReport, mcpReport, understandReport, doctorAndRunbook] = await Promise.all([
     listRequestArtifacts({ projectRoot: options.projectRoot }),
     scanOpenSpec({ openspecRoot: `${options.projectRoot}/openspec` }),
     scanMcpServers({ projectRoot: options.projectRoot }),
     scanUnderstandAnything({ projectRoot: options.projectRoot }),
-    loadDoctorSummary(options.doctorReport)
+    loadDoctorAndRunbookHealth(options.doctorReport, options.runbookHealth)
   ]);
 
   return {
@@ -141,7 +185,8 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
       servers: mcpReport.servers,
       scopes: mcpReport.scopes
     },
-    doctor: doctorSummary,
+    doctor: doctorAndRunbook.doctor,
+    runbookHealth: doctorAndRunbook.runbookHealth,
     capabilities: buildCapabilitiesSummary(sampleSize)
   };
 }

@@ -122,5 +122,31 @@ describe('loadProjectDashboard', () => {
     });
 
     expect(dashboard.doctor).toEqual({ ok: false, passed: 5, failed: 2 });
+    expect(dashboard.runbookHealth).toEqual({ ok: true, required: 0, healthy: 0, missingRunbook: [], applyNoteFailed: [] });
+  });
+
+  test('reports a healthy runbookHealth for the global Peaks repository skeleton', async () => {
+    const project = await makeProject();
+
+    const dashboard = await loadProjectDashboard({ projectRoot: project });
+
+    expect(dashboard.runbookHealth.ok).toBe(true);
+    expect(dashboard.runbookHealth.required).toBe(7);
+    expect(dashboard.runbookHealth.healthy).toBe(7);
+    expect(dashboard.runbookHealth.missingRunbook).toEqual([]);
+    expect(dashboard.runbookHealth.applyNoteFailed).toEqual([]);
+  });
+
+  test('uses an injected runbookHealth override without calling the real doctor', async () => {
+    const project = await makeProject();
+
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      doctorReport: { ok: true, passed: 1, failed: 0 },
+      runbookHealth: { ok: false, required: 7, healthy: 6, missingRunbook: [], applyNoteFailed: ['peaks-txt'] }
+    });
+
+    expect(dashboard.runbookHealth.ok).toBe(false);
+    expect(dashboard.runbookHealth.applyNoteFailed).toEqual(['peaks-txt']);
   });
 });
