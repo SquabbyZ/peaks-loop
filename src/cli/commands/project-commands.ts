@@ -42,6 +42,21 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
+      if (!dashboard.doctor.ok) {
+        printResult(
+          io,
+          fail(
+            'project.dashboard',
+            'PROJECT_DASHBOARD_DOCTOR_FAILED',
+            `Doctor reports ${dashboard.doctor.failed} failed check(s) (${dashboard.doctor.passed} passed)`,
+            dashboard,
+            ['Run `peaks doctor --json` and resolve the failing checks before re-running the dashboard']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       printResult(io, ok('project.dashboard', dashboard), options.json);
     } catch (error) {
       printResult(

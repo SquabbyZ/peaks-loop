@@ -104,4 +104,36 @@ describe('peaks project dashboard command', () => {
     expect(result.exitCode).toBe(1);
     spy.mockRestore();
   });
+
+  test('reports PROJECT_DASHBOARD_DOCTOR_FAILED when doctor fails but runbook health is ok', async () => {
+    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
+    const fakeDashboard = {
+      generatedAt: '2026-05-24T00:00:00.000Z',
+      projectRoot: '/tmp/fake',
+      requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
+      openspec: { exists: false, count: 0, changes: [] },
+      understand: { exists: false, graphExists: false, graphPath: '' },
+      mcp: { servers: [], scopes: {} },
+      doctor: { ok: false, passed: 5, failed: 2 },
+      runbookHealth: {
+        ok: true,
+        required: 7,
+        healthy: 7,
+        missingRunbook: [],
+        applyNoteFailed: []
+      },
+      capabilities: { count: 0, mcpCount: 0, sample: [] }
+    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
+    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+
+    const project = await makeProject('project-dashboard-doctor-failed');
+    const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
+    const output = parseJsonOutput<{ doctor: { ok: boolean; passed: number; failed: number } }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('PROJECT_DASHBOARD_DOCTOR_FAILED');
+    expect(output.data.doctor).toEqual({ ok: false, passed: 5, failed: 2 });
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
 });
