@@ -70,4 +70,38 @@ describe('peaks project dashboard command', () => {
     expect(result.exitCode).toBe(1);
     spy.mockRestore();
   });
+
+  test('reports PROJECT_DASHBOARD_RUNBOOK_UNHEALTHY when skill runbook health fails', async () => {
+    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
+    const fakeDashboard = {
+      generatedAt: '2026-05-24T00:00:00.000Z',
+      projectRoot: '/tmp/fake',
+      requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
+      openspec: { exists: false, count: 0, changes: [] },
+      understand: { exists: false, graphExists: false, graphPath: '' },
+      mcp: { servers: [], scopes: {} },
+      doctor: { ok: true, passed: 1, failed: 0 },
+      runbookHealth: {
+        ok: false,
+        required: 7,
+        healthy: 6,
+        missingRunbook: [],
+        applyNoteFailed: ['peaks-txt']
+      },
+      capabilities: { count: 0, mcpCount: 0, sample: [] }
+    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
+    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+
+    const project = await makeProject('project-dashboard-runbook-unhealthy');
+    const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
+    const output = parseJsonOutput<{
+      runbookHealth: { ok: boolean; healthy: number; required: number; applyNoteFailed: string[] };
+    }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('PROJECT_DASHBOARD_RUNBOOK_UNHEALTHY');
+    expect(output.data.runbookHealth.applyNoteFailed).toEqual(['peaks-txt']);
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
 });

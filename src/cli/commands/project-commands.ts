@@ -19,6 +19,29 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
   ).action(async (options: ProjectDashboardOptions) => {
     try {
       const dashboard = await loadProjectDashboard({ projectRoot: options.project });
+      if (!dashboard.runbookHealth.ok) {
+        const suggestions = [
+          dashboard.runbookHealth.missingRunbook.length > 0
+            ? `Add a ## Default runbook section to: ${dashboard.runbookHealth.missingRunbook.join(', ')}`
+            : null,
+          dashboard.runbookHealth.applyNoteFailed.length > 0
+            ? `Add authorization/--dry-run notes next to destructive --apply lines in: ${dashboard.runbookHealth.applyNoteFailed.join(', ')}`
+            : null
+        ].filter((line): line is string => line !== null);
+        printResult(
+          io,
+          fail(
+            'project.dashboard',
+            'PROJECT_DASHBOARD_RUNBOOK_UNHEALTHY',
+            `Skill runbook health failing: ${dashboard.runbookHealth.healthy}/${dashboard.runbookHealth.required} healthy`,
+            dashboard,
+            suggestions
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       printResult(io, ok('project.dashboard', dashboard), options.json);
     } catch (error) {
       printResult(
