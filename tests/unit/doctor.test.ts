@@ -185,3 +185,16 @@ describe('doctor-report schema documents the check ID prefixes', () => {
     expect(report.summary.ok).toBe(false);
   });
 });
+
+describe('skill runbooks reference their own peaks skill runbook self-check', () => {
+  test('every required skill runbook embeds `peaks skill runbook <self> --json`', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { join: joinPath } = await import('node:path');
+    const { skillsDir, requiredSkillNames } = await import('../../src/shared/paths.js');
+
+    for (const name of requiredSkillNames) {
+      const body = await readFile(joinPath(skillsDir, name, 'SKILL.md'), 'utf8');
+      expect(body, `skill ${name} should embed its own runbook self-check`).toContain(`peaks skill runbook ${name} --json`);
+    }
+  });
+});

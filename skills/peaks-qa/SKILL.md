@@ -31,6 +31,9 @@ Concrete template and rules: `references/artifact-per-request.md`.
 The default sequence the QA skill should execute. Do not skip the boundary check, the unit test gate, the validation report, or — when frontend is in scope — the Playwright MCP browser gate.
 
 ```bash
+# 0. confirm QA's own runbook integrity before validating anything
+peaks skill runbook peaks-qa --json
+
 # 1. capture the QA request artifact and read upstream scope
 peaks request init --role qa --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role prd --project <repo> --json

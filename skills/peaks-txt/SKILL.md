@@ -103,6 +103,9 @@ Peaks TXT context capsules and project memory extraction remain authoritative; e
 Use this sequence when TXT compresses an in-flight workflow into a portable, compaction-safe capsule. TXT never edits code; it only consumes other roles' artifacts and CLI reports.
 
 ```bash
+# 0. Confirm TXT's own runbook integrity before compressing a handoff
+peaks skill runbook peaks-txt --json
+
 # 1. Inventory per-role artifacts already produced for the request
 peaks request list --project <repo> --json
 peaks request show <request-id> --role rd --project <repo> --json

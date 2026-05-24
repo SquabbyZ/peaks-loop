@@ -28,6 +28,9 @@ Concrete template and rules: `references/artifact-per-request.md`.
 The default sequence the UI skill should execute. Skip steps that do not apply; do not skip the artifact step.
 
 ```bash
+# 0. confirm UI's own runbook integrity before driving any phase
+peaks skill runbook peaks-ui --json
+
 # 1. capture the UI request as a durable artifact tied to the same PRD request id
 peaks request init --role ui --id <request-id> --project <repo> --json
 peaks request init --role ui --id <request-id> --project <repo> --apply --json

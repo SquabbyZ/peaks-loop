@@ -46,6 +46,9 @@ Concrete rules: `references/openspec-commit-boundaries.md`.
 Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks CLI.
 
 ```bash
+# 0. Confirm SC's own runbook integrity before recording boundary evidence
+peaks skill runbook peaks-sc --json
+
 # 1. Derive commit boundaries from OpenSpec when openspec/ exists
 peaks openspec to-rd <change-id> --project <repo> --json
 

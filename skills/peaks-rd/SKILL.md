@@ -29,6 +29,9 @@ Concrete template and rules: `references/artifact-per-request.md`.
 The default sequence the RD skill should execute for a code-touching request. Skip steps that do not apply to the request type; do not skip the artifact, coverage gate, or red-line scope steps.
 
 ```bash
+# 0. confirm RD's own runbook integrity before any code edit
+peaks skill runbook peaks-rd --json
+
 # 1. capture the RD request artifact and read upstream PRD / UI scope
 peaks request init --role rd --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role prd --project <repo> --json
