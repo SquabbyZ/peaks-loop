@@ -626,6 +626,28 @@ describe('createProgram', () => {
     expect(output.command).toBe('skill.doctor');
   });
 
+  test('prints skill runbook inspection as JSON envelope', async () => {
+    const result = await runCommand(['skill', 'runbook', 'peaks-solo', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('skill.runbook');
+    expect(output.data).toMatchObject({
+      name: 'peaks-solo',
+      hasRunbook: true,
+      ok: true
+    });
+    expect((output.data as { peaksCommandCount: number }).peaksCommandCount).toBeGreaterThanOrEqual(20);
+  });
+
+  test('skill runbook reports SKILL_NOT_FOUND for an unknown skill', async () => {
+    const result = await runCommand(['skill', 'runbook', 'this-skill-does-not-exist', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('SKILL_NOT_FOUND');
+  });
+
   test('rejects conflicting refactor modes', async () => {
     const result = await runCommand(['refactor', '--solo', '--rd', '--json']);
     const output = parseJsonOutput(result.stdout);
