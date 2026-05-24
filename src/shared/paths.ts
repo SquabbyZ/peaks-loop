@@ -49,5 +49,6 @@ export const requiredSchemaFiles = [
   'mcp-apply-result.schema.json',
   'openspec-change-summary.schema.json',
   'openspec-render-request.schema.json',
-  'openspec-validation-result.schema.json'
+  'openspec-validation-result.schema.json',
+  'doctor-report.schema.json'
 ] as const;

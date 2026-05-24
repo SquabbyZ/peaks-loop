@@ -135,3 +135,34 @@ describe('runDoctor recommendation schemas', () => {
     }
   });
 });
+
+describe('doctor-report schema documents the check ID prefixes', () => {
+  test('every check ID emitted by runDoctor matches the documented schema pattern', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { join: joinPath } = await import('node:path');
+    const { schemasDir } = await import('../../src/shared/paths.js');
+    const schema = JSON.parse(await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8')) as {
+      properties: { checks: { items: { properties: { id: { pattern: string } } } } };
+    };
+    const idPattern = new RegExp(schema.properties.checks.items.properties.id.pattern);
+
+    const report = await runDoctor();
+    for (const check of report.checks) {
+      expect(idPattern.test(check.id), `check id ${check.id} does not match documented pattern`).toBe(true);
+    }
+  });
+
+  test('schema documents skill-apply-note as a known check prefix', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { join: joinPath } = await import('node:path');
+    const { schemasDir } = await import('../../src/shared/paths.js');
+    const raw = await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8');
+
+    expect(raw).toContain('skill-apply-note');
+    const schema = JSON.parse(raw) as {
+      properties: { checks: { items: { properties: { id: { pattern: string; description: string } } } } };
+    };
+    expect(schema.properties.checks.items.properties.id.pattern).toContain('skill-apply-note');
+    expect(schema.properties.checks.items.properties.id.description).toContain('skill-apply-note');
+  });
+});

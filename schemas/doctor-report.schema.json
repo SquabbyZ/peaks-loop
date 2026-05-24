@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Doctor Report",
+  "description": "The envelope emitted by `peaks doctor --json` (data field). Each check.id uses a `<prefix>:<target>` form so callers can route follow-up actions per category.",
+  "type": "object",
+  "required": ["checks", "summary"],
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "ok", "message"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(skill|skill-name|skill-parse|skill-runbook|skill-apply-note|schema|config):[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Stable check id. Known prefixes: skill:<name> (required skill present), skill-name:<dir> (directory matches declared name), skill-parse:<dir> (skill metadata parsed), skill-runbook:<name> (Default runbook section exists), skill-apply-note:<name> (destructive --apply lines carry an authorization/--dry-run note), schema:<file> (schema file exists and is valid JSON), config:<scope> (optional config locations)."
+          },
+          "ok": { "type": "boolean" },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["ok", "passed", "failed"],
+      "properties": {
+        "ok": { "type": "boolean" },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
