@@ -8,6 +8,9 @@ import { seedCapabilityItems } from '../recommendations/capability-seed-items.js
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
 import { requiredSkillNames } from '../../shared/paths.js';
 import type { DoctorCheck } from '../doctor/doctor-service.js';
+import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
+
+const SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 export type ProjectDashboardRequests = {
   count: number;
@@ -53,6 +56,15 @@ export type ProjectDashboardCapabilities = {
   sample: Array<Pick<CapabilityItem, 'capabilityId' | 'name' | 'itemType' | 'category'>>;
 };
 
+export type ProjectDashboardSkillPresence = {
+  active: boolean;
+  fresh: boolean;
+  skill?: string;
+  mode?: string;
+  gate?: string;
+  setAt?: string;
+};
+
 export type ProjectDashboard = {
   generatedAt: string;
   projectRoot: string;
@@ -63,6 +75,7 @@ export type ProjectDashboard = {
   doctor: ProjectDashboardDoctor;
   runbookHealth: ProjectDashboardRunbookHealth;
   capabilities: ProjectDashboardCapabilities;
+  skillPresence: ProjectDashboardSkillPresence;
 };
 
 export type LoadProjectDashboardOptions = {
@@ -71,6 +84,7 @@ export type LoadProjectDashboardOptions = {
   clock?: () => string;
   doctorReport?: { ok: boolean; passed: number; failed: number };
   runbookHealth?: ProjectDashboardRunbookHealth;
+  skillPresence?: SkillPresence | null;
 };
 
 function defaultClock(): string {
@@ -150,6 +164,23 @@ function buildCapabilitiesSummary(sampleSize: number): ProjectDashboardCapabilit
   };
 }
 
+function buildSkillPresenceSummary(presence: SkillPresence | null | undefined): ProjectDashboardSkillPresence {
+  const resolved = presence === undefined ? getSkillPresence() : presence;
+  if (resolved === null) {
+    return { active: false, fresh: true };
+  }
+  const setAtMs = Date.parse(resolved.setAt);
+  const fresh = !Number.isNaN(setAtMs) && Date.now() - setAtMs <= SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
+  return {
+    active: true,
+    fresh,
+    skill: resolved.skill,
+    ...(resolved.mode !== undefined ? { mode: resolved.mode } : {}),
+    ...(resolved.gate !== undefined ? { gate: resolved.gate } : {}),
+    setAt: resolved.setAt
+  };
+}
+
 export async function loadProjectDashboard(options: LoadProjectDashboardOptions): Promise<ProjectDashboard> {
   const clock = options.clock ?? defaultClock;
   const sampleSize = options.sampleCapabilities ?? 8;
@@ -187,6 +218,7 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
     },
     doctor: doctorAndRunbook.doctor,
     runbookHealth: doctorAndRunbook.runbookHealth,
-    capabilities: buildCapabilitiesSummary(sampleSize)
+    capabilities: buildCapabilitiesSummary(sampleSize),
+    skillPresence: buildSkillPresenceSummary(options.skillPresence)
   };
 }

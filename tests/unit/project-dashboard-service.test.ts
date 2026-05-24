@@ -158,4 +158,56 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.runbookHealth.ok).toBe(false);
     expect(dashboard.runbookHealth.applyNoteFailed).toEqual(['peaks-txt']);
   });
+
+  test('skillPresence reports inactive when no presence is provided and the file is absent', async () => {
+    const project = await makeProject();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      skillPresence: null
+    });
+
+    expect(dashboard.skillPresence.active).toBe(false);
+    expect(dashboard.skillPresence.fresh).toBe(true);
+    expect(dashboard.skillPresence.skill).toBeUndefined();
+  });
+
+  test('skillPresence surfaces the active skill, mode, gate, and setAt', async () => {
+    const project = await makeProject();
+    const setAt = new Date(Date.now() - 60_000).toISOString();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      skillPresence: { skill: 'peaks-rd', mode: 'swarm', gate: 'dry-run', setAt }
+    });
+
+    expect(dashboard.skillPresence.active).toBe(true);
+    expect(dashboard.skillPresence.skill).toBe('peaks-rd');
+    expect(dashboard.skillPresence.mode).toBe('swarm');
+    expect(dashboard.skillPresence.gate).toBe('dry-run');
+    expect(dashboard.skillPresence.setAt).toBe(setAt);
+    expect(dashboard.skillPresence.fresh).toBe(true);
+  });
+
+  test('skillPresence flags stale when setAt is older than 24h', async () => {
+    const project = await makeProject();
+    const setAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      skillPresence: { skill: 'peaks-rd', setAt }
+    });
+
+    expect(dashboard.skillPresence.active).toBe(true);
+    expect(dashboard.skillPresence.fresh).toBe(false);
+    expect(dashboard.skillPresence.skill).toBe('peaks-rd');
+  });
+
+  test('skillPresence flags invalid setAt as not fresh', async () => {
+    const project = await makeProject();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      skillPresence: { skill: 'peaks-rd', setAt: 'not-a-date' }
+    });
+
+    expect(dashboard.skillPresence.active).toBe(true);
+    expect(dashboard.skillPresence.fresh).toBe(false);
+  });
 });

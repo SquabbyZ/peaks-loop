@@ -122,7 +122,8 @@ describe('peaks project dashboard command', () => {
         missingRunbook: [],
         applyNoteFailed: []
       },
-      capabilities: { count: 0, mcpCount: 0, sample: [] }
+      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      skillPresence: { active: false, fresh: true }
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
 
@@ -133,6 +134,43 @@ describe('peaks project dashboard command', () => {
     expect(output.ok).toBe(false);
     expect(output.code).toBe('PROJECT_DASHBOARD_DOCTOR_FAILED');
     expect(output.data.doctor).toEqual({ ok: false, passed: 5, failed: 2 });
+    expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
+
+  test('reports PROJECT_DASHBOARD_STALE_SKILL_PRESENCE when active skill presence is stale', async () => {
+    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
+    const staleSetAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const fakeDashboard = {
+      generatedAt: '2026-05-24T00:00:00.000Z',
+      projectRoot: '/tmp/fake',
+      requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
+      openspec: { exists: false, count: 0, changes: [] },
+      understand: { exists: false, graphExists: false, graphPath: '' },
+      mcp: { servers: [], scopes: {} },
+      doctor: { ok: true, passed: 1, failed: 0 },
+      runbookHealth: {
+        ok: true,
+        required: 7,
+        healthy: 7,
+        missingRunbook: [],
+        applyNoteFailed: []
+      },
+      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      skillPresence: { active: true, fresh: false, skill: 'peaks-rd', setAt: staleSetAt }
+    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
+    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+
+    const project = await makeProject('project-dashboard-stale-presence');
+    const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
+    const output = parseJsonOutput<{
+      skillPresence: { active: boolean; fresh: boolean; skill?: string };
+    }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('PROJECT_DASHBOARD_STALE_SKILL_PRESENCE');
+    expect(output.data.skillPresence.skill).toBe('peaks-rd');
+    expect(output.data.skillPresence.fresh).toBe(false);
     expect(result.exitCode).toBe(1);
     spy.mockRestore();
   });

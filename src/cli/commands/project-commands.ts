@@ -42,6 +42,21 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
+      if (dashboard.skillPresence.active && !dashboard.skillPresence.fresh) {
+        printResult(
+          io,
+          fail(
+            'project.dashboard',
+            'PROJECT_DASHBOARD_STALE_SKILL_PRESENCE',
+            `Active Peaks skill presence ${dashboard.skillPresence.skill ?? '<unknown>'} is stale (set ${dashboard.skillPresence.setAt ?? '<unknown>'})`,
+            dashboard,
+            ['Run `peaks skill presence:clear` if the role has ended, or `peaks skill presence:set <skill>` to refresh it']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       if (!dashboard.doctor.ok) {
         printResult(
           io,
