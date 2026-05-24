@@ -199,6 +199,89 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
   });
 });
 
+describe('runDoctor skill-presence checks', () => {
+  test('skill-presence:current is informational and reports no active skill when probe returns null', async () => {
+    const report = await runDoctor({ skillPresenceProbe: () => null });
+    const check = report.checks.find((item) => item.id === 'skill-presence:current');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('No active Peaks skill presence');
+  });
+
+  test('skill-presence:current surfaces the current skill name, mode, and gate', async () => {
+    const setAt = new Date(Date.now() - 60_000).toISOString();
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-rd', mode: 'swarm', gate: 'dry-run', setAt })
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:current');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('peaks-rd');
+    expect(check?.message).toContain('swarm');
+    expect(check?.message).toContain('dry-run');
+    expect(check?.message).toContain(setAt);
+  });
+
+  test('skill-presence:freshness passes when no presence file exists', async () => {
+    const report = await runDoctor({ skillPresenceProbe: () => null });
+    const check = report.checks.find((item) => item.id === 'skill-presence:freshness');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('No active Peaks skill presence to age-check');
+  });
+
+  test('skill-presence:freshness passes when setAt is recent', async () => {
+    const setAt = new Date(Date.now() - 60_000).toISOString();
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-rd', setAt })
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:freshness');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('fresh');
+  });
+
+  test('skill-presence:freshness fails when setAt is older than 24h (default threshold)', async () => {
+    const setAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-rd', setAt })
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:freshness');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('stale');
+    expect(check?.message).toContain('peaks-rd');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('skill-presence:freshness fails when setAt is unparsable', async () => {
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-rd', setAt: 'not-a-date' })
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:freshness');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('invalid setAt');
+    expect(report.summary.ok).toBe(false);
+  });
+});
+
+describe('doctor-report schema documents the skill-presence prefix', () => {
+  test('schema pattern includes skill-presence prefix', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const { join: joinPath } = await import('node:path');
+    const { schemasDir } = await import('../../src/shared/paths.js');
+    const raw = await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8');
+
+    expect(raw).toContain('skill-presence');
+    const schema = JSON.parse(raw) as {
+      properties: { checks: { items: { properties: { id: { pattern: string; description: string } } } } };
+    };
+    expect(schema.properties.checks.items.properties.id.pattern).toContain('skill-presence');
+    expect(schema.properties.checks.items.properties.id.description).toContain('skill-presence');
+  });
+});
+
 describe('runDoctor codegraph capability check', () => {
   test('passes when the pinned @colbymchenry/codegraph package and binary resolve', async () => {
     const report = await runDoctor();

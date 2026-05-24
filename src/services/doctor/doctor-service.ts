@@ -7,6 +7,7 @@ import { readText } from '../../shared/fs.js';
 import { requiredSchemaFiles, requiredSkillNames, schemasDir } from '../../shared/paths.js';
 import { getErrorMessage } from '../../shared/result.js';
 import { loadSkillRegistry } from '../skills/skill-registry.js';
+import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 
 export type DoctorCheck = {
   id: string;
@@ -34,9 +35,12 @@ export type DoctorOptions = {
   schemasBaseDir?: string;
   skillsBaseDir?: string;
   codegraphProbe?: () => CodegraphCapabilityProbe;
+  skillPresenceProbe?: () => SkillPresence | null;
+  skillPresenceFreshnessThresholdMs?: number;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
+const SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 function defaultCodegraphProbe(): CodegraphCapabilityProbe {
   const require = createRequire(import.meta.url);
@@ -172,6 +176,61 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     ok: true,
     message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'Optional user config not found at ~/.peaks/config.json'
   });
+
+  const presenceProbe = options.skillPresenceProbe ?? getSkillPresence;
+  const freshnessThresholdMs = options.skillPresenceFreshnessThresholdMs ?? SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
+  let presence: SkillPresence | null = null;
+  try {
+    presence = presenceProbe();
+  } catch {
+    presence = null;
+  }
+
+  if (presence === null) {
+    checks.push({
+      id: 'skill-presence:current',
+      ok: true,
+      message: 'No active Peaks skill presence (.peaks/.active-skill.json absent or invalid)'
+    });
+    checks.push({
+      id: 'skill-presence:freshness',
+      ok: true,
+      message: 'No active Peaks skill presence to age-check'
+    });
+  } else {
+    const modePart = presence.mode !== undefined ? `, mode ${presence.mode}` : '';
+    const gatePart = presence.gate !== undefined ? `, gate ${presence.gate}` : '';
+    checks.push({
+      id: 'skill-presence:current',
+      ok: true,
+      message: `Active Peaks skill presence: ${presence.skill}${modePart}${gatePart} (set ${presence.setAt})`
+    });
+
+    const setAtMs = Date.parse(presence.setAt);
+    if (Number.isNaN(setAtMs)) {
+      checks.push({
+        id: 'skill-presence:freshness',
+        ok: false,
+        message: `Skill presence ${presence.skill} has invalid setAt: ${presence.setAt}`
+      });
+    } else {
+      const ageMs = Date.now() - setAtMs;
+      if (ageMs > freshnessThresholdMs) {
+        const ageHours = Math.round(ageMs / (60 * 60 * 1000));
+        checks.push({
+          id: 'skill-presence:freshness',
+          ok: false,
+          message: `Skill presence ${presence.skill} is stale (set ${presence.setAt}, ~${ageHours}h ago); run peaks skill presence:clear if the role has ended`
+        });
+      } else {
+        checks.push({
+          id: 'skill-presence:freshness',
+          ok: true,
+          message: `Skill presence ${presence.skill} is fresh (set ${presence.setAt})`
+        });
+      }
+    }
+  }
 
   const probe = options.codegraphProbe ?? defaultCodegraphProbe;
   try {
