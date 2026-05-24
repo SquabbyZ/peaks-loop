@@ -26,6 +26,26 @@ export type DoctorOptions = {
   skillsBaseDir?: string;
 };
 
+const DESTRUCTIVE_APPLY_PATTERNS = [
+  /peaks\s+memory\s+sync[^\n]*--apply/,
+  /peaks\s+memory\s+extract[^\n]*--apply/,
+  /peaks\s+artifacts\s+sync[^\n]*--apply/,
+  /peaks\s+openspec\s+archive[^\n]*--apply/,
+  /peaks\s+standards\s+(?:init|update)[^\n]*--apply/
+];
+
+const AUTHORIZATION_KEYWORDS_PATTERN = /authoriz|explicit|--dry-run|approv|only after|only when/i;
+
+function extractRunbookSection(body: string): string | null {
+  const match = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body);
+  return match === null ? null : (match[1] ?? null);
+}
+
+function findDestructiveApplyLines(section: string): string[] {
+  const lines = section.split(/\r?\n/);
+  return lines.filter((line) => DESTRUCTIVE_APPLY_PATTERNS.some((pattern) => pattern.test(line)));
+}
+
 export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorReport> {
   const checks: DoctorCheck[] = [];
   const registry = await loadSkillRegistry(options.skillsBaseDir);
@@ -75,6 +95,27 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
           ? `Skill ${skill.name} declares a Default runbook`
           : `Skill ${skill.name} is missing a ## Default runbook section`
       });
+
+      const runbookSection = extractRunbookSection(body);
+      if (runbookSection !== null) {
+        const destructiveLines = findDestructiveApplyLines(runbookSection);
+        if (destructiveLines.length === 0) {
+          checks.push({
+            id: `skill-apply-note:${skill.name}`,
+            ok: true,
+            message: `Skill ${skill.name} runbook has no destructive --apply commands to gate`
+          });
+        } else {
+          const hasAuthorizationNote = AUTHORIZATION_KEYWORDS_PATTERN.test(runbookSection);
+          checks.push({
+            id: `skill-apply-note:${skill.name}`,
+            ok: hasAuthorizationNote,
+            message: hasAuthorizationNote
+              ? `Skill ${skill.name} gates ${destructiveLines.length} destructive --apply command(s) with an authorization note`
+              : `Skill ${skill.name} has ${destructiveLines.length} destructive --apply command(s) without an authorization/dry-run note in the runbook section`
+          });
+        }
+      }
     } catch (error) {
       checks.push({
         id: `skill-runbook:${skill.name}`,

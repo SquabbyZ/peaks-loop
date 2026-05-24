@@ -70,6 +70,55 @@ describe('runDoctor skill runbook completeness', () => {
   });
 });
 
+describe('runDoctor skill apply-note completeness', () => {
+  test('passes apply-note check for each required skill on the real repo', async () => {
+    const report = await runDoctor();
+
+    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo']) {
+      expect(report.checks).toContainEqual(
+        expect.objectContaining({ id: `skill-apply-note:${name}`, ok: true })
+      );
+    }
+  });
+
+  test('flags a required skill whose runbook lists destructive --apply without an authorization note', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-apply-note-'));
+    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+      await mkdir(join(root, name));
+      const runbookBody = name === 'peaks-txt'
+        ? '```bash\npeaks memory extract --project x --artifact y --apply --json\n```'
+        : '```bash\npeaks doctor --json\n```';
+      const body = `---\nname: ${name}\ndescription: ${name} skill\n---\n# Body\n\n## Default runbook\n\n${runbookBody}\n`;
+      await writeFile(join(root, name, 'SKILL.md'), body);
+    }
+
+    const report = await runDoctor({ skillsBaseDir: root });
+    const failing = report.checks.find((check) => check.id === 'skill-apply-note:peaks-txt');
+
+    expect(failing).toMatchObject({ ok: false });
+    expect(failing?.message).toContain('without an authorization/dry-run note');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('passes apply-note check when destructive --apply commands carry --dry-run guidance', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-apply-note-ok-'));
+    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+      await mkdir(join(root, name));
+      const runbookBody = name === 'peaks-txt'
+        ? '```bash\npeaks memory extract --project x --artifact y --dry-run --json\npeaks memory extract --project x --artifact y --apply --json\n```\n\nOnly run --apply after explicit user authorization.'
+        : '```bash\npeaks doctor --json\n```';
+      const body = `---\nname: ${name}\ndescription: ${name} skill\n---\n# Body\n\n## Default runbook\n\n${runbookBody}\n`;
+      await writeFile(join(root, name, 'SKILL.md'), body);
+    }
+
+    const report = await runDoctor({ skillsBaseDir: root });
+    const passing = report.checks.find((check) => check.id === 'skill-apply-note:peaks-txt');
+
+    expect(passing).toMatchObject({ ok: true });
+    expect(passing?.message).toContain('destructive --apply command');
+  });
+});
+
 describe('runDoctor recommendation schemas', () => {
   test('validates recommendation foundation schemas', async () => {
     const report = await runDoctor();
