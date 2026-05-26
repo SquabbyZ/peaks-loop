@@ -29,6 +29,7 @@ export default defineConfig({
         'src/services/artifacts/artifact-service.ts',
         'src/services/artifacts/workspace-service.ts',
         'src/services/config/config-service.ts',
+        'src/services/config/config-safety.ts',
         'src/shared/frontmatter.ts',
         'src/services/skills/skill-registry.ts',
         'src/services/doctor/doctor-service.ts',

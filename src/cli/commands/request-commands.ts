@@ -5,9 +5,15 @@ import {
   listRequestArtifacts,
   showRequestArtifact,
   transitionRequestArtifact,
+  PrerequisitesNotSatisfiedError,
+  VALID_REQUEST_TYPES,
+  isRequestType,
   type RequestArtifactRole,
-  type RequestArtifactState
+  type RequestArtifactState,
+  type RequestType
 } from '../../services/artifacts/request-artifact-service.js';
+import { lintRequestArtifact } from '../../services/artifacts/artifact-lint-service.js';
+import { getRepairCycleStatus } from '../../services/artifacts/repair-cycle-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -17,6 +23,7 @@ type RequestInitOptions = {
   project: string;
   sessionId?: string;
   apply?: boolean;
+  type?: RequestType;
   json?: boolean;
 };
 
@@ -40,6 +47,7 @@ type RequestTransitionOptions = {
   state: RequestArtifactState;
   sessionId?: string;
   reason?: string;
+  allowIncomplete?: boolean;
   json?: boolean;
 };
 
@@ -60,6 +68,13 @@ function parseStateForRole(role: RequestArtifactRole, value: string): RequestArt
   return value as RequestArtifactState;
 }
 
+function parseRequestType(value: string): RequestType {
+  if (!isRequestType(value)) {
+    throw new InvalidArgumentError(`must be one of ${VALID_REQUEST_TYPES.join(', ')}`);
+  }
+  return value;
+}
+
 export function registerRequestCommands(program: Command, io: ProgramIO): void {
   const request = program.command('request').description('Manage per-request Peaks role artifacts (PRD / UI / RD / QA)');
 
@@ -72,6 +87,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'override the default date-stamped session id')
       .option('--apply', 'write the artifact file (default: preview only)')
+      .option('--type <type>', `request type (${VALID_REQUEST_TYPES.join(' | ')}); default: feature`, parseRequestType)
   ).action(async (options: RequestInitOptions) => {
     try {
       const serviceOptions: Parameters<typeof createRequestArtifact>[0] = {
@@ -84,6 +100,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       if (options.apply === true) {
         serviceOptions.apply = true;
+      }
+      if (options.type !== undefined) {
+        serviceOptions.requestType = options.type;
       }
       const result = await createRequestArtifact(serviceOptions);
       printResult(
@@ -182,11 +201,21 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--state <state>', 'new state name; allowed values depend on role')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'restrict to a specific session id')
-      .option('--reason <text>', 'optional reason appended as a transition note')
+      .option('--reason <text>', 'reason appended as a transition note; required when --allow-incomplete is set')
+      .option('--allow-incomplete', 'bypass artifact prerequisite checks; requires --reason and records the bypass in the artifact')
   ).action(async (requestId: string, options: RequestTransitionOptions) => {
     try {
       const role = options.role;
       const newState = parseStateForRole(role, options.state);
+      if (options.allowIncomplete === true && (options.reason === undefined || options.reason.trim().length === 0)) {
+        printResult(
+          io,
+          fail('request.transition', 'BYPASS_REASON_REQUIRED', '--allow-incomplete requires --reason explaining why prerequisites are skipped', { role, requestId }, ['Add --reason "<short justification>" or remove --allow-incomplete and produce the missing artifacts']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       const transitionOptions: Parameters<typeof transitionRequestArtifact>[0] = {
         role,
         requestId,
@@ -198,6 +227,9 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       if (options.reason !== undefined) {
         transitionOptions.reason = options.reason;
+      }
+      if (options.allowIncomplete === true) {
+        transitionOptions.allowIncomplete = true;
       }
       const result = await transitionRequestArtifact(transitionOptions);
       if (result === null) {
@@ -214,9 +246,123 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (error instanceof InvalidArgumentError) {
         throw error;
       }
+      if (error instanceof PrerequisitesNotSatisfiedError) {
+        printResult(
+          io,
+          fail(
+            'request.transition',
+            error.code,
+            error.message,
+            { role: error.role, newState: error.newState, sessionId: error.sessionId, missing: error.missing },
+            [
+              ...error.missing.map((entry) => `Produce ${entry.path}: ${entry.description}`),
+              'Once every required artifact exists, rerun this transition.',
+              'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'
+            ]
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       printResult(
         io,
         fail('request.transition', 'REQUEST_TRANSITION_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Check role, request id, state, and project path before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    request
+      .command('lint')
+      .description('Scan a request artifact body for unfilled placeholders (<...>, TBD, bare bullets) before declaring it complete')
+      .argument('<request-id>', 'request id')
+      .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <session>', 'restrict to a specific session id')
+  ).action(async (requestId: string, options: { role: RequestArtifactRole; project: string; sessionId?: string; json?: boolean }) => {
+    try {
+      const lintOptions: Parameters<typeof lintRequestArtifact>[0] = {
+        projectRoot: options.project,
+        role: options.role,
+        requestId
+      };
+      if (options.sessionId !== undefined) {
+        lintOptions.sessionId = options.sessionId;
+      }
+      const report = await lintRequestArtifact(lintOptions);
+      if (report === null) {
+        printResult(
+          io,
+          fail('request.lint', 'REQUEST_NOT_FOUND', `No artifact found for role=${options.role} requestId=${requestId}`, { role: options.role, requestId }, ['Verify the request id, role, and session id']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const nextActions: string[] = [];
+      if (!report.ok) {
+        nextActions.push(`Fix ${report.findings.filter((f) => f.severity === 'error').length} error finding(s) before transitioning this artifact.`);
+      }
+      printResult(io, ok('request.lint', report, [], nextActions), options.json);
+      if (!report.ok) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      printResult(
+        io,
+        fail('request.lint', 'REQUEST_LINT_FAILED', getErrorMessage(error), { role: options.role, requestId }, ['Verify the artifact path before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    request
+      .command('repair-status')
+      .description('Count RD↔QA repair cycles for a request from its RD artifact transition notes; reports cycle count and whether the 3-cycle cap is reached')
+      .argument('<request-id>', 'request id')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <session>', 'restrict to a specific session id')
+      .option('--max-cycles <n>', 'override the default max cycle cap (default 3)')
+  ).action(async (requestId: string, options: { project: string; sessionId?: string; maxCycles?: string; json?: boolean }) => {
+    try {
+      const max = options.maxCycles !== undefined && /^\d+$/.test(options.maxCycles) ? Number(options.maxCycles) : 3;
+      const statusOptions: Parameters<typeof getRepairCycleStatus>[0] = {
+        projectRoot: options.project,
+        requestId,
+        maxCycles: max
+      };
+      if (options.sessionId !== undefined) {
+        statusOptions.sessionId = options.sessionId;
+      }
+      const report = await getRepairCycleStatus(statusOptions);
+      if (report === null) {
+        printResult(
+          io,
+          fail('request.repair-status', 'REQUEST_NOT_FOUND', `No RD artifact found for requestId=${requestId}`, { requestId }, ['Verify the request id and session id']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const nextActions: string[] = [];
+      if (report.atCap) {
+        nextActions.push(`Repair cap reached (${report.cycleCount}/${report.maxCycles}). Emit a blocked TXT handoff and stop the loop.`);
+      } else if (report.cycleCount > 0) {
+        nextActions.push(`${report.remaining} repair cycle(s) remaining before block.`);
+      }
+      printResult(io, ok('request.repair-status', report, [], nextActions), options.json);
+      if (report.atCap) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      printResult(
+        io,
+        fail('request.repair-status', 'REQUEST_REPAIR_STATUS_FAILED', getErrorMessage(error), { requestId }, ['Verify the artifact path before retrying']),
         options.json
       );
       process.exitCode = 1;

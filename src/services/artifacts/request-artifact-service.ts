@@ -1,6 +1,9 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
+import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
+
+export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
 
 export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
 
@@ -10,6 +13,7 @@ export type CreateRequestArtifactOptions = {
   projectRoot: string;
   sessionId?: string;
   apply?: boolean;
+  requestType?: RequestType;
   clock?: () => string;
 };
 
@@ -37,11 +41,11 @@ function defaultSessionId(iso: string): string {
   return `${dateSlugFromIso(iso)}-session`;
 }
 
-function renderPrdTemplate(requestId: string, sessionId: string, timestamp: string): string {
+function renderPrdTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# PRD Request ${requestId}
 
 - session: ${sessionId}
-- type: feature | bug | refactor | clarification
+- type: ${requestType}
 - source: <ticket, message URL, or "verbal" with a short sanitized quote>
 - raw input (sanitized): <one-paragraph restatement of what the user actually asked for>
 
@@ -85,11 +89,12 @@ function renderPrdTemplate(requestId: string, sessionId: string, timestamp: stri
 `;
 }
 
-function renderUiTemplate(requestId: string, sessionId: string, timestamp: string): string {
+function renderUiTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# UI Request ${requestId}
 
 - session: ${sessionId}
 - linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
+- type: ${requestType}
 - scope: full new surface | iteration on existing surface | regression fix | visual refresh
 - design direction: editorial | bento | Swiss | luxury | retro-futurist | glass | product-system | other-explicit-name
 
@@ -135,13 +140,13 @@ function renderUiTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderRdTemplate(requestId: string, sessionId: string, timestamp: string): string {
+function renderRdTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# RD Request ${requestId}
 
 - session: ${sessionId}
 - linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
 - linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
-- type: feature | bug | refactor | clarification
+- type: ${requestType}
 
 ## Red-line scope
 
@@ -193,14 +198,14 @@ function renderRdTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderQaTemplate(requestId: string, sessionId: string, timestamp: string): string {
+function renderQaTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# QA Request ${requestId}
 
 - session: ${sessionId}
 - linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
 - linked-rd:  .peaks/${sessionId}/rd/requests/${requestId}.md
 - linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
-- type: feature | bug | refactor | clarification
+- type: ${requestType}
 
 ## Red-line boundary check
 
@@ -249,7 +254,7 @@ function renderQaTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderScTemplate(requestId: string, sessionId: string, timestamp: string): string {
+function renderScTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# SC Request ${requestId}
 
 - session: ${sessionId}
@@ -257,7 +262,7 @@ function renderScTemplate(requestId: string, sessionId: string, timestamp: strin
 - linked-rd:  .peaks/${sessionId}/rd/requests/${requestId}.md
 - linked-qa:  .peaks/${sessionId}/qa/requests/${requestId}.md
 - linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
-- type: feature | bug | refactor | clarification
+- type: ${requestType}
 
 ## Change impact
 
@@ -302,18 +307,18 @@ function renderScTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId: string, timestamp: string): string {
+function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   switch (role) {
     case 'prd':
-      return renderPrdTemplate(requestId, sessionId, timestamp);
+      return renderPrdTemplate(requestId, sessionId, timestamp, requestType);
     case 'ui':
-      return renderUiTemplate(requestId, sessionId, timestamp);
+      return renderUiTemplate(requestId, sessionId, timestamp, requestType);
     case 'rd':
-      return renderRdTemplate(requestId, sessionId, timestamp);
+      return renderRdTemplate(requestId, sessionId, timestamp, requestType);
     case 'qa':
-      return renderQaTemplate(requestId, sessionId, timestamp);
+      return renderQaTemplate(requestId, sessionId, timestamp, requestType);
     case 'sc':
-      return renderScTemplate(requestId, sessionId, timestamp);
+      return renderScTemplate(requestId, sessionId, timestamp, requestType);
   }
 }
 
@@ -324,6 +329,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   if (!REQUEST_ID_PATTERN.test(options.requestId)) {
     throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
   }
+  const requestType = options.requestType ?? DEFAULT_REQUEST_TYPE;
 
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
@@ -336,7 +342,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     'requests',
     `${options.requestId}.md`
   );
-  const content = renderTemplate(options.role, options.requestId, sessionId, timestamp);
+  const content = renderTemplate(options.role, options.requestId, sessionId, timestamp, requestType);
 
   if (options.apply !== true) {
     return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: false };
@@ -356,6 +362,7 @@ export type RequestArtifactSummary = {
   requestId: string;
   path: string;
   state: string;
+  requestType: RequestType;
   createdAt?: string;
 };
 
@@ -376,9 +383,10 @@ export type ShowRequestArtifactResult = RequestArtifactSummary & {
   content: string;
 };
 
-function extractStateAndCreated(markdown: string): { state: string; createdAt?: string } {
+function extractMetadata(markdown: string): { state: string; requestType: RequestType; createdAt?: string } {
   let state = 'unknown';
   let createdAt: string | undefined;
+  let requestType: RequestType = DEFAULT_REQUEST_TYPE;
   for (const rawLine of markdown.split(/\r?\n/)) {
     const line = rawLine.trim();
     const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(line);
@@ -389,9 +397,20 @@ function extractStateAndCreated(markdown: string): { state: string; createdAt?: 
     const createdMatch = /^-\s*created:\s*(.+?)\s*$/.exec(line);
     if (createdMatch !== null && createdMatch[1] !== undefined) {
       createdAt = createdMatch[1];
+      continue;
+    }
+    const typeMatch = /^-\s*type:\s*(.+?)\s*$/.exec(line);
+    if (typeMatch !== null && typeMatch[1] !== undefined) {
+      const candidate = typeMatch[1];
+      if (isRequestType(candidate)) {
+        requestType = candidate;
+      }
+      // Placeholder values (e.g. "feature | bug | refactor | clarification") fall back to default.
     }
   }
-  return createdAt === undefined ? { state } : { state, createdAt };
+  const base: { state: string; requestType: RequestType; createdAt?: string } = { state, requestType };
+  if (createdAt !== undefined) base.createdAt = createdAt;
+  return base;
 }
 
 async function readSummary(
@@ -402,9 +421,9 @@ async function readSummary(
 ): Promise<RequestArtifactSummary> {
   const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
   const body = await readFile(path, 'utf8');
-  const { state, createdAt } = extractStateAndCreated(body);
+  const { state, createdAt, requestType } = extractMetadata(body);
   const requestId = fileName.replace(/\.md$/, '');
-  const summary: RequestArtifactSummary = { role, sessionId, requestId, path, state };
+  const summary: RequestArtifactSummary = { role, sessionId, requestId, path, state, requestType };
   if (createdAt !== undefined) {
     summary.createdAt = createdAt;
   }
@@ -511,13 +530,33 @@ export type TransitionRequestArtifactOptions = {
   newState: RequestArtifactState;
   sessionId?: string;
   reason?: string;
+  allowIncomplete?: boolean;
   clock?: () => string;
 };
 
 export type TransitionRequestArtifactResult = RequestArtifactSummary & {
   previousState: string;
   content: string;
+  bypassedPrerequisites?: PrerequisiteCheckResult;
 };
+
+export class PrerequisitesNotSatisfiedError extends Error {
+  readonly code = 'PREREQUISITES_MISSING';
+  readonly role: RequestArtifactRole;
+  readonly newState: RequestArtifactState;
+  readonly sessionId: string;
+  readonly missing: PrerequisiteCheckResult['missing'];
+  constructor(role: RequestArtifactRole, newState: RequestArtifactState, sessionId: string, missing: PrerequisiteCheckResult['missing']) {
+    super(
+      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/${sessionId}/`
+    );
+    this.name = 'PrerequisitesNotSatisfiedError';
+    this.role = role;
+    this.newState = newState;
+    this.sessionId = sessionId;
+    this.missing = missing;
+  }
+}
 
 function updateStatusBlock(markdown: string, newState: RequestArtifactState, timestamp: string, reason?: string): { updated: string; previousState: string } {
   const lines = markdown.split(/\r?\n/);
@@ -584,9 +623,27 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     return null;
   }
 
+  const prerequisiteResult = await checkPrerequisites({
+    projectRoot: options.projectRoot,
+    sessionId: existing.sessionId,
+    role: options.role,
+    newState: options.newState,
+    requestId: options.requestId,
+    requestType: existing.requestType
+  });
+
+  if (!prerequisiteResult.ok && options.allowIncomplete !== true) {
+    throw new PrerequisitesNotSatisfiedError(options.role, options.newState, existing.sessionId, prerequisiteResult.missing);
+  }
+
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
-  const { updated, previousState } = updateStatusBlock(existing.content, options.newState, timestamp, options.reason);
+  const bypassNote = !prerequisiteResult.ok && options.allowIncomplete === true
+    ? `bypassed prerequisites (${prerequisiteResult.missing.map((entry) => entry.path).join(', ')})`
+    : undefined;
+  const combinedReason = [options.reason, bypassNote].filter((part): part is string => part !== undefined && part.length > 0).join(' | ');
+  const reasonForNote = combinedReason.length > 0 ? combinedReason : undefined;
+  const { updated, previousState } = updateStatusBlock(existing.content, options.newState, timestamp, reasonForNote);
   await writeFile(existing.path, updated, 'utf8');
 
   const result: TransitionRequestArtifactResult = {
@@ -595,11 +652,15 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     requestId: options.requestId,
     path: existing.path,
     state: options.newState,
+    requestType: existing.requestType,
     previousState,
     content: updated
   };
   if (existing.createdAt !== undefined) {
     result.createdAt = existing.createdAt;
+  }
+  if (!prerequisiteResult.ok && options.allowIncomplete === true) {
+    result.bypassedPrerequisites = prerequisiteResult;
   }
   return result;
 }

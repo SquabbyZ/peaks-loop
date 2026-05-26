@@ -33,6 +33,16 @@ Every PRD invocation — feature, bug, refactor, clarification — must write a 
 
 Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the user assigned) so PRD/UI/RD/QA/SC can cross-link the same request.
 
+**Minimum PRD artifact sections:**
+
+1. **Goals** — what this request must achieve, in verifiable terms
+2. **Non-goals** — explicitly out of scope for this request
+3. **Preserved behavior** — existing behavior that must not change
+4. **Acceptance criteria** — per-criterion pass/fail conditions QA can execute
+5. **Frontend delta** (when applicable) — pages, routes, components, states affected
+6. **Unresolved questions** — items blocking implementation or QA
+7. **User confirmation record** — date, method (explicit confirm / auto-confirm), scope confirmed
+
 Concrete template and rules: `references/artifact-per-request.md`.
 
 ## Default runbook
@@ -78,6 +88,24 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 ```
 
 Handoff is blocked until the request artifact's `state` reaches `confirmed-by-user` or `handed-off`. Update the state field in the artifact body before invoking RD/UI/QA.
+
+### Transition verification gates (MANDATORY — run the command, see the output)
+
+You cannot declare PRD complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
+
+**Gate A — After PRD artifact write (before handoff to RD/UI/QA):**
+```bash
+ls .peaks/<id>/prd/requests/<rid>.md
+# Expected output: .peaks/<id>/prd/requests/<rid>.md
+# "No such file" → STOP, write the PRD artifact first. Do not hand off.
+```
+
+**Gate B — Before clearing PRD presence (verify user confirmation):**
+```bash
+grep -E "state:.*(confirmed-by-user|handed-off)" .peaks/<id>/prd/requests/<rid>.md
+# Expected: a line containing state: confirmed-by-user or state: handed-off
+# No match → STOP, the PRD has not been confirmed. Ask the user to confirm.
+```
 
 ## Refactor role
 
@@ -154,7 +182,24 @@ Inspect upstream skill content before applying any method. Treat examples and in
 
 ## Local intermediate artifacts
 
-PRD artifacts should be written to the workflow-local `.peaks/<session-id>/prd/` workspace by default, unless the active Peaks CLI profile supplies a different local artifact workspace. This workspace is the handoff surface between `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, and `peaks-txt`.
+PRD artifacts must be written to the workflow-local `.peaks/<session-id>/prd/` workspace by default, unless the active Peaks CLI profile supplies a different local artifact workspace. This workspace is the handoff surface between `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, and `peaks-txt`.
+
+### Document snapshot placement (BLOCKING)
+
+**When PRD captures content from an external document (Feishu/Lark/wiki/web page), ALL intermediate snapshots MUST go into `.peaks/<session-id>/prd/source/` — NEVER to the project root directory.**
+
+Specifically:
+- `mcp__playwright__browser_snapshot` output → save to `.peaks/<session-id>/prd/source/<doc-name>-snapshot.md`
+- `mcp__playwright__browser_take_screenshot` output → save to `.peaks/<session-id>/prd/source/<doc-name>-screenshot.png`
+- Any exported `.md` or `.pdf` the user provides → save to `.peaks/<session-id>/prd/source/`
+
+**Prohibited paths** (BLOCKING — do not write to these):
+- `./feishu-doc-snapshot.md` (project root)
+- `./feishu-doc-snapshot-2.md` (project root)
+- `./<anything>-snapshot.md` (project root)
+- `./screenshots/` (project root — use `.peaks/<id>/qa/screenshots/`)
+
+The canonical PRD request artifact at `.peaks/<session-id>/prd/requests/<request-id>.md` should link to the source files in `prd/source/` for traceability.
 
 Do not default to a git-backed artifact repository or commit intermediate artifacts automatically. Git commits, artifact sync, or external repository storage require explicit user confirmation or an active profile that clearly authorizes them.
 

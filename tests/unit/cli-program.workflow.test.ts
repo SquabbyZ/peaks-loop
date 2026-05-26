@@ -485,4 +485,43 @@ describe('createProgram workflow commands', () => {
       cwdSpy.mockRestore();
     }
   });
+
+  test('prints autonomous-resume init preview without writing files', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'peaks-resume-init-preview-'));
+    const result = await runCommand(['autonomous-resume', 'init', '--change-id', 'resume-cli-preview', '--goal', 'Scaffold a resume preview', '--project', projectDir, '--json']);
+    const output = parseJsonOutput<{ applied: boolean; files: string[] }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('autonomous-resume.init');
+    expect(output.data.applied).toBe(false);
+    expect(output.data.files).toHaveLength(6);
+    expect(output.nextActions?.[0]).toContain('--apply');
+    for (const file of output.data.files) {
+      expect(existsSync(file)).toBe(false);
+    }
+  });
+
+  test('writes autonomous-resume init artifacts under workflow subcommand when apply is set', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'peaks-resume-init-apply-'));
+    const result = await runCommand(['workflow', 'autonomous-resume', 'init', '--change-id', 'resume-cli-apply', '--goal', 'Scaffold and apply', '--project', projectDir, '--apply', '--json']);
+    const output = parseJsonOutput<{ applied: boolean; files: string[] }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.command).toBe('autonomous-resume.init');
+    expect(output.data.applied).toBe(true);
+    for (const file of output.data.files) {
+      expect(existsSync(file)).toBe(true);
+    }
+  });
+
+  test('reports autonomous-resume init failure for an unsafe change-id', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'peaks-resume-init-invalid-'));
+    const result = await runCommand(['autonomous-resume', 'init', '--change-id', '../escape', '--goal', 'Unsafe', '--project', projectDir, '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('AUTONOMOUS_RESUME_INIT_FAILED');
+    expect(output.message).toMatch(/Invalid change-id/);
+    expect(result.exitCode).toBe(1);
+  });
 });

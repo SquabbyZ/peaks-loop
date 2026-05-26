@@ -79,6 +79,8 @@ describe('transitionRequestArtifact (valid state per role)', () => {
       const result = await transitionRequestArtifact({
         role: 'rd', requestId: '2026-05-24-rd', projectRoot: project,
         newState, sessionId: STABLE_SESSION,
+        allowIncomplete: true,
+        reason: 'state-machine acceptance test — prerequisites covered by dedicated suite',
         clock: () => LATER_TIMESTAMP
       });
       expect.soft(result?.state, `RD should accept ${newState}`).toBe(newState);
@@ -94,6 +96,8 @@ describe('transitionRequestArtifact (valid state per role)', () => {
       const result = await transitionRequestArtifact({
         role: 'qa', requestId: '2026-05-24-qa', projectRoot: project,
         newState, sessionId: STABLE_SESSION,
+        allowIncomplete: true,
+        reason: 'state-machine acceptance test — prerequisites covered by dedicated suite',
         clock: () => LATER_TIMESTAMP
       });
       expect.soft(result?.state, `QA should accept ${newState}`).toBe(newState);

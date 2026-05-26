@@ -1,5 +1,6 @@
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { buildToolLabel, componentLibraryLabel, cssFrameworkLabel, detectProjectContext, type ProjectContext } from './project-context.js';
 
 export type StandardsLanguage = 'generic' | 'typescript' | 'javascript' | 'python' | 'go' | 'rust';
 export type StandardsWriteStatus = 'planned' | 'existing' | 'written' | 'appended' | 'review';
@@ -183,8 +184,34 @@ function renderHeader(title: string): string {
   ].join('\n');
 }
 
-function renderClaudeMd(language: StandardsLanguage): string {
-  return [
+function renderProjectStackSection(ctx: ProjectContext): string {
+  if (!ctx.hasPackageJson) return '';
+  const lines: string[] = ['## Detected project stack', ''];
+  lines.push(`- Build tool: ${buildToolLabel(ctx.buildTool)}${ctx.buildConfigPath !== undefined ? ` (\`${ctx.buildConfigPath}\`)` : ''}`);
+  lines.push(`- Component library: ${componentLibraryLabel(ctx.componentLibrary)}`);
+  if (ctx.cssFrameworks.length > 0) {
+    lines.push(`- CSS: ${ctx.cssFrameworks.map(cssFrameworkLabel).join(', ')}`);
+  }
+  if (ctx.stateManagement.length > 0) lines.push(`- State management: ${ctx.stateManagement.join(', ')}`);
+  if (ctx.routing.length > 0) lines.push(`- Routing: ${ctx.routing.join(', ')}`);
+  if (ctx.dataFetching.length > 0) lines.push(`- Data fetching: ${ctx.dataFetching.join(', ')}`);
+  if (ctx.notableDeps.length > 0) lines.push(`- Notable deps: ${ctx.notableDeps.join(', ')}`);
+  lines.push('');
+  if (ctx.cssConflicts.length > 0) {
+    lines.push('## CSS framework conflicts', '');
+    for (const conflict of ctx.cssConflicts) lines.push(`- ${conflict}`);
+    lines.push('');
+  }
+  if (ctx.legacySignals.length > 0) {
+    lines.push('## Legacy constraints (preserve for new code in the same modules)', '');
+    for (const signal of ctx.legacySignals) lines.push(`- ${signal}`);
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function renderClaudeMd(language: StandardsLanguage, ctx: ProjectContext): string {
+  const head = [
     '# Project Instructions',
     '',
     '> 🤖 AI 生成，请审阅',
@@ -205,43 +232,107 @@ function renderClaudeMd(language: StandardsLanguage): string {
     'External reference: https://github.com/affaan-m/everything-claude-code is used as a curated reference only. Do not execute or install external content without explicit approval.',
     ''
   ].join('\n');
+  const stack = renderProjectStackSection(ctx);
+  return stack === '' ? head : `${head}\n${stack}`;
 }
 
-function renderCommonCodingStyle(): string {
-  return `${renderHeader('Common Coding Standards')}- Prefer simple, readable code over clever abstractions.
-- Keep functions focused and files cohesive.
-- Use immutable updates unless a language-specific convention explicitly favors mutation.
-- Validate user input, external data, file paths, and configuration at system boundaries.
-- Preserve existing project conventions when they are stricter than this baseline.
-`;
+function renderCommonCodingStyle(ctx: ProjectContext): string {
+  const baseRules = [
+    '- Prefer simple, readable code over clever abstractions.',
+    '- Keep functions focused and files cohesive.',
+    '- Use immutable updates unless a language-specific convention explicitly favors mutation.',
+    '- Validate user input, external data, file paths, and configuration at system boundaries.',
+    '- Preserve existing project conventions when they are stricter than this baseline.'
+  ];
+  const stackRules: string[] = [];
+  const lib = ctx.componentLibrary.name;
+  if (lib === 'antd' || lib === 'antd-pro') {
+    const major = ctx.componentLibrary.majorVersion ?? '5';
+    stackRules.push(`- Use existing antd v${major} components (\`Button\`, \`Form\`, \`Table\`, \`Modal\`, \`Select\`). Never mix antd v3/v4/v5 APIs.`);
+    stackRules.push(`- Customize antd via \`theme.token\` / \`ConfigProvider\` / \`className\` / \`styles\`. Do NOT apply TailwindCSS utility classes directly to antd components.`);
+    if (ctx.componentLibrary.hasProSuite === true) {
+      stackRules.push('- Use `@ant-design/pro-components` (`ProTable`, `ProForm`, `ProLayout`) where the page is already pro-based — do not introduce a parallel non-pro table/form.');
+    }
+  }
+  if (lib === 'mui') stackRules.push('- Style MUI via `sx`, `styled()`, and `theme`. Do NOT apply TailwindCSS utility classes directly to MUI components.');
+  if (lib === 'shadcn') stackRules.push('- Use existing shadcn component variants and Tailwind utility classes. Do not introduce a competing component library.');
+  if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {
+    stackRules.push('- TailwindCSS is for layout/utility only; component-library tokens own component styling.');
+  }
+  if (ctx.cssFrameworks.includes('less')) stackRules.push('- Less variables in `src/theme/*.less` (or equivalent) are the canonical design tokens — extend them, do not hardcode colors/spacing.');
+  if (ctx.stateManagement.length > 0) stackRules.push(`- Follow the existing state library (${ctx.stateManagement.join(', ')}); do not introduce a competing state library.`);
+  if (ctx.dataFetching.length > 0) stackRules.push(`- Reuse the existing data-fetching pattern (${ctx.dataFetching.join(', ')}) for new API calls.`);
+  for (const signal of ctx.legacySignals) stackRules.push(`- ${signal}`);
+
+  const rules = stackRules.length > 0 ? [...baseRules, '', '## Project-specific rules', ...stackRules] : baseRules;
+  return `${renderHeader('Common Coding Standards')}${rules.join('\n')}\n`;
 }
 
-function renderCodeReview(): string {
-  return `${renderHeader('Code Review Standards')}- Review diffs for correctness, maintainability, test coverage, and regression risk.
-- Treat missing tests for changed behavior as a blocker unless the change is documentation-only.
-- Verify code paths that handle filesystem, external APIs, credentials, user input, or generated artifacts.
-- peaks-qa must use this guidance as part of code workflow preflight and final verification.
-`;
+function renderCodeReview(ctx: ProjectContext): string {
+  const baseRules = [
+    '- Review diffs for correctness, maintainability, test coverage, and regression risk.',
+    '- Treat missing tests for changed behavior as a blocker unless the change is documentation-only.',
+    '- Verify code paths that handle filesystem, external APIs, credentials, user input, or generated artifacts.',
+    '- peaks-qa must use this guidance as part of code workflow preflight and final verification.'
+  ];
+  const extra: string[] = [];
+  const lib = ctx.componentLibrary.name;
+  if (lib === 'antd' || lib === 'antd-pro') {
+    extra.push('- Block PRs that introduce a second component library (MUI/shadcn/Chakra) alongside antd.');
+    extra.push('- Block PRs that import antd v3/v4 APIs in this v5 project, or vice versa.');
+  }
+  if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {
+    extra.push('- Flag Tailwind utility classes applied directly to component-library primitives; require component-library APIs instead.');
+  }
+  if (ctx.legacySignals.length > 0) {
+    extra.push('- Verify new code in legacy modules preserves the existing patterns (see `.claude/rules/common/coding-style.md` "Project-specific rules").');
+  }
+  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific review focus', ...extra] : baseRules;
+  return `${renderHeader('Code Review Standards')}${rules.join('\n')}\n`;
 }
 
-function renderSecurity(): string {
-  return `${renderHeader('Security Review Standards')}- Never hardcode secrets, API keys, passwords, tokens, or credentials.
-- Do not send private code or secrets to external services without explicit user authorization.
-- Guard filesystem writes against path traversal, symlink, and junction escapes.
-- Require explicit confirmation for destructive actions, external state changes, and credential use.
-`;
+function renderSecurity(ctx: ProjectContext): string {
+  const baseRules = [
+    '- Never hardcode secrets, API keys, passwords, tokens, or credentials.',
+    '- Do not send private code or secrets to external services without explicit user authorization.',
+    '- Guard filesystem writes against path traversal, symlink, and junction escapes.',
+    '- Require explicit confirmation for destructive actions, external state changes, and credential use.'
+  ];
+  const extra: string[] = [];
+  if (ctx.buildTool === 'next') extra.push('- Validate request body / query / params at every API route boundary (`pages/api/**` or `app/api/**`).');
+  if (ctx.dataFetching.length > 0) extra.push(`- Sanitize and validate API responses before rendering or persisting (current fetchers: ${ctx.dataFetching.join(', ')}).`);
+  if (ctx.notableDeps.includes('monaco-editor') || ctx.notableDeps.includes('@monaco-editor/react')) {
+    extra.push('- Monaco editor content is untrusted; never `eval` or `Function`-construct user-authored code without an explicit, reviewed sandbox.');
+  }
+  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific security focus', ...extra] : baseRules;
+  return `${renderHeader('Security Review Standards')}${rules.join('\n')}\n`;
 }
 
-function renderLanguageCodingStyle(language: StandardsLanguage): string {
+function renderLanguageCodingStyle(language: StandardsLanguage, ctx: ProjectContext): string {
   const languageName = language === 'generic' ? 'Generic' : language[0]!.toUpperCase() + language.slice(1);
   const typeSafetyRule = language === 'typescript' || language === 'javascript'
     ? '- Do not add new `any` types; use explicit domain types, generics, or `unknown` with narrowing.\n'
     : '';
-  return `${renderHeader(`${languageName} Coding Standards`)}- Apply project-local conventions before generic ${language} guidance.
-- Keep public APIs typed or documented according to ${language} ecosystem norms.
-${typeSafetyRule}- Prefer standard tooling and existing project scripts for formatting, linting, tests, and coverage.
-- peaks-rd must check this file before planning code changes in ${language} projects.
-`;
+  const baseRules = [
+    `- Apply project-local conventions before generic ${language} guidance.`,
+    `- Keep public APIs typed or documented according to ${language} ecosystem norms.`,
+    typeSafetyRule.trim() !== '' ? typeSafetyRule.trim() : null,
+    '- Prefer standard tooling and existing project scripts for formatting, linting, tests, and coverage.',
+    `- peaks-rd must check this file before planning code changes in ${language} projects.`
+  ].filter((line): line is string => line !== null);
+
+  const extra: string[] = [];
+  if ((language === 'typescript' || language === 'javascript') && (ctx.componentLibrary.name === 'antd' || ctx.componentLibrary.name === 'antd-pro')) {
+    extra.push('- Type form values, table records, and API responses with named interfaces; do not rely on `Form.useForm()` inference for shared shapes.');
+  }
+  if ((language === 'typescript' || language === 'javascript') && ctx.dataFetching.includes('@tanstack/react-query')) {
+    extra.push('- Declare query/mutation generics (`useQuery<TData, TError>`) so consumers get typed data.');
+  }
+  if ((language === 'typescript' || language === 'javascript') && ctx.buildTool === 'umi') {
+    extra.push('- Use the project\'s existing service-layer pattern (`src/services/**`) for API calls; do not hand-roll `fetch` in components.');
+  }
+  const rules = extra.length > 0 ? [...baseRules, '', '## Project-specific rules', ...extra] : baseRules;
+  return `${renderHeader(`${languageName} Coding Standards`)}${rules.join('\n')}\n`;
 }
 
 function renderManagedClaudeMdIndex(language: StandardsLanguage): string {
@@ -300,13 +391,13 @@ function writeMissingStandardsRules(plan: ProjectStandardsInitPlan, writes = get
   return writtenFiles;
 }
 
-function createTemplates(language: StandardsLanguage): StandardsTemplate[] {
+function createTemplates(language: StandardsLanguage, ctx: ProjectContext): StandardsTemplate[] {
   return [
-    { relativePath: 'CLAUDE.md', content: renderClaudeMd(language) },
-    { relativePath: '.claude/rules/common/code-review.md', content: renderCodeReview() },
-    { relativePath: '.claude/rules/common/coding-style.md', content: renderCommonCodingStyle() },
-    { relativePath: '.claude/rules/common/security.md', content: renderSecurity() },
-    { relativePath: `.claude/rules/${language}/coding-style.md`, content: renderLanguageCodingStyle(language) }
+    { relativePath: 'CLAUDE.md', content: renderClaudeMd(language, ctx) },
+    { relativePath: '.claude/rules/common/code-review.md', content: renderCodeReview(ctx) },
+    { relativePath: '.claude/rules/common/coding-style.md', content: renderCommonCodingStyle(ctx) },
+    { relativePath: '.claude/rules/common/security.md', content: renderSecurity(ctx) },
+    { relativePath: `.claude/rules/${language}/coding-style.md`, content: renderLanguageCodingStyle(language, ctx) }
   ];
 }
 
@@ -314,7 +405,7 @@ function createManagedClaudeBlock(language: StandardsLanguage): string {
   return renderManagedClaudeMdIndex(language);
 }
 
-function buildClaudeUpdate(projectRoot: string, language: StandardsLanguage): {
+function buildClaudeUpdate(projectRoot: string, language: StandardsLanguage, ctx: ProjectContext): {
   readonly relativePath: 'CLAUDE.md';
   readonly filePath: string;
   readonly status: StandardsWriteStatus;
@@ -332,7 +423,7 @@ function buildClaudeUpdate(projectRoot: string, language: StandardsLanguage): {
       relativePath: 'CLAUDE.md',
       filePath,
       status: 'planned',
-      content: `${renderClaudeMd(language).trimEnd()}\n\n${managedBlock}`,
+      content: `${renderClaudeMd(language, ctx).trimEnd()}\n\n${managedBlock}`,
       appendBlock: '',
       reviewSuggestions: []
     };
@@ -407,7 +498,8 @@ export function createProjectStandardsInitPlan(options: ProjectStandardsInitOpti
   const projectRoot = normalizeRoot(options.projectRoot);
   assertSafeStandardsRoot(projectRoot);
   const language = options.language === undefined ? detectLanguage(projectRoot) : parseLanguage(options.language);
-  const plannedWrites = createTemplates(language).map((template) => buildWrite(projectRoot, template));
+  const ctx = detectProjectContext(projectRoot);
+  const plannedWrites = createTemplates(language, ctx).map((template) => buildWrite(projectRoot, template));
 
   return {
     apply: options.apply ?? false,
@@ -421,7 +513,8 @@ export function createProjectStandardsInitPlan(options: ProjectStandardsInitOpti
 
 export function createProjectStandardsUpdatePlan(options: ProjectStandardsInitOptions): ProjectStandardsUpdatePlan {
   const basePlan = createProjectStandardsInitPlan(options);
-  const claudeMd = buildClaudeUpdate(basePlan.projectRoot, basePlan.language);
+  const ctx = detectProjectContext(basePlan.projectRoot);
+  const claudeMd = buildClaudeUpdate(basePlan.projectRoot, basePlan.language, ctx);
   return {
     ...basePlan,
     claudeMd

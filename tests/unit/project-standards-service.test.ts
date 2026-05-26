@@ -215,4 +215,63 @@ describe('project standards service', () => {
 
     expect(() => createProjectStandardsUpdatePlan({ projectRoot, language: 'typescript' })).toThrow('Project standards CLAUDE.md must stay inside the project root');
   });
+
+  test('interpolates detected stack into CLAUDE.md and rules for antd + Umi + Tailwind projects', () => {
+    const projectRoot = createProjectRoot('peaks-standards-stack-antd-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, '.umirc.ts'), 'export default {};\n', 'utf8');
+    writeFileSync(
+      join(projectRoot, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          antd: '^5.12.0',
+          '@ant-design/pro-components': '^2.0.0',
+          '@umijs/max': '^4.0.0',
+          ahooks: '^3.7.0',
+          tailwindcss: '^3.4.0',
+          less: '^4.2.0',
+          'monaco-editor': '^0.45.0'
+        },
+        devDependencies: {
+          moment: '^2.29.0'
+        }
+      }),
+      'utf8'
+    );
+
+    const result = executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    const codingStyle = readFileSync(join(projectRoot, '.claude', 'rules', 'common', 'coding-style.md'), 'utf8');
+    const codeReview = readFileSync(join(projectRoot, '.claude', 'rules', 'common', 'code-review.md'), 'utf8');
+    const security = readFileSync(join(projectRoot, '.claude', 'rules', 'common', 'security.md'), 'utf8');
+    const tsStyle = readFileSync(join(projectRoot, '.claude', 'rules', 'typescript', 'coding-style.md'), 'utf8');
+
+    expect(result.writtenFiles).toContain('CLAUDE.md');
+    // CLAUDE.md surfaces detected stack
+    expect(claudeMd).toContain('## Detected project stack');
+    expect(claudeMd).toContain('Build tool: Umi');
+    expect(claudeMd).toContain('Ant Design + Ant Design Pro v5');
+    expect(claudeMd).toContain('TailwindCSS');
+    expect(claudeMd).toContain('ahooks');
+    expect(claudeMd).toContain('## CSS framework conflicts');
+    expect(claudeMd).toContain('Tailwind preflight');
+    expect(claudeMd).toContain('## Legacy constraints');
+    expect(claudeMd).toContain('moment');
+
+    // Coding style file carries project-specific rules
+    expect(codingStyle).toContain('## Project-specific rules');
+    expect(codingStyle).toContain('antd v5');
+    expect(codingStyle).toContain('Do NOT apply TailwindCSS utility classes directly to antd components');
+    expect(codingStyle).toContain('@ant-design/pro-components');
+
+    // Code review picks up antd / Tailwind conflicts
+    expect(codeReview).toContain('Block PRs that introduce a second component library');
+    expect(codeReview).toContain('Tailwind utility classes applied directly to component-library primitives');
+
+    // Security picks up Monaco
+    expect(security).toContain('Monaco editor content is untrusted');
+
+    // TypeScript file mentions service-layer pattern
+    expect(tsStyle).toContain("src/services/**");
+  });
 });

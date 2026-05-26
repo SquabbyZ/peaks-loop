@@ -29,9 +29,46 @@ Then display: `Peaks Skill: peaks-txt | Gate: startup | Next: <one short action>
 
 For refactors, create initial context before RD analysis and final context after validation and artifact retention.
 
+## Artifact boundary vs PRD / UI / RD / QA / SC
+
+Peaks TXT is intentionally not a `peaks request <role>` role. The other five roles each own a per-request artifact at `.peaks/<session-id>/<role>/requests/<request-id>.md` with a role-specific state machine that `peaks request init/list/show/transition` validates. TXT artifacts live at one level up:
+
+- session-scoped lessons: `.peaks/<session-id>/txt/skill-usage-lessons.md`;
+- role-scoped or topic-scoped context capsules: `.peaks/<session-id>/txt/<role>-capsule.md`, `.peaks/<session-id>/txt/<topic>-capsule.md`;
+- compact handoff capsules referenced by other roles' artifacts.
+
+This boundary keeps TXT a meta layer that consumes other roles' artifacts and CLI reports, not a workflow stage. Cross-link from a TXT capsule body to the relevant request artifacts instead of duplicating their content. Do not invoke `peaks request init --role txt`; the CLI rejects it.
+
 ## Compaction-safe outputs
 
-When used alone or when a workflow needs portable artifacts that must survive session compaction, end with a short structured capsule: mode, validated decisions, artifact paths, standards deltas, open questions, and next action. Prefer links or paths over long narrative. Do not duplicate the full workflow log when a compact capsule is enough.
+When used alone or when a workflow needs portable artifacts that must survive session compaction, end with a short structured capsule. Prefer links or paths over long narrative. Do not duplicate the full workflow log when a compact capsule is enough.
+
+**Handoff capsule template:**
+
+```markdown
+## Handoff: <request-id>
+- **Mode:** solo | assisted | swarm | strict
+- **Status:** complete | blocked | return-to-rd
+- **Artifacts:**
+  - PRD: .peaks/<id>/prd/requests/<rid>.md
+  - UI:  .peaks/<id>/ui/design-draft.md (or: skipped — pure backend)
+  - RD:  .peaks/<id>/rd/requests/<rid>.md | tech-doc.md
+  - QA:  .peaks/<id>/qa/test-cases/<rid>.md | test-reports/<rid>.md | requests/<rid>.md
+  - SC:  .peaks/<id>/sc/change-control/<rid>.md
+- **Standards delta:** CLAUDE.md: <status>; .claude/rules/: <status>
+- **Open questions:** <list or "none">
+- **Next action:** <one concrete step>
+```
+
+**Skill-usage lesson template:**
+
+```markdown
+## Lesson: <one-line summary>
+- **Why:** <what happened that makes this worth recording>
+- **Affected skills:** peaks-rd, peaks-qa
+- **Rule:** <how future workflows should apply this>
+- **Stable for memory:** yes | no
+```
 
 ## GStack integration
 
@@ -108,6 +145,15 @@ Use `peaks capabilities --json` before recommending memory or context-management
 
 Peaks TXT context capsules and project memory extraction remain authoritative; external memory or context tools inform structure but do not replace the role artifacts.
 
+## Missing artifact handling
+
+TXT depends on artifacts from other roles. When `peaks request list` returns empty or a needed artifact is missing:
+
+1. **No artifacts at all** — emit a minimal capsule with mode, date, and "no artifacts produced yet" status. Do not fabricate paths.
+2. **Partial artifacts** (e.g. PRD exists but RD/QA not yet) — emit capsule with available paths filled and missing slots marked `(not yet produced)`. The capsule is still useful for resumption.
+3. **Artifact paths found but files deleted/moved** — verify with `ls <path>` before linking. If missing, mark `(path broken)` instead of linking dead paths.
+4. Never block TXT completion on missing upstream artifacts. TXT records what exists, not what should exist.
+
 ## Default runbook
 
 Use this sequence when TXT compresses an in-flight workflow into a portable, compaction-safe capsule. TXT never edits code; it only consumes other roles' artifacts and CLI reports.
@@ -138,6 +184,17 @@ peaks skill presence:clear                      # handoff capsule complete, remo
 ```
 
 The final `--apply` call requires explicit user or profile authorization. Without it, keep the capsule under `.peaks/<session-id>/txt/` and reference artifact paths from other roles instead of duplicating their content.
+
+### Transition verification gates (MANDATORY — run the command, see the output)
+
+You cannot declare TXT complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
+
+**Gate A — After writing handoff capsule (before declaring complete):**
+```bash
+find .peaks/<id>/txt/ -type f | sort
+# Expected: at least one capsule file (.md) in the txt/ directory.
+# Empty output → STOP, write the capsule first. Do not clear skill presence.
+```
 
 ## Boundaries
 

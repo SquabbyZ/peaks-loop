@@ -1,0 +1,49 @@
+import { Command } from 'commander';
+import { initWorkspace, InvalidSessionIdError } from '../../services/workspace/workspace-service.js';
+import { fail, ok } from '../../shared/result.js';
+import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+
+type WorkspaceInitOptions = {
+  project: string;
+  sessionId: string;
+  json?: boolean;
+};
+
+export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
+  const workspace = program.command('workspace').description('Manage the Peaks per-session artifact workspace (.peaks/<session-id>/)');
+
+  addJsonOption(
+    workspace
+      .command('init')
+      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) — validates the session id format')
+      .requiredOption('--project <path>', 'target project root')
+      .requiredOption('--session-id <id>', 'session id in YYYY-MM-DD-<kebab-slug> format')
+  ).action(async (options: WorkspaceInitOptions) => {
+    try {
+      const report = await initWorkspace({ projectRoot: options.project, sessionId: options.sessionId });
+      const nextActions: string[] = [];
+      if (report.created.length === 0) {
+        nextActions.push('Workspace already initialized — proceed to project scan.');
+      } else {
+        nextActions.push('Run `peaks scan archetype --project <path> --json` next to populate rd/project-scan.md.');
+      }
+      printResult(io, ok('workspace.init', report, [], nextActions), options.json);
+    } catch (error) {
+      if (error instanceof InvalidSessionIdError) {
+        printResult(
+          io,
+          fail('workspace.init', error.code, error.message, { sessionId: options.sessionId }, ['Use a date-prefixed kebab slug like 2026-05-25-add-user-auth']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(
+        io,
+        fail('workspace.init', 'WORKSPACE_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project, sessionId: options.sessionId }, ['Verify the project path exists and is writable']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+}

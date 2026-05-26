@@ -29,7 +29,7 @@ describe('peaks request init command', () => {
   test('returns a preview for every role without writing files', async () => {
     const project = await makeProject('request-init-preview');
 
-    for (const role of ['prd', 'ui', 'rd', 'qa'] as const) {
+    for (const role of ['prd', 'ui', 'rd', 'qa', 'sc'] as const) {
       const result = await runCommand(['request', 'init', '--role', role, '--id', '2026-05-23-preview', '--project', project, '--session-id', 'test-session', '--json']);
       const output = parseJsonOutput<{ applied: boolean; path: string }>(result.stdout);
 
@@ -44,7 +44,7 @@ describe('peaks request init command', () => {
   test('writes the artifact file for every role when --apply is passed', async () => {
     const project = await makeProject('request-init-apply');
 
-    for (const role of ['prd', 'ui', 'rd', 'qa'] as const) {
+    for (const role of ['prd', 'ui', 'rd', 'qa', 'sc'] as const) {
       const result = await runCommand(['request', 'init', '--role', role, '--id', '2026-05-23-apply', '--project', project, '--session-id', 'test-session', '--apply', '--json']);
       const output = parseJsonOutput<{ applied: boolean; path: string }>(result.stdout);
 
@@ -53,6 +53,15 @@ describe('peaks request init command', () => {
       const body = await readFile(output.data.path, 'utf8');
       expect(body).toMatch(new RegExp(`^# ${role.toUpperCase()} Request 2026-05-23-apply`, 'm'));
     }
+  });
+
+  test('rejects txt as a request role to keep TXT a meta layer', async () => {
+    const project = await makeProject('request-init-reject-txt');
+
+    await expect(
+      runCommand(['request', 'init', '--role', 'txt', '--id', '2026-05-23-x', '--project', project, '--json'])
+    ).rejects.toThrowError(/must be one of prd, ui, rd, qa, sc/);
+    expect(existsSync(join(project, '.peaks'))).toBe(false);
   });
 
   test('refuses to overwrite an existing artifact via --apply', async () => {
@@ -271,7 +280,7 @@ describe('peaks request transition command', () => {
     const project = await makeProject('request-transition-cross');
     await runCommand(['request', 'init', '--role', 'qa', '--id', '2026-05-24-anywhere', '--project', project, '--session-id', 'somewhere', '--apply', '--json']);
 
-    const result = await runCommand(['request', 'transition', '2026-05-24-anywhere', '--role', 'qa', '--state', 'running', '--project', project, '--json']);
+    const result = await runCommand(['request', 'transition', '2026-05-24-anywhere', '--role', 'qa', '--state', 'running', '--project', project, '--allow-incomplete', '--reason', 'cross-session lookup test — prerequisites covered elsewhere', '--json']);
     const output = parseJsonOutput<{ sessionId: string; state: string }>(result.stdout);
 
     expect(output.ok).toBe(true);
@@ -308,5 +317,55 @@ describe('peaks request transition command', () => {
     expect(output.ok).toBe(false);
     expect(output.code).toBe('REQUEST_TRANSITION_FAILED');
     expect(result.exitCode).toBe(1);
+  });
+
+  test('returns PREREQUISITES_MISSING with the list of missing files when gates are unmet', async () => {
+    const project = await makeProject('request-transition-gated');
+    await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-25-feat', '--project', project, '--session-id', 's', '--apply', '--json']);
+
+    const result = await runCommand(['request', 'transition', '2026-05-25-feat', '--role', 'rd', '--state', 'qa-handoff', '--project', project, '--session-id', 's', '--json']);
+    const output = parseJsonOutput<{ missing: Array<{ path: string }> }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('PREREQUISITES_MISSING');
+    expect(result.exitCode).toBe(1);
+    const paths = output.data.missing.map((entry) => entry.path);
+    expect(paths).toContain('rd/tech-doc.md');
+    expect(paths).toContain('rd/code-review.md');
+    expect(paths).toContain('rd/security-review.md');
+  });
+
+  test('rejects --allow-incomplete when --reason is not provided', async () => {
+    const project = await makeProject('request-transition-no-reason');
+    await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-25-feat', '--project', project, '--session-id', 's', '--apply', '--json']);
+
+    const result = await runCommand(['request', 'transition', '2026-05-25-feat', '--role', 'rd', '--state', 'qa-handoff', '--project', project, '--session-id', 's', '--allow-incomplete', '--json']);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('BYPASS_REASON_REQUIRED');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('init with --type bugfix records the type in the artifact and applies bugfix gates', async () => {
+    const project = await makeProject('request-init-typed');
+    const initResult = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-25-bug', '--project', project, '--session-id', 's', '--apply', '--type', 'bugfix', '--json']);
+    const initOutput = parseJsonOutput<{ content: string; requestType?: string }>(initResult.stdout);
+    expect(initOutput.ok).toBe(true);
+    expect(initOutput.data.content).toContain('- type: bugfix');
+
+    // Bugfix should require bug-analysis.md (not tech-doc.md) before rd:implemented.
+    const blocked = await runCommand(['request', 'transition', '2026-05-25-bug', '--role', 'rd', '--state', 'implemented', '--project', project, '--session-id', 's', '--json']);
+    const blockedOutput = parseJsonOutput<{ missing: Array<{ path: string }> }>(blocked.stdout);
+    expect(blockedOutput.ok).toBe(false);
+    expect(blockedOutput.code).toBe('PREREQUISITES_MISSING');
+    expect(blockedOutput.data.missing.map((m) => m.path)).toContain('rd/bug-analysis.md');
+  });
+
+  test('init rejects an invalid --type value via the Commander parser', async () => {
+    const project = await makeProject('request-init-bad-type');
+    await expect(
+      runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-25-bad', '--project', project, '--session-id', 's', '--apply', '--type', 'enhancement', '--json'])
+    ).rejects.toThrowError(/must be one of/);
   });
 });

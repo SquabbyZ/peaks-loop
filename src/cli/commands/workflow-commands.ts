@@ -3,6 +3,7 @@ import { createRdSwarmPlan } from '../../services/rd/rd-service.js';
 import { createTechPlan, getTechStatus } from '../../services/tech/tech-service.js';
 import { createWorkflowRouterPlan, isSoloMode, isWorkflowMode, type SoloMode } from '../../services/workflow/workflow-router-service.js';
 import { createAutonomousWorkflowPlan } from '../../services/workflow/workflow-autonomous-service.js';
+import { writeAutonomousResumeArtifacts } from '../../services/workflow/autonomous-resume-writer.js';
 import { createRecommendationPlan } from '../../services/recommendations/recommendation-service.js';
 import { createRefactorDryRun, type RefactorMode } from '../../services/refactor/refactor-service.js';
 import { ensureWorkspaceConfigForCurrentPath, getCurrentWorkspaceConfig, readConfig } from '../../services/config/config-service.js';
@@ -47,6 +48,14 @@ interface SwarmPlanOptions {
   goal: string;
   maxWorkers: string;
   dryRun?: boolean;
+  json?: boolean;
+}
+
+interface AutonomousResumeInitOptions {
+  changeId: string;
+  goal: string;
+  project: string;
+  apply?: boolean;
   json?: boolean;
 }
 
@@ -247,6 +256,31 @@ function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
   }
 }
 
+async function runAutonomousResumeInit(io: ProgramIO, options: AutonomousResumeInitOptions): Promise<void> {
+  try {
+    if (!options.project || !options.project.trim()) {
+      throw new Error('Project path must be non-empty');
+    }
+    const result = await writeAutonomousResumeArtifacts({
+      changeId: options.changeId,
+      goal: options.goal,
+      artifactWorkspacePath: options.project,
+      apply: options.apply === true
+    });
+    const data = {
+      applied: result.applied,
+      files: result.files.map((file) => file.path)
+    };
+    const nextActions = result.applied
+      ? ['Run peaks workflow autonomous --change-id ' + options.changeId + ' --goal "<goal>" --json to verify resumePlan.status']
+      : ['Re-run with --apply to write the resume scaffold to disk'];
+    printResult(io, ok('autonomous-resume.init', data, [], nextActions), options.json);
+  } catch (error) {
+    printResult(io, fail('autonomous-resume.init', 'AUTONOMOUS_RESUME_INIT_FAILED', getErrorMessage(error), {}, ['Use a safe change id, a non-empty goal, and a writable project path']), options.json);
+    process.exitCode = 1;
+  }
+}
+
 function addTechPlanOptions(command: Command): Command {
   return addJsonOption(
     command
@@ -293,6 +327,17 @@ function addSwarmPlanOptions(command: Command, includeSkill: boolean): Command {
   return addJsonOption(configured);
 }
 
+function addAutonomousResumeInitOptions(command: Command): Command {
+  return addJsonOption(
+    command
+      .description('Write the autonomous resume artifact scaffold for a change-id')
+      .requiredOption('--change-id <id>', 'change identifier')
+      .requiredOption('--goal <goal>', 'planning goal')
+      .requiredOption('--project <path>', 'artifact workspace path to write under')
+      .option('--apply', 'write the artifacts to disk (default is dry-run preview)')
+  );
+}
+
 export function registerWorkflowCommands(program: Command, io: ProgramIO): void {
   const refactor = program.command('refactor').description('Plan a Peaks refactor run without modifying code');
   addJsonOption(
@@ -328,6 +373,11 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addWorkflowRouteOptions(program.command('route'), 'Plan a workflow routing dry-run summary').action((options: WorkflowRouteOptions) => runWorkflowRoute(io, options));
   addWorkflowRouteOptions(workflow.command('autonomous'), 'Plan an autonomous workflow handoff summary').action((options: WorkflowRouteOptions) => runAutonomousWorkflow(io, options));
   addWorkflowRouteOptions(program.command('autonomous'), 'Plan an autonomous workflow handoff summary').action((options: WorkflowRouteOptions) => runAutonomousWorkflow(io, options));
+
+  const autonomousResume = workflow.command('autonomous-resume').description('Manage autonomous workflow resume artifacts');
+  addAutonomousResumeInitOptions(autonomousResume.command('init')).action((options: AutonomousResumeInitOptions) => runAutonomousResumeInit(io, options));
+  const autonomousResumeAlias = program.command('autonomous-resume').description('Manage autonomous workflow resume artifacts');
+  addAutonomousResumeInitOptions(autonomousResumeAlias.command('init')).action((options: AutonomousResumeInitOptions) => runAutonomousResumeInit(io, options));
 
   const swarm = program.command('swarm').description('Plan RD swarm dry-run graphs');
   addSwarmPlanOptions(swarm.command('plan'), true).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));

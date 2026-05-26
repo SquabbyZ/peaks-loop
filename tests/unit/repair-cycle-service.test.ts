@@ -1,0 +1,82 @@
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, expect, test } from 'vitest';
+import {
+  createRequestArtifact,
+  transitionRequestArtifact
+} from '../../src/services/artifacts/request-artifact-service.js';
+import { getRepairCycleStatus } from '../../src/services/artifacts/repair-cycle-service.js';
+
+const SESSION = '2026-05-25-repair';
+const TS = '2026-05-25T08:00:00.000Z';
+
+async function makeProject(): Promise<string> {
+  return mkdtemp(join(tmpdir(), 'peaks-repair-'));
+}
+
+describe('getRepairCycleStatus', () => {
+  test('returns null when the RD artifact does not exist', async () => {
+    const project = await makeProject();
+    const report = await getRepairCycleStatus({ projectRoot: project, requestId: '2026-05-25-nope', sessionId: SESSION });
+    expect(report).toBeNull();
+  });
+
+  test('returns cycleCount=0 for a fresh artifact with no repair notes', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
+      sessionId: SESSION, apply: true, requestType: 'docs', clock: () => TS
+    });
+    const report = await getRepairCycleStatus({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    expect(report?.cycleCount).toBe(0);
+    expect(report?.atCap).toBe(false);
+    expect(report?.remaining).toBe(3);
+  });
+
+  test('counts distinct repair cycles from transition notes', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
+      sessionId: SESSION, apply: true, requestType: 'docs', clock: () => TS
+    });
+    // Simulate 2 repair cycles by transitioning with QA-cycle reasons (docs has no gates).
+    await transitionRequestArtifact({
+      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project, sessionId: SESSION,
+      newState: 'spec-locked',
+      reason: 'QA return-to-rd cycle 1: failing acceptance items A, B',
+      clock: () => '2026-05-25T09:00:00.000Z'
+    });
+    await transitionRequestArtifact({
+      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project, sessionId: SESSION,
+      newState: 'spec-locked',
+      reason: 'QA cycle 2: regression in module X',
+      clock: () => '2026-05-25T10:00:00.000Z'
+    });
+    const report = await getRepairCycleStatus({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    expect(report?.cycleCount).toBe(2);
+    expect(report?.entries.length).toBe(2);
+    expect(report?.atCap).toBe(false);
+    expect(report?.remaining).toBe(1);
+  });
+
+  test('flags atCap=true when cycle count meets the cap', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
+      sessionId: SESSION, apply: true, requestType: 'docs', clock: () => TS
+    });
+    for (let cycle = 1; cycle <= 3; cycle += 1) {
+      await transitionRequestArtifact({
+        role: 'rd', requestId: '2026-05-25-feat', projectRoot: project, sessionId: SESSION,
+        newState: 'spec-locked',
+        reason: `QA return-to-rd cycle ${cycle}: still failing`,
+        clock: () => `2026-05-25T0${8 + cycle}:00:00.000Z`
+      });
+    }
+    const report = await getRepairCycleStatus({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    expect(report?.cycleCount).toBe(3);
+    expect(report?.atCap).toBe(true);
+    expect(report?.blocked).toBe(true);
+  });
+});

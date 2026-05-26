@@ -1,0 +1,148 @@
+import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { pathExists } from '../../shared/fs.js';
+import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
+
+export type RequestType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore';
+
+export const VALID_REQUEST_TYPES: ReadonlyArray<RequestType> = [
+  'feature',
+  'bugfix',
+  'refactor',
+  'docs',
+  'config',
+  'chore'
+];
+
+export const DEFAULT_REQUEST_TYPE: RequestType = 'feature';
+
+export function isRequestType(value: string): value is RequestType {
+  return (VALID_REQUEST_TYPES as ReadonlyArray<string>).includes(value);
+}
+
+export type ArtifactPrerequisite = {
+  /** Relative path under `.peaks/<session-id>/`. May contain `<rid>` placeholder. */
+  relativePath: string;
+  /** Human-readable description of what this artifact represents. */
+  description: string;
+  /** Optional content markers — when set, the file must contain ALL of these (case-insensitive substring). */
+  mustContain?: ReadonlyArray<string>;
+};
+
+export type PrerequisiteCheckResult = {
+  ok: boolean;
+  missing: Array<{ path: string; description: string }>;
+};
+
+type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;
+type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPrerequisite>>>;
+
+// Shared prerequisite fragments
+const TECH_DOC: ArtifactPrerequisite = { relativePath: 'rd/tech-doc.md', description: 'RD technical design doc (architecture, files changed, data flow)' };
+const BUG_ANALYSIS: ArtifactPrerequisite = { relativePath: 'rd/bug-analysis.md', description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)' };
+const CODE_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/code-review.md', description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)' };
+const SECURITY_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/security-review.md', description: 'Security review evidence for the changed surface' };
+const TEST_CASES: ArtifactPrerequisite = { relativePath: 'qa/test-cases/<rid>.md', description: 'Generated test cases (unit / integration / UI regression)' };
+const TEST_REPORT: ArtifactPrerequisite = { relativePath: 'qa/test-reports/<rid>.md', description: 'Test execution report with actual pass/fail/coverage results' };
+const SECURITY_FINDINGS: ArtifactPrerequisite = { relativePath: 'qa/security-findings.md', description: 'Security test findings (record "no findings" inside if truly clean)' };
+const PERFORMANCE_FINDINGS: ArtifactPrerequisite = { relativePath: 'qa/performance-findings.md', description: 'Performance test findings (record baseline/after numbers or explicit "not applicable" rationale)' };
+
+// PRD content prereq: ensures the PRD artifact has actual scope/acceptance content
+// before handoff to RD/UI/QA. The SKILL says "Handoff to RD/UI/QA is blocked while
+// the artifact is missing or in `draft` state" — this gives that claim a CLI gate.
+const PRD_CONTENT: ArtifactPrerequisite = {
+  relativePath: 'prd/requests/<rid>.md',
+  description: 'PRD artifact must contain Goal and Acceptance criteria sections before handoff',
+  mustContain: ['## Goals', '## Acceptance']
+};
+
+const FEATURE_TABLE: PrerequisiteTable = {
+  'prd:handed-off': [PRD_CONTENT],
+  'rd:implemented': [TECH_DOC],
+  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW],
+  'qa:running': [TEST_CASES],
+  'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
+};
+
+// Bugfix: lighter planning artifact (bug-analysis instead of tech-doc), still requires code review + security review + regression test.
+// Performance findings not mandatory for non-perf bugs (use --allow-incomplete --reason if a perf bug requires it).
+const BUGFIX_TABLE: PrerequisiteTable = {
+  'prd:handed-off': [PRD_CONTENT],
+  'rd:implemented': [BUG_ANALYSIS],
+  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW],
+  'qa:running': [TEST_CASES],
+  'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS]
+};
+
+// Refactor: same as feature; refactor hard gates (coverage ≥ 95%) are enforced separately in peaks-rd SKILL.
+const REFACTOR_TABLE: PrerequisiteTable = FEATURE_TABLE;
+
+// Docs / chore: no artifact gates. Use sparingly — for genuinely doc-only or formatter-only changes.
+const NO_GATES: PrerequisiteTable = {};
+
+// Config: security review is the only mandatory check (config changes can break auth, CORS, CSP, secrets handling).
+const CONFIG_TABLE: PrerequisiteTable = {
+  'prd:handed-off': [PRD_CONTENT],
+  'rd:qa-handoff': [SECURITY_REVIEW],
+  'qa:verdict-issued': [SECURITY_FINDINGS]
+};
+
+const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
+  feature: FEATURE_TABLE,
+  bugfix: BUGFIX_TABLE,
+  refactor: REFACTOR_TABLE,
+  docs: NO_GATES,
+  config: CONFIG_TABLE,
+  chore: NO_GATES
+};
+
+export type CheckPrerequisitesOptions = {
+  projectRoot: string;
+  sessionId: string;
+  role: RequestArtifactRole;
+  newState: RequestArtifactState;
+  requestId: string;
+  requestType?: RequestType;
+};
+
+export function getPrerequisitesFor(
+  role: RequestArtifactRole,
+  newState: RequestArtifactState,
+  requestType: RequestType = DEFAULT_REQUEST_TYPE
+): ReadonlyArray<ArtifactPrerequisite> {
+  const table = PREREQUISITES_BY_TYPE[requestType];
+  return table[`${role}:${newState}`] ?? [];
+}
+
+function resolvePrerequisitePath(prerequisite: ArtifactPrerequisite, requestId: string): string {
+  return prerequisite.relativePath.replace('<rid>', requestId);
+}
+
+export async function checkPrerequisites(options: CheckPrerequisitesOptions): Promise<PrerequisiteCheckResult> {
+  const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
+  if (requirements.length === 0) {
+    return { ok: true, missing: [] };
+  }
+  const sessionRoot = join(options.projectRoot, '.peaks', options.sessionId);
+  const missing: Array<{ path: string; description: string }> = [];
+  for (const prerequisite of requirements) {
+    const relative = resolvePrerequisitePath(prerequisite, options.requestId);
+    const absolute = join(sessionRoot, relative);
+    if (!(await pathExists(absolute))) {
+      missing.push({ path: relative, description: prerequisite.description });
+      continue;
+    }
+    if (prerequisite.mustContain && prerequisite.mustContain.length > 0) {
+      const body = await readFile(absolute, 'utf8');
+      const lowered = body.toLowerCase();
+      const missingMarkers = prerequisite.mustContain.filter((marker) => !lowered.includes(marker.toLowerCase()));
+      if (missingMarkers.length > 0) {
+        missing.push({
+          path: relative,
+          description: `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
+        });
+      }
+    }
+  }
+  return { ok: missing.length === 0, missing };
+}
