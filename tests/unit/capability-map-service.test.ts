@@ -121,4 +121,25 @@ describe('createCapabilityMapPlan', () => {
     expect(reviewMapping?.skillName).toBe('peaks-qa');
     expect(securityMapping?.skillName).toBe('peaks-qa');
   });
+
+  test('maps mattpocock/skills item-level methods into Peaks skill landings', () => {
+    const plan = createCapabilityMapPlan({ source: 'mcp-server' });
+    const source = plan.sources.find((candidate) => candidate.sourceId === 'mattpocock-skills');
+    const targetsFor = (capabilityId: string) =>
+      plan.mappings
+        .filter((mapping) => mapping.capabilityId === capabilityId)
+        .map((mapping) => mapping.target)
+        .sort();
+
+    expect(source?.discoveryStatus).toBe('indexed');
+    expect(plan.items.find((item) => item.capabilityId === 'mattpocock-skills.typescript-guidance')).toBeUndefined();
+    expect(targetsFor('mattpocock-skills.product-prd-methods')).toEqual(['peaks-prd']);
+    expect(targetsFor('mattpocock-skills.engineering-diagnosis')).toEqual(['peaks-rd']);
+    expect(targetsFor('mattpocock-skills.tdd-method')).toEqual(['peaks-qa', 'peaks-rd']);
+    expect(targetsFor('mattpocock-skills.qa-triage')).toEqual(['peaks-qa']);
+    expect(targetsFor('mattpocock-skills.handoff-context')).toEqual(['peaks-txt']);
+    expect(targetsFor('mattpocock-skills.git-guardrails')).toEqual(['git guardrails reference catalog']);
+    expect(plan.mappings.find((mapping) => mapping.capabilityId === 'mattpocock-skills.git-guardrails')?.landingKind).toBe('catalog');
+    expect(plan.mappings.filter((mapping) => mapping.sourceId === 'mattpocock-skills').every((mapping) => mapping.dryRunOnly)).toBe(true);
+  });
 });

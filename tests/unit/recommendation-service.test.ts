@@ -13,6 +13,28 @@ describe('seed capability catalog', () => {
     expect(reviewAgent?.category).toBe('code-review');
   });
 
+  test('models mattpocock/skills as indexed item-level Peaks workflow references', () => {
+    const expectedCapabilityIds = [
+      'mattpocock-skills.product-prd-methods',
+      'mattpocock-skills.engineering-diagnosis',
+      'mattpocock-skills.tdd-method',
+      'mattpocock-skills.qa-triage',
+      'mattpocock-skills.handoff-context',
+      'mattpocock-skills.git-guardrails'
+    ];
+    const source = seedCapabilitySources.find((candidate) => candidate.sourceId === 'mattpocock-skills');
+    const itemIds = seedCapabilityItems.map((item) => item.capabilityId);
+
+    expect(source?.sourceType).toBe('skills-package');
+    expect(source?.sourceGroup).toBe('mcp-server');
+    expect(source?.discoveryStatus).toBe('indexed');
+    expect(source?.trustSignals?.notes?.join('\n')).toContain('Catalog/reference only');
+    expect(source?.items).toEqual(expectedCapabilityIds);
+    expect(itemIds).toEqual(expect.arrayContaining(expectedCapabilityIds));
+    expect(seedCapabilityItems.find((item) => item.capabilityId === 'mattpocock-skills.typescript-guidance')).toBeUndefined();
+    expect(seedCapabilityItems.filter((item) => item.sourceId === 'mattpocock-skills')).toHaveLength(expectedCapabilityIds.length);
+  });
+
   test('models MCP collections as sources and concrete MCPs as items', () => {
     const source = seedCapabilitySources.find((candidate) => candidate.sourceId === 'modelcontextprotocol-servers');
     const context7 = seedCapabilityItems.find((candidate) => candidate.capabilityId === 'context7.docs-lookup');
