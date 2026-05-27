@@ -3,6 +3,9 @@ import { join as pathJoin } from 'node:path';
 import { CommanderError } from 'commander';
 import { vi } from 'vitest';
 
+const mockedLint = vi.hoisted(() => vi.fn().mockResolvedValue(null));
+const mockedConfirmation = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
 const cliProgramTestState = vi.hoisted(() => {
   const { mkdtempSync } = require('node:fs') as typeof import('node:fs');
   const { tmpdir } = require('node:os') as typeof import('node:os');
@@ -24,6 +27,18 @@ vi.mock('../../src/services/providers/minimax-provider-service.js', () => ({
 }));
 vi.mock('../../src/services/providers/minimax-worker-service.js', () => ({
   runMiniMaxWorker: cliProgramTestState.workerRun
+}));
+vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
+  requireUserConfirmation: mockedConfirmation,
+  ConfirmationRequiredError: class ConfirmationRequiredError extends Error {
+    constructor(transitionKey: string) {
+      super(`Confirmation required for: ${transitionKey}`);
+      this.name = 'ConfirmationRequiredError';
+    }
+  }
+}));
+vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
+  lintRequestArtifact: mockedLint
 }));
 
 const DEFAULT_CLI_CONFIG = { version: '0.1.0', currentWorkspace: null, workspaces: [], language: 'en', model: 'sonnet', tokens: {}, providers: { minimax: { model: 'minimax-2.7' } } };

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 
@@ -10,6 +10,8 @@ let execCalls: ExecCall[] = [];
 
 vi.mock('../../src/services/config/config-service.js', () => ({
   getCurrentWorkspaceConfig: () => currentWorkspace,
+  getWorkspaceConfig: (id: string) => currentWorkspace?.workspaceId === id ? currentWorkspace : null,
+  getWorkspaceConfigForCurrentPath: () => currentWorkspace,
   readConfig: () => ({ workspaces: currentWorkspace ? [currentWorkspace] : [] })
 }));
 
@@ -39,6 +41,7 @@ describe('executeArtifactSync git auth', () => {
       name: 'Auth Workspace',
       rootPath: join(tmpdir(), `peaks-auth-${Date.now()}`),
       artifactRepo: { provider: 'github', owner: 'acme', name: 'artifact-repo' },
+      artifactStorage: { mode: 'local-with-remote-sync', localPath: join(tmpdir(), `peaks-auth-artifacts-${Date.now()}`), remote: { provider: 'github', owner: 'acme', name: 'artifact-repo' } },
       installedCapabilityIds: []
     };
   });
@@ -51,7 +54,7 @@ describe('executeArtifactSync git auth', () => {
     expect(result.success).toBe(true);
     expect(result.remoteUrl).toBe('https://github.com/acme/artifact-repo.git');
     expect(result.commands.join('\n')).not.toContain('secret-token');
-    const expectedLocalPath = join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-auth', 'artifacts');
+    const expectedLocalPath = resolve((currentWorkspace!.artifactStorage as { mode: string; localPath: string }).localPath);
     expect(execCalls[0]).toMatchObject({
       command: 'git',
       args: ['clone', 'https://github.com/acme/artifact-repo.git', expectedLocalPath]

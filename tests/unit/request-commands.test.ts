@@ -36,7 +36,12 @@ describe('peaks request init command', () => {
       expect(output.ok).toBe(true);
       expect(output.command).toBe('request.init');
       expect(output.data.applied).toBe(false);
-      expect(output.data.path).toBe(join(project, '.peaks', 'test-session', role, 'requests', '2026-05-23-preview.md'));
+      // Path now includes incrementing number prefix (e.g., 001-2026-05-23-preview.md)
+      expect(output.data.path).toContain('.peaks');
+      expect(output.data.path).toContain('test-session');
+      expect(output.data.path).toContain(role);
+      expect(output.data.path).toContain('requests');
+      expect(output.data.path).toMatch(/001-2026-05-23-preview\.md$/);
       expect(existsSync(output.data.path)).toBe(false);
     }
   });
@@ -64,11 +69,12 @@ describe('peaks request init command', () => {
     expect(existsSync(join(project, '.peaks'))).toBe(false);
   });
 
-  test('refuses to overwrite an existing artifact via --apply', async () => {
+  test('rejects creating a duplicate request id when one already exists', async () => {
     const project = await makeProject('request-init-conflict');
     const dir = join(project, '.peaks', 'test-session', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, '2026-05-23-existing.md'), 'existing', 'utf8');
+    // Create file with the new numbered format
+    await writeFile(join(dir, '001-2026-05-23-existing.md'), 'existing', 'utf8');
 
     const result = await runCommand(['request', 'init', '--role', 'prd', '--id', '2026-05-23-existing', '--project', project, '--session-id', 'test-session', '--apply', '--json']);
     const output = parseJsonOutput(result.stdout);
@@ -256,7 +262,7 @@ describe('peaks request transition command', () => {
     const project = await makeProject('request-transition-ok');
     await runCommand(['request', 'init', '--role', 'prd', '--id', '2026-05-24-feature', '--project', project, '--session-id', 's1', '--apply', '--json']);
 
-    const result = await runCommand(['request', 'transition', '2026-05-24-feature', '--role', 'prd', '--state', 'confirmed-by-user', '--project', project, '--session-id', 's1', '--json']);
+    const result = await runCommand(['request', 'transition', '2026-05-24-feature', '--role', 'prd', '--state', 'confirmed-by-user', '--project', project, '--session-id', 's1', '--allow-incomplete', '--reason', 'test transition behavior', '--json']);
     const output = parseJsonOutput<{ state: string; previousState: string }>(result.stdout);
 
     expect(output.ok).toBe(true);
@@ -269,7 +275,7 @@ describe('peaks request transition command', () => {
     const project = await makeProject('request-transition-reason');
     await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-24-blocked', '--project', project, '--session-id', 's1', '--apply', '--json']);
 
-    const result = await runCommand(['request', 'transition', '2026-05-24-blocked', '--role', 'rd', '--state', 'blocked', '--project', project, '--session-id', 's1', '--reason', 'awaiting QA bandwidth', '--json']);
+    const result = await runCommand(['request', 'transition', '2026-05-24-blocked', '--role', 'rd', '--state', 'blocked', '--project', project, '--session-id', 's1', '--allow-incomplete', '--reason', 'awaiting QA bandwidth', '--json']);
     const output = parseJsonOutput<{ content: string }>(result.stdout);
 
     expect(output.ok).toBe(true);

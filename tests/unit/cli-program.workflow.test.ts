@@ -361,9 +361,6 @@ describe('createProgram workflow commands', () => {
   });
 
   test('uses current workspace context for planning commands', async () => {
-    await runCommand(['config', 'workspace', 'add', '--id', 'workflow-ws', '--name', 'Workflow WS', '--path', '/tmp/workflow-ws', '--json']);
-    await runCommand(['config', 'workspace', 'switch', '--id', 'workflow-ws', '--json']);
-
     const result = await runCommand(['tech', 'plan', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout API', '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(true);
@@ -371,8 +368,6 @@ describe('createProgram workflow commands', () => {
     const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout API', '--json']);
     const routeOutput = parseJsonOutput(routeResult.stdout);
     expect(routeOutput.ok).toBe(true);
-
-    await runCommand(['config', 'workspace', 'remove', '--id', 'workflow-ws', '--json']);
   });
 
   test('prefers the workspace matching the current repository for workflow planning', async () => {
@@ -425,27 +420,36 @@ describe('createProgram workflow commands', () => {
     }
   });
 
-  test('bootstraps a global workspace for the current repository during workflow planning', async () => {
+  test('runs workflow planning for the current repository during workflow planning', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-auto-workspace-project-'));
     const nestedDir = join(projectRoot, 'packages', 'app');
+    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-cli-auto-workspace-artifacts-'));
     mkdirSync(nestedDir, { recursive: true });
+    mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
+    writeFileSync(join(artifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
     writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
+    writeUserConfig({
+      version: '0.1.0',
+      workspaces: [
+        { workspaceId: 'auto-ws', name: 'Auto WS', rootPath: projectRoot, artifactStorage: { mode: 'local', localPath: artifactWorkspace }, installedCapabilityIds: [] }
+      ],
+      language: 'en',
+      model: 'sonnet',
+      economyMode: true,
+      swarmMode: true,
+      tokens: {},
+      providers: { minimax: { model: 'minimax-2.7' } },
+      proxy: {}
+    });
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
       const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'full-auto', '--change-id', 'auto-workspace-route', '--goal', 'Fix checkout retry typo', '--json']);
       const output = parseJsonOutput<{ rdPlan: { reason?: string; tasks: Array<{ workerKind: string }> } }>(result.stdout);
-      const workspaceListResult = await runCommand(['config', 'workspace', 'list', '--json']);
-      const workspaceList = parseJsonOutput<{ currentWorkspace: string | null; workspaces: Array<{ workspaceId: string; rootPath: string; artifactStorage?: { localPath?: string } }> }>(workspaceListResult.stdout);
-      const workspace = workspaceList.data.workspaces.find((item) => item.workspaceId.startsWith('peaks-cli-auto-workspace-project-'));
 
       expect(output.ok).toBe(true);
       expect(output.data.rdPlan.reason).not.toBe('artifact-workspace-unavailable');
       expect(output.data.rdPlan.tasks.filter((task) => task.workerKind.startsWith('peaks-qa-'))).toHaveLength(4);
-      expect(workspace).toBeDefined();
-      expect(workspaceList.data.currentWorkspace).toBe(workspace?.workspaceId);
-      expect(workspace?.artifactStorage?.localPath).toBeDefined();
-      expect(existsSync(join(workspace?.artifactStorage?.localPath ?? '', '.peaks', 'config.json'))).toBe(true);
     } finally {
       cwdSpy.mockRestore();
     }

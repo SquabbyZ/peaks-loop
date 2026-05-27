@@ -37,10 +37,10 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
 
-        const presence = setSkillPresence('peaks-solo', 'solo', 'doctor');
+        const presence = setSkillPresence('peaks-solo', 'assisted', 'doctor');
 
         expect(presence.skill).toBe('peaks-solo');
-        expect(presence.mode).toBe('solo');
+        expect(presence.mode).toBe('assisted');
         expect(presence.gate).toBe('doctor');
         expect(presence.setAt).toBeTruthy();
 
@@ -48,7 +48,7 @@ describe('skill presence service', () => {
         expect(existsSync(filePath)).toBe(true);
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         expect(raw.skill).toBe('peaks-solo');
-        expect(raw.mode).toBe('solo');
+        expect(raw.mode).toBe('assisted');
         expect(raw.gate).toBe('doctor');
       } finally {
         vi.restoreAllMocks();

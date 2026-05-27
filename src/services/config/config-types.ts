@@ -65,8 +65,6 @@ export type WorkspaceConfig = {
 
 export type PeaksConfig = {
   version: string;
-  currentWorkspace: string | null;
-  workspaces: WorkspaceConfig[];
   language: string;
   model: ModelPreference;
   economyMode: boolean;
@@ -91,8 +89,6 @@ export type ConfigSetOptions = {
 
 export const DEFAULT_CONFIG: PeaksConfig = {
   version: CLI_VERSION,
-  currentWorkspace: null,
-  workspaces: [],
   language: 'en',
   model: 'sonnet',
   economyMode: true,

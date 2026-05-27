@@ -1,7 +1,14 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
+import { ensureSession } from '../session/session-manager.js';
+import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
+import { lintRequestArtifact } from './artifact-lint-service.js';
+import { checkTypeSanity } from '../scan/type-sanity-service.js';
+import { requireUserConfirmation } from '../mode/mode-enforcement.js';
+import { scanFileSize } from '../scan/file-size-scan.js';
 
 export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
 
@@ -333,26 +340,48 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
 
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
-  const sessionId = options.sessionId ?? defaultSessionId(timestamp);
-  const path = join(
-    options.projectRoot,
-    '.peaks',
-    sessionId,
-    options.role,
-    'requests',
-    `${options.requestId}.md`
-  );
+
+  // Use provided session ID or get/create current session
+  const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
+
+  // Build numbered path in session directory
+  const requestsDir = join(options.projectRoot, '.peaks', sessionId, options.role, 'requests');
+
+  // Check if a file with this requestId already exists (regardless of number prefix)
+  if (await isDirectory(requestsDir)) {
+    const existingFiles = await listMarkdownFiles(requestsDir);
+    const alreadyExists = existingFiles.some((file) => {
+      if (file === `${options.requestId}.md`) return true;
+      if (/^\d+-/.test(file) && file.endsWith(`-${options.requestId}.md`)) return true;
+      return false;
+    });
+    if (alreadyExists) {
+      throw new Error(`A request artifact with id "${options.requestId}" already exists in ${requestsDir}. Remove it before re-running peaks request init.`);
+    }
+  }
+
+  const number = getNextNumber(requestsDir);
+  const filename = buildNumberedFilename(number, options.requestId);
+  const path = join(requestsDir, filename);
+
   const content = renderTemplate(options.role, options.requestId, sessionId, timestamp, requestType);
 
   if (options.apply !== true) {
     return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: false };
   }
-
-  if (await pathExists(path)) {
-    throw new Error(`Refusing to write: ${path} already exists. Update it in place or remove it before re-running peaks request init.`);
-  }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
+
+  // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked
+  if (options.role === 'qa') {
+    const qaDir = join(options.projectRoot, '.peaks', sessionId, 'qa');
+    const initiatedPath = join(qaDir, '.initiated');
+    if (!existsSync(initiatedPath)) {
+      await mkdir(qaDir, { recursive: true });
+      await writeFile(initiatedPath, '', 'utf8');
+    }
+  }
+
   return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: true };
 }
 
@@ -422,7 +451,9 @@ async function readSummary(
   const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
   const body = await readFile(path, 'utf8');
   const { state, createdAt, requestType } = extractMetadata(body);
-  const requestId = fileName.replace(/\.md$/, '');
+  // Strip numbered prefix (e.g., "001-requestId.md" -> "requestId")
+  // Only strip 3-digit zero-padded prefixes (our incrementing number format)
+  const requestId = fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
   const summary: RequestArtifactSummary = { role, sessionId, requestId, path, state, requestType };
   if (createdAt !== undefined) {
     summary.createdAt = createdAt;
@@ -469,15 +500,30 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
     throw new Error(`Invalid request id: ${options.requestId} (expected letters, digits, dots, underscores, or dashes)`);
   }
 
-  const fileName = `${options.requestId}.md`;
+  // Search for files matching the requestId (supports both legacy and numbered formats)
+  const findFileInDir = async (dir: string): Promise<{ fileName: string; path: string } | null> => {
+    const files = await listMarkdownFiles(dir);
+    for (const file of files) {
+      // Match legacy format: ${requestId}.md
+      if (file === `${options.requestId}.md`) {
+        return { fileName: file, path: join(dir, file) };
+      }
+      // Match numbered format: ${number}-${requestId}.md
+      if (/^\d+-/.test(file) && file.endsWith(`-${options.requestId}.md`)) {
+        return { fileName: file, path: join(dir, file) };
+      }
+    }
+    return null;
+  };
 
   if (options.sessionId !== undefined) {
-    const path = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests', fileName);
-    if (!(await pathExists(path))) {
+    const dir = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests');
+    const found = await findFileInDir(dir);
+    if (found === null) {
       return null;
     }
-    const summary = await readSummary(options.projectRoot, options.sessionId, options.role, fileName);
-    const content = await readFile(path, 'utf8');
+    const summary = await readSummary(options.projectRoot, options.sessionId, options.role, found.fileName);
+    const content = await readFile(found.path, 'utf8');
     return { ...summary, content };
   }
 
@@ -487,10 +533,11 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   }
   const sessions = await listDirectories(peaksRoot);
   for (const sessionId of sessions) {
-    const path = join(peaksRoot, sessionId, options.role, 'requests', fileName);
-    if (await pathExists(path)) {
-      const summary = await readSummary(options.projectRoot, sessionId, options.role, fileName);
-      const content = await readFile(path, 'utf8');
+    const dir = join(peaksRoot, sessionId, options.role, 'requests');
+    const found = await findFileInDir(dir);
+    if (found !== null) {
+      const summary = await readSummary(options.projectRoot, sessionId, options.role, found.fileName);
+      const content = await readFile(found.path, 'utf8');
       return { ...summary, content };
     }
   }
@@ -531,6 +578,9 @@ export type TransitionRequestArtifactOptions = {
   sessionId?: string;
   reason?: string;
   allowIncomplete?: boolean;
+  confirmed?: boolean;
+  forceConfirm?: boolean;
+  typeSanityCheck?: { projectRoot: string; declaredType: RequestType };
   clock?: () => string;
 };
 
@@ -555,6 +605,57 @@ export class PrerequisitesNotSatisfiedError extends Error {
     this.newState = newState;
     this.sessionId = sessionId;
     this.missing = missing;
+  }
+}
+
+export class LintGateError extends Error {
+  readonly code = 'LINT_GATE_FAILED';
+  readonly role: RequestArtifactRole;
+  readonly newState: RequestArtifactState;
+  readonly errorCount: number;
+  constructor(role: RequestArtifactRole, newState: RequestArtifactState, errorCount: number) {
+    super(
+      `Cannot transition ${role} to ${newState}: ${errorCount} lint error(s) found in artifact. ` +
+      'Fix lint errors or use --allow-incomplete to bypass.'
+    );
+    this.name = 'LintGateError';
+    this.role = role;
+    this.newState = newState;
+    this.errorCount = errorCount;
+  }
+}
+
+export class TypeSanityViolationError extends Error {
+  readonly code = 'TYPE_SANITY_VIOLATION';
+  readonly declaredType: RequestType;
+  readonly suggestedTypes: ReadonlyArray<RequestType>;
+  readonly rationale: string;
+  constructor(declaredType: RequestType, suggestedTypes: ReadonlyArray<RequestType>, rationale: string) {
+    super(
+      `Type sanity violation: declared --type=${declaredType} disagrees with changed files. ` +
+      `Suggested types: ${suggestedTypes.join(' | ')}. ` +
+      `Rationale: ${rationale}`
+    );
+    this.name = 'TypeSanityViolationError';
+    this.declaredType = declaredType;
+    this.suggestedTypes = suggestedTypes;
+    this.rationale = rationale;
+  }
+}
+
+export class FileSizeViolationError extends Error {
+  readonly code = 'FILE_SIZE_VIOLATION';
+  readonly violations: Array<{ file: string; lines: number }>;
+  readonly threshold: number;
+  constructor(violations: Array<{ file: string; lines: number }>, threshold: number) {
+    const summary = violations.map((v) => `${v.file} (${v.lines} lines)`).join(', ');
+    super(
+      `File size violation: ${violations.length} file(s) exceed ${threshold} lines: ${summary}. ` +
+      'Split into smaller modules or use --allow-incomplete to bypass.'
+    );
+    this.name = 'FileSizeViolationError';
+    this.violations = violations;
+    this.threshold = threshold;
   }
 }
 
@@ -623,6 +724,15 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     return null;
   }
 
+  // Mode enforcement: require user confirmation in assisted/strict modes
+  const transitionKey = `${options.role}:${options.newState}` as `${RequestArtifactRole}:${RequestArtifactState}`;
+  await requireUserConfirmation({
+    projectRoot: options.projectRoot,
+    transitionKey,
+    confirmed: options.confirmed,
+    forceConfirm: options.forceConfirm
+  });
+
   const prerequisiteResult = await checkPrerequisites({
     projectRoot: options.projectRoot,
     sessionId: existing.sessionId,
@@ -634,6 +744,45 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   if (!prerequisiteResult.ok && options.allowIncomplete !== true) {
     throw new PrerequisitesNotSatisfiedError(options.role, options.newState, existing.sessionId, prerequisiteResult.missing);
+  }
+
+  // Type sanity check for PRD handoff
+  if (options.typeSanityCheck !== undefined && options.role === 'prd' && options.newState === 'handed-off') {
+    const sanityReport = checkTypeSanity({
+      projectRoot: options.typeSanityCheck.projectRoot,
+      declaredType: options.typeSanityCheck.declaredType
+    });
+    if (!sanityReport.consistent) {
+      throw new TypeSanityViolationError(
+        options.typeSanityCheck.declaredType,
+        sanityReport.suggestedTypes,
+        sanityReport.rationale
+      );
+    }
+  }
+
+  // Lint gate: when transitioning OUT of draft, lint must pass (unless --allow-incomplete)
+  if (existing.state === 'draft' && options.allowIncomplete !== true) {
+    const lintReport = await lintRequestArtifact({
+      projectRoot: options.projectRoot,
+      role: options.role,
+      requestId: options.requestId,
+      sessionId: existing.sessionId
+    });
+    if (lintReport !== null && !lintReport.ok) {
+      const errorCount = lintReport.findings.filter((f) => f.severity === 'error').length;
+      if (errorCount > 0) {
+        throw new LintGateError(options.role, options.newState, errorCount);
+      }
+    }
+  }
+
+  // File size gate: when RD declares implemented, scan for oversized files (karpathy-skills "Simplicity First")
+  if (options.role === 'rd' && options.newState === 'implemented' && options.allowIncomplete !== true) {
+    const sizeResult = scanFileSize({ projectRoot: options.projectRoot });
+    if (!sizeResult.ok) {
+      throw new FileSizeViolationError(sizeResult.violations, sizeResult.threshold);
+    }
   }
 
   const clock = options.clock ?? defaultClock;

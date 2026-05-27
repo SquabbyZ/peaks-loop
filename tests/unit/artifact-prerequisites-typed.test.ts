@@ -1,7 +1,16 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
+  requireUserConfirmation: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
+  lintRequestArtifact: vi.fn().mockResolvedValue(null)
+}));
+
 import {
   createRequestArtifact,
   transitionRequestArtifact,
@@ -48,10 +57,10 @@ describe('request types — bugfix gates', () => {
     expect(caught?.missing.map((m) => m.path)).toEqual(['rd/bug-analysis.md']);
   });
 
-  test('bugfix→qa-handoff requires bug-analysis + code-review + security-review', async () => {
+  test('bugfix→qa-handoff requires bug-analysis + code-review + security-review + unit-tests + qa-initiated', async () => {
     const project = await makeProject();
     await seed(project, 'rd', '2026-05-25-bug', 'bugfix');
-    await writeArtifact(project, 'rd/bug-analysis.md');
+    await writeArtifact(project, 'rd/bug-analysis.md', '# Bug analysis\n\n## Root cause\n\n- ...\n\n## Fix approach\n\n- ...');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
@@ -64,15 +73,17 @@ describe('request types — bugfix gates', () => {
     const paths = caught?.missing.map((m) => m.path) ?? [];
     expect(paths).toContain('rd/code-review.md');
     expect(paths).toContain('rd/security-review.md');
+    expect(paths).toContain('qa/test-cases/2026-05-25-bug.md');
+    expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/bug-analysis.md');
   });
 
   test('bugfix qa:verdict-issued does NOT require performance-findings.md', async () => {
     const project = await makeProject();
     await seed(project, 'qa', '2026-05-25-bug', 'bugfix');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-bug.md');
-    await writeArtifact(project, 'qa/test-reports/2026-05-25-bug.md');
-    await writeArtifact(project, 'qa/security-findings.md');
+    await writeArtifact(project, 'qa/test-cases/2026-05-25-bug.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, 'qa/test-reports/2026-05-25-bug.md', '# report\n\n## Test execution\n\n- pass');
+    await writeArtifact(project, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
     // performance-findings.md intentionally absent
     const result = await transitionRequestArtifact({
       role: 'qa', requestId: '2026-05-25-bug', projectRoot: project,
@@ -83,8 +94,8 @@ describe('request types — bugfix gates', () => {
   });
 });
 
-describe('request types — docs and chore have no gates', () => {
-  test('docs rd:qa-handoff passes with zero artifacts', async () => {
+describe('request types — docs and chore have minimal gates (PRD content only)', () => {
+  test('docs rd:qa-handoff passes with zero artifacts (MINIMAL_TABLE only gates prd:handed-off)', async () => {
     const project = await makeProject();
     await seed(project, 'rd', '2026-05-25-doc', 'docs');
     const result = await transitionRequestArtifact({
@@ -95,7 +106,7 @@ describe('request types — docs and chore have no gates', () => {
     expect(result?.requestType).toBe('docs');
   });
 
-  test('chore qa:verdict-issued passes with zero artifacts', async () => {
+  test('chore qa:verdict-issued passes with zero artifacts (MINIMAL_TABLE only gates prd:handed-off)', async () => {
     const project = await makeProject();
     await seed(project, 'qa', '2026-05-25-lint', 'chore');
     const result = await transitionRequestArtifact({

@@ -1,9 +1,8 @@
 import { existsSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
-import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { isInsidePath, stablePath } from '../../shared/path-utils.js';
-import { readConfig, getCurrentWorkspaceConfig } from '../config/config-service.js';
+import { getWorkspaceConfig, getWorkspaceConfigForCurrentPath } from '../config/config-service.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { pathExists } from '../../shared/fs.js';
 import { execCommand } from '../../shared/process.js';
@@ -43,7 +42,7 @@ export function getLocalArtifactPath(workspace: WorkspaceConfig): string {
   if (workspace.artifactStorage?.localPath) {
     return resolve(workspace.artifactStorage.localPath);
   }
-  return resolve(homedir(), '.peaks', 'workspaces', workspace.workspaceId, 'artifacts');
+  return resolve(workspace.rootPath, '.peaks', 'artifacts');
 }
 
 export function isArtifactWorkspaceOutsideTarget(workspace: WorkspaceConfig, artifactWorkspacePath = getLocalArtifactPath(workspace)): boolean {
@@ -117,8 +116,8 @@ function redactSecrets(message: string): string {
 
 export async function executeArtifactSync(workspaceId?: string): Promise<SyncResult> {
   const workspace = workspaceId
-    ? readConfig().workspaces.find((w) => w.workspaceId === workspaceId) ?? null
-    : getCurrentWorkspaceConfig();
+    ? getWorkspaceConfig(workspaceId)
+    : getWorkspaceConfigForCurrentPath();
 
   if (!workspace) {
     return {
@@ -227,8 +226,8 @@ export async function executeArtifactSync(workspaceId?: string): Promise<SyncRes
 
 export function getArtifactWorkspaceStatus(workspaceId?: string): ArtifactWorkspaceStatus {
   const workspace = workspaceId
-    ? readConfig().workspaces.find((w) => w.workspaceId === workspaceId) ?? null
-    : getCurrentWorkspaceConfig();
+    ? getWorkspaceConfig(workspaceId)
+    : getWorkspaceConfigForCurrentPath();
 
   if (!workspace) {
     return {
@@ -278,8 +277,8 @@ export function planArtifactSync(workspaceId?: string, dryRun = true): {
   plannedCommands: string[];
 } {
   const workspace = workspaceId
-    ? readConfig().workspaces.find((w) => w.workspaceId === workspaceId) ?? null
-    : getCurrentWorkspaceConfig();
+    ? getWorkspaceConfig(workspaceId)
+    : getWorkspaceConfigForCurrentPath();
 
   if (!workspace) {
     return {

@@ -21,13 +21,12 @@ async function makeGitRepo(): Promise<string> {
 }
 
 async function seedRdWithScope(project: string, rid: string, scopeBody: string): Promise<void> {
-  await createRequestArtifact({
+  const result = await createRequestArtifact({
     role: 'rd', requestId: rid, projectRoot: project, sessionId: SESSION, apply: true, clock: () => TS
   });
-  const rdPath = join(project, '.peaks', SESSION, 'rd', 'requests', `${rid}.md`);
-  const body = await readFile(rdPath, 'utf8');
+  const body = await readFile(result.path, 'utf8');
   const replaced = body.replace(/(## Red-line scope\n)[\s\S]*?(?=\n## )/, `$1\n${scopeBody}\n`);
-  await writeFile(rdPath, replaced, 'utf8');
+  await writeFile(result.path, replaced, 'utf8');
 }
 
 async function writeAndStage(project: string, relPath: string, contents: string): Promise<void> {

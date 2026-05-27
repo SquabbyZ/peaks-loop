@@ -8,7 +8,8 @@ import { pathsEqual } from '../../src/shared/path-utils.js';
 let currentWorkspace: WorkspaceConfig | null = null;
 
 vi.mock('../../src/services/config/config-service.js', () => ({
-  getCurrentWorkspaceConfig: () => currentWorkspace
+  getCurrentWorkspaceConfig: () => currentWorkspace,
+  getWorkspaceConfigForPath: (_path?: string) => currentWorkspace
 }));
 
 vi.mock('node:child_process', () => ({
@@ -56,7 +57,7 @@ describe('guided artifact setup', () => {
     expect(setup.provider).toBe('github');
     expect(setup.repoOwner).toBe('acme');
     expect(setup.repoName).toBe('peaks-artifacts');
-    expect(pathsEqual(setup.localPath, join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-artifacts', 'artifacts'))).toBe(true);
+    expect(pathsEqual(setup.localPath, join(testRoot, '.peaks', 'artifacts'))).toBe(true);
     expect(setup.remoteUrl).toBe('https://github.com/acme/peaks-artifacts.git');
   });
 

@@ -10,7 +10,8 @@ let currentWorkspace: WorkspaceConfig | null = {
 };
 
 vi.mock('../../src/services/config/config-service.js', () => ({
-  getCurrentWorkspaceConfig: () => currentWorkspace
+  getCurrentWorkspaceConfig: () => currentWorkspace,
+  getWorkspaceConfigForPath: (_path?: string) => currentWorkspace
 }));
 
 vi.mock('../../src/services/artifacts/workspace-service.js', () => ({

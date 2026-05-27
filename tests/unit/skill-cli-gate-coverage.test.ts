@@ -62,10 +62,14 @@ describe('dogfood coverage: SKILL claims have CLI/file backing', () => {
       expect.soft(hasPrdContentCheck, `prd:handed-off (${type}) should validate PRD body content (mustContain)`).toBe(true);
     }
 
-    // docs/chore intentionally have no gates — keep that invariant explicit.
+    // docs/chore now use MINIMAL_TABLE — require PRD content before handoff.
     for (const type of ['docs', 'chore'] satisfies ReadonlyArray<RequestType>) {
       const prereqs = getPrerequisitesFor('prd', 'handed-off', type);
-      expect.soft(prereqs.length, `prd:handed-off should remain ungated for type=${type}`).toBe(0);
+      expect.soft(prereqs.length, `prd:handed-off should require PRD content for type=${type}`).toBe(1);
+      const hasPrdContentCheck = prereqs.some(
+        (p) => p.relativePath.includes('prd/requests/') && Array.isArray(p.mustContain) && p.mustContain.length > 0
+      );
+      expect.soft(hasPrdContentCheck, `prd:handed-off (${type}) should validate PRD body content (mustContain)`).toBe(true);
     }
   });
 

@@ -48,10 +48,8 @@ function runCapabilityMap(io: ProgramIO, options: CapabilityMapOptions): void {
   })), options.json);
 }
 
-export function getInstalledCapabilityIds(config: PeaksConfig): string[] {
-  const currentWorkspace = config.workspaces.find((workspace) => workspace.workspaceId === config.currentWorkspace);
-  if (!currentWorkspace) return [];
-  return [...currentWorkspace.installedCapabilityIds];
+export function getInstalledCapabilityIds(_config: PeaksConfig): string[] {
+  return [];
 }
 
 function parseCapabilityMapSource(source: string): CapabilityMapSourceFilter | null {

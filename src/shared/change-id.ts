@@ -4,7 +4,9 @@
  * and keep artifacts inside the Peaks artifact workspace.
  */
 
-import { posix } from 'node:path';
+import { posix, join } from 'node:path';
+import { getNextNumber, buildNumberedFilename } from './incrementing-number.js';
+import { getSessionId } from '../services/session/session-manager.js';
 
 const CHANGE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -62,8 +64,44 @@ export function isUnsafeArtifactPath(path: string): boolean {
   return isUnsafePathInput(path);
 }
 
+/**
+ * Build an artifact-relative path using session-based storage.
+ *
+ * If a session exists, files are stored in:
+ *   .peaks/<sessionId>/<role>/<number>-<changeId>.md
+ *
+ * If no session exists, falls back to legacy behavior:
+ *   .peaks/<changeId>/<segments>
+ *
+ * @param changeId - Used as file description/slug (e.g., "auth-system", "add-user-auth")
+ * @param segments - Optional path segments (first segment is typically the role: 'prd', 'rd', 'qa', etc.)
+ * @returns Relative path to the artifact file
+ */
 export function buildArtifactRelativePath(changeId: string, ...segments: string[]): string {
   validateChangeIdOrThrow(changeId);
+
+  const sessionId = getSessionId(process.cwd());
+
+  if (sessionId && segments.length > 0 && segments[0]) {
+    const role = normalizeForwardSlashes(segments[0]);
+    const dirPath = join(process.cwd(), '.peaks', sessionId, role);
+
+    if (isUnsafeArtifactPath(role) || isUnsafeArtifactPath(sessionId)) {
+      throw new ChangeIdValidationError(changeId);
+    }
+
+    const number = getNextNumber(dirPath);
+    const filename = buildNumberedFilename(number, changeId);
+    const candidatePath = `.peaks/${sessionId}/${role}/${filename}`;
+
+    if (isUnsafeArtifactPath(candidatePath)) {
+      throw new ChangeIdValidationError(changeId);
+    }
+
+    return normalizeArtifactPath(candidatePath);
+  }
+
+  // Fallback: no session or no segments - use legacy behavior
   const joined = segments.map((segment) => normalizeForwardSlashes(segment)).join('/');
   const candidatePath = `.peaks/${changeId}/${joined}`;
 

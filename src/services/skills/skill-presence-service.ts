@@ -1,9 +1,22 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
+export type SkillPresenceMode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
+
+export const VALID_SKILL_PRESENCE_MODES: ReadonlyArray<SkillPresenceMode> = [
+  'full-auto',
+  'assisted',
+  'swarm',
+  'strict'
+];
+
+export function isSkillPresenceMode(value: string): value is SkillPresenceMode {
+  return (VALID_SKILL_PRESENCE_MODES as ReadonlyArray<string>).includes(value);
+}
+
 export type SkillPresence = {
   skill: string;
-  mode?: string;
+  mode?: SkillPresenceMode;
   gate?: string;
   setAt: string;
 };
@@ -19,9 +32,11 @@ export function exportSkillPresence(): string {
 }
 
 export function setSkillPresence(skill: string, mode?: string, gate?: string): SkillPresence {
+  const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
+
   const presence: SkillPresence = {
     skill,
-    ...(mode ? { mode } : {}),
+    ...(validatedMode ? { mode: validatedMode } : {}),
     ...(gate ? { gate } : {}),
     setAt: new Date().toISOString()
   };

@@ -2,7 +2,7 @@ import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { basename, relative, resolve } from 'node:path';
 import { isInsidePath } from '../../shared/path-utils.js';
-import { getCurrentWorkspaceConfig } from '../config/config-service.js';
+import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import { getArtifactRemoteRepo, getArtifactWorkspaceStatus, getLocalArtifactPath } from '../artifacts/workspace-service.js';
 
 export type ChangeImpact = {
@@ -171,7 +171,7 @@ function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string,
 }
 
 export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
-  const workspace = getCurrentWorkspaceConfig();
+  const workspace = getWorkspaceConfigForPath(process.cwd());
   const artifactStatus = getArtifactWorkspaceStatus(workspace?.workspaceId);
 
   if (!workspace) {
@@ -227,7 +227,7 @@ export function createChangeImpact(options: {
   affectedModules?: string[];
   affectedFiles?: string[];
 }): ChangeImpact {
-  const workspace = getCurrentWorkspaceConfig();
+  const workspace = getWorkspaceConfigForPath(process.cwd());
   const artifactRepo = workspace ? getArtifactRemoteRepo(workspace) : null;
 
   return {
@@ -280,7 +280,7 @@ export function recordCommitBoundary(options: {
   artifacts?: string[];
   codeFiles?: string[];
 }): CommitBoundary {
-  const workspace = getCurrentWorkspaceConfig();
+  const workspace = getWorkspaceConfigForPath(process.cwd());
   const artifactStatus = getArtifactWorkspaceStatus(workspace?.workspaceId);
   const commitHash = getCurrentCommitHash(workspace?.rootPath);
 
@@ -300,7 +300,7 @@ export function validateArtifactRetention(sliceId: string): {
   missingArtifacts: string[];
   warnings: string[];
 } {
-  const workspace = getCurrentWorkspaceConfig();
+  const workspace = getWorkspaceConfigForPath(process.cwd());
   if (!workspace) {
     return {
       valid: false,

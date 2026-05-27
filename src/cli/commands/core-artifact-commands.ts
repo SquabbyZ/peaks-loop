@@ -8,7 +8,7 @@ import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
-import { setSkillPresence, clearSkillPresence, getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode } from '../../services/skills/skill-presence-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -92,6 +92,18 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
   ).action((name: string, options: { mode?: string; gate?: string; json?: boolean }) => {
+    if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
+      printResult(
+        io,
+        fail('skill.presence:set', 'INVALID_MODE',
+          `Invalid mode: ${options.mode} (expected one of: full-auto, assisted, swarm, strict)`,
+          { name, mode: options.mode },
+          ['Use a valid mode: full-auto, assisted, swarm, or strict']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
     const presence = setSkillPresence(name, options.mode, options.gate);
     printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
   });

@@ -318,25 +318,6 @@ describe('createProgram', () => {
     }
   });
 
-  test('validates artifact repo options when adding workspaces', async () => {
-    const partialResult = await runCommand(['config', 'workspace', 'add', '--id', 'partial-artifacts', '--name', 'Partial Artifacts', '--path', '/tmp/partial-artifacts', '--provider', 'github', '--json']);
-    expect(parseJsonOutput(partialResult.stdout).code).toBe('INVALID_ARTIFACT_REPO_CONFIG');
-    expect(partialResult.exitCode).toBe(1);
-
-    const unsupportedResult = await runCommand(['config', 'workspace', 'add', '--id', 'bad-provider', '--name', 'Bad Provider', '--path', '/tmp/bad-provider', '--provider', 'gitea', '--repo-owner', 'owner', '--repo-name', 'repo', '--json']);
-    expect(parseJsonOutput(unsupportedResult.stdout).code).toBe('UNSUPPORTED_ARTIFACT_PROVIDER');
-    expect(unsupportedResult.exitCode).toBe(1);
-
-    const unsafeSegmentResult = await runCommand(['config', 'workspace', 'add', '--id', 'unsafe-artifacts', '--name', 'Unsafe Artifacts', '--path', '/tmp/unsafe-artifacts', '--provider', 'github', '--repo-owner', '../owner', '--repo-name', 'repo', '--json']);
-    expect(parseJsonOutput(unsafeSegmentResult.stdout).code).toBe('INVALID_ARTIFACT_REPO_CONFIG');
-    expect(unsafeSegmentResult.exitCode).toBe(1);
-
-    const validResult = await runCommand(['config', 'workspace', 'add', '--id', 'valid-artifacts', '--name', 'Valid Artifacts', '--path', '/tmp/valid-artifacts', '--provider', 'gitlab', '--repo-owner', 'owner.name', '--repo-name', 'repo-name', '--json']);
-    const validOutput = parseJsonOutput<{ artifactRepo?: { provider: string; owner: string; name: string } }>(validResult.stdout);
-    expect(validOutput.ok).toBe(true);
-    expect(validOutput.data.artifactRepo).toEqual({ provider: 'gitlab', owner: 'owner.name', name: 'repo-name' });
-  });
-
   test('prints artifact status and accepts valid setup steps', async () => {
     const statusResult = await runCommand(['artifacts', 'status', '--json']);
     const statusOutput = parseJsonOutput(statusResult.stdout);

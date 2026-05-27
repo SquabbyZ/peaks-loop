@@ -1,7 +1,16 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
+  requireUserConfirmation: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
+  lintRequestArtifact: vi.fn().mockResolvedValue(null)
+}));
+
 import {
   createRequestArtifact,
   transitionRequestArtifact,
@@ -48,7 +57,7 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
   test('rd→implemented passes when tech-doc.md exists', async () => {
     const project = await makeProject();
     await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# tech doc');
+    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
       newState: 'implemented', sessionId: SESSION, clock: () => TS
@@ -60,8 +69,8 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
   test('rd→qa-handoff is blocked when code-review.md or security-review.md is missing', async () => {
     const project = await makeProject();
     await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# tech doc');
-    // code-review.md and security-review.md intentionally missing
+    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    // code-review.md, security-review.md, unit-tests, and qa-initiated intentionally missing
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
@@ -75,6 +84,8 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     const missingPaths = (caught?.missing ?? []).map((entry) => entry.path);
     expect(missingPaths).toContain('rd/code-review.md');
     expect(missingPaths).toContain('rd/security-review.md');
+    expect(missingPaths).toContain('qa/test-cases/2026-05-25-feat.md');
+    expect(missingPaths).toContain('qa/.initiated');
     expect(missingPaths).not.toContain('rd/tech-doc.md');
   });
 
@@ -101,10 +112,10 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
   test('qa→verdict-issued passes when every gated file exists', async () => {
     const project = await makeProject();
     await seedQa(project, '2026-05-25-feat');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases');
-    await writeArtifact(project, 'qa/test-reports/2026-05-25-feat.md', '# report');
-    await writeArtifact(project, 'qa/security-findings.md', '# security');
-    await writeArtifact(project, 'qa/performance-findings.md', '# perf');
+    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, 'qa/test-reports/2026-05-25-feat.md', '# report\n\n## Test execution\n\n- pass');
+    await writeArtifact(project, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
+    await writeArtifact(project, 'qa/performance-findings.md', '# perf\n\n## Baseline\n\n- 100ms');
     const result = await transitionRequestArtifact({
       role: 'qa', requestId: '2026-05-25-feat', projectRoot: project,
       newState: 'verdict-issued', sessionId: SESSION, clock: () => TS

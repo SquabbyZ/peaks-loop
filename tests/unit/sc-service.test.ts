@@ -14,6 +14,7 @@ let throwGitRevParse = false;
 
 vi.mock('../../src/services/config/config-service.js', () => ({
   getCurrentWorkspaceConfig: () => currentWorkspace,
+  getWorkspaceConfigForPath: (_path?: string) => currentWorkspace,
   readConfig: () => ({ workspaces: currentWorkspace ? [currentWorkspace] : [] })
 }));
 

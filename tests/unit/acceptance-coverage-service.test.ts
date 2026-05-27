@@ -13,18 +13,17 @@ async function makeProject(): Promise<string> {
 }
 
 async function writePrd(project: string, rid: string, acceptanceBullets: string[]): Promise<void> {
-  await createRequestArtifact({
+  const result = await createRequestArtifact({
     role: 'prd', requestId: rid, projectRoot: project, sessionId: SESSION, apply: true, clock: () => TS
   });
   // Overwrite the acceptance section with deterministic bullets.
-  const prdPath = join(project, '.peaks', SESSION, 'prd', 'requests', `${rid}.md`);
   const { readFile } = await import('node:fs/promises');
-  const body = await readFile(prdPath, 'utf8');
+  const body = await readFile(result.path, 'utf8');
   const replaced = body.replace(
     /(## Acceptance criteria\n)[\s\S]*?(?=\n## )/,
     `$1\n${acceptanceBullets.map((bullet) => `- ${bullet}`).join('\n')}\n`
   );
-  await writeFile(prdPath, replaced, 'utf8');
+  await writeFile(result.path, replaced, 'utf8');
 }
 
 async function writeTestCases(project: string, rid: string, body: string): Promise<void> {

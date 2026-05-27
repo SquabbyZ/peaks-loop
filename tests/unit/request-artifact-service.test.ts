@@ -33,7 +33,7 @@ describe('createRequestArtifact (preview)', () => {
 
       expect(result.role).toBe(role);
       expect(result.applied).toBe(false);
-      expect(result.path).toBe(join(project, '.peaks', STABLE_SESSION, role, 'requests', '2026-05-23-add-foo.md'));
+      expect(result.path).toMatch(/001-2026-05-23-add-foo\.md$/);
       expect(result.content).toMatch(new RegExp(`^# ${role.toUpperCase()} Request 2026-05-23-add-foo`, 'm'));
       expect(result.content).toMatch(/## Status/);
       expect(await pathExists(result.path)).toBe(false);
@@ -66,7 +66,7 @@ describe('createRequestArtifact (preview)', () => {
       clock: () => STABLE_TIMESTAMP
     });
 
-    expect(result.sessionId).toMatch(/^2026-05-23/);
+    expect(result.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-/);
     expect(result.path).toContain(result.sessionId);
   });
 
@@ -100,13 +100,14 @@ describe('createRequestArtifact (apply)', () => {
     const project = await makeProject();
     const dir = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests');
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, '2026-05-23-add-foo.md'), 'existing', 'utf8');
+    // Create file with the new numbered format
+    await writeFile(join(dir, '001-2026-05-23-add-foo.md'), 'existing', 'utf8');
 
     await expect(
       createRequestArtifact({ ...commonOptions('prd', project), apply: true })
-    ).rejects.toThrowError(/exists/i);
+    ).rejects.toThrowError(/already exists/i);
 
-    const preserved = await readFile(join(dir, '2026-05-23-add-foo.md'), 'utf8');
+    const preserved = await readFile(join(dir, '001-2026-05-23-add-foo.md'), 'utf8');
     expect(preserved).toBe('existing');
   });
 

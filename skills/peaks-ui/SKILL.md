@@ -67,6 +67,9 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 
 # 3. read project-scan for component library and CSS framework context
 #    check .peaks/<session-id>/rd/project-scan.md (blocking if missing for existing projects)
+#    NOTE: project-scan.md is a session-scoped singleton — check if it already exists before
+#    regenerating. If it exists and is complete (has `## Archetype` and `## Project mode`
+#    sections), reuse it.
 
 # 4. PROTOTYPE FIDELITY CHECK (MANDATORY before any design work):
 #    Check if a Figma file, PRD screenshots, or explicit PRD visuals exist.

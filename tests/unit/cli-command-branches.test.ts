@@ -112,31 +112,6 @@ describe('cli command branch handling', () => {
     expect(branchState.setConfig).toHaveBeenCalledWith({ key: 'language', value: 'en', layer: 'user' });
   });
 
-  test('maps config workspace default layer fallbacks and service errors', async () => {
-    const { registerConfigCommands } = await import('../../src/cli/commands/config-commands.js');
-
-    branchState.addWorkspace.mockImplementationOnce(() => undefined);
-    const addResult = await runRegisteredCommand(registerConfigCommands, ['config', 'workspace', 'add', '--id', 'branch-add', '--name', 'Branch Add', '--path', '/tmp/branch-add', '--json']);
-    expect(parseJsonOutput(addResult.stdout).ok).toBe(true);
-    expect(branchState.addWorkspace).toHaveBeenCalledWith({
-      workspaceId: 'branch-add',
-      name: 'Branch Add',
-      rootPath: '/tmp/branch-add',
-      installedCapabilityIds: [],
-      artifactStorage: { mode: 'local' }
-    }, 'user');
-
-    branchState.removeWorkspace.mockReturnValueOnce(false);
-    const removeResult = await runRegisteredCommand(registerConfigCommands, ['config', 'workspace', 'remove', '--id', 'branch-remove', '--json']);
-    expect(parseJsonOutput(removeResult.stdout).code).toBe('WORKSPACE_NOT_FOUND');
-    expect(branchState.removeWorkspace).toHaveBeenCalledWith('branch-remove', 'user');
-
-    branchState.setCurrentWorkspace.mockReturnValueOnce(false);
-    const switchResult = await runRegisteredCommand(registerConfigCommands, ['config', 'workspace', 'switch', '--id', 'branch-switch', '--json']);
-    expect(parseJsonOutput(switchResult.stdout).code).toBe('WORKSPACE_NOT_FOUND');
-    expect(branchState.setCurrentWorkspace).toHaveBeenCalledWith('branch-switch', 'user');
-  });
-
   test('covers workflow route without a workspace context', async () => {
     const { registerWorkflowCommands } = await import('../../src/cli/commands/workflow-commands.js');
     branchState.getCurrentWorkspaceConfig.mockReturnValueOnce(null);

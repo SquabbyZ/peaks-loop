@@ -31,6 +31,9 @@ const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 
 const PROHIBITED_SUFFIXES: ReadonlyArray<string> = ['session', 'work', 'task', 'test', 'temp', 'tmp'];
 
+// Auto-generated session ID pattern: YYYY-MM-DD-session-<6位hex>
+const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
+
 export class InvalidSessionIdError extends Error {
   readonly code = 'INVALID_SESSION_ID';
   constructor(message: string) {
@@ -40,6 +43,11 @@ export class InvalidSessionIdError extends Error {
 }
 
 export function validateSessionId(sessionId: string): void {
+  // Auto-generated session IDs (YYYY-MM-DD-session-<hex>) bypass manual validation
+  if (AUTO_SESSION_PATTERN.test(sessionId)) {
+    return;
+  }
+
   if (/^\d+$/.test(sessionId)) {
     throw new InvalidSessionIdError(`Session id "${sessionId}" is numeric-only. Use the format YYYY-MM-DD-<kebab-slug> with a 2-5 word topic description.`);
   }

@@ -1,10 +1,20 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
+  requireUserConfirmation: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
+  lintRequestArtifact: vi.fn().mockResolvedValue(null)
+}));
+
 import {
   createRequestArtifact,
   transitionRequestArtifact,
+  type CreateRequestArtifactResult,
   type RequestArtifactRole,
   type RequestArtifactState
 } from '../../src/services/artifacts/request-artifact-service.js';
@@ -17,8 +27,8 @@ const STABLE_SESSION = '2026-05-24-transition';
 const STABLE_TIMESTAMP = '2026-05-24T08:00:00.000Z';
 const LATER_TIMESTAMP = '2026-05-24T09:30:00.000Z';
 
-async function seed(project: string, role: RequestArtifactRole, requestId: string): Promise<void> {
-  await createRequestArtifact({
+async function seed(project: string, role: RequestArtifactRole, requestId: string): Promise<CreateRequestArtifactResult> {
+  return createRequestArtifact({
     role,
     requestId,
     projectRoot: project,
@@ -234,11 +244,10 @@ describe('transitionRequestArtifact (validation)', () => {
 
   test('preserves the rest of the artifact body when updating state', async () => {
     const project = await makeProject();
-    await seed(project, 'prd', '2026-05-24-preserve');
+    const createResult = await seed(project, 'prd', '2026-05-24-preserve');
     // edit the body to add a custom line outside the Status block
-    const path = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests', '2026-05-24-preserve.md');
-    const before = await readFile(path, 'utf8');
-    await writeFile(path, before.replace('## Goals', '## Goals\n\n- custom goal line\n'), 'utf8');
+    const before = await readFile(createResult.path, 'utf8');
+    await writeFile(createResult.path, before.replace('## Goals', '## Goals\n\n- custom goal line\n'), 'utf8');
 
     await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-preserve', projectRoot: project,
@@ -246,13 +255,13 @@ describe('transitionRequestArtifact (validation)', () => {
       clock: () => LATER_TIMESTAMP
     });
 
-    const after = await readFile(path, 'utf8');
+    const after = await readFile(createResult.path, 'utf8');
     expect(after).toContain('- custom goal line');
   });
 
   test('handles artifacts that already have transition notes by appending a new one', async () => {
     const project = await makeProject();
-    await seed(project, 'prd', '2026-05-24-multi-reason');
+    const createResult = await seed(project, 'prd', '2026-05-24-multi-reason');
 
     await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-multi-reason', projectRoot: project,
@@ -265,8 +274,7 @@ describe('transitionRequestArtifact (validation)', () => {
       reason: 'unblocked', clock: () => LATER_TIMESTAMP
     });
 
-    const path = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests', '2026-05-24-multi-reason.md');
-    const body = await readFile(path, 'utf8');
+    const body = await readFile(createResult.path, 'utf8');
     expect(body).toContain('first block');
     expect(body).toContain('unblocked');
   });

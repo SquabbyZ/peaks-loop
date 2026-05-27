@@ -38,14 +38,42 @@ type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;
 type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPrerequisite>>>;
 
 // Shared prerequisite fragments
-const TECH_DOC: ArtifactPrerequisite = { relativePath: 'rd/tech-doc.md', description: 'RD technical design doc (architecture, files changed, data flow)' };
-const BUG_ANALYSIS: ArtifactPrerequisite = { relativePath: 'rd/bug-analysis.md', description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)' };
-const CODE_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/code-review.md', description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)' };
+const TECH_DOC: ArtifactPrerequisite = {
+  relativePath: 'rd/tech-doc.md',
+  description: 'RD technical design doc (architecture, files changed, data flow)',
+  mustContain: ['## Red-line scope', '## Implementation evidence']
+};
+const BUG_ANALYSIS: ArtifactPrerequisite = {
+  relativePath: 'rd/bug-analysis.md',
+  description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
+  mustContain: ['## Root cause', '## Fix approach']
+};
+const CODE_REVIEW: ArtifactPrerequisite = {
+  relativePath: 'rd/code-review.md',
+  description: 'Code review evidence (CRITICAL/HIGH must be fixed before handoff)',
+  mustContain: ['## Findings', 'CRITICAL']
+};
 const SECURITY_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/security-review.md', description: 'Security review evidence for the changed surface' };
-const TEST_CASES: ArtifactPrerequisite = { relativePath: 'qa/test-cases/<rid>.md', description: 'Generated test cases (unit / integration / UI regression)' };
-const TEST_REPORT: ArtifactPrerequisite = { relativePath: 'qa/test-reports/<rid>.md', description: 'Test execution report with actual pass/fail/coverage results' };
-const SECURITY_FINDINGS: ArtifactPrerequisite = { relativePath: 'qa/security-findings.md', description: 'Security test findings (record "no findings" inside if truly clean)' };
-const PERFORMANCE_FINDINGS: ArtifactPrerequisite = { relativePath: 'qa/performance-findings.md', description: 'Performance test findings (record baseline/after numbers or explicit "not applicable" rationale)' };
+const TEST_CASES: ArtifactPrerequisite = {
+  relativePath: 'qa/test-cases/<rid>.md',
+  description: 'Generated test cases (unit / integration / UI regression)',
+  mustContain: ['## Test cases']
+};
+const TEST_REPORT: ArtifactPrerequisite = {
+  relativePath: 'qa/test-reports/<rid>.md',
+  description: 'Test execution report with actual pass/fail/coverage results',
+  mustContain: ['## Test execution']
+};
+const SECURITY_FINDINGS: ArtifactPrerequisite = {
+  relativePath: 'qa/security-findings.md',
+  description: 'Security test findings (record "no findings" inside if truly clean)',
+  mustContain: ['## Findings']
+};
+const PERFORMANCE_FINDINGS: ArtifactPrerequisite = {
+  relativePath: 'qa/performance-findings.md',
+  description: 'Performance test findings (record baseline/after numbers or explicit "not applicable" rationale)',
+  mustContain: ['## Baseline']
+};
 
 // PRD content prereq: ensures the PRD artifact has actual scope/acceptance content
 // before handoff to RD/UI/QA. The SKILL says "Handoff to RD/UI/QA is blocked while
@@ -56,10 +84,21 @@ const PRD_CONTENT: ArtifactPrerequisite = {
   mustContain: ['## Goals', '## Acceptance']
 };
 
+const UNIT_TESTS: ArtifactPrerequisite = {
+  relativePath: 'qa/test-cases/<rid>.md',
+  description: 'Unit test files for the implemented changes (enforces peaks-rd Gate B2)',
+  mustContain: ['## Test cases', 'test(']
+};
+
+const QA_INITIATED: ArtifactPrerequisite = {
+  relativePath: 'qa/.initiated',
+  description: 'QA skill must be invoked before RD handoff (run peaks request init --role qa)'
+};
+
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [TECH_DOC],
-  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW],
+  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
 };
@@ -69,7 +108,7 @@ const FEATURE_TABLE: PrerequisiteTable = {
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],
-  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW],
+  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS]
 };
@@ -77,8 +116,11 @@ const BUGFIX_TABLE: PrerequisiteTable = {
 // Refactor: same as feature; refactor hard gates (coverage ≥ 95%) are enforced separately in peaks-rd SKILL.
 const REFACTOR_TABLE: PrerequisiteTable = FEATURE_TABLE;
 
-// Docs / chore: no artifact gates. Use sparingly — for genuinely doc-only or formatter-only changes.
-const NO_GATES: PrerequisiteTable = {};
+// Docs / chore: minimal gate — require PRD content before proceeding.
+// Prevents jumping to implementation without planning.
+const MINIMAL_TABLE: PrerequisiteTable = {
+  'prd:handed-off': [PRD_CONTENT]
+};
 
 // Config: security review is the only mandatory check (config changes can break auth, CORS, CSP, secrets handling).
 const CONFIG_TABLE: PrerequisiteTable = {
@@ -91,9 +133,9 @@ const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
   feature: FEATURE_TABLE,
   bugfix: BUGFIX_TABLE,
   refactor: REFACTOR_TABLE,
-  docs: NO_GATES,
+  docs: MINIMAL_TABLE,
   config: CONFIG_TABLE,
-  chore: NO_GATES
+  chore: MINIMAL_TABLE
 };
 
 export type CheckPrerequisitesOptions = {

@@ -4,6 +4,7 @@ import { scanExistingSystem } from '../../services/scan/existing-system-service.
 import { checkTypeSanity } from '../../services/scan/type-sanity-service.js';
 import { getAcceptanceCoverage, isAcceptanceCoverageError } from '../../services/scan/acceptance-coverage-service.js';
 import { getDiffVsScope, isDiffScopeError } from '../../services/scan/diff-scope-service.js';
+import { scanFileSize, DEFAULT_FILE_SIZE_THRESHOLD } from '../../services/scan/file-size-scan.js';
 import { isRequestType, VALID_REQUEST_TYPES, type RequestType } from '../../services/artifacts/artifact-prerequisites.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -24,6 +25,13 @@ type RequestTypeSanityOptions = {
   project: string;
   type: RequestType;
   baseRef?: string;
+  json?: boolean;
+};
+
+type FileSizeScanOptions = {
+  project: string;
+  baseRef?: string;
+  threshold?: string;
   json?: boolean;
 };
 
@@ -239,6 +247,41 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('scan.diff-vs-scope', 'DIFF_VS_SCOPE_FAILED', getErrorMessage(error), { requestId: options.rid }, ['Verify the project path is a git repository and the RD artifact exists']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    scan
+      .command('file-size')
+      .description('Check git diff for files exceeding a line count threshold (karpathy-skills "Simplicity First")')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--base-ref <ref>', 'compare working tree against this git ref (default: HEAD)')
+      .option('--threshold <n>', `line count threshold (default: ${DEFAULT_FILE_SIZE_THRESHOLD})`)
+  ).action((options: FileSizeScanOptions) => {
+    try {
+      const threshold = options.threshold !== undefined && /^\d+$/.test(options.threshold)
+        ? Number(options.threshold)
+        : undefined;
+      const result = scanFileSize({
+        projectRoot: options.project,
+        ...(options.baseRef !== undefined ? { baseRef: options.baseRef } : {}),
+        ...(threshold !== undefined ? { threshold } : {})
+      });
+      const nextActions: string[] = [];
+      if (!result.ok) {
+        nextActions.push(`${result.violations.length} file(s) exceed ${result.threshold} lines. Split into smaller modules.`);
+      }
+      printResult(io, ok('scan.file-size', result, [], nextActions), options.json);
+      if (!result.ok) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      printResult(
+        io,
+        fail('scan.file-size', 'FILE_SIZE_SCAN_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path is a git repository']),
         options.json
       );
       process.exitCode = 1;

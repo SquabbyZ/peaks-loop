@@ -1,7 +1,16 @@
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
+  requireUserConfirmation: vi.fn().mockResolvedValue(undefined)
+}));
+
+vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
+  lintRequestArtifact: vi.fn().mockResolvedValue(null)
+}));
+
 import {
   createRequestArtifact,
   transitionRequestArtifact

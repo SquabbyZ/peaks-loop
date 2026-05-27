@@ -77,27 +77,24 @@ For frontend workflows, RD and QA must use Playwright MCP (`mcp__playwright__` t
 
 ### Workspace initialization gate
 
-Before ANY role handoff or artifact write, Peaks Solo MUST create the workspace. The session-id uses the format `YYYY-MM-DD-<kebab-slug>` where `<kebab-slug>` is the **request-id or a 2-5 word topic description** (e.g. `2026-05-25-v3-indicator-model`, `2026-05-25-add-user-auth`).
+Before ANY role handoff or artifact write, Peaks Solo MUST create the workspace. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
 
-**PROHIBITED session-id patterns** — block the workflow if any of these appear:
-- Numeric-only: `1779674289`, `1779672642`
-- Generic suffixes: `session`, `work`, `task`, `test`, `temp`, `tmp`
-- Bare dates without topic: `2026-05-25`
-- Timestamps: `20260525T093000`
+When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If `.peaks/.session.json` already exists with a valid session, the existing session is reused.
 
-**Existing old-session cleanup**: If `.peaks/` contains numeric-only or generic session directories from prior runs, create the new correctly-named session, migrate any reusable artifacts into it, and note the migration in the TXT handoff. Delete empty old-session directories.
+**Existing old-session cleanup**: If `.peaks/` contains numeric-only or generic session directories from prior runs (e.g. `2026-05-25-auth-system`), create the new correctly-named session, migrate any reusable artifacts into it, and note the migration in the TXT handoff. Delete empty old-session directories.
 
 ```bash
-peaks workspace init --project <repo> --session-id <YYYY-MM-DD-<slug>> --json
+peaks workspace init --project <repo> --json
 ```
 
-The workspace initialization creates this structure under `.peaks/<session-id>/`:
+The workspace initialization creates this structure under `.peaks/<session-id>/` (where `<session-id>` is auto-generated as `YYYY-MM-DD-session-<6位hex>`):
 
 ```
 prd/source/      # PRD source documents (Feishu exports, pasted content)
 prd/requests/    # PRD request artifacts (goals, non-goals, acceptance, frontend delta)
 ui/requests/     # UI request artifacts (visual direction, taste reports)
 rd/requests/     # RD request artifacts (slice specs, coverage, CR findings)
+rd/project-scan.md  # Project scan (session-scoped singleton, generated once per session)
 qa/test-cases/   # QA test cases
 qa/test-reports/ # QA test reports (regression matrices, browser evidence)
 qa/requests/     # QA request artifacts
@@ -138,7 +135,7 @@ Do not default to git-backed storage or automatic commits for intermediate artif
 
 ## Pre-RD project scan checklist (MANDATORY)
 
-Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/<session-id>/rd/project-scan.md`. RD and UI roles read this before starting work.
+Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/<session-id>/rd/project-scan.md`. RD and UI roles read this before starting work. **project-scan.md is a session-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/<session-id>/rd/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
 
 ### 0. Project archetype detection (MANDATORY — run FIRST, deterministic CLI)
 
@@ -388,6 +385,7 @@ ls .peaks/<id>/rd/project-scan.md
 # Expected output: .peaks/<id>/rd/project-scan.md
 # "No such file" → STOP, run project scan first
 # File present but missing `## Archetype` or `## Project mode` sections → INCOMPLETE, rerun scan
+# File present and complete → reuse (project-scan is a session-scoped singleton)
 ```
 
 **Gate A.5 — Existing-system extraction (legacy projects only):**
@@ -571,7 +569,7 @@ The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict`
 peaks doctor --json
 peaks project dashboard --project <repo> --json
 peaks skill runbook peaks-solo --json
-peaks workspace init --project <repo> --session-id <YYYY-MM-DD-<slug>> --json
+peaks workspace init --project <repo> --json
 peaks scan archetype --project <repo> --json
 # → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Gate A)
 # → if archetype != greenfield AND archetype != unknown:

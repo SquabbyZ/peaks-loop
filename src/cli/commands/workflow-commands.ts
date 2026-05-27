@@ -6,17 +6,20 @@ import { createAutonomousWorkflowPlan } from '../../services/workflow/workflow-a
 import { writeAutonomousResumeArtifacts } from '../../services/workflow/autonomous-resume-writer.js';
 import { createRecommendationPlan } from '../../services/recommendations/recommendation-service.js';
 import { createRefactorDryRun, type RefactorMode } from '../../services/refactor/refactor-service.js';
-import { ensureWorkspaceConfigForCurrentPath, getCurrentWorkspaceConfig, readConfig } from '../../services/config/config-service.js';
+import { getWorkspaceConfigForPath, readConfig } from '../../services/config/config-service.js';
 import type { WorkspaceConfig } from '../../services/config/config-types.js';
 import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { getEconomyAwareExecutionModelId } from '../../services/config/model-routing.js';
 import { getLocalArtifactPath } from '../../services/artifacts/workspace-service.js';
+import { getSessionId } from '../../services/session/session-manager.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
 
 interface WorkspaceContext {
   workspace?: WorkspaceConfig;
   artifactWorkspacePath?: string;
+  sessionId?: string;
+  sessionDir?: string;
 }
 
 interface TechPlanOptions {
@@ -60,14 +63,17 @@ interface AutonomousResumeInitOptions {
 }
 
 function getCurrentWorkspaceContext(): WorkspaceContext {
-  const workspace = getCurrentWorkspaceConfig();
-  if (!workspace) return {};
-  return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
+  try {
+    const sessionId = getSessionId(process.cwd());
+    return sessionId ? { sessionId, sessionDir: `.peaks/${sessionId}` } : {};
+  } catch {
+    return {};
+  }
 }
 
 function getWorkflowWorkspaceContext(): WorkspaceContext {
   try {
-    const workspace = ensureWorkspaceConfigForCurrentPath() ?? getCurrentWorkspaceConfig();
+    const workspace = getWorkspaceConfigForPath(process.cwd());
     if (!workspace) return {};
     return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
   } catch {

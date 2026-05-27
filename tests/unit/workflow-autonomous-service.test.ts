@@ -1,5 +1,5 @@
 import { writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { DEFAULT_CONFIG } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
@@ -209,7 +209,7 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(false);
     expect(plan.blockedReasons).toContain('artifact-workspace-unavailable');
-    expect(getLocalArtifactPath(workspace)).toBe(join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-autonomous', 'artifacts'));
+    expect(getLocalArtifactPath(workspace)).toBe(resolve(workspace.rootPath, '.peaks', 'artifacts'));
     expect(plan.storagePlan.scope).toBe('user-local');
     expect(plan.storagePlan.artifactWorkspacePath).toBe(getLocalArtifactPath(workspace));
     expect(plan.storagePlan.memoryBackupPath).toBe(join(getLocalArtifactPath(workspace), '.peaks', 'memory-backups', 'project-memory-primary'));

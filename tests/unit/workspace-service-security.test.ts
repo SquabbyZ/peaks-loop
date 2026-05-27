@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { Buffer } from 'node:buffer';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 
@@ -13,6 +13,8 @@ const execCalls: ExecCall[] = [];
 
 vi.mock('../../src/services/config/config-service.js', () => ({
   getCurrentWorkspaceConfig: () => currentWorkspace,
+  getWorkspaceConfig: (id: string) => currentWorkspace?.workspaceId === id ? currentWorkspace : null,
+  getWorkspaceConfigForCurrentPath: () => currentWorkspace,
   readConfig: () => ({ workspaces: currentWorkspace ? [currentWorkspace] : [] })
 }));
 
@@ -44,6 +46,7 @@ describe('executeArtifactSync security', () => {
       name: 'Secure Workspace',
       rootPath: join(tmpdir(), `peaks-secure-${Date.now()}`),
       artifactRepo: { provider: 'github', owner: 'acme', name: 'artifact-repo' },
+      artifactStorage: { mode: 'local-with-remote-sync', localPath: join(tmpdir(), `peaks-secure-artifacts-${Date.now()}`), remote: { provider: 'github', owner: 'acme', name: 'artifact-repo' } },
       installedCapabilityIds: []
     };
   });
@@ -112,7 +115,7 @@ describe('executeArtifactSync security', () => {
 
     expect(result.success).toBe(true);
     expect(result.remoteUrl).toBe('https://github.com/acme/artifact-repo.git');
-    const expectedLocalPath = join(process.env.HOME ?? '', '.peaks', 'workspaces', 'ws-secure', 'artifacts');
+    const expectedLocalPath = resolve((currentWorkspace!.artifactStorage as { mode: string; localPath: string }).localPath);
     expect(result.commands.join('\n')).not.toContain('secret-token');
     expect(result.commands).toContain(`git clone https://github.com/acme/artifact-repo.git "${expectedLocalPath}"`);
     expect(execCalls[0]).toMatchObject({
@@ -144,6 +147,7 @@ describe('executeArtifactSync security', () => {
       name: 'GitLab Workspace',
       rootPath: join(tmpdir(), `peaks-gitlab-${Date.now()}`),
       artifactRepo: { provider: 'gitlab', owner: 'acme', name: 'artifact-repo' },
+      artifactStorage: { mode: 'local-with-remote-sync', localPath: join(tmpdir(), `peaks-gitlab-artifacts-${Date.now()}`), remote: { provider: 'gitlab', owner: 'acme', name: 'artifact-repo' } },
       installedCapabilityIds: []
     };
 

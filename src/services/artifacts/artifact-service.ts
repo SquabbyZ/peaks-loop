@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
-import { getCurrentWorkspaceConfig } from '../config/config-service.js';
+import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import { getArtifactRemoteRepo, getLocalArtifactPath } from './workspace-service.js';
 
 export type ArtifactProvider = 'github' | 'gitlab';
@@ -85,7 +85,7 @@ export function createArtifactInitPlan(options: {
 }
 
 export function createGuidedArtifactSetup(): GuidedArtifactSetup {
-  const workspace = getCurrentWorkspaceConfig();
+  const workspace = getWorkspaceConfigForPath(process.cwd());
   const artifactRepo = workspace ? getArtifactRemoteRepo(workspace) : null;
   const validationResult = {
     workspaceExists: workspace !== null,

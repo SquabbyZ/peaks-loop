@@ -68,6 +68,9 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 # **STOP if .peaks/<session-id>/rd/project-scan.md does not exist.**
 # **Do not write any code, do not plan any implementation, do not pass go.**
 # **Create the project-scan first, then proceed.**
+# NOTE: project-scan.md is a session-scoped singleton. Check if it already exists
+# before regenerating (e.g. via `ls .peaks/<id>/rd/project-scan.md`). If it exists
+# and is complete (has `## Archetype` and `## Project mode` sections), reuse it.
 # Required sections in project-scan:
 #   - build tool and framework
 #   - component library (antd, MUI, shadcn, etc.) and version

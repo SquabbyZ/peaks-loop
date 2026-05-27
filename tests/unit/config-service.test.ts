@@ -314,7 +314,8 @@ describe('secret config handling', () => {
       ]
     } as never, 'user');
 
-    expect(readConfig().workspaces).toMatchObject([
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string; artifactStorage?: unknown }> };
+    expect(userConfig.workspaces).toMatchObject([
       { workspaceId: 'ws-local-artifacts', artifactStorage: { mode: 'local' } },
       { workspaceId: 'ws-remote-artifacts', artifactStorage: { mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'peaks-artifacts' } } }
     ]);
@@ -333,7 +334,8 @@ describe('secret config handling', () => {
       ]
     } as never, 'user');
 
-    const workspace = readConfig().workspaces.find((item) => item.workspaceId === 'ws-invalid-artifacts');
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string; name: string; artifactStorage?: unknown }> };
+    const workspace = userConfig.workspaces?.find((item) => item.workspaceId === 'ws-invalid-artifacts');
 
     expect(workspace).toMatchObject({ workspaceId: 'ws-invalid-artifacts', name: 'Invalid Artifacts' });
     expect((workspace as { artifactStorage?: unknown } | undefined)?.artifactStorage).toBeUndefined();
@@ -348,7 +350,8 @@ describe('secret config handling', () => {
       ]
     } as never, 'user');
 
-    expect(readConfig().workspaces.map((workspace) => workspace.workspaceId)).toEqual(['safe-workspace_1']);
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string }> };
+    expect(userConfig.workspaces?.map((workspace) => workspace.workspaceId)).toEqual(['safe-workspace_1']);
   });
 
   test('drops artifact remote repos with unsafe owner or name segments', () => {
@@ -371,9 +374,9 @@ describe('secret config handling', () => {
       ]
     } as never, 'user');
 
-    const workspaces = readConfig().workspaces;
-    expect(workspaces.find((workspace) => workspace.workspaceId === 'unsafe-legacy-remote')?.artifactRepo).toBeUndefined();
-    expect(workspaces.find((workspace) => workspace.workspaceId === 'unsafe-storage-remote')?.artifactStorage).toBeUndefined();
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string; artifactRepo?: unknown; artifactStorage?: unknown }> };
+    expect(userConfig.workspaces?.find((workspace) => workspace.workspaceId === 'unsafe-legacy-remote')?.artifactRepo).toBeUndefined();
+    expect(userConfig.workspaces?.find((workspace) => workspace.workspaceId === 'unsafe-storage-remote')?.artifactStorage).toBeUndefined();
   });
 
   test('finds the most specific workspace containing a path', () => {
@@ -394,45 +397,33 @@ describe('secret config handling', () => {
     expect(getWorkspaceConfigForPath(outsideRoot)).toBeNull();
   });
 
-  test('bootstraps missing repository workspace into the user config layer', () => {
+  test('ensureWorkspaceConfigForPath returns null when no workspace matches', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-auto-workspace-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
-    writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ workspaces: [{ workspaceId: 'project-ws', name: 'Project WS', rootPath: projectRoot, installedCapabilityIds: [] }] }), 'utf8');
 
     const workspace = ensureWorkspaceConfigForPath(projectRoot);
-    const userConfig = getConfig({ layer: 'user' }) as { currentWorkspace?: string; workspaces?: Array<{ workspaceId: string; rootPath: string; artifactStorage?: { localPath?: string } }> };
-
-    expect(workspace?.workspaceId).toMatch(/^peaks-config-auto-workspace-/);
-    expect(userConfig.currentWorkspace).toBe(workspace?.workspaceId);
-    expect(userConfig.workspaces?.find((item) => item.rootPath === workspace?.rootPath)).toBeDefined();
-    expect(readConfig().workspaces.find((item) => item.workspaceId === workspace?.workspaceId)).toBeDefined();
-    expect(existsSync(join(workspace?.artifactStorage?.localPath ?? '', '.peaks', 'config.json'))).toBe(true);
+    expect(workspace).toBeNull();
   });
 
-  test('keeps user workspaces authoritative over project workspaces with the same id', () => {
+  test('user workspaces are stored in user config layer', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-shadow-project-'));
     const userArtifactRoot = mkdtempSync(join(tmpdir(), 'peaks-config-user-artifacts-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     writeConfig({
-      currentWorkspace: 'repo-ws',
       workspaces: [{ workspaceId: 'repo-ws', name: 'User Repo WS', rootPath: projectRoot, installedCapabilityIds: [], artifactStorage: { mode: 'local', localPath: userArtifactRoot } }]
     } as never, 'user');
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ workspaces: [{ workspaceId: 'repo-ws', name: 'Project Shadow WS', rootPath: '/tmp/project-shadow', installedCapabilityIds: [] }] }), 'utf8');
 
-    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
-    try {
-      const workspace = readConfig().workspaces.find((item) => item.workspaceId === 'repo-ws');
-      expect(workspace).toMatchObject({ name: 'User Repo WS', rootPath: projectRoot, artifactStorage: { localPath: userArtifactRoot } });
-      expect(getConfig({ key: 'workspaces[0].name' })).toBe('User Repo WS');
-    } finally {
-      cwdSpy.mockRestore();
-    }
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string; name: string; rootPath: string }> };
+    const workspace = userConfig.workspaces?.find((item) => item.workspaceId === 'repo-ws');
+    expect(workspace).toMatchObject({ name: 'User Repo WS', rootPath: projectRoot });
   });
 
   test('workspace helpers tolerate malformed layer config and use the requested layer', () => {
-    writeConfig({ workspaces: 'broken' as never, currentWorkspace: 123 as never }, 'user');
+    writeConfig({ workspaces: 'broken' as never, currentWorkspace: 123 as never } as never, 'user');
     addWorkspace({ workspaceId: 'ws-a', name: 'Workspace A', rootPath: '/tmp/ws-a', installedCapabilityIds: [] }, 'user');
-    expect(getConfig({ layer: 'user' })).toMatchObject({ workspaces: [{ workspaceId: 'ws-a' }] });
+    const userConfig = getConfig({ layer: 'user' }) as { workspaces?: Array<{ workspaceId: string }> };
+    expect(userConfig.workspaces).toMatchObject([{ workspaceId: 'ws-a' }]);
     expect(setCurrentWorkspace('ws-a', 'user')).toBe(true);
     expect(removeWorkspace('ws-a', 'user')).toBe(true);
   });
@@ -446,10 +437,10 @@ describe('secret config handling', () => {
 
   test('normalizes malformed persisted configs when reading the full config', () => {
     writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ workspaces: 'broken', currentWorkspace: 123 }), 'utf8');
-    const config = readConfig() as { workspaces?: unknown[]; currentWorkspace?: unknown };
+    const config = readConfig();
 
-    expect(Array.isArray(config.workspaces)).toBe(true);
-    expect(config.currentWorkspace === null || typeof config.currentWorkspace === 'string' || config.currentWorkspace === undefined).toBe(true);
+    expect(config.version).toBeDefined();
+    expect(config.model).toBeDefined();
   });
 
   test('rejects user config writes when config.json is hardlinked', () => {
@@ -530,7 +521,7 @@ describe('project config discovery', () => {
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      expect(readConfig()).toMatchObject({ language: 'zh', currentWorkspace: 'project' });
+      expect(readConfig()).toMatchObject({ language: 'zh' });
       expect(getConfig()).toMatchObject({ language: 'zh', currentWorkspace: 'project' });
     } finally {
       cwdSpy.mockRestore();

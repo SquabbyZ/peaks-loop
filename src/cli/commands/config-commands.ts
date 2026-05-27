@@ -1,27 +1,13 @@
 import { Command } from 'commander';
-import { addWorkspace, getConfig, getMiniMaxProviderConfig, getMiniMaxProviderStatus, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, type ConfigLayer } from '../../services/config/config-service.js';
-import type { ArtifactStorageConfig } from '../../services/config/config-types.js';
+import { getConfig, getMiniMaxProviderConfig, getMiniMaxProviderStatus, isSensitiveConfigPath, redactConfigSecrets, setConfig, setMiniMaxProviderConfig, type ConfigLayer } from '../../services/config/config-service.js';
 import { testMiniMaxProvider } from '../../services/providers/minimax-provider-service.js';
 import { fail, ok } from '../../shared/result.js';
-import { addJsonOption, getErrorMessage, isArtifactProvider, isArtifactRepoSegment, isMiniMaxHttpsUrl, parseConfigLayer, printInvalidConfigLayer, printResult, redactSensitiveErrorMessage, summarizeMiniMaxSmokeResult, type ProgramIO } from '../cli-helpers.js';
-
-interface ArtifactRepoInput {
-  provider?: string;
-  repoOwner?: string;
-  repoName?: string;
-}
-
-interface ArtifactRepoConfig {
-  provider: 'github' | 'gitlab';
-  owner: string;
-  name: string;
-}
+import { addJsonOption, getErrorMessage, isMiniMaxHttpsUrl, parseConfigLayer, printInvalidConfigLayer, printResult, redactSensitiveErrorMessage, summarizeMiniMaxSmokeResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerConfigCommands(program: Command, io: ProgramIO): void {
   const config = program.command('config').description('Manage Peaks configuration');
   registerConfigGetSetCommands(config, io);
   registerMiniMaxProviderCommands(config, io);
-  registerWorkspaceCommands(config, io);
 }
 
 function registerConfigGetSetCommands(config: Command, io: ProgramIO): void {
@@ -153,88 +139,3 @@ function printMiniMaxProviderSetError(io: ProgramIO, error: unknown, asJson?: bo
   process.exitCode = 1;
 }
 
-function registerWorkspaceCommands(config: Command, io: ProgramIO): void {
-  const configWorkspace = config.command('workspace').description('Manage workspaces');
-  addJsonOption(configWorkspace.command('list').description('List all workspaces')).action((options: { json?: boolean }) => {
-    const cfg = readConfig();
-    printResult(io, ok('config.workspace.list', { currentWorkspace: cfg.currentWorkspace, workspaces: cfg.workspaces }), options.json);
-  });
-
-  addJsonOption(configWorkspace.command('add').description('Add a workspace').requiredOption('--id <id>', 'workspace identifier').requiredOption('--name <name>', 'workspace display name').requiredOption('--path <path>', 'workspace root path').option('--provider <provider>', 'artifact repo provider: github or gitlab').option('--repo-owner <owner>', 'artifact repo owner').option('--repo-name <name>', 'artifact repo name').option('--layer <layer>', 'user or project')).action((options: { id: string; name: string; path: string; provider?: string; repoOwner?: string; repoName?: string; layer?: string; json?: boolean }) => {
-    const layer = parseConfigLayer(options.layer);
-    if (layer === null) {
-      printInvalidConfigLayer(io, 'config.workspace.add', options.json);
-      return;
-    }
-
-    const artifactRepo = parseArtifactRepoInput(io, options, options.json);
-    if (artifactRepo === null) return;
-
-    const artifactStorage: ArtifactStorageConfig = artifactRepo ? { mode: 'local-with-remote-sync', remote: artifactRepo } : { mode: 'local' };
-    const workspace = { workspaceId: options.id, name: options.name, rootPath: options.path, installedCapabilityIds: [] as string[], artifactStorage };
-    const configLayer = layer ?? 'user';
-    if (artifactRepo) {
-      addWorkspace({ ...workspace, artifactRepo }, configLayer);
-    } else {
-      addWorkspace(workspace, configLayer);
-    }
-    printResult(io, ok('config.workspace.add', { workspaceId: options.id, name: options.name, rootPath: options.path, artifactRepo, artifactStorage }), options.json);
-  });
-
-  addJsonOption(configWorkspace.command('remove').description('Remove a workspace').requiredOption('--id <id>', 'workspace identifier').option('--layer <layer>', 'user or project')).action((options: { id: string; layer?: string; json?: boolean }) => {
-    const layer = parseConfigLayer(options.layer);
-    if (layer === null) {
-      printInvalidConfigLayer(io, 'config.workspace.remove', options.json);
-      return;
-    }
-    const configLayer = layer ?? 'user';
-    const removed = removeWorkspace(options.id, configLayer);
-    if (removed) {
-      printResult(io, ok('config.workspace.remove', { workspaceId: options.id }), options.json);
-    } else {
-      printWorkspaceNotFound(io, 'config.workspace.remove', `Workspace ${options.id} not found`, options.json);
-    }
-  });
-
-  addJsonOption(configWorkspace.command('switch').description('Switch current workspace').requiredOption('--id <id>', 'workspace identifier').option('--layer <layer>', 'user or project')).action((options: { id: string; layer?: string; json?: boolean }) => {
-    const layer = parseConfigLayer(options.layer);
-    if (layer === null) {
-      printInvalidConfigLayer(io, 'config.workspace.switch', options.json);
-      return;
-    }
-    const configLayer = layer ?? 'user';
-    const switched = setCurrentWorkspace(options.id, configLayer);
-    if (switched) {
-      printResult(io, ok('config.workspace.switch', { currentWorkspace: options.id }), options.json);
-    } else {
-      printWorkspaceNotFound(io, 'config.workspace.switch', `Workspace ${options.id} not found`, options.json);
-    }
-  });
-}
-
-function parseArtifactRepoInput(io: ProgramIO, options: ArtifactRepoInput, asJson?: boolean): ArtifactRepoConfig | undefined | null {
-  const hasArtifactRepoInput = options.provider !== undefined || options.repoOwner !== undefined || options.repoName !== undefined;
-  if (!hasArtifactRepoInput) return undefined;
-  if (!options.provider || !options.repoOwner || !options.repoName) {
-    printResult(io, fail('config.workspace.add', 'INVALID_ARTIFACT_REPO_CONFIG', 'Artifact repo config requires --provider, --repo-owner, and --repo-name together', {}, ['Provide all three artifact repo options together, or omit them all']), asJson);
-    process.exitCode = 1;
-    return null;
-  }
-  if (!isArtifactProvider(options.provider)) {
-    printResult(io, fail('config.workspace.add', 'UNSUPPORTED_ARTIFACT_PROVIDER', `Unsupported provider ${options.provider}`, {}, ['Use --provider github or --provider gitlab']), asJson);
-    process.exitCode = 1;
-    return null;
-  }
-  if (!isArtifactRepoSegment(options.repoOwner) || !isArtifactRepoSegment(options.repoName)) {
-    printResult(io, fail('config.workspace.add', 'INVALID_ARTIFACT_REPO_CONFIG', 'Artifact repo owner and name must use safe GitHub/GitLab path segments', {}, ['Use letters, numbers, dots, underscores, or hyphens without path traversal']), asJson);
-    process.exitCode = 1;
-    return null;
-  }
-
-  return { provider: options.provider, owner: options.repoOwner, name: options.repoName };
-}
-
-function printWorkspaceNotFound(io: ProgramIO, command: string, message: string, asJson?: boolean): void {
-  printResult(io, fail(command, 'WORKSPACE_NOT_FOUND', message, {}, ['List workspaces with: peaks config workspace list']), asJson);
-  process.exitCode = 1;
-}

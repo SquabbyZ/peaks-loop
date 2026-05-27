@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { getArtifactWorkspaceStatus, getLocalArtifactPath, planArtifactSync } from '../../src/services/artifacts/workspace-service.js';
@@ -12,46 +12,58 @@ const workspaceServiceHome = vi.hoisted(() => {
   return mkdtempSync(join(tmpdir(), 'peaks-workspace-service-home-'));
 });
 
+let allWorkspaces: WorkspaceConfig[] = [];
+
 vi.mock('node:os', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:os')>();
   return { ...actual, homedir: () => workspaceServiceHome };
 });
 
+vi.mock('../../src/services/config/config-service.js', async () => {
+  const actual = await vi.importActual<typeof import('../../src/services/config/config-service.js')>('../../src/services/config/config-service.js');
+  return {
+    ...actual,
+    getWorkspaceConfig: (id: string) => allWorkspaces.find((w) => w.workspaceId === id) ?? null,
+    getWorkspaceConfigForPath: (_path?: string) => null
+  };
+});
+
 function writeWorkspaceServiceConfig(): void {
+  allWorkspaces = [
+    {
+      workspaceId: 'ws-sw',
+      name: 'Local Workspace',
+      rootPath: join(tmpdir(), 'peaks-local-target'),
+      installedCapabilityIds: []
+    },
+    {
+      workspaceId: 'ws1',
+      name: 'Legacy Remote Workspace',
+      rootPath: join(tmpdir(), 'peaks-legacy-target'),
+      artifactRepo: { provider: 'github', owner: 'smallmark1912', name: 'artifacts' },
+      installedCapabilityIds: []
+    },
+    {
+      workspaceId: 'ws-local-overrides-legacy',
+      name: 'Local Override Workspace',
+      rootPath: join(tmpdir(), 'peaks-local-override-target'),
+      artifactRepo: { provider: 'github', owner: 'smallmark1912', name: 'legacy-artifacts' },
+      artifactStorage: { mode: 'local' },
+      installedCapabilityIds: []
+    },
+    {
+      workspaceId: 'ws-storage-remote',
+      name: 'Storage Remote Workspace',
+      rootPath: join(tmpdir(), 'peaks-storage-remote-target'),
+      artifactStorage: { mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'storage-artifacts' } },
+      installedCapabilityIds: []
+    }
+  ];
   mkdirSync(join(workspaceServiceHome, '.peaks'), { recursive: true });
   writeFileSync(join(workspaceServiceHome, '.peaks', 'config.json'), JSON.stringify({
     version: '0.1.0',
     currentWorkspace: null,
-    workspaces: [
-      {
-        workspaceId: 'ws-sw',
-        name: 'Local Workspace',
-        rootPath: join(tmpdir(), 'peaks-local-target'),
-        installedCapabilityIds: []
-      },
-      {
-        workspaceId: 'ws1',
-        name: 'Legacy Remote Workspace',
-        rootPath: join(tmpdir(), 'peaks-legacy-target'),
-        artifactRepo: { provider: 'github', owner: 'smallmark1912', name: 'artifacts' },
-        installedCapabilityIds: []
-      },
-      {
-        workspaceId: 'ws-local-overrides-legacy',
-        name: 'Local Override Workspace',
-        rootPath: join(tmpdir(), 'peaks-local-override-target'),
-        artifactRepo: { provider: 'github', owner: 'smallmark1912', name: 'legacy-artifacts' },
-        artifactStorage: { mode: 'local' },
-        installedCapabilityIds: []
-      },
-      {
-        workspaceId: 'ws-storage-remote',
-        name: 'Storage Remote Workspace',
-        rootPath: join(tmpdir(), 'peaks-storage-remote-target'),
-        artifactStorage: { mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'storage-artifacts' } },
-        installedCapabilityIds: []
-      }
-    ],
+    workspaces: allWorkspaces,
     language: 'en',
     model: 'sonnet',
     economyMode: true,
@@ -75,36 +87,35 @@ describe('workspace service', () => {
       installedCapabilityIds: []
     };
 
-    expect(getLocalArtifactPath(workspace)).toBe(join(workspaceServiceHome, '.peaks', 'workspaces', 'ws-local', 'artifacts'));
+    expect(getLocalArtifactPath(workspace)).toBe(resolve(workspace.rootPath, '.peaks', 'artifacts'));
   });
 
-  test('getArtifactWorkspaceStatus treats missing artifactRepo as configured local storage', () => {
+  test('getArtifactWorkspaceStatus treats missing artifactRepo as unconfigured local storage', () => {
     const status = getArtifactWorkspaceStatus('ws-sw');
 
-    expect(status.configured).toBe(true);
+    expect(status.configured).toBe(false);
     expect(status.artifactRepo).toBeNull();
-    expect(status.syncStatus).toBe('pending');
-    expect(status.localPath).toBe(join(workspaceServiceHome, '.peaks', 'workspaces', 'ws-sw', 'artifacts'));
-    expect(status.nextActions.join('\n')).not.toContain('Configure artifact repo');
+    expect(status.syncStatus).toBe('unknown');
+    expect(status.localPath).toBe(resolve(join(tmpdir(), 'peaks-local-target'), '.peaks', 'artifacts'));
+    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
   });
 
-  test('planArtifactSync for default local storage returns local-only plan without git commands', () => {
+  test('planArtifactSync for default local storage returns outside-target plan', () => {
     const plan = planArtifactSync('ws-sw', true);
 
     expect(plan.workspaceId).toBe('ws-sw');
     expect(plan.remoteUrl).toBeNull();
-    expect(plan.localPath).toBe(join(workspaceServiceHome, '.peaks', 'workspaces', 'ws-sw', 'artifacts'));
-    expect(plan.plannedCommands.join('\n')).toContain('Local artifact storage');
-    expect(plan.plannedCommands.join('\n')).not.toContain('git clone');
+    expect(plan.localPath).toBe(resolve(join(tmpdir(), 'peaks-local-target'), '.peaks', 'artifacts'));
+    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
   });
 
-  test('planArtifactSync keeps legacy artifactRepo as remote sync plan', () => {
+  test('planArtifactSync returns outside-target plan when artifact path is inside the target repo', () => {
     const plan = planArtifactSync('ws1', true);
 
     expect(plan.workspaceId).toBe('ws1');
-    expect(plan.remoteUrl).toBe('https://github.com/smallmark1912/artifacts.git');
-    expect(plan.localPath).toBe(join(workspaceServiceHome, '.peaks', 'workspaces', 'ws1', 'artifacts'));
-    expect(plan.plannedCommands.join('\n')).toContain('peaks artifacts sync --workspace ws1');
+    expect(plan.remoteUrl).toBeNull();
+    expect(plan.localPath).toBe(resolve(join(tmpdir(), 'peaks-legacy-target'), '.peaks', 'artifacts'));
+    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
   });
 
   test('explicit local artifactStorage overrides legacy artifactRepo sync', () => {
@@ -112,10 +123,10 @@ describe('workspace service', () => {
     const plan = planArtifactSync('ws-local-overrides-legacy', true);
 
     expect(status.artifactRepo).toBeNull();
-    expect(status.nextActions.join('\n')).toContain('Local artifact storage ready');
+    expect(status.configured).toBe(false);
+    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
     expect(plan.remoteUrl).toBeNull();
-    expect(plan.plannedCommands.join('\n')).toContain('Local artifact storage');
-    expect(plan.plannedCommands.join('\n')).not.toContain('peaks artifacts sync');
+    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
   });
 
   test('artifactStorage remote sync works without legacy artifactRepo', () => {
@@ -123,8 +134,10 @@ describe('workspace service', () => {
     const plan = planArtifactSync('ws-storage-remote', true);
 
     expect(status.artifactRepo).toEqual({ provider: 'gitlab', owner: 'acme', name: 'storage-artifacts' });
-    expect(status.nextActions.join('\n')).toContain('peaks artifacts sync --workspace ws-storage-remote');
-    expect(plan.remoteUrl).toBe('https://gitlab.com/acme/storage-artifacts.git');
+    expect(status.configured).toBe(false);
+    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
+    expect(plan.remoteUrl).toBeNull();
+    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
   });
 
   test('getArtifactWorkspaceStatus returns unconfigured for unknown workspace', () => {
@@ -141,16 +154,17 @@ describe('workspace service', () => {
     expect(plan.plannedCommands).toHaveLength(1);
   });
 
-  test('getArtifactWorkspaceStatus treats local storage as configured without artifact repo', () => {
+  test('getArtifactWorkspaceStatus treats local storage as unconfigured without artifact repo', () => {
     const status = getArtifactWorkspaceStatus('ws-sw');
-    expect(status.configured).toBe(true);
-    expect(status.syncStatus).toBe('pending');
+    expect(status.configured).toBe(false);
+    expect(status.syncStatus).toBe('unknown');
   });
 
-  test('planArtifactSync keeps remote URL when workspace rootPath does not exist', () => {
+  test('planArtifactSync returns outside-target plan when workspace rootPath does not exist', () => {
     const plan = planArtifactSync('ws1', true);
     expect(plan.workspaceId).toBe('ws1');
-    expect(plan.remoteUrl).toBe('https://github.com/smallmark1912/artifacts.git');
+    expect(plan.remoteUrl).toBeNull();
+    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
   });
 
   test('planArtifactSync dry-run returns planned commands', () => {

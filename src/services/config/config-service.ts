@@ -1,6 +1,5 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
@@ -228,11 +227,6 @@ function isSafeConfigSegment(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
 }
 
-function toSafeConfigSegment(value: string): string {
-  const normalized = value.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').replace(/\.+$/g, '');
-  return isSafeConfigSegment(normalized) ? normalized : 'workspace';
-}
-
 function toArtifactRemoteRepoConfig(value: unknown): WorkspaceConfig['artifactRepo'] | null {
   if (!isRecord(value) || (value.provider !== 'github' && value.provider !== 'gitlab') || typeof value.owner !== 'string' || typeof value.name !== 'string') {
     return null;
@@ -276,16 +270,6 @@ function toWorkspaceConfig(value: unknown): WorkspaceConfig | null {
 
 function toWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
   return Array.isArray(value) ? value.map(toWorkspaceConfig).filter((workspace): workspace is WorkspaceConfig => workspace !== null) : [];
-}
-
-function mergeWorkspaceConfigs(userWorkspaces: WorkspaceConfig[], projectWorkspaces: WorkspaceConfig[]): WorkspaceConfig[] {
-  const merged = new Map(userWorkspaces.map((workspace) => [workspace.workspaceId, workspace]));
-  for (const workspace of projectWorkspaces) {
-    if (!merged.has(workspace.workspaceId)) {
-      merged.set(workspace.workspaceId, workspace);
-    }
-  }
-  return [...merged.values()];
 }
 
 function toProviderModelConfig(value: unknown): MiniMaxProviderConfig {
@@ -454,8 +438,6 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
   const proxy = toProxyConfig(value.proxy);
   return {
     ...(typeof value.version === 'string' ? { version: value.version } : {}),
-    ...(typeof value.currentWorkspace === 'string' ? { currentWorkspace: value.currentWorkspace } : {}),
-    ...(Array.isArray(value.workspaces) ? { workspaces: toWorkspaceConfigs(value.workspaces) } : {}),
     ...(typeof value.language === 'string' ? { language: value.language } : {}),
     ...(typeof value.model === 'string' && ['haiku', 'sonnet', 'opus', 'minimax'].includes(value.model) ? { model: value.model as ModelPreference } : {}),
     ...(typeof value.economyMode === 'boolean' ? { economyMode: value.economyMode } : {}),
@@ -480,15 +462,24 @@ export function readConfig(projectRoot?: string | null): PeaksConfig {
   const detectedRoot = projectRoot ?? findProjectRoot(process.cwd());
   const userConfig = toPeaksConfig(readUserJsonFile());
   const projectConfig = removeProjectSensitiveConfig(toPeaksConfig(readProjectJsonFile(detectedRoot)));
-  const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
-  const userWorkspaces = userConfig.workspaces ?? [];
+  const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
 
   return {
     ...DEFAULT_CONFIG,
     ...userConfig,
-    ...projectConfigWithoutProxy,
-    workspaces: mergeWorkspaceConfigs(userWorkspaces, projectWorkspaces ?? [])
+    ...projectConfigWithoutProxy
   } as PeaksConfig;
+}
+
+function sanitizeWorkspacePartial(partial: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...partial };
+  if (Array.isArray(result.workspaces)) {
+    result.workspaces = toWorkspaceConfigs(result.workspaces);
+  }
+  if (typeof result.currentWorkspace !== 'string' && result.currentWorkspace !== null && result.currentWorkspace !== undefined) {
+    delete result.currentWorkspace;
+  }
+  return result;
 }
 
 export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 'user'): void {
@@ -505,7 +496,7 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
     const { projectRoot, configPath } = getProjectWriteTarget();
     ensureDir(dirname(configPath));
     const existing = readJsonFile(configPath, () => validateProjectBootstrapConfigPathForWrite(projectRoot, configPath)) ?? {};
-    const merged = { ...existing, ...partial };
+    const merged = sanitizeWorkspacePartial({ ...existing, ...partial });
     writeProjectConfigFile(projectRoot, configPath, JSON.stringify(merged, null, 2));
     return;
   }
@@ -513,7 +504,7 @@ export function writeConfig(partial: Partial<PeaksConfig>, layer: ConfigLayer = 
   const userPath = getUserConfigPath();
   ensureDir(dirname(userPath));
   const existing = readJsonFile(userPath, () => validateUserConfigPathForWrite(userPath)) ?? {};
-  const merged = { ...existing, ...partial };
+  const merged = sanitizeWorkspacePartial({ ...existing, ...partial });
   writeUserConfigFile(userPath, JSON.stringify(merged, null, 2));
 }
 
@@ -521,15 +512,14 @@ export function getConfig(options: ConfigGetOptions = {}): unknown {
   const projectRoot = findProjectRoot(process.cwd());
   const userConfig = readUserJsonFile() ?? {};
   const projectConfig = removeProjectSensitiveConfig(readProjectJsonFile(projectRoot) ?? {});
-  const { proxy: projectProxy, workspaces: projectWorkspaces, ...projectConfigWithoutProxy } = projectConfig;
+  const { proxy: projectProxy, ...projectConfigWithoutProxy } = projectConfig;
   const source = options.layer === 'user'
     ? userConfig
     : options.layer === 'project'
       ? projectConfig
       : {
         ...userConfig,
-        ...projectConfigWithoutProxy,
-        workspaces: mergeWorkspaceConfigs(toWorkspaceConfigs(userConfig.workspaces), toWorkspaceConfigs(projectWorkspaces))
+        ...projectConfigWithoutProxy
       };
   const config = isRecord(source) ? { ...source, ...(source.tokens !== undefined ? { tokens: toTokenConfig(source.tokens) } : {}) } : source;
 
@@ -578,12 +568,15 @@ export function setConfig(options: ConfigSetOptions): void {
   }
 }
 
-export function getWorkspaceConfig(workspaceId: string, projectRoot?: string | null): WorkspaceConfig | null {
-  const config = readConfig(projectRoot ?? findProjectRoot(process.cwd()));
-  return config.workspaces.find((w) => w.workspaceId === workspaceId) ?? null;
+// Raw config helpers for workspace management functions that operate on
+// fields (workspaces, currentWorkspace) no longer in the typed PeaksConfig schema.
+
+interface RawWorkspaceData {
+  currentWorkspace: string | null;
+  workspaces: WorkspaceConfig[];
 }
 
-function readLayerConfig(layer: ConfigLayer): { currentWorkspace: string | null; workspaces: WorkspaceConfig[] } {
+function readRawWorkspaceData(layer: ConfigLayer): RawWorkspaceData {
   const config = getConfig({ layer });
   return isRecord(config)
     ? {
@@ -593,22 +586,47 @@ function readLayerConfig(layer: ConfigLayer): { currentWorkspace: string | null;
     : { currentWorkspace: null, workspaces: [] };
 }
 
+function writeRawWorkspaceData(data: Partial<RawWorkspaceData>, layer: ConfigLayer): void {
+  const projectTarget = layer === 'project' ? getProjectWriteTarget() : null;
+  const targetPath = projectTarget?.configPath ?? getUserConfigPath();
+  ensureDir(dirname(targetPath));
+  const existing = projectTarget
+    ? readJsonFile(targetPath, () => validateProjectBootstrapConfigPathForWrite(projectTarget.projectRoot, targetPath)) ?? {}
+    : readJsonFile(targetPath, () => validateUserConfigPathForWrite(targetPath)) ?? {};
+  const merged = { ...existing, ...data };
+  const content = JSON.stringify(merged, null, 2);
+  if (projectTarget) {
+    writeProjectConfigFile(projectTarget.projectRoot, targetPath, content);
+  } else {
+    writeUserConfigFile(targetPath, content);
+  }
+}
+
+export function getWorkspaceConfig(workspaceId: string, projectRoot?: string | null): WorkspaceConfig | null {
+  const { workspaces } = readRawWorkspaceData('user');
+  return workspaces.find((w) => w.workspaceId === workspaceId) ?? null;
+}
+
+function readLayerConfig(layer: ConfigLayer): { currentWorkspace: string | null; workspaces: WorkspaceConfig[] } {
+  return readRawWorkspaceData(layer);
+}
+
 export function addWorkspace(workspace: WorkspaceConfig, layer: ConfigLayer = 'user'): void {
   if (!isSafeConfigSegment(workspace.workspaceId)) {
     throw new Error('Workspace id must only contain letters, numbers, dots, underscores, or hyphens and must not contain path traversal');
   }
-  const config = readLayerConfig(layer);
+  const config = readRawWorkspaceData(layer);
   const workspaces = config.workspaces;
   const existing = workspaces.findIndex((w) => w.workspaceId === workspace.workspaceId);
   const updatedWorkspaces = existing >= 0
     ? workspaces.map((existingWorkspace) => existingWorkspace.workspaceId === workspace.workspaceId ? workspace : existingWorkspace)
     : [...workspaces, workspace];
-  writeConfig({ workspaces: updatedWorkspaces }, layer);
+  writeRawWorkspaceData({ workspaces: updatedWorkspaces }, layer);
 }
 
 export function removeWorkspace(workspaceId: string, layer: ConfigLayer = 'user'): boolean {
   if (!isSafeConfigSegment(workspaceId)) return false;
-  const config = readLayerConfig(layer);
+  const config = readRawWorkspaceData(layer);
   const workspaces = config.workspaces;
   const idx = workspaces.findIndex((w) => w.workspaceId === workspaceId);
   if (idx < 0) return false;
@@ -616,41 +634,30 @@ export function removeWorkspace(workspaceId: string, layer: ConfigLayer = 'user'
   const updatedWorkspaces = workspaces.filter((w) => w.workspaceId !== workspaceId);
   const currentWorkspace = config.currentWorkspace === workspaceId ? updatedWorkspaces[0]?.workspaceId ?? null : config.currentWorkspace ?? null;
 
-  writeConfig({ workspaces: updatedWorkspaces, currentWorkspace }, layer);
+  writeRawWorkspaceData({ workspaces: updatedWorkspaces, currentWorkspace }, layer);
   return true;
 }
 
 export function setCurrentWorkspace(workspaceId: string, layer: ConfigLayer = 'user'): boolean {
   if (!isSafeConfigSegment(workspaceId)) return false;
-  const config = readLayerConfig(layer);
+  const config = readRawWorkspaceData(layer);
   const workspaces = config.workspaces;
   const exists = workspaces.some((w) => w.workspaceId === workspaceId);
   if (!exists) return false;
 
-  writeConfig({ currentWorkspace: workspaceId }, layer);
+  writeRawWorkspaceData({ currentWorkspace: workspaceId }, layer);
   return true;
 }
 
 export function getCurrentWorkspaceConfig(): WorkspaceConfig | null {
-  const config = readConfig();
-  if (!config.currentWorkspace) return null;
-  return getWorkspaceConfig(config.currentWorkspace);
+  const { currentWorkspace, workspaces } = readRawWorkspaceData('user');
+  if (!currentWorkspace) return null;
+  return workspaces.find((w) => w.workspaceId === currentWorkspace) ?? null;
 }
 
 export function getWorkspaceConfigForPath(path = process.cwd()): WorkspaceConfig | null {
-  const config = readConfig(findProjectRoot(path));
-  return findWorkspaceForPath(config.workspaces, path);
-}
-
-function createWorkspaceId(projectRoot: string, existingIds: Set<string>): string {
-  const base = toSafeConfigSegment(basename(projectRoot));
-  if (!existingIds.has(base)) return base;
-
-  let suffix = 2;
-  while (existingIds.has(`${base}-${suffix}`)) {
-    suffix += 1;
-  }
-  return `${base}-${suffix}`;
+  const { workspaces } = readRawWorkspaceData('user');
+  return findWorkspaceForPath(workspaces, path);
 }
 
 function findWorkspaceForPath(workspaces: WorkspaceConfig[], path: string): WorkspaceConfig | null {
@@ -666,7 +673,7 @@ function findWorkspaceForPath(workspaces: WorkspaceConfig[], path: string): Work
 }
 
 function getWorkspaceArtifactRoot(workspace: WorkspaceConfig): string {
-  return workspace.artifactStorage?.localPath ? resolve(workspace.artifactStorage.localPath) : resolve(homedir(), '.peaks', 'workspaces', workspace.workspaceId, 'artifacts');
+  return workspace.artifactStorage?.localPath ? resolve(workspace.artifactStorage.localPath) : resolve(workspace.rootPath, '.peaks', 'artifacts');
 }
 
 function ensureArtifactWorkspaceMarker(workspace: WorkspaceConfig): void {
@@ -691,25 +698,10 @@ export function ensureWorkspaceConfigForPath(path = process.cwd()): WorkspaceCon
   const existingWorkspace = findWorkspaceForPath(config.workspaces, path);
   if (existingWorkspace) {
     ensureArtifactWorkspaceMarker(existingWorkspace);
-    if (!config.currentWorkspace) {
-      writeConfig({ currentWorkspace: existingWorkspace.workspaceId }, 'user');
-    }
     return existingWorkspace;
   }
 
-  const existingIds = new Set(config.workspaces.map((workspace) => workspace.workspaceId));
-  const workspaceId = createWorkspaceId(projectRoot, existingIds);
-  const workspace: WorkspaceConfig = {
-    workspaceId,
-    name: basename(projectRoot) || 'Workspace',
-    rootPath: stablePath(projectRoot),
-    artifactStorage: { mode: 'local', localPath: resolve(homedir(), '.peaks', 'workspaces', workspaceId, 'artifacts') },
-    installedCapabilityIds: []
-  };
-  ensureArtifactWorkspaceMarker(workspace);
-  const updatedWorkspaces = [...config.workspaces, workspace];
-  writeConfig({ workspaces: updatedWorkspaces, ...(!config.currentWorkspace ? { currentWorkspace: workspace.workspaceId } : {}) }, 'user');
-  return workspace;
+  return null;
 }
 
 export function getWorkspaceConfigForCurrentPath(): WorkspaceConfig | null {
