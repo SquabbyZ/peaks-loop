@@ -538,4 +538,67 @@ describe('skill presence service', () => {
       }
     });
   });
+
+  describe('mode validation', () => {
+    test('isSkillPresenceMode returns true for valid modes', async () => {
+      const { isSkillPresenceMode } = await import('../../src/services/skills/skill-presence-service.js');
+      expect(isSkillPresenceMode('full-auto')).toBe(true);
+      expect(isSkillPresenceMode('assisted')).toBe(true);
+      expect(isSkillPresenceMode('swarm')).toBe(true);
+      expect(isSkillPresenceMode('strict')).toBe(true);
+    });
+
+    test('isSkillPresenceMode returns false for invalid modes', async () => {
+      const { isSkillPresenceMode } = await import('../../src/services/skills/skill-presence-service.js');
+      expect(isSkillPresenceMode('invalid')).toBe(false);
+      expect(isSkillPresenceMode('')).toBe(false);
+      expect(isSkillPresenceMode('auto')).toBe(false);
+    });
+
+    test('setSkillPresence ignores invalid mode string', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        const presence = setSkillPresence('peaks-solo', 'not-a-mode', 'startup');
+        expect(presence.mode).toBeUndefined();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('touchSkillHeartbeat edge cases', () => {
+    test('returns null when presence file has invalid JSON', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        const peaksDir = join(root, '.peaks');
+        mkdirSync(peaksDir, { recursive: true });
+        writeFileSync(join(peaksDir, '.active-skill.json'), 'not-json', 'utf8');
+
+        const result = touchSkillHeartbeat();
+        expect(result).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('returns null when presence file has empty skill', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        const peaksDir = join(root, '.peaks');
+        mkdirSync(peaksDir, { recursive: true });
+        writeFileSync(join(peaksDir, '.active-skill.json'), JSON.stringify({ skill: '' }), 'utf8');
+
+        const result = touchSkillHeartbeat();
+        expect(result).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
 });

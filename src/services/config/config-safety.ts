@@ -50,19 +50,25 @@ export function findProjectRoot(startPath: string): string | null {
   const homeBoundaryPaths = getHomeBoundaryPaths();
   let current = resolve(startPath);
   let parent = dirname(current);
+  let pkgRoot: string | null = null;
 
   while (current !== parent && !homeBoundaryPaths.has(normalizeBoundaryPath(current))) {
     if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
       return current;
     }
-    if (existsSync(resolve(current, 'package.json')) || existsSync(resolve(current, '.git'))) {
+    // .git is the definitive project root — return immediately
+    if (existsSync(resolve(current, '.git'))) {
       return current;
+    }
+    // package.json alone is ambiguous in monorepos — keep walking up for .git
+    if (pkgRoot === null && existsSync(resolve(current, 'package.json'))) {
+      pkgRoot = current;
     }
     parent = current;
     current = dirname(parent);
   }
 
-  return null;
+  return pkgRoot;
 }
 
 export function resolveProjectRootForConfig(startPath: string): string {
@@ -70,19 +76,23 @@ export function resolveProjectRootForConfig(startPath: string): string {
   const homeBoundaryPaths = getHomeBoundaryPaths();
   let current = start;
   let parent = dirname(current);
+  let pkgRoot: string | null = null;
 
   while (current !== parent && !homeBoundaryPaths.has(normalizeBoundaryPath(current))) {
     if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
       return current;
     }
-    if (existsSync(resolve(current, 'package.json')) || existsSync(resolve(current, '.git'))) {
+    if (existsSync(resolve(current, '.git'))) {
       return current;
+    }
+    if (pkgRoot === null && existsSync(resolve(current, 'package.json'))) {
+      pkgRoot = current;
     }
     parent = current;
     current = dirname(parent);
   }
 
-  return start;
+  return pkgRoot ?? start;
 }
 
 export function getProjectConfigPath(projectRoot: string | null): string | null {

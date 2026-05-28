@@ -10,6 +10,7 @@ import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
 import { ensureSession, getSessionId, getSessionMeta, setSessionMeta, setSessionTitle, listSessionMetas } from '../../services/session/session-manager.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -107,7 +108,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     }
     const presence = setSkillPresence(name, options.mode, options.gate);
     // Also update session metadata so session dirs self-document
-    const projectRoot = process.cwd();
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const sessionId = await ensureSession(projectRoot);
     setSessionMeta(projectRoot, sessionId, {
       skill: name,
@@ -169,7 +170,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .command('list')
       .description('List all session directories with titles and metadata')
   ).action((options: { json?: boolean }) => {
-    const projectRoot = process.cwd();
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const metas = listSessionMetas(projectRoot);
     printResult(io, ok('session.list', { sessions: metas, total: metas.length }), options.json);
   });
@@ -179,7 +180,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .command('info <sessionId>')
       .description('Show full metadata for a session directory')
   ).action((sessionId: string, options: { json?: boolean }) => {
-    const projectRoot = process.cwd();
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const meta = getSessionMeta(projectRoot, sessionId);
     if (meta === null) {
       printResult(io, fail('session.info', 'SESSION_NOT_FOUND', `Session "${sessionId}" not found or has no metadata`, { sessionId }, ['Use `peaks session list` to see available sessions']), options.json);
@@ -194,7 +195,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .command('title <sessionId> <title>')
       .description('Set a human-readable title for a session directory')
   ).action((sessionId: string, title: string, options: { json?: boolean }) => {
-    const projectRoot = process.cwd();
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     try {
       const meta = setSessionTitle(projectRoot, sessionId, title);
       printResult(io, ok('session.title', meta), options.json);

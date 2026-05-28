@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -35,7 +35,7 @@
     "dev:watch": "node ./scripts/watch.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "pretest:coverage": "pkill -f vitest 2>/dev/null; rm -rf coverage; exit 0",
+    "pretest:coverage": "node ./scripts/pretest-coverage.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {

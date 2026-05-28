@@ -201,3 +201,206 @@ describe('transitionRequestArtifact lint gate', () => {
     ).rejects.toThrow(LintGateError);
   });
 });
+
+describe('createRequestArtifact QA marker', () => {
+  test('creates .initiated marker in qa directory when role is qa and apply=true', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      ...commonOptions('qa', project),
+      apply: true
+    });
+    const { existsSync } = await import('node:fs');
+    const markerPath = join(project, '.peaks', STABLE_SESSION, 'qa', '.initiated');
+    expect(existsSync(markerPath)).toBe(true);
+  });
+
+  test('does not create .initiated marker for non-qa roles', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      ...commonOptions('prd', project),
+      apply: true
+    });
+    const { existsSync } = await import('node:fs');
+    const markerPath = join(project, '.peaks', STABLE_SESSION, 'qa', '.initiated');
+    expect(existsSync(markerPath)).toBe(false);
+  });
+});
+
+import { listRequestArtifacts, showRequestArtifact, allowedStatesForRole } from '../../src/services/artifacts/request-artifact-service.js';
+import { PrerequisitesNotSatisfiedError } from '../../src/services/artifacts/request-artifact-service.js';
+
+describe('listRequestArtifacts', () => {
+  test('returns empty array when no .peaks directory', async () => {
+    const project = await makeProject();
+    const result = await listRequestArtifacts({ projectRoot: project });
+    expect(result).toEqual([]);
+  });
+
+  test('lists created artifacts', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'list-test'), apply: true });
+    const result = await listRequestArtifacts({ projectRoot: project });
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result.some((r) => r.requestId === 'list-test')).toBe(true);
+  });
+
+  test('filters by role', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'role-filter'), apply: true });
+    await createRequestArtifact({ ...commonOptions('rd', project, 'role-filter-rd'), apply: true });
+    const result = await listRequestArtifacts({ projectRoot: project, role: 'rd' });
+    expect(result.every((r) => r.role === 'rd')).toBe(true);
+  });
+
+  test('filters by sessionId', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'session-filter'), apply: true });
+    const result = await listRequestArtifacts({ projectRoot: project, sessionId: STABLE_SESSION });
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result.every((r) => r.sessionId === STABLE_SESSION)).toBe(true);
+  });
+});
+
+describe('showRequestArtifact', () => {
+  test('returns null when artifact not found', async () => {
+    const project = await makeProject();
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'prd', requestId: 'nonexistent'
+    });
+    expect(result).toBeNull();
+  });
+
+  test('returns artifact with content', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'show-test'), apply: true });
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'prd', requestId: 'show-test', sessionId: STABLE_SESSION
+    });
+    expect(result).not.toBeNull();
+    expect(result!.requestId).toBe('show-test');
+    expect(result!.content).toContain('show-test');
+  });
+
+  test('throws on invalid role', async () => {
+    const project = await makeProject();
+    await expect(
+      showRequestArtifact({ projectRoot: project, role: 'unknown' as any, requestId: 'x' })
+    ).rejects.toThrowError(/role/i);
+  });
+
+  test('throws on invalid requestId', async () => {
+    const project = await makeProject();
+    await expect(
+      showRequestArtifact({ projectRoot: project, role: 'prd', requestId: '../escape' })
+    ).rejects.toThrowError(/request id/i);
+  });
+
+  test('finds artifact without sessionId by scanning all sessions', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'scan-all'), apply: true });
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'prd', requestId: 'scan-all'
+    });
+    expect(result).not.toBeNull();
+    expect(result!.requestId).toBe('scan-all');
+  });
+});
+
+describe('allowedStatesForRole', () => {
+  test('returns allowed states for each role', () => {
+    expect(allowedStatesForRole('prd')).toContain('draft');
+    expect(allowedStatesForRole('prd')).toContain('confirmed-by-user');
+    expect(allowedStatesForRole('rd')).toContain('implemented');
+    expect(allowedStatesForRole('rd')).toContain('qa-handoff');
+    expect(allowedStatesForRole('qa')).toContain('verdict-issued');
+    expect(allowedStatesForRole('sc')).toContain('impact-recorded');
+  });
+});
+
+describe('transitionRequestArtifact validation', () => {
+  test('rejects invalid role', async () => {
+    const project = await makeProject();
+    await expect(
+      transitionRequestArtifact({
+        role: 'unknown' as any, requestId: 'x', projectRoot: project, newState: 'draft'
+      })
+    ).rejects.toThrowError(/role/i);
+  });
+
+  test('rejects invalid requestId', async () => {
+    const project = await makeProject();
+    await expect(
+      transitionRequestArtifact({
+        role: 'prd', requestId: '../escape', projectRoot: project, newState: 'draft'
+      })
+    ).rejects.toThrowError(/request id/i);
+  });
+
+  test('rejects invalid state for role', async () => {
+    const project = await makeProject();
+    await expect(
+      transitionRequestArtifact({
+        role: 'prd', requestId: 'test-x', projectRoot: project, newState: 'implemented' as any
+      })
+    ).rejects.toThrowError(/state for role/i);
+  });
+
+  test('returns null when artifact not found', async () => {
+    const project = await makeProject();
+    const result = await transitionRequestArtifact({
+      role: 'prd', requestId: 'no-such', projectRoot: project, newState: 'confirmed-by-user',
+      confirmed: true
+    });
+    expect(result).toBeNull();
+  });
+
+  test('successfully transitions prd from draft to confirmed-by-user with allowIncomplete', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('prd', project, 'trans-prd-ok'), apply: true });
+    const result = await transitionRequestArtifact({
+      role: 'prd', requestId: 'trans-prd-ok', projectRoot: project,
+      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      confirmed: true, allowIncomplete: true
+    });
+    expect(result).not.toBeNull();
+    expect(result!.state).toBe('confirmed-by-user');
+    expect(result!.previousState).toBe('draft');
+  });
+
+  test('throws prerequisites error when missing artifacts and no allowIncomplete', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('qa', project, 'prereq-test'), apply: true });
+    await expect(
+      transitionRequestArtifact({
+        role: 'qa', requestId: 'prereq-test', projectRoot: project,
+        newState: 'running', sessionId: STABLE_SESSION, confirmed: true
+      })
+    ).rejects.toThrow(PrerequisitesNotSatisfiedError);
+  });
+
+  test('transitions rd from draft to spec-locked with allowIncomplete (prereqs ok)', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('rd', project, 'trans-rd-inc'), apply: true });
+    const result = await transitionRequestArtifact({
+      role: 'rd', requestId: 'trans-rd-inc', projectRoot: project,
+      newState: 'spec-locked', sessionId: STABLE_SESSION,
+      confirmed: true, allowIncomplete: true
+    });
+    expect(result).not.toBeNull();
+    expect(result!.state).toBe('spec-locked');
+  });
+
+  test('transitions qa from draft to running with allowIncomplete and bypassed prerequisites', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({ ...commonOptions('qa', project, 'qa-bypass'), apply: true });
+    const result = await transitionRequestArtifact({
+      role: 'qa', requestId: 'qa-bypass', projectRoot: project,
+      newState: 'running', sessionId: STABLE_SESSION,
+      confirmed: true, allowIncomplete: true
+    });
+    expect(result).not.toBeNull();
+    expect(result!.state).toBe('running');
+    expect(result!.bypassedPrerequisites).toBeDefined();
+  });
+});
+

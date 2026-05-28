@@ -274,5 +274,31 @@ describe('session-manager', () => {
         rmSync(noPeaks, { recursive: true, force: true });
       }
     });
+
+    test('getSessionMeta returns null for corrupt session.json', () => {
+      const sessionId = '2026-05-28-session-corrupt';
+      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+      writeFileSync(join(testProjectRoot, '.peaks', sessionId, 'session.json'), '{broken', 'utf8');
+
+      expect(getSessionMeta(testProjectRoot, sessionId)).toBeNull();
+    });
+
+    test('getSessionMeta returns null for session.json with empty sessionId', () => {
+      const sessionId = '2026-05-28-session-empty';
+      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+      writeFileSync(join(testProjectRoot, '.peaks', sessionId, 'session.json'), JSON.stringify({ sessionId: '' }), 'utf8');
+
+      expect(getSessionMeta(testProjectRoot, sessionId)).toBeNull();
+    });
+
+    test('listSessionMetas returns default meta for session dir without session.json', () => {
+      const sessionId = '2026-05-28-session-a1b2c3';
+      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+
+      const metas = listSessionMetas(testProjectRoot);
+      const found = metas.find((m) => m.sessionId === sessionId);
+      expect(found).toBeDefined();
+      expect(found!.createdAt).toBe('');
+    });
   });
 });

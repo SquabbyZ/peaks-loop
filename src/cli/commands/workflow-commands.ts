@@ -12,6 +12,7 @@ import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { getEconomyAwareExecutionModelId } from '../../services/config/model-routing.js';
 import { getLocalArtifactPath } from '../../services/artifacts/workspace-service.js';
 import { getSessionId } from '../../services/session/session-manager.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
 import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -65,7 +66,8 @@ interface AutonomousResumeInitOptions {
 
 function getCurrentWorkspaceContext(): WorkspaceContext {
   try {
-    const sessionId = getSessionId(process.cwd());
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+    const sessionId = getSessionId(projectRoot);
     return sessionId ? { sessionId, sessionDir: `.peaks/${sessionId}` } : {};
   } catch {
     return {};
@@ -74,7 +76,8 @@ function getCurrentWorkspaceContext(): WorkspaceContext {
 
 function getWorkflowWorkspaceContext(): WorkspaceContext {
   try {
-    const workspace = getWorkspaceConfigForPath(process.cwd());
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+    const workspace = getWorkspaceConfigForPath(projectRoot);
     if (!workspace) return {};
     return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
   } catch {

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { findProjectRoot } from '../config/config-safety.js';
 
 export type SkillPresenceMode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
 
@@ -26,12 +27,16 @@ export type SkillPresence = {
 const PRESENCE_FILE = '.peaks/.active-skill.json';
 const SESSION_FILE = '.peaks/.session.json';
 
+function resolveProjectRoot(): string {
+  return findProjectRoot(process.cwd()) ?? process.cwd();
+}
+
 function resolvePresencePath(): string {
-  return resolve(process.cwd(), PRESENCE_FILE);
+  return resolve(resolveProjectRoot(), PRESENCE_FILE);
 }
 
 function getCurrentSessionId(): string | null {
-  const sessionPath = resolve(process.cwd(), SESSION_FILE);
+  const sessionPath = resolve(resolveProjectRoot(), SESSION_FILE);
   if (!existsSync(sessionPath)) return null;
   try {
     const data = JSON.parse(readFileSync(sessionPath, 'utf8'));

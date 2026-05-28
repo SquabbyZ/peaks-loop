@@ -7,6 +7,7 @@
 import { posix, join } from 'node:path';
 import { getNextNumber, buildNumberedFilename } from './incrementing-number.js';
 import { getSessionId } from '../services/session/session-manager.js';
+import { findProjectRoot } from '../services/config/config-safety.js';
 
 const CHANGE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -80,11 +81,12 @@ export function isUnsafeArtifactPath(path: string): boolean {
 export function buildArtifactRelativePath(changeId: string, ...segments: string[]): string {
   validateChangeIdOrThrow(changeId);
 
-  const sessionId = getSessionId(process.cwd());
+  const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+  const sessionId = getSessionId(projectRoot);
 
   if (sessionId && segments.length > 0 && segments[0]) {
     const role = normalizeForwardSlashes(segments[0]);
-    const dirPath = join(process.cwd(), '.peaks', sessionId, role);
+    const dirPath = join(projectRoot, '.peaks', sessionId, role);
 
     if (isUnsafeArtifactPath(role) || isUnsafeArtifactPath(sessionId)) {
       throw new ChangeIdValidationError(changeId);
