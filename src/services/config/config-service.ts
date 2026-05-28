@@ -602,8 +602,20 @@ function writeRawWorkspaceData(data: Partial<RawWorkspaceData>, layer: ConfigLay
   }
 }
 
-export function getWorkspaceConfig(workspaceId: string, projectRoot?: string | null): WorkspaceConfig | null {
-  const { workspaces } = readRawWorkspaceData('user');
+function readAllWorkspaces(): { currentWorkspace: string | null; workspaces: WorkspaceConfig[] } {
+  const userData = readRawWorkspaceData('user');
+  const projectData = readRawWorkspaceData('project');
+  const mergedWorkspaces = new Map<string, WorkspaceConfig>();
+  for (const w of userData.workspaces) mergedWorkspaces.set(w.workspaceId, w);
+  for (const w of projectData.workspaces) mergedWorkspaces.set(w.workspaceId, w);
+  return {
+    currentWorkspace: projectData.currentWorkspace ?? userData.currentWorkspace,
+    workspaces: [...mergedWorkspaces.values()]
+  };
+}
+
+export function getWorkspaceConfig(workspaceId: string, _projectRoot?: string | null): WorkspaceConfig | null {
+  const { workspaces } = readAllWorkspaces();
   return workspaces.find((w) => w.workspaceId === workspaceId) ?? null;
 }
 
@@ -650,13 +662,13 @@ export function setCurrentWorkspace(workspaceId: string, layer: ConfigLayer = 'u
 }
 
 export function getCurrentWorkspaceConfig(): WorkspaceConfig | null {
-  const { currentWorkspace, workspaces } = readRawWorkspaceData('user');
+  const { currentWorkspace, workspaces } = readAllWorkspaces();
   if (!currentWorkspace) return null;
   return workspaces.find((w) => w.workspaceId === currentWorkspace) ?? null;
 }
 
 export function getWorkspaceConfigForPath(path = process.cwd()): WorkspaceConfig | null {
-  const { workspaces } = readRawWorkspaceData('user');
+  const { workspaces } = readAllWorkspaces();
   return findWorkspaceForPath(workspaces, path);
 }
 

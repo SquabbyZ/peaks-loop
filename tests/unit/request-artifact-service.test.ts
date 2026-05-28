@@ -171,3 +171,33 @@ describe('role-specific template content', () => {
     expect(result.content).toMatch(/## Rollback points/);
   });
 });
+
+import { readdir } from 'node:fs/promises';
+import { transitionRequestArtifact, LintGateError } from '../../src/services/artifacts/request-artifact-service.js';
+
+describe('transitionRequestArtifact lint gate', () => {
+  const STABLE_SESSION = '2026-05-23-stable-session';
+  const STABLE_TIMESTAMP = '2026-05-23T12:00:00.000Z';
+
+  test('throws LintGateError when artifact has placeholder text', async () => {
+    const project = await makeProject();
+    await createRequestArtifact({
+      role: 'rd', requestId: 'lint-001', projectRoot: project,
+      sessionId: STABLE_SESSION,
+      clock: () => STABLE_TIMESTAMP,
+      apply: true
+    });
+    // Overwrite with placeholder-ridden content
+    const rdDir = join(project, '.peaks', STABLE_SESSION, 'rd', 'requests');
+    const files = await readdir(rdDir);
+    const artifactPath = join(rdDir, files[0]!);
+    await writeFile(artifactPath, '# RD Request\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
+
+    await expect(
+      transitionRequestArtifact({
+        role: 'rd', requestId: 'lint-001', projectRoot: project,
+        newState: 'spec-locked', sessionId: STABLE_SESSION, confirmed: true
+      })
+    ).rejects.toThrow(LintGateError);
+  });
+});

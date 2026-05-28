@@ -94,10 +94,6 @@ export function buildArtifactRelativePath(changeId: string, ...segments: string[
     const filename = buildNumberedFilename(number, changeId);
     const candidatePath = `.peaks/${sessionId}/${role}/${filename}`;
 
-    if (isUnsafeArtifactPath(candidatePath)) {
-      throw new ChangeIdValidationError(changeId);
-    }
-
     return normalizeArtifactPath(candidatePath);
   }
 

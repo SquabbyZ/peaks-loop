@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { describe, expect, test } from 'vitest';
-import { addJsonOption, isMiniMaxHttpsUrl, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
+import { addJsonOption, isArtifactRepoSegment, isMiniMaxHttpsUrl, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
 import { ok } from '../../src/shared/result.js';
 
 describe('cli helpers', () => {
@@ -28,5 +28,32 @@ describe('cli helpers', () => {
   test('accumulates repeated command option values', () => {
     expect(multipleOption('second', ['first'])).toEqual(['first', 'second']);
     expect(multipleOption('first', undefined as unknown as string[])).toEqual(['first']);
+  });
+});
+
+describe('isArtifactRepoSegment', () => {
+  test('accepts valid repo segment names', () => {
+    expect(isArtifactRepoSegment('my-repo')).toBe(true);
+    expect(isArtifactRepoSegment('repo123')).toBe(true);
+    expect(isArtifactRepoSegment('my.repo')).toBe(true);
+    expect(isArtifactRepoSegment('my_repo')).toBe(true);
+  });
+
+  test('rejects segment starting with non-alphanumeric', () => {
+    expect(isArtifactRepoSegment('.hidden')).toBe(false);
+    expect(isArtifactRepoSegment('-dash')).toBe(false);
+    expect(isArtifactRepoSegment('_underscore')).toBe(false);
+  });
+
+  test('rejects segment ending with dot', () => {
+    expect(isArtifactRepoSegment('trailing.')).toBe(false);
+  });
+
+  test('rejects segment containing double dots', () => {
+    expect(isArtifactRepoSegment('path..traversal')).toBe(false);
+  });
+
+  test('rejects empty string', () => {
+    expect(isArtifactRepoSegment('')).toBe(false);
   });
 });

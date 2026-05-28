@@ -37,12 +37,8 @@ function getChangedFiles(projectRoot: string, baseRef: string): string[] {
 }
 
 function countLines(filePath: string): number {
-  try {
-    const content = readFileSync(filePath, 'utf8');
-    return content.split(/\r?\n/).length;
-  } catch {
-    return 0;
-  }
+  const content = readFileSync(filePath, 'utf8');
+  return content.split(/\r?\n/).length;
 }
 
 export function scanFileSize(options: FileSizeScanOptions): FileSizeScanResult {

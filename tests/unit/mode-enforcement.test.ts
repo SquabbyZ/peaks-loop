@@ -183,6 +183,31 @@ describe('requireUserConfirmation', () => {
     );
   });
 
+  
+  test('resolves when user answers y', async () => {
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockReadlineQuestion.mockImplementation((_prompt, cb) => cb('y'));
+
+    await expect(
+      requireUserConfirmation({
+        projectRoot: '/tmp',
+        transitionKey: 'prd:confirmed-by-user'
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  test('resolves when user answers yes', async () => {
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
+    mockReadlineQuestion.mockImplementation((_prompt, cb) => cb('yes'));
+
+    await expect(
+      requireUserConfirmation({
+        projectRoot: '/tmp',
+        transitionKey: 'rd:qa-handoff'
+      })
+    ).resolves.toBeUndefined();
+  });
+
   test('returns in assisted mode for non-key transitions without confirmation', async () => {
     mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
 

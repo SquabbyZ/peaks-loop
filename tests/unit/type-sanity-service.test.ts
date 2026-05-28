@@ -52,11 +52,22 @@ describe('checkTypeSanity', () => {
     expect(report.suggestedTypes).toEqual(['config']);
   });
 
+  test('classifies file with unrecognized extension as unknown category', async () => {
+    const project = await makeRepo();
+    await writeFile(join(project, 'gradle.buildscript'), 'some content\n', 'utf8');
+    const report = checkTypeSanity({ projectRoot: project, declaredType: 'feature' });
+    expect(report.breakdown).toHaveLength(1);
+    expect(report.breakdown[0]?.category).toBe('unknown');
+    expect(report.breakdown[0]?.count).toBe(1);
+    expect(report.breakdown[0]?.examples).toEqual(['gradle.buildscript']);
+  });
+
   test('returns consistent=true when no changes are detected', async () => {
     const project = await makeRepo();
     const report = checkTypeSanity({ projectRoot: project, declaredType: 'feature' });
     expect(report.gitAvailable).toBe(true);
     expect(report.changedFiles).toEqual([]);
     expect(report.consistent).toBe(true);
+    expect(report.rationale).toContain('no changes detected against HEAD');
   });
 });

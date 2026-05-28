@@ -362,18 +362,18 @@ describe('createRdSwarmPlan', () => {
     expect(plan.reason).toContain('artifact-workspace-unavailable');
   });
 
-  test('returns preview when artifact workspace fails selected workspace validation', () => {
+  test('accepts artifact workspace inside the project root', () => {
     const workspace = createWorkspace();
-    const unsafeArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
-    mkdirSync(join(unsafeArtifactWorkspace, '.peaks'), { recursive: true });
-    writeFileSync(join(unsafeArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
+    const projectArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
+    mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
+    writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: unsafeArtifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
 
-    expect(plan.available).toBe(false);
-    if (plan.available) return;
-    expect(plan.behavior).toBe('preview');
-    expect(plan.reason).toContain('artifact-workspace-unavailable');
+    expect(plan.available).toBe(true);
+    if (!plan.available) return;
+    expect(plan.gateStatus.techApprovalRequired).toBe(false);
+    expect(plan.gateStatus.skipReason).toBe('tech-gate-skipped-clear-implementation-path');
   });
 
   test('rejects invalid change id, invalid worker counts, unsupported skill, and empty goal', () => {

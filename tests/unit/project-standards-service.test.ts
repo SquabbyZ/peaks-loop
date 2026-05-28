@@ -230,7 +230,8 @@ describe('project standards service', () => {
           ahooks: '^3.7.0',
           tailwindcss: '^3.4.0',
           less: '^4.2.0',
-          'monaco-editor': '^0.45.0'
+          'monaco-editor': '^0.45.0',
+          '@tanstack/react-query': '^5.0.0'
         },
         devDependencies: {
           moment: '^2.29.0'
@@ -257,6 +258,8 @@ describe('project standards service', () => {
     expect(claudeMd).toContain('Tailwind preflight');
     expect(claudeMd).toContain('## Legacy constraints');
     expect(claudeMd).toContain('moment');
+    // Data fetching surfaces @tanstack/react-query in CLAUDE.md
+    expect(claudeMd).toContain('@tanstack/react-query');
 
     // Coding style file carries project-specific rules
     expect(codingStyle).toContain('## Project-specific rules');
@@ -271,7 +274,106 @@ describe('project standards service', () => {
     // Security picks up Monaco
     expect(security).toContain('Monaco editor content is untrusted');
 
-    // TypeScript file mentions service-layer pattern
-    expect(tsStyle).toContain("src/services/**");
+    // TypeScript file mentions service-layer pattern and react-query typing rule
+    expect(tsStyle).toContain('src/services/**');
+    expect(tsStyle).toContain('useQuery<TData, TError>');
   });
 });
+
+  test('detects element-plus component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-elplus-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'vite.config.ts'), 'export default {};\n', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: {
+        'element-plus': '^2.5.0',
+        vue: '^3.4.0'
+      }
+    }), 'utf8');
+
+    const result = executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(result.writtenFiles).toContain('CLAUDE.md');
+    expect(claudeMd).toContain('Element Plus');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects chakra-ui component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-chakra-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: {
+        '@chakra-ui/react': '^2.8.0',
+        react: '^18.0.0'
+      }
+    }), 'utf8');
+
+    const result = executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('Chakra UI');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects vant component library for mobile projects', () => {
+    const projectRoot = createProjectRoot('peaks-standards-vant-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: {
+        vant: '^4.8.0',
+        vue: '^3.4.0'
+      }
+    }), 'utf8');
+
+    const result = executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('Vant');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects arco-design component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-arco-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: { '@arco-design/web-react': '^2.60.0', react: '^18.0.0' }
+    }), 'utf8');
+    executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('Arco Design');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects tdesign component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-td-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: { 'tdesign-react': '^1.7.0', react: '^18.0.0' }
+    }), 'utf8');
+    executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('TDesign');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects semi-design component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-semi-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: { '@douyinfe/semi-ui': '^2.50.0', react: '^18.0.0' }
+    }), 'utf8');
+    executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('Semi Design');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  test('detects nextui component library', () => {
+    const projectRoot = createProjectRoot('peaks-standards-nextui-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    writeFileSync(join(projectRoot, 'package.json'), JSON.stringify({
+      dependencies: { '@nextui-org/react': '^2.4.0', react: '^18.0.0' }
+    }), 'utf8');
+    executeProjectStandardsInit({ projectRoot, apply: true });
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+    expect(claudeMd).toContain('NextUI');
+    rmSync(projectRoot, { recursive: true, force: true });
+  });

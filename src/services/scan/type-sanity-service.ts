@@ -98,9 +98,7 @@ function isConsistent(declared: RequestType, suggested: ReadonlyArray<RequestTyp
 }
 
 function buildRationale(declared: RequestType, breakdown: FileBreakdown[], suggested: ReadonlyArray<RequestType>, consistent: boolean): string {
-  const summary = breakdown.length === 0
-    ? 'no changed files detected'
-    : breakdown.map((entry) => `${entry.category}=${entry.count}`).join(', ');
+  const summary = breakdown.map((entry) => `${entry.category}=${entry.count}`).join(', ');
   if (consistent) {
     return `declared --type=${declared} is consistent with the changed files (${summary})`;
   }

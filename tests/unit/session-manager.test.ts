@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -60,6 +60,36 @@ describe('session-manager', () => {
   });
 
   describe('getSessionId', () => {
+
+
+    test('creates .peaks directory when it does not exist', async () => {
+      const noPeaksDir = join(tmpdir(), 'test-no-peaks-' + Date.now());
+      mkdirSync(noPeaksDir, { recursive: true });
+      try {
+        const sid = await ensureSession(noPeaksDir);
+        expect(sid).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+        expect(existsSync(join(noPeaksDir, '.peaks'))).toBe(true);
+        expect(existsSync(join(noPeaksDir, '.peaks', '.session.json'))).toBe(true);
+      } finally {
+        rmSync(noPeaksDir, { recursive: true, force: true });
+      }
+    });
+    test('handles corrupt session file by overwriting it', async () => {
+      writeFileSync(join(testProjectRoot, '.peaks', '.session.json'), '{corrupt', 'utf8');
+      const sid = await ensureSession(testProjectRoot);
+      expect(sid).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    });
+
+    test('handles session file with mismatched projectRoot by overwriting it', async () => {
+      writeFileSync(join(testProjectRoot, '.peaks', '.session.json'), JSON.stringify({
+        sessionId: '2026-01-01-session-oldval',
+        projectRoot: '/wrong/path',
+        createdAt: '2026-01-01T00:00:00Z'
+      }), 'utf8');
+      const sid = await ensureSession(testProjectRoot);
+      expect(sid).not.toBe('2026-01-01-session-oldval');
+      expect(sid).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    });
     test('returns null when no session exists', () => {
       expect(getSessionId(testProjectRoot)).toBeNull();
     });
@@ -94,6 +124,16 @@ describe('session-manager', () => {
 
       expect(sessions).toHaveLength(1);
       expect(sessions[0]).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    });
+
+    test('returns empty array when .peaks directory does not exist', () => {
+      const noPeaks = join(tmpdir(), 'test-no-peaks-list-' + Date.now());
+      mkdirSync(noPeaks, { recursive: true });
+      try {
+        expect(listSessions(noPeaks)).toEqual([]);
+      } finally {
+        rmSync(noPeaks, { recursive: true, force: true });
+      }
     });
 
     test('ignores non-session directories', async () => {

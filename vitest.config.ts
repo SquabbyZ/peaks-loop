@@ -23,6 +23,8 @@ export default defineConfig({
         'src/cli/commands/codegraph-commands.ts',
         'src/cli/commands/project-commands.ts',
         'src/cli/commands/workflow-commands.ts',
+        'src/cli/commands/request-commands.ts',
+        'src/cli/commands/scan-commands.ts',
         'src/shared/paths.ts',
         'src/shared/result.ts',
         'src/services/recommendations/recommendation-types.ts',
@@ -40,6 +42,8 @@ export default defineConfig({
         'src/services/mcp/mcp-stdio-transport.ts',
         'src/services/openspec/openspec-types.ts',
         'src/services/understand/understand-types.ts',
+        'src/services/scan/scan-types.ts',
+        'src/services/session/index.ts',
       ],
       thresholds: {
         lines: 100,

@@ -97,9 +97,9 @@ export function globToRegex(pattern: string): RegExp {
   }
   // If the pattern ends with no trailing slash and no extension wildcard, also allow it to match files under the path (treat as dir prefix)
   // E.g. `src/services/login` should match `src/services/login/handler.ts`.
-  if (!trimmed.includes('*') && !trimmed.includes('?') && !trimmed.includes('.')) {
-    body = `${body}(?:/.*)?`;
-  }
+  body = (!trimmed.includes("*") && !trimmed.includes("?") && !trimmed.includes("."))
+    ? `${body}(?:/.*)?`
+    : body;
   return new RegExp(`^${body}$`);
 }
 

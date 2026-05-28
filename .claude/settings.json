@@ -3,22 +3,12 @@
     "SessionStart": [
       {
         "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/peaks-skill-status.cjs"
-          }
-        ]
+        "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/peaks-skill-status.cjs"
       }
     ],
-    "SessionEnd": [
+    "Stop": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/peaks-session-cleanup.cjs"
-          }
-        ]
+        "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/peaks-session-cleanup.cjs"
       }
     ]
   }

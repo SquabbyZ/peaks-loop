@@ -82,20 +82,14 @@ describe('createTechPlan', () => {
     expect(plan.preview.artifactRoot).toBe('.peaks/checkout-refactor/rd/architecture');
   });
 
-  test('validates artifact workspace against the selected workspace root', () => {
+  test('accepts artifact workspace inside the project root', () => {
     const workspace = createWorkspace();
-    const unsafeArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
-    mkdirSync(join(unsafeArtifactWorkspace, '.peaks'), { recursive: true });
-    writeFileSync(join(unsafeArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
+    const projectArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
+    mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
+    writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const unsafePlan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: unsafeArtifactWorkspace, workspace });
-    expect(unsafePlan.available).toBe(false);
-
-    const safeArtifactWorkspace = getLocalArtifactPath(workspace.rootPath);
-    mkdirSync(join(safeArtifactWorkspace, '.peaks'), { recursive: true });
-    writeFileSync(join(safeArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
-
-    expect(createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: safeArtifactWorkspace, workspace }).available).toBe(true);
+    const plan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
+    expect(plan.available).toBe(true);
   });
 
   test('rejects invalid change id and empty goal', () => {
@@ -138,16 +132,16 @@ describe('getTechStatus', () => {
     expect(status.blockedReasons).toContain('artifact-workspace-unavailable');
   });
 
-  test('returns unavailable when selected workspace boundary validation fails', () => {
+  test('returns missing when artifact workspace is valid but artifacts not created', () => {
     const workspace = createWorkspace();
-    const unsafeArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
-    mkdirSync(join(unsafeArtifactWorkspace, '.peaks'), { recursive: true });
-    writeFileSync(join(unsafeArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
+    const projectArtifactWorkspace = join(workspace.rootPath, '.peaks-artifacts');
+    mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
+    writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: unsafeArtifactWorkspace, workspace });
+    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: projectArtifactWorkspace, workspace });
 
-    expect(status.status).toBe('unavailable');
-    expect(status.blockedReasons).toContain('artifact-workspace-unavailable');
+    expect(status.status).toBe('missing');
+    expect(status.blockedReasons).toContain('tech-artifacts-missing');
   });
 
   test('blocks when approval record is missing or unapproved', () => {

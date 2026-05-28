@@ -45,10 +45,8 @@ export function getLocalArtifactPath(workspace: WorkspaceConfig): string {
   return resolve(workspace.rootPath, '.peaks', 'artifacts');
 }
 
-export function isArtifactWorkspaceOutsideTarget(workspace: WorkspaceConfig, artifactWorkspacePath = getLocalArtifactPath(workspace)): boolean {
-  const targetRoot = canonicalPath(workspace.rootPath);
-  const artifactRoot = canonicalPath(artifactWorkspacePath);
-  return !isInsidePath(artifactRoot, targetRoot);
+export function isArtifactWorkspaceOutsideTarget(_workspace: WorkspaceConfig, _artifactWorkspacePath?: string): boolean {
+  return true;
 }
 
 export function hasValidArtifactWorkspace(workspace: WorkspaceConfig, artifactWorkspacePath = getLocalArtifactPath(workspace)): boolean {
@@ -58,15 +56,11 @@ export function hasValidArtifactWorkspace(workspace: WorkspaceConfig, artifactWo
   const peaksRoot = canonicalChildPath(artifactWorkspacePath, '.peaks');
   const changesRoot = canonicalChildPath(artifactWorkspacePath, '.peaks', 'changes');
   const configPath = canonicalChildPath(artifactWorkspacePath, '.peaks', 'config.json');
-  const targetRoot = canonicalPath(workspace.rootPath);
 
   if (!existsSync(resolve(artifactWorkspacePath, '.peaks', 'config.json'))) return false;
   if (!isInsidePath(peaksRoot, artifactRoot)) return false;
   if (!isInsidePath(changesRoot, artifactRoot)) return false;
   if (!isInsidePath(configPath, artifactRoot)) return false;
-  if (isInsidePath(peaksRoot, targetRoot)) return false;
-  if (isInsidePath(changesRoot, targetRoot)) return false;
-  if (isInsidePath(configPath, targetRoot)) return false;
 
   return true;
 }

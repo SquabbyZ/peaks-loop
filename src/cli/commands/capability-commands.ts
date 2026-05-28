@@ -17,20 +17,22 @@ const CAPABILITY_SOURCE_FILTERS = new Set<CapabilityMapSourceFilter>(['all', 'ac
 
 export function registerCapabilityCommands(program: Command, io: ProgramIO): void {
   const capability = program.command('capability').description('Inspect Peaks capability catalog and runtime availability');
-  addJsonOption(capability.command('status').description('Show seed capability availability')).action((options: { json?: boolean }) => {
-    const availability = resolveCapabilityAvailability(seedCapabilityItems);
-    printResult(io, ok('capability.status', { sources: seedCapabilitySources, items: seedCapabilityItems, availability }), options.json);
-  });
+  addJsonOption(capability.command("status").description("Show seed capability availability")).action((options: { json?: boolean }) => runCapabilityStatus(io, options));
 
   addCapabilityMapOptions(capability.command('map').description('Show dry-run external capability landing map')).action((options: CapabilityMapOptions) => runCapabilityMap(io, options));
   addCapabilityMapOptions(program.command('capabilities').description('Show dry-run external capability landing map')).action((options: CapabilityMapOptions) => runCapabilityMap(io, options));
+}
+
+export function runCapabilityStatus(io: ProgramIO, options: { json?: boolean }): void {
+  const availability = resolveCapabilityAvailability(seedCapabilityItems);
+  printResult(io, ok("capability.status", { sources: seedCapabilitySources, items: seedCapabilityItems, availability }), options.json);
 }
 
 function addCapabilityMapOptions(command: Command): Command {
   return addJsonOption(command.option('--source <source>', 'Filter source group: all, access-repo, or mcp-server', 'all'));
 }
 
-function runCapabilityMap(io: ProgramIO, options: CapabilityMapOptions): void {
+export function runCapabilityMap(io: ProgramIO, options: CapabilityMapOptions): void {
   const source = parseCapabilityMapSource(options.source);
 
   if (!source) {
@@ -52,7 +54,7 @@ export function getInstalledCapabilityIds(_config: PeaksConfig): string[] {
   return [];
 }
 
-function parseCapabilityMapSource(source: string): CapabilityMapSourceFilter | null {
+export function parseCapabilityMapSource(source: string): CapabilityMapSourceFilter | null {
   if (CAPABILITY_SOURCE_FILTERS.has(source as CapabilityMapSourceFilter)) {
     return source as CapabilityMapSourceFilter;
   }

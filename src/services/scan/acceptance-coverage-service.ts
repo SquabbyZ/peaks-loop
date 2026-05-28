@@ -51,15 +51,12 @@ function extractAcceptanceItems(prdBody: string): AcceptanceItem[] {
     return [];
   }
   // Find the line where the header starts.
-  let headerLine = -1;
+  let headerLine = 0;
   for (let i = 0; i < lines.length; i += 1) {
     if (ACCEPTANCE_SECTION_PATTERN.test((lines[i] ?? '') + '\n')) {
       headerLine = i;
       break;
     }
-  }
-  if (headerLine === -1) {
-    return [];
   }
   const items: AcceptanceItem[] = [];
   let counter = 0;

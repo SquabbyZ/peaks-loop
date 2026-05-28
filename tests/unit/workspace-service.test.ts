@@ -90,32 +90,32 @@ describe('workspace service', () => {
     expect(getLocalArtifactPath(workspace)).toBe(resolve(workspace.rootPath, '.peaks', 'artifacts'));
   });
 
-  test('getArtifactWorkspaceStatus treats missing artifactRepo as unconfigured local storage', () => {
+  test('getArtifactWorkspaceStatus treats missing artifactRepo as local storage', () => {
     const status = getArtifactWorkspaceStatus('ws-sw');
 
-    expect(status.configured).toBe(false);
+    expect(status.configured).toBe(true);
     expect(status.artifactRepo).toBeNull();
-    expect(status.syncStatus).toBe('unknown');
+    expect(status.syncStatus).toBe('pending');
     expect(status.localPath).toBe(resolve(join(tmpdir(), 'peaks-local-target'), '.peaks', 'artifacts'));
-    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
+    expect(status.nextActions.join('\n')).toContain('Local artifact storage ready');
   });
 
-  test('planArtifactSync for default local storage returns outside-target plan', () => {
+  test('planArtifactSync for default local storage returns local storage plan', () => {
     const plan = planArtifactSync('ws-sw', true);
 
     expect(plan.workspaceId).toBe('ws-sw');
     expect(plan.remoteUrl).toBeNull();
     expect(plan.localPath).toBe(resolve(join(tmpdir(), 'peaks-local-target'), '.peaks', 'artifacts'));
-    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
+    expect(plan.plannedCommands.join('\n')).toContain('No remote repository is configured or required');
   });
 
-  test('planArtifactSync returns outside-target plan when artifact path is inside the target repo', () => {
+  test('planArtifactSync returns sync plan when artifact path is inside the target repo', () => {
     const plan = planArtifactSync('ws1', true);
 
     expect(plan.workspaceId).toBe('ws1');
-    expect(plan.remoteUrl).toBeNull();
+    expect(plan.remoteUrl).toBe('https://github.com/smallmark1912/artifacts.git');
     expect(plan.localPath).toBe(resolve(join(tmpdir(), 'peaks-legacy-target'), '.peaks', 'artifacts'));
-    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
+    expect(plan.plannedCommands.join('\n')).toContain('# Sync plan for workspace ws1');
   });
 
   test('explicit local artifactStorage overrides legacy artifactRepo sync', () => {
@@ -123,10 +123,10 @@ describe('workspace service', () => {
     const plan = planArtifactSync('ws-local-overrides-legacy', true);
 
     expect(status.artifactRepo).toBeNull();
-    expect(status.configured).toBe(false);
-    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
+    expect(status.configured).toBe(true);
+    expect(status.nextActions.join('\n')).toContain('Local artifact storage ready');
     expect(plan.remoteUrl).toBeNull();
-    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
+    expect(plan.plannedCommands.join('\n')).toContain('No remote repository is configured or required');
   });
 
   test('artifactStorage remote sync works without legacy artifactRepo', () => {
@@ -134,10 +134,10 @@ describe('workspace service', () => {
     const plan = planArtifactSync('ws-storage-remote', true);
 
     expect(status.artifactRepo).toEqual({ provider: 'gitlab', owner: 'acme', name: 'storage-artifacts' });
-    expect(status.configured).toBe(false);
-    expect(status.nextActions.join('\n')).toContain('Configure artifact workspace outside the target repository');
-    expect(plan.remoteUrl).toBeNull();
-    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
+    expect(status.configured).toBe(true);
+    expect(status.nextActions.join('\n')).toContain('peaks artifacts sync --workspace ws-storage-remote --dry-run');
+    expect(plan.remoteUrl).toBe('https://gitlab.com/acme/storage-artifacts.git');
+    expect(plan.plannedCommands.join('\n')).toContain('# Sync plan for workspace ws-storage-remote');
   });
 
   test('getArtifactWorkspaceStatus returns unconfigured for unknown workspace', () => {
@@ -154,17 +154,17 @@ describe('workspace service', () => {
     expect(plan.plannedCommands).toHaveLength(1);
   });
 
-  test('getArtifactWorkspaceStatus treats local storage as unconfigured without artifact repo', () => {
+  test('getArtifactWorkspaceStatus treats local storage as configured without artifact repo', () => {
     const status = getArtifactWorkspaceStatus('ws-sw');
-    expect(status.configured).toBe(false);
-    expect(status.syncStatus).toBe('unknown');
+    expect(status.configured).toBe(true);
+    expect(status.syncStatus).toBe('pending');
   });
 
-  test('planArtifactSync returns outside-target plan when workspace rootPath does not exist', () => {
+  test('planArtifactSync returns sync plan when workspace rootPath does not exist', () => {
     const plan = planArtifactSync('ws1', true);
     expect(plan.workspaceId).toBe('ws1');
-    expect(plan.remoteUrl).toBeNull();
-    expect(plan.plannedCommands.join('\n')).toContain('Artifact workspace must be outside the target repository');
+    expect(plan.remoteUrl).toBe('https://github.com/smallmark1912/artifacts.git');
+    expect(plan.plannedCommands.join('\n')).toContain('# Sync plan for workspace ws1');
   });
 
   test('planArtifactSync dry-run returns planned commands', () => {

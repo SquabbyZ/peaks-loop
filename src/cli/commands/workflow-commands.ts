@@ -12,6 +12,7 @@ import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { getEconomyAwareExecutionModelId } from '../../services/config/model-routing.js';
 import { getLocalArtifactPath } from '../../services/artifacts/workspace-service.js';
 import { getSessionId } from '../../services/session/session-manager.js';
+import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -384,6 +385,33 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addAutonomousResumeInitOptions(autonomousResume.command('init')).action((options: AutonomousResumeInitOptions) => runAutonomousResumeInit(io, options));
   const autonomousResumeAlias = program.command('autonomous-resume').description('Manage autonomous workflow resume artifacts');
   addAutonomousResumeInitOptions(autonomousResumeAlias.command('init')).action((options: AutonomousResumeInitOptions) => runAutonomousResumeInit(io, options));
+
+  addJsonOption(
+    workflow
+      .command('verify-pipeline')
+      .description('Verify the complete rd→qa pipeline was followed for a request')
+      .requiredOption('--rid <rid>', 'request identifier')
+      .requiredOption('--project <path>', 'project root path')
+      .requiredOption('--session-id <id>', 'session identifier')
+      .option('--type <type>', 'request type: feature, bugfix, refactor, docs, config, chore', 'feature')
+  ).action(async (options: { rid: string; project: string; sessionId: string; type?: string; json?: boolean }) => {
+    try {
+      const result = await verifyPipeline({
+        projectRoot: options.project,
+        rid: options.rid,
+        sessionId: options.sessionId,
+        ...(options.type ? { requestType: options.type } : {})
+      });
+      const exitOk = result.complete ? 0 : 1;
+      printResult(io, result.complete
+        ? ok('workflow.verify-pipeline', result)
+        : fail('workflow.verify-pipeline', 'PIPELINE_INCOMPLETE', `${result.violations.length} violation(s): ${result.violations.join('; ')}`, result, result.nextActions), options.json);
+      process.exitCode = exitOk;
+    } catch (error) {
+      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), {}, ['Check that --project, --rid, and --session-id are correct']), options.json);
+      process.exitCode = 1;
+    }
+  });
 
   const swarm = program.command('swarm').description('Plan RD swarm dry-run graphs');
   addSwarmPlanOptions(swarm.command('plan'), true).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));

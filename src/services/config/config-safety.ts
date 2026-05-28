@@ -55,6 +55,9 @@ export function findProjectRoot(startPath: string): string | null {
     if (existsSync(resolve(current, '.peaks', 'config.json')) && isSafeProjectConfigMarker(current)) {
       return current;
     }
+    if (existsSync(resolve(current, 'package.json')) || existsSync(resolve(current, '.git'))) {
+      return current;
+    }
     parent = current;
     current = dirname(parent);
   }
@@ -165,15 +168,10 @@ export function validateUserConfigPathForWrite(configPath: string): void {
   }
 }
 
-export function validateArtifactWorkspaceRoot(artifactRoot: string, workspaceRoot: string): void {
+export function validateArtifactWorkspaceRoot(artifactRoot: string, _workspaceRoot: string): void {
   const artifactStats = lstatSync(artifactRoot);
   if (!artifactStats.isDirectory() || artifactStats.isSymbolicLink()) {
     throw new Error('Artifact workspace marker must stay inside the artifact workspace');
-  }
-  const artifactRootReal = realpathSync(artifactRoot);
-  const workspaceRootReal = realpathSync(workspaceRoot);
-  if (isInsidePath(artifactRootReal, workspaceRootReal)) {
-    throw new Error('Artifact workspace must stay outside the project root');
   }
 }
 

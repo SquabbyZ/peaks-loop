@@ -120,12 +120,7 @@ async function countSrcFiles(projectRoot: string, max = 500): Promise<number> {
   while (queue.length > 0 && count < max) {
     const current = queue.shift();
     if (current === undefined) break;
-    let entries;
-    try {
-      entries = await readdir(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
+    const entries = await readdir(current, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
       const full = join(current, entry.name);
@@ -145,13 +140,9 @@ async function lockfileAgeDays(projectRoot: string): Promise<number | null> {
   for (const candidate of candidates) {
     const full = join(projectRoot, candidate);
     if (await pathExists(full)) {
-      try {
-        const stats = await stat(full);
-        const ageMs = Date.now() - stats.mtimeMs;
-        return Math.floor(ageMs / (1000 * 60 * 60 * 24));
-      } catch {
-        return null;
-      }
+      const stats = await stat(full);
+      const ageMs = Date.now() - stats.mtimeMs;
+      return Math.floor(ageMs / (1000 * 60 * 60 * 24));
     }
   }
   return null;

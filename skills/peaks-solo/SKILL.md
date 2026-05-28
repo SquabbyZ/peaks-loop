@@ -9,6 +9,39 @@ Peaks Solo is the orchestration facade for the Peaks short skill family.
 
 Use this skill to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
+## Code-Change Red Line (BLOCKING — read before ANY tool call)
+
+**Peaks Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
+
+Every code change — bugfix, feature, refactor, or config — MUST go through the full pipeline:
+
+```
+peaks-solo (orchestrate only)
+  → Skill(skill="peaks-rd")  ← ALL code changes happen HERE
+    → Unit tests written + pass (Gate B2)
+    → Karpathy standards enforced (file-size ≤800 lines, TypeScript rules)
+    → Code review evidence (Gate B3)
+    → Security review evidence (Gate B4)
+  → Skill(skill="peaks-qa")  ← ALL validation happens HERE
+    → Functional test execution (Gate A2)
+    → Performance check (Gate A4)
+    → Security test (Gate A3)
+    → Browser E2E (when frontend; Gate D)
+    → Verdict: pass | return-to-rd | blocked
+```
+
+**Violations (BLOCKING — Solo must refuse to proceed):**
+
+1. Writing implementation code directly instead of calling `Skill(skill="peaks-rd")`
+2. Declaring work "done" without invoking `Skill(skill="peaks-qa")` after RD
+3. Skipping unit tests ("it's a small change")
+4. Skipping code review or security review
+5. Skipping QA functional/performance/security validation
+
+**If you catch yourself about to write code in this skill, STOP. Call `Skill(skill="peaks-rd")` instead.**
+
+**Before declaring workflow complete, run:** `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`
+
 ## Startup sequence (MANDATORY — execute in order)
 
 ### Step 1: Mode selection (MUST run before presence:set)

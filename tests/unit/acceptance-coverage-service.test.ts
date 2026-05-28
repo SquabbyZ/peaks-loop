@@ -26,6 +26,17 @@ async function writePrd(project: string, rid: string, acceptanceBullets: string[
   await writeFile(result.path, replaced, 'utf8');
 }
 
+async function writePrdWithoutAcceptanceSection(project: string, rid: string): Promise<void> {
+  const result = await createRequestArtifact({
+    role: 'prd', requestId: rid, projectRoot: project, sessionId: SESSION, apply: true, clock: () => TS
+  });
+  const { readFile } = await import('node:fs/promises');
+  const body = await readFile(result.path, 'utf8');
+  // Remove the entire Acceptance criteria section including the header
+  const stripped = body.replace(/\n## Acceptance criteria\n[\s\S]*?(?=\n## )/, '');
+  await writeFile(result.path, stripped, 'utf8');
+}
+
 async function writeTestCases(project: string, rid: string, body: string): Promise<void> {
   const dir = join(project, '.peaks', SESSION, 'qa', 'test-cases');
   await mkdir(dir, { recursive: true });
@@ -141,6 +152,21 @@ describe('getAcceptanceCoverage', () => {
       expect(result.ok).toBe(true);
       expect(result.coverage[0]?.testCases).toEqual(['Combined check']);
       expect(result.coverage[1]?.testCases).toEqual(['Combined check']);
+    }
+  });
+
+  test('returns empty acceptance items and ok=false when PRD has no Acceptance criteria section', async () => {
+    const project = await makeProject();
+    await writePrdWithoutAcceptanceSection(project, '2026-05-25-no-acceptance');
+    await writeTestCases(project, '2026-05-25-no-acceptance', [
+      '## Test Case: Some test',
+      '- **Acceptance:** A1',
+      ''
+    ].join('\n'));
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-no-acceptance', sessionId: SESSION });
+    if (!isAcceptanceCoverageError(result)) {
+      expect(result.acceptanceItems).toEqual([]);
+      expect(result.ok).toBe(false);
     }
   });
 });

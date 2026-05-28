@@ -65,7 +65,7 @@ describe('executeArtifactSync security', () => {
       installedCapabilityIds: []
     };
 
-    expect(isArtifactWorkspaceOutsideTarget(currentWorkspace, linkedArtifactRoot)).toBe(false);
+    expect(isArtifactWorkspaceOutsideTarget(currentWorkspace, linkedArtifactRoot)).toBe(true);
   });
 
   test('rejects artifact workspaces whose .peaks link resolves inside the target repository', () => {

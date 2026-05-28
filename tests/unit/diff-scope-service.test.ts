@@ -53,6 +53,15 @@ describe('globToRegex', () => {
     expect(re.test('src/api/login.ts')).toBe(false);
   });
 
+  test('? matches single character in path segment', () => {
+    const re = globToRegex('src/util?.ts');
+    expect(re.test('src/util1.ts')).toBe(true);
+    expect(re.test('src/utilA.ts')).toBe(true);
+    expect(re.test('src/util.ts')).toBe(false);
+    expect(re.test('src/util12.ts')).toBe(false);
+    expect(re.test('src/util/12.ts')).toBe(false);
+  });
+
   test('bare directory name expands to directory prefix', () => {
     const re = globToRegex('src/services/login');
     expect(re.test('src/services/login')).toBe(true);
@@ -185,6 +194,23 @@ describe('getDiffVsScope', () => {
     if (!isDiffScopeError(result)) {
       expect(result.gitAvailable).toBe(false);
       expect(result.ok).toBe(false);
+    }
+  });
+
+  test('parses backtick-wrapped path patterns in scope bullets', async () => {
+    const project = await makeGitRepo();
+    await seedRdWithScope(project, '2026-05-25-feat', [
+      'In-scope:',
+      '- `src/services/login/**`',
+      ''
+    ].join('\n'));
+    await writeAndStage(project, 'src/services/login/handler.ts', 'in-scope');
+    const result = await getDiffVsScope({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    if (!isDiffScopeError(result)) {
+      expect(result.inScopePatterns.length).toBe(1);
+      expect(result.inScopePatterns[0]?.raw).toBe('src/services/login/**');
+      expect(result.changedFiles.filter((f) => f.classification === 'in-scope').length).toBe(1);
+      expect(result.ok).toBe(true);
     }
   });
 });

@@ -82,3 +82,44 @@ describe('scanExistingSystem', () => {
     expect(report.inconsistencies.some((issue) => issue.includes('primary-color'))).toBe(true);
   });
 });
+
+  test('extracts tailwind config tokens', async () => {
+    const project = await makeProject();
+    await writePkg(project, { dependencies: { react: '^18', tailwindcss: '^3' } });
+    await writeManySrcFiles(project, 25);
+    await writeLockfile(project);
+    await writeFile(join(project, 'tailwind.config.js'), 'module.exports = { theme: { extend: { colors: { primary: "#1677ff" } } } };', 'utf8');
+    const report = await scanExistingSystem({ projectRoot: project });
+    expect(report.scanned).toBe(true);
+    expect(report.visualTokens.sources.some(s => s.kind === 'tailwind-config')).toBe(true);
+  });
+
+  test('detects kebab-case component naming', async () => {
+    const project = await makeProject();
+    await writePkg(project, { dependencies: { react: '^18' } });
+    await writeManySrcFiles(project, 25);
+    await writeLockfile(project);
+    await mkdir(join(project, 'src/components'), { recursive: true });
+    await writeFile(join(project, 'src/components/user-card.tsx'), 'export const X = 1;', 'utf8');
+    await writeFile(join(project, 'src/components/order-list.tsx'), 'export const X = 1;', 'utf8');
+    const report = await scanExistingSystem({ projectRoot: project });
+    expect(report.scanned).toBe(true);
+    expect(report.conventions.componentNaming).toBe('kebab-case');
+  });
+
+  test('detects service and hook directories', async () => {
+    const project = await makeProject();
+    await writePkg(project, { dependencies: { react: '^18' } });
+    await writeManySrcFiles(project, 25);
+    await writeLockfile(project);
+    await mkdir(join(project, 'src/services'), { recursive: true });
+    await writeFile(join(project, 'src/services/api.ts'), 'export const api = {};', 'utf8');
+    await mkdir(join(project, 'src/hooks'), { recursive: true });
+    await writeFile(join(project, 'src/hooks/useData.ts'), 'export const useData = () => {};', 'utf8');
+    const report = await scanExistingSystem({ projectRoot: project });
+    expect(report.scanned).toBe(true);
+    expect(report.conventions.serviceDir).toBe('src/services');
+    expect(report.conventions.hookDir).toBe('src/hooks');
+    expect(report.conventions.samples.some(s => s.kind === 'service')).toBe(true);
+    expect(report.conventions.samples.some(s => s.kind === 'hook')).toBe(true);
+  });
