@@ -1,11 +1,11 @@
 ---
 name: peaks-rd
-description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks refactor workflows.
+description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Cli refactor workflows.
 ---
 
-# Peaks RD
+# Peaks-Cli RD
 
-Peaks RD owns engineering analysis, implementation planning, and refactor execution contracts.
+Peaks-Cli RD owns engineering analysis, implementation planning, and refactor execution contracts.
 
 ## Skill presence (MANDATORY first action)
 
@@ -15,7 +15,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-rd --mode <mode> --gate startup
 ```
 
-Then display: `Peaks Skill: peaks-rd | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+Then display: `Peaks-Cli Skill: peaks-rd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
 
 ## Responsibilities
 
@@ -110,25 +110,25 @@ peaks mcp call --capability context7.docs-lookup --tool <name> --args-json '{...
 
 # 6. record red-line scope, slice contract, coverage status into the RD artifact, then implement
 
-# 6.5 BEFORE tech-doc: verify EVERY path in the tech-doc against actual project structure (Gate A2)
+# 6.5 BEFORE tech-doc: verify EVERY path in the tech-doc against actual project structure (Peaks-Cli Gate A2)
 #     ls every directory path in the tech-doc — zero "No such file" allowed
 #     This is the most common RD failure mode. Do not skip it.
 
-# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Gate A3)
+# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Cli Gate A3)
 #     Missing standards files → run `peaks standards init --project .` first
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
-#    Gate B2: unit tests exist and pass → npx vitest run (or project equivalent)
-#    Gate B3: code review evidence → .peaks/<id>/rd/code-review.md
-#    Gate B4: security review evidence → .peaks/<id>/rd/security-review.md
-#    Gate B5 (NEW): RD artifact body has no unfilled placeholders.
+#    Peaks-Cli Gate B2: unit tests exist and pass → npx vitest run (or project equivalent)
+#    Peaks-Cli Gate B3: code review evidence → .peaks/<id>/rd/code-review.md
+#    Peaks-Cli Gate B4: security review evidence → .peaks/<id>/rd/security-review.md
+#    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
 peaks request lint <rid> --role rd --project <repo> --session-id <sid> --json
-#    Gate B6 (NEW): declared --type still matches the actual diff after implementation.
+#    Peaks-Cli Gate B6 (NEW): declared --type still matches the actual diff after implementation.
 peaks scan request-type-sanity --project <repo> --type <type> --json
-#    Gate B7 (NEW, repair cycles only): we have not exceeded the 3-cycle cap.
+#    Peaks-Cli Gate B7 (NEW, repair cycles only): we have not exceeded the 3-cycle cap.
 peaks request repair-status <rid> --project <repo> --session-id <sid> --json
-#    Gate B8 (NEW): every changed file matches the RD red-line scope (no out-of-bounds writes).
+#    Peaks-Cli Gate B8 (NEW): every changed file matches the RD red-line scope (no out-of-bounds writes).
 peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <sid> --json
 #    All six non-zero → BLOCKED. Fix and re-check before attempting the qa-handoff transition.
 
@@ -158,14 +158,14 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 >
 > The escape hatch `--allow-incomplete --reason "<text>"` still exists for one-off exceptions; the bypass is recorded in the artifact transition note.
 
-**Gate A — After project-scan read (before any implementation):**
+**Peaks-Cli Gate A — After project-scan read (before any implementation):**
 ```bash
 ls .peaks/<id>/rd/project-scan.md
 # Expected output: .peaks/<id>/rd/project-scan.md
 # "No such file" → STOP, create the project-scan first. Do not write code.
 ```
 
-**Gate A2 — Before tech-doc write: project structure verified (PATH CORRECTNESS — CRITICAL):**
+**Peaks-Cli Gate A2 — Before tech-doc write: project structure verified (PATH CORRECTNESS — CRITICAL):**
 ```bash
 # Verify EVERY file path and directory in the tech-doc exists in the actual project.
 # Do not assume paths. Do not guess directory structures. Open the files and verify.
@@ -177,7 +177,7 @@ ls <every-single-directory-path-in-tech-doc> 2>&1 | grep -c "No such file"
 # breaks the implementation, and forces the user to correct the engineer.
 ```
 
-**Gate A3 — Before implementation: project standards files exist (CLAUDE.md + .claude/rules/):**
+**Peaks-Cli Gate A3 — Before implementation: project standards files exist (CLAUDE.md + .claude/rules/):**
 ```bash
 ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-review.md .claude/rules/common/security.md 2>&1 | grep -c "No such file"
 # Expected: 0 (all four files exist)
@@ -186,14 +186,14 @@ ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-revi
 # Without CLAUDE.md and .claude/rules/, code review and security review triggers won't fire.
 ```
 
-**Gate B — Before QA handoff:**
+**Peaks-Cli Gate B — Before QA handoff:**
 ```bash
 ls .peaks/<id>/rd/requests/<rid>.md \
    .peaks/<id>/rd/tech-doc.md
 # Both must exist. Missing either → BLOCKED, do not hand off to QA
 ```
 
-**Gate B2 — Before QA handoff: unit tests exist and pass:**
+**Peaks-Cli Gate B2 — Before QA handoff: unit tests exist and pass:**
 ```bash
 # Run the project's test command against changed files. Record the output.
 # Example (adapt to project test runner):
@@ -202,7 +202,7 @@ npx vitest run --reporter=verbose 2>&1 | tail -20
 # Any failing test or zero tests for new code → BLOCKED. Write tests, then re-run.
 ```
 
-**Gate B3 — Before QA handoff: code review evidence exists:**
+**Peaks-Cli Gate B3 — Before QA handoff: code review evidence exists:**
 ```bash
 ls .peaks/<id>/rd/code-review.md 2>&1
 # Expected: .peaks/<id>/rd/code-review.md
@@ -210,7 +210,7 @@ ls .peaks/<id>/rd/code-review.md 2>&1
 # record findings, fix CRITICAL/HIGH issues, then re-check.
 ```
 
-**Gate B4 — Before QA handoff: security review evidence exists:**
+**Peaks-Cli Gate B4 — Before QA handoff: security review evidence exists:**
 ```bash
 ls .peaks/<id>/rd/security-review.md 2>&1
 # Expected: .peaks/<id>/rd/security-review.md
@@ -218,7 +218,7 @@ ls .peaks/<id>/rd/security-review.md 2>&1
 # fix CRITICAL/HIGH issues, record findings, then re-check.
 ```
 
-**Gate B5 — RD artifact body has no unfilled placeholders:**
+**Peaks-Cli Gate B5 — RD artifact body has no unfilled placeholders:**
 ```bash
 peaks request lint <rid> --role rd --project <repo> --session-id <sid> --json
 # Expected: ok=true. exit 0.
@@ -226,7 +226,7 @@ peaks request lint <rid> --role rd --project <repo> --session-id <sid> --json
 # and TBD/TODO marker with line numbers. Fill them in before attempting handoff.
 ```
 
-**Gate B6 — Declared --type matches the actual diff:**
+**Peaks-Cli Gate B6 — Declared --type matches the actual diff:**
 ```bash
 peaks scan request-type-sanity --project <repo> --type <type> --json
 # Expected: consistent=true. exit 0.
@@ -235,7 +235,7 @@ peaks scan request-type-sanity --project <repo> --type <type> --json
 # (`peaks request init` with the corrected --type) or trim the scope.
 ```
 
-**Gate B7 — Repair cycle cap (only relevant during RD↔QA repair loop):**
+**Peaks-Cli Gate B7 — Repair cycle cap (only relevant during RD↔QA repair loop):**
 ```bash
 peaks request repair-status <rid> --project <repo> --session-id <sid> --json
 # Expected: atCap=false. exit 0.
@@ -243,7 +243,7 @@ peaks request repair-status <rid> --project <repo> --session-id <sid> --json
 # handoff via Solo rather than entering a fourth cycle.
 ```
 
-**Gate B8 — Diff stays inside the declared red-line scope:**
+**Peaks-Cli Gate B8 — Diff stays inside the declared red-line scope:**
 ```bash
 peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <sid> --json
 # Expected: ok=true. exit 0.
@@ -259,7 +259,7 @@ peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <sid> --json
 
 ## Project standards preflight
 
-Before RD planning or implementation work in a code repository, call the Peaks CLI:
+Before RD planning or implementation work in a code repository, call the Peaks-Cli CLI:
 
 - `peaks standards init --project <path> --dry-run`
 - `peaks standards update --project <path> --dry-run`
@@ -270,17 +270,17 @@ If `CLAUDE.md` is missing, treat creation as the preferred path. If `CLAUDE.md` 
 
 Use gstack as a concrete engineering workflow reference for `Think → Plan → Build → Review → Test → Ship → Reflect`:
 
-- map plan engineering review to Peaks RD risk matrices, task graphs, and slice contracts;
+- map plan engineering review to Peaks-Cli RD risk matrices, task graphs, and slice contracts;
 - map build/review discipline to strict spec-first implementation and code-review gates;
 - map investigate/careful/guard concepts to root-cause analysis, risky-action confirmation, and scoped edit boundaries;
-- adapt gstack concepts into Peaks artifacts rather than invoking gstack commands as runtime dependencies.
+- adapt gstack concepts into Peaks-Cli artifacts rather than invoking gstack commands as runtime dependencies.
 
-When Peaks RD produces or changes code, dry-run repeatedly instead of only during preflight:
+When Peaks-Cli RD produces or changes code, dry-run repeatedly instead of only during preflight:
 
 1. run standards dry-runs before planning or implementation;
-2. run the relevant Peaks dry-run again after each meaningful implementation slice or standards-affecting decision;
+2. run the relevant Peaks-Cli dry-run again after each meaningful implementation slice or standards-affecting decision;
 3. after implementation, run required unit tests, code review, and security review before any completion claim;
-4. only after those checks pass, run the relevant Peaks dry-run before handoff, review, or retention-boundary work;
+4. only after those checks pass, run the relevant Peaks-Cli dry-run before handoff, review, or retention-boundary work;
 5. record commands, results, coverage evidence, reviewer/security findings, dry-run result, and remaining action in the RD handoff capsule.
 
 ## Requirement boundary red-line self-check
@@ -291,7 +291,7 @@ Before every code or mock change, RD must write and then enforce a red-line scop
 2. name adjacent surfaces that are explicitly out of scope, especially list pages, delete/update flows, unrelated API endpoints, existing data records, authentication, permissions, and shared runtime configuration;
 3. reject any implementation that modifies, deletes, mocks, or replaces out-of-scope behavior just to make validation pass;
 4. for API/mock work, mock only the exact request path and method required by the approved slice, and do not override broader collection/list endpoints unless the requirement explicitly includes them;
-5. before handoff, run `peaks scan diff-vs-scope --rid <rid> --project <repo>` to deterministically verify the diff against the declared patterns (this is **Gate B8**). The CLI auto-allows test files and `.peaks/` artifacts; any other unclassified or out-of-scope file blocks RD completion until the diff is trimmed OR the scope is widened with PRD approval.
+5. before handoff, run `peaks scan diff-vs-scope --rid <rid> --project <repo>` to deterministically verify the diff against the declared patterns (this is **Peaks-Cli Gate B8**). The CLI auto-allows test files and `.peaks/` artifacts; any other unclassified or out-of-scope file blocks RD completion until the diff is trimmed OR the scope is widened with PRD approval.
 
 ## Mandatory tech-doc output
 
@@ -316,21 +316,21 @@ Before every code or mock change, RD must write and then enforce a red-line scop
 
 RD cannot mark a development slice complete until all of these are true. Each gate below maps to a hard verification gate in the Transition Verification Gates section — run the corresponding command, see the output.
 
-0. the project-scan (`.peaks/<session-id>/rd/project-scan.md`) has been read and its component-library, CSS-framework, and build-tool findings have been applied — no implementation may start before this; **→ verified by Gate A**
-0.5. NO wrong paths in tech-doc — every directory and file path has been verified with `ls` against the actual project; **→ verified by Gate A2**
-0.6. CLAUDE.md and `.claude/rules/common/{coding-style,code-review,security}.md` exist in the project root; **→ verified by Gate A3**
+0. the project-scan (`.peaks/<session-id>/rd/project-scan.md`) has been read and its component-library, CSS-framework, and build-tool findings have been applied — no implementation may start before this; **→ verified by Peaks-Cli Gate A**
+0.5. NO wrong paths in tech-doc — every directory and file path has been verified with `ls` against the actual project; **→ verified by Peaks-Cli Gate A2**
+0.6. CLAUDE.md and `.claude/rules/common/{coding-style,code-review,security}.md` exist in the project root; **→ verified by Peaks-Cli Gate A3**
 1. OpenSpec change artifacts exist and are linked for non-trivial work when the target repo already has `openspec/`, or the user has approved adding it;
-2. unit tests covering the new or changed behavior have been added or updated and run successfully; **→ verified by Gate B2**
+2. unit tests covering the new or changed behavior have been added or updated and run successfully; **→ verified by Peaks-Cli Gate B2**
 3. if the repository is legacy and total UT coverage is below the project target, do not block on historical coverage, but require coverage evidence for newly added or changed code;
 4. for frontend or UI-affecting slices, RD self-test has launched the app and used Playwright MCP for real browser end-to-end validation with visible-browser confirmation (install via `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` if not yet present; navigate with `mcp__playwright__browser_navigate`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests`, sanitize route/actions and observations before retention, record acceptance result, close with `browser_close`); if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
-5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Gate B3** — evidence file must exist at `.peaks/<id>/rd/code-review.md`
-6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Gate B4** — evidence file must exist at `.peaks/<id>/rd/security-review.md`
+5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/<id>/rd/code-review.md`
+6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/<id>/rd/security-review.md`
 7. the post-check dry-run has passed and is linked in the handoff;
-8. the tech-doc artifact (`.peaks/<session-id>/rd/tech-doc.md`) is written and linked from the request artifact. **→ verified by Gate B**
-9. the RD request artifact body has no unfilled placeholders, TBD markers, or bare-bullet stubs (`peaks request lint <rid> --role rd`). **→ verified by Gate B5**
-10. the declared `--type` is still consistent with the actual git diff (`peaks scan request-type-sanity --type <type>`). **→ verified by Gate B6**
-11. the repair-cycle counter is below the cap before a repeat handoff (`peaks request repair-status <rid>`). **→ verified by Gate B7**
-12. every changed file matches the RD red-line scope (no out-of-bounds writes); auto-allowed files (tests, .peaks artifacts) don't need an explicit pattern (`peaks scan diff-vs-scope --rid <rid>`). **→ verified by Gate B8**
+8. the tech-doc artifact (`.peaks/<session-id>/rd/tech-doc.md`) is written and linked from the request artifact. **→ verified by Peaks-Cli Gate B**
+9. the RD request artifact body has no unfilled placeholders, TBD markers, or bare-bullet stubs (`peaks request lint <rid> --role rd`). **→ verified by Peaks-Cli Gate B5**
+10. the declared `--type` is still consistent with the actual git diff (`peaks scan request-type-sanity --type <type>`). **→ verified by Peaks-Cli Gate B6**
+11. the repair-cycle counter is below the cap before a repeat handoff (`peaks request repair-status <rid>`). **→ verified by Peaks-Cli Gate B7**
+12. every changed file matches the RD red-line scope (no out-of-bounds writes); auto-allowed files (tests, .peaks artifacts) don't need an explicit pattern (`peaks scan diff-vs-scope --rid <rid>`). **→ verified by Peaks-Cli Gate B8**
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
 
@@ -355,7 +355,7 @@ The 100% coverage target on testable files is meaningful coverage, not a score t
 Rules:
 
 1. If a missing line or branch is a **defensive guard for an unreachable case** (caller invariant, type system, upstream contract), remove the guard rather than write a test that fabricates the impossible. Simpler code beats higher line count.
-2. If a missing line or branch is **IO / platform glue that cannot be tested cleanly** (real process spawn, homedir-default paths, registry side effects), add the file to `coverage.exclude` in `vitest.config.ts` with a one-line comment explaining why. This is the established Peaks pattern (`mcp-stdio-transport.ts`, `*-types.ts`, `doctor-service.ts`, `artifact-service.ts`, `workspace-service.ts`).
+2. If a missing line or branch is **IO / platform glue that cannot be tested cleanly** (real process spawn, homedir-default paths, registry side effects), add the file to `coverage.exclude` in `vitest.config.ts` with a one-line comment explaining why. This is the established Peaks-Cli pattern (`mcp-stdio-transport.ts`, `*-types.ts`, `doctor-service.ts`, `artifact-service.ts`, `workspace-service.ts`).
 3. If a missing line or branch is **real behavior a caller relies on**, write the test — but frame the assertion around the user-visible behavior ("uses the wall clock when no clock is injected and writes a real timestamp into the artifact body"), not the implementation branch ("covers the `?? defaultClock` fallback"). A test that would only fail if someone deleted a single branch is a smell.
 4. When the only way to reach 100% is to write a test that documents nothing a future maintainer would care about, the right answer is to **lower the target for that file via `coverage.exclude`** or to **simplify the production code to remove the dead branch**, never to write the padding test.
 5. Test names must describe behavior, not coverage targets. Tests titled like "covers line 73" or "exercises the default factory branch" are red flags during code review and must be rewritten or deleted.
@@ -372,9 +372,9 @@ For non-trivial RD changes, use OpenSpec when the project already has `openspec/
 
 Create or update `openspec/changes/<change-id>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/spec.md` before implementation slices begin. If the repository uses a different existing OpenSpec layout, follow that layout and record the file paths in the RD handoff.
 
-OpenSpec artifacts are durable project specification files, not Peaks runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks artifact workspace outside the target repository.
+OpenSpec artifacts are durable project specification files, not Peaks-Cli runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks-Cli artifact workspace outside the target repository.
 
-Peaks PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
+Peaks-Cli PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks-Cli artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
 
 ## Mock data placement rules (BLOCKING — framework-aware)
 
@@ -429,7 +429,7 @@ Application projects generated through this skill must not contain JavaScript so
 
 ## Artifact and standards output
 
-When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks artifact workspace. By default, use local non-git storage at `.peaks/<session-id>/rd/` in the target project or the Peaks CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/<session-id>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
+When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Cli artifact workspace. By default, use local non-git storage at `.peaks/<session-id>/rd/` in the target project or the Peaks-Cli CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/<session-id>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
 
 Do not default to a git-backed artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that clearly authorizes it. Browser evidence must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
@@ -443,11 +443,11 @@ Before RD work stops, finishes, blocks, or hands off to another role, emit a sho
 
 ## External references
 
-**Matt Pocock skills** (`diagnose`, `triage`, `tdd`, `improve-codebase-architecture`, `prototype`): Engineering references only. Inspect before applying; Peaks RD gates remain authoritative.
+**Matt Pocock skills** (`diagnose`, `triage`, `tdd`, `improve-codebase-architecture`, `prototype`): Engineering references only. Inspect before applying; Peaks-Cli RD gates remain authoritative.
 
 ## Matt Pocock skills integration
 
-Engineering methods from `mattpocock/skills` can inform RD work but never replace Peaks gates. Inspect upstream skill content before applying any method.
+Engineering methods from `mattpocock/skills` can inform RD work but never replace Peaks-Cli gates. Inspect upstream skill content before applying any method.
 
 - `diagnose` — root-cause investigation before fixing
 - `triage` — prioritize bug surface area
@@ -455,7 +455,7 @@ Engineering methods from `mattpocock/skills` can inform RD work but never replac
 - `improve-codebase-architecture` — opportunistic refactor framing
 - `prototype` — throwaway exploration before committing to a slice
 
-These are references only; Peaks RD gates remain authoritative for handoff, acceptance, and slice closure.
+These are references only; Peaks-Cli RD gates remain authoritative for handoff, acceptance, and slice closure.
 
 **Understand Anything**: Consume via `peaks understand status/show --json`. Fall back to `peaks codegraph context` or local project scan when absent.
 
@@ -465,14 +465,14 @@ These are references only; Peaks RD gates remain authoritative for handoff, acce
 
 RD may use `peaks codegraph affected --project <path> <changed-files...> --json` as local project-analysis evidence to inform red-line scope boundaries before writing tech-doc or starting implementation. Treat the output as untrusted supporting evidence — verify against the actual code before relying on it.
 
-Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts. Peaks RD gates remain authoritative for handoff and acceptance.
+Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts. Peaks-Cli RD gates remain authoritative for handoff and acceptance.
 
-**Other external resources** (Context7, SearchCode, everything-claude-code, GitNexus, etc.): Use `peaks capabilities --source access-repo/mcp-server --json` for capability discovery before recommending. References only — do not execute upstream installers, do not install upstream resources, do not persist sensitive examples. Peaks RD gates remain authoritative.
+**Other external resources** (Context7, SearchCode, everything-claude-code, GitNexus, etc.): Use `peaks capabilities --source access-repo/mcp-server --json` for capability discovery before recommending. References only — do not execute upstream installers, do not install upstream resources, do not persist sensitive examples. Peaks-Cli RD gates remain authoritative.
 
-**OpenSpec and MCP CLI**: Route through Peaks CLI (`peaks openspec show/to-rd/render`, `peaks mcp list/plan/apply/call`). Do not hand-edit `openspec/changes/**` or `~/.claude/settings.json`. Recipes: `references/openspec-mcp-cli.md`.
+**OpenSpec and MCP CLI**: Route through Peaks-Cli CLI (`peaks openspec show/to-rd/render`, `peaks mcp list/plan/apply/call`). Do not hand-edit `openspec/changes/**` or `~/.claude/settings.json`. Recipes: `references/openspec-mcp-cli.md`.
 
 ## Boundaries
 
-Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks CLI to handle runtime side effects.
+Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Cli CLI to handle runtime side effects.
 
 Reference: `references/refactor-workflow.md`.

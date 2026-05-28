@@ -1,32 +1,32 @@
 ---
 name: peaks-solo
-description: Full-auto orchestration facade for the Peaks skill family. Use when the user asks Peaks to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (产品文档/PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-solo`, "peaks solo", "全流程开发", "端到端迭代", "根据产品文档开发", "从需求到上线".
+description: Full-auto orchestration facade for the Peaks-Cli skill family. Use when the user asks Peaks-Cli to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (产品文档/PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-solo`, "peaks solo", "全流程开发", "端到端迭代", "根据产品文档开发", "从需求到上线".
 ---
 
-# Peaks Solo
+# Peaks-Cli Solo
 
-Peaks Solo is the orchestration facade for the Peaks short skill family.
+Peaks-Cli Solo is the orchestration facade for the Peaks-Cli short skill family.
 
 Use this skill to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
-**Peaks Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
+**Peaks-Cli Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
 
 Every code change — bugfix, feature, refactor, or config — MUST go through the full pipeline:
 
 ```
 peaks-solo (orchestrate only)
   → Skill(skill="peaks-rd")  ← ALL code changes happen HERE
-    → Unit tests written + pass (Gate B2)
+    → Unit tests written + pass (Peaks-Cli Gate B2)
     → Karpathy standards enforced (file-size ≤800 lines, TypeScript rules)
-    → Code review evidence (Gate B3)
-    → Security review evidence (Gate B4)
+    → Code review evidence (Peaks-Cli Gate B3)
+    → Security review evidence (Peaks-Cli Gate B4)
   → Skill(skill="peaks-qa")  ← ALL validation happens HERE
-    → Functional test execution (Gate A2)
-    → Performance check (Gate A4)
-    → Security test (Gate A3)
-    → Browser E2E (when frontend; Gate D)
+    → Functional test execution (Peaks-Cli Gate A2)
+    → Performance check (Peaks-Cli Gate A4)
+    → Security test (Peaks-Cli Gate A3)
+    → Browser E2E (when frontend; Peaks-Cli Gate D)
     → Verdict: pass | return-to-rd | blocked
 ```
 
@@ -42,16 +42,16 @@ peaks-solo (orchestrate only)
 
 **Before declaring workflow complete, run:** `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`
 
-## Startup sequence (MANDATORY — execute in order)
+## Peaks-Cli Startup sequence (MANDATORY — execute in order)
 
-### Step 1: Mode selection (MUST run before presence:set)
+### Peaks-Cli Step 1: Mode selection (MUST run before presence:set)
 
-When the user invokes Peaks Solo without explicitly naming an execution profile, use `AskUserQuestion` BEFORE any other action. Present the recommended full-auto path as the first/default option with a practical description for each:
+When the user invokes Peaks-Cli Solo without explicitly naming an execution profile, use `AskUserQuestion` BEFORE any other action. Present the recommended full-auto path as the first/default option with a practical description for each:
 
-1. **Full auto (Recommended)** — Peaks handles planning, role coordination, validation, and compact handoff end-to-end while preserving required confirmation gates for risky or shared-state actions.
-2. **Assisted** — Peaks proposes plans, artifacts, and checks, then pauses for user decisions at major workflow boundaries.
-3. **Swarm** — Peaks maximizes safe parallel role/worker execution for larger RD or QA workloads while keeping reducer validation and artifact boundaries explicit.
-4. **Strict** — Peaks uses the most conservative gates: explicit confirmations, strict slice specs, coverage evidence, QA acceptance, and commit boundaries before continuing.
+1. **Full auto (Recommended)** — Peaks-Cli handles planning, role coordination, validation, and compact handoff end-to-end while preserving required confirmation gates for risky or shared-state actions.
+2. **Assisted** — Peaks-Cli proposes plans, artifacts, and checks, then pauses for user decisions at major workflow boundaries.
+3. **Swarm** — Peaks-Cli maximizes safe parallel role/worker execution for larger RD or QA workloads while keeping reducer validation and artifact boundaries explicit.
+4. **Strict** — Peaks-Cli uses the most conservative gates: explicit confirmations, strict slice specs, coverage evidence, QA acceptance, and commit boundaries before continuing.
 
 Map the user's selection to the `--mode` flag value (used by `peaks skill presence:set`; `presence:set --mode` accepts any string, so the name matches the user-facing label rather than overloading "solo" which is also the skill name):
 
@@ -66,7 +66,7 @@ Map the user's selection to the `--mode` flag value (used by `peaks skill presen
 
 If the user already names a profile in their invocation (e.g. `/peaks-solo --full-auto`, "用全自动模式"), skip this question and use the named profile directly.
 
-### Step 2: Set skill presence
+### Peaks-Cli Step 2: Set skill presence
 
 Only after the mode is known (user selected or explicitly named), run:
 
@@ -74,22 +74,22 @@ Only after the mode is known (user selected or explicitly named), run:
 peaks skill presence:set peaks-solo --mode <mode-value> --gate startup
 ```
 
-Then display the compact status header: `Peaks Skill: peaks-solo | Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
+Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
 Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. When the workflow ends, run `peaks skill presence:clear`.
 
 ## Boundaries
 
-Peaks Solo may:
+Peaks-Cli Solo may:
 
 - identify scenarios such as refactor, bugfix, QA hardening, release validation, and incident response;
 - recommend Solo, Assisted, Swarm, or Strict profiles;
-- coordinate Peaks role skills through artifacts;
+- coordinate Peaks-Cli role skills through artifacts;
 - coordinate project memory extraction from stable skill artifact sections;
 - request user confirmation at risk and commit boundaries;
 - read CLI doctor/profile/artifact reports.
 
-Peaks Solo must not silently:
+Peaks-Cli Solo must not silently:
 
 - install hooks;
 - create agents;
@@ -98,19 +98,19 @@ Peaks Solo must not silently:
 - create GitHub repositories;
 - bypass role-skill artifacts.
 
-Use the Peaks CLI for runtime side effects.
+Use the Peaks-Cli CLI for runtime side effects.
 
-## GStack integration
+## Peaks-Cli GStack integration
 
-Map gstack stages to Peaks role artifacts; preserve Peaks confirmation gates. Do not delegate orchestration to gstack commands.
+Map gstack stages to Peaks-Cli role artifacts; preserve Peaks-Cli confirmation gates. Do not delegate orchestration to gstack commands.
 
 For frontend workflows, RD and QA must use Playwright MCP (`mcp__playwright__` tool namespace) for real browser E2E (`peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes`). Chrome DevTools MCP is a secondary CDP surface only. Sanitize browser artifacts before retention (no login URLs, cookies, tokens, PII). See `references/browser-workflow.md`.
 
-## Local intermediate artifact workspace (MANDATORY)
+## Peaks-Cli Local intermediate artifact workspace (MANDATORY)
 
 ### Workspace initialization gate
 
-Before ANY role handoff or artifact write, Peaks Solo MUST create the workspace. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
+Before ANY role handoff or artifact write, Peaks-Cli Solo MUST create the workspace. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
 
 When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If `.peaks/.session.json` already exists with a valid session, the existing session is reused.
 
@@ -149,7 +149,7 @@ Files written into these directories during the workflow (not pre-created — th
 
 ### Root pollution prohibition (CRITICAL)
 
-**NEVER write Peaks intermediate artifacts to the project root directory.** Specifically prohibited at root level:
+**NEVER write Peaks-Cli intermediate artifacts to the project root directory.** Specifically prohibited at root level:
 
 - PRD snapshots, document extracts, or requirement notes (`feishu-doc-*.md`, `*-snapshot.md`, etc.)
 - RD tech docs, scan reports, slice specs, or architecture notes
@@ -166,7 +166,7 @@ If you are about to Write/Edit an intermediate artifact in the project root, STO
 
 Do not default to git-backed storage or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that authorizes it.
 
-## Pre-RD project scan checklist (MANDATORY)
+## Peaks-Cli Pre-RD project scan checklist (MANDATORY)
 
 Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/<session-id>/rd/project-scan.md`. RD and UI roles read this before starting work. **project-scan.md is a session-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/<session-id>/rd/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
 
@@ -296,7 +296,7 @@ Grep `src/` for outdated patterns and list them as constraints in `project-scan.
 - <bullet list of legacy signals from section 5; empty for greenfield>
 ```
 
-## Frontend-only development mode
+## Peaks-Cli Frontend-only development mode
 
 When the project has no live backend (no swagger.json, no API server), Solo must activate frontend-only mode.
 
@@ -368,7 +368,7 @@ When the PRD source is a Feishu/Lark document that requires authentication:
 
 Never silently fall back to unauthenticated `fetch` or `WebFetch` for authenticated documents.
 
-## Request type classification (MANDATORY before `peaks request init`)
+## Peaks-Cli Request type classification (MANDATORY before `peaks request init`)
 
 Before initializing any role artifact, classify the request into exactly one of six types. The choice drives RD/QA gate strictness (see "Mandatory RD QA repair loop"). Pick the **primary intent** — if a request could fit two types, the higher-strictness one wins.
 
@@ -385,34 +385,34 @@ Before initializing any role artifact, classify the request into exactly one of 
 
 For ambiguous cases (e.g. "improve login flow"), ask the user to clarify before initializing. The cost of one `AskUserQuestion` round is much lower than running the wrong gate matrix for the whole workflow.
 
-When Peaks Solo coordinates development in a code repository, keep this order explicit:
+When Peaks-Cli Solo coordinates development in a code repository, keep this order explicit:
 
-0. **Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
-0.5. **Workspace initialization** — `.peaks/<session-id>/` created, directory structure verified;
-0.6. **Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/<session-id>/rd/project-scan.md`;
-0.7. **Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
-1. **Standards preflight** — `peaks standards init/update --dry-run`, must reference concrete project-scan findings (never emit generic templates);
-2. **PRD phase** — capture request as canonical artifact, extract scope and acceptance criteria:
+0. **Peaks-Cli Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
+0.5. **Peaks-Cli Workspace initialization** — `.peaks/<session-id>/` created, directory structure verified;
+0.6. **Peaks-Cli Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/<session-id>/rd/project-scan.md`;
+0.7. **Peaks-Cli Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
+1. **Peaks-Cli Standards preflight** — `peaks standards init/update --dry-run`, must reference concrete project-scan findings (never emit generic templates);
+2. **Peaks-Cli PRD phase** — capture request as canonical artifact, extract scope and acceptance criteria:
    - Full-auto/Swarm: auto-transition to `confirmed-by-user` once the artifact is complete;
    - Assisted/Strict: pause with `AskUserQuestion` for explicit user confirmation before proceeding;
-3. **Swarm parallel phase** — after PRD confirmed, launch UI, RD(planning), QA(test-cases) simultaneously:
+3. **Peaks-Cli Swarm parallel phase** — after PRD confirmed, launch UI, RD(planning), QA(test-cases) simultaneously:
    3a. UI design draft and visual direction (MANDATORY when request is frontend/user-visible; skipped for `--type docs|chore|config` or pure-backend requests);
    3b. RD planning artifact — `rd/tech-doc.md` for feature/refactor, `rd/bug-analysis.md` for bugfix, skipped for docs/chore/config;
    3c. QA test-case generation (skipped for docs/chore — no acceptance surface to validate);
-4. **RD implementation** — consumes the type-appropriate inputs: project-scan + standards + (if UI involved) UI design-draft + RD planning artifact + QA test-cases. Includes unit tests for new/changed behavior (TDD) unless `--type` is docs/chore;
-5. **Code review + security review** — CRITICAL/HIGH issues fixed before progression; marked-blocked issues only allow a blocked handoff;
-6. **QA validation** (auto-proceed from RD in full-auto) — execute test cases + API checks + Playwright MCP headed browser E2E for frontend + security/perf checks + test report;
-7. **RD↔QA repair loop** — if QA verdict is `return-to-rd`, loop back to step 4 (RD implementation) and re-run through QA; max 3 repair cycles, then emit blocked TXT regardless;
-8. **SC phase** — change-control evidence: impact, retention, validate, boundary;
-9. **OpenSpec archive** — exit gate: validate → archive only after QA verdict=pass (when `openspec/` exists);
-10. **TXT handoff capsule** — mode, validated decisions, artifact paths, standards deltas, open questions, next action;
-11. **Final snapshot** — `peaks project dashboard` + `peaks skill doctor` to confirm the workflow closed cleanly.
+4. **Peaks-Cli RD implementation** — consumes the type-appropriate inputs: project-scan + standards + (if UI involved) UI design-draft + RD planning artifact + QA test-cases. Includes unit tests for new/changed behavior (TDD) unless `--type` is docs/chore;
+5. **Peaks-Cli Code review + security review** — CRITICAL/HIGH issues fixed before progression; marked-blocked issues only allow a blocked handoff;
+6. **Peaks-Cli QA validation** (auto-proceed from RD in full-auto) — execute test cases + API checks + Playwright MCP headed browser E2E for frontend + security/perf checks + test report;
+7. **Peaks-Cli RD↔QA repair loop** — if QA verdict is `return-to-rd`, loop back to step 4 (RD implementation) and re-run through QA; max 3 repair cycles, then emit blocked TXT regardless;
+8. **Peaks-Cli SC phase** — change-control evidence: impact, retention, validate, boundary;
+9. **Peaks-Cli OpenSpec archive** — exit gate: validate → archive only after QA verdict=pass (when `openspec/` exists);
+10. **Peaks-Cli TXT handoff capsule** — mode, validated decisions, artifact paths, standards deltas, open questions, next action;
+11. **Peaks-Cli Final snapshot** — `peaks project dashboard` + `peaks skill doctor` to confirm the workflow closed cleanly.
 
-### Transition verification gates (MANDATORY — run the command, see the output)
+### Peaks-Cli Transition verification gates (MANDATORY — run the command, see the output)
 
 You cannot declare a phase complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding. If any file shows "No such file", the phase is incomplete.
 
-**Gate A — After workspace init + project scan:**
+**Peaks-Cli Gate A — After workspace init + project scan:**
 ```bash
 ls .peaks/<id>/rd/project-scan.md
 # Expected output: .peaks/<id>/rd/project-scan.md
@@ -421,7 +421,7 @@ ls .peaks/<id>/rd/project-scan.md
 # File present and complete → reuse (project-scan is a session-scoped singleton)
 ```
 
-**Gate A.5 — Existing-system extraction (legacy projects only):**
+**Peaks-Cli Gate A.5 — Existing-system extraction (legacy projects only):**
 ```bash
 # If project-scan.md `## Archetype` is greenfield → skip this gate
 # Otherwise:
@@ -430,9 +430,9 @@ ls .peaks/<id>/system/existing-system.md
 # (see references/existing-system-extraction.md)
 ```
 
-**Gate B — After swarm convergence (UI + RD planning + QA test-cases):**
+**Peaks-Cli Gate B — After swarm convergence (UI + RD planning + QA test-cases):**
 
-Gate B has two sub-checks: a HARD gate (blocks progression) and an INFORMATIONAL check (records degradation but does not block).
+Peaks-Cli Gate B has two sub-checks: a HARD gate (blocks progression) and an INFORMATIONAL check (records degradation but does not block).
 
 ```bash
 # B.hard — REQUIRED before continuing to RD implementation.
@@ -458,7 +458,7 @@ ls .peaks/<id>/ui/design-draft.md 2>&1
 # "No such file" + pure backend / docs / chore / config → state skip reason in TXT, proceed.
 ```
 
-**Gate C — After RD implementation (before QA handoff):**
+**Peaks-Cli Gate C — After RD implementation (before QA handoff):**
 
 The CLI gate (`peaks request transition --state qa-handoff`) is the authoritative check; running this `ls` first lets you produce missing files before the CLI rejects the transition.
 
@@ -474,7 +474,7 @@ ls .peaks/<id>/rd/requests/<rid>.md
 # Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
 ```
 
-**Gate D — After QA validation:**
+**Peaks-Cli Gate D — After QA validation:**
 
 The CLI gate at `qa:verdict-issued` is the authoritative check; this `ls` lets you produce missing evidence before the CLI rejects the transition.
 
@@ -490,17 +490,17 @@ ls .peaks/<id>/qa/requests/<rid>.md
 # Missing required file → QA incomplete; do not transition to verdict-issued.
 ```
 
-**Gate E — Before declaring workflow complete:**
+**Peaks-Cli Gate E — Before declaring workflow complete:**
 ```bash
 find .peaks/<id>/ -type f | sort
 # Verify: files from gates A-D all appear in this list.
 # Any mandatory file missing → NOT complete. Do not emit TXT.
-# Gate G (CLAUDE.md + .claude/rules/**) must ALSO pass before TXT is emitted.
+# Peaks-Cli Gate G (CLAUDE.md + .claude/rules/**) must ALSO pass before TXT is emitted.
 ```
 
-**Gate F — Root pollution check (BLOCKING before completion):**
+**Peaks-Cli Gate F — Root pollution check (BLOCKING before completion):**
 ```bash
-# Verify no Peaks intermediate artifacts leaked to project root.
+# Verify no Peaks-Cli intermediate artifacts leaked to project root.
 ls feishu-doc-*.md *-snapshot.md qa-server.js 2>&1
 # Expected: "No such file or directory" for ALL patterns.
 # Any file found → ROOT POLLUTION. Move it to .peaks/<id>/prd/source/
@@ -511,11 +511,11 @@ ls feishu-doc-*.md *-snapshot.md qa-server.js 2>&1
 ```bash
 # Extended check for common leak patterns
 find . -maxdepth 1 -name "*.png" -o -name "*.jpg" -o -name "qa-*.js" -o -name "mock-server.*" 2>&1
-# Any Peaks QA/UI intermediate files here → ROOT POLLUTION. Move and note.
-# Legitimate project files (e.g. favicon.png) are fine — only move Peaks artifacts.
+# Any Peaks-Cli QA/UI intermediate files here → ROOT POLLUTION. Move and note.
+# Legitimate project files (e.g. favicon.png) are fine — only move Peaks-Cli artifacts.
 ```
 
-**Gate G — Project standards present (BLOCKING before workflow completion):**
+**Peaks-Cli Gate G — Project standards present (BLOCKING before workflow completion):**
 ```bash
 # After `peaks standards init/update --apply`, verify the files actually landed
 # at the project root. The CLAUDE.md and rules files are required so that
@@ -529,15 +529,15 @@ ls <repo>/.claude/rules/common/coding-style.md \
    <repo>/.claude/rules/common/security.md
 # Any "No such file" → BLOCKED. The standards apply step did not complete; re-run
 # standards init/update with --apply and re-verify.
-# Skipping Gate G (e.g. because the user did not explicitly authorize writes) is
+# Skipping Peaks-Cli Gate G (e.g. because the user did not explicitly authorize writes) is
 # only acceptable in `assisted`/`strict` modes where the user actively declined; in
 # `full-auto`/`swarm` the absence of these files is a workflow violation.
 ```
 
 
-## Swarm parallel phase
+## Peaks-Cli Swarm parallel phase
 
-After PRD reaches `confirmed-by-user`, Solo launches peaks-ui, peaks-rd(planning), and peaks-qa(test-cases) simultaneously using parallel Agent calls. All three derive independently from the same PRD and write to separate artifact paths. Solo waits for all three, checks convergence (Gate B), then enters RD implementation.
+After PRD reaches `confirmed-by-user`, Solo launches peaks-ui, peaks-rd(planning), and peaks-qa(test-cases) simultaneously using parallel Agent calls. All three derive independently from the same PRD and write to separate artifact paths. Solo waits for all three, checks convergence (Peaks-Cli Gate B), then enters RD implementation.
 
 ### Degradation when swarm roles fail
 
@@ -547,9 +547,9 @@ After PRD reaches `confirmed-by-user`, Solo launches peaks-ui, peaks-rd(planning
 4. **Two or more missing**: Fall back to sequential mode (PRD → RD → QA); note "swarm-degraded-to-sequential".
 5. **All three missing**: Pause workflow; report to user; request confirmation to continue.
 
-**UI phase mandatory for frontend**: When the request affects user-visible behavior (pages, components, forms, modals, tables, styling, interaction, or layout), Peaks Solo MUST invoke `peaks-ui` in the swarm parallel phase alongside RD planning and QA test-case generation. UI produces design drafts that RD implementation later consumes. Skipping UI for frontend work is a blocking violation. The only valid reason to skip UI is when the request is purely backend (API, database, CLI, config, or build tooling).
+**UI phase mandatory for frontend**: When the request affects user-visible behavior (pages, components, forms, modals, tables, styling, interaction, or layout), Peaks-Cli Solo MUST invoke `peaks-ui` in the swarm parallel phase alongside RD planning and QA test-case generation. UI produces design drafts that RD implementation later consumes. Skipping UI for frontend work is a blocking violation. The only valid reason to skip UI is when the request is purely backend (API, database, CLI, config, or build tooling).
 
-## Mandatory RD QA repair loop (AUTO-PROCEED)
+## Peaks-Cli Mandatory RD QA repair loop (AUTO-PROCEED)
 
 > **CLI gate enforcement**: `peaks request transition` now refuses to move RD/QA to gated states when required artifacts are missing. The required files depend on `--type` chosen at `peaks request init` (default `feature`):
 >
@@ -560,7 +560,7 @@ After PRD reaches `confirmed-by-user`, Solo launches peaks-ui, peaks-rd(planning
 >
 > When PRD lands, classify the request type before running `peaks request init` for every role — pass `--type <type>` so the artifact records it and downstream transitions enforce the right gates. Misclassifying a feature as `docs` to skip gates is a workflow violation. If a transition fails with `code: PREREQUISITES_MISSING`, the response lists every missing path — produce them, then re-transition. For one-off exceptions, the escape hatch `--allow-incomplete --reason "<text>"` records the bypass in the artifact transition note.
 
-After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks Solo MUST automatically route the result to `peaks-qa` without waiting for user confirmation. This is not optional in full-auto mode. Solo must not declare the workflow complete, emit a TXT handoff, or stop at RD completion.
+After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks-Cli Solo MUST automatically route the result to `peaks-qa` without waiting for user confirmation. This is not optional in full-auto mode. Solo must not declare the workflow complete, emit a TXT handoff, or stop at RD completion.
 
 **How Solo invokes another role skill (mechanism, not metaphor):**
 
@@ -591,25 +591,25 @@ When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite R
 
 In full-auto mode, treat the RD↔QA repair loop as a built-in controller objective: loop through RD→QA until all acceptance items pass (max 3 cycles). Do not exit the loop on a non-passing QA verdict unless the TXT handoff marks the workflow as blocked.
 
-## Default runbook
+## Peaks-Cli Default runbook
 
 > **Maintenance**: The numbered workflow list above (steps 0-11) is the canonical phase sequence. This runbook is the executable CLI transcription. When updating this skill, keep both in lockstep — a change to one must be reflected in the other.
 
 The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `swarm` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
 
 ```bash
-# 0. Snapshot + 0.5 Workspace + 0.6 Project scan + 0.7 Existing-system extraction
+# 0. Peaks-Cli Snapshot + 0.5 Peaks-Cli Workspace + 0.6 Peaks-Cli Project scan + 0.7 Peaks-Cli Existing-system extraction
 peaks doctor --json
 peaks project dashboard --project <repo> --json
 peaks skill runbook peaks-solo --json
 peaks workspace init --project <repo> --json
 peaks scan archetype --project <repo> --json
-# → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Gate A)
+# → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
 # → if archetype != greenfield AND archetype != unknown:
 peaks scan existing-system --project <repo> --json
-# → copy tokens, sources, conventions, inconsistencies into .peaks/<session-id>/system/existing-system.md (Gate A.5)
+# → copy tokens, sources, conventions, inconsistencies into .peaks/<session-id>/system/existing-system.md (Peaks-Cli Gate A.5)
 
-# 1. Standards preflight + apply
+# 1. Peaks-Cli Standards preflight + apply
 #    Run dry-run first to inspect deltas, then APPLY. In full-auto and swarm modes,
 #    --apply is the default — Standards files (CLAUDE.md, .claude/rules/**) live INSIDE
 #    the target project and are required for downstream skill preflight, so producing
@@ -619,9 +619,9 @@ peaks standards init   --project <repo> --dry-run --json
 # or: peaks standards update --project <repo> --dry-run --json
 peaks standards init   --project <repo> --apply --json
 # or: peaks standards update --project <repo> --apply --json
-# After apply, verify the files actually exist on disk (see Gate G).
+# After apply, verify the files actually exist on disk (see Peaks-Cli Gate G).
 
-# 2. PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
+# 2. Peaks-Cli PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
 # Classify the request type from the PRD: feature | bugfix | refactor | docs | config | chore
 # This drives RD/QA gate strictness — see "Mandatory RD QA repair loop" for the matrix.
 peaks request init --role prd --id <rid> --project <repo> --apply --type <type> --json
@@ -635,7 +635,7 @@ peaks request lint <rid> --role prd --project <repo> --json
 peaks request transition <rid> --role prd --state confirmed-by-user --project <repo> --json
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
-# 3. Swarm parallel — launch UI + RD(planning) + QA(test-cases) simultaneously
+# 3. Peaks-Cli Swarm parallel — launch UI + RD(planning) + QA(test-cases) simultaneously
 # Pass the same --type chosen for PRD so RD/QA gate matrix lines up.
 peaks request init --role ui --id <rid> --project <repo> --apply --type <type> --json
 peaks request transition <rid> --role ui --state direction-locked --project <repo> --json
@@ -643,23 +643,23 @@ peaks request transition <rid> --role ui --state handed-off --project <repo> --j
 peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json
 peaks request transition <rid> --role rd --state spec-locked --project <repo> --json
 peaks request init --role qa --id <rid> --project <repo> --apply --type <type> --json
-# → Gate B convergence check. Assisted/Strict: [CONFIRM]
+# → Peaks-Cli Gate B convergence check. Assisted/Strict: [CONFIRM]
 
-# 4. RD planning artifact (the file required by the prerequisite gate)
+# 4. Peaks-Cli RD planning artifact (the file required by the prerequisite gate)
 #    feature / refactor → write .peaks/<id>/rd/tech-doc.md
 #    bugfix             → write .peaks/<id>/rd/bug-analysis.md
 #    config             → no planning artifact required at this state
 #    docs / chore       → no planning artifact required
 peaks request transition <rid> --role rd --state implemented --project <repo> --json
 
-# 5. Code review + security review BEFORE qa-handoff transition.
+# 5. Peaks-Cli Code review + security review BEFORE qa-handoff transition.
 #    Produce the evidence files the CLI gate enforces:
 #      - .peaks/<id>/rd/code-review.md     (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
 #      - .peaks/<id>/rd/security-review.md (required for feature/bugfix/refactor/config)
 #    Then transition. If --type is docs/chore the gate is empty and the transition is unguarded.
 peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json
 
-# 6. QA validation (AUTO-PROCEED from RD in full-auto)
+# 6. Peaks-Cli QA validation (AUTO-PROCEED from RD in full-auto)
 #    Before each QA transition, produce the evidence files the CLI gate enforces:
 #      Before qa:running        → .peaks/<id>/qa/test-cases/<rid>.md
 peaks request transition <rid> --role qa --state running --project <repo> --json
@@ -667,9 +667,9 @@ peaks request transition <rid> --role qa --state running --project <repo> --json
 #                                 + .peaks/<id>/qa/security-findings.md
 #                                 + .peaks/<id>/qa/performance-findings.md (feature/refactor only)
 peaks request transition <rid> --role qa --state verdict-issued --project <repo> --json
-# → Gate D check. Assisted/Strict: [CONFIRM]
+# → Peaks-Cli Gate D check. Assisted/Strict: [CONFIRM]
 
-# 7. RD↔QA repair loop — if verdict is return-to-rd, re-run 4 through 6 until QA passes or blocked TXT.
+# 7. Peaks-Cli RD↔QA repair loop — if verdict is return-to-rd, re-run 4 through 6 until QA passes or blocked TXT.
 #    Before invoking peaks-rd again, check the cycle count so you don't blow past the cap silently:
 peaks request repair-status <rid> --project <repo> --json
 # → atCap=true → STOP and emit a blocked TXT handoff. Do NOT enter another cycle.
@@ -679,35 +679,44 @@ peaks request repair-status <rid> --project <repo> --json
 peaks scan request-type-sanity --project <repo> --type <type> --json
 # → consistent=false → RD scope-creeped during repair; review before re-handoff.
 
-# 8. SC phase
+# 8. Peaks-Cli SC phase
 peaks sc impact --change-id <cid> --module <module> --file <path> --json
 peaks sc retention --slice-id <rid> --prd <prd> --rd <rd> --qa <qa> --json
 peaks sc validate --slice-id <rid> --json
 peaks sc boundary --slice-id <rid> --artifact <artifact> --code <file> --json
 
-# 9. OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
+# 9. Peaks-Cli OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
 peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
 
-# 10. TXT handoff
+# 10. Peaks-Cli TXT handoff
 peaks memory extract --project <repo> --artifact <qa-artifact> --dry-run --json
 
-# 11. Final snapshot
+# 11. Peaks-Cli Final snapshot
 peaks project dashboard --project <repo> --json
 peaks skill doctor --json
 peaks skill presence:clear
+# → After presence:clear, the .peaks/.active-skill.json file is removed.
+# → SOLO MUST NOW DISPLAY AN EXPLICIT WORKFLOW-END MESSAGE to the user
+#   before responding to anything else. The message MUST include:
+#   1. "Peaks-Cli Solo workflow has ended."
+#   2. A reminder that new/additional requirements need a new /peaks-solo invocation.
+#   Example:
+#   "Peaks-Cli Solo workflow has ended. All gates passed, artifacts saved to
+#    .peaks/<id>/. If you have new requirements or ideas, please start a new
+#    workflow with /peaks-solo."
 ```
 
 Repair loop details: see `## Mandatory RD QA repair loop` above for the full 5-step procedure and the 3-cycle cap. Append transition notes via `--reason` rather than rewriting artifacts during repair cycles.
 
-## Project standards preflight
+## Peaks-Cli Project standards preflight
 
-Before orchestrating an end-to-end code repository workflow, gather the project standards preflight status from RD and QA by calling the Peaks CLI:
+Before orchestrating an end-to-end code repository workflow, gather the project standards preflight status from RD and QA by calling the Peaks-Cli CLI:
 
 - `peaks standards init --project <path> --dry-run`
 - `peaks standards update --project <path> --dry-run`
 
-Use `standards init` for first-time creation and `standards update` for existing `CLAUDE.md` append/review behavior. In `full-auto` and `swarm` profiles, `--apply` runs automatically after `--dry-run` succeeds — these files live inside the target project, are required for downstream skill preflight, and producing them is part of finishing the workflow (Gate G enforces this). `assisted` and `strict` profiles pause for explicit user confirmation between dry-run and apply.
+Use `standards init` for first-time creation and `standards update` for existing `CLAUDE.md` append/review behavior. In `full-auto` and `swarm` profiles, `--apply` runs automatically after `--dry-run` succeeds — these files live inside the target project, are required for downstream skill preflight, and producing them is part of finishing the workflow (Peaks-Cli Gate G enforces this). `assisted` and `strict` profiles pause for explicit user confirmation between dry-run and apply.
 
 **CRITICAL — Standards must reflect the project scan.** When generating or updating `CLAUDE.md`, the content must reference concrete findings from `.peaks/<id>/rd/project-scan.md`: the detected component library (e.g. "This project uses antd 5.x"), CSS solution (e.g. "Uses Less via Umi"), build tool, state management, and routing. Never emit a generic template that says "read .claude/rules/..." without naming the actual project stack. If the project-scan has not been run yet, run it before standards init/update.
 
@@ -724,7 +733,7 @@ For project-analysis requests such as "分析项目", the handoff must include a
 
 If the dry-run output lacks enough detail to explain those deltas, say that the standards increment is unknown and keep standards application blocked until another `peaks standards init/update --dry-run` provides evidence.
 
-## Refactor mode
+## Peaks-Cli Refactor mode
 
 Read `references/refactor-mode.md` before handling refactor requests.
 
@@ -740,7 +749,7 @@ It must enforce the shared refactor red lines:
 6. require 100% acceptance for each slice;
 7. require code changes and sanitized intermediate artifacts to be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync sanitized artifacts only when explicitly authorized.
 
-## Quality-gate commands (CLI cheat sheet)
+## Peaks-Cli Quality-gate commands (CLI cheat sheet)
 
 These commands harden the workflow against silent skips. Use them in the runbook at the points indicated; they all support `--json` and `--session-id`.
 
@@ -752,23 +761,36 @@ These commands harden the workflow against silent skips. Use them in the runbook
 
 Together with `peaks request transition` (which already CLI-enforces per-type artifact prerequisites), these four commands form the runtime quality net. SKILL.md prose is descriptive; the CLI is what physically blocks bad workflows.
 
-## Completion handoff
+## Peaks-Cli Completion handoff
 
 After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Merge scan-backed changes incrementally; preserve hand-maintained content unless user confirms deletion.
 
-Use Peaks TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas (`CLAUDE.md` and `.claude/rules/**` statuses), open questions, next action. Do not restate the full workflow log.
+Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas (`CLAUDE.md` and `.claude/rules/**` statuses), open questions, next action. Do not restate the full workflow log.
 
-## External references and lifecycle
+### Workflow exit signal (MANDATORY)
+
+After `peaks skill presence:clear` completes, Solo MUST display an explicit exit message to the user as its final output. The message must convey:
+
+1. The workflow has ended and the active skill has been cleared.
+2. New or follow-up requirements are outside the completed workflow — the user must explicitly start a new workflow (e.g. `/peaks-solo`) for additional work.
+
+Example:
+
+> Peaks-Cli Solo workflow has ended. All gates passed, artifacts saved to `.peaks/<session-id>/`. If you have new requirements or ideas, please start a new workflow with `/peaks-solo`.
+
+This prevents the user from being confused when subsequent messages no longer trigger peaks skill behavior. Do not omit this message — it is the only explicit boundary between "inside peaks workflow" and "outside peaks workflow."
+
+## Peaks-Cli External references and lifecycle
 
 **Codegraph**: Optional project-analysis before RD handoff. Use `peaks codegraph affected --project <path> <changed-files...> --json` for regression-surface hints. Output as untrusted supporting evidence only; never commit `.codegraph/` artifacts.
 
-## Codegraph orchestration context
+## Peaks-Cli Codegraph orchestration context
 
 Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as an optional project-analysis enhancement that informs the role handoff between PRD, RD, and QA. The output is untrusted supporting evidence — Solo must not treat codegraph output as approval for scope, design, or QA verdict.
 
-Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts into git. Peaks gates remain authoritative; codegraph context is a hint, never a substitute for role-skill output.
+Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts into git. Peaks-Cli gates remain authoritative; codegraph context is a hint, never a substitute for role-skill output.
 
-**External skills**: All external skill references (`mattpocock/skills`, `awesome-design-md`, `taste-skill`, `shadcn/ui`, `Chrome DevTools MCP`, `Figma Context MCP`, `Context7`, etc.) follow the three-stage pattern: capability discovery via `peaks capabilities` before naming, references only (no execute/install/persist), Peaks CLI for all side effects. Do not execute upstream installers, do not install upstream resources, do not persist sensitive examples — Peaks gates remain authoritative. External skills inform, they do not approve.
+**External skills**: All external skill references (`mattpocock/skills`, `awesome-design-md`, `taste-skill`, `shadcn/ui`, `Chrome DevTools MCP`, `Figma Context MCP`, `Context7`, etc.) follow the three-stage pattern: capability discovery via `peaks capabilities` before naming, references only (no execute/install/persist), Peaks-Cli CLI for all side effects. Do not execute upstream installers, do not install upstream resources, do not persist sensitive examples — Peaks-Cli gates remain authoritative. External skills inform, they do not approve.
 
 **OpenSpec lifecycle**: `render → validate → show → to-rd → validate → archive`. Solo's default runbook handles the exit gate (validate → archive after QA pass). Entry-gate validation (to-rd before slicing) is available when `openspec/` exists pre-workflow; Solo delegates it to `peaks-rd` during implementation.
 

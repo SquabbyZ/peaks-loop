@@ -3,9 +3,9 @@ name: peaks-sc
 description: Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.
 ---
 
-# Peaks SC
+# Peaks-Cli SC
 
-Peaks SC records how product, RD, QA, code, and artifacts move together.
+Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
 
 ## Skill presence (MANDATORY first action)
 
@@ -15,7 +15,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-sc --mode <mode> --gate startup
 ```
 
-Then display: `Peaks Skill: peaks-sc | Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+Then display: `Peaks-Cli Skill: peaks-sc | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
 
 ## Responsibilities
 
@@ -44,9 +44,9 @@ Each refactor slice must leave a traceable local artifact boundary in `.peaks/<s
 
 Use gstack as a concrete source-control and release workflow reference for the `Ship → Reflect` stages:
 
-- map `/ship` and `/land-and-deploy` concepts to Peaks commit boundaries, sync state, rollback points, and artifact retention;
+- map `/ship` and `/land-and-deploy` concepts to Peaks-Cli commit boundaries, sync state, rollback points, and artifact retention;
 - map checkpoint discipline to traceable code-plus-artifact slices;
-- do not create PRs, merge, deploy, or mutate shared state unless the active Peaks workflow and user confirmation explicitly allow it.
+- do not create PRs, merge, deploy, or mutate shared state unless the active Peaks-Cli workflow and user confirmation explicitly allow it.
 
 ## Project memory backup
 
@@ -70,7 +70,7 @@ Concrete rules: `references/openspec-commit-boundaries.md`.
 
 ## Default runbook
 
-Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks CLI.
+Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks-Cli CLI.
 
 ```bash
 # 0. Confirm SC's own runbook integrity before recording boundary evidence
@@ -124,14 +124,14 @@ The final two `--apply` calls require explicit authorization. Without it, defaul
 
 You cannot declare SC complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
 
-**Gate A — After impact + retention + validate + boundary:**
+**Peaks-Cli Gate A — After impact + retention + validate + boundary:**
 ```bash
 ls .peaks/<id>/sc/change-control/<rid>.md
 # Expected output: .peaks/<id>/sc/change-control/<rid>.md
 # "No such file" → STOP, write the change-control record first.
 ```
 
-**Gate B — Before declaring SC complete (verify commit boundary is recorded):**
+**Peaks-Cli Gate B — Before declaring SC complete (verify commit boundary is recorded):**
 ```bash
 git log --oneline -5
 # Expected: at least one recent commit whose message references the change-id or slice-id.
@@ -140,6 +140,6 @@ git log --oneline -5
 
 ## Boundaries
 
-Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks CLI artifact commands.
+Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks-Cli CLI artifact commands.
 
 Reference: `references/artifact-retention.md`.

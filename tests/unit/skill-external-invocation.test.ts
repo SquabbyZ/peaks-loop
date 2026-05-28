@@ -31,7 +31,7 @@ const EXTERNAL_TOKENS = [
 const DISCOVERY_PATTERN = /(capability discovery|peaks capabilities)/i;
 const REFERENCE_ONLY_PATTERN = /(reference(s)? only|reference material|reference resources|reference inputs)/i;
 const NO_EXECUTE_PATTERN = /(do not execute upstream|do not run upstream installer|do not persist sensitive examples|do not install upstream resources)/i;
-const PEAKS_AUTHORITATIVE_PATTERN = /(Peaks [\w \-/]+(remain|are) authoritative|Peaks [\w \-/]+acceptance authority|Peaks artifacts remain authoritative|Peaks gates remain authoritative)/i;
+const PEAKS_AUTHORITATIVE_PATTERN = /(Peaks(?:-Cli)? [\w \-/]+(remain|are) authoritative|Peaks(?:-Cli)? [\w \-/]+acceptance authority|Peaks(?:-Cli)? artifacts remain authoritative|Peaks(?:-Cli)? gates remain authoritative)/i;
 
 async function readSkillBody(name: string): Promise<string> {
   return readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');

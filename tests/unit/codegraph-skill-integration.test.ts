@@ -31,7 +31,7 @@ describe('Codegraph skill analysis integration guidance', () => {
 
     expect(section).toContain('local project-analysis evidence');
     expect(section).toContain('red-line scope boundaries');
-    expect(section).toContain('Peaks RD gates remain authoritative');
+    expect(section).toContain('Peaks-Cli RD gates remain authoritative');
     expect(section).toContain('peaks codegraph affected --project <path> <changed-files...> --json');
     expectCodegraphGuardrails(section);
   });
