@@ -12,10 +12,16 @@ Peaks-Cli TXT compresses workflow context into portable, role-specific artifacts
 Before any analysis or tool call, immediately run:
 
 ```bash
-peaks skill presence:set peaks-txt --mode <mode> --gate startup
+peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate startup
+```
+Read persistent project memory via CLI (structured ontology for LLM):
+
+```bash
+peaks project ontology show --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-txt | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+Then display: `Peaks-Cli Skill: peaks-txt | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -161,7 +167,7 @@ Use this sequence when TXT compresses an in-flight workflow into a portable, com
 ```bash
 # 0. Confirm TXT's own runbook integrity before compressing a handoff
 peaks skill runbook peaks-txt --json
-peaks skill presence:set peaks-txt               # show persistent skill presence every turn
+peaks skill presence:set peaks-txt --project <repo>  # show persistent skill presence every turn
 
 # 1. Inventory per-role artifacts already produced for the request
 peaks request list --project <repo> --json
@@ -180,7 +186,7 @@ peaks capabilities --json
 # 5. Memory extraction — dry-run by default, apply only when authorized
 peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json
 peaks memory extract --project <repo> --artifact <artifact-path> --apply --json
-peaks skill presence:clear                      # handoff capsule complete, remove presence indicator
+peaks skill presence:clear --project <repo>                      # handoff capsule complete, remove presence indicator
 ```
 
 The final `--apply` call requires explicit user or profile authorization. Without it, keep the capsule under `.peaks/<session-id>/txt/` and reference artifact paths from other roles instead of duplicating their content.

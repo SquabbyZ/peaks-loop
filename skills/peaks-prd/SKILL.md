@@ -12,10 +12,16 @@ Peaks-Cli PRD turns user intent into verifiable product artifacts.
 Before any analysis or tool call, immediately run:
 
 ```bash
-peaks skill presence:set peaks-prd --mode <mode> --gate startup
+peaks skill presence:set peaks-prd --project <repo> --mode <mode> --gate startup
+```
+Read persistent project memory via CLI (structured ontology for LLM):
+
+```bash
+peaks project ontology show --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-prd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-prd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+Then display: `Peaks-Cli Skill: peaks-prd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-prd --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -54,7 +60,7 @@ For a feature / bug / clarification request with no authenticated source documen
 ```bash
 # 0. confirm PRD's own runbook integrity before driving any phase
 peaks skill runbook peaks-prd --json
-peaks skill presence:set peaks-prd               # show persistent skill presence every turn
+peaks skill presence:set peaks-prd --project <repo>  # show persistent skill presence every turn
 
 # 1. capture the request as the canonical PRD artifact (preview, then apply)
 peaks request init --role prd --id <request-id> --project <repo> --json
@@ -74,7 +80,7 @@ peaks codegraph status  --project <repo>                   # local index status
 
 # 5. write goals / non-goals / acceptance into the artifact body, then hand off
 peaks request show <request-id> --role prd --project <repo> --json
-peaks skill presence:clear                      # handoff complete, remove presence indicator
+peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
 ```
 
 For an authenticated product document request (Feishu/Lark/wiki), add before step 5:

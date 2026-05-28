@@ -71,12 +71,29 @@ If the user already names a profile in their invocation (e.g. `/peaks-solo --ful
 Only after the mode is known (user selected or explicitly named), run:
 
 ```bash
-peaks skill presence:set peaks-solo --mode <mode-value> --gate startup
+peaks skill presence:set peaks-solo --project <repo> --mode <mode-value> --gate startup
 ```
 
 Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
-Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
+Update with `peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
+
+### Peaks-Cli Step 2.3: Load project memory (structured ontology for LLM)
+
+Before planning any work, read the project's persistent memory — structured data that survives across sessions:
+
+```bash
+peaks project ontology show --project <repo> --json
+```
+
+This returns `.peaks/ontology.json` containing:
+- **modules** — code areas touched, with risk levels and which sessions modified them
+- **decisions** — architectural choices, why they were made, what modules they affect
+- **conventions** — discovered project patterns (code style, naming, tooling)
+
+Use this to understand what exists, what was decided, and what to avoid re-litigating. The ontology is auto-updated on `peaks skill presence:clear`.
+
+`.peaks/PROJECT.md` is a human-readable timeline only — do NOT use it for LLM context.
 
 ### Peaks-Cli Step 2.5: Set session title
 
@@ -579,7 +596,7 @@ Solo is itself a skill running in the current session. To "invoke peaks-rd" or "
 **Presence restoration after role skill returns (MANDATORY):** Role skills (peaks-rd, peaks-qa, peaks-ui) call `peaks skill presence:set <role>` internally, which overwrites `.peaks/.active-skill.json`. After EVERY role skill returns — whether success, repair-needed, or failure — Solo MUST immediately restore the orchestrator presence by re-running the same presence command from Step 2:
 
 ```bash
-peaks skill presence:set peaks-solo --mode <mode> --gate <current-gate>
+peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <current-gate>
 ```
 
 This keeps the CLAUDE.md status header accurate (`Peaks-Cli Skill: peaks-solo`) instead of showing a stale role name. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last role skill name permanently.
@@ -606,7 +623,7 @@ When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite R
 6. Repeat steps 1-5 until QA returns `verdict=pass`, or the cap below fires.
    **After each repair iteration** (after peaks-rd and peaks-qa both return), Solo MUST restore presence:
    ```bash
-   peaks skill presence:set peaks-solo --mode <mode> --gate repair-cycle-<N>
+   peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate repair-cycle-<N>
    ```
 
 **Repair cycle cap**: After 3 repair cycles without a passing QA verdict, emit a blocked TXT handoff regardless of remaining issues. Do not loop indefinitely. If a specific issue cannot be resolved within 3 cycles, mark it as a known blocker in the TXT handoff and proceed to the SC phase.
@@ -781,7 +798,7 @@ Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, ar
 
 ### Workflow completion (no auto-exit)
 
-Do NOT call `peaks skill presence:clear` at workflow end. The presence file and header remain active so the user stays inside the workflow context. The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo`. The header continues to display the active skill and current gate.
+Do NOT call `peaks skill presence:clear --project <repo>` at workflow end. The presence file and header remain active so the user stays inside the workflow context. The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo`. The header continues to display the active skill and current gate.
 
 ## Peaks-Cli External references and lifecycle
 

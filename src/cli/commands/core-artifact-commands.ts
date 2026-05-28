@@ -11,6 +11,7 @@ import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
 import { ensureSession, getSessionId, getSessionMeta, setSessionMeta, setSessionTitle, listSessionMetas } from '../../services/session/session-manager.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
+import { generateProjectContext } from '../../services/memory/project-context-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -93,7 +94,9 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Set the currently active Peaks skill for session-wide visibility')
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
-  ).action(async (name: string, options: { mode?: string; gate?: string; json?: boolean }) => {
+      .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
+  ).action(async (name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
       printResult(
         io,
@@ -106,9 +109,8 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       process.exitCode = 1;
       return;
     }
-    const presence = setSkillPresence(name, options.mode, options.gate);
+    const presence = setSkillPresence(name, options.mode, options.gate, options.project);
     // Also update session metadata so session dirs self-document
-    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const sessionId = await ensureSession(projectRoot);
     setSessionMeta(projectRoot, sessionId, {
       skill: name,
@@ -121,10 +123,18 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
   addJsonOption(
     skill
       .command('presence:clear')
-      .description('Clear the active Peaks skill presence indicator')
-  ).action((options: { json?: boolean }) => {
-    const removed = clearSkillPresence();
-    printResult(io, ok('skill.presence:clear', { active: false, removed }), options.json);
+      .description('Clear the active Peaks skill presence indicator and update project context')
+      .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
+  ).action((options: { project?: string; json?: boolean }) => {
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    const removed = clearSkillPresence(options.project);
+    // Auto-update project context so future sessions have up-to-date history
+    try {
+      generateProjectContext(projectRoot);
+    } catch {
+      // non-fatal: context update failure should not block presence clear
+    }
+    printResult(io, ok('skill.presence:clear', { active: false, removed, projectContextUpdated: true }), options.json);
   });
 
   addJsonOption(

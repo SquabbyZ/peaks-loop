@@ -27,16 +27,17 @@ export type SkillPresence = {
 const PRESENCE_FILE = '.peaks/.active-skill.json';
 const SESSION_FILE = '.peaks/.session.json';
 
-function resolveProjectRoot(): string {
+function resolveProjectRoot(override?: string): string {
+  if (override) return resolve(override);
   return findProjectRoot(process.cwd()) ?? process.cwd();
 }
 
-function resolvePresencePath(): string {
-  return resolve(resolveProjectRoot(), PRESENCE_FILE);
+function resolvePresencePath(projectRootOverride?: string): string {
+  return resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE);
 }
 
-function getCurrentSessionId(): string | null {
-  const sessionPath = resolve(resolveProjectRoot(), SESSION_FILE);
+function getCurrentSessionId(projectRootOverride?: string): string | null {
+  const sessionPath = resolve(resolveProjectRoot(projectRootOverride), SESSION_FILE);
   if (!existsSync(sessionPath)) return null;
   try {
     const data = JSON.parse(readFileSync(sessionPath, 'utf8'));
@@ -48,13 +49,13 @@ function getCurrentSessionId(): string | null {
   }
 }
 
-export function exportSkillPresence(): string {
-  return resolvePresencePath();
+export function exportSkillPresence(projectRootOverride?: string): string {
+  return resolvePresencePath(projectRootOverride);
 }
 
-export function setSkillPresence(skill: string, mode?: string, gate?: string): SkillPresence {
+export function setSkillPresence(skill: string, mode?: string, gate?: string, projectRootOverride?: string): SkillPresence {
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
-  const sessionId = getCurrentSessionId();
+  const sessionId = getCurrentSessionId(projectRootOverride);
 
   const now = new Date().toISOString();
   const presence: SkillPresence = {
@@ -66,7 +67,7 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string): S
     lastHeartbeat: now
   };
 
-  const presencePath = resolvePresencePath();
+  const presencePath = resolvePresencePath(projectRootOverride);
   const presenceDir = dirname(presencePath);
   if (!existsSync(presenceDir)) {
     mkdirSync(presenceDir, { recursive: true });
@@ -76,8 +77,8 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string): S
   return presence;
 }
 
-export function getSkillPresence(): SkillPresence | null {
-  const presencePath = resolvePresencePath();
+export function getSkillPresence(projectRootOverride?: string): SkillPresence | null {
+  const presencePath = resolvePresencePath(projectRootOverride);
   if (!existsSync(presencePath)) {
     return null;
   }
@@ -90,7 +91,7 @@ export function getSkillPresence(): SkillPresence | null {
     }
 
     if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
-      const currentSessionId = getCurrentSessionId();
+      const currentSessionId = getCurrentSessionId(projectRootOverride);
       if (currentSessionId && parsed.sessionId !== currentSessionId) {
         unlinkSync(presencePath);
         return null;
@@ -103,8 +104,8 @@ export function getSkillPresence(): SkillPresence | null {
   }
 }
 
-export function touchSkillHeartbeat(): SkillPresence | null {
-  const presencePath = resolvePresencePath();
+export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence | null {
+  const presencePath = resolvePresencePath(projectRootOverride);
   if (!existsSync(presencePath)) {
     return null;
   }
@@ -117,7 +118,7 @@ export function touchSkillHeartbeat(): SkillPresence | null {
     }
 
     if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
-      const currentSessionId = getCurrentSessionId();
+      const currentSessionId = getCurrentSessionId(projectRootOverride);
       if (currentSessionId && parsed.sessionId !== currentSessionId) {
         unlinkSync(presencePath);
         return null;
@@ -132,8 +133,8 @@ export function touchSkillHeartbeat(): SkillPresence | null {
   }
 }
 
-export function clearSkillPresence(): boolean {
-  const presencePath = resolvePresencePath();
+export function clearSkillPresence(projectRootOverride?: string): boolean {
+  const presencePath = resolvePresencePath(projectRootOverride);
   if (!existsSync(presencePath)) {
     return false;
   }

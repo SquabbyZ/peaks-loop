@@ -12,10 +12,16 @@ Peaks-Cli RD owns engineering analysis, implementation planning, and refactor ex
 Before any analysis or tool call, immediately run:
 
 ```bash
-peaks skill presence:set peaks-rd --mode <mode> --gate startup
+peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup
+```
+Read persistent project memory via CLI (structured ontology for LLM):
+
+```bash
+peaks project ontology show --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-rd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+Then display: `Peaks-Cli Skill: peaks-rd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -41,7 +47,7 @@ The default sequence the RD skill should execute for a code-touching request. Sk
 ```bash
 # 0. confirm RD's own runbook integrity before any code edit
 peaks skill runbook peaks-rd --json
-peaks skill presence:set peaks-rd               # show persistent skill presence every turn
+peaks skill presence:set peaks-rd --project <repo>  # show persistent skill presence every turn
 
 # 1. capture the RD request artifact and read upstream PRD / UI scope
 peaks request init --role rd --id <request-id> --project <repo> --apply --json
@@ -138,7 +144,7 @@ peaks openspec validate <change-id> --project <repo> --json    # exit gate (re-r
 # 8. hand off to QA via the cross-linked request id
 peaks request init --role qa --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role rd --project <repo> --json
-peaks skill presence:clear                      # handoff complete, remove presence indicator
+peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
 ```
 
 For refactor work, the coverage ≥ 95% gate in `Refactor hard gates` still applies and must be recorded in the artifact before slicing begins.

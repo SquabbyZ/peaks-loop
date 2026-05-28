@@ -12,10 +12,16 @@ Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
 Before any analysis or tool call, immediately run:
 
 ```bash
-peaks skill presence:set peaks-sc --mode <mode> --gate startup
+peaks skill presence:set peaks-sc --project <repo> --mode <mode> --gate startup
+```
+Read persistent project memory via CLI (structured ontology for LLM):
+
+```bash
+peaks project ontology show --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-sc | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+Then display: `Peaks-Cli Skill: peaks-sc | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -77,7 +83,7 @@ Use this sequence when SC owns the change-control pass for a refactor or release
 # in:  none
 # out: runbook version, presence set
 peaks skill runbook peaks-sc --json
-peaks skill presence:set peaks-sc               # show persistent skill presence every turn
+peaks skill presence:set peaks-sc --project <repo>  # show persistent skill presence every turn
 
 # 1. Derive commit boundaries (OpenSpec preferred, git diff fallback)
 # in:  change-id, repo path
@@ -115,7 +121,7 @@ peaks sc boundary --slice-id <slice-id> --artifact <artifact-path> --code <code-
 # out: sync result or dry-run preview
 peaks memory sync --project <repo> --workspace <workspace> --apply --json
 peaks artifacts sync --workspace <workspace> --apply --json
-peaks skill presence:clear                      # SC complete, remove presence indicator
+peaks skill presence:clear --project <repo>                      # SC complete, remove presence indicator
 ```
 
 The final two `--apply` calls require explicit authorization. Without it, default to `--dry-run` or omit the sync calls entirely and keep the boundary evidence local under `.peaks/<session-id>/`.

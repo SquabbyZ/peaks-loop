@@ -12,10 +12,16 @@ Peaks-Cli QA proves that planned changes are protected and accepted.
 Before any analysis or tool call, immediately run:
 
 ```bash
-peaks skill presence:set peaks-qa --mode <mode> --gate startup
+peaks skill presence:set peaks-qa --project <repo> --mode <mode> --gate startup
+```
+Read persistent project memory via CLI (structured ontology for LLM):
+
+```bash
+peaks project ontology show --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-qa | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-qa --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear`.
+This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+Then display: `Peaks-Cli Skill: peaks-qa | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-qa --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -47,7 +53,7 @@ The default sequence the QA skill should execute. Do not skip the boundary check
 ```bash
 # 0. confirm QA's own runbook integrity before validating anything
 peaks skill runbook peaks-qa --json
-peaks skill presence:set peaks-qa               # show persistent skill presence every turn
+peaks skill presence:set peaks-qa --project <repo>  # show persistent skill presence every turn
 
 # 1. capture the QA request artifact and read upstream scope
 peaks request init --role qa --id <request-id> --project <repo> --apply --json
@@ -134,7 +140,7 @@ peaks request lint <rid> --role qa --project <repo> --json
 # 9. on verdict=return-to-rd, route findings back through the request id; otherwise close.
 peaks request show <request-id> --role qa --project <repo> --json
 peaks openspec archive <change-id> --project <repo> --json   # preview, then --apply on full pass
-peaks skill presence:clear                      # QA complete, remove presence indicator
+peaks skill presence:clear --project <repo>                      # QA complete, remove presence indicator
 ```
 
 Verdict `pass` is blocked until every applicable validation gate has evidence in the artifact.
