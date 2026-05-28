@@ -18,14 +18,29 @@ export type SkillPresence = {
   skill: string;
   mode?: SkillPresenceMode;
   gate?: string;
+  sessionId?: string;
   setAt: string;
   lastHeartbeat?: string;
 };
 
 const PRESENCE_FILE = '.peaks/.active-skill.json';
+const SESSION_FILE = '.peaks/.session.json';
 
 function resolvePresencePath(): string {
   return resolve(process.cwd(), PRESENCE_FILE);
+}
+
+function getCurrentSessionId(): string | null {
+  const sessionPath = resolve(process.cwd(), SESSION_FILE);
+  if (!existsSync(sessionPath)) return null;
+  try {
+    const data = JSON.parse(readFileSync(sessionPath, 'utf8'));
+    return typeof data.sessionId === 'string' && data.sessionId.length > 0
+      ? data.sessionId
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function exportSkillPresence(): string {
@@ -34,12 +49,14 @@ export function exportSkillPresence(): string {
 
 export function setSkillPresence(skill: string, mode?: string, gate?: string): SkillPresence {
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
+  const sessionId = getCurrentSessionId();
 
   const now = new Date().toISOString();
   const presence: SkillPresence = {
     skill,
     ...(validatedMode ? { mode: validatedMode } : {}),
     ...(gate ? { gate } : {}),
+    ...(sessionId ? { sessionId } : {}),
     setAt: now,
     lastHeartbeat: now
   };
@@ -66,6 +83,15 @@ export function getSkillPresence(): SkillPresence | null {
     if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
       return null;
     }
+
+    if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
+      const currentSessionId = getCurrentSessionId();
+      if (currentSessionId && parsed.sessionId !== currentSessionId) {
+        unlinkSync(presencePath);
+        return null;
+      }
+    }
+
     return parsed as SkillPresence;
   } catch {
     return null;
@@ -84,6 +110,15 @@ export function touchSkillHeartbeat(): SkillPresence | null {
     if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
       return null;
     }
+
+    if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
+      const currentSessionId = getCurrentSessionId();
+      if (currentSessionId && parsed.sessionId !== currentSessionId) {
+        unlinkSync(presencePath);
+        return null;
+      }
+    }
+
     parsed.lastHeartbeat = new Date().toISOString();
     writeFileSync(presencePath, JSON.stringify(parsed, null, 2), 'utf8');
     return parsed as SkillPresence;

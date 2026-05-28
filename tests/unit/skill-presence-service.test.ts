@@ -15,6 +15,18 @@ function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-skill-presence-'));
 }
 
+function writeSessionFile(root: string, sessionId: string): void {
+  const peaksDir = join(root, '.peaks');
+  if (!existsSync(peaksDir)) {
+    mkdirSync(peaksDir, { recursive: true });
+  }
+  writeFileSync(join(peaksDir, '.session.json'), JSON.stringify({
+    sessionId,
+    createdAt: new Date().toISOString(),
+    projectRoot: root
+  }), 'utf8');
+}
+
 describe('skill presence service', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -88,6 +100,39 @@ describe('skill presence service', () => {
         setSkillPresence('peaks-qa');
 
         expect(existsSync(peaksDir)).toBe(true);
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('stores sessionId when .peaks/.session.json exists', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        writeSessionFile(root, '2026-05-28-session-test01');
+
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        expect(presence.sessionId).toBe('2026-05-28-session-test01');
+
+        const filePath = join(root, '.peaks', '.active-skill.json');
+        const raw = JSON.parse(readFileSync(filePath, 'utf8'));
+        expect(raw.sessionId).toBe('2026-05-28-session-test01');
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('does not store sessionId when no session file exists', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        expect(presence.sessionId).toBeUndefined();
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });
@@ -174,6 +219,74 @@ describe('skill presence service', () => {
         const result = getSkillPresence();
 
         expect(result).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('returns presence when sessionId matches current session', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        writeSessionFile(root, '2026-05-28-session-match');
+        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        const result = getSkillPresence();
+
+        expect(result).not.toBeNull();
+        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.mode).toBe('full-auto');
+        expect(result!.sessionId).toBe('2026-05-28-session-match');
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('returns null and clears file when presence sessionId differs from current session', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        // Set up presence with session A
+        writeSessionFile(root, '2026-05-28-session-old');
+        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        const presencePath = join(root, '.peaks', '.active-skill.json');
+        expect(existsSync(presencePath)).toBe(true);
+
+        // Simulate new session B: overwrite .session.json
+        writeSessionFile(root, '2026-05-28-session-new');
+
+        const result = getSkillPresence();
+
+        expect(result).toBeNull();
+        // Stale presence file should be deleted
+        expect(existsSync(presencePath)).toBe(false);
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('returns presence normally when presence has no sessionId (backward compat)', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        // Write presence manually without sessionId
+        const peaksDir = join(root, '.peaks');
+        mkdirSync(peaksDir, { recursive: true });
+        writeFileSync(join(peaksDir, '.active-skill.json'), JSON.stringify({
+          skill: 'peaks-solo',
+          mode: 'assisted',
+          setAt: new Date().toISOString()
+        }), 'utf8');
+
+        const result = getSkillPresence();
+
+        expect(result).not.toBeNull();
+        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.mode).toBe('assisted');
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });
@@ -300,6 +413,48 @@ describe('skill presence service', () => {
         rmSync(root, { recursive: true, force: true });
       }
     });
+
+    test('touch returns null and clears file when presence sessionId differs from current session', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        writeSessionFile(root, '2026-05-28-session-old');
+        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        const presencePath = join(root, '.peaks', '.active-skill.json');
+        expect(existsSync(presencePath)).toBe(true);
+
+        // Simulate new session
+        writeSessionFile(root, '2026-05-28-session-new');
+
+        const result = touchSkillHeartbeat();
+
+        expect(result).toBeNull();
+        expect(existsSync(presencePath)).toBe(false);
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('touch works when sessionId matches current session', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        writeSessionFile(root, '2026-05-28-session-match');
+        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        const result = touchSkillHeartbeat();
+
+        expect(result).not.toBeNull();
+        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.sessionId).toBe('2026-05-28-session-match');
+        expect(result!.lastHeartbeat).toBeTruthy();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('exit flow lifecycle (set → header → clear → exit message)', () => {
@@ -345,6 +500,38 @@ describe('skill presence service', () => {
         expect(clearSkillPresence()).toBe(true);
         expect(clearSkillPresence()).toBe(false); // already deleted, safe
         expect(getSkillPresence()).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('cross-session: presence from old session is invisible in new session', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        // Session A: user selects full-auto mode
+        writeSessionFile(root, '2026-05-28-session-a');
+        const p1 = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        expect(p1.sessionId).toBe('2026-05-28-session-a');
+
+        const presencePath = join(root, '.peaks', '.active-skill.json');
+        expect(existsSync(presencePath)).toBe(true);
+
+        // Session B: user starts a new session, should re-prompt for mode
+        writeSessionFile(root, '2026-05-28-session-b');
+
+        const p2 = getSkillPresence();
+        expect(p2).toBeNull();
+        expect(existsSync(presencePath)).toBe(false);
+
+        // Session B then sets its own presence (user re-selects mode)
+        setSkillPresence('peaks-solo', 'assisted', 'startup');
+        const p3 = getSkillPresence();
+        expect(p3).not.toBeNull();
+        expect(p3!.mode).toBe('assisted');
+        expect(p3!.sessionId).toBe('2026-05-28-session-b');
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });
