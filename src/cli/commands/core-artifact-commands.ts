@@ -9,6 +9,7 @@ import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
+import { ensureSession, getSessionId, getSessionMeta, setSessionMeta, setSessionTitle, listSessionMetas } from '../../services/session/session-manager.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -91,7 +92,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Set the currently active Peaks skill for session-wide visibility')
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
-  ).action((name: string, options: { mode?: string; gate?: string; json?: boolean }) => {
+  ).action(async (name: string, options: { mode?: string; gate?: string; json?: boolean }) => {
     if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
       printResult(
         io,
@@ -105,6 +106,14 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       return;
     }
     const presence = setSkillPresence(name, options.mode, options.gate);
+    // Also update session metadata so session dirs self-document
+    const projectRoot = process.cwd();
+    const sessionId = await ensureSession(projectRoot);
+    setSessionMeta(projectRoot, sessionId, {
+      skill: name,
+      ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.gate ? { gate: options.gate } : {})
+    });
     printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
   });
 
@@ -151,6 +160,48 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       skill: updated.skill,
       lastHeartbeat: updated.lastHeartbeat
     }), options.json);
+  });
+
+  const session = program.command('session').description('Manage Peaks session directories');
+
+  addJsonOption(
+    session
+      .command('list')
+      .description('List all session directories with titles and metadata')
+  ).action((options: { json?: boolean }) => {
+    const projectRoot = process.cwd();
+    const metas = listSessionMetas(projectRoot);
+    printResult(io, ok('session.list', { sessions: metas, total: metas.length }), options.json);
+  });
+
+  addJsonOption(
+    session
+      .command('info <sessionId>')
+      .description('Show full metadata for a session directory')
+  ).action((sessionId: string, options: { json?: boolean }) => {
+    const projectRoot = process.cwd();
+    const meta = getSessionMeta(projectRoot, sessionId);
+    if (meta === null) {
+      printResult(io, fail('session.info', 'SESSION_NOT_FOUND', `Session "${sessionId}" not found or has no metadata`, { sessionId }, ['Use `peaks session list` to see available sessions']), options.json);
+      process.exitCode = 1;
+      return;
+    }
+    printResult(io, ok('session.info', meta), options.json);
+  });
+
+  addJsonOption(
+    session
+      .command('title <sessionId> <title>')
+      .description('Set a human-readable title for a session directory')
+  ).action((sessionId: string, title: string, options: { json?: boolean }) => {
+    const projectRoot = process.cwd();
+    try {
+      const meta = setSessionTitle(projectRoot, sessionId, title);
+      printResult(io, ok('session.title', meta), options.json);
+    } catch (error) {
+      printResult(io, fail('session.title', 'SESSION_TITLE_FAILED', getErrorMessage(error), { sessionId }, ['Verify the sessionId exists under .peaks/']), options.json);
+      process.exitCode = 1;
+    }
   });
 
   const profile = program.command('profile').description('Manage runtime profiles');

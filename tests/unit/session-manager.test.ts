@@ -175,4 +175,104 @@ describe('session-manager', () => {
       expect(hasProjectScan(testProjectRoot)).toBe(true);
     });
   });
+
+  describe('session metadata', () => {
+    let getSessionMeta: typeof import('../../src/services/session/session-manager.js').getSessionMeta;
+    let setSessionMeta: typeof import('../../src/services/session/session-manager.js').setSessionMeta;
+    let setSessionTitle: typeof import('../../src/services/session/session-manager.js').setSessionTitle;
+    let listSessionMetas: typeof import('../../src/services/session/session-manager.js').listSessionMetas;
+
+    beforeEach(async () => {
+      const mod = await import('../../src/services/session/session-manager.js');
+      getSessionMeta = mod.getSessionMeta;
+      setSessionMeta = mod.setSessionMeta;
+      setSessionTitle = mod.setSessionTitle;
+      listSessionMetas = mod.listSessionMetas;
+    });
+
+    test('ensureSession writes initial session.json into session dir', async () => {
+      const sessionId = await ensureSession(testProjectRoot);
+      const metaPath = join(testProjectRoot, '.peaks', sessionId, 'session.json');
+
+      expect(existsSync(metaPath)).toBe(true);
+      const raw = JSON.parse(readFileSync(metaPath, 'utf8'));
+      expect(raw.sessionId).toBe(sessionId);
+      expect(raw.projectRoot).toBe(testProjectRoot);
+      expect(raw.createdAt).toBeTruthy();
+    });
+
+    test('getSessionMeta returns null for unknown sessionId', () => {
+      expect(getSessionMeta(testProjectRoot, '2026-01-01-session-000000')).toBeNull();
+    });
+
+    test('getSessionMeta reads existing metadata', async () => {
+      const sessionId = await ensureSession(testProjectRoot);
+      const meta = getSessionMeta(testProjectRoot, sessionId);
+
+      expect(meta).not.toBeNull();
+      expect(meta!.sessionId).toBe(sessionId);
+    });
+
+    test('setSessionTitle writes title into session.json', async () => {
+      const sessionId = await ensureSession(testProjectRoot);
+      const result = setSessionTitle(testProjectRoot, sessionId, '修复登录页OAuth回调异常');
+
+      expect(result.title).toBe('修复登录页OAuth回调异常');
+      expect(result.sessionId).toBe(sessionId);
+
+      const metaPath = join(testProjectRoot, '.peaks', sessionId, 'session.json');
+      const raw = JSON.parse(readFileSync(metaPath, 'utf8'));
+      expect(raw.title).toBe('修复登录页OAuth回调异常');
+    });
+
+    test('setSessionMeta does partial update (preserves existing fields)', async () => {
+      const sessionId = await ensureSession(testProjectRoot);
+      setSessionTitle(testProjectRoot, sessionId, '原始标题');
+
+      setSessionMeta(testProjectRoot, sessionId, { skill: 'peaks-solo', mode: 'full-auto' });
+
+      const meta = getSessionMeta(testProjectRoot, sessionId);
+      expect(meta).not.toBeNull();
+      expect(meta!.title).toBe('原始标题');
+      expect(meta!.skill).toBe('peaks-solo');
+      expect(meta!.mode).toBe('full-auto');
+      expect(meta!.lastActivity).toBeTruthy();
+    });
+
+    test('setSessionTitle creates meta if session dir exists but no meta file', () => {
+      const sessionId = '2026-05-28-session-create01';
+      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+
+      const result = setSessionTitle(testProjectRoot, sessionId, '新建标题');
+
+      expect(result.title).toBe('新建标题');
+      expect(result.sessionId).toBe(sessionId);
+      expect(result.createdAt).toBeTruthy();
+    });
+
+    test('listSessionMetas returns all sessions with metadata', async () => {
+      await ensureSession(testProjectRoot);
+
+      const sid2 = '2026-05-28-session-abcdef';
+      mkdirSync(join(testProjectRoot, '.peaks', sid2), { recursive: true });
+      setSessionTitle(testProjectRoot, sid2, '第二个会话');
+
+      const metas = listSessionMetas(testProjectRoot);
+      expect(metas.length).toBeGreaterThanOrEqual(2);
+
+      const withTitle = metas.find((m) => m.sessionId === sid2);
+      expect(withTitle).toBeDefined();
+      expect(withTitle!.title).toBe('第二个会话');
+    });
+
+    test('listSessionMetas returns empty array when no .peaks dir', () => {
+      const noPeaks = join(tmpdir(), 'test-no-metas-' + Date.now());
+      mkdirSync(noPeaks, { recursive: true });
+      try {
+        expect(listSessionMetas(noPeaks)).toEqual([]);
+      } finally {
+        rmSync(noPeaks, { recursive: true, force: true });
+      }
+    });
+  });
 });

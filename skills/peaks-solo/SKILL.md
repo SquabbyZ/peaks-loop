@@ -78,6 +78,16 @@ Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli
 
 Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
 
+### Peaks-Cli Step 2.5: Set session title
+
+Extract a short (8-20 Chinese characters, or 4-10 English words) descriptive title from the user's first request. The title should capture the core task — e.g. "修复登录页OAuth回调异常", "添加暗色模式开关", "搭建项目基础架构". Then run:
+
+```bash
+peaks session title $(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])") "<title>"
+```
+
+If the session directory already has a title (check via `peaks session list --json`), skip this step — the title is already set.
+
 ## Boundaries
 
 Peaks-Cli Solo may:

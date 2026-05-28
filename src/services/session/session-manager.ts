@@ -6,7 +6,7 @@
  * Each session gets a unique directory under .peaks/ with incrementing numbered files.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
@@ -17,7 +17,19 @@ export type SessionInfo = {
   projectRoot: string;
 };
 
+export type SessionMeta = {
+  sessionId: string;
+  title?: string;
+  skill?: string;
+  mode?: string;
+  gate?: string;
+  createdAt: string;
+  lastActivity?: string;
+  projectRoot: string;
+};
+
 const SESSION_FILE = '.session.json';
+const META_FILE = 'session.json';
 
 /**
  * Generate a new session ID.
@@ -72,6 +84,95 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
   writeFileSync(sessionFile, JSON.stringify(info, null, 2), 'utf8');
 }
 
+function getMetaFilePath(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, '.peaks', sessionId, META_FILE);
+}
+
+function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | null {
+  const metaPath = getMetaFilePath(projectRoot, sessionId);
+  if (!existsSync(metaPath)) return null;
+
+  try {
+    const raw = readFileSync(metaPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
+      return null;
+    }
+    return parsed as SessionMeta;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionMeta(projectRoot: string, sessionId: string, meta: SessionMeta): void {
+  const metaPath = getMetaFilePath(projectRoot, sessionId);
+  const metaDir = join(projectRoot, '.peaks', sessionId);
+  if (!existsSync(metaDir)) {
+    mkdirSync(metaDir, { recursive: true });
+  }
+  writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+}
+
+/**
+ * Read metadata for a specific session directory.
+ * Returns null if the session directory or its session.json does not exist.
+ */
+export function getSessionMeta(projectRoot: string, sessionId: string): SessionMeta | null {
+  return readSessionMeta(projectRoot, sessionId);
+}
+
+/**
+ * Write or update metadata for a session.  Fields besides sessionId and createdAt
+ * are merged on top of the current meta (partial update).
+ */
+export function setSessionMeta(projectRoot: string, sessionId: string, partial: Partial<Omit<SessionMeta, 'sessionId' | 'createdAt' | 'projectRoot'>>): SessionMeta {
+  const existing = readSessionMeta(projectRoot, sessionId);
+  const now = new Date().toISOString();
+
+  const meta: SessionMeta = existing
+    ? { ...existing, ...partial, lastActivity: now }
+    : {
+        sessionId,
+        projectRoot,
+        createdAt: now,
+        ...partial,
+        lastActivity: now
+      };
+
+  writeSessionMeta(projectRoot, sessionId, meta);
+  return meta;
+}
+
+/**
+ * Set the display title for a session directory.
+ */
+export function setSessionTitle(projectRoot: string, sessionId: string, title: string): SessionMeta {
+  return setSessionMeta(projectRoot, sessionId, { title });
+}
+
+/**
+ * List all session directories under .peaks with their metadata.
+ * Returns sessions sorted by sessionId descending (most recent first).
+ */
+export function listSessionMetas(projectRoot: string): SessionMeta[] {
+  const peaksRoot = join(projectRoot, '.peaks');
+  if (!existsSync(peaksRoot)) return [];
+
+  const entries = readdirSync(peaksRoot, { withFileTypes: true });
+
+  return entries
+    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(entry.name))
+    .map((entry) => {
+      const meta = readSessionMeta(projectRoot, entry.name);
+      return meta ?? {
+        sessionId: entry.name,
+        projectRoot,
+        createdAt: ''
+      };
+    })
+    .sort((a, b) => b.sessionId.localeCompare(a.sessionId));
+}
+
 /**
  * Get or create the current session for a project.
  * If a valid session already exists, returns it.
@@ -87,15 +188,23 @@ export async function ensureSession(projectRoot: string): Promise<string> {
   }
 
   const sessionId = generateSessionId();
+  const now = new Date().toISOString();
   const info: SessionInfo = {
     sessionId,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
     projectRoot
   };
 
   writeSessionFile(projectRoot, info);
 
   await initWorkspace({ projectRoot, sessionId });
+
+  // Initialize session metadata inside the session directory
+  writeSessionMeta(projectRoot, sessionId, {
+    sessionId,
+    projectRoot,
+    createdAt: now
+  });
 
   return sessionId;
 }
