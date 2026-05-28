@@ -19,6 +19,7 @@ export type SkillPresence = {
   mode?: SkillPresenceMode;
   gate?: string;
   setAt: string;
+  lastHeartbeat?: string;
 };
 
 const PRESENCE_FILE = '.peaks/.active-skill.json';
@@ -34,11 +35,13 @@ export function exportSkillPresence(): string {
 export function setSkillPresence(skill: string, mode?: string, gate?: string): SkillPresence {
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
 
+  const now = new Date().toISOString();
   const presence: SkillPresence = {
     skill,
     ...(validatedMode ? { mode: validatedMode } : {}),
     ...(gate ? { gate } : {}),
-    setAt: new Date().toISOString()
+    setAt: now,
+    lastHeartbeat: now
   };
 
   const presencePath = resolvePresencePath();
@@ -63,6 +66,26 @@ export function getSkillPresence(): SkillPresence | null {
     if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
       return null;
     }
+    return parsed as SkillPresence;
+  } catch {
+    return null;
+  }
+}
+
+export function touchSkillHeartbeat(): SkillPresence | null {
+  const presencePath = resolvePresencePath();
+  if (!existsSync(presencePath)) {
+    return null;
+  }
+
+  try {
+    const raw = readFileSync(presencePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
+      return null;
+    }
+    parsed.lastHeartbeat = new Date().toISOString();
+    writeFileSync(presencePath, JSON.stringify(parsed, null, 2), 'utf8');
     return parsed as SkillPresence;
   } catch {
     return null;

@@ -9,7 +9,7 @@ vi.mock('node:fs', async (importOriginal) => {
   return { ...actual, unlinkSync: unlinkSyncMock };
 });
 
-import { setSkillPresence, getSkillPresence, clearSkillPresence, exportSkillPresence } from '../../src/services/skills/skill-presence-service.js';
+import { setSkillPresence, getSkillPresence, clearSkillPresence, exportSkillPresence, touchSkillHeartbeat } from '../../src/services/skills/skill-presence-service.js';
 
 function createTempDir(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-skill-presence-'));
@@ -228,6 +228,123 @@ describe('skill presence service', () => {
         const result = clearSkillPresence();
 
         expect(result).toBe(false);
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('touchSkillHeartbeat', () => {
+    test('returns null when presence file does not exist', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        const result = touchSkillHeartbeat();
+
+        expect(result).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('updates lastHeartbeat when presence file exists', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        const originalHeartbeat = presence.lastHeartbeat!;
+
+        // Wait a tiny bit so timestamps differ
+        const start = Date.now();
+        while (Date.now() - start < 10) { /* busy-wait for distinct timestamp */ }
+
+        const updated = touchSkillHeartbeat();
+
+        expect(updated).not.toBeNull();
+        expect(updated!.skill).toBe('peaks-solo');
+        expect(updated!.lastHeartbeat).not.toBe(originalHeartbeat);
+        // Verify the file was actually updated
+        const filePath = join(root, '.peaks', '.active-skill.json');
+        const raw = JSON.parse(readFileSync(filePath, 'utf8'));
+        expect(raw.lastHeartbeat).toBe(updated!.lastHeartbeat);
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('heartbeat lifecycle: set → touch → clear → touch returns null', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        // Set presence → heartbeat initialized
+        const p1 = setSkillPresence('peaks-solo');
+        expect(p1.lastHeartbeat).toBeDefined();
+
+        // Touch heartbeat → updated
+        const p2 = touchSkillHeartbeat();
+        expect(p2).not.toBeNull();
+
+        // Clear presence
+        clearSkillPresence();
+
+        // Touch after clear → null (no presence file)
+        const p3 = touchSkillHeartbeat();
+        expect(p3).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe('exit flow lifecycle (set → header → clear → exit message)', () => {
+    test('full peaks-solo exit lifecycle: presence set, header displayed, presence cleared, header removed', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        // Step 1: peaks-solo workflow enters — set presence
+        const step1 = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        expect(step1.skill).toBe('peaks-solo');
+        expect(step1.mode).toBe('full-auto');
+        expect(step1.gate).toBe('startup');
+
+        // Step 2: CLAUDE.md reads presence — header is displayed
+        const step2 = getSkillPresence();
+        expect(step2).not.toBeNull();
+        expect(step2!.skill).toBe('peaks-solo');
+        // At this point, CLAUDE.md shows:
+        // "Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: ..."
+
+        // Step 3: Workflow completes — peaks skill presence:clear
+        const step3 = clearSkillPresence();
+        expect(step3).toBe(true);
+
+        // Step 4: CLAUDE.md reads presence again — file is gone, no header
+        const step4 = getSkillPresence();
+        expect(step4).toBeNull();
+        // At this point, CLAUDE.md shows NOTHING — user is outside peaks workflow
+        // Solo MUST display: "Peaks-Cli Solo workflow has ended..."
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('exit flow: double-clear is safe (idempotent)', () => {
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        setSkillPresence('peaks-solo');
+
+        expect(clearSkillPresence()).toBe(true);
+        expect(clearSkillPresence()).toBe(false); // already deleted, safe
+        expect(getSkillPresence()).toBeNull();
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });

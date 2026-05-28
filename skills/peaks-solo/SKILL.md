@@ -76,7 +76,7 @@ peaks skill presence:set peaks-solo --mode <mode-value> --gate startup
 
 Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
-Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. When the workflow ends, run `peaks skill presence:clear`.
+Update with `peaks skill presence:set peaks-solo --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
 
 ## Boundaries
 
@@ -695,16 +695,6 @@ peaks memory extract --project <repo> --artifact <qa-artifact> --dry-run --json
 # 11. Peaks-Cli Final snapshot
 peaks project dashboard --project <repo> --json
 peaks skill doctor --json
-peaks skill presence:clear
-# → After presence:clear, the .peaks/.active-skill.json file is removed.
-# → SOLO MUST NOW DISPLAY AN EXPLICIT WORKFLOW-END MESSAGE to the user
-#   before responding to anything else. The message MUST include:
-#   1. "Peaks-Cli Solo workflow has ended."
-#   2. A reminder that new/additional requirements need a new /peaks-solo invocation.
-#   Example:
-#   "Peaks-Cli Solo workflow has ended. All gates passed, artifacts saved to
-#    .peaks/<id>/. If you have new requirements or ideas, please start a new
-#    workflow with /peaks-solo."
 ```
 
 Repair loop details: see `## Mandatory RD QA repair loop` above for the full 5-step procedure and the 3-cycle cap. Append transition notes via `--reason` rather than rewriting artifacts during repair cycles.
@@ -767,18 +757,9 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas (`CLAUDE.md` and `.claude/rules/**` statuses), open questions, next action. Do not restate the full workflow log.
 
-### Workflow exit signal (MANDATORY)
+### Workflow completion (no auto-exit)
 
-After `peaks skill presence:clear` completes, Solo MUST display an explicit exit message to the user as its final output. The message must convey:
-
-1. The workflow has ended and the active skill has been cleared.
-2. New or follow-up requirements are outside the completed workflow — the user must explicitly start a new workflow (e.g. `/peaks-solo`) for additional work.
-
-Example:
-
-> Peaks-Cli Solo workflow has ended. All gates passed, artifacts saved to `.peaks/<session-id>/`. If you have new requirements or ideas, please start a new workflow with `/peaks-solo`.
-
-This prevents the user from being confused when subsequent messages no longer trigger peaks skill behavior. Do not omit this message — it is the only explicit boundary between "inside peaks workflow" and "outside peaks workflow."
+Do NOT call `peaks skill presence:clear` at workflow end. The presence file and header remain active so the user stays inside the workflow context. The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo`. The header continues to display the active skill and current gate.
 
 ## Peaks-Cli External references and lifecycle
 

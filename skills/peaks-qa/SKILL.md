@@ -86,15 +86,19 @@ peaks mcp list --json
 peaks mcp plan  --capability playwright-mcp.browser-validation --json
 peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 # DEV-SERVER REQUIREMENT (BLOCKING): a running dev server is REQUIRED for browser E2E.
+# The same lifecycle applies to ANY service QA starts (backend API, mock server, database,
+# etc): capture PID on startup, validate, then kill the process after verification.
 # Start the dev server (npm run dev / pnpm dev / umi dev / etc) and capture the actual
-# advertised URL from its stdout (do NOT hard-code localhost:8000). If the dev server
-# fails to start, hangs, or times out (e.g. tailwindcss/plugin slowness, port conflict,
-# missing env), this is a BLOCKER — NOT a reason to skip browser E2E. You MUST:
+# advertised URL from its stdout (do NOT hard-code localhost:8000). Capture the dev server
+# PID on startup so it can be killed after verification. If the dev server fails to start,
+# hangs, or times out (e.g. tailwindcss/plugin slowness, port conflict, missing env), this
+# is a BLOCKER — NOT a reason to skip browser E2E. You MUST:
 #   1. Record the failure and root cause in qa/test-reports/<rid>.md;
 #   2. Return verdict=blocked (or return-to-rd if the root cause is implementation-related);
 #   3. NEVER substitute a production build (`umi build` / `vite build` / `next build`) for
 #      browser E2E. A successful production build proves compilation, not runtime behavior,
 #      and does NOT satisfy Peaks-Cli Gate D. Treating prod build as a fallback is a workflow violation.
+#   4. After browser validation completes, KILL the dev server. Do not leave it running.
 # Playwright MCP MUST simulate real user operations — not just take static screenshots.
 # The minimum interaction sequence for every frontend page/flow:
 #   mcp__playwright__browser_navigate         → URL (after allow-list), launches headed browser
@@ -109,6 +113,14 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 #   mcp__playwright__browser_close            → end the session cleanly
 # Static screenshots without user-interaction simulation do NOT pass this gate.
 # Block QA pass if Playwright MCP is unavailable.
+#
+# CLEANUP: After browser validation completes (all screenshots saved, console/network
+# evidence captured), QA MUST kill every process it started during verification.
+# This includes: frontend dev server, backend API server, mock server, database
+# instances, proxy, or any other long-running process. Find the process by port
+# (lsof -ti :<port>) or by the pid captured at startup, then kill it. Do NOT leave
+# orphaned processes running — they consume ports and resources, and may interfere
+# with subsequent development or other QA sessions.
 
 # 8. write per-criterion acceptance results, regression matrix, security/performance findings,
 #    and the final verdict into the QA request artifact. Mark state=verdict-issued.

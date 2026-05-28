@@ -8,7 +8,7 @@ import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
-import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode } from '../../services/skills/skill-presence-service.js';
+import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -115,6 +115,42 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
   ).action((options: { json?: boolean }) => {
     const removed = clearSkillPresence();
     printResult(io, ok('skill.presence:clear', { active: false, removed }), options.json);
+  });
+
+  addJsonOption(
+    skill
+      .command('heartbeat')
+      .description('Show the heartbeat status of the active Peaks skill')
+  ).action((options: { json?: boolean }) => {
+    const presence = getSkillPresence();
+    if (presence === null) {
+      printResult(io, ok('skill.heartbeat', { active: false, heartbeat: 'none' }), options.json);
+      return;
+    }
+    printResult(io, ok('skill.heartbeat', {
+      active: true,
+      skill: presence.skill,
+      gate: presence.gate ?? null,
+      lastHeartbeat: presence.lastHeartbeat ?? presence.setAt,
+      setAt: presence.setAt
+    }), options.json);
+  });
+
+  addJsonOption(
+    skill
+      .command('heartbeat:touch')
+      .description('Update the heartbeat timestamp (called by the LLM each turn to confirm peaks skill context is alive)')
+  ).action((options: { json?: boolean }) => {
+    const updated = touchSkillHeartbeat();
+    if (updated === null) {
+      printResult(io, ok('skill.heartbeat:touch', { active: false, heartbeat: 'none' }), options.json);
+      return;
+    }
+    printResult(io, ok('skill.heartbeat:touch', {
+      active: true,
+      skill: updated.skill,
+      lastHeartbeat: updated.lastHeartbeat
+    }), options.json);
   });
 
   const profile = program.command('profile').description('Manage runtime profiles');
