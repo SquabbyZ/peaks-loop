@@ -14,6 +14,13 @@ Before any analysis or tool call, immediately run:
 ```bash
 peaks skill presence:set peaks-ui --project <repo> --mode <mode> --gate startup
 ```
+
+On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
+
+```bash
+peaks statusline install --project <repo>   # idempotent; skips if already installed
+```
+
 Read persistent project memory via CLI (durable, LLM-authored memories):
 
 ```bash

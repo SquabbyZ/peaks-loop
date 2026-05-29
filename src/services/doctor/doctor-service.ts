@@ -8,6 +8,8 @@ import { requiredSchemaFiles, requiredSkillNames, schemasDir } from '../../share
 import { getErrorMessage } from '../../shared/result.js';
 import { loadSkillRegistry } from '../skills/skill-registry.js';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
+import { planStatusLineInstall } from '../skills/statusline-settings-service.js';
+import { findProjectRoot } from '../config/config-safety.js';
 
 export type DoctorCheck = {
   id: string;
@@ -37,6 +39,7 @@ export type DoctorOptions = {
   codegraphProbe?: () => CodegraphCapabilityProbe;
   skillPresenceProbe?: () => SkillPresence | null;
   skillPresenceFreshnessThresholdMs?: number;
+  statusLineInstalledProbe?: () => boolean;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -53,6 +56,16 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     binaryPath,
     binaryExists: existsSync(binaryPath)
   };
+}
+
+function defaultStatusLineInstalledProbe(): boolean {
+  const projectRoot = findProjectRoot(process.cwd());
+  if (projectRoot === null) return false;
+  try {
+    return planStatusLineInstall('project', projectRoot).alreadyInstalled;
+  } catch {
+    return false;
+  }
 }
 
 const DESTRUCTIVE_APPLY_PATTERNS = [
@@ -230,6 +243,32 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
         });
       }
     }
+  }
+
+  // Discoverability nudge: when a skill is actively orchestrating but the
+  // out-of-band statusLine isn't installed, the user has no terminal-level
+  // signal that Peaks is in control. Suggest installing it (non-failing).
+  const statusLineProbe = options.statusLineInstalledProbe ?? defaultStatusLineInstalledProbe;
+  let statusLineInstalled = false;
+  try {
+    statusLineInstalled = statusLineProbe();
+  } catch {
+    statusLineInstalled = false;
+  }
+  if (presence !== null && !statusLineInstalled) {
+    checks.push({
+      id: 'statusline:install',
+      ok: true,
+      message: 'A Peaks skill is active but the statusLine is not installed; run `peaks statusline install` so the active skill shows in the terminal status bar'
+    });
+  } else {
+    checks.push({
+      id: 'statusline:install',
+      ok: true,
+      message: statusLineInstalled
+        ? 'Peaks statusLine is installed'
+        : 'Peaks statusLine not installed (no active skill; install optional)'
+    });
   }
 
   const probe = options.codegraphProbe ?? defaultCodegraphProbe;

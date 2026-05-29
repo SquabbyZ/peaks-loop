@@ -10,6 +10,7 @@ import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
 import { registerShadcnCommands } from './commands/shadcn-commands.js';
+import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -43,6 +44,7 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
   registerRequestCommands(program, io);
   registerScanCommands(program, io);
   registerShadcnCommands(program, io);
+  registerStatusLineCommands(program, io);
   registerUnderstandCommands(program, io);
   registerWorkspaceCommands(program, io);
 

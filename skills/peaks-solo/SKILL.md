@@ -74,6 +74,12 @@ Only after the mode is known (user selected or explicitly named), run:
 peaks skill presence:set peaks-solo --project <repo> --mode <mode-value> --gate startup
 ```
 
+On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
+
+```bash
+peaks statusline install --project <repo>   # idempotent; skips if already installed
+```
+
 Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
 Update with `peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.

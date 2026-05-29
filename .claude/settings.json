@@ -1,0 +1,7 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "peaks statusline",
+    "padding": 0
+  }
+}
