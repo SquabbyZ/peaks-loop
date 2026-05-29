@@ -149,6 +149,38 @@ describe('request types — config has minimal gates', () => {
   });
 });
 
+describe('request prerequisites — numbered filename prefix (regression: prereq ignored NNN- prefix)', () => {
+  test('prd:handed-off resolves the PRD artifact written with a NNN- numeric prefix', async () => {
+    const project = await makeProject();
+    // createRequestArtifact writes `001-<rid>.md`; the prereq table references `<rid>.md`.
+    const created = await createRequestArtifact({
+      role: 'prd', requestId: '2026-05-25-prefixed', projectRoot: project,
+      sessionId: SESSION, apply: true, requestType: 'feature', clock: () => TS
+    });
+    expect(created.path).toMatch(/[/\\]001-2026-05-25-prefixed\.md$/);
+
+    // Before the fix this threw PrerequisitesNotSatisfiedError because the prereq
+    // resolver looked for the unprefixed `prd/requests/2026-05-25-prefixed.md`.
+    const result = await transitionRequestArtifact({
+      role: 'prd', requestId: '2026-05-25-prefixed', projectRoot: project,
+      newState: 'handed-off', sessionId: SESSION, clock: () => TS
+    });
+    expect(result?.state).toBe('handed-off');
+  });
+
+  test('prd:handed-off still reports missing when no PRD artifact exists at all', async () => {
+    const project = await makeProject();
+    await seed(project, 'prd', '2026-05-25-present', 'feature');
+    // Transition a DIFFERENT, non-existent request id — nothing on disk to match.
+    const result = await transitionRequestArtifact({
+      role: 'prd', requestId: '2026-05-25-absent', projectRoot: project,
+      newState: 'handed-off', sessionId: SESSION, clock: () => TS
+    });
+    // showRequestArtifact returns null for a missing artifact → transition returns null.
+    expect(result).toBeNull();
+  });
+});
+
 describe('request types — artifact persistence and default', () => {
   test('artifact body records the chosen type', async () => {
     const project = await makeProject();

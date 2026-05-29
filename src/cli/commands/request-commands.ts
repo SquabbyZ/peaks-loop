@@ -216,6 +216,18 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
     try {
       const role = options.role;
       const newState = parseStateForRole(role, options.state);
+      // Resolve the artifact's real session up front. Falling back to a literal
+      // 'default' (the previous behavior) points the bypass counter at a
+      // non-existent .peaks/default/ dir and crashes with ENOENT, so when
+      // --session-id is omitted we look the artifact up to find its session.
+      let resolvedSessionId = options.sessionId;
+      if (resolvedSessionId === undefined) {
+        const { showRequestArtifact: showForSession } = await import('../../services/artifacts/request-artifact-service.js');
+        const located = await showForSession({ projectRoot: options.project, role, requestId });
+        if (located !== null) {
+          resolvedSessionId = located.sessionId;
+        }
+      }
       if (options.allowIncomplete === true && (options.reason === undefined || options.reason.trim().length === 0)) {
         printResult(
           io,
@@ -243,7 +255,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             return;
           }
           // Check bypass count
-          const sessionRoot = (await import('node:path')).join(options.project, '.peaks', options.sessionId ?? 'default');
+          const sessionRoot = (await import('node:path')).join(options.project, '.peaks', resolvedSessionId ?? 'default');
           if (isBypassLimitReached(sessionRoot)) {
             printResult(
               io,

@@ -71,6 +71,16 @@ function isAllowlisted(line: string): boolean {
   return ALLOWLIST_PATTERNS.some((pattern) => pattern.test(line));
 }
 
+/**
+ * Remove inline code spans (`...`) before applying placeholder rules. Content
+ * inside backticks is literal example text — e.g. a documented command syntax
+ * `peaks sop init <id>` — not an unfilled prose placeholder. Lint checks prose,
+ * not code, so a `<...>` token only counts when it appears outside code spans.
+ */
+function stripInlineCode(line: string): string {
+  return line.replace(/`[^`]*`/g, '');
+}
+
 export async function lintRequestArtifact(options: LintArtifactOptions): Promise<ArtifactLintReport | null> {
   const showOptions: Parameters<typeof showRequestArtifact>[0] = {
     projectRoot: options.projectRoot,
@@ -86,12 +96,21 @@ export async function lintRequestArtifact(options: LintArtifactOptions): Promise
   }
   const lines = artifact.content.split(/\r?\n/);
   const findings: ArtifactLintFinding[] = [];
+  let insideFence = false;
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index];
     if (rawLine === undefined) continue;
+    // Fenced code blocks hold literal examples, not prose to fill; skip their
+    // contents entirely (the fence delimiters themselves toggle the state).
+    if (/^\s*```/.test(rawLine)) {
+      insideFence = !insideFence;
+      continue;
+    }
+    if (insideFence) continue;
     if (isAllowlisted(rawLine)) continue;
+    const testLine = stripInlineCode(rawLine);
     for (const rule of RULES) {
-      if (rule.test(rawLine)) {
+      if (rule.test(testLine)) {
         findings.push({
           line: index + 1,
           text: rawLine.trim(),

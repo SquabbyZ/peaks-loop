@@ -1,5 +1,5 @@
-import { join } from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { join, dirname, basename } from 'node:path';
+import { readFile, readdir } from 'node:fs/promises';
 import { pathExists } from '../../shared/fs.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
 
@@ -160,6 +160,40 @@ function resolvePrerequisitePath(prerequisite: ArtifactPrerequisite, requestId: 
   return prerequisite.relativePath.replace('<rid>', requestId);
 }
 
+/**
+ * Resolve a prerequisite to an on-disk path, tolerating the numbered filename
+ * prefix that `request init` writes (e.g. `001-<rid>.md`). When the prerequisite
+ * path contains `<rid>`, we accept either the legacy bare `<rid>.md` form or any
+ * `NNN-<rid>.md` numbered form — mirroring the matcher in request-artifact-service.
+ * Returns the matched absolute path, or null when nothing matches.
+ */
+async function resolvePrerequisiteAbsolutePath(
+  sessionRoot: string,
+  prerequisite: ArtifactPrerequisite,
+  requestId: string
+): Promise<string | null> {
+  const relative = resolvePrerequisitePath(prerequisite, requestId);
+  const exact = join(sessionRoot, relative);
+  if (await pathExists(exact)) {
+    return exact;
+  }
+  // Only `<rid>`-templated prerequisites can carry a numbered prefix; fixed paths
+  // (e.g. rd/tech-doc.md) are matched exactly above.
+  if (!prerequisite.relativePath.includes('<rid>')) {
+    return null;
+  }
+  const dir = dirname(exact);
+  const targetSuffix = `-${basename(exact)}`;
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return null;
+  }
+  const match = entries.find((name) => /^\d+-/.test(name) && name.endsWith(targetSuffix));
+  return match ? join(dir, match) : null;
+}
+
 export async function checkPrerequisites(options: CheckPrerequisitesOptions): Promise<PrerequisiteCheckResult> {
   const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
   if (requirements.length === 0) {
@@ -169,8 +203,8 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   const missing: Array<{ path: string; description: string }> = [];
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
-    const absolute = join(sessionRoot, relative);
-    if (!(await pathExists(absolute))) {
+    const absolute = await resolvePrerequisiteAbsolutePath(sessionRoot, prerequisite, options.requestId);
+    if (absolute === null) {
       missing.push({ path: relative, description: prerequisite.description });
       continue;
     }

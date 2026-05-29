@@ -47,6 +47,17 @@ function classifyFile(filePath: string): FileCategory {
   return 'unknown';
 }
 
+/**
+ * Peaks' own artifact workspace. Changes here (PRD/RD/QA markdown, session
+ * state) are never the "code change" a request type describes, so they must be
+ * excluded from the diff — otherwise a PRD-planning-phase handoff that only
+ * wrote `.peaks/**` markdown would be misclassified as a docs change.
+ */
+function isArtifactWorkspaceFile(filePath: string): boolean {
+  const normalized = filePath.replace(/\\/g, '/');
+  return normalized === '.peaks' || normalized.startsWith('.peaks/');
+}
+
 function tryGitDiffFiles(projectRoot: string, baseRef: string): { ok: boolean; files: string[] } {
   try {
     // Combine: tracked changes vs baseRef + untracked files. Use porcelain status for untracked too.
@@ -54,7 +65,7 @@ function tryGitDiffFiles(projectRoot: string, baseRef: string): { ok: boolean; f
     const tracked = trackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
     const untrackedRaw = execFileSync('git', ['-C', projectRoot, 'ls-files', '--others', '--exclude-standard'], { encoding: 'utf8' });
     const untracked = untrackedRaw.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const merged = Array.from(new Set([...tracked, ...untracked]));
+    const merged = Array.from(new Set([...tracked, ...untracked])).filter((file) => !isArtifactWorkspaceFile(file));
     return { ok: true, files: merged };
   } catch {
     return { ok: false, files: [] };

@@ -62,6 +62,29 @@ describe('checkTypeSanity', () => {
     expect(report.breakdown[0]?.examples).toEqual(['gradle.buildscript']);
   });
 
+  test('ignores .peaks/ artifact workspace files (PRD planning writes only artifacts)', async () => {
+    const project = await makeRepo();
+    await mkdir(join(project, '.peaks', 'sess', 'prd', 'requests'), { recursive: true });
+    await writeFile(join(project, '.peaks', 'sess', 'prd', 'requests', '001-foo.md'), '# prd\n', 'utf8');
+    const report = checkTypeSanity({ projectRoot: project, declaredType: 'feature' });
+    // .peaks markdown is Peaks' own artifact output, never the typed code change.
+    expect(report.changedFiles).not.toContain('.peaks/sess/prd/requests/001-foo.md');
+    expect(report.changedFiles).toEqual([]);
+    expect(report.consistent).toBe(true);
+  });
+
+  test('flags real source mismatch while ignoring co-changed .peaks artifacts', async () => {
+    const project = await makeRepo();
+    await mkdir(join(project, '.peaks'), { recursive: true });
+    await writeFile(join(project, '.peaks', 'note.md'), 'x\n', 'utf8');
+    await mkdir(join(project, 'src'), { recursive: true });
+    await writeFile(join(project, 'src', 'api.ts'), 'export const x = 1;\n', 'utf8');
+    const report = checkTypeSanity({ projectRoot: project, declaredType: 'feature' });
+    expect(report.changedFiles).toContain('src/api.ts');
+    expect(report.changedFiles).not.toContain('.peaks/note.md');
+    expect(report.consistent).toBe(true);
+  });
+
   test('returns consistent=true when no changes are detected', async () => {
     const project = await makeRepo();
     const report = checkTypeSanity({ projectRoot: project, declaredType: 'feature' });
