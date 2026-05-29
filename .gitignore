@@ -6,3 +6,7 @@ coverage/
 .DS_Store
 .gstack/
 .codegraph/
+
+# Peaks transient/per-session state (regenerable, not shared knowledge)
+.peaks/**/.bypass-count.json
+.peaks/ontology.json
