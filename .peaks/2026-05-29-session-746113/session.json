@@ -2,8 +2,8 @@
   "sessionId": "2026-05-29-session-746113",
   "projectRoot": ".",
   "createdAt": "2026-05-29T09:48:19.800Z",
-  "skill": "peaks-solo",
-  "mode": "full-auto",
-  "gate": "startup",
-  "lastActivity": "2026-05-29T09:48:19.806Z"
+  "skill": "peaks-prd",
+  "mode": "assisted",
+  "gate": "awaiting-confirmation",
+  "lastActivity": "2026-05-29T12:52:10.102Z"
 }
