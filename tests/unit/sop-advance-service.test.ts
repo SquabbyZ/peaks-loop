@@ -83,6 +83,23 @@ describe('advanceSop', () => {
     expect(state.history.map((h) => h.phase)).toEqual(['draft', 'review']);
   });
 
+  test('dry-run still blocks on a failing gate (does not persist either way)', async () => {
+    const project = await makeProject();
+    await seed(project, 's', ['draft', 'ship'], [{ id: 'changelog', phase: 'ship', check: { type: 'file-exists', path: 'MISSING.md' } }]);
+    await expect(advanceSop({ projectRoot: project, id: 's', toPhase: 'ship', dryRun: true })).rejects.toBeInstanceOf(SopGateBlockedError);
+  });
+
+  test('dry-run previews a passing advance without writing state.json', async () => {
+    const project = await makeProject();
+    await seed(project, 's', ['draft', 'ship'], []);
+    const result = await advanceSop({ projectRoot: project, id: 's', toPhase: 'ship', dryRun: true });
+    expect(result.applied).toBe(false);
+    expect(result.phase).toBe('ship');
+    expect(existsSync(join(project, '.peaks', 'sops', 's', 'state.json'))).toBe(false);
+    // State remains at its prior (empty) value.
+    expect((await readSopState(project, 's')).currentPhase).toBeNull();
+  });
+
   test('throws SOP_NOT_FOUND for a missing SOP and INVALID_PHASE for an unknown phase', async () => {
     const project = await makeProject();
     await expect(advanceSop({ projectRoot: project, id: 'ghost', toPhase: 'x' })).rejects.toMatchObject({ code: 'SOP_NOT_FOUND' });

@@ -27,6 +27,7 @@ type SopRegisterCliOptions = {
   id: string;
   project: string;
   allowCommands?: boolean;
+  dryRun?: boolean;
   json?: boolean;
 };
 
@@ -52,6 +53,7 @@ type SopAdvanceCliOptions = {
   reason?: string;
   confirm?: boolean;
   forceConfirm?: boolean;
+  dryRun?: boolean;
   json?: boolean;
 };
 
@@ -141,14 +143,18 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--id <sop-id>', 'SOP id to register')
       .requiredOption('--project <path>', 'target project root')
       .option('--allow-commands', 'permit command-type gates when validating')
+      .option('--dry-run', 'preview the registration without writing registry.json')
   ).action(async (options: SopRegisterCliOptions) => {
     try {
       const registerOptions: Parameters<typeof registerSop>[0] = { projectRoot: options.project, id: options.id };
       if (options.allowCommands === true) {
         registerOptions.allowCommands = true;
       }
+      if (options.dryRun === true) {
+        registerOptions.dryRun = true;
+      }
       const result = await registerSop(registerOptions);
-      printResult(io, ok('sop.register', result), options.json);
+      printResult(io, ok('sop.register', result, [], result.applied ? [] : ['Re-run without --dry-run to write registry.json']), options.json);
     } catch (error) {
       const code = error instanceof SopRegisterError ? error.code : 'SOP_REGISTER_FAILED';
       printResult(
@@ -218,6 +224,7 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .option('--reason <text>', 'justification recorded when bypassing gates')
       .option('--confirm', 'skip interactive confirmation for a bypass in assisted/strict mode')
       .option('--force-confirm', 'bypass mode-enforced confirmation (use with caution)')
+      .option('--dry-run', 'evaluate gates without recording the advance in state.json')
   ).action(async (options: SopAdvanceCliOptions) => {
     try {
       // Bypass policy mirrors `request transition`: a bypass needs a reason, and
@@ -244,7 +251,10 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
             process.exitCode = 1;
             return;
           }
-          recordBypass(bypassRoot);
+          // A dry-run preview must not consume a bypass.
+          if (options.dryRun !== true) {
+            recordBypass(bypassRoot);
+          }
         }
       }
 
@@ -252,8 +262,9 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       if (options.allowCommands === true) advanceOptions.allowCommands = true;
       if (options.allowIncomplete === true) advanceOptions.allowIncomplete = true;
       if (options.reason !== undefined) advanceOptions.reason = options.reason;
+      if (options.dryRun === true) advanceOptions.dryRun = true;
       const result = await advanceSop(advanceOptions);
-      printResult(io, ok('sop.advance', result), options.json);
+      printResult(io, ok('sop.advance', result, [], result.applied ? [] : ['Gates passed; re-run without --dry-run to record the advance']), options.json);
     } catch (error) {
       if (error instanceof SopGateBlockedError) {
         printResult(io, fail('sop.advance', error.code, error.message, { id: options.id, to: options.to, blockedGates: error.blockedGates }, ['Satisfy the blocking gates, or bypass with --allow-incomplete --reason "<why>"']), options.json);

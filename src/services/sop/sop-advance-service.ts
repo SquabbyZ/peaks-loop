@@ -43,6 +43,8 @@ export type AdvanceSopResult = {
   phase: string;
   bypassed: boolean;
   previousPhase: string | null;
+  /** false when --dry-run evaluated the gates without recording the advance. */
+  applied: boolean;
 };
 
 export type AdvanceSopOptions = {
@@ -53,6 +55,8 @@ export type AdvanceSopOptions = {
   allowIncomplete?: boolean;
   reason?: string;
   commandTimeoutMs?: number;
+  /** Evaluate gates (still blocks on failure) but do not write state.json. */
+  dryRun?: boolean;
 };
 
 export class SopAdvanceError extends Error {
@@ -124,6 +128,11 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
 
   const previous = await readSopState(options.projectRoot, options.id);
   const bypassed = options.allowIncomplete === true;
+
+  if (options.dryRun === true) {
+    return { id: options.id, phase: options.toPhase, bypassed, previousPhase: previous.currentPhase, applied: false };
+  }
+
   const entry: SopHistoryEntry = options.reason === undefined
     ? { phase: options.toPhase, bypassed }
     : { phase: options.toPhase, bypassed, reason: options.reason };
@@ -136,7 +145,7 @@ export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSop
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(nextState, null, 2)}\n`, 'utf8');
 
-  return { id: options.id, phase: options.toPhase, bypassed, previousPhase: previous.currentPhase };
+  return { id: options.id, phase: options.toPhase, bypassed, previousPhase: previous.currentPhase, applied: true };
 }
 
 export { EMPTY_STATE };

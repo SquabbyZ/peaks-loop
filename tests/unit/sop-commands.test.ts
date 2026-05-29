@@ -133,6 +133,18 @@ describe('peaks sop register / registry commands', () => {
     expect(listOut.data.sops.map((s) => s.id)).toEqual(['team-release']);
   });
 
+  test('register --dry-run previews without writing the registry (AC9)', async () => {
+    const project = await makeProject('sop-register-dryrun');
+    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
+    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--project', project, '--dry-run', '--json']);
+    const regOut = parseJsonOutput<{ applied: boolean }>(reg.stdout);
+    expect(regOut.ok).toBe(true);
+    expect(regOut.data.applied).toBe(false);
+    // Registry stays empty after a dry-run.
+    const list = await runCommand(['sop', 'registry', '--project', project, '--json']);
+    expect(parseJsonOutput<{ gateCount: number }>(list.stdout).data.gateCount).toBe(0);
+  });
+
   test('register fails with a stable code on an unregistrable SOP', async () => {
     const project = await makeProject('sop-register-bad');
     const result = await runCommand(['sop', 'register', '--id', 'ghost', '--project', project, '--json']);
@@ -255,6 +267,19 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
 
     const confirmed = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--reason', 'x', '--confirm', '--json']);
     expect(parseJsonOutput(confirmed.stdout).ok).toBe(true);
+  });
+
+  test('advance --dry-run previews a passing advance without recording state (AC9)', async () => {
+    const project = await makeProject('sop-advance-dryrun');
+    await seedGatedSop(project);
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile(join(project, 'CHANGELOG.md'), '# changes\n', 'utf8');
+    const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--dry-run', '--json']);
+    const output = parseJsonOutput<{ applied: boolean; phase: string }>(result.stdout);
+    expect(output.ok).toBe(true);
+    expect(output.data.applied).toBe(false);
+    expect(output.data.phase).toBe('ship');
+    expect(existsSync(join(project, '.peaks', 'sops', 'team-release', 'state.json'))).toBe(false);
   });
 
   test('INVALID_PHASE for an unknown phase', async () => {

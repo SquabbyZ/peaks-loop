@@ -79,6 +79,61 @@ peaks doctor --json
 peaks skill doctor --json
 ```
 
+## 自定义 SOP（用户自创流程门禁）
+
+除了内置的 `peaks-*` 技能家族，你还能用 `peaks sop` 命令族定义**自己的 SOP**：一组有序阶段（phases）加上绑定在阶段上的门禁（gates）。门禁不通过，就推不进对应阶段——把"流程不丢环节"落到你自己的工作流上。
+
+产物落在 `.peaks/sops/<sop-id>/`，包含 `sop.json`（结构化 manifest）和可注册的 `SKILL.md`。
+
+```bash
+# 1. 创建 SOP 骨架（默认预览不落盘，--apply 才写入）
+peaks sop init --id team-release --name "Team Release" --project . --apply --json
+
+# 2. 校验 manifest（门禁 id 唯一、阶段合法、check 字段完整）
+peaks sop lint --id team-release --project . --json
+
+# 3. 注册进 workspace 门禁注册表（--dry-run 预览）
+peaks sop register --id team-release --project . --json
+
+# 4. 列出注册表里所有自定义门禁（内置 peaks-* 门禁永不出现）
+peaks sop registry --project . --json
+
+# 5. 评估单个门禁（返回 pass / fail / blocked）
+peaks sop check --id team-release --gate changelog --project . --json
+
+# 6. 推进到某阶段——该阶段的门禁必须全部通过，否则被真正阻断
+peaks sop advance --id team-release --to ship --project . --json
+```
+
+`sop.json` 示例：
+
+```json
+{
+  "id": "team-release",
+  "name": "Team Release",
+  "phases": ["draft", "review", "ship"],
+  "gates": [
+    { "id": "changelog", "phase": "ship", "check": { "type": "file-exists", "path": "CHANGELOG.md" } },
+    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME" } },
+    { "id": "tests", "phase": "ship", "check": { "type": "command", "run": ["npm", "test"] } }
+  ]
+}
+```
+
+门禁 check 支持三类：
+
+| 类型 | 字段 | 含义 |
+|------|------|------|
+| `file-exists` | `path` | 文件存在 → pass |
+| `grep` | `file` + `pattern` | 文件内匹配到正则 → pass |
+| `command` | `run`（参数数组）+ `expectExitZero` | 运行命令并按退出码判定 |
+
+安全约束：
+- `command` 类门禁运行用户定义的命令，**默认拒绝**，必须显式加 `--allow-commands` 才会评估；命令以参数数组执行（无 shell、无注入面）、有超时上限、工作目录锁定项目根。
+- `file-exists` / `grep` 的路径锁在项目根内，越界路径返回 `blocked`。
+- 有副作用的命令（init/register/advance）都支持 `--dry-run` 预览且不落盘。
+- 推进被门禁阻断时可用 `--allow-incomplete --reason "<原因>"` 显式绕过；在 assisted/strict 模式下还需 `--confirm`，且每个 SOP 的绕过次数有上限。
+
 ## 许可
 
 MIT License，详见 [LICENSE](LICENSE)。

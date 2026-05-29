@@ -79,6 +79,61 @@ peaks doctor --json
 peaks skill doctor --json
 ```
 
+## Custom SOPs (user-authored workflow gates)
+
+Beyond the built-in `peaks-*` skill family, the `peaks sop` command group lets you define **your own SOP**: an ordered set of phases plus gates bound to those phases. A gate that doesn't pass blocks advancement into its phase — applying "don't drop steps" to your own workflow.
+
+Artifacts live in `.peaks/sops/<sop-id>/`, containing `sop.json` (structured manifest) and a registrable `SKILL.md`.
+
+```bash
+# 1. Scaffold a SOP (preview by default; --apply writes files)
+peaks sop init --id team-release --name "Team Release" --project . --apply --json
+
+# 2. Validate the manifest (unique gate ids, valid phases, complete check fields)
+peaks sop lint --id team-release --project . --json
+
+# 3. Register into the workspace gate registry (--dry-run to preview)
+peaks sop register --id team-release --project . --json
+
+# 4. List every custom gate in the registry (built-in peaks-* gates never appear)
+peaks sop registry --project . --json
+
+# 5. Evaluate a single gate (returns pass / fail / blocked)
+peaks sop check --id team-release --gate changelog --project . --json
+
+# 6. Advance to a phase — its gates must all pass, or the move is truly blocked
+peaks sop advance --id team-release --to ship --project . --json
+```
+
+Example `sop.json`:
+
+```json
+{
+  "id": "team-release",
+  "name": "Team Release",
+  "phases": ["draft", "review", "ship"],
+  "gates": [
+    { "id": "changelog", "phase": "ship", "check": { "type": "file-exists", "path": "CHANGELOG.md" } },
+    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME" } },
+    { "id": "tests", "phase": "ship", "check": { "type": "command", "run": ["npm", "test"] } }
+  ]
+}
+```
+
+Gate checks support three types:
+
+| Type | Fields | Meaning |
+|------|--------|---------|
+| `file-exists` | `path` | File exists → pass |
+| `grep` | `file` + `pattern` | Regex matches in file → pass |
+| `command` | `run` (argv array) + `expectExitZero` | Run a command, judge by exit code |
+
+Security constraints:
+- `command` gates run user-defined commands and are **refused by default**; you must pass `--allow-commands` to evaluate them. Commands run as an argv array (no shell, no injection surface), with a timeout cap and cwd pinned to the project root.
+- `file-exists` / `grep` paths are confined inside the project root; out-of-bounds paths return `blocked`.
+- Side-effecting commands (init/register/advance) all support `--dry-run` preview without writing.
+- When advancement is blocked, bypass explicitly with `--allow-incomplete --reason "<why>"`; in assisted/strict mode `--confirm` is also required, and each SOP has a bypass cap.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE).

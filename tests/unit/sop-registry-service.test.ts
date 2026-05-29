@@ -76,6 +76,17 @@ describe('registerSop', () => {
     expect(refs).toContain('b/g1');
   });
 
+  test('dry-run previews the registration without writing registry.json', async () => {
+    const project = await makeProject();
+    await initSop({ projectRoot: project, id: 'team-release', apply: true });
+    const result = await registerSop({ projectRoot: project, id: 'team-release', dryRun: true });
+    expect(result.applied).toBe(false);
+    expect(result.gateCount).toBe(1);
+    // Nothing persisted: the registry is still empty.
+    const registry = await readRegistry(project);
+    expect(registry.sops).toEqual([]);
+  });
+
   test('refuses to register a missing SOP', async () => {
     const project = await makeProject();
     await expect(registerSop({ projectRoot: project, id: 'ghost' })).rejects.toMatchObject({ code: 'SOP_NOT_FOUND' });

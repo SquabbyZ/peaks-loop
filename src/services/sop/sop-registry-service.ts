@@ -21,12 +21,16 @@ export type RegisterSopResult = {
   registered: RegisteredSop;
   /** Total gates across all registered SOPs after this upsert (the workspace pool count). */
   gateCount: number;
+  /** false when --dry-run previewed the registration without writing registry.json. */
+  applied: boolean;
 };
 
 export type RegisterSopOptions = {
   projectRoot: string;
   id: string;
   allowCommands?: boolean;
+  /** Preview the registration without writing registry.json. */
+  dryRun?: boolean;
 };
 
 function registryPath(projectRoot: string): string {
@@ -91,9 +95,13 @@ export async function registerSop(options: RegisterSopOptions): Promise<Register
   const sops = [...others, registered].sort((left, right) => left.id.localeCompare(right.id));
   const registry: SopRegistry = { version: 1, sops, gateCount: countGates(sops) };
 
+  if (options.dryRun === true) {
+    return { id: manifest.id, registered, gateCount: registry.gateCount, applied: false };
+  }
+
   const path = registryPath(options.projectRoot);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
 
-  return { id: manifest.id, registered, gateCount: registry.gateCount };
+  return { id: manifest.id, registered, gateCount: registry.gateCount, applied: true };
 }
