@@ -279,11 +279,11 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
   addJsonOption(
     memory
       .command('extract')
-      .description('Extract stable project memory from skill artifacts into project .claude/memory')
+      .description('Extract stable project memory from skill artifacts into project .peaks/memory')
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--artifact <path...>', 'skill artifact paths inside the project')
       .option('--dry-run', 'preview writes without changing files', true)
-      .option('--apply', 'write extracted memories into project .claude/memory')
+      .option('--apply', 'write extracted memories into project .peaks/memory')
   ).action((options: { project: string; artifact: string[]; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     try {
       const result = executeProjectMemoryExtract({ projectRoot: options.project, artifactPaths: options.artifact, apply: options.apply === true });
@@ -296,11 +296,11 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
   addJsonOption(
     memory
       .command('sync')
-      .description('Back up project .claude/memory into the artifact workspace')
+      .description('Back up project .peaks/memory into the artifact workspace')
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--workspace <path>', 'artifact workspace path')
       .option('--dry-run', 'preview copies without changing files', true)
-      .option('--apply', 'copy project .claude/memory into artifact workspace backup')
+      .option('--apply', 'copy project .peaks/memory into artifact workspace backup')
   ).action((options: { project: string; workspace: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     try {
       const result = executeProjectMemoryBackup({ projectRoot: options.project, artifactWorkspacePath: options.workspace, apply: options.apply === true });

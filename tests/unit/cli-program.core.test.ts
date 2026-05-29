@@ -351,9 +351,9 @@ describe('createProgram', () => {
     const extractOutput = parseJsonOutput<{ primaryMemoryDir: string; extractedCount: number; plannedWrites: Array<{ filePath: string; title: string }> }>(extractResult.stdout);
     expect(extractOutput.ok).toBe(true);
     expect(extractOutput.command).toBe('memory.extract');
-    expect(extractOutput.data.primaryMemoryDir).toBe(join(projectRoot, '.claude', 'memory'));
+    expect(extractOutput.data.primaryMemoryDir).toBe(join(projectRoot, '.peaks', 'memory'));
     expect(extractOutput.data.extractedCount).toBe(1);
-    expect(extractOutput.data.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.claude', 'memory', 'skill-lifecycle-rule.md'));
+    expect(extractOutput.data.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.peaks', 'memory', 'skill-lifecycle-rule.md'));
     expect(extractResult.stdout.join('\n')).not.toContain('Skill must go personal -> team -> marketplace.');
 
     const backupResult = await runCommand(['memory', 'sync', '--project', projectRoot, '--workspace', artifactWorkspace, '--json']);

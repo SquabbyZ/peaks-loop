@@ -14,13 +14,13 @@ Before any analysis or tool call, immediately run:
 ```bash
 peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate startup
 ```
-Read persistent project memory via CLI (structured ontology for LLM):
+Read persistent project memory via CLI (durable, LLM-authored memories):
 
 ```bash
-peaks project ontology show --project <repo> --json
+peaks project memories --project <repo> --json
 ```
 
-This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
 Then display: `Peaks-Cli Skill: peaks-txt | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
@@ -96,7 +96,7 @@ Each entry should include:
 - why it exists;
 - affected skills;
 - how future PRD/RD/UI/QA/SC/Solo workflows should apply it;
-- whether it is stable enough for `.claude/memory` extraction.
+- whether it is stable enough for `.peaks/memory` extraction.
 
 ## Project memory guidance
 
@@ -111,7 +111,7 @@ Stable memory body.
 <!-- peaks-memory:end -->
 ```
 
-The primary write target is the target project's `.claude/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` only after the user or active profile allows durable project memory writes.
+The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` only after the user or active profile allows durable project memory writes.
 
 ## Matt Pocock skills integration
 

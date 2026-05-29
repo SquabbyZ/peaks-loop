@@ -2,15 +2,15 @@ import { describe, expect, test, vi } from 'vitest';
 
 const realPaths = new Map<string, string>([
   ['C:/project', 'C:/project'],
-  ['C:/project/.claude/memory', 'C:/outside/memory'],
+  ['C:/project/.peaks/memory', 'C:/outside/memory'],
   ['C:/artifact-project', 'C:/artifact-project'],
   ['C:/artifact-project/link.md', 'C:/artifact-project/link.md'],
   ['C:/write-project', 'C:/write-project'],
   ['C:/write-project/artifact.md', 'C:/write-project/artifact.md'],
-  ['C:/write-project/.claude/memory/race-memory.md', 'C:/outside/race-memory.md'],
+  ['C:/write-project/.peaks/memory/race-memory.md', 'C:/outside/race-memory.md'],
   ['C:/backup-project', 'C:/backup-project'],
-  ['C:/backup-project/.claude/memory', 'C:/backup-project/.claude/memory'],
-  ['C:/backup-project/.claude/memory/link.md', 'C:/outside/link.md'],
+  ['C:/backup-project/.peaks/memory', 'C:/backup-project/.peaks/memory'],
+  ['C:/backup-project/.peaks/memory/link.md', 'C:/outside/link.md'],
   ['C:/backup-workspace', 'C:/backup-workspace']
 ]);
 const symlinkPaths = new Set<string>(['C:/artifact-project/link.md']);
@@ -27,13 +27,13 @@ vi.mock('node:fs', () => ({
   copyFileSync: vi.fn(),
   existsSync: vi.fn((path: string) => {
     const normalizedPath = normalizeMockPath(path);
-    return realPaths.has(normalizedPath) || (normalizedPath === 'C:/write-project/.claude/memory' && hasCreatedWriteMemoryDir);
+    return realPaths.has(normalizedPath) || (normalizedPath === 'C:/write-project/.peaks/memory' && hasCreatedWriteMemoryDir);
   }),
   lstatSync: vi.fn((path: string) => ({
     isSymbolicLink: () => symlinkPaths.has(normalizeMockPath(path))
   })),
   mkdirSync: vi.fn((path: string) => {
-    if (normalizeMockPath(path) === 'C:/write-project/.claude/memory') {
+    if (normalizeMockPath(path) === 'C:/write-project/.peaks/memory') {
       hasCreatedWriteMemoryDir = true;
     }
   }),

@@ -14,13 +14,13 @@ Before any analysis or tool call, immediately run:
 ```bash
 peaks skill presence:set peaks-ui --project <repo> --mode <mode> --gate startup
 ```
-Read persistent project memory via CLI (structured ontology for LLM):
+Read persistent project memory via CLI (durable, LLM-authored memories):
 
 ```bash
-peaks project ontology show --project <repo> --json
+peaks project memories --project <repo> --json
 ```
 
-This returns `.peaks/ontology.json` — structured modules, decisions, and conventions from past sessions. (`.peaks/PROJECT.md` is a human-readable timeline only.)
+This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
 Then display: `Peaks-Cli Skill: peaks-ui | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-ui --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities

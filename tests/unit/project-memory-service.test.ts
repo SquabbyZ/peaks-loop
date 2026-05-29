@@ -57,7 +57,7 @@ describe('project memory service', () => {
     expect(memories[0]?.title).toBe('CRLF memory');
   });
 
-  test('plans project .claude/memory as the primary write target', () => {
+  test('plans project .peaks/memory as the primary write target', () => {
     const projectRoot = createTempDir('peaks-memory-project');
     const artifactPath = join(projectRoot, '.peaks', 'changes', 'slice-1', 'rd.md');
     mkdirSync(join(projectRoot, '.peaks', 'changes', 'slice-1'), { recursive: true });
@@ -73,11 +73,11 @@ describe('project memory service', () => {
     const plan = createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [artifactPath], apply: false });
 
     expect(plan.apply).toBe(false);
-    expect(plan.primaryMemoryDir).toBe(join(projectRoot, '.claude', 'memory'));
+    expect(plan.primaryMemoryDir).toBe(join(projectRoot, '.peaks', 'memory'));
     expect(plan.backupPolicy).toBe('project-memory-primary-artifact-backup');
     expect(plan.extractedMemories).toHaveLength(1);
-    expect(plan.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.claude', 'memory', 'team-approval-boundary.md'));
-    expect(existsSync(join(projectRoot, '.claude', 'memory', 'team-approval-boundary.md'))).toBe(false);
+    expect(plan.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.peaks', 'memory', 'team-approval-boundary.md'));
+    expect(existsSync(join(projectRoot, '.peaks', 'memory', 'team-approval-boundary.md'))).toBe(false);
   });
 
   test('supports relative artifact paths and default dry-run apply values', () => {
@@ -86,7 +86,7 @@ describe('project memory service', () => {
     const relativeArtifactPath = join('artifacts', 'rd.md');
     const artifactPath = join(projectRoot, relativeArtifactPath);
     mkdirSync(join(projectRoot, 'artifacts'), { recursive: true });
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
     writeFileSync(artifactPath, [
       '<!-- peaks-memory:start -->',
       'title: Relative artifact memory',
@@ -254,7 +254,7 @@ describe('project memory service', () => {
     ].join('\n'), 'utf8');
 
     const result = executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true });
-    const memoryPath = join(projectRoot, '.claude', 'memory', 'marketplace-approval-chain.md');
+    const memoryPath = join(projectRoot, '.peaks', 'memory', 'marketplace-approval-chain.md');
 
     expect(result.writtenFiles.map((filePath) => filePath.replaceAll('\\', '/'))).toEqual([memoryPath.replaceAll('\\', '/')]);
     expect(readFileSync(memoryPath, 'utf8')).toContain('name: marketplace-approval-chain');
@@ -294,7 +294,7 @@ describe('project memory service', () => {
   test('does not overwrite existing project memory files', () => {
     const projectRoot = createTempDir('peaks-memory-existing-target');
     const artifactPath = join(projectRoot, 'artifact.md');
-    const memoryDir = join(projectRoot, '.claude', 'memory');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
     mkdirSync(memoryDir, { recursive: true });
     writeFileSync(join(memoryDir, 'existing-memory.md'), 'existing memory', 'utf8');
     writeFileSync(artifactPath, [
@@ -372,7 +372,7 @@ describe('project memory service', () => {
 
     const plan = createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [artifactPath], apply: false });
 
-    expect(plan.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.claude', 'memory', 'project-memory.md'));
+    expect(plan.plannedWrites[0]?.filePath).toBe(join(projectRoot, '.peaks', 'memory', 'project-memory.md'));
   });
 
   test('rejects missing and outside-project artifact paths', () => {
@@ -400,8 +400,8 @@ describe('project memory service', () => {
     expect(() => createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [artifactPath], apply: false })).toThrow('Refusing to store sensitive memory content');
 
     const artifactWorkspace = createTempDir('peaks-memory-sensitive-backup');
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'secret.md'), 'token: should-not-back-up', 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'secret.md'), 'token: should-not-back-up', 'utf8');
 
     expect(() => createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: artifactWorkspace, apply: false })).toThrow('Refusing to back up sensitive memory content');
   });
@@ -429,9 +429,9 @@ describe('project memory service', () => {
   test.runIf(platform() !== 'win32')('rejects symlinked project memory directories', () => {
     const projectRoot = createTempDir('peaks-memory-project-link');
     const externalMemoryRoot = createTempDir('peaks-memory-external-root');
-    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     mkdirSync(externalMemoryRoot, { recursive: true });
-    symlinkSync(externalMemoryRoot, join(projectRoot, '.claude', 'memory'));
+    symlinkSync(externalMemoryRoot, join(projectRoot, '.peaks', 'memory'));
 
     expect(() => createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: createTempDir('peaks-memory-backup-root'), apply: false })).toThrow('Project memory directory must stay inside the project root');
   });
@@ -439,47 +439,47 @@ describe('project memory service', () => {
   test.runIf(platform() === 'win32')('rejects junctioned project memory directories', () => {
     const projectRoot = createTempDir('peaks-memory-project-junction');
     const externalMemoryRoot = createTempDir('peaks-memory-external-junction-root');
-    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
-    symlinkSync(externalMemoryRoot, join(projectRoot, '.claude', 'memory'), 'junction');
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    symlinkSync(externalMemoryRoot, join(projectRoot, '.peaks', 'memory'), 'junction');
 
     expect(() => createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: createTempDir('peaks-memory-backup-root'), apply: false })).toThrow('Project memory directory must stay inside the project root');
   });
 
-  test.runIf(platform() !== 'win32')('rejects symlinked .claude directories', () => {
+  test.runIf(platform() !== 'win32')('rejects symlinked .peaks directories', () => {
     const projectRoot = createTempDir('peaks-memory-claude-link');
     const externalClaudeRoot = createTempDir('peaks-memory-external-claude');
-    symlinkSync(externalClaudeRoot, join(projectRoot, '.claude'));
+    symlinkSync(externalClaudeRoot, join(projectRoot, '.peaks'));
 
     expect(() => createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [], apply: false })).toThrow('Project memory directory must stay inside the project root');
   });
 
-  test.runIf(platform() === 'win32')('rejects junctioned .claude directories', () => {
+  test.runIf(platform() === 'win32')('rejects junctioned .peaks directories', () => {
     const projectRoot = createTempDir('peaks-memory-claude-junction');
     const externalClaudeRoot = createTempDir('peaks-memory-external-claude-junction');
-    symlinkSync(externalClaudeRoot, join(projectRoot, '.claude'), 'junction');
+    symlinkSync(externalClaudeRoot, join(projectRoot, '.peaks'), 'junction');
 
     expect(() => createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [], apply: false })).toThrow('Project memory directory must stay inside the project root');
   });
 
-  test('plans artifact workspace backup from project .claude/memory without making artifact the primary source', () => {
+  test('plans artifact workspace backup from project .peaks/memory without making artifact the primary source', () => {
     const projectRoot = createTempDir('peaks-memory-primary');
     const artifactWorkspace = createTempDir('peaks-memory-artifacts');
-    mkdirSync(join(projectRoot, '.claude', 'memory', 'nested'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'rule.md'), 'project rule', 'utf8');
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'nested', 'decision.md'), 'nested decision', 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'memory', 'nested'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'rule.md'), 'project rule', 'utf8');
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'nested', 'decision.md'), 'nested decision', 'utf8');
 
     const plan = createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: artifactWorkspace, apply: false });
 
     expect(plan.apply).toBe(false);
-    expect(plan.primaryMemoryDir).toBe(join(projectRoot, '.claude', 'memory'));
+    expect(plan.primaryMemoryDir).toBe(join(projectRoot, '.peaks', 'memory'));
     expect(plan.backupMemoryDir).toBe(join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary'));
     expect(plan.plannedCopies).toEqual([
       {
-        sourcePath: join(projectRoot, '.claude', 'memory', 'nested', 'decision.md'),
+        sourcePath: join(projectRoot, '.peaks', 'memory', 'nested', 'decision.md'),
         targetPath: join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary', 'nested', 'decision.md')
       },
       {
-        sourcePath: join(projectRoot, '.claude', 'memory', 'rule.md'),
+        sourcePath: join(projectRoot, '.peaks', 'memory', 'rule.md'),
         targetPath: join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary', 'rule.md')
       }
     ]);
@@ -489,16 +489,16 @@ describe('project memory service', () => {
     const projectRoot = createTempDir('peaks-memory-backup-link');
     const artifactWorkspace = createTempDir('peaks-memory-backup-link-artifacts');
     const externalRoot = createTempDir('peaks-memory-link-target');
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'kept.md'), 'kept memory', 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'kept.md'), 'kept memory', 'utf8');
     writeFileSync(join(externalRoot, 'linked.md'), 'linked memory', 'utf8');
-    symlinkSync(join(externalRoot, 'linked.md'), join(projectRoot, '.claude', 'memory', 'linked.md'));
+    symlinkSync(join(externalRoot, 'linked.md'), join(projectRoot, '.peaks', 'memory', 'linked.md'));
 
     const plan = createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: artifactWorkspace, apply: false });
 
     expect(plan.plannedCopies).toEqual([
       {
-        sourcePath: join(projectRoot, '.claude', 'memory', 'kept.md'),
+        sourcePath: join(projectRoot, '.peaks', 'memory', 'kept.md'),
         targetPath: join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary', 'kept.md')
       }
     ]);
@@ -508,15 +508,15 @@ describe('project memory service', () => {
     const projectRoot = createTempDir('peaks-memory-backup-junction');
     const artifactWorkspace = createTempDir('peaks-memory-backup-junction-artifacts');
     const externalRoot = createTempDir('peaks-memory-junction-target');
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'kept.md'), 'kept memory', 'utf8');
-    symlinkSync(externalRoot, join(projectRoot, '.claude', 'memory', 'linked'), 'junction');
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'kept.md'), 'kept memory', 'utf8');
+    symlinkSync(externalRoot, join(projectRoot, '.peaks', 'memory', 'linked'), 'junction');
 
     const plan = createProjectMemoryBackupPlan({ projectRoot, artifactWorkspacePath: artifactWorkspace, apply: false });
 
     expect(plan.plannedCopies).toEqual([
       {
-        sourcePath: join(projectRoot, '.claude', 'memory', 'kept.md'),
+        sourcePath: join(projectRoot, '.peaks', 'memory', 'kept.md'),
         targetPath: join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary', 'kept.md')
       }
     ]);
@@ -526,8 +526,8 @@ describe('project memory service', () => {
     const projectRoot = createTempDir('peaks-memory-dry-run');
     const artifactWorkspace = createTempDir('peaks-memory-dry-run-artifacts');
     const artifactPath = join(projectRoot, 'artifact.md');
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'decision.md'), 'stable decision', 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'decision.md'), 'stable decision', 'utf8');
     writeFileSync(artifactPath, [
       '<!-- peaks-memory:start -->',
       'title: Dry run memory',
@@ -552,8 +552,8 @@ describe('project memory service', () => {
   test('copies project memory to artifact backup only when apply is true', () => {
     const projectRoot = createTempDir('peaks-memory-sync-primary');
     const artifactWorkspace = createTempDir('peaks-memory-sync-artifacts');
-    mkdirSync(join(projectRoot, '.claude', 'memory'), { recursive: true });
-    writeFileSync(join(projectRoot, '.claude', 'memory', 'decision.md'), 'stable decision', 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'memory'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'memory', 'decision.md'), 'stable decision', 'utf8');
 
     const result = executeProjectMemoryBackup({ projectRoot, artifactWorkspacePath: artifactWorkspace, apply: true });
     const backupPath = join(artifactWorkspace, '.peaks', 'memory-backups', 'project-memory-primary', 'decision.md');

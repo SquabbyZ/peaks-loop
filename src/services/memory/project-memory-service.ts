@@ -3,7 +3,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { isInsidePath, isWindowsAbsolutePath, normalizePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
 import { containsSensitiveConfigValue, isSensitiveConfigPath } from '../config/config-service.js';
 
-export type ProjectMemoryKind = 'project' | 'rule' | 'decision' | 'reference' | 'feedback';
+export type ProjectMemoryKind = 'project' | 'rule' | 'decision' | 'reference' | 'feedback' | 'convention' | 'module';
 
 export type ExtractedProjectMemory = {
   title: string;
@@ -74,6 +74,23 @@ export type ProjectMemoryBackupResult = ProjectMemoryBackupPlan & {
   copiedFiles: string[];
 };
 
+export type StoredProjectMemory = {
+  name: string;
+  title: string;
+  kind: ProjectMemoryKind;
+  sourceArtifact: string | null;
+  body: string;
+  filePath: string;
+};
+
+export type ProjectMemoryReadResult = {
+  projectRoot: string;
+  memoryDir: string;
+  total: number;
+  byKind: Record<ProjectMemoryKind, StoredProjectMemory[]>;
+  memories: StoredProjectMemory[];
+};
+
 type ExtractPlanOptions = {
   projectRoot: string;
   artifactPaths: string[];
@@ -88,7 +105,7 @@ type BackupPlanOptions = {
 
 const START_MARKER = '<!-- peaks-memory:start -->';
 const END_MARKER = '<!-- peaks-memory:end -->';
-const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback']);
+const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module']);
 
 function normalizeRoot(path: string): string {
   return resolveInputPath(path);
@@ -130,12 +147,12 @@ function assertInsideProject(path: string, projectRoot: string): string {
 function assertSafeProjectMemoryDir(projectRoot: string): string {
   const resolvedRoot = normalizeRoot(projectRoot);
   const realRoot = normalizeRealRoot(projectRoot);
-  const claudeDir = join(resolvedRoot, '.claude');
-  if (existsSync(claudeDir) && lstatSync(claudeDir).isSymbolicLink()) {
+  const peaksDir = join(resolvedRoot, '.peaks');
+  if (existsSync(peaksDir) && lstatSync(peaksDir).isSymbolicLink()) {
     throw new Error('Project memory directory must stay inside the project root');
   }
 
-  const memoryDir = join(claudeDir, 'memory');
+  const memoryDir = join(peaksDir, 'memory');
   if (existsSync(memoryDir)) {
     if (lstatSync(memoryDir).isSymbolicLink()) {
       throw new Error('Project memory directory must stay inside the project root');
@@ -233,6 +250,40 @@ function renderMemoryFile(memory: ExtractedProjectMemory): string {
     memory.body,
     ''
   ].join('\n');
+}
+
+function parseStoredMemoryFile(content: string, filePath: string): StoredProjectMemory | null {
+  const normalized = content.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) return null;
+  const endIndex = normalized.indexOf('\n---\n', 4);
+  if (endIndex < 0) return null;
+
+  const frontmatter = normalized.slice(4, endIndex);
+  const body = normalized.slice(endIndex + '\n---\n'.length).trim();
+
+  let name: string | undefined;
+  let description: string | undefined;
+  let kind: string | undefined;
+  let sourceArtifact: string | undefined;
+
+  for (const rawLine of frontmatter.split('\n')) {
+    const line = rawLine.trim();
+    if (line.startsWith('name:')) name = line.slice('name:'.length).trim();
+    else if (line.startsWith('description:')) description = line.slice('description:'.length).trim();
+    else if (line.startsWith('type:')) kind = line.slice('type:'.length).trim();
+    else if (line.startsWith('sourceArtifact:')) sourceArtifact = line.slice('sourceArtifact:'.length).trim();
+  }
+
+  if (!name || !kind || !VALID_MEMORY_KINDS.has(kind as ProjectMemoryKind) || body.length === 0) return null;
+
+  return {
+    name,
+    title: description ?? name,
+    kind: kind as ProjectMemoryKind,
+    sourceArtifact: sourceArtifact && sourceArtifact !== 'undefined' ? sourceArtifact : null,
+    body,
+    filePath
+  };
 }
 
 function summarizeExtractResult(result: ProjectMemoryExtractResult): ProjectMemoryExtractSummary {
@@ -423,4 +474,41 @@ export function summarizeProjectMemoryExtractResult(result: ProjectMemoryExtract
 
 export function summarizeProjectMemoryBackupResult(result: ProjectMemoryBackupResult): ProjectMemoryBackupSummary {
   return summarizeBackupResult(result);
+}
+
+function emptyByKind(): Record<ProjectMemoryKind, StoredProjectMemory[]> {
+  return {
+    project: [],
+    rule: [],
+    decision: [],
+    reference: [],
+    feedback: [],
+    convention: [],
+    module: []
+  };
+}
+
+export function readProjectMemories(projectRoot: string): ProjectMemoryReadResult {
+  const normalizedRoot = normalizeRoot(projectRoot);
+  const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
+
+  const memories: StoredProjectMemory[] = [];
+  for (const filePath of listMarkdownFiles(memoryDir)) {
+    const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
+    if (parsed) memories.push(parsed);
+  }
+  memories.sort((left, right) => left.name.localeCompare(right.name));
+
+  const byKind = emptyByKind();
+  for (const memory of memories) {
+    byKind[memory.kind].push(memory);
+  }
+
+  return {
+    projectRoot: normalizedRoot,
+    memoryDir,
+    total: memories.length,
+    byKind,
+    memories
+  };
 }

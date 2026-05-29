@@ -1,17 +1,9 @@
 import { Command } from 'commander';
 import { loadProjectDashboard } from '../../services/dashboard/project-dashboard-service.js';
-import { generateProjectContext, loadOntology, readProjectContext, upsertConvention, upsertDecision, upsertModule } from '../../services/memory/project-context-service.js';
-import type { Decision, Module } from '../../services/memory/project-context-service.js';
+import { generateProjectContext, readProjectContext } from '../../services/memory/project-context-service.js';
+import { readProjectMemories } from '../../services/memory/project-memory-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-
-function defined<T extends Record<string, unknown>>(obj: T): T {
-  const result: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) result[k] = v;
-  }
-  return result as T;
-}
 
 type ProjectDashboardOptions = {
   project: string;
@@ -122,110 +114,34 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
     }
   });
 
-  // --- Ontology commands (structured project memory for LLM consumption) ---
-  const ontology = project.command('ontology').description('Query structured project memory (modules, decisions, conventions)');
-
+  // --- Structured project memory (durable, LLM-authored, stored under .peaks/memory) ---
   addJsonOption(
-    ontology
-      .command('show')
-      .description('Read the full ontology JSON for LLM consumption')
+    project
+      .command('memories')
+      .description('Read durable project memories (decisions, conventions, modules, rules) from .peaks/memory for LLM consumption')
       .requiredOption('--project <path>', 'target project root')
-  ).action((options: { project: string; json?: boolean }) => {
+      .option('--kind <kind>', 'filter by kind: project, rule, decision, reference, feedback, convention, module')
+  ).action((options: { project: string; kind?: string; json?: boolean }) => {
     try {
-      const onto = loadOntology(options.project);
-      if (onto === null) {
-        // Auto-generate if missing
-        const result = generateProjectContext(options.project);
-        printResult(io, ok('project.ontology', result.ontology), options.json);
+      const result = readProjectMemories(options.project);
+      if (options.kind) {
+        const memories = result.memories.filter((memory) => memory.kind === options.kind);
+        printResult(io, ok('project.memories', {
+          memoryDir: result.memoryDir,
+          kind: options.kind,
+          total: memories.length,
+          memories
+        }), options.json);
         return;
       }
-      printResult(io, ok('project.ontology', onto), options.json);
+      printResult(io, ok('project.memories', {
+        memoryDir: result.memoryDir,
+        total: result.total,
+        byKind: result.byKind,
+        memories: result.memories
+      }), options.json);
     } catch (error) {
-      printResult(io, fail('project.ontology', 'ONTOLOGY_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  addJsonOption(
-    ontology
-      .command('module')
-      .description('Record or query a project module')
-      .requiredOption('--project <path>', 'target project root')
-      .option('--id <id>', 'module id (kebab-case)')
-      .option('--path <path>', 'file path for the module')
-      .option('--risk <level>', 'risk level: low, medium, high')
-      .option('--summary <text>', 'brief module description')
-      .option('--session <id>', 'session id')
-      .option('--put', 'write/update the module entry')
-  ).action((options: { project: string; id?: string; path?: string; risk?: string; summary?: string; session?: string; put?: boolean; json?: boolean }) => {
-    try {
-      if (options.put) {
-        if (!options.id || !options.path || !options.session) {
-          printResult(io, fail('project.ontology.module', 'MISSING_FIELDS', '--id, --path, --session required with --put', {}, ['Provide all required fields']), options.json);
-          process.exitCode = 1;
-          return;
-        }
-        const risk = (options.risk === 'low' || options.risk === 'medium' || options.risk === 'high') ? options.risk : undefined;
-        const result = upsertModule(options.project, defined({
-          id: options.id,
-          path: options.path,
-          session: options.session,
-          risk,
-          summary: options.summary
-        }) as Omit<Module, 'sessions'> & { session: string });
-        printResult(io, ok('project.ontology.module', { modules: result.modules }), options.json);
-        return;
-      }
-      const onto = loadOntology(options.project) ?? generateProjectContext(options.project).ontology;
-      if (options.id) {
-        const mod = onto.modules.find((m) => m.id === options.id);
-        printResult(io, ok('project.ontology.module', mod ?? { notFound: true, id: options.id }), options.json);
-        return;
-      }
-      printResult(io, ok('project.ontology.module', { modules: onto.modules }), options.json);
-    } catch (error) {
-      printResult(io, fail('project.ontology.module', 'ONTOLOGY_MODULE_FAILED', getErrorMessage(error), {}, []), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  addJsonOption(
-    ontology
-      .command('decision')
-      .description('Record or query architectural decisions')
-      .requiredOption('--project <path>', 'target project root')
-      .option('--id <id>', 'decision id')
-      .option('--what <text>', 'what was decided')
-      .option('--why <text>', 'rationale behind the decision')
-      .option('--scope <modules>', 'comma-separated module ids')
-      .option('--session <id>', 'session id')
-      .option('--date <date>', 'decision date')
-      .option('--put', 'write/update the decision')
-  ).action((options: { project: string; id?: string; what?: string; why?: string; scope?: string; session?: string; date?: string; put?: boolean; json?: boolean }) => {
-    try {
-      if (options.put) {
-        if (!options.id || !options.what || !options.session || !options.date) {
-          printResult(io, fail('project.ontology.decision', 'MISSING_FIELDS', '--id, --what, --session, --date required with --put', {}, []), options.json);
-          process.exitCode = 1;
-          return;
-        }
-        const result = upsertDecision(options.project, defined({
-          id: options.id, what: options.what, why: options.why,
-          scope: options.scope ? options.scope.split(',').map((s) => s.trim()).filter(Boolean) : [],
-          session: options.session, date: options.date
-        }) as Decision);
-        printResult(io, ok('project.ontology.decision', { decisions: result.decisions }), options.json);
-        return;
-      }
-      const onto = loadOntology(options.project) ?? generateProjectContext(options.project).ontology;
-      if (options.id) {
-        const dec = onto.decisions.find((d) => d.id === options.id);
-        printResult(io, ok('project.ontology.decision', dec ?? { notFound: true, id: options.id }), options.json);
-        return;
-      }
-      printResult(io, ok('project.ontology.decision', { decisions: onto.decisions }), options.json);
-    } catch (error) {
-      printResult(io, fail('project.ontology.decision', 'ONTOLOGY_DECISION_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(io, fail('project.memories', 'PROJECT_MEMORIES_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks/memory directory']), options.json);
       process.exitCode = 1;
     }
   });

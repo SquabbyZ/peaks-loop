@@ -78,22 +78,23 @@ Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli
 
 Update with `peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
 
-### Peaks-Cli Step 2.3: Load project memory (structured ontology for LLM)
+### Peaks-Cli Step 2.3: Load project memory (durable, LLM-authored memories)
 
-Before planning any work, read the project's persistent memory — structured data that survives across sessions:
+Before planning any work, read the project's persistent memory — durable memories that survive across sessions:
 
 ```bash
-peaks project ontology show --project <repo> --json
+peaks project memories --project <repo> --json
 ```
 
-This returns `.peaks/ontology.json` containing:
-- **modules** — code areas touched, with risk levels and which sessions modified them
-- **decisions** — architectural choices, why they were made, what modules they affect
-- **conventions** — discovered project patterns (code style, naming, tooling)
+This returns durable memories from `.peaks/memory`, grouped by kind:
+- **module** — code areas touched, with risk and rationale captured by past sessions
+- **decision** — architectural choices, why they were made, what they affect
+- **convention** — discovered project patterns (code style, naming, tooling)
+- **rule** / **reference** / **project** — standing constraints, external pointers, and project context
 
-Use this to understand what exists, what was decided, and what to avoid re-litigating. The ontology is auto-updated on `peaks skill presence:clear`.
+Filter with `--kind <decision|convention|module|rule|reference|project>` when you only need one slice. Use this to understand what exists, what was decided, and what to avoid re-litigating. Memories are LLM-authored at approved checkpoints via `peaks memory extract`.
 
-`.peaks/PROJECT.md` is a human-readable timeline only — do NOT use it for LLM context.
+`.peaks/PROJECT.md` is a human-readable session timeline only — do NOT use it for LLM context.
 
 ### Peaks-Cli Step 2.5: Set session title
 
