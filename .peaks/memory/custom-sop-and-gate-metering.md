@@ -20,5 +20,7 @@ Locked decisions (treat as preserved behavior for downstream RD/QA):
 
 RD owns OQ1-OQ5 (registry schema/location, `command`-gate sandbox/allowlist security, SOP id namespace isolation, transition key shape). QA owns AC1-AC10 + P1-P7 regression matrix.
 
+**Status (2026-05-29):** Feature A SHIPPED — `peaks sop init/lint/register/registry/check/advance` all implemented, CR'd, QA verdict pass, documented in README/README-en. **Feature B DEFERRED** by the user: dogfood the custom-SOP authoring flow first to find usability improvements, then revisit B. A B1 PRD draft (client-side open-core half: entitlement model + Ed25519-style pubkey verify + login + register quota gate) was written and archived at `.peaks/2026-05-29-session-746113/prd/requests/002-2026-05-29-gate-metering-entitlement.md` (state: deferred) as future input. NOTE: that draft's "store token refs only" approach is SUPERSEDED by [[token-encrypted-storage-decision]] (encrypt-at-rest, decrypt-on-use).
+
 **Why:** gates are where Peaks' value lives ("不丢环节"), so metering gates charges for delivered value, not an arbitrary axis.
-**How to apply:** A precedes B. Keep [[coverage-red-line]] (95%/100% gate) and [[main-branch-iteration]] (edit main, no worktree) in force.
+**How to apply:** A is done. Next = dogfood custom SOP for usability gaps before resuming B. Keep [[coverage-red-line]] (95%/100% gate) and [[main-branch-iteration]] (edit main, no worktree) in force.
