@@ -164,8 +164,10 @@ function buildCapabilitiesSummary(sampleSize: number): ProjectDashboardCapabilit
   };
 }
 
-function buildSkillPresenceSummary(presence: SkillPresence | null | undefined): ProjectDashboardSkillPresence {
-  const resolved = presence === undefined ? getSkillPresence() : presence;
+function buildSkillPresenceSummary(presence: SkillPresence | null | undefined, projectRoot: string): ProjectDashboardSkillPresence {
+  // When the caller doesn't supply presence, resolve it from the dashboard's
+  // project root rather than the process cwd.
+  const resolved = presence === undefined ? getSkillPresence(projectRoot) : presence;
   if (resolved === null) {
     return { active: false, fresh: true };
   }
@@ -219,6 +221,6 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
     doctor: doctorAndRunbook.doctor,
     runbookHealth: doctorAndRunbook.runbookHealth,
     capabilities: buildCapabilitiesSummary(sampleSize),
-    skillPresence: buildSkillPresenceSummary(options.skillPresence)
+    skillPresence: buildSkillPresenceSummary(options.skillPresence, options.projectRoot)
   };
 }

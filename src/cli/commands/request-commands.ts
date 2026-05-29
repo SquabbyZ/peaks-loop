@@ -240,7 +240,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // Restrict --allow-incomplete in assisted/strict modes: require --confirm
       if (options.allowIncomplete === true && options.forceConfirm !== true) {
         const { getSkillPresence } = await import('../../services/skills/skill-presence-service.js');
-        const presence = getSkillPresence();
+        const presence = getSkillPresence(options.project);
         if (presence?.mode === 'assisted' || presence?.mode === 'strict') {
           if (options.confirm !== true) {
             printResult(

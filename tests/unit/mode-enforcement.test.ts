@@ -89,6 +89,17 @@ describe('requireUserConfirmation', () => {
     ).resolves.toBeUndefined();
   });
 
+  test('resolves presence from the target projectRoot, not the process cwd', async () => {
+    mockedGetSkillPresence.mockReturnValue(null);
+
+    await requireUserConfirmation({
+      projectRoot: '/some/project',
+      transitionKey: 'prd:confirmed-by-user'
+    });
+
+    expect(mockedGetSkillPresence).toHaveBeenCalledWith('/some/project');
+  });
+
   test('returns immediately when mode is not set', async () => {
     mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo' } as never);
 

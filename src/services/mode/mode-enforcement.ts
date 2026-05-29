@@ -47,7 +47,8 @@ export class ConfirmationRequiredError extends Error {
 }
 
 export async function requireUserConfirmation(options: ConfirmationOptions): Promise<void> {
-  const presence = getSkillPresence();
+  // Resolve presence from the project being operated on, not the process cwd.
+  const presence = getSkillPresence(options.projectRoot);
   if (!presence?.mode) {
     return;
   }

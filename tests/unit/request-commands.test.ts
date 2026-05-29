@@ -294,6 +294,21 @@ describe('peaks request transition command', () => {
     expect(output.data.state).toBe('running');
   });
 
+  test('--allow-incomplete resolves presence from --project, not cwd (assisted → restricted)', async () => {
+    const project = await makeProject('request-transition-presence');
+    await runCommand(['request', 'init', '--role', 'prd', '--id', '2026-05-24-p', '--project', project, '--session-id', 's1', '--apply', '--json']);
+    // Assisted presence lives in the TARGET project, not the process cwd.
+    await mkdir(join(project, '.peaks'), { recursive: true });
+    await writeFile(join(project, '.peaks', '.active-skill.json'), JSON.stringify({ skill: 'peaks-prd', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' }), 'utf8');
+
+    // --allow-incomplete without --confirm must be restricted because the project's presence is assisted.
+    const result = await runCommand(['request', 'transition', '2026-05-24-p', '--role', 'prd', '--state', 'confirmed-by-user', '--project', project, '--session-id', 's1', '--allow-incomplete', '--reason', 'x', '--json']);
+    const output = parseJsonOutput(result.stdout);
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('ALLOW_INCOMPLETE_RESTRICTED');
+    expect(result.exitCode).toBe(1);
+  });
+
   test('returns REQUEST_NOT_FOUND when the target artifact is missing', async () => {
     const project = await makeProject('request-transition-missing');
 
