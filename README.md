@@ -10,12 +10,24 @@ npm install -g peaks-cli
 
 安装后，Peaks 会把内置 skills 注册到 Claude Code，你可以在对话里直接调用。
 
-验证安装：
+验证安装，跑这三条：
 
 ```bash
-peaks --help
-peaks skill list --json
+peaks -V           # prints the version
+peaks                # shows a quickstart with installed-skill count
+peaks doctor         # checks skills, config, env in one glance
 ```
+
+## 80 秒上手
+
+1. `peaks` 看一眼有哪些东西
+2. `peaks doctor` 确认环境 OK
+3. `peaks sop init --id my-flow --apply` 创建你的第一个 SOP 骨架
+4. 编辑 `~/.peaks/sops/my-flow/sop.json` 写上你的流程和门禁
+5. `peaks sop register --id my-flow` 注册它
+6. 声明 guard 把不可逆动作绑到 phase，`peaks hooks install` 装上强制 hook
+
+然后让 Claude 在对话里改文件、打算跑被 guard 的命令——它会被当场拦住。详见 [自定义 SOP](#自定义-sop用户自创流程门禁) 一节。如果用自然语言描述流程更顺手，直接用 `peaks-sop` 技能，它全程走上面的 CLI 链。
 
 ## 使用 Skills
 

@@ -6,6 +6,18 @@ createProgram().parseAsync(process.argv).catch((error: unknown) => {
   if (error instanceof CommanderError && error.code === 'commander.version') {
     return;
   }
+  // exitOverride() also throws for help; suppress those — the text already went
+  // to stdout/stderr, the error envelope confuses newcomers. --help is success
+  // (exit 0); a bad command/option is an error (exit 1).
+  if (error instanceof CommanderError) {
+    if (error.code === 'commander.help' || error.code === 'commander.helpDisplayed') {
+      return;
+    }
+    if (error.code === 'commander.missingArgument' || error.code === 'commander.unknownCommand' || error.code === 'commander.unknownOption') {
+      process.exitCode = 1;
+      return;
+    }
+  }
 
   console.error(JSON.stringify({
     ok: false,

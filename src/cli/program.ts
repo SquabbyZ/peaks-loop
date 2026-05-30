@@ -1,4 +1,7 @@
+import { readdirSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
+import { skillsDir } from '../shared/paths.js';
 import { CLI_VERSION } from '../shared/version.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
@@ -23,7 +26,14 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
   const program = new Command();
   program
     .name('peaks')
-    .description('Peaks CLI and short skill family runtime manager')
+    .description(`Peaks CLI ${CLI_VERSION} — workflow-gating CLI + skill family for Claude Code
+
+Run peaks (no arguments) for a quickstart. You likely want one of:
+  peaks doctor     check your environment
+  peaks skill      list or manage skills
+  peaks sop        author your own workflow gates
+  peaks hooks      install the un-bypassable gate-enforcement hook
+  peaks gate       enforce/bypass SOP gates on Bash commands`)
     .configureOutput({
       writeOut: (text) => io.stdout(text.trimEnd()),
       writeErr: (text) => io.stderr(text.trimEnd())
@@ -31,9 +41,39 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
     .version(CLI_VERSION, '-v, --version')
     .option('-V', 'output the version number')
     .action(() => {
-      if (program.opts<{ V?: boolean }>().V) {
+      const opts = program.opts<{ V?: boolean }>();
+      if (opts.V) {
         io.stdout(CLI_VERSION);
+        return;
       }
+
+      // Count bundled skills by reading the skills dir directly (synchronous so
+      // the quickstart renders instantly — no import/async overhead on startup).
+      let skillCount = 0;
+      const skillsPath = skillsDir;
+      try {
+        if (existsSync(skillsPath)) {
+          skillCount = readdirSync(skillsPath, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+            .filter((entry) => existsSync(join(skillsPath, entry.name, 'SKILL.md')))
+            .length;
+        }
+      } catch { /* disk read is best-effort; zero skills is still truthful */ }
+
+      io.stdout(`Peaks CLI ${CLI_VERSION}  ·  ${skillCount} skills ready
+
+  Peaks is a workflow-gating CLI + skill family for Claude Code.
+  It turns "don't skip steps" into hard enforcement — gates that block
+  advancement in-conversation, un-bypassably.
+
+  Before diving into a project, two things worth doing now:
+
+    peaks doctor             check your environment in one glance
+    peaks-sop                <<< ask this skill to author your first SOP
+
+  Or jump straight in:
+    peaks sop init --id my-flow --apply && peaks hooks install
+`);
     })
     .exitOverride();
 

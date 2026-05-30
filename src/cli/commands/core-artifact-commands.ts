@@ -21,7 +21,19 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     const result = report.summary.ok
       ? ok('doctor', report)
       : fail('doctor', 'DOCTOR_FAILED', 'One or more doctor checks failed', report, ['Fix failed checks and rerun peaks doctor']);
-    printResult(io, result, options.json);
+    if (options.json === true) {
+      printResult(io, result, true);
+    } else {
+      // Human-readable: one line per check, green/red indicators, no JSON.
+      for (const check of report.checks) {
+        const icon = check.ok ? '+' : '×';
+        io.stdout(`  ${icon}  ${check.message}`);
+      }
+      io.stdout(`\n  ${report.summary.passed} passed, ${report.summary.failed} failed`);
+      if (!report.summary.ok) {
+        io.stderr(`\nDOCTOR_FAILED: ${report.summary.failed} check(s) failed. Fix them and rerun peaks doctor.`);
+      }
+    }
     if (!report.summary.ok) {
       process.exitCode = 1;
     }
@@ -36,7 +48,18 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     const report = await runDoctor();
     const skillChecks = report.checks.filter((check) => check.id.startsWith('skill'));
     const failed = skillChecks.filter((check) => !check.ok).length;
-    printResult(io, ok('skill.doctor', { checks: skillChecks, ok: failed === 0 }), options.json);
+    if (options.json === true) {
+      printResult(io, ok('skill.doctor', { checks: skillChecks, ok: failed === 0 }), true);
+    } else {
+      for (const check of skillChecks) {
+        const icon = check.ok ? '+' : '×';
+        io.stdout(`  ${icon}  ${check.message}`);
+      }
+      io.stdout(`\n  ${skillChecks.length - failed} passed, ${failed} failed`);
+      if (failed > 0) {
+        io.stderr('\nOne or more skill checks failed.');
+      }
+    }
     if (failed > 0) {
       process.exitCode = 1;
     }

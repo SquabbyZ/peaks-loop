@@ -10,12 +10,24 @@ npm install -g peaks-cli
 
 After installation, Peaks registers its bundled skills into Claude Code so you can invoke them directly in conversation.
 
-Verify installation:
+Verify with these three commands:
 
 ```bash
-peaks --help
-peaks skill list --json
+peaks -V           # prints the version
+peaks                # shows a quickstart with installed-skill count
+peaks doctor         # checks skills, config, env in one glance
 ```
+
+## 80-second onboarding
+
+1. `peaks` — glance at what's available
+2. `peaks doctor` — confirm your environment is ready
+3. `peaks sop init --id my-flow --apply` — scaffold your first SOP
+4. Edit `~/.peaks/sops/my-flow/sop.json` with your phases and gates
+5. `peaks sop register --id my-flow` — register it
+6. Declare a guard binding an irreversible command to a phase, then `peaks hooks install`
+
+Now let Claude edit files in conversation, then try to run the guarded command — it'll be denied, even under `--dangerously-skip-permissions`. See [Un-bypassable gates](#un-bypassable-gates-the-killer-feature) below. Prefer natural language? Ask the `peaks-sop` skill and it drives the entire CLI chain above.
 
 ## Using Skills
 
