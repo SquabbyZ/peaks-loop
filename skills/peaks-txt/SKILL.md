@@ -118,7 +118,7 @@ Stable memory body.
 <!-- peaks-memory:end -->
 ```
 
-The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` only after the user or active profile allows durable project memory writes.
+The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact>` to write durable project memories; pass `--dry-run` to preview without writing.
 
 ## Matt Pocock skills integration
 
@@ -190,13 +190,13 @@ peaks understand show --project <repo> --json
 # 4. Discover external capabilities before recommending memory or context tools
 peaks capabilities --json
 
-# 5. Memory extraction — dry-run by default, apply only when authorized
-peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json
-peaks memory extract --project <repo> --artifact <artifact-path> --apply --json
+# 5. Memory extraction — writes by default, use --dry-run to preview
+peaks memory extract --project <repo> --artifact <artifact-path> --json
+peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json   # preview only
 peaks skill presence:clear --project <repo>                      # handoff capsule complete, remove presence indicator
 ```
 
-The final `--apply` call requires explicit user or profile authorization. Without it, keep the capsule under `.peaks/<session-id>/txt/` and reference artifact paths from other roles instead of duplicating their content.
+The default `peaks memory extract` call writes to `.peaks/memory`. Pass `--dry-run` to preview without writing.
 
 ### Transition verification gates (MANDATORY — run the command, see the output)
 

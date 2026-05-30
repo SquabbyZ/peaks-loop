@@ -319,11 +319,12 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Extract stable project memory from skill artifacts into project .peaks/memory')
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--artifact <path...>', 'skill artifact paths inside the project')
-      .option('--dry-run', 'preview writes without changing files', true)
-      .option('--apply', 'write extracted memories into project .peaks/memory')
+      .option('--dry-run', 'preview writes without changing files')
+      .option('--apply', 'write extracted memories into project .peaks/memory (default behavior)')
   ).action((options: { project: string; artifact: string[]; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     try {
-      const result = executeProjectMemoryExtract({ projectRoot: options.project, artifactPaths: options.artifact, apply: options.apply === true });
+      const shouldApply = options.dryRun !== true;
+      const result = executeProjectMemoryExtract({ projectRoot: options.project, artifactPaths: options.artifact, apply: shouldApply });
       printResult(io, ok('memory.extract', summarizeProjectMemoryExtractResult(result)), options.json);
     } catch (error) {
       printResult(io, fail('memory.extract', 'MEMORY_EXTRACT_FAILED', getErrorMessage(error), {}, ['Check artifact paths and remove secrets before extracting memory']), options.json);
@@ -336,11 +337,12 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Back up project .peaks/memory into the artifact workspace')
       .requiredOption('--project <path>', 'target project root')
       .requiredOption('--workspace <path>', 'artifact workspace path')
-      .option('--dry-run', 'preview copies without changing files', true)
-      .option('--apply', 'copy project .peaks/memory into artifact workspace backup')
+      .option('--dry-run', 'preview copies without changing files')
+      .option('--apply', 'copy project .peaks/memory into artifact workspace backup (default behavior)')
   ).action((options: { project: string; workspace: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     try {
-      const result = executeProjectMemoryBackup({ projectRoot: options.project, artifactWorkspacePath: options.workspace, apply: options.apply === true });
+      const shouldApply = options.dryRun !== true;
+      const result = executeProjectMemoryBackup({ projectRoot: options.project, artifactWorkspacePath: options.workspace, apply: shouldApply });
       printResult(io, ok('memory.sync', summarizeProjectMemoryBackupResult(result)), options.json);
     } catch (error) {
       printResult(io, fail('memory.sync', 'MEMORY_SYNC_FAILED', getErrorMessage(error), {}, ['Use an artifact workspace outside the project root']), options.json);
