@@ -20,9 +20,21 @@ export type SkillPresence = {
   mode?: SkillPresenceMode;
   gate?: string;
   sessionId?: string;
+  claudeSessionId?: string;
   setAt: string;
   lastHeartbeat?: string;
 };
+
+/**
+ * The current Claude Code session id, exposed to Bash tool calls via the
+ * CLAUDE_CODE_SESSION_ID environment variable. Stamping it onto the presence
+ * file lets the read-only status line tell whether the recorded skill belongs
+ * to the live session (show it) or a previous one (render idle).
+ */
+function getCurrentClaudeSessionId(): string | undefined {
+  const value = process.env.CLAUDE_CODE_SESSION_ID;
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
 
 const PRESENCE_FILE = '.peaks/.active-skill.json';
 const SESSION_FILE = '.peaks/.session.json';
@@ -56,6 +68,7 @@ export function exportSkillPresence(projectRootOverride?: string): string {
 export function setSkillPresence(skill: string, mode?: string, gate?: string, projectRootOverride?: string): SkillPresence {
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
   const sessionId = getCurrentSessionId(projectRootOverride);
+  const claudeSessionId = getCurrentClaudeSessionId();
 
   const now = new Date().toISOString();
   const presence: SkillPresence = {
@@ -63,6 +76,7 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
     ...(validatedMode ? { mode: validatedMode } : {}),
     ...(gate ? { gate } : {}),
     ...(sessionId ? { sessionId } : {}),
+    ...(claudeSessionId ? { claudeSessionId } : {}),
     setAt: now,
     lastHeartbeat: now
   };

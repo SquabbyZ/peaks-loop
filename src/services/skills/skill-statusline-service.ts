@@ -23,6 +23,7 @@ const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 export type StatusLineStdin = {
   workspace?: { current_dir?: string; project_dir?: string };
   cwd?: string;
+  session_id?: string;
 };
 
 export type StatusLineState = 'active' | 'idle' | 'stale' | 'invalid-presence';
@@ -32,6 +33,7 @@ export type StatusLinePresence = {
   mode?: string;
   gate?: string;
   setAt?: string;
+  claudeSessionId?: string;
 };
 
 export type StatusLineModel = {
@@ -89,7 +91,8 @@ function readPresenceReadOnly(projectRoot: string): { presence: StatusLinePresen
         skill: candidate.skill,
         ...(typeof candidate.mode === 'string' ? { mode: candidate.mode } : {}),
         ...(typeof candidate.gate === 'string' ? { gate: candidate.gate } : {}),
-        ...(typeof candidate.setAt === 'string' ? { setAt: candidate.setAt } : {})
+        ...(typeof candidate.setAt === 'string' ? { setAt: candidate.setAt } : {}),
+        ...(typeof candidate.claudeSessionId === 'string' ? { claudeSessionId: candidate.claudeSessionId } : {})
       },
       invalid: false
     };
@@ -111,6 +114,16 @@ export function buildStatusLineModel(stdin: StatusLineStdin | null, nowMs: numbe
     return { state: 'invalid-presence', projectRoot, presence: null, ageMs: null };
   }
   if (presence === null) {
+    return { state: 'idle', projectRoot, presence: null, ageMs: null };
+  }
+
+  // Session binding: when the presence was stamped with a Claude session id and
+  // the live session (from stdin) is a different one, the recorded skill belongs
+  // to a previous session — render idle instead of a stale "active" skill. When
+  // either id is absent (legacy presence, or harness that omits session_id) we
+  // fall back to the time-based behavior below for backward compatibility.
+  const liveSessionId = typeof stdin?.session_id === 'string' && stdin.session_id.length > 0 ? stdin.session_id : null;
+  if (presence.claudeSessionId && liveSessionId && presence.claudeSessionId !== liveSessionId) {
     return { state: 'idle', projectRoot, presence: null, ageMs: null };
   }
 

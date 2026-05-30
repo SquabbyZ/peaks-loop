@@ -266,6 +266,60 @@ describe('runDoctor skill-presence checks', () => {
   });
 });
 
+describe('runDoctor skill-presence:workspace guard', () => {
+  test('fails when a skill is active but no workspace session exists', async () => {
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-solo', mode: 'full-auto', gate: 'startup', setAt: new Date().toISOString() }),
+      workspaceInitializedProbe: () => false
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:workspace');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('peaks workspace init');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('passes when a skill is active and the workspace session exists', async () => {
+    const report = await runDoctor({
+      skillPresenceProbe: () => ({ skill: 'peaks-solo', setAt: new Date().toISOString() }),
+      workspaceInitializedProbe: () => true
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:workspace');
+
+    expect(check).toMatchObject({ ok: true });
+  });
+
+  test('is not applicable when no skill is active', async () => {
+    const report = await runDoctor({
+      skillPresenceProbe: () => null,
+      workspaceInitializedProbe: () => false
+    });
+    const check = report.checks.find((item) => item.id === 'skill-presence:workspace');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('not applicable');
+  });
+});
+
+describe('runDoctor statusline:runtime diagnostic', () => {
+  test('emits a Windows-specific hint on win32', async () => {
+    const report = await runDoctor({ platform: 'win32', skillPresenceProbe: () => null });
+    const check = report.checks.find((item) => item.id === 'statusline:runtime');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('win32');
+    expect(check?.message).toContain('PATH');
+  });
+
+  test('reports the running version on non-Windows platforms', async () => {
+    const report = await runDoctor({ platform: 'linux', skillPresenceProbe: () => null });
+    const check = report.checks.find((item) => item.id === 'statusline:runtime');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('linux');
+  });
+});
+
 describe('doctor-report schema documents the skill-presence prefix', () => {
   test('schema pattern includes skill-presence prefix', async () => {
     const { readFile } = await import('node:fs/promises');

@@ -10,6 +10,7 @@ import { loadSkillRegistry } from '../skills/skill-registry.js';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 import { planStatusLineInstall } from '../skills/statusline-settings-service.js';
 import { findProjectRoot } from '../config/config-safety.js';
+import { CLI_VERSION } from '../../shared/version.js';
 
 export type DoctorCheck = {
   id: string;
@@ -40,6 +41,10 @@ export type DoctorOptions = {
   skillPresenceProbe?: () => SkillPresence | null;
   skillPresenceFreshnessThresholdMs?: number;
   statusLineInstalledProbe?: () => boolean;
+  /** Returns true when a Peaks workspace session (.peaks/.session.json) exists. */
+  workspaceInitializedProbe?: () => boolean;
+  /** Platform string (defaults to process.platform); injectable for tests. */
+  platform?: NodeJS.Platform;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -60,12 +65,26 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
 
 function defaultStatusLineInstalledProbe(): boolean {
   const projectRoot = findProjectRoot(process.cwd());
-  if (projectRoot === null) return false;
+  // Check both scopes: a user may have installed the statusLine globally, which
+  // the project-only check would miss and falsely report as "not installed".
   try {
-    return planStatusLineInstall('project', projectRoot).alreadyInstalled;
+    if (projectRoot !== null && planStatusLineInstall('project', projectRoot).alreadyInstalled) {
+      return true;
+    }
+  } catch {
+    /* fall through to global */
+  }
+  try {
+    return planStatusLineInstall('global').alreadyInstalled;
   } catch {
     return false;
   }
+}
+
+function defaultWorkspaceInitializedProbe(): boolean {
+  const projectRoot = findProjectRoot(process.cwd());
+  if (projectRoot === null) return false;
+  return existsSync(join(projectRoot, '.peaks', '.session.json'));
 }
 
 const DESTRUCTIVE_APPLY_PATTERNS = [
@@ -245,6 +264,33 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     }
   }
 
+  // Workspace guard: an active workflow presence (peaks-solo) with no workspace
+  // session means the skill was anchored but `peaks workspace init` never ran —
+  // the #1 reported failure where .peaks/ artifacts are never created. This
+  // turns the SKILL.md "MUST create the workspace" prose into an executable check.
+  const workspaceProbe = options.workspaceInitializedProbe ?? defaultWorkspaceInitializedProbe;
+  let workspaceInitialized = false;
+  try {
+    workspaceInitialized = workspaceProbe();
+  } catch {
+    workspaceInitialized = false;
+  }
+  if (presence !== null && !workspaceInitialized) {
+    checks.push({
+      id: 'skill-presence:workspace',
+      ok: false,
+      message: `Skill ${presence.skill} is active but no workspace session exists (.peaks/.session.json missing); run \`peaks workspace init --project <repo>\` — peaks-solo Step 0 must anchor the workspace before any work`
+    });
+  } else {
+    checks.push({
+      id: 'skill-presence:workspace',
+      ok: true,
+      message: presence === null
+        ? 'No active skill presence; workspace guard not applicable'
+        : `Workspace session present for active skill ${presence.skill}`
+    });
+  }
+
   // Discoverability nudge: when a skill is actively orchestrating but the
   // out-of-band statusLine isn't installed, the user has no terminal-level
   // signal that Peaks is in control. Suggest installing it (non-failing).
@@ -268,6 +314,26 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       message: statusLineInstalled
         ? 'Peaks statusLine is installed'
         : 'Peaks statusLine not installed (no active skill; install optional)'
+    });
+  }
+
+  // Runtime/platform diagnostic for the "statusLine shows nothing" reports.
+  // Surfaces (a) the running peaks version — a stale global install predating
+  // the statusLine feature is a common cause — and (b) on Windows, the fact that
+  // the bare `peaks statusline` command must resolve in the shell Claude Code
+  // spawns, which fails when the npm global bin dir is not on that shell's PATH.
+  const platform = options.platform ?? process.platform;
+  if (platform === 'win32') {
+    checks.push({
+      id: 'statusline:runtime',
+      ok: true,
+      message: `peaks ${CLI_VERSION} (win32): if the statusLine shows nothing in git bash, verify \`peaks\` resolves on PATH in the shell Claude Code uses (run \`peaks -v\` there), reinstall globally with \`npm i -g peaks-cli@latest\` if the version is older than ${CLI_VERSION}, then re-run \`peaks statusline install\` and reload Claude Code`
+    });
+  } else {
+    checks.push({
+      id: 'statusline:runtime',
+      ok: true,
+      message: `peaks ${CLI_VERSION} (${platform}): statusLine command is \`peaks statusline\``
     });
   }
 

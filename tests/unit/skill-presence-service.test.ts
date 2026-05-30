@@ -138,6 +138,44 @@ describe('skill presence service', () => {
         rmSync(root, { recursive: true, force: true });
       }
     });
+
+    test('stamps claudeSessionId from CLAUDE_CODE_SESSION_ID env', () => {
+      const root = createTempDir();
+      const prev = process.env.CLAUDE_CODE_SESSION_ID;
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        process.env.CLAUDE_CODE_SESSION_ID = 'claude-session-abc';
+
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+
+        expect(presence.claudeSessionId).toBe('claude-session-abc');
+        const raw = JSON.parse(readFileSync(join(root, '.peaks', '.active-skill.json'), 'utf8'));
+        expect(raw.claudeSessionId).toBe('claude-session-abc');
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+        else process.env.CLAUDE_CODE_SESSION_ID = prev;
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('omits claudeSessionId when CLAUDE_CODE_SESSION_ID env is absent', () => {
+      const root = createTempDir();
+      const prev = process.env.CLAUDE_CODE_SESSION_ID;
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        delete process.env.CLAUDE_CODE_SESSION_ID;
+
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+
+        expect(presence.claudeSessionId).toBeUndefined();
+      } finally {
+        if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+        else process.env.CLAUDE_CODE_SESSION_ID = prev;
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('getSkillPresence', () => {

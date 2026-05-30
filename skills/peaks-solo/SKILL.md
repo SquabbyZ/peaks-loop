@@ -44,9 +44,35 @@ peaks-solo (orchestrate only)
 
 ## Peaks-Cli Startup sequence (MANDATORY — execute in order)
 
-### Peaks-Cli Step 1: Mode selection (MUST run before presence:set)
+### Peaks-Cli Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
-When the user invokes Peaks-Cli Solo without explicitly naming an execution profile, use `AskUserQuestion` BEFORE any other action. Present the recommended full-auto path as the first/default option with a practical description for each:
+The instant Peaks-Cli Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
+
+```bash
+# Session ID is auto-generated when omitted; the command returns it in the JSON output
+peaks workspace init --project <repo> --json
+peaks skill presence:set peaks-solo --project <repo> --gate startup
+```
+
+If `workspace init` fails with "required option '--session-id' not specified", the CLI version predates auto-generation. Generate a session ID manually and pass it:
+
+```bash
+SESSION_ID="$(date +%Y-%m-%d)-session-$(openssl rand -hex 3)"
+peaks workspace init --project <repo> --session-id "$SESSION_ID" --json
+peaks skill presence:set peaks-solo --project <repo> --gate startup
+```
+
+> `<repo>` is the **git project root** (the directory containing `.git`). In a monorepo / single-repo-multi-package layout, this is the repo root, NOT a sub-package — `.peaks/` lives at the repo root so every package shares one workspace. If unsure, run `git rev-parse --show-toplevel` and use that path. Never let `.peaks/` land inside a sub-package directory.
+
+**There is no request too lightweight to skip this.** "分析下这个项目", "看一下代码", "分析项目", "解释一下架构", a one-line question — all of them still create the workspace and set presence first. The workspace is cheap; a missing `.peaks/` is the #1 reported failure.
+
+**Anti-bail-out rule (BLOCKING):** You MUST NOT exit the peaks-solo workflow, hand control back, or produce a final answer before Step 0 has run. If you catch yourself thinking "this is just analysis, I don't need the workflow" — STOP. Run Step 0, set presence, then continue. A pure-analysis request runs the **lightweight analysis branch** (project scan + standards dry-run + handoff with a Standards-increment section), but it still anchors the workspace and keeps presence active. Declining to anchor is a workflow violation.
+
+`presence:set` accepts no `--mode` here on purpose — mode is unknown until Step 1. It is re-run with the selected mode in Step 2. Setting presence early guarantees the status header/line shows `peaks-solo` from the very first turn even if the user never reaches mode selection.
+
+### Peaks-Cli Step 1: Mode selection
+
+After Step 0 has anchored the workspace and presence, when the user invokes Peaks-Cli Solo without explicitly naming an execution profile, use `AskUserQuestion` to pick the profile. Present the recommended full-auto path as the first/default option with a practical description for each:
 
 1. **Full auto (Recommended)** — Peaks-Cli handles planning, role coordination, validation, and compact handoff end-to-end while preserving required confirmation gates for risky or shared-state actions.
 2. **Assisted** — Peaks-Cli proposes plans, artifacts, and checks, then pauses for user decisions at major workflow boundaries.
@@ -66,9 +92,9 @@ Map the user's selection to the `--mode` flag value (used by `peaks skill presen
 
 If the user already names a profile in their invocation (e.g. `/peaks-solo --full-auto`, "用全自动模式"), skip this question and use the named profile directly.
 
-### Peaks-Cli Step 2: Set skill presence
+### Peaks-Cli Step 2: Re-set skill presence with the chosen mode
 
-Only after the mode is known (user selected or explicitly named), run:
+Step 0 already set presence with no mode. Now that the mode is known (user selected or explicitly named), re-run presence:set so the header/status line shows the profile:
 
 ```bash
 peaks skill presence:set peaks-solo --project <repo> --mode <mode-value> --gate startup
@@ -144,7 +170,7 @@ For frontend workflows, RD and QA must use Playwright MCP (`mcp__playwright__` t
 
 ### Workspace initialization gate
 
-Before ANY role handoff or artifact write, Peaks-Cli Solo MUST create the workspace. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
+The workspace is created in Step 0 (Startup sequence) as a mandatory first action — before any analysis, role handoff, or artifact write, and regardless of how lightweight the request is. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
 
 When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If `.peaks/.session.json` already exists with a valid session, the existing session is reused.
 
@@ -760,7 +786,7 @@ Use `standards init` for first-time creation and `standards update` for existing
 
 Do not hand-write standards file mutations inside the skill.
 
-For project-analysis requests such as "分析项目", the handoff must include an explicit **Standards increment** section. Report the current `CLAUDE.md` and `.claude/rules/**` status from the dry-run output as incremental deltas, not just a generic preflight note:
+For project-analysis requests such as "分析项目" / "分析下这个项目", Step 0 still applies: the workspace is initialized and `peaks-solo` presence is set before any analysis output. These requests run the lightweight analysis branch (project scan + standards dry-run) rather than the full RD/QA pipeline, but they never skip workspace anchoring or exit the workflow. The handoff must include an explicit **Standards increment** section. Report the current `CLAUDE.md` and `.claude/rules/**` status from the dry-run output as incremental deltas, not just a generic preflight note:
 
 - whether `CLAUDE.md` is missing, existing, planned, skipped, appended, or review-only;
 - which `.claude/rules/**` files are planned, existing, skipped, appended, or review-only;

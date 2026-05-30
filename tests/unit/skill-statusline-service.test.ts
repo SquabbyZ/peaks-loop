@@ -122,6 +122,57 @@ describe('buildStatusLineModel', () => {
     }
   });
 
+  test('renders idle when presence belongs to a different Claude session', () => {
+    const root = createTempDir();
+    try {
+      writeGitDir(root);
+      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
+      const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
+      expect(model.state).toBe('idle');
+      expect(model.presence).toBeNull();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('renders active when presence matches the live Claude session', () => {
+    const root = createTempDir();
+    try {
+      writeGitDir(root);
+      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-LIVE', setAt: new Date().toISOString() });
+      const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-LIVE' }, Date.now());
+      expect(model.state).toBe('active');
+      expect(model.presence?.skill).toBe('peaks-solo');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('falls back to time-based state for legacy presence without a Claude session id', () => {
+    const root = createTempDir();
+    try {
+      writeGitDir(root);
+      writePresence(root, { skill: 'peaks-solo', setAt: new Date().toISOString() });
+      const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
+      expect(model.state).toBe('active');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('does not delete the presence file on a session mismatch (read-only)', () => {
+    const root = createTempDir();
+    try {
+      writeGitDir(root);
+      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
+      const presencePath = join(root, '.peaks', '.active-skill.json');
+      buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
+      expect(existsSync(presencePath)).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test('returns idle when no project root found (non-peaks dir)', () => {
     const root = createTempDir();
     try {
