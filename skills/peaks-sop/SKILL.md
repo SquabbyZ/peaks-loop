@@ -74,6 +74,29 @@ The three gate primitives are domain-neutral, so the same engine governs very di
 
 The one boundary to explain: a gate must reduce to **a file existing, text matching in a file, or a command's exit code**. A purely human-judgment gate ("did the editor approve?") is expressed by reifying it into a signal — e.g. require an `approved.md` file, or that a status file contains "approved". The `command` gate is the universal adapter for anything scriptable.
 
+## Un-bypassable enforcement (optional, opt-in)
+
+By default a SOP gate only blocks the `peaks sop advance` command — nothing forces the agent through it. To make a gate **physically un-bypassable**, a SOP can declare **guards** that bind a concrete irreversible Bash action to a phase, and the user installs a PreToolUse hook:
+
+```jsonc
+// in sop.json
+"guards": [ { "phase": "publish", "bash": "git +push" } ]
+```
+Meaning: running a Bash command matching `git +push` IS entering the publish phase, so publish's gates must pass first. Then:
+
+```bash
+peaks hooks install --project <repo>     # explicit, opt-in; writes one PreToolUse entry
+```
+
+Now when the agent tries `git push` while the publish gate fails, Claude Code receives `permissionDecision: "deny"` and the command is blocked **before any permission check — it holds even under `--dangerously-skip-permissions`**. CI only blocks at merge; CLAUDE.md instructions are advisory; this blocks in-conversation and cannot be skipped.
+
+- `bash` is a **JS regex inside JSON** — escape backslashes (`"git\\s+push"`) or just use `"git +push"`. `peaks sop lint` rejects an invalid regex (`GUARD_INVALID_PATTERN`).
+- Emergency override: `peaks gate bypass --sop <id> --phase <phase> --reason "<why>"` records a **one-shot** token consumed by the next blocked command (capped per project per SOP, reason audited).
+- Trust: enforcement **fails open** — any internal error allows the command (a Peaks bug never bricks Claude Code); only a real gate failure denies. Installing the hook is an explicit user command; this skill never writes `settings.json` itself.
+- `peaks hooks status` / `peaks hooks uninstall` manage the hook.
+
+> Boundary note: SOP definitions are global (`~/.peaks`), so enforcement is real for *you* on this machine. A teammate who clones the repo gets the hook but not your global SOP, so it fails open for them — repo-shared enforcement is a planned follow-up.
+
 ## Default runbook
 
 The default sequence this skill executes on the user's behalf. The natural-language → generate → debug loop IS this runbook.
@@ -106,7 +129,13 @@ peaks sop register --id <sop-id> --dry-run --json
 peaks sop register --id <sop-id> --json
 peaks sop registry --json
 
-# 7. hand the SOP to the user; clear presence when done
+# 7. (optional) make a gate un-bypassable: declare guards in sop.json, then install the hook
+peaks hooks install --project <repo>
+peaks hooks status --project <repo>
+#    emergency one-shot override when a guarded action must proceed despite a failing gate:
+peaks gate bypass --sop <sop-id> --phase <phase> --reason "<why>" --project <repo>
+
+# 8. hand the SOP to the user; clear presence when done
 peaks skill presence:clear --project <repo>
 ```
 

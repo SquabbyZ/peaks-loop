@@ -12,6 +12,18 @@
       "minItems": 1,
       "items": { "type": "string" }
     },
+    "guards": {
+      "type": "array",
+      "description": "Optional Bash-action guards enforced by the PreToolUse hook (peaks gate enforce).",
+      "items": {
+        "type": "object",
+        "required": ["phase", "bash"],
+        "properties": {
+          "phase": { "type": "string" },
+          "bash": { "type": "string", "description": "JS regex tested against the Bash tool_input.command" }
+        }
+      }
+    },
     "gates": {
       "type": "array",
       "items": {

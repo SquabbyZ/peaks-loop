@@ -104,6 +104,35 @@ Note `no-placeholders` uses `grep` with `absent: true` — "must not contain a p
 
 These reuse the same three gate types — only the phases and the file/command targets differ. A human-judgment step ("the editor approved") is reified into a file/grep signal (an `approval.md` file, or a status line matching "Approved"), as shown above.
 
+## Guards: un-bypassable enforcement (optional)
+
+A gate normally only blocks `peaks sop advance`. To make it physically un-bypassable by the agent, add **guards** that bind an irreversible Bash action to a phase, and have the user install the PreToolUse hook.
+
+```json
+{
+  "id": "team-release",
+  "name": "Team Release",
+  "phases": ["draft", "review", "ship"],
+  "gates": [
+    { "id": "no-fixme", "phase": "ship", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME", "absent": true } }
+  ],
+  "guards": [
+    { "phase": "ship", "bash": "git +push" },
+    { "phase": "ship", "bash": "npm +publish" }
+  ]
+}
+```
+
+Semantics: a Bash command matching a guard's `bash` regex = entering that phase, so the phase's gates must pass first. With the hook installed (`peaks hooks install --project <repo>`), the agent literally cannot run `git push` / `npm publish` while `no-fixme` fails — Claude Code receives `permissionDecision: "deny"` before any permission check (holds even under `--dangerously-skip-permissions`).
+
+`bash` rules:
+- It is a **JS regex written inside JSON**. Escape backslashes: `"git\\s+push"`, or sidestep escaping with `"git +push"` (one-or-more spaces). `peaks sop lint` rejects an uncompilable regex (`GUARD_INVALID_PATTERN`) and a guard on an undeclared phase (`GUARD_PHASE_UNKNOWN`).
+- Keep patterns specific to the irreversible action (`git +push`, `npm +publish`, `gh +release`, a deploy script name) — not broad verbs.
+
+Override once (hotfix): `peaks gate bypass --sop team-release --phase ship --reason "<why>" --project <repo>` — consumed by the next blocked command, capped per project per SOP.
+
+`command`-type gates run during enforcement with commands enabled (installing the hook is the consent); each gate keeps its 30s timeout. Enforcement **fails open** on any internal error — only a real gate failure denies.
+
 ## Interview → generate → debug loop
 
 1. **Interview.** Ask: what are the ordered stages of this workflow? For each stage, what must be true before you're allowed to enter it? Translate "must be true" into file-exists / grep / command checks. For "must NOT contain X", reach for `grep` + `absent: true`.

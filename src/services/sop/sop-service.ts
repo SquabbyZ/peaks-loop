@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest } from './sop-types.js';
+import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest, type SopPhaseGuard } from './sop-types.js';
 import { sopDir, sopManifestPath, sopSkillPath } from './sop-paths.js';
 
 /**
@@ -201,6 +201,23 @@ function lintGate(
   }
 }
 
+function lintGuard(guard: SopPhaseGuard, index: number, phases: Set<string>, findings: SopLintFinding[]): void {
+  const label = `#${index}`;
+  if (typeof guard?.phase !== 'string' || !phases.has(guard.phase)) {
+    pushError(findings, 'GUARD_PHASE_UNKNOWN', `Guard ${label} binds to unknown phase "${String(guard?.phase)}"`);
+  }
+  if (typeof guard?.bash !== 'string' || guard.bash.length === 0) {
+    pushError(findings, 'GUARD_MISSING_PATTERN', `Guard ${label} requires a non-empty "bash" pattern`);
+    return;
+  }
+  try {
+    // eslint-disable-next-line no-new
+    new RegExp(guard.bash);
+  } catch {
+    pushError(findings, 'GUARD_INVALID_PATTERN', `Guard ${label} has an invalid bash regex "${guard.bash}"`);
+  }
+}
+
 export async function lintSop(options: SopLintOptions): Promise<SopLintResult | null> {
   const manifestPath = sopManifestPath(options.id);
   if (!existsSync(manifestPath)) {
@@ -243,6 +260,9 @@ export async function lintSop(options: SopLintOptions): Promise<SopLintResult | 
   const gates = Array.isArray(manifest.gates) ? manifest.gates : [];
   const seenGateIds = new Set<string>();
   gates.forEach((gate, index) => lintGate(gate, index, phaseSet, seenGateIds, options.allowCommands === true, findings));
+
+  const guards = Array.isArray(manifest.guards) ? manifest.guards : [];
+  guards.forEach((guard, index) => lintGuard(guard, index, phaseSet, findings));
 
   return {
     ok: findings.every((finding) => finding.severity !== 'error'),

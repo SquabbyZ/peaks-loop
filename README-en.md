@@ -87,6 +87,24 @@ Beyond the built-in `peaks-*` skill family, the `peaks sop` command group lets y
 
 > Easier path: use the **`peaks-sop` skill** — describe your process in natural language and let the LLM generate, debug, and register the SOP for you, with no JSON to hand-write or commands to memorize. The CLI below is the engine it drives.
 
+### Un-bypassable gates (the killer feature)
+
+CI only blocks at **merge time**; rules in `CLAUDE.md` rely on the agent's **goodwill**. Peaks does what neither can: stop an irreversible action **mid-conversation, against the agent itself**.
+
+Declare a **guard** on a phase (binding a Bash command to it), then install a PreToolUse hook:
+
+```bash
+# in sop.json: bind "publish" to git push, and require the post to be TODO-free
+#   "gates":  [{ "id":"no-todo","phase":"publish",
+#               "check":{ "type":"grep","file":"posts/current.md","pattern":"TODO","absent":true } }]
+#   "guards": [{ "phase":"publish","bash":"git +push" }]
+peaks hooks install --project .        # explicit opt-in; writes one PreToolUse entry
+```
+
+Now when the agent tries `git push` while a TODO remains, Claude Code receives `permissionDecision: "deny"` and the command is blocked **before any permission check — it holds even under `--dangerously-skip-permissions`**. Satisfy the gate and it passes; for emergencies, `peaks gate bypass --sop <id> --phase <phase> --reason "<why>"` allows it once (capped per project per SOP, reason audited).
+
+Enforcement **fails open**: any internal Peaks error allows the command (a bug never bricks your Claude Code) — only a real gate failure denies. Installing the hook is an explicit user command; the skill never writes `settings.json`. Manage it with `peaks hooks status` / `peaks hooks uninstall`.
+
 **Definition global, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) lives in the global `~/.peaks/sops/<sop-id>/` — author it once and reuse it across every project. Run-state (current phase, history) is per-project at `<project>/.peaks/sop-state/<sop-id>/`, so the same SOP tracks independent progress in each project. `init`/`lint`/`register`/`registry` operate on the global definition and take **no `--project`**; `check`/`advance` take `--project` (default: current directory) to say which project to run against.
 
 ```bash

@@ -11,6 +11,8 @@ import { registerRequestCommands } from './commands/request-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
 import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
+import { registerGateCommands } from './commands/gate-commands.js';
+import { registerHooksCommands } from './commands/hooks-commands.js';
 import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
@@ -46,6 +48,8 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
   registerScanCommands(program, io);
   registerShadcnCommands(program, io);
   registerSopCommands(program, io);
+  registerGateCommands(program, io);
+  registerHooksCommands(program, io);
   registerStatusLineCommands(program, io);
   registerUnderstandCommands(program, io);
   registerWorkspaceCommands(program, io);

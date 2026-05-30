@@ -28,6 +28,20 @@ export type SopGate = {
   check: SopGateCheck;
 };
 
+/**
+ * Binds a concrete irreversible Bash action to a phase: running a command that
+ * matches `bash` (a JS regex) counts as performing that phase's action, so the
+ * phase's gates must pass first. Enforced un-bypassably by the PreToolUse hook
+ * (`peaks gate enforce`). Optional — a SOP without guards still works exactly as
+ * before; enforcement is an opt-in overlay.
+ */
+export type SopPhaseGuard = {
+  /** The phase whose gates must pass before the matching command may run. Must be a declared phase. */
+  phase: string;
+  /** JS regular expression tested against the Bash `tool_input.command`. */
+  bash: string;
+};
+
 export type SopManifest = {
   /** SOP id; namespaced separately from built-in peaks-* skills. */
   id: string;
@@ -36,6 +50,8 @@ export type SopManifest = {
   /** Ordered, unique phase names. */
   phases: string[];
   gates: SopGate[];
+  /** Optional Bash-action guards enforced by the PreToolUse hook (opt-in). */
+  guards?: SopPhaseGuard[];
 };
 
 /**

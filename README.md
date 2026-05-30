@@ -87,6 +87,24 @@ peaks skill doctor --json
 
 > 更顺手的用法：直接用 **`peaks-sop` 技能**——在对话里用自然语言描述你的流程，由 LLM 帮你生成、调试、注册 SOP，无需手写 JSON 或记命令。下面的 CLI 是它底层调用的引擎。
 
+### 不可绕过的门禁（杀手锏）
+
+CI 只能在**合并时**拦，`CLAUDE.md` 里的规矩靠 agent **自觉**。Peaks 能做到 CI 和提示词都做不到的事：在**对话流程中途、面向 agent 本身**把不可逆动作摁住。
+
+给某个 phase 声明 **guard**（把一个 Bash 命令绑到该 phase），再装一个 PreToolUse hook：
+
+```bash
+# sop.json 里：把「发布」绑定到 git push，并要求正文无 TODO
+#   "gates":  [{ "id":"no-todo","phase":"publish",
+#               "check":{ "type":"grep","file":"posts/current.md","pattern":"TODO","absent":true } }]
+#   "guards": [{ "phase":"publish","bash":"git +push" }]
+peaks hooks install --project .        # 显式 opt-in，只写一条 PreToolUse 条目
+```
+
+此后 agent 正文里还留着 TODO 却想 `git push` 时，Claude Code 收到 `permissionDecision:"deny"`，命令**在任何权限检查之前被拦下——连 `--dangerously-skip-permissions` 都绕不过**。满足门禁后自动放行；紧急情况用 `peaks gate bypass --sop <id> --phase <phase> --reason "<原因>"` 一次性放行（每项目每 SOP 有上限、记原因）。
+
+强制层**故障即放行**（fail-open）：Peaks 自身任何内部错误都放行命令，绝不会卡死你的 Claude Code，只有真实门禁失败才拦。装 hook 是显式用户命令，skill 自己永不写 `settings.json`。`peaks hooks status` / `peaks hooks uninstall` 管理它。
+
 **定义全局、执行按项目**：SOP 定义（`sop.json` + 可注册的 `SKILL.md`）落在全局 `~/.peaks/sops/<sop-id>/`，写一次即可跨项目复用；运行态（当前阶段、历史）按项目落在 `<project>/.peaks/sop-state/<sop-id>/`，同一个 SOP 在不同项目各自独立进度。`init`/`lint`/`register`/`registry` 操作全局定义、**无需 `--project`**；`check`/`advance` 带 `--project`（默认当前目录）指定对哪个项目执行。
 
 ```bash

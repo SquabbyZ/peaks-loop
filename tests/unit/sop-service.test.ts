@@ -199,4 +199,27 @@ describe('lintSop', () => {
     await writeManifest('rel', { id: 'Bad Id', name: 'X', phases: ['p'], gates: [] });
     expect(codes((await lintSop({ id: 'rel' }))!.findings)).toContain('INVALID_ID');
   });
+
+  test('accepts a valid Bash guard', async () => {
+    await writeManifest('rel', {
+      id: 'rel', name: 'Rel', phases: ['draft', 'publish'], gates: [],
+      guards: [{ phase: 'publish', bash: 'git\\s+push' }]
+    });
+    expect((await lintSop({ id: 'rel' }))?.ok).toBe(true);
+  });
+
+  test('flags a guard bound to an unknown phase', async () => {
+    await writeManifest('rel', {
+      id: 'rel', name: 'Rel', phases: ['draft'], gates: [],
+      guards: [{ phase: 'nope', bash: 'git push' }]
+    });
+    expect(codes((await lintSop({ id: 'rel' }))!.findings)).toContain('GUARD_PHASE_UNKNOWN');
+  });
+
+  test('flags a guard with an empty or invalid regex', async () => {
+    await writeManifest('a', { id: 'a', name: 'A', phases: ['p'], gates: [], guards: [{ phase: 'p', bash: '' }] });
+    expect(codes((await lintSop({ id: 'a' }))!.findings)).toContain('GUARD_MISSING_PATTERN');
+    await writeManifest('b', { id: 'b', name: 'B', phases: ['p'], gates: [], guards: [{ phase: 'p', bash: '(' }] });
+    expect(codes((await lintSop({ id: 'b' }))!.findings)).toContain('GUARD_INVALID_PATTERN');
+  });
 });
