@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Peaks CLI and short skill family for Claude Code automation.",
   "author": "SquabbyZ",
   "license": "MIT",
