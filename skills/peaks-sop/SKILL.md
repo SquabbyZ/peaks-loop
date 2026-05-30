@@ -29,16 +29,22 @@ If the user has never used Peaks before, offer a 30-second demo:
    scaffold one, show you how a gate blocks, then we can replace it with your
    real workflow."
 
-When they accept, use `peaks-sop` as the id, name it "Demo SOP", make two phases
-(draft → done), one gate (file-exists README.md), then run the full
-init→lint→check→register→hooks install flow so they see the whole thing. Then
-offer to replace it with their real process.
+When they accept, use `demo-sop` as the id (NOT `peaks-sop` — the `peaks-` prefix
+is reserved), name it "Demo SOP", make two phases (draft → done), one gate
+(file-exists README.md), then run the full init→lint→check→register→hooks
+install flow so they see the whole thing. Then offer to replace it with their
+real process.
 
 ## Skill presence (MANDATORY first action — run AFTER telling the user what you're doing)
 
+If the user invoked this skill directly ("peaks-sop") without mentioning a
+specific project, assume `--project .` (current directory). If they are NOT in
+the middle of a multi-skill peaks-solo/prd/rd/qa pipeline, skip `statusline
+install` — the status bar is for long-running orchestrations; a standalone SOP
+authoring session does not need it.
+
 ```bash
 peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate startup
-peaks statusline install --project <repo>   # idempotent; first time only
 peaks project memories --project <repo> --json
 ```
 
@@ -119,40 +125,43 @@ Now when the agent tries `git push` while the publish gate fails, Claude Code re
 The default sequence this skill executes on the user's behalf. The natural-language → generate → debug loop IS this runbook.
 
 ```bash
-# 0. confirm this skill's own runbook integrity, then announce presence
+# self-check (required by doctor; no user-visible effect)
 peaks skill runbook peaks-sop --json
-peaks skill presence:set peaks-sop --project <repo> --gate startup
 
-# 1. interview the user, then scaffold the SOP (preview first, then apply)
+# 1. interview the user FIRST (before any scaffold): what are the ordered stages?
+#    For each stage, what must be true before entering it? Translate answers into
+#    file-exists / grep / grep-absent / command gates.
+
+# 2. scaffold the SOP based on the interview (preview first, then apply)
 #    definitions are global (~/.peaks/sops) — init/lint/register take no --project
 peaks sop init --id <sop-id> --name "<human name>" --json
 peaks sop init --id <sop-id> --name "<human name>" --apply --json
 
-# 2. write the phases/gates from the interview into ~/.peaks/sops/<sop-id>/sop.json
+# 3. write the phases/gates from the interview into ~/.peaks/sops/<sop-id>/sop.json
 #    (edit the manifest directly — the user described it in natural language)
 
-# 3. DEBUG LOOP: lint, fix the reported findings, re-lint until clean
+# 4. DEBUG LOOP: lint, fix the reported findings, re-lint until clean
 peaks sop lint --id <sop-id> --json
 peaks sop lint --id <sop-id> --allow-commands --json   # when the SOP uses command gates
 
-# 4. test each gate behaves as intended (pass / fail / blocked) against a project
+# 5. test each gate behaves as intended (pass / fail / blocked) against a project
 peaks sop check --id <sop-id> --gate <gate-id> --project <repo> --json
 
-# 5. dry-run the flow to confirm gates + phase order block/allow the right phases
+# 6. dry-run the flow to confirm gates + phase order block/allow the right phases
 peaks sop advance --id <sop-id> --to <phase> --project <repo> --dry-run --json
 
-# 6. register the SOP (preview, then apply) so it joins presence/statusline
+# 7. register the SOP (preview, then apply) so it joins presence/statusline
 peaks sop register --id <sop-id> --dry-run --json
 peaks sop register --id <sop-id> --json
 peaks sop registry --json
 
-# 7. (optional) make a gate un-bypassable: declare guards in sop.json, then install the hook
+# 8. (optional) make a gate un-bypassable: declare guards in sop.json, then install the hook
 peaks hooks install --project <repo>
 peaks hooks status --project <repo>
 #    emergency one-shot override when a guarded action must proceed despite a failing gate:
 peaks gate bypass --sop <sop-id> --phase <phase> --reason "<why>" --project <repo>
 
-# 8. hand the SOP to the user; clear presence when done
+# 9. hand the SOP to the user; clear presence when done
 peaks skill presence:clear --project <repo>
 ```
 
