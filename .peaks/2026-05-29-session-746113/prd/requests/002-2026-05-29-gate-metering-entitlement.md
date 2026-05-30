@@ -87,4 +87,4 @@ open-core 的物理边界 = 两个仓：
 - last update: 2026-05-29T15:34:46.160Z
 - state: deferred
 - 说明：用户决定暂缓 B 计划，先 dogfood Feature A（自定义 SOP）验证易用性后再定。本 PRD 作为未来输入归档，未交接 RD/QA。
-- deferred note (2026-05-29)：(1) 用户拍板暂缓 B，优先试用自定义 SOP 找易用性优化点。(2) 存储决策修订——license key/token 不再"只存引用"，改为**加密落盘、用时解密**（覆盖原 P3/G3 的 TokenConfig-只存引用方案）；重启 B 时 RD 需据此设计加解密方案（主密钥来源、算法、密钥管理），并仍需在 ARCHITECTURE.md 登记 token 红线的受控例外 + 用户签字。
+- deferred note (2026-05-29)：(1) 用户拍板暂缓 B，优先试用自定义 SOP 找易用性优化点。(2) 存储决策修订——license key/token 不再"只存引用"，改为**加密落盘、用时解密**（覆盖原 P3/G3 的 TokenConfig-只存引用方案）；重启 B 时 RD 需据此设计加解密方案（主密钥来源、算法、密钥管理），并仍需在 ARCHITECTURE.md 登记 token 红线的受控例外 + 用户签字。(3) **计量单位修订——套餐卡的是"完整 SOP 数"而非门禁数**：free=2 / pro=6 / max=18 / ultra=∞ 指**已注册 SOP 数**（= `registry.sops.length`），不是门禁池总数。本文 G1/G4/AC6/AC7/AC10 里所有"门禁池/gateQuota/门禁数"读作"SOP 数/sopQuota/SOP 数"；register 的配额闸口在"注册第 N+1 个 SOP 超限"时触发，而非门禁超限。理由见 [[custom-sop-and-gate-metering]]。

@@ -8,10 +8,10 @@ New iteration discussed 2026-05-29 (peaks-prd brainstorm). PRD confirmed at `.pe
 
 **Feature A — user-authored SOP skills (build first, standalone value):** scaffolder + gate manifest schema + `peaks sop lint` + register into presence/statusline/mode-enforcement. Builds on existing skill-registry, skill-create, install-skills.mjs. Scope = "range 3" (custom gates truly block transitions via a gate registry).
 
-**Feature B — slotted gate metering + tiers (open-core商业层, on top of A):** free=2 / pro=6 / max=18 / ultra=∞ gates.
+**Feature B — tiered SOP metering (open-core商业层, on top of A):** free=2 / pro=6 / max=18 / ultra=∞ **complete SOPs**.
 
 Locked decisions (treat as preserved behavior for downstream RD/QA):
-- **Metering unit = total gate pool per workspace/account** (not per-SOP cap, not SOP count). Counts only user-authored SOP gates. Resilient to split/merge; server-verifiable; client-visualizable as "used 4/6".
+- **Metering unit = number of complete (registered) SOPs per workspace/account** — REVISED 2026-05-29 from the earlier "total gate pool" decision per user ("套餐不应该卡 cli 门禁，而是卡完整 sop 数"). Rationale: buyer mental model ("free = 2 workflows") is far clearer; doesn't penalize thorough SOPs (gate-count metering would push users to add fewer gates, weakening the core value); aligns with "how many processes you enforce." Count = `registry.sops.length` (A's registry already enumerates `sops[]`, so the seam needs zero rework — simpler than gate counting). Only counts user-authored SOPs; built-in peaks-* never counted. Mild tradeoff on record: gameable by cramming many flows into one mega-SOP, but mega-SOPs are self-limitingly unwieldy.
 - **Built-in peaks-* family gates are ALWAYS exempt and never counted.** free=2 must NOT break the bundled skills. Selling authoring power, not "our product's safety".
 - **Open-core**: CLI core stays MIT; paywall via server-side entitlement, NOT a client-side tier check (MIT+public npm → trivially forked).
 - A gate = a CLI-evaluable checkpoint returning pass/fail/blocked, bound to a SOP transition, with a stable addressable id (decided now so B doesn't force a schema rewrite).
