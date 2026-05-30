@@ -141,8 +141,8 @@ describe('loadProjectDashboard', () => {
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
     expect(dashboard.runbookHealth.ok).toBe(false);
-    expect(dashboard.runbookHealth.required).toBe(7);
-    expect(dashboard.runbookHealth.healthy).toBe(5);
+    expect(dashboard.runbookHealth.required).toBe(8);
+    expect(dashboard.runbookHealth.healthy).toBe(6);
     expect(dashboard.runbookHealth.missingRunbook).toEqual(['peaks-rd']);
     expect(dashboard.runbookHealth.applyNoteFailed).toEqual(['peaks-qa']);
   });

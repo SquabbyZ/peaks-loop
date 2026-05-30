@@ -13,7 +13,8 @@ const ROLE_SKILLS: Array<{ name: string; minPeaksCommands: number; mustReference
 
 const SUPPORT_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
   { name: 'peaks-sc', minPeaksCommands: 8 },
-  { name: 'peaks-txt', minPeaksCommands: 7 }
+  { name: 'peaks-txt', minPeaksCommands: 7 },
+  { name: 'peaks-sop', minPeaksCommands: 10 }
 ];
 
 const ORCHESTRATOR_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
@@ -147,6 +148,17 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
     expect.soft(section).toMatch(/peaks request show/);
     expect.soft(section).toMatch(/peaks project dashboard/);
     expect.soft(section).toMatch(/peaks memory extract/);
+  });
+
+  test('SOP runbook drives the authoring loop via peaks sop init / lint / check / advance / register', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-sop', 'SKILL.md'), 'utf8');
+    const section = extractRunbookSection(body) ?? '';
+
+    expect.soft(section).toMatch(/peaks sop init/);
+    expect.soft(section).toMatch(/peaks sop lint/);
+    expect.soft(section).toMatch(/peaks sop check/);
+    expect.soft(section).toMatch(/peaks sop advance/);
+    expect.soft(section).toMatch(/peaks sop register/);
   });
 });
 

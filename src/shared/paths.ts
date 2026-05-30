@@ -28,7 +28,8 @@ export const requiredSkillNames = [
   'peaks-rd',
   'peaks-qa',
   'peaks-sc',
-  'peaks-txt'
+  'peaks-txt',
+  'peaks-sop'
 ] as const;
 
 export const requiredSchemaFiles = [

@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "prompt": "我想要一个发布流程：先写好 CHANGELOG，再跑通测试，最后才能发布。帮我做成一个 SOP，我不想自己写 JSON。",
+    "expected": "peaks-sop 访谈出 phases（如 draft/review/ship）和门禁，调用 peaks sop init --apply 生成骨架，把门禁写进 sop.json（changelog 用 file-exists、tests 用 command 并提示需要 --allow-commands），跑 peaks sop lint 到 ok:true，用 peaks sop check 验证每个门禁，再 peaks sop register 注册。全程不让用户手写 JSON。"
+  },
+  {
+    "id": 2,
+    "prompt": "我的 SOP lint 报错说门禁绑定了未知阶段，帮我修。",
+    "expected": "peaks-sop 读 lint findings 定位违例门禁，在 sop.json 里把门禁的 phase 改成已声明的阶段（或补声明该阶段），重新 peaks sop lint 直到 ok:true，不直接 register 未通过 lint 的 SOP。"
+  },
+  {
+    "id": 3,
+    "prompt": "这个发布 SOP 真的能在测试没过时把我拦住吗？我想先确认再用。",
+    "expected": "peaks-sop 用 peaks sop check 在好/坏两种状态下验证门禁返回 pass/fail，再用 peaks sop advance --to ship --dry-run 干跑确认门禁未通过时阻断推进且不落盘，向用户展示阻断行为后再交付。"
+  }
+]
