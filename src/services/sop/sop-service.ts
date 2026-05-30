@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest } from './sop-types.js';
+import { sopDir, sopManifestPath, sopSkillPath } from './sop-paths.js';
 
 /**
  * SOP authoring substrate — Feature A, Slice 1.
@@ -11,13 +11,16 @@ import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest } 
  * only lets users create and validate a SOP. The SOP id grammar
  * (SOP_ID_PATTERN: lowercase kebab, no dots/slashes) doubles as the path
  * traversal guard, matching how request artifacts guard their ids.
+ *
+ * SOP definitions are GLOBAL (`~/.peaks/sops/<id>/`, see ./sop-paths) so one
+ * authored SOP is reusable across projects; only run-state is per-project. The
+ * authoring ops here therefore take no projectRoot.
  */
 
 const RESERVED_ID_PREFIX = 'peaks-';
 const RESERVED_IDS = new Set(['peaks']);
 
 export type SopInitOptions = {
-  projectRoot: string;
   id: string;
   name?: string;
   apply?: boolean;
@@ -52,26 +55,17 @@ export type SopLintResult = {
 };
 
 export type SopLintOptions = {
-  projectRoot: string;
   id: string;
   /** `command`-type gates run shell-less processes; require explicit opt-in (OQ3 security). */
   allowCommands?: boolean;
 };
 
-export function sopDir(projectRoot: string, id: string): string {
-  return join(projectRoot, '.peaks', 'sops', id);
-}
-
-export function sopManifestPath(projectRoot: string, id: string): string {
-  return join(sopDir(projectRoot, id), 'sop.json');
-}
-
 /**
  * Read and JSON-parse a SOP manifest. Returns null when the SOP does not exist;
  * throws on malformed JSON. Callers that need validation should run lintSop.
  */
-export async function readSopManifest(projectRoot: string, id: string): Promise<SopManifest | null> {
-  const manifestPath = sopManifestPath(projectRoot, id);
+export async function readSopManifest(id: string): Promise<SopManifest | null> {
+  const manifestPath = sopManifestPath(id);
   if (!existsSync(manifestPath)) {
     return null;
   }
@@ -127,9 +121,9 @@ export async function initSop(options: SopInitOptions): Promise<SopInitResult> {
     throw new Error(reserved);
   }
 
-  const dir = sopDir(options.projectRoot, options.id);
-  const manifestPath = join(dir, 'sop.json');
-  const skillPath = join(dir, 'SKILL.md');
+  const dir = sopDir(options.id);
+  const manifestPath = sopManifestPath(options.id);
+  const skillPath = sopSkillPath(options.id);
 
   if (existsSync(manifestPath)) {
     throw new Error(`A SOP with id "${options.id}" already exists at ${manifestPath}. Remove it before re-running peaks sop init.`);
@@ -208,8 +202,7 @@ function lintGate(
 }
 
 export async function lintSop(options: SopLintOptions): Promise<SopLintResult | null> {
-  const dir = sopDir(options.projectRoot, options.id);
-  const manifestPath = join(dir, 'sop.json');
+  const manifestPath = sopManifestPath(options.id);
   if (!existsSync(manifestPath)) {
     return null;
   }

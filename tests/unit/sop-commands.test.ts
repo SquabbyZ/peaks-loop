@@ -1,10 +1,16 @@
 import { existsSync } from 'node:fs';
-import { rm, mkdir } from 'node:fs/promises';
+import { rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { getMockedHomeDir, parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
 const homeDir = getMockedHomeDir();
+
+// SOP definitions + registry are global under the (mocked) home. Clean that
+// global state before each test so a reused SOP id does not leak across tests.
+async function resetGlobalSops(): Promise<void> {
+  await rm(join(homeDir, '.peaks', 'sops'), { recursive: true, force: true });
+}
 
 async function makeProject(name: string): Promise<string> {
   const project = join(homeDir, name);
@@ -15,19 +21,24 @@ async function makeProject(name: string): Promise<string> {
   return project;
 }
 
+/** Global manifest path for a SOP id (definitions live under the home). */
+function manifestPathFor(id: string): string {
+  return join(homeDir, '.peaks', 'sops', id, 'sop.json');
+}
+
 describe('peaks sop init command', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+    await resetGlobalSops();
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  test('previews without writing, and reports the apply next-action (AC1, AC9)', async () => {
-    const project = await makeProject('sop-init-preview');
-    const result = await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--json']);
+  test('previews without writing, and reports the apply next-action (AC1)', async () => {
+    const result = await runCommand(['sop', 'init', '--id', 'team-release', '--json']);
     const output = parseJsonOutput<{ applied: boolean; manifestPath: string }>(result.stdout);
     expect(output.ok).toBe(true);
     expect(output.command).toBe('sop.init');
@@ -36,19 +47,28 @@ describe('peaks sop init command', () => {
     expect(output.nextActions?.[0]).toMatch(/Re-run with --apply/);
   });
 
-  test('writes the SOP when --apply is passed (AC1)', async () => {
-    const project = await makeProject('sop-init-apply');
-    const result = await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
+  test('writes the SOP into the global home and returns edit/lint next-actions (AC1, AC6)', async () => {
+    const result = await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
     const output = parseJsonOutput<{ applied: boolean; manifestPath: string; skillPath: string }>(result.stdout);
     expect(output.ok).toBe(true);
     expect(output.data.applied).toBe(true);
+    expect(output.data.manifestPath.startsWith(homeDir)).toBe(true);
     expect(existsSync(output.data.manifestPath)).toBe(true);
     expect(existsSync(output.data.skillPath)).toBe(true);
+    // Applied scaffold points the user at the next steps.
+    expect(output.nextActions?.some((a) => /Edit .*sop\.json/.test(a))).toBe(true);
+    expect(output.nextActions?.some((a) => /sop lint/.test(a))).toBe(true);
+  });
+
+  test('honors --name in the scaffolded manifest', async () => {
+    const result = await runCommand(['sop', 'init', '--id', 'team-release', '--name', 'Team Release', '--apply', '--json']);
+    const output = parseJsonOutput<{ manifest: { name: string } }>(result.stdout);
+    expect(output.ok).toBe(true);
+    expect(output.data.manifest.name).toBe('Team Release');
   });
 
   test('fails with a stable code on a reserved id', async () => {
-    const project = await makeProject('sop-init-reserved');
-    const result = await runCommand(['sop', 'init', '--id', 'peaks-rd', '--project', project, '--json']);
+    const result = await runCommand(['sop', 'init', '--id', 'peaks-rd', '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);
     expect(output.code).toBe('SOP_INIT_FAILED');
@@ -57,19 +77,19 @@ describe('peaks sop init command', () => {
 });
 
 describe('peaks sop lint command', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+    await resetGlobalSops();
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  test('passes for a freshly scaffolded SOP (AC2)', async () => {
-    const project = await makeProject('sop-lint-ok');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
-    const result = await runCommand(['sop', 'lint', '--id', 'team-release', '--project', project, '--json']);
+  test('passes for a freshly scaffolded SOP (AC1)', async () => {
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
+    const result = await runCommand(['sop', 'lint', '--id', 'team-release', '--json']);
     const output = parseJsonOutput<{ ok: boolean; gateCount: number; gateIds: string[] }>(result.stdout);
     expect(output.ok).toBe(true);
     expect(output.data.gateCount).toBe(1);
@@ -77,56 +97,62 @@ describe('peaks sop lint command', () => {
   });
 
   test('returns SOP_NOT_FOUND for a missing SOP', async () => {
-    const project = await makeProject('sop-lint-missing');
-    const result = await runCommand(['sop', 'lint', '--id', 'ghost', '--project', project, '--json']);
+    const result = await runCommand(['sop', 'lint', '--id', 'ghost', '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);
     expect(output.code).toBe('SOP_NOT_FOUND');
     expect(result.exitCode).toBe(1);
   });
 
-  test('fails with SOP_LINT_FAILED and exit 1 when a command gate is not allowed (AC3)', async () => {
-    const project = await makeProject('sop-lint-cmd');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
-    // Rewrite the manifest to include a command gate.
-    const { writeFile } = await import('node:fs/promises');
-    const manifestPath = join(project, '.peaks', 'sops', 'team-release', 'sop.json');
-    await writeFile(manifestPath, JSON.stringify({
+  test('fails with SOP_LINT_FAILED and exit 1 when a command gate is not allowed', async () => {
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
+    // Rewrite the (global) manifest to include a command gate.
+    await writeFile(manifestPathFor('team-release'), JSON.stringify({
       id: 'team-release', name: 'team-release', phases: ['build'],
       gates: [{ id: 'tests', phase: 'build', check: { type: 'command', run: ['npm', 'test'] } }]
     }), 'utf8');
 
-    const blocked = await runCommand(['sop', 'lint', '--id', 'team-release', '--project', project, '--json']);
+    const blocked = await runCommand(['sop', 'lint', '--id', 'team-release', '--json']);
     const blockedOut = parseJsonOutput(blocked.stdout);
     expect(blockedOut.ok).toBe(false);
     expect(blockedOut.code).toBe('SOP_LINT_FAILED');
     expect(blocked.exitCode).toBe(1);
 
-    const allowed = await runCommand(['sop', 'lint', '--id', 'team-release', '--project', project, '--allow-commands', '--json']);
+    const allowed = await runCommand(['sop', 'lint', '--id', 'team-release', '--allow-commands', '--json']);
     expect(parseJsonOutput(allowed.stdout).ok).toBe(true);
+  });
+
+  test('accepts a grep absent gate (AC3)', async () => {
+    await runCommand(['sop', 'init', '--id', 'blog-publish', '--apply', '--json']);
+    await writeFile(manifestPathFor('blog-publish'), JSON.stringify({
+      id: 'blog-publish', name: 'blog-publish', phases: ['draft', 'publish'],
+      gates: [{ id: 'no-todo', phase: 'publish', check: { type: 'grep', file: 'post.md', pattern: 'TODO', absent: true } }]
+    }), 'utf8');
+    const result = await runCommand(['sop', 'lint', '--id', 'blog-publish', '--json']);
+    expect(parseJsonOutput(result.stdout).ok).toBe(true);
   });
 });
 
 describe('peaks sop register / registry commands', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+    await resetGlobalSops();
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   test('register records the SOP and registry enumerates it (AC4, AC10)', async () => {
-    const project = await makeProject('sop-register');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
 
-    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--project', project, '--json']);
+    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--json']);
     const regOut = parseJsonOutput<{ gateCount: number }>(reg.stdout);
     expect(regOut.ok).toBe(true);
     expect(regOut.data.gateCount).toBe(1);
 
-    const list = await runCommand(['sop', 'registry', '--project', project, '--json']);
+    const list = await runCommand(['sop', 'registry', '--json']);
     const listOut = parseJsonOutput<{ gateCount: number; sops: Array<{ id: string }> }>(list.stdout);
     expect(listOut.ok).toBe(true);
     expect(listOut.data.gateCount).toBe(1);
@@ -134,49 +160,71 @@ describe('peaks sop register / registry commands', () => {
   });
 
   test('register --dry-run previews without writing the registry (AC9)', async () => {
-    const project = await makeProject('sop-register-dryrun');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
-    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--project', project, '--dry-run', '--json']);
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
+    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--dry-run', '--json']);
     const regOut = parseJsonOutput<{ applied: boolean }>(reg.stdout);
     expect(regOut.ok).toBe(true);
     expect(regOut.data.applied).toBe(false);
     // Registry stays empty after a dry-run.
-    const list = await runCommand(['sop', 'registry', '--project', project, '--json']);
+    const list = await runCommand(['sop', 'registry', '--json']);
     expect(parseJsonOutput<{ gateCount: number }>(list.stdout).data.gateCount).toBe(0);
   });
 
+  test('register --allow-commands validates a command-gate SOP', async () => {
+    await runCommand(['sop', 'init', '--id', 'cmd-sop', '--apply', '--json']);
+    await writeFile(manifestPathFor('cmd-sop'), JSON.stringify({
+      id: 'cmd-sop', name: 'cmd-sop', phases: ['build'],
+      gates: [{ id: 'tests', phase: 'build', check: { type: 'command', run: ['true'] } }]
+    }), 'utf8');
+    // Without --allow-commands the SOP is unregistrable.
+    const blocked = await runCommand(['sop', 'register', '--id', 'cmd-sop', '--json']);
+    expect(parseJsonOutput(blocked.stdout).ok).toBe(false);
+    // With --allow-commands it registers.
+    const ok = await runCommand(['sop', 'register', '--id', 'cmd-sop', '--allow-commands', '--json']);
+    expect(parseJsonOutput<{ gateCount: number }>(ok.stdout).data.gateCount).toBe(1);
+  });
+
   test('register fails with a stable code on an unregistrable SOP', async () => {
-    const project = await makeProject('sop-register-bad');
-    const result = await runCommand(['sop', 'register', '--id', 'ghost', '--project', project, '--json']);
+    const result = await runCommand(['sop', 'register', '--id', 'ghost', '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);
     expect(output.code).toBe('SOP_NOT_FOUND');
     expect(result.exitCode).toBe(1);
   });
 
-  test('registry on a fresh project is empty', async () => {
-    const project = await makeProject('sop-registry-empty');
-    const result = await runCommand(['sop', 'registry', '--project', project, '--json']);
+  test('registry on a fresh home is empty', async () => {
+    const result = await runCommand(['sop', 'registry', '--json']);
     const output = parseJsonOutput<{ gateCount: number; sops: unknown[] }>(result.stdout);
     expect(output.data.gateCount).toBe(0);
     expect(output.data.sops).toEqual([]);
   });
+
+  test('registry fails with SOP_REGISTRY_FAILED on a corrupt registry file', async () => {
+    await mkdir(join(homeDir, '.peaks', 'sops'), { recursive: true });
+    await writeFile(join(homeDir, '.peaks', 'sops', 'registry.json'), '{ not valid json', 'utf8');
+    const result = await runCommand(['sop', 'registry', '--json']);
+    const output = parseJsonOutput(result.stdout);
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('SOP_REGISTRY_FAILED');
+    expect(result.exitCode).toBe(1);
+  });
 });
 
-describe('peaks sop check command (AC6)', () => {
-  beforeEach(() => {
+describe('peaks sop check command', () => {
+  beforeEach(async () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+    await resetGlobalSops();
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  test('returns a pass/fail verdict with ok:true', async () => {
+  test('returns a pass/fail verdict with ok:true (evaluates against --project)', async () => {
     const project = await makeProject('sop-check');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
-    // The scaffold's example-gate checks file-exists README.md, which is absent here → fail (still ok:true).
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
+    // The scaffold's example-gate checks file-exists README.md, absent in the project → fail (still ok:true).
     const result = await runCommand(['sop', 'check', '--id', 'team-release', '--gate', 'example-gate', '--project', project, '--json']);
     const output = parseJsonOutput<{ result: string }>(result.stdout);
     expect(output.ok).toBe(true);
@@ -186,38 +234,58 @@ describe('peaks sop check command (AC6)', () => {
 
   test('returns GATE_NOT_FOUND (ok:false) for an unknown gate', async () => {
     const project = await makeProject('sop-check-missing');
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
     const result = await runCommand(['sop', 'check', '--id', 'team-release', '--gate', 'nope', '--project', project, '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);
     expect(output.code).toBe('GATE_NOT_FOUND');
     expect(result.exitCode).toBe(1);
   });
+
+  test('--allow-commands lets a command gate evaluate (blocked → pass)', async () => {
+    const project = await makeProject('sop-check-cmd');
+    await runCommand(['sop', 'init', '--id', 'cmd-sop', '--apply', '--json']);
+    await writeFile(manifestPathFor('cmd-sop'), JSON.stringify({
+      id: 'cmd-sop', name: 'cmd-sop', phases: ['p'],
+      gates: [{ id: 'ok', phase: 'p', check: { type: 'command', run: [process.execPath, '-e', 'process.exit(0)'] } }]
+    }), 'utf8');
+    // Refused without the flag.
+    const blocked = await runCommand(['sop', 'check', '--id', 'cmd-sop', '--gate', 'ok', '--project', project, '--json']);
+    expect(parseJsonOutput<{ result: string }>(blocked.stdout).data.result).toBe('blocked');
+    // Evaluated (and passes) with the flag.
+    const allowed = await runCommand(['sop', 'check', '--id', 'cmd-sop', '--gate', 'ok', '--project', project, '--allow-commands', '--json']);
+    expect(parseJsonOutput<{ result: string }>(allowed.stdout).data.result).toBe('pass');
+  });
 });
 
-describe('peaks sop advance command (AC7 — gates truly block)', () => {
-  beforeEach(() => {
+describe('peaks sop advance command (gates + phase order truly block)', () => {
+  beforeEach(async () => {
     process.exitCode = undefined;
     resetCliProgramMocks();
     writeUserConfig();
+    await resetGlobalSops();
   });
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  async function seedGatedSop(project: string): Promise<void> {
-    await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
-    const manifestPath = join(project, '.peaks', 'sops', 'team-release', 'sop.json');
-    const { writeFile } = await import('node:fs/promises');
-    await writeFile(manifestPath, JSON.stringify({
-      id: 'team-release', name: 'team-release', phases: ['draft', 'ship'],
+  // A single-phase SOP whose only phase 'ship' is guarded by a file-exists gate.
+  // Single phase keeps the gate (not phase-order) the thing under test.
+  async function seedGatedSop(): Promise<void> {
+    await runCommand(['sop', 'init', '--id', 'team-release', '--apply', '--json']);
+    await writeFile(manifestPathFor('team-release'), JSON.stringify({
+      id: 'team-release', name: 'team-release', phases: ['ship'],
       gates: [{ id: 'changelog', phase: 'ship', check: { type: 'file-exists', path: 'CHANGELOG.md' } }]
     }), 'utf8');
   }
 
+  function stateFile(project: string): string {
+    return join(project, '.peaks', 'sop-state', 'team-release', 'state.json');
+  }
+
   test('advancing into a phase with a failing gate is blocked (SOP_GATE_BLOCKED, exit 1)', async () => {
     const project = await makeProject('sop-advance-block');
-    await seedGatedSop(project);
+    await seedGatedSop();
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--json']);
     const output = parseJsonOutput<{ blockedGates: Array<{ gateId: string }> }>(result.stdout);
     expect(output.ok).toBe(false);
@@ -228,8 +296,7 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
 
   test('advances once the gate is satisfied', async () => {
     const project = await makeProject('sop-advance-pass');
-    await seedGatedSop(project);
-    const { writeFile } = await import('node:fs/promises');
+    await seedGatedSop();
     await writeFile(join(project, 'CHANGELOG.md'), '# changes\n', 'utf8');
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--json']);
     const output = parseJsonOutput<{ phase: string }>(result.stdout);
@@ -237,9 +304,36 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
     expect(output.data.phase).toBe('ship');
   });
 
+  test('jumping past the next phase is blocked (SOP_PHASE_SKIP, exit 1) (AC5)', async () => {
+    const project = await makeProject('sop-advance-skip');
+    await runCommand(['sop', 'init', '--id', 'wf', '--apply', '--json']);
+    await writeFile(manifestPathFor('wf'), JSON.stringify({
+      id: 'wf', name: 'wf', phases: ['draft', 'review', 'publish'], gates: []
+    }), 'utf8');
+    const result = await runCommand(['sop', 'advance', '--id', 'wf', '--to', 'publish', '--project', project, '--json']);
+    const output = parseJsonOutput<{ expectedNext: string }>(result.stdout);
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('SOP_PHASE_SKIP');
+    expect(output.data.expectedNext).toBe('draft');
+    expect(result.exitCode).toBe(1);
+  });
+
+  test('a forward skip can be forced with --allow-incomplete --reason (AC5)', async () => {
+    const project = await makeProject('sop-advance-skip-bypass');
+    await runCommand(['sop', 'init', '--id', 'wf', '--apply', '--json']);
+    await writeFile(manifestPathFor('wf'), JSON.stringify({
+      id: 'wf', name: 'wf', phases: ['draft', 'review', 'publish'], gates: []
+    }), 'utf8');
+    const result = await runCommand(['sop', 'advance', '--id', 'wf', '--to', 'publish', '--project', project, '--allow-incomplete', '--reason', 'skip review', '--json']);
+    const output = parseJsonOutput<{ phase: string; bypassed: boolean }>(result.stdout);
+    expect(output.ok).toBe(true);
+    expect(output.data.phase).toBe('publish');
+    expect(output.data.bypassed).toBe(true);
+  });
+
   test('--allow-incomplete requires --reason', async () => {
     const project = await makeProject('sop-advance-noreason');
-    await seedGatedSop(project);
+    await seedGatedSop();
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);
@@ -248,7 +342,7 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
 
   test('--allow-incomplete with --reason bypasses the gate', async () => {
     const project = await makeProject('sop-advance-bypass');
-    await seedGatedSop(project);
+    await seedGatedSop();
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--reason', 'hotfix', '--json']);
     const output = parseJsonOutput<{ phase: string; bypassed: boolean }>(result.stdout);
     expect(output.ok).toBe(true);
@@ -257,9 +351,8 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
 
   test('in assisted mode a bypass requires --confirm (presence read from --project)', async () => {
     const project = await makeProject('sop-advance-assisted');
-    await seedGatedSop(project);
-    const { writeFile, mkdir: mkdirp } = await import('node:fs/promises');
-    await mkdirp(join(project, '.peaks'), { recursive: true });
+    await seedGatedSop();
+    await mkdir(join(project, '.peaks'), { recursive: true });
     await writeFile(join(project, '.peaks', '.active-skill.json'), JSON.stringify({ skill: 'team-release', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' }), 'utf8');
 
     const restricted = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--reason', 'x', '--json']);
@@ -271,20 +364,48 @@ describe('peaks sop advance command (AC7 — gates truly block)', () => {
 
   test('advance --dry-run previews a passing advance without recording state (AC9)', async () => {
     const project = await makeProject('sop-advance-dryrun');
-    await seedGatedSop(project);
-    const { writeFile } = await import('node:fs/promises');
+    await seedGatedSop();
     await writeFile(join(project, 'CHANGELOG.md'), '# changes\n', 'utf8');
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--dry-run', '--json']);
     const output = parseJsonOutput<{ applied: boolean; phase: string }>(result.stdout);
     expect(output.ok).toBe(true);
     expect(output.data.applied).toBe(false);
     expect(output.data.phase).toBe('ship');
-    expect(existsSync(join(project, '.peaks', 'sops', 'team-release', 'state.json'))).toBe(false);
+    expect(existsSync(stateFile(project))).toBe(false);
+  });
+
+  test('--allow-commands lets a passing command gate advance', async () => {
+    const project = await makeProject('sop-advance-cmd');
+    await runCommand(['sop', 'init', '--id', 'cmd-sop', '--apply', '--json']);
+    await writeFile(manifestPathFor('cmd-sop'), JSON.stringify({
+      id: 'cmd-sop', name: 'cmd-sop', phases: ['ship'],
+      gates: [{ id: 'ok', phase: 'ship', check: { type: 'command', run: [process.execPath, '-e', 'process.exit(0)'] } }]
+    }), 'utf8');
+    const result = await runCommand(['sop', 'advance', '--id', 'cmd-sop', '--to', 'ship', '--project', project, '--allow-commands', '--json']);
+    expect(parseJsonOutput<{ phase: string }>(result.stdout).data.phase).toBe('ship');
+  });
+
+  test('in assisted mode the per-project bypass cap is enforced', async () => {
+    const project = await makeProject('sop-advance-cap');
+    await seedGatedSop();
+    await mkdir(join(project, '.peaks'), { recursive: true });
+    await writeFile(join(project, '.peaks', '.active-skill.json'), JSON.stringify({ skill: 'team-release', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' }), 'utf8');
+
+    // The cap is MAX_BYPASSES_PER_SESSION (3): three confirmed bypasses succeed.
+    for (let i = 0; i < 3; i += 1) {
+      const ok = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--reason', 'x', '--confirm', '--json']);
+      expect(parseJsonOutput(ok.stdout).ok).toBe(true);
+    }
+    // The fourth is refused with a stable code.
+    const capped = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'ship', '--project', project, '--allow-incomplete', '--reason', 'x', '--confirm', '--json']);
+    const output = parseJsonOutput(capped.stdout);
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('BYPASS_LIMIT_REACHED');
   });
 
   test('INVALID_PHASE for an unknown phase', async () => {
     const project = await makeProject('sop-advance-badphase');
-    await seedGatedSop(project);
+    await seedGatedSop();
     const result = await runCommand(['sop', 'advance', '--id', 'team-release', '--to', 'nope', '--project', project, '--json']);
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(false);

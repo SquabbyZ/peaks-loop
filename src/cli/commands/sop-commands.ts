@@ -1,8 +1,10 @@
 import { Command } from 'commander';
-import { initSop, lintSop, sopDir } from '../../services/sop/sop-service.js';
+import { mkdirSync } from 'node:fs';
+import { initSop, lintSop } from '../../services/sop/sop-service.js';
 import { registerSop, readRegistry, SopRegisterError } from '../../services/sop/sop-registry-service.js';
 import { checkGate, SopCheckError } from '../../services/sop/sop-check-service.js';
-import { advanceSop, SopAdvanceError, SopGateBlockedError } from '../../services/sop/sop-advance-service.js';
+import { advanceSop, SopAdvanceError, SopGateBlockedError, SopPhaseSkipError } from '../../services/sop/sop-advance-service.js';
+import { sopStateDir } from '../../services/sop/sop-paths.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { recordBypass, isBypassLimitReached, MAX_BYPASSES_PER_SESSION } from '../../services/mode/bypass-tracker.js';
 import { fail, ok } from '../../shared/result.js';
@@ -10,7 +12,6 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 
 type SopInitCliOptions = {
   id: string;
-  project: string;
   name?: string;
   apply?: boolean;
   json?: boolean;
@@ -18,14 +19,12 @@ type SopInitCliOptions = {
 
 type SopLintCliOptions = {
   id: string;
-  project: string;
   allowCommands?: boolean;
   json?: boolean;
 };
 
 type SopRegisterCliOptions = {
   id: string;
-  project: string;
   allowCommands?: boolean;
   dryRun?: boolean;
   json?: boolean;
@@ -40,7 +39,6 @@ type SopCheckCliOptions = {
 };
 
 type SopRegistryCliOptions = {
-  project: string;
   json?: boolean;
 };
 
@@ -63,14 +61,13 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('init')
-      .description('Scaffold a user-authored SOP (manifest + SKILL.md); preview by default')
+      .description('Scaffold a user-authored SOP (manifest + SKILL.md) in ~/.peaks/sops; preview by default')
       .requiredOption('--id <sop-id>', 'SOP id (lowercase kebab, e.g. team-release)')
-      .requiredOption('--project <path>', 'target project root')
       .option('--name <name>', 'human-readable SOP name (defaults to the id)')
       .option('--apply', 'write the SOP files (default: preview only)')
   ).action(async (options: SopInitCliOptions) => {
     try {
-      const initOptions: Parameters<typeof initSop>[0] = { projectRoot: options.project, id: options.id };
+      const initOptions: Parameters<typeof initSop>[0] = { id: options.id };
       if (options.name !== undefined) {
         initOptions.name = options.name;
       }
@@ -78,15 +75,19 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
         initOptions.apply = true;
       }
       const result = await initSop(initOptions);
-      printResult(
-        io,
-        ok('sop.init', result, [], result.applied ? [] : [`Re-run with --apply to write ${result.manifestPath}`]),
-        options.json
-      );
+      // Side-effecting scaffold returns explicit next steps so the user doesn't
+      // have to recall the runbook: applied → edit then lint; preview → apply.
+      const nextActions = result.applied
+        ? [
+            `Edit ${result.manifestPath} to define your real phases and gates`,
+            `peaks sop lint --id ${result.id} --json`
+          ]
+        : [`Re-run with --apply to write ${result.manifestPath}`];
+      printResult(io, ok('sop.init', result, [], nextActions), options.json);
     } catch (error) {
       printResult(
         io,
-        fail('sop.init', 'SOP_INIT_FAILED', getErrorMessage(error), { id: options.id }, ['Check the SOP id and project path before retrying']),
+        fail('sop.init', 'SOP_INIT_FAILED', getErrorMessage(error), { id: options.id }, ['Check the SOP id before retrying']),
         options.json
       );
       process.exitCode = 1;
@@ -98,11 +99,10 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .command('lint')
       .description('Validate a SOP manifest (id namespace, phases, gate ids, check fields)')
       .requiredOption('--id <sop-id>', 'SOP id to lint')
-      .requiredOption('--project <path>', 'target project root')
       .option('--allow-commands', 'permit command-type gates (they run shell-less processes)')
   ).action(async (options: SopLintCliOptions) => {
     try {
-      const lintOptions: Parameters<typeof lintSop>[0] = { projectRoot: options.project, id: options.id };
+      const lintOptions: Parameters<typeof lintSop>[0] = { id: options.id };
       if (options.allowCommands === true) {
         lintOptions.allowCommands = true;
       }
@@ -129,7 +129,7 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
     } catch (error) {
       printResult(
         io,
-        fail('sop.lint', 'SOP_LINT_ERROR', getErrorMessage(error), { id: options.id }, ['Check the SOP id and project path before retrying']),
+        fail('sop.lint', 'SOP_LINT_ERROR', getErrorMessage(error), { id: options.id }, ['Check the SOP id before retrying']),
         options.json
       );
       process.exitCode = 1;
@@ -139,14 +139,13 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('register')
-      .description('Validate a SOP and record its gates in the workspace gate registry')
+      .description('Validate a SOP and record its gates in the global (~/.peaks) gate registry')
       .requiredOption('--id <sop-id>', 'SOP id to register')
-      .requiredOption('--project <path>', 'target project root')
       .option('--allow-commands', 'permit command-type gates when validating')
       .option('--dry-run', 'preview the registration without writing registry.json')
   ).action(async (options: SopRegisterCliOptions) => {
     try {
-      const registerOptions: Parameters<typeof registerSop>[0] = { projectRoot: options.project, id: options.id };
+      const registerOptions: Parameters<typeof registerSop>[0] = { id: options.id };
       if (options.allowCommands === true) {
         registerOptions.allowCommands = true;
       }
@@ -169,16 +168,15 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('registry')
-      .description('List all registered SOPs and their gates (read-only)')
-      .requiredOption('--project <path>', 'target project root')
+      .description('List all registered SOPs and their gates from the global registry (read-only)')
   ).action(async (options: SopRegistryCliOptions) => {
     try {
-      const registry = await readRegistry(options.project);
+      const registry = await readRegistry();
       printResult(io, ok('sop.registry', registry), options.json);
     } catch (error) {
       printResult(
         io,
-        fail('sop.registry', 'SOP_REGISTRY_FAILED', getErrorMessage(error), {}, ['Check the project path before retrying']),
+        fail('sop.registry', 'SOP_REGISTRY_FAILED', getErrorMessage(error), {}, ['The global registry may be corrupted; inspect ~/.peaks/sops/registry.json']),
         options.json
       );
       process.exitCode = 1;
@@ -191,7 +189,7 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .description('Evaluate a single SOP gate (returns pass / fail / blocked)')
       .requiredOption('--id <sop-id>', 'SOP id')
       .requiredOption('--gate <gate-id>', 'gate id within the SOP')
-      .requiredOption('--project <path>', 'target project root')
+      .option('--project <path>', 'project the gate evaluates against (default: current directory)', '.')
       .option('--allow-commands', 'permit evaluating command-type gates')
   ).action(async (options: SopCheckCliOptions) => {
     try {
@@ -218,9 +216,9 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .description('Advance a SOP to a phase; gates guarding that phase must pass (or be explicitly bypassed)')
       .requiredOption('--id <sop-id>', 'SOP id')
       .requiredOption('--to <phase>', 'phase to advance into')
-      .requiredOption('--project <path>', 'target project root')
+      .option('--project <path>', 'project whose run-state advances (default: current directory)', '.')
       .option('--allow-commands', 'permit evaluating command-type gates')
-      .option('--allow-incomplete', 'bypass the phase gates (requires --reason)')
+      .option('--allow-incomplete', 'bypass the phase gates AND phase-order check (requires --reason)')
       .option('--reason <text>', 'justification recorded when bypassing gates')
       .option('--confirm', 'skip interactive confirmation for a bypass in assisted/strict mode')
       .option('--force-confirm', 'bypass mode-enforced confirmation (use with caution)')
@@ -243,9 +241,13 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
             process.exitCode = 1;
             return;
           }
-          // The bypass counter is keyed to the SOP directory (not a session); the
-          // shared cap constant is reused. It persists in the SOP dir and is not auto-reset.
-          const bypassRoot = sopDir(options.project, options.id);
+          // The bypass counter is keyed to the per-project SOP run-state dir (not
+          // a session); the shared cap constant is reused. Keying it per-project
+          // means a bypass in one project never consumes another project's budget.
+          const bypassRoot = sopStateDir(options.project, options.id);
+          // The per-project state dir may not exist yet (no successful advance has
+          // written state.json), so ensure it before the counter writes its file.
+          mkdirSync(bypassRoot, { recursive: true });
           if (isBypassLimitReached(bypassRoot)) {
             printResult(io, fail('sop.advance', 'BYPASS_LIMIT_REACHED', `gate bypass limit reached (${MAX_BYPASSES_PER_SESSION} bypasses per SOP)`, { id: options.id, limit: MAX_BYPASSES_PER_SESSION }, ['Satisfy the gates instead of bypassing']), options.json);
             process.exitCode = 1;
@@ -268,6 +270,11 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
     } catch (error) {
       if (error instanceof SopGateBlockedError) {
         printResult(io, fail('sop.advance', error.code, error.message, { id: options.id, to: options.to, blockedGates: error.blockedGates }, ['Satisfy the blocking gates, or bypass with --allow-incomplete --reason "<why>"']), options.json);
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof SopPhaseSkipError) {
+        printResult(io, fail('sop.advance', error.code, error.message, { id: options.id, to: options.to, fromPhase: error.fromPhase, expectedNext: error.expectedNext }, [`Advance to "${error.expectedNext}" first, or bypass with --allow-incomplete --reason "<why>"`]), options.json);
         process.exitCode = 1;
         return;
       }

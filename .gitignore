@@ -10,3 +10,5 @@ coverage/
 # Peaks transient/per-session state (regenerable, not shared knowledge)
 .peaks/**/.bypass-count.json
 .peaks/ontology.json
+# Per-project SOP run-state (current phase + history); definitions live globally in ~/.peaks
+.peaks/sop-state/

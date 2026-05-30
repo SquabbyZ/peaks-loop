@@ -87,25 +87,25 @@ peaks skill doctor --json
 
 > 更顺手的用法：直接用 **`peaks-sop` 技能**——在对话里用自然语言描述你的流程，由 LLM 帮你生成、调试、注册 SOP，无需手写 JSON 或记命令。下面的 CLI 是它底层调用的引擎。
 
-产物落在 `.peaks/sops/<sop-id>/`，包含 `sop.json`（结构化 manifest）和可注册的 `SKILL.md`。下面用一个发布流程演示命令（换成内容发布/审批清单等同理）：
+**定义全局、执行按项目**：SOP 定义（`sop.json` + 可注册的 `SKILL.md`）落在全局 `~/.peaks/sops/<sop-id>/`，写一次即可跨项目复用；运行态（当前阶段、历史）按项目落在 `<project>/.peaks/sop-state/<sop-id>/`，同一个 SOP 在不同项目各自独立进度。`init`/`lint`/`register`/`registry` 操作全局定义、**无需 `--project`**；`check`/`advance` 带 `--project`（默认当前目录）指定对哪个项目执行。
 
 ```bash
-# 1. 创建 SOP 骨架（默认预览不落盘，--apply 才写入）
-peaks sop init --id team-release --name "Team Release" --project . --apply --json
+# 1. 创建 SOP 骨架到 ~/.peaks/sops（默认预览不落盘，--apply 才写入）
+peaks sop init --id team-release --name "Team Release" --apply --json
 
 # 2. 校验 manifest（门禁 id 唯一、阶段合法、check 字段完整）
-peaks sop lint --id team-release --project . --json
+peaks sop lint --id team-release --json
 
-# 3. 注册进 workspace 门禁注册表（--dry-run 预览）
-peaks sop register --id team-release --project . --json
+# 3. 注册进全局门禁注册表（--dry-run 预览）
+peaks sop register --id team-release --json
 
 # 4. 列出注册表里所有自定义门禁（内置 peaks-* 门禁永不出现）
-peaks sop registry --project . --json
+peaks sop registry --json
 
-# 5. 评估单个门禁（返回 pass / fail / blocked）
+# 5. 评估单个门禁（在某项目下，返回 pass / fail / blocked）
 peaks sop check --id team-release --gate changelog --project . --json
 
-# 6. 推进到某阶段——该阶段的门禁必须全部通过，否则被真正阻断
+# 6. 推进到某阶段——门禁须全过、且不能跳级，否则被真正阻断
 peaks sop advance --id team-release --to ship --project . --json
 ```
 
@@ -118,7 +118,7 @@ peaks sop advance --id team-release --to ship --project . --json
   "phases": ["draft", "review", "ship"],
   "gates": [
     { "id": "changelog", "phase": "ship", "check": { "type": "file-exists", "path": "CHANGELOG.md" } },
-    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME" } },
+    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME", "absent": true } },
     { "id": "tests", "phase": "ship", "check": { "type": "command", "run": ["npm", "test"] } }
   ]
 }
@@ -129,14 +129,17 @@ peaks sop advance --id team-release --to ship --project . --json
 | 类型 | 字段 | 含义 |
 |------|------|------|
 | `file-exists` | `path` | 文件存在 → pass |
-| `grep` | `file` + `pattern` | 文件内匹配到正则 → pass |
+| `grep` | `file` + `pattern`（+ `absent`） | 文件内匹配到正则 → pass；加 `absent: true` 则反转——匹配不到才 pass（表达「不准有 X」，纯文本、免 `--allow-commands`、跨平台） |
 | `command` | `run`（参数数组）+ `expectExitZero` | 运行命令并按退出码判定 |
+
+「不准有 TODO / 占位符 / 遗留项」这类最常见的诉求，优先用 `grep` + `absent: true`，不必动用 `command` 门禁。
 
 安全约束：
 - `command` 类门禁运行用户定义的命令，**默认拒绝**，必须显式加 `--allow-commands` 才会评估；命令以参数数组执行（无 shell、无注入面）、有超时上限、工作目录锁定项目根。
 - `file-exists` / `grep` 的路径锁在项目根内，越界路径返回 `blocked`。
 - 有副作用的命令（init/register/advance）都支持 `--dry-run` 预览且不落盘。
-- 推进被门禁阻断时可用 `--allow-incomplete --reason "<原因>"` 显式绕过；在 assisted/strict 模式下还需 `--confirm`，且每个 SOP 的绕过次数有上限。
+- `advance` 还会校验**阶段顺序**：可停留当前阶段、可回退，但不能越过下一个阶段跳级，跳级返回 `SOP_PHASE_SKIP`。
+- 被门禁阻断或被判跳级时，可用 `--allow-incomplete --reason "<原因>"` 显式绕过（同时绕过门禁与顺序校验）；assisted/strict 模式下还需 `--confirm`，且每个项目内每个 SOP 的绕过次数有上限。
 
 ## 许可
 

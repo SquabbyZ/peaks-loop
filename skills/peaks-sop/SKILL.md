@@ -47,10 +47,18 @@ A SOP is an **ordered list of phases** plus **gates** bound to phases. A gate th
 | type | fields | passes when |
 |------|--------|-------------|
 | `file-exists` | `path` | the file exists (path pinned inside the project) |
-| `grep` | `file` + `pattern` | the regex matches in the file |
+| `grep` | `file` + `pattern` (+ `absent`) | the regex matches in the file — or, with `absent: true`, does NOT match |
 | `command` | `run` (argv array) + `expectExitZero` | the command exits as expected |
 
+Prefer **`grep` with `absent: true`** for any "must not contain X" gate (no leftover `TODO`, no placeholder, no unresolved marker). It is a pure-text check — no `--allow-commands`, cross-platform, no shell. Reach for a `command` gate only when the check genuinely needs to run a program.
+
 `command` gates run user-defined processes and are **refused by default** — they require explicit `--allow-commands`, run with no shell (argv array, no injection), a timeout, and cwd pinned to the project. Always tell the user when a SOP needs `--allow-commands` and why.
+
+### Where SOP files live (global definition, per-project execution)
+
+A SOP *definition* is **global**: `~/.peaks/sops/<sop-id>/` (manifest + SKILL.md). Author it once and reuse it across every project — `init` / `lint` / `register` take no `--project`. A SOP's *run-state* (current phase, history) is **per-project**: `<project>/.peaks/sop-state/<sop-id>/`. So the same global SOP tracks independent progress in each project it runs in. `check` / `advance` take `--project` (default: current directory) to say which project the gates evaluate against and whose progress advances.
+
+`advance` also enforces **phase order**: you may re-enter the current phase, step back, or move to the immediately-next phase, but not skip ahead — a forward jump returns `SOP_PHASE_SKIP` (bypassable, like a gate, with `--allow-incomplete --reason`).
 
 ### Where SOPs apply (lead with the user's domain, not code)
 
@@ -76,26 +84,27 @@ peaks skill runbook peaks-sop --json
 peaks skill presence:set peaks-sop --project <repo> --gate startup
 
 # 1. interview the user, then scaffold the SOP (preview first, then apply)
-peaks sop init --id <sop-id> --name "<human name>" --project <repo> --json
-peaks sop init --id <sop-id> --name "<human name>" --project <repo> --apply --json
+#    definitions are global (~/.peaks/sops) — init/lint/register take no --project
+peaks sop init --id <sop-id> --name "<human name>" --json
+peaks sop init --id <sop-id> --name "<human name>" --apply --json
 
-# 2. write the phases/gates from the interview into .peaks/sops/<sop-id>/sop.json
+# 2. write the phases/gates from the interview into ~/.peaks/sops/<sop-id>/sop.json
 #    (edit the manifest directly — the user described it in natural language)
 
 # 3. DEBUG LOOP: lint, fix the reported findings, re-lint until clean
-peaks sop lint --id <sop-id> --project <repo> --json
-peaks sop lint --id <sop-id> --project <repo> --allow-commands --json   # when the SOP uses command gates
+peaks sop lint --id <sop-id> --json
+peaks sop lint --id <sop-id> --allow-commands --json   # when the SOP uses command gates
 
-# 4. test each gate behaves as intended (pass / fail / blocked)
+# 4. test each gate behaves as intended (pass / fail / blocked) against a project
 peaks sop check --id <sop-id> --gate <gate-id> --project <repo> --json
 
-# 5. dry-run the flow to confirm gates block/allow the right phases
+# 5. dry-run the flow to confirm gates + phase order block/allow the right phases
 peaks sop advance --id <sop-id> --to <phase> --project <repo> --dry-run --json
 
 # 6. register the SOP (preview, then apply) so it joins presence/statusline
-peaks sop register --id <sop-id> --project <repo> --dry-run --json
-peaks sop register --id <sop-id> --project <repo> --json
-peaks sop registry --project <repo> --json
+peaks sop register --id <sop-id> --dry-run --json
+peaks sop register --id <sop-id> --json
+peaks sop registry --json
 
 # 7. hand the SOP to the user; clear presence when done
 peaks skill presence:clear --project <repo>
@@ -107,7 +116,7 @@ You cannot declare a SOP ready from memory. Each gate below is a command you **M
 
 **Peaks-Cli Gate A — the manifest lints clean before register:**
 ```bash
-peaks sop lint --id <sop-id> --project <repo> --json
+peaks sop lint --id <sop-id> --json
 # Expected: ok:true. If ok:false, fix the findings and re-lint — do NOT register a SOP that does not lint.
 ```
 

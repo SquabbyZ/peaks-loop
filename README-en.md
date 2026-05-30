@@ -87,25 +87,25 @@ Beyond the built-in `peaks-*` skill family, the `peaks sop` command group lets y
 
 > Easier path: use the **`peaks-sop` skill** — describe your process in natural language and let the LLM generate, debug, and register the SOP for you, with no JSON to hand-write or commands to memorize. The CLI below is the engine it drives.
 
-Artifacts live in `.peaks/sops/<sop-id>/`, containing `sop.json` (structured manifest) and a registrable `SKILL.md`. The commands below use a release flow for illustration (content publishing, approval checklists, etc. work the same way):
+**Definition global, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) lives in the global `~/.peaks/sops/<sop-id>/` — author it once and reuse it across every project. Run-state (current phase, history) is per-project at `<project>/.peaks/sop-state/<sop-id>/`, so the same SOP tracks independent progress in each project. `init`/`lint`/`register`/`registry` operate on the global definition and take **no `--project`**; `check`/`advance` take `--project` (default: current directory) to say which project to run against.
 
 ```bash
-# 1. Scaffold a SOP (preview by default; --apply writes files)
-peaks sop init --id team-release --name "Team Release" --project . --apply --json
+# 1. Scaffold a SOP into ~/.peaks/sops (preview by default; --apply writes files)
+peaks sop init --id team-release --name "Team Release" --apply --json
 
 # 2. Validate the manifest (unique gate ids, valid phases, complete check fields)
-peaks sop lint --id team-release --project . --json
+peaks sop lint --id team-release --json
 
-# 3. Register into the workspace gate registry (--dry-run to preview)
-peaks sop register --id team-release --project . --json
+# 3. Register into the global gate registry (--dry-run to preview)
+peaks sop register --id team-release --json
 
 # 4. List every custom gate in the registry (built-in peaks-* gates never appear)
-peaks sop registry --project . --json
+peaks sop registry --json
 
-# 5. Evaluate a single gate (returns pass / fail / blocked)
+# 5. Evaluate a single gate against a project (returns pass / fail / blocked)
 peaks sop check --id team-release --gate changelog --project . --json
 
-# 6. Advance to a phase — its gates must all pass, or the move is truly blocked
+# 6. Advance to a phase — its gates must pass AND it can't skip ahead, or it's blocked
 peaks sop advance --id team-release --to ship --project . --json
 ```
 
@@ -118,7 +118,7 @@ Example `sop.json`:
   "phases": ["draft", "review", "ship"],
   "gates": [
     { "id": "changelog", "phase": "ship", "check": { "type": "file-exists", "path": "CHANGELOG.md" } },
-    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME" } },
+    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME", "absent": true } },
     { "id": "tests", "phase": "ship", "check": { "type": "command", "run": ["npm", "test"] } }
   ]
 }
@@ -129,14 +129,17 @@ Gate checks support three types:
 | Type | Fields | Meaning |
 |------|--------|---------|
 | `file-exists` | `path` | File exists → pass |
-| `grep` | `file` + `pattern` | Regex matches in file → pass |
+| `grep` | `file` + `pattern` (+ `absent`) | Regex matches in file → pass; with `absent: true` it inverts — passes when the pattern is NOT found ("must not contain X": pure text, no `--allow-commands`, cross-platform) |
 | `command` | `run` (argv array) + `expectExitZero` | Run a command, judge by exit code |
+
+For the very common "no leftover TODO / placeholder / unresolved marker" gate, prefer `grep` with `absent: true` over a `command` gate.
 
 Security constraints:
 - `command` gates run user-defined commands and are **refused by default**; you must pass `--allow-commands` to evaluate them. Commands run as an argv array (no shell, no injection surface), with a timeout cap and cwd pinned to the project root.
 - `file-exists` / `grep` paths are confined inside the project root; out-of-bounds paths return `blocked`.
 - Side-effecting commands (init/register/advance) all support `--dry-run` preview without writing.
-- When advancement is blocked, bypass explicitly with `--allow-incomplete --reason "<why>"`; in assisted/strict mode `--confirm` is also required, and each SOP has a bypass cap.
+- `advance` also enforces **phase order**: you may stay or step back, but not skip ahead — a forward jump returns `SOP_PHASE_SKIP`.
+- When advancement is blocked (gate or phase skip), bypass explicitly with `--allow-incomplete --reason "<why>"` (bypasses both); in assisted/strict mode `--confirm` is also required, and each SOP has a per-project bypass cap.
 
 ## License
 

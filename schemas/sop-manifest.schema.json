@@ -28,6 +28,7 @@
               "path": { "type": "string" },
               "file": { "type": "string" },
               "pattern": { "type": "string" },
+              "absent": { "type": "boolean", "description": "grep only: pass when the pattern is NOT found (\"must not contain X\")" },
               "run": { "type": "array", "items": { "type": "string" } },
               "expectExitZero": { "type": "boolean" }
             }

@@ -1,17 +1,20 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { lintSop, readSopManifest } from './sop-service.js';
+import { registryPath as globalRegistryPath } from './sop-paths.js';
 import type { RegisteredGate, RegisteredSop, SopRegistry } from './sop-types.js';
 
 /**
  * SOP gate registry — Feature A, Slice 2.
  *
  * `registerSop` validates a SOP (must lint clean) then upserts its gates into a
- * workspace-level registry at `.peaks/sops/registry.json`. The registry is the
- * single enumerable, countable source a future metering layer (Feature B) would
- * read — Slice 2 only records and counts; it applies NO limit, tier, or billing
- * logic. Built-in peaks-* gates are never recorded here.
+ * GLOBAL registry at `~/.peaks/sops/registry.json`. Because SOP definitions are
+ * global and reusable across projects, the registry that enumerates them is
+ * global too — it is the single enumerable, countable source a future metering
+ * layer (Feature B) reads to count SOPs across the user's whole machine. Slice 2
+ * only records and counts; it applies NO limit, tier, or billing logic. Built-in
+ * peaks-* gates are never recorded here.
  */
 
 const EMPTY_REGISTRY: SopRegistry = { version: 1, sops: [], gateCount: 0 };
@@ -26,19 +29,15 @@ export type RegisterSopResult = {
 };
 
 export type RegisterSopOptions = {
-  projectRoot: string;
   id: string;
   allowCommands?: boolean;
   /** Preview the registration without writing registry.json. */
   dryRun?: boolean;
 };
 
-function registryPath(projectRoot: string): string {
-  return join(projectRoot, '.peaks', 'sops', 'registry.json');
-}
-
+/** Manifest location relative to the global Peaks home (`~/.peaks/`). Machine-independent. */
 function relativeManifestPath(id: string): string {
-  return `.peaks/sops/${id}/sop.json`;
+  return `sops/${id}/sop.json`;
 }
 
 function countGates(sops: RegisteredSop[]): number {
@@ -47,8 +46,8 @@ function countGates(sops: RegisteredSop[]): number {
   return sops.reduce((total, sop) => total + (Array.isArray(sop?.gates) ? sop.gates.length : 0), 0);
 }
 
-export async function readRegistry(projectRoot: string): Promise<SopRegistry> {
-  const path = registryPath(projectRoot);
+export async function readRegistry(): Promise<SopRegistry> {
+  const path = globalRegistryPath();
   if (!existsSync(path)) {
     return { ...EMPTY_REGISTRY, sops: [] };
   }
@@ -67,12 +66,12 @@ export class SopRegisterError extends Error {
 }
 
 export async function registerSop(options: RegisterSopOptions): Promise<RegisterSopResult> {
-  const manifest = await readSopManifest(options.projectRoot, options.id);
+  const manifest = await readSopManifest(options.id);
   if (manifest === null) {
     throw new SopRegisterError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }
 
-  const lintOptions: Parameters<typeof lintSop>[0] = { projectRoot: options.projectRoot, id: options.id };
+  const lintOptions: Parameters<typeof lintSop>[0] = { id: options.id };
   if (options.allowCommands === true) {
     lintOptions.allowCommands = true;
   }
@@ -90,7 +89,7 @@ export async function registerSop(options: RegisterSopOptions): Promise<Register
   }));
   const registered: RegisteredSop = { id: manifest.id, path: relativeManifestPath(manifest.id), gates };
 
-  const current = await readRegistry(options.projectRoot);
+  const current = await readRegistry();
   const others = current.sops.filter((sop) => sop.id !== manifest.id);
   const sops = [...others, registered].sort((left, right) => left.id.localeCompare(right.id));
   const registry: SopRegistry = { version: 1, sops, gateCount: countGates(sops) };
@@ -99,7 +98,7 @@ export async function registerSop(options: RegisterSopOptions): Promise<Register
     return { id: manifest.id, registered, gateCount: registry.gateCount, applied: false };
   }
 
-  const path = registryPath(options.projectRoot);
+  const path = globalRegistryPath();
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(registry, null, 2)}\n`, 'utf8');
 

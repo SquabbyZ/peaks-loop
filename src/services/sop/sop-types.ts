@@ -11,7 +11,13 @@ export type SopGateCheckType = 'file-exists' | 'grep' | 'command';
 
 export type SopGateCheck =
   | { type: 'file-exists'; path: string }
-  | { type: 'grep'; file: string; pattern: string }
+  /**
+   * grep: by default passes when `pattern` is FOUND in `file`. Set `absent: true`
+   * to invert — pass when the pattern is NOT found. `absent` expresses "must not
+   * contain X" (e.g. no leftover TODO) as a pure-text check, with no command gate
+   * and no `--allow-commands` escalation.
+   */
+  | { type: 'grep'; file: string; pattern: string; absent?: boolean }
   | { type: 'command'; run: string[]; expectExitZero?: boolean };
 
 export type SopGate = {

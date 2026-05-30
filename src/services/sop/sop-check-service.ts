@@ -67,7 +67,7 @@ function evaluateFileExists(projectRoot: string, path: string): GateVerdict {
   return existsSync(resolved) ? { result: 'pass' } : { result: 'fail', reason: `file "${path}" does not exist` };
 }
 
-function evaluateGrep(projectRoot: string, file: string, pattern: string): GateVerdict {
+function evaluateGrep(projectRoot: string, file: string, pattern: string, absent: boolean): GateVerdict {
   const resolved = resolveInsideProject(projectRoot, file);
   if (resolved === null) {
     return { result: 'blocked', reason: `file "${file}" escapes the project root` };
@@ -87,7 +87,15 @@ function evaluateGrep(projectRoot: string, file: string, pattern: string): GateV
   } catch {
     return { result: 'blocked', reason: `file "${file}" cannot be read` };
   }
-  return regex.test(content) ? { result: 'pass' } : { result: 'fail', reason: `pattern "${pattern}" not found in "${file}"` };
+  const found = regex.test(content);
+  // absent gate: pass when the pattern is NOT present ("must not contain X").
+  const pass = absent ? !found : found;
+  if (pass) {
+    return { result: 'pass' };
+  }
+  return absent
+    ? { result: 'fail', reason: `pattern "${pattern}" must be absent but was found in "${file}"` }
+    : { result: 'fail', reason: `pattern "${pattern}" not found in "${file}"` };
 }
 
 function evaluateCommand(projectRoot: string, run: string[], expectExitZero: boolean, allowCommands: boolean, timeoutMs: number): GateVerdict {
@@ -127,7 +135,7 @@ function evaluateCheck(projectRoot: string, check: SopGateCheck, allowCommands: 
     case 'file-exists':
       return evaluateFileExists(projectRoot, check.path);
     case 'grep':
-      return evaluateGrep(projectRoot, check.file, check.pattern);
+      return evaluateGrep(projectRoot, check.file, check.pattern, check.absent === true);
     case 'command':
       return evaluateCommand(projectRoot, check.run, check.expectExitZero !== false, allowCommands, timeoutMs);
     default:
@@ -146,7 +154,8 @@ export function evaluateGate(projectRoot: string, gate: SopGate, options: Evalua
 }
 
 export async function checkGate(options: CheckGateOptions): Promise<CheckGateResult> {
-  const manifest = await readSopManifest(options.projectRoot, options.id);
+  // Definitions are global; the gate's check still evaluates against options.projectRoot.
+  const manifest = await readSopManifest(options.id);
   if (manifest === null) {
     throw new SopCheckError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }
