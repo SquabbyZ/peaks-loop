@@ -83,7 +83,11 @@ peaks skill doctor --json
 
 Beyond the built-in `peaks-*` skill family, the `peaks sop` command group lets you define **your own SOP**: an ordered set of phases plus gates bound to those phases. A gate that doesn't pass blocks advancement into its phase — applying "don't drop steps" to your own workflow.
 
-Artifacts live in `.peaks/sops/<sop-id>/`, containing `sop.json` (structured manifest) and a registrable `SKILL.md`.
+**This is a general workflow-gating tool, not a developer-only one.** It fits any process with ordered stages where you must not move ahead until checkable conditions are met — content publishing, compliance/approval checklists, data-validation pipelines, onboarding, ops runbooks, personal procedures. A software release is just one example; non-engineering workflows are often the more valuable use.
+
+> Easier path: use the **`peaks-sop` skill** — describe your process in natural language and let the LLM generate, debug, and register the SOP for you, with no JSON to hand-write or commands to memorize. The CLI below is the engine it drives.
+
+Artifacts live in `.peaks/sops/<sop-id>/`, containing `sop.json` (structured manifest) and a registrable `SKILL.md`. The commands below use a release flow for illustration (content publishing, approval checklists, etc. work the same way):
 
 ```bash
 # 1. Scaffold a SOP (preview by default; --apply writes files)

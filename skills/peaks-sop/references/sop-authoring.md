@@ -45,6 +45,53 @@ Gate verdicts:
 - `fail` — evaluated, condition not met (e.g. file missing, pattern absent, command exited wrong).
 - `blocked` — could not evaluate: path escaped the project root, target file unreadable, command not permitted (`--allow-commands` missing) or failed to spawn / timed out.
 
+## Cross-domain examples (SOPs are not just for code)
+
+The release example above is one domain. The same engine governs any gated workflow — often the higher-value use. Lead the interview with the user's own domain.
+
+**Content publishing** (`.peaks/sops/blog-publish/sop.json`):
+
+```json
+{
+  "id": "blog-publish",
+  "name": "Blog Publish",
+  "phases": ["draft", "edit", "publish"],
+  "gates": [
+    { "id": "draft-exists", "phase": "edit", "check": { "type": "file-exists", "path": "posts/current.md" } },
+    { "id": "no-placeholders", "phase": "publish", "check": { "type": "command", "run": ["sh", "-c", "! grep -rE 'TODO|TKTK' posts/current.md"] } }
+  ]
+}
+```
+
+**Compliance / approval** (`.peaks/sops/vendor-approval/sop.json`):
+
+```json
+{
+  "id": "vendor-approval",
+  "name": "Vendor Approval",
+  "phases": ["submitted", "reviewed", "approved"],
+  "gates": [
+    { "id": "review-notes", "phase": "reviewed", "check": { "type": "file-exists", "path": "vendors/acme/review.md" } },
+    { "id": "signed-off", "phase": "approved", "check": { "type": "grep", "file": "vendors/acme/review.md", "pattern": "Status:\\s*Approved" } }
+  ]
+}
+```
+
+**Data pipeline** (`.peaks/sops/dataset-release/sop.json`):
+
+```json
+{
+  "id": "dataset-release",
+  "name": "Dataset Release",
+  "phases": ["raw", "cleaned", "validated"],
+  "gates": [
+    { "id": "schema-valid", "phase": "validated", "check": { "type": "command", "run": ["python", "scripts/validate.py", "data/cleaned.csv"] } }
+  ]
+}
+```
+
+These reuse the same three gate types — only the phases and the file/command targets differ. A human-judgment step ("the editor approved") is reified into a file/grep signal (an `approval.md` file, or a status line matching "Approved"), as shown above.
+
 ## Interview → generate → debug loop
 
 1. **Interview.** Ask: what are the ordered stages of this workflow? For each stage, what must be true before you're allowed to enter it? Translate "must be true" into file-exists / grep / command checks.

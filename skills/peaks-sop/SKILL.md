@@ -1,11 +1,13 @@
 ---
 name: peaks-sop
-description: Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own workflow — ordered phases plus gates that block advancement — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands.
+description: Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow — ordered phases plus gates that block advancement until conditions are met — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands. DOMAIN-AGNOSTIC: not just software/release flows — equally for content publishing, compliance and approval checklists, data pipelines, onboarding, ops runbooks, or any personal repeatable procedure, wherever "don't enter the next stage until X is true" applies and X is checkable via a file, file content, or a command.
 ---
 
 # Peaks-Cli SOP Authoring
 
 Peaks-Cli SOP turns a natural-language workflow description into a validated, registered custom SOP, then helps the user debug it until each gate behaves as intended. The user describes the process in plain language; this skill drives the `peaks sop` CLI on their behalf — they never have to hand-write `sop.json` or remember the command sequence.
+
+**This is a general workflow-gating tool, not a developer-only tool.** A SOP is any repeatable process with ordered stages where you must not skip ahead until conditions are met. Software release is just one example; content publishing, compliance/approval checklists, data validation pipelines, employee onboarding, ops runbooks, and personal procedures are all first-class — often the more valuable use. When you interview the user, do not assume code: ask about *their* process in *their* domain.
 
 ## Skill presence (MANDATORY first action)
 
@@ -49,6 +51,20 @@ A SOP is an **ordered list of phases** plus **gates** bound to phases. A gate th
 | `command` | `run` (argv array) + `expectExitZero` | the command exits as expected |
 
 `command` gates run user-defined processes and are **refused by default** — they require explicit `--allow-commands`, run with no shell (argv array, no injection), a timeout, and cwd pinned to the project. Always tell the user when a SOP needs `--allow-commands` and why.
+
+### Where SOPs apply (lead with the user's domain, not code)
+
+The three gate primitives are domain-neutral, so the same engine governs very different workflows:
+
+| domain | phases (example) | gate idea |
+|--------|------------------|-----------|
+| content / publishing | draft → edit → publish | `file-exists` the draft; `grep` no `TODO`/`TKTK`; `command` runs a spell/word-count check |
+| compliance / approval | prepare → review → sign-off | `file-exists` `approval.md`; `grep` the doc contains "Approved" |
+| data pipeline | raw → cleaned → validated | `command` runs a validator script that exits 0 |
+| onboarding / ops | request → provision → done | `file-exists` each checklist artifact; `command` verifies a config |
+| personal procedure | any repeatable steps | whatever "don't forget step X" means, expressed as a file/grep/command |
+
+The one boundary to explain: a gate must reduce to **a file existing, text matching in a file, or a command's exit code**. A purely human-judgment gate ("did the editor approve?") is expressed by reifying it into a signal — e.g. require an `approved.md` file, or that a status file contains "approved". The `command` gate is the universal adapter for anything scriptable.
 
 ## Default runbook
 
