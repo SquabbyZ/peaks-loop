@@ -42,7 +42,21 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
   const skill = program.command('skill').description('Manage Peaks skills');
   addJsonOption(skill.command('list').description('List skills derived from skills/*/SKILL.md')).action(async (options: { json?: boolean }) => {
     const skills = await listSkills();
-    printResult(io, ok('skill.list', { skills }), options.json);
+    if (options.json === true) {
+      printResult(io, ok('skill.list', { skills }), true);
+    } else {
+      const sorted = [...skills].sort((a, b) => {
+        if (a.name === 'peaks-sop') return -1;
+        if (b.name === 'peaks-sop') return 1;
+        if (a.name === 'peaks-solo') return -1;
+        if (b.name === 'peaks-solo') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      for (const skill of sorted) {
+        io.stdout(`  ${skill.name.padEnd(14)}${skill.description}`);
+      }
+      io.stdout(`\n  Invoke any skill by typing its name in conversation (e.g. \`peaks-sop\`).`);
+    }
   });
   addJsonOption(skill.command('doctor').description('Run skill-related doctor checks')).action(async (options: { json?: boolean }) => {
     const report = await runDoctor();

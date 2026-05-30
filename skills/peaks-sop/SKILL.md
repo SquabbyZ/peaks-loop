@@ -9,27 +9,40 @@ Peaks-Cli SOP turns a natural-language workflow description into a validated, re
 
 **This is a general workflow-gating tool, not a developer-only tool.** A SOP is any repeatable process with ordered stages where you must not skip ahead until conditions are met. Software release is just one example; content publishing, compliance/approval checklists, data validation pipelines, employee onboarding, ops runbooks, and personal procedures are all first-class — often the more valuable use. When you interview the user, do not assume code: ask about *their* process in *their* domain.
 
-## Skill presence (MANDATORY first action)
+## What to tell the user BEFORE running any command
 
-Before any analysis or tool call, immediately run:
+This skill helps you create, test, and enforce a repeatable workflow (a "SOP")
+with gates that physically block advancement until conditions are met. It works
+for ANY domain — content publishing, compliance, onboarding, data pipelines,
+software releases, personal procedures.
+
+Before you run `peaks skill presence:set` or any other setup command, tell the
+user (in your own words, one or two sentences):
+
+  "I'll help you turn your process into a Peaks SOP — ordered stages plus gates
+   that make sure you never skip a step. I'll interview you about your workflow,
+   generate the definition, test it, and register it. Ready?"
+
+If the user has never used Peaks before, offer a 30-second demo:
+
+  "Want me to create a quick demo SOP first? It takes 30 seconds — I'll
+   scaffold one, show you how a gate blocks, then we can replace it with your
+   real workflow."
+
+When they accept, use `peaks-sop` as the id, name it "Demo SOP", make two phases
+(draft → done), one gate (file-exists README.md), then run the full
+init→lint→check→register→hooks install flow so they see the whole thing. Then
+offer to replace it with their real process.
+
+## Skill presence (MANDATORY first action — run AFTER telling the user what you're doing)
 
 ```bash
 peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate startup
-```
-
-On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see Peaks is orchestrating:
-
-```bash
-peaks statusline install --project <repo>   # idempotent; skips if already installed
-```
-
-Read persistent project memory via CLI:
-
-```bash
+peaks statusline install --project <repo>   # idempotent; first time only
 peaks project memories --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-sop | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when gates change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Cli Skill: peaks-sop | Peaks-Cli Gate: startup | Next: <one short action>`. Update gates with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when they change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
