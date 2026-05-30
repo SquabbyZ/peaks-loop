@@ -1,7 +1,11 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { SOP_GATE_CHECK_TYPES, SOP_ID_PATTERN, type SopGate, type SopManifest, type SopPhaseGuard } from './sop-types.js';
-import { sopDir, sopManifestPath, sopSkillPath } from './sop-paths.js';
+import {
+  sopDir, sopManifestPath, sopSkillPath,
+  projectSopDir, projectSopManifestPath, projectSopSkillPath,
+  resolveSopManifestPath
+} from './sop-paths.js';
 
 /**
  * SOP authoring substrate — Feature A, Slice 1.
@@ -24,6 +28,8 @@ export type SopInitOptions = {
   id: string;
   name?: string;
   apply?: boolean;
+  /** When set, scaffold into the project layer (`<projectRoot>/.peaks/sops`) instead of global. */
+  projectRoot?: string;
 };
 
 export type SopInitResult = {
@@ -58,18 +64,21 @@ export type SopLintOptions = {
   id: string;
   /** `command`-type gates run shell-less processes; require explicit opt-in (OQ3 security). */
   allowCommands?: boolean;
+  /** When set, lint the project-layer manifest (`<projectRoot>/.peaks/sops`) instead of global. */
+  projectRoot?: string;
 };
 
 /**
- * Read and JSON-parse a SOP manifest. Returns null when the SOP does not exist;
+ * Read and JSON-parse a SOP manifest for EXECUTION, resolving project-first then
+ * global (the project layer wins). Returns null when neither layer has it;
  * throws on malformed JSON. Callers that need validation should run lintSop.
  */
-export async function readSopManifest(id: string): Promise<SopManifest | null> {
-  const manifestPath = sopManifestPath(id);
-  if (!existsSync(manifestPath)) {
+export async function readSopManifest(id: string, projectRoot?: string): Promise<SopManifest | null> {
+  const resolved = resolveSopManifestPath(id, projectRoot);
+  if (resolved === null) {
     return null;
   }
-  return JSON.parse(await readFile(manifestPath, 'utf8')) as SopManifest;
+  return JSON.parse(await readFile(resolved.path, 'utf8')) as SopManifest;
 }
 
 /** Why an id cannot be used; null when the id is acceptable. */
@@ -121,9 +130,10 @@ export async function initSop(options: SopInitOptions): Promise<SopInitResult> {
     throw new Error(reserved);
   }
 
-  const dir = sopDir(options.id);
-  const manifestPath = sopManifestPath(options.id);
-  const skillPath = sopSkillPath(options.id);
+  const inProject = options.projectRoot !== undefined;
+  const dir = inProject ? projectSopDir(options.projectRoot!, options.id) : sopDir(options.id);
+  const manifestPath = inProject ? projectSopManifestPath(options.projectRoot!, options.id) : sopManifestPath(options.id);
+  const skillPath = inProject ? projectSopSkillPath(options.projectRoot!, options.id) : sopSkillPath(options.id);
 
   if (existsSync(manifestPath)) {
     throw new Error(`A SOP with id "${options.id}" already exists at ${manifestPath}. Remove it before re-running peaks sop init.`);
@@ -219,7 +229,11 @@ function lintGuard(guard: SopPhaseGuard, index: number, phases: Set<string>, fin
 }
 
 export async function lintSop(options: SopLintOptions): Promise<SopLintResult | null> {
-  const manifestPath = sopManifestPath(options.id);
+  // lint validates the EXACT layer the caller targets (project when projectRoot
+  // is set, else global) — not the precedence resolution used for execution.
+  const manifestPath = options.projectRoot !== undefined
+    ? projectSopManifestPath(options.projectRoot, options.id)
+    : sopManifestPath(options.id);
   if (!existsSync(manifestPath)) {
     return null;
   }

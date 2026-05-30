@@ -130,7 +130,10 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
 
   let sopIds: string[];
   try {
-    sopIds = (await readRegistry()).sops.map((sop) => sop.id);
+    // Merged view: project-layer SOPs (committed in the repo — a teammate who
+    // clones gets them) over global. This is what makes enforcement work for a
+    // teammate who has only the repo, not your global ~/.peaks.
+    sopIds = (await readRegistry(projectRoot)).sops.map((sop) => sop.id);
   } catch (error) {
     return { decision: 'allow', warnings: [`gate enforce: could not read registry (${error instanceof Error ? error.message : 'error'}); allowing`] };
   }
@@ -140,7 +143,7 @@ export async function enforceBashCommand(projectRoot: string, command: string): 
   for (const sopId of sopIds) {
     let manifest;
     try {
-      manifest = await readSopManifest(sopId);
+      manifest = await readSopManifest(sopId, projectRoot);
     } catch (error) {
       warnings.push(`gate enforce: SOP "${sopId}" manifest unreadable (${error instanceof Error ? error.message : 'error'}); skipping`);
       continue;

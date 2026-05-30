@@ -133,7 +133,7 @@ function assertNoPhaseSkip(phases: string[], currentPhase: string | null, toPhas
 }
 
 export async function advanceSop(options: AdvanceSopOptions): Promise<AdvanceSopResult> {
-  const manifest = await readSopManifest(options.id);
+  const manifest = await readSopManifest(options.id, options.projectRoot);
   if (manifest === null) {
     throw new SopAdvanceError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }

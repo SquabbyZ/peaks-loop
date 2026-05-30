@@ -6,13 +6,13 @@ interview → generate → debug loop, and security notes. The skill drives the
 
 ## Where files live
 
-SOP **definitions** are global and reusable across projects:
-`~/.peaks/sops/<sop-id>/sop.json` (+ `SKILL.md`). `init` / `lint` / `register` /
-`registry` operate on this global location and take **no `--project`**. A SOP's
-**run-state** is per-project: `<project>/.peaks/sop-state/<sop-id>/state.json`.
-`check` / `advance` take `--project` (default: current directory) — that says
-which project the gate paths resolve against and whose progress advances. One
-authored SOP, many projects, independent progress.
+SOP **definitions** live in one of two layers:
+- **Global** `~/.peaks/sops/<sop-id>/sop.json` (+ `SKILL.md`) — personal, reusable across every project. `init` / `lint` / `register` default here.
+- **Project** `<project>/.peaks/sops/<sop-id>/sop.json` — committed into the repo and team-shared. Pass `--project <repo>` to `init` / `lint` / `register` to use this layer. The project layer **wins** over global for the same id; execution reads (`check`/`advance`/enforce) and `sop registry --project` see the merged view.
+
+A SOP's **run-state** is always per-project: `<project>/.peaks/sop-state/<sop-id>/state.json` (git-ignored — runtime, not shared). `check` / `advance` take `--project` (default: current directory) — that says which project the gate paths resolve against, whose progress advances, and which definition layer wins.
+
+Use the **project layer** when you want a workflow's gates to bind the whole team (commit the SOP, install the hook in the repo's `.claude/settings.json`); use **global** for your own repeatable procedures across many repos.
 
 ## Manifest shape (`~/.peaks/sops/<sop-id>/sop.json`)
 

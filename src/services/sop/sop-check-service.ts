@@ -154,8 +154,9 @@ export function evaluateGate(projectRoot: string, gate: SopGate, options: Evalua
 }
 
 export async function checkGate(options: CheckGateOptions): Promise<CheckGateResult> {
-  // Definitions are global; the gate's check still evaluates against options.projectRoot.
-  const manifest = await readSopManifest(options.id);
+  // Resolve the definition project-first then global; the gate's check still
+  // evaluates against options.projectRoot.
+  const manifest = await readSopManifest(options.id, options.projectRoot);
   if (manifest === null) {
     throw new SopCheckError('SOP_NOT_FOUND', `No SOP found for id "${options.id}"`);
   }

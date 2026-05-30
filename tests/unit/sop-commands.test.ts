@@ -199,6 +199,25 @@ describe('peaks sop register / registry commands', () => {
     expect(output.data.sops).toEqual([]);
   });
 
+  test('init/register --project use the repo layer and registry --project merges it', async () => {
+    const project = await makeProject('sop-project-layer');
+    // Global SOP.
+    await runCommand(['sop', 'init', '--id', 'personal', '--apply', '--json']);
+    await runCommand(['sop', 'register', '--id', 'personal', '--json']);
+    // Project (repo) SOP.
+    const init = await runCommand(['sop', 'init', '--id', 'team-release', '--project', project, '--apply', '--json']);
+    expect(parseJsonOutput<{ manifestPath: string }>(init.stdout).data.manifestPath).toContain(join('.peaks', 'sops', 'team-release'));
+    const reg = await runCommand(['sop', 'register', '--id', 'team-release', '--project', project, '--json']);
+    expect(parseJsonOutput<{ scope: string }>(reg.stdout).data.scope).toBe('project');
+    expect(existsSync(join(project, '.peaks', 'sops', 'registry.json'))).toBe(true);
+
+    // Merged registry (--project) shows both; global-only shows just personal.
+    const merged = await runCommand(['sop', 'registry', '--project', project, '--json']);
+    expect(parseJsonOutput<{ sops: Array<{ id: string }> }>(merged.stdout).data.sops.map((s) => s.id)).toEqual(['personal', 'team-release']);
+    const globalOnly = await runCommand(['sop', 'registry', '--json']);
+    expect(parseJsonOutput<{ sops: Array<{ id: string }> }>(globalOnly.stdout).data.sops.map((s) => s.id)).toEqual(['personal']);
+  });
+
   test('registry fails with SOP_REGISTRY_FAILED on a corrupt registry file', async () => {
     await mkdir(join(homeDir, '.peaks', 'sops'), { recursive: true });
     await writeFile(join(homeDir, '.peaks', 'sops', 'registry.json'), '{ not valid json', 'utf8');

@@ -14,12 +14,14 @@ type SopInitCliOptions = {
   id: string;
   name?: string;
   apply?: boolean;
+  project?: string;
   json?: boolean;
 };
 
 type SopLintCliOptions = {
   id: string;
   allowCommands?: boolean;
+  project?: string;
   json?: boolean;
 };
 
@@ -27,6 +29,7 @@ type SopRegisterCliOptions = {
   id: string;
   allowCommands?: boolean;
   dryRun?: boolean;
+  project?: string;
   json?: boolean;
 };
 
@@ -39,6 +42,7 @@ type SopCheckCliOptions = {
 };
 
 type SopRegistryCliOptions = {
+  project?: string;
   json?: boolean;
 };
 
@@ -61,10 +65,11 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('init')
-      .description('Scaffold a user-authored SOP (manifest + SKILL.md) in ~/.peaks/sops; preview by default')
+      .description('Scaffold a user-authored SOP (manifest + SKILL.md); global by default, --project commits it into a repo')
       .requiredOption('--id <sop-id>', 'SOP id (lowercase kebab, e.g. team-release)')
       .option('--name <name>', 'human-readable SOP name (defaults to the id)')
       .option('--apply', 'write the SOP files (default: preview only)')
+      .option('--project <path>', 'scaffold into the repo (<path>/.peaks/sops, committed & team-shared) instead of global')
   ).action(async (options: SopInitCliOptions) => {
     try {
       const initOptions: Parameters<typeof initSop>[0] = { id: options.id };
@@ -73,6 +78,9 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       }
       if (options.apply === true) {
         initOptions.apply = true;
+      }
+      if (options.project !== undefined) {
+        initOptions.projectRoot = options.project;
       }
       const result = await initSop(initOptions);
       // Side-effecting scaffold returns explicit next steps so the user doesn't
@@ -100,11 +108,15 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       .description('Validate a SOP manifest (id namespace, phases, gate ids, check fields)')
       .requiredOption('--id <sop-id>', 'SOP id to lint')
       .option('--allow-commands', 'permit command-type gates (they run shell-less processes)')
+      .option('--project <path>', 'lint the project-layer SOP (<path>/.peaks/sops) instead of global')
   ).action(async (options: SopLintCliOptions) => {
     try {
       const lintOptions: Parameters<typeof lintSop>[0] = { id: options.id };
       if (options.allowCommands === true) {
         lintOptions.allowCommands = true;
+      }
+      if (options.project !== undefined) {
+        lintOptions.projectRoot = options.project;
       }
       const result = await lintSop(lintOptions);
       if (result === null) {
@@ -139,10 +151,11 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('register')
-      .description('Validate a SOP and record its gates in the global (~/.peaks) gate registry')
+      .description('Validate a SOP and record its gates in the gate registry (global, or --project for the repo)')
       .requiredOption('--id <sop-id>', 'SOP id to register')
       .option('--allow-commands', 'permit command-type gates when validating')
       .option('--dry-run', 'preview the registration without writing registry.json')
+      .option('--project <path>', 'register into the repo (<path>/.peaks/sops, committed & team-shared) instead of global')
   ).action(async (options: SopRegisterCliOptions) => {
     try {
       const registerOptions: Parameters<typeof registerSop>[0] = { id: options.id };
@@ -151,6 +164,9 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
       }
       if (options.dryRun === true) {
         registerOptions.dryRun = true;
+      }
+      if (options.project !== undefined) {
+        registerOptions.projectRoot = options.project;
       }
       const result = await registerSop(registerOptions);
       printResult(io, ok('sop.register', result, [], result.applied ? [] : ['Re-run without --dry-run to write registry.json']), options.json);
@@ -168,10 +184,11 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('registry')
-      .description('List all registered SOPs and their gates from the global registry (read-only)')
+      .description('List registered SOPs and gates (global; --project merges in the repo layer)')
+      .option('--project <path>', 'also include and prefer the repo layer (<path>/.peaks/sops)')
   ).action(async (options: SopRegistryCliOptions) => {
     try {
-      const registry = await readRegistry();
+      const registry = await readRegistry(options.project);
       printResult(io, ok('sop.registry', registry), options.json);
     } catch (error) {
       printResult(

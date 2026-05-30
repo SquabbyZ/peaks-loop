@@ -105,7 +105,9 @@ peaks hooks install --project .        # 显式 opt-in，只写一条 PreToolUse
 
 强制层**故障即放行**（fail-open）：Peaks 自身任何内部错误都放行命令，绝不会卡死你的 Claude Code，只有真实门禁失败才拦。装 hook 是显式用户命令，skill 自己永不写 `settings.json`。`peaks hooks status` / `peaks hooks uninstall` 管理它。
 
-**定义全局、执行按项目**：SOP 定义（`sop.json` + 可注册的 `SKILL.md`）落在全局 `~/.peaks/sops/<sop-id>/`，写一次即可跨项目复用；运行态（当前阶段、历史）按项目落在 `<project>/.peaks/sop-state/<sop-id>/`，同一个 SOP 在不同项目各自独立进度。`init`/`lint`/`register`/`registry` 操作全局定义、**无需 `--project`**；`check`/`advance` 带 `--project`（默认当前目录）指定对哪个项目执行。
+**团队强制**：把 SOP 用 `peaks sop init/register --project <repo>` 落到**仓库里**（`<repo>/.peaks/sops/`，随仓库提交）。队友 clone 后——哪怕全局 `~/.peaks` 是空的——装上 hook 就被同一套门禁强制。SOP 定义分两层:仓库层(团队共享、随 PR 评审)优先，全局层(你个人跨项目复用)兜底。只放在全局的 SOP 只对你本机生效。
+
+**两层定义、执行按项目**：SOP 定义（`sop.json` + 可注册的 `SKILL.md`）可放在**全局** `~/.peaks/sops/`（个人跨项目复用，`init`/`lint`/`register` 默认层）或**仓库** `<repo>/.peaks/sops/`（随仓库提交、团队共享，加 `--project <repo>`）；同 id 时**仓库层优先**。运行态（当前阶段、历史）始终按项目落在 `<project>/.peaks/sop-state/<sop-id>/`，各项目独立进度。`check`/`advance` 带 `--project`（默认当前目录）指定对哪个项目执行、用哪层定义。
 
 ```bash
 # 1. 创建 SOP 骨架到 ~/.peaks/sops（默认预览不落盘，--apply 才写入）

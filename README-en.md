@@ -105,7 +105,9 @@ Now when the agent tries `git push` while a TODO remains, Claude Code receives `
 
 Enforcement **fails open**: any internal Peaks error allows the command (a bug never bricks your Claude Code) — only a real gate failure denies. Installing the hook is an explicit user command; the skill never writes `settings.json`. Manage it with `peaks hooks status` / `peaks hooks uninstall`.
 
-**Definition global, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) lives in the global `~/.peaks/sops/<sop-id>/` — author it once and reuse it across every project. Run-state (current phase, history) is per-project at `<project>/.peaks/sop-state/<sop-id>/`, so the same SOP tracks independent progress in each project. `init`/`lint`/`register`/`registry` operate on the global definition and take **no `--project`**; `check`/`advance` take `--project` (default: current directory) to say which project to run against.
+**Team enforcement:** commit the SOP into the repo with `peaks sop init/register --project <repo>` (written to `<repo>/.peaks/sops/`). A teammate who clones it — even with an empty global `~/.peaks` — is enforced by the same gates once they install the hook. Definitions resolve in two layers: the **project layer** (committed, team-shared, reviewed in PRs) wins over the **global layer** (your personal cross-project SOPs). A global-only SOP enforces only on your machine.
+
+**Two definition layers, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) lives in either the **global** layer `~/.peaks/sops/` (personal, reusable across projects — the default for `init`/`lint`/`register`) or the **project** layer `<repo>/.peaks/sops/` (committed into the repo, team-shared — pass `--project <repo>`). The project layer wins over global for the same id. Run-state (current phase, history) is always per-project at `<project>/.peaks/sop-state/<sop-id>/`. `check`/`advance` take `--project` (default: current directory) to say which project to run against and which layer wins.
 
 ```bash
 # 1. Scaffold a SOP into ~/.peaks/sops (preview by default; --apply writes files)

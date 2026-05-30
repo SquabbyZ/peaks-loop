@@ -54,9 +54,13 @@ Prefer **`grep` with `absent: true`** for any "must not contain X" gate (no left
 
 `command` gates run user-defined processes and are **refused by default** — they require explicit `--allow-commands`, run with no shell (argv array, no injection), a timeout, and cwd pinned to the project. Always tell the user when a SOP needs `--allow-commands` and why.
 
-### Where SOP files live (global definition, per-project execution)
+### Where SOP files live (two definition layers, per-project execution)
 
-A SOP *definition* is **global**: `~/.peaks/sops/<sop-id>/` (manifest + SKILL.md). Author it once and reuse it across every project — `init` / `lint` / `register` take no `--project`. A SOP's *run-state* (current phase, history) is **per-project**: `<project>/.peaks/sop-state/<sop-id>/`. So the same global SOP tracks independent progress in each project it runs in. `check` / `advance` take `--project` (default: current directory) to say which project the gates evaluate against and whose progress advances.
+A SOP *definition* (manifest + SKILL.md) can live in two layers:
+- **Global** `~/.peaks/sops/<sop-id>/` — your personal SOPs, reusable across every project. `init` / `lint` / `register` default here (no `--project`).
+- **Project** `<project>/.peaks/sops/<sop-id>/` — **committed into the repo**, so a teammate who clones it gets the SOP (and, with the hook installed, is enforced). Pass `--project <repo>` to `init` / `lint` / `register` to use this layer.
+
+The **project layer takes precedence** over global for the same id. Execution reads see the merged view (project wins). A SOP's *run-state* (current phase, history) is always **per-project**: `<project>/.peaks/sop-state/<sop-id>/`. `check` / `advance` take `--project` (default: current directory) to say which project the gates evaluate against, whose progress advances, and which definition layer wins.
 
 `advance` also enforces **phase order**: you may re-enter the current phase, step back, or move to the immediately-next phase, but not skip ahead — a forward jump returns `SOP_PHASE_SKIP` (bypassable, like a gate, with `--allow-incomplete --reason`).
 
@@ -95,7 +99,7 @@ Now when the agent tries `git push` while the publish gate fails, Claude Code re
 - Trust: enforcement **fails open** — any internal error allows the command (a Peaks bug never bricks Claude Code); only a real gate failure denies. Installing the hook is an explicit user command; this skill never writes `settings.json` itself.
 - `peaks hooks status` / `peaks hooks uninstall` manage the hook.
 
-> Boundary note: SOP definitions are global (`~/.peaks`), so enforcement is real for *you* on this machine. A teammate who clones the repo gets the hook but not your global SOP, so it fails open for them — repo-shared enforcement is a planned follow-up.
+> Team enforcement: register the SOP into the **project layer** (`peaks sop init/register --project <repo>`) so the definition is committed in the repo. A teammate who clones it — even with an empty global `~/.peaks` — is enforced by the same gates once they install the hook. (A SOP that lives only in your global `~/.peaks` enforces only on your machine.)
 
 ## Default runbook
 
