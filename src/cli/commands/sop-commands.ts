@@ -184,8 +184,8 @@ export function registerSopCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     sop
       .command('registry')
-      .description('List registered SOPs and gates (global; --project merges in the repo layer)')
-      .option('--project <path>', 'also include and prefer the repo layer (<path>/.peaks/sops)')
+      .description('List registered SOPs and gates (global; merges in the cwd project layer by default)')
+      .option('--project <path>', 'also include and prefer the repo layer (<path>/.peaks/sops) (default: current directory)', '.')
   ).action(async (options: SopRegistryCliOptions) => {
     try {
       const registry = await readRegistry(options.project);

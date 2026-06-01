@@ -3,6 +3,7 @@ import { rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { getMockedHomeDir, parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
+import { readRegistry } from '../../src/services/sop/sop-registry-service.js';
 
 const homeDir = getMockedHomeDir();
 
@@ -197,6 +198,41 @@ describe('peaks sop register / registry commands', () => {
     const output = parseJsonOutput<{ gateCount: number; sops: unknown[] }>(result.stdout);
     expect(output.data.gateCount).toBe(0);
     expect(output.data.sops).toEqual([]);
+  });
+
+  test('registry without --project defaults to cwd and merges the project layer when present (AC6)', async () => {
+    // Seed a project with a registry entry but NO matching global entry, so
+    // the assertion distinguishes merged-view (contains the project entry)
+    // from global-only (empty).
+    const project = await makeProject('sop-registry-cwd-default');
+    await mkdir(join(project, '.peaks', 'sops'), { recursive: true });
+    await writeFile(
+      join(project, '.peaks', 'sops', 'registry.json'),
+      JSON.stringify({ sops: [{ id: 'cwd-only', scope: 'project', gates: [] }], updatedAt: new Date().toISOString() }),
+      'utf8'
+    );
+
+    // Run the CLI from the project root, no --project flag. With the default
+    // value in place, this is equivalent to passing --project <cwd>.
+    const previousCwd = process.cwd();
+    process.chdir(project);
+    try {
+      const noFlag = await runCommand(['sop', 'registry', '--json']);
+      expect(parseJsonOutput<{ sops: Array<{ id: string }> }>(noFlag.stdout).data.sops.map((s) => s.id))
+        .toContain('cwd-only');
+
+      // And it should match the explicit --project <cwd> behavior.
+      const explicit = await runCommand(['sop', 'registry', '--project', project, '--json']);
+      expect(parseJsonOutput<{ sops: Array<{ id: string }> }>(explicit.stdout).data.sops.map((s) => s.id))
+        .toContain('cwd-only');
+    } finally {
+      process.chdir(previousCwd);
+    }
+
+    // Service-level guard: readRegistry(<project>) returns the same merged
+    // shape that the CLI now produces by default.
+    const merged = await readRegistry(project);
+    expect(merged.sops.map((s) => s.id)).toContain('cwd-only');
   });
 
   test('init/register --project use the repo layer and registry --project merges it', async () => {
