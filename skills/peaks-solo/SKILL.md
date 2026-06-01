@@ -761,8 +761,11 @@ peaks sc boundary --slice-id <rid> --artifact <artifact> --code <file> --json
 peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
 
-# 10. Peaks-Cli TXT handoff
-peaks memory extract --project <repo> --artifact <qa-artifact> --dry-run --json
+# 10. Peaks-Cli TXT handoff — invoke peaks-txt which embeds memory markers and extracts
+#     peaks-txt writes the handoff capsule to .peaks/<id>/txt/handoff.md with embedded
+#     <!-- peaks-memory:start --> blocks, then runs memory extract on it.
+#     --apply is REQUIRED to write .peaks/memory; without it the command only previews.
+peaks memory extract --project <repo> --artifact .peaks/<id>/txt/handoff.md --apply --json
 
 # 11. Peaks-Cli Final snapshot
 peaks project dashboard --project <repo> --json

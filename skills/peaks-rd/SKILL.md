@@ -89,6 +89,20 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #   - component library (antd, MUI, shadcn, etc.) and version
 #   - CSS solution (Less, Sass, TailwindCSS, CSS-in-JS) and conflicts
 #   - state management, routing, data fetching libraries
+#
+# After writing project-scan, embed durable memory markers for stable project facts.
+# Append one <!-- peaks-memory:start --> block per fact at the end of project-scan.md:
+#
+#   <!-- peaks-memory:start -->
+#   title: <component library>
+#   kind: module
+#   ---
+#   <Library> <version> — detected from package.json and source imports.
+#   <!-- peaks-memory:end -->
+#
+# Embed markers for: component library, CSS solution, build tool, state management,
+# routing, data fetching, and any legacy constraints. These facts are session-invariant
+# and valuable for future sessions. Do NOT embed secrets, credentials, or transient state.
 
 # 4.2 component library detection — verify against package.json, not assumptions
 # WRONG: "looks like a React project, let me use shadcn/ui"

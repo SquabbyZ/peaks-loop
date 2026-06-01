@@ -118,7 +118,7 @@ Stable memory body.
 <!-- peaks-memory:end -->
 ```
 
-The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact>` to write durable project memories; pass `--dry-run` to preview without writing.
+The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` to write durable project memories; omit `--apply` to preview without writing.
 
 ## Matt Pocock skills integration
 
@@ -190,13 +190,28 @@ peaks understand show --project <repo> --json
 # 4. Discover external capabilities before recommending memory or context tools
 peaks capabilities --json
 
-# 5. Memory extraction — writes by default, use --dry-run to preview
-peaks memory extract --project <repo> --artifact <artifact-path> --json
-peaks memory extract --project <repo> --artifact <artifact-path> --dry-run --json   # preview only
+# 5. Write the handoff capsule (see template above), then embed memory markers
+#    For each stable project fact, decision, rule, or convention discovered this session,
+#    append a <!-- peaks-memory:start --> block inside the capsule body:
+#
+#    <!-- peaks-memory:start -->
+#    title: Short project memory title
+#    kind: project | decision | convention | rule | reference | module
+#    ---
+#    Stable memory body. Concrete facts only — no secrets, no transient state.
+#    <!-- peaks-memory:end -->
+#
+#    Mark ONLY facts that survive the session: architectural decisions, stack constraints,
+#    naming conventions, API patterns, approved refactors. Do NOT embed: secrets, credentials,
+#    transient debugging notes, or session-specific context.
+
+# 6. Memory extraction — --apply is REQUIRED to write .peaks/memory
+#    (without --apply the command only previews; the directory will NOT be created)
+peaks memory extract --project <repo> --artifact .peaks/<id>/txt/handoff.md --apply --json
 peaks skill presence:clear --project <repo>                      # handoff capsule complete, remove presence indicator
 ```
 
-The default `peaks memory extract` call writes to `.peaks/memory`. Pass `--dry-run` to preview without writing.
+`peaks memory extract --apply` writes to `.peaks/memory` (without `--apply` it only previews). The handoff capsule `.peaks/<id>/txt/handoff.md` is the primary artifact for extraction — embed `<!-- peaks-memory:start -->` blocks in it for stable project facts before running extract.
 
 ### Transition verification gates (MANDATORY — run the command, see the output)
 
