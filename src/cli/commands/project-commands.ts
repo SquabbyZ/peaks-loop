@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { loadProjectDashboard } from '../../services/dashboard/project-dashboard-service.js';
 import { generateProjectContext, readProjectContext } from '../../services/memory/project-context-service.js';
-import { readProjectMemories } from '../../services/memory/project-memory-service.js';
+import { extractSessionMemories, readMemoryIndex, readProjectMemories } from '../../services/memory/project-memory-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -110,6 +110,60 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       }), options.json);
     } catch (error) {
       printResult(io, fail('project.context', 'PROJECT_CONTEXT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks directory']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // --- Extract memories from a session's artifacts into .peaks/memory ---
+  addJsonOption(
+    project
+      .command('memories:extract')
+      .description('Scan a session artifact directory and extract <!-- peaks-memory:start --> blocks into .peaks/memory/')
+      .requiredOption('--session-id <id>', 'session id (e.g. 2026-05-29-session-89ff35)')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--dry-run', 'preview writes without changing files', true)
+      .option('--apply', 'write extracted memories into .peaks/memory/')
+  ).action((options: { sessionId: string; project: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+    if (options.dryRun === true && options.apply === true) {
+      printResult(io, fail('project.memories:extract', 'INVALID_MEMORY_EXTRACT_FLAGS', 'Use either --dry-run or --apply, not both', { sessionId: options.sessionId, projectRoot: options.project }, ['Run without --apply to preview writes, or pass --apply to write memories']), options.json);
+      process.exitCode = 1;
+      return;
+    }
+    try {
+      const result = extractSessionMemories({
+        projectRoot: options.project,
+        sessionId: options.sessionId,
+        apply: options.apply === true
+      });
+      printResult(io, ok('project.memories:extract', {
+        scannedFiles: result.scannedFiles,
+        extractedCount: result.extractedCount,
+        writtenFiles: result.writtenFiles,
+        memoryDir: result.primaryMemoryDir,
+        indexUpdated: result.updatedIndex
+      }), options.json);
+    } catch (error) {
+      printResult(io, fail('project.memories:extract', 'MEMORY_EXTRACT_FAILED', getErrorMessage(error), { sessionId: options.sessionId, projectRoot: options.project }, ['Check the session-id and project path']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // --- Read memory index (lightweight, always-safe to load) ---
+  addJsonOption(
+    project
+      .command('memory-index')
+      .description('Read the memory index — lightweight hot/warm分层 view of all project memories')
+      .requiredOption('--project <path>', 'target project root')
+  ).action((options: { project: string; json?: boolean }) => {
+    try {
+      const index = readMemoryIndex(options.project);
+      if (!index) {
+        printResult(io, ok('project.memory-index', { exists: false, message: 'No memory index found. Run `peaks project memories:extract` first.' }), options.json);
+        return;
+      }
+      printResult(io, ok('project.memory-index', { exists: true, index }), options.json);
+    } catch (error) {
+      printResult(io, fail('project.memory-index', 'MEMORY_INDEX_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks/memory directory']), options.json);
       process.exitCode = 1;
     }
   });

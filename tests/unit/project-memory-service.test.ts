@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { platform, tmpdir } from 'node:os';
 import { describe, expect, test, vi } from 'vitest';
 import {
@@ -7,7 +7,9 @@ import {
   createProjectMemoryExtractPlan,
   executeProjectMemoryBackup,
   executeProjectMemoryExtract,
-  extractStableProjectMemories
+  extractSessionMemories,
+  extractStableProjectMemories,
+  readMemoryIndex
 } from '../../src/services/memory/project-memory-service.js';
 
 function createTempDir(prefix: string): string {
@@ -328,6 +330,110 @@ describe('project memory service', () => {
     writeFileSync(secondArtifact, block, 'utf8');
 
     expect(() => createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [firstArtifact, secondArtifact], apply: false })).toThrow('Duplicate memory titles are not allowed');
+  });
+
+  test('extractSessionMemories is idempotent across repeated runs of the same session', () => {
+    const projectRoot = createTempDir('peaks-memory-session-idempotent');
+    const sessionDir = join(projectRoot, '.peaks', 'session-abc');
+    mkdirSync(sessionDir, { recursive: true });
+    writeFileSync(join(sessionDir, 'note.md'), [
+      '<!-- peaks-memory:start -->',
+      'title: Session probe',
+      'kind: feedback',
+      '---',
+      'Stable memory body',
+      '<!-- peaks-memory:end -->'
+    ].join('\n'), 'utf8');
+
+    const first = extractSessionMemories({ projectRoot, sessionId: 'session-abc', apply: true });
+    const second = extractSessionMemories({ projectRoot, sessionId: 'session-abc', apply: true });
+
+    expect(first.extractedCount).toBe(1);
+    expect(first.writtenFiles).toHaveLength(1);
+    expect(second.extractedCount).toBe(1);
+    expect(second.writtenFiles).toHaveLength(0);
+    expect(readFileSync(first.writtenFiles[0]!, 'utf8')).toContain('Stable memory body');
+  });
+
+  test('extractSessionMemories rejects session ids that resolve outside the project root', () => {
+    const projectRoot = createTempDir('peaks-memory-session-escape');
+    // Sibling of projectRoot (real directory that exists, but is not a
+    // descendant of projectRoot). We put a memory block in it so the
+    // scanner has something to find IF the guard is missing.
+    const outsideDir = createTempDir('peaks-memory-escape-target');
+    writeFileSync(join(outsideDir, 'note.md'), [
+      '<!-- peaks-memory:start -->',
+      'title: Escape attempt',
+      'kind: feedback',
+      '---',
+      'should never be read',
+      '<!-- peaks-memory:end -->'
+    ].join('\n'), 'utf8');
+
+    // Build a sessionId whose joined path resolves to outsideDir (a real
+    // sibling), so the scanner would happily walk it without the guard.
+    // .peaks/../<outsideBase> collapses to .peaks/<outsideBase>, then we
+    // add an extra .. to climb out of projectRoot.
+    const sessionId = join('..', '..', basename(outsideDir));
+    const joined = join(projectRoot, '.peaks', sessionId);
+
+    expect(existsSync(joined)).toBe(true); // sanity: confirms escape path is reachable
+
+    expect(() => extractSessionMemories({ projectRoot, sessionId, apply: false }))
+      .toThrow('Session directory must stay inside the project root');
+
+    try { rmSync(outsideDir, { recursive: true, force: true }); } catch { /* best effort cleanup */ }
+  });
+
+  test('readMemoryIndex exposes a hot entry per memory with kind, description, sourcePath, and mtime', () => {
+    const projectRoot = createTempDir('peaks-memory-index-shape');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+    const before = new Date().toISOString().slice(0, 10);
+    writeFileSync(join(memoryDir, 'feedback-example.md'), [
+      '---',
+      'name: feedback-example',
+      'description: Feedback example',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      'Multi sentence body that is longer than twenty characters. Second sentence here.',
+      ''
+    ].join('\n'), 'utf8');
+
+    const index = readMemoryIndex(projectRoot);
+    expect(index).not.toBeNull();
+    const entry = index!.hot.feedback.find((e) => e.name === 'feedback-example');
+    expect(entry).toBeDefined();
+    expect(entry!.kind).toBe('feedback');
+    expect(entry!.sourcePath).toBe(join(memoryDir, 'feedback-example.md'));
+    expect(entry!.sourceArtifact).toBe('rd/artifact.md');
+    expect(entry!.updatedAt).toBe(before);
+    expect(entry!.description.length).toBeGreaterThan(20);
+  });
+
+  test('extractSessionMemories dry-run returns planned writes without touching the filesystem', () => {
+    const projectRoot = createTempDir('peaks-memory-session-dry-run');
+    const sessionDir = join(projectRoot, '.peaks', 'session-dry');
+    mkdirSync(sessionDir, { recursive: true });
+    writeFileSync(join(sessionDir, 'note.md'), [
+      '<!-- peaks-memory:start -->',
+      'title: Dry run probe',
+      'kind: feedback',
+      '---',
+      'Body for dry run',
+      '<!-- peaks-memory:end -->'
+    ].join('\n'), 'utf8');
+
+    const result = extractSessionMemories({ projectRoot, sessionId: 'session-dry', apply: false });
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+
+    expect(result.extractedCount).toBe(1);
+    expect(result.writtenFiles).toHaveLength(0);
+    expect(result.updatedIndex).toBe(false);
+    expect(existsSync(join(memoryDir, 'dry-run-probe.md'))).toBe(false);
   });
 
   test('ignores malformed and incomplete memory blocks', () => {

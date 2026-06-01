@@ -147,6 +147,7 @@ peaks request lint <rid> --role qa --project <repo> --json
 # 9. on verdict=return-to-rd, route findings back through the request id; otherwise close.
 peaks request show <request-id> --role qa --project <repo> --json
 peaks openspec archive <change-id> --project <repo> --json   # preview, then --apply on full pass
+peaks project memories:extract --session-id <session-id> --project <repo> --json  # extract durable memories
 peaks skill presence:clear --project <repo>                      # QA complete, remove presence indicator
 ```
 

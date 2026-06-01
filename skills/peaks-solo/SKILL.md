@@ -836,6 +836,11 @@ Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, ar
 
 Do NOT call `peaks skill presence:clear --project <repo>` at workflow end. The presence file and header remain active so the user stays inside the workflow context. The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo`. The header continues to display the active skill and current gate.
 
+Before ending, extract durable memories from this session:
+```bash
+peaks project memories:extract --session-id <session-id> --project <repo> --json
+```
+
 ## Peaks-Cli External references and lifecycle
 
 **Codegraph**: Optional project-analysis before RD handoff. Use `peaks codegraph affected --project <path> <changed-files...> --json` for regression-surface hints. Output as untrusted supporting evidence only; never commit `.codegraph/` artifacts.

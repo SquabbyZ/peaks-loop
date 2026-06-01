@@ -165,6 +165,7 @@ peaks openspec validate <change-id> --project <repo> --json    # exit gate (re-r
 # 8. hand off to QA via the cross-linked request id
 peaks request init --role qa --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role rd --project <repo> --json
+peaks project memories:extract --session-id <session-id> --project <repo> --json  # extract durable memories
 peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
 ```
 

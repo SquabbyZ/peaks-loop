@@ -162,6 +162,7 @@ peaks hooks status --project <repo>
 peaks gate bypass --sop <sop-id> --phase <phase> --reason "<why>" --project <repo>
 
 # 9. hand the SOP to the user; clear presence when done
+peaks project memories:extract --session-id <session-id> --project <repo> --json  # extract durable memories
 peaks skill presence:clear --project <repo>
 ```
 

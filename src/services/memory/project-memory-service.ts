@@ -1,4 +1,4 @@
-import { closeSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { isInsidePath, isWindowsAbsolutePath, normalizePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
 import { containsSensitiveConfigValue, isSensitiveConfigPath } from '../config/config-service.js';
@@ -91,6 +91,47 @@ export type ProjectMemoryReadResult = {
   memories: StoredProjectMemory[];
 };
 
+// ---------------------------------------------------------------------------
+// New types for hot/warm分层 index
+// ---------------------------------------------------------------------------
+
+export type MemoryIndexEntry = {
+  name: string;
+  kind: ProjectMemoryKind;
+  description: string;
+  sourcePath: string;
+  sourceArtifact: string | null;
+  updatedAt: string;
+};
+
+export type MemoryIndex = {
+  version: 1;
+  updatedAt: string;
+  hot: Record<ProjectMemoryKind, MemoryIndexEntry[]>;
+  warm: Record<ProjectMemoryKind, MemoryIndexEntry[]>;
+};
+
+export type ExtractSessionMemoriesOptions = {
+  projectRoot: string;
+  sessionId: string;
+  apply?: boolean;
+};
+
+export type ExtractSessionMemoriesResult = {
+  apply: boolean;
+  projectRoot: string;
+  sessionId: string;
+  primaryMemoryDir: string;
+  memoryIndexPath: string;
+  scannedFiles: number;
+  extractedCount: number;
+  writtenFiles: string[];
+  updatedIndex: boolean;
+};
+
+// Hot kinds: full body kept in index for always-available context
+const HOT_KINDS = new Set<ProjectMemoryKind>(['feedback', 'decision', 'rule', 'convention', 'module']);
+
 type ExtractPlanOptions = {
   projectRoot: string;
   artifactPaths: string[];
@@ -102,6 +143,10 @@ type BackupPlanOptions = {
   artifactWorkspacePath: string;
   apply?: boolean;
 };
+
+// ---------------------------------------------------------------------------
+// Internal helpers (kept from original, sorted by dependency order)
+// ---------------------------------------------------------------------------
 
 const START_MARKER = '<!-- peaks-memory:start -->';
 const END_MARKER = '<!-- peaks-memory:end -->';
@@ -286,6 +331,324 @@ function parseStoredMemoryFile(content: string, filePath: string): StoredProject
   };
 }
 
+function listMarkdownFiles(dirPath: string, options: { maxDepth?: number; skipDotfiles?: boolean } = {}): string[] {
+  if (!existsSync(dirPath)) return [];
+
+  const { maxDepth = Infinity, skipDotfiles = true } = options;
+  const files: string[] = [];
+  const stack: Array<{ path: string; depth: number }> = [{ path: dirPath, depth: 0 }];
+
+  while (stack.length > 0) {
+    const frame = stack.pop() as { path: string; depth: number };
+    if (frame.depth > maxDepth) continue;
+    for (const entry of readdirSync(frame.path, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      if (skipDotfiles && entry.name.startsWith('.')) continue;
+      const entryPath = join(frame.path, entry.name);
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        stack.push({ path: entryPath, depth: frame.depth + 1 });
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        files.push(entryPath);
+      }
+    }
+  }
+
+  return files.sort((left, right) => left.localeCompare(right));
+}
+
+// ---------------------------------------------------------------------------
+// Description summarization (deterministic, no LLM call)
+// ---------------------------------------------------------------------------
+
+function summarizeMemoryBody(body: string): string {
+  const cleaned = body
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .trim();
+
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter((s) => s.length > 20 && !/^\[.+\]$/.test(s));
+  if (sentences.length === 0) {
+    return cleaned.slice(0, 120) || 'Project memory';
+  }
+
+  const first = sentences[0]!;
+  if (first.length <= 120) {
+    return first;
+  }
+  return first.slice(0, 117) + '...';
+}
+
+// ---------------------------------------------------------------------------
+// Session memory extraction (new extract path)
+// ---------------------------------------------------------------------------
+
+function assertSafeSessionDir(projectRoot: string, sessionId: string): string {
+  const normalizedRoot = normalizeRoot(projectRoot);
+  const realRoot = normalizeRealRoot(projectRoot);
+  const sessionDir = join(normalizedRoot, '.peaks', sessionId);
+  if (!existsSync(sessionDir)) {
+    // Distinguish "not found" (caller will treat as no-op) from "escapes project
+    // root" (caller must surface a hard error). We probe by checking whether the
+    // joined path, after realpath, would still be inside the project root.
+    if (isAbsolute(join(normalizedRoot, '.peaks', sessionId))) {
+      const realJoined = safeRealpath(join(normalizedRoot, '.peaks', sessionId));
+      if (realJoined && !isInsidePath(realJoined, realRoot)) {
+        throw new Error('Session directory must stay inside the project root');
+      }
+    }
+    throw new Error('SESSION_DIR_NOT_FOUND');
+  }
+  const stats = lstatSync(sessionDir);
+  if (stats.isSymbolicLink()) {
+    throw new Error('Session directory must stay inside the project root');
+  }
+  const realSessionDir = realpathSync(sessionDir);
+  if (!isInsidePath(realSessionDir, realRoot)) {
+    throw new Error('Session directory must stay inside the project root');
+  }
+  return sessionDir;
+}
+
+function safeRealpath(path: string): string | null {
+  try {
+    return realpathSync(path);
+  } catch {
+    return null;
+  }
+}
+
+function readMemoryFileMtime(filePath: string): string {
+  try {
+    return statSync(filePath).mtime.toISOString().slice(0, 10);
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function readStoredMemoryNames(memoryDir: string): Set<string> {
+  const names = new Set<string>();
+  for (const filePath of listMarkdownFiles(memoryDir)) {
+    const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
+    if (parsed) names.add(parsed.name);
+  }
+  return names;
+}
+
+function generateMemoryIndexFile(projectRoot: string, memoryDir: string, indexPath: string): void {
+  const memories = readProjectMemories(projectRoot);
+
+  const hot: Record<string, MemoryIndexEntry[]> = {
+    feedback: [], decision: [], rule: [], convention: [], module: []
+  };
+  const warm: Record<string, MemoryIndexEntry[]> = {
+    project: [], reference: []
+  };
+
+  for (const memory of memories.memories) {
+    const entry: MemoryIndexEntry = {
+      name: memory.name,
+      kind: memory.kind,
+      description: memory.body ? summarizeMemoryBody(memory.body) : memory.title,
+      sourcePath: memory.filePath,
+      sourceArtifact: memory.sourceArtifact,
+      updatedAt: readMemoryFileMtime(memory.filePath)
+    };
+
+    if (HOT_KINDS.has(memory.kind)) {
+      hot[memory.kind]!.push(entry);
+    } else {
+      warm[memory.kind]!.push(entry);
+    }
+  }
+
+  for (const kind of [...Object.keys(hot), ...Object.keys(warm)]) {
+    const arr = hot[kind as keyof typeof hot] ?? warm[kind as keyof typeof warm];
+    if (arr) arr.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  const index: MemoryIndex = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    hot: hot as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
+    warm: warm as Record<ProjectMemoryKind, MemoryIndexEntry[]>
+  };
+
+  const fd = openSync(indexPath, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC, 0o644);
+  try {
+    writeFileSync(fd, JSON.stringify(index, null, 2), 'utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function readExistingIndex(indexPath: string): MemoryIndex | null {
+  if (!existsSync(indexPath)) return null;
+  try {
+    const raw = readFileSync(indexPath, 'utf8');
+    const parsed = JSON.parse(raw) as MemoryIndex;
+    if (parsed.version === 1) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function readMemoryIndex(projectRoot: string): MemoryIndex | null {
+  const normalizedRoot = normalizeRoot(projectRoot);
+  const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
+  const indexPath = join(memoryDir, 'index.json');
+
+  if (existsSync(memoryDir)) {
+    const files = listMarkdownFiles(memoryDir);
+    if (files.length > 0) {
+      try {
+        generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
+      } catch {
+        // fall through to read existing
+      }
+    }
+  }
+
+  return readExistingIndex(indexPath);
+}
+
+export function extractSessionMemories(options: ExtractSessionMemoriesOptions): ExtractSessionMemoriesResult {
+  const projectRoot = normalizeRoot(options.projectRoot);
+  const apply = options.apply ?? false;
+  const primaryMemoryDir = assertSafeProjectMemoryDir(projectRoot);
+  const memoryIndexPath = join(primaryMemoryDir, 'index.json');
+
+  // Resolve sessionDir through realpath + inside-project guard so a hostile
+  // sessionId (`..`, abs path, symlink chain) cannot walk the scanner outside
+  // the project root. A sentinel "SESSION_DIR_NOT_FOUND" distinguishes a
+  // benign miss from an escape attempt.
+  let sessionDir: string;
+  try {
+    sessionDir = assertSafeSessionDir(projectRoot, options.sessionId);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SESSION_DIR_NOT_FOUND') {
+      return {
+        apply,
+        projectRoot,
+        sessionId: options.sessionId,
+        primaryMemoryDir,
+        memoryIndexPath,
+        scannedFiles: 0,
+        extractedCount: 0,
+        writtenFiles: [],
+        updatedIndex: false
+      };
+    }
+    throw error;
+  }
+  const scannedFiles = listMarkdownFiles(sessionDir, { maxDepth: 6, skipDotfiles: true });
+
+  const allExtracted: ExtractedProjectMemory[] = [];
+  for (const filePath of scannedFiles) {
+    try {
+      const content = readFileSync(filePath, 'utf8');
+      const relativePath = relative(projectRoot, filePath).replaceAll('\\', '/');
+      const extracted = extractStableProjectMemories(content, relativePath);
+      allExtracted.push(...extracted);
+    } catch {
+      // skip unreadable files
+    }
+  }
+
+  if (allExtracted.length === 0) {
+    return {
+      apply,
+      projectRoot,
+      sessionId: options.sessionId,
+      primaryMemoryDir,
+      memoryIndexPath,
+      scannedFiles: scannedFiles.length,
+      extractedCount: 0,
+      writtenFiles: [],
+      updatedIndex: false
+    };
+  }
+
+  const slugCounts = new Map<string, number>();
+  for (const memory of allExtracted) {
+    const slug = slugify(memory.title);
+    slugCounts.set(slug, (slugCounts.get(slug) ?? 0) + 1);
+  }
+  const duplicateTitles = [...slugCounts.entries()].filter(([, count]) => count > 1).map(([slug]) => slug);
+  if (duplicateTitles.length > 0) {
+    throw new Error(`Duplicate memory titles are not allowed: ${duplicateTitles.join(', ')}`);
+  }
+
+  // Idempotency: pre-read existing memory names so a re-run of the same
+  // session does not throw EEXIST. `writtenFiles` reports only the new
+  // writes so callers can still tell what the run actually produced.
+  const existingNames = apply ? readStoredMemoryNames(primaryMemoryDir) : new Set<string>();
+  const writtenFiles: string[] = [];
+  if (apply) {
+    mkdirSync(primaryMemoryDir, { recursive: true });
+
+    for (const memory of allExtracted) {
+      const slug = slugify(memory.title);
+      if (existingNames.has(slug)) continue;
+
+      const targetPath = join(primaryMemoryDir, `${slug}.md`);
+      const safePath = resolveInputPath(targetPath);
+      const stableSafePath = stablePath(safePath);
+      if (!isInsidePath(stableSafePath, stableRealPath(primaryMemoryDir))) {
+        throw new Error('Project memory write target must stay inside the project memory directory');
+      }
+      writeNewFile(safePath, renderMemoryFile(memory));
+      writtenFiles.push(safePath);
+    }
+
+    generateMemoryIndexFile(projectRoot, primaryMemoryDir, memoryIndexPath);
+  }
+
+  return {
+    apply,
+    projectRoot,
+    sessionId: options.sessionId,
+    primaryMemoryDir,
+    memoryIndexPath,
+    scannedFiles: scannedFiles.length,
+    extractedCount: allExtracted.length,
+    writtenFiles,
+    updatedIndex: apply && writtenFiles.length > 0
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Old extract path (kept for core-artifact-commands.ts)
+// ---------------------------------------------------------------------------
+
+export function extractStableProjectMemories(content: string, sourceArtifact: string): ExtractedProjectMemory[] {
+  const memories: ExtractedProjectMemory[] = [];
+  let searchStart = 0;
+
+  while (searchStart < content.length) {
+    const start = content.indexOf(START_MARKER, searchStart);
+    if (start < 0) break;
+    const bodyStart = start + START_MARKER.length;
+    const end = content.indexOf(END_MARKER, bodyStart);
+    if (end < 0) break;
+
+    const memory = parseBlock(content.slice(bodyStart, end).trim(), sourceArtifact);
+    if (memory) {
+      assertSafeMemory(memory);
+      memories.push(memory);
+    }
+    searchStart = end + END_MARKER.length;
+  }
+
+  return memories.sort((left, right) => slugify(left.title).localeCompare(slugify(right.title)));
+}
+
 function summarizeExtractResult(result: ProjectMemoryExtractResult): ProjectMemoryExtractSummary {
   return {
     apply: result.apply,
@@ -313,54 +676,6 @@ function summarizeBackupResult(result: ProjectMemoryBackupResult): ProjectMemory
     plannedCopies: result.plannedCopies,
     copiedFiles: result.copiedFiles
   };
-}
-
-function listMarkdownFiles(dirPath: string): string[] {
-  if (!existsSync(dirPath)) return [];
-
-  const files: string[] = [];
-  const stack: string[] = [dirPath];
-
-  while (stack.length > 0) {
-    const currentDir = stack.pop() as string;
-    for (const entry of readdirSync(currentDir, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
-      const entryPath = join(currentDir, entry.name);
-      if (entry.isSymbolicLink()) {
-        continue;
-      }
-      if (entry.isDirectory()) {
-        stack.push(entryPath);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        files.push(entryPath);
-      }
-    }
-  }
-
-  return files.sort((left, right) => left.localeCompare(right));
-}
-
-export function extractStableProjectMemories(content: string, sourceArtifact: string): ExtractedProjectMemory[] {
-  const memories: ExtractedProjectMemory[] = [];
-  let searchStart = 0;
-
-  while (searchStart < content.length) {
-    const start = content.indexOf(START_MARKER, searchStart);
-    if (start < 0) break;
-    const bodyStart = start + START_MARKER.length;
-    const end = content.indexOf(END_MARKER, bodyStart);
-    if (end < 0) break;
-
-    const memory = parseBlock(content.slice(bodyStart, end).trim(), sourceArtifact);
-    if (memory) {
-      assertSafeMemory(memory);
-      memories.push(memory);
-    }
-    searchStart = end + END_MARKER.length;
-  }
-
-  return memories.sort((left, right) => slugify(left.title).localeCompare(slugify(right.title)));
 }
 
 export function createProjectMemoryExtractPlan(options: ExtractPlanOptions): ProjectMemoryExtractPlan {
