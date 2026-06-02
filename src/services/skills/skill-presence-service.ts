@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { findProjectRoot } from '../config/config-safety.js';
+import { ensureMemoryBootstrap } from '../memory/project-memory-service.js';
 
 export type SkillPresenceMode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
 
@@ -88,6 +89,18 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
   }
 
   writeFileSync(presencePath, JSON.stringify(presence, null, 2), 'utf8');
+
+  // Skill-activation side effect: ensure `.peaks/memory/` and a full-shape
+  // empty `index.json` exist for the project. This is the user-facing fix
+  // for "stock projects never get a memory directory or index". Every peaks
+  // skill starts with `peaks skill presence:set peaks-<role>`, so doing the
+  // bootstrap here means the very first skill invocation in a fresh project
+  // (or in a stock project that pre-dates the memory layer) brings the
+  // memory store into existence. The helper is fail-open, so a failure here
+  // does not block presence from being written.
+  const projectRoot = resolveProjectRoot(projectRootOverride);
+  ensureMemoryBootstrap(projectRoot);
+
   return presence;
 }
 

@@ -106,6 +106,75 @@ describe('skill presence service', () => {
       }
     });
 
+    test('bootstraps .peaks/memory/ + full-shape empty index.json on first skill activation', () => {
+      // Stock project cold start: a fresh dir with no .peaks at all. After
+      // the very first peaks skill call, the memory directory and a
+      // well-formed empty index must be on disk so subsequent
+      // `peaks project memories` reads return a stable result.
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        const memoryDir = join(root, '.peaks', 'memory');
+        const indexPath = join(memoryDir, 'index.json');
+        expect(existsSync(memoryDir)).toBe(false);
+
+        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+
+        expect(existsSync(memoryDir)).toBe(true);
+        expect(existsSync(indexPath)).toBe(true);
+
+        const raw = JSON.parse(readFileSync(indexPath, 'utf8'));
+        expect(raw.version).toBe(1);
+        expect(typeof raw.updatedAt).toBe('string');
+        expect(raw.hot).toBeDefined();
+        expect(raw.warm).toBeDefined();
+        // every kind bucket must be present and empty, not missing
+        for (const kind of ['feedback', 'decision', 'rule', 'convention', 'module']) {
+          expect(Array.isArray(raw.hot[kind])).toBe(true);
+          expect(raw.hot[kind]).toHaveLength(0);
+        }
+        for (const kind of ['project', 'reference']) {
+          expect(Array.isArray(raw.warm[kind])).toBe(true);
+          expect(raw.warm[kind]).toHaveLength(0);
+        }
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('does NOT overwrite an existing memory index.json', () => {
+      // If the user already has a populated index, presence must not stomp
+      // it. We pre-write a hand-crafted index, call setSkillPresence, and
+      // assert the file content is byte-equal.
+      const root = createTempDir();
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        const memoryDir = join(root, '.peaks', 'memory');
+        const indexPath = join(memoryDir, 'index.json');
+        mkdirSync(memoryDir, { recursive: true });
+        const handCrafted = {
+          version: 1,
+          updatedAt: '2026-06-01T17:11:22.024Z',
+          hot: { feedback: [{ name: 'preserve-me', kind: 'feedback', description: 'do not stomp', sourcePath: '/x', sourceArtifact: null, updatedAt: '2026-06-01' }], decision: [], rule: [], convention: [], module: [] },
+          warm: { project: [], reference: [] }
+        };
+        writeFileSync(indexPath, JSON.stringify(handCrafted, null, 2), 'utf8');
+
+        setSkillPresence('peaks-rd', 'assisted', 'spec-locked');
+
+        const after = JSON.parse(readFileSync(indexPath, 'utf8'));
+        expect(after.hot.feedback).toHaveLength(1);
+        expect(after.hot.feedback[0].name).toBe('preserve-me');
+        expect(after.updatedAt).toBe('2026-06-01T17:11:22.024Z');
+      } finally {
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     test('stores sessionId when .peaks/.session.json exists', () => {
       const root = createTempDir();
       try {

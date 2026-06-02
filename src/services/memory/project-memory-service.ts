@@ -504,14 +504,30 @@ export function readMemoryIndex(projectRoot: string): MemoryIndex | null {
   const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
   const indexPath = join(memoryDir, 'index.json');
 
-  if (existsSync(memoryDir)) {
-    const files = listMarkdownFiles(memoryDir);
-    if (files.length > 0) {
-      try {
-        generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
-      } catch {
-        // fall through to read existing
-      }
+  // Read-side bootstrap: if the memory dir is missing entirely, build a full
+  // empty index so downstream readers always see a well-formed result. We
+  // also fall through if the dir is present but the index is missing — the
+  // user may have nuked the index file, or never had one because no
+  // memory has ever been extracted in this project.
+  if (!existsSync(memoryDir)) {
+    ensureMemoryBootstrap(normalizedRoot);
+    return readExistingIndex(indexPath);
+  }
+
+  if (!existsSync(indexPath)) {
+    try {
+      writeFileSync(indexPath, renderEmptyIndex(), { mode: 0o644 });
+    } catch {
+      // fall through — readExistingIndex will return null
+    }
+  }
+
+  const files = listMarkdownFiles(memoryDir);
+  if (files.length > 0) {
+    try {
+      generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
+    } catch {
+      // fall through to read existing
     }
   }
 
@@ -803,9 +819,79 @@ function emptyByKind(): Record<ProjectMemoryKind, StoredProjectMemory[]> {
   };
 }
 
+function emptyIndex(): MemoryIndex {
+  // Cast through unknown: we *intend* the two halves to together cover the
+  // union `ProjectMemoryKind`, but TS does not know that. The `MemoryIndex`
+  // type's `hot` / `warm` fields together cover the union; we split the
+  // construction so the JSON output mirrors the hot/warm layout the reader
+  // expects.
+  return {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    hot: {
+      feedback: [],
+      decision: [],
+      rule: [],
+      convention: [],
+      module: []
+    } as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
+    warm: {
+      project: [],
+      reference: []
+    } as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>
+  };
+}
+
+function renderEmptyIndex(): string {
+  return JSON.stringify(emptyIndex(), null, 2) + '\n';
+}
+
+/**
+ * Ensure `.peaks/memory/` and its `index.json` exist for a project, with
+ * the same full-shape empty index the generator emits when there are zero
+ * memories. Idempotent — safe to call on every skill activation.
+ *
+ * Why this exists: before this helper, `.peaks/memory/` was only created
+ * by `extractSessionMemories` when at least one memory markdown was being
+ * written, and `index.json` was only emitted by the generator when at
+ * least one markdown was on disk. Stock projects therefore had no
+ * `.peaks/memory/` directory and no index, even after `peaks project
+ * memories` was read. Bootstrap closes that cold-start gap.
+ *
+ * This function is fail-open for the same reason the rest of the
+ * presence layer is fail-open: a failure here must NOT block skill
+ * activation. Any error is swallowed and surfaced only via the returned
+ * boolean. Callers that need the truth should check the result.
+ */
+export function ensureMemoryBootstrap(projectRoot: string): boolean {
+  try {
+    const normalizedRoot = normalizeRoot(projectRoot);
+    const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
+    const indexPath = join(memoryDir, 'index.json');
+
+    mkdirSync(memoryDir, { recursive: true });
+
+    if (!existsSync(indexPath)) {
+      writeFileSync(indexPath, renderEmptyIndex(), { mode: 0o644 });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function readProjectMemories(projectRoot: string): ProjectMemoryReadResult {
   const normalizedRoot = normalizeRoot(projectRoot);
   const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
+
+  // Read-side bootstrap: on a stock project the directory does not exist
+  // yet. Reading must not return an error, but we also want the directory
+  // to materialise (along with a full-shape empty index) so subsequent
+  // `peaks project memories` invocations, `readMemoryIndex`, and any
+  // extraction call find a stable target. The helper is fail-open.
+  if (!existsSync(memoryDir)) {
+    ensureMemoryBootstrap(normalizedRoot);
+  }
 
   const memories: StoredProjectMemory[] = [];
   for (const filePath of listMarkdownFiles(memoryDir)) {

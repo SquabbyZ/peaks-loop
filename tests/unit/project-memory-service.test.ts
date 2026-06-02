@@ -5,11 +5,13 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   createProjectMemoryBackupPlan,
   createProjectMemoryExtractPlan,
+  ensureMemoryBootstrap,
   executeProjectMemoryBackup,
   executeProjectMemoryExtract,
   extractSessionMemories,
   extractStableProjectMemories,
-  readMemoryIndex
+  readMemoryIndex,
+  readProjectMemories
 } from '../../src/services/memory/project-memory-service.js';
 
 function createTempDir(prefix: string): string {
@@ -666,5 +668,86 @@ describe('project memory service', () => {
 
     expect(result.copiedFiles).toEqual([backupPath]);
     expect(readFileSync(backupPath, 'utf8')).toBe('stable decision');
+  });
+});
+
+describe('ensureMemoryBootstrap (cold-start fix)', () => {
+  test('creates .peaks/memory/ and a full-shape empty index.json from a stock project', () => {
+    const projectRoot = createTempDir('peaks-memory-bootstrap-cold');
+    // Pre-condition: no .peaks at all.
+    expect(existsSync(join(projectRoot, '.peaks'))).toBe(false);
+
+    const result = ensureMemoryBootstrap(projectRoot);
+
+    expect(result).toBe(true);
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    const indexPath = join(memoryDir, 'index.json');
+    expect(existsSync(memoryDir)).toBe(true);
+    expect(existsSync(indexPath)).toBe(true);
+
+    const raw = JSON.parse(readFileSync(indexPath, 'utf8'));
+    expect(raw.version).toBe(1);
+    expect(typeof raw.updatedAt).toBe('string');
+    // Full-shape empty: every bucket present, every bucket empty.
+    for (const kind of ['feedback', 'decision', 'rule', 'convention', 'module']) {
+      expect(Array.isArray(raw.hot[kind])).toBe(true);
+      expect(raw.hot[kind]).toHaveLength(0);
+    }
+    for (const kind of ['project', 'reference']) {
+      expect(Array.isArray(raw.warm[kind])).toBe(true);
+      expect(raw.warm[kind]).toHaveLength(0);
+    }
+  });
+
+  test('is idempotent — second call does not change a populated index', () => {
+    const projectRoot = createTempDir('peaks-memory-bootstrap-idempotent');
+    ensureMemoryBootstrap(projectRoot);
+    const indexPath = join(projectRoot, '.peaks', 'memory', 'index.json');
+    const handCrafted = {
+      version: 1,
+      updatedAt: '2026-06-01T17:11:22.024Z',
+      hot: { feedback: [{ name: 'a', kind: 'feedback', description: 'b', sourcePath: '/x', sourceArtifact: null, updatedAt: '2026-06-01' }], decision: [], rule: [], convention: [], module: [] },
+      warm: { project: [], reference: [] }
+    };
+    writeFileSync(indexPath, JSON.stringify(handCrafted, null, 2), 'utf8');
+
+    ensureMemoryBootstrap(projectRoot);
+
+    const after = JSON.parse(readFileSync(indexPath, 'utf8'));
+    expect(after.hot.feedback).toHaveLength(1);
+    expect(after.hot.feedback[0].name).toBe('a');
+  });
+
+  test('readMemoryIndex returns a full-shape empty index from a stock project (read-side fallback)', () => {
+    // This is the user-facing fix: `peaks project memories` on a stock
+    // project must not return null. It should bootstrap a well-formed empty
+    // index and return it.
+    const projectRoot = createTempDir('peaks-memory-read-fallback');
+
+    const index = readMemoryIndex(projectRoot);
+
+    expect(index).not.toBeNull();
+    expect(index!.version).toBe(1);
+    expect(index!.hot.feedback).toEqual([]);
+    expect(index!.hot.decision).toEqual([]);
+    expect(index!.warm.project).toEqual([]);
+    expect(index!.warm.reference).toEqual([]);
+
+    // Side effect: the directory and index file were created.
+    const indexPath = join(projectRoot, '.peaks', 'memory', 'index.json');
+    expect(existsSync(indexPath)).toBe(true);
+  });
+
+  test('readProjectMemories returns empty byKind from a stock project (read-side bootstrap too)', () => {
+    const projectRoot = createTempDir('peaks-memory-read-proj-fallback');
+
+    const result = readProjectMemories(projectRoot);
+
+    expect(result.total).toBe(0);
+    expect(result.memories).toEqual([]);
+    // every kind bucket is present, none has entries
+    for (const kind of ['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module']) {
+      expect(result.byKind[kind as keyof typeof result.byKind]).toEqual([]);
+    }
   });
 });
