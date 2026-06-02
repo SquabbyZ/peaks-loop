@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
+import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -30,15 +31,27 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       //   - omitted: defer to ensureSession(), which reuses an existing
       //     binding or auto-generates a fresh one. The init then writes
       //     .session.json so the binding sticks.
+      //
+      // Before that: canonicalise the project root. If the user (or the
+      // LLM via "$(pwd)") passed a sub-directory of a real git repo
+      // (e.g. prompt-project/prompt-project/ inside the outer
+      // prompt-project/.git), promote the path to the git root. Without
+      // this, peaks would build a parallel .peaks/ tree under the
+      // nested sub-folder and silently break the project-binding model
+      // (the same regression that produced prompt-project/.peaks/ in
+      // the 5/27-5/29 sessions). When startPath is not inside any
+      // git repo, the helper falls through to the cwd verbatim.
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+
       let sessionId: string;
       if (options.sessionId !== undefined && options.sessionId.length > 0) {
         sessionId = options.sessionId;
       } else {
-        sessionId = await ensureSession(options.project);
+        sessionId = await ensureSession(projectRoot);
       }
 
       const report = await initWorkspace({
-        projectRoot: options.project,
+        projectRoot,
         sessionId,
         allowSessionRebind: options.allowSessionRebind === true
       });

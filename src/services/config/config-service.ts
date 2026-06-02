@@ -3,10 +3,10 @@ import { dirname, isAbsolute, resolve } from 'node:path';
 import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
-import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
+import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
 
-// Re-export resolveProjectRootForConfig for external consumers
-export { resolveProjectRootForConfig } from './config-safety.js';
+// Re-export resolveProjectRootForConfig and resolveCanonicalProjectRoot for external consumers
+export { resolveProjectRootForConfig, resolveCanonicalProjectRoot } from './config-safety.js';
 
 function readJsonFile(path: string | null, validateBeforeRead?: () => void, errorMessage = 'Config path must stay inside the config root'): Partial<PeaksConfig> | null {
   if (!path || !existsSync(path)) return null;

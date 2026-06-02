@@ -1,4 +1,5 @@
 import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path';
 import { homedir } from 'node:os';
@@ -93,6 +94,80 @@ export function resolveProjectRootForConfig(startPath: string): string {
   }
 
   return pkgRoot ?? start;
+}
+
+/**
+ * Canonicalise a user-supplied project root path against git's view of the
+ * repository root. This is the fix for the nested-directory regression
+ * where peaks-cli would write `.peaks/` under a nested sub-folder
+ * (e.g. `prompt-project/prompt-project/.peaks/`) because the LLM passed
+ * `$(pwd)` from inside a sub-directory of a real git repo. Without
+ * canonicalisation, peaks accepted the cwd as-is, built the .peaks/
+ * tree there, and left the team with two parallel state stores.
+ *
+ * Strategy:
+ *   1. If `startPath` (or any ancestor) is inside a git repo, return
+ *      `git rev-parse --show-toplevel` from `startPath`. The git root
+ *      is the *only* correct answer for "where does the .peaks/ tree
+ *      belong?" — sub-folders of a git repo are not their own projects.
+ *   2. If `startPath` is not inside a git repo, fall back to
+ *      `findProjectRoot` (the existing heuristic) so the CLI still
+ *      works for non-git projects.
+ *   3. If both fail, return `startPath` unchanged — better to write
+ *      to the cwd than to refuse the command.
+ *
+ * This is intentionally fail-open: it only *promotes* a path towards
+ * the git root, it never demotes one. A non-git user is unaffected.
+ * The function does NOT throw on a missing git binary or a non-zero
+ * `git rev-parse` exit; both fall through to the heuristic.
+ */
+export function resolveCanonicalProjectRoot(startPath: string): string {
+  const start = resolve(startPath);
+  const gitRoot = resolveProjectRootFromGit(start);
+  if (gitRoot !== null) {
+    return gitRoot;
+  }
+  // Non-git fallback: walk the heuristic up to the home boundary.
+  // We do NOT call realpathSync on the heuristic result because the
+  // heuristic may legitimately return a path through a symlink that
+  // the caller passed in (no canonicalisation needed in that case).
+  const heuristicRoot = findProjectRoot(start);
+  if (heuristicRoot !== null) {
+    return heuristicRoot;
+  }
+  return start;
+}
+
+function resolveProjectRootFromGit(startPath: string): string | null {
+  // execFileSync (not execSync) so a malicious `startPath` cannot
+  // inject argv into the spawned git invocation. The child only
+  // receives `startPath` as the cwd, never as a flag.
+  let rawRoot: string;
+  try {
+    const stdout = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      cwd: startPath,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    });
+    const trimmed = stdout.trim();
+    if (trimmed.length === 0) return null;
+    rawRoot = resolve(trimmed);
+  } catch {
+    // git not on PATH, startPath is not in a repo, or some other
+    // benign failure — fall through to the heuristic.
+    return null;
+  }
+  // On macOS, /tmp is a symlink to /private/tmp; git returns the
+  // realpath. If the caller passed a path through the symlink, the
+  // two strings won't match byte-for-byte even though they refer
+  // to the same directory. realpathSync the git root and the
+  // startPath through the same lens so callers get a canonical
+  // answer that compares equal to the path they passed in.
+  try {
+    return realpathSync(rawRoot);
+  } catch {
+    return rawRoot;
+  }
 }
 
 export function getProjectConfigPath(projectRoot: string | null): string | null {
