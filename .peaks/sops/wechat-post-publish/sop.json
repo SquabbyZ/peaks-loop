@@ -1,0 +1,42 @@
+{
+  "id": "wechat-post-publish",
+  "name": "公众号发文：草稿→校对→发布",
+  "description": "PRD 003 dogfood scenario: a content-publishing SOP for a real wechat-style workflow. The publish phase requires a clean draft — no TODO/TKTK markers. Phases: draft → review → publish. The grep:absent gates prove the G4 UX fix (cross-platform, no shell, no --allow-commands).",
+  "phases": [
+    "draft",
+    "review",
+    "publish"
+  ],
+  "gates": [
+    {
+      "id": "draft-exists",
+      "phase": "review",
+      "check": {
+        "type": "file-exists",
+        "path": "posts/2026-06-02-prd005-v2-dogfood.md"
+      }
+    },
+    {
+      "id": "no-todo",
+      "phase": "publish",
+      "check": {
+        "type": "grep",
+        "file": "posts/2026-06-02-prd005-v2-dogfood.md",
+        "pattern": "TODO",
+        "absent": true,
+        "stripMeta": true
+      }
+    },
+    {
+      "id": "no-tktk",
+      "phase": "publish",
+      "check": {
+        "type": "grep",
+        "file": "posts/2026-06-02-prd005-v2-dogfood.md",
+        "pattern": "TKTK",
+        "absent": true,
+        "stripMeta": true
+      }
+    }
+  ]
+}

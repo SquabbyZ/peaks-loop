@@ -67,7 +67,7 @@ function evaluateFileExists(projectRoot: string, path: string): GateVerdict {
   return existsSync(resolved) ? { result: 'pass' } : { result: 'fail', reason: `file "${path}" does not exist` };
 }
 
-function evaluateGrep(projectRoot: string, file: string, pattern: string, absent: boolean): GateVerdict {
+function evaluateGrep(projectRoot: string, file: string, pattern: string, absent: boolean, stripMeta?: boolean): GateVerdict {
   const resolved = resolveInsideProject(projectRoot, file);
   if (resolved === null) {
     return { result: 'blocked', reason: `file "${file}" escapes the project root` };
@@ -87,6 +87,9 @@ function evaluateGrep(projectRoot: string, file: string, pattern: string, absent
   } catch {
     return { result: 'blocked', reason: `file "${file}" cannot be read` };
   }
+  if (stripMeta === true) {
+    content = stripMetaForGrep(content);
+  }
   const found = regex.test(content);
   // absent gate: pass when the pattern is NOT present ("must not contain X").
   const pass = absent ? !found : found;
@@ -96,6 +99,37 @@ function evaluateGrep(projectRoot: string, file: string, pattern: string, absent
   return absent
     ? { result: 'fail', reason: `pattern "${pattern}" must be absent but was found in "${file}"` }
     : { result: 'fail', reason: `pattern "${pattern}" not found in "${file}"` };
+}
+
+/**
+ * Strip meta content from a string for grep evaluation. The grep gate's
+ * `stripMeta:true` opt-in lets content-publishing SOPs avoid the "literal-word
+ * trap" (the author discussing the gate's pattern in the post would itself
+ * trigger the gate). Three classes of meta are removed:
+ *
+ *  - HTML comments: `<!-- ... -->`
+ *  - Fenced code blocks: 3+ backticks on their own line, opening through the
+ *    matching close on its own line (or end of string)
+ *  - C-style block comments: `/* ... *​/`
+ *
+ * Conservative fail-safe: unclosed fences and unclosed block comments are left
+ * as-is (no partial strip), so the regex still matches any embedded pattern
+ * rather than silently hiding it. This helper is pure; no side effects.
+ */
+export function stripMetaForGrep(content: string): string {
+  // HTML comments: from `<!--` through the next `-->`. Multi-line.
+  let result = content.replace(/<!--[\s\S]*?-->/g, '');
+  // C-style block comments: from `/*` through the next `*/`. Multi-line. Run
+  // before the fence regex because code comments often appear inside code
+  // blocks and we want them gone from the rendered view too.
+  result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+  // Fenced code blocks: `^````<lang?>\\n...<closing line>`. Match only if a
+  // closing `^```` line exists within the content; unclosed fences fall
+  // through un-stripped (the unclosed-`\n?$` branch from the previous version
+  // over-matched by eating the rest of the file, which silently hides
+  // embedded patterns; we prefer the conservative fail-safe).
+  result = result.replace(/^```[^\n]*\n[\s\S]*?\n```[^\n]*\n?/gm, '');
+  return result;
 }
 
 function evaluateCommand(projectRoot: string, run: string[], expectExitZero: boolean, allowCommands: boolean, timeoutMs: number): GateVerdict {
@@ -135,7 +169,7 @@ function evaluateCheck(projectRoot: string, check: SopGateCheck, allowCommands: 
     case 'file-exists':
       return evaluateFileExists(projectRoot, check.path);
     case 'grep':
-      return evaluateGrep(projectRoot, check.file, check.pattern, check.absent === true);
+      return evaluateGrep(projectRoot, check.file, check.pattern, check.absent === true, check.stripMeta === true);
     case 'command':
       return evaluateCommand(projectRoot, check.run, check.expectExitZero !== false, allowCommands, timeoutMs);
     default:

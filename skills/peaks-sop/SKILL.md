@@ -97,6 +97,22 @@ The three gate primitives are domain-neutral, so the same engine governs very di
 
 The one boundary to explain: a gate must reduce to **a file existing, text matching in a file, or a command's exit code**. A purely human-judgment gate ("did the editor approve?") is expressed by reifying it into a signal — e.g. require an `approved.md` file, or that a status file contains "approved". The `command` gate is the universal adapter for anything scriptable.
 
+### Literal-word trap and `stripMeta` (added by PRD 006 on 2026-06-02)
+
+A naive `grep` gate for a content-publishing SOP has a self-referential failure mode: the author writing *about* the gate's pattern ("we use a `grep absent: "TODO"` gate to block leftover T-O-D-O") ends up triggering the gate they just described. This is rare in code-review SOPs and very common in content/publishing SOPs.
+
+**Opt-in workaround**: add `stripMeta: true` to the gate's check. The evaluator strips HTML comments (`<!-- … -->`), fenced code blocks (` ``` … ``` `), and C-style block comments (`/* … */`) from the file content *before* applying the regex. The author's discussion of the gate in those areas is no longer counted.
+
+```json
+{
+  "id": "no-todo",
+  "phase": "publish",
+  "check": { "type": "grep", "file": "post.md", "pattern": "TODO", "absent": true, "stripMeta": true }
+}
+```
+
+Default `false` preserves byte-identical behavior for existing SOPs. The stripper is conservative on malformed input (unclosed fences / block comments fall through un-stripped). Not covered by this slice: inline code (`` `TODO` ``) and blockquotes (`> TODO`) — both are content the author explicitly chose to render, so they remain subject to the regex. If a future dogfood surfaces a need to strip those too, open a follow-up PRD.
+
 ## Un-bypassable enforcement (optional, opt-in)
 
 By default a SOP gate only blocks the `peaks sop advance` command — nothing forces the agent through it. To make a gate **physically un-bypassable**, a SOP can declare **guards** that bind a concrete irreversible Bash action to a phase, and the user installs a PreToolUse hook:

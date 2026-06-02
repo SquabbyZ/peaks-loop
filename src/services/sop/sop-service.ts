@@ -58,6 +58,14 @@ export type SopLintResult = {
   gateCount: number;
   gateIds: string[];
   findings: SopLintFinding[];
+  /**
+   * Non-blocking hints surfaced alongside the lint verdict. Currently used to
+   * flag gates that declared `stripMeta: true` so authors can confirm the
+   * opt-in. Empty array for manifests that do not opt in to any new behavior;
+   * this is a stable, machine-readable field distinct from `findings` (which
+   * are errors that block lint).
+   */
+  warnings: string[];
 };
 
 export type SopLintOptions = {
@@ -239,12 +247,13 @@ export async function lintSop(options: SopLintOptions): Promise<SopLintResult | 
   }
 
   const findings: SopLintFinding[] = [];
+  const warnings: string[] = [];
   let manifest: SopManifest | null = null;
   try {
     manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as SopManifest;
   } catch (error) {
     pushError(findings, 'INVALID_JSON', `Manifest is not valid JSON: ${error instanceof Error ? error.message : 'parse error'}`);
-    return { ok: false, id: options.id, manifestPath, gateCount: 0, gateIds: [], findings };
+    return { ok: false, id: options.id, manifestPath, gateCount: 0, gateIds: [], findings, warnings };
   }
 
   if (typeof manifest.id !== 'string' || !SOP_ID_PATTERN.test(manifest.id)) {
@@ -278,12 +287,25 @@ export async function lintSop(options: SopLintOptions): Promise<SopLintResult | 
   const guards = Array.isArray(manifest.guards) ? manifest.guards : [];
   guards.forEach((guard, index) => lintGuard(guard, index, phaseSet, findings));
 
+  // Non-blocking hints: surface `stripMeta: true` opt-ins so the author can
+  // confirm the meta-strip behavior. Distinct from `findings` (which block
+  // lint). Per PRD 006 AC6, only gates that declared `stripMeta` warn.
+  for (const gate of gates) {
+    if (gate?.check?.type === 'grep' && gate.check.stripMeta === true) {
+      const label = typeof gate.id === 'string' && gate.id.length > 0 ? gate.id : '?';
+      warnings.push(
+        `Gate "${label}" declares stripMeta: true — meta content (HTML comments / fenced code / block comments) is excluded from grep evaluation`
+      );
+    }
+  }
+
   return {
     ok: findings.every((finding) => finding.severity !== 'error'),
     id: options.id,
     manifestPath,
     gateCount: gates.length,
     gateIds: [...seenGateIds],
-    findings
+    findings,
+    warnings
   };
 }

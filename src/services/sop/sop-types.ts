@@ -16,8 +16,14 @@ export type SopGateCheck =
    * to invert — pass when the pattern is NOT found. `absent` expresses "must not
    * contain X" (e.g. no leftover TODO) as a pure-text check, with no command gate
    * and no `--allow-commands` escalation.
+   *
+   * Set `stripMeta: true` to evaluate the regex on a meta-stripped copy of the
+   * file (HTML comments + fenced code blocks + `/* … *​/` block comments
+   * removed). This lets content-publishing SOPs avoid the "literal-word trap"
+   * where the author discussing the gate's behavior in the post would itself
+   * trigger the gate. Default `false` preserves byte-identical behavior.
    */
-  | { type: 'grep'; file: string; pattern: string; absent?: boolean }
+  | { type: 'grep'; file: string; pattern: string; absent?: boolean; stripMeta?: boolean }
   | { type: 'command'; run: string[]; expectExitZero?: boolean };
 
 export type SopGate = {
