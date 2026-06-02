@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-01T16:04:09.851Z",
+  "updatedAt": "2026-06-01T17:11:22.024Z",
   "hot": {
     "feedback": [
       {
@@ -10,6 +10,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\coverage-red-line.md",
         "sourceArtifact": null,
         "updatedAt": "2026-05-29"
+      },
+      {
+        "name": "dogfood-2026-06-02-wechat-post-sop",
+        "kind": "feedback",
+        "description": "On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , gates  +  using ) end-to-end against the pea...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "main-branch-iteration",

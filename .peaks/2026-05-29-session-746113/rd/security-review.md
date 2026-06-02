@@ -1,50 +1,57 @@
-# Security Review — RD 2026-06-02-sop-global-reuse-ux-v2
+# Security Review — RD 2026-06-02-grep-strip-meta
 
-- reviewer: RD self-review (single-line CLI default + test, no new attack surface)
+- reviewer: RD self-review (slice scope: 1 type field, 1 pure-string helper, 1 wiring change, 1 lint warning loop)
 - review date: 2026-06-02
-- verdict: **PASS** (no CRITICAL/HIGH/MEDIUM issues; no new attack surface)
+- verdict: **PASS** — no CRITICAL / HIGH / MEDIUM / LOW issues
 
 ## Scope reviewed
 
-- `src/cli/commands/sop-commands.ts` — one-line `.option()` default-value addition on `sop registry`.
-- `tests/unit/sop-commands.test.ts` — one new test using `process.chdir` to a temp project, writing a registry.json fixture, and asserting merged-view output.
+- `src/services/sop/sop-types.ts` — `SopGateCheck` grep variant gains `stripMeta?: boolean` (1 line)
+- `src/services/sop/sop-check-service.ts` — new exported `stripMetaForGrep(content: string): string`; `evaluateGrep` signature extended with optional `stripMeta`; `evaluateCheck` case 'grep' passes `check.stripMeta === true`
+- `src/services/sop/sop-service.ts` — `SopLintResult` gains `warnings: string[]`; `lintSop` pushes one warning per grep gate with `stripMeta: true`
+- `src/cli/commands/sop-commands.ts` — no change (CLI already passes full `result` to `ok(...)`; `warnings` flows through)
+- `skills/peaks-sop/SKILL.md` — doc-only addition
+- `tests/unit/sop-check-service-strip-meta.test.ts` — NEW, 16 behavior tests
 
-## Threat model walk-through
+## Threat-model walk-through
 
 ### User input
+- The new field is **opt-in** (`stripMeta: true`). Without it, behavior is byte-identical (AC5 byte-identity test guards this).
+- The `pattern` field in `SopGateCheck.grep` is still passed to `new RegExp(pattern)` (line 80). Stripping does not change which patterns are accepted; it only changes which text the regex sees.
+- `check.file` is still passed through `resolveInsideProject(projectRoot, file)` (line 71-74). No path-traversal regression: same containment invariants.
 
-- New surface: `--project <path>` option's **default** value is now `'.'` (was `undefined`).
-- Before: omitting the flag passed `undefined` into `readRegistry(undefined)` → global-only view.
-- After: omitting the flag passes `'.'` (the current working directory) into `readRegistry('.')` → reads `<cwd>/.peaks/sops/registry.json` and merges.
-- **No new user input is accepted.** The flag's value semantics are unchanged (it is still an arbitrary path provided by the user when explicitly passed). The only new behavior is "what value the option has when the user does not pass it," and the value is the process's own cwd, which is already part of the CLI's trust model (the process trusts its own cwd — every other `peaks sop` execution command already does this; this slice is the last one to catch up).
+### ReDoS / regex safety
+- `stripMetaForGrep` uses three `[\s\S]*?` lazy quantifiers. The first (`<!--[\s\S]*?-->`) and second (`\/\*[\s\S]*?\*\/`) are bounded by the literal `-->`, `*/` end markers — they cannot run away. The third (`^```[^\n]*\n[\s\S]*?\n```[^\n]*\n?`) is bounded by the next `\n```[^\n]*` (a closing fence line).
+- The user's `pattern` is still bounded by the engine's standard regex implementation; `stripMeta` does not introduce new regex execution paths.
+- The combination of strip + pattern could in theory double the regex workload for a file with a long sequence, but in practice the stripper runs in O(n) and the user's pattern runs in O(n·|pattern|) — total cost is O(n + n·|pattern|), same order of magnitude as before.
 
 ### File system
-
-- The default `'.'` resolves to `process.cwd()` via Commander's default-value handling. `readRegistry` then calls `realpath` on the joined path (`sop-registry-service.ts:55-65`). No path-traversal regression: the same containment invariants (`isInsidePath` in `path-utils.ts`) that already protect the project and global layers are unchanged.
-- The new test uses `makeProject` (a temp dir under the mocked home) and writes only to `join(project, '.peaks', 'sops', 'registry.json')` — same patterns as the rest of the test suite.
+- `evaluateGrep` continues to call `readFileSync(resolved, 'utf8')` (line 86). The returned `content` is then optionally passed through `stripMetaForGrep`. No new file access; no new I/O paths.
+- The `stripMeta` flag is sourced from the manifest (`check.stripMeta === true`), which is JSON-parsed from a file path that is `readFileSync`-ed from a pre-validated location (`sop-service.ts:lintManifest` already validates the manifest). No new attack surface.
 
 ### External calls
-
-- None. No network, no subprocess. `sop registry` is read-only against the filesystem.
+- None. No network, no subprocess. The stripper is pure string transformation in-process.
 
 ### Auth / secrets
-
-- No auth path. No secrets path. `registry.json` is a public list of SOP ids and gate counts; it is not a credentials store (see `token-encrypted-storage-decision` memory — credentials are explicitly out of scope here, and this slice doesn't change that).
+- No auth path touched.
+- No secrets path touched.
+- `sop.json` is a public manifest of phase/gate definitions. Even if it contains sensitive-looking strings, they are not secret-handled code; the stripper is reversible in spirit (a sufficiently long text scan could reconstruct what was stripped, but this is not a security property — it is a UX heuristic).
+- One concrete concern: if a SOP author writes `<!-- secret: T-O-D-O -->` in their post and enables `stripMeta`, the secret is removed from the grep evaluation domain. If a downstream consumer assumes "this content was not in the file" after a successful `absent: true` gate, they could be misled. However, `stripMeta` is opt-in per gate, and the default `false` keeps the regex domain identical to the file content. Authors who care about the raw-text invariant simply omit `stripMeta`. Documented in SKILL.md.
 
 ### Dependencies
+- None. No `package.json` changes. No `node_modules` touch.
 
-- None. No `package.json` changes. No new transitive attack surface.
+## Trust-boundary preservation (per PRD 006 P1-P3)
 
-## Trust-boundary preservation (per PRD 005 v2 P1-P7)
+- **P1** (per PRD 005 v2 P1): built-in peaks-* never in custom registry — preserved (no registry/path code touched).
+- **P2** (default `false` / `undefined` byte-identical): preserved; AC5 byte-identity test guards this.
+- **P3** (lint warnings don't pollute findings for non-opt-in SOPs): preserved; type-guarded check at `sop-service.ts:294` only pushes warning for grep + stripMeta gates. AC6 P3 test at `sop-check-service-strip-meta.test.ts:167-191` asserts empty `warnings` for a plain grep gate.
 
-- **P1** (built-in peaks-* never in custom registry): preserved. `readRegistry` only reads from the two filesystem layers (global, project). Built-in peaks-* gates are not stored in either layer; they are evaluated by the gate-evaluation layer, not counted. Default change does not touch this boundary.
-- **P2** (command gate safety): preserved (no command-gate code path touched).
-- **P3** (range-3 blocking): preserved (no gate-evaluation code path touched).
-- **P4** (file-exists / grep paths pinned inside project root): preserved (no check-evaluation code path touched).
-- **P5** (grep default semantic unchanged): preserved (no grep code path touched).
-- **P6** (PRD 004 Slice 2 project-first + merged registry): preserved — this slice's default change is precisely what makes the merged view the default for the `sop registry` consumer, which aligns with Slice 2's design intent.
-- **P7** (init `--project` semantics): preserved — `init` / `lint` / `register` do **not** get a default `'.'` (P7 explicitly says they keep "global as default, --project commits into repo"). The new default applies only to the four execution-style commands (`check` / `advance` / `gate enforce` / `registry`).
+## Secret scan (BLOCKING gate per QA Gate A3)
+
+- Grep over the changed files for hardcoded credentials, API keys, bearer tokens, private keys, JWT patterns: **no matches**.
+- Grep over the full project for `AKIA`, `gh[pousr]_`, `glpat-`, `sk-`, `-----BEGIN .* PRIVATE KEY-----`: **no new matches** beyond the existing test fixtures (which are intentionally fake values).
 
 ## Verdict
 
-PASS. No new attack surface. No path-traversal regression. No secret-handling regression. The change is a UX-default alignment (one command joins the same default the other three execution commands already use), with the underlying security checks unchanged.
+**PASS.** No new attack surface. No ReDoS amplification. No path-traversal regression. No secret-handling regression. The slice is a UX opt-in that lets content-publishing SOPs avoid the literal-word trap; it does not change the security posture of the gate evaluator in any way.

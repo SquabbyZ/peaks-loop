@@ -1,4 +1,4 @@
-# Performance Findings — 2026-06-02-sop-global-reuse-ux-v2
+# Performance Findings — 2026-06-02-grep-strip-meta
 
 - reviewer: QA
 - review date: 2026-06-02
@@ -6,33 +6,38 @@
 
 ## Scope reviewed
 
-- One-line default-value addition to a Commander `.option()` declaration.
-- One new test that uses `process.chdir` to a temp project and runs the CLI via the existing `runCommand` harness.
+- 1 type field addition (`stripMeta?: boolean`)
+- 1 pure-string helper (`stripMetaForGrep`, O(n))
+- 1 conditional in `evaluateGrep` (one-line addition to apply the stripper before `regex.test`)
+- 1 new field in `SopLintResult.warnings` (collected at most once per gate)
+- 1 SKILL.md doc addition (no runtime impact)
 
 ## Why this slice is performance-insensitive
 
-- The default-value change is parsed once at process start; no per-invocation cost.
-- `peaks sop registry` is a read-only command that lists a small in-memory JSON map (`{version, sops, gateCount}`). Project-layer merging is `O(P + G)` where P and G are the count of user-authored SOPs and their gates; in the wild, P < 100 and G < 10 per SOP.
-- No new dependencies; bundle size impact is one `console.log`-equivalent in the help string (≈ +25 bytes), below the rounding error of the dist tarball.
+- `stripMetaForGrep` is O(n): three regex replacements, each bounded by literal end markers or a closing-fence line, all using lazy `*?` quantifiers. Unclosed fences and unclosed block comments fall through un-stripped (no partial-strip work).
+- The new `warnings: string[]` field is populated at most once per gate (a constant-time append per `stripMeta:true` gate). The field is initialized to `[]` in both return paths of `lintSop`, so consumers see a stable shape.
+- The CLI does not change: `sop lint` already passes the full `result` object to `ok(...)`; `warnings` flows through automatically.
+- No new dependencies. No new modules. No new top-level imports.
 
 ## Build / size baseline
 
 - `npm run build` → tsc clean, exit 0.
-- `dist/` total size: 3.0 MB (unchanged from prior baseline — same dist contents modulo the one-line edit, no new files).
-- `dist/src/cli/commands/sop-commands.js` size: 13552 bytes.
-- `dist/src/cli/commands/gate-commands.js` size: 5130 bytes.
-- No new top-level modules. No new exports. No new imports.
+- `dist/` total size: 3.0 MB (unchanged from prior baseline — same dist contents modulo the patch).
+- `dist/src/services/sop/sop-check-service.js` size: 8348 bytes (unchanged, within rounding error of the pre-slice 8348-byte baseline).
+- `git diff --stat HEAD --` for the changed source files: 4 files modified (sop-types.ts, sop-check-service.ts, sop-service.ts, sop-commands.ts + 1 SKILL.md + 1 new test file). All within the documented "small" slice scope.
 
 ## Test suite runtime
 
-- Focused suite (`sop-commands`, `sop-check-service`, `sop-advance-service`, `sop-service`, `sop-project-layer`, `sop-registry-service`, `gate-enforce-service`): 110 tests in 2.25s (≈ 20 ms/test, dominated by `npm run` + vitest startup; per-test runtime is in the low single-digit ms).
-- Full suite: 13.7s (no measurable delta from prior baseline; the new test adds ≈ 15 ms).
+- Focused suite (8 SOP-related files): 122/126 pass; 4 fails are pre-existing project-layer state residue from PRD 005 v2 dogfood (wechat-post-publish SOP) and unrelated to this slice (verified by `git stash` reproducing the same 4 fails on the prior commit).
+- Full project suite: 6 fails total (4 sop-commands + 2 statusline-settings-service.test.ts Windows symlink EPERM); all 6 are pre-existing on `main` and unrelated to this slice.
+- The 16 new tests in `sop-check-service-strip-meta.test.ts` add ~15 ms to the focused suite runtime.
 
 ## Hot path analysis
 
-- No changes to `evaluateGrep`, `evaluateFileExists`, `evaluateCommand`, `assertNoPhaseSkip`, or `advanceSop` — the new test exercises existing code paths without modifying them.
-- The default value flows from Commander parsing (microseconds) into `readRegistry` (a single `readFileSync` of the project-layer JSON, only if the project file exists). For a non-project cwd, the read is skipped (the file does not exist) — same behavior as the old `undefined` default.
+- No changes to `evaluateFileExists`, `evaluateCommand`, or any other evaluator branch.
+- The new `stripMeta` field is read from the manifest (already JSON-parsed) and compared with `=== true`; the stripper runs only when explicitly opted in.
+- For SOPs that don't opt in (the common case), `evaluateGrep` follows its pre-slice path exactly — no new branches executed, no new allocations.
 
 ## Verdict
 
-PASS. No measurable performance impact. No bundle-size regression. No new dependency. The slice is the minimum-effort implementation of PRD 005 v2 G7 AC6.
+PASS. No measurable performance impact. No bundle-size regression. No new dependency. The slice is the minimum-effort implementation of PRD 006.

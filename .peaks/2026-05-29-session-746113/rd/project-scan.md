@@ -1,7 +1,8 @@
 # Project scan — peaks-cli (RD preflight)
 
-> Generated 2026-06-01 for RD request `2026-06-02-sop-global-reuse-ux-v2`.
-> Reused as a session-scoped singleton. Re-run only if the project surface changes.
+> Generated 2026-06-01 for RD request `2026-06-02-sop-global-reuse-ux-v2` (PR 005 v2).
+> Reused for RD 2026-06-02-grep-strip-meta (PRD 006) on 2026-06-02 with the additions noted at the bottom.
+> Re-run only if the project surface changes.
 
 ## Build tool and framework
 
@@ -56,4 +57,11 @@ title: sop-grep-absent
 kind: module
 ---
 The `grep` check variant in `src/services/sop/sop-types.ts` carries an `absent?: boolean` field. When set, the check passes only when the pattern is NOT found. Implementation lives in `evaluateGrep` (`sop-check-service.ts`).
+<!-- peaks-memory:end -->
+
+<!-- peaks-memory:start -->
+title: sop-grep-strip-meta
+kind: module
+---
+The `grep` check variant in `src/services/sop/sop-types.ts` carries an optional `stripMeta?: boolean` field (added by PRD 006 on 2026-06-02). When set, `evaluateGrep` strips HTML comments, fenced code blocks, and `/* … */` block comments from the file content before applying the regex. Default `false` preserves byte-identical behavior for existing SOPs. The stripper is a pure string transform; unclosed fences / unclosed block comments fall through un-stripped (conservative).
 <!-- peaks-memory:end -->
