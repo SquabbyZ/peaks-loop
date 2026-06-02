@@ -1,11 +1,12 @@
 import { Command } from 'commander';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
+import { ensureSession } from '../../services/session/session-manager.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type WorkspaceInitOptions = {
   project: string;
-  sessionId: string;
+  sessionId?: string;
   json?: boolean;
   allowSessionRebind?: boolean;
 };
@@ -16,15 +17,29 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) — validates the session id format and binds the session as the project current one')
+      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) and bind the session as the project current one. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present).')
       .requiredOption('--project <path>', 'target project root')
-      .requiredOption('--session-id <id>', 'session id in YYYY-MM-DD-<kebab-slug> format')
+      .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
   ).action(async (options: WorkspaceInitOptions) => {
     try {
+      // Resolve the session id. Two paths:
+      //   - explicit --session-id: use it as the requested binding target
+      //     (ConflictingSessionError fires if it conflicts with an in-flight
+      //     session, unless --allow-session-rebind is set)
+      //   - omitted: defer to ensureSession(), which reuses an existing
+      //     binding or auto-generates a fresh one. The init then writes
+      //     .session.json so the binding sticks.
+      let sessionId: string;
+      if (options.sessionId !== undefined && options.sessionId.length > 0) {
+        sessionId = options.sessionId;
+      } else {
+        sessionId = await ensureSession(options.project);
+      }
+
       const report = await initWorkspace({
         projectRoot: options.project,
-        sessionId: options.sessionId,
+        sessionId,
         allowSessionRebind: options.allowSessionRebind === true
       });
       const nextActions: string[] = [];
