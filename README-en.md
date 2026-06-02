@@ -1,6 +1,9 @@
 # Peaks
 
-Peaks is a CLI tool and skill family for Claude Code that turns project governance, workflow planning, controlled execution, QA verification, and change traceability into a reusable engineering process.
+Peaks is a **family of skills for Claude Code** — it turns project governance, workflow planning, controlled execution, QA verification, and change traceability into a reusable engineering process.
+The CLI is the engine those skills call into: it owns the **gates, the JSON contracts, and the irreversible side effects**.
+
+> **One-line positioning**: you **work with SKILLs**; the CLI is the machine-level backing that keeps the skills trustworthy.
 
 ## Installation
 
@@ -8,170 +11,154 @@ Peaks is a CLI tool and skill family for Claude Code that turns project governan
 npm install -g peaks-cli
 ```
 
-After installation, Peaks registers its bundled skills into Claude Code so you can invoke them directly in conversation.
+After install, Peaks registers its 8 built-in `peaks-*` skills into Claude Code. Invoke them by name in any conversation.
 
-Verify with these three commands:
+## 5-minute onboarding
 
-```bash
-peaks -V           # prints the version
-peaks                # shows a quickstart with installed-skill count
-peaks doctor         # checks skills, config, env in one glance
-```
-
-## 80-second onboarding
-
-1. `peaks` — glance at what's available
-2. `peaks doctor` — confirm your environment is ready
-3. `peaks sop init --id my-flow --apply` — scaffold your first SOP
-4. Edit `~/.peaks/sops/my-flow/sop.json` with your phases and gates
-5. `peaks sop register --id my-flow` — register it
-6. Declare a guard binding an irreversible command to a phase, then `peaks hooks install`
-
-Now let Claude edit files in conversation, then try to run the guarded command — it'll be denied, even under `--dangerously-skip-permissions`. See [Un-bypassable gates](#un-bypassable-gates-the-killer-feature) below. Prefer natural language? Ask the `peaks-sop` skill and it drives the entire CLI chain above.
-
-## Using Skills
-
-In Claude Code, start a workflow by typing a skill name followed by a natural language description:
+In a Claude Code conversation, **just ask Claude to use a skill by name**. The skill takes over the rest of the flow:
 
 ```text
-peaks-solo end-to-end development from PRD to implementation for /path/to/project
-peaks-prd define product goals, non-goals, and acceptance criteria for the invitation feature
-peaks-rd analyze the smallest refactor slice and risks for this change
-peaks-qa design tests and regression checks for this change
-peaks-ui design the login page interaction and visual approach
-peaks-sc record change impact, artifact retention, and commit boundaries
-peaks-txt generate a context capsule for the current module with key decisions
+peaks-solo end-to-end governance of /path/to/your-project
+peaks-prd  define goals, non-goals, and acceptance criteria for the invitation feature
+peaks-rd   analyze the smallest refactor slice and risks for this change
+peaks-qa   design tests and regression checks for this change
+peaks-ui   design the login page interaction and visual approach
+peaks-sc   record change impact, artifact retention, and commit boundaries
+peaks-txt  generate a context capsule for the current module with key decisions
+peaks-sop  turn my "publish a post" flow into a gated SOP
 ```
 
-Choose the skill that matches the task:
+First time? Follow these four steps:
 
-| Skill | Purpose | Typical Use |
-|------|------|----------|
-| `peaks-solo` | End-to-end orchestration entrypoint | Full-cycle development, PRD to production |
-| `peaks-prd` | Product goals, non-goals, acceptance criteria | Requirements gathering, refactor goal definition |
-| `peaks-ui` | UI/UX, interaction, and visual constraints | Page design, interaction flows, prototypes |
-| `peaks-rd` | Engineering analysis, refactor planning, execution contracts | Technical analysis, minimal slices, risk assessment |
-| `peaks-qa` | Tests, coverage, and regression verification | Test design, regression matrices, acceptance checks |
-| `peaks-sc` | Change traceability, commit boundaries, artifact retention | Impact records, rollback evidence |
-| `peaks-txt` | Context capsules, decision records, knowledge compression | Module understanding, key decision capture |
+1. In Claude Code, say: **`peaks-solo analyze /path/to/your-project`**
+2. The skill auto-runs: `peaks workspace init` → `peaks scan archetype` → writes `.peaks/<session-id>/rd/project-scan.md`
+3. Describe the change you want; the skill drives PRD → RD → UI → QA → SC → TXT in order
+4. At the end, the skill keeps every intermediate artifact under `.peaks/<session-id>/` and writes the durable facts into `.peaks/memory/`
 
-### Common Workflows
-
-**New feature from scratch:**
-
-1. `peaks-prd` — define feature goals, user value, acceptance criteria, and non-goals
-2. `peaks-rd` — identify the smallest implementation slice and affected modules
-3. `peaks-ui` — add interaction and visual design (for UI-related tasks)
-4. `peaks-qa` — define new tests and regression tests
-5. `peaks-solo` — end-to-end orchestrated execution
-
-**Refactoring an existing project:**
-
-1. `peaks-txt` — generate a context capsule to understand the current module
-2. `peaks-prd` — define refactor goals, non-goals, and acceptance criteria
-3. `peaks-rd` — analyze project structure, tests, scripts, key modules, and risks
-4. `peaks-qa` — define regression matrix and coverage gates
-5. `peaks-solo` — end-to-end orchestrated execution
-6. `peaks-sc` — record impact, retention, and boundary
-
-**Fixing a bug:**
-
-1. Reproduce or locate the bug
-2. `peaks-rd` — produce root cause, fix strategy, and regression risk
-3. `peaks-qa` — define failing test cases and acceptance conditions
-4. Add a failing test first, then apply the minimal fix
-5. `peaks-sc` — record impact range and boundaries
-
-### Environment Check
-
-Before using skills, verify your environment:
+Want a quick status check? Ask Claude to run:
 
 ```bash
-peaks doctor --json
+peaks -V                # version
+peaks                   # quickstart + installed-skill count
+peaks doctor --json     # environment / skills / config one-shot check
 peaks skill doctor --json
+peaks project dashboard --project . --json   # current project dashboard
 ```
 
-## Custom SOPs (user-authored workflow gates)
+## Skills at a glance
 
-Beyond the built-in `peaks-*` skill family, the `peaks sop` command group lets you define **your own SOP**: an ordered set of phases plus gates bound to those phases. A gate that doesn't pass blocks advancement into its phase — applying "don't drop steps" to your own workflow.
+| Skill | What you use it for | Typical scenario |
+|------|--------------------|------------------|
+| `peaks-solo` | **End-to-end orchestration entrypoint.** Coordinates `prd / rd / ui / qa / sc / txt` automatically | Full-cycle dev, PRD-to-ship, batched cross-slice iterations |
+| `peaks-prd` | Turn fuzzy product intent into a **verifiable PRD** (goals, non-goals, preserved behavior, acceptance) | Requirements, refactor goal definition, PRD authoring |
+| `peaks-rd` | Engineering analysis, refactor planning, execution contracts, risk assessment | Technical analysis, minimal slices, risk review, refactor planning |
+| `peaks-ui` | UI/UX interaction and visual direction, design system constraints | Page design, interaction flows, prototypes, UI regression |
+| `peaks-qa` | Test design, coverage, regression matrices, acceptance evidence | Test cases, regression matrix, acceptance checks, browser E2E |
+| `peaks-sc` | Change control, commit boundaries, artifact retention, rollback evidence | Impact records, rollback evidence, change-control |
+| `peaks-txt` | Context capsules, decision records, knowledge compression | Module understanding, key-decision capture, retros |
+| `peaks-sop` | **Turn your own workflow into a gated SOP** (not dev-only) | Content publishing, compliance checklists, data pipelines, ops runbooks, personal procedures |
 
-**This is a general workflow-gating tool, not a developer-only one.** It fits any process with ordered stages where you must not move ahead until checkable conditions are met — content publishing, compliance/approval checklists, data-validation pipelines, onboarding, ops runbooks, personal procedures. A software release is just one example; non-engineering workflows are often the more valuable use.
+### Three common workflows
 
-> Easier path: use the **`peaks-sop` skill** — describe your process in natural language and let the LLM generate, debug, and register the SOP for you, with no JSON to hand-write or commands to memorize. The CLI below is the engine it drives.
+**New feature, end-to-end**
 
-### Un-bypassable gates (the killer feature)
+```text
+peaks-prd  →  peaks-ui (if UI)  →  peaks-rd  →  peaks-qa  →  peaks-sc
+```
 
-CI only blocks at **merge time**; rules in `CLAUDE.md` rely on the agent's **goodwill**. Peaks does what neither can: stop an irreversible action **mid-conversation, against the agent itself**.
+**Refactor an existing project**
 
-Declare a **guard** on a phase (binding a Bash command to it), then install a PreToolUse hook:
+```text
+peaks-txt (compress the current state)     →  peaks-prd (clarify the goal)  →
+peaks-rd  (split into minimal slices)      →  peaks-qa  (regression matrix) →
+peaks-solo (orchestrate end-to-end)        →  peaks-sc  (change evidence)
+```
+
+**Fix a bug**
+
+```text
+peaks-rd (repro + root cause)  →  peaks-qa (failing test + acceptance)  →
+write the code (failing test first)  →  peaks-sc
+```
+
+## How it works: skills first, CLI as gates
+
+The `peaks <cmd>` CLI is **not your daily driver**. It exists for three machine-level reasons only:
+
+1. **Explicit opt-in for irreversible side effects** (e.g. `peaks sop init --apply`, `peaks openspec archive --apply`) — actions that must not happen on the LLM's discretion.
+2. **Structured JSON contracts** (`peaks request show ... --json`, `peaks scan archetype ... --json`) — let a skill read a machine-verdict to gate its next decision.
+3. **Invokable from hooks / CI / scripts** (`peaks hooks install`, `peaks gate enforce`) — the layer that turns "satisfy these gates before X" from prose into enforcement.
+
+The mental model: **SKILL = the workflow's brain**; **CLI = the workflow's joints**.
+
+### CLI commands you will *see* skills call
+
+You don't need to memorize these — but they're the bones you'll hear referenced when a skill runs:
 
 ```bash
-# in sop.json: bind "publish" to git push, and require the post to be TODO-free
-#   "gates":  [{ "id":"no-todo","phase":"publish",
-#               "check":{ "type":"grep","file":"posts/current.md","pattern":"TODO","absent":true } }]
-#   "guards": [{ "phase":"publish","bash":"git +push" }]
-peaks hooks install --project .        # explicit opt-in; writes one PreToolUse entry
+peaks workspace init --project <repo> --json       # create the .peaks/ workspace (once per session)
+peaks scan archetype --project <repo> --json       # detect project archetype (greenfield / legacy-frontend / ...)
+peaks request init/show/transition                 # state machine for prd/rd/qa/sc requests
+peaks sop init/lint/check/advance/register         # your custom SOP lifecycle
+peaks hooks install --project <repo>               # install a PreToolUse hook for gates
+peaks project dashboard --project <repo> --json    # one-shot project view
+peaks project memories --project <repo> --json     # read durable facts from .peaks/memory/
 ```
 
-Now when the agent tries `git push` while a TODO remains, Claude Code receives `permissionDecision: "deny"` and the command is blocked **before any permission check — it holds even under `--dangerously-skip-permissions`**. Satisfy the gate and it passes; for emergencies, `peaks gate bypass --sop <id> --phase <phase> --reason "<why>"` allows it once (capped per project per SOP, reason audited).
+For the full list, run `peaks --help`.
 
-Enforcement **fails open**: any internal Peaks error allows the command (a bug never bricks your Claude Code) — only a real gate failure denies. Installing the hook is an explicit user command; the skill never writes `settings.json`. Manage it with `peaks hooks status` / `peaks hooks uninstall`.
+## Custom SOPs (turn your workflow into a gated flow)
 
-**Team enforcement:** commit the SOP into the repo with `peaks sop init/register --project <repo>` (written to `<repo>/.peaks/sops/`). A teammate who clones it — even with an empty global `~/.peaks` — is enforced by the same gates once they install the hook. Definitions resolve in two layers: the **project layer** (committed, team-shared, reviewed in PRs) wins over the **global layer** (your personal cross-project SOPs). A global-only SOP enforces only on your machine.
+> **Skill entry point**: the `peaks-sop` skill.
+> Tell Claude "turn my 'publish a post' flow into a gated SOP" and it will guide you through defining phases, setting gates, debugging, and registering — no JSON to hand-write.
 
-**Two definition layers, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) lives in either the **global** layer `~/.peaks/sops/` (personal, reusable across projects — the default for `init`/`lint`/`register`) or the **project** layer `<repo>/.peaks/sops/` (committed into the repo, team-shared — pass `--project <repo>`). The project layer wins over global for the same id. Run-state (current phase, history) is always per-project at `<project>/.peaks/sop-state/<sop-id>/`. `check`/`advance` take `--project` (default: current directory) to say which project to run against and which layer wins.
+The built-in `peaks-*` skill family covers the common case. But many real workflows are **domain-specific, ordered, and require checkable conditions before advancing** — that's what a SOP (Standard Operating Procedure) expresses.
+
+The `peaks-sop` skill turns any such flow into a **gated workflow**:
+
+| Domain | Example phases | Gate idea |
+|--------|----------------|-----------|
+| Content / publishing | draft → edit → publish | `file-exists` the draft; `grep` no `TODO`/`TKTK`; `command` runs a spell/word-count check |
+| Compliance / approval | prepare → review → sign-off | `file-exists` `approval.md`; `grep` the doc contains "Approved" |
+| Data pipeline | raw → cleaned → validated | `command` runs a validator script that exits 0 |
+| Onboarding / ops | request → provision → done | `file-exists` each checklist artifact; `command` verifies a config |
+| Software release (typical, not the only case) | draft → review → ship | `file-exists` `CHANGELOG.md`; `grep` source for no `FIXME`; `command` runs tests |
+| Personal procedure | any repeatable steps | whatever "don't forget step X" means, expressed as a file/grep/command |
+
+### Gate types
+
+| Type | Meaning | Example |
+|------|---------|---------|
+| `file-exists` | File exists → pass | `CHANGELOG.md` exists |
+| `grep` (+ `absent`) | Regex matches in file → pass; with `absent: true` it inverts ("must not contain X") | "post body has no `TODO`" |
+| `command` | Run a command, judge by exit code (refused by default; needs `--allow-commands`) | run `npm test` |
+
+### The killer feature: un-bypassable gates
+
+CI only blocks at **merge time**; `CLAUDE.md` rules rely on the agent's **goodwill**. SOPs do what neither can: **stop an irreversible action mid-conversation, against the agent itself**.
+
+```jsonc
+// sop.json
+"guards": [ { "phase": "publish", "bash": "git +push" } ]
+```
 
 ```bash
-# 1. Scaffold a SOP into ~/.peaks/sops (preview by default; --apply writes files)
-peaks sop init --id team-release --name "Team Release" --apply --json
-
-# 2. Validate the manifest (unique gate ids, valid phases, complete check fields)
-peaks sop lint --id team-release --json
-
-# 3. Register into the global gate registry (--dry-run to preview)
-peaks sop register --id team-release --json
-
-# 4. List every custom gate in the registry (built-in peaks-* gates never appear)
-peaks sop registry --json
-
-# 5. Evaluate a single gate against a project (returns pass / fail / blocked)
-peaks sop check --id team-release --gate changelog --project . --json
-
-# 6. Advance to a phase — its gates must pass AND it can't skip ahead, or it's blocked
-peaks sop advance --id team-release --to ship --project . --json
+peaks hooks install --project <repo>   # explicit opt-in: writes one PreToolUse entry
 ```
 
-Example `sop.json`:
+After that, when the agent tries `git push` while a publish gate is failing, Claude Code receives `permissionDecision: "deny"` — the command is blocked **before any permission check, even under `--dangerously-skip-permissions`**. Satisfy the gate and it passes; for emergencies use `peaks gate bypass --sop <id> --phase <phase> --reason "<why>"` (one-shot, capped per project per SOP, reason audited).
 
-```json
-{
-  "id": "team-release",
-  "name": "Team Release",
-  "phases": ["draft", "review", "ship"],
-  "gates": [
-    { "id": "changelog", "phase": "ship", "check": { "type": "file-exists", "path": "CHANGELOG.md" } },
-    { "id": "no-fixme", "phase": "review", "check": { "type": "grep", "file": "src/index.ts", "pattern": "FIXME", "absent": true } },
-    { "id": "tests", "phase": "ship", "check": { "type": "command", "run": ["npm", "test"] } }
-  ]
-}
+> **Two definition layers, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) can live in the **global** layer `~/.peaks/sops/` (your personal cross-project SOPs — default for `init`/`lint`/`register`) or the **project** layer `<repo>/.peaks/sops/` (committed into the repo, team-shared — pass `--project <repo>`). The **project layer wins** over global for the same id. Run-state (current phase, history) is always per-project at `<project>/.peaks/sop-state/<sop-id>/`. `check` / `advance` take `--project` to say which project to evaluate against and which definition layer wins.
+
+## Project layout (the peaks-cli repo itself)
+
+```text
+skills/        # 8 SKILL.md files (peaks-solo / -prd / -rd / -qa / -ui / -sc / -txt / -sop)
+src/cli/       # CLI engine (commands/, services/, hooks/, memory/, sop/, scan/, ...)
+bin/peaks.js   # entry point
+docs/          # design docs
+openspec/      # internal OpenSpec change proposals
 ```
-
-Gate checks support three types:
-
-| Type | Fields | Meaning |
-|------|--------|---------|
-| `file-exists` | `path` | File exists → pass |
-| `grep` | `file` + `pattern` (+ `absent`) | Regex matches in file → pass; with `absent: true` it inverts — passes when the pattern is NOT found ("must not contain X": pure text, no `--allow-commands`, cross-platform) |
-| `command` | `run` (argv array) + `expectExitZero` | Run a command, judge by exit code |
-
-For the very common "no leftover TODO / placeholder / unresolved marker" gate, prefer `grep` with `absent: true` over a `command` gate.
-
-Security constraints:
-- `command` gates run user-defined commands and are **refused by default**; you must pass `--allow-commands` to evaluate them. Commands run as an argv array (no shell, no injection surface), with a timeout cap and cwd pinned to the project root.
-- `file-exists` / `grep` paths are confined inside the project root; out-of-bounds paths return `blocked`.
-- Side-effecting commands (init/register/advance) all support `--dry-run` preview without writing.
-- `advance` also enforces **phase order**: you may stay or step back, but not skip ahead — a forward jump returns `SOP_PHASE_SKIP`.
-- When advancement is blocked (gate or phase skip), bypass explicitly with `--allow-incomplete --reason "<why>"` (bypasses both); in assisted/strict mode `--confirm` is also required, and each SOP has a per-project bypass cap.
 
 ## License
 
