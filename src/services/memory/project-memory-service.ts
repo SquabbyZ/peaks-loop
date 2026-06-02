@@ -1,5 +1,5 @@
 import { closeSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { isInsidePath, isWindowsAbsolutePath, normalizePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
 import { containsSensitiveConfigValue, isSensitiveConfigPath } from '../config/config-service.js';
 
@@ -432,10 +432,23 @@ function readMemoryFileMtime(filePath: string): string {
 }
 
 function readStoredMemoryNames(memoryDir: string): Set<string> {
+  // Two source-of-truth fallbacks for the slug-collision check:
+  //   1. Parse frontmatter (the canonical form rendered by
+  //      renderMemoryFile / written by both extract paths).
+  //   2. Fall back to the bare filename stem, so user-dropped files
+  //      without frontmatter (e.g. hand-written memories, legacy
+  //      content) still count as a collision and are not overwritten
+  //      by an idempotent re-extract.
   const names = new Set<string>();
   for (const filePath of listMarkdownFiles(memoryDir)) {
-    const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
-    if (parsed) names.add(parsed.name);
+    const stem = basename(filePath, '.md');
+    if (stem.length > 0 && stem !== 'index') names.add(stem);
+    try {
+      const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
+      if (parsed) names.add(parsed.name);
+    } catch {
+      // ignore unreadable files
+    }
   }
   return names;
 }
@@ -736,7 +749,18 @@ export function executeProjectMemoryExtract(options: ExtractPlanOptions): Projec
   if (plan.apply) {
     mkdirSync(plan.primaryMemoryDir, { recursive: true });
     const safeMemoryDir = assertSafeProjectMemoryDir(plan.projectRoot);
+    // Idempotency: skip writes for memories whose slug already lives in
+    // .peaks/memory/. Re-running `peaks memory extract --apply` on the
+    // same handoff is a normal peaks-solo / peaks-txt retry pattern (the
+    // skill prompt may invoke extract more than once when a handoff is
+    // edited and re-extracted). Without this, writeNewFile's O_EXCL
+    // throws EEXIST and aborts the whole batch. Symmetric with
+    // extractSessionMemories (line ~614) which does the same skip.
+    const existingNames = readStoredMemoryNames(plan.primaryMemoryDir);
     for (const write of plan.plannedWrites) {
+      const slug = slugify(write.memory.title);
+      if (existingNames.has(slug)) continue;
+
       const targetPath = resolveInputPath(write.filePath);
       const stableTargetPath = stablePath(targetPath);
       if (!isInsidePath(stableTargetPath, stableRealPath(safeMemoryDir))) {
@@ -753,11 +777,11 @@ export function executeProjectMemoryExtract(options: ExtractPlanOptions): Projec
     // and `readMemoryIndex` would either return the empty bootstrap or
     // — pre-bootstrap-fix — return null. Symmetric with
     // extractSessionMemories, which already regenerates the index on
-    // apply (see line ~626).
-    if (plan.plannedWrites.length > 0) {
-      const indexPath = join(plan.primaryMemoryDir, 'index.json');
-      generateMemoryIndexFile(plan.projectRoot, plan.primaryMemoryDir, indexPath);
-    }
+    // apply (see line ~626). We regen whenever --apply is set, even
+    // if every write was skipped by idempotency, so the index is
+    // always rebuilt against the current .peaks/memory/ directory.
+    const indexPath = join(plan.primaryMemoryDir, 'index.json');
+    generateMemoryIndexFile(plan.projectRoot, plan.primaryMemoryDir, indexPath);
   }
 
   return { ...plan, writtenFiles };

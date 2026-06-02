@@ -295,7 +295,13 @@ describe('project memory service', () => {
     expect(() => createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [artifactPath], apply: false })).toThrow('Refusing to store sensitive memory content');
   });
 
-  test('does not overwrite existing project memory files', () => {
+  test('does not overwrite existing project memory files (idempotent on re-extract)', () => {
+    // peaks-solo / peaks-txt may run `peaks memory extract --apply` more
+    // than once on the same handoff (e.g. handoff is edited and
+    // re-extracted). The CLI must skip writes for memories whose slug
+    // already lives in .peaks/memory/ and not abort the batch. This
+    // matches extractSessionMemories' behaviour and is what the skill
+    // prompt relies on for retry safety.
     const projectRoot = createTempDir('peaks-memory-existing-target');
     const artifactPath = join(projectRoot, 'artifact.md');
     const memoryDir = join(projectRoot, '.peaks', 'memory');
@@ -310,8 +316,44 @@ describe('project memory service', () => {
       '<!-- peaks-memory:end -->'
     ].join('\n'), 'utf8');
 
-    expect(() => executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true })).toThrow();
+    // No throw. writtenFiles is empty because the slug was already on disk.
+    const result = executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true });
+    expect(result.writtenFiles).toEqual([]);
+    // The pre-existing markdown is preserved byte-for-byte.
     expect(readFileSync(join(memoryDir, 'existing-memory.md'), 'utf8')).toBe('existing memory');
+  });
+
+  test('idempotent re-run on the same handoff writes zero new files but still regenerates the index', () => {
+    // Re-running peaks memory extract --apply on an already-extracted
+    // handoff is a normal peaks-solo retry pattern. The second run must
+    // succeed (no EEXIST), report writtenFiles=[], and still leave the
+    // index.json in a consistent state. Without the index regen on
+    // idempotent re-runs, downstream readers could see a stale index if
+    // the on-disk .md files were hand-edited between runs.
+    const projectRoot = createTempDir('peaks-memory-idempotent');
+    const artifactPath = join(projectRoot, 'handoff.md');
+    writeFileSync(artifactPath, [
+      '<!-- peaks-memory:start -->',
+      'title: Stable fact about the project',
+      'kind: convention',
+      '---',
+      'This is the body of the stable convention.',
+      '<!-- peaks-memory:end -->'
+    ].join('\n'), 'utf8');
+
+    const first = executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true });
+    expect(first.writtenFiles).toHaveLength(1);
+
+    // Second run — same handoff, same apply. Must not throw.
+    const second = executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true });
+    expect(second.writtenFiles).toEqual([]);
+
+    // Index still has the single entry and a version=1 shape.
+    const indexPath = join(projectRoot, '.peaks', 'memory', 'index.json');
+    const indexRaw = JSON.parse(readFileSync(indexPath, 'utf8'));
+    expect(indexRaw.version).toBe(1);
+    expect(indexRaw.hot.convention).toHaveLength(1);
+    expect(indexRaw.hot.convention[0].name).toBe('stable-fact-about-the-project');
   });
 
   test('rejects duplicate memory titles', () => {
