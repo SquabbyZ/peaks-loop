@@ -5,6 +5,7 @@ import { projectOpenSpecToRdInput } from '../../services/openspec/openspec-bridg
 import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRequest } from '../../services/openspec/openspec-render-service.js';
 import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
 import { archiveOpenSpecChange, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
+import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -28,6 +29,12 @@ type OpenSpecValidateCommandOptions = OpenSpecListOptions & {
 type OpenSpecArchiveCommandOptions = OpenSpecListOptions & {
   apply?: boolean;
   archiveDir?: string;
+};
+
+type OpenSpecInitCommandOptions = {
+  project: string;
+  apply?: boolean;
+  json?: boolean;
 };
 
 function resolveScanOptions(project: string | undefined): OpenSpecScanOptions {
@@ -243,6 +250,40 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       printResult(
         io,
         fail('openspec.archive', 'OPENSPEC_ARCHIVE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    openspec
+      .command('init')
+      .description('Scaffold the openspec/ directory in the target project (changes/, archive/, README.md, CHANGES.md). Idempotent — refuses to overwrite an existing openspec/')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--apply', 'write files to disk (default: dry-run preview)', false)
+  ).action(async (options: OpenSpecInitCommandOptions) => {
+    try {
+      const result = await executeOpenSpecInit({
+        projectRoot: options.project,
+        apply: options.apply === true
+      });
+      const nextActions: string[] = [];
+      if (result.alreadyInitialized) {
+        nextActions.push('openspec/ already exists; no files were created or modified.');
+        if (result.existingFiles.length > 0) {
+          nextActions.push(`Existing files preserved: ${result.existingFiles.join(', ')}`);
+        }
+      } else if (!result.apply) {
+        nextActions.push('Re-run with --apply to write the planned files to disk.');
+      } else {
+        nextActions.push('Run `peaks openspec render --request <path> --apply` to scaffold a first change proposal.');
+      }
+      printResult(io, ok('openspec.init', result, [], nextActions), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('openspec.init', 'OPENSPEC_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
         options.json
       );
       process.exitCode = 1;

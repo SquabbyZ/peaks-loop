@@ -53,6 +53,47 @@ In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contrac
 
 ## Peaks-Cli Startup sequence (MANDATORY — execute in order)
 
+### Peaks-Cli Step 0.5: OpenSpec first-run opt-in (conditional)
+
+After the workspace is anchored, before project scan, Solo checks whether
+the project already has an `openspec/` directory. The lifecycle
+(`render → validate → show → to-rd → validate → archive`) only applies
+when `openspec/` exists; without it, RD/QA/SC silently skip the
+openspec-aware paths and you lose change-proposal tracking, commit
+boundaries from `tasks.md`, and the historical archive.
+
+To make that opt-in visible instead of silent, Solo runs:
+
+```bash
+# 1. Detect whether the project already has openspec/.
+ls <repo>/openspec/changes 2>&1
+# 2. If absent, ask the user once — only on the first Solo run in this
+#    project. The decision is sticky: write it to .peaks/.peaks-openspec-opt-in.json
+#    so subsequent Solo invocations do not re-ask.
+test -f <repo>/.peaks/.peaks-openspec-opt-in.json || \
+  echo "{\"enabled\": <bool>}" > <repo>/.peaks/.peaks-openspec-opt-in.json
+```
+
+**AskUserQuestion** (only when `openspec/` is absent and the opt-in
+file is missing):
+
+| Option | What it does |
+|---|---|
+| Enable OpenSpec for this project (Recommended) | Run `peaks openspec init --project <repo> --apply`. After that, every Solo run uses the change-proposal lifecycle for the same project. |
+| Skip for now | Do nothing. Solo proceeds without openspec; the question is re-asked on the next first-run detection. |
+| Never ask again for this project | Write `{enabled: false, sticky: true}`. Solo stops asking. The user can re-enable later by removing `.peaks/.peaks-openspec-opt-in.json` and re-running. |
+
+The first option is the recommended default because it gives Solo the
+full change-proposal lifecycle (proposal / tasks / design / specs
+deltas, archive on ship, commit boundaries from `tasks.md`). It costs
+only a single scaffolded directory and pays back the first time the
+project needs a real review trail.
+
+If the user picks "Enable", the only required follow-up is to make
+sure `openspec/changes/` is added to git (it is part of the project
+repo, not a tool-managed artefact). Solo does not run `git add` for
+the user; that is the user's commit boundary.
+
 ### Peaks-Cli Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
 The instant Peaks-Cli Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:

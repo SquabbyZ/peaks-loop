@@ -312,4 +312,107 @@ describe('peaks openspec commands', () => {
 
     expect(output.data.exists).toBe(true);
   });
+
+  describe('openspec init', () => {
+    test('dry-run (default) plans writes without touching the filesystem', async () => {
+      const project = await mkdtemp(join(tmpdir(), 'peaks-openspec-init-dry-'));
+      const result = await runCommand(['openspec', 'init', '--project', project, '--json']);
+      const output = parseJsonOutput<{
+        ok: boolean;
+        apply: boolean;
+        alreadyInitialized: boolean;
+        writtenFiles: string[];
+        createdDirectories: string[];
+        plannedWrites: Array<{ path: string; kind: string }>;
+      }>(result.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(output.data.apply).toBe(false);
+      expect(output.data.alreadyInitialized).toBe(false);
+      expect(output.data.writtenFiles).toEqual([]);
+      expect(output.data.createdDirectories).toEqual([]);
+
+      const planPaths = output.data.plannedWrites.map((w) => w.path).sort();
+      expect(planPaths).toEqual([
+        join(project, 'openspec'),
+        join(project, 'openspec', 'CHANGES.md'),
+        join(project, 'openspec', 'README.md'),
+        join(project, 'openspec', 'changes'),
+        join(project, 'openspec', 'changes', 'archive')
+      ].sort());
+
+      // Nothing must be on disk after a dry run.
+      const { existsSync } = await import('node:fs');
+      expect(existsSync(join(project, 'openspec'))).toBe(false);
+    });
+
+    test('--apply scaffolds the openspec/ tree with README and CHANGES.md', async () => {
+      const project = await mkdtemp(join(tmpdir(), 'peaks-openspec-init-apply-'));
+      const result = await runCommand(['openspec', 'init', '--project', project, '--apply', '--json']);
+      const output = parseJsonOutput<{
+        ok: boolean;
+        apply: boolean;
+        alreadyInitialized: boolean;
+        writtenFiles: string[];
+        createdDirectories: string[];
+      }>(result.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(output.data.apply).toBe(true);
+      expect(output.data.alreadyInitialized).toBe(false);
+
+      const { existsSync, readFileSync, statSync } = await import('node:fs');
+      const openspecRoot = join(project, 'openspec');
+      expect(existsSync(openspecRoot)).toBe(true);
+      expect(existsSync(join(openspecRoot, 'changes'))).toBe(true);
+      expect(existsSync(join(openspecRoot, 'changes', 'archive'))).toBe(true);
+      expect(existsSync(join(openspecRoot, 'README.md'))).toBe(true);
+      expect(existsSync(join(openspecRoot, 'CHANGES.md'))).toBe(true);
+
+      const readme = readFileSync(join(openspecRoot, 'README.md'), 'utf8');
+      expect(readme).toContain('render → validate');
+      expect(readme).toContain('changes/');
+      expect(readme).toContain('archive');
+
+      const changes = readFileSync(join(openspecRoot, 'CHANGES.md'), 'utf8');
+      expect(changes).toContain('# OpenSpec — change log');
+      expect(changes).toContain('| Date | Change | Status |');
+
+      // archive/ is a directory, not a file.
+      expect(statSync(join(openspecRoot, 'changes', 'archive')).isDirectory()).toBe(true);
+
+      expect(output.data.createdDirectories).toContain(join(openspecRoot, 'changes'));
+      expect(output.data.writtenFiles).toContain(join(openspecRoot, 'README.md'));
+      expect(output.data.writtenFiles).toContain(join(openspecRoot, 'CHANGES.md'));
+    });
+
+    test('is idempotent — second init against an existing openspec/ reports alreadyInitialized and does NOT overwrite', async () => {
+      const project = await mkdtemp(join(tmpdir(), 'peaks-openspec-init-reinit-'));
+      // First apply — fresh scaffold.
+      const first = await runCommand(['openspec', 'init', '--project', project, '--apply', '--json']);
+      expect(parseJsonOutput(first.stdout).ok).toBe(true);
+
+      // Hand-modify README so we can detect any overwrite.
+      const { readFileSync, writeFileSync } = await import('node:fs');
+      const readmePath = join(project, 'openspec', 'README.md');
+      writeFileSync(readmePath, '# USER-HAND-WRITTEN — must not be stomped', 'utf8');
+
+      // Second apply — must report alreadyInitialized and leave README intact.
+      const second = await runCommand(['openspec', 'init', '--project', project, '--apply', '--json']);
+      const output = parseJsonOutput<{
+        ok: boolean;
+        alreadyInitialized: boolean;
+        existingFiles: string[];
+        writtenFiles: string[];
+      }>(second.stdout);
+
+      expect(output.ok).toBe(true);
+      expect(output.data.alreadyInitialized).toBe(true);
+      expect(output.data.existingFiles).toContain(readmePath);
+      expect(output.data.writtenFiles).toEqual([]);
+
+      const after = readFileSync(readmePath, 'utf8');
+      expect(after).toContain('USER-HAND-WRITTEN');
+    });
+  });
 });
