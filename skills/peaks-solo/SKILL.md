@@ -1065,4 +1065,4 @@ Do not run upstream installer flows, mutate agent settings, or commit `.codegrap
 
 **MCP lifecycle**: `list → plan → apply --yes → call → rollback`. `apply` backs up settings and refuses non-peaks entries unless `--claim` is passed.
 
-Detailed rules: `references/external-skill-invocation.md`, `references/openspec-mcp-workflow.md`, `references/workflow.md`, `references/existing-system-extraction.md`.
+Detailed rules: `references/external-skill-invocation.md`, `references/openspec-mcp-workflow.md`, `references/workflow.md`, `references/existing-system-extraction.md`. For an informational mapping of peaks artefact paths to the A2A (Agent2Agent) protocol's Task / Artifact / Part / Message / AgentCard vocabulary (no A2A implementation, just a shared naming layer), see `references/a2a-artifact-mapping.md`.
