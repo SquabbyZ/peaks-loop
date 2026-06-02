@@ -7,9 +7,47 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 Peaks-Cli QA proves that planned changes are protected and accepted.
 
-## Skill presence (MANDATORY first action)
+## Sub-agent dispatch (when launched by peaks-solo swarm)
 
-Before any analysis or tool call, immediately run:
+When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/<session-id>/system/sub-agent-qa.json` and only that.
+- **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
+- **Mode selection** — Solo has already chosen the mode.
+- **Statusline install** — already done by Solo at session startup.
+
+What the sub-agent **MUST** still do:
+
+0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out. The sub-agent reads it via `peaks request show <rid> --role qa --project <repo> --json` if it needs to.
+2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role rd`, `--role ui` if UI is in the swarm plan).
+3. Standards preflight (dry-run only).
+4. Write `.peaks/<session-id>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items.
+5. Return only a compact JSON envelope:
+
+```json
+{
+  "role": "qa-test-cases",
+  "rid": "<rid>",
+  "status": "ok" | "blocked" | "skipped",
+  "artefacts": [".peaks/<sid>/qa/test-cases/<rid>.md"],
+  "warnings": [],
+  "blockedReason": null
+}
+```
+
+**Hard prohibitions** (sub-agent context):
+
+- Do NOT call `Skill(skill="...")`.
+- Do NOT call `peaks skill presence:set` — Solo owns the active-skill file.
+- Do NOT run the actual test suite, do NOT execute security/perf tools, do NOT open a browser — those are the **QA validation** phase, not the Swarm planning phase. The Swarm sub-agent is "QA(test-cases)" (planning), which only produces the test-case artefact. The actual validation runs after RD implementation in a separate sub-agent or inline run.
+- Do NOT commit, push, install hooks, or apply settings.json mutations.
+- Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}`.
+
+If `--type` is `docs` or `chore`, return `{"status":"skipped","reason":"type=<type>"}` and exit — there is no acceptance surface to plan tests for.
+
+## Skill presence (MANDATORY first action — main-loop context only)
+
+When this skill is running in the main Claude session (not as a sub-agent), before any analysis or tool call, immediately run:
 
 ```bash
 peaks skill presence:set peaks-qa --project <repo> --mode <mode> --gate startup
