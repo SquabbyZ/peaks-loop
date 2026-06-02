@@ -1,8 +1,9 @@
-import { mkdtemp, readdir, stat } from 'node:fs/promises';
+import { mkdtemp, readdir, stat, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { initWorkspace, validateSessionId, InvalidSessionIdError } from '../../src/services/workspace/workspace-service.js';
+import { initWorkspace, validateSessionId, InvalidSessionIdError, ConflictingSessionError } from '../../src/services/workspace/workspace-service.js';
+import { getSessionId } from '../../src/services/session/session-manager.js';
 
 async function makeProject(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'peaks-session-workspace-'));
@@ -66,5 +67,98 @@ describe('initWorkspace', () => {
   test('rejects invalid session ids before creating anything', async () => {
     const project = await makeProject();
     await expect(initWorkspace({ projectRoot: project, sessionId: '1779674289' })).rejects.toBeInstanceOf(InvalidSessionIdError);
+  });
+
+  test('binds the session as the project current one in .peaks/.session.json', async () => {
+    const project = await makeProject();
+    const report = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-add-user-auth' });
+
+    expect(report.bound).toBe(true);
+    expect(report.previousSessionId).toBeNull();
+    expect(getSessionId(project)).toBe('2026-05-25-add-user-auth');
+  });
+
+  test('idempotent re-init of the same session id does not change binding', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-add-user-auth' });
+    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-add-user-auth' });
+
+    expect(second.bound).toBe(true);
+    expect(second.previousSessionId).toBeNull();
+    expect(getSessionId(project)).toBe('2026-05-25-add-user-auth');
+  });
+
+  test('rejects conflicting session id when the existing one is a real in-flight session', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-first-feature' });
+
+    // .peaks/.session.json now points at `first-feature`, whose session.json
+    // exists (ensureSession wrote it during the first call). A second init
+    // requesting a different id without --allow-session-rebind must throw.
+    await expect(
+      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-second-feature' })
+    ).rejects.toBeInstanceOf(ConflictingSessionError);
+  });
+
+  test('--allow-session-rebind overwrites an in-flight binding', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-first-feature' });
+
+    const report = await initWorkspace({
+      projectRoot: project,
+      sessionId: '2026-05-25-second-feature',
+      allowSessionRebind: true
+    });
+
+    expect(report.bound).toBe(true);
+    expect(report.previousSessionId).toBe('2026-05-25-first-feature');
+    expect(getSessionId(project)).toBe('2026-05-25-second-feature');
+  });
+
+  test('rebind path leaves the .peaks/<first>/ directory on disk (not deleted)', async () => {
+    // We only overwrite the .session.json binding; the prior session directory
+    // is the user’s data. listSessionMetas still surfaces both.
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-first-feature' });
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-second-feature', allowSessionRebind: true });
+
+    const firstDir = join(project, '.peaks', '2026-05-25-first-feature');
+    const firstStat = await stat(firstDir);
+    expect(firstStat.isDirectory()).toBe(true);
+  });
+
+  test('leftover empty session dir does not block rebind (no error)', async () => {
+    const project = await makeProject();
+    // Simulate: a .peaks/<Y>/ exists but is empty (true leftover, e.g. previous
+    // run crashed before mkdir -p the sub-directories). Pre-seed .session.json
+    // by hand pointing at that leftover, then call init with X.
+    const leftover = '2026-05-25-orphan-zzz';
+    await mkdir(join(project, '.peaks', leftover), { recursive: true });
+    await writeFile(
+      join(project, '.peaks', '.session.json'),
+      JSON.stringify({ sessionId: leftover, projectRoot: project, createdAt: '2026-05-25T00:00:00.000Z' }),
+      'utf8'
+    );
+
+    const report = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-real-feature' });
+
+    expect(report.bound).toBe(true);
+    expect(report.previousSessionId).toBe(leftover);
+    expect(getSessionId(project)).toBe('2026-05-25-real-feature');
+  });
+
+  test('existing session dir with data blocks rebind even without per-session session.json', async () => {
+    const project = await makeProject();
+    // First init creates the full tree; .session.json points at the first.
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-first-feature' });
+    // Wipe the per-session session.json to simulate the ensureSession step
+    // never ran (or ran with a partial-failure). The user data directories
+    // are still on disk; that alone is enough to refuse a rebind.
+    const { rm } = await import('node:fs/promises');
+    await rm(join(project, '.peaks', '2026-05-25-first-feature', 'session.json'), { force: true });
+
+    await expect(
+      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-second-feature' })
+    ).rejects.toBeInstanceOf(ConflictingSessionError);
   });
 });

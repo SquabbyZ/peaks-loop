@@ -84,6 +84,26 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
   writeFileSync(sessionFile, JSON.stringify(info, null, 2), 'utf8');
 }
 
+/**
+ * Bind the project's current session to the given session id by writing
+ * `.peaks/.session.json`. The single-session binding is the source of truth
+ * for `ensureSession()` and any other path that needs to discover the
+ * active session without an explicit --session-id flag.
+ *
+ * This does NOT touch the per-session `session.json` inside `.peaks/<id>/`;
+ * that file is owned by `setSessionMeta` and records session-scoped
+ * metadata (title, skill, mode, gate, etc.).
+ */
+export function setCurrentSessionBinding(projectRoot: string, sessionId: string): SessionInfo {
+  const info: SessionInfo = {
+    sessionId,
+    createdAt: new Date().toISOString(),
+    projectRoot
+  };
+  writeSessionFile(projectRoot, info);
+  return info;
+}
+
 function getMetaFilePath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, '.peaks', sessionId, META_FILE);
 }

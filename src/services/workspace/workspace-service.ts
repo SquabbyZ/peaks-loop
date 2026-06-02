@@ -1,10 +1,18 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
+import { getSessionId, setCurrentSessionBinding } from '../session/session-manager.js';
 
 export type WorkspaceInitOptions = {
   projectRoot: string;
   sessionId: string;
+  /**
+   * When true, the conflict check is skipped and the new session id is
+   * written to .peaks/.session.json even if the project is already bound
+   * to a different (real) session. Use only with explicit user authorization
+   * — the CLI surfaces this as `--allow-session-rebind`.
+   */
+  allowSessionRebind?: boolean;
 };
 
 export type WorkspaceInitReport = {
@@ -12,6 +20,8 @@ export type WorkspaceInitReport = {
   sessionRoot: string;
   created: string[];
   alreadyExisted: string[];
+  bound: boolean;
+  previousSessionId: string | null;
 };
 
 const SUBDIRECTORIES: ReadonlyArray<string> = [
@@ -39,6 +49,18 @@ export class InvalidSessionIdError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidSessionIdError';
+  }
+}
+
+export class ConflictingSessionError extends Error {
+  readonly code = 'CONFLICTING_SESSION';
+  constructor(
+    message: string,
+    readonly existingSessionId: string,
+    readonly requestedSessionId: string
+  ) {
+    super(message);
+    this.name = 'ConflictingSessionError';
   }
 }
 
@@ -86,5 +108,55 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
       created.push(sub);
     }
   }
-  return { sessionId: options.sessionId, sessionRoot, created, alreadyExisted };
+
+  // Bind this session as the project's current one.
+  //
+  // Single source of truth: `peaks workspace init` is the only CLI entry point
+  // that takes an explicit --session-id, so it owns the binding to .session.json.
+  // Without this write, downstream commands that fall through to
+  // `ensureSession()` would auto-generate a *different* id and create a second
+  // session directory — the bug that confuses the LLM in peaks-solo.
+  //
+  // Conflict rule: if .session.json already points at a different session
+  // whose directory is real (has session.json inside), the caller is starting
+  // a parallel session without closing the previous one. Refuse to bind —
+  // this is the "strict" mode the user picked. The user must finish or delete
+  // the existing session first.
+  const existingSessionId = getSessionId(options.projectRoot);
+  let previousSessionId: string | null = null;
+  let bound = false;
+  if (existingSessionId === null) {
+    // No prior binding — adopt the requested id.
+    setCurrentSessionBinding(options.projectRoot, options.sessionId);
+    bound = true;
+  } else if (existingSessionId === options.sessionId) {
+    // Already bound to the same id — idempotent.
+    bound = true;
+  } else {
+    // Different id already bound. The existing session is "real" if its
+    // directory is non-empty — that holds the user's data (rd/, qa/, ui/,
+    // etc.) regardless of whether the per-session metadata file is present.
+    // Refuse to rebind without explicit authorization.
+    previousSessionId = existingSessionId;
+    const existingSessionDir = join(options.projectRoot, '.peaks', existingSessionId);
+    if (await isDirectory(existingSessionDir) && !options.allowSessionRebind) {
+      const { readdirSync } = await import('node:fs');
+      const entries = readdirSync(existingSessionDir);
+      if (entries.length > 0) {
+        throw new ConflictingSessionError(
+          `Project is already bound to session "${existingSessionId}". ` +
+            `Cannot start session "${options.sessionId}" without closing the previous one. ` +
+            `Either finish/abandon the prior session first, or pass --allow-session-rebind to override.`,
+          existingSessionId,
+          options.sessionId
+        );
+      }
+    }
+    // Either: existing session dir is empty (true leftover, no user data),
+    // or the caller explicitly authorised a rebind. Overwrite.
+    setCurrentSessionBinding(options.projectRoot, options.sessionId);
+    bound = true;
+  }
+
+  return { sessionId: options.sessionId, sessionRoot, created, alreadyExisted, bound, previousSessionId };
 }

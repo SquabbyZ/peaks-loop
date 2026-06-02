@@ -9,6 +9,7 @@ export {
   listSessionMetas,
   getProjectScanPath,
   hasProjectScan,
+  setCurrentSessionBinding,
   type SessionInfo,
   type SessionMeta
 } from './session-manager.js';
