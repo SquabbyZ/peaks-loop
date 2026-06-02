@@ -7,6 +7,25 @@ description: UI and experience skill for Peaks. Use when a workflow touches UI/U
 
 Peaks-Cli UI handles experience, interaction, visual direction, and UI-specific refactor artifacts.
 
+## Hard contracts for browser inspection (BLOCKING — read before any browser_take_screenshot / login flow)
+
+UI's headed-browser work (visual inspection, regression seed capture, Figma / live-page cross-check) follows the same two contracts as `peaks-qa` and `peaks-rd`. The contracts are defined in full in `peaks-qa` ("Hard contracts for browser validation"); UI inherits them.
+
+### Contract 1 — Inspection screenshots must land under .peaks/<sid>/qa/screenshots/
+
+Every `mcp__playwright__browser_take_screenshot` call **MUST** pass `filename` inside `.peaks/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). Do not let Playwright fall back to the project root. After every batch, run:
+
+```bash
+ls .peaks/<sid>/qa/screenshots/*.png 2>&1
+find . -maxdepth 1 -name '*.png' 2>&1
+```
+
+`find` must be empty; any project-root `.png` is a leak and must be moved into the screenshots directory before completing this skill.
+
+### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
+
+UI's headed-browser inspection hits the same auth walls. The flow is identical to QA: `AskUserQuestion` with three options (logged in / skip / cancel); no silent downgrade to static screenshots, no inferring login from DOM state. The full hard-block contract is defined in `peaks-qa`; UI inherits it.
+
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
 When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:

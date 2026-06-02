@@ -51,7 +51,7 @@ describe('initWorkspace', () => {
     const prdSubs = await readdir(join(sessionRoot, 'prd'));
     expect(prdSubs.sort()).toEqual(['requests', 'source']);
     const qaSubs = await readdir(join(sessionRoot, 'qa'));
-    expect(qaSubs.sort()).toEqual(['requests', 'test-cases', 'test-reports']);
+    expect(qaSubs.sort()).toEqual(['requests', 'screenshots', 'test-cases', 'test-reports']);
     const systemStat = await stat(join(sessionRoot, 'system'));
     expect(systemStat.isDirectory()).toBe(true);
   });
@@ -160,5 +160,34 @@ describe('initWorkspace', () => {
     await expect(
       initWorkspace({ projectRoot: project, sessionId: '2026-05-25-second-feature' })
     ).rejects.toBeInstanceOf(ConflictingSessionError);
+  });
+
+  test('pre-creates .peaks/<sid>/qa/screenshots/ so QA browser evidence has a stable home from the start', async () => {
+    // The qa/screenshots subdir is the home for browser_take_screenshot
+    // evidence (the hard contract in peaks-qa / peaks-rd / peaks-ui
+    // requires every screenshot to land there). Pre-creating the dir
+    // means the first QA call has a target; the LLM never has to
+    // mkdir under skill pressure.
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    const screenshotsDir = join(project, '.peaks', '2026-05-25-feature', 'qa', 'screenshots');
+    const stat = await import('node:fs/promises').then((m) => m.stat(screenshotsDir));
+    expect(stat.isDirectory()).toBe(true);
+  });
+
+  test('qa/screenshots/ creation is idempotent on re-init', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    // Pre-seed a file the QA flow is expected to write later.
+    const { writeFile: wf } = await import('node:fs/promises');
+    const screenshotsDir = join(project, '.peaks', '2026-05-25-feature', 'qa', 'screenshots');
+    await wf(join(screenshotsDir, 'pre-existing.png'), 'fake', 'utf8');
+    // Re-init must not blow away the pre-existing file.
+    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    const { readFile: rf } = await import('node:fs/promises');
+    const preExisting = await rf(join(screenshotsDir, 'pre-existing.png'), 'utf8');
+    expect(preExisting).toBe('fake');
+    // The subdir appears in alreadyExisted on the second run, never in created.
+    expect(second.created).not.toContain('qa/screenshots');
   });
 });

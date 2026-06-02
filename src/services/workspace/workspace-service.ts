@@ -32,6 +32,7 @@ const SUBDIRECTORIES: ReadonlyArray<string> = [
   'qa/test-cases',
   'qa/test-reports',
   'qa/requests',
+  'qa/screenshots',
   'sc',
   'txt',
   'system'

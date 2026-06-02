@@ -10,15 +10,16 @@ When designing or modifying a peaks-cli feature, default to the **skill-first** 
 
 - The user flow lives in the skill's `SKILL.md` (e.g. `peaks-solo`, `peaks-txt`, `peaks-rd`, `peaks-qa`, `peaks-sc`, `peaks-prd`, `peaks-sop`).
 - CLI commands are **invoked by the skill prompt** when they are the right primitive: a side effect that must be atomic, a gate that must be machine-enforced, a probe that needs structured JSON, or a backstop that prevents the LLM from skipping a step.
-- **Do not open new CLI commands** just because "the LLM might need this" — if the LLM is the only consumer, encode the behaviour in the skill prompt.
+- **Default-no on new CLI commands.** This is a leaning, not a hard ban. The user has been explicit: "非必要不添加新的 CLI，不是卡死不添加新的 CLI" — the burden of justification sits on the proposer. See user auto-memory `feedback_peaks_skill_default_no_new_cli.md` for the operational form of this rule.
 
 A new CLI command is justified only when at least one of these is true:
 
 1. The action must be invokable from a hook / script / CI (e.g. `peaks hooks install`, `peaks sc validate`).
 2. The action must produce a structured (JSON) response that the skill reads back to gate a downstream decision (e.g. `peaks request show ... --json`, `peaks scan archetype ... --json`).
 3. The action is a destructive side effect that needs an explicit `--apply` opt-in (e.g. `peaks openspec archive --apply`, `peaks memory extract --apply`).
+4. The action is a machine-enforced gate that prose cannot enforce (e.g. the SOP `peaks gate enforce` mechanism — without it the rule can be bypassed).
 
-If none of (1)(2)(3) holds, route the change into the relevant skill's `SKILL.md` instead.
+If none of (1)(2)(3)(4) holds, **do not add the CLI command**. Encode the behaviour in the relevant skill's `SKILL.md` instead. When 1 or 2 is yes, the CLI is the right surface; when 4 is yes, the CLI is the only way to honour the rule.
 
 ## Why
 
@@ -39,8 +40,9 @@ When proposing a new `peaks <cmd>`:
 > 1. Is the only consumer an LLM in a skill prompt? If yes, encode in the skill instead.
 > 2. Does this need to be invokable from a hook / script / CI? If yes, the CLI is justified.
 > 3. Does the skill need a structured (JSON) response to gate a downstream decision? If yes, the CLI is justified.
+> 4. Is this a machine-enforced gate that prose cannot enforce? If yes, the CLI is justified.
 
-When the answer is "1 yes, 2+3 no", **do not** add the CLI command. When 2 or 3 is yes, the CLI is the right surface.
+When the answer to (1) is "yes" and the answer to (2)(3)(4) is "no", **do not** add the CLI command. When (2), (3), or (4) is yes, the CLI is the right surface. This is a leaning, not a hard ban: the user has been clear that "非必要不添加新的 CLI，不是卡死不添加新的 CLI".
 
 ## Examples (in this repo)
 

@@ -7,6 +7,42 @@ description: Product and requirement skill for Peaks. Use when a workflow needs 
 
 Peaks-Cli PRD turns user intent into verifiable product artifacts.
 
+## Hard contracts for PRD source-document screenshots (BLOCKING)
+
+When the PRD source is an authenticated web document (Feishu / Lark / Notion / Confluence / GitHub / any site that demands a login before the document body is reachable), PRD uses the Playwright MCP headed browser to render it. The two contracts are the same as in `peaks-qa` and `peaks-rd`; the role differs.
+
+### Contract 1 — Source-document screenshots must land under .peaks/<sid>/prd/source/
+
+PRD's `mcp__playwright__browser_take_screenshot` calls MUST pass `filename` inside `.peaks/<session-id>/prd/source/`, not in the project root and not in `.peaks/<sid>/qa/screenshots/` (PRD's evidence is upstream of QA's). Example:
+
+```bash
+mcp__playwright__browser_take_screenshot \
+  filename=".peaks/<sid>/prd/source/<doc-name>-page-<n>.png" \
+  fullPage=true
+```
+
+After the navigation / snapshot batch, run `find . -maxdepth 1 -name '*.png'` and verify the project root is clean. Sanitise before retention: no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots containing PII or SSO/MFA material.
+
+### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
+
+If `browser_navigate` redirects to a login / captcha / SSO / MFA, PRD does NOT silently fall back to unauthenticated `fetch` or `WebFetch`. The visible browser is already open; the skill must surface the wall with `AskUserQuestion`:
+
+```
+AskUserQuestion({
+  question: "PRD source <URL> hit a login wall. How should PRD proceed?",
+  options: [
+    { label: "I am logged in / I'll log in now",
+      description: "Pause PRD. The user completes login in the visible browser, then types 'logged in' or equivalent. PRD resumes browser_navigate + browser_snapshot from the post-login page." },
+    { label: "Skip browser capture, paste the document",
+      description: "The user pastes the document content as Markdown / plain text into the chat or drops a .md / .pdf export into .peaks/<sid>/prd/source/. PRD ingests the paste / file. Sanitise cookies / PII / SSO before retention." },
+    { label: "Mark PRD as blocked",
+      description: "Set the PRD state to blocked with reason doc-inaccessible. Do not fabricate facts from a partial read." }
+  ]
+})
+```
+
+Do not infer login from DOM state. The full hard-block contract is defined in `peaks-qa`; PRD inherits the same rules.
+
 ## Skill presence (MANDATORY first action)
 
 Before any analysis or tool call, immediately run:

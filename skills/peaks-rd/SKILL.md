@@ -7,6 +7,34 @@ description: Research and development skill for Peaks. Use for engineering analy
 
 Peaks-Cli RD owns engineering analysis, implementation planning, and refactor execution contracts.
 
+## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
+
+For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP headed browser to verify the implementation behaves correctly before handing off to QA. The two contracts below are identical in spirit to `peaks-qa`'s contracts — RD and QA share the same headed-browser path and the same evidence conventions; only the role differs.
+
+### Contract 1 — Self-test screenshots must land under .peaks/<sid>/qa/screenshots/
+
+Even though RD runs the self-test, **the screenshot evidence is QA's** by convention (the test report under `.peaks/<sid>/qa/test-reports/` cites these paths). Therefore RD's `mcp__playwright__browser_take_screenshot` calls MUST pass `filename` whose absolute path is inside `.peaks/<session-id>/qa/screenshots/`, exactly the same contract QA enforces. Do not let Playwright fall back to the project root.
+
+### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
+
+When the headed browser hits an auth wall, RD does **not** skip the browser gate. The skill must surface the wall with `AskUserQuestion` and pick one of three paths:
+
+```
+AskUserQuestion({
+  question: "Headed browser hit a login wall at <URL>. How should RD self-test proceed?",
+  options: [
+    { label: "I am logged in / I'll log in now",
+      description: "Pause RD. The visible browser is already open; the user completes login in-place, then types 'logged in' or equivalent. RD resumes browser_navigate + browser_snapshot from the post-login page." },
+    { label: "Skip browser self-test, hand off to QA",
+      description: "Mark the slice's browser self-test as deferred. Do NOT mark the slice as RD-done; transition to qa-handoff with browser-gate=blocked reason=login-required, and let QA's gate machinery surface the wall to the user again." },
+    { label: "Cancel the workflow",
+      description: "Stop RD. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
+  ]
+})
+```
+
+The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for browser validation" there); RD inherits the same rules. Without an explicit decision from the user, RD does not advance past the wall.
+
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
 When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
