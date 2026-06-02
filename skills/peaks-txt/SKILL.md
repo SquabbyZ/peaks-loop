@@ -207,11 +207,27 @@ peaks capabilities --json
 
 # 6. Memory extraction — --apply is REQUIRED to write .peaks/memory
 #    (without --apply the command only previews; the directory will NOT be created)
+#    You MUST scan the handoff capsule for embedded memory blocks FIRST. If none
+#    are present, the step is a no-op (the command succeeds with extractedCount=0
+#    and writes nothing). If blocks are present, --apply writes them and the
+#    index is regenerated.
+grep -c "peaks-memory:start" .peaks/<id>/txt/handoff.md || true   # skill-side scan; do NOT add a new CLI
 peaks memory extract --project <repo> --artifact .peaks/<id>/txt/handoff.md --apply --json
 peaks skill presence:clear --project <repo>                      # handoff capsule complete, remove presence indicator
 ```
 
 `peaks memory extract --apply` writes to `.peaks/memory` (without `--apply` it only previews). The handoff capsule `.peaks/<id>/txt/handoff.md` is the primary artifact for extraction — embed `<!-- peaks-memory:start -->` blocks in it for stable project facts before running extract.
+
+### Memory block embedding rule (BLOCKING — read before writing the handoff)
+
+Every handoff capsule you emit **MUST** include the scan for stable facts. The minimum acceptable is:
+
+- Run `grep -c 'peaks-memory:start' .peaks/<id>/txt/handoff.md` after writing the capsule body.
+- If the count is 0 AND this session surfaced a stable project fact (an architectural decision, a stack constraint, a naming convention, a refactor approved by the user, an API pattern, a hard rule from RD/QA review), you MUST go back and embed at least one `<!-- peaks-memory:start -->` block before declaring TXT complete. Skipping the block is a workflow violation.
+- If the count is 0 AND no stable fact was surfaced (pure analysis, no code touched, all transient), it is acceptable to skip embedding — but you MUST still run `peaks memory extract --apply` so the artefact state stays consistent (the command will be a no-op write, that's fine).
+- If the count is ≥ 1, the `--apply` extract will write one markdown per block to `.peaks/memory/` and regenerate `index.json`. The user sees the durable persistence; that is the entire point of this step.
+
+This rule is the skill-side half of the **Skill is primary, CLI is auxiliary** contract: the LLM is responsible for embedding blocks (skill prompt, no CLI can decide what is stable), and the CLI is responsible for atomic persistence (`peaks memory extract --apply`, single shot, structured JSON envelope).
 
 ### Transition verification gates (MANDATORY — run the command, see the output)
 

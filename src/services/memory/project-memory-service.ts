@@ -745,6 +745,19 @@ export function executeProjectMemoryExtract(options: ExtractPlanOptions): Projec
       writeNewFile(targetPath, write.content);
       writtenFiles.push(targetPath);
     }
+
+    // After writing any markdown, regenerate the index so downstream
+    // readers (peaks project memory-index, peaks-txt re-runs, the next
+    // session's presence-set bootstrap) see the new memory. Without
+    // this, `peaks memory extract --apply` would leave the index stale
+    // and `readMemoryIndex` would either return the empty bootstrap or
+    // — pre-bootstrap-fix — return null. Symmetric with
+    // extractSessionMemories, which already regenerates the index on
+    // apply (see line ~626).
+    if (plan.plannedWrites.length > 0) {
+      const indexPath = join(plan.primaryMemoryDir, 'index.json');
+      generateMemoryIndexFile(plan.projectRoot, plan.primaryMemoryDir, indexPath);
+    }
   }
 
   return { ...plan, writtenFiles };

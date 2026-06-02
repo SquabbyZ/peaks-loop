@@ -9,6 +9,16 @@ Peaks-Cli Solo is the orchestration facade for the Peaks-Cli short skill family.
 
 Use this skill to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
+## Skill-first architecture note (read once, internalise)
+
+This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** — invoked by the skill prompt when a primitive is the right tool (atomic side effect, machine-enforced gate, structured JSON for a downstream decision, or backstop the LLM cannot skip). Concretely:
+
+- Behaviour that only an LLM in a skill prompt would use (e.g. "scan a handoff for memory blocks", "decide if a stable fact deserves persistence") lives **here in the SKILL.md**, not as a new CLI command.
+- The CLI earns its keep when it is (a) hook- / script- / CI-invokable, (b) the consumer needs a structured JSON envelope to gate a downstream decision, or (c) it is a destructive side effect that needs an explicit `--apply` opt-in.
+- When you reach for `peaks <X> --project <repo> --json` in a runbook step, that command is the **contract** you are calling; the LLM work around it (deciding what to pass, interpreting the response, deciding the next step) is what this skill owns.
+
+See `.claude/rules/common/dev-preference.md` for the full dev policy and the decision template. The user-facing consequence: every iteration on this skill and the rest of the peaks-* family is judged first by "is this skill work or CLI work?", and only the latter opens a new command.
+
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
 **Peaks-Cli Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
@@ -940,10 +950,30 @@ peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
 
 # 10. Peaks-Cli TXT handoff — invoke peaks-txt which embeds memory markers and extracts
-#     peaks-txt writes the handoff capsule to .peaks/<id>/txt/handoff.md with embedded
-#     <!-- peaks-memory:start --> blocks, then runs memory extract on it.
-#     --apply is REQUIRED to write .peaks/memory; without it the command only previews.
+#     peaks-txt writes the handoff capsule to .peaks/<id>/txt/handoff.md. Inside the
+#     capsule body, peaks-txt embeds <!-- peaks-memory:start --> blocks for every
+#     stable project fact surfaced this session.
+#
+# 10a. Skill-side scan (do this BEFORE the AskUserQuestion below):
+#      grep -n "peaks-memory:start" .peaks/<id>/txt/handoff.md
+#      Record the count. This is the skill doing the work, not a CLI command —
+#      we deliberately do not ship a `peaks memory scan` because the LLM is
+#      the only consumer and the LLM has grep.
+
+# 10b. AskUserQuestion (only if 10a returned count >= 1):
+#      "The TXT handoff has N peaks-memory:start blocks. Persist to .peaks/memory/?
+#       (a) Apply all — `peaks memory extract --project <repo>
+#                            --artifact .peaks/<id>/txt/handoff.md --apply --json`
+#       (b) Apply selectively — re-edit handoff.md first, then re-apply
+#       (c) Skip for now — blocks stay in the handoff only, no .peaks/memory/ write"
+#      If 10a returned 0 AND the session surfaced a stable project fact
+#      (decision / convention / approved refactor), STOP — peaks-txt must go
+#      back and embed at least one block before Solo can advance.
+
+# 10c. After the user picks (a) or (b), run:
 peaks memory extract --project <repo> --artifact .peaks/<id>/txt/handoff.md --apply --json
+#      --apply is REQUIRED to write .peaks/memory/; without it the command only
+#      previews. The extract regenerates index.json in the same call.
 
 # 11. Peaks-Cli Final snapshot
 peaks project dashboard --project <repo> --json

@@ -330,6 +330,68 @@ describe('createProgram', () => {
     expect(setupOutput.data.step).toBe('configure');
   });
 
+  test('peaks memory extract --apply persists embedded blocks and regenerates index.json', async () => {
+    // This is the CLI surface that peaks-solo / peaks-txt legitimately
+    // delegate to: destructive side effect with --apply, JSON envelope
+    // the skill reads back to confirm persistence. The skill prompt does
+    // the scan / decision work; the CLI does the atomic write.
+    const { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-mem-extract-cli-'));
+    const artifactPath = join(projectRoot, 'handoff.md');
+    try {
+      // Embed a stable fact block the way peaks-txt is expected to.
+      writeFileSync(artifactPath, [
+        '# Handoff capsule',
+        '',
+        '<!-- peaks-memory:start -->',
+        'title: Click-to-edit uses mousedown on the row, not click',
+        'kind: convention',
+        '---',
+        'Single-click on a tree row opens the editor; the existing click handler collides with drag-to-reorder. Use mousedown for selection, click is reserved for the editor activation.',
+        '<!-- peaks-memory:end -->',
+        ''
+      ].join('\n'), 'utf8');
+
+      // --dry-run first (the path peaks-solo / peaks-txt uses to preview).
+      const preview = await runCommand(['memory', 'extract', '--project', projectRoot, '--artifact', artifactPath, '--dry-run', '--json']);
+      const previewOutput = parseJsonOutput<{
+        ok: boolean;
+        extractedCount: number;
+        writtenFiles: string[];
+      }>(preview.stdout);
+      expect(previewOutput.ok).toBe(true);
+      expect(previewOutput.data.extractedCount).toBe(1);
+      expect(previewOutput.data.writtenFiles).toEqual([]);
+      // dry-run must NOT create .peaks/memory
+      expect(existsSync(join(projectRoot, '.peaks', 'memory'))).toBe(false);
+
+      // --apply writes the markdown + regenerates index.json
+      const applied = await runCommand(['memory', 'extract', '--project', projectRoot, '--artifact', artifactPath, '--apply', '--json']);
+      const appliedOutput = parseJsonOutput<{
+        ok: boolean;
+        extractedCount: number;
+        writtenFiles: string[];
+      }>(applied.stdout);
+      expect(appliedOutput.ok).toBe(true);
+      expect(appliedOutput.data.extractedCount).toBe(1);
+      expect(appliedOutput.data.writtenFiles).toHaveLength(1);
+
+      // .peaks/memory/ now has the markdown + a full-shape index
+      const memoryDir = join(projectRoot, '.peaks', 'memory');
+      expect(existsSync(memoryDir)).toBe(true);
+      const indexPath = join(memoryDir, 'index.json');
+      expect(existsSync(indexPath)).toBe(true);
+      const indexRaw = JSON.parse(readFileSync(indexPath, 'utf8'));
+      expect(indexRaw.version).toBe(1);
+      // The new block is `kind: convention` → lands in hot.convention
+      expect(indexRaw.hot.convention).toHaveLength(1);
+      expect(indexRaw.hot.convention[0].name).toBe('click-to-edit-uses-mousedown-on-the-row-not-click');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   test('plans project memory extraction and backup as JSON envelopes', async () => {
     const { mkdirSync, mkdtempSync, writeFileSync } = await import('node:fs');
     const { join } = await import('node:path');
