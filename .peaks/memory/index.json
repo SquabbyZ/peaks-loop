@@ -54,10 +54,10 @@
       {
         "name": "review-memories-extract-and-memory-index",
         "kind": "feedback",
-        "description": "The new  and  commands are wired correctly at the schema and CLI surface, but the implementation has three blockers a...",
+        "description": "[CLOSED 2026-06-02 in e611daf] Code review findings on the 2026-06-01 uncommitted changes to project-memory-service.ts.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-06-03"
       }
     ],
     "decision": [],

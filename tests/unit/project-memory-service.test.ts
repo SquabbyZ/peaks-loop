@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { platform, tmpdir } from 'node:os';
 import { describe, expect, test, vi } from 'vitest';
@@ -791,5 +791,229 @@ describe('ensureMemoryBootstrap (cold-start fix)', () => {
     for (const kind of ['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module']) {
       expect(result.byKind[kind as keyof typeof result.byKind]).toEqual([]);
     }
+  });
+});
+
+describe('summarizeMemoryBody description truncation', () => {
+  // Pin the truncation rule: descriptions are capped at MAX_DESCRIPTION_LENGTH
+  // (120) characters. Sentences at or below the cap pass through unchanged;
+  // sentences above the cap are truncated to (MAX_DESCRIPTION_LENGTH -
+  // ELLIPSIS_RESERVE) chars and suffixed with "...". This locks the
+  // 117 magic number down so future refactors cannot silently drift the
+  // rule.
+  test('passes through sentences at or below the 120-char cap, truncates above with ellipsis', () => {
+    const projectRoot = createTempDir('peaks-memory-description-cap');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+
+    // 120-char sentence: ends in a period so the sentence splitter keeps it.
+    const exactly120 = 'A'.repeat(119) + '.';
+    // 121-char sentence: triggers the truncation branch.
+    const exactly121 = 'A'.repeat(120) + '.';
+    // 200-char sentence: well above the cap.
+    const wayAbove = 'A'.repeat(199) + '.';
+
+    writeFileSync(join(memoryDir, 'boundary-120.md'), [
+      '---',
+      'name: boundary-120',
+      'description: Boundary 120',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      exactly120,
+      ''
+    ].join('\n'), 'utf8');
+    writeFileSync(join(memoryDir, 'boundary-121.md'), [
+      '---',
+      'name: boundary-121',
+      'description: Boundary 121',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      exactly121,
+      ''
+    ].join('\n'), 'utf8');
+    writeFileSync(join(memoryDir, 'boundary-200.md'), [
+      '---',
+      'name: boundary-200',
+      'description: Boundary 200',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      wayAbove,
+      ''
+    ].join('\n'), 'utf8');
+
+    const index = readMemoryIndex(projectRoot);
+    expect(index).not.toBeNull();
+
+    const byName = (name: string) => index!.hot.feedback.find((entry) => entry.name === name);
+    const desc120 = byName('boundary-120')?.description ?? '';
+    const desc121 = byName('boundary-121')?.description ?? '';
+    const desc200 = byName('boundary-200')?.description ?? '';
+
+    // 120 chars: passes through unchanged, no ellipsis.
+    expect(desc120.length).toBe(120);
+    expect(desc120.endsWith('...')).toBe(false);
+    // 121 chars: truncated to 117 + "..." = 120 chars total.
+    expect(desc121.length).toBe(120);
+    expect(desc121.endsWith('...')).toBe(true);
+    expect(desc121.slice(0, 117)).toBe('A'.repeat(117));
+    // 200 chars: same rule, also lands at 120 chars with ellipsis.
+    expect(desc200.length).toBe(120);
+    expect(desc200.endsWith('...')).toBe(true);
+  });
+
+  test('falls back to body slice when no sentence exceeds MIN_BODY_SENTENCE_LENGTH', () => {
+    // Sentences of length <= 20 are filtered out. With no surviving
+    // sentence, summarizeMemoryBody falls back to cleaned.slice(0, 120) or
+    // 'Project memory' if the cleaned body is empty. This pins the
+    // fallback path.
+    const projectRoot = createTempDir('peaks-memory-description-fallback');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+
+    writeFileSync(join(memoryDir, 'short-sentences.md'), [
+      '---',
+      'name: short-sentences',
+      'description: Short sentences',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      'Hi. Ok. Yes. Done. No. Go. Up. Down. Left. Right. Big.',
+      ''
+    ].join('\n'), 'utf8');
+
+    const index = readMemoryIndex(projectRoot);
+    const entry = index!.hot.feedback.find((e) => e.name === 'short-sentences');
+    expect(entry).toBeDefined();
+    // The body has no sentence > MIN_BODY_SENTENCE_LENGTH, so the function
+    // falls through to cleaned.slice(0, MAX_DESCRIPTION_LENGTH). The
+    // cleaned body is the original string (no markdown markers), so the
+    // description must be its exact first MAX_DESCRIPTION_LENGTH chars.
+    // The literal 'Project memory' fallback would also satisfy a length
+    // check, so we pin the body content here to confirm the slice path
+    // actually ran.
+    expect(entry!.description).toBe('Hi. Ok. Yes. Done. No. Go. Up. Down. Left. Right. Big.');
+  });
+});
+
+describe('readMemoryIndex mtime-based regeneration guard', () => {
+  // readMemoryIndex must not regenerate the index.json file when every
+  // memory.md is older than (or equal to) index.json. Prior to this guard
+  // the function rewrote index.json on every call when any memory existed,
+  // which is a "read has write side effect" smell and inflates the
+  // mtime-based cache invalidation cost for downstream readers.
+  test('does not rewrite index.json when every memory.md is older than the existing index', () => {
+    const projectRoot = createTempDir('peaks-memory-mtime-stable');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+
+    // Pre-create a memory file with a backdated mtime so it is "older
+    // than" the index that readMemoryIndex will write.
+    const memoryPath = join(memoryDir, 'old-memory.md');
+    writeFileSync(memoryPath, [
+      '---',
+      'name: old-memory',
+      'description: Old memory',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      'Original body that the first read should index.',
+      ''
+    ].join('\n'), 'utf8');
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(memoryPath, past, past);
+
+    // First call: index.json is created (or materialised empty + regen
+    // via the always-rebuild path). This is the baseline.
+    readMemoryIndex(projectRoot);
+    const indexPath = join(memoryDir, 'index.json');
+    const mtimeAfterFirst = statSync(indexPath).mtimeMs;
+    const contentAfterFirst = readFileSync(indexPath, 'utf8');
+
+    // Second call: nothing changed. The mtime must be byte-identical
+    // (no rewrite). Wait a few ms so an erroneous rewrite would bump
+    // mtimeMs and we can distinguish.
+    const before = Date.now();
+    while (Date.now() - before < 25) { /* spin briefly */ }
+    readMemoryIndex(projectRoot);
+
+    expect(statSync(indexPath).mtimeMs).toBe(mtimeAfterFirst);
+    expect(readFileSync(indexPath, 'utf8')).toBe(contentAfterFirst);
+  });
+
+  test('rewrites index.json when a memory.md mtime exceeds the index mtime', () => {
+    const projectRoot = createTempDir('peaks-memory-mtime-stale');
+    const memoryDir = join(projectRoot, '.peaks', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+
+    const memoryPath = join(memoryDir, 'fresh-memory.md');
+    writeFileSync(memoryPath, [
+      '---',
+      'name: fresh-memory',
+      'description: Fresh memory',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      'First version of the body.',
+      ''
+    ].join('\n'), 'utf8');
+    const past = new Date(Date.now() - 60_000);
+    utimesSync(memoryPath, past, past);
+
+    readMemoryIndex(projectRoot);
+    // Wait a few ms so a subsequent rewrite bumps mtimeMs by a detectable
+    // amount — Windows NTFS mtime resolution is ~1ms and without this spin
+    // the second read's rewrite can land in the same millisecond as the
+    // first, masking whether a rewrite actually happened.
+    const before = Date.now();
+    while (Date.now() - before < 25) { /* spin briefly */ }
+    const indexPath = join(memoryDir, 'index.json');
+    const mtimeAfterFirst = statSync(indexPath).mtimeMs;
+    const firstContent = readFileSync(indexPath, 'utf8');
+    const firstIndex = JSON.parse(firstContent);
+    expect(firstIndex.hot.feedback).toHaveLength(1);
+    expect(firstIndex.hot.feedback[0].name).toBe('fresh-memory');
+
+    // Edit the memory body and bump its mtime into the future relative
+    // to the existing index.
+    writeFileSync(memoryPath, [
+      '---',
+      'name: fresh-memory',
+      'description: Fresh memory',
+      'metadata:',
+      '  type: feedback',
+      '  sourceArtifact: rd/artifact.md',
+      '---',
+      '',
+      'Second version of the body, after an edit.',
+      ''
+    ].join('\n'), 'utf8');
+    const future = new Date(Date.now() + 60_000);
+    utimesSync(memoryPath, future, future);
+
+    readMemoryIndex(projectRoot);
+
+    const mtimeAfterSecond = statSync(indexPath).mtimeMs;
+    expect(mtimeAfterSecond).toBeGreaterThan(mtimeAfterFirst);
+
+    const secondIndex = JSON.parse(readFileSync(indexPath, 'utf8'));
+    // The memory was rewritten, so the index must contain the new body.
+    expect(secondIndex.hot.feedback[0].name).toBe('fresh-memory');
+    // The description is the summarized body, which changed.
+    expect(secondIndex.hot.feedback[0].description).not.toBe(firstIndex.hot.feedback[0].description);
   });
 });

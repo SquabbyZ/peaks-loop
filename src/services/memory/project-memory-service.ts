@@ -152,6 +152,14 @@ const START_MARKER = '<!-- peaks-memory:start -->';
 const END_MARKER = '<!-- peaks-memory:end -->';
 const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module']);
 
+// Length bounds for index entry descriptions. The numbers were chosen when
+// summarizeMemoryBody was first introduced; locking them in as named
+// constants is a doc-as-code move so the truncation rule is no longer
+// "magic". Bump MAX_DESCRIPTION_LENGTH deliberately if downstream UIs grow.
+const MIN_BODY_SENTENCE_LENGTH = 20;   // skip fragments shorter than this when picking a leading sentence
+const MAX_DESCRIPTION_LENGTH = 120;    // hard cap on description length in the memory index entry
+const ELLIPSIS_RESERVE = 3;             // length of the trailing "..." when truncating with an ellipsis
+
 function normalizeRoot(path: string): string {
   return resolveInputPath(path);
 }
@@ -372,16 +380,18 @@ function summarizeMemoryBody(body: string): string {
     .replace(/\n+/g, ' ')
     .trim();
 
-  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter((s) => s.length > 20 && !/^\[.+\]$/.test(s));
+  const sentences = cleaned.split(/(?<=[.!?])\s+/).filter(
+    (s) => s.length > MIN_BODY_SENTENCE_LENGTH && !/^\[.+\]$/.test(s)
+  );
   if (sentences.length === 0) {
-    return cleaned.slice(0, 120) || 'Project memory';
+    return cleaned.slice(0, MAX_DESCRIPTION_LENGTH) || 'Project memory';
   }
 
   const first = sentences[0]!;
-  if (first.length <= 120) {
+  if (first.length <= MAX_DESCRIPTION_LENGTH) {
     return first;
   }
-  return first.slice(0, 117) + '...';
+  return first.slice(0, MAX_DESCRIPTION_LENGTH - ELLIPSIS_RESERVE) + '...';
 }
 
 // ---------------------------------------------------------------------------
@@ -512,31 +522,49 @@ function readExistingIndex(indexPath: string): MemoryIndex | null {
   }
 }
 
+// Decide whether readMemoryIndex should rebuild the on-disk index.json.
+// The rule is: rebuild iff index.json is missing OR any memory.md has an
+// mtime strictly greater than index.json's mtime. Any statSync failure
+// falls back to "rebuild" — a safe default that matches the prior
+// always-rebuild behaviour and avoids serving a stale index from a
+// partially-corrupt dir.
+function shouldRegenerateIndex(indexPath: string, memoryFiles: string[]): boolean {
+  let indexMtimeMs = 0;
+  try {
+    indexMtimeMs = statSync(indexPath).mtimeMs;
+  } catch {
+    return true; // no index → must regenerate
+  }
+  for (const memoryPath of memoryFiles) {
+    try {
+      const memoryMtimeMs = statSync(memoryPath).mtimeMs;
+      if (memoryMtimeMs > indexMtimeMs) return true;
+    } catch {
+      return true; // unreadable file → safe default is regenerate
+    }
+  }
+  return false;
+}
+
 export function readMemoryIndex(projectRoot: string): MemoryIndex | null {
   const normalizedRoot = normalizeRoot(projectRoot);
   const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
   const indexPath = join(memoryDir, 'index.json');
 
-  // Read-side bootstrap: if the memory dir is missing entirely, build a full
-  // empty index so downstream readers always see a well-formed result. We
-  // also fall through if the dir is present but the index is missing — the
-  // user may have nuked the index file, or never had one because no
-  // memory has ever been extracted in this project.
+  // Read-side bootstrap: if the memory dir is missing entirely, build it and
+  // return whatever index is on disk (likely null on a fresh project). We
+  // deliberately do NOT pre-write an empty index here: the mtime-based
+  // regeneration guard below is the sole authority on whether index.json
+  // gets materialised, and pre-writing an empty index would race the guard
+  // (giving it a current-time mtime that defeats "memory older than index"
+  // detection on the first read).
   if (!existsSync(memoryDir)) {
     ensureMemoryBootstrap(normalizedRoot);
     return readExistingIndex(indexPath);
   }
 
-  if (!existsSync(indexPath)) {
-    try {
-      writeFileSync(indexPath, renderEmptyIndex(), { mode: 0o644 });
-    } catch {
-      // fall through — readExistingIndex will return null
-    }
-  }
-
   const files = listMarkdownFiles(memoryDir);
-  if (files.length > 0) {
+  if (files.length > 0 && shouldRegenerateIndex(indexPath, files)) {
     try {
       generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
     } catch {
