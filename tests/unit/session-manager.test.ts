@@ -1,10 +1,11 @@
 import { describe, expect, test, beforeEach, afterEach } from 'vitest';
-import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, realpathSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   ensureSession,
   getSessionId,
+  getSessionIdCanonical,
   getCurrentSessionDir,
   listSessions,
   getProjectScanPath,
@@ -100,6 +101,115 @@ describe('session-manager', () => {
 
       expect(sessionId).not.toBeNull();
       expect(sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    });
+
+    // ───────────────────────────────────────────────────────────
+    // The binding's stored `projectRoot` may be in a different
+    // form than the caller passes (e.g. CLI canonicalizes to an
+    // absolute realpath, but the binding was written when the
+    // caller was inside the project dir, so it stored ".").
+    // The legacy `getSessionId` uses strict equality and
+    // returns null in that case; `getSessionIdCanonical`
+    // canonicalizes BOTH sides before comparing, so the
+    // existing binding is found.
+    //
+    // The progress subcommands (step / watch / start / close)
+    // use `getSessionIdCanonical` because the rebind bug —
+    // where `getSessionId` returns null and a downstream
+    // `ensureSession` overwrites the binding with a fresh
+    // session — only matters for the progress surface. Other
+    // modules (e.g. `shared/change-id.ts`) keep using the
+    // strict-equality variant because their "no binding"
+    // fallback path is part of their contract.
+    // ───────────────────────────────────────────────────────────
+    describe('getSessionIdCanonical (regression: dogfood rebind)', () => {
+      test('read with absolute realpath matches binding written with relative "."', () => {
+        // Simulate a legacy binding (the user's existing
+        // .session.json was written from inside the project
+        // dir, so the stored projectRoot is the relative ".").
+        // The CLI now passes the canonical absolute realpath.
+        // Both should resolve to the same dir.
+        writeFileSync(
+          join(testProjectRoot, '.peaks', '.session.json'),
+          JSON.stringify({
+            sessionId: '2026-06-03-session-legacy',
+            createdAt: '2026-06-03T00:00:00.000Z',
+            projectRoot: '.'
+          }),
+          'utf8'
+        );
+        // Legacy strict-equality getSessionId returns null here
+        // (this is the bug).
+        expect(getSessionId(testProjectRoot)).toBeNull();
+        // The canonical variant finds the binding.
+        expect(getSessionIdCanonical(testProjectRoot)).toBe('2026-06-03-session-legacy');
+      });
+
+      test('read resolves /var/folders -> /private/var/folders on macOS (realpath)', () => {
+        // macOS resolves /var -> /private/var. If the binding
+        // was written with /var/... and the caller passes
+        // /private/var/... (or vice versa), they should
+        // still match. The test exercises BOTH directions:
+        //  1. stored = /var/tmp/...  (symlink form)
+        //     caller = /private/var/tmp/... (realpath form)
+        //  2. stored = /private/var/tmp/... (realpath form)
+        //     caller = /var/tmp/... (symlink form)
+        if (process.platform !== 'darwin') return;
+        const realVar = realpathSync('/var');
+        if (realVar === '/var') return; // not a symlink on this host
+        // The project root via the symlink. The path resolves
+        // to the same dir as `realpathSync(symlinkVia)`, but
+        // the two strings differ.
+        const symlinkVia = join('/var', 'tmp', `peaks-can-rebind-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+        // Need to create the dir first so it can be canonicalized.
+        mkdirSync(symlinkVia, { recursive: true });
+        const canonicalVia = realpathSync(symlinkVia); // `/private/var/tmp/...`
+        try {
+          mkdirSync(join(symlinkVia, '.peaks'), { recursive: true });
+
+          // Direction 1: stored is symlink form, caller is realpath form.
+          writeFileSync(
+            join(symlinkVia, '.peaks', '.session.json'),
+            JSON.stringify({
+              sessionId: '2026-06-03-session-realpath-1',
+              createdAt: '2026-06-03T00:00:00.000Z',
+              projectRoot: symlinkVia
+            }),
+            'utf8'
+          );
+          expect(symlinkVia).not.toBe(canonicalVia); // sanity
+          expect(getSessionId(canonicalVia)).toBeNull();
+          expect(getSessionIdCanonical(canonicalVia)).toBe('2026-06-03-session-realpath-1');
+
+          // Direction 2: stored is realpath form, caller is symlink form.
+          writeFileSync(
+            join(symlinkVia, '.peaks', '.session.json'),
+            JSON.stringify({
+              sessionId: '2026-06-03-session-realpath-2',
+              createdAt: '2026-06-03T00:00:00.000Z',
+              projectRoot: canonicalVia
+            }),
+            'utf8'
+          );
+          expect(getSessionId(symlinkVia)).toBeNull();
+          expect(getSessionIdCanonical(symlinkVia)).toBe('2026-06-03-session-realpath-2');
+        } finally {
+          rmSync(symlinkVia, { recursive: true, force: true });
+        }
+      });
+
+      test('ensureSession does NOT create a new session when the existing binding is for the same project', async () => {
+        // First call writes the binding (with the caller-passed form,
+        // which may be relative if the CLI was invoked from inside
+        // the project dir).
+        const first = await ensureSession(join(testProjectRoot, '.'));
+        // Second call passes a relative form too. With the
+        // legacy strict-equality readSessionFile, both forms
+        // canonicalize to the same path and the existing
+        // session is reused.
+        const second = await ensureSession(join(testProjectRoot, '.'));
+        expect(second).toBe(first);
+      });
     });
   });
 

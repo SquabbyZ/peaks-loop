@@ -33,7 +33,7 @@
 
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { getSessionId } from '../session/session-manager.js';
+import { getSessionId, getSessionIdCanonical } from '../session/session-manager.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
 const PROGRESS_REL_PATH = 'system/subagent-progress.json';
@@ -109,7 +109,7 @@ function progressPath(projectRoot: string): string {
   // would orphan the file in the project root, and switching
   // sessions would have the watch reading the wrong slice's
   // progress.
-  const sessionId = getSessionId(projectRoot);
+  const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
   return join(projectRoot, '.peaks', subDir, PROGRESS_REL_PATH);
 }
@@ -133,7 +133,7 @@ function nowIso(): string {
  * garbage; recover by writing a fresh file).
  */
 export function readSubAgentProgress(options: ReadProgressOptions): ReadProgressResult {
-  const sessionId = getSessionId(options.projectRoot);
+  const sessionId = getSessionIdCanonical(options.projectRoot);
   if (sessionId === null) {
     return { ok: false, reason: 'no-binding' };
   }
@@ -210,7 +210,7 @@ export function writeSubAgentProgress(options: WriteProgressOptions): SubAgentPr
   // No prior file: this is the first write. Bootstrap a fresh
   // progress doc. The sessionId is whatever the binding points
   // at, so cross-session confusion is impossible.
-  const sessionId = getSessionId(options.projectRoot) ?? 'unbound';
+  const sessionId = getSessionIdCanonical(options.projectRoot) ?? 'unbound';
   const fresh: SubAgentProgress = {
     version: 1,
     sessionId,
@@ -268,7 +268,7 @@ export function subAgentProgressPath(projectRoot: string): string {
  * location without re-deriving the session sub-directory.
  */
 export function subAgentSpawnPath(projectRoot: string): string {
-  const sessionId = getSessionId(projectRoot);
+  const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
   return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
 }
@@ -296,7 +296,7 @@ export type ProgressSpawnRecord = {
 };
 
 function spawnRecordPath(projectRoot: string): string {
-  const sessionId = getSessionId(projectRoot);
+  const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
   return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
 }
@@ -312,7 +312,7 @@ export type WriteSpawnRecordOptions = {
 };
 
 export function writeSpawnRecord(options: WriteSpawnRecordOptions): ProgressSpawnRecord | null {
-  const sessionId = getSessionId(options.projectRoot);
+  const sessionId = getSessionIdCanonical(options.projectRoot);
   if (sessionId === null) return null;
   const now = nowIso();
   const record: ProgressSpawnRecord = {
@@ -337,7 +337,7 @@ export type ReadSpawnRecordResult =
   | { ok: false; reason: 'no-binding' | 'no-spawn-record' | 'invalid-json' };
 
 export function readSpawnRecord(projectRoot: string): ReadSpawnRecordResult {
-  const sessionId = getSessionId(projectRoot);
+  const sessionId = getSessionIdCanonical(projectRoot);
   if (sessionId === null) return { ok: false, reason: 'no-binding' };
   const path = spawnRecordPath(projectRoot);
   if (!existsSync(path)) return { ok: false, reason: 'no-spawn-record' };

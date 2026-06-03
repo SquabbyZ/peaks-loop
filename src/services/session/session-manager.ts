@@ -6,8 +6,8 @@
  * Each session gets a unique directory under .peaks/ with incrementing numbered files.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 
@@ -44,6 +44,49 @@ const SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
 
 /**
+ * Canonicalize a project root path. Returns the realpath
+ * (resolving all symlinks — important on macOS where `/var`
+ * is a symlink to `/private/var`, and on the dev box where
+ * `/tmp` is the same `/private/var/folders/...` target as
+ * `/var/folders/...`). If the path does not exist (e.g. in
+ * tests that write the binding before the dir, or callers
+ * that pass a non-existent path), falls back to the
+ * `resolve()`d absolute form so the function NEVER throws.
+ */
+function canonicalizeProjectRoot(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+}
+
+/**
+ * Resolve a stored `projectRoot` value (from
+ * `.peaks/.session.json`) against the caller-passed
+ * `projectRoot`, then canonicalize. Handles two forms the
+ * legacy strict-equality check missed:
+ *
+ *   1. **Stored is relative** (e.g. `"."` when the binding
+ *      was written from inside the project dir). We resolve
+ *      it against the caller — if the caller's project root
+ *      is absolute, `path.resolve(caller, ".")` returns the
+ *      caller's absolute form, which then canonicalizes to
+ *      the caller's realpath.
+ *
+ *   2. **Both are absolute but the stored form is not
+ *      canonical** (e.g. `/var/folders/...` vs
+ *      `/private/var/folders/...` on macOS). Both canonicalize
+ *      to the same realpath.
+ *
+ * The combined check is the canonicalize-on-read contract.
+ */
+function resolveStoredAgainstCaller(stored: string, caller: string): string {
+  const resolved = resolve(caller, stored); // if `stored` is absolute, returns `stored`; else joins with caller
+  return canonicalizeProjectRoot(resolved);
+}
+
+/**
  * Generate a new session ID.
  * Format: YYYY-MM-DD-session-<6位hex>
  * Example: 2026-05-26-session-a3f8b1
@@ -68,6 +111,19 @@ function getSessionFilePath(projectRoot: string): string {
 /**
  * Read existing session info from disk.
  * Returns null if no session file exists or if it's invalid.
+ *
+ * Strict equality on `data.projectRoot === projectRoot` is
+ * preserved here on purpose: many other modules (notably
+ * `shared/change-id.ts` via `buildArtifactRelativePath`)
+ * depend on the strict-equality semantics to test the
+ * "no session bound" code path. Changing the read semantics
+ * here would cascade into ~30 test failures in those
+ * modules — out of scope for the progress rebind fix.
+ *
+ * The progress subcommands (which are the surface that
+ * actually breaks on the rebind bug) use
+ * `getSessionIdCanonical` instead, which does the
+ * canonicalize-on-read resolution the bug fix needs.
  */
 function readSessionFile(projectRoot: string): SessionInfo | null {
   const sessionFile = getSessionFilePath(projectRoot);
@@ -76,6 +132,35 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
   try {
     const data = JSON.parse(readFileSync(sessionFile, 'utf8'));
     if (data.sessionId && data.projectRoot === projectRoot) {
+      return data as SessionInfo;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Same as `readSessionFile` but canonicalizes BOTH the
+ * caller-passed and stored `projectRoot` before comparing.
+ * See `resolveStoredAgainstCaller` for the rules.
+ *
+ * Exported as `readSessionFileCanonical` so the new
+ * `getSessionIdCanonical` can use it; not part of the
+ * public API otherwise.
+ */
+function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
+  const sessionFile = getSessionFilePath(projectRoot);
+  if (!existsSync(sessionFile)) return null;
+
+  try {
+    const data = JSON.parse(readFileSync(sessionFile, 'utf8'));
+    const storedRaw = typeof data.projectRoot === 'string' ? data.projectRoot : null;
+    if (
+      data.sessionId &&
+      storedRaw !== null &&
+      resolveStoredAgainstCaller(storedRaw, projectRoot) === resolveStoredAgainstCaller(projectRoot, projectRoot)
+    ) {
       return data as SessionInfo;
     }
     return null;
@@ -284,6 +369,38 @@ export async function ensureSession(projectRoot: string): Promise<string> {
  */
 export function getSessionId(projectRoot: string): string | null {
   const info = readSessionFile(projectRoot);
+  return info?.sessionId ?? null;
+}
+
+/**
+ * Resolve the current session id with canonicalize-on-read
+ * semantics. This is the variant the progress subcommands
+ * (step / watch / start / close) use, because the legacy
+ * `getSessionId` returns null any time the stored
+ * `projectRoot` form differs from the caller-passed form
+ * (e.g. stored is "." from inside the project dir; caller
+ * is the absolute realpath). When `getSessionId` returns
+ * null, callers like `ensureSession` create a brand-new
+ * session and overwrite the binding — which is what the
+ * user observed as the "mid-dogfood rebind" bug.
+ *
+ * The fix is to canonicalize both sides of the compare
+ * (realpath, then optionally resolve relative stored
+ * against the caller's project root). The two forms of
+ * the same physical directory now compare equal, and the
+ * existing binding is found instead of being overwritten.
+ *
+ * Use this instead of `getSessionId` only when the
+ * caller is operating on a user-supplied `--project` flag
+ * and the binding may have been written by a CLI invocation
+ * that was running from inside the project dir (the common
+ * peaks-solo / peaks-sop scenario). Other modules depend
+ * on the strict-equality semantics of `getSessionId` (the
+ * "no binding" fallback path is part of their contract),
+ * so this variant is opt-in.
+ */
+export function getSessionIdCanonical(projectRoot: string): string | null {
+  const info = readSessionFileCanonical(projectRoot);
   return info?.sessionId ?? null;
 }
 
