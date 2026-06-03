@@ -11,13 +11,25 @@ importers:
       '@colbymchenry/codegraph':
         specifier: 0.7.10
         version: 0.7.10
+      chalk:
+        specifier: ^5.6.2
+        version: 5.6.2
       commander:
         specifier: ^12.1.0
         version: 12.1.0
+      ora:
+        specifier: ^8.2.0
+        version: 8.2.0
       shadcn:
         specifier: 4.7.0
         version: 4.7.0(@types/node@22.19.19)(typescript@5.9.3)
+      terminal-kit:
+        specifier: ^3.1.2
+        version: 3.1.2
     devDependencies:
+      '@types/chalk':
+        specifier: ^2.2.4
+        version: 2.2.4
       '@types/node':
         specifier: ^22.10.2
         version: 22.19.19
@@ -184,6 +196,9 @@ packages:
     resolution: {integrity: sha512-r/efSOzEaVUMStle1tltFhiZP3ccHa4+RbGZe7nWMfXn5ws5x1O7gdC31kP665w0nAnOAXLZ6wlfkFofq87BNg==, tarball: https://registry.npmjs.org/@colbymchenry/codegraph/-/codegraph-0.7.10.tgz}
     engines: {node: '>=18.0.0 <25.0.0'}
     hasBin: true
+
+  '@cronvel/get-pixels@3.4.1':
+    resolution: {integrity: sha512-gB5C5nDIacLUdsMuW8YsM9SzK3vaFANe4J11CVXpovpy7bZUGrcJKmc6m/0gWG789pKr6XSZY2aEetjFvSRw5g==, tarball: https://registry.npmjs.org/@cronvel/get-pixels/-/get-pixels-3.4.1.tgz}
 
   '@dotenvx/dotenvx@1.66.0':
     resolution: {integrity: sha512-qlQFhHUjhRDybrinqLAD0MClVZDOrsq80O8eD5iSjz3Qa/4f3Jg7SQrOaSobrRyP1QaWIYLGtGpj2c7H0D8NUw==, tarball: https://registry.npmjs.org/@dotenvx/dotenvx/-/dotenvx-1.66.0.tgz}
@@ -743,6 +758,10 @@ packages:
   '@ts-morph/common@0.27.0':
     resolution: {integrity: sha512-Wf29UqxWDpc+i61k3oIOzcUfQt79PIT9y/MWfAGlrkjg6lBC1hwDECLXPVJAhWjiGbfBCxZd65F/LIZF3+jeJQ==, tarball: https://registry.npmjs.org/@ts-morph/common/-/common-0.27.0.tgz}
 
+  '@types/chalk@2.2.4':
+    resolution: {integrity: sha512-pb/QoGqtCpH2famSp72qEsXkNzcErlVmiXlQ/ww+5AddD8TmmYS7EWg5T20YiNCAiTgs8pMf2G8SJG5h/ER1ZQ==, tarball: https://registry.npmjs.org/@types/chalk/-/chalk-2.2.4.tgz}
+    deprecated: This is a stub types definition. chalk provides its own type definitions, so you do not need this installed.
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -934,6 +953,9 @@ packages:
   chownr@1.1.4:
     resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==, tarball: https://registry.npmjs.org/chownr/-/chownr-1.1.4.tgz}
 
+  chroma-js@2.6.0:
+    resolution: {integrity: sha512-BLHvCB9s8Z1EV4ethr6xnkl/P2YRFOGqfgvuMG/MyCbZPrTA+NeiByY6XvgF0zP4/2deU2CXnWyMa3zu1LqQ3A==, tarball: https://registry.npmjs.org/chroma-js/-/chroma-js-2.6.0.tgz}
+
   cli-cursor@5.0.0:
     resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==, tarball: https://registry.npmjs.org/cli-cursor/-/cli-cursor-5.0.0.tgz}
     engines: {node: '>=18'}
@@ -1020,6 +1042,9 @@ packages:
     resolution: {integrity: sha512-/Tb/JcjK111nNScGob5MNtsntNM1aCNUDipB/TkwZFhyDrrE47SOx/18wF2bbjgc3ZzCSKW1T5nt5EbFoAz/Vg==, tarball: https://registry.npmjs.org/cssesc/-/cssesc-3.0.0.tgz}
     engines: {node: '>=4'}
     hasBin: true
+
+  cwise-compiler@1.1.3:
+    resolution: {integrity: sha512-WXlK/m+Di8DMMcCjcWr4i+XzcQra9eCdXIJrgh4TUgh0pIS/yJduLxS9JgefsHJ/YVLdgPtXm9r62W92MvanEQ==, tarball: https://registry.npmjs.org/cwise-compiler/-/cwise-compiler-1.1.3.tgz}
 
   data-uri-to-buffer@4.0.1:
     resolution: {integrity: sha512-0R9ikRb668HB7QDxT1vkpuUBtqc53YyAwMwGeUFKRojY/NWKvdZ+9UYtRfGmhqNbRkTSVpMbmyhXipFFv2cb/A==, tarball: https://registry.npmjs.org/data-uri-to-buffer/-/data-uri-to-buffer-4.0.1.tgz}
@@ -1402,6 +1427,9 @@ packages:
   ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==, tarball: https://registry.npmjs.org/ini/-/ini-1.3.8.tgz}
 
+  iota-array@1.0.0:
+    resolution: {integrity: sha512-pZ2xT+LOHckCatGQ3DcG/a+QuEqvoxqkiL7tvE8nn3uuu+f6i1TtpB5/FtWFbxUuVr5PZCx8KskuGatbJDXOWA==, tarball: https://registry.npmjs.org/iota-array/-/iota-array-1.0.0.tgz}
+
   ip-address@10.2.0:
     resolution: {integrity: sha512-/+S6j4E9AHvW9SWMSEY9Xfy66O5PWvVEJ08O0y5JGyEKQpojb0K0GKpz/v5HJ/G0vi3D2sjGK78119oXZeE0qA==, tarball: https://registry.npmjs.org/ip-address/-/ip-address-10.2.0.tgz}
     engines: {node: '>= 12'}
@@ -1412,6 +1440,9 @@ packages:
 
   is-arrayish@0.2.1:
     resolution: {integrity: sha512-zz06S8t0ozoDXMG+ube26zeCTNXcKIPJZJi8hBrF4idCLms4CG9QtK7qBl1boi5ODzFpjswb5JPmHCbMpjaYzg==, tarball: https://registry.npmjs.org/is-arrayish/-/is-arrayish-0.2.1.tgz}
+
+  is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==, tarball: https://registry.npmjs.org/is-buffer/-/is-buffer-1.1.6.tgz}
 
   is-docker@3.0.0:
     resolution: {integrity: sha512-eljcgEDlEns/7AXFosB5K/2nCM4P7FQPkGc/DWLy5rmFEWvZayGrik1d9/QIY5nJ4f9YsVvBkA6kJpHn9rISdQ==, tarball: https://registry.npmjs.org/is-docker/-/is-docker-3.0.0.tgz}
@@ -1514,6 +1545,9 @@ packages:
   jose@6.2.3:
     resolution: {integrity: sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw==, tarball: https://registry.npmjs.org/jose/-/jose-6.2.3.tgz}
 
+  jpeg-js@0.4.4:
+    resolution: {integrity: sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==, tarball: https://registry.npmjs.org/jpeg-js/-/jpeg-js-0.4.4.tgz}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==, tarball: https://registry.npmjs.org/js-tokens/-/js-tokens-4.0.0.tgz}
 
@@ -1553,6 +1587,10 @@ packages:
   kleur@4.1.5:
     resolution: {integrity: sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==, tarball: https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz}
     engines: {node: '>=6'}
+
+  lazyness@1.2.0:
+    resolution: {integrity: sha512-KenL6EFbwxBwRxG93t0gcUyi0Nw0Ub31FJKN1laA4UscdkL1K1AxUd0gYZdcLU3v+x+wcFi4uQKS5hL+fk500g==, tarball: https://registry.npmjs.org/lazyness/-/lazyness-1.2.0.tgz}
+    engines: {node: '>=6.0.0'}
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==, tarball: https://registry.npmjs.org/lines-and-columns/-/lines-and-columns-1.2.4.tgz}
@@ -1666,13 +1704,27 @@ packages:
   napi-build-utils@2.0.0:
     resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==, tarball: https://registry.npmjs.org/napi-build-utils/-/napi-build-utils-2.0.0.tgz}
 
+  ndarray-pack@1.2.1:
+    resolution: {integrity: sha512-51cECUJMT0rUZNQa09EoKsnFeDL4x2dHRT0VR5U2H5ZgEcm95ZDWcMA5JShroXjHOejmAD/fg8+H+OvUnVXz2g==, tarball: https://registry.npmjs.org/ndarray-pack/-/ndarray-pack-1.2.1.tgz}
+
+  ndarray@1.0.19:
+    resolution: {integrity: sha512-B4JHA4vdyZU30ELBw3g7/p9bZupyew5a7tX1Y/gGeF2hafrPaQZhgrGQfsvgfYbgdFZjYwuEcnaobeM/WMW+HQ==, tarball: https://registry.npmjs.org/ndarray/-/ndarray-1.0.19.tgz}
+
   negotiator@1.0.0:
     resolution: {integrity: sha512-8Ofs/AUQh8MaEcrlq5xOX0CQ9ypTF5dl78mjlMNfOK08fzpgTHQRQPBxcPlEtIw0yRpws+Zo/3r+5WRby7u3Gg==, tarball: https://registry.npmjs.org/negotiator/-/negotiator-1.0.0.tgz}
     engines: {node: '>= 0.6'}
 
+  nextgen-events@1.5.3:
+    resolution: {integrity: sha512-P6qw6kenNXP+J9XlKJNi/MNHUQ+Lx5K8FEcSfX7/w8KJdZan5+BB5MKzuNgL2RTjHG1Svg8SehfseVEp8zAqwA==, tarball: https://registry.npmjs.org/nextgen-events/-/nextgen-events-1.5.3.tgz}
+    engines: {node: '>=6.0.0'}
+
   node-abi@3.92.0:
     resolution: {integrity: sha512-KdHvFWZjEKDf0cakgFjebl371GPsISX2oZHcuyKqM7DtogIsHrqKeLTo8wBHxaXRAQlY2PsPlZmfo+9ZCxEREQ==, tarball: https://registry.npmjs.org/node-abi/-/node-abi-3.92.0.tgz}
     engines: {node: '>=10'}
+
+  node-bitmap@0.0.1:
+    resolution: {integrity: sha512-Jx5lPaaLdIaOsj2mVLWMWulXF6GQVdyLvNSxmiYCvZ8Ma2hfKX0POoR2kgKOqz+oFsRreq0yYZjQ2wjE9VNzCA==, tarball: https://registry.npmjs.org/node-bitmap/-/node-bitmap-0.0.1.tgz}
+    engines: {node: '>=v0.6.5'}
 
   node-domexception@1.0.0:
     resolution: {integrity: sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==, tarball: https://registry.npmjs.org/node-domexception/-/node-domexception-1.0.0.tgz}
@@ -1709,6 +1761,9 @@ packages:
   object-treeify@1.1.33:
     resolution: {integrity: sha512-EFVjAYfzWqWsBMRHPMAXLCDIJnpMhdWAqR7xG6M6a2cs6PMFpl/+Z20w9zDW4vkxOFfddegBKq9Rehd0bxWE7A==, tarball: https://registry.npmjs.org/object-treeify/-/object-treeify-1.1.33.tgz}
     engines: {node: '>= 10'}
+
+  omggif@1.0.10:
+    resolution: {integrity: sha512-LMJTtvgc/nugXj0Vcrrs68Mn2D1r0zf630VNtqtpI1FEO7e+O9FP4gqs9AcnBaSEeoHIPm28u6qgPR0oyEpGSw==, tarball: https://registry.npmjs.org/omggif/-/omggif-1.0.10.tgz}
 
   on-finished@2.4.1:
     resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==, tarball: https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz}
@@ -1797,6 +1852,10 @@ packages:
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==, tarball: https://registry.npmjs.org/pkce-challenge/-/pkce-challenge-5.0.1.tgz}
     engines: {node: '>=16.20.0'}
+
+  pngjs@6.0.0:
+    resolution: {integrity: sha512-TRzzuFRRmEoSW/p1KVAmiOgPco2Irlah+bGFCeNfJXxxYGwSw7YwAOAcd7X28K/m5bjBWKsC29KyoMfHbypayg==, tarball: https://registry.npmjs.org/pngjs/-/pngjs-6.0.0.tgz}
+    engines: {node: '>=12.13.0'}
 
   postcss-selector-parser@7.1.1:
     resolution: {integrity: sha512-orRsuYpJVw8LdAwqqLykBj9ecS5/cRHlI5+nvTo8LcCKmzDmqVORXtOIYEEQuL9D4BxtA1lm5isAqzQZCoQ6Eg==, tarball: https://registry.npmjs.org/postcss-selector-parser/-/postcss-selector-parser-7.1.1.tgz}
@@ -1923,8 +1982,15 @@ packages:
   set-cookie-parser@3.1.0:
     resolution: {integrity: sha512-kjnC1DXBHcxaOaOXBHBeRtltsDG2nUiUni+jP92M9gYdW12rsmx92UsfpH7o5tDRs7I1ZZPSQJQGv3UaRfCiuw==, tarball: https://registry.npmjs.org/set-cookie-parser/-/set-cookie-parser-3.1.0.tgz}
 
+  setimmediate@1.0.5:
+    resolution: {integrity: sha512-MATJdZp8sLqDl/68LfQmbP8zKPLQNV6BIZoIgrscFDQ+RsvK/BxeDQOgyxKKoh0y/8h3BqVFnCqQ/gd+reiIXA==, tarball: https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz}
+
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==, tarball: https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz}
+
+  seventh@0.9.4:
+    resolution: {integrity: sha512-O85mosi4sOfxG+slvqy0j7zLuFD4ylUgEMt7Pvt9Q/wnwNwG/6MNnHKzV9JkAoPoPM26t/DLFn17p7o7u5kIBA==, tarball: https://registry.npmjs.org/seventh/-/seventh-0.9.4.tgz}
+    engines: {node: '>=16.13.0'}
 
   shadcn@4.7.0:
     resolution: {integrity: sha512-70fwnesNrY1GgeD7Kdzn+3SsYeyfibm8immsA5L68+OusoPTvYF01oWExl8/latKpMpvVXcbgdbbE6VFBJQ38w==, tarball: https://registry.npmjs.org/shadcn/-/shadcn-4.7.0.tgz}
@@ -1998,6 +2064,10 @@ packages:
   strict-event-emitter@0.5.1:
     resolution: {integrity: sha512-vMgjE/GGEPEFnhFub6pa4FmJBRBVOLpIII2hvCZ8Kzb7K0hlHo7mQv6xYrBvCL2LtAIBwFUK8wvuJgTVSQ5MFQ==, tarball: https://registry.npmjs.org/strict-event-emitter/-/strict-event-emitter-0.5.1.tgz}
 
+  string-kit@0.19.3:
+    resolution: {integrity: sha512-94p913R6+Ea6656A39bqJeHgt64HM9RSq36oc0F8N8Mz76g5+cLaqEwkouqguEDrJ4rhVQpS+tKz214FdtMoqA==, tarball: https://registry.npmjs.org/string-kit/-/string-kit-0.19.3.tgz}
+    engines: {node: '>=14.15.0'}
+
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==, tarball: https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz}
     engines: {node: '>=8'}
@@ -2059,6 +2129,10 @@ packages:
     resolution: {integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==, tarball: https://registry.npmjs.org/tar-stream/-/tar-stream-2.2.0.tgz}
     engines: {node: '>=6'}
 
+  terminal-kit@3.1.2:
+    resolution: {integrity: sha512-ro2FyU4A+NwA74DLTYTnoCFYuFpgV1aM07IS6MPrJeajoI2hwF44EdUqjoTmKEl6srYDWtbVkc/b1C16iUnxFQ==, tarball: https://registry.npmjs.org/terminal-kit/-/terminal-kit-3.1.2.tgz}
+    engines: {node: '>=16.13.0'}
+
   test-exclude@7.0.2:
     resolution: {integrity: sha512-u9E6A+ZDYdp7a4WnarkXPZOx8Ilz46+kby6p1yZ8zsGTz9gYa6FIS7lj2oezzNKmtdyyJNNmmXDppga5GB7kSw==}
     engines: {node: '>=18'}
@@ -2103,6 +2177,10 @@ packages:
     resolution: {integrity: sha512-LktZQb3IeoUWB9lqR5EWTHgW/VTITCXg4D21M+lvybRVdylLrRMnqaIONLVb5mav8vM19m44HIcGq4qASeu2Qw==, tarball: https://registry.npmjs.org/tough-cookie/-/tough-cookie-6.0.1.tgz}
     engines: {node: '>=16'}
 
+  tree-kit@0.8.10:
+    resolution: {integrity: sha512-mwuV3lHL+utI9z7vxah/27wrMJprx925xhkw1N4KuGa1dqIi0DLHWfXJpHEyR+ZI0Ij80zN58ztiGp3KlH0wtw==, tarball: https://registry.npmjs.org/tree-kit/-/tree-kit-0.8.10.tgz}
+    engines: {node: '>=16.13.0'}
+
   tree-sitter-wasms@0.1.13:
     resolution: {integrity: sha512-wT+cR6DwaIz80/vho3AvSF0N4txuNx/5bcRKoXouOfClpxh/qqrF4URNLQXbbt8MaAxeksZcZd1j8gcGjc+QxQ==, tarball: https://registry.npmjs.org/tree-sitter-wasms/-/tree-sitter-wasms-0.1.13.tgz}
 
@@ -2143,6 +2221,9 @@ packages:
   unicorn-magic@0.3.0:
     resolution: {integrity: sha512-+QBBXBCvifc56fsbuxZQ6Sic3wqqc3WWaqxs58gvJrcOuN83HGTCwz3oS5phzU9LthRNE9VrJCFCLUgHeeFnfA==, tarball: https://registry.npmjs.org/unicorn-magic/-/unicorn-magic-0.3.0.tgz}
     engines: {node: '>=18'}
+
+  uniq@1.0.1:
+    resolution: {integrity: sha512-Gw+zz50YNKPDKXs+9d+aKAjVwpjNwqzvNpLigIruT4HA9lMZNdMqs9x07kKHB/L9WRzqp4+DlTU5s4wG2esdoA==, tarball: https://registry.npmjs.org/uniq/-/uniq-1.0.1.tgz}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==, tarball: https://registry.npmjs.org/universalify/-/universalify-2.0.1.tgz}
@@ -2530,6 +2611,15 @@ snapshots:
     transitivePeerDependencies:
       - '@types/emscripten'
 
+  '@cronvel/get-pixels@3.4.1':
+    dependencies:
+      jpeg-js: 0.4.4
+      ndarray: 1.0.19
+      ndarray-pack: 1.2.1
+      node-bitmap: 0.0.1
+      omggif: 1.0.10
+      pngjs: 6.0.0
+
   '@dotenvx/dotenvx@1.66.0':
     dependencies:
       commander: 11.1.0
@@ -2905,6 +2995,10 @@ snapshots:
       minimatch: 10.2.5
       path-browserify: 1.0.1
 
+  '@types/chalk@2.2.4':
+    dependencies:
+      chalk: 5.6.2
+
   '@types/estree@1.0.8': {}
 
   '@types/estree@1.0.9': {}
@@ -3120,6 +3214,8 @@ snapshots:
   chownr@1.1.4:
     optional: true
 
+  chroma-js@2.6.0: {}
+
   cli-cursor@5.0.0:
     dependencies:
       restore-cursor: 5.1.0
@@ -3183,6 +3279,10 @@ snapshots:
       which: 2.0.2
 
   cssesc@3.0.0: {}
+
+  cwise-compiler@1.1.3:
+    dependencies:
+      uniq: 1.0.1
 
   data-uri-to-buffer@4.0.1: {}
 
@@ -3609,11 +3709,15 @@ snapshots:
   ini@1.3.8:
     optional: true
 
+  iota-array@1.0.0: {}
+
   ip-address@10.2.0: {}
 
   ipaddr.js@1.9.1: {}
 
   is-arrayish@0.2.1: {}
+
+  is-buffer@1.1.6: {}
 
   is-docker@3.0.0: {}
 
@@ -3690,6 +3794,8 @@ snapshots:
 
   jose@6.2.3: {}
 
+  jpeg-js@0.4.4: {}
+
   js-tokens@4.0.0: {}
 
   js-yaml@4.1.1:
@@ -3717,6 +3823,8 @@ snapshots:
   kleur@3.0.3: {}
 
   kleur@4.1.5: {}
+
+  lazyness@1.2.0: {}
 
   lines-and-columns@1.2.4: {}
 
@@ -3824,12 +3932,26 @@ snapshots:
   napi-build-utils@2.0.0:
     optional: true
 
+  ndarray-pack@1.2.1:
+    dependencies:
+      cwise-compiler: 1.1.3
+      ndarray: 1.0.19
+
+  ndarray@1.0.19:
+    dependencies:
+      iota-array: 1.0.0
+      is-buffer: 1.1.6
+
   negotiator@1.0.0: {}
+
+  nextgen-events@1.5.3: {}
 
   node-abi@3.92.0:
     dependencies:
       semver: 7.8.0
     optional: true
+
+  node-bitmap@0.0.1: {}
 
   node-domexception@1.0.0: {}
 
@@ -3857,6 +3979,8 @@ snapshots:
   object-inspect@1.13.4: {}
 
   object-treeify@1.1.33: {}
+
+  omggif@1.0.10: {}
 
   on-finished@2.4.1:
     dependencies:
@@ -3940,6 +4064,8 @@ snapshots:
   picomatch@4.0.4: {}
 
   pkce-challenge@5.0.1: {}
+
+  pngjs@6.0.0: {}
 
   postcss-selector-parser@7.1.1:
     dependencies:
@@ -4126,7 +4252,13 @@ snapshots:
 
   set-cookie-parser@3.1.0: {}
 
+  setimmediate@1.0.5: {}
+
   setprototypeof@1.2.0: {}
+
+  seventh@0.9.4:
+    dependencies:
+      setimmediate: 1.0.5
 
   shadcn@4.7.0(@types/node@22.19.19)(typescript@5.9.3):
     dependencies:
@@ -4237,6 +4369,8 @@ snapshots:
 
   strict-event-emitter@0.5.1: {}
 
+  string-kit@0.19.3: {}
+
   string-width@4.2.3:
     dependencies:
       emoji-regex: 8.0.0
@@ -4308,6 +4442,17 @@ snapshots:
       readable-stream: 3.6.2
     optional: true
 
+  terminal-kit@3.1.2:
+    dependencies:
+      '@cronvel/get-pixels': 3.4.1
+      chroma-js: 2.6.0
+      lazyness: 1.2.0
+      ndarray: 1.0.19
+      nextgen-events: 1.5.3
+      seventh: 0.9.4
+      string-kit: 0.19.3
+      tree-kit: 0.8.10
+
   test-exclude@7.0.2:
     dependencies:
       '@istanbuljs/schema': 0.1.6
@@ -4341,6 +4486,8 @@ snapshots:
   tough-cookie@6.0.1:
     dependencies:
       tldts: 7.0.30
+
+  tree-kit@0.8.10: {}
 
   tree-sitter-wasms@0.1.13: {}
 
@@ -4383,6 +4530,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   unicorn-magic@0.3.0: {}
+
+  uniq@1.0.1: {}
 
   universalify@2.0.1: {}
 

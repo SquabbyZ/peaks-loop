@@ -31,12 +31,13 @@
  * progress-commands.ts and hooks-settings-service.ts).
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getSessionId } from '../session/session-manager.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
 const PROGRESS_REL_PATH = 'system/subagent-progress.json';
+const SPAWN_REL_PATH = 'system/progress-spawn.json';
 
 export type SubAgentProgressPhase = 'starting' | 'running' | 'verifying' | 'completing' | 'finished' | 'failed' | 'idle';
 
@@ -100,7 +101,17 @@ export type WriteProgressOptions = {
 };
 
 function progressPath(projectRoot: string): string {
-  return join(projectRoot, '.peaks', PROGRESS_REL_PATH);
+  // The progress file lives under the *session* directory, not
+  // directly under .peaks/. Every other per-slice artefact
+  // (rd/tech-doc.md, qa/test-cases/<rid>.md, prd/requests/<rid>.md,
+  // memory/, openspec/) lives under .peaks/<sid>/, so progress
+  // should too. Without the session prefix, a session rotation
+  // would orphan the file in the project root, and switching
+  // sessions would have the watch reading the wrong slice's
+  // progress.
+  const sessionId = getSessionId(projectRoot);
+  const subDir = sessionId ?? 'unbound';
+  return join(projectRoot, '.peaks', subDir, PROGRESS_REL_PATH);
 }
 
 function ensureParentDir(path: string): void {
@@ -238,11 +249,137 @@ export function resolveProgressProjectRoot(override: string | undefined, cwd: st
 
 /**
  * Compute the absolute path to the progress file for a given
- * project root, for callers that need to watch / fs.watch
- * (e.g. the auto-spawn helper that needs to ensure the path
- * exists before launching the watch command in a separate
- * terminal).
+ * project root, for callers that need to display / fs.watch it
+ * (the watch banner, the auto-spawn helper, the close command).
+ * This MUST agree with `progressPath` — the read/write helpers
+ * resolve through `progressPath` and use the session sub-directory,
+ * so the displayed path does too. Without this agreement the
+ * watch banner would point at a path the file is never written
+ * to, and the user would `cat` an empty file.
  */
 export function subAgentProgressPath(projectRoot: string): string {
-  return resolve(projectRoot, '.peaks', PROGRESS_REL_PATH);
+  return progressPath(resolve(projectRoot));
+}
+
+/**
+ * Compute the absolute path to the spawn record for a given
+ * project root. Exported so `peaks progress close` (and the
+ * start command's success payload) can advertise the on-disk
+ * location without re-deriving the session sub-directory.
+ */
+export function subAgentSpawnPath(projectRoot: string): string {
+  const sessionId = getSessionId(projectRoot);
+  const subDir = sessionId ?? 'unbound';
+  return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Spawn record: which terminal process did we open on behalf of
+// this session, so we can kill it on completion. This file is
+// separate from the progress JSON so the watch-side read on the
+// progress file does not have to also parse the spawn record,
+// and so `peaks progress close` can be invoked without
+// reading or writing the progress file at all.
+// ─────────────────────────────────────────────────────────────────────
+
+export type ProgressSpawnRecord = {
+  version: 1;
+  sessionId: string;
+  pid: number;
+  platform: NodeJS.Platform;
+  command: string;
+  args: string[];
+  spawnedAt: string;
+  reason?: string;
+  /** The title we asked the terminal emulator to set. */
+  windowTitle: string;
+};
+
+function spawnRecordPath(projectRoot: string): string {
+  const sessionId = getSessionId(projectRoot);
+  const subDir = sessionId ?? 'unbound';
+  return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
+}
+
+export type WriteSpawnRecordOptions = {
+  projectRoot: string;
+  pid: number;
+  platform: NodeJS.Platform;
+  command: string;
+  args: string[];
+  reason?: string;
+  windowTitle: string;
+};
+
+export function writeSpawnRecord(options: WriteSpawnRecordOptions): ProgressSpawnRecord | null {
+  const sessionId = getSessionId(options.projectRoot);
+  if (sessionId === null) return null;
+  const now = nowIso();
+  const record: ProgressSpawnRecord = {
+    version: 1,
+    sessionId,
+    pid: options.pid,
+    platform: options.platform,
+    command: options.command,
+    args: options.args,
+    spawnedAt: now,
+    ...(options.reason !== undefined ? { reason: options.reason } : {}),
+    windowTitle: options.windowTitle
+  };
+  const path = spawnRecordPath(options.projectRoot);
+  ensureParentDir(path);
+  writeFileSync(path, JSON.stringify(record, null, 2) + '\n', 'utf8');
+  return record;
+}
+
+export type ReadSpawnRecordResult =
+  | { ok: true; data: ProgressSpawnRecord; path: string }
+  | { ok: false; reason: 'no-binding' | 'no-spawn-record' | 'invalid-json' };
+
+export function readSpawnRecord(projectRoot: string): ReadSpawnRecordResult {
+  const sessionId = getSessionId(projectRoot);
+  if (sessionId === null) return { ok: false, reason: 'no-binding' };
+  const path = spawnRecordPath(projectRoot);
+  if (!existsSync(path)) return { ok: false, reason: 'no-spawn-record' };
+  try {
+    const data = JSON.parse(readFileSync(path, 'utf8')) as ProgressSpawnRecord;
+    if (data.version !== 1 || typeof data.pid !== 'number') {
+      return { ok: false, reason: 'invalid-json' };
+    }
+    return { ok: true, data, path };
+  } catch {
+    return { ok: false, reason: 'invalid-json' };
+  }
+}
+
+export function clearSpawnRecord(projectRoot: string): boolean {
+  const path = spawnRecordPath(projectRoot);
+  if (!existsSync(path)) return false;
+  try {
+    unlinkSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export type PhaseClosingTrigger = 'finished' | 'failed';
+
+const PHASES_THAT_AUTO_CLOSE: ReadonlySet<SubAgentProgressPhase> = new Set<SubAgentProgressPhase>([
+  'finished',
+  'failed'
+]);
+
+/**
+ * True if a transition into the given phase should auto-close
+ * the spawned watch window. `finished` and `failed` both
+ * indicate the sub-agent is done; a `blocked` verdict on a
+ * `finished` step is intentionally NOT a close trigger
+ * because a blocked slice usually means the user needs to
+ * read the watch output before deciding what to do. The CLI
+ * layer reads `data.current.phase`, not the verdict, so this
+ * helper is the only close-decision source of truth.
+ */
+export function phaseAutoClosesSpawn(phase: SubAgentProgressPhase): boolean {
+  return PHASES_THAT_AUTO_CLOSE.has(phase);
 }

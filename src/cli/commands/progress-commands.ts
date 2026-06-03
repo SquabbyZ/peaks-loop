@@ -1,10 +1,17 @@
 import { spawn } from 'node:child_process';
 import { platform } from 'node:os';
 import { Command } from 'commander';
+import chalk from 'chalk';
+import ora, { type Ora } from 'ora';
 import {
+  clearSpawnRecord,
+  phaseAutoClosesSpawn,
+  readSpawnRecord,
   readSubAgentProgress,
   resolveProgressProjectRoot,
   subAgentProgressPath,
+  subAgentSpawnPath,
+  writeSpawnRecord,
   writeSubAgentProgress,
   type SubAgentProgress,
   type SubAgentProgressPhase
@@ -12,6 +19,9 @@ import {
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { killSpawnedTerminal } from './progress-close-kill.js';
+import { buildStartSpawn } from './progress-start-spawn.js';
+import { WatchRenderer } from './progress-watch-render.js';
 
 type ProgressStepOptions = {
   project?: string;
@@ -38,59 +48,6 @@ type ProgressStartOptions = {
   json?: boolean;
 };
 
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const;
-
-const PHASE_LABEL: Record<SubAgentProgressPhase, string> = {
-  starting: 'starting',
-  running: 'running',
-  verifying: 'verifying',
-  completing: 'completing',
-  finished: 'finished',
-  failed: 'failed',
-  idle: 'idle'
-};
-
-function formatElapsed(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function pickSpinnerFrame(tick: number): string {
-  return SPINNER_FRAMES[Math.abs(tick) % SPINNER_FRAMES.length] as string;
-}
-
-/**
- * Render a single progress snapshot line to a TTY. Width is
- * bounded by `width` so the watch tool degrades gracefully in
- * narrow terminals (Claude Code integrated terminal is usually
- * 80-120 columns).
- */
-function renderProgressLine(data: SubAgentProgress | null, tick: number, width = 100): string {
-  if (data === null) {
-    return `${pickSpinnerFrame(tick)}  peaks — sub-agent progress: (no progress file yet — sub-agent has not started)`;
-  }
-  const startedAtMs = new Date(data.current.startedAt).getTime();
-  const nowMs = Date.now();
-  const elapsedMs = nowMs - startedAtMs;
-  const step = data.current.step.length > 60 ? data.current.step.slice(0, 57) + '...' : data.current.step;
-  const phase = PHASE_LABEL[data.current.phase];
-  const verdict = data.current.verdict ? `  verdict=${data.current.verdict}` : '';
-  const counts = data.current.counts && Object.keys(data.current.counts).length > 0
-    ? `  counts=${JSON.stringify(data.current.counts)}`
-    : '';
-  const role = data.role ? `  role=${data.role}` : '';
-  const head = `${pickSpinnerFrame(tick)}  ${phase}  ${formatElapsed(elapsedMs)}  ${step}`;
-  const tail = `${role}${verdict}${counts}`;
-  const budget = width - head.length - 1;
-  if (budget <= 0) return head;
-  return `${head}  ${tail.slice(0, budget)}`;
-}
 
 export function registerProgressCommands(program: Command, io: ProgramIO): void {
   const progress = program.command('progress').description('Sub-agent progress surfacing (LLM-side step writes, user-side watch, auto-spawn new terminal)');
@@ -187,21 +144,47 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
         return;
       }
 
-      // Long-running watch loop. We deliberately do NOT wrap this
-      // in printResult — the watch is a stream of one-line
-      // refreshes and printResult would JSON-encode each one.
-      // Instead we render directly to the TTY.
-      const width = (process.stdout.columns ?? 120) - 1;
-      io.stdout(`peaks progress watch — ${canonical}`);
-      io.stdout(`path: ${subAgentProgressPath(canonical)}`);
-      io.stdout('press Ctrl-C to stop watching');
+      // Long-running watch loop. The render layer lives in
+      // ./progress-watch-render.ts; the watch loop just polls
+      // the file and calls renderer.tick(data, n). The renderer
+      // owns cursor positioning and in-place overwrite so the
+      // output does not grow line by line as it did in the
+      // previous console.log-based implementation.
+      const renderer = new WatchRenderer({
+        projectRoot: canonical,
+        progressFilePath: subAgentProgressPath(canonical)
+      });
+      renderer.start();
+      // Hint line is painted once BELOW the dynamic block, so
+      // it is not erased on each tick. The user sees the
+      // spinner + bar above, the static hint at the bottom.
+      io.stdout(chalk.gray('  press Ctrl-C to stop watching\n'));
       let tick = 0;
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const result = readSubAgentProgress({ projectRoot: canonical });
         const data = result.ok ? result.data : null;
-        io.stdout(renderProgressLine(data, tick, width));
+        renderer.tick(data, tick);
         tick += 1;
+        // Auto-close: when the sub-agent reaches a terminal
+        // phase (finished or failed per phaseAutoClosesSpawn),
+        // paint the final frame so the user can read the
+        // verdict, then exit. Exiting the watch process makes
+        // most terminal emulators close the window
+        // (Terminal.app / gnome-terminal / konsole all do;
+        // alacritty / kitty keep it). We also clear the
+        // spawn record so a subsequent `peaks progress close`
+        // reports "nothing to close" instead of "closed a
+        // ghost record".
+        //
+        // We deliberately do NOT auto-close on `blocked` —
+        // `blocked` means the user needs to read the watch
+        // output and decide what to do.
+        if (data !== null && phaseAutoClosesSpawn(data.current.phase)) {
+          renderer.finalize(data);
+          clearSpawnRecord(canonical);
+          return;
+        }
         await new Promise((resolveWait) => setTimeout(resolveWait, intervalMs));
       }
     } catch (error) {
@@ -239,51 +222,40 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
 
       const currentPlatform = platform();
       const peaksBin = process.argv[1] ?? 'peaks';
+      const reasonSuffix = options.reason !== undefined ? ` — ${options.reason}` : '';
+      // Window / tab title shared across platforms. The user
+      // asked for visible "this is peaks-cli" branding so the
+      // spawned terminal is identifiable at a glance; the title
+      // also makes `peaks progress close` self-documenting.
+      const windowTitle = `peaks-cli: sub-agent progress${reasonSuffix}`;
       const watchCommand = `${peaksBin} progress watch --project "${canonical}"`;
-      let spawnCommand: string;
-      let spawnArgs: string[];
-
-      if (currentPlatform === 'darwin') {
-        // macOS: open a new Terminal.app window. Escape the
-        // command for the AppleScript string. osascript runs
-        // synchronously; the new window outlives the CLI.
-        const escaped = watchCommand.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
-        spawnCommand = 'osascript';
-        spawnArgs = [
-          '-e',
-          `tell application "Terminal" to do script "${escaped}"`,
-          '-e',
-          'tell application "Terminal" to activate'
-        ];
-      } else if (currentPlatform === 'linux') {
-        // Linux: try common terminal emulators in order. We
-        // pick the first one that exists on PATH; the spawn
-        // is fire-and-forget because each terminal emulator
-        // detaches the child.
-        const { existsSync } = await import('node:fs');
-        const candidates = ['gnome-terminal', 'konsole', 'xterm', 'tilix', 'xfce4-terminal', 'alacritty', 'kitty'];
-        const terminal = candidates.find((c) => existsSync(`/usr/bin/${c}`)) ?? candidates[0]!;
-        if (terminal === 'xterm' || terminal === 'alacritty' || terminal === 'kitty') {
-          spawnCommand = terminal;
-          spawnArgs = ['-e', watchCommand];
-        } else {
-          // gnome-terminal / konsole / tilix / xfce4-terminal all
-          // accept -- /bin/bash -c '<command>' for a one-shot run.
-          spawnCommand = terminal;
-          spawnArgs = ['--', '/bin/bash', '-lc', watchCommand];
-        }
-      } else if (currentPlatform === 'win32') {
-        // Windows: `start` opens a new console window. /k keeps
-        // the window open after the command exits so the user
-        // can see the final line.
-        spawnCommand = 'cmd';
-        spawnArgs = ['/c', 'start', '""', 'cmd', '/k', watchCommand];
-      } else {
+      // Build the platform-specific spawn command + args. This
+      // is extracted to ./progress-start-spawn.ts so the three
+      // platform branches can be unit-tested without spawning
+      // a real terminal.
+      const spawnSpec = buildStartSpawn({
+        peaksBin,
+        projectRoot: canonical,
+        windowTitle,
+        platform: currentPlatform
+      });
+      if (!spawnSpec.ok) {
         printResult(io, fail('progress.start', 'UNSUPPORTED_PLATFORM', `Cannot auto-spawn a terminal on platform "${currentPlatform}". Run \`peaks progress watch --project "${canonical}"\` in a new terminal yourself.`, { projectRoot: canonical }, ['macOS / Linux / Windows are supported; other platforms need a manual terminal']), options.json);
         process.exitCode = 1;
         return;
       }
+      const spawnCommand = spawnSpec.command;
+      const spawnArgs = spawnSpec.args;
 
+      // Brief ora feedback while the terminal is launching.
+      // Skipped entirely in non-TTY mode (the LLM calls this
+      // from a Bash tool, where ora would just hang on
+      // animation) and in --json mode (where the structured
+      // response is the only signal the caller consumes).
+      const showSpinner = process.stdout.isTTY === true && options.json !== true;
+      const spinner: Ora | null = showSpinner
+        ? ora(`auto-spawning ${spawnCommand}…`).start()
+        : null;
       try {
         // spawn() with detached:true + unref() is the documented
         // Node.js way to start a long-lived child from a CLI
@@ -305,20 +277,54 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
             resolveSpawn();
           });
         });
+        if (spinner !== null) {
+          spinner.succeed(`spawned ${spawnCommand} (new window is opening)`);
+        }
+        // Persist the spawn record so `peaks progress close` (and
+        // the watch-side auto-exit) can find and kill the window
+        // later. We write the record AFTER the spawn fires so a
+        // failed spawn never leaves a stale record behind. The
+        // record is per-session: a session rotation invalidates it
+        // because the new session gets a fresh record path.
+        const spawnRecord = writeSpawnRecord({
+          projectRoot: canonical,
+          pid: child.pid ?? 0,
+          platform: currentPlatform,
+          command: spawnCommand,
+          args: spawnArgs,
+          ...(options.reason !== undefined ? { reason: options.reason } : {}),
+          windowTitle
+        });
+        printResult(io, ok('progress.start', {
+          projectRoot: canonical,
+          platform: currentPlatform,
+          spawned: `${spawnCommand} ${spawnArgs.join(' ')}`,
+          watchCommand,
+          ...(options.reason !== undefined ? { reason: options.reason } : {}),
+          ...(spawnRecord === null
+            ? {
+                spawnRecord: null,
+                warning: 'no peaks session binding — `peaks progress close` will not be able to find this window. Close it manually.'
+              }
+            : {
+                spawnRecord: {
+                  path: subAgentSpawnPath(canonical),
+                  windowTitle: spawnRecord.windowTitle,
+                  spawnedAt: spawnRecord.spawnedAt
+                }
+              }),
+          autoClose: 'the watch window will close itself when the sub-agent hits `finished` or `failed`',
+          note: 'A new terminal window is opening in the background. It will run `peaks progress watch` and refresh every second. Close the new terminal at any time, or run `peaks progress close` to programmatically close it.'
+        }), options.json);
+        return;
       } catch (spawnError) {
+        if (spinner !== null) {
+          spinner.fail(`auto-spawn failed: ${getErrorMessage(spawnError)}`);
+        }
         printResult(io, fail('progress.start', 'TERMINAL_SPAWN_FAILED', `Auto-spawn failed: ${getErrorMessage(spawnError)}. Run \`peaks progress watch --project "${canonical}"\` in a new terminal yourself.`, { projectRoot: canonical, platform: currentPlatform, attempted: `${spawnCommand} ${spawnArgs.join(' ')}` }, ['Verify a terminal emulator is installed (e.g. gnome-terminal / Terminal.app)']), options.json);
         process.exitCode = 1;
         return;
       }
-
-      printResult(io, ok('progress.start', {
-        projectRoot: canonical,
-        platform: currentPlatform,
-        spawned: `${spawnCommand} ${spawnArgs.join(' ')}`,
-        watchCommand,
-        ...(options.reason !== undefined ? { reason: options.reason } : {}),
-        note: 'A new terminal window is opening in the background. It will run `peaks progress watch` and refresh every second. Close the new terminal at any time to stop the watch.'
-      }), options.json);
     } catch (error) {
       printResult(
         io,
@@ -328,4 +334,83 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
       process.exitCode = 1;
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // peaks progress close
+  // Manual escape hatch: kill the spawned watch window and
+  // clear the spawn record. Idempotent — re-running is a no-op
+  // once the record is gone, and the response distinguishes
+  // "nothing to close" from "closed it" so callers / hooks can
+  // tell the difference. The close is best-effort: if the
+  // watch process has already exited but the record is stale,
+  // we still clear the record.
+  // ─────────────────────────────────────────────────────────────────
+  addJsonOption(
+    progress
+      .command('close')
+      .description('Close the spawned `peaks progress watch` window for this session. Idempotent: re-running when no window is open is a no-op.')
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+  ).action(async (options: { project?: string; json?: boolean }) => {
+    try {
+      const projectRoot = options.project !== undefined
+        ? options.project
+        : resolveProgressProjectRoot(undefined, process.cwd());
+      const canonical = resolveCanonicalProjectRoot(projectRoot);
+      const result = readSpawnRecord(canonical);
+      if (!result.ok) {
+        // Differentiate the failure modes so callers can decide
+        // whether to surface a warning. no-binding means peaks
+        // workspace init has not been run; no-spawn-record /
+        // invalid-json means there is nothing to close (start
+        // has not been called this session, or the window
+        // already auto-closed and the record was cleared).
+        if (result.reason === 'no-binding') {
+          printResult(io, fail('progress.close', 'NO_BINDING', 'no peaks session binding — nothing to close', { projectRoot: canonical, path: subAgentSpawnPath(canonical) }, ['Run peaks workspace init for this project first']), options.json);
+          process.exitCode = 1;
+          return;
+        }
+        printResult(io, ok('progress.close', {
+          projectRoot: canonical,
+          closed: false,
+          reason: result.reason,
+          note: 'no spawn record found — nothing to close (start has not been called this session, or the window has already auto-closed)'
+        }), options.json);
+        return;
+      }
+      const record = result.data;
+      // Best-effort close. We try three signals in order:
+      //   (1) `pkill -f <watch command>` — the long-lived watch
+      //       process. Killing it makes the terminal emulator
+      //       close on most platforms (Terminal.app, gnome-
+      //       terminal, konsole) but not all (alacritty, kitty
+      //       keep the window).
+      //   (2) macOS: AppleScript to close the Terminal.app
+      //       window with the matching custom title.
+      //   (3) Linux: wmctrl/xdotool by WM class as a fallback.
+      //       Windows: taskkill /F /FI on the window title.
+      // We never throw from the close path — a failed close is
+      // a UX paper cut, not a correctness bug. The record is
+      // still cleared so the next `progress start` does not
+      // see a stale record.
+      const closeResult = await killSpawnedTerminal(record, canonical, platform());
+      clearSpawnRecord(canonical);
+      printResult(io, ok('progress.close', {
+        projectRoot: canonical,
+        closed: closeResult.signals.length > 0,
+        signals: closeResult.signals,
+        warnings: closeResult.warnings,
+        windowTitle: record.windowTitle,
+        spawnedAt: record.spawnedAt,
+        note: 'spawn record cleared. The next `peaks progress start` will spawn a fresh window.'
+      }), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('progress.close', 'PROGRESS_CLOSE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and that peaks workspace init has been run for it']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
 }
+
