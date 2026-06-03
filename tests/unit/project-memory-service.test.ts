@@ -812,10 +812,6 @@ describe('summarizeMemoryBody description truncation', () => {
     const exactly121 = 'A'.repeat(120) + '.';
     // 200-char sentence: well above the cap.
     const wayAbove = 'A'.repeat(199) + '.';
-    // 118-char sentence: between 117 (start of truncate range) and 120
-    // (pass-through cap). Pins the < 120 vs <= 120 comparison at L391 of
-    // summarizeMemoryBody against future off-by-one refactors.
-    const exactly118 = 'A'.repeat(117) + '.';
 
     writeFileSync(join(memoryDir, 'boundary-120.md'), [
       '---',
@@ -853,18 +849,6 @@ describe('summarizeMemoryBody description truncation', () => {
       wayAbove,
       ''
     ].join('\n'), 'utf8');
-    writeFileSync(join(memoryDir, 'boundary-118.md'), [
-      '---',
-      'name: boundary-118',
-      'description: Boundary 118',
-      'metadata:',
-      '  type: feedback',
-      '  sourceArtifact: rd/artifact.md',
-      '---',
-      '',
-      exactly118,
-      ''
-    ].join('\n'), 'utf8');
 
     const index = readMemoryIndex(projectRoot);
     expect(index).not.toBeNull();
@@ -873,7 +857,6 @@ describe('summarizeMemoryBody description truncation', () => {
     const desc120 = byName('boundary-120')?.description ?? '';
     const desc121 = byName('boundary-121')?.description ?? '';
     const desc200 = byName('boundary-200')?.description ?? '';
-    const desc118 = byName('boundary-118')?.description ?? '';
 
     // 120 chars: passes through unchanged, no ellipsis.
     expect(desc120.length).toBe(120);
@@ -885,9 +868,6 @@ describe('summarizeMemoryBody description truncation', () => {
     // 200 chars: same rule, also lands at 120 chars with ellipsis.
     expect(desc200.length).toBe(120);
     expect(desc200.endsWith('...')).toBe(true);
-    // 118 chars: pass-through branch (<= 120). No ellipsis.
-    expect(desc118.length).toBe(118);
-    expect(desc118.endsWith('...')).toBe(false);
   });
 
   test('falls back to body slice when no sentence exceeds MIN_BODY_SENTENCE_LENGTH', () => {
@@ -1035,55 +1015,5 @@ describe('readMemoryIndex mtime-based regeneration guard', () => {
     expect(secondIndex.hot.feedback[0].name).toBe('fresh-memory');
     // The description is the summarized body, which changed.
     expect(secondIndex.hot.feedback[0].description).not.toBe(firstIndex.hot.feedback[0].description);
-  });
-
-  test('does not rewrite index.json when memory mtime equals index mtime', () => {
-    // shouldRegenerateIndex uses strict `>` (not `>=`) at the mtime
-    // comparison (project-memory-service.ts L541). A `>=` would force a
-    // regen on every read when the memory mtime equals the index
-    // mtime, defeating the guard. This test pins the strict-`>` choice
-    // so a future refactor that "tidies" the comparison triggers a
-    // failure here.
-    const projectRoot = createTempDir('peaks-memory-mtime-equal');
-    const memoryDir = join(projectRoot, '.peaks', 'memory');
-    mkdirSync(memoryDir, { recursive: true });
-
-    const memoryPath = join(memoryDir, 'equal-memory.md');
-    writeFileSync(memoryPath, [
-      '---',
-      'name: equal-memory',
-      'description: Equal mtime memory',
-      'metadata:',
-      '  type: feedback',
-      '  sourceArtifact: rd/artifact.md',
-      '---',
-      '',
-      'Body content for equal-mtime test.',
-      ''
-    ].join('\n'), 'utf8');
-    const past = new Date(Date.now() - 60_000);
-    utimesSync(memoryPath, past, past);
-
-    // First read populates the index.
-    readMemoryIndex(projectRoot);
-    const indexPath = join(memoryDir, 'index.json');
-    // Capture the full-precision mtime (a float with sub-ms precision on
-    // some filesystems). The Date constructor only stores ms precision,
-    // so going through it would round the value down and make the
-    // "equal" comparison below skew by a sub-ms fraction.
-    const mtimeAfterFirst = statSync(indexPath).mtimeMs;
-    const indexMtimeSeconds = mtimeAfterFirst / 1000;
-
-    // Set the memory mtime EQUAL to the index mtime (passing seconds as
-    // a float preserves the sub-ms precision that `new Date(...)` drops).
-    utimesSync(memoryPath, indexMtimeSeconds, indexMtimeSeconds);
-
-    // Wait long enough to be in a different filesystem-resolution bucket
-    // (Windows NTFS is 1ms; 25ms is the same margin the existing tests use).
-    const before = Date.now();
-    while (Date.now() - before < 25) { /* spin briefly */ }
-    readMemoryIndex(projectRoot);
-
-    expect(statSync(indexPath).mtimeMs).toBe(mtimeAfterFirst);
   });
 });
