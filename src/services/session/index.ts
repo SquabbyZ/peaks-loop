@@ -10,6 +10,7 @@ export {
   getProjectScanPath,
   hasProjectScan,
   setCurrentSessionBinding,
+  rotateSessionBinding,
   type SessionInfo,
   type SessionMeta
 } from './session-manager.js';

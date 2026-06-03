@@ -6,7 +6,7 @@
  * Each session gets a unique directory under .peaks/ with incrementing numbered files.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
@@ -26,6 +26,18 @@ export type SessionMeta = {
   createdAt: string;
   lastActivity?: string;
   projectRoot: string;
+  /**
+   * The outer (harness / IDE / plugin) session id that
+   * `ensureSession` was called from. Sourced from
+   * `PEAKS_OUTER_SESSION_ID` env var, with `CLAUDE_CODE_SESSION_ID`
+   * as a Claude-Code fallback. Stamped once at session creation;
+   * later presence writes can compare against this to detect an
+   * outer-session swap and AskUserQuestion the user about rolling
+   * a new peaks session. Sessions predating the field simply
+   * have it undefined; presence-mismatch detection skips those
+   * (no false positives on legacy data).
+   */
+  outerSessionId?: string;
 };
 
 const SESSION_FILE = '.session.json';
@@ -82,6 +94,30 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(sessionFile, JSON.stringify(info, null, 2), 'utf8');
+}
+
+/**
+ * Drop the project-level session binding (`.peaks/.session.json`)
+ * so the next `ensureSession()` call auto-generates a fresh
+ * session id. The on-disk session directory is left intact —
+ * rotating does NOT delete the user's data, it just unbinds the
+ * project from that session.
+ *
+ * Returns the id of the session that was unbound, or `null` if
+ * no binding was present. The caller is expected to do something
+ * with that — at minimum surface it in the CLI response so the
+ * user can find the directory again if they need to.
+ */
+export function rotateSessionBinding(projectRoot: string): string | null {
+  const previous = readSessionFile(projectRoot);
+  if (previous === null) {
+    return null;
+  }
+  const sessionFile = getSessionFilePath(projectRoot);
+  if (existsSync(sessionFile)) {
+    unlinkSync(sessionFile);
+  }
+  return previous.sessionId;
 }
 
 /**
@@ -201,6 +237,14 @@ export function listSessionMetas(projectRoot: string): SessionMeta[] {
  * @param projectRoot - Root directory of the project
  * @returns Session ID (e.g., "2026-05-26-session-a3f8b1")
  */
+function getCurrentOuterSessionId(): string | undefined {
+  const peaks = process.env.PEAKS_OUTER_SESSION_ID;
+  if (typeof peaks === 'string' && peaks.length > 0) return peaks;
+  const claude = process.env.CLAUDE_CODE_SESSION_ID;
+  if (typeof claude === 'string' && claude.length > 0) return claude;
+  return undefined;
+}
+
 export async function ensureSession(projectRoot: string): Promise<string> {
   const existing = readSessionFile(projectRoot);
   if (existing) {
@@ -220,10 +264,12 @@ export async function ensureSession(projectRoot: string): Promise<string> {
   await initWorkspace({ projectRoot, sessionId });
 
   // Initialize session metadata inside the session directory
+  const outerSessionId = getCurrentOuterSessionId();
   writeSessionMeta(projectRoot, sessionId, {
     sessionId,
     projectRoot,
-    createdAt: now
+    createdAt: now,
+    ...(outerSessionId !== undefined ? { outerSessionId } : {})
   });
 
   return sessionId;

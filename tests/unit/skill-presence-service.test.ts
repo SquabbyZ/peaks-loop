@@ -208,7 +208,7 @@ describe('skill presence service', () => {
       }
     });
 
-    test('stamps claudeSessionId from CLAUDE_CODE_SESSION_ID env', () => {
+    test('stamps outerSessionId from CLAUDE_CODE_SESSION_ID env (legacy Claude fallback)', () => {
       const root = createTempDir();
       const prev = process.env.CLAUDE_CODE_SESSION_ID;
       try {
@@ -217,9 +217,9 @@ describe('skill presence service', () => {
 
         const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
 
-        expect(presence.claudeSessionId).toBe('claude-session-abc');
+        expect(presence.outerSessionId).toBe('claude-session-abc');
         const raw = JSON.parse(readFileSync(join(root, '.peaks', '.active-skill.json'), 'utf8'));
-        expect(raw.claudeSessionId).toBe('claude-session-abc');
+        expect(raw.outerSessionId).toBe('claude-session-abc');
       } finally {
         if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
         else process.env.CLAUDE_CODE_SESSION_ID = prev;
@@ -228,19 +228,151 @@ describe('skill presence service', () => {
       }
     });
 
-    test('omits claudeSessionId when CLAUDE_CODE_SESSION_ID env is absent', () => {
+    test('stamps outerSessionId from PEAKS_OUTER_SESSION_ID env when set, preferring it over the Claude fallback', () => {
       const root = createTempDir();
-      const prev = process.env.CLAUDE_CODE_SESSION_ID;
+      const prevPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+      const prevClaude = process.env.CLAUDE_CODE_SESSION_ID;
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
+        process.env.PEAKS_OUTER_SESSION_ID = 'generic-outer-session';
+        process.env.CLAUDE_CODE_SESSION_ID = 'claude-should-be-ignored';
+
+        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+
+        expect(presence.outerSessionId).toBe('generic-outer-session');
+      } finally {
+        if (prevPeaks === undefined) delete process.env.PEAKS_OUTER_SESSION_ID;
+        else process.env.PEAKS_OUTER_SESSION_ID = prevPeaks;
+        if (prevClaude === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+        else process.env.CLAUDE_CODE_SESSION_ID = prevClaude;
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('omits outerSessionId when neither PEAKS_OUTER_SESSION_ID nor CLAUDE_CODE_SESSION_ID is set', () => {
+      const root = createTempDir();
+      const prevPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+      const prevClaude = process.env.CLAUDE_CODE_SESSION_ID;
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        delete process.env.PEAKS_OUTER_SESSION_ID;
         delete process.env.CLAUDE_CODE_SESSION_ID;
 
         const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
 
-        expect(presence.claudeSessionId).toBeUndefined();
+        expect(presence.outerSessionId).toBeUndefined();
       } finally {
-        if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
-        else process.env.CLAUDE_CODE_SESSION_ID = prev;
+        if (prevPeaks === undefined) delete process.env.PEAKS_OUTER_SESSION_ID;
+        else process.env.PEAKS_OUTER_SESSION_ID = prevPeaks;
+        if (prevClaude === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+        else process.env.CLAUDE_CODE_SESSION_ID = prevClaude;
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('emits outerSessionMismatch when the outer session id changed and does NOT match the bound session', () => {
+      // Setup: bootstrap a .peaks/.session.json + per-session session.json
+      // that bind the project to a session recorded with outerSessionId=A.
+      // Then call setSkillPresence with outerSessionId=B. The previous
+      // presence write had outerSessionId=B (so outerChanged is false)
+      // — but the test models a real outer-session swap by seeding the
+      // first presence file with A before the second call, which is the
+      // shape the production code actually has to handle.
+      const root = createTempDir();
+      const prevPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+      const prevClaude = process.env.CLAUDE_CODE_SESSION_ID;
+      const { mkdirSync: mks, writeFileSync: wfs } = require('node:fs') as typeof import('node:fs');
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+        // Seed an existing session binding recorded with outerSessionId=A.
+        // The shape mirrors what ensureSession() writes to disk.
+        mks(join(root, '.peaks', '2026-06-03-session-mock'), { recursive: true });
+        wfs(join(root, '.peaks', '.session.json'), JSON.stringify({
+          sessionId: '2026-06-03-session-mock',
+          createdAt: '2026-06-03T00:00:00.000Z',
+          projectRoot: root
+        }), 'utf8');
+        wfs(join(root, '.peaks', '2026-06-03-session-mock', 'session.json'), JSON.stringify({
+          sessionId: '2026-06-03-session-mock',
+          createdAt: '2026-06-03T00:00:00.000Z',
+          projectRoot: root,
+          outerSessionId: 'outer-A'
+        }), 'utf8');
+        // Seed a previous presence file with outerSessionId=A (the LLM
+        // ran peaks in the previous outer session, then closed it).
+        wfs(join(root, '.peaks', '.active-skill.json'), JSON.stringify({
+          skill: 'peaks-solo',
+          mode: 'full-auto',
+          gate: 'startup',
+          sessionId: '2026-06-03-session-mock',
+          outerSessionId: 'outer-A',
+          setAt: '2026-06-03T00:00:00.000Z',
+          lastHeartbeat: '2026-06-03T00:00:00.000Z'
+        }), 'utf8');
+
+        // Now the LLM is in a new outer session B. Presence should detect
+        // the swap and surface the bound session's recorded outerSessionId.
+        process.env.PEAKS_OUTER_SESSION_ID = 'outer-B';
+        const second = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        expect(second.outerSessionId).toBe('outer-B');
+        expect(second.outerSessionMismatch).toBeDefined();
+        expect(second.outerSessionMismatch?.previous).toBe('outer-A');
+        expect(second.outerSessionMismatch?.current).toBe('outer-B');
+        expect(second.outerSessionMismatch?.boundSessionId).toBe('2026-06-03-session-mock');
+        expect(second.outerSessionMismatch?.boundOuterSessionId).toBe('outer-A');
+      } finally {
+        if (prevPeaks === undefined) delete process.env.PEAKS_OUTER_SESSION_ID;
+        else process.env.PEAKS_OUTER_SESSION_ID = prevPeaks;
+        if (prevClaude === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
+        else process.env.CLAUDE_CODE_SESSION_ID = prevClaude;
+        vi.restoreAllMocks();
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    test('does NOT emit outerSessionMismatch when the swap lines up with the bound session', () => {
+      // Bootstrap a session binding recorded with outerSessionId=outer-1.
+      // The previous presence also recorded outerSessionId=outer-1. A new
+      // setSkillPresence call with the same outer-1 is a no-op reconnect,
+      // not a session swap — no mismatch should fire.
+      const root = createTempDir();
+      const prevPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+      const { mkdirSync: mks, writeFileSync: wfs } = require('node:fs') as typeof import('node:fs');
+      try {
+        vi.spyOn(process, 'cwd').mockReturnValue(root);
+        mks(join(root, '.peaks', '2026-06-03-session-mock'), { recursive: true });
+        wfs(join(root, '.peaks', '.session.json'), JSON.stringify({
+          sessionId: '2026-06-03-session-mock',
+          createdAt: '2026-06-03T00:00:00.000Z',
+          projectRoot: root
+        }), 'utf8');
+        wfs(join(root, '.peaks', '2026-06-03-session-mock', 'session.json'), JSON.stringify({
+          sessionId: '2026-06-03-session-mock',
+          createdAt: '2026-06-03T00:00:00.000Z',
+          projectRoot: root,
+          outerSessionId: 'outer-1'
+        }), 'utf8');
+        wfs(join(root, '.peaks', '.active-skill.json'), JSON.stringify({
+          skill: 'peaks-solo',
+          mode: 'full-auto',
+          gate: 'startup',
+          sessionId: '2026-06-03-session-mock',
+          outerSessionId: 'outer-1',
+          setAt: '2026-06-03T00:00:00.000Z',
+          lastHeartbeat: '2026-06-03T00:00:00.000Z'
+        }), 'utf8');
+
+        process.env.PEAKS_OUTER_SESSION_ID = 'outer-1';
+        const second = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+
+        expect(second.outerSessionId).toBe('outer-1');
+        expect(second.outerSessionMismatch).toBeUndefined();
+      } finally {
+        if (prevPeaks === undefined) delete process.env.PEAKS_OUTER_SESSION_ID;
+        else process.env.PEAKS_OUTER_SESSION_ID = prevPeaks;
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });
       }

@@ -114,6 +114,26 @@ Use the `<request-id>` PRD assigned. RD companion artifacts (task graph, scan re
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## Two RD artifact files — do not confuse them
+
+RD has two distinct artifact files, and the most common regression is to write the per-slice content into the per-session file. They serve different readers and live in different places:
+
+| File | Scope | Reader | Required content |
+|---|---|---|---|
+| `.peaks/<sid>/rd/tech-doc.md` | per-session — the whole RD plan for the session, all slices | Solo, future LLM, the human scrolling the session | Architecture, slice graph, mock strategy, cross-cutting decisions. **Not** the place for per-slice implementation evidence. |
+| `.peaks/<sid>/rd/requests/<rid>.md` | per-slice — one request, one planning artifact | QA, SC, the lint gate | Red-line scope, in-scope / out-of-scope, unit-test requirements, **Implementation evidence** (file list, `pnpm test` output, git diff excerpts), MCP usage, handoff, status. **This is the file the lint gate checks for placeholders.** |
+| `.peaks/<sid>/rd/code-review.md` | per-session — the engineering review | QA, the human reviewer | Code review findings + fixes. |
+| `.peaks/<sid>/rd/security-review.md` | per-session — the security review | QA | Security review findings + fixes. |
+
+**Failure mode the lint gate catches**: the LLM writes the actual implementation content into `rd/tech-doc.md` and leaves `rd/requests/<rid>.md` as the default template (with placeholder sections like "Implementation evidence: 留待 RD 实施阶段补充" and "MCP usage: N/A"). The lint gate then fails the slice with 6+ lint errors on the `<rid>.md` template even though the actual content lives in `tech-doc.md`.
+
+**Rule**:
+- **Per-slice content** (red-line scope, in-scope / out-of-scope, the implementation evidence list, the unit-test assertions, the handoff) → **belongs in `rd/requests/<rid>.md`**.
+- **Per-session content** (the architecture overview, the slice roadmap, the cross-cutting concerns, the mock strategy for the whole session) → **belongs in `rd/tech-doc.md`**.
+- When in doubt: copy the per-slice content into the `<rid>.md` artifact's "Implementation evidence" section after writing it to `tech-doc.md`. The two files can carry overlapping context; the gate only enforces that `<rid>.md` is not empty placeholders.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
 ## Default runbook
 
 The default sequence the RD skill should execute for a code-touching request. Skip steps that do not apply to the request type; do not skip the artifact, coverage gate, or red-line scope steps.
