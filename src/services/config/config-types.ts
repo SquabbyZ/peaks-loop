@@ -72,6 +72,26 @@ export type PeaksConfig = {
   tokens: TokenConfig;
   providers: ModelProviderConfig;
   proxy: ProxyConfig;
+  /**
+   * Sub-agent progress surfacing knobs. The `peaks progress watch`
+   * CLI (intended to be run in a separate terminal tab while the
+   * LLM is working) reads `.peaks/<sid>/system/subagent-progress.json`
+   * and renders elapsed / spinner / sub-step in real time. The
+   * `enabled` flag is a kill-switch for users who find the watch
+   * distracting; the `heartbeatIntervalMs` lets power users tune
+   * the write cadence. Both default to sensible values so stock
+   * projects get the feature out of the box.
+   *
+   * Optional on the type level so older test fixtures / hand-
+   * written config files do not have to know about it; the
+   * `DEFAULT_CONFIG.progress` block supplies the runtime defaults
+   * and `config get` will surface a synthesised block when the
+   * field is absent.
+   */
+  progress?: {
+    enabled: boolean;
+    heartbeatIntervalMs: number;
+  };
 };
 
 export type ConfigLayer = 'user' | 'project';
@@ -99,5 +119,9 @@ export const DEFAULT_CONFIG: PeaksConfig = {
       model: 'minimax-2.7'
     }
   },
-  proxy: {}
+  proxy: {},
+  progress: {
+    enabled: true,
+    heartbeatIntervalMs: 60000
+  }
 };
