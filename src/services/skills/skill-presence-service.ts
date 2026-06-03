@@ -193,7 +193,12 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
     const boundOuterSessionId = getBoundOuterSessionId(projectRootOverride);
     const outerChanged = previousOuterSessionId !== outerSessionId;
     const boundOuterMatches = boundOuterSessionId === outerSessionId;
-    if (outerChanged && !boundOuterMatches && sessionId !== null) {
+    // Suppress the false-positive where neither side ever recorded
+    // an outer session id. Two unknowns are not a swap — they are
+    // simply "no outer-session signal available yet". Only report
+    // a mismatch when at least one side has a recorded outer id.
+    const hasOuterSignal = previousOuterSessionId !== undefined || boundOuterSessionId !== undefined;
+    if (hasOuterSignal && outerChanged && !boundOuterMatches && sessionId !== null) {
       presence.outerSessionMismatch = {
         ...(previousOuterSessionId !== undefined ? { previous: previousOuterSessionId } : {}),
         current: outerSessionId,

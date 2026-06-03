@@ -10,6 +10,7 @@ import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
 import { ensureSession, getSessionId, getSessionMeta, rotateSessionBinding, setSessionMeta, setSessionTitle, listSessionMetas } from '../../services/session/session-manager.js';
+import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { generateProjectContext } from '../../services/memory/project-context-service.js';
 import { fail, ok } from '../../shared/result.js';
@@ -260,10 +261,21 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .option('--reason <text>', 'human-readable reason for the rotation, recorded in the response data')
   ).action(async (options: { project?: string; reason?: string; json?: boolean }) => {
     try {
+      // Canonicalise the project root before touching the binding.
+      // `peaks workspace init` writes the binding with the
+      // realpath-resolved projectRoot; if the caller passes a path
+      // through a symlink (notably /tmp on macOS, which is a
+      // symlink to /private/tmp) without canonicalising here,
+      // readSessionFile's strict projectRoot equality check fails
+      // and the rotate call reports "no prior binding" even
+      // though one exists. The same fix as `workspace init`
+      // (b193714): promote the path to the git root, falling back
+      // to the heuristic, falling back to cwd verbatim.
       const projectRoot = options.project !== undefined
         ? options.project
         : (findProjectRoot(process.cwd()) ?? process.cwd());
-      const previousSessionId = rotateSessionBinding(projectRoot);
+      const canonical = resolveCanonicalProjectRoot(projectRoot);
+      const previousSessionId = rotateSessionBinding(canonical);
       printResult(io, ok('session.rotate', {
         previousSessionId,
         ...(options.reason !== undefined ? { reason: options.reason } : {}),
