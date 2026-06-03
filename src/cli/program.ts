@@ -9,6 +9,7 @@ import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capabili
 import { registerCodegraphCommands } from './commands/codegraph-commands.js';
 import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerOpenSpecCommands } from './commands/openspec-commands.js';
+import { registerPerfCommands } from './commands/perf-commands.js';
 import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
@@ -83,6 +84,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerCodegraphCommands(program, io);
   registerMcpCommands(program, io);
   registerOpenSpecCommands(program, io);
+  registerPerfCommands(program, io);
   registerProjectCommands(program, io);
   registerRequestCommands(program, io);
   registerScanCommands(program, io);

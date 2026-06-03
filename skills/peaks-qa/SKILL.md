@@ -178,6 +178,19 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    because code review alone does not catch: hardcoded secrets, XSS vectors,
 #    bundle size regressions, render-performance issues, or missing CSP headers.
 #    If you skip A3 or A4, Peaks-Cli Gate C will block the verdict.
+#
+#    Before running A4, read the RD's perf-baseline at
+#    .peaks/<id>/rd/perf-baseline.md (if present) and use the
+#    captured thresholds as the comparison baseline. The QA stage
+#    is still responsible for running the actual measurement
+#    (lighthouse / k6 / autocannon / project-local bench) and
+#    for the verdict — the RD-side baseline is the *known-good
+#    reference* that lets the QA stage say "X regressed by Y%"
+#    instead of "X is bad, but I have no number for what good
+#    looks like". If the RD did not produce a perf-baseline
+#    (e.g. the slice is docs / chore / has no perf surface),
+#    surface that absence in the QA test-report under a
+#    `## Performance baseline` section.
 
 # 6. write test-report — MANDATORY, write to .peaks/<session-id>/qa/test-reports/<request-id>.md
 #    MUST contain actual execution results (pass/fail counts, coverage %, findings).
