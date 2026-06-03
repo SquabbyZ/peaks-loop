@@ -116,22 +116,36 @@ function computeFakeProgress(data: SubAgentProgress | null): number {
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Two-row ASCII wordmark for PEAKS-CLI. The first row is the
- * top half of each glyph; the second is the bottom half.
- * We keep the letter shapes recognisable on a monospace grid
- * (most monospace fonts reserve 2x the cell width for full-block
- * glyphs). The result is 19 cells wide; the brand row wraps to
- * the right of it with `·` separators.
+ * Three-row ASCII wordmark for PEAKS-CLI. Each letter is 5
+ * columns wide; P-E-A-K-S take 5 letters (25 cols), the
+ * dash takes 9 cols (with surrounding space), C-L-I take 3
+ * letters (15 cols). Total ≈ 49 cols, fits in 80-col
+ * terminals without wrapping.
+ *
+ * The block-character density (full blocks on the
+ * prominent rows) makes the brand visually dominant
+ * against the gray "sub-agent progress watch" tagline
+ * that sits below — so the user always knows whose
+ * dashboard they are looking at, even when the title
+ * bar is hidden.
  */
 const PEAKS_CLI_ASCII: ReadonlyArray<string> = [
-  '█▀█ █▀▀ █▀▀ ▄▀█ ▀█▀ █▀▀   █▀ █▀▀ █▄█',
-  '█▀█ ██▄ ██▄ █▀█  █  ██▄   ▄█ ██▄ █ █'
+  '█████  █████  █████  ██  ██  ██████         █████  ██      ███',
+  '█   █  █   █  █   █ ██  ██    ██             ██    ██      ██ ',
+  '█████  █████  █████  ██████    ██             ████  █████   ███'
 ];
 
 /**
- * Render the static 4-line header: the two-line PEAKS-CLI
- * wordmark, a separator, and the project path. Painted ONCE
- * at the top of the watch, then never touched again.
+ * Render the static header: the three-line big PEAKS-CLI
+ * wordmark, a separator, a small "sub-agent progress watch"
+ * tagline, and the project / file path. Painted ONCE at the
+ * top of the watch, then never touched again.
+ *
+ * Visual hierarchy (per user feedback):
+ *   1. PEAKS-CLI — 3-line big block art, bold cyan
+ *   2. separator
+ *   3. sub-agent progress watch — 1 line, smaller, gray
+ *   4. project / path — 1 line each, gray
  */
 function renderHeader(projectRoot: string, progressFilePath: string, isTty: boolean): string {
   if (!isTty) {
@@ -144,18 +158,25 @@ function renderHeader(projectRoot: string, progressFilePath: string, isTty: bool
       `path: ${progressFilePath}`
     ].join('\n') + '\n';
   }
-  const brandLeft = PEAKS_CLI_ASCII[0] ?? '';
-  const brandRight = PEAKS_CLI_ASCII[1] ?? '';
-  const tagline = chalk.bold.cyan(' · sub-agent progress watch');
+  // PEAKS-CLI block-art rows in bold cyan (the "big" brand).
+  const brandLines = PEAKS_CLI_ASCII.map((row) => chalk.bold.cyan(`  ${row}`));
+  // The tagline below the brand — small, gray, no big
+  // chrome. The user sees the brand first, the
+  // descriptor second.
+  const tagline = chalk.gray('  sub-agent progress watch');
   const projLine = chalk.gray(`  project: ${projectRoot}`);
   const pathLine = chalk.gray(`  path:    ${progressFilePath}`);
-  return (
-    chalk.bold.cyan(`  ${brandLeft}${tagline}`) + '\n' +
-    chalk.bold.cyan(`  ${brandRight}`) + '\n' +
-    chalk.gray('  ' + '─'.repeat(60)) + '\n' +
-    projLine + '\n' +
-    pathLine + '\n'
-  );
+  const separator = chalk.gray('  ' + '─'.repeat(60));
+  return [
+    brandLines[0] ?? '',
+    brandLines[1] ?? '',
+    brandLines[2] ?? '',
+    separator,
+    tagline,
+    projLine,
+    pathLine,
+    ''
+  ].join('\n');
 }
 
 /**
