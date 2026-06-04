@@ -185,7 +185,7 @@ This returns durable memories from `.peaks/memory`, grouped by kind:
 - **convention** — discovered project patterns (code style, naming, tooling)
 - **rule** / **reference** / **project** — standing constraints, external pointers, and project context
 
-Filter with `--kind <decision|convention|module|rule|reference|project>` when you only need one slice. Use this to understand what exists, what was decided, and what to avoid re-litigating. Memories are LLM-authored at approved checkpoints via `peaks memory extract`.
+Filter with `--kind <decision|convention|module|rule|reference|project|lesson>` when you only need one slice. Use this to understand what exists, what was decided, and what to avoid re-litigating. Memories are LLM-authored at approved checkpoints via `peaks memory extract`. The `lesson` kind is for LLM-discovered runtime lessons (e.g. "this project's antv6 Drawer uses `size` not `width`"); write them as `<!-- peaks-memory:start kind=lesson -->` blocks in the RD handoff or TXT handoff.
 
 `.peaks/PROJECT.md` is a human-readable session timeline only — do NOT use it for LLM context.
 
@@ -412,6 +412,11 @@ Grep `src/` for outdated patterns and list them as constraints in `project-scan.
 - State: <name>
 - Routing: <name>
 - Data fetching: <name>
+
+## Library versions
+- Source: output of `peaks scan libraries --project <repo> --json` (see Gate A; cross-check diff imports against `schemas/library-breaking-changes.data.json` in `peaks-rd` preflight)
+- Total: <count from scan.libraries.totalCount>
+- Notable: <bullet list of libraries with major >= a known breaking change in `schemas/library-breaking-changes.data.json`; e.g. "- antd@^5.18.0 (major=5) — see breaking-change rule for antd v4→v5 if any code uses Drawer.width">
 
 ## Legacy constraints
 - <bullet list of legacy signals from section 5; empty for greenfield>
@@ -841,6 +846,8 @@ peaks skill runbook peaks-solo --json
 peaks workspace init --project <repo> --json
 peaks scan archetype --project <repo> --json
 # → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
+# → copy libraries[] into .peaks/<session-id>/rd/project-scan.md under `## Library versions`
+peaks scan libraries --project <repo> --json
 # → if archetype != greenfield AND archetype != unknown:
 peaks scan existing-system --project <repo> --json
 # → copy tokens, sources, conventions, inconsistencies into .peaks/<session-id>/system/existing-system.md (Peaks-Cli Gate A.5)
@@ -1033,6 +1040,7 @@ These commands harden the workflow against silent skips. Use them in the runbook
 | `peaks request lint <rid> --role <role> --project <path>` | Scan artifact body for unfilled `<placeholder>`, bare `- ...` bullets, TBD/TODO markers | Before every transition out of `draft` / before role handoff | Any `error`-severity finding (unfilled placeholder, bare-dot bullet) |
 | `peaks request repair-status <rid> --project <path>` | Count RD↔QA repair cycles from `--reason` transition notes ("QA cycle N: ...") | Before every RD repair iteration in step 7 | Cycle count reached the 3-cycle cap |
 | `peaks scan request-type-sanity --project <path> --type <type>` | Cross-verify declared `--type` against the actual `git diff` file mix (catches "feature mis-declared as docs" workflow violations) | After PRD type lock-in AND after each RD repair iteration | Declared type disagrees with the file mix |
+| `peaks scan libraries --project <path>` | Enumerate every dependency + devDependency + peerDependency + optionalDependency with parsed major version; output goes to `## Library versions` in `rd/project-scan.md`. Read-only. | At Solo step 0.6 (alongside `peaks scan archetype`) | Always exits 0 (warnings in JSON envelope; never blocks) |
 
 Together with `peaks request transition` (which already CLI-enforces per-type artifact prerequisites), these four commands form the runtime quality net. SKILL.md prose is descriptive; the CLI is what physically blocks bad workflows.
 

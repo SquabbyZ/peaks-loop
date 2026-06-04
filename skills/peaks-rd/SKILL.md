@@ -422,6 +422,30 @@ Before RD planning or implementation work in a code repository, call the Peaks-C
 
 If `CLAUDE.md` is missing, treat creation as the preferred path. If `CLAUDE.md` already exists, use `standards update` to decide whether to append a managed index block or surface review-only suggestions. Apply only when write authorization exists; otherwise keep the CLI output as a preflight next action. Do not hand-write standards file mutations inside the skill.
 
+## Library version awareness (3rd-party breaking-change gate)
+
+After `peaks scan libraries` lands the dependency list under `## Library versions` in `rd/project-scan.md`, RD MUST cross-check the slice's diff against `schemas/library-breaking-changes.data.json` before writing any 3rd-party API call. Concretely:
+
+1. **Read the project's `## Library versions` section** in `.peaks/<session-id>/rd/project-scan.md`. Identify the `name` + `major` of every dependency the slice imports from.
+2. **Open `schemas/library-breaking-changes.data.json`** (LLM reads via the `Read` tool). For each library where the installed `major` matches a `toMajor` in the table, load the corresponding `breakingChanges[]` list.
+3. **For each `import` statement in the slice's diff** (e.g. `import { Drawer } from 'antd'`), check whether the imported symbol or its prop signature matches any `breakingChanges[].api` entry for the library's installed major.
+4. **On a hit**:
+   - **Warn the LLM in the slice's handoff**: in `.peaks/<session-id>/rd/requests/<rid>.md` under `## Implementation evidence`, append a one-line note per hit: `- [lib-version] <library> <installed version> imports <api>; breaking-change rule says use <replacement> instead.`
+   - **Persist a `lesson` memory** at the END of `.peaks/<session-id>/rd/project-scan.md` (or the tech-doc, or the handoff — any of these is read by future RD runs):
+     ```
+     <!-- peaks-memory:start -->
+     title: <library> <installed major> requires <api> → <replacement>
+     kind: lesson
+     ---
+     Observed in slice <rid>: project is on <library>@<major> and the diff imported <api> which is on the breaking-changes list. Use <replacement> instead. Source: schemas/library-breaking-changes.data.json.
+     <!-- peaks-memory:end -->
+     ```
+   - The next RD run will see this lesson in `peaks project memories` and skip the same drift.
+
+**Why this exists**: the LLM's training data lags the latest major versions. The user hit `[antd: Drawer] width is deprecated. Please use size instead` in an antv6 project because the LLM wrote v5-style code. The breaking-changes table is the canonical place for "library X at major Y has these known migrations" so the LLM doesn't have to guess.
+
+**Out of scope**: the breaking-changes table is hand-curated; auto-syncing from upstream changelogs (Context7, etc.) is a follow-up slice. Per-slice the LLM only reads the table — it does NOT maintain it.
+
 ## GStack integration and code dry-runs
 
 Use gstack as a concrete engineering workflow reference for `Think → Plan → Build → Review → Test → Ship → Reflect`:

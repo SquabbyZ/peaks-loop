@@ -107,16 +107,18 @@ Each entry should include:
 
 ## Project memory guidance
 
-When a skill artifact contains reusable project facts, decisions, rules, or constraints, mark only the stable extract with:
+When a skill artifact contains reusable project facts, decisions, rules, constraints, **or LLM-discovered runtime lessons**, mark only the stable extract with:
 
 ```markdown
 <!-- peaks-memory:start -->
 title: Short project memory title
-kind: project
+kind: project | decision | convention | rule | reference | module | lesson
 ---
 Stable memory body.
 <!-- peaks-memory:end -->
 ```
+
+The `lesson` kind is specifically for **runtime observations the LLM made during work** (e.g. "this project's antv6 Drawer uses `size` not `width`"; "this codebase imports test helpers from `src/test-utils/` not `__mocks__/`"). Lessons are loaded by `peaks project memories` as `HOT` so they appear in every future RD preflight.
 
 The primary write target is the target project's `.peaks/memory`. Use `peaks memory extract --project <path> --artifact <artifact> --apply` to write durable project memories; omit `--apply` to preview without writing.
 
@@ -191,12 +193,13 @@ peaks understand show --project <repo> --json
 peaks capabilities --json
 
 # 5. Write the handoff capsule (see template above), then embed memory markers
-#    For each stable project fact, decision, rule, or convention discovered this session,
-#    append a <!-- peaks-memory:start --> block inside the capsule body:
+#    For each stable project fact, decision, rule, convention, or LLM-discovered
+#    runtime LESSON discovered this session, append a <!-- peaks-memory:start -->
+#    block inside the capsule body:
 #
 #    <!-- peaks-memory:start -->
 #    title: Short project memory title
-#    kind: project | decision | convention | rule | reference | module
+#    kind: project | decision | convention | rule | reference | module | lesson
 #    ---
 #    Stable memory body. Concrete facts only — no secrets, no transient state.
 #    <!-- peaks-memory:end -->
