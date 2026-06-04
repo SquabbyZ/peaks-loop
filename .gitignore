@@ -10,8 +10,10 @@ coverage/
 # Peaks transient/per-session state (regenerable, not shared knowledge)
 .peaks/**/.bypass-count.json
 .peaks/ontology.json
-# Peaks runtime state (active-skill, session binding, sop-state, etc.) — self-documenting layer; canonical home for all per-project ephemeral state
+# Peaks runtime state — canonical home at .peaks/_runtime/ (active-skill, session binding, sop-state, future hooks/output-style state)
 .peaks/_runtime/
+# Top-level .peaks/session.json (CLI's external session metadata file; appears alongside .peaks/_runtime/session.json — distinct file, not under _runtime/)
+.peaks/session.json
 # Test / debug backups left by sub-agent baselines (e.g. .peaks/.active-skill.json.test-bak from QA's git-stash verification)
 .peaks/*.bak
 .peaks/*.test-bak
