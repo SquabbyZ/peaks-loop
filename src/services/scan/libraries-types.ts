@@ -31,11 +31,36 @@ export type LibraryEntry = {
   ecosystem: Ecosystem;
 };
 
+/**
+ * Per-workspace provenance for monorepo scans.
+ *
+ * `path` is the absolute path of the `package.json` that contributed
+ * libraries. `count` is the number of `LibraryEntry` rows produced by
+ * reading that single `package.json` (i.e. NOT the aggregate across
+ * the whole monorepo — use `LibraryReport.totalCount` for the aggregate).
+ *
+ * `name` and `version` are the workspace's own `name` / `version` from
+ * its `package.json`, when present. They are optional because some
+ * workspace `package.json` files omit them.
+ */
+export type WorkspaceEntry = {
+  path: string;
+  count: number;
+  name?: string;
+  version?: string;
+};
+
 export type LibraryReport = {
   projectRoot: string;
   libraries: LibraryEntry[];
   totalCount: number;
   byScope: Record<DependencyScope, number>;
+  /**
+   * Per-workspace provenance for monorepo (pnpm / npm / yarn workspaces,
+   * lerna) projects. Empty for single-package projects so the field is
+   * always present (additive; consumers can rely on the shape).
+   */
+  workspaces: WorkspaceEntry[];
   /** ISO timestamp at scan time. */
   scannedAt: string;
   /** Soft signals — e.g. "package.json not found" or "package.json is not valid JSON". */
