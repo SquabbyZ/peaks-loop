@@ -1,63 +1,63 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-01T17:11:22.024Z",
+  "updatedAt": "2026-06-04T07:29:16.031Z",
   "hot": {
     "feedback": [
       {
         "name": "coverage-red-line",
         "kind": "feedback",
         "description": "When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\coverage-red-line.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/coverage-red-line.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "dogfood-2026-06-02-wechat-post-sop",
         "kind": "feedback",
         "description": "On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , gates  +  using ) end-to-end against the pea...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/dogfood-2026-06-02-wechat-post-sop.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-06-02"
       },
       {
         "name": "main-branch-iteration",
         "kind": "feedback",
         "description": "For future iterations in this project, do not create worktrees by default; modify directly on the main branch.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\main-branch-iteration.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/main-branch-iteration.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "peaks-current-directory-scope",
         "kind": "feedback",
         "description": "Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于当前目录下\"，避免 postinstall、skills、配置等流程触碰  或  这...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-current-directory-scope.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/peaks-current-directory-scope.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "peaks-skill-output-style",
         "kind": "feedback",
         "description": "When the user uses Peaks skills from  in any project, the response should look clearly different from normal Claude C...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-skill-output-style.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/peaks-skill-output-style.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "rd-gstack-dry-run",
         "kind": "feedback",
         "description": "The skills under this project's  directory should deeply integrate and reference gstack (https://github.com/garrytan/...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\rd-gstack-dry-run.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/rd-gstack-dry-run.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "review-memories-extract-and-memory-index",
         "kind": "feedback",
-        "description": "[CLOSED 2026-06-02 in e611daf] Code review findings on the 2026-06-01 uncommitted changes to project-memory-service.ts.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
+        "description": "This review memory is **closed**.",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/review-memories-extract-and-memory-index.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-03"
+        "updatedAt": "2026-06-04"
       }
     ],
     "decision": [],
@@ -71,33 +71,33 @@
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
         "description": "New iteration discussed 2026-05-29 (peaks-prd brainstorm).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-and-gate-metering.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/custom-sop-and-gate-metering.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "custom-sop-domain-agnostic-positioning",
         "kind": "project",
         "description": "用户决策 2026-05-29：自定义 SOP（peaks-sop 技能 +  引擎）**不限于研发流程**，要定位成**通用的\"流程不许跳步\"工具**。用户原话：\"不只是研发，像其他场景才是这个工具的更好的发展前景。\" **适用面*...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/custom-sop-domain-agnostic-positioning.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-30"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "gate-enforcement-hook",
         "kind": "project",
         "description": "决策 2026-05-30(已实现,commit b289cd6):把 SOP 门禁从「约定」变「强制」。这是产品护城河——CI 只拦合并、CLAUDE.md 靠自觉,只有这里能在**对话流程中途、面向 agent 本身**拦住不可逆...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gate-enforcement-hook.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/gate-enforcement-hook.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-30"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "token-encrypted-storage-decision",
         "kind": "project",
         "description": "用户 2026-05-29 决策：将来做 Feature B（open-core license/entitlement）时，license key、token、密钥等敏感凭据必须**加密落盘、使用时解密**，而不是明文存储，也不是 ...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\token-encrypted-storage-decision.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/token-encrypted-storage-decision.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-01"
       }
     ],
     "reference": []

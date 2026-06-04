@@ -4,8 +4,8 @@
   "createdAt": "2026-06-04T01:44:31.045Z",
   "outerSessionId": "23e5e23e-367c-4e2f-abaf-c75d947a9a86",
   "skill": "peaks-solo",
-  "gate": "review-fan-out-converged",
-  "lastActivity": "2026-06-04T03:41:53.755Z",
+  "gate": "startup",
+  "lastActivity": "2026-06-04T07:19:11.846Z",
   "mode": "full-auto",
-  "title": "熟悉peaks-cli项目"
+  "title": "吸收LLM经验教训+三方库版本感知"
 }

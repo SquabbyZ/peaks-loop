@@ -1,9 +1,15 @@
 {
   "skill": "peaks-solo",
   "mode": "full-auto",
-  "gate": "review-fan-out-converged",
+  "gate": "startup",
   "sessionId": "2026-06-04-session-b60252",
-  "outerSessionId": "23e5e23e-367c-4e2f-abaf-c75d947a9a86",
-  "setAt": "2026-06-04T03:41:53.752Z",
-  "lastHeartbeat": "2026-06-04T03:41:53.752Z"
+  "outerSessionId": "256bf00f-4a33-4f6c-aed2-3981bc94b7ab",
+  "setAt": "2026-06-04T07:19:11.842Z",
+  "lastHeartbeat": "2026-06-04T07:19:11.842Z",
+  "outerSessionMismatch": {
+    "previous": "23e5e23e-367c-4e2f-abaf-c75d947a9a86",
+    "current": "256bf00f-4a33-4f6c-aed2-3981bc94b7ab",
+    "boundSessionId": "2026-06-04-session-b60252",
+    "boundOuterSessionId": "23e5e23e-367c-4e2f-abaf-c75d947a9a86"
+  }
 }
