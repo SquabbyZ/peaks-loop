@@ -1,15 +1,15 @@
-# QA Security Findings: 002-2026-06-04-solo-skill-slim-extract
+# QA Security Findings: 004-2026-06-04-rd-4way-fanout
 
 - session: 2026-06-04-session-b60252
-- rid: 002-2026-06-04-solo-skill-slim-extract
+- rid: 004-2026-06-04-rd-4way-fanout
 - type: refactor
 - verdict: pass
 - reviewer: security-reviewer (peaks-qa main-loop, full-auto profile)
-- linked-rd-security: `.peaks/2026-06-04-session-b60252/rd/security-review-002.md`
+- linked-rd-security: `.peaks/2026-06-04-session-b60252/rd/security-review-004.md`
 
 ## Summary
 
-The slice was independently security-reviewed during the RD phase. The QA-side re-review confirms the prior verdict: 0 CRITICAL/HIGH/MEDIUM, 2 LOW. Both LOWs are stylistic and out-of-scope for this slice (one is a JSDoc accuracy note, one is a broad `catch` in a defensive helper). No new attack surface is introduced. The `loadRunbookSection` helper reads `references/runbook.md` from the same trust boundary that `loadSkillRegistry` uses to enumerate the in-repo `skills/` directory. The reference is treated as implicitly trusted (same as the skill body).
+The slice was independently security-reviewed during the RD phase. The QA-side re-review confirms the prior verdict: 0 CRITICAL/HIGH/MEDIUM, 1 LOW. The single LOW is out of scope (a malicious PRD could plant a test plan that exfiltrates data when QA's main loop runs it; mitigated by the test framework's coverage rules and the user-review-the-diff workflow).
 
 ## Findings
 
@@ -27,10 +27,8 @@ None.
 
 ### LOW
 
-- **L-1 (informational, from RD review)**: `loadRunbookSection` reads a new path (`<skills-dir>/<skill-name>/references/runbook.md`). This expands the read surface, but the path is computed from the trusted `dirname(skill.skillPath)` returned by `loadSkillRegistry`. A malicious package with write access to the in-repo `skills/` dir could plant a fake reference, but the impact is bounded to influencing the `peaks skill runbook <name> --json` output (no exec, no shell injection, no file write). The same threat model applies to the in-repo `SKILL.md` files, which can already influence module-load behavior. **Out of scope for this slice.**
-
-- **L-2 (informational, from RD review)**: `loadRunbookSection` uses a bare `try { ... } catch {}` to swallow all errors when reading the reference. Defensive: the reference is optional, ENOENT and EACCES both should silently fall through. The cost of a missed error is "we return the inline section or `null`", which is benign. **Stylistic, no action required.**
+- **L-1 (informational, from RD review)**: `qa-test-cases-writer` sub-agent reads the PRD and writes a test plan that QA's main loop later uses as the basis for test code. A malicious PRD could plant a test that exfiltrates data when executed. **Mitigated by**: (a) the test code is gated by the existing test framework's coverage rules, (b) the user reviews the diff in `tests/` before committing, (c) the trust boundary is the same as the 3 existing sub-agents. **Out of scope for this slice.**
 
 ## Verdict
 
-**verdict: pass** — 0 CRITICAL/HIGH/MEDIUM, 2 informational LOWs (no action required).
+**verdict: pass** — 0 CRITICAL/HIGH/MEDIUM, 1 informational LOW (no action required).
