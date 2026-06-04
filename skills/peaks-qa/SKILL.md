@@ -168,6 +168,17 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 
 # 4. generate test cases — MANDATORY, write to .peaks/<session-id>/qa/test-cases/<request-id>.md
 #    categories: unit, integration, UI regression (frontend only)
+#
+#    Optimization (slice 004): peaks-rd's parallel fan-out now includes a 4th
+#    sub-agent (`qa-test-cases-writer`) that pre-drafts this file at the
+#    end of RD implementation. If `.peaks/<sid>/qa/test-cases/<rid>.md`
+#    already exists when QA's main loop reaches this step, **QA does NOT
+#    re-draft it** — it just verifies the file is present and the
+#    per-criterion `ts` snippets are syntactically valid, then proceeds
+#    to step 5 (EXECUTE). The wall-clock win: QA's first action is
+#    "execute pre-drafted test plan" instead of "draft + execute".
+#    Fallback: if the file is missing (sub-agent failed / degraded to
+#    inline), QA drafts it inline as before.
 
 # 5. EXECUTE tests against the actual implementation — Peaks-Cli Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.

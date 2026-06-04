@@ -281,8 +281,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 >
 > | Type | rd:implemented requires | rd:qa-handoff also requires |
 > |---|---|---|
-> | feature / refactor | `rd/tech-doc.md` | `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` (filled Results table, or `N/A — no perf surface` in Notes) |
-> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review.md` + `rd/security-review.md`; `rd/perf-baseline.md` only when the bug is performance-shaped (matches the L449-452 "When this applies" criteria) |
+> | feature / refactor | `rd/tech-doc.md` | `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` (filled Results table, or `N/A — no perf surface` in Notes) + **`qa/test-cases/<rid>.md`** (added in slice 004; pre-drafted by the 4th sub-agent in the parallel fan-out) |
+> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review.md` + `rd/security-review.md` + **`qa/test-cases/<rid>.md`**; `rd/perf-baseline.md` only when the bug is performance-shaped (matches the L449-452 "When this applies" criteria) |
 > | config | (none) | `rd/security-review.md` only |
 > | docs / chore | (none) | (none) |
 >
@@ -563,14 +563,16 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
 
-## Parallel review fan-out (code-review + security-review + perf-baseline)
+## Parallel review fan-out (code-review + security-review + perf-baseline + qa-test-cases)
 
-**When RD reaches the end of implementation, the three review activities (code review, security review, perf baseline) run in parallel via Task() sub-agents, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 3 Task() calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via Task() sub-agents, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 Task() calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+
+**Why 4 sub-agents (added in slice 004):** the original 3-way fan-out (code-review + security-review + perf-baseline) cut the RD→QA wall-clock by running 3 LLM writes in parallel, but `qa/test-cases/<rid>.md` was still written sequentially by QA's main loop AFTER the RD handoff landed. Drafting QA test-cases in the same fan-out means the QA main loop's first action is "execute the pre-drafted test plan + write test-report" instead of "draft a test plan from scratch + execute + write report". Wall-clock drop: ~30-40% on the RD→QA-verdict segment for `feature` / `refactor` / `bugfix` slices.
 
 **When to fan out:**
-- Feature / refactor slices: all three sub-agents always run.
-- Bugfix slices: code-review + security-review run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
-- Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact.
+- Feature / refactor slices: all four sub-agents always run.
+- Bugfix slices: code-review + security-review + qa-test-cases always run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
+- Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact. (qa-test-cases also skipped — config / docs / chore have no acceptance surface to validate.)
 
 **The Task() template (mirror of peaks-solo L705-717):**
 
@@ -578,9 +580,11 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 Task(
   subagent_type="general-purpose",
   description="<role> review for rid=<rid>",
-  prompt="<role contract below>, plus runtime args: project=<repo>, session-id=<sid>, request-id=<rid>. Write your evidence file at .peaks/<sid>/rd/<evidence-path> and return ONLY the path. Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push, install hooks, or mutate settings.json. Do not edit any source file — review only."
+  prompt="<role contract below>, plus runtime args: project=<repo>, session-id=<sid>, request-id=<rid>. Write your evidence file at .peaks/<sid>/<evidence-path> and return ONLY the path. Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push, install hooks, or mutate settings.json. Do not edit any source file — review only."
 )
 ```
+
+Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/test-cases/<rid>.md` (QA's dir). The role name in the description differentiates them.
 
 **Sub-agent 1 — code-reviewer (always runs for feature / refactor / bugfix):**
 - Read the git diff for this slice (`git diff main...HEAD` or equivalent).
@@ -604,30 +608,43 @@ Task(
 - Output: `.peaks/<sid>/rd/perf-baseline.md` (scaffolded, or N/A stub), plus a one-line return string: `perf-baseline: scaffolded — main loop must fill Results table` OR `perf-baseline: N/A — no perf surface`.
 - Required for Gate B9. The Results-table-filling happens in the main RD loop AFTER the fan-out returns and BEFORE `rd:qa-handoff` transition.
 
-**Hard prohibitions on all 3 sub-agents (mirror of peaks-solo L729-734):**
+**Sub-agent 4 — qa-test-cases-writer (always runs for feature / refactor / bugfix; added in slice 004):**
+- Read the git diff for this slice.
+- Read `.peaks/<sid>/rd/tech-doc.md` (or `bug-analysis.md` for bugfix) for the slice's acceptance criteria.
+- Read `.peaks/<sid>/prd/requests/<rid>.md` for the user's "Acceptance criteria" section.
+- Draft the test plan: enumerate every acceptance criterion from the PRD as a separate test case; for each, write a `ts` test snippet (using vitest, jest, or the project's test framework per the existing test files), assert the expected outcome, and link the test to the PRD criterion by ID or section reference.
+- Include the standard test plan sections: ## Test cases (with `ts` code blocks), ## Test case summary (table), ## Mandatory validation gates (units / API / browser / security / performance), ## Regression matrix, ## Verdict.
+- The test cases do NOT need to be executed by this sub-agent — execution is the QA main loop's job, AFTER the RD handoff lands. The sub-agent's contract is: "produce a runnable, exhaustive, type-correct test plan that QA can execute verbatim."
+- Output: `.peaks/<sid>/qa/test-cases/<rid>.md`.
+- Required for Gate C (RD-side qa-handoff transition, added in slice 004). When this file is present at RD's qa-handoff transition, QA's main loop can skip its own "draft test plan" step and proceed directly to "execute pre-drafted test plan + write test-report + security-findings + performance-findings + verdict".
+- Failure mode: if the PRD is missing or the acceptance criteria are too vague to enumerate, this sub-agent returns `blocked` with a `blockedReason` like `prd-missing` or `acceptance-criteria-vague`; the main RD loop then escalates via AskUserQuestion before falling back to inline QA test-case drafting.
+
+**Hard prohibitions on all 4 sub-agents (mirror of peaks-solo L729-734):**
 - Do NOT call `Skill(skill="...")` — would re-enter RD or another skill and break the fan-out.
 - Do NOT call `peaks skill presence:set` — only the main RD loop owns presence.
 - Do NOT open interactive user prompts. If something is unclear, return `blocked` and let the main loop handle the user.
 - Do NOT commit, push, install hooks, or mutate `~/.claude/settings.json` or `.claude/settings.json`. Only the main RD loop holds those permissions.
-- Do NOT edit any source file under `src/`, `tests/`, `skills/`, `bin/`, `scripts/`, `docs/`, `schemas/`. Review only.
+- Do NOT edit any source file under `src/`, `tests/`, `skills/`, `bin/`, `scripts/`, `docs/`, `schemas/`. Review only. (Sub-agent 4, qa-test-cases-writer, may write test code in the test plan body, but does NOT write to `tests/` files on disk — that is the QA main loop's job, after the verdict is issued.)
 
-**Aggregation (after all 3 sub-agents return):**
+**Aggregation (after all 4 sub-agents return):**
 
 1. Restore presence: `peaks skill presence:set peaks-rd --project <repo> --gate review-fan-out-converged`
-2. Run the 3 `ls` checks (Gate B3, Gate B4, Gate B9).
-3. Read each evidence file. Aggregate CRITICAL/HIGH across all 3.
+2. Run the 4 `ls` checks (Gate B3 code-review, Gate B4 security-review, Gate B9 perf-baseline, Gate C2 qa-test-cases — the last one is a new check added in slice 004).
+3. Read each evidence file. Aggregate CRITICAL/HIGH across code-review + security-review.
 4. If any CRITICAL or HIGH finding exists in code-review.md or security-review.md: fix in the main RD loop, then re-launch ONLY the affected sub-agent(s) to verify the fix. Loop until clean, or mark as blocked if the issue cannot be resolved.
 5. For perf-baseline: if scaffolded, run the project's perf measurement tool, fill in the Results table (Path / route | Workload | Tool | Metric | Baseline | Threshold), and `git diff` the file to confirm the table has data (not just the header row). If N/A, no measurement needed.
-6. Re-run all 3 `ls` checks to confirm the evidence files are present and not empty.
-7. Only then transition `peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json`.
+6. For qa-test-cases: the file is now pre-drafted by sub-agent 4. The main RD loop does NOT re-draft it; it only verifies (a) the file exists, (b) every PRD acceptance criterion is enumerated, (c) every `ts` test snippet is syntactically valid (the sub-agent's contract guarantees the last two; the main loop's job is just the `ls` check). If the sub-agent's draft is incomplete, fix it inline in the main RD loop (small edits only) OR re-launch the sub-agent (large re-drafts).
+7. Re-run all 4 `ls` checks to confirm the evidence files are present and not empty.
+8. Only then transition `peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json`.
 
 **Degradation when a sub-agent fails or returns blocked:**
 - code-review sub-agent fails: fall back to inline RD code review (the L486-506 Gate B3 is still required; only the fan-out is degraded). TXT handoff note: `code-review-subagent-degraded-to-inline`.
 - security-review sub-agent fails: same fallback. TXT note: `security-review-subagent-degraded-to-inline`.
 - perf-baseline sub-agent fails: same fallback. TXT note: `perf-baseline-subagent-degraded-to-inline`.
-- 2 or 3 fail: do not hand off as clean; transition to `qa-handoff` with `--allow-incomplete --reason "<degradation>"` OR block.
+- qa-test-cases sub-agent fails: fall back to inline QA test-case drafting at the start of QA's main loop (i.e. QA drafts the test cases itself, instead of receiving the pre-drafted file). TXT note: `qa-test-cases-subagent-degraded-to-inline-qa-draft`. The wall-clock win is reduced but not eliminated — QA's drafting is still faster than writing from scratch because the test plan can be drafted from the PRD + tech-doc directly.
+- 2 or more fail: do not hand off as clean; transition to `qa-handoff` with `--allow-incomplete --reason "<degradation>"` OR block.
 
-**Why this works (3-loop repair closure):** the original 3-loop repair pain (`qa return for perf → rd fix → qa return for perf again → ...`) was caused by perf being QA-only. This fan-out moves perf measurement to the RD side AND runs it in parallel with the other reviews, so the RD handoff is complete on the first attempt instead of after several cycles.
+**Why this works (3-loop repair closure):** the original 3-loop repair pain (`qa return for perf → rd fix → qa return for perf again → ...`) was caused by perf being QA-only. This fan-out moves perf measurement to the RD side AND runs it in parallel with the other reviews, so the RD handoff is complete on the first attempt instead of after several cycles. **Slice 004 extends the same pattern to QA test-cases** so the QA→verdict loop is also faster on the first attempt.
 
 ## Refactor hard gates
 

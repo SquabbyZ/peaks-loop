@@ -107,8 +107,10 @@ The CLI gate (`peaks request transition --state qa-handoff`) is the authoritativ
 ls .peaks/<id>/rd/requests/<rid>.md
 
 # Type-specific RD evidence (must match the type recorded in the artifact body)
-#   feature / refactor → ls rd/tech-doc.md rd/code-review.md rd/security-review.md
-#   bugfix             → ls rd/bug-analysis.md rd/code-review.md rd/security-review.md
+#   feature / refactor → ls rd/tech-doc.md rd/code-review.md rd/security-review.md rd/perf-baseline.md qa/test-cases/<rid>.md
+#                         (qa/test-cases/<rid>.md pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004)
+#   bugfix             → ls rd/bug-analysis.md rd/code-review.md rd/security-review.md qa/test-cases/<rid>.md
+#                         (rd/perf-baseline.md only when the bug is performance-shaped)
 #   config             → ls rd/security-review.md
 #   docs / chore       → (no extra evidence required)
 # Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
