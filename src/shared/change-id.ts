@@ -66,27 +66,43 @@ export function isUnsafeArtifactPath(path: string): boolean {
 }
 
 /**
- * Build an artifact-relative path using session-based storage.
+ * Build an artifact-relative path using a caller-supplied project root, so
+ * the helper does not need to walk `process.cwd()` to find a session.
  *
- * If a session exists, files are stored in:
+ * If a session exists for `projectRoot`, files are stored in:
  *   .peaks/<sessionId>/<role>/<number>-<changeId>.md
  *
  * If no session exists, falls back to legacy behavior:
  *   .peaks/<changeId>/<segments>
  *
+ * Use this from callers that have a workspace or `artifactWorkspacePath` in
+ * hand (e.g. CLI subcommands that received `--project`, or test fixtures
+ * that created a tmpdir workspace). Legacy callers without an explicit
+ * `projectRoot` should continue to use `buildArtifactRelativePath`.
+ *
+ * @param projectRoot - The project root to use for session lookup and dirPath
+ *   computation. Must be an absolute path. Falls back to `process.cwd()` if
+ *   the empty string is passed (defensive only; should not happen via the
+ *   public API).
  * @param changeId - Used as file description/slug (e.g., "auth-system", "add-user-auth")
  * @param segments - Optional path segments (first segment is typically the role: 'prd', 'rd', 'qa', etc.)
  * @returns Relative path to the artifact file
  */
-export function buildArtifactRelativePath(changeId: string, ...segments: string[]): string {
+export function buildArtifactRelativePathInRoot(
+  projectRoot: string,
+  changeId: string,
+  ...segments: string[]
+): string {
   validateChangeIdOrThrow(changeId);
 
-  const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
-  const sessionId = getSessionId(projectRoot);
+  const resolvedProjectRoot = projectRoot && projectRoot.length > 0
+    ? projectRoot
+    : (findProjectRoot(process.cwd()) ?? process.cwd());
+  const sessionId = getSessionId(resolvedProjectRoot);
 
   if (sessionId && segments.length > 0 && segments[0]) {
     const role = normalizeForwardSlashes(segments[0]);
-    const dirPath = join(projectRoot, '.peaks', sessionId, role);
+    const dirPath = join(resolvedProjectRoot, '.peaks', sessionId, role);
 
     if (isUnsafeArtifactPath(role) || isUnsafeArtifactPath(sessionId)) {
       throw new ChangeIdValidationError(changeId);
@@ -108,6 +124,33 @@ export function buildArtifactRelativePath(changeId: string, ...segments: string[
   }
 
   return normalizeArtifactPath(candidatePath);
+}
+
+/**
+ * Build an artifact-relative path using session-based storage.
+ *
+ * If a session exists, files are stored in:
+ *   .peaks/<sessionId>/<role>/<number>-<changeId>.md
+ *
+ * If no session exists, falls back to legacy behavior:
+ *   .peaks/<changeId>/<segments>
+ *
+ * This function walks `process.cwd()` to find the project root and reads
+ * `.peaks/.session.json` from it. Callers that already have an explicit
+ * `projectRoot` (workspace handle, test fixture, or CLI `--project` flag)
+ * should prefer `buildArtifactRelativePathInRoot(projectRoot, ...)` to
+ * avoid being polluted by the host environment's session binding.
+ *
+ * @param changeId - Used as file description/slug (e.g., "auth-system", "add-user-auth")
+ * @param segments - Optional path segments (first segment is typically the role: 'prd', 'rd', 'qa', etc.)
+ * @returns Relative path to the artifact file
+ */
+export function buildArtifactRelativePath(changeId: string, ...segments: string[]): string {
+  return buildArtifactRelativePathInRoot(
+    findProjectRoot(process.cwd()) ?? process.cwd(),
+    changeId,
+    ...segments
+  );
 }
 
 export function isPathInsideArtifactRoot(path: string, artifactRoot: string): boolean {

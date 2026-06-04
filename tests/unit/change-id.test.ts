@@ -10,6 +10,7 @@ import {
   isUnsafePathInput,
   isUnsafeArtifactPath,
   buildArtifactRelativePath,
+  buildArtifactRelativePathInRoot,
   isPathInsideArtifactRoot,
   validateChangeIdOrThrow,
   ChangeIdValidationError,
@@ -135,6 +136,57 @@ describe('buildArtifactRelativePath with session', () => {
   test('rejects unsafe role segment with session', () => {
     mockGetSessionId.mockReturnValue('2026-05-28-session-cccc');
     expect(() => buildArtifactRelativePath('test', '../evil')).toThrow(ChangeIdValidationError);
+  });
+});
+
+describe('buildArtifactRelativePathInRoot', () => {
+  test('returns changeId-based path when caller projectRoot has no session', () => {
+    mockGetSessionId.mockReturnValue(null);
+    const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'checkout-refactor', 'rd', 'architecture');
+    expect(result).toBe('.peaks/checkout-refactor/rd/architecture');
+    // The function must have called getSessionId with the EXPLICIT projectRoot,
+    // not the result of findProjectRoot(process.cwd()).
+    expect(mockGetSessionId).toHaveBeenCalledWith('/tmp/explicit-project-root');
+  });
+
+  test('returns session-based path when caller projectRoot has a session binding', () => {
+    mockGetSessionId.mockReturnValue('2026-06-04-session-aaa111');
+    const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'my-feature', 'rd');
+    expect(result).toMatch(/^\.peaks\/2026-06-04-session-aaa111\/rd\/\d+-my-feature\.md$/);
+    expect(mockGetSessionId).toHaveBeenCalledWith('/tmp/explicit-project-root');
+  });
+
+  test('two different projectRoots produce different result shapes (defense against cross-workspace pollution)', () => {
+    // Reset call history from earlier tests in this file so the
+    // NthCalledWith assertions below have a stable baseline.
+    mockGetSessionId.mockClear();
+    // First call: a projectRoot with no session — should get the changeId-based path.
+    mockGetSessionId.mockImplementation((root: string) => root === '/root/with-session' ? '2026-06-04-session-bbb222' : null);
+    const noSessionPath = buildArtifactRelativePathInRoot('/root/without-session', 'shared-change', 'rd', 'x');
+    expect(noSessionPath).toBe('.peaks/shared-change/rd/x');
+    const sessionPath = buildArtifactRelativePathInRoot('/root/with-session', 'shared-change', 'rd', 'x');
+    expect(sessionPath).toMatch(/^\.peaks\/2026-06-04-session-bbb222\/rd\/\d+-shared-change\.md$/);
+    // Crucial: the two calls must have invoked getSessionId with their own
+    // projectRoot, not with a shared value derived from process.cwd().
+    expect(mockGetSessionId).toHaveBeenNthCalledWith(1, '/root/without-session');
+    expect(mockGetSessionId).toHaveBeenNthCalledWith(2, '/root/with-session');
+  });
+
+  test('empty projectRoot falls back to process.cwd() (defensive only)', () => {
+    // The public API does not allow passing the empty string, but if a
+    // future caller does, we want the function to degrade to the legacy
+    // findProjectRoot(process.cwd()) behavior, not silently produce a
+    // session-based path inside the empty string as a project root.
+    mockGetSessionId.mockReturnValue(null);
+    const result = buildArtifactRelativePathInRoot('', 'degraded-change', 'rd');
+    expect(result).toBe('.peaks/degraded-change/rd');
+  });
+
+  test('rejects invalid change id before doing any work', () => {
+    mockGetSessionId.mockClear();
+    expect(() => buildArtifactRelativePathInRoot('/tmp/explicit', '..', 'rd')).toThrow(ChangeIdValidationError);
+    // getSessionId must NOT have been called — the validation runs first.
+    expect(mockGetSessionId).not.toHaveBeenCalled();
   });
 });
 

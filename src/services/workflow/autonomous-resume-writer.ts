@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared/change-id.js';
+import { buildArtifactRelativePathInRoot, validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { pathExists } from '../../shared/fs.js';
 
 export type AutonomousResumeWriteRequest = {
@@ -136,27 +136,27 @@ Next actions:
 function buildFiles(changeId: string, goal: string, createdAt: string, artifactWorkspacePath: string): AutonomousResumeArtifactFile[] {
   return [
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'prd', 'autonomous-goal-package.json')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'prd', 'autonomous-goal-package.json')),
       content: renderGoalPackage(changeId, goal)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'autonomous-rd-plan.json')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'autonomous-rd-plan.json')),
       content: renderRdPlan(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json')),
       content: renderCheckpoint(changeId, createdAt)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'unit-tests.md')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'evidence', 'unit-tests.md')),
       content: renderUnitTestsEvidence(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'evidence', 'validation-report.md')),
       content: renderValidationReport(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'resume-instructions.md')),
+      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'resume-instructions.md')),
       content: renderResumeInstructions(changeId)
     }
   ];
