@@ -1,3 +1,4 @@
+import { dirname, join } from 'node:path';
 import { readText } from '../../shared/fs.js';
 import { loadSkillRegistry } from './skill-registry.js';
 
@@ -28,6 +29,36 @@ function extractRunbookSection(body: string): string | null {
   return match === null ? null : match[1]!;
 }
 
+/**
+ * Load the runbook section, falling back to `references/runbook.md` if the
+ * SKILL.md only has a pointer section. This supports skills (notably
+ * `peaks-solo`) that extracted their 150-line bash runbook to a sibling
+ * reference to keep SKILL.md under the 800-line cap. The CLI
+ * `peaks skill runbook` command uses the same fallback so a human
+ * reviewer sees the full runbook regardless of where it lives.
+ *
+ * Strategy: prefer the LONGER of the two sections. A short pointer section
+ * in SKILL.md (~ 1-2 lines) is treated as a "this runbook is in the
+ * reference" marker; a long inline section (>= the reference length) is
+ * treated as the canonical runbook. This avoids the false positive where
+ * the pointer section's regex match returns a non-null but content-poor
+ * string.
+ */
+async function loadRunbookSection(skillPath: string, body: string): Promise<string | null> {
+  const inline = extractRunbookSection(body);
+  const refPath = join(dirname(skillPath), 'references', 'runbook.md');
+  let refSection: string | null = null;
+  try {
+    const refBody = await readText(refPath);
+    refSection = extractRunbookSection(refBody);
+  } catch {
+    // reference file does not exist or is not readable
+  }
+  if (inline === null) return refSection;
+  if (refSection === null) return inline;
+  return inline.length >= refSection.length ? inline : refSection;
+}
+
 function findDestructiveApplyLines(section: string): string[] {
   const lines = section.split(/\r?\n/);
   return lines.filter((line) => DESTRUCTIVE_APPLY_PATTERNS.some((pattern) => pattern.test(line)));
@@ -48,7 +79,7 @@ export async function inspectSkillRunbook(name: string, baseDir?: string): Promi
   }
 
   const body = await readText(skill.skillPath);
-  const section = extractRunbookSection(body);
+  const section = await loadRunbookSection(skill.skillPath, body);
   if (section === null) {
     return {
       name: skill.name,
