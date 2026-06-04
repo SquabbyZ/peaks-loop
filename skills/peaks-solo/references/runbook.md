@@ -18,6 +18,7 @@ peaks doctor --json
 peaks project dashboard --project <repo> --json
 peaks skill runbook peaks-solo --json
 peaks workspace init --project <repo> --json
+peaks workspace reconcile --project <repo> --json
 peaks scan archetype --project <repo> --json
 # → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
 # → copy libraries[] into .peaks/<session-id>/rd/project-scan.md under `## Library versions`
@@ -131,6 +132,7 @@ peaks sc boundary --slice-id <rid> --artifact <artifact> --code <file> --json
 # 9. Peaks-Cli OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
 peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
+peaks workspace reconcile --project <repo> --apply --older-than 7
 
 # 10. Peaks-Cli TXT handoff — invoke peaks-txt which embeds memory markers and extracts
 #     peaks-txt writes the handoff capsule to .peaks/<id>/txt/handoff.md. Inside the

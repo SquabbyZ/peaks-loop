@@ -1,7 +1,7 @@
-import { mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { pathsEqual } from '../../src/shared/path-utils.js';
 import { createDirectoryLinkSync } from '../../src/shared/fs-utils.js';
@@ -504,5 +504,117 @@ describe('peaks-sc service', () => {
     const noGitBoundary = recordCommitBoundary({ sliceId: 'slice-no-git' });
     expect(noGitBoundary.commitHash).toBeNull();
     expect(noGitBoundary.rollbackPoint).toBeNull();
+  });
+});
+
+describe('peaks-sc artifact session resolution (W4)', () => {
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = join(tmpdir(), `peaks-sc-resolve-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+    currentWorkspace = {
+      workspaceId: 'ws-sc-resolve',
+      name: 'SC Resolve Workspace',
+      rootPath: projectRoot,
+      installedCapabilityIds: []
+    };
+  });
+
+  afterEach(() => {
+    if (existsSync(projectRoot)) {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+    currentWorkspace = null;
+  });
+
+  function writeSessionDir(sessionId: string, files: string[]): void {
+    const dir = join(projectRoot, '.peaks', sessionId);
+    mkdirSync(dir, { recursive: true });
+    for (const rel of files) {
+      const full = join(dir, rel);
+      mkdirSync(join(full, '..'), { recursive: true });
+      writeFileSync(full, 'content', 'utf8');
+    }
+  }
+
+  function writeActiveSkill(sessionId: string | null): void {
+    const path = join(projectRoot, '.peaks', '.active-skill.json');
+    if (sessionId === null) {
+      if (existsSync(path)) rmSync(path);
+      return;
+    }
+    writeFileSync(path, JSON.stringify({ sessionId, skill: 'peaks-rd', mode: 'inline' }, null, 2), 'utf8');
+  }
+
+  function writeSessionJsonBinding(sessionId: string | null): void {
+    const path = join(projectRoot, '.peaks', '.session.json');
+    if (sessionId === null) {
+      if (existsSync(path)) rmSync(path);
+      return;
+    }
+    writeFileSync(path, JSON.stringify({ sessionId, projectRoot }, null, 2), 'utf8');
+  }
+
+  test('tier 1: active-skill sessionId wins when it owns the slice', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-cda1cd');
+    writeSessionDir('2026-06-04-session-89f7cb', ['qa/test-cases/2026-06-04-slice-x.md']);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-89f7cb');
+    expect(result.candidateSources).toEqual(['active-skill']);
+  });
+
+  test('tier 2: session.json fallback when active-skill does not own the slice', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-cda1cd');
+    // 89f7cb does NOT own the slice; cda1cd does.
+    writeSessionDir('2026-06-04-session-89f7cb', []);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-cda1cd');
+    expect(result.candidateSources).toEqual(['active-skill', 'session-json']);
+  });
+
+  test('tier 3: find-fallback when neither binding owns the slice', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-ec7f95');
+    // Neither binding owns the slice; a third session does.
+    writeSessionDir('2026-06-04-session-89f7cb', []);
+    writeSessionDir('2026-06-04-session-ec7f95', []);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-cda1cd');
+    expect(result.candidateSources).toEqual(['active-skill', 'session-json', 'find-fallback']);
+  });
+
+  test('no resolution: returns null resolvedSessionId when no session owns the slice', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-89f7cb');
+    writeSessionDir('2026-06-04-session-89f7cb', []);
+
+    const result = validateArtifactRetention('2026-06-04-slice-missing');
+
+    expect(result.resolvedSessionId).toBeNull();
+    expect(result.candidateSources).toEqual([]);
+  });
+
+  test('recordCommitBoundary also reports resolvedSessionId', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-89f7cb');
+    writeSessionDir('2026-06-04-session-89f7cb', []);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const boundary = recordCommitBoundary({ sliceId: '2026-06-04-slice-x' });
+
+    expect(boundary.resolvedSessionId).toBe('2026-06-04-session-cda1cd');
+    expect(boundary.candidateSources).toEqual(['active-skill', 'session-json', 'find-fallback']);
   });
 });

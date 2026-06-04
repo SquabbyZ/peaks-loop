@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
+import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { fail, ok } from '../../shared/result.js';
@@ -10,6 +11,16 @@ type WorkspaceInitOptions = {
   sessionId?: string;
   json?: boolean;
   allowSessionRebind?: boolean;
+};
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DEFAULT_RECONCILE_AGE_DAYS = 7;
+
+type WorkspaceReconcileOptions = {
+  project: string;
+  json?: boolean;
+  apply?: boolean;
+  olderThan?: number;
 };
 
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
@@ -93,6 +104,73 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       printResult(
         io,
         fail('workspace.init', 'WORKSPACE_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project, sessionId: options.sessionId }, ['Verify the project path exists and is writable']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    workspace
+      .command('reconcile')
+      .description(
+        'Scan .peaks/2026-MM-DD-session-*/ directories and re-point .peaks/.session.json ' +
+          'to the canonical session (4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
+          'latest any-file mtime -> dir-name sort). By default the command is a dry-run: it reports empty / abandoned ' +
+          `session dirs older than ${DEFAULT_RECONCILE_AGE_DAYS} days as deletion candidates but does not delete them. ` +
+          'Pass --apply to actually remove the listed candidate dirs (destructive). ' +
+          'Override the age threshold with --older-than <days>.'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--apply', 'actually delete the deletion candidates (destructive); without it, dry-run only', false)
+      .option('--older-than <days>', `age threshold in days for deletion candidates (default: ${DEFAULT_RECONCILE_AGE_DAYS})`, (value: string) => Number.parseFloat(value))
+  ).action((options: WorkspaceReconcileOptions) => {
+    try {
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      const olderThanDays = options.olderThan ?? DEFAULT_RECONCILE_AGE_DAYS;
+      if (typeof olderThanDays !== 'number' || !Number.isFinite(olderThanDays) || olderThanDays <= 0) {
+        printResult(
+          io,
+          fail('workspace.reconcile', 'INVALID_AGE_THRESHOLD', `--older-than must be a positive number of days`, { provided: options.olderThan }, ['Use --older-than 7 (or omit it to accept the 7-day default)']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const olderThanMs = olderThanDays * MS_PER_DAY;
+      const apply = options.apply === true;
+
+      const result = reconcileWorkspace({
+        projectRoot,
+        apply,
+        olderThanMs
+      });
+
+      const warnings: string[] = [];
+      if (result.sessions.length === 0) {
+        warnings.push('No session directories found under .peaks/. Run peaks workspace init first.');
+      }
+      if (apply && result.deleted.length > 0) {
+        warnings.push(`Deleted ${result.deleted.length} session dir(s) older than ${olderThanDays} day(s).`);
+      }
+
+      const nextActions: string[] = [];
+      if (result.repointed) {
+        nextActions.push(`Re-pointed .peaks/.session.json from ${result.repointedFrom ?? '<unbound>'} to ${result.repointedTo}.`);
+      }
+      if (!apply && result.wouldDelete.length > 0) {
+        nextActions.push(`Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`);
+      }
+
+      printResult(io, ok('workspace.reconcile', result, warnings, nextActions), options.json);
+
+      if (result.errors.length > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      printResult(
+        io,
+        fail('workspace.reconcile', 'WORKSPACE_RECONCILE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
         options.json
       );
       process.exitCode = 1;

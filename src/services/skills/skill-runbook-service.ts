@@ -7,7 +7,8 @@ const DESTRUCTIVE_APPLY_PATTERNS = [
   /peaks\s+memory\s+extract[^\n]*--apply/,
   /peaks\s+artifacts\s+sync[^\n]*--apply/,
   /peaks\s+openspec\s+archive[^\n]*--apply/,
-  /peaks\s+standards\s+(?:init|update)[^\n]*--apply/
+  /peaks\s+standards\s+(?:init|update)[^\n]*--apply/,
+  /peaks\s+workspace\s+reconcile[^\n]*--apply/
 ];
 
 const AUTHORIZATION_KEYWORDS_PATTERN = /authoriz|explicit|--dry-run|approv|only after|only when/i;
