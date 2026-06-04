@@ -51,5 +51,6 @@ export const requiredSchemaFiles = [
   'openspec-change-summary.schema.json',
   'openspec-render-request.schema.json',
   'openspec-validation-result.schema.json',
-  'doctor-report.schema.json'
+  'doctor-report.schema.json',
+  'library-breaking-changes.schema.json'
 ] as const;

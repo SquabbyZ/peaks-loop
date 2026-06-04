@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peaks Library Breaking Changes",
+  "description": "Manually-curated table of known breaking changes per (library, fromMajor, toMajor). Used by peaks-rd/qa to warn the LLM about deprecated APIs when writing code for projects on a newer major than the LLM's training data. Read by the LLM via the Read tool; the data file at library-breaking-changes.data.json holds the actual rows. Doctor validates parse-ability of this schema file.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["library", "fromMajor", "toMajor", "breakingChanges"],
+    "properties": {
+      "library": {
+        "type": "string",
+        "minLength": 1,
+        "description": "npm package name, e.g. 'antd', '@mui/material', 'react-router-dom'."
+      },
+      "fromMajor": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "The major version the breaking change applies FROM. LLM cross-references (project major === toMajor) to fire the warning."
+      },
+      "toMajor": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The major version the breaking change applies TO (i.e. the new major where the API changed)."
+      },
+      "breakingChanges": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["api", "replacement", "since"],
+          "properties": {
+            "api": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The deprecated/removed API call, e.g. 'Drawer.width'. Should be a substring that the LLM can grep for in the diff's import + JSX blocks."
+            },
+            "replacement": {
+              "type": "string",
+              "description": "The v2 API to use instead, e.g. 'Drawer.size'. If empty, the API is removed entirely (no v2 equivalent)."
+            },
+            "since": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$",
+              "description": "The semver string where this breaking change took effect, e.g. '5.0.0'. Matches the toMajor."
+            }
+          }
+        }
+      }
+    }
+  }
+}

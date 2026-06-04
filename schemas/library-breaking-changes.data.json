@@ -1,0 +1,73 @@
+[
+  {
+    "library": "antd",
+    "fromMajor": 4,
+    "toMajor": 5,
+    "breakingChanges": [
+      { "api": "Drawer.width", "replacement": "Drawer.size", "since": "5.0.0" },
+      { "api": "Modal.width (string)", "replacement": "Modal.width (number) or styles.body.width (number)", "since": "5.0.0" },
+      { "api": "Form.create()", "replacement": "App.useForm() (under <App>)", "since": "5.0.0" },
+      { "api": "message.useMessage()", "replacement": "App.useApp().message (under <App>)", "since": "5.0.0" },
+      { "api": "notification.useNotification()", "replacement": "App.useApp().notification (under <App>)", "since": "5.0.0" },
+      { "api": "import 'antd/dist/antd.css'", "replacement": "import 'antd/dist/reset.css'", "since": "5.0.0" },
+      { "api": "<Form.Item {...layout}", "replacement": "<Form layout='vertical' | 'horizontal'> (no per-item layout prop)", "since": "5.0.0" }
+    ]
+  },
+  {
+    "library": "@antv/g6",
+    "fromMajor": 4,
+    "toMajor": 5,
+    "breakingChanges": [
+      { "api": "new G6.Graph({ mode: 'default' })", "replacement": "new G6.Graph({ type: 'graph' })", "since": "5.0.0" },
+      { "api": "graph.read(data)", "replacement": "graph.setData(data); graph.render()", "since": "5.0.0" },
+      { "api": "graph.changeData(data)", "replacement": "graph.setData(data); graph.render()", "since": "5.0.0" },
+      { "api": "G6.registerBehavior('drag-canvas', { getEvents() { return { ... } } })", "replacement": "G6.registerBehavior({ key: 'drag-canvas', type: 'drag-canvas', getEvents() { return { ... } } })", "since": "5.0.0" }
+    ]
+  },
+  {
+    "library": "@mui/material",
+    "fromMajor": 4,
+    "toMajor": 5,
+    "breakingChanges": [
+      { "api": "import { Grid } from '@mui/material'", "replacement": "import Grid from '@mui/material/Grid2' (Grid renamed Grid2, separate import path)", "since": "5.0.0" },
+      { "api": "createTheme({ unstable_createRheaTheme: true })", "replacement": "createTheme({ cssVariables: true })", "since": "5.0.0" },
+      { "api": "<DialogTitle disableTypography>", "replacement": "<DialogTitle component='div'> (disableTypography removed; use component prop)", "since": "5.0.0" },
+      { "api": "<TextField variant='standard' InputLabelProps={{ shrink: true }}>", "replacement": "<TextField variant='standard' slotProps={{ inputLabel: { shrink: true } }}>", "since": "5.0.0" }
+    ]
+  },
+  {
+    "library": "react-router-dom",
+    "fromMajor": 5,
+    "toMajor": 6,
+    "breakingChanges": [
+      { "api": "<Switch>", "replacement": "<Routes>", "since": "6.0.0" },
+      { "api": "<Redirect>", "replacement": "<Navigate>", "since": "6.0.0" },
+      { "api": "useHistory()", "replacement": "useNavigate()", "since": "6.0.0" },
+      { "api": "match.params", "replacement": "useParams()", "since": "6.0.0" },
+      { "api": "withRouter(Component)", "replacement": "useNavigate() + useLocation() + useParams() hooks", "since": "6.0.0" },
+      { "api": "<Route component={Component} />", "replacement": "<Route element={<Component />} /> (component prop renamed element)", "since": "6.0.0" },
+      { "api": "<Route path='/:id' exact />", "replacement": "<Route path='/:id' /> (exact prop removed; paths match exactly by default)", "since": "6.0.0" }
+    ]
+  },
+  {
+    "library": "tailwindcss",
+    "fromMajor": 2,
+    "toMajor": 3,
+    "breakingChanges": [
+      { "api": "tailwind.config.js (CommonJS, no 'type' in package.json)", "replacement": "tailwind.config.cjs (CommonJS) or tailwind.config.ts (ESM)", "since": "3.0.0" },
+      { "api": "content: ['./src/**/*.{html,js}']", "replacement": "content: ['./src/**/*.{html,js,jsx,ts,tsx,vue,svelte}']", "since": "3.0.0" },
+      { "api": "@tailwindcss/typography (default import)", "replacement": "import typography from '@tailwindcss/typography' (named default; config: { plugins: [typography] })", "since": "3.0.0" },
+      { "api": "colors: { 'custom-blue': '#1da1f2' }", "replacement": "colors: { custom: { blue: '#1da1f2' } } (nested under named palette; tailwind.config reads as 'text-custom-blue' = 'text-custom-blue' still works but is a single nesting level removed)", "since": "3.0.0" }
+    ]
+  },
+  {
+    "library": "@reduxjs/toolkit",
+    "fromMajor": 1,
+    "toMajor": 2,
+    "breakingChanges": [
+      { "api": "import { createAsyncThunk, createReducer } from '@reduxjs/toolkit' (with manual pending/fulfilled/rejected handlers)", "replacement": "import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'; createSlice auto-generates pending/fulfilled/rejected matchers", "since": "2.0.0" },
+      { "api": "createSlice({ reducers: { ... }, extraReducers: (builder) => builder.addCase(...) })", "replacement": "createSlice({ reducers, extraReducers: (builder) => builder.addCase(...) }) — unchanged shape; check RTK 2.0 matchers for createAsyncThunk with builder.addMatcher", "since": "2.0.0" },
+      { "api": "configureStore({ reducer, middleware: (gDM) => gDM().concat(logger) })", "replacement": "configureStore({ reducer, middleware: (gDM) => gDM({ serializableCheck: false }).concat(logger) })", "since": "2.0.0" }
+    ]
+  }
+]

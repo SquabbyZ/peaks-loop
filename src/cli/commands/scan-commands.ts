@@ -5,6 +5,7 @@ import { checkTypeSanity } from '../../services/scan/type-sanity-service.js';
 import { getAcceptanceCoverage, isAcceptanceCoverageError } from '../../services/scan/acceptance-coverage-service.js';
 import { getDiffVsScope, isDiffScopeError } from '../../services/scan/diff-scope-service.js';
 import { scanFileSize, DEFAULT_FILE_SIZE_THRESHOLD } from '../../services/scan/file-size-scan.js';
+import { scanLibraries } from '../../services/scan/libraries-service.js';
 import { isRequestType, VALID_REQUEST_TYPES, type RequestType } from '../../services/artifacts/artifact-prerequisites.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -32,6 +33,11 @@ type FileSizeScanOptions = {
   project: string;
   baseRef?: string;
   threshold?: string;
+  json?: boolean;
+};
+
+type ScanLibrariesOptions = {
+  project: string;
   json?: boolean;
 };
 
@@ -282,6 +288,32 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('scan.file-size', 'FILE_SIZE_SCAN_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path is a git repository']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    scan
+      .command('libraries')
+      .description('Enumerate every dependency + devDependency + peerDependency + optionalDependency in package.json with parsed major version (read-only). Output goes to ## Library versions in rd/project-scan.md.')
+      .requiredOption('--project <path>', 'target project root')
+  ).action(async (options: ScanLibrariesOptions) => {
+    try {
+      const report = await scanLibraries({ projectRoot: options.project });
+      const nextActions: string[] = [];
+      if (report.libraries.length === 0) {
+        nextActions.push('No dependencies found — verify package.json exists and is valid JSON.');
+      } else {
+        nextActions.push('Paste the report under `## Library versions` in .peaks/<sid>/rd/project-scan.md.');
+        nextActions.push('peaks-rd preflight will cross-check diff imports against schemas/library-breaking-changes.data.json.');
+      }
+      printResult(io, ok('scan.libraries', report, [], nextActions), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('scan.libraries', 'SCAN_LIBRARIES_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is readable']),
         options.json
       );
       process.exitCode = 1;
