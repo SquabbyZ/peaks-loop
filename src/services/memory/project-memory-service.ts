@@ -3,7 +3,7 @@ import { dirname, basename, isAbsolute, join, relative, resolve } from 'node:pat
 import { isInsidePath, isWindowsAbsolutePath, normalizePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
 import { containsSensitiveConfigValue, isSensitiveConfigPath } from '../config/config-service.js';
 
-export type ProjectMemoryKind = 'project' | 'rule' | 'decision' | 'reference' | 'feedback' | 'convention' | 'module';
+export type ProjectMemoryKind = 'project' | 'rule' | 'decision' | 'reference' | 'feedback' | 'convention' | 'module' | 'lesson';
 
 export type ExtractedProjectMemory = {
   title: string;
@@ -130,7 +130,7 @@ export type ExtractSessionMemoriesResult = {
 };
 
 // Hot kinds: full body kept in index for always-available context
-const HOT_KINDS = new Set<ProjectMemoryKind>(['feedback', 'decision', 'rule', 'convention', 'module']);
+const HOT_KINDS = new Set<ProjectMemoryKind>(['feedback', 'decision', 'rule', 'convention', 'module', 'lesson']);
 
 type ExtractPlanOptions = {
   projectRoot: string;
@@ -150,7 +150,7 @@ type BackupPlanOptions = {
 
 const START_MARKER = '<!-- peaks-memory:start -->';
 const END_MARKER = '<!-- peaks-memory:end -->';
-const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module']);
+const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module', 'lesson']);
 
 // Length bounds for index entry descriptions. The numbers were chosen when
 // summarizeMemoryBody was first introduced; locking them in as named
@@ -467,7 +467,7 @@ function generateMemoryIndexFile(projectRoot: string, memoryDir: string, indexPa
   const memories = readProjectMemories(projectRoot);
 
   const hot: Record<string, MemoryIndexEntry[]> = {
-    feedback: [], decision: [], rule: [], convention: [], module: []
+    feedback: [], decision: [], rule: [], convention: [], module: [], lesson: []
   };
   const warm: Record<string, MemoryIndexEntry[]> = {
     project: [], reference: []
@@ -880,7 +880,8 @@ function emptyByKind(): Record<ProjectMemoryKind, StoredProjectMemory[]> {
     reference: [],
     feedback: [],
     convention: [],
-    module: []
+    module: [],
+    lesson: []
   };
 }
 
@@ -898,7 +899,8 @@ function emptyIndex(): MemoryIndex {
       decision: [],
       rule: [],
       convention: [],
-      module: []
+      module: [],
+      lesson: []
     } as unknown as Record<ProjectMemoryKind, MemoryIndexEntry[]>,
     warm: {
       project: [],

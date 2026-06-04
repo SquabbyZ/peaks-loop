@@ -174,7 +174,7 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       .command('memories')
       .description('Read durable project memories (decisions, conventions, modules, rules) from .peaks/memory for LLM consumption')
       .requiredOption('--project <path>', 'target project root')
-      .option('--kind <kind>', 'filter by kind: project, rule, decision, reference, feedback, convention, module')
+      .option('--kind <kind>', 'filter by kind: project, rule, decision, reference, feedback, convention, module, lesson')
   ).action((options: { project: string; kind?: string; json?: boolean }) => {
     try {
       const result = readProjectMemories(options.project);

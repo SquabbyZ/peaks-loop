@@ -1092,3 +1092,59 @@ describe('readMemoryIndex mtime-based regeneration guard', () => {
     expect(statSync(indexPath).mtimeMs).toBe(mtimeAfterFirst);
   });
 });
+
+describe('lesson memory kind roundtrip (LLM-discovered runtime lessons)', () => {
+  test('extractStableProjectMemories accepts kind: lesson (new hot kind added in this slice)', () => {
+    const artifact = [
+      '<!-- peaks-memory:start -->',
+      'title: antv6 Drawer uses size not width',
+      'kind: lesson',
+      '---',
+      'Project uses @antv/g6 v6.0.0. Drawer.width is deprecated; use Drawer.size. Learned 2026-06-04 during refactor slice buildArtifactRelativePath.',
+      '<!-- peaks-memory:end -->'
+    ].join('\n');
+
+    const memories = extractStableProjectMemories(artifact, 'rd/scan-libraries-dogfood.md');
+
+    expect(memories).toHaveLength(1);
+    expect(memories[0]?.kind).toBe('lesson');
+    expect(memories[0]?.title).toBe('antv6 Drawer uses size not width');
+    expect(memories[0]?.sourceArtifact).toBe('rd/scan-libraries-dogfood.md');
+  });
+
+  test('createProjectMemoryExtractPlan + executeProjectMemoryExtract --apply writes a lesson memory file to .peaks/memory/ and indexes it under hot/lesson', () => {
+    const projectRoot = createTempDir('peaks-memory-lesson-roundtrip');
+    const artifactPath = join(projectRoot, '.peaks', 'session-x', 'txt', 'handoff.md');
+    mkdirSync(join(projectRoot, '.peaks', 'session-x', 'txt'), { recursive: true });
+    writeFileSync(artifactPath, [
+      'Some prose above the marker.',
+      '<!-- peaks-memory:start -->',
+      'title: Always read schemas/library-breaking-changes.data.json before writing 3rd-party code',
+      'kind: lesson',
+      '---',
+      'peaks-rd preflight cross-references the diff imports against the breaking-changes table and warns the LLM. This lesson persists so future runs do not re-burn the same drift.',
+      '<!-- peaks-memory:end -->',
+      'Some prose below.'
+    ].join('\n'), 'utf8');
+
+    const plan = createProjectMemoryExtractPlan({ projectRoot, artifactPaths: [artifactPath], apply: false });
+    expect(plan.extractedMemories).toHaveLength(1);
+    expect(plan.extractedMemories[0]?.kind).toBe('lesson');
+
+    const result = executeProjectMemoryExtract({ projectRoot, artifactPaths: [artifactPath], apply: true });
+    expect(result.writtenFiles).toHaveLength(1);
+    const writtenPath = result.writtenFiles[0]!;
+    expect(existsSync(writtenPath)).toBe(true);
+    const writtenContent = readFileSync(writtenPath, 'utf8');
+    // Frontmatter uses `metadata.type: <kind>` (renderMemoryFile output), not `kind: <kind>` at top level.
+    expect(writtenContent).toMatch(/metadata:\s+type: lesson/);
+
+    const index = readMemoryIndex(projectRoot);
+    expect(index).not.toBeNull();
+    expect(index?.hot.lesson).toHaveLength(1);
+    expect(index?.hot.lesson[0]?.kind).toBe('lesson');
+    // The index entry uses the slugified name; verify the lesson is indexed under the correct kind.
+    expect(index?.hot.lesson[0]?.name).toMatch(/always-read-schemas-library-breaking-changes-data-json/);
+  });
+});
+
