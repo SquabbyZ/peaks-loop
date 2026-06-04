@@ -33,13 +33,15 @@ describe('skill presence service', () => {
   });
 
   describe('exportSkillPresence', () => {
-    test('returns the resolved path to the presence file', () => {
+    test('returns the resolved path to the presence file (canonical new path)', () => {
       const cwd = '/fake/project';
       vi.spyOn(process, 'cwd').mockReturnValue(cwd);
 
       const result = exportSkillPresence();
 
-      expect(result).toBe(resolve(cwd, '.peaks/.active-skill.json'));
+      // As of slice 2026-06-05-peaks-runtime-layer the canonical home
+      // is `.peaks/_runtime/active-skill.json`.
+      expect(result).toBe(resolve(cwd, '.peaks/_runtime/active-skill.json'));
     });
   });
 
@@ -56,7 +58,7 @@ describe('skill presence service', () => {
         expect(presence.gate).toBe('doctor');
         expect(presence.setAt).toBeTruthy();
 
-        const filePath = join(root, '.peaks', '.active-skill.json');
+        const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(filePath)).toBe(true);
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         expect(raw.skill).toBe('peaks-solo');
@@ -79,7 +81,7 @@ describe('skill presence service', () => {
         expect(presence.mode).toBeUndefined();
         expect(presence.gate).toBeUndefined();
 
-        const filePath = join(root, '.peaks', '.active-skill.json');
+        const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         expect(raw.mode).toBeUndefined();
         expect(raw.gate).toBeUndefined();
@@ -185,7 +187,7 @@ describe('skill presence service', () => {
 
         expect(presence.sessionId).toBe('2026-05-28-session-test01');
 
-        const filePath = join(root, '.peaks', '.active-skill.json');
+        const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         expect(raw.sessionId).toBe('2026-05-28-session-test01');
       } finally {
@@ -218,7 +220,7 @@ describe('skill presence service', () => {
         const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
 
         expect(presence.outerSessionId).toBe('claude-session-abc');
-        const raw = JSON.parse(readFileSync(join(root, '.peaks', '.active-skill.json'), 'utf8'));
+        const raw = JSON.parse(readFileSync(join(root, '.peaks', '_runtime', 'active-skill.json'), 'utf8'));
         expect(raw.outerSessionId).toBe('claude-session-abc');
       } finally {
         if (prev === undefined) delete process.env.CLAUDE_CODE_SESSION_ID;
@@ -491,7 +493,7 @@ describe('skill presence service', () => {
         writeSessionFile(root, '2026-05-28-session-old');
         setSkillPresence('peaks-solo', 'full-auto', 'startup');
 
-        const presencePath = join(root, '.peaks', '.active-skill.json');
+        const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(presencePath)).toBe(true);
 
         // Simulate new session B: overwrite .session.json
@@ -554,7 +556,7 @@ describe('skill presence service', () => {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         setSkillPresence('peaks-sc');
 
-        const filePath = join(root, '.peaks', '.active-skill.json');
+        const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(filePath)).toBe(true);
 
         const result = clearSkillPresence();
@@ -619,7 +621,7 @@ describe('skill presence service', () => {
         expect(updated!.skill).toBe('peaks-solo');
         expect(updated!.lastHeartbeat).not.toBe(originalHeartbeat);
         // Verify the file was actually updated
-        const filePath = join(root, '.peaks', '.active-skill.json');
+        const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
         expect(raw.lastHeartbeat).toBe(updated!.lastHeartbeat);
       } finally {
@@ -660,7 +662,7 @@ describe('skill presence service', () => {
         writeSessionFile(root, '2026-05-28-session-old');
         setSkillPresence('peaks-solo', 'full-auto', 'startup');
 
-        const presencePath = join(root, '.peaks', '.active-skill.json');
+        const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(presencePath)).toBe(true);
 
         // Simulate new session
@@ -755,7 +757,7 @@ describe('skill presence service', () => {
         const p1 = setSkillPresence('peaks-solo', 'full-auto', 'startup');
         expect(p1.sessionId).toBe('2026-05-28-session-a');
 
-        const presencePath = join(root, '.peaks', '.active-skill.json');
+        const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(presencePath)).toBe(true);
 
         // Session B: user starts a new session, should re-prompt for mode
@@ -839,5 +841,68 @@ describe('skill presence service', () => {
         rmSync(root, { recursive: true, force: true });
       }
     });
+  });
+});
+
+describe('skill presence — runtime path (slice 2026-06-05-peaks-runtime-layer)', () => {
+  test('setSkillPresence writes to .peaks/_runtime/active-skill.json, NOT the legacy path', () => {
+    const root = createTempDir();
+    try {
+      vi.spyOn(process, 'cwd').mockReturnValue(root);
+      setSkillPresence('peaks-solo', 'assisted', 'doctor');
+
+      const newPath = join(root, '.peaks', '_runtime', 'active-skill.json');
+      const legacyPath = join(root, '.peaks', '.active-skill.json');
+      expect(existsSync(newPath)).toBe(true);
+      // Legacy path is no longer written by current code.
+      expect(existsSync(legacyPath)).toBe(false);
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('getSkillPresence falls back to legacy .peaks/.active-skill.json when new path is absent', () => {
+    const root = createTempDir();
+    try {
+      vi.spyOn(process, 'cwd').mockReturnValue(root);
+      const peaksDir = join(root, '.peaks');
+      mkdirSync(peaksDir, { recursive: true });
+      writeFileSync(join(peaksDir, '.active-skill.json'), JSON.stringify({ skill: 'peaks-rd', mode: 'inline', gate: 'startup', setAt: '2026-06-05T00:00:00.000Z' }, null, 2), 'utf8');
+
+      const result = getSkillPresence(root);
+      expect(result?.skill).toBe('peaks-rd');
+      expect(result?.mode).toBe('inline');
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('getSkillPresence prefers the new path when both exist (back-compat: new wins)', () => {
+    const root = createTempDir();
+    try {
+      vi.spyOn(process, 'cwd').mockReturnValue(root);
+      // New path: peaks-solo
+      setSkillPresence('peaks-solo', 'assisted', 'doctor');
+      // Plant a stale entry at the legacy path.
+      const legacyPath = join(root, '.peaks', '.active-skill.json');
+      mkdirSync(join(root, '.peaks'), { recursive: true });
+      writeFileSync(legacyPath, JSON.stringify({ skill: 'peaks-rd', mode: 'inline', gate: 'startup' }, null, 2), 'utf8');
+
+      const result = getSkillPresence(root);
+      expect(result?.skill).toBe('peaks-solo');
+      expect(result?.mode).toBe('assisted');
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('exportSkillPresence returns the resolved path to the new canonical location', () => {
+    const cwd = '/fake/project';
+    vi.spyOn(process, 'cwd').mockReturnValue(cwd);
+    const result = exportSkillPresence();
+    expect(result).toBe(resolve(cwd, '.peaks/_runtime/active-skill.json'));
   });
 });

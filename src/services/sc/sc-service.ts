@@ -107,11 +107,15 @@ const SLICE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 
 /**
  * Resolution sources for `resolveArtifactSession`, in priority order.
- * - `active-skill`: the orchestrator's `.peaks/.active-skill.json` `sessionId`
- *   points to a session dir that owns the slice's marker artifact.
- * - `session-json`: the workspace binding in `.peaks/.session.json` points to
- *   a session dir that owns the slice's marker artifact (active-skill was
- *   checked but did not own it; session-json is the next source).
+ * - `active-skill`: the orchestrator's active-skill marker
+ *   (`.peaks/_runtime/active-skill.json`, with a one-minor-release
+ *   fallback to `.peaks/.active-skill.json`) `sessionId` points to a
+ *   session dir that owns the slice's marker artifact.
+ * - `session-json`: the workspace binding in
+ *   `.peaks/_runtime/session.json` (with back-compat fallback to
+ *   `.peaks/.session.json`) points to a session dir that owns the
+ *   slice's marker artifact (active-skill was checked but did not
+ *   own it; session-json is the next source).
  * - `find-fallback`: neither binding owned the artifact, but a `find`
  *   walk under `.peaks/` located a session dir that does own it.
  */
@@ -210,14 +214,23 @@ function isRetainedArtifactFile(filePath: string, artifactWorkspacePath: string,
 }
 
 /**
- * Read the orchestrator's active-skill marker at `<projectRoot>/.peaks/.active-skill.json`
- * and return its `sessionId`, or null when the file is missing / malformed.
+ * Read the orchestrator's active-skill marker and return its
+ * `sessionId`, or null when the file is missing / malformed.
+ *
+ * As of slice 2026-06-05-peaks-runtime-layer the canonical home is
+ * `<projectRoot>/.peaks/_runtime/active-skill.json`. The legacy
+ * `<projectRoot>/.peaks/.active-skill.json` is consulted as a
+ * one-minor-release back-compat fallback: if the new path is
+ * absent but the legacy path is present and valid, we use the
+ * legacy value. The new path always wins when both exist.
  */
 function readActiveSkillSessionId(projectRoot: string): string | null {
-  const path = join(projectRoot, '.peaks', '.active-skill.json');
-  if (!existsSync(path)) return null;
+  const newPath = join(projectRoot, '.peaks', '_runtime', 'active-skill.json');
+  const legacyPath = join(projectRoot, '.peaks', '.active-skill.json');
+  const pathToRead = existsSync(newPath) ? newPath : legacyPath;
+  if (!existsSync(pathToRead)) return null;
   try {
-    const raw = readFileSync(path, 'utf8');
+    const raw = readFileSync(pathToRead, 'utf8');
     const parsed = JSON.parse(raw) as { sessionId?: unknown };
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
@@ -229,14 +242,23 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
 }
 
 /**
- * Read the workspace session binding at `<projectRoot>/.peaks/.session.json`
- * and return its `sessionId`, or null when the file is missing / malformed.
+ * Read the workspace session binding and return its `sessionId`,
+ * or null when the file is missing / malformed.
+ *
+ * As of slice 2026-06-05-peaks-runtime-layer the canonical home is
+ * `<projectRoot>/.peaks/_runtime/session.json`. The legacy
+ * `<projectRoot>/.peaks/.session.json` is consulted as a
+ * one-minor-release back-compat fallback: if the new path is
+ * absent but the legacy path is present and valid, we use the
+ * legacy value. The new path always wins when both exist.
  */
 function readSessionJsonBinding(projectRoot: string): string | null {
-  const path = join(projectRoot, '.peaks', '.session.json');
-  if (!existsSync(path)) return null;
+  const newPath = join(projectRoot, '.peaks', '_runtime', 'session.json');
+  const legacyPath = join(projectRoot, '.peaks', '.session.json');
+  const pathToRead = existsSync(newPath) ? newPath : legacyPath;
+  if (!existsSync(pathToRead)) return null;
   try {
-    const raw = readFileSync(path, 'utf8');
+    const raw = readFileSync(pathToRead, 'utf8');
     const parsed = JSON.parse(raw) as { sessionId?: unknown };
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
@@ -293,13 +315,21 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
  * Resolve the session id that owns the slice's artifacts using a 3-tier
  * precedence:
  *
- *   1. `.peaks/.active-skill.json` `sessionId` if it points to a real
+ *   1. `.peaks/_runtime/active-skill.json` `sessionId` (with back-compat
+ *      fallback to `.peaks/.active-skill.json`) if it points to a real
  *      session that owns the slice.
- *   2. `.peaks/.session.json` `sessionId` if it points to a real session
- *      that owns the slice.
+ *   2. `.peaks/_runtime/session.json` `sessionId` (with back-compat
+ *      fallback to `.peaks/.session.json`) if it points to a real
+ *      session that owns the slice.
  *   3. `find .peaks/ -name '<marker>'` — the first session dir under
  *      `.peaks/` that owns the slice.
  *   4. else `{ resolvedSessionId: null, candidateSources: [] }`.
+ *
+ * The back-compat fallbacks are tolerated for one minor release so
+ * users with pre-migration trees (or running an older CLI version)
+ * still get a clean resolution. After the migration (or after v1.3.0
+ * is installed and `peaks workspace reconcile` has been run), only
+ * the new paths exist and the fallbacks never fire.
  *
  * `candidateSources` reports which sources were checked before the
  * resolver found (or did not find) a winner; the list is in the order

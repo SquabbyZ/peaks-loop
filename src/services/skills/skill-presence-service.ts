@@ -71,8 +71,16 @@ function getCurrentOuterSessionId(): string | undefined {
   return undefined;
 }
 
-const PRESENCE_FILE = '.peaks/.active-skill.json';
-const SESSION_FILE = '.peaks/.session.json';
+// As of slice 2026-06-05-peaks-runtime-layer the orchestrator's
+// active-skill marker lives under `.peaks/_runtime/active-skill.json`.
+// The legacy `.peaks/.active-skill.json` path is preserved as a
+// read-only fallback for one minor release so older CLI versions (or
+// trees that have not been migrated by `peaks workspace reconcile`)
+// keep working without a forced re-init.
+const PRESENCE_FILE = join('.peaks', '_runtime', 'active-skill.json');
+const PRESENCE_FILE_LEGACY = '.peaks/.active-skill.json';
+const SESSION_FILE = join('.peaks', '_runtime', 'session.json');
+const SESSION_FILE_LEGACY = '.peaks/.session.json';
 
 function resolveProjectRoot(override?: string): string {
   if (override) return resolve(override);
@@ -83,11 +91,42 @@ function resolvePresencePath(projectRootOverride?: string): string {
   return resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE);
 }
 
-function getCurrentSessionId(projectRootOverride?: string): string | null {
-  const sessionPath = resolve(resolveProjectRoot(projectRootOverride), SESSION_FILE);
-  if (!existsSync(sessionPath)) return null;
+/**
+ * Back-compat read for the active-skill marker. Prefers the new
+ * canonical `.peaks/_runtime/active-skill.json`; falls back to the
+ * legacy `.peaks/.active-skill.json` for one minor release.
+ *
+ * Returns the parsed SkillPresence object, or null when neither
+ * file is present / valid. The legacy file is never written by
+ * current code — only the new path receives writes.
+ */
+function readSkillPresenceBackCompat(projectRootOverride?: string): { presence: SkillPresence; path: string } | null {
+  const presencePath = resolvePresencePath(projectRootOverride);
+  const legacyPath = resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE_LEGACY);
+  const pathToRead = existsSync(presencePath) ? presencePath : legacyPath;
+  if (!existsSync(pathToRead)) return null;
   try {
-    const data = JSON.parse(readFileSync(sessionPath, 'utf8'));
+    const raw = readFileSync(pathToRead, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
+      return null;
+    }
+    return { presence: parsed as SkillPresence, path: pathToRead };
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentSessionId(projectRootOverride?: string): string | null {
+  const projectRoot = resolveProjectRoot(projectRootOverride);
+  const sessionPath = resolve(projectRoot, SESSION_FILE);
+  const legacyPath = resolve(projectRoot, SESSION_FILE_LEGACY);
+  // Back-compat window: prefer the new canonical path; fall back to the
+  // legacy `.peaks/.session.json` for one minor release.
+  const pathToRead = existsSync(sessionPath) ? sessionPath : legacyPath;
+  if (!existsSync(pathToRead)) return null;
+  try {
+    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
     return typeof data.sessionId === 'string' && data.sessionId.length > 0
       ? data.sessionId
       : null;
@@ -120,7 +159,7 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
 
 /**
  * Snapshot of the previous peaks session's outer session id, read
- * straight off `.peaks/.active-skill.json` *before* we overwrite it.
+ * straight off the active-skill marker *before* we overwrite it.
  * Used to detect "the LLM just opened a fresh outer session" — if
  * the previously-recorded outer session id differs from the one we
  * are about to stamp, the user probably closed the previous outer
@@ -133,25 +172,23 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
  * (most common when the swap is a no-op reconnect) or to roll a
  * fresh session (when the new outer session is genuinely a new
  * task).
+ *
+ * Reads from `.peaks/_runtime/active-skill.json` first; falls back to
+ * the legacy `.peaks/.active-skill.json` for one minor release.
  */
 function getPreviousOuterSessionId(projectRootOverride?: string): string | undefined {
-  const presencePath = resolvePresencePath(projectRootOverride);
-  if (!existsSync(presencePath)) return undefined;
-  try {
-    const raw = readFileSync(presencePath, 'utf8');
-    const parsed = JSON.parse(raw) as { outerSessionId?: unknown; claudeSessionId?: unknown };
-    if (typeof parsed.outerSessionId === 'string' && parsed.outerSessionId.length > 0) {
-      return parsed.outerSessionId;
-    }
-    // Legacy field name. Honour it on the read side so v1.2.x
-    // presence files do not show as a false mismatch.
-    if (typeof parsed.claudeSessionId === 'string' && parsed.claudeSessionId.length > 0) {
-      return parsed.claudeSessionId;
-    }
-    return undefined;
-  } catch {
-    return undefined;
+  const result = readSkillPresenceBackCompat(projectRootOverride);
+  if (result === null) return undefined;
+  const parsed = result.presence as { outerSessionId?: unknown; claudeSessionId?: unknown };
+  if (typeof parsed.outerSessionId === 'string' && parsed.outerSessionId.length > 0) {
+    return parsed.outerSessionId;
   }
+  // Legacy field name. Honour it on the read side so v1.2.x
+  // presence files do not show as a false mismatch.
+  if (typeof parsed.claudeSessionId === 'string' && parsed.claudeSessionId.length > 0) {
+    return parsed.claudeSessionId;
+  }
+  return undefined;
 }
 
 export function exportSkillPresence(projectRootOverride?: string): string {
@@ -231,71 +268,58 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
 }
 
 export function getSkillPresence(projectRootOverride?: string): SkillPresence | null {
-  const presencePath = resolvePresencePath(projectRootOverride);
-  if (!existsSync(presencePath)) {
-    return null;
-  }
-
-  try {
-    const raw = readFileSync(presencePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
+  const result = readSkillPresenceBackCompat(projectRootOverride);
+  if (result === null) return null;
+  const { presence, path: presencePath } = result;
+  if (typeof presence.sessionId === 'string' && presence.sessionId.length > 0) {
+    const currentSessionId = getCurrentSessionId(projectRootOverride);
+    if (currentSessionId && presence.sessionId !== currentSessionId) {
+      try {
+        unlinkSync(presencePath);
+      } catch {
+        // best effort
+      }
       return null;
     }
-
-    if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
-      const currentSessionId = getCurrentSessionId(projectRootOverride);
-      if (currentSessionId && parsed.sessionId !== currentSessionId) {
-        unlinkSync(presencePath);
-        return null;
-      }
-    }
-
-    return parsed as SkillPresence;
-  } catch {
-    return null;
   }
+  return presence;
 }
 
 export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence | null {
-  const presencePath = resolvePresencePath(projectRootOverride);
-  if (!existsSync(presencePath)) {
-    return null;
-  }
-
-  try {
-    const raw = readFileSync(presencePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    if (typeof parsed?.skill !== 'string' || parsed.skill.length === 0) {
+  const result = readSkillPresenceBackCompat(projectRootOverride);
+  if (result === null) return null;
+  const { presence, path: presencePath } = result;
+  if (typeof presence.sessionId === 'string' && presence.sessionId.length > 0) {
+    const currentSessionId = getCurrentSessionId(projectRootOverride);
+    if (currentSessionId && presence.sessionId !== currentSessionId) {
+      try {
+        unlinkSync(presencePath);
+      } catch {
+        // best effort
+      }
       return null;
     }
-
-    if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
-      const currentSessionId = getCurrentSessionId(projectRootOverride);
-      if (currentSessionId && parsed.sessionId !== currentSessionId) {
-        unlinkSync(presencePath);
-        return null;
-      }
-    }
-
-    parsed.lastHeartbeat = new Date().toISOString();
-    writeFileSync(presencePath, JSON.stringify(parsed, null, 2), 'utf8');
-    return parsed as SkillPresence;
-  } catch {
-    return null;
   }
+  presence.lastHeartbeat = new Date().toISOString();
+  writeFileSync(presencePath, JSON.stringify(presence, null, 2), 'utf8');
+  return presence;
 }
 
 export function clearSkillPresence(projectRootOverride?: string): boolean {
+  // Clear both the new canonical path and the legacy path, so a stale
+  // presence marker from a prior CLI version cannot resurrect after
+  // a fresh `clear`.
   const presencePath = resolvePresencePath(projectRootOverride);
-  if (!existsSync(presencePath)) {
-    return false;
+  const legacyPath = resolve(resolveProjectRoot(projectRootOverride), PRESENCE_FILE_LEGACY);
+  let cleared = false;
+  for (const p of [presencePath, legacyPath]) {
+    if (!existsSync(p)) continue;
+    try {
+      unlinkSync(p);
+      cleared = true;
+    } catch {
+      // best effort
+    }
   }
-
-  try {
-    unlinkSync(presencePath);
-    return true;
-  } catch {
-    return false;
-  }
+  return cleared;
 }

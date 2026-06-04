@@ -7,17 +7,20 @@ import { findProjectRoot } from '../config/config-safety.js';
  *
  * Claude Code invokes the configured statusLine command on every turn and pipes
  * a JSON session payload on stdin. This renderer reads the durable presence file
- * (.peaks/.active-skill.json) and prints a single line that Claude Code paints at
- * the bottom of the terminal. Because it is rendered by the harness — not emitted
- * as LLM tokens — the signal cannot be forgotten by the model, cannot be confused
- * with normal output, and survives context compaction.
+ * (`.peaks/_runtime/active-skill.json`, with a one-minor-release back-compat
+ * fallback to `.peaks/.active-skill.json`) and prints a single line that
+ * Claude Code paints at the bottom of the terminal. Because it is rendered
+ * by the harness — not emitted as LLM tokens — the signal cannot be forgotten
+ * by the model, cannot be confused with normal output, and survives context
+ * compaction.
  *
  * This module is intentionally READ-ONLY. Unlike getSkillPresence in
  * skill-presence-service.ts, it never deletes or rewrites the presence file:
  * the statusLine runs on every turn and must have zero side effects.
  */
 
-const PRESENCE_FILE = '.peaks/.active-skill.json';
+const PRESENCE_FILE = '.peaks/_runtime/active-skill.json';
+const PRESENCE_FILE_LEGACY = '.peaks/.active-skill.json';
 const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 export type StatusLineStdin = {
@@ -74,11 +77,14 @@ export function parseStatusLineStdin(raw: string): StatusLineStdin | null {
  */
 function readPresenceReadOnly(projectRoot: string): { presence: StatusLinePresence | null; invalid: boolean } {
   const presencePath = resolve(projectRoot, PRESENCE_FILE);
-  if (!existsSync(presencePath)) {
+  // Back-compat: prefer the new canonical path; fall back to the legacy
+  // `.peaks/.active-skill.json` for one minor release.
+  const pathToRead = existsSync(presencePath) ? presencePath : resolve(projectRoot, PRESENCE_FILE_LEGACY);
+  if (!existsSync(pathToRead)) {
     return { presence: null, invalid: false };
   }
   try {
-    const parsed: unknown = JSON.parse(readFileSync(presencePath, 'utf8'));
+    const parsed: unknown = JSON.parse(readFileSync(pathToRead, 'utf8'));
     if (!parsed || typeof parsed !== 'object') {
       return { presence: null, invalid: true };
     }

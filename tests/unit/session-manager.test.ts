@@ -33,7 +33,9 @@ describe('session-manager', () => {
 
       expect(sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
 
-      const sessionFile = join(testProjectRoot, '.peaks', '.session.json');
+      // As of slice 2026-06-05-peaks-runtime-layer the binding lives
+      // at the canonical new path `.peaks/_runtime/session.json`.
+      const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
       expect(existsSync(sessionFile)).toBe(true);
 
       const sessionDir = join(testProjectRoot, '.peaks', sessionId);
@@ -70,7 +72,9 @@ describe('session-manager', () => {
         const sid = await ensureSession(noPeaksDir);
         expect(sid).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
         expect(existsSync(join(noPeaksDir, '.peaks'))).toBe(true);
-        expect(existsSync(join(noPeaksDir, '.peaks', '.session.json'))).toBe(true);
+        // The binding now lives at `.peaks/_runtime/session.json`
+        // (canonical home as of slice 2026-06-05-peaks-runtime-layer).
+        expect(existsSync(join(noPeaksDir, '.peaks', '_runtime', 'session.json'))).toBe(true);
       } finally {
         rmSync(noPeaksDir, { recursive: true, force: true });
       }

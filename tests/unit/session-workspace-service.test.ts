@@ -191,3 +191,45 @@ describe('initWorkspace', () => {
     expect(second.created).not.toContain('qa/screenshots');
   });
 });
+
+describe('runtime path (slice 2026-06-05-peaks-runtime-layer)', () => {
+  test('initWorkspace writes the session binding to .peaks/_runtime/session.json', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-06-05-runtime-layer' });
+    const newPath = join(project, '.peaks', '_runtime', 'session.json');
+    const { stat: fsStat, readFile: rf } = await import('node:fs/promises');
+    const newStat = await fsStat(newPath);
+    expect(newStat.isFile()).toBe(true);
+    const parsed = JSON.parse(await rf(newPath, 'utf8'));
+    expect(parsed.sessionId).toBe('2026-06-05-runtime-layer');
+    // Legacy path is NOT written by current code.
+    const legacyPath = join(project, '.peaks', '.session.json');
+    await expect(fsStat(legacyPath)).rejects.toThrow();
+  });
+
+  test('getSessionId falls back to legacy .peaks/.session.json when new path is absent', async () => {
+    const project = await makeProject();
+    const legacyPath = join(project, '.peaks', '.session.json');
+    await mkdir(join(project, '.peaks'), { recursive: true });
+    await writeFile(
+      legacyPath,
+      JSON.stringify({ sessionId: '2026-06-05-legacy-binding', projectRoot: project, createdAt: new Date().toISOString() }),
+      'utf8'
+    );
+    expect(getSessionId(project)).toBe('2026-06-05-legacy-binding');
+  });
+
+  test('getSessionId prefers the new path when both exist (back-compat window: new wins)', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-06-05-new-binding' });
+    // Plant a different binding at the legacy path (the pre-migration
+    // state on a pre-migration tree). The new path must still win.
+    const legacyPath = join(project, '.peaks', '.session.json');
+    await writeFile(
+      legacyPath,
+      JSON.stringify({ sessionId: '2026-06-05-stale-legacy', projectRoot: project, createdAt: new Date().toISOString() }),
+      'utf8'
+    );
+    expect(getSessionId(project)).toBe('2026-06-05-new-binding');
+  });
+});

@@ -10,12 +10,8 @@ coverage/
 # Peaks transient/per-session state (regenerable, not shared knowledge)
 .peaks/**/.bypass-count.json
 .peaks/ontology.json
-# Per-project SOP run-state (current phase + history); definitions live globally in ~/.peaks
-.peaks/sop-state/
-# Peaks runtime session bindings (drift constantly; canonical binding lives in .peaks/<session-id>/session.json which IS committed under the per-slice 提交中间产物 convention)
-.peaks/.active-skill.json
-.peaks/.session.json
-.peaks/session.json
+# Peaks runtime state (active-skill, session binding, sop-state, etc.) — self-documenting layer; canonical home for all per-project ephemeral state
+.peaks/_runtime/
 # Test / debug backups left by sub-agent baselines (e.g. .peaks/.active-skill.json.test-bak from QA's git-stash verification)
 .peaks/*.bak
 .peaks/*.test-bak

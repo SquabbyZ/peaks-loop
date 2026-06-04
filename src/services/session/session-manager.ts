@@ -7,7 +7,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
 
@@ -40,8 +40,18 @@ export type SessionMeta = {
   outerSessionId?: string;
 };
 
-const SESSION_FILE = '.session.json';
+// As of slice 2026-06-05-peaks-runtime-layer the project-level session
+// binding lives under `.peaks/_runtime/session.json`. The legacy
+// `.peaks/.session.json` path is preserved as a read-only fallback for one
+// minor release so older CLI versions (or trees that have not been migrated
+// by `peaks workspace reconcile`) keep working without a forced re-init.
+const SESSION_FILE = join('_runtime', 'session.json');
+const LEGACY_SESSION_FILE = '.session.json';
 const META_FILE = 'session.json';
+
+function getLegacySessionFilePath(projectRoot: string): string {
+  return join(projectRoot, '.peaks', LEGACY_SESSION_FILE);
+}
 
 /**
  * Canonicalize a project root path. Returns the realpath
@@ -102,7 +112,9 @@ function generateSessionId(): string {
 }
 
 /**
- * Get the path to the session file for a project.
+ * Get the path to the session file for a project. The canonical home is
+ * `.peaks/_runtime/session.json`; the legacy `.peaks/.session.json` is
+ * read-only fallback (see `readSessionFile`).
  */
 function getSessionFilePath(projectRoot: string): string {
   return join(projectRoot, '.peaks', SESSION_FILE);
@@ -127,10 +139,15 @@ function getSessionFilePath(projectRoot: string): string {
  */
 function readSessionFile(projectRoot: string): SessionInfo | null {
   const sessionFile = getSessionFilePath(projectRoot);
-  if (!existsSync(sessionFile)) return null;
+  const legacyFile = getLegacySessionFilePath(projectRoot);
+  // Back-compat window: prefer the new canonical path; fall back to the
+  // legacy `.peaks/.session.json` so older CLI versions or pre-migration
+  // trees keep working. When both exist, the new path wins.
+  const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
+  if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(sessionFile, 'utf8'));
+    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
     if (data.sessionId && data.projectRoot === projectRoot) {
       return data as SessionInfo;
     }
@@ -151,10 +168,14 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
  */
 function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
   const sessionFile = getSessionFilePath(projectRoot);
-  if (!existsSync(sessionFile)) return null;
+  const legacyFile = getLegacySessionFilePath(projectRoot);
+  // Back-compat window: prefer the new canonical path; fall back to the
+  // legacy `.peaks/.session.json` for one minor release.
+  const pathToRead = existsSync(sessionFile) ? sessionFile : legacyFile;
+  if (!existsSync(pathToRead)) return null;
 
   try {
-    const data = JSON.parse(readFileSync(sessionFile, 'utf8'));
+    const data = JSON.parse(readFileSync(pathToRead, 'utf8'));
     const storedRaw = typeof data.projectRoot === 'string' ? data.projectRoot : null;
     if (
       data.sessionId &&
@@ -170,11 +191,14 @@ function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
 }
 
 /**
- * Write session info to disk.
+ * Write session info to disk at the canonical new path
+ * `.peaks/_runtime/session.json`. The `.peaks/_runtime/` directory is
+ * created on demand. The legacy `.peaks/.session.json` is NOT written by
+ * this slice; it is only read for back-compat.
  */
 function writeSessionFile(projectRoot: string, info: SessionInfo): void {
   const sessionFile = getSessionFilePath(projectRoot);
-  const dir = join(projectRoot, '.peaks');
+  const dir = dirname(sessionFile);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
@@ -182,11 +206,13 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
 }
 
 /**
- * Drop the project-level session binding (`.peaks/.session.json`)
- * so the next `ensureSession()` call auto-generates a fresh
- * session id. The on-disk session directory is left intact —
- * rotating does NOT delete the user's data, it just unbinds the
- * project from that session.
+ * Drop the project-level session binding at the canonical
+ * `.peaks/_runtime/session.json` so the next `ensureSession()` call
+ * auto-generates a fresh session id. The on-disk session directory
+ * is left intact — rotating does NOT delete the user's data, it
+ * just unbinds the project from that session. Also drops the legacy
+ * `.peaks/.session.json` if present so a stale read from another
+ * tool cannot re-bind the project after rotation.
  *
  * Returns the id of the session that was unbound, or `null` if
  * no binding was present. The caller is expected to do something
@@ -201,6 +227,14 @@ export function rotateSessionBinding(projectRoot: string): string | null {
   const sessionFile = getSessionFilePath(projectRoot);
   if (existsSync(sessionFile)) {
     unlinkSync(sessionFile);
+  }
+  const legacyFile = getLegacySessionFilePath(projectRoot);
+  if (existsSync(legacyFile)) {
+    try {
+      unlinkSync(legacyFile);
+    } catch {
+      // best-effort: a stale legacy binding is not blocking
+    }
   }
   return previous.sessionId;
 }

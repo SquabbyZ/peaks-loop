@@ -41,7 +41,7 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       //     session, unless --allow-session-rebind is set)
       //   - omitted: defer to ensureSession(), which reuses an existing
       //     binding or auto-generates a fresh one. The init then writes
-      //     .session.json so the binding sticks.
+      //     .peaks/_runtime/session.json so the binding sticks.
       //
       // Before that: canonicalise the project root. If the user (or the
       // LLM via "$(pwd)") passed a sub-directory of a real git repo
@@ -114,9 +114,11 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
     workspace
       .command('reconcile')
       .description(
-        'Scan .peaks/2026-MM-DD-session-*/ directories and re-point .peaks/.session.json ' +
+        'Scan .peaks/2026-MM-DD-session-*/ directories and re-point .peaks/_runtime/session.json ' +
           'to the canonical session (4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
-          'latest any-file mtime -> dir-name sort). By default the command is a dry-run: it reports empty / abandoned ' +
+          'latest any-file mtime -> dir-name sort). Also migrates any legacy .peaks/.session.json / ' +
+          '.peaks/.active-skill.json / .peaks/sop-state/ into .peaks/_runtime/ (idempotent; no-op on a ' +
+          'tree that is already on the new layout). By default the command is a dry-run: it reports empty / abandoned ' +
           `session dirs older than ${DEFAULT_RECONCILE_AGE_DAYS} days as deletion candidates but does not delete them. ` +
           'Pass --apply to actually remove the listed candidate dirs (destructive). ' +
           'Override the age threshold with --older-than <days>.'
@@ -155,8 +157,11 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       }
 
       const nextActions: string[] = [];
+      if (result.migratedFiles.length > 0) {
+        nextActions.push(`Migrated ${result.migratedFiles.length} legacy runtime file(s) into .peaks/_runtime/: ${result.migratedFiles.join(', ')}.`);
+      }
       if (result.repointed) {
-        nextActions.push(`Re-pointed .peaks/.session.json from ${result.repointedFrom ?? '<unbound>'} to ${result.repointedTo}.`);
+        nextActions.push(`Re-pointed .peaks/_runtime/session.json from ${result.repointedFrom ?? '<unbound>'} to ${result.repointedTo}.`);
       }
       if (!apply && result.wouldDelete.length > 0) {
         nextActions.push(`Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`);

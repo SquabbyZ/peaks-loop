@@ -3,15 +3,22 @@
  *
  * Reconcile scans the project root's `.peaks/` directory, identifies a
  * canonical session via a 4-tier heuristic, re-points
- * `.peaks/.session.json`, and (optionally, with apply === true)
- * deletes empty / abandoned session dirs older than olderThanMs.
+ * `.peaks/_runtime/session.json` (the canonical new home of the
+ * binding; legacy `.peaks/.session.json` is read-only back-compat),
+ * and (optionally, with apply === true) deletes empty / abandoned
+ * session dirs older than olderThanMs.
+ *
+ * As of slice 2026-06-05-peaks-runtime-layer the top-level orchestrator
+ * also runs `migrateOldRuntimeState` at the start so pre-migration
+ * trees have their `.peaks/.session.json` / `.peaks/.active-skill.json`
+ * / `.peaks/sop-state/` files moved into `.peaks/_runtime/`.
  *
  * Pure hand-rolled; uses only node:fs, node:path, and the existing
  * session-manager helper for writing the binding. No new dependencies.
  */
 
-import { existsSync, lstatSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
 import type {
   ReconcileOptions,
@@ -21,6 +28,31 @@ import type {
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
 const META_FILE = 'session.json';
+
+// As of slice 2026-06-05-peaks-runtime-layer these old paths are the
+// back-compat read-only fallbacks; the canonical new home is
+// `.peaks/_runtime/`. `migrateOldRuntimeState` moves them to the new
+// location on disk. The leading dot is dropped when computing the
+// new basename (e.g. `.session.json` → `session.json`), so the new
+// layout is `.peaks/_runtime/{session.json,active-skill.json,sop-state/}`.
+const RUNTIME_OLD_PATHS: ReadonlyArray<string> = [
+  '.session.json',
+  '.active-skill.json',
+  'sop-state'
+];
+const RUNTIME_DIR = join('.peaks', '_runtime');
+
+/**
+ * Map a legacy path basename (e.g. `.session.json`) to its canonical
+ * new basename (e.g. `session.json`). The dot is dropped so the new
+ * layer reads naturally. Directories pass through unchanged.
+ */
+function runtimeNewBasename(oldBasename: string): string {
+  if (oldBasename.startsWith('.') && oldBasename.length > 1) {
+    return oldBasename.slice(1);
+  }
+  return oldBasename;
+}
 
 /**
  * Walk the project root's `.peaks/` directory and return an entry per
@@ -264,16 +296,23 @@ export function applyDeletions(
 }
 
 /**
- * Read `.peaks/.active-skill.json` to extract the orchestrator's
- * session id. Returns null when the file is missing or malformed.
+ * Read the orchestrator's active-skill marker and extract the
+ * session id. As of slice 2026-06-05-peaks-runtime-layer the
+ * canonical home is `.peaks/_runtime/active-skill.json`; the legacy
+ * `.peaks/.active-skill.json` is consulted as a one-minor-release
+ * back-compat fallback (the new path wins when both exist).
+ *
+ * Returns null when the file is missing or malformed.
  */
 function readActiveSkillSessionId(projectRoot: string): string | null {
-  const path = join(projectRoot, '.peaks', '.active-skill.json');
-  if (!existsSync(path)) return null;
+  const newPath = join(projectRoot, '.peaks', '_runtime', 'active-skill.json');
+  const legacyPath = join(projectRoot, '.peaks', '.active-skill.json');
+  const pathToRead = existsSync(newPath) ? newPath : legacyPath;
+  if (!existsSync(pathToRead)) return null;
   try {
     // Sync read: tiny file, no I/O benefit from async
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
-    const raw = readFileSync(path, 'utf8');
+    const raw = readFileSync(pathToRead, 'utf8');
     const parsed = JSON.parse(raw) as { sessionId?: unknown };
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
@@ -285,13 +324,127 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
 }
 
 /**
- * Top-level orchestrator. Wires discovery, canonical pick, re-point,
+ * One-time migration step (added in slice 2026-06-05-peaks-runtime-layer).
+ *
+ * Move the legacy runtime files at:
+ *   - `.peaks/.session.json`
+ *   - `.peaks/.active-skill.json`
+ *   - `.peaks/sop-state/`
+ * into their new canonical home at:
+ *   - `.peaks/_runtime/session.json`
+ *   - `.peaks/_runtime/active-skill.json`
+ *   - `.peaks/_runtime/sop-state/`
+ *
+ * Behavior:
+ *   - Idempotent: re-running on a tree that is already on the new
+ *     layout produces `migratedFiles: []`.
+ *   - Best-effort: uses `fs.renameSync` (atomic on POSIX, best-effort
+ *     on Windows) and falls back to `copyFileSync` + `unlinkSync` if
+ *     rename throws (e.g. cross-device move on Windows). Errors are
+ *     collected per file and returned in the `errors` array so the
+ *     reconcile envelope can surface them without blocking the rest of
+ *     the migration.
+ *   - Creates `.peaks/_runtime/` on demand if any of the old paths
+ *     are present.
+ *
+ * @returns `{ migratedFiles, errors }`. `migratedFiles` lists the
+ *   *old* relative paths (e.g. `.peaks/.session.json`) that were
+ *   successfully moved, in move order. `errors` lists per-file
+ *   failures with the old path and a human-readable message.
+ */
+export function migrateOldRuntimeState(projectRoot: string): { migratedFiles: string[]; errors: Array<{ path: string; message: string }> } {
+  const root = resolve(projectRoot);
+  const peaksRoot = join(root, '.peaks');
+  const newDir = join(root, RUNTIME_DIR);
+  const migratedFiles: string[] = [];
+  const errors: Array<{ path: string; message: string }> = [];
+
+  for (const rel of RUNTIME_OLD_PATHS) {
+    const oldPath = join(peaksRoot, rel);
+    if (!existsSync(oldPath)) continue;
+    // Skip if the corresponding new path already exists — we treat the
+    // new path as authoritative when both exist, so the old file would
+    // only be stale data.
+    const newPath = join(newDir, runtimeNewBasename(rel));
+    if (existsSync(newPath)) {
+      // Best-effort cleanup of the stale old file so a re-run stays
+      // idempotent and the tree converges on the new layout.
+      try {
+        rmSync(oldPath, { recursive: true, force: true });
+      } catch (error) {
+        errors.push({
+          path: rel,
+          message: `Could not remove stale legacy file after migration: ${error instanceof Error ? error.message : String(error)}`
+        });
+      }
+      continue;
+    }
+    try {
+      // Ensure the new parent dir exists. `mkdirSync(dirname(newPath), { recursive: true })`
+      // covers both the file case (`.peaks/_runtime`) and the
+      // directory case (`.peaks/_runtime/sop-state`).
+      mkdirSync(dirname(newPath), { recursive: true });
+      try {
+        renameSync(oldPath, newPath);
+      } catch (renameError) {
+        // Cross-device or locked-file fallback: copy + unlink.
+        const stat = lstatSync(oldPath);
+        if (stat.isDirectory()) {
+          // Recursive copy for the sop-state dir.
+          copyDirRecursiveSync(oldPath, newPath);
+          rmSync(oldPath, { recursive: true, force: true });
+        } else {
+          copyFileSync(oldPath, newPath);
+          unlinkSync(oldPath);
+        }
+      }
+      migratedFiles.push(join('.peaks', rel));
+    } catch (error) {
+      errors.push({
+        path: rel,
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  return { migratedFiles, errors };
+}
+
+function copyDirRecursiveSync(src: string, dest: string): void {
+  mkdirSync(dest, { recursive: true });
+  for (const name of readdirSync(src)) {
+    const childSrc = join(src, name);
+    const childDest = join(dest, name);
+    const stat = lstatSync(childSrc);
+    if (stat.isDirectory()) {
+      copyDirRecursiveSync(childSrc, childDest);
+    } else {
+      copyFileSync(childSrc, childDest);
+    }
+  }
+}
+
+/**
+ * Top-level orchestrator. Wires migration (added in slice
+ * 2026-06-05-peaks-runtime-layer), discovery, canonical pick, re-point,
  * deletion-candidate selection, and deletion into a single result.
  */
 export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   const projectRoot = resolve(options.projectRoot);
   const apply = options.apply === true;
   const ageThresholdMs = options.olderThanMs;
+
+  // Migration runs FIRST. The canonical-session logic still consults
+  // the session-manager helper which already reads the new path first
+  // and falls back to the old path; moving the old file out of the way
+  // before that read means the new path is the only path observed by
+  // `getSessionIdCanonical` after this call returns.
+  const migration = migrateOldRuntimeState(projectRoot);
+  const migrateErrors: Array<{ kind: 'migrate'; path: string; message: string }> = migration.errors.map((e) => ({
+    kind: 'migrate' as const,
+    path: e.path,
+    message: e.message
+  }));
 
   const sessions = discoverSessions(projectRoot);
   const activeSkillSessionId = readActiveSkillSessionId(projectRoot);
@@ -332,6 +485,7 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
     ageThresholdMs,
     apply,
     repointed,
-    errors: deletionResult.errors
+    migratedFiles: migration.migratedFiles,
+    errors: [...migrateErrors, ...deletionResult.errors]
   };
 }

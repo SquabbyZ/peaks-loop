@@ -6,6 +6,7 @@ import {
   applyDeletions,
   discoverSessions,
   findDeletionCandidates,
+  migrateOldRuntimeState,
   pickCanonicalSession,
   reconcileWorkspace,
   repointSessionJson
@@ -349,5 +350,76 @@ describe('reconcileWorkspace (top-level orchestrator)', () => {
     expect(result.repointedFrom).toBe('2026-06-01-session-aaaaaa');
     expect(result.repointedTo).toBe('2026-06-01-session-aaaaaa');
     expect(result.repointed).toBe(false);
+  });
+});
+
+describe('migrateOldRuntimeState (slice 2026-06-05-peaks-runtime-layer)', () => {
+  beforeEach(() => { projectRoot = makeProject(); });
+  afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
+
+  test('moves the 3 old-path files into .peaks/_runtime/ and reports them in migratedFiles', () => {
+    // Pre-seed the 3 old-path files in their legacy locations.
+    writeFileSync(join(projectRoot, '.peaks', '.session.json'), JSON.stringify({ sessionId: '2026-06-04-session-aaaaaa', projectRoot, createdAt: new Date().toISOString() }, null, 2), 'utf8');
+    writeFileSync(join(projectRoot, '.peaks', '.active-skill.json'), JSON.stringify({ skill: 'peaks-rd', sessionId: '2026-06-04-session-aaaaaa' }, null, 2), 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'sop-state'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'sop-state', 'phase.json'), JSON.stringify({ phase: 'startup' }, null, 2), 'utf8');
+
+    const result = migrateOldRuntimeState(projectRoot);
+
+    expect(result.errors).toEqual([]);
+    expect(result.migratedFiles).toEqual([
+      join('.peaks', '.session.json'),
+      join('.peaks', '.active-skill.json'),
+      join('.peaks', 'sop-state')
+    ]);
+    expect(existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', '_runtime', 'active-skill.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', '_runtime', 'sop-state', 'phase.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', '.session.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.peaks', '.active-skill.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.peaks', 'sop-state'))).toBe(false);
+  });
+
+  test('is idempotent: second call returns migratedFiles: []', () => {
+    writeFileSync(join(projectRoot, '.peaks', '.session.json'), JSON.stringify({ sessionId: '2026-06-04-session-aaaaaa', projectRoot }, null, 2), 'utf8');
+
+    const first = migrateOldRuntimeState(projectRoot);
+    expect(first.migratedFiles.length).toBeGreaterThan(0);
+
+    const second = migrateOldRuntimeState(projectRoot);
+    expect(second.migratedFiles).toEqual([]);
+    expect(second.errors).toEqual([]);
+  });
+
+  test('returns empty migratedFiles when no old-path files exist', () => {
+    const result = migrateOldRuntimeState(projectRoot);
+    expect(result.migratedFiles).toEqual([]);
+    expect(result.errors).toEqual([]);
+  });
+
+  test('reconcileWorkspace exposes migratedFiles additively on the envelope', () => {
+    writeFileSync(join(projectRoot, '.peaks', '.session.json'), JSON.stringify({ sessionId: '2026-06-04-session-aaaaaa', projectRoot }, null, 2), 'utf8');
+    writeFileSync(join(projectRoot, '.peaks', '.active-skill.json'), JSON.stringify({ skill: 'peaks-rd', sessionId: '2026-06-04-session-aaaaaa' }, null, 2), 'utf8');
+    mkdirSync(join(projectRoot, '.peaks', 'sop-state'), { recursive: true });
+    writeFileSync(join(projectRoot, '.peaks', 'sop-state', 'phase.json'), '{}', 'utf8');
+
+    const result = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+
+    expect(result.migratedFiles).toEqual([
+      join('.peaks', '.session.json'),
+      join('.peaks', '.active-skill.json'),
+      join('.peaks', 'sop-state')
+    ]);
+    // Idempotent re-run produces no diff on migratedFiles.
+    const second = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+    expect(second.migratedFiles).toEqual([]);
   });
 });

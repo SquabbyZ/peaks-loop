@@ -294,9 +294,9 @@ For frontend workflows, RD and QA must use Playwright MCP (`mcp__playwright__` t
 
 ### Workspace initialization gate
 
-The workspace is created in Step 0 (Startup sequence) as a mandatory first action — before any analysis, role handoff, or artifact write, and regardless of how lightweight the request is. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/.session.json`.
+The workspace is created in Step 0 (Startup sequence) as a mandatory first action — before any analysis, role handoff, or artifact write, and regardless of how lightweight the request is. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/_runtime/session.json` (the canonical home as of slice `2026-06-05-peaks-runtime-layer`; the legacy `.peaks/.session.json` is read-only back-compat for one minor release).
 
-When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If `.peaks/.session.json` already exists with a valid session, the existing session is reused.
+When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If a valid session binding exists at `.peaks/_runtime/session.json` (or the legacy `.peaks/.session.json` for pre-migration trees), the existing session is reused.
 
 **Existing old-session cleanup**: If `.peaks/` contains numeric-only or generic session directories from prior runs (e.g. `2026-05-25-auth-system`), create the new correctly-named session, migrate any reusable artifacts into it, and note the migration in the TXT handoff. Delete empty old-session directories.
 
@@ -304,9 +304,23 @@ When `peaks workspace init` is run without `--session-id`, it automatically gene
 peaks workspace init --project <repo> --json
 ```
 
-The workspace initialization creates this structure under `.peaks/<session-id>/` (where `<session-id>` is auto-generated as `YYYY-MM-DD-session-<6位hex>`):
+The workspace initialization creates this structure under `.peaks/`:
 
 ```
+# Canonical home for all per-project ephemeral state (active-skill
+# marker, session binding, sop-state). All writes go here; reads also
+# tolerate the legacy paths (`.peaks/.active-skill.json`,
+# `.peaks/.session.json`, `.peaks/sop-state/`) for one minor release
+# so a fresh upgrade does not break in-flight workflows. Older trees
+# are auto-migrated by `peaks workspace reconcile --apply`.
+.peaks/_runtime/
+├── active-skill.json   # orchestrator presence marker (peaks-solo / -rd / -qa / -ui / -sc / -sop / -txt)
+├── session.json        # project → session binding (the only single-session source of truth)
+└── sop-state/          # current phase + history; definitions live globally in ~/.peaks
+
+# Per-slice artifact dirs (auto-generated, one per session). Files
+# inside ARE tracked by the 提交中间产物 convention.
+.peaks/<session-id>/
 prd/source/      # PRD source documents (Feishu exports, pasted content)
 prd/requests/    # PRD request artifacts (goals, non-goals, acceptance, frontend delta)
 ui/requests/     # UI request artifacts (visual direction, taste reports)

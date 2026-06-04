@@ -64,8 +64,23 @@ export type ReconcileResult = {
   apply: boolean;
   /** Whether the canonical session id differs from the prior binding. */
   repointed: boolean;
-  /** Errors encountered during the reconcile (e.g. a delete that failed). */
-  errors: Array<{ sessionId: string; message: string }>;
+  /**
+   * Old-path runtime files that `migrateOldRuntimeState` moved into
+   * `.peaks/_runtime/` during this reconcile run. Each entry is the
+   * legacy path relative to the project root (e.g. ".peaks/.session.json",
+   * ".peaks/.active-skill.json", ".peaks/sop-state"). Empty when the
+   * tree is already on the new layout (idempotent re-runs return []).
+   *
+   * Added in slice 2026-06-05-peaks-runtime-layer; additive — older
+   * consumers can ignore this field.
+   */
+  migratedFiles: string[];
+  /**
+   * Errors encountered during the migration step. Each entry has a
+   * `kind: 'migrate'` discriminator so consumers can tell migration
+   * errors apart from deletion errors. The shape is additive.
+   */
+  errors: Array<{ sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }>;
 };
 
 export type ReconcileOptions = {

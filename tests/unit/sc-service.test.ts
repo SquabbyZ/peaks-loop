@@ -547,12 +547,32 @@ describe('peaks-sc artifact session resolution (W4)', () => {
     writeFileSync(path, JSON.stringify({ sessionId, skill: 'peaks-rd', mode: 'inline' }, null, 2), 'utf8');
   }
 
+  function writeActiveSkillNew(sessionId: string | null): void {
+    const path = join(projectRoot, '.peaks', '_runtime', 'active-skill.json');
+    if (sessionId === null) {
+      if (existsSync(path)) rmSync(path);
+      return;
+    }
+    mkdirSync(join(projectRoot, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(path, JSON.stringify({ sessionId, skill: 'peaks-rd', mode: 'inline' }, null, 2), 'utf8');
+  }
+
   function writeSessionJsonBinding(sessionId: string | null): void {
     const path = join(projectRoot, '.peaks', '.session.json');
     if (sessionId === null) {
       if (existsSync(path)) rmSync(path);
       return;
     }
+    writeFileSync(path, JSON.stringify({ sessionId, projectRoot }, null, 2), 'utf8');
+  }
+
+  function writeSessionJsonBindingNew(sessionId: string | null): void {
+    const path = join(projectRoot, '.peaks', '_runtime', 'session.json');
+    if (sessionId === null) {
+      if (existsSync(path)) rmSync(path);
+      return;
+    }
+    mkdirSync(join(projectRoot, '.peaks', '_runtime'), { recursive: true });
     writeFileSync(path, JSON.stringify({ sessionId, projectRoot }, null, 2), 'utf8');
   }
 
@@ -616,5 +636,48 @@ describe('peaks-sc artifact session resolution (W4)', () => {
 
     expect(boundary.resolvedSessionId).toBe('2026-06-04-session-cda1cd');
     expect(boundary.candidateSources).toEqual(['active-skill', 'session-json', 'find-fallback']);
+  });
+
+  // Slice 2026-06-05-peaks-runtime-layer: the canonical home for the
+  // active-skill marker and the session binding is
+  // `.peaks/_runtime/{active-skill,session}.json`. The legacy
+  // `.peaks/.active-skill.json` / `.peaks/.session.json` paths are
+  // tolerated as a one-minor-release back-compat fallback.
+  test('runtime-layer: new active-skill path wins when both new + legacy exist', () => {
+    writeActiveSkillNew('2026-06-04-session-89f7cb');
+    writeActiveSkill('2026-06-04-session-cda1cd'); // stale legacy value
+    writeSessionJsonBinding('2026-06-04-session-89f7cb');
+    writeSessionDir('2026-06-04-session-89f7cb', ['qa/test-cases/2026-06-04-slice-x.md']);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-89f7cb');
+    expect(result.candidateSources).toEqual(['active-skill']);
+  });
+
+  test('runtime-layer: legacy active-skill path is honored as back-compat fallback', () => {
+    writeActiveSkill('2026-06-04-session-89f7cb'); // only legacy
+    writeSessionJsonBinding('2026-06-04-session-cda1cd');
+    writeSessionDir('2026-06-04-session-89f7cb', ['qa/test-cases/2026-06-04-slice-x.md']);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-89f7cb');
+    expect(result.candidateSources).toEqual(['active-skill']);
+  });
+
+  test('runtime-layer: new session.json binding wins when both new + legacy exist', () => {
+    writeActiveSkill(null);
+    writeSessionJsonBindingNew('2026-06-04-session-89f7cb');
+    writeSessionJsonBinding('2026-06-04-session-cda1cd');
+    writeSessionDir('2026-06-04-session-89f7cb', ['qa/test-cases/2026-06-04-slice-x.md']);
+    writeSessionDir('2026-06-04-session-cda1cd', ['qa/test-cases/2026-06-04-slice-x.md']);
+
+    const result = validateArtifactRetention('2026-06-04-slice-x');
+
+    expect(result.resolvedSessionId).toBe('2026-06-04-session-89f7cb');
+    expect(result.candidateSources).toEqual(['active-skill', 'session-json']);
   });
 });
