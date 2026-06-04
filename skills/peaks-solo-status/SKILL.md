@@ -18,28 +18,33 @@ peaks project memories --project <repo> --json  # load durable memory
 
 ## Step 1: Read the current state
 
-Use only existing CLI primitives (no new commands):
+Use only existing CLI primitives (no new commands). **Important contract note**: `peaks session list` does NOT support `--project` (verified by dogfood 2026-06-04); it returns all sessions globally. To scope to the current project, read `.peaks/.session.json` for the bound `sessionId`, then use `peaks session info <sid>` for the bound session's full state, and filter `peaks session list` output by `projectRoot` to find other sessions in the same project.
 
 ```bash
 # 1. Active skill presence
 peaks skill presence --json
 
-# 2. All sessions in the project
-peaks session list --project <repo> --json
+# 2. The bound session id (from .peaks/.session.json — local read, no CLI)
+sid=$(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])")
 
 # 3. The bound session's full state
-sid=$(peaks session list --project <repo> --json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['data']['sessions'][0]['sessionId'])")
 peaks session info "$sid" --json
 
-# 4. Per-request role state (PRD / RD / QA / TXT for the bound session)
+# 4. All sessions globally (then post-filter to current project)
+peaks session list --json
+# Note: this returns all sessions across all projects; the wrapper filters by
+# matching `projectRoot` against the bound session's `projectRoot` to show only
+# the sessions for THIS project. Sessions from other projects are ignored.
+
+# 5. Per-request role state (PRD / RD / QA / TXT for the bound project)
 peaks project dashboard --project <repo> --json
 
-# 5. Per-request detail (if a specific rid is in flight)
+# 6. Per-request detail (if a specific rid is in flight)
 peaks request show <rid> --role rd --project <repo> --json
 peaks request show <rid> --role qa --project <repo> --json
 ```
 
-All 5 calls are read-only. Total cost: sub-second.
+All 6 calls are read-only. Total cost: sub-second. (The original draft said "5 calls"; the corrected count is 6 because the post-filter step is now explicit.)
 
 ## Step 2: Render the status table
 
@@ -97,7 +102,7 @@ Then yield control.
 ## Hard rules (do NOT skip)
 
 - **Never write to `.peaks/<sid>/`.** This skill is read-only on the workspace; it only reads existing CLI state.
-- **Never add a new `peaks <cmd>`.** Use only the 5 existing read-only CLI primitives: `peaks skill presence`, `peaks session list`, `peaks session info`, `peaks project dashboard`, `peaks request show`.
+- **Never add a new `peaks <cmd>`.** Use only the existing read-only CLI primitives: `peaks skill presence`, `peaks session list`, `peaks session info`, `peaks project dashboard`, `peaks request show`. **Note**: `peaks session list` does not support `--project`; filter its output by `projectRoot` post-hoc.
 - **Never auto-progress the workflow.** The status table is informational only. The user chooses what to do via `AskUserQuestion`. Never silent about what comes next — always present the 3 options.
 - **Never expose sensitive data in the table.** Do NOT include full PRD bodies, full tech-doc bodies, or any test code in the table. Just state names, paths, and counts.
 
