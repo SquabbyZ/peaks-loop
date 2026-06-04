@@ -13,6 +13,18 @@ npm install -g peaks-cli
 
 安装后，Peaks 会把内置的 8 个 `peaks-*` 技能注册到 Claude Code，会话里直接通过技能名调用即可。
 
+## 本地开发（从源码跑 CLI）
+
+仓库自带 `peaks` CLI 源码。开发模式用 `tsx` 直接跑 `src/cli/index.ts`，所以**首次克隆后 `node_modules/` 里不会有 `chalk` / `ora` / `terminal-kit` 等运行时依赖**——直接 `tsx src/cli/index.ts` 会报 `ERR_MODULE_NOT_FOUND: chalk`。先执行一次 `pnpm install` 把依赖补齐，再验证：
+
+```bash
+pnpm install
+pnpm exec tsx src/cli/index.ts --version   # 应打印 1.2.9
+pnpm exec tsx src/cli/index.ts <cmd>       # 与全局 `peaks <cmd>` 行为一致
+```
+
+热重载开发循环可用 `pnpm dev:watch`。
+
 ## 5 分钟上手
 
 在 Claude Code 对话里，**直接对 Claude 说「用 X 技能做 Y」** 即可，技能会接管剩下的所有流程：
