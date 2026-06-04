@@ -11,6 +11,27 @@ export default defineConfig({
   root: stableCoverageRoot,
   test: {
     include: ['tests/**/*.test.ts'],
+    setupFiles: ['./tests/vitest.setup.ts'],
+    // Run tests in a single forked process. Reasons:
+    //
+    // 1. tests/vitest.setup.ts stashes the project's .peaks/.session.json
+    //    so buildArtifactRelativePath (which walks process.cwd() to find
+    //    the project root and reads .peaks/.session.json from it) falls
+    //    into the legacy changeId-based path the tests assert on. With
+    //    multiple workers, each worker runs the setup independently and
+    //    races on the rename — some workers see the file, others don't,
+    //    and the file gets restored at the wrong time, leading to flaky
+    //    failures.
+    //
+    // 2. The test suite is small enough (121 files, 1739 tests, ~18s) that
+    //    the parallelism benefit is marginal. Determinism is more
+    //    valuable than a few seconds of wall-clock here.
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true
+      }
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],

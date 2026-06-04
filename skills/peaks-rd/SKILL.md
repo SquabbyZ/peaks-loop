@@ -281,8 +281,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 >
 > | Type | rd:implemented requires | rd:qa-handoff also requires |
 > |---|---|---|
-> | feature / refactor | `rd/tech-doc.md` | `rd/code-review.md` + `rd/security-review.md` |
-> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review.md` + `rd/security-review.md` |
+> | feature / refactor | `rd/tech-doc.md` | `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` (filled Results table, or `N/A — no perf surface` in Notes) |
+> | bugfix | `rd/bug-analysis.md` (lighter than tech-doc; root cause + fix + regression test plan) | `rd/code-review.md` + `rd/security-review.md`; `rd/perf-baseline.md` only when the bug is performance-shaped (matches the L449-452 "When this applies" criteria) |
 > | config | (none) | `rd/security-review.md` only |
 > | docs / chore | (none) | (none) |
 >
@@ -385,6 +385,32 @@ peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <sid> --json
 # patternsDeclared=false → BLOCKED. The RD artifact's `## Red-line scope` section has
 #   no concrete path or glob patterns. Fill it in with paths like `src/services/login/**`
 #   before re-running. Auto-allowed paths (test files, .peaks/, __mocks__/) never need a pattern.
+```
+
+**Peaks-Cli Gate B9 — RD-side perf-baseline output present (when slice has a user-perceivable perf surface):**
+```bash
+ls .peaks/<id>/rd/perf-baseline.md 2>&1
+# Expected: .peaks/<id>/rd/perf-baseline.md
+# "No such file" + slice is feature / refactor / bugfix-when-perf → BLOCKED.
+#   Run the perf-baseline sub-agent from "Parallel review fan-out" below (or
+#   `peaks perf baseline --apply` inline), then fill in the Results table
+#   with measurements (lighthouse / k6 / autocannon / project-local bench —
+#   the CLI does not run these; that is the RD's job), then re-verify.
+# "No such file" + slice is docs / chore / pure-bugfix-no-perf → OK to proceed;
+#   this gate does not apply to those slice types.
+# File exists but Results table is empty (only the header row, no data rows) →
+#   BLOCKED. The sub-agent scaffolds the file; the main RD loop must fill in
+#   the Path / route | Workload | Tool | Metric | Baseline | Threshold table
+#   with actual numbers before handoff.
+# File contains the marker `N/A — no perf surface` in its Notes section →
+#   OK to proceed. This is the explicit opt-out the sub-agent writes when
+#   the slice has no user-perceivable perf surface (e.g. a feature that only
+#   adds an internal flag with no runtime cost, or a refactor that does not
+#   alter any hot path).
+#
+# The CLI enforcement table below the section header also gates this at the
+# `peaks request transition rd:qa-handoff` call, so a missing or empty file
+# is rejected by the CLI with `code: PREREQUISITES_MISSING`.
 ```
 
 ## Project standards preflight
@@ -496,6 +522,7 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 4. for frontend or UI-affecting slices, RD self-test has launched the app and used Playwright MCP for real browser end-to-end validation with visible-browser confirmation (install via `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` if not yet present; navigate with `mcp__playwright__browser_navigate`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests`, sanitize route/actions and observations before retention, record acceptance result, close with `browser_close`); if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
 5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/<id>/rd/code-review.md`
 6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/<id>/rd/security-review.md`
+6.5. perf-baseline output is in place for any slice with a user-perceivable performance surface — `peaks perf baseline --apply` has been run and `.peaks/<session-id>/rd/perf-baseline.md` exists with the Results table filled in with measurements (or `N/A — no perf surface` in Notes for slices without a perf surface). For docs / chore / pure-bugfix-no-perf, the file is not required. Run the fan-out from "Parallel review fan-out" below; **→ verified by Peaks-Cli Gate B9** — evidence file must exist at `.peaks/<id>/rd/perf-baseline.md` and contain a non-empty Results table or the N/A marker.
 7. the post-check dry-run has passed and is linked in the handoff;
 8. the tech-doc artifact (`.peaks/<session-id>/rd/tech-doc.md`) is written and linked from the request artifact. **→ verified by Peaks-Cli Gate B**
 9. the RD request artifact body has no unfilled placeholders, TBD markers, or bare-bullet stubs (`peaks request lint <rid> --role rd`). **→ verified by Peaks-Cli Gate B5**
@@ -504,6 +531,72 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 12. every changed file matches the RD red-line scope (no out-of-bounds writes); auto-allowed files (tests, .peaks artifacts) don't need an explicit pattern (`peaks scan diff-vs-scope --rid <rid>`). **→ verified by Peaks-Cli Gate B8**
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
+
+## Parallel review fan-out (code-review + security-review + perf-baseline)
+
+**When RD reaches the end of implementation, the three review activities (code review, security review, perf baseline) run in parallel via Task() sub-agents, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 3 Task() calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+
+**When to fan out:**
+- Feature / refactor slices: all three sub-agents always run.
+- Bugfix slices: code-review + security-review run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
+- Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact.
+
+**The Task() template (mirror of peaks-solo L705-717):**
+
+```
+Task(
+  subagent_type="general-purpose",
+  description="<role> review for rid=<rid>",
+  prompt="<role contract below>, plus runtime args: project=<repo>, session-id=<sid>, request-id=<rid>. Write your evidence file at .peaks/<sid>/rd/<evidence-path> and return ONLY the path. Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push, install hooks, or mutate settings.json. Do not edit any source file — review only."
+)
+```
+
+**Sub-agent 1 — code-reviewer (always runs for feature / refactor / bugfix):**
+- Read the git diff for this slice (`git diff main...HEAD` or equivalent).
+- Read `.peaks/<sid>/rd/tech-doc.md` for slice intent.
+- Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
+- Output: `.peaks/<sid>/rd/code-review.md` with sections: Summary, Findings (CRITICAL/HIGH/MEDIUM/LOW with file:line), Required Fixes (CRITICAL+HIGH only), Recommended (MEDIUM+LOW), Verdict (pass | return-to-rd | blocked).
+- Required for Gate B3.
+
+**Sub-agent 2 — security-reviewer (always runs for feature / refactor / bugfix):**
+- Read the git diff and the file list.
+- Read `.peaks/<sid>/rd/tech-doc.md` for the slice's threat model.
+- Inspect for: hardcoded secrets, unsanitized input, path traversal, SQL injection, XSS, missing auth, dependency changes, external API surface, command injection via Bash guards.
+- Output: `.peaks/<sid>/rd/security-review.md` with the same shape (Summary, Findings, Required Fixes, Recommended, Verdict).
+- Required for Gate B4.
+
+**Sub-agent 3 — perf-baseline-reviewer (feature / refactor / bugfix-when-perf only):**
+- Read the git diff and the slice's PRD/tech-doc for any mentioned numbers (LCP / FCP / TBT / p95 / rps).
+- Run `peaks perf baseline --project <repo> --apply --reason "parallel fan-out for rid=<rid>"` to scaffold `.peaks/<sid>/rd/perf-baseline.md` (idempotent: re-run is a no-op per `src/services/perf/perf-baseline-service.ts:188-201`).
+- Inspect the slice for a user-perceivable performance surface (route, hook, API, render, hot loop, N+1).
+- Decide: perf surface exists → leave the scaffold in place for the main RD loop to fill in the Results table with actual measurements (lighthouse / k6 / autocannon / project-local bench — the CLI does NOT run these). No perf surface → write `N/A — no perf surface` in the file's Notes section and return.
+- Output: `.peaks/<sid>/rd/perf-baseline.md` (scaffolded, or N/A stub), plus a one-line return string: `perf-baseline: scaffolded — main loop must fill Results table` OR `perf-baseline: N/A — no perf surface`.
+- Required for Gate B9. The Results-table-filling happens in the main RD loop AFTER the fan-out returns and BEFORE `rd:qa-handoff` transition.
+
+**Hard prohibitions on all 3 sub-agents (mirror of peaks-solo L729-734):**
+- Do NOT call `Skill(skill="...")` — would re-enter RD or another skill and break the fan-out.
+- Do NOT call `peaks skill presence:set` — only the main RD loop owns presence.
+- Do NOT open interactive user prompts. If something is unclear, return `blocked` and let the main loop handle the user.
+- Do NOT commit, push, install hooks, or mutate `~/.claude/settings.json` or `.claude/settings.json`. Only the main RD loop holds those permissions.
+- Do NOT edit any source file under `src/`, `tests/`, `skills/`, `bin/`, `scripts/`, `docs/`, `schemas/`. Review only.
+
+**Aggregation (after all 3 sub-agents return):**
+
+1. Restore presence: `peaks skill presence:set peaks-rd --project <repo> --gate review-fan-out-converged`
+2. Run the 3 `ls` checks (Gate B3, Gate B4, Gate B9).
+3. Read each evidence file. Aggregate CRITICAL/HIGH across all 3.
+4. If any CRITICAL or HIGH finding exists in code-review.md or security-review.md: fix in the main RD loop, then re-launch ONLY the affected sub-agent(s) to verify the fix. Loop until clean, or mark as blocked if the issue cannot be resolved.
+5. For perf-baseline: if scaffolded, run the project's perf measurement tool, fill in the Results table (Path / route | Workload | Tool | Metric | Baseline | Threshold), and `git diff` the file to confirm the table has data (not just the header row). If N/A, no measurement needed.
+6. Re-run all 3 `ls` checks to confirm the evidence files are present and not empty.
+7. Only then transition `peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json`.
+
+**Degradation when a sub-agent fails or returns blocked:**
+- code-review sub-agent fails: fall back to inline RD code review (the L486-506 Gate B3 is still required; only the fan-out is degraded). TXT handoff note: `code-review-subagent-degraded-to-inline`.
+- security-review sub-agent fails: same fallback. TXT note: `security-review-subagent-degraded-to-inline`.
+- perf-baseline sub-agent fails: same fallback. TXT note: `perf-baseline-subagent-degraded-to-inline`.
+- 2 or 3 fail: do not hand off as clean; transition to `qa-handoff` with `--allow-incomplete --reason "<degradation>"` OR block.
+
+**Why this works (3-loop repair closure):** the original 3-loop repair pain (`qa return for perf → rd fix → qa return for perf again → ...`) was caused by perf being QA-only. This fan-out moves perf measurement to the RD side AND runs it in parallel with the other reviews, so the RD handoff is complete on the first attempt instead of after several cycles.
 
 ## Refactor hard gates
 
@@ -645,5 +738,7 @@ Do not run upstream installer flows, mutate agent settings, or commit `.codegrap
 ## Boundaries
 
 Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Cli CLI to handle runtime side effects.
+
+Do not bypass the parallel review fan-out when the slice has a code-review / security-review / perf-baseline surface — see `## Parallel review fan-out` above for the contract. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
 
 Reference: `references/refactor-workflow.md`.
