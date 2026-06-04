@@ -30,9 +30,12 @@
   "scripts": {
     "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
     "prepack": "npm run build",
+    "prepublish": "node ./scripts/sync-version.mjs",
     "postinstall": "node ./scripts/install-skills.mjs",
+    "predev": "node ./scripts/sync-version.mjs",
     "dev": "tsx src/cli/index.ts",
     "dev:watch": "node ./scripts/watch.mjs",
+    "pretest": "node ./scripts/sync-version.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "pretest:coverage": "node ./scripts/pretest-coverage.mjs",
