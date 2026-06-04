@@ -446,6 +446,13 @@ After `peaks scan libraries` lands the dependency list under `## Library version
 
 **Out of scope**: the breaking-changes table is hand-curated; auto-syncing from upstream changelogs (Context7, etc.) is a follow-up slice. Per-slice the LLM only reads the table — it does NOT maintain it.
 
+**Data freshness check (read schemas/library-breaking-changes.meta.json first)**:
+- Before reading `schemas/library-breaking-changes.data.json`, also read `schemas/library-breaking-changes.meta.json`.
+- Compute `ageInDays = (today - meta.lastUpdated)`. The LLM is responsible for this date math.
+- If `ageInDays > meta.freshnessPolicyDays` (default 180 days), surface a **freshness warning** in the handoff: `- [data-staleness] library-breaking-changes.data.json is ${ageInDays} days old (last touched ${meta.lastUpdated}); the breaking-changes below may miss library X's recent major. Re-verify against the library's official changelog before relying on these substitutions.`
+- The warning is **informational**, not blocking. A stale table is better than no table. The LLM still applies the entries it has, just with the caveat.
+- When a row in the table matches an `import` in the diff AND the table is fresh, proceed without the warning.
+
 ## GStack integration and code dry-runs
 
 Use gstack as a concrete engineering workflow reference for `Think → Plan → Build → Review → Test → Ship → Reflect`:

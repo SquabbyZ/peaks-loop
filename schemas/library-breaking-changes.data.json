@@ -69,5 +69,73 @@
       { "api": "createSlice({ reducers: { ... }, extraReducers: (builder) => builder.addCase(...) })", "replacement": "createSlice({ reducers, extraReducers: (builder) => builder.addCase(...) }) — unchanged shape; check RTK 2.0 matchers for createAsyncThunk with builder.addMatcher", "since": "2.0.0" },
       { "api": "configureStore({ reducer, middleware: (gDM) => gDM().concat(logger) })", "replacement": "configureStore({ reducer, middleware: (gDM) => gDM({ serializableCheck: false }).concat(logger) })", "since": "2.0.0" }
     ]
+  },
+  {
+    "library": "next",
+    "fromMajor": 14,
+    "toMajor": 15,
+    "breakingChanges": [
+      { "api": "params (in pages/)", "replacement": "await params (params is now a Promise; await it before reading properties)", "since": "15.0.0" },
+      { "api": "searchParams (in pages/)", "replacement": "await searchParams (searchParams is now a Promise)", "since": "15.0.0" },
+      { "api": "cookies().get('name') (synchronous)", "replacement": "await cookies() (cookies() now returns a Promise; await before calling .get)", "since": "15.0.0" },
+      { "api": "headers().get('name') (synchronous)", "replacement": "await headers() (headers() now returns a Promise)", "since": "15.0.0" },
+      { "api": "fetch(url, { cache: 'force-cache' })", "replacement": "fetch(url, { cache: 'force-cache' }) + export const dynamic = 'force-static' OR use a Server Action", "since": "15.0.0" }
+    ]
+  },
+  {
+    "library": "react",
+    "fromMajor": 17,
+    "toMajor": 18,
+    "breakingChanges": [
+      { "api": "ReactDOM.render(<App />, container)", "replacement": "createRoot(container).render(<App />)", "since": "18.0.0" },
+      { "api": "ReactDOM.hydrate(<App />, container)", "replacement": "hydrateRoot(container, <App />)", "since": "18.0.0" },
+      { "api": "import { render } from 'react-dom'", "replacement": "import { createRoot } from 'react-dom/client' (separate entry point)", "since": "18.0.0" },
+      { "api": "ReactDOM.unmountComponentAtNode(container)", "replacement": "root.unmount() (returned from createRoot)", "since": "18.0.0" },
+      { "api": "defaultProps on function components", "replacement": "default parameters (defaultProps will be removed in a future major; use destructuring defaults: function Foo({ x = 1 } = {}) {})", "since": "18.3.0" }
+    ]
+  },
+  {
+    "library": "typescript",
+    "fromMajor": 4,
+    "toMajor": 5,
+    "breakingChanges": [
+      { "api": "import type { ... } from 'mod' (mixed type + value import without explicit type modifier)", "replacement": "Add `type` modifier to type-only imports explicitly (TS 5.0 enforces with verbatimModuleSyntax)", "since": "5.0.0" },
+      { "api": "namespace X { function f(): X.Type }", "replacement": "Use `import type` or `export type` from namespaces (TS 5.0 changes how namespaces interop with modules)", "since": "5.0.0" },
+      { "api": "experimentalDecorators metadata emit", "replacement": "Use the new TC39 stage-3 decorators; experimentalDecorators flag will be removed", "since": "5.0.0" },
+      { "api": "enum X { A, B = A * 2 } (numeric enum with computed member before non-computed)", "replacement": "Reorder enum members: place all non-computed members before computed ones", "since": "5.0.0" }
+    ]
+  },
+  {
+    "library": "prisma",
+    "fromMajor": 4,
+    "toMajor": 5,
+    "breakingChanges": [
+      { "api": "previewFeatures = ['xxx'] (in schema.prisma)", "replacement": "Move preview features to a separate block; some promoted to stable without flag", "since": "5.0.0" },
+      { "api": "prisma.user.findMany({ include: { posts: true } }) (implicit include via relation)", "replacement": "Use `with: { posts: true }` (include renamed to with)", "since": "5.0.0" },
+      { "api": "prisma.user.findMany({ relationJumps: { ... } })", "replacement": "Use `include` with `_count: { select: ... }` or nested select on relation fields", "since": "5.0.0" },
+      { "api": "@prisma/client v4 ESM/CJS interop (require vs import)", "replacement": "Pure ESM in v5; use `import` syntax only; dynamic require() of generated client throws", "since": "5.0.0" }
+    ]
+  },
+  {
+    "library": "eslint",
+    "fromMajor": 8,
+    "toMajor": 9,
+    "breakingChanges": [
+      { "api": ".eslintrc.json (legacy config)", "replacement": "eslint.config.js (flat config; legacy mode requires @eslint/eslintrc)", "since": "9.0.0" },
+      { "api": "module.exports = { rules: { ... } } (CommonJS rules)", "replacement": "export default [{ rules: { ... } }] (ESM flat config; rules must be inside an array entry)", "since": "9.0.0" },
+      { "api": "context.getSourceCode()", "replacement": "context.sourceCode (renamed; ESLint 9 deprecates getSourceCode)", "since": "9.0.0" },
+      { "api": "rule.create({ visitor }) without meta.schema or meta.type", "replacement": "rule.create({ meta: { schema: [...], type: 'problem'|'suggestion'|'layout' }, visitor }) (ESLint 9 requires meta)", "since": "9.0.0" }
+    ]
+  },
+  {
+    "library": "react-hook-form",
+    "fromMajor": 6,
+    "toMajor": 7,
+    "breakingChanges": [
+      { "api": "useForm({ defaultValues: { ... } }) (defaultValues is now required when using field arrays)", "replacement": "Always provide defaultValues; v7 removed the implicit empty default", "since": "7.0.0" },
+      { "api": "Controller({ name, control, render: ({ field }) => ... }) (Controller is now a generic — must pass field type)", "replacement": "Controller<FieldValues, TFieldPath>({ name: 'field' as TFieldPath, ... }) (cast path to TFieldPath)", "since": "7.0.0" },
+      { "api": "useFormContext() (no generic)", "replacement": "useFormContext<FieldValues>() (generic required for type inference)", "since": "7.0.0" },
+      { "api": "formState.errors.foo (loose type)", "replacement": "formState.errors.foo (typed as FieldError | undefined; use ?.message for safe access)", "since": "7.0.0" }
+    ]
   }
 ]
