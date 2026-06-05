@@ -279,10 +279,22 @@ function readSessionJsonBinding(projectRoot: string): string | null {
  * session does not own the slice.
  */
 function sessionOwnsSlice(projectRoot: string, sessionId: string, sliceId: string): boolean {
-  const sessionDir = join(projectRoot, '.peaks', sessionId);
-  if (!existsSync(sessionDir)) return false;
-  for (const marker of [`qa/test-cases/${sliceId}.md`, `qa/test-reports/${sliceId}.md`]) {
-    if (existsSync(join(sessionDir, marker))) return true;
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the same
+  // session id can live at multiple umbrella locations:
+  //   - `.peaks/<sessionId>/` (legacy or top-level active)
+  //   - `.peaks/retrospective/<sessionId>/` (shipped slice)
+  //   - `.peaks/_dogfood/<sessionId>/` (dogfood evidence)
+  // Try each in turn; the first match wins.
+  const candidateDirs = [
+    join(projectRoot, '.peaks', sessionId),
+    join(projectRoot, '.peaks', 'retrospective', sessionId),
+    join(projectRoot, '.peaks', '_dogfood', sessionId)
+  ];
+  for (const sessionDir of candidateDirs) {
+    if (!existsSync(sessionDir)) continue;
+    for (const marker of [`qa/test-cases/${sliceId}.md`, `qa/test-reports/${sliceId}.md`]) {
+      if (existsSync(join(sessionDir, marker))) return true;
+    }
   }
   return false;
 }
@@ -295,20 +307,64 @@ function sessionOwnsSlice(projectRoot: string, sessionId: string, sliceId: strin
 function findSessionOwningSlice(projectRoot: string, sliceId: string): string | null {
   const peaksRoot = join(projectRoot, '.peaks');
   if (!existsSync(peaksRoot)) return null;
-  let names: string[];
+  let topLevel: string[];
   try {
-    names = readdirSync(peaksRoot);
+    topLevel = readdirSync(peaksRoot);
   } catch {
     return null;
   }
-  names.sort();
-  for (const name of names) {
-    if (!/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(name)) continue;
-    if (sessionOwnsSlice(projectRoot, name, sliceId)) {
-      return name;
+  topLevel.sort();
+  // As of slice 2026-06-05-change-id-as-unit-of-work, shipped slices
+  // are archived under `.peaks/retrospective/<dir>/` and dogfood
+  // evidence lives under `.peaks/_dogfood/<dir>/`. Both umbrellas host
+  // scopes at one level deeper than the top-level `.peaks/<dir>/`
+  // shape. Expand the candidate list so the find-fallback tier can
+  // locate these. Accept both legacy session-id format
+  // (`YYYY-MM-DD-session-<6hex>`) and new change-id format
+  // (`YYYY-MM-DD-<slug>`) as valid scope dir names.
+  const candidateSessionIds: string[] = [];
+  for (const entry of topLevel) {
+    if (entry === 'retrospective' || entry === '_dogfood') {
+      const nested = readdirSyncSafe(join(peaksRoot, entry));
+      for (const n of nested) {
+        candidateSessionIds.push(n);
+      }
+    } else {
+      candidateSessionIds.push(entry);
+    }
+  }
+  candidateSessionIds.sort();
+  for (const id of candidateSessionIds) {
+    // Legacy session-id format OR new change-id format. Reject files
+    // and other non-scope entries (e.g. .peaks-init-hooks-decision.json,
+    // PROJECT.md, _runtime, memory, sops, issues, perf-baseline, etc.)
+    if (!isScopeDirName(id)) continue;
+    if (sessionOwnsSlice(projectRoot, id, sliceId)) {
+      return id;
     }
   }
   return null;
+}
+
+/** Is this a valid legacy session-id OR new change-id dir name? */
+function isScopeDirName(name: string): boolean {
+  // Legacy: 2026-MM-DD-session-<6hex>
+  if (/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(name)) return true;
+  // New: 2026-MM-DD-<slug> where slug is letters / digits / hyphens / dots
+  // (the slice-migration kept the 4-digit year prefix, so 3-digit
+  // numbered filenames from request artifacts stay out of this path —
+  // they live in retrospective/ nested with the year-prefixed change-id
+  // as the dir, not at top level).
+  if (/^\d{4}-\d{2}-\d{2}-[\w.\-]+$/.test(name)) return true;
+  return false;
+}
+
+function readdirSyncSafe(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }
 
 /**

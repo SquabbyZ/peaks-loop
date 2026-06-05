@@ -680,4 +680,42 @@ describe('peaks-sc artifact session resolution (W4)', () => {
     expect(result.resolvedSessionId).toBe('2026-06-04-session-89f7cb');
     expect(result.candidateSources).toEqual(['active-skill', 'session-json']);
   });
+
+  // Slice 2026-06-05-change-id-as-unit-of-work: shipped slice content lives
+  // under `.peaks/retrospective/<change-id>/<role>/...`, ONE level deeper
+  // than legacy `.peaks/<session-id>/<role>/...`. The find-fallback tier
+  // must scan the nested umbrella, not just top-level.
+  test('find-fallback: finds session under retrospective/ when only nested layout is on disk', () => {
+    // Use a valid 6-hex session-id format: YYYY-MM-DD-session-<6hex>.
+    const sessionId = '2026-05-29-session-aa11bb';
+    // Create the nested retrospective dir, NOT a top-level session dir.
+    const nestedDir = join(projectRoot, '.peaks', 'retrospective', sessionId);
+    mkdirSync(join(nestedDir, 'qa', 'test-cases'), { recursive: true });
+    writeFileSync(join(nestedDir, 'qa', 'test-cases', '2026-05-29-slice-shipped.md'), 'content', 'utf8');
+
+    // No active-skill, no session.json — only the find-fallback should
+    // find this session.
+    writeActiveSkill(null);
+    writeSessionJsonBinding(null);
+
+    const result = validateArtifactRetention('2026-05-29-slice-shipped');
+
+    expect(result.resolvedSessionId).toBe(sessionId);
+    expect(result.candidateSources).toEqual(['active-skill', 'session-json', 'find-fallback']);
+  });
+
+  test('find-fallback: finds session under _dogfood/ umbrella', () => {
+    const sessionId = '2026-06-05-session-d00d00';
+    const nestedDir = join(projectRoot, '.peaks', '_dogfood', sessionId);
+    mkdirSync(join(nestedDir, 'qa', 'test-cases'), { recursive: true });
+    writeFileSync(join(nestedDir, 'qa', 'test-cases', '2026-06-05-dogfood.md'), 'content', 'utf8');
+
+    writeActiveSkill(null);
+    writeSessionJsonBinding(null);
+
+    const result = validateArtifactRetention('2026-06-05-dogfood');
+
+    expect(result.resolvedSessionId).toBe(sessionId);
+    expect(result.candidateSources).toEqual(['active-skill', 'session-json', 'find-fallback']);
+  });
 });
