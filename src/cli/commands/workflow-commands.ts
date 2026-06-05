@@ -395,14 +395,14 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
       .description('Verify the complete rd→qa pipeline was followed for a request')
       .requiredOption('--rid <rid>', 'request identifier')
       .requiredOption('--project <path>', 'project root path')
-      .requiredOption('--session-id <id>', 'session identifier')
+      .option('--change-id <id>', 'change-id hint (when omitted, the on-disk change-id is resolved from the RD/QA artifact itself)')
       .option('--type <type>', 'request type: feature, bugfix, refactor, docs, config, chore', 'feature')
-  ).action(async (options: { rid: string; project: string; sessionId: string; type?: string; json?: boolean }) => {
+  ).action(async (options: { rid: string; project: string; changeId?: string; type?: string; json?: boolean }) => {
     try {
       const result = await verifyPipeline({
         projectRoot: options.project,
         rid: options.rid,
-        sessionId: options.sessionId,
+        ...(options.changeId ? { changeId: options.changeId } : {}),
         ...(options.type ? { requestType: options.type } : {})
       });
       const exitOk = result.complete ? 0 : 1;
@@ -411,7 +411,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
         : fail('workflow.verify-pipeline', 'PIPELINE_INCOMPLETE', `${result.violations.length} violation(s): ${result.violations.join('; ')}`, result, result.nextActions), options.json);
       process.exitCode = exitOk;
     } catch (error) {
-      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), {}, ['Check that --project, --rid, and --session-id are correct']), options.json);
+      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), {}, ['Check that --project and --rid are correct; --change-id is optional (resolved from the artifact otherwise)']), options.json);
       process.exitCode = 1;
     }
   });

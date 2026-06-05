@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readFile } from 'node:fs/promises';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import { isRequestType } from '../artifacts/artifact-prerequisites.js';
+import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 
 export type PipelineGate = {
   name: string;
@@ -13,7 +13,7 @@ export type PipelineGate = {
 
 export type PipelineVerification = {
   rid: string;
-  sessionId: string;
+  changeId: string;
   requestType: RequestType;
   complete: boolean;
   rdPhase: {
@@ -30,14 +30,6 @@ export type PipelineVerification = {
   nextActions: string[];
 };
 
-async function readFileContent(path: string): Promise<string | null> {
-  try {
-    return await readFile(path, 'utf8');
-  } catch {
-    return null;
-  }
-}
-
 function extractState(markdown: string): string {
   for (const rawLine of markdown.split(/\r?\n/)) {
     const match = /^-\s*state:\s*(.+?)\s*$/.exec(rawLine.trim());
@@ -46,21 +38,18 @@ function extractState(markdown: string): string {
   return 'unknown';
 }
 
-async function findRequestFile(projectRoot: string, sessionId: string, role: string, rid: string): Promise<{ path: string; content: string } | null> {
-  const dir = join(projectRoot, '.peaks', sessionId, role, 'requests');
-  if (!existsSync(dir)) return null;
-
-  const { readdir } = await import('node:fs/promises');
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-    if (entry.name === `${rid}.md` || (/^\d+-/.test(entry.name) && entry.name.endsWith(`-${rid}.md`))) {
-      const path = join(dir, entry.name);
-      const content = await readFileContent(path);
-      if (content) return { path, content };
-    }
-  }
-  return null;
+/**
+ * As of slice 2026-06-05-change-id-as-unit-of-work, the file's durable
+ * scope is the change-id (the `.peaks/<changeId>/` dir the file lives
+ * in), NOT the session-id. We resolve the on-disk location via
+ * `showRequestArtifact` (which scans all top-level dirs and returns the
+ * actual dir the file was found in) instead of assuming
+ * `.peaks/<sessionId>/<role>/requests/`.
+ */
+async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; changeId: string } | null> {
+  const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
+  if (artifact === null) return null;
+  return { path: artifact.path, content: artifact.content, changeId: artifact.changeId };
 }
 
 function rdGatesForType(requestType: RequestType): PipelineGate[] {
@@ -109,7 +98,10 @@ const QA_COMPLETE_STATES = new Set(['verdict-issued']);
 export async function verifyPipeline(options: {
   projectRoot: string;
   rid: string;
-  sessionId: string;
+  /** Optional explicit change-id; when omitted, the RD/QA on-disk location
+   * is resolved via showRequestArtifact (which scans all top-level dirs and
+   * returns the actual change-id the file lives in). */
+  changeId?: string;
   requestType?: string;
 }): Promise<PipelineVerification> {
   const requestType = isRequestType(options.requestType ?? '') ? options.requestType as RequestType : 'feature';
@@ -119,40 +111,50 @@ export async function verifyPipeline(options: {
   const rdGates = rdGatesForType(requestType);
   const qaGates = qaGatesForType(requestType);
 
-  // Check RD phase
-  const rdFile = await findRequestFile(options.projectRoot, options.sessionId, 'rd', options.rid);
+  // Resolve RD + QA on-disk locations via showRequestArtifact (the change-id
+  // is whatever dir the file actually lives in, not the caller's session-id).
+  const rdFile = await findRequestFile(options.projectRoot, 'rd', options.rid);
   let rdInvoked = false;
   let rdState = 'missing';
+  // The resolved change-id is the on-disk location the file actually
+  // lives in. The caller's `options.changeId` is a hint used for
+  // path construction (nextActions strings), NOT for the resolved
+  // changeId field — the on-disk location is the source of truth.
+  let resolvedChangeId = '';
 
   if (rdFile) {
     rdInvoked = true;
     rdState = extractState(rdFile.content);
     rdGates[0]!.passed = true;
     rdGates[0]!.detail = `found at ${rdFile.path}`;
+    resolvedChangeId = rdFile.changeId;
   } else {
     violations.push('RD phase skipped: peaks-rd was never invoked for this request (no RD request artifact found)');
     nextActions.push('Invoke Skill(skill="peaks-rd") with the request-id, then run unit tests + code review + security review');
     rdGates[0]!.detail = 'not found';
   }
 
-  // Check RD evidence files
+  // Check RD evidence files (under the change-id dir the RD request lives in)
   const RD_EVIDENCE_FILE: Record<string, string> = {
     'tech-doc': 'tech-doc.md',
     'bug-analysis': 'bug-analysis.md',
     'code-review': 'code-review.md',
     'security-review': 'security-review.md'
   };
+  // The evidence dir: prefer the on-disk changeId; fall back to the
+  // caller's hint; final fallback to the requestId (back-compat for
+  // pre-1.3.0 trees where the file lived under .peaks/<rid>/).
+  const rdEvidenceDir = resolvedChangeId || options.changeId || options.rid;
   for (const gate of rdGates.slice(1)) {
     const fileName = RD_EVIDENCE_FILE[gate.name]!;
-
-    const evidencePath = join(options.projectRoot, '.peaks', options.sessionId, 'rd', fileName);
+    const evidencePath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'rd', fileName);
     if (existsSync(evidencePath)) {
       gate.passed = true;
       gate.detail = evidencePath;
     } else {
       gate.detail = `missing: ${evidencePath}`;
       violations.push(`RD evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/${options.sessionId}/rd/${fileName}`);
+      nextActions.push(`Create .peaks/${rdEvidenceDir}/rd/${fileName}`);
     }
   }
 
@@ -163,7 +165,8 @@ export async function verifyPipeline(options: {
   }
 
   // Check QA phase
-  const qaFile = await findRequestFile(options.projectRoot, options.sessionId, 'qa', options.rid);
+  const qaFile = await findRequestFile(options.projectRoot, 'qa', options.rid);
+
   let qaInvoked = false;
   let qaState = 'missing';
 
@@ -172,13 +175,14 @@ export async function verifyPipeline(options: {
     qaState = extractState(qaFile.content);
     qaGates[0]!.passed = true;
     qaGates[0]!.detail = `found at ${qaFile.path}`;
+    resolvedChangeId = qaFile.changeId || resolvedChangeId;
   } else {
     violations.push('QA phase skipped: peaks-qa was never invoked for this request (no QA request artifact found)');
     nextActions.push('Invoke Skill(skill="peaks-qa") with the request-id for functional/performance/security testing');
     qaGates[0]!.detail = 'not found';
   }
 
-  // Check QA evidence files
+  // Check QA evidence files (under the same change-id dir)
   const QA_EVIDENCE_FILE: Record<string, string> = {
     'test-cases': `test-cases/${options.rid}.md`,
     'test-report': `test-reports/${options.rid}.md`,
@@ -187,15 +191,14 @@ export async function verifyPipeline(options: {
   };
   for (const gate of qaGates.slice(1)) {
     const fileName = QA_EVIDENCE_FILE[gate.name]!;
-
-    const evidencePath = join(options.projectRoot, '.peaks', options.sessionId, 'qa', fileName);
+    const evidencePath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'qa', fileName);
     if (existsSync(evidencePath)) {
       gate.passed = true;
       gate.detail = evidencePath;
     } else {
       gate.detail = `missing: ${evidencePath}`;
       violations.push(`QA evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/${options.sessionId}/qa/${fileName}`);
+      nextActions.push(`Create .peaks/${rdEvidenceDir}/qa/${fileName}`);
     }
   }
 
@@ -218,7 +221,7 @@ export async function verifyPipeline(options: {
 
   return {
     rid: options.rid,
-    sessionId: options.sessionId,
+    changeId: resolvedChangeId,
     requestType,
     complete,
     rdPhase: { invoked: rdInvoked, state: rdState, gates: rdGates },

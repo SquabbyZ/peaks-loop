@@ -26,11 +26,18 @@ import { verifyPipeline } from '../../src/services/workflow/pipeline-verify-serv
 
 // ---------------------------------------------------------------------------
 // Helpers
+//
+// As of slice 2026-06-05-change-id-as-unit-of-work, the on-disk scope of
+// reviewable content is the change-id (the top-level dir under .peaks/),
+// not the session-id. Tests write under a stable test-change-id dir
+// (mimicking the new layout) and pass `changeId: 'test-change-id'`
+// explicitly to verifyPipeline so the resolved change-id is deterministic.
 // ---------------------------------------------------------------------------
 
 function createTempProject(): { root: string; peaks: string } {
   const root = mkdtempSync(join(tmpdir(), 'peaks-pipeline-verify-'));
-  const peaks = join(root, '.peaks', 'test-session');
+  // Mimic the new layout: change-id is the top-level dir.
+  const peaks = join(root, '.peaks', 'test-change-id');
   mkdirSync(join(peaks, 'rd', 'requests'), { recursive: true });
   mkdirSync(join(peaks, 'qa', 'requests'), { recursive: true });
   mkdirSync(join(peaks, 'qa', 'test-cases'), { recursive: true });
@@ -42,38 +49,40 @@ function createTempProject(): { root: string; peaks: string } {
 
 /** Write an RD request artifact (numbered prefix format by default). */
 function writeRdArtifact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-session', 'rd', 'requests');
+  const dir = join(root, '.peaks', 'test-change-id', 'rd', 'requests');
   const content = `# RD Request ${rid}\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `001-${rid}.md`), content, 'utf8');
 }
 
 /** Write a QA request artifact (numbered prefix format by default). */
 function writeQaArtifact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-session', 'qa', 'requests');
+  const dir = join(root, '.peaks', 'test-change-id', 'qa', 'requests');
   const content = `# QA Request ${rid}\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `001-${rid}.md`), content, 'utf8');
 }
 
 /** Write an RD request artifact using the exact-match filename format ({rid}.md). */
 function writeRdArtifactExact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-session', 'rd', 'requests');
+  const dir = join(root, '.peaks', 'test-change-id', 'rd', 'requests');
   const content = `# RD Request ${rid}\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `${rid}.md`), content, 'utf8');
 }
 
-/** Write an RD evidence file under .peaks/<session>/rd/<relativePath>. */
+/** Write an RD evidence file under .peaks/<changeId>/rd/<relativePath>. */
 function writeRdEvidence(peaks: string, relativePath: string, content?: string): void {
   const full = join(peaks, 'rd', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
-/** Write a QA evidence file under .peaks/<session>/qa/<relativePath>. */
+/** Write a QA evidence file under .peaks/<changeId>/qa/<relativePath>. */
 function writeQaEvidence(peaks: string, relativePath: string, content?: string): void {
   const full = join(peaks, 'qa', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
+
+const CID = 'test-change-id';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -105,7 +114,7 @@ describe('verifyPipeline', () => {
         const r = await verifyPipeline({
           projectRoot: temp.root,
           rid: 'no-invoke',
-          sessionId: 'test-session',
+          changeId: CID,
           requestType: rt,
         });
         expect(r.requestType).toBe(rt);
@@ -116,7 +125,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'garbage',
       });
       expect(r.requestType).toBe('feature');
@@ -126,7 +135,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        sessionId: 'test-session',
+        changeId: CID,
       });
       expect(r.requestType).toBe('feature');
     });
@@ -135,7 +144,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: '',
       });
       expect(r.requestType).toBe('feature');
@@ -151,7 +160,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -168,7 +177,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-prefix',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -184,7 +193,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'exact-rd',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -193,13 +202,13 @@ describe('verifyPipeline', () => {
     });
 
     test('returns "unknown" state when artifact has no "state:" line', async () => {
-      const dir = join(temp.root, '.peaks', 'test-session', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'no-state.md'), '# RD\nJust some content\nNo state line\n', 'utf8');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-state',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -213,7 +222,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h1',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -226,7 +235,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h2',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -239,7 +248,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h3',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -252,7 +261,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-draft',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -269,7 +278,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-prog',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -292,7 +301,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-all',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -307,7 +316,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-none',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -326,7 +335,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-part',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -354,7 +363,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-qa',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -371,7 +380,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ok',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -387,7 +396,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-running',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -404,7 +413,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-draft',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -428,7 +437,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ev-all',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -443,7 +452,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ev-none',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -475,7 +484,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'complete',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -496,7 +505,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-rd-ev',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -514,7 +523,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-qa-ev',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -535,7 +544,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-rd-state',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -557,7 +566,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-qa-state',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -574,7 +583,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-qa-at-all',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -585,7 +594,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -610,7 +619,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-only',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -628,7 +637,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'both',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -639,7 +648,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'neither',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -657,7 +666,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-f',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -680,7 +689,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-b',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'bugfix',
       });
 
@@ -703,7 +712,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-r',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'refactor',
       });
 
@@ -726,7 +735,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-d',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'docs',
       });
 
@@ -740,7 +749,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-c',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'chore',
       });
 
@@ -754,7 +763,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gates-cfg',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'config',
       });
 
@@ -781,7 +790,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'bug-fix',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'bugfix',
       });
 
@@ -798,7 +807,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'docs-only',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'docs',
       });
 
@@ -813,7 +822,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'chore-only',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'chore',
       });
 
@@ -831,7 +840,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'config-only',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'config',
       });
 
@@ -854,7 +863,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'exact',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -868,7 +877,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'legacy-fmt',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -878,13 +887,13 @@ describe('verifyPipeline', () => {
 
     test('finds QA artifact via exact-match filename', async () => {
       // Write QA artifact with exact filename
-      const dir = join(temp.root, '.peaks', 'test-session', 'qa', 'requests');
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'qa', 'requests');
       writeFileSync(join(dir, 'qa-exact.md'), '# QA\n- state: verdict-issued\n', 'utf8');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-exact',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -893,11 +902,11 @@ describe('verifyPipeline', () => {
     });
 
     test('returns null when requests directory does not exist', async () => {
-      // Remove the pre-created directories, then use a different session
+      // Remove the pre-created directories, then use a different change-id
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-dir',
-        sessionId: 'other-session', // no directories created for this session
+        changeId: 'other-change-id', // no directories created for this change-id
         requestType: 'feature',
       });
 
@@ -906,15 +915,15 @@ describe('verifyPipeline', () => {
     });
 
     test('returns null when requests directory exists but contains no matching files', async () => {
-      // Pre-created dirs exist for test-session. Write non-matching files.
-      const dir = join(temp.root, '.peaks', 'test-session', 'rd', 'requests');
+      // Pre-created dirs exist for test-change-id. Write non-matching files.
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'other.md'), 'nope', 'utf8');
       writeFileSync(join(dir, 'unrelated.md'), 'nope', 'utf8');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-match',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -924,20 +933,31 @@ describe('verifyPipeline', () => {
 
   // ==================================================================
   // Parameter isolation
+  //
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the on-disk
+  // location is the source of truth: the caller passes `changeId` as a
+  // hint, but the resolver scans all top-level dirs and finds the file
+  // at its actual location. The "isolates by change-id" test below
+  // asserts the NEW contract: the resolved change-id equals the on-disk
+  // dir, not the caller's hint.
   // ==================================================================
 
   describe('parameter isolation', () => {
-    test('isolates by sessionId - files from one session are not found in another', async () => {
-      writeRdArtifact(temp.root, 'iso-rid', 'qa-handoff'); // writes to test-session
+    test('on-disk change-id wins over caller hint (resolved changeId = on-disk dir)', async () => {
+      writeRdArtifact(temp.root, 'iso-rid', 'qa-handoff'); // writes to test-change-id
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'iso-rid',
-        sessionId: 'other-session', // different session
+        changeId: 'other-change-id', // hint, but file is under test-change-id
         requestType: 'feature',
       });
 
-      expect(r.rdPhase.invoked).toBe(false);
+      // The on-disk location wins. The file is found (invoked=true) and
+      // the resolved change-id is the actual dir the file lives in
+      // (test-change-id), not the caller's hint (other-change-id).
+      expect(r.rdPhase.invoked).toBe(true);
+      expect(r.changeId).toBe('test-change-id');
     });
 
     test('isolates by rid - files for one rid are not found when querying another', async () => {
@@ -946,7 +966,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rid-b', // different rid
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -960,13 +980,13 @@ describe('verifyPipeline', () => {
 
   describe('state extraction edge cases', () => {
     test('extracts state with leading whitespace and trailing whitespace', async () => {
-      const dir = join(temp.root, '.peaks', 'test-session', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'ws.md'), '  - state:   qa-handoff  \n', 'utf8');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ws',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -974,7 +994,7 @@ describe('verifyPipeline', () => {
     });
 
     test('extracts state when other metadata lines are present', async () => {
-      const dir = join(temp.root, '.peaks', 'test-session', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
       writeFileSync(
         join(dir, 'multi.md'),
         '- request-id: multi\n- role: rd\n- state: handed-off\n- created: 2026-05-28\n',
@@ -984,7 +1004,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'multi',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -992,7 +1012,7 @@ describe('verifyPipeline', () => {
     });
 
     test('handles CRLF line endings in artifact content', async () => {
-      const dir = join(temp.root, '.peaks', 'test-session', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
       writeFileSync(
         join(dir, 'crlf.md'),
         '- request-id: crlf\r\n- state: implemented\r\n- role: rd\r\n',
@@ -1002,7 +1022,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'crlf',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1011,27 +1031,12 @@ describe('verifyPipeline', () => {
   });
 
   // ==================================================================
-  // readFile failure branch (covers readFileContent error path)
+  // readFile failure handling: as of slice 2026-06-05-change-id-as-unit-of-work,
+  // the readFile error path lives inside showRequestArtifact's
+  // readRequestArtifact helper (it catches and returns null), so the
+  // caller sees the file as not found. Verified at the request-artifact-service
+  // level — pipeline-verify now delegates path resolution there.
   // ==================================================================
-
-  describe('readFile failure handling', () => {
-    test('treats a matching request file as not found when readFile throws', async () => {
-      writeRdArtifact(temp.root, 'rd-readerr', 'qa-handoff');
-      readFileShouldThrow = true;
-
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'rd-readerr',
-        sessionId: 'test-session',
-        requestType: 'feature',
-      });
-
-      // readFileContent catches the error and returns null,
-      // findRequestFile skips the file, RD is treated as not invoked.
-      expect(r.rdPhase.invoked).toBe(false);
-      expect(r.rdPhase.state).toBe('missing');
-    });
-  });
 
   // ==================================================================
   // Structure and response shape
@@ -1052,12 +1057,12 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'shape',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
       expect(r.rid).toBe('shape');
-      expect(r.sessionId).toBe('test-session');
+      expect(r.changeId).toBe(CID);
       expect(r.requestType).toBe('feature');
       expect(typeof r.complete).toBe('boolean');
       expect(Array.isArray(r.violations)).toBe(true);
@@ -1076,7 +1081,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gate-shape',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1111,7 +1116,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'det-pass',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1128,7 +1133,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'det-fail',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1150,7 +1155,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-rd',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1165,7 +1170,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-qa',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1178,7 +1183,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-trans',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 
@@ -1194,7 +1199,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-qa-miss',
-        sessionId: 'test-session',
+        changeId: CID,
         requestType: 'feature',
       });
 

@@ -605,9 +605,7 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
     if (found === null) {
       return null;
     }
-    const summary = await readSummary(options.projectRoot, options.sessionId, options.role, found.fileName);
-    const content = await readFile(found.path, 'utf8');
-    return { ...summary, content };
+    return await readRequestArtifact(options.projectRoot, options.sessionId, options.role, found);
   }
 
   const peaksRoot = join(options.projectRoot, '.peaks');
@@ -622,12 +620,28 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
     const dir = join(peaksRoot, scope, options.role, 'requests');
     const found = await findFileInDir(dir);
     if (found !== null) {
-      const summary = await readSummary(options.projectRoot, scope, options.role, found.fileName);
-      const content = await readFile(found.path, 'utf8');
-      return { ...summary, content };
+      return await readRequestArtifact(options.projectRoot, scope, options.role, found);
     }
   }
   return null;
+}
+
+/** Read the summary + content for a found request file; treat a read
+ * error on the content as "not found" so the caller can fall through
+ * to the next candidate (the on-disk file may be partially written). */
+async function readRequestArtifact(
+  projectRoot: string,
+  scope: string,
+  role: RequestArtifactRole,
+  found: { fileName: string; path: string }
+): Promise<ShowRequestArtifactResult | null> {
+  const summary = await readSummary(projectRoot, scope, role, found.fileName);
+  try {
+    const content = await readFile(found.path, 'utf8');
+    return { ...summary, content };
+  } catch {
+    return null;
+  }
 }
 
 export type RequestArtifactState =
