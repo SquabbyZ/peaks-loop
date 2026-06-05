@@ -755,6 +755,15 @@ Maintenance: when adding new CLI commands to the runbook, mirror them into both 
 
 Repair loop details: see `## Mandatory RD QA repair loop` above for the full 5-step procedure and the 3-cycle cap. Append transition notes via `--reason` rather than rewriting artifacts during repair cycles.
 
+## RD micro-cycle (TDD small-step rapid-test loop)
+
+> **Slice 内部**的修复 / refactor / lint 修复走 micro-cycle（5-10s/cycle）。
+> Slice 边界走 `peaks slice check`（一次性 4 项自检）。
+> 不要把 micro-cycle 跟边界 check 混用——前者 100ms 反馈循环，后者 30s+ 全套。
+> 完整手册：`references/micro-cycle.md`。
+> 摘要：micro-cycle 内只跑 `vitest run <file> -t "<name>"`；边界跑 `peaks slice check`（tsc + vitest + 3-way + verify-pipeline）。
+> 硬约束：违反任一"micro-cycle 内禁止触发"列表 = workflow violation；边界不全绿 = 禁止 ship。
+
 ## Peaks-Cli Project standards preflight
 
 Before orchestrating an end-to-end code repository workflow, gather the project standards preflight status from RD and QA by calling the Peaks-Cli CLI:
@@ -805,8 +814,9 @@ These commands harden the workflow against silent skips. Use them in the runbook
 | `peaks request repair-status <rid> --project <path>` | Count RD↔QA repair cycles from `--reason` transition notes ("QA cycle N: ...") | Before every RD repair iteration in step 7 | Cycle count reached the 3-cycle cap |
 | `peaks scan request-type-sanity --project <path> --type <type>` | Cross-verify declared `--type` against the actual `git diff` file mix (catches "feature mis-declared as docs" workflow violations) | After PRD type lock-in AND after each RD repair iteration | Declared type disagrees with the file mix |
 | `peaks scan libraries --project <path>` | Enumerate every dependency + devDependency + peerDependency + optionalDependency with parsed major version; output goes to `## Library versions` in `rd/project-scan.md`. Read-only. | At Solo step 0.6 (alongside `peaks scan archetype`) | Always exits 0 (warnings in JSON envelope; never blocks) |
+| `peaks slice check [--rid <rid>] [--project <path>]` | 4-stage slice 边界 check (typecheck + unit-tests + review-fanout + gate-verify-pipeline). Aggregate pass/fail; non-zero exit if any stage fails. See "Slice 边界 check" below for usage rules (boundary only, never inside a micro-cycle). | At slice 边界（post-micro-cycle, pre-peaks-qa）| Any stage fails |
 
-Together with `peaks request transition` (which already CLI-enforces per-type artifact prerequisites), these four commands form the runtime quality net. SKILL.md prose is descriptive; the CLI is what physically blocks bad workflows.
+Together with `peaks request transition` (which already CLI-enforces per-type artifact prerequisites), these five commands form the runtime quality net. SKILL.md prose is descriptive; the CLI is what physically blocks bad workflows.
 
 ## Peaks-Cli Completion handoff
 

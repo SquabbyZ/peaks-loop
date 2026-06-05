@@ -15,6 +15,7 @@ import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
 import { registerShadcnCommands } from './commands/shadcn-commands.js';
+import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerGateCommands } from './commands/gate-commands.js';
 import { registerHooksCommands } from './commands/hooks-commands.js';
@@ -33,6 +34,8 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
 Run peaks (no arguments) for a quickstart. You likely want one of:
   peaks doctor     check your environment
   peaks skill      list or manage skills
+  peaks slice      boundary check (tsc + vitest + 3-way + verify-pipeline)
+  peaks workflow   plan workflow routing dry-run graphs
   peaks sop        author your own workflow gates
   peaks hooks      install the un-bypassable gate-enforcement hook
   peaks gate       enforce/bypass SOP gates on Bash commands`)
@@ -91,6 +94,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerRequestCommands(program, io);
   registerScanCommands(program, io);
   registerShadcnCommands(program, io);
+  registerSliceCommands(program, io);
   registerSopCommands(program, io);
   registerGateCommands(program, io);
   registerHooksCommands(program, io);
