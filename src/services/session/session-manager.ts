@@ -7,6 +7,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdir as mkdirAsync } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { initWorkspace } from '../workspace/workspace-service.js';
@@ -480,7 +481,15 @@ export function listSessions(projectRoot: string): string[] {
  */
 export async function getProjectScanPath(projectRoot: string): Promise<string> {
   const sessionId = await ensureSession(projectRoot);
-  return join(projectRoot, '.peaks', sessionId, 'rd', 'project-scan.md');
+  // As of slice 2026-06-05-change-id-as-unit-of-work the session dir
+  // is at the canonical runtime location (gitignored). The scan is a
+  // session-local artifact; it lives alongside the rest of the
+  // ephemeral state under `_runtime/`. The parent `rd/` subdir is
+  // created on demand so the first scanner call has a place to land
+  // (consistent with the legacy behavior pre-1.3.1).
+  const scanPath = join(projectRoot, '.peaks', '_runtime', sessionId, 'rd', 'project-scan.md');
+  await mkdirAsync(dirname(scanPath), { recursive: true });
+  return scanPath;
 }
 
 /**
@@ -493,6 +502,7 @@ export function hasProjectScan(projectRoot: string): boolean {
   const info = readSessionFile(projectRoot);
   if (!info) return false;
 
-  const scanPath = join(projectRoot, '.peaks', info.sessionId, 'rd', 'project-scan.md');
+  // Canonical runtime location of the session dir (slice 2026-06-05).
+  const scanPath = join(projectRoot, '.peaks', '_runtime', info.sessionId, 'rd', 'project-scan.md');
   return existsSync(scanPath);
 }

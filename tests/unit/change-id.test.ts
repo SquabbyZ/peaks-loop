@@ -118,58 +118,70 @@ describe('buildArtifactRelativePath', () => {
   });
 });
 
-describe('buildArtifactRelativePath with session', () => {
-  test('generates numbered filename when session exists', () => {
+describe('buildArtifactRelativePath — change-id routing (slice 2026-06-05-change-id-as-unit-of-work)', () => {
+  // As of this slice, the write path is ALWAYS `.peaks/<change-id>/<segments-joined>`,
+  // regardless of whether a session is bound. The session id remains the
+  // binding for ephemeral state (live sub-agent progress, spawn records)
+  // but is NOT the durable scope for reviewable content. The tests in
+  // this block replace the legacy "buildArtifactRelativePath with
+  // session" suite.
+  test('uses segments verbatim under .peaks/<change-id>/', () => {
     mockGetSessionId.mockReturnValue('2026-05-28-session-a3f8b1');
-    const result = buildArtifactRelativePath('test-feature', 'rd');
-    expect(result).toMatch(/^\.peaks\/2026-05-28-session-a3f8b1\/rd\/\d+-test-feature\.md$/);
+    // The session id is bound but does NOT appear in the artifact path.
+    // Reviewable content lives under the change-id; session is the binding
+    // for ephemeral state only.
+    const result = buildArtifactRelativePath('test-feature', 'rd', '001-test-feature.md');
+    expect(result).toBe('.peaks/test-feature/rd/001-test-feature.md');
   });
-  test('generates path with nested segments under session', () => {
+  test('generates path with nested segments under change-id', () => {
     mockGetSessionId.mockReturnValue('2026-01-01-session-bbbb');
-    const result = buildArtifactRelativePath('my-bug', 'qa');
-    expect(result).toMatch(/^\.peaks\/2026-01-01-session-bbbb\/qa\/\d+-my-bug\.md$/);
+    const result = buildArtifactRelativePath('my-bug', 'qa', '001-my-bug.md');
+    expect(result).toBe('.peaks/my-bug/qa/001-my-bug.md');
   });
-  test('rejects unsafe session id', () => {
-    mockGetSessionId.mockReturnValue('../escape');
-    expect(() => buildArtifactRelativePath('test', 'rd')).toThrow(ChangeIdValidationError);
+  test('rejects unsafe change-id (path traversal in changeId)', () => {
+    mockGetSessionId.mockReturnValue(null);
+    expect(() => buildArtifactRelativePath('../escape', 'rd')).toThrow(ChangeIdValidationError);
   });
-  test('rejects unsafe role segment with session', () => {
-    mockGetSessionId.mockReturnValue('2026-05-28-session-cccc');
+  test('rejects unsafe role segment with change-id', () => {
+    mockGetSessionId.mockReturnValue(null);
     expect(() => buildArtifactRelativePath('test', '../evil')).toThrow(ChangeIdValidationError);
   });
 });
 
 describe('buildArtifactRelativePathInRoot', () => {
-  test('returns changeId-based path when caller projectRoot has no session', () => {
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the function
+  // does NOT need to look up the session id. The path is always
+  // `.peaks/<change-id>/<segments-joined>`, regardless of which
+  // session is bound. The legacy "session-bound path" branch is gone.
+  test('returns changeId-based path with explicit projectRoot', () => {
     mockGetSessionId.mockReturnValue(null);
     const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'checkout-refactor', 'rd', 'architecture');
     expect(result).toBe('.peaks/checkout-refactor/rd/architecture');
-    // The function must have called getSessionId with the EXPLICIT projectRoot,
-    // not the result of findProjectRoot(process.cwd()).
-    expect(mockGetSessionId).toHaveBeenCalledWith('/tmp/explicit-project-root');
   });
 
-  test('returns session-based path when caller projectRoot has a session binding', () => {
+  test('returns change-id-based path even when caller projectRoot has a session binding (slice 2026-06-05-change-id-as-unit-of-work)', () => {
     mockGetSessionId.mockReturnValue('2026-06-04-session-aaa111');
-    const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'my-feature', 'rd');
-    expect(result).toMatch(/^\.peaks\/2026-06-04-session-aaa111\/rd\/\d+-my-feature\.md$/);
-    expect(mockGetSessionId).toHaveBeenCalledWith('/tmp/explicit-project-root');
+    // Session is bound but the artifact path is the change-id dir.
+    const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'my-feature', 'rd', '001-my-feature.md');
+    expect(result).toBe('.peaks/my-feature/rd/001-my-feature.md');
   });
 
-  test('two different projectRoots produce different result shapes (defense against cross-workspace pollution)', () => {
-    // Reset call history from earlier tests in this file so the
-    // NthCalledWith assertions below have a stable baseline.
+  test('two different projectRoots produce the same change-id-based path (defense against cross-workspace pollution)', () => {
+    // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact
+    // path no longer depends on the session id. Both projectRoots
+    // produce the SAME change-id path regardless of session binding.
+    // The getSessionId mock is left in place to confirm the function
+    // does not even consult it (asserted via the not-called check).
     mockGetSessionId.mockClear();
-    // First call: a projectRoot with no session — should get the changeId-based path.
     mockGetSessionId.mockImplementation((root: string) => root === '/root/with-session' ? '2026-06-04-session-bbb222' : null);
     const noSessionPath = buildArtifactRelativePathInRoot('/root/without-session', 'shared-change', 'rd', 'x');
     expect(noSessionPath).toBe('.peaks/shared-change/rd/x');
     const sessionPath = buildArtifactRelativePathInRoot('/root/with-session', 'shared-change', 'rd', 'x');
-    expect(sessionPath).toMatch(/^\.peaks\/2026-06-04-session-bbb222\/rd\/\d+-shared-change\.md$/);
-    // Crucial: the two calls must have invoked getSessionId with their own
-    // projectRoot, not with a shared value derived from process.cwd().
-    expect(mockGetSessionId).toHaveBeenNthCalledWith(1, '/root/without-session');
-    expect(mockGetSessionId).toHaveBeenNthCalledWith(2, '/root/with-session');
+    // Same change-id → same path. Session id is irrelevant.
+    expect(sessionPath).toBe('.peaks/shared-change/rd/x');
+    // The function does NOT consult the session binding anymore;
+    // both calls must produce the change-id path deterministically.
+    expect(mockGetSessionId).not.toHaveBeenCalled();
   });
 
   test('empty projectRoot falls back to process.cwd() (defensive only)', () => {

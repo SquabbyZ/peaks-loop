@@ -2,12 +2,28 @@
  * Shared change-id validation and artifact path helpers.
  * All Peaks planner commands must use these to prevent path traversal
  * and keep artifacts inside the Peaks artifact workspace.
+ *
+ * Layout (as of slice 2026-06-05-change-id-as-unit-of-work):
+ *   - Reviewable artifacts (rd/, qa/, prd/, txt/, prd/source/):
+ *       .peaks/<change-id>/<role>/...    (tracked in git)
+ *   - Ephemeral state (live sub-agent progress, spawn records):
+ *       .peaks/_runtime/<session-id>/... (gitignored)
+ *   - The active change-id binding lives at `.peaks/_runtime/current-change`
+ *     (symlink pointing at `.peaks/<change-id>/` for one-minor-release back-compat
+ *     also accepts a plain file with the change-id as its sole content).
+ *
+ * The session id remains in use as a binding (which developer's local
+ * working session is active) but it is NOT the durable scope for
+ * reviewable content — change-id is. Sessions are ephemeral and
+ * gitignored; changes are durable and tracked.
  */
 
-import { posix, join } from 'node:path';
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { posix, join, resolve, basename } from 'node:path';
 import { getNextNumber, buildNumberedFilename } from './incrementing-number.js';
 import { getSessionId } from '../services/session/session-manager.js';
 import { findProjectRoot } from '../services/config/config-safety.js';
+import { isInsidePath } from './path-utils.js';
 
 const CHANGE_ID_PATTERN = /^[A-Za-z0-9._-]+$/;
 
@@ -95,27 +111,22 @@ export function buildArtifactRelativePathInRoot(
 ): string {
   validateChangeIdOrThrow(changeId);
 
+  // As of slice 2026-06-05-change-id-as-unit-of-work, reviewable
+  // artifacts (RD/QA/PRD/txt) are routed to the change-id-scoped
+  // directory `.peaks/<change-id>/<segments-joined>`. The session id
+  // is the binding for ephemeral state (live sub-agent progress,
+  // spawn records) only and is NOT part of the reviewable-artifact
+  // path. Pre-1.3.1 trees get their old session-scoped files migrated
+  // to the change-id dir by `peaks workspace reconcile`.
   const resolvedProjectRoot = projectRoot && projectRoot.length > 0
     ? projectRoot
     : (findProjectRoot(process.cwd()) ?? process.cwd());
-  const sessionId = getSessionId(resolvedProjectRoot);
 
-  if (sessionId && segments.length > 0 && segments[0]) {
-    const role = normalizeForwardSlashes(segments[0]);
-    const dirPath = join(resolvedProjectRoot, '.peaks', sessionId, role);
-
-    if (isUnsafeArtifactPath(role) || isUnsafeArtifactPath(sessionId)) {
-      throw new ChangeIdValidationError(changeId);
-    }
-
-    const number = getNextNumber(dirPath);
-    const filename = buildNumberedFilename(number, changeId);
-    const candidatePath = `.peaks/${sessionId}/${role}/${filename}`;
-
-    return normalizeArtifactPath(candidatePath);
-  }
-
-  // Fallback: no session or no segments - use legacy behavior
+  // Use segments verbatim as the sub-path. This preserves the
+  // legacy behavior where `buildArtifactRelativePath(changeId, 'rd', 'architecture')`
+  // produces `.peaks/<changeId>/rd/architecture` (the caller specifies
+  // the full sub-path, including any custom filename like
+  // `architecture`, `001-foo.md`, `swarm/workers/rd-impl-001`, etc.).
   const joined = segments.map((segment) => normalizeForwardSlashes(segment)).join('/');
   const candidatePath = `.peaks/${changeId}/${joined}`;
 
@@ -160,4 +171,166 @@ export function isPathInsideArtifactRoot(path: string, artifactRoot: string): bo
   const normalizedRoot = normalizeArtifactPath(artifactRoot);
 
   return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Change-id binding (.peaks/_runtime/current-change)
+// ---------------------------------------------------------------------------
+//
+// The active change-id binding lives at `.peaks/_runtime/current-change`.
+// Two forms are accepted (back-compat for the legacy file-based binding
+// that pre-dates the runtime-layer refactor):
+//
+//   1. Symlink: the symlink target resolves to `.peaks/<change-id>/`
+//      inside the project root. This is the canonical form that
+//      `peaks workspace init --change-id <id>` writes.
+//
+//   2. Plain file: the file's first non-empty line is the change-id.
+//      Older `peaks workspace init` (pre-1.3.1) wrote the change-id
+//      as a plain file at `.peaks/current-change`. We still read it.
+//
+// In either case the change-id is validated against CHANGE_ID_PATTERN
+// (letters/digits/dots/underscores/dashes, no `..`) and the resolved
+// path must stay inside the project root (defense against a symlink
+// pointing outside).
+//
+// The binding is read by RD/QA/PRD services when they need to know
+// which `.peaks/<change-id>/` directory to write reviewable artifacts
+// into, and by reconciliation to figure out which slice each legacy
+// session file belongs to.
+
+const CURRENT_CHANGE_REL = '_runtime/current-change';
+const LEGACY_CURRENT_CHANGE_REL = 'current-change';
+
+const CHANGE_DIR_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+function safeReadBinding(projectRoot: string): { changeId: string; source: 'symlink' | 'file' } | null {
+  const peaksRoot = join(projectRoot, '.peaks');
+  const realPeaks = (() => {
+    try { return realpathSync(peaksRoot); } catch { return peaksRoot; }
+  })();
+  for (const rel of [CURRENT_CHANGE_REL, LEGACY_CURRENT_CHANGE_REL]) {
+    const bindingPath = join(peaksRoot, rel);
+    if (!existsSync(bindingPath)) continue;
+    try {
+      const stat = lstatSync(bindingPath);
+      if (stat.isSymbolicLink()) {
+        const targetPath = realpathSync(bindingPath);
+        if (!isInsidePath(targetPath, realPeaks)) return null;
+        const targetId = basename(targetPath);
+        if (!CHANGE_DIR_PATTERN.test(targetId) || targetId === '.' || targetId === '..') return null;
+        return { changeId: targetId, source: 'symlink' };
+      }
+      const raw = readFileSync(bindingPath, 'utf-8').trim();
+      if (!raw || !CHANGE_DIR_PATTERN.test(raw) || raw === '.' || raw === '..') return null;
+      return { changeId: raw, source: 'file' };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Read the active change-id binding for a project. Returns null when
+ * no binding exists or the binding is malformed / escapes the project
+ * root. As of slice 2026-06-05-change-id-as-unit-of-work this is the
+ * primary routing key for reviewable artifact writes — RD/QA/PRD
+ * services should call this (rather than guess from the session id)
+ * to decide which `.peaks/<change-id>/` directory to write into.
+ */
+export function getCurrentChangeId(projectRoot: string): string | null {
+  return safeReadBinding(projectRoot)?.changeId ?? null;
+}
+
+/**
+ * Source of the resolved change-id binding. Useful for tests that
+ * need to confirm whether the binding came from the canonical
+ * `_runtime/current-change` symlink or the legacy `current-change`
+ * plain-file path.
+ */
+export function getCurrentChangeIdSource(projectRoot: string): { changeId: string; source: 'symlink' | 'file' } | null {
+  return safeReadBinding(projectRoot);
+}
+
+/**
+ * Write a change-id binding for a project. Two forms are supported
+ * (the same as `getCurrentChangeId` reads):
+ *
+ *   - `{ form: 'symlink' }` (default): creates
+ *     `.peaks/_runtime/current-change` as a symlink pointing at
+ *     `.peaks/<changeId>/`. Requires the target dir to exist (the
+ *     caller is responsible for `initWorkspace` + the change-id dir).
+ *   - `{ form: 'file' }`: writes the change-id as the sole content of
+ *     `.peaks/_runtime/current-change`. The legacy plain-file form.
+ *
+ * Idempotent: re-running with the same changeId + form is a no-op.
+ * Re-running with a different changeId on an existing symlink throws —
+ * the caller must remove the binding first (or use a different path).
+ */
+export function setCurrentChangeId(
+  projectRoot: string,
+  changeId: string,
+  options: { form?: 'symlink' | 'file' } = {}
+): void {
+  validateChangeIdOrThrow(changeId);
+  const form = options.form ?? 'symlink';
+  const peaksRoot = join(projectRoot, '.peaks');
+  const bindingPath = join(peaksRoot, CURRENT_CHANGE_REL);
+  // Ensure `_runtime/` exists.
+  const runtimeDir = join(peaksRoot, '_runtime');
+  if (!existsSync(runtimeDir)) {
+    // Lazy import: do not pull fs/promises at the top to keep the
+    // module's import graph minimal.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { mkdirSync } = require('node:fs') as typeof import('node:fs');
+    mkdirSync(runtimeDir, { recursive: true });
+  }
+  if (form === 'file') {
+    writeFileSync(bindingPath, changeId + '\n', 'utf-8');
+    return;
+  }
+  // symlink form: point at .peaks/<changeId>/
+  const targetDir = join(peaksRoot, changeId);
+  if (!existsSync(targetDir)) {
+    mkdirSync(targetDir, { recursive: true });
+  }
+  if (existsSync(bindingPath)) {
+    // Re-running with a different changeId is a configuration error;
+    // surface it loudly so the caller (peaks workspace init) can decide
+    // whether to --allow-session-rebind for the underlying session.
+    try {
+      const existing = readFileSync(bindingPath, 'utf-8').trim();
+      if (existing !== changeId) {
+        if (existsSync(join(peaksRoot, changeId))) {
+          unlinkSync(bindingPath);
+        } else {
+          throw new Error(
+            `current-change binding points at "${existing}" but caller asked to set "${changeId}". ` +
+            `Remove .peaks/_runtime/current-change first or pass the existing changeId.`
+          );
+        }
+      } else {
+        return; // identical — no-op
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
+      // Could not read the existing binding (e.g. it's a broken symlink).
+      // Replace.
+      try { unlinkSync(bindingPath); } catch { /* best effort */ }
+    }
+  }
+  symlinkSync(targetDir, bindingPath);
+}
+
+/**
+ * Canonical on-disk path to a change-id's reviewable artifacts
+ * (`.peaks/<change-id>/`). Writes that target reviewable content
+ * (RD/QA/PRD/txt) should land here regardless of which session
+ * is active. Ephemeral state (live sub-agent progress, spawn records)
+ * stays in the session dir (`.peaks/_runtime/<session-id>/...`).
+ */
+export function getChangeArtifactRoot(projectRoot: string, changeId: string): string {
+  validateChangeIdOrThrow(changeId);
+  return join(projectRoot, '.peaks', changeId);
 }

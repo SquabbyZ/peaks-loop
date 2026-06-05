@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding } from '../session/session-manager.js';
+import { setCurrentChangeId } from '../../shared/change-id.js';
 
 export type WorkspaceInitOptions = {
   projectRoot: string;
@@ -13,6 +14,15 @@ export type WorkspaceInitOptions = {
    * — the CLI surfaces this as `--allow-session-rebind`.
    */
   allowSessionRebind?: boolean;
+  /**
+   * Optional change-id to bind as the active unit of work. When set,
+   * `peaks workspace init` also writes a `.peaks/_runtime/current-change`
+   * symlink pointing at `.peaks/<changeId>/`, so RD/QA/PRD services
+   * know which `<change-id>` directory to write reviewable artifacts
+   * into. The session id is still the binding for ephemeral state
+   * (live sub-agent progress, spawn records).
+   */
+  changeId?: string;
 };
 
 export type WorkspaceInitReport = {
@@ -22,9 +32,19 @@ export type WorkspaceInitReport = {
   alreadyExisted: string[];
   bound: boolean;
   previousSessionId: string | null;
+  changeId: string | null;
+  changeIdAction: 'bound' | 'preserved' | 'none';
 };
 
-const SUBDIRECTORIES: ReadonlyArray<string> = [
+/**
+ * Per-slice subdirectories created **inside the change-id dir**
+ * (`.peaks/<change-id>/...`). These are the reviewable
+ * artifacts and are tracked in git. The `system/` subdir is
+ * intentionally NOT in this list — it lives under the session
+ * dir (`.peaks/_runtime/<session-id>/system/`), since it holds
+ * live sub-agent progress and spawn records, which are ephemeral.
+ */
+const CHANGE_ARTIFACT_SUBDIRECTORIES: ReadonlyArray<string> = [
   'prd/source',
   'prd/requests',
   'ui/requests',
@@ -34,7 +54,15 @@ const SUBDIRECTORIES: ReadonlyArray<string> = [
   'qa/requests',
   'qa/screenshots',
   'sc',
-  'txt',
+  'txt'
+];
+
+/**
+ * Per-session subdirectories created **inside the session dir**
+ * (`.peaks/_runtime/<session-id>/...`). These are the ephemeral
+ * state and are gitignored.
+ */
+const SESSION_EPHEMERAL_SUBDIRECTORIES: ReadonlyArray<string> = [
   'system'
 ];
 
@@ -91,16 +119,36 @@ export function validateSessionId(sessionId: string): void {
 
 export async function initWorkspace(options: WorkspaceInitOptions): Promise<WorkspaceInitReport> {
   validateSessionId(options.sessionId);
-  const sessionRoot = join(options.projectRoot, '.peaks', options.sessionId);
+
+  // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work):
+  //   - Reviewable artifacts (rd/, qa/, prd/, txt/) are created at
+  //     `.peaks/<change-id>/<role>/` (tracked in git) when a change-id
+  //     is given. This is the canonical home for cross-session content.
+  //   - The session dir `.peaks/_runtime/<session-id>/` (gitignored)
+  //     holds only ephemeral state — currently `system/` (live
+  //     sub-agent progress + spawn records). The session id remains
+  //     the binding for that ephemeral state.
+  //
+  // The CLI accepts `--change-id <id>` to bind the change. The legacy
+  // session-scoped layout (`.peaks/<session-id>/<role>/<file>`) is
+  // no longer used by writes; pre-1.3.1 trees get their session
+  // files migrated to the change-id dir by `peaks workspace reconcile`.
+
+  const runtimeRoot = join(options.projectRoot, '.peaks', '_runtime');
+  const sessionRoot = join(runtimeRoot, options.sessionId);
   const created: string[] = [];
   const alreadyExisted: string[] = [];
+
+  // 1. Create the session dir (canonical location `.peaks/_runtime/<sid>/`)
+  //    with ONLY ephemeral subdirs (`system/`). The session dir is
+  //    gitignored.
   if (await isDirectory(sessionRoot)) {
     alreadyExisted.push('.');
   } else {
     await mkdir(sessionRoot, { recursive: true });
     created.push('.');
   }
-  for (const sub of SUBDIRECTORIES) {
+  for (const sub of SESSION_EPHEMERAL_SUBDIRECTORIES) {
     const full = join(sessionRoot, sub);
     if (await isDirectory(full)) {
       alreadyExisted.push(sub);
@@ -110,7 +158,43 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     }
   }
 
-  // Bind this session as the project's current one.
+  // 2. If a change-id is given, also create the change-id dir at
+  //    `.peaks/<change-id>/` (tracked) with the reviewable subdirs.
+  //    When the caller did NOT specify a change-id, this step is
+  //    skipped — reviewable writes for this session are then blocked
+  //    until a change-id is bound (or the user re-runs init with
+  //    `--change-id`). Surfaces in `changeIdAction: 'none'`.
+  let resolvedChangeId: string | null = null;
+  let changeIdAction: 'bound' | 'preserved' | 'none' = 'none';
+  if (options.changeId !== undefined && options.changeId.length > 0) {
+    resolvedChangeId = options.changeId;
+    const changeDir = join(options.projectRoot, '.peaks', resolvedChangeId);
+    if (await isDirectory(changeDir)) {
+      alreadyExisted.push(resolvedChangeId);
+    } else {
+      await mkdir(changeDir, { recursive: true });
+      created.push(resolvedChangeId);
+    }
+    for (const sub of CHANGE_ARTIFACT_SUBDIRECTORIES) {
+      const full = join(changeDir, sub);
+      if (await isDirectory(full)) {
+        alreadyExisted.push(sub);
+      } else {
+        await mkdir(full, { recursive: true });
+        created.push(sub);
+      }
+    }
+    // 3. Bind the change-id so RD/QA/PRD services know where to write
+    //    reviewable artifacts. The binding is a symlink at
+    //    `.peaks/_runtime/current-change` pointing at the change-id dir.
+    setCurrentChangeId(options.projectRoot, resolvedChangeId);
+    changeIdAction = 'bound';
+  } else if (options.changeId !== undefined && options.changeId.length === 0) {
+    // Empty string — same as undefined; treat as no change-id.
+    changeIdAction = 'none';
+  }
+
+  // 4. Bind this session as the project's current one.
   //
   // Single source of truth: `peaks workspace init` is the only CLI entry point
   // that takes an explicit --session-id, so it owns the binding to .session.json.
@@ -139,7 +223,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // etc.) regardless of whether the per-session metadata file is present.
     // Refuse to rebind without explicit authorization.
     previousSessionId = existingSessionId;
-    const existingSessionDir = join(options.projectRoot, '.peaks', existingSessionId);
+    const existingSessionDir = join(runtimeRoot, existingSessionId);
     if (await isDirectory(existingSessionDir) && !options.allowSessionRebind) {
       const { readdirSync } = await import('node:fs');
       const entries = readdirSync(existingSessionDir);
@@ -159,5 +243,14 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     bound = true;
   }
 
-  return { sessionId: options.sessionId, sessionRoot, created, alreadyExisted, bound, previousSessionId };
+  return {
+    sessionId: options.sessionId,
+    sessionRoot,
+    created,
+    alreadyExisted,
+    bound,
+    previousSessionId,
+    changeId: resolvedChangeId,
+    changeIdAction
+  };
 }

@@ -41,17 +41,22 @@ describe('validateSessionId', () => {
 });
 
 describe('initWorkspace', () => {
-  test('creates the full directory tree under .peaks/<session-id>/', async () => {
+  test('creates the runtime session dir under .peaks/_runtime/<session-id>/ (ephemeral state only)', async () => {
+    // As of slice 2026-06-05-change-id-as-unit-of-work, the session
+    // dir at `.peaks/_runtime/<sid>/` holds ONLY ephemeral state
+    // (the `system/` subdir for live sub-agent progress). Reviewable
+    // subdirs (prd/, rd/, qa/, sc/, txt/, ui/) live under
+    // `.peaks/<change-id>/<role>/`, NOT under the session dir, and
+    // are created when `--change-id` is passed.
     const project = await makeProject();
     const report = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
     expect(report.sessionId).toBe('2026-05-25-feature');
-    const sessionRoot = join(project, '.peaks', '2026-05-25-feature');
+    const sessionRoot = join(project, '.peaks', '_runtime', '2026-05-25-feature');
     const entries = await readdir(sessionRoot);
-    expect(entries.sort()).toEqual(['prd', 'qa', 'rd', 'sc', 'system', 'txt', 'ui']);
-    const prdSubs = await readdir(join(sessionRoot, 'prd'));
-    expect(prdSubs.sort()).toEqual(['requests', 'source']);
-    const qaSubs = await readdir(join(sessionRoot, 'qa'));
-    expect(qaSubs.sort()).toEqual(['requests', 'screenshots', 'test-cases', 'test-reports']);
+    expect(entries.sort()).toEqual(['system']);
+    // Without --change-id, the change-id dir is NOT created.
+    expect(report.changeId).toBeNull();
+    expect(report.changeIdAction).toBe('none');
     const systemStat = await stat(join(sessionRoot, 'system'));
     expect(systemStat.isDirectory()).toBe(true);
   });
@@ -122,7 +127,7 @@ describe('initWorkspace', () => {
     await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-first-feature' });
     await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-second-feature', allowSessionRebind: true });
 
-    const firstDir = join(project, '.peaks', '2026-05-25-first-feature');
+    const firstDir = join(project, '.peaks', '_runtime', '2026-05-25-first-feature');
     const firstStat = await stat(firstDir);
     expect(firstStat.isDirectory()).toBe(true);
   });
@@ -162,28 +167,30 @@ describe('initWorkspace', () => {
     ).rejects.toBeInstanceOf(ConflictingSessionError);
   });
 
-  test('pre-creates .peaks/<sid>/qa/screenshots/ so QA browser evidence has a stable home from the start', async () => {
+  test('pre-creates .peaks/<change-id>/qa/screenshots/ when --change-id is given (stable home for browser evidence)', async () => {
     // The qa/screenshots subdir is the home for browser_take_screenshot
     // evidence (the hard contract in peaks-qa / peaks-rd / peaks-ui
-    // requires every screenshot to land there). Pre-creating the dir
-    // means the first QA call has a target; the LLM never has to
-    // mkdir under skill pressure.
+    // requires every screenshot to land there). With --change-id,
+    // init creates `.peaks/<change-id>/qa/screenshots/` so the first
+    // QA call has a target; the LLM never has to mkdir under skill
+    // pressure. The dir lives under the change-id (tracked), NOT the
+    // session dir (ephemeral).
     const project = await makeProject();
-    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
-    const screenshotsDir = join(project, '.peaks', '2026-05-25-feature', 'qa', 'screenshots');
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
+    const screenshotsDir = join(project, '.peaks', 'my-change', 'qa', 'screenshots');
     const stat = await import('node:fs/promises').then((m) => m.stat(screenshotsDir));
     expect(stat.isDirectory()).toBe(true);
   });
 
   test('qa/screenshots/ creation is idempotent on re-init', async () => {
     const project = await makeProject();
-    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
     // Pre-seed a file the QA flow is expected to write later.
     const { writeFile: wf } = await import('node:fs/promises');
-    const screenshotsDir = join(project, '.peaks', '2026-05-25-feature', 'qa', 'screenshots');
+    const screenshotsDir = join(project, '.peaks', 'my-change', 'qa', 'screenshots');
     await wf(join(screenshotsDir, 'pre-existing.png'), 'fake', 'utf8');
     // Re-init must not blow away the pre-existing file.
-    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
     const { readFile: rf } = await import('node:fs/promises');
     const preExisting = await rf(join(screenshotsDir, 'pre-existing.png'), 'utf8');
     expect(preExisting).toBe('fake');

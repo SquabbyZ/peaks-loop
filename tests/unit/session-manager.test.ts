@@ -49,16 +49,22 @@ describe('session-manager', () => {
       expect(sessionId1).toBe(sessionId2);
     });
 
-    test('creates session directory structure', async () => {
+    test('creates session directory structure (ephemeral only: system/ + binding)', async () => {
+      // As of slice 2026-06-05-change-id-as-unit-of-work, the session
+      // dir at `.peaks/_runtime/<sid>/` holds ONLY ephemeral state
+      // (system/ for live sub-agent progress). Reviewable artifacts
+      // (prd/rd/qa/sc/txt/ui) live under `.peaks/<change-id>/<role>/`
+      // and are created by `peaks workspace init --change-id <id>`,
+      // NOT by ensureSession.
       const sessionId = await ensureSession(testProjectRoot);
-      const sessionDir = join(testProjectRoot, '.peaks', sessionId);
+      const sessionDir = join(testProjectRoot, '.peaks', '_runtime', sessionId);
 
-      expect(existsSync(join(sessionDir, 'prd'))).toBe(true);
-      expect(existsSync(join(sessionDir, 'rd'))).toBe(true);
-      expect(existsSync(join(sessionDir, 'qa'))).toBe(true);
-      expect(existsSync(join(sessionDir, 'sc'))).toBe(true);
-      expect(existsSync(join(sessionDir, 'txt'))).toBe(true);
-      expect(existsSync(join(sessionDir, 'ui'))).toBe(true);
+      expect(existsSync(sessionDir)).toBe(true);
+      expect(existsSync(join(sessionDir, 'system'))).toBe(true);
+      // prd/rd/qa/sc/txt/ui are NOT inside the session dir anymore.
+      expect(existsSync(join(sessionDir, 'prd'))).toBe(false);
+      expect(existsSync(join(sessionDir, 'rd'))).toBe(false);
+      expect(existsSync(join(sessionDir, 'qa'))).toBe(false);
     });
   });
 
@@ -261,11 +267,14 @@ describe('session-manager', () => {
   });
 
   describe('getProjectScanPath', () => {
-    test('returns path to project-scan.md in session', async () => {
+    test('returns path to project-scan.md under the runtime session dir', async () => {
       const scanPath = await getProjectScanPath(testProjectRoot);
 
       expect(scanPath).toContain('project-scan.md');
       expect(scanPath).toContain('.peaks');
+      // As of slice 2026-06-05-change-id-as-unit-of-work, the
+      // session dir is at `.peaks/_runtime/<sid>/` (canonical).
+      expect(scanPath).toContain('_runtime');
       expect(existsSync(join(scanPath, '..'))).toBe(true);
     });
   });
@@ -280,10 +289,11 @@ describe('session-manager', () => {
       expect(hasProjectScan(testProjectRoot)).toBe(false);
     });
 
-    test('returns true when project-scan.md exists', async () => {
+    test('returns true when project-scan.md exists in the runtime session dir', async () => {
       const sessionId = await ensureSession(testProjectRoot);
-      const scanPath = join(testProjectRoot, '.peaks', sessionId, 'rd', 'project-scan.md');
-      const { writeFileSync } = require('node:fs');
+      const scanPath = join(testProjectRoot, '.peaks', '_runtime', sessionId, 'rd', 'project-scan.md');
+      const { mkdirSync, writeFileSync } = require('node:fs');
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sessionId, 'rd'), { recursive: true });
       writeFileSync(scanPath, '# Project Scan', 'utf8');
 
       expect(hasProjectScan(testProjectRoot)).toBe(true);

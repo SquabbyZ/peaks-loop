@@ -7,16 +7,40 @@ coverage/
 .gstack/
 .codegraph/
 
-# Peaks transient/per-session state (regenerable, not shared knowledge)
+# Peaks transient/per-session state (regenerable, not shared knowledge).
+# Layout (as of slice 2026-06-05-change-id-as-unit-of-work):
+#   .peaks/_runtime/                ← all ephemeral runtime state
+#                                       (active-skill, session binding,
+#                                        current-change symlink/file)
+#   .peaks/[0-9]*-session-*/        ← session dirs (ephemeral scratch;
+#                                       contain only system/ sub-agent state)
+#   .peaks/memory/                  ← durable project memory (tracked; knowledge base)
+#   .peaks/sops/                    ← durable SOP definitions (tracked; shared with team)
+#   .peaks/PROJECT.md               ← durable project timeline (tracked)
+#   .peaks/.peaks-init-hooks-decision.json ← durable install decision (tracked)
+#   .peaks/<change-id>/             ← durable change-id artifacts (tracked;
+#                                       cross-session accumulation of the
+#                                       unit of work — RD/QA/PRD/txt)
+#   .peaks/session.json             ← legacy top-level binding (gitignored;
+#                                       canonical moved to _runtime/session.json)
 .peaks/**/.bypass-count.json
 .peaks/ontology.json
-# Peaks runtime state — canonical home at .peaks/_runtime/ (active-skill, session binding, sop-state, future hooks/output-style state)
+# Per-slice session directories — these are session-scoped, regenerable, and
+# large. The gitignore rule below covers both the legacy top-level
+# `.peaks/<session-id>/` and the new canonical `.peaks/_runtime/<session-id>/`.
 .peaks/_runtime/
-# Top-level .peaks/session.json (CLI's external session metadata file; appears alongside .peaks/_runtime/session.json — distinct file, not under _runtime/)
+.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-session-*/
+# Legacy top-level binding (one-minor-release back-compat; canonical home is _runtime/session.json).
 .peaks/session.json
 # Test / debug backups left by sub-agent baselines (e.g. .peaks/.active-skill.json.test-bak from QA's git-stash verification)
 .peaks/*.bak
 .peaks/*.test-bak
 .peaks/**/*.bak
 .peaks/**/*.test-bak
-# Note: the per-slice session artifacts under .peaks/<session-id>/{prd,rd,qa,sc,txt,system}/ ARE tracked by convention (提交中间产物); only the runtime state above is ignored.
+# Tracked content that lives at the top level of .peaks/ (NOT ignored):
+#   - .peaks/memory/                       (durable project knowledge)
+#   - .peaks/sops/                         (durable SOP definitions)
+#   - .peaks/PROJECT.md                    (durable session timeline)
+#   - .peaks/.peaks-init-hooks-decision.json (first-run opt-in marker)
+#   - .peaks/<change-id>/                  (durable change-id scoped artifacts;
+#                                            reviewable across sessions)

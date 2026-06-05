@@ -25,6 +25,15 @@ type WorkspaceInitOptions = {
    * installed but the hooks have been removed out from under us).
    */
   installHooks?: 'ask' | 'auto' | 'skip';
+  /**
+   * Optional change-id to bind as the active unit of work (slice 2026-06-05-
+   * change-id-as-unit-of-work). When set, the workspace also creates
+   * `.peaks/<change-id>/<role>/` (tracked) and writes
+   * `.peaks/_runtime/current-change` as a symlink pointing at the change-id
+   * dir. RD/QA/PRD services read this binding to decide where to write
+   * reviewable artifacts.
+   */
+  changeId?: string;
 };
 
 /** Sticky decision marker for the first-time "install hooks" prompt. */
@@ -128,6 +137,16 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
       .option(
+        '--change-id <id>',
+        'bind the change-id for reviewable artifacts (writes route to .peaks/<change-id>/<role>/, tracked in git). When omitted, the change-id binding is left unchanged.',
+        (value: string) => {
+          if (value.length === 0) {
+            throw new Error('--change-id must not be empty');
+          }
+          return value;
+        }
+      )
+      .option(
         '--install-hooks <mode>',
         'first-time hooks install behaviour: ask (default in TTY, prompt once + sticky-marker), auto (default in --json / non-TTY, install silently + sticky-marker), skip (sticky-marker skipped, do not install)',
         (value: string) => {
@@ -168,7 +187,8 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       const report = await initWorkspace({
         projectRoot,
         sessionId,
-        allowSessionRebind: options.allowSessionRebind === true
+        allowSessionRebind: options.allowSessionRebind === true,
+        ...(options.changeId !== undefined ? { changeId: options.changeId } : {})
       });
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
