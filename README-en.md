@@ -1,9 +1,20 @@
 # Peaks
 
-Peaks is a **family of skills for Claude Code** — it turns project governance, workflow planning, controlled execution, QA verification, and change traceability into a reusable engineering process.
-The CLI is the engine those skills call into: it owns the **gates, the JSON contracts, and the irreversible side effects**.
+**English** | [简体中文](./README.md)
 
-> **One-line positioning**: you **work with SKILLs**; the CLI is the machine-level backing that keeps the skills trustworthy.
+[![npm version](https://img.shields.io/npm/v/peaks-cli.svg)](https://www.npmjs.com/package/peaks-cli)
+[![GitHub repo](https://img.shields.io/badge/GitHub-SquabbyZ%2Fpeaks--cli-181717?logo=github)](https://github.com/SquabbyZ/peaks-cli)
+
+Peaks is a **cross-AI-IDE workflow-gating CLI + skill family** — it turns project governance, workflow planning, controlled execution, QA verification, and change traceability into a reusable engineering process. The `peaks` CLI is the stable cross-IDE backbone (gates, JSON contracts, irreversible side effects); the skill / hook / config layer is rendered into each IDE's native format.
+
+> **Supported IDEs**
+> - ✅ **Claude Code** (shipped today): 11 `peaks-*` skills + `.claude/settings.json` PreToolUse hook
+> - 🚧 **Trae** (adaptation in progress): same role / state-machine / gate model, expressed in Trae's native config format
+> - 📋 **Codex / Cursor / Qoder / Tongyi Lingma, and more** (on the roadmap)
+
+> **Positioning**: you **work with skills**; the CLI is the cross-IDE quality assurance layer.
+>
+> Our goal: let the LLM exercise full judgment in each step — peaks provides an auditable SOP guardrail at process boundaries and accumulates project-level memory and usage experience, so the AI IDE and the LLM grow to know your project better the more you use them.
 
 ## Installation
 
@@ -11,14 +22,14 @@ The CLI is the engine those skills call into: it owns the **gates, the JSON cont
 npm install -g peaks-cli
 ```
 
-After install, Peaks registers its 8 built-in `peaks-*` skills into Claude Code. Invoke them by name in any conversation.
+After install, Peaks registers its 11 built-in `peaks-*` skills into the adapted AI IDE (today: Claude Code). Invoke them by name in any conversation.
 
 ## 5-minute onboarding
 
-In a Claude Code conversation, **just ask Claude to use a skill by name**. The skill takes over the rest of the flow:
+In an adapted AI IDE conversation, **just ask the AI to use a skill by name**. The skill takes over the rest of the flow:
 
 ```text
-peaks-solo end-to-end governance of /path/to/your-project
+peaks-solo add OAuth callback to the login page      # first explicit peaks-solo use; project root = the IDE's current cwd
 peaks-prd  define goals, non-goals, and acceptance criteria for the invitation feature
 peaks-rd   analyze the smallest refactor slice and risks for this change
 peaks-qa   design tests and regression checks for this change
@@ -28,14 +39,22 @@ peaks-txt  generate a context capsule for the current module with key decisions
 peaks-sop  turn my "publish a post" flow into a gated SOP
 ```
 
-First time? Follow these four steps:
+First time? Two layers: **you do 2 steps, peaks handles the rest**.
 
-1. In Claude Code, say: **`peaks-solo analyze /path/to/your-project`**
-2. The skill auto-runs: `peaks workspace init` → `peaks scan archetype` → writes `.peaks/<session-id>/rd/project-scan.md`
-3. Describe the change you want; the skill drives PRD → RD → UI → QA → SC → TXT in order
-4. At the end, the skill keeps every intermediate artifact under `.peaks/<session-id>/` and writes the durable facts into `.peaks/memory/`
+**What you do (2 steps):**
 
-Want a quick status check? Ask Claude to run:
+1. Open an adapted AI IDE inside your project directory: `cd /path/to/your-project && <your IDE command, e.g. claude>` — so the IDE knows the project root
+2. In the IDE, say: **`peaks-solo do X for me`** (X = a need description, e.g. "add OAuth callback to the login page")
+   - The LLM picks a mode based on the task and project; to be explicit, write `peaks-solo full-auto X` / `peaks-solo swarm X` / `peaks-solo strict X`
+
+**Then peaks handles the rest:**
+
+- Runs `peaks workspace init` (creates `.peaks/` on first run) → `peaks scan archetype` → writes `.peaks/<session-id>/rd/project-scan.md`
+- For complex tasks coordinates PRD → RD → UI → QA → SC → TXT; for simple tasks runs in solo full-auto mode without phase-by-phase pauses
+- While the workflow runs, use `peaks-solo-status` to see where you are; if interrupted, use `peaks-solo-resume` to continue
+- At the end, keeps every intermediate artifact under `.peaks/<session-id>/` and writes the durable facts into `.peaks/memory/`
+
+Want a quick status check? Ask the AI to run:
 
 ```bash
 peaks -V                # version
@@ -57,29 +76,44 @@ peaks project dashboard --project . --json   # current project dashboard
 | `peaks-sc` | Change control, commit boundaries, artifact retention, rollback evidence | Impact records, rollback evidence, change-control |
 | `peaks-txt` | Context capsules, decision records, knowledge compression | Module understanding, key-decision capture, retros |
 | `peaks-sop` | **Turn your own workflow into a gated SOP** (not dev-only) | Content publishing, compliance checklists, data pipelines, ops runbooks, personal procedures |
+| `peaks-solo-resume` | **Continue the unfinished slice** — detects the in-flight gate and surfaces a resume option (saves 3-5k tokens vs re-reading artifacts) | "继续完成刚才的", "resume the unfinished slice" |
+| `peaks-solo-status` | **Where are we now** — 5-CLI snapshot table (presence + session + dashboard + request + memory) | "现在到哪了", "show me the dashboard" |
+| `peaks-solo-test` | **Run the project's test suite** — detects the test runner from `package.json` (vitest / jest / mocha / pytest / ...) and runs with the project's native command, then summarises pass/fail | "跑测试", "run the tests" |
 
-### Three common workflows
+### Two basic ways to use Peaks
 
-**New feature, end-to-end**
+**1. Let `peaks-solo` orchestrate (the common case)**
 
-```text
-peaks-prd  →  peaks-ui (if UI)  →  peaks-rd  →  peaks-qa  →  peaks-sc
-```
-
-**Refactor an existing project**
-
-```text
-peaks-txt (compress the current state)     →  peaks-prd (clarify the goal)  →
-peaks-rd  (split into minimal slices)      →  peaks-qa  (regression matrix) →
-peaks-solo (orchestrate end-to-end)        →  peaks-sc  (change evidence)
-```
-
-**Fix a bug**
+`peaks-solo` is the product entry point. **Most scenarios use it** — just tell it what to do and it coordinates the PRD / UI / RD / QA / SC / TXT chain by itself. **The default mode is not hardcoded** — the LLM proactively recommends one of assisted / full-auto / swarm / strict based on task complexity and project state; to be explicit, write the mode in the invocation:
 
 ```text
-peaks-rd (repro + root cause)  →  peaks-qa (failing test + acceptance)  →
-write the code (failing test first)  →  peaks-sc
+peaks-solo do X for me              # default (not hardcoded — LLM picks based on task and project); X = a need description; the project path is the IDE's current cwd
+peaks-solo full-auto do X           # explicit full-auto: end-to-end
+peaks-solo swarm do X               # explicit swarm: maximize sub-agent parallelism (for larger tasks)
+peaks-solo strict do X              # explicit strict: strictest gates
 ```
+
+The 3 `peaks-solo-*` wrapper skills are lightweight variants of solo (not separate roles):
+
+- `peaks-solo-resume` — continue an in-flight slice
+- `peaks-solo-status` — see where you are
+- `peaks-solo-test` — run the project's test suite
+
+**2. Invoke a single role skill directly (advanced)**
+
+Only when you want to do **one phase** of the workflow yourself (e.g. write a PRD, do an architecture analysis, run regression) without the full pipeline:
+
+| Skill | What you use it for | When to reach for it |
+|---|---|---|
+| `peaks-prd` | Author / edit a PRD (goals, non-goals, preserved behavior, acceptance) | You want to define the requirements yourself, no full solo run |
+| `peaks-rd` | Architecture analysis + minimum-slice planning + risk | You want a tech analysis, not code |
+| `peaks-qa` | Test cases + regression matrix + acceptance evidence | You want tests only, no full solo |
+| `peaks-ui` | Visual direction + interaction design + design-system constraints | UI design only, no implementation |
+| `peaks-sc` | Impact scope + commit boundaries + retention strategy | Just record the change, don't trigger full flow |
+| `peaks-txt` | Context capsule + decision records | Just compress knowledge, no full flow |
+| `peaks-sop` | Turn any workflow (not just dev) into a gated SOP | Define / register your own SOP |
+
+**3 solo wrappers + 7 role skills + 1 solo orchestrator = 11 skills in the family.** In daily use, 1 skill (`peaks-solo`) covers ≥90% of needs.
 
 ## How it works: skills first, CLI as gates
 
@@ -97,8 +131,11 @@ You don't need to memorize these — but they're the bones you'll hear reference
 
 ```bash
 peaks workspace init --project <repo> --json       # create the .peaks/ workspace (once per session)
+peaks workspace reconcile --project <repo> --json  # 4-tier heuristic to re-point to the canonical session; sweep orphan session dirs (dry-run by default; --apply to delete)
 peaks scan archetype --project <repo> --json       # detect project archetype (greenfield / legacy-frontend / ...)
+peaks scan libraries --project <repo> --json       # enumerate deps + parse major; supports monorepo
 peaks request init/show/transition                 # state machine for prd/rd/qa/sc requests
+peaks session list/info/title/rotate               # session metadata; `rotate` drops the binding so the next peaks call auto-generates a fresh session
 peaks sop init/lint/check/advance/register         # your custom SOP lifecycle
 peaks hooks install --project <repo>               # install a PreToolUse hook for gates
 peaks project dashboard --project <repo> --json    # one-shot project view
@@ -149,16 +186,6 @@ peaks hooks install --project <repo>   # explicit opt-in: writes one PreToolUse 
 After that, when the agent tries `git push` while a publish gate is failing, Claude Code receives `permissionDecision: "deny"` — the command is blocked **before any permission check, even under `--dangerously-skip-permissions`**. Satisfy the gate and it passes; for emergencies use `peaks gate bypass --sop <id> --phase <phase> --reason "<why>"` (one-shot, capped per project per SOP, reason audited).
 
 > **Two definition layers, execution per-project.** A SOP definition (`sop.json` + registrable `SKILL.md`) can live in the **global** layer `~/.peaks/sops/` (your personal cross-project SOPs — default for `init`/`lint`/`register`) or the **project** layer `<repo>/.peaks/sops/` (committed into the repo, team-shared — pass `--project <repo>`). The **project layer wins** over global for the same id. Run-state (current phase, history) is always per-project at `<project>/.peaks/sop-state/<sop-id>/`. `check` / `advance` take `--project` to say which project to evaluate against and which definition layer wins.
-
-## Project layout (the peaks-cli repo itself)
-
-```text
-skills/        # 8 SKILL.md files (peaks-solo / -prd / -rd / -qa / -ui / -sc / -txt / -sop)
-src/cli/       # CLI engine (commands/, services/, hooks/, memory/, sop/, scan/, ...)
-bin/peaks.js   # entry point
-docs/          # design docs
-openspec/      # internal OpenSpec change proposals
-```
 
 ## License
 
