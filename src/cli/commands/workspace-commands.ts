@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
+import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
@@ -343,6 +344,58 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         fail('workspace.reconcile', 'WORKSPACE_RECONCILE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
         options.json
       );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    workspace
+      .command('migrate')
+      .description(
+        'Migrate legacy `.peaks/<session-id>/<role>/<file>` content into the new layout: ' +
+          '`.peaks/retrospective/<change-id>/<role>/<file>`. Each file is routed by a 4-tier ' +
+          'change-id resolver (filename regex → content H1 → body frontmatter → per-session fallback ' +
+          'to the most recent rd/requests entry). Cross-cutting files (project-scan, perf-baseline) ' +
+          'and transient runtime files (session.json, system/) are skipped with reasons in the ' +
+          'response. By default the command is a dry-run: it reports the planned moves + conflicts ' +
+          'and the session dirs that WOULD be deleted. Pass --apply to actually `git mv` the files ' +
+          'and `rm -rf` the emptied session dirs. Idempotent: re-running on an already-migrated tree ' +
+          'is a no-op (all files report conflicts with identical content).'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--apply', 'actually `git mv` the files and delete the emptied session dirs (destructive); without it, dry-run only', false)
+  ).action(async (options: { project: string; apply?: boolean; json?: boolean }) => {
+    try {
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      const apply = options.apply === true;
+      const result = await migrateWorkspace({ projectRoot, apply });
+
+      const warnings: string[] = [];
+      if (result.sessions.length === 0) {
+        warnings.push('No legacy session directories found under .peaks/. Nothing to migrate.');
+      } else if (result.wouldMove.length === 0) {
+        warnings.push('Legacy session dirs found but no reviewable content to migrate (all files were cross-cutting or transient).');
+      }
+
+      const nextActions: string[] = [];
+      if (!apply && result.wouldMove.length > 0) {
+        nextActions.push(`Re-run with --apply to perform ${result.wouldMove.length} move(s) and delete ${result.wouldDeleteSessions.length} session dir(s).`);
+      }
+      if (result.conflicts.length > 0) {
+        nextActions.push(`${result.conflicts.length} file(s) already exist at the target path; review before --apply (or re-run after a partial migrate).`);
+      }
+      if (apply) {
+        if (result.moved.length > 0) {
+          nextActions.push(`Migrated ${result.moved.length} file(s) into .peaks/retrospective/.`);
+        }
+        if (result.deletedSessions.length > 0) {
+          nextActions.push(`Deleted ${result.deletedSessions.length} emptied session dir(s).`);
+        }
+      }
+
+      printResult(io, ok('workspace.migrate', result, warnings, nextActions), options.json ?? false);
+    } catch (error) {
+      printResult(io, fail('workspace.migrate', 'WORKSPACE_MIGRATE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']), options.json ?? false);
       process.exitCode = 1;
     }
   });
