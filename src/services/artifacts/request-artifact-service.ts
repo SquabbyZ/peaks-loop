@@ -550,11 +550,38 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   // session-id dirs (pre-1.3.0 layout). Both have the same
   // `<role>/requests/<file>.md` shape, so we read them uniformly.
   //
+  // Additionally, shipped slices are archived under
+  // `.peaks/retrospective/<change-id>/<role>/requests/` and dogfood
+  // evidence lives under `.peaks/_dogfood/<change-id>/<role>/requests/`.
+  // When `sessionId` is NOT pinned, we scan ALL three umbrella dirs
+  // (`<top>`, `retrospective/`, `_dogfood/`) so a `peaks request show
+  // <rid>` resolves shipped slices too — which is what the slice check's
+  // gate-verify-pipeline stage needs to find evidence for the retrospective
+  // slice being verified.
+  //
   // Skip well-known non-artifact dirs: `_runtime/` holds ephemeral state
   // (no `requests/` subdirs anyway, but skip explicitly to avoid noise).
   const allDirs = await listDirectories(peaksRoot);
   const candidateDirs = allDirs.filter((dir) => dir !== '_runtime');
-  const scopes = options.sessionId !== undefined ? [options.sessionId] : candidateDirs;
+  // Expand scopes to include the nested umbrellas that host change-id dirs
+  // (retrospective/, _dogfood/). For each, list its sub-dirs and treat
+  // them as additional scopes. This makes the lookup span the entire
+  // .peaks tree.
+  const expandedScopes: string[] = [];
+  if (options.sessionId !== undefined) {
+    expandedScopes.push(options.sessionId);
+  } else {
+    for (const dir of candidateDirs) {
+      expandedScopes.push(dir);
+      if (dir === 'retrospective' || dir === '_dogfood') {
+        const nested = await listDirectories(join(peaksRoot, dir));
+        for (const n of nested) {
+          expandedScopes.push(join(dir, n));
+        }
+      }
+    }
+  }
+  const scopes = expandedScopes;
   const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
   const summaries: RequestArtifactSummary[] = [];
   for (const scope of scopes) {
@@ -612,10 +639,24 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   if (!(await isDirectory(peaksRoot))) {
     return null;
   }
-  // Scan all top-level dirs in `.peaks/` (change-id dirs + legacy
-  // session-id dirs; skip the `_runtime/` ephemeral state dir).
+  // Scan all top-level dirs in `.peaks/` AND nested change-id dirs
+  // under `retrospective/` and `_dogfood/`. The expanded scope list
+  // lets us find request artifacts that live one or two levels deep
+  // (shipped slices, dogfood evidence). Without this expansion,
+  // verify-pipeline can't find the RD/QA request files for any
+  // retrospective slice.
   const allDirs = await listDirectories(peaksRoot);
-  const scopes = allDirs.filter((dir) => dir !== '_runtime');
+  const scopes: string[] = [];
+  for (const dir of allDirs) {
+    if (dir === '_runtime') continue;
+    scopes.push(dir);
+    if (dir === 'retrospective' || dir === '_dogfood') {
+      const nested = await listDirectories(join(peaksRoot, dir));
+      for (const n of nested) {
+        scopes.push(join(dir, n));
+      }
+    }
+  }
   for (const scope of scopes) {
     const dir = join(peaksRoot, scope, options.role, 'requests');
     const found = await findFileInDir(dir);

@@ -40,7 +40,7 @@ function makeProject(): string {
   mkdirSync(reviewDir, { recursive: true });
   writeFileSync(join(reviewDir, 'code-review.md'), '# Code Review\n\nCRITICAL: 0\n\n## Findings\n\n- none');
   writeFileSync(join(reviewDir, 'security-review.md'), '# Security Review\n\n## Findings\n\n- none');
-  writeFileSync(join(reviewDir, 'perf baseline.md'), '# Performance Baseline\n\n## Results\n\nN/A — no perf surface.\n');
+  writeFileSync(join(reviewDir, 'perf-baseline.md'), '# Performance Baseline\n\n## Results\n\nN/A — no perf surface.\n');
   // Set the current-change binding so the slice check resolves rid.
   mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
   // Symlink current-change → retrospective/2026-06-05-test
@@ -194,7 +194,7 @@ describe('sliceCheck', () => {
     test('boundaryReady=false when any stage fails', async () => {
       // Force review-fanout to fail
       const { rmSync } = await import('node:fs');
-      rmSync(join(project, '.peaks', '2026-06-05-test', 'rd', 'perf baseline.md'));
+      rmSync(join(project, '.peaks', '2026-06-05-test', 'rd', 'perf-baseline.md'));
 
       const result = await sliceCheck({
         projectRoot: project,

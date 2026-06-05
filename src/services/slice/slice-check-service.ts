@@ -118,7 +118,7 @@ async function runUnitTests(projectRoot: string): Promise<SliceCheckStage> {
 const REVIEW_FILES = [
   { name: 'code-review', path: 'rd/code-review.md', label: 'code-review' },
   { name: 'security-review', path: 'rd/security-review.md', label: 'security-review' },
-  { name: 'perf-baseline', path: 'rd/perf baseline.md', label: 'perf-baseline' }
+  { name: 'perf-baseline', path: 'rd/perf-baseline.md', label: 'perf-baseline' }
 ] as const;
 
 async function runReviewFanout(
