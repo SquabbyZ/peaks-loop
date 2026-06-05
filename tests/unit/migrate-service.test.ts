@@ -196,24 +196,33 @@ describe('migrateWorkspace', () => {
       expect(explicit?.source).toBe('content-frontmatter');
     });
 
-    test('cross-cutting files (rd/project-scan.md, rd/perf-baseline.md) are skipped, not migrated', async () => {
+    test('cross-cutting files route to .peaks/<topic>/<role>/<file> (top-level)', async () => {
       const sid = '2026-06-06-session-fffffff';
       seedFile(join(project, `.peaks/${sid}/rd/project-scan.md`), '# Project Scan: react-prompt-editor');
-      seedFile(join(project, `.peaks/${sid}/rd/perf-baseline.md`), '# Performance Baseline');
+      seedFile(join(project, `.peaks/${sid}/rd/perf-baseline.md`), '# Perf Baseline');
+      seedFile(join(project, `.peaks/${sid}/rd/perf baseline.md`), '# Performance Baseline');
       seedFile(join(project, `.peaks/${sid}/rd/requests/001-cross.md`), '# RD 001-cross'); // non-cross-cutting
 
-      const result = await migrateWorkspace({ projectRoot: project, apply: false });
-      const skipScan = result.wouldMove.find((f) => f.relativePath === 'rd/project-scan.md');
-      const skipPerf = result.wouldMove.find((f) => f.relativePath === 'rd/perf-baseline.md');
-      const skipCross = result.sessions[0]?.files.find((f) => f.relativePath === 'rd/project-scan.md');
-      const skipPerfCross = result.sessions[0]?.files.find((f) => f.relativePath === 'rd/perf-baseline.md');
+      const result = await migrateWorkspace({ projectRoot: project, apply: true });
+      // Cross-cutting files are now in wouldMove (NOT skipped)
+      const scanMove = result.moved.find((f) => f.relativePath === 'rd/project-scan.md');
+      const perfWithSpaceMove = result.moved.find((f) => f.relativePath === 'rd/perf baseline.md');
+      const perfMove = result.moved.find((f) => f.relativePath === 'rd/perf-baseline.md');
 
-      expect(skipScan).toBeUndefined(); // not in wouldMove
-      expect(skipPerf).toBeUndefined();
-      expect(skipCross?.skipped).toBe(true);
-      expect(skipCross?.skipReason).toBe('cross-cutting');
-      expect(skipPerfCross?.skipped).toBe(true);
-      expect(skipPerfCross?.skipReason).toBe('cross-cutting');
+      expect(scanMove?.changeId).toBe('project-scan');
+      expect(scanMove?.to).toContain('/.peaks/project-scan/rd/project-scan.md');
+      expect(perfMove?.changeId).toBe('perf-baseline');
+      expect(perfMove?.to).toContain('/.peaks/perf-baseline/rd/perf-baseline.md');
+      expect(perfWithSpaceMove?.changeId).toBe('perf-baseline');
+      expect(perfWithSpaceMove?.to).toContain('/.peaks/perf-baseline/rd/perf baseline.md');
+
+      // Files actually moved on disk
+      expect(existsSync(join(project, '.peaks/project-scan/rd/project-scan.md'))).toBe(true);
+      expect(existsSync(join(project, '.peaks/perf-baseline/rd/perf-baseline.md'))).toBe(true);
+      expect(existsSync(join(project, '.peaks/perf-baseline/rd/perf baseline.md'))).toBe(true);
+
+      // The non-cross-cutting request artifact is in retrospective
+      expect(existsSync(join(project, '.peaks/retrospective/cross/rd/requests/001-cross.md'))).toBe(true);
     });
 
     test('transient runtime files (system/) are skipped; session.json is reconcile territory', async () => {

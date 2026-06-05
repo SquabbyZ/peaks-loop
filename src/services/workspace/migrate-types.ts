@@ -47,7 +47,7 @@ export type MigrateFilePlan = {
   /** True if the file was skipped (e.g. `session.json`, cross-cutting, conflict). */
   skipped?: boolean;
   /** Why the file was skipped (only set when `skipped === true`). */
-  skipReason?: 'transient-runtime' | 'cross-cutting' | 'conflict' | 'no-change-id' | 'unsupported-role';
+  skipReason?: 'transient-runtime' | 'conflict' | 'no-change-id' | 'unsupported-role';
 };
 
 export type MigrateSessionPlan = {

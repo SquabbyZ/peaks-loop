@@ -229,12 +229,24 @@ async function deriveFallbackChangeId(sessionPath: string): Promise<string | nul
 }
 
 function isCrossCuttingFile(relativePath: string): boolean {
-  // `rd/project-scan.md` and `rd/perf-baseline.md` are cross-cutting and
-  // belong at the TOP of `.peaks/` (e.g. `.peaks/project-scan/rd/...`),
-  // not under retrospective/. They never carry a per-slice change-id.
+  // `rd/project-scan.md` and `rd/perf-baseline.md` (and the `rd/perf baseline.md`
+  // variant with a space — observed in some downstream trees) are
+  // cross-cutting artifacts. They belong at the TOP of `.peaks/`
+  // (e.g. `.peaks/project-scan/rd/project-scan.md`), not under
+  // retrospective/. They never carry a per-slice change-id.
   if (relativePath === 'rd/project-scan.md') return true;
   if (relativePath === 'rd/perf-baseline.md') return true;
+  if (relativePath === 'rd/perf baseline.md') return true;
   return false;
+}
+
+/** Map a cross-cutting file's relative path to its dedicated top-level
+ * dir name (the change-id field for cross-cutting routing). */
+function deriveCrossCuttingDirName(relativePath: string): string {
+  if (relativePath === 'rd/project-scan.md') return 'project-scan';
+  if (relativePath === 'rd/perf-baseline.md') return 'perf-baseline';
+  if (relativePath === 'rd/perf baseline.md') return 'perf-baseline';
+  return 'unknown-cross-cutting';
 }
 
 function isTransientRuntimeFile(relativePath: string): boolean {
@@ -269,20 +281,22 @@ async function planSession(
     }
 
     if (isCrossCuttingFile(f.relativePath)) {
-      // These stay at .peaks/<cross-cutting-dir>/<role>/<file>; not part
-      // of the retrospective migration. The user has them at the top
-      // level already (.peaks/project-scan/, .peaks/perf-baseline/), so
-      // we mark them as skipped.
+      // Cross-cutting files (rd/project-scan.md, rd/perf-baseline.md) belong
+      // at the TOP level of `.peaks/` (e.g. `.peaks/project-scan/rd/project-scan.md`).
+      // They are single artifacts that span every slice, not tied to any
+      // change-id. Move them to their dedicated top-level dir as part of the
+      // same migration pass.
+      const crossCuttingDir = deriveCrossCuttingDirName(f.relativePath);
+      const to = join(sessionPath, '..', crossCuttingDir, f.relativePath);
+      empty = false;
       plans.push({
         from: f.absPath,
-        to: f.absPath,
+        to,
         sessionId,
-        changeId: '',
+        changeId: crossCuttingDir, // the top-level dir name acts as the change-id
         role: f.role,
         relativePath: f.relativePath,
-        source: 'cross-cutting',
-        skipped: true,
-        skipReason: 'cross-cutting'
+        source: 'cross-cutting'
       });
       continue;
     }
