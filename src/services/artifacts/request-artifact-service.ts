@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
 import { ensureSession } from '../session/session-manager.js';
+import { getCurrentChangeId, getChangeArtifactRoot } from '../../shared/change-id.js';
 import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
@@ -19,6 +20,14 @@ export type CreateRequestArtifactOptions = {
   requestId: string;
   projectRoot: string;
   sessionId?: string;
+  /**
+   * Optional explicit change-id. When set, the artifact file lands at
+   * `.peaks/<changeId>/<role>/requests/...` regardless of any
+   * `current-change` binding. When unset, falls back to the binding, then
+   * to the requestId. The CLI's `--session-id <scope>` flag uses this to
+   * preserve the legacy "session-id as scope dir name" behavior.
+   */
+  changeId?: string;
   apply?: boolean;
   requestType?: RequestType;
   clock?: () => string;
@@ -48,10 +57,11 @@ function defaultSessionId(iso: string): string {
   return `${dateSlugFromIso(iso)}-session`;
 }
 
-function renderPrdTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderPrdTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# PRD Request ${requestId}
 
 - session: ${sessionId}
+- change-id: ${changeId}
 - type: ${requestType}
 - source: <ticket, message URL, or "verbal" with a short sanitized quote>
 - raw input (sanitized): <one-paragraph restatement of what the user actually asked for>
@@ -84,9 +94,9 @@ function renderPrdTemplate(requestId: string, sessionId: string, timestamp: stri
 
 ## Handoff
 
-- to peaks-rd: .peaks/${sessionId}/rd/requests/${requestId}.md
-- to peaks-qa: .peaks/${sessionId}/qa/requests/${requestId}.md
-- to peaks-ui: .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
+- to peaks-rd: .peaks/${changeId}/rd/requests/${requestId}.md
+- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
+- to peaks-ui: .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
 
 ## Status
 
@@ -96,11 +106,12 @@ function renderPrdTemplate(requestId: string, sessionId: string, timestamp: stri
 `;
 }
 
-function renderUiTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderUiTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# UI Request ${requestId}
 
 - session: ${sessionId}
-- linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
+- change-id: ${changeId}
+- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
 - type: ${requestType}
 - scope: full new surface | iteration on existing surface | regression fix | visual refresh
 - design direction: editorial | bento | Swiss | luxury | retro-futurist | glass | product-system | other-explicit-name
@@ -136,8 +147,8 @@ function renderUiTemplate(requestId: string, sessionId: string, timestamp: strin
 
 ## Handoff
 
-- to peaks-rd: .peaks/${sessionId}/rd/requests/${requestId}.md
-- to peaks-qa: .peaks/${sessionId}/qa/requests/${requestId}.md
+- to peaks-rd: .peaks/${changeId}/rd/requests/${requestId}.md
+- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
 
 ## Status
 
@@ -147,12 +158,13 @@ function renderUiTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderRdTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderRdTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# RD Request ${requestId}
 
 - session: ${sessionId}
-- linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
-- linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
+- change-id: ${changeId}
+- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
+- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
 - type: ${requestType}
 
 ## Red-line scope
@@ -194,8 +206,8 @@ function renderRdTemplate(requestId: string, sessionId: string, timestamp: strin
 
 ## Handoff
 
-- to peaks-qa: .peaks/${sessionId}/qa/requests/${requestId}.md
-- to peaks-sc: .peaks/${sessionId}/sc/commit-boundaries/${requestId}.md
+- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
+- to peaks-sc: .peaks/${changeId}/sc/commit-boundaries/${requestId}.md
 
 ## Status
 
@@ -205,13 +217,14 @@ function renderRdTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderQaTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderQaTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# QA Request ${requestId}
 
 - session: ${sessionId}
-- linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
-- linked-rd:  .peaks/${sessionId}/rd/requests/${requestId}.md
-- linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
+- change-id: ${changeId}
+- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
+- linked-rd:  .peaks/${changeId}/rd/requests/${requestId}.md
+- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
 - type: ${requestType}
 
 ## Red-line boundary check
@@ -261,14 +274,15 @@ function renderQaTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderScTemplate(requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderScTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   return `# SC Request ${requestId}
 
 - session: ${sessionId}
-- linked-prd: .peaks/${sessionId}/prd/requests/${requestId}.md
-- linked-rd:  .peaks/${sessionId}/rd/requests/${requestId}.md
-- linked-qa:  .peaks/${sessionId}/qa/requests/${requestId}.md
-- linked-ui:  .peaks/${sessionId}/ui/requests/${requestId}.md  (when UI involved)
+- change-id: ${changeId}
+- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
+- linked-rd:  .peaks/${changeId}/rd/requests/${requestId}.md
+- linked-qa:  .peaks/${changeId}/qa/requests/${requestId}.md
+- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
 - type: ${requestType}
 
 ## Change impact
@@ -293,7 +307,7 @@ function renderScTemplate(requestId: string, sessionId: string, timestamp: strin
 
 ## Sync / authorization
 
-- artifact workspace path: .peaks/${sessionId}/
+- artifact workspace path: .peaks/${changeId}/
 - memory sync authorized: yes | no
 - artifact sync authorized: yes | no
 - rationale if not authorized: keep local
@@ -304,7 +318,7 @@ function renderScTemplate(requestId: string, sessionId: string, timestamp: strin
 
 ## Handoff
 
-- to peaks-txt: .peaks/${sessionId}/txt/skill-usage-lessons.md (when reusable lesson exists)
+- to peaks-txt: .peaks/${changeId}/txt/skill-usage-lessons.md (when reusable lesson exists)
 
 ## Status
 
@@ -314,18 +328,18 @@ function renderScTemplate(requestId: string, sessionId: string, timestamp: strin
 `;
 }
 
-function renderTemplate(role: RequestArtifactRole, requestId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
+function renderTemplate(role: RequestArtifactRole, requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
   switch (role) {
     case 'prd':
-      return renderPrdTemplate(requestId, sessionId, timestamp, requestType);
+      return renderPrdTemplate(requestId, changeId, sessionId, timestamp, requestType);
     case 'ui':
-      return renderUiTemplate(requestId, sessionId, timestamp, requestType);
+      return renderUiTemplate(requestId, changeId, sessionId, timestamp, requestType);
     case 'rd':
-      return renderRdTemplate(requestId, sessionId, timestamp, requestType);
+      return renderRdTemplate(requestId, changeId, sessionId, timestamp, requestType);
     case 'qa':
-      return renderQaTemplate(requestId, sessionId, timestamp, requestType);
+      return renderQaTemplate(requestId, changeId, sessionId, timestamp, requestType);
     case 'sc':
-      return renderScTemplate(requestId, sessionId, timestamp, requestType);
+      return renderScTemplate(requestId, changeId, sessionId, timestamp, requestType);
   }
 }
 
@@ -341,11 +355,27 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const clock = options.clock ?? defaultClock;
   const timestamp = clock();
 
-  // Use provided session ID or get/create current session
+  // Use provided session ID or get/create current session. The session
+  // id is kept as the in-memory binding (so the artifact body can record
+  // which session wrote it), but the artifact file is now written
+  // under the change-id dir, NOT the session dir.
+  //
+  // The change-id is the file's durable scope. As of slice
+  // 2026-06-05-change-id-as-unit-of-work, the requestId IS the
+  // change-id (per the legacy `001-<change-id>.md` filename convention);
+  // a request that lives in a session dir under a different change-id
+  // is no longer the model. We honor a `current-change` binding if
+  // one is set, and otherwise fall back to the requestId itself.
   const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
+  const boundChangeId = getCurrentChangeId(options.projectRoot);
+  // Resolution order for the change-id (file path key):
+  //   1. Explicit `options.changeId` (CLI `--session-id` pre-1.3.0 set this).
+  //   2. `current-change` binding (live developer working context).
+  //   3. The requestId itself (every request is its own scope by default).
+  const changeId = options.changeId ?? boundChangeId ?? options.requestId;
 
-  // Build numbered path in session directory
-  const requestsDir = join(options.projectRoot, '.peaks', sessionId, options.role, 'requests');
+  // Build numbered path under the change-id dir
+  const requestsDir = getChangeArtifactRoot(options.projectRoot, changeId) + '/' + options.role + '/requests';
 
   // Check if a file with this requestId already exists (regardless of number prefix)
   if (await isDirectory(requestsDir)) {
@@ -364,7 +394,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const filename = buildNumberedFilename(number, options.requestId);
   const path = join(requestsDir, filename);
 
-  const content = renderTemplate(options.role, options.requestId, sessionId, timestamp, requestType);
+  const content = renderTemplate(options.role, options.requestId, changeId, sessionId, timestamp, requestType);
 
   if (options.apply !== true) {
     return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: false };
@@ -372,9 +402,12 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
 
-  // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked
+  // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the marker lives under
+  // the change-id dir (not the session dir), so the gate's prereq scan
+  // (which reads from `.peaks/<change-id>/<role>/...`) finds it.
   if (options.role === 'qa') {
-    const qaDir = join(options.projectRoot, '.peaks', sessionId, 'qa');
+    const qaDir = getChangeArtifactRoot(options.projectRoot, changeId) + '/qa';
     const initiatedPath = join(qaDir, '.initiated');
     if (!existsSync(initiatedPath)) {
       await mkdir(qaDir, { recursive: true });
@@ -387,6 +420,20 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
 
 export type RequestArtifactSummary = {
   role: RequestArtifactRole;
+  /**
+   * Durable scope of the artifact: the top-level `.peaks/<changeId>/`
+   * directory the file lives in. As of slice 2026-06-05-change-id-as-unit-of-work,
+   * the prerequisite gate resolves paths under this dir (not the body
+   * `- session:` line), so the file body and the on-disk path agree.
+   */
+  changeId: string;
+  /**
+   * Session binding (which developer's local session wrote the file).
+   * Read from the file body's `- session:` line. Falls back to `changeId`
+   * when the body is missing the line. For back-compat with legacy
+   * session-id dirs, this may equal the dir name; for new change-id
+   * dirs, it is the metadata session that produced the file.
+   */
   sessionId: string;
   requestId: string;
   path: string;
@@ -412,10 +459,11 @@ export type ShowRequestArtifactResult = RequestArtifactSummary & {
   content: string;
 };
 
-function extractMetadata(markdown: string): { state: string; requestType: RequestType; createdAt?: string } {
+function extractMetadata(markdown: string): { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } {
   let state = 'unknown';
   let createdAt: string | undefined;
   let requestType: RequestType = DEFAULT_REQUEST_TYPE;
+  let sessionId: string | undefined;
   for (const rawLine of markdown.split(/\r?\n/)) {
     const line = rawLine.trim();
     const stateMatch = /^-\s*state:\s*(.+?)\s*$/.exec(line);
@@ -435,26 +483,45 @@ function extractMetadata(markdown: string): { state: string; requestType: Reques
         requestType = candidate;
       }
       // Placeholder values (e.g. "feature | bug | refactor | clarification") fall back to default.
+      continue;
+    }
+    const sessionMatch = /^-\s*session:\s*(.+?)\s*$/.exec(line);
+    if (sessionMatch !== null && sessionMatch[1] !== undefined) {
+      sessionId = sessionMatch[1];
+      continue;
     }
   }
-  const base: { state: string; requestType: RequestType; createdAt?: string } = { state, requestType };
+  const base: { state: string; requestType: RequestType; createdAt?: string; sessionId?: string } = { state, requestType };
   if (createdAt !== undefined) base.createdAt = createdAt;
+  if (sessionId !== undefined) base.sessionId = sessionId;
   return base;
 }
 
 async function readSummary(
   projectRoot: string,
-  sessionId: string,
+  changeId: string,
   role: RequestArtifactRole,
   fileName: string
 ): Promise<RequestArtifactSummary> {
-  const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
+  const path = join(projectRoot, '.peaks', changeId, role, 'requests', fileName);
   const body = await readFile(path, 'utf8');
-  const { state, createdAt, requestType } = extractMetadata(body);
+  const { state, createdAt, requestType, sessionId: bodySessionId } = extractMetadata(body);
   // Strip numbered prefix (e.g., "001-requestId.md" -> "requestId")
   // Only strip 3-digit zero-padded prefixes (our incrementing number format)
   const requestId = fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
-  const summary: RequestArtifactSummary = { role, sessionId, requestId, path, state, requestType };
+  // `changeId` is the durable scope (the directory the file lives in).
+  // `sessionId` is metadata (the session that wrote the file, parsed from
+  // the `- session:` body line). They may differ when a request is read
+  // across sessions (back-compat) or after a session re-bind.
+  const summary: RequestArtifactSummary = {
+    role,
+    changeId,
+    sessionId: bodySessionId ?? changeId,
+    requestId,
+    path,
+    state,
+    requestType
+  };
   if (createdAt !== undefined) {
     summary.createdAt = createdAt;
   }
@@ -477,15 +544,25 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   if (!(await isDirectory(peaksRoot))) {
     return [];
   }
-  const sessions = options.sessionId !== undefined ? [options.sessionId] : await listDirectories(peaksRoot);
+  // As of slice 2026-06-05-change-id-as-unit-of-work, artifact files live
+  // in `.peaks/<change-id>/<role>/requests/`. The top-level `.peaks/<dir>/`
+  // entries we scan here are change-id dirs (new layout) AND legacy
+  // session-id dirs (pre-1.3.0 layout). Both have the same
+  // `<role>/requests/<file>.md` shape, so we read them uniformly.
+  //
+  // Skip well-known non-artifact dirs: `_runtime/` holds ephemeral state
+  // (no `requests/` subdirs anyway, but skip explicitly to avoid noise).
+  const allDirs = await listDirectories(peaksRoot);
+  const candidateDirs = allDirs.filter((dir) => dir !== '_runtime');
+  const scopes = options.sessionId !== undefined ? [options.sessionId] : candidateDirs;
   const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
   const summaries: RequestArtifactSummary[] = [];
-  for (const sessionId of sessions) {
+  for (const scope of scopes) {
     for (const role of roles) {
-      const dir = join(peaksRoot, sessionId, role, 'requests');
+      const dir = join(peaksRoot, scope, role, 'requests');
       const fileNames = await listMarkdownFiles(dir);
       for (const fileName of fileNames) {
-        summaries.push(await readSummary(options.projectRoot, sessionId, role, fileName));
+        summaries.push(await readSummary(options.projectRoot, scope, role, fileName));
       }
     }
   }
@@ -516,6 +593,12 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
     return null;
   };
 
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the dir key is the
+  // change-id (not the session-id). When the caller pins `sessionId` we
+  // use it as the scope anyway (legacy callers, and tests that pass
+  // `STABLE_SESSION` as a stand-in). The directory layout is identical
+  // for both old session dirs and new change-id dirs, so a single
+  // read path works for both.
   if (options.sessionId !== undefined) {
     const dir = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests');
     const found = await findFileInDir(dir);
@@ -531,12 +614,15 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   if (!(await isDirectory(peaksRoot))) {
     return null;
   }
-  const sessions = await listDirectories(peaksRoot);
-  for (const sessionId of sessions) {
-    const dir = join(peaksRoot, sessionId, options.role, 'requests');
+  // Scan all top-level dirs in `.peaks/` (change-id dirs + legacy
+  // session-id dirs; skip the `_runtime/` ephemeral state dir).
+  const allDirs = await listDirectories(peaksRoot);
+  const scopes = allDirs.filter((dir) => dir !== '_runtime');
+  for (const scope of scopes) {
+    const dir = join(peaksRoot, scope, options.role, 'requests');
     const found = await findFileInDir(dir);
     if (found !== null) {
-      const summary = await readSummary(options.projectRoot, sessionId, options.role, found.fileName);
+      const summary = await readSummary(options.projectRoot, scope, options.role, found.fileName);
       const content = await readFile(found.path, 'utf8');
       return { ...summary, content };
     }
@@ -735,7 +821,7 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   const prerequisiteResult = await checkPrerequisites({
     projectRoot: options.projectRoot,
-    sessionId: existing.sessionId,
+    changeId: existing.changeId,
     role: options.role,
     newState: options.newState,
     requestId: options.requestId,
@@ -797,6 +883,7 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   const result: TransitionRequestArtifactResult = {
     role: options.role,
+    changeId: existing.changeId,
     sessionId: existing.sessionId,
     requestId: options.requestId,
     path: existing.path,

@@ -104,6 +104,11 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       };
       if (options.sessionId !== undefined) {
         serviceOptions.sessionId = options.sessionId;
+        // Back-compat: pre-1.3.0 the `--session-id <scope>` flag also
+        // set the on-disk dir name. Preserve that by passing the same
+        // value as the explicit change-id; the service still records
+        // the session binding separately in the artifact body.
+        serviceOptions.changeId = options.sessionId;
       }
       if (options.apply === true) {
         serviceOptions.apply = true;

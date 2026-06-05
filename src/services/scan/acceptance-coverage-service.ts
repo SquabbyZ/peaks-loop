@@ -147,8 +147,12 @@ export async function getAcceptanceCoverage(options: AcceptanceCoverageOptions):
   if (prdArtifact === null) {
     return { kind: 'prd-not-found' };
   }
-  const sessionId = prdArtifact.sessionId;
-  const testCasesPath = join(options.projectRoot, '.peaks', sessionId, 'qa', 'test-cases', `${options.requestId}.md`);
+  // As of slice 2026-06-05-change-id-as-unit-of-work, test-cases live
+  // under the same change-id dir as the PRD itself (the on-disk scope),
+  // not under the body's `- session:` line. The `prdArtifact.changeId`
+  // is the dir the PRD was found in.
+  const changeId = prdArtifact.changeId;
+  const testCasesPath = join(options.projectRoot, '.peaks', changeId, 'qa', 'test-cases', `${options.requestId}.md`);
   if (!(await pathExists(testCasesPath))) {
     return { kind: 'test-cases-not-found', expectedPath: testCasesPath };
   }

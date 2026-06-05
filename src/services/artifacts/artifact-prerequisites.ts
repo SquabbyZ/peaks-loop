@@ -166,7 +166,14 @@ const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
 
 export type CheckPrerequisitesOptions = {
   projectRoot: string;
-  sessionId: string;
+  /**
+   * Durable scope of the artifact (the `.peaks/<changeId>/` directory
+   * the file lives in). The gate scans under `.peaks/<changeId>/<role>/`
+   * for prerequisite artifacts. As of slice 2026-06-05-change-id-as-unit-of-work,
+   * this replaces the legacy `sessionId` field — the file body and the
+   * on-disk path now agree on the same top-level dir.
+   */
+  changeId: string;
   role: RequestArtifactRole;
   newState: RequestArtifactState;
   requestId: string;
@@ -225,11 +232,17 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   if (requirements.length === 0) {
     return { ok: true, missing: [] };
   }
-  const sessionRoot = join(options.projectRoot, '.peaks', options.sessionId);
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
+  // gate resolves paths under `.peaks/<changeId>/<role>/...` where the
+  // changeId is the file's durable scope (the top-level dir the file
+  // lives in), NOT the body's `- session:` line. The body and the path
+  // can now disagree (e.g. a request written in one session but read
+  // across sessions), and the gate follows the on-disk location.
+  const changeRoot = join(options.projectRoot, '.peaks', options.changeId);
   const missing: Array<{ path: string; description: string }> = [];
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
-    const absolute = await resolvePrerequisiteAbsolutePath(sessionRoot, prerequisite, options.requestId);
+    const absolute = await resolvePrerequisiteAbsolutePath(changeRoot, prerequisite, options.requestId);
     if (absolute === null) {
       missing.push({ path: relative, description: prerequisite.description });
       continue;
