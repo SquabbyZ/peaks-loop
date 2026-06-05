@@ -12,17 +12,31 @@ coverage/
 #   .peaks/_runtime/                ← all ephemeral runtime state
 #                                       (active-skill, session binding,
 #                                        current-change symlink/file)
-#   .peaks/[0-9]*-session-*/        ← session dirs (ephemeral scratch;
-#                                       contain only system/ sub-agent state)
+#   .peaks/_dogfood/                ← dogfood evidence (regenerable from
+#                                       a fresh slice run; tracked for
+#                                       audit, prefixed with `_` so the
+#                                       visual signal says "scratch")
+#   .peaks/issues/                  ← open cross-cutting SC issues
+#                                       (tracked; tracks defects across
+#                                       slices until a fix slice ships)
+#   .peaks/issues/issue-NNN-<slug>/ ← single issue scope, like change-id
 #   .peaks/memory/                  ← durable project memory (tracked; knowledge base)
 #   .peaks/sops/                    ← durable SOP definitions (tracked; shared with team)
 #   .peaks/PROJECT.md               ← durable project timeline (tracked)
 #   .peaks/.peaks-init-hooks-decision.json ← durable install decision (tracked)
-#   .peaks/<change-id>/             ← durable change-id artifacts (tracked;
+#   .peaks/retrospective/<change-id>/ ← shipped slice output (tracked;
 #                                       cross-session accumulation of the
 #                                       unit of work — RD/QA/PRD/txt)
+#   .peaks/perf-baseline/, .peaks/project-scan/
+#                                   ← single cross-cutting retrospective
+#                                       artifacts (tracked; not extensible)
 #   .peaks/session.json             ← legacy top-level binding (gitignored;
 #                                       canonical moved to _runtime/session.json)
+#
+# `_` prefix convention: any top-level .peaks/ dir whose name starts with
+# `_` is regenerable / scratch (delete-without-losing-knowledge). Anything
+# without `_` is durable / tracked. This applies to top-level dirs only;
+# nested dirs (rd/, qa/, etc.) follow the role-suffix convention.
 .peaks/**/.bypass-count.json
 .peaks/ontology.json
 # Per-slice session directories — these are session-scoped, regenerable, and
@@ -42,5 +56,7 @@ coverage/
 #   - .peaks/sops/                         (durable SOP definitions)
 #   - .peaks/PROJECT.md                    (durable session timeline)
 #   - .peaks/.peaks-init-hooks-decision.json (first-run opt-in marker)
-#   - .peaks/<change-id>/                  (durable change-id scoped artifacts;
-#                                            reviewable across sessions)
+#   - .peaks/issues/                       (open cross-cutting SC issues)
+#   - .peaks/retrospective/                (shipped slice output)
+#   - .peaks/_dogfood/                     (dogfood evidence, regenerable)
+#   - .peaks/_runtime/                     (ephemeral runtime state)
