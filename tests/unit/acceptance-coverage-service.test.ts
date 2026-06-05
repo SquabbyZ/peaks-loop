@@ -38,7 +38,10 @@ async function writePrdWithoutAcceptanceSection(project: string, rid: string): P
 }
 
 async function writeTestCases(project: string, rid: string, body: string): Promise<void> {
-  const dir = join(project, '.peaks', SESSION, 'qa', 'test-cases');
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the test-cases
+  // scan resolves under `.peaks/<changeId>/<role>/...` where changeId
+  // is the requestId. Match the PRD's on-disk location.
+  const dir = join(project, '.peaks', rid, 'qa', 'test-cases');
   await mkdir(dir, { recursive: true });
   await writeFile(join(dir, `${rid}.md`), body, 'utf8');
 }
@@ -46,7 +49,7 @@ async function writeTestCases(project: string, rid: string, body: string): Promi
 describe('getAcceptanceCoverage', () => {
   test('returns prd-not-found when the PRD artifact is missing', async () => {
     const project = await makeProject();
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: 'missing', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: 'missing' });
     expect(isAcceptanceCoverageError(result)).toBe(true);
     if (isAcceptanceCoverageError(result)) {
       expect(result.kind).toBe('prd-not-found');
@@ -56,7 +59,7 @@ describe('getAcceptanceCoverage', () => {
   test('returns test-cases-not-found when only PRD exists', async () => {
     const project = await makeProject();
     await writePrd(project, '2026-05-25-feat', ['User can log in with email/password', 'Account lockout after 5 failures']);
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     expect(isAcceptanceCoverageError(result)).toBe(true);
     if (isAcceptanceCoverageError(result)) {
       expect(result.kind).toBe('test-cases-not-found');
@@ -76,7 +79,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Acceptance:** A2',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     expect(isAcceptanceCoverageError(result)).toBe(false);
     if (!isAcceptanceCoverageError(result)) {
       expect(result.ok).toBe(true);
@@ -94,7 +97,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Acceptance:** A1',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     expect(isAcceptanceCoverageError(result)).toBe(false);
     if (!isAcceptanceCoverageError(result)) {
       expect(result.ok).toBe(false);
@@ -110,7 +113,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Acceptance:** A99',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     if (!isAcceptanceCoverageError(result)) {
       expect(result.invalidReferences.length).toBe(1);
       expect(result.invalidReferences[0]?.reference).toBe('A99');
@@ -129,7 +132,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Category:** integration',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     if (!isAcceptanceCoverageError(result)) {
       expect(result.unlinkedTestCases.length).toBe(1);
       expect(result.unlinkedTestCases[0]?.title).toBe('Defense in depth — SQL injection regression');
@@ -147,7 +150,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Acceptance:** A1, A2',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-feat' });
     if (!isAcceptanceCoverageError(result)) {
       expect(result.ok).toBe(true);
       expect(result.coverage[0]?.testCases).toEqual(['Combined check']);
@@ -163,7 +166,7 @@ describe('getAcceptanceCoverage', () => {
       '- **Acceptance:** A1',
       ''
     ].join('\n'));
-    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-no-acceptance', sessionId: SESSION });
+    const result = await getAcceptanceCoverage({ projectRoot: project, requestId: '2026-05-25-no-acceptance' });
     if (!isAcceptanceCoverageError(result)) {
       expect(result.acceptanceItems).toEqual([]);
       expect(result.ok).toBe(false);

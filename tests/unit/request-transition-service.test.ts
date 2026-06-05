@@ -48,7 +48,6 @@ describe('transitionRequestArtifact (valid state per role)', () => {
       requestId: '2026-05-24-feature',
       projectRoot: project,
       newState: 'confirmed-by-user',
-      sessionId: STABLE_SESSION,
       clock: () => LATER_TIMESTAMP
     });
 
@@ -66,14 +65,14 @@ describe('transitionRequestArtifact (valid state per role)', () => {
 
     const first = await transitionRequestArtifact({
       role: 'ui', requestId: '2026-05-24-ux', projectRoot: project,
-      newState: 'direction-locked', sessionId: STABLE_SESSION,
+      newState: 'direction-locked',
       clock: () => LATER_TIMESTAMP
     });
     expect(first?.state).toBe('direction-locked');
 
     const second = await transitionRequestArtifact({
       role: 'ui', requestId: '2026-05-24-ux', projectRoot: project,
-      newState: 'handed-off', sessionId: STABLE_SESSION,
+      newState: 'handed-off',
       clock: () => LATER_TIMESTAMP
     });
     expect(second?.previousState).toBe('direction-locked');
@@ -88,7 +87,7 @@ describe('transitionRequestArtifact (valid state per role)', () => {
     for (const newState of states) {
       const result = await transitionRequestArtifact({
         role: 'rd', requestId: '2026-05-24-rd', projectRoot: project,
-        newState, sessionId: STABLE_SESSION,
+        newState,
         allowIncomplete: true,
         reason: 'state-machine acceptance test — prerequisites covered by dedicated suite',
         clock: () => LATER_TIMESTAMP
@@ -105,7 +104,7 @@ describe('transitionRequestArtifact (valid state per role)', () => {
     for (const newState of states) {
       const result = await transitionRequestArtifact({
         role: 'qa', requestId: '2026-05-24-qa', projectRoot: project,
-        newState, sessionId: STABLE_SESSION,
+        newState,
         allowIncomplete: true,
         reason: 'state-machine acceptance test — prerequisites covered by dedicated suite',
         clock: () => LATER_TIMESTAMP
@@ -120,7 +119,7 @@ describe('transitionRequestArtifact (valid state per role)', () => {
 
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-with-reason', projectRoot: project,
-      newState: 'blocked', sessionId: STABLE_SESSION,
+      newState: 'blocked',
       reason: 'waiting on stakeholder confirmation',
       clock: () => LATER_TIMESTAMP
     });
@@ -136,17 +135,17 @@ describe('transitionRequestArtifact (valid state per role)', () => {
 
     const first = await transitionRequestArtifact({
       role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
-      newState: 'impact-recorded', sessionId: STABLE_SESSION,
+      newState: 'impact-recorded',
       clock: () => LATER_TIMESTAMP
     });
     const second = await transitionRequestArtifact({
       role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
-      newState: 'boundary-recorded', sessionId: STABLE_SESSION,
+      newState: 'boundary-recorded',
       clock: () => LATER_TIMESTAMP
     });
     const third = await transitionRequestArtifact({
       role: 'sc', requestId: '2026-05-24-release', projectRoot: project,
-      newState: 'handed-off', sessionId: STABLE_SESSION,
+      newState: 'handed-off',
       clock: () => LATER_TIMESTAMP
     });
 
@@ -164,7 +163,7 @@ describe('transitionRequestArtifact (valid state per role)', () => {
     await expect(
       transitionRequestArtifact({
         role: 'sc', requestId: '2026-05-24-bad-state', projectRoot: project,
-        newState: 'spec-locked', sessionId: STABLE_SESSION
+        newState: 'spec-locked'
       })
     ).rejects.toThrowError(/state for role sc/i);
   });
@@ -178,7 +177,7 @@ describe('transitionRequestArtifact (validation)', () => {
       transitionRequestArtifact({
         role: 'unknown' as RequestArtifactRole,
         requestId: '2026-05-24-x', projectRoot: project,
-        newState: 'draft' as RequestArtifactState, sessionId: STABLE_SESSION
+        newState: 'draft' as RequestArtifactState
       })
     ).rejects.toThrowError(/role/i);
   });
@@ -189,7 +188,7 @@ describe('transitionRequestArtifact (validation)', () => {
     await expect(
       transitionRequestArtifact({
         role: 'prd', requestId: '../escape', projectRoot: project,
-        newState: 'draft', sessionId: STABLE_SESSION
+        newState: 'draft'
       })
     ).rejects.toThrowError(/request id/i);
   });
@@ -201,7 +200,7 @@ describe('transitionRequestArtifact (validation)', () => {
     await expect(
       transitionRequestArtifact({
         role: 'prd', requestId: '2026-05-24-wrong-state', projectRoot: project,
-        newState: 'verdict-issued' as RequestArtifactState, sessionId: STABLE_SESSION
+        newState: 'verdict-issued' as RequestArtifactState
       })
     ).rejects.toThrowError(/state/i);
   });
@@ -251,7 +250,7 @@ describe('transitionRequestArtifact (validation)', () => {
 
     await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-preserve', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      newState: 'confirmed-by-user',
       clock: () => LATER_TIMESTAMP
     });
 
@@ -265,12 +264,12 @@ describe('transitionRequestArtifact (validation)', () => {
 
     await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-multi-reason', projectRoot: project,
-      newState: 'blocked', sessionId: STABLE_SESSION,
+      newState: 'blocked',
       reason: 'first block', clock: () => LATER_TIMESTAMP
     });
     await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-multi-reason', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      newState: 'confirmed-by-user',
       reason: 'unblocked', clock: () => LATER_TIMESTAMP
     });
 
@@ -281,13 +280,16 @@ describe('transitionRequestArtifact (validation)', () => {
 
   test('returns previousState=unknown when the artifact has no state line', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests');
+    // The file lives under `.peaks/<change-id>/<role>/requests/`. We hand-craft
+    // it under the requestId-as-change-id (the default), so the file is at
+    // `.peaks/2026-05-24-no-state/prd/requests/...`.
+    const dir = join(project, '.peaks', '2026-05-24-no-state', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '2026-05-24-no-state.md'), `# PRD Request 2026-05-24-no-state\n\nNo status block.\n`, 'utf8');
 
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-no-state', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      newState: 'confirmed-by-user',
       clock: () => LATER_TIMESTAMP
     });
 
@@ -299,13 +301,13 @@ describe('transitionRequestArtifact (validation)', () => {
 
   test('inserts a last update line when the artifact has state but no last update line', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests');
+    const dir = join(project, '.peaks', '2026-05-24-state-only', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '2026-05-24-state-only.md'), `# PRD Request 2026-05-24-state-only\n\n## Status\n\n- state: draft\n`, 'utf8');
 
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-state-only', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      newState: 'confirmed-by-user',
       clock: () => LATER_TIMESTAMP
     });
 
@@ -320,7 +322,7 @@ describe('transitionRequestArtifact (validation)', () => {
 
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-24-default-clock', projectRoot: project,
-      newState: 'spec-locked', sessionId: STABLE_SESSION
+      newState: 'spec-locked'
     });
 
     expect(result?.state).toBe('spec-locked');

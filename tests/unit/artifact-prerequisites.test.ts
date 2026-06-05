@@ -19,6 +19,7 @@ import {
 
 const SESSION = '2026-05-25-gated';
 const TS = '2026-05-25T08:00:00.000Z';
+const REQUEST_ID = '2026-05-25-feat';
 
 async function makeProject(): Promise<string> {
   return mkdtemp(join(tmpdir(), 'peaks-prereq-'));
@@ -36,8 +37,14 @@ async function seedQa(project: string, requestId: string): Promise<void> {
   });
 }
 
-async function writeArtifact(project: string, relativePath: string, body: string): Promise<void> {
-  const fullPath = join(project, '.peaks', SESSION, relativePath);
+async function writeArtifact(project: string, changeId: string, relativePath: string, body: string): Promise<void> {
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
+  // gate resolves paths under `.peaks/<change-id>/<role>/...` where the
+  // change-id is the body's `- session:` line when no `current-change`
+  // binding is set, OR the requestId (default fallback). Tests pass the
+  // requestId explicitly so the file lives in the same dir the prereq
+  // gate scans.
+  const fullPath = join(project, '.peaks', changeId, relativePath);
   await mkdir(join(fullPath, '..'), { recursive: true });
   await writeFile(fullPath, body, 'utf8');
 }
@@ -45,22 +52,22 @@ async function writeArtifact(project: string, relativePath: string, body: string
 describe('transitionRequestArtifact — prerequisite enforcement', () => {
   test('rd→implemented is blocked without tech-doc.md', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
+    await seedRd(project, REQUEST_ID);
     await expect(
       transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-        newState: 'implemented', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+        newState: 'implemented', clock: () => TS
       })
     ).rejects.toBeInstanceOf(PrerequisitesNotSatisfiedError);
   });
 
   test('rd→implemented passes when tech-doc.md exists', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     const result = await transitionRequestArtifact({
-      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-      newState: 'implemented', sessionId: SESSION, clock: () => TS
+      role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+      newState: 'implemented', clock: () => TS
     });
     expect(result?.state).toBe('implemented');
     expect(result?.bypassedPrerequisites).toBeUndefined();
@@ -68,14 +75,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
 
   test('rd→qa-handoff is blocked when code-review.md, security-review.md, or perf-baseline.md is missing', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     // code-review.md, security-review.md, perf-baseline.md, unit-tests, and qa-initiated intentionally missing
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-        newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -92,21 +99,22 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
 
   test('rd→qa-handoff passes when perf-baseline.md carries a Results table (Gate B9)', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
-    await writeArtifact(project, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
+    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
     // perf-baseline with a real Results table
     await writeArtifact(
       project,
+      REQUEST_ID,
       'rd/perf-baseline.md',
       '# Perf baseline\n\n## Results\n\n| metric | baseline | target |\n|---|---|---|\n| render-time | 120ms | <200ms |\n'
     );
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
-    await writeArtifact(project, 'qa/.initiated', '');
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
     const result = await transitionRequestArtifact({
-      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-      newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+      role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
     });
     expect(result?.state).toBe('qa-handoff');
     expect(result?.bypassedPrerequisites).toBeUndefined();
@@ -114,40 +122,41 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
 
   test('rd→qa-handoff passes when perf-baseline.md carries the N/A — no perf surface marker (escape hatch)', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
-    await writeArtifact(project, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
+    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
     // perf-baseline with the N/A escape hatch (no Results table)
     await writeArtifact(
       project,
+      REQUEST_ID,
       'rd/perf-baseline.md',
       '# Perf baseline\n\n## Notes\n\nN/A — no perf surface (this is a pure data-migration slice).\n'
     );
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
-    await writeArtifact(project, 'qa/.initiated', '');
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
     const result = await transitionRequestArtifact({
-      role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-      newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+      role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
     });
     expect(result?.state).toBe('qa-handoff');
   });
 
   test('rd→qa-handoff is blocked when perf-baseline.md exists but has neither Results table nor N/A marker', async () => {
     const project = await makeProject();
-    await seedRd(project, '2026-05-25-feat');
-    await writeArtifact(project, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
-    await writeArtifact(project, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
+    await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
+    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
     // perf-baseline stub WITHOUT a Results table and WITHOUT the N/A marker
-    await writeArtifact(project, 'rd/perf-baseline.md', '# Perf baseline\n\nWIP\n');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
-    await writeArtifact(project, 'qa/.initiated', '');
+    await writeArtifact(project, REQUEST_ID, 'rd/perf-baseline.md', '# Perf baseline\n\nWIP\n');
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
-        newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -159,14 +168,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
 
   test('qa→verdict-issued is blocked without security-findings.md and performance-findings.md', async () => {
     const project = await makeProject();
-    await seedQa(project, '2026-05-25-feat');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases');
-    await writeArtifact(project, 'qa/test-reports/2026-05-25-feat.md', '# report');
+    await seedQa(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases');
+    await writeArtifact(project, REQUEST_ID, 'qa/test-reports/2026-05-25-feat.md', '# report');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'qa', requestId: '2026-05-25-feat', projectRoot: project,
-        newState: 'verdict-issued', sessionId: SESSION, clock: () => TS
+        role: 'qa', requestId: REQUEST_ID, projectRoot: project,
+        newState: 'verdict-issued', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -179,14 +188,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
 
   test('qa→verdict-issued passes when every gated file exists', async () => {
     const project = await makeProject();
-    await seedQa(project, '2026-05-25-feat');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
-    await writeArtifact(project, 'qa/test-reports/2026-05-25-feat.md', '# report\n\n## Test execution\n\n- pass');
-    await writeArtifact(project, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
-    await writeArtifact(project, 'qa/performance-findings.md', '# perf\n\n## Baseline\n\n- 100ms');
+    await seedQa(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, REQUEST_ID, 'qa/test-reports/2026-05-25-feat.md', '# report\n\n## Test execution\n\n- pass');
+    await writeArtifact(project, REQUEST_ID, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
+    await writeArtifact(project, REQUEST_ID, 'qa/performance-findings.md', '# perf\n\n## Baseline\n\n- 100ms');
     const result = await transitionRequestArtifact({
-      role: 'qa', requestId: '2026-05-25-feat', projectRoot: project,
-      newState: 'verdict-issued', sessionId: SESSION, clock: () => TS
+      role: 'qa', requestId: REQUEST_ID, projectRoot: project,
+      newState: 'verdict-issued', clock: () => TS
     });
     expect(result?.state).toBe('verdict-issued');
   });
@@ -196,7 +205,7 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     await seedRd(project, '2026-05-25-doc-only');
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-25-doc-only', projectRoot: project,
-      newState: 'qa-handoff', sessionId: SESSION, allowIncomplete: true,
+      newState: 'qa-handoff', allowIncomplete: true,
       reason: 'docs-only change, no implementation', clock: () => TS
     });
     expect(result?.state).toBe('qa-handoff');
@@ -216,7 +225,7 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     });
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-25-feat', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: SESSION, clock: () => TS
+      newState: 'confirmed-by-user', clock: () => TS
     });
     expect(result?.state).toBe('confirmed-by-user');
     expect(result?.bypassedPrerequisites).toBeUndefined();

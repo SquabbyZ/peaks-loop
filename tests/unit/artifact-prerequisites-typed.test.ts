@@ -32,8 +32,11 @@ async function seed(project: string, role: 'rd' | 'qa' | 'prd', requestId: strin
   });
 }
 
-async function writeArtifact(project: string, relativePath: string, body = '# ok'): Promise<void> {
-  const fullPath = join(project, '.peaks', SESSION, relativePath);
+async function writeArtifact(project: string, changeId: string, relativePath: string, body = '# ok'): Promise<void> {
+  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
+  // gate resolves paths under `.peaks/<changeId>/<role>/...`. Tests pass
+  // the requestId as changeId (matching the on-disk artifact location).
+  const fullPath = join(project, '.peaks', changeId, relativePath);
   await mkdir(join(fullPath, '..'), { recursive: true });
   await writeFile(fullPath, body, 'utf8');
 }
@@ -41,15 +44,16 @@ async function writeArtifact(project: string, relativePath: string, body = '# ok
 describe('request types — bugfix gates', () => {
   test('bugfix uses bug-analysis.md instead of tech-doc.md for rd:implemented', async () => {
     const project = await makeProject();
-    await seed(project, 'rd', '2026-05-25-bug', 'bugfix');
+    const requestId = '2026-05-25-bug';
+    await seed(project, 'rd', requestId, 'bugfix');
 
     // tech-doc.md exists but bug-analysis.md does not — bugfix should still fail (wrong artifact for type).
-    await writeArtifact(project, 'rd/tech-doc.md');
+    await writeArtifact(project, requestId, 'rd/tech-doc.md');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-bug', projectRoot: project,
-        newState: 'implemented', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'implemented', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -59,13 +63,14 @@ describe('request types — bugfix gates', () => {
 
   test('bugfix→qa-handoff requires bug-analysis + code-review + security-review + unit-tests + qa-initiated', async () => {
     const project = await makeProject();
-    await seed(project, 'rd', '2026-05-25-bug', 'bugfix');
-    await writeArtifact(project, 'rd/bug-analysis.md', '# Bug analysis\n\n## Root cause\n\n- ...\n\n## Fix approach\n\n- ...');
+    const requestId = '2026-05-25-bug';
+    await seed(project, 'rd', requestId, 'bugfix');
+    await writeArtifact(project, requestId, 'rd/bug-analysis.md', '# Bug analysis\n\n## Root cause\n\n- ...\n\n## Fix approach\n\n- ...');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-bug', projectRoot: project,
-        newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -80,14 +85,15 @@ describe('request types — bugfix gates', () => {
 
   test('bugfix qa:verdict-issued does NOT require performance-findings.md', async () => {
     const project = await makeProject();
-    await seed(project, 'qa', '2026-05-25-bug', 'bugfix');
-    await writeArtifact(project, 'qa/test-cases/2026-05-25-bug.md', '# cases\n\n## Test cases\n\ntest("example")');
-    await writeArtifact(project, 'qa/test-reports/2026-05-25-bug.md', '# report\n\n## Test execution\n\n- pass');
-    await writeArtifact(project, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
+    const requestId = '2026-05-25-bug';
+    await seed(project, 'qa', requestId, 'bugfix');
+    await writeArtifact(project, requestId, 'qa/test-cases/2026-05-25-bug.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, requestId, 'qa/test-reports/2026-05-25-bug.md', '# report\n\n## Test execution\n\n- pass');
+    await writeArtifact(project, requestId, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
     // performance-findings.md intentionally absent
     const result = await transitionRequestArtifact({
-      role: 'qa', requestId: '2026-05-25-bug', projectRoot: project,
-      newState: 'verdict-issued', sessionId: SESSION, clock: () => TS
+      role: 'qa', requestId, projectRoot: project,
+      newState: 'verdict-issued', clock: () => TS
     });
     expect(result?.state).toBe('verdict-issued');
     expect(result?.requestType).toBe('bugfix');
@@ -97,10 +103,11 @@ describe('request types — bugfix gates', () => {
 describe('request types — docs and chore have minimal gates (PRD content only)', () => {
   test('docs rd:qa-handoff passes with zero artifacts (MINIMAL_TABLE only gates prd:handed-off)', async () => {
     const project = await makeProject();
-    await seed(project, 'rd', '2026-05-25-doc', 'docs');
+    const requestId = '2026-05-25-doc';
+    await seed(project, 'rd', requestId, 'docs');
     const result = await transitionRequestArtifact({
-      role: 'rd', requestId: '2026-05-25-doc', projectRoot: project,
-      newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+      role: 'rd', requestId, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
     });
     expect(result?.state).toBe('qa-handoff');
     expect(result?.requestType).toBe('docs');
@@ -108,10 +115,11 @@ describe('request types — docs and chore have minimal gates (PRD content only)
 
   test('chore qa:verdict-issued passes with zero artifacts (MINIMAL_TABLE only gates prd:handed-off)', async () => {
     const project = await makeProject();
-    await seed(project, 'qa', '2026-05-25-lint', 'chore');
+    const requestId = '2026-05-25-lint';
+    await seed(project, 'qa', requestId, 'chore');
     const result = await transitionRequestArtifact({
-      role: 'qa', requestId: '2026-05-25-lint', projectRoot: project,
-      newState: 'verdict-issued', sessionId: SESSION, clock: () => TS
+      role: 'qa', requestId, projectRoot: project,
+      newState: 'verdict-issued', clock: () => TS
     });
     expect(result?.state).toBe('verdict-issued');
   });
@@ -120,12 +128,13 @@ describe('request types — docs and chore have minimal gates (PRD content only)
 describe('request types — config has minimal gates', () => {
   test('config rd:qa-handoff requires only security-review.md', async () => {
     const project = await makeProject();
-    await seed(project, 'rd', '2026-05-25-cfg', 'config');
+    const requestId = '2026-05-25-cfg';
+    await seed(project, 'rd', requestId, 'config');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'rd', requestId: '2026-05-25-cfg', projectRoot: project,
-        newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -135,12 +144,13 @@ describe('request types — config has minimal gates', () => {
 
   test('config qa:verdict-issued requires only security-findings.md', async () => {
     const project = await makeProject();
-    await seed(project, 'qa', '2026-05-25-cfg', 'config');
+    const requestId = '2026-05-25-cfg';
+    await seed(project, 'qa', requestId, 'config');
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
-        role: 'qa', requestId: '2026-05-25-cfg', projectRoot: project,
-        newState: 'verdict-issued', sessionId: SESSION, clock: () => TS
+        role: 'qa', requestId, projectRoot: project,
+        newState: 'verdict-issued', clock: () => TS
       });
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
@@ -152,9 +162,10 @@ describe('request types — config has minimal gates', () => {
 describe('request prerequisites — numbered filename prefix (regression: prereq ignored NNN- prefix)', () => {
   test('prd:handed-off resolves the PRD artifact written with a NNN- numeric prefix', async () => {
     const project = await makeProject();
+    const requestId = '2026-05-25-prefixed';
     // createRequestArtifact writes `001-<rid>.md`; the prereq table references `<rid>.md`.
     const created = await createRequestArtifact({
-      role: 'prd', requestId: '2026-05-25-prefixed', projectRoot: project,
+      role: 'prd', requestId, projectRoot: project,
       sessionId: SESSION, apply: true, requestType: 'feature', clock: () => TS
     });
     expect(created.path).toMatch(/[/\\]001-2026-05-25-prefixed\.md$/);
@@ -162,8 +173,8 @@ describe('request prerequisites — numbered filename prefix (regression: prereq
     // Before the fix this threw PrerequisitesNotSatisfiedError because the prereq
     // resolver looked for the unprefixed `prd/requests/2026-05-25-prefixed.md`.
     const result = await transitionRequestArtifact({
-      role: 'prd', requestId: '2026-05-25-prefixed', projectRoot: project,
-      newState: 'handed-off', sessionId: SESSION, clock: () => TS
+      role: 'prd', requestId, projectRoot: project,
+      newState: 'handed-off', clock: () => TS
     });
     expect(result?.state).toBe('handed-off');
   });
@@ -174,7 +185,7 @@ describe('request prerequisites — numbered filename prefix (regression: prereq
     // Transition a DIFFERENT, non-existent request id — nothing on disk to match.
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-25-absent', projectRoot: project,
-      newState: 'handed-off', sessionId: SESSION, clock: () => TS
+      newState: 'handed-off', clock: () => TS
     });
     // showRequestArtifact returns null for a missing artifact → transition returns null.
     expect(result).toBeNull();
@@ -204,11 +215,12 @@ describe('request types — artifact persistence and default', () => {
 
   test('transition reads type from existing artifact body', async () => {
     const project = await makeProject();
-    await seed(project, 'rd', '2026-05-25-doc', 'docs');
+    const requestId = '2026-05-25-doc';
+    await seed(project, 'rd', requestId, 'docs');
     // Docs has no gates — should pass without any artifact files.
     const result = await transitionRequestArtifact({
-      role: 'rd', requestId: '2026-05-25-doc', projectRoot: project,
-      newState: 'qa-handoff', sessionId: SESSION, clock: () => TS
+      role: 'rd', requestId, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
     });
     expect(result?.requestType).toBe('docs');
   });

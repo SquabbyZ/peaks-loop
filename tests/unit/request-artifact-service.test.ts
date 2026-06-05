@@ -67,7 +67,10 @@ describe('createRequestArtifact (preview)', () => {
     });
 
     expect(result.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-/);
-    expect(result.path).toContain(result.sessionId);
+    // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact
+    // path is the change-id dir (which defaults to the requestId when
+    // no binding is set), not the session dir.
+    expect(result.path).toContain('2026-05-23-default-session');
   });
 
   test('writes a real ISO timestamp into the artifact body when no clock is injected', async () => {
@@ -98,7 +101,10 @@ describe('createRequestArtifact (apply)', () => {
 
   test('refuses to overwrite an existing artifact at the target path', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', STABLE_SESSION, 'prd', 'requests');
+    // As of slice 2026-06-05-change-id-as-unit-of-work, the target
+    // dir is the change-id dir (which defaults to the requestId when
+    // no binding is set), not the session dir.
+    const dir = join(project, '.peaks', '2026-05-23-add-foo', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     // Create file with the new numbered format
     await writeFile(join(dir, '001-2026-05-23-add-foo.md'), 'existing', 'utf8');
@@ -188,7 +194,10 @@ describe('transitionRequestArtifact lint gate', () => {
       apply: true
     });
     // Overwrite with placeholder-ridden content
-    const rdDir = join(project, '.peaks', STABLE_SESSION, 'rd', 'requests');
+    // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact
+    // lives under `.peaks/<change-id>/`, which defaults to the
+    // requestId when no `current-change` binding is set.
+    const rdDir = join(project, '.peaks', 'lint-001', 'rd', 'requests');
     const files = await readdir(rdDir);
     const artifactPath = join(rdDir, files[0]!);
     await writeFile(artifactPath, '# RD Request\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
@@ -196,7 +205,7 @@ describe('transitionRequestArtifact lint gate', () => {
     await expect(
       transitionRequestArtifact({
         role: 'rd', requestId: 'lint-001', projectRoot: project,
-        newState: 'spec-locked', sessionId: STABLE_SESSION, confirmed: true
+        newState: 'spec-locked', confirmed: true
       })
     ).rejects.toThrow(LintGateError);
   });
@@ -210,7 +219,7 @@ describe('createRequestArtifact QA marker', () => {
       apply: true
     });
     const { existsSync } = await import('node:fs');
-    const markerPath = join(project, '.peaks', STABLE_SESSION, 'qa', '.initiated');
+    const markerPath = join(project, '.peaks', '2026-05-23-add-foo', 'qa', '.initiated');
     expect(existsSync(markerPath)).toBe(true);
   });
 
@@ -221,7 +230,7 @@ describe('createRequestArtifact QA marker', () => {
       apply: true
     });
     const { existsSync } = await import('node:fs');
-    const markerPath = join(project, '.peaks', STABLE_SESSION, 'qa', '.initiated');
+    const markerPath = join(project, '.peaks', '2026-05-23-add-foo', 'qa', '.initiated');
     expect(existsSync(markerPath)).toBe(false);
   });
 });
@@ -252,10 +261,14 @@ describe('listRequestArtifacts', () => {
     expect(result.every((r) => r.role === 'rd')).toBe(true);
   });
 
-  test('filters by sessionId', async () => {
+  test('filters by sessionId (scope dir)', async () => {
+    // As of slice 2026-06-05-change-id-as-unit-of-work, `sessionId` is
+    // the scope dir name. The file is at `.peaks/<changeId>/...` which
+    // defaults to the requestId. The summary's `sessionId` is read
+    // from the body (`- session: ${sessionId}` metadata), not the path.
     const project = await makeProject();
     await createRequestArtifact({ ...commonOptions('prd', project, 'session-filter'), apply: true });
-    const result = await listRequestArtifacts({ projectRoot: project, sessionId: STABLE_SESSION });
+    const result = await listRequestArtifacts({ projectRoot: project, sessionId: 'session-filter' });
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result.every((r) => r.sessionId === STABLE_SESSION)).toBe(true);
   });
@@ -274,7 +287,7 @@ describe('showRequestArtifact', () => {
     const project = await makeProject();
     await createRequestArtifact({ ...commonOptions('prd', project, 'show-test'), apply: true });
     const result = await showRequestArtifact({
-      projectRoot: project, role: 'prd', requestId: 'show-test', sessionId: STABLE_SESSION
+      projectRoot: project, role: 'prd', requestId: 'show-test', sessionId: 'show-test'
     });
     expect(result).not.toBeNull();
     expect(result!.requestId).toBe('show-test');
@@ -359,7 +372,7 @@ describe('transitionRequestArtifact validation', () => {
     await createRequestArtifact({ ...commonOptions('prd', project, 'trans-prd-ok'), apply: true });
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: 'trans-prd-ok', projectRoot: project,
-      newState: 'confirmed-by-user', sessionId: STABLE_SESSION,
+      newState: 'confirmed-by-user',
       confirmed: true, allowIncomplete: true
     });
     expect(result).not.toBeNull();
@@ -373,7 +386,7 @@ describe('transitionRequestArtifact validation', () => {
     await expect(
       transitionRequestArtifact({
         role: 'qa', requestId: 'prereq-test', projectRoot: project,
-        newState: 'running', sessionId: STABLE_SESSION, confirmed: true
+        newState: 'running', confirmed: true
       })
     ).rejects.toThrow(PrerequisitesNotSatisfiedError);
   });
@@ -383,7 +396,7 @@ describe('transitionRequestArtifact validation', () => {
     await createRequestArtifact({ ...commonOptions('rd', project, 'trans-rd-inc'), apply: true });
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: 'trans-rd-inc', projectRoot: project,
-      newState: 'spec-locked', sessionId: STABLE_SESSION,
+      newState: 'spec-locked',
       confirmed: true, allowIncomplete: true
     });
     expect(result).not.toBeNull();
@@ -395,7 +408,7 @@ describe('transitionRequestArtifact validation', () => {
     await createRequestArtifact({ ...commonOptions('qa', project, 'qa-bypass'), apply: true });
     const result = await transitionRequestArtifact({
       role: 'qa', requestId: 'qa-bypass', projectRoot: project,
-      newState: 'running', sessionId: STABLE_SESSION,
+      newState: 'running',
       confirmed: true, allowIncomplete: true
     });
     expect(result).not.toBeNull();
