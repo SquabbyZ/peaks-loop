@@ -352,6 +352,58 @@ export function readSpawnRecord(projectRoot: string): ReadSpawnRecordResult {
   }
 }
 
+/**
+ * Idempotency check for the `peaks progress start` CLI (and the Task-tool
+ * PreToolUse hook that fires it on every Task call). Returns `true` when a
+ * recent spawn record exists for this project's session, meaning a watch
+ * window was opened within the last `ttlMs` milliseconds. The LLM-side
+ * caller treats `true` as "no-op — a watch is already running somewhere".
+ *
+ * Why TTL instead of pid liveness: the spawned terminal's pid is the
+ * osascript/gnome-terminal process, which exits as soon as it spawns the
+ * nested shell. Checking pid liveness gives false negatives (the process
+ * is gone by design). The spawn record is the canonical "watch was opened
+ * for this session" marker. After `ttlMs` the record is treated as stale
+ * (e.g. the user closed the window long ago) and a fresh start proceeds.
+ *
+ * `ttlMs` defaults to 5 minutes — long enough to cover a typical sub-agent
+ * slice (RD parallel fan-out + QA verdict), short enough that a user who
+ * closed the window gets a fresh one on the next Task call.
+ */
+export type RecentSpawnCheck = {
+  recent: boolean;
+  reason: 'recent-spawn' | 'no-spawn-record' | 'no-binding' | 'invalid-json' | 'stale-spawn' | 'process-dead';
+  /** When reason is 'recent-spawn' or 'stale-spawn', the spawn record. */
+  record?: ProgressSpawnRecord;
+  ageMs?: number;
+};
+
+export function isRecentSpawn(projectRoot: string, now: () => number = Date.now, ttlMs: number = 5 * 60 * 1000): RecentSpawnCheck {
+  const result = readSpawnRecord(projectRoot);
+  if (!result.ok) {
+    return { recent: false, reason: result.reason };
+  }
+  const record = result.data;
+  const spawnedMs = Date.parse(record.spawnedAt);
+  if (Number.isNaN(spawnedMs)) {
+    // Treat unparseable timestamps as a stale record so the next start
+    // proceeds normally. This is the conservative choice — the alternative
+    // (treating unparseable as "always recent") would block legitimate
+    // re-spawns forever.
+    return { recent: false, reason: 'stale-spawn', record };
+  }
+  const ageMs = now() - spawnedMs;
+  if (ageMs < 0) {
+    // Clock skew or future-dated record: trust the record as "recent" so
+    // we do not double-spawn. Same conservative default as a 0-age record.
+    return { recent: true, reason: 'recent-spawn', record, ageMs: 0 };
+  }
+  if (ageMs >= ttlMs) {
+    return { recent: false, reason: 'stale-spawn', record, ageMs };
+  }
+  return { recent: true, reason: 'recent-spawn', record, ageMs };
+}
+
 export function clearSpawnRecord(projectRoot: string): boolean {
   const path = spawnRecordPath(projectRoot);
   if (!existsSync(path)) return false;

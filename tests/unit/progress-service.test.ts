@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   clearSpawnRecord,
+  isRecentSpawn,
   phaseAutoClosesSpawn,
   readSpawnRecord,
   readSubAgentProgress,
@@ -258,5 +259,82 @@ describe('progress service — spawn record + auto-close helpers', () => {
     expect(phaseAutoClosesSpawn('verifying')).toBe(false);
     expect(phaseAutoClosesSpawn('completing')).toBe(false);
     expect(phaseAutoClosesSpawn('idle')).toBe(false);
+  });
+});
+
+describe('isRecentSpawn — Task-hook idempotency guard', () => {
+  const TEST_SESSION = '2026-06-03-session-progress01';
+
+  function writeSpawnRecordAt(projectRoot: string, spawnedAt: string): void {
+    const path = join(projectRoot, '.peaks', TEST_SESSION, 'system', 'progress-spawn.json');
+    mkdirSync(join(projectRoot, '.peaks', TEST_SESSION, 'system'), { recursive: true });
+    const record = {
+      version: 1,
+      sessionId: TEST_SESSION,
+      pid: 12345,
+      platform: 'darwin',
+      command: 'osascript',
+      args: ['-e', 'tell app "Terminal" to do script "..."'],
+      spawnedAt,
+      windowTitle: 'peaks-cli: sub-agent progress'
+    };
+    writeFileSync(path, JSON.stringify(record), 'utf8');
+  }
+
+  test('returns no-binding when no session is bound', () => {
+    const project = makeTempProject();
+    // intentionally do not seed the session binding
+    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
+    expect(result.recent).toBe(false);
+    expect(result.reason).toBe('no-binding');
+  });
+
+  test('returns no-spawn-record when no spawn record exists', () => {
+    const project = makeTempProject();
+    seedSessionBinding(project, TEST_SESSION);
+    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
+    expect(result.recent).toBe(false);
+    expect(result.reason).toBe('no-spawn-record');
+  });
+
+  test('returns recent-spawn when the record is younger than the TTL', () => {
+    const project = makeTempProject();
+    seedSessionBinding(project, TEST_SESSION);
+    writeSpawnRecordAt(project, new Date(Date.now() - 30_000).toISOString());
+    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
+    expect(result.recent).toBe(true);
+    expect(result.reason).toBe('recent-spawn');
+    expect(result.ageMs).toBeGreaterThanOrEqual(30_000);
+    expect(result.ageMs).toBeLessThan(5 * 60 * 1000);
+  });
+
+  test('returns stale-spawn when the record is older than the TTL (next start re-spawns)', () => {
+    const project = makeTempProject();
+    seedSessionBinding(project, TEST_SESSION);
+    writeSpawnRecordAt(project, new Date(Date.now() - 10 * 60 * 1000).toISOString());
+    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
+    expect(result.recent).toBe(false);
+    expect(result.reason).toBe('stale-spawn');
+    expect(result.ageMs).toBeGreaterThanOrEqual(10 * 60 * 1000);
+  });
+
+  test('honors a custom TTL (e.g. 10 minutes for long sub-agent slices)', () => {
+    const project = makeTempProject();
+    seedSessionBinding(project, TEST_SESSION);
+    writeSpawnRecordAt(project, new Date(Date.now() - 7 * 60 * 1000).toISOString());
+    // 5-min TTL: stale
+    expect(isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000).recent).toBe(false);
+    // 10-min TTL: still recent
+    expect(isRecentSpawn(project, () => Date.now(), 10 * 60 * 1000).recent).toBe(true);
+  });
+
+  test('treats future-dated records (clock skew) as recent (no double-spawn)', () => {
+    const project = makeTempProject();
+    seedSessionBinding(project, TEST_SESSION);
+    writeSpawnRecordAt(project, new Date(Date.now() + 60_000).toISOString());
+    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
+    expect(result.recent).toBe(true);
+    expect(result.reason).toBe('recent-spawn');
+    expect(result.ageMs).toBe(0); // clamped to 0 (no negative age exposed)
   });
 });

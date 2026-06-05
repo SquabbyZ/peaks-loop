@@ -21,11 +21,23 @@ import { homedir } from 'node:os';
 
 export type HookScope = 'project' | 'global';
 
-/** The hook command written into settings. `${CLAUDE_PROJECT_DIR}` is injected by Claude Code. */
+/** The hook command written into settings for the gate-enforce PreToolUse hook. `${CLAUDE_PROJECT_DIR}` is injected by Claude Code. */
 export const HOOK_ENFORCE_COMMAND = 'peaks gate enforce --project "${CLAUDE_PROJECT_DIR}"';
-/** Substring that identifies a Peaks-managed PreToolUse hook entry. */
-export const HOOK_SENTINEL = 'peaks gate enforce';
-const HOOK_MATCHER = 'Bash';
+/**
+ * Hook command for the sub-agent progress auto-spawn. Fires on every Task
+ * tool call (the harness-enforced mechanism for "sub-agent dispatch"). The
+ * command itself is non-blocking: `peaks progress start` is idempotent
+ * (5-minute TTL on the spawn record) so the LLM does not see a fresh
+ * terminal per Task. The `--quiet` flag keeps the LLM context clean — the
+ * hook output otherwise adds ~500 tokens per Task call.
+ */
+export const HOOK_PROGRESS_COMMAND = 'peaks progress start --project "${CLAUDE_PROJECT_DIR}" --reason "auto-spawn for sub-agent Task" --quiet';
+/** Substring that identifies a Peaks-managed PreToolUse gate-enforce hook entry. */
+export const HOOK_ENFORCE_SENTINEL = 'peaks gate enforce';
+/** Substring that identifies a Peaks-managed PreToolUse sub-agent-progress hook entry. */
+export const HOOK_PROGRESS_SENTINEL = 'peaks progress start';
+const HOOK_GATE_MATCHER = 'Bash';
+const HOOK_PROGRESS_MATCHER = 'Task';
 
 export type HookInstallPlan = {
   scope: HookScope;
@@ -33,6 +45,10 @@ export type HookInstallPlan = {
   exists: boolean;
   alreadyInstalled: boolean;
   desiredCommand: string;
+  /** Substring sentinel used to detect the entry. */
+  sentinel: string;
+  /** Tool name (Bash | Task) the PreToolUse hook is keyed on. */
+  matcher: string;
 };
 
 export type HookInstallResult = HookInstallPlan & { applied: boolean };
@@ -41,6 +57,25 @@ export type HookStatus = { scope: HookScope; settingsPath: string; exists: boole
 
 type HookHandler = { type?: string; command?: string };
 type HookMatcherEntry = { matcher?: string; hooks?: HookHandler[] };
+
+/**
+ * Substring sentinels that identify a Peaks-managed PreToolUse hook entry.
+ * Used to keep `uninstall` and `isInstalled` checks tight: we only touch
+ * entries we wrote, never third-party hooks.
+ */
+const PEAKS_HOOK_SENTINELS: ReadonlyArray<string> = [HOOK_ENFORCE_SENTINEL, HOOK_PROGRESS_SENTINEL];
+
+/** A typed descriptor for a single peaks-managed hook entry. */
+export type PeaksHookEntry = {
+  sentinel: string;
+  matcher: string;
+  command: string;
+};
+
+export const PEAKS_HOOK_ENTRIES: ReadonlyArray<PeaksHookEntry> = [
+  { sentinel: HOOK_ENFORCE_SENTINEL, matcher: HOOK_GATE_MATCHER, command: HOOK_ENFORCE_COMMAND },
+  { sentinel: HOOK_PROGRESS_SENTINEL, matcher: HOOK_PROGRESS_MATCHER, command: HOOK_PROGRESS_COMMAND }
+];
 
 function isInsidePath(childPath: string, parentPath: string): boolean {
   const rel = relative(parentPath, childPath);
@@ -121,9 +156,15 @@ function readPreToolUse(settings: Record<string, unknown>): HookMatcherEntry[] {
   return Array.isArray(pre) ? (pre as HookMatcherEntry[]) : [];
 }
 
+/** True when every command handler in the entry matches a known peaks sentinel. */
 function entryIsPeaksManaged(entry: HookMatcherEntry): boolean {
   const handlers = Array.isArray(entry?.hooks) ? entry.hooks : [];
-  return handlers.length > 0 && handlers.every((h) => typeof h?.command === 'string' && h.command.includes(HOOK_SENTINEL));
+  if (handlers.length === 0) return false;
+  return handlers.every((h) => {
+    if (typeof h?.command !== 'string') return false;
+    const cmd = h.command;
+    return PEAKS_HOOK_SENTINELS.some((sentinel) => cmd.includes(sentinel));
+  });
 }
 
 function isInstalled(settings: Record<string, unknown>): boolean {
@@ -136,19 +177,33 @@ export function planHookInstall(scope: HookScope, projectRoot?: string): HookIns
   assertSafeSettingsPath(scope, root, settingsPath);
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
-  return { scope, settingsPath, exists, alreadyInstalled: isInstalled(settings), desiredCommand: HOOK_ENFORCE_COMMAND };
+  return {
+    scope,
+    settingsPath,
+    exists,
+    alreadyInstalled: isInstalled(settings),
+    desiredCommand: HOOK_ENFORCE_COMMAND,
+    sentinel: HOOK_ENFORCE_SENTINEL,
+    matcher: HOOK_GATE_MATCHER
+  };
 }
 
-/** Merge our PreToolUse entry into settings, preserving all other keys and hooks. */
-function withHookInstalled(settings: Record<string, unknown>): Record<string, unknown> {
+/** Merge all peaks-managed PreToolUse entries into settings, preserving all other keys and hooks. */
+function withHooksInstalled(settings: Record<string, unknown>): Record<string, unknown> {
   const existingHooks = (settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks))
     ? (settings.hooks as Record<string, unknown>)
     : {};
   const preToolUse = readPreToolUse(settings);
-  const ourEntry: HookMatcherEntry = { matcher: HOOK_MATCHER, hooks: [{ type: 'command', command: HOOK_ENFORCE_COMMAND }] };
+  // Drop any existing peaks-managed entries first so re-runs are idempotent
+  // even if the command string changed (e.g. a bug fix in the command).
+  const nonPeaks = preToolUse.filter((entry) => !entryIsPeaksManaged(entry));
+  const ourEntries: HookMatcherEntry[] = PEAKS_HOOK_ENTRIES.map((spec) => ({
+    matcher: spec.matcher,
+    hooks: [{ type: 'command', command: spec.command }]
+  }));
   return {
     ...settings,
-    hooks: { ...existingHooks, PreToolUse: [...preToolUse, ourEntry] }
+    hooks: { ...existingHooks, PreToolUse: [...nonPeaks, ...ourEntries] }
   };
 }
 
@@ -159,10 +214,10 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string): HookIn
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
   if (isInstalled(settings)) {
-    return { scope, settingsPath, exists, alreadyInstalled: true, desiredCommand: HOOK_ENFORCE_COMMAND, applied: false };
+    return { scope, settingsPath, exists, alreadyInstalled: true, desiredCommand: HOOK_ENFORCE_COMMAND, applied: false, sentinel: HOOK_ENFORCE_SENTINEL, matcher: HOOK_GATE_MATCHER };
   }
-  atomicWriteJson(settingsPath, withHookInstalled(settings));
-  return { scope, settingsPath, exists, alreadyInstalled: false, desiredCommand: HOOK_ENFORCE_COMMAND, applied: true };
+  atomicWriteJson(settingsPath, withHooksInstalled(settings));
+  return { scope, settingsPath, exists, alreadyInstalled: false, desiredCommand: HOOK_ENFORCE_COMMAND, applied: true, sentinel: HOOK_ENFORCE_SENTINEL, matcher: HOOK_GATE_MATCHER };
 }
 
 export function removeHookInstall(scope: HookScope, projectRoot?: string): HookRemoveResult {

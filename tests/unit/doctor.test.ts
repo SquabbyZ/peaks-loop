@@ -2,7 +2,10 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { runDoctor } from '../../src/services/doctor/doctor-service.js';
+import {
+  isWorkspaceInitializedAt,
+  runDoctor
+} from '../../src/services/doctor/doctor-service.js';
 
 describe('runDoctor', () => {
   test('passes the repository skeleton with required skills and schemas', async () => {
@@ -314,6 +317,50 @@ describe('runDoctor skill-presence:workspace guard', () => {
 
     expect(check).toMatchObject({ ok: true });
     expect(check?.message).toContain('not applicable');
+  });
+});
+
+describe('isWorkspaceInitializedAt — runtime-layer canonical + legacy back-compat', () => {
+  async function emptyProject(): Promise<string> {
+    return mkdtemp(join(tmpdir(), 'peaks-doctor-ws-probe-'));
+  }
+
+  test('returns false when neither .peaks/_runtime/session.json nor .peaks/.session.json exists', async () => {
+    const project = await emptyProject();
+    expect(isWorkspaceInitializedAt(project)).toBe(false);
+  });
+
+  test('returns true when the canonical .peaks/_runtime/session.json exists (post-runtime-layer migration)', async () => {
+    const project = await emptyProject();
+    await mkdir(join(project, '.peaks', '_runtime'), { recursive: true });
+    await writeFile(join(project, '.peaks', '_runtime', 'session.json'), '{"sessionId":"x"}', 'utf8');
+    expect(isWorkspaceInitializedAt(project)).toBe(true);
+  });
+
+  test('returns true when the legacy .peaks/.session.json exists (pre-runtime-layer, not yet reconciled)', async () => {
+    const project = await emptyProject();
+    await mkdir(join(project, '.peaks'), { recursive: true });
+    await writeFile(join(project, '.peaks', '.session.json'), '{"sessionId":"x"}', 'utf8');
+    expect(isWorkspaceInitializedAt(project)).toBe(true);
+  });
+
+  test('returns true when BOTH bindings exist (defensive — runtime layer wins on read, legacy kept for back-compat)', async () => {
+    const project = await emptyProject();
+    await mkdir(join(project, '.peaks', '_runtime'), { recursive: true });
+    await writeFile(join(project, '.peaks', '_runtime', 'session.json'), '{"sessionId":"canonical"}', 'utf8');
+    await writeFile(join(project, '.peaks', '.session.json'), '{"sessionId":"legacy"}', 'utf8');
+    expect(isWorkspaceInitializedAt(project)).toBe(true);
+  });
+
+  test('does not be confused by other .peaks/<sid>/session.json files (per-session, not the binding)', async () => {
+    // The per-session file at .peaks/<sid>/session.json is NOT the binding —
+    // it's the session artifact. The probe must NOT treat it as "initialized"
+    // or it will give a false positive on projects that have a session
+    // subdir but no runtime binding (e.g. a half-reconciled migration).
+    const project = await emptyProject();
+    await mkdir(join(project, '.peaks', '2026-06-05-session-abc1234'), { recursive: true });
+    await writeFile(join(project, '.peaks', '2026-06-05-session-abc1234', 'session.json'), '{"sessionId":"abc1234"}', 'utf8');
+    expect(isWorkspaceInitializedAt(project)).toBe(false);
   });
 });
 

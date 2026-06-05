@@ -27,6 +27,15 @@ export type ArtifactPrerequisite = {
   description: string;
   /** Optional content markers — when set, the file must contain ALL of these (case-insensitive substring). */
   mustContain?: ReadonlyArray<string>;
+  /**
+   * Optional content markers — when set, the file must contain AT LEAST ONE of
+   * these (case-insensitive substring). Use this for escape-hatch patterns
+   * (e.g. perf-baseline's "Results table" OR "N/A — no perf surface" stub).
+   * `mustContain` and `mustContainAny` are independent: when both are set,
+   * `mustContain` markers must all be present AND at least one `mustContainAny`
+   * marker must be present.
+   */
+  mustContainAny?: ReadonlyArray<string>;
 };
 
 export type PrerequisiteCheckResult = {
@@ -54,6 +63,20 @@ const CODE_REVIEW: ArtifactPrerequisite = {
   mustContain: ['## Findings', 'CRITICAL']
 };
 const SECURITY_REVIEW: ArtifactPrerequisite = { relativePath: 'rd/security-review.md', description: 'Security review evidence for the changed surface' };
+// Gate B9 — RD-side perf baseline (peaks-rd SKILL "Parallel review fan-out").
+// The file must exist; the body must either carry a Results table marker
+// (per peaks-rd SKILL "Mandatory perf-baseline output") or the explicit
+// "N/A — no perf surface" escape hatch. A slice without a perf surface
+// still has to write the stub; an RD that omits perf-baseline entirely is
+// blocked here, matching peaks-rd's BLOCKING Gate B9 claim.
+const PERF_BASELINE: ArtifactPrerequisite = {
+  relativePath: 'rd/perf-baseline.md',
+  description:
+    'RD-side perf baseline (peaks-rd Gate B9) — must include a Results table with measurements OR the literal "N/A — no perf surface" escape hatch in the Notes section. QA Gate A4 diffs against this file.',
+  // Either a real Results table is present, OR the explicit no-perf-surface
+  // stub marker. Both paths satisfy Gate B9; absence of both is BLOCKED.
+  mustContainAny: ['## Results', 'N/A — no perf surface']
+};
 const TEST_CASES: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
   description: 'Generated test cases (unit / integration / UI regression)',
@@ -98,17 +121,20 @@ const QA_INITIATED: ArtifactPrerequisite = {
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [TECH_DOC],
-  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
 };
 
 // Bugfix: lighter planning artifact (bug-analysis instead of tech-doc), still requires code review + security review + regression test.
-// Performance findings not mandatory for non-perf bugs (use --allow-incomplete --reason if a perf bug requires it).
+// Performance baseline: required for perf-shaped bugfixes (where the bug IS a
+// perf regression). For non-perf bugfixes, RD writes the perf-baseline stub
+// with "N/A — no perf surface" — Gate B9 still passes (mustContainAny hit),
+// and the stub tells QA Gate A4 to skip the perf diff.
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],
-  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS]
 };
@@ -216,6 +242,17 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
         missing.push({
           path: relative,
           description: `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
+        });
+      }
+    }
+    if (prerequisite.mustContainAny && prerequisite.mustContainAny.length > 0) {
+      const body = await readFile(absolute, 'utf8');
+      const lowered = body.toLowerCase();
+      const hitAny = prerequisite.mustContainAny.some((marker) => lowered.includes(marker.toLowerCase()));
+      if (!hitAny) {
+        missing.push({
+          path: relative,
+          description: `${prerequisite.description} — none of the escape-hatch markers present: ${prerequisite.mustContainAny.join(', ')}`
         });
       }
     }

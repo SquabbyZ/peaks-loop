@@ -84,7 +84,28 @@ function defaultStatusLineInstalledProbe(): boolean {
 function defaultWorkspaceInitializedProbe(): boolean {
   const projectRoot = findProjectRoot(process.cwd());
   if (projectRoot === null) return false;
-  return existsSync(join(projectRoot, '.peaks', '.session.json'));
+  // Workspace is "initialized" when EITHER the canonical runtime-layer session
+  // binding (`.peaks/_runtime/session.json`, the home since slice
+  // 2026-06-05-peaks-runtime-layer) OR the legacy top-level binding
+  // (`.peaks/.session.json`, kept as read-only back-compat for one minor
+  // release) is present. The legacy check is what catches projects that ran
+  // `peaks workspace init` before the runtime-layer migration and have not yet
+  // been reconciled; both paths must continue to satisfy the doctor until the
+  // legacy location is removed.
+  return isWorkspaceInitializedAt(projectRoot);
+}
+
+/**
+ * Pure helper extracted from `defaultWorkspaceInitializedProbe` so tests can
+ * drive the filesystem check without monkey-patching `process.cwd()` or
+ * `findProjectRoot`. Returns `true` when EITHER the canonical
+ * `.peaks/_runtime/session.json` OR the legacy `.peaks/.session.json` exists.
+ */
+export function isWorkspaceInitializedAt(projectRoot: string): boolean {
+  return (
+    existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json')) ||
+    existsSync(join(projectRoot, '.peaks', '.session.json'))
+  );
 }
 
 const DESTRUCTIVE_APPLY_PATTERNS = [
@@ -279,7 +300,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     checks.push({
       id: 'skill-presence:workspace',
       ok: false,
-      message: `Skill ${presence.skill} is active but no workspace session exists (.peaks/.session.json missing); run \`peaks workspace init --project <repo>\` — peaks-solo Step 0 must anchor the workspace before any work`
+      message: `Skill ${presence.skill} is active but no workspace session exists (.peaks/_runtime/session.json missing); run \`peaks workspace init --project <repo>\` — peaks-solo Step 0 must anchor the workspace before any work`
     });
   } else {
     checks.push({

@@ -5,10 +5,12 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
   applyHookInstall,
+  HOOK_ENFORCE_SENTINEL,
+  HOOK_PROGRESS_SENTINEL,
+  PEAKS_HOOK_ENTRIES,
   planHookInstall,
   readHookStatus,
-  removeHookInstall,
-  HOOK_SENTINEL
+  removeHookInstall
 } from '../../src/services/skills/hooks-settings-service.js';
 
 let project: string;
@@ -31,14 +33,19 @@ async function readSettings(): Promise<Record<string, unknown>> {
 }
 
 describe('applyHookInstall', () => {
-  test('installs into an empty/absent settings file', async () => {
+  test('installs both gate-enforce (Bash) and progress-start (Task) entries into an empty/absent settings file', async () => {
     const result = applyHookInstall('project', project);
     expect(result.applied).toBe(true);
     const settings = await readSettings();
     const pre = (settings.hooks as { PreToolUse: { matcher: string; hooks: { command: string }[] }[] }).PreToolUse;
-    expect(pre).toHaveLength(1);
-    expect(pre[0]!.matcher).toBe('Bash');
-    expect(pre[0]!.hooks[0]!.command).toContain(HOOK_SENTINEL);
+    expect(pre).toHaveLength(PEAKS_HOOK_ENTRIES.length);
+    const matchers = pre.map((entry) => entry.matcher);
+    expect(matchers).toContain('Bash');
+    expect(matchers).toContain('Task');
+    const bashEntry = pre.find((entry) => entry.matcher === 'Bash');
+    expect(bashEntry?.hooks[0]?.command).toContain(HOOK_ENFORCE_SENTINEL);
+    const taskEntry = pre.find((entry) => entry.matcher === 'Task');
+    expect(taskEntry?.hooks[0]?.command).toContain(HOOK_PROGRESS_SENTINEL);
   });
 
   test('is idempotent — a second install does not duplicate', async () => {
@@ -46,7 +53,7 @@ describe('applyHookInstall', () => {
     const second = applyHookInstall('project', project);
     expect(second.applied).toBe(false);
     const pre = (await readSettings()).hooks as { PreToolUse: unknown[] };
-    expect(pre.PreToolUse).toHaveLength(1);
+    expect(pre.PreToolUse).toHaveLength(PEAKS_HOOK_ENTRIES.length);
   });
 
   test('preserves other settings keys and other PreToolUse hooks', async () => {
@@ -58,9 +65,11 @@ describe('applyHookInstall', () => {
     const settings = await readSettings();
     expect(settings.model).toBe('sonnet');
     const hooks = settings.hooks as { PreToolUse: { matcher: string }[]; PostToolUse: unknown[] };
-    expect(hooks.PreToolUse).toHaveLength(2); // existing Write + our Bash
+    // existing Write + our 2 peaks-managed entries (Bash gate-enforce + Task progress-start)
+    expect(hooks.PreToolUse).toHaveLength(1 + PEAKS_HOOK_ENTRIES.length);
     expect(hooks.PreToolUse.some((e) => e.matcher === 'Write')).toBe(true);
     expect(hooks.PreToolUse.some((e) => e.matcher === 'Bash')).toBe(true);
+    expect(hooks.PreToolUse.some((e) => e.matcher === 'Task')).toBe(true);
     expect(hooks.PostToolUse).toHaveLength(1); // untouched
   });
 

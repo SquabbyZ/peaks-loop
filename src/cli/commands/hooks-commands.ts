@@ -4,6 +4,7 @@ import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import {
   applyHookInstall,
+  PEAKS_HOOK_ENTRIES,
   planHookInstall,
   readHookStatus,
   removeHookInstall,
@@ -23,12 +24,16 @@ function resolveProjectRoot(scope: HookScope, project: string | undefined): stri
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
-    .description('Manage the Peaks gate-enforcement PreToolUse hook in .claude/settings.json');
+    .description(
+      'Manage the Peaks PreToolUse hooks in .claude/settings.json: (1) Bash→peaks gate enforce (SOP gate), (2) Task→peaks progress start (auto-spawn sub-agent progress terminal). Both are installed / removed together.'
+    );
 
   addJsonOption(
     hooks
       .command('install')
-      .description('Install the un-bypassable SOP gate hook (project scope by default)')
+      .description(
+        `Install all peaks-managed PreToolUse hooks (${PEAKS_HOOK_ENTRIES.map((e) => e.matcher).join(', ')}) into the target .claude/settings.json. Idempotent: re-runs are no-ops. Project scope by default.`
+      )
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--dry-run', 'show what would change without writing')
@@ -38,14 +43,44 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     try {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot);
-        printResult(io, ok('hooks.install', { ...plan, applied: false, dryRun: true }), options.json);
+        printResult(
+          io,
+          ok(
+            'hooks.install',
+            {
+              ...plan,
+              applied: false,
+              dryRun: true,
+              entries: PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+            },
+            [],
+            [`would install ${PEAKS_HOOK_ENTRIES.length} peaks-managed hook entries`]
+          ),
+          options.json
+        );
         return;
       }
       const result = applyHookInstall(scope, projectRoot);
       const nextActions = result.applied
-        ? ['Restart Claude Code (or reload the window) so the gate hook takes effect']
+        ? [
+            'Restart Claude Code (or reload the window) so the PreToolUse hooks take effect',
+            `Installed: ${PEAKS_HOOK_ENTRIES.map((e) => `${e.matcher}→${e.sentinel}`).join(', ')}`
+          ]
         : [];
-      printResult(io, ok('hooks.install', { ...result, dryRun: false }, [], nextActions), options.json);
+      printResult(
+        io,
+        ok(
+          'hooks.install',
+          {
+            ...result,
+            dryRun: false,
+            entries: PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+          },
+          [],
+          nextActions
+        ),
+        options.json
+      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       printResult(io, fail('hooks.install', 'HOOKS_INSTALL_FAILED', message, { scope, applied: false }, [message]), options.json);
@@ -56,7 +91,9 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     hooks
       .command('uninstall')
-      .description('Remove the Peaks gate-enforcement hook from .claude/settings.json')
+      .description(
+        'Remove all peaks-managed PreToolUse hooks (gate-enforce + progress-start) from the target .claude/settings.json. Third-party hooks are preserved.'
+      )
       .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action((options: HookCliOptions) => {
@@ -75,7 +112,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     hooks
       .command('status')
-      .description('Report whether the Peaks gate hook is installed')
+      .description('Report which peaks-managed PreToolUse hooks are installed (gate-enforce + progress-start).')
       .option('--global', 'inspect the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
   ).action((options: HookCliOptions) => {
@@ -83,7 +120,14 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     const projectRoot = resolveProjectRoot(scope, options.project);
     try {
       const status = readHookStatus(scope, projectRoot);
-      printResult(io, ok('hooks.status', status), options.json);
+      printResult(
+        io,
+        ok('hooks.status', {
+          ...status,
+          entries: PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+        }),
+        options.json
+      );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
       printResult(io, fail('hooks.status', 'HOOKS_STATUS_FAILED', message, { scope }, [message]), options.json);

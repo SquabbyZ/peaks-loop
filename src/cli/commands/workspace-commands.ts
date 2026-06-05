@@ -1,8 +1,12 @@
 import { Command } from 'commander';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
+import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -11,7 +15,97 @@ type WorkspaceInitOptions = {
   sessionId?: string;
   json?: boolean;
   allowSessionRebind?: boolean;
+  /**
+   * How to handle the first-time "install peaks hooks" prompt.
+   *   - ask  (default in TTY): prompt the user once, sticky-marker the answer
+   *   - auto (default in --json / non-TTY): install silently, sticky-marker installed
+   *   - skip: write sticky-marker skipped, do not install
+   * After the first decision the sticky marker wins, regardless of --install-hooks
+   * (re-runs respect the recorded decision; only re-install when the marker says
+   * installed but the hooks have been removed out from under us).
+   */
+  installHooks?: 'ask' | 'auto' | 'skip';
 };
+
+/** Sticky decision marker for the first-time "install hooks" prompt. */
+const HOOKS_DECISION_REL_PATH = '.peaks/.peaks-init-hooks-decision.json';
+
+type HooksDecision = 'installed' | 'skipped';
+type HooksDecisionMarker = {
+  version: 1;
+  decision: HooksDecision;
+  decidedAt: string;
+  scope: 'project' | 'global';
+};
+
+function readDecisionMarker(projectRoot: string): HooksDecisionMarker | null {
+  const path = join(projectRoot, HOOKS_DECISION_REL_PATH);
+  if (!existsSync(path)) return null;
+  try {
+    const data = JSON.parse(readFileSync(path, 'utf8')) as Partial<HooksDecisionMarker>;
+    if (data.version !== 1) return null;
+    if (data.decision !== 'installed' && data.decision !== 'skipped') return null;
+    if (typeof data.decidedAt !== 'string') return null;
+    if (data.scope !== 'project' && data.scope !== 'global') return null;
+    return {
+      version: 1,
+      decision: data.decision,
+      decidedAt: data.decidedAt,
+      scope: data.scope
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDecisionMarker(projectRoot: string, decision: HooksDecision): void {
+  const path = join(projectRoot, HOOKS_DECISION_REL_PATH);
+  const dir = join(projectRoot, '.peaks');
+  mkdirSync(dir, { recursive: true });
+  const marker: HooksDecisionMarker = {
+    version: 1,
+    decision,
+    decidedAt: new Date().toISOString(),
+    scope: 'project'
+  };
+  writeFileSync(path, JSON.stringify(marker, null, 2) + '\n', 'utf8');
+}
+
+/**
+ * Read a yes/no answer from stdin. Returns `true` for empty / Y / y,
+ * `false` for N / n, or `null` when stdin is not a TTY (the caller falls
+ * back to the no-prompt path). Times out after 30s so a piped-but-blocked
+ * stdin never hangs the CLI.
+ */
+function promptYesNo(question: string): Promise<boolean | null> {
+  return new Promise((resolve) => {
+    if (process.stdin.isTTY !== true) {
+      resolve(null);
+      return;
+    }
+    const rl = createInterface({ input: process.stdin, output: process.stderr, terminal: true });
+    const timer = setTimeout(() => {
+      rl.close();
+      resolve(null);
+    }, 30_000);
+    rl.question(question, (answer) => {
+      clearTimeout(timer);
+      rl.close();
+      const trimmed = answer.trim().toLowerCase();
+      if (trimmed === '' || trimmed === 'y' || trimmed === 'yes') {
+        resolve(true);
+        return;
+      }
+      if (trimmed === 'n' || trimmed === 'no') {
+        resolve(false);
+        return;
+      }
+      // Treat anything else as "no" — the user can re-run with --install-hooks
+      // if they want a different answer. We never throw from this prompt.
+      resolve(false);
+    });
+  });
+}
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DEFAULT_RECONCILE_AGE_DAYS = 7;
@@ -29,10 +123,20 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) and bind the session as the project current one. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present).')
+      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) and bind the session as the project current one. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
+      .option(
+        '--install-hooks <mode>',
+        'first-time hooks install behaviour: ask (default in TTY, prompt once + sticky-marker), auto (default in --json / non-TTY, install silently + sticky-marker), skip (sticky-marker skipped, do not install)',
+        (value: string) => {
+          if (value !== 'ask' && value !== 'auto' && value !== 'skip') {
+            throw new Error(`--install-hooks must be one of: ask, auto, skip (got "${value}")`);
+          }
+          return value;
+        }
+      )
   ).action(async (options: WorkspaceInitOptions) => {
     try {
       // Resolve the session id. Two paths:
@@ -75,7 +179,48 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       } else {
         nextActions.push('Run `peaks scan archetype --project <path> --json` next to populate rd/project-scan.md.');
       }
-      printResult(io, ok('workspace.init', report, [], nextActions), options.json);
+
+      // First-time hooks install decision. Sticky-marker at
+      // .peaks/.peaks-init-hooks-decision.json records the user's answer
+      // (or the auto-decision) so subsequent inits for new sessions in the
+      // same project do not re-prompt. The marker is the only state that
+      // survives across sessions — without it, every new session would
+      // re-trigger the question.
+      const hooksOutcome = await resolveFirstTimeHooksInstall({
+        projectRoot,
+        ...(options.installHooks !== undefined ? { explicitMode: options.installHooks } : {}),
+        jsonMode: options.json === true
+      });
+      if (hooksOutcome.decision === 'installed') {
+        nextActions.push(
+          hooksOutcome.action === 'reinstalled'
+            ? 'Re-installed the peaks-managed PreToolUse hooks (Bash→gate enforce, Task→progress start) — the marker said installed but the hooks were missing.'
+            : 'Installed the peaks-managed PreToolUse hooks (Bash→gate enforce, Task→progress start). Restart Claude Code so the hooks take effect.'
+        );
+      } else if (hooksOutcome.action === 'first-decision' && hooksOutcome.decision === 'skipped') {
+        nextActions.push(
+          'Skipped peaks-managed hook install for this project. Re-run with --install-hooks=auto (or peaks hooks install) to install later.'
+        );
+      }
+
+      printResult(
+        io,
+        ok(
+          'workspace.init',
+          {
+            ...report,
+            hooksInstall: {
+              decision: hooksOutcome.decision,
+              action: hooksOutcome.action,
+              scope: hooksOutcome.scope,
+              ...(hooksOutcome.reason !== undefined ? { reason: hooksOutcome.reason } : {})
+            }
+          },
+          [],
+          nextActions
+        ),
+        options.json
+      );
     } catch (error) {
       if (error instanceof InvalidSessionIdError) {
         printResult(
@@ -181,4 +326,169 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       process.exitCode = 1;
     }
   });
+}
+
+/**
+ * Outcome of the first-time "install peaks hooks" decision attached to
+ * `peaks workspace init`. Reported in the response data so the LLM and
+ * the human both see what happened.
+ */
+export type FirstTimeHooksInstallOutcome = {
+  /** The decision recorded (or already on file) in the sticky marker. */
+  decision: HooksDecision;
+  /**
+   * What the install path actually did this call.
+   *   - first-decision: we recorded a brand-new sticky marker (and may have installed)
+   *   - reinstalled:    the marker said installed but the hooks were missing — we re-applied
+   *   - marker-honored: the marker already existed; we did not touch the hooks
+   *   - already-installed: the hooks were already present and the marker does not exist yet
+   *                          (we write a fresh marker to lock in the answer for next time)
+   */
+  action: 'first-decision' | 'reinstalled' | 'marker-honored' | 'already-installed';
+  scope: 'project' | 'global';
+  /**
+   * Why the action was the way it was (e.g. "stdin-not-tty", "user-answered-no",
+   * "marker-installed-hooks-missing"). Surfaced for forensics.
+   */
+  reason?: string;
+};
+
+export type ResolveFirstTimeHooksInstallOptions = {
+  projectRoot: string;
+  /**
+   * Explicit mode from the --install-hooks flag. When omitted, the default
+   * is "ask" in TTY mode and "auto" otherwise (see `defaultMode` logic).
+   */
+  explicitMode?: 'ask' | 'auto' | 'skip' | undefined;
+  /**
+   * Whether the caller is in --json mode. In --json mode we never prompt
+   * (the LLM cannot answer an interactive question) — we silently treat
+   * "ask" as "auto" and proceed.
+   */
+  jsonMode: boolean;
+};
+
+/**
+ * Resolve the first-time "install peaks hooks" decision for this project.
+ * Decision tree:
+ *
+ *   1. Read the sticky marker.
+ *      - Marker present:
+ *        - marker.decision === 'installed' AND hooks are present → action: marker-honored, no side effects
+ *        - marker.decision === 'installed' AND hooks are MISSING   → re-install, action: reinstalled
+ *        - marker.decision === 'skipped'                            → action: marker-honored, no install
+ *      - Marker absent:
+ *        - hooks already present → write a fresh 'installed' marker, action: already-installed
+ *        - otherwise:
+ *          - explicit --install-hooks=auto  → install + marker, action: first-decision
+ *          - explicit --install-hooks=skip  → marker only, action: first-decision
+ *          - explicit --install-hooks=ask OR default in TTY:
+ *              - jsonMode → silently auto-install (LLM cannot answer), action: first-decision
+ *              - TTY      → prompt; on yes install + marker, on no marker-only
+ *          - default in non-TTY → auto-install, action: first-decision
+ *
+ * Project scope is the only supported scope here; global scope is reserved
+ * for explicit `peaks hooks install --global` invocations.
+ */
+export async function resolveFirstTimeHooksInstall(
+  options: ResolveFirstTimeHooksInstallOptions
+): Promise<FirstTimeHooksInstallOutcome> {
+  const { projectRoot, jsonMode } = options;
+  const existingMarker = readDecisionMarker(projectRoot);
+  // readHookStatus can throw (e.g. .claude is a symlink → safety check rejects).
+  // Treat any throw as "hooks status unknown → treat as not-installed" so the
+  // function still reaches the install path; the install will surface the same
+  // error in a more specific reason field.
+  let hookStatus: { installed: boolean };
+  try {
+    hookStatus = readHookStatus('project', projectRoot);
+  } catch (error) {
+    hookStatus = { installed: false };
+    // Fall through to the install path; the failure will be captured below.
+    void error;
+  }
+
+  if (existingMarker !== null) {
+    if (existingMarker.decision === 'installed' && !hookStatus.installed) {
+      try {
+        applyHookInstall('project', projectRoot);
+        return { decision: 'installed', action: 'reinstalled', scope: 'project', reason: 'marker-said-installed-hooks-missing' };
+      } catch (error) {
+        return { decision: existingMarker.decision, action: 'marker-honored', scope: 'project', reason: `reinstall-failed: ${getErrorMessage(error)}` };
+      }
+    }
+    return { decision: existingMarker.decision, action: 'marker-honored', scope: existingMarker.scope };
+  }
+
+  // No marker yet — first decision.
+  if (hookStatus.installed) {
+    writeDecisionMarker(projectRoot, 'installed');
+    return { decision: 'installed', action: 'already-installed', scope: 'project' };
+  }
+
+  // Determine effective mode (explicit flag wins; default depends on TTY + jsonMode).
+  const explicitMode = options.explicitMode;
+  const effectiveMode: 'ask' | 'auto' | 'skip' =
+    explicitMode ??
+    (jsonMode ? 'auto' : (process.stdin.isTTY === true ? 'ask' : 'auto'));
+
+  if (effectiveMode === 'skip') {
+    writeDecisionMarker(projectRoot, 'skipped');
+    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'explicit-skip' };
+  }
+
+  if (effectiveMode === 'auto' || jsonMode) {
+    // The reason code distinguishes the path the user took to reach auto-install:
+    //   - explicit-auto:  user passed --install-hooks=auto
+    //   - json-mode:      no --install-hooks flag, but --json was set
+    //   - non-tty-default: no flag, no --json, stdin is not a TTY
+    let autoReason: string;
+    if (explicitMode === 'auto') {
+      autoReason = 'explicit-auto';
+    } else if (jsonMode) {
+      autoReason = 'json-mode';
+    } else {
+      autoReason = 'non-tty-default';
+    }
+    try {
+      applyHookInstall('project', projectRoot);
+      writeDecisionMarker(projectRoot, 'installed');
+      return { decision: 'installed', action: 'first-decision', scope: 'project', reason: autoReason };
+    } catch (error) {
+      // Auto-install failed: still record the decision so we do not keep retrying
+      // every workspace init. The user can fix the underlying problem and run
+      // `peaks hooks install` manually.
+      writeDecisionMarker(projectRoot, 'installed');
+      return { decision: 'installed', action: 'first-decision', scope: 'project', reason: `install-failed: ${getErrorMessage(error)}` };
+    }
+  }
+
+  // effectiveMode === 'ask' AND TTY: prompt once.
+  process.stderr.write(
+    '\nPeaks-Cli: install the PreToolUse hooks for this project now?\n' +
+      '  → Bash matcher: `peaks gate enforce` (SOP gate enforcement)\n' +
+      '  → Task matcher: `peaks progress start` (auto-spawn sub-agent progress terminal)\n' +
+      'Both run on every Claude Code tool call without further prompting. The decision is sticky\n' +
+      '(recorded in .peaks/.peaks-init-hooks-decision.json) and re-runs of `workspace init` will\n' +
+      'honour it. Re-run with --install-hooks=skip or --install-hooks=auto to override.\n\n' +
+      'Install now? [Y/n]: '
+  );
+  const answer = await promptYesNo('');
+  if (answer === null) {
+    // TTY disappeared mid-prompt (rare): treat as skip + write marker.
+    writeDecisionMarker(projectRoot, 'skipped');
+    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'tty-prompt-aborted' };
+  }
+  if (!answer) {
+    writeDecisionMarker(projectRoot, 'skipped');
+    return { decision: 'skipped', action: 'first-decision', scope: 'project', reason: 'user-answered-no' };
+  }
+  try {
+    applyHookInstall('project', projectRoot);
+    writeDecisionMarker(projectRoot, 'installed');
+    return { decision: 'installed', action: 'first-decision', scope: 'project', reason: 'user-answered-yes' };
+  } catch (error) {
+    writeDecisionMarker(projectRoot, 'installed');
+    return { decision: 'installed', action: 'first-decision', scope: 'project', reason: `install-failed: ${getErrorMessage(error)}` };
+  }
 }

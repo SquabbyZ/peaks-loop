@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import ora, { type Ora } from 'ora';
 import {
   clearSpawnRecord,
+  isRecentSpawn,
   phaseAutoClosesSpawn,
   readSpawnRecord,
   readSubAgentProgress,
@@ -45,6 +46,8 @@ type ProgressWatchOptions = {
 type ProgressStartOptions = {
   project?: string;
   reason?: string;
+  /** Suppress human-readable output; only emit JSON to stdout. The hook uses this so the LLM does not see ~500 tokens of spawn envelope per Task call. */
+  quiet?: boolean;
   json?: boolean;
 };
 
@@ -213,12 +216,46 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
       .description('Auto-spawn a new terminal running `peaks progress watch` for this project. Called by the LLM at the first phase transition; the user can close the new terminal at any time.')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--reason <text>', 'human-readable reason for the auto-spawn, recorded in the response data')
+      .option('--quiet', 'suppress human-readable output (the Task-tool PreToolUse hook uses this to keep the LLM context clean)')
   ).action(async (options: ProgressStartOptions) => {
     try {
       const projectRoot = options.project !== undefined
         ? options.project
         : resolveProgressProjectRoot(undefined, process.cwd());
       const canonical = resolveCanonicalProjectRoot(projectRoot);
+
+      // Idempotency check: when the Task-tool PreToolUse hook fires
+      // `peaks progress start` on every Task call, a fresh terminal
+      // should NOT be spawned if a watch window was already opened for
+      // this session within the last 5 minutes. The user closes the
+      // window deliberately; we honor that until the record ages out.
+      const recent = isRecentSpawn(canonical);
+      if (recent.recent) {
+        if (options.quiet !== true) {
+          // Non-hook path: keep the human feedback (so an LLM running
+          // peaks progress start manually understands the no-op).
+        }
+        printResult(
+          io,
+          ok(
+            'progress.start',
+            {
+              projectRoot: canonical,
+              spawned: false,
+              idempotent: true,
+              reason: recent.reason,
+              ageMs: recent.ageMs,
+              note: 'a recent spawn record exists; the watch window is presumed open. Re-run after 5 min (TTL) or `peaks progress close` to force a fresh spawn.'
+            },
+            [],
+            recent.reason === 'recent-spawn'
+              ? []
+              : ['run `peaks progress close` to clear the stale record and force a fresh spawn']
+          ),
+          options.json
+        );
+        return;
+      }
 
       const currentPlatform = platform();
       const peaksBin = process.argv[1] ?? 'peaks';
