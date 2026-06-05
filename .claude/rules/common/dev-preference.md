@@ -136,3 +136,67 @@ The skill-first rule above still governs **what** to build (skill > CLI). This r
 | dogfood rule | (not addressed) | ✓ governs |
 
 A slice can be skill-first (correct architecture) and still fail dogfood (e.g. the skill body is right but the CLI command it documents is wrong). Both rules must pass before the slice is declared complete.
+
+---
+
+# Peaks-Cli dev preference (additive): commits belong to the human, identity comes from global gitconfig
+
+> Source: project-local preference, captured 2026-06-05 from the user.
+> Scope: applies to every `git commit` produced in this repo (and to any project that uses peaks-cli skills). **Additive** — does NOT replace the skill-first rule or the dogfood rule above.
+> Reading: read this before running `git commit`, before configuring any `peaks-*` automation that wraps `git commit`, and before adding any LLM-side commit-message generator.
+
+## Rule
+
+Two things, both non-negotiable:
+
+1. **No AI co-author trailer.** Never append `Co-Authored-By: Claude ...` (or any other LLM — Codex, Gemini, Cursor, Copilot, etc.) to a commit message body. The commit is the human's. The git author is the human. The trailer is the human's. Period. The LLM that helped draft the body is implementation detail, not a co-author.
+2. **Identity is global gitconfig only.** Every commit must be authored and committed as the user configured in `~/.gitconfig` (i.e. `git config --global user.name` / `user.email`). Do not set, override, or shadow `user.name` / `user.email` at the repo level (`.git/config`), via environment variables (`GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`, `GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`, `GIT_AUTHOR_DATE`, `GIT_COMMITTER_DATE`), or via `git -c user.name=... -c user.email=...`. Do not invoke `git commit --author=` or `--config user.*=`. The commit's recorded author and committer must both equal the global identity.
+
+The same applies to automation that produces commits on the user's behalf: a peaks-* skill, a CI bot, a hook, or a `peaks-qa`/`peaks-rd` workflow step that ends in `git commit` must not introduce a different author/committer pair and must not add any AI trailer.
+
+## Why
+
+Two failure modes, both real, both already shipped on this repo:
+
+1. **Trailer pollution.** Eight commits in main (between `a53c210` and `0357c92`, all in 2026-05 → 2026-06) shipped with a `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer. The git author was correct (`zhuhaifeng <18833527317@139.com>`, matching global gitconfig) but the body claimed an AI co-author. The trailer is misleading: it suggests the AI is a contributor to the project, which it is not. `git log --author="Claude"` / `--grep="Co-Authored-By: Claude"` pulls these into AI-attribution dashboards, audit reports, and contributor lists. The user has been clear: "严格要保证不能比当前的效果差" — historical commits must not claim co-authorship they did not earn, and future commits must not introduce new ones.
+2. **Identity drift.** Setting per-repo `user.name` / `user.email` (or worse, env vars at the wrapper level) means a user with two machines, two accounts, or a stolen API key can produce commits that look like the wrong person. The global gitconfig is the single source of truth for "who is committing". Repos that silently fall back to env-var identity are repos where `git log` cannot be trusted.
+
+The combination is what makes a repo auditable: every commit has the same human author, no commit claims an AI co-author, and the audit trail (`git log --format=fuller`) is identical on every machine the human works on.
+
+## How to apply
+
+Before any `git commit` invocation, do all of the following:
+
+1. **Sanity-check the active identity.** Run `git config --global user.name` and `git config --global user.email`. Both must be non-empty and must match the user's real identity. If they are empty, **stop** and ask the user to set them — do not guess, do not fall back to env vars, do not write `user@localhost`.
+2. **Diff against repo-level and env-level overrides.** Run `git config --list --show-origin | grep -E 'user\.(name|email)'`. The only line for `user.name` and `user.email` must come from `~/.gitconfig`. If `.git/config` or any env var is also set, the local value wins — the LLM must not commit until the override is removed.
+3. **Re-verify before `git commit` (not just at session start).** Identity is cheap to re-check; a misconfigured commit is expensive to rewrite. Always run step 1 immediately before `git commit`, not just once at the top of the session.
+4. **Do not let the LLM's commit-message template add a trailer.** When the LLM drafts a commit message, strip any AI co-author line it self-generated. Treat the trailer as a build artifact of the model's training, not a legitimate attribution.
+5. **Do not introduce per-repo `user.*` overrides to "make a single commit work".** If a commit needs a different identity, the user must explicitly set the global identity (i.e. by editing `~/.gitconfig`), not the repo.
+6. **When working in a worktree, the same rules apply.** Worktrees inherit `.git/config` from the main repo, and env vars still shadow gitconfig. Re-run step 2 in every worktree the LLM touches.
+
+## What does NOT count as compliance
+
+- `git config --list` showing the right values once at session start (env vars can be set later in the session)
+- Setting `user.name` / `user.email` via `git -c user.name=... commit ...` "just for this one commit" (the override is still in the commit, even if not persisted)
+- Adding a `Co-Authored-By: Claude` trailer and then stripping it via `git commit --amend` (the original commit object is gone, but the act of writing it in the first place is the violation)
+- "I set GIT_AUTHOR_NAME=... in this shell so the CI bot can commit" (the env-var identity is what gets baked into the commit; this is the failure mode the rule prevents)
+- A hook that injects a trailer automatically (the hook is the LLM in disguise; same rule applies)
+
+## Cross-reference
+
+- The skill-first / CLI-auxiliary rule (top of this file) and the dogfood rule (middle) govern **what** to build and **how to verify** it. This rule governs **how the human owns the resulting commit**. All three are additive; none replaces the others.
+- The user's global CLAUDE.md already says "Attribution disabled globally via ~/.claude/settings.json" for the Claude-Code environment, but that is a Claude-Code-side disable, not a project-side preference. This rule makes the project-side preference explicit and applies to **any** tool that produces a commit, not just Claude Code.
+- The `peaks` skills (peaks-solo, peaks-rd, peaks-qa, peaks-txt) that end in `git commit` MUST follow this rule. If a skill step says "commit the slice", the LLM must verify identity + scrub the trailer as part of that step, not as an afterthought.
+
+## Examples (in this repo)
+
+| Violation caught (or pre-empted) | What the LLM should do instead |
+|---|---|
+| 8 commits (`a53c210`, `f0fdc95`, `7f726c5`, `763b091`, `1b95505`, `aa2564f5`, `d8f72a8`, `0357c92`) shipped with `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer | Do not add the trailer in the first place. Historical cleanup: 2026-06-05 rewrote those 8 commits with `git filter-branch --msg-filter`, preserving author (zhuhaifeng) and removing only the body trailer. Backup ref: `backup/pre-claude-strip-2026-06-05`. |
+| `peaks-solo` ends with `git commit` after a 5-step slice; LLM drafts the message | LLM must (a) re-run `git config --global user.email` to confirm identity, (b) strip any AI trailer the LLM's template generated, (c) commit. No per-repo override, no env-var override. |
+| A worktree was created with `git worktree add` and `.git/worktrees/<name>/config.worktree` got a stale `user.email` | LLM must `git config --unset user.email` in the worktree config (or refuse to commit) before producing a commit. The global identity must be the only identity. |
+| CI bot is asked to commit a release tag from a peaks-sop step | The bot's commit must use the user's identity (read from `~/.gitconfig` or fail loudly), not a `github-actions[bot]@noreply.github.com` env-var identity. If the bot cannot use the user's identity, it must not commit — emit a "human must commit this manually" handoff instead. |
+
+## Why this is additive, not a replacement
+
+The previous two rules govern **what** to build (skill-first) and **how to verify** it (dogfood). This rule governs **who owns the commit** (the human, with their global identity) and **what the commit body must not claim** (no AI co-author). A slice can be skill-first and dogfood-passing and still violate this rule (e.g. the skill body is right, the dogfood passed, but the resulting commit has a `Co-Authored-By: Claude` trailer and was committed with a per-repo email override). All three rules must pass before the slice is declared complete.
