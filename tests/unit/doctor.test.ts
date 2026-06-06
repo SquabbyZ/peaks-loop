@@ -9,7 +9,16 @@ import {
 
 describe('runDoctor', () => {
   test('passes the repository skeleton with required skills and schemas', async () => {
-    const report = await runDoctor();
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      // Inject a passing workspace-layout probe so the live check
+      // (which would otherwise fail against the real repo because the
+      // c4c553 top-level session dir is still present as the current
+      // binding from F3) doesn't incidentally flip the skeleton
+      // summary. This test asserts "skeleton has required skills and
+      // schemas", not "the repo is canonical".
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+    });
 
     expect(report.summary.ok).toBe(true);
     expect(report.checks.some((check) => check.id === 'skill:peaks-solo' && check.ok)).toBe(true);
@@ -454,6 +463,91 @@ describe('runDoctor codegraph capability check', () => {
     expect(check).toMatchObject({ ok: false });
     expect(check?.message).toContain('not resolvable');
     expect(check?.message).toContain('Cannot find module @colbymchenry/codegraph');
+    expect(report.summary.ok).toBe(false);
+  });
+});
+
+describe('runDoctor build:dist-version-matches-source check', () => {
+  test('passes when the dist CLI_VERSION matches the source package.json#version', async () => {
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:dist-version-matches-source');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('1.3.1');
+    expect(report.summary.ok).toBe(true);
+  });
+
+  test('fails with an actionable message when dist and source versions diverge', async () => {
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.2.9', source: '1.3.1', match: false, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:dist-version-matches-source');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('1.2.9');
+    expect(check?.message).toContain('1.3.1');
+    expect(check?.message).toContain('pnpm build');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('passes with an informational message when dist/ is absent (fresh clone, pre-build)', async () => {
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: null, source: '1.3.1', match: false, distReadable: false }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:dist-version-matches-source');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('dist/');
+    expect(check?.message).toContain('pnpm build');
+    expect(report.summary.ok).toBe(true);
+  });
+});
+
+describe('runDoctor build:workspace-layout-canonical check', () => {
+  test('passes when no top-level session dirs and no legacy dotfiles are present', async () => {
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('canonical');
+    expect(report.summary.ok).toBe(true);
+  });
+
+  test('fails and lists the offending top-level session dir when one is present', async () => {
+    const offender = '.peaks/2026-06-06-session-c4c553/';
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [offender], legacyDotfiles: [] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain(offender);
+    expect(check?.message).toContain('top-level session dir');
+    expect(check?.message).toContain('peaks workspace migrate');
+    expect(report.summary.ok).toBe(false);
+  });
+
+  test('fails and lists the offending legacy dotfile when one is present', async () => {
+    const offender = '.peaks/.session.json';
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [offender] })
+    });
+    const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain(offender);
+    expect(check?.message).toContain('legacy dotfile');
+    expect(check?.message).toContain('peaks workspace migrate');
     expect(report.summary.ok).toBe(false);
   });
 });

@@ -13,8 +13,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^(skill|skill-name|skill-parse|skill-runbook|skill-apply-note|skill-presence|statusline|schema|config|doctor-self|capability):[A-Za-z0-9][A-Za-z0-9._-]*$",
-            "description": "Stable check id. Known prefixes: skill:<name> (required skill present), skill-name:<dir> (directory matches declared name), skill-parse:<dir> (skill metadata parsed), skill-runbook:<name> (Default runbook section exists), skill-apply-note:<name> (destructive --apply lines carry an authorization/--dry-run note), skill-presence:<topic> (status of .peaks/.active-skill.json — current/freshness/workspace), statusline:<topic> (out-of-band Claude Code statusLine — install/runtime), schema:<file> (schema file exists and is valid JSON), config:<scope> (optional config locations), doctor-self:<topic> (doctor validates its own output against this schema), capability:<name> (third-party capability is resolvable at the pinned version)."
+            "pattern": "^(skill|skill-name|skill-parse|skill-runbook|skill-apply-note|skill-presence|statusline|schema|config|doctor-self|capability|build):[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "description": "Stable check id. Known prefixes: skill:<name> (required skill present), skill-name:<dir> (directory matches declared name), skill-parse:<dir> (skill metadata parsed), skill-runbook:<name> (Default runbook section exists), skill-apply-note:<name> (destructive --apply lines carry an authorization/--dry-run note), skill-presence:<topic> (status of .peaks/.active-skill.json — current/freshness/workspace), statusline:<topic> (out-of-band Claude Code statusLine — install/runtime), schema:<file> (schema file exists and is valid JSON), config:<scope> (optional config locations), doctor-self:<topic> (doctor validates its own output against this schema), capability:<name> (third-party capability is resolvable at the pinned version), build:<topic> (build-hygiene checks — dist/source version consistency)."
           },
           "ok": { "type": "boolean" },
           "message": { "type": "string", "minLength": 1 }
