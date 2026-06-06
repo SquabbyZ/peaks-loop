@@ -12,6 +12,20 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { sliceCheck } from '../../src/services/slice/slice-check-service.js';
 
+// Mutable config the mock reads each invocation. Tests flip these
+// fields via `setMockMode` to simulate passing/failing tsc + vitest runs.
+const mockMode = {
+  tscShouldFail: false,
+  vitestShouldFail: false,
+  vitestFailureCount: 0
+};
+
+function setMockMode(overrides: Partial<typeof mockMode>): void {
+  mockMode.tscShouldFail = overrides.tscShouldFail ?? false;
+  mockMode.vitestShouldFail = overrides.vitestShouldFail ?? false;
+  mockMode.vitestFailureCount = overrides.vitestFailureCount ?? 0;
+}
+
 // Speed up the vitest stage in the test project so the suite doesn't
 // take 30s per case.
 vi.mock('node:child_process', async (importOriginal) => {
@@ -21,9 +35,25 @@ vi.mock('node:child_process', async (importOriginal) => {
     execFileSync: (command: string, args: any[], options: any) => {
       // Pretend `npx tsc --noEmit` and `npx vitest run` both pass fast.
       if (command === 'npx' && Array.isArray(args) && args[0] === 'tsc') {
+        if (mockMode.tscShouldFail) {
+          const err: any = new Error('tsc failed');
+          err.status = 1;
+          err.stdout = Buffer.from('tsc error TS0000: synthetic failure for test');
+          err.stderr = Buffer.from('');
+          throw err;
+        }
         return Buffer.from('');
       }
       if (command === 'npx' && Array.isArray(args) && args[0] === 'vitest') {
+        if (mockMode.vitestShouldFail) {
+          const err: any = new Error('vitest failed');
+          err.status = 1;
+          err.stdout = Buffer.from(
+            `Test Files  1 failed (1)\n     Tests  ${mockMode.vitestFailureCount} failed (${mockMode.vitestFailureCount})\n   Duration  0.10s\n`
+          );
+          err.stderr = Buffer.from('');
+          throw err;
+        }
         // Mimic vitest's output for the summary parser.
         return Buffer.from('Test Files  1 passed (1)\n     Tests  3 passed (3)\n   Duration  0.10s\n');
       }
@@ -50,11 +80,29 @@ function makeProject(): string {
   return project;
 }
 
+// Windows-friendly project setup that does NOT use a symlink for the
+// `_runtime/current-change` binding. The pre-existing `makeProject` uses
+// `symlinkSync(..., 'dir')` which requires elevated privileges on Windows
+// (developer mode or admin). The 3 new `allowPreExistingFailures` tests
+// pass `rid` explicitly so the symlink isn't needed; this helper skips it.
+function makeProjectNoSymlink(): string {
+  const project = mkdtempSync(join(tmpdir(), 'peaks-slice-ns-'));
+  const rid = '2026-06-05-test';
+  const reviewDir = join(project, '.peaks', rid, 'rd');
+  mkdirSync(reviewDir, { recursive: true });
+  writeFileSync(join(reviewDir, 'code-review.md'), '# Code Review\n\nCRITICAL: 0\n\n## Findings\n\n- none');
+  writeFileSync(join(reviewDir, 'security-review.md'), '# Security Review\n\n## Findings\n\n- none');
+  writeFileSync(join(reviewDir, 'perf-baseline.md'), '# Performance Baseline\n\n## Results\n\nN/A — no perf surface.\n');
+  mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
+  return project;
+}
+
 describe('sliceCheck', () => {
   let project: string;
 
   beforeEach(() => {
     project = makeProject();
+    setMockMode({});
   });
 
   afterEach(() => {
@@ -288,5 +336,90 @@ describe('sliceCheck', () => {
       expect((tests?.data as any).passed).toBe(3);
       expect((tests?.data as any).failed).toBe(0);
     });
+  });
+});
+
+// New flag: --allow-pre-existing-failures (F17 from dogfood-2-f1-f4).
+// Kept as a top-level describe (not nested under the outer 'sliceCheck'
+// describe) because the outer beforeEach uses symlink-based makeProject
+// which EPERMs on Windows. The 3 tests below use makeProjectNoSymlink
+// instead and pass `rid` explicitly to avoid any current-change binding
+// resolution path.
+describe('sliceCheck (allowPreExistingFailures)', () => {
+  let nsProject: string;
+
+  beforeEach(() => {
+    nsProject = makeProjectNoSymlink();
+    setMockMode({});
+  });
+
+  test('unit-test stage is reported as failed and boundaryReady=false when flag is off and vitest fails', async () => {
+    // Simulate 5 pre-existing Windows test failures.
+    setMockMode({ vitestShouldFail: true, vitestFailureCount: 5 });
+
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true, // skip the file-presence check (no QA files in tmp)
+      skipTests: false,
+      allowPreExistingFailures: false
+    });
+
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.status).toBe('fail');
+    // failureCount surfaced in the data payload
+    expect((tests?.data as any).failed).toBe(5);
+    // boundary is NOT ready because unit-tests failed
+    expect(result.boundaryReady).toBe(false);
+    // nextActions should mention the unit-tests failure
+    expect(result.nextActions.join(' ')).toContain('unit-tests');
+  });
+
+  test('unit-test stage is reported as skipped with reason when flag is on and vitest fails (other 3 stages pass)', async () => {
+    // Simulate 5 pre-existing Windows test failures.
+    setMockMode({ vitestShouldFail: true, vitestFailureCount: 5 });
+
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true, // skip the file-presence check (no QA files in tmp)
+      skipTests: false,
+      allowPreExistingFailures: true
+    });
+
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    // Stage is "skipped", not "failed"
+    expect(tests?.status).toBe('skipped');
+    // Reason field names the failure count and points to the long-term fix
+    expect(tests?.detail).toContain('pre-existing failures');
+    expect(tests?.detail).toContain('5');
+    expect(tests?.detail).toContain('--allow-pre-existing-failures');
+    expect(tests?.detail).toContain('coverage.exclude');
+    // The unit-tests stage is no longer the blocker; the OTHER 3 stages
+    // may still fail (gate-verify-pipeline will fail here because no
+    // request files exist in the tmp project), but unit-tests must NOT
+    // be one of the failed stages.
+    const failedStages = result.stages.filter((s) => s.status === 'fail');
+    for (const f of failedStages) {
+      expect(f.name).not.toBe('unit-tests');
+    }
+  });
+
+  test('unit-test stage is reported as passed (no override) when flag is on and vitest passes', async () => {
+    // Sanity: the flag must NOT affect a passing stage.
+    setMockMode({ vitestShouldFail: false });
+
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true,
+      skipTests: false,
+      allowPreExistingFailures: true
+    });
+
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.status).toBe('pass');
+    // No "skipped" reason injected for a passing stage
+    expect(tests?.detail).not.toContain('pre-existing failures');
   });
 });

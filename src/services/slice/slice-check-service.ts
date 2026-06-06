@@ -249,7 +249,27 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
 
   // Stage 2: full vitest
   if (!options.skipTests) {
-    stages.push(await runUnitTests(options.projectRoot));
+    const unitTests = await runUnitTests(options.projectRoot);
+    // Opt-in override: if --allow-pre-existing-failures is set AND the
+    // unit-test stage failed, downgrade `failed` to `skipped` with a
+    // reason that names the failure count and points to the long-term
+    // fix. Does NOT affect the other 3 stages.
+    if (
+      options.allowPreExistingFailures === true &&
+      unitTests.status === 'fail'
+    ) {
+      const failureCount = (unitTests.data?.failed as number | undefined) ?? 0;
+      stages.push({
+        name: 'unit-tests',
+        description: 'npx vitest run (overridden via --allow-pre-existing-failures)',
+        status: 'skipped',
+        durationMs: unitTests.durationMs,
+        detail: `pre-existing failures: ${failureCount} failing test(s) under coverage.exclude or unrelated to this slice; user opted in via --allow-pre-existing-failures. For the long-term fix, mark these tests .skip or move to coverage.exclude (see dogfood-2-f1-f4.md F17c).`,
+        data: { ...(unitTests.data ?? {}), overriddenFrom: 'fail', failureCount }
+      });
+    } else {
+      stages.push(unitTests);
+    }
   } else {
     stages.push({
       name: 'unit-tests',

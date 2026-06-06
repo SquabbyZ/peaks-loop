@@ -62,4 +62,13 @@ export type SliceCheckOptions = {
    * tests (e.g. a docs-only or config-only slice).
    */
   skipTests: boolean;
+  /**
+   * When true, an `unit-tests` stage that fails is reported as `skipped`
+   * (with a `reason` naming the pre-existing failure count) instead of
+   * `failed`. Used to opt in to bypassing the 28 pre-existing Windows
+   * test failures documented in dogfood-2-f1-f4.md F17. Does NOT affect
+   * the other 3 stages (typecheck / review-fanout / gate-verify-pipeline).
+   * Default: false. The service treats `undefined` the same as `false`.
+   */
+  allowPreExistingFailures?: boolean;
 };

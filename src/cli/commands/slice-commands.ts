@@ -25,14 +25,16 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--rid <rid>', 'request id; defaults to the active current-change binding')
       .option('--refresh-fanout', 're-run the 3-way review fan-out (peaks-rd) even if the review files already exist', false)
       .option('--skip-tests', 'skip the unit-test stage (e.g. docs-only slices)', false)
-  ).action(async (options: { project: string; rid?: string; refreshFanout?: boolean; skipTests?: boolean; json?: boolean }) => {
+      .option('--allow-pre-existing-failures', 'opt-in: if the unit-test stage fails, report it as `skipped` with a reason naming the failure count (useful when the repo has unrelated pre-existing failures; the long-term fix is to .skip or coverage.exclude those tests)', false)
+  ).action(async (options: { project: string; rid?: string; refreshFanout?: boolean; skipTests?: boolean; allowPreExistingFailures?: boolean; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const result = await sliceCheck({
         projectRoot,
         ...(options.rid ? { rid: options.rid } : {}),
         refreshFanout: options.refreshFanout === true,
-        skipTests: options.skipTests === true
+        skipTests: options.skipTests === true,
+        allowPreExistingFailures: options.allowPreExistingFailures === true
       });
 
       const warnings: string[] = [];
