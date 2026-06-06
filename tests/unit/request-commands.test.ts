@@ -71,7 +71,8 @@ describe('peaks request init command', () => {
 
   test('rejects creating a duplicate request id when one already exists', async () => {
     const project = await makeProject('request-init-conflict');
-    const dir = join(project, '.peaks', 'test-session', 'prd', 'requests');
+    // Slice 006: the create writes to `.peaks/_runtime/<sid>/<role>/requests/`.
+    const dir = join(project, '.peaks', '_runtime', 'test-session', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     // Create file with the new numbered format
     await writeFile(join(dir, '001-2026-05-23-existing.md'), 'existing', 'utf8');

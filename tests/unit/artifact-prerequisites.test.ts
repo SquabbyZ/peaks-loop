@@ -38,13 +38,13 @@ async function seedQa(project: string, requestId: string): Promise<void> {
 }
 
 async function writeArtifact(project: string, changeId: string, relativePath: string, body: string): Promise<void> {
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
-  // gate resolves paths under `.peaks/<change-id>/<role>/...` where the
-  // change-id is the body's `- session:` line when no `current-change`
-  // binding is set, OR the requestId (default fallback). Tests pass the
-  // requestId explicitly so the file lives in the same dir the prereq
-  // gate scans.
-  const fullPath = join(project, '.peaks', changeId, relativePath);
+  // As of slice 006, the prerequisite gate resolves paths under the
+  // session dir (`.peaks/_runtime/<sid>/<role>/...`). The `changeId`
+  // parameter is preserved as the body's `- change-id:` line for
+  // human navigation; it is no longer a filesystem path key. Tests
+  // pass `SESSION` as the changeId so the file lives in the same
+  // session dir the prereq gate scans.
+  const fullPath = join(project, '.peaks', '_runtime', SESSION, relativePath);
   await mkdir(join(fullPath, '..'), { recursive: true });
   await writeFile(fullPath, body, 'utf8');
 }

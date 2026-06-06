@@ -82,20 +82,30 @@ export type ReconcileResult = {
    */
   errors: Array<{ sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }>;
   /**
-   * Slice 003 (2026-06-06-session-layout-canonicalize): per-change-id
-   * symlink regeneration result, run after the repoint step. The
-   * `manifestWritten: true` flag means the OS rejected symlinks
-   * (Windows `EPERM` on non-developer-mode) and a `.peaks-link.json`
-   * manifest is the source of truth for this run. Additive — older
-   * consumers can ignore this field.
+   * Slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs):
+   * result of syncing the single `change/<canonicalSessionId>/` live
+   * marker under `.peaks/_runtime/change/`. The marker is an empty
+   * directory; every other entry under `change/` is removed. The
+   * `removed` array lists entry names that were deleted (e.g.
+   * `['<oldSid>/']`); `created` is the name of the new marker (or
+   * `null` when the canonical marker already existed — no-op);
+   * `error` is the first error message (if any) encountered during
+   * the sync. Additive — older consumers can ignore this field.
+   * Replaces the F3 `changeLinks` field.
    */
-  changeLinks?: {
-    created: string[];
-    skipped: string[];
-    errors: string[];
-    manifestWritten: boolean;
-    manifestPath: string;
+  changeMarker: {
+    removed: string[];
+    created: string | null;
+    error: string | null;
   };
+  /**
+   * Slice 006: list of absolute paths to `.peaks/_runtime/<sid>/system/`
+   * subdirs that were removed by this reconcile run. The F3
+   * `initWorkspace` eagerly created the `system/` subdir; slice 006
+   * deletes it during reconcile. Empty when the canonical session
+   * had no `system/` subdir. Additive.
+   */
+  systemCleaned: string[];
 };
 
 export type ReconcileOptions = {

@@ -52,19 +52,23 @@ describe('session-manager', () => {
       expect(sessionId1).toBe(sessionId2);
     });
 
-    test('creates session directory structure (ephemeral only: system/ + binding)', async () => {
-      // As of slice 2026-06-05-change-id-as-unit-of-work, the session
-      // dir at `.peaks/_runtime/<sid>/` holds ONLY ephemeral state
-      // (system/ for live sub-agent progress). Reviewable artifacts
-      // (prd/rd/qa/sc/txt/ui) live under `.peaks/<change-id>/<role>/`
-      // and are created by `peaks workspace init --change-id <id>`,
+    test('creates session directory structure (ephemeral only: session.json + binding)', async () => {
+      // As of slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs),
+      // the session dir at `.peaks/_runtime/<sid>/` holds ONLY the
+      // per-session `session.json` metadata. The F3 `system/` subdir
+      // is gone. Reviewable artifacts (prd/rd/qa/sc/txt/ui) live
+      // under `.peaks/_runtime/<sid>/<role>/` and are created on
+      // demand by the writer (peaks request init, peaks rd, etc.),
       // NOT by ensureSession.
       const sessionId = await ensureSession(testProjectRoot);
       const sessionDir = join(testProjectRoot, '.peaks', '_runtime', sessionId);
 
       expect(existsSync(sessionDir)).toBe(true);
-      expect(existsSync(join(sessionDir, 'system'))).toBe(true);
-      // prd/rd/qa/sc/txt/ui are NOT inside the session dir anymore.
+      // Slice 006: only `session.json` is created at init time.
+      expect(existsSync(join(sessionDir, 'session.json'))).toBe(true);
+      // The F3 `system/` subdir is gone.
+      expect(existsSync(join(sessionDir, 'system'))).toBe(false);
+      // prd/rd/qa/sc/txt/ui are NOT pre-created at init.
       expect(existsSync(join(sessionDir, 'prd'))).toBe(false);
       expect(existsSync(join(sessionDir, 'rd'))).toBe(false);
       expect(existsSync(join(sessionDir, 'qa'))).toBe(false);

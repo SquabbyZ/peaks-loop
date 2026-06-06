@@ -244,26 +244,15 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   if (requirements.length === 0) {
     return { ok: true, missing: [] };
   }
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
-  // gate resolves paths under `.peaks/<changeId>/<role>/...` where the
-  // changeId is the file's durable scope (the top-level dir the file
-  // lives in), NOT the body's `- session:` line. The body and the path
-  // can now disagree (e.g. a request written in one session but read
-  // across sessions), and the gate follows the on-disk location.
-  //
-  // As of slice 2026-06-06-session-layout-canonicalize (F3) repair
-  // cycle 1, the gate also falls back to:
-  //   1. `.peaks/_runtime/<sid>/<role>/...` (post-F3 canonical home
-  //      for session-scoped artifacts: `qa/.initiated`,
-  //      `qa/test-cases/<rid>.md`, etc.), then
-  //   2. `.peaks/<sid>/<role>/...` (pre-F3 legacy home for the same
-  //      artifacts).
-  // This mirrors the F1/F2 back-compat pattern (read new path first,
-  // then legacy) so users who have NOT migrated the QA / tech-doc /
-  // initiated artifacts from the session dir to the change-id dir
-  // still get a clean transition. The per-change-id path wins when
-  // both exist (post-F3 source of truth).
-  const changeRoot = join(options.projectRoot, '.peaks', options.changeId);
+  // Slice 006 simplifies the resolution to a 2-tier fallback. The
+  // per-change-id scope (`.peaks/<changeId>/<role>/`) is gone — new
+  // artifacts go to the session dir directly. The 2 tiers are:
+  //   1. `.peaks/_runtime/<sid>/<role>/...` (post-F3 canonical
+  //      session home; primary).
+  //   2. `.peaks/<sid>/<role>/...` (pre-F3 legacy session home;
+  //      back-compat).
+  // The changeId is preserved in the artifact body's frontmatter for
+  // human navigation; it is no longer a filesystem path key.
   const canonicalSessionRoot = options.sessionId !== undefined
     ? join(options.projectRoot, '.peaks', '_runtime', options.sessionId)
     : null;
@@ -274,7 +263,6 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
     const absolute = await resolvePrerequisiteAbsolutePathWithFallback(
-      changeRoot,
       canonicalSessionRoot,
       legacySessionRoot,
       prerequisite,
@@ -311,25 +299,24 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
 }
 
 /**
- * Resolve a prerequisite to an on-disk path, with a 3-tier fallback:
- *   1. `<changeRoot>/<relative>` (per-change-id scope; post-F3 source
- *      of truth).
- *   2. `<canonicalSessionRoot>/<relative>` (post-F3 canonical session
+ * Resolve a prerequisite to an on-disk path, with a 2-tier fallback
+ * (slice 006 — the per-change-id tier was dropped because per-change-id
+ * dirs are no longer created):
+ *   1. `<canonicalSessionRoot>/<relative>` (post-F3 canonical session
  *      home, when `canonicalSessionRoot` is provided).
- *   3. `<legacySessionRoot>/<relative>` (pre-F3 legacy session home,
+ *   2. `<legacySessionRoot>/<relative>` (pre-F3 legacy session home,
  *      when `legacySessionRoot` is provided).
  * Tolerates the numbered filename prefix that `request init` writes
  * (e.g. `001-<rid>.md`) at every tier. Returns the matched absolute
  * path, or null when nothing matches.
  */
 async function resolvePrerequisiteAbsolutePathWithFallback(
-  changeRoot: string,
   canonicalSessionRoot: string | null,
   legacySessionRoot: string | null,
   prerequisite: ArtifactPrerequisite,
   requestId: string
 ): Promise<string | null> {
-  const roots: Array<string | null> = [changeRoot, canonicalSessionRoot, legacySessionRoot];
+  const roots: Array<string | null> = [canonicalSessionRoot, legacySessionRoot];
   for (const root of roots) {
     if (root === null) continue;
     const found = await resolvePrerequisiteAbsolutePath(root, prerequisite, requestId);

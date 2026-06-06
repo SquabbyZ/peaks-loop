@@ -20,7 +20,6 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
-import { regenerateChangeLinks, type RegenerateChangeLinksResult } from './change-link-service.js';
 import type {
   ReconcileOptions,
   ReconcileResult,
@@ -342,6 +341,77 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
 }
 
 /**
+ * Sync the single `change/<canonicalSessionId>/` live marker under
+ * `.peaks/_runtime/change/`. The marker is an EMPTY directory (no
+ * symlinks, no manifest, no content). Slice 006 collapses the F3
+ * per-change-id symlink layer to a single live marker so the
+ * `change/` layer is a single sentinel — easy for the LLM to
+ * navigate, easy for tests to assert on.
+ *
+ * Steps:
+ *   1. Ensure `.peaks/_runtime/change/` exists.
+ *   2. List its entries.
+ *   3. Remove every entry whose name is NOT `<canonicalSessionId>/`
+ *      (no-op for those whose name matches).
+ *   4. If `<canonicalSessionId>/` is missing, create it (empty).
+ *   5. Return the diff for telemetry.
+ *
+ * Path-traversal guards: the canonical session id is validated by
+ * the caller (`SESSION_ID_PATTERN` in the session-manager helper).
+ * The function only ever operates under the project-root-resolved
+ * `.peaks/_runtime/change/` dir, so the resolved paths cannot
+ * escape the project tree.
+ *
+ * @returns `{ removed, created, error }`:
+ *   - `removed`: list of entry names that were deleted (e.g. `['<oldSid>/']`).
+ *   - `created`: name of the new marker (e.g. `'<newSid>/'`) or null
+ *     when the canonical marker already existed (no-op).
+ *   - `error`: error message string or null.
+ */
+export function syncChangeMarker(
+  projectRoot: string,
+  canonicalSessionId: string
+): { removed: string[]; created: string | null; error: string | null } {
+  const root = resolve(projectRoot);
+  const changeDir = join(root, '.peaks', '_runtime', 'change');
+  const removed: string[] = [];
+  let created: string | null = null;
+  let error: string | null = null;
+
+  try {
+    if (!existsSync(changeDir)) {
+      mkdirSync(changeDir, { recursive: true });
+    }
+    const markerPath = join(changeDir, canonicalSessionId);
+    let existingNames: string[] = [];
+    try {
+      existingNames = readdirSync(changeDir);
+    } catch {
+      existingNames = [];
+    }
+    for (const name of existingNames) {
+      if (name === canonicalSessionId) continue;
+      const stale = join(changeDir, name);
+      try {
+        rmSync(stale, { recursive: true, force: true });
+        removed.push(name);
+      } catch (e) {
+        // Best-effort: a single un-deletable entry must not abort the
+        // sync (the caller gets the rest of the diff).
+        error = e instanceof Error ? e.message : String(e);
+      }
+    }
+    if (!existsSync(markerPath)) {
+      mkdirSync(markerPath, { recursive: true });
+      created = canonicalSessionId;
+    }
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+  }
+  return { removed, created, error };
+}
+
+/**
  * One-time migration step (added in slice 2026-06-05-peaks-runtime-layer).
  *
  * Move the legacy runtime files at:
@@ -490,11 +560,36 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   const deletionCandidates = findDeletionCandidates(sessions, ageThresholdMs);
   const deletionResult = applyDeletions(deletionCandidates, apply);
 
-  // Slice 003: regenerate the per-change-id symlink layer (with the
-  // EPERM manifest fallback) after the repoint step. This step is
-  // idempotent and writes only to `.peaks/_runtime/change/`. It does
-  // NOT touch session dirs or the binding.
-  const linkResult: RegenerateChangeLinksResult = regenerateChangeLinks({ projectRoot });
+  // Slice 006: sync the single `change/<canonicalSessionId>/` live
+  // marker (replaces the F3 per-change-id symlink layer). The marker
+  // is an empty dir; the function removes every other entry under
+  // `.peaks/_runtime/change/`. Idempotent. This step is independent
+  // of the apply flag — syncing the marker is a derived-state write,
+  // not a destructive side effect.
+  const changeMarker = canonical === null
+    ? { removed: [] as string[], created: null as string | null, error: 'no canonical session' as string | null }
+    : syncChangeMarker(projectRoot, canonical.sessionId);
+
+  // Slice 006: clean up the F3-introduced `.peaks/_runtime/<sid>/system/`
+  // subdir under EVERY session dir (not just the canonical one). The
+  // subdir was created eagerly by `initWorkspace` (F3) but was never
+  // used. The cleanup is idempotent: re-running on a tree without the
+  // subdir is a no-op. We walk every discovered session, not just the
+  // canonical one, because the user has 6 F3 sessions with the cruft
+  // and the spec says all of them must be removed. Logged in the
+  // systemCleaned array.
+  const systemCleaned: string[] = [];
+  for (const session of sessions) {
+    const systemDir = join(session.path, 'system');
+    if (existsSync(systemDir)) {
+      try {
+        rmSync(systemDir, { recursive: true, force: true });
+        systemCleaned.push(systemDir);
+      } catch {
+        // Best-effort: a locked subdir does not block the rest of reconcile.
+      }
+    }
+  }
 
   return {
     projectRoot,
@@ -511,12 +606,7 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
     repointed,
     migratedFiles: migration.migratedFiles,
     errors: [...migrateErrors, ...deletionResult.errors],
-    changeLinks: {
-      created: linkResult.created,
-      skipped: linkResult.skipped,
-      errors: linkResult.errors,
-      manifestWritten: linkResult.manifestWritten,
-      manifestPath: linkResult.manifestPath
-    }
+    changeMarker,
+    systemCleaned
   };
 }

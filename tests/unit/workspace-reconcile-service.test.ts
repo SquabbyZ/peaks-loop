@@ -9,13 +9,9 @@ import {
   migrateOldRuntimeState,
   pickCanonicalSession,
   reconcileWorkspace,
-  repointSessionJson
+  repointSessionJson,
+  syncChangeMarker
 } from '../../src/services/workspace/reconcile-service.js';
-import {
-  discoverRequestArtifacts,
-  regenerateChangeLinks,
-  resolveChangeId
-} from '../../src/services/workspace/change-link-service.js';
 import { getSessionId } from '../../src/services/session/session-manager.js';
 
 let projectRoot: string;
@@ -430,38 +426,150 @@ describe('migrateOldRuntimeState (slice 2026-06-05-peaks-runtime-layer)', () => 
 });
 
 /**
- * Slice 003 invariant: after `reconcileWorkspace` runs, the canonical
- * `change/<rid>` symlink layer (or the EPERM `.peaks-link.json`
- * manifest fallback) MUST exist for every request artifact under
- * `.peaks/_runtime/<sid>/<role>/requests/<rid>.md`. The symlink
- * points to `../<sid>/` and the manifest maps `<rid> → <sid>`.
+ * Slice 006 invariant: after `reconcileWorkspace` runs, the
+ * `change/<canonicalSid>/` live marker MUST exist as the SINGLE entry
+ * under `.peaks/_runtime/change/`. The marker is an EMPTY directory
+ * (no symlink, no manifest, no content).
  *
- * Pre-slice behaviour: no symlink layer exists. The reconcile command
- * migrates legacy runtime files + repoints the binding + reports
- * deletion candidates, but does NOT generate per-change-id links.
- * Slice 003 adds the link-regeneration step inside `reconcileWorkspace`
- * and exposes a `--change-links` flag for the link-only regen path.
+ * Pre-slice (F3) behaviour: the reconcile command wrote a per-change-id
+ * symlink layer (or the EPERM `.peaks-link.json` manifest fallback).
+ * Slice 006 collapses that to a single canonical live marker, removes
+ * the per-change-id walker, and exposes a smaller `changeMarker` field
+ * in the reconcile envelope.
  */
-describe('canonical layout (slice 003 — change/<rid> symlink layer)', () => {
+describe('canonical live marker (slice 006 — change/<sid>/ single live marker)', () => {
   beforeEach(() => { projectRoot = makeProject(); });
   afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
 
-  test('reconcileWorkspace regenerates change/<rid> symlink (or EPERM manifest) for every request artifact', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const rid = '001-2026-06-06-doctor-dist-version-check';
-    // Build a minimal canonical tree: a bound session + an rd/requests/<rid>.md
-    const sessionDir = join(projectRoot, '.peaks', '_runtime', sid);
-    mkdirSync(join(sessionDir, 'rd', 'requests'), { recursive: true });
+  function bindCanonicalSession(root: string, sid: string): void {
+    mkdirSync(join(root, '.peaks', '_runtime'), { recursive: true });
     writeFileSync(
-      join(sessionDir, 'rd', 'requests', `${rid}.md`),
-      `---\nrid: ${rid}\n---\n\n# Test fixture\n`,
+      join(root, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId: sid, projectRoot: root, createdAt: new Date().toISOString() }),
       'utf8'
     );
+  }
+
+  test('reconcileWorkspace creates change/<sid>/ live marker and exposes changeMarker in the envelope', () => {
+    const sid = '2026-06-06-session-7bcb6e';
+    // Plant a real session dir on disk (discoverSessions needs a directory
+    // matching the session-id pattern under `.peaks/_runtime/`).
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', sid);
+    mkdirSync(sessionDir, { recursive: true });
     writeFileSync(
       join(sessionDir, 'session.json'),
       JSON.stringify({ sessionId: sid, projectRoot, createdAt: new Date().toISOString() }),
       'utf8'
     );
+    bindCanonicalSession(projectRoot, sid);
+    writeActiveSkill(projectRoot, sid);
+
+    const result = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // The live marker exists at the canonical path.
+    const markerPath = join(projectRoot, '.peaks', '_runtime', 'change', sid);
+    expect(existsSync(markerPath)).toBe(true);
+    // No .peaks-link.json manifest anywhere under change/.
+    const manifestPath = join(projectRoot, '.peaks', '_runtime', 'change', '.peaks-link.json');
+    expect(existsSync(manifestPath)).toBe(false);
+    // The marker is an empty directory.
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    expect(readdirSync(markerPath)).toEqual([]);
+
+    // The result envelope reports the new changeMarker shape.
+    expect(result.changeMarker).toBeDefined();
+    expect(result.changeMarker?.created).toBe(sid);
+    expect(result.changeMarker?.removed).toEqual([]);
+    expect(result.changeMarker?.error).toBeNull();
+    // The legacy changeLinks field is gone.
+    expect((result as { changeLinks?: unknown }).changeLinks).toBeUndefined();
+  });
+});
+
+/**
+ * Slice 006 — `syncChangeMarker` unit tests. The new function is the
+ * ONLY entry point that writes under `.peaks/_runtime/change/`. It
+ * maintains a single live marker (`.peaks/_runtime/change/<sid>/`)
+ * and removes every other entry. No symlinks, no manifest, no
+ * per-change-id walker.
+ */
+describe('syncChangeMarker (slice 006 — single live marker)', () => {
+  beforeEach(() => { projectRoot = makeProject(); });
+  afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
+
+  test('on a clean tree (no change/ dir) creates change/<sid>/ and returns created=<sid>', () => {
+    const sid = '2026-06-06-session-aaaaa1';
+    const result = syncChangeMarker(projectRoot, sid);
+    expect(result).toEqual({ removed: [], created: sid, error: null });
+    const markerPath = join(projectRoot, '.peaks', '_runtime', 'change', sid);
+    expect(existsSync(markerPath)).toBe(true);
+  });
+
+  test('when change/<sid>/ already exists: no-op, returns created=null', () => {
+    const sid = '2026-06-06-session-aaaaa2';
+    const first = syncChangeMarker(projectRoot, sid);
+    expect(first.created).toBe(sid);
+    const second = syncChangeMarker(projectRoot, sid);
+    expect(second).toEqual({ removed: [], created: null, error: null });
+  });
+
+  test('when change/<old-sid>/ exists and canonical session changed: deletes old, creates new', () => {
+    const oldSid = '2026-06-06-session-aaaaa3';
+    const newSid = '2026-06-06-session-bbbbb3';
+    syncChangeMarker(projectRoot, oldSid);
+    const oldMarker = join(projectRoot, '.peaks', '_runtime', 'change', oldSid);
+    expect(existsSync(oldMarker)).toBe(true);
+
+    const result = syncChangeMarker(projectRoot, newSid);
+    expect(result).toEqual({ removed: [oldSid], created: newSid, error: null });
+    expect(existsSync(oldMarker)).toBe(false);
+    const newMarker = join(projectRoot, '.peaks', '_runtime', 'change', newSid);
+    expect(existsSync(newMarker)).toBe(true);
+  });
+
+  test('is idempotent: 3 calls with the same canonical sid produce exactly one change/<sid>/ and no .peaks-link.json', () => {
+    const sid = '2026-06-06-session-aaaaa4';
+    syncChangeMarker(projectRoot, sid);
+    syncChangeMarker(projectRoot, sid);
+    syncChangeMarker(projectRoot, sid);
+    const changeDir = join(projectRoot, '.peaks', '_runtime', 'change');
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    const entries = readdirSync(changeDir);
+    expect(entries).toEqual([sid]);
+    expect(existsSync(join(changeDir, '.peaks-link.json'))).toBe(false);
+  });
+
+  test('the change/<sid>/ marker is empty (no files, no symlinks, no manifest)', () => {
+    const sid = '2026-06-06-session-aaaaa5';
+    syncChangeMarker(projectRoot, sid);
+    const markerPath = join(projectRoot, '.peaks', '_runtime', 'change', sid);
+    const { readdirSync } = require('node:fs') as typeof import('node:fs');
+    const entries = readdirSync(markerPath);
+    expect(entries).toEqual([]);
+  });
+});
+
+/**
+ * Slice 006 — the reconcile step removes the legacy
+ * `.peaks/_runtime/<sid>/system/` subdir introduced in F3. The cleanup
+ * is idempotent: re-running on a tree without the subdir is a no-op.
+ */
+describe('reconcileWorkspace (slice 006 — system/ subdir cleanup)', () => {
+  beforeEach(() => { projectRoot = makeProject(); });
+  afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
+
+  test('removes .peaks/_runtime/<canonicalSid>/system/ if it exists', () => {
+    const sid = '2026-06-06-session-aaa001';
+    // Plant a canonical session and a leftover system/ subdir.
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', sid);
+    mkdirSync(sessionDir, { recursive: true });
+    writeFileSync(join(sessionDir, 'session.json'), JSON.stringify({ sessionId: sid, projectRoot, createdAt: new Date().toISOString() }), 'utf8');
+    mkdirSync(join(sessionDir, 'system'), { recursive: true });
+    writeFileSync(join(sessionDir, 'system', 'note.txt'), 'leftover', 'utf8');
     // Bind the session so reconcile picks it up.
     writeFileSync(
       join(projectRoot, '.peaks', '_runtime', 'session.json'),
@@ -476,244 +584,31 @@ describe('canonical layout (slice 003 — change/<rid> symlink layer)', () => {
       olderThanMs: 7 * 24 * 60 * 60 * 1000
     });
 
-    // Either the symlink or the EPERM manifest is present at the canonical path.
-    const symPath = join(projectRoot, '.peaks', '_runtime', 'change', rid);
-    const manifestPath = join(projectRoot, '.peaks', '_runtime', 'change', '.peaks-link.json');
-    const hasSym = existsSync(symPath);
-    const hasManifest = existsSync(manifestPath);
-    expect(hasSym || hasManifest).toBe(true);
-
-    // The result envelope reports the link-regeneration outcome.
-    expect(result.changeLinks).toBeDefined();
-    if (hasSym) {
-      // Symlink path: at least 1 link created (or skipped because already correct).
-      expect(result.changeLinks?.created.length ?? 0 + (result.changeLinks?.skipped.length ?? 0)).toBeGreaterThan(0);
-    }
-    if (hasManifest) {
-      // EPERM fallback: the manifest has a mapping for the rid.
-      const mapping = JSON.parse(readFileSync(manifestPath, 'utf8') as string) as Record<string, string>;
-      expect(mapping[rid]).toBe(sid);
-    }
-  });
-});
-
-/**
- * Slice 003 repair cycle 1: the change-link walker MUST discover
- * request artifacts under per-change-id scopes
- * (`.peaks/<rid>/<role>/requests/`), retrospective
- * (`.peaks/retrospective/<rid>/<role>/requests/`), and dogfood
- * (`.peaks/_dogfood/<rid>/<role>/requests/`), not just per-session
- * (`.peaks/_runtime/<sid>/<role>/requests/`).
- *
- * Bug observed: the original walker only did (a) per-session. On the
- * current repo the per-session dirs are EMPTY, so the walker
- * returned `{}` and the user-facing symlink layer was empty. After
- * the fix, the walker binds per-change-id rids to the canonical
- * session from `.peaks/_runtime/session.json`.
- */
-describe('change-link walker (slice 003 repair cycle 1 — per-change-id scope)', () => {
-  beforeEach(() => { projectRoot = makeProject(); });
-  afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
-
-  function bindCanonicalSession(root: string, sid: string): void {
-    mkdirSync(join(root, '.peaks', '_runtime'), { recursive: true });
-    writeFileSync(
-      join(root, '.peaks', '_runtime', 'session.json'),
-      JSON.stringify({ sessionId: sid, projectRoot: root, createdAt: new Date().toISOString() }),
-      'utf8'
-    );
-  }
-
-  test('discoverRequestArtifacts binds a per-change-id rd request to the canonical session', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const rid = '001-2026-06-06-doctor-dist-version-check';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', rid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', rid, 'rd', 'requests', `${rid}.md`),
-      '---\nrid: 001\n---\n# Test',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map[rid]).toBe(sid);
+    expect(existsSync(join(sessionDir, 'system'))).toBe(false);
+    // The session dir still exists; only the system/ subdir was removed.
+    expect(existsSync(sessionDir)).toBe(true);
+    expect(result.canonicalSessionId).toBe(sid);
   });
 
-  test('discoverRequestArtifacts strips the incrementing-number filename prefix (e.g. 001-<rid>.md)', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const rid = '002-2026-06-06-reconcile-help-text';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', rid, 'rd', 'requests'), { recursive: true });
+  test('is a no-op when .peaks/_runtime/<canonicalSid>/system/ does not exist', () => {
+    const sid = '2026-06-06-session-aaa002';
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', sid);
+    mkdirSync(sessionDir, { recursive: true });
+    writeFileSync(join(sessionDir, 'session.json'), JSON.stringify({ sessionId: sid, projectRoot, createdAt: new Date().toISOString() }), 'utf8');
     writeFileSync(
-      join(projectRoot, '.peaks', rid, 'rd', 'requests', `001-${rid}.md`),
-      '---\nrid: 001\n---\n# Test',
+      join(projectRoot, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId: sid, projectRoot, createdAt: new Date().toISOString() }),
       'utf8'
     );
+    writeActiveSkill(projectRoot, sid);
 
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map[rid]).toBe(sid);
-  });
-
-  test('discoverRequestArtifacts walks retrospective/<rid>/<role>/requests as a best-effort binding', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const archivedRid = '2026-06-04-solo-skill-slim-extract';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', 'retrospective', archivedRid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', 'retrospective', archivedRid, 'rd', 'requests', `${archivedRid}.md`),
-      '# Archived test',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map[archivedRid]).toBe(sid);
-  });
-
-  test('discoverRequestArtifacts walks _dogfood/<rid>/<role>/requests as a best-effort binding', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const dogfoodRid = '2026-06-05-dogfood-gateb9-empty';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', '_dogfood', dogfoodRid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', '_dogfood', dogfoodRid, 'rd', 'requests', `${dogfoodRid}.md`),
-      '# Dogfood test',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map[dogfoodRid]).toBe(sid);
-  });
-
-  test('discoverRequestArtifacts binds per-session AND per-change-id rids when both are present', () => {
-    const sidSession = '2026-06-06-session-aaaaaa';
-    const sidCanonical = '2026-06-06-session-bbbbbb';
-    const ridSession = 'session-only-rid';
-    const ridChangeId = '001-2026-06-06-changes-only-rid';
-
-    // Per-session: bind a session-id via the active skill + a session.json
-    mkdirSync(join(projectRoot, '.peaks', '_runtime', sidSession, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', '_runtime', sidSession, 'rd', 'requests', `${ridSession}.md`),
-      '# per-session',
-      'utf8'
-    );
-    // Per-change-id: bind to a different canonical session
-    bindCanonicalSession(projectRoot, sidCanonical);
-    mkdirSync(join(projectRoot, '.peaks', ridChangeId, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', ridChangeId, 'rd', 'requests', `${ridChangeId}.md`),
-      '# per-change-id',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map[ridSession]).toBe(sidSession);
-    expect(map[ridChangeId]).toBe(sidCanonical);
-  });
-
-  test('discoverRequestArtifacts returns {} when no canonical session is bound (per-change-id scope inactive)', () => {
-    const rid = '001-2026-06-06-doctor-dist-version-check';
-    mkdirSync(join(projectRoot, '.peaks', rid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', rid, 'rd', 'requests', `${rid}.md`),
-      '# Test',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    // No canonical session → per-change-id scope is not bound; map is empty.
-    expect(map[rid]).toBeUndefined();
-  });
-
-  test('discoverRequestArtifacts ignores non-change-id dirs in the per-change-id scope', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', 'system', 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', 'system', 'rd', 'requests', 'system-rid.md'),
-      '# system test',
-      'utf8'
-    );
-    mkdirSync(join(projectRoot, '.peaks', 'project-scan', 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', 'project-scan', 'rd', 'requests', 'project-scan-rid.md'),
-      '# scan test',
-      'utf8'
-    );
-
-    const map = discoverRequestArtifacts(projectRoot);
-    expect(map['system-rid']).toBeUndefined();
-    expect(map['project-scan-rid']).toBeUndefined();
-  });
-
-  test('regenerateChangeLinks creates the change/<rid> entry for per-change-id rids (RED → GREEN)', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    const rid = '001-2026-06-06-doctor-dist-version-check';
-    bindCanonicalSession(projectRoot, sid);
-    mkdirSync(join(projectRoot, '.peaks', rid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', rid, 'rd', 'requests', `001-${rid}.md`),
-      '# Test',
-      'utf8'
-    );
-
-    const result = regenerateChangeLinks({ projectRoot });
-
-    // The change-link layer (symlink OR EPERM manifest) MUST exist for
-    // the per-change-id rid, because the F3 spec's acceptance criterion
-    // requires `.. /requests/<rid>.md` → `change/<rid>` binding.
-    const symPath = join(projectRoot, '.peaks', '_runtime', 'change', rid);
-    const manifestPath = join(projectRoot, '.peaks', '_runtime', 'change', '.peaks-link.json');
-    const hasSym = existsSync(symPath);
-    const hasManifest = existsSync(manifestPath);
-    expect(hasSym || hasManifest).toBe(true);
-
-    // The mapping reports the binding.
-    expect(result.mapping[rid]).toBe(sid);
-
-    // resolveChangeId confirms the canonical-session binding is now
-    // discoverable from the rid alone. The source depends on which
-    // form (symlink vs manifest) was written.
-    const resolved = resolveChangeId(rid, projectRoot);
-    expect(resolved.sessionId).toBe(sid);
-    expect(['symlink', 'manifest', 'session-walk']).toContain(resolved.source);
-
-    if (hasManifest) {
-      // EPERM fallback: the manifest reports the binding.
-      const mapping = JSON.parse(readFileSync(manifestPath, 'utf8') as string) as Record<string, string>;
-      expect(mapping[rid]).toBe(sid);
-    } else {
-      // Symlink path: the rid must be in `created` or `skipped`.
-      expect(result.created.includes(rid) || result.skipped.includes(rid)).toBe(true);
-    }
-  });
-
-  test('regenerateChangeLinks binds multiple per-change-id rids (active + retrospective)', () => {
-    const sid = '2026-06-06-session-aaaaaa';
-    bindCanonicalSession(projectRoot, sid);
-    const activeRid = '001-2026-06-06-doctor-dist-version-check';
-    const retroRid = '2026-06-04-solo-skill-slim-extract';
-    mkdirSync(join(projectRoot, '.peaks', activeRid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', activeRid, 'rd', 'requests', `${activeRid}.md`),
-      '# active',
-      'utf8'
-    );
-    mkdirSync(join(projectRoot, '.peaks', 'retrospective', retroRid, 'rd', 'requests'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, '.peaks', 'retrospective', retroRid, 'rd', 'requests', `${retroRid}.md`),
-      '# retro',
-      'utf8'
-    );
-
-    const result = regenerateChangeLinks({ projectRoot });
-
-    expect(result.mapping[activeRid]).toBe(sid);
-    expect(result.mapping[retroRid]).toBe(sid);
-
-    const resolvedActive = resolveChangeId(activeRid, projectRoot);
-    const resolvedRetro = resolveChangeId(retroRid, projectRoot);
-    expect(resolvedActive.sessionId).toBe(sid);
-    expect(resolvedRetro.sessionId).toBe(sid);
+    // Should not throw and should not change the tree.
+    const result = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+    expect(result.canonicalSessionId).toBe(sid);
+    expect(existsSync(sessionDir)).toBe(true);
   });
 });

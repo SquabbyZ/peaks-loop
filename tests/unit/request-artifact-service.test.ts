@@ -101,10 +101,9 @@ describe('createRequestArtifact (apply)', () => {
 
   test('refuses to overwrite an existing artifact at the target path', async () => {
     const project = await makeProject();
-    // As of slice 2026-06-05-change-id-as-unit-of-work, the target
-    // dir is the change-id dir (which defaults to the requestId when
-    // no binding is set), not the session dir.
-    const dir = join(project, '.peaks', '2026-05-23-add-foo', 'prd', 'requests');
+    // As of slice 006, the target dir is the session dir
+    // (`.peaks/_runtime/<sid>/<role>/requests/`), NOT the change-id dir.
+    const dir = join(project, '.peaks', '_runtime', STABLE_SESSION, 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     // Create file with the new numbered format
     await writeFile(join(dir, '001-2026-05-23-add-foo.md'), 'existing', 'utf8');
@@ -194,10 +193,9 @@ describe('transitionRequestArtifact lint gate', () => {
       apply: true
     });
     // Overwrite with placeholder-ridden content
-    // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact
-    // lives under `.peaks/<change-id>/`, which defaults to the
-    // requestId when no `current-change` binding is set.
-    const rdDir = join(project, '.peaks', 'lint-001', 'rd', 'requests');
+    // As of slice 006, the artifact lives under the session dir
+    // (`.peaks/_runtime/<sid>/rd/requests/`).
+    const rdDir = join(project, '.peaks', '_runtime', STABLE_SESSION, 'rd', 'requests');
     const files = await readdir(rdDir);
     const artifactPath = join(rdDir, files[0]!);
     await writeFile(artifactPath, '# RD Request\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
@@ -205,6 +203,7 @@ describe('transitionRequestArtifact lint gate', () => {
     await expect(
       transitionRequestArtifact({
         role: 'rd', requestId: 'lint-001', projectRoot: project,
+        sessionId: STABLE_SESSION,
         newState: 'spec-locked', confirmed: true
       })
     ).rejects.toThrow(LintGateError);
@@ -219,7 +218,8 @@ describe('createRequestArtifact QA marker', () => {
       apply: true
     });
     const { existsSync } = await import('node:fs');
-    const markerPath = join(project, '.peaks', '2026-05-23-add-foo', 'qa', '.initiated');
+    // Slice 006: marker is under the session dir, not the change-id dir.
+    const markerPath = join(project, '.peaks', '_runtime', STABLE_SESSION, 'qa', '.initiated');
     expect(existsSync(markerPath)).toBe(true);
   });
 
@@ -230,7 +230,7 @@ describe('createRequestArtifact QA marker', () => {
       apply: true
     });
     const { existsSync } = await import('node:fs');
-    const markerPath = join(project, '.peaks', '2026-05-23-add-foo', 'qa', '.initiated');
+    const markerPath = join(project, '.peaks', '_runtime', STABLE_SESSION, 'qa', '.initiated');
     expect(existsSync(markerPath)).toBe(false);
   });
 });
@@ -262,13 +262,12 @@ describe('listRequestArtifacts', () => {
   });
 
   test('filters by sessionId (scope dir)', async () => {
-    // As of slice 2026-06-05-change-id-as-unit-of-work, `sessionId` is
-    // the scope dir name. The file is at `.peaks/<changeId>/...` which
-    // defaults to the requestId. The summary's `sessionId` is read
-    // from the body (`- session: ${sessionId}` metadata), not the path.
+    // As of slice 006, `sessionId` is the scope dir name (canonical
+    // post-F3 home). The file is at `.peaks/_runtime/<sid>/<role>/requests/`.
+    // The summary's `sessionId` is read from the body (`- session: ${sessionId}` metadata), not the path.
     const project = await makeProject();
     await createRequestArtifact({ ...commonOptions('prd', project, 'session-filter'), apply: true });
-    const result = await listRequestArtifacts({ projectRoot: project, sessionId: 'session-filter' });
+    const result = await listRequestArtifacts({ projectRoot: project, sessionId: STABLE_SESSION });
     expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result.every((r) => r.sessionId === STABLE_SESSION)).toBe(true);
   });
@@ -286,8 +285,10 @@ describe('showRequestArtifact', () => {
   test('returns artifact with content', async () => {
     const project = await makeProject();
     await createRequestArtifact({ ...commonOptions('prd', project, 'show-test'), apply: true });
+    // Slice 006: pass the session id (the canonical scope dir), not
+    // the request id. The show function reads from `_runtime/<sid>/`.
     const result = await showRequestArtifact({
-      projectRoot: project, role: 'prd', requestId: 'show-test', sessionId: 'show-test'
+      projectRoot: project, role: 'prd', requestId: 'show-test', sessionId: STABLE_SESSION
     });
     expect(result).not.toBeNull();
     expect(result!.requestId).toBe('show-test');

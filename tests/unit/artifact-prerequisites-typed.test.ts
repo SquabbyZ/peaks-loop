@@ -33,10 +33,13 @@ async function seed(project: string, role: 'rd' | 'qa' | 'prd', requestId: strin
 }
 
 async function writeArtifact(project: string, changeId: string, relativePath: string, body = '# ok'): Promise<void> {
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the prerequisite
-  // gate resolves paths under `.peaks/<changeId>/<role>/...`. Tests pass
-  // the requestId as changeId (matching the on-disk artifact location).
-  const fullPath = join(project, '.peaks', changeId, relativePath);
+  // As of slice 006, the prerequisite gate resolves paths under the
+  // session dir (`.peaks/_runtime/<sid>/<role>/...`). The `changeId`
+  // parameter is preserved as the body's `- change-id:` line for
+  // human navigation; it is no longer a filesystem path key. Tests
+  // pass `SESSION` as the changeId so the file lives in the same
+  // session dir the prereq gate scans.
+  const fullPath = join(project, '.peaks', '_runtime', SESSION, relativePath);
   await mkdir(join(fullPath, '..'), { recursive: true });
   await writeFile(fullPath, body, 'utf8');
 }

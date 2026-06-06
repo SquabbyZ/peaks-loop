@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
-import { getSessionId, setCurrentSessionBinding } from '../session/session-manager.js';
+import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
 import { setCurrentChangeId } from '../../shared/change-id.js';
 
 export type WorkspaceInitOptions = {
@@ -35,36 +35,6 @@ export type WorkspaceInitReport = {
   changeId: string | null;
   changeIdAction: 'bound' | 'preserved' | 'none';
 };
-
-/**
- * Per-slice subdirectories created **inside the change-id dir**
- * (`.peaks/<change-id>/...`). These are the reviewable
- * artifacts and are tracked in git. The `system/` subdir is
- * intentionally NOT in this list — it lives under the session
- * dir (`.peaks/_runtime/<session-id>/system/`), since it holds
- * live sub-agent progress and spawn records, which are ephemeral.
- */
-const CHANGE_ARTIFACT_SUBDIRECTORIES: ReadonlyArray<string> = [
-  'prd/source',
-  'prd/requests',
-  'ui/requests',
-  'rd/requests',
-  'qa/test-cases',
-  'qa/test-reports',
-  'qa/requests',
-  'qa/screenshots',
-  'sc',
-  'txt'
-];
-
-/**
- * Per-session subdirectories created **inside the session dir**
- * (`.peaks/_runtime/<session-id>/...`). These are the ephemeral
- * state and are gitignored.
- */
-const SESSION_EPHEMERAL_SUBDIRECTORIES: ReadonlyArray<string> = [
-  'system'
-];
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 
@@ -120,14 +90,21 @@ export function validateSessionId(sessionId: string): void {
 export async function initWorkspace(options: WorkspaceInitOptions): Promise<WorkspaceInitReport> {
   validateSessionId(options.sessionId);
 
-  // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work):
-  //   - Reviewable artifacts (rd/, qa/, prd/, txt/) are created at
+  // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work) +
+  // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs):
+  //   - Reviewable artifacts (rd/, qa/, prd/, txt/) live at
   //     `.peaks/<change-id>/<role>/` (tracked in git) when a change-id
-  //     is given. This is the canonical home for cross-session content.
+  //     is given. The role subdirs are NOT pre-created — the writer
+  //     (e.g. `peaks request init`, `peaks rd`) creates the parent
+  //     dirs on demand via `mkdirSync(..., { recursive: true })`.
   //   - The session dir `.peaks/_runtime/<session-id>/` (gitignored)
-  //     holds only ephemeral state — currently `system/` (live
-  //     sub-agent progress + spawn records). The session id remains
-  //     the binding for that ephemeral state.
+  //     now holds ONLY the canonical `session.json` metadata. The
+  //     F3-introduced `system/` subdir is gone — slice 006 removes
+  //     it via `peaks workspace reconcile`; new init calls do not
+  //     pre-create it.
+  //   - The change-id dir is created when `--change-id` is given,
+  //     but its role subdirs (prd/, qa/, rd/, sc/, txt/) are NOT
+  //     pre-created either — same lazy-mkdir rule.
   //
   // The CLI accepts `--change-id <id>` to bind the change. The legacy
   // session-scoped layout (`.peaks/<session-id>/<role>/<file>`) is
@@ -140,30 +117,29 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   const alreadyExisted: string[] = [];
 
   // 1. Create the session dir (canonical location `.peaks/_runtime/<sid>/`)
-  //    with ONLY ephemeral subdirs (`system/`). The session dir is
-  //    gitignored.
+  //    with NO subdirs. The session dir is gitignored; the role
+  //    subdirs and the `system/` subdir are gone entirely (slice 006).
   if (await isDirectory(sessionRoot)) {
     alreadyExisted.push('.');
   } else {
     await mkdir(sessionRoot, { recursive: true });
     created.push('.');
   }
-  for (const sub of SESSION_EPHEMERAL_SUBDIRECTORIES) {
-    const full = join(sessionRoot, sub);
-    if (await isDirectory(full)) {
-      alreadyExisted.push(sub);
-    } else {
-      await mkdir(full, { recursive: true });
-      created.push(sub);
-    }
-  }
+  // 1a. Write the per-session metadata file. Slice 006 makes
+  //     `.peaks/_runtime/<sid>/session.json` the durable session
+  //     metadata (the body's source of truth, the `peaks workspace
+  //     reconcile` discovery source). The file is created on first
+  //     init and refreshed on every subsequent init. Idempotent.
+  setSessionMeta(options.projectRoot, options.sessionId, {});
 
   // 2. If a change-id is given, also create the change-id dir at
-  //    `.peaks/<change-id>/` (tracked) with the reviewable subdirs.
-  //    When the caller did NOT specify a change-id, this step is
-  //    skipped — reviewable writes for this session are then blocked
-  //    until a change-id is bound (or the user re-runs init with
-  //    `--change-id`). Surfaces in `changeIdAction: 'none'`.
+  //    `.peaks/<change-id>/` (tracked) with NO role subdirs. The
+  //    role subdirs (prd/, qa/, rd/, sc/, txt/) are created on demand
+  //    by the writer at the write site. When the caller did NOT
+  //    specify a change-id, this step is skipped — reviewable writes
+  //    for this session are then blocked until a change-id is bound
+  //    (or the user re-runs init with `--change-id`). Surfaces in
+  //    `changeIdAction: 'none'`.
   let resolvedChangeId: string | null = null;
   let changeIdAction: 'bound' | 'preserved' | 'none' = 'none';
   if (options.changeId !== undefined && options.changeId.length > 0) {
@@ -174,15 +150,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     } else {
       await mkdir(changeDir, { recursive: true });
       created.push(resolvedChangeId);
-    }
-    for (const sub of CHANGE_ARTIFACT_SUBDIRECTORIES) {
-      const full = join(changeDir, sub);
-      if (await isDirectory(full)) {
-        alreadyExisted.push(sub);
-      } else {
-        await mkdir(full, { recursive: true });
-        created.push(sub);
-      }
     }
     // 3. Bind the change-id so RD/QA/PRD services know where to write
     //    reviewable artifacts. The binding is a symlink at

@@ -356,26 +356,26 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const timestamp = clock();
 
   // Use provided session ID or get/create current session. The session
-  // id is kept as the in-memory binding (so the artifact body can record
-  // which session wrote it), but the artifact file is now written
-  // under the change-id dir, NOT the session dir.
+  // id is the binding for the artifact file's location.
   //
-  // The change-id is the file's durable scope. As of slice
-  // 2026-06-05-change-id-as-unit-of-work, the requestId IS the
-  // change-id (per the legacy `001-<change-id>.md` filename convention);
-  // a request that lives in a session dir under a different change-id
-  // is no longer the model. We honor a `current-change` binding if
-  // one is set, and otherwise fall back to the requestId itself.
+  // Slice 006 collapses the per-change-id top-level dirs. The artifact
+  // file is now written under the SESSION dir
+  // (`.peaks/_runtime/<sid>/<role>/requests/`) instead of the
+  // change-id dir. The 2-tier fallback (canonical session → legacy
+  // session) replaces the F3 3-tier fallback (per-change-id →
+  // canonical session → legacy session). The change-id is preserved
+  // in the artifact body's frontmatter (under `- change-id:`) for
+  // human navigation; it is no longer a filesystem path key.
   const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
   const boundChangeId = getCurrentChangeId(options.projectRoot);
-  // Resolution order for the change-id (file path key):
-  //   1. Explicit `options.changeId` (CLI `--session-id` pre-1.3.0 set this).
+  // Resolution order for the change-id (file body metadata):
+  //   1. Explicit `options.changeId` (CLI `--change-id`).
   //   2. `current-change` binding (live developer working context).
   //   3. The requestId itself (every request is its own scope by default).
   const changeId = options.changeId ?? boundChangeId ?? options.requestId;
 
-  // Build numbered path under the change-id dir
-  const requestsDir = getChangeArtifactRoot(options.projectRoot, changeId) + '/' + options.role + '/requests';
+  // Build numbered path under the session dir (canonical post-F3 home).
+  const requestsDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, options.role, 'requests');
 
   // Check if a file with this requestId already exists (regardless of number prefix)
   if (await isDirectory(requestsDir)) {
@@ -403,11 +403,11 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   await writeFile(path, content, 'utf8');
 
   // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the marker lives under
-  // the change-id dir (not the session dir), so the gate's prereq scan
-  // (which reads from `.peaks/<change-id>/<role>/...`) finds it.
+  // Slice 006: the marker lives under the SESSION dir (canonical post-F3
+  // home), not the change-id dir. The gate's prereq scan finds it at
+  // `.peaks/_runtime/<sid>/qa/.initiated`.
   if (options.role === 'qa') {
-    const qaDir = getChangeArtifactRoot(options.projectRoot, changeId) + '/qa';
+    const qaDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, 'qa');
     const initiatedPath = join(qaDir, '.initiated');
     if (!existsSync(initiatedPath)) {
       await mkdir(qaDir, { recursive: true });
@@ -544,44 +544,43 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   if (!(await isDirectory(peaksRoot))) {
     return [];
   }
-  // As of slice 2026-06-05-change-id-as-unit-of-work, artifact files live
-  // in `.peaks/<change-id>/<role>/requests/`. The top-level `.peaks/<dir>/`
-  // entries we scan here are change-id dirs (new layout) AND legacy
-  // session-id dirs (pre-1.3.0 layout). Both have the same
-  // `<role>/requests/<file>.md` shape, so we read them uniformly.
+  // Slice 006 collapsed the per-change-id top-level dirs. The 2-tier
+  // resolution model is:
+  //   1. `.peaks/_runtime/<sid>/<role>/requests/` (post-F3 canonical
+  //      session home; slice 006's primary home for request artifacts).
+  //   2. `.peaks/<sid>/<role>/requests/` (pre-F3 legacy home; back-compat
+  //      for users who have not yet migrated).
   //
-  // Additionally, shipped slices are archived under
-  // `.peaks/retrospective/<change-id>/<role>/requests/` and dogfood
-  // evidence lives under `.peaks/_dogfood/<change-id>/<role>/requests/`.
-  // When `sessionId` is NOT pinned, we scan ALL three umbrella dirs
-  // (`<top>`, `retrospective/`, `_dogfood/`) so a `peaks request show
-  // <rid>` resolves shipped slices too — which is what the slice check's
-  // gate-verify-pipeline stage needs to find evidence for the retrospective
-  // slice being verified.
-  //
-  // Skip well-known non-artifact dirs: `_runtime/` holds ephemeral state
-  // (no `requests/` subdirs anyway, but skip explicitly to avoid noise).
-  const allDirs = await listDirectories(peaksRoot);
-  const candidateDirs = allDirs.filter((dir) => dir !== '_runtime');
-  // Expand scopes to include the nested umbrellas that host change-id dirs
-  // (retrospective/, _dogfood/). For each, list its sub-dirs and treat
-  // them as additional scopes. This makes the lookup span the entire
-  // .peaks tree.
-  const expandedScopes: string[] = [];
+  // When `sessionId` is pinned, the function scans that one session's
+  // two tiers (canonical + legacy). When `sessionId` is NOT pinned,
+  // the function scans every session dir under `.peaks/_runtime/`
+  // (canonical) AND every legacy session dir under `.peaks/`
+  // (top-level). Per-change-id dirs (the old `.peaks/<changeId>/<role>/`
+  // layout) are NOT scanned — slice 008 will migrate the 5
+  // already-shipped slices' artifacts to the new layout; new request
+  // artifacts are written to the session dir directly.
+  const scopes: string[] = [];
   if (options.sessionId !== undefined) {
-    expandedScopes.push(options.sessionId);
+    scopes.push(join('_runtime', options.sessionId));
+    scopes.push(options.sessionId);
   } else {
-    for (const dir of candidateDirs) {
-      expandedScopes.push(dir);
-      if (dir === 'retrospective' || dir === '_dogfood') {
-        const nested = await listDirectories(join(peaksRoot, dir));
-        for (const n of nested) {
-          expandedScopes.push(join(dir, n));
-        }
+    const runtimeRoot = join(peaksRoot, '_runtime');
+    if (await isDirectory(runtimeRoot)) {
+      for (const sid of await listDirectories(runtimeRoot)) {
+        scopes.push(join('_runtime', sid));
       }
     }
+    // Legacy top-level session dirs: scan every non-`._peaks` top-level
+    // dir as a potential legacy scope. Slice 006 dropped per-change-id
+    // dirs, so any top-level dir name under `.peaks/` that is NOT
+    // `_runtime` (and not a well-known umbrella like retrospective,
+    // _dogfood, memory, etc. — those have no `<role>/requests/` tree)
+    // is treated as a candidate legacy session dir.
+    for (const dir of await listDirectories(peaksRoot)) {
+      if (dir === '_runtime') continue;
+      scopes.push(dir);
+    }
   }
-  const scopes = expandedScopes;
   const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
   const summaries: RequestArtifactSummary[] = [];
   for (const scope of scopes) {
@@ -654,29 +653,25 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   if (!(await isDirectory(peaksRoot))) {
     return null;
   }
-  // Scan all top-level dirs in `.peaks/` AND nested change-id dirs
-  // under `retrospective/` and `_dogfood/`. The expanded scope list
-  // lets us find request artifacts that live one or two levels deep
-  // (shipped slices, dogfood evidence). Without this expansion,
-  // verify-pipeline can't find the RD/QA request files for any
-  // retrospective slice.
-  const allDirs = await listDirectories(peaksRoot);
-  const scopes: string[] = [];
-  for (const dir of allDirs) {
-    if (dir === '_runtime') continue;
-    scopes.push(dir);
-    if (dir === 'retrospective' || dir === '_dogfood') {
-      const nested = await listDirectories(join(peaksRoot, dir));
-      for (const n of nested) {
-        scopes.push(join(dir, n));
+  // Slice 006: scan only session-scoped dirs (canonical + legacy)
+  // for the artifact. The per-change-id top-level dirs are no longer
+  // scanned — they are frozen until slice 008 migrates them.
+  const runtimeRoot = join(peaksRoot, '_runtime');
+  if (await isDirectory(runtimeRoot)) {
+    for (const sid of await listDirectories(runtimeRoot)) {
+      const dir = join(runtimeRoot, sid, options.role, 'requests');
+      const found = await findFileInDir(dir);
+      if (found !== null) {
+        return await readRequestArtifact(options.projectRoot, join('_runtime', sid), options.role, found);
       }
     }
   }
-  for (const scope of scopes) {
-    const dir = join(peaksRoot, scope, options.role, 'requests');
-    const found = await findFileInDir(dir);
+  for (const dir of await listDirectories(peaksRoot)) {
+    if (dir === '_runtime') continue;
+    const target = join(peaksRoot, dir, options.role, 'requests');
+    const found = await findFileInDir(target);
     if (found !== null) {
-      return await readRequestArtifact(options.projectRoot, scope, options.role, found);
+      return await readRequestArtifact(options.projectRoot, dir, options.role, found);
     }
   }
   return null;

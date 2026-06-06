@@ -5,7 +5,6 @@ import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
-import { regenerateChangeLinks } from '../../services/workspace/change-link-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
@@ -126,13 +125,6 @@ type WorkspaceReconcileOptions = {
   json?: boolean;
   apply?: boolean;
   olderThan?: number;
-  /**
-   * Slice 003: link-only regeneration. When set, ONLY the per-change-id
-   * symlink/manifest regen step runs. No migration, no repoint, no
-   * deletion-candidate report. Use this when the user wants to refresh
-   * `.peaks/_runtime/change/<rid>` without re-running the full reconcile.
-   */
-  changeLinks?: boolean;
 };
 
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
@@ -141,7 +133,7 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/<session-id>/ directory structure (prd, ui, rd, qa, sc, txt, system) and bind the session as the project current one. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
+      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, also creates the .peaks/<change-id>/ dir. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
@@ -298,23 +290,18 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
           '  2. Re-points .peaks/_runtime/session.json to the canonical session ' +
           'using a 4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
           'latest any-file mtime -> dir-name sort.\n' +
-          '  3. (slice 003) Regenerates the per-change-id symlink layer under ' +
-          '.peaks/_runtime/change/<rid> -> ../<sid>/. On EPERM (Windows non-developer-mode) ' +
-          'a .peaks-link.json manifest is written as a fallback.\n' +
+          '  3. (slice 006) Syncs the single change/<sid>/ live marker under ' +
+          '.peaks/_runtime/change/. The marker is an empty directory; every other ' +
+          'entry under change/ is removed. Also cleans up the F3-introduced ' +
+          '.peaks/_runtime/<sid>/system/ subdir (no-op if already absent).\n' +
           '  4. REPORTS (but does not delete) session dirs older than --older-than <days> ' +
           `(default ${DEFAULT_RECONCILE_AGE_DAYS}) as deletion candidates; this is the only step that is dry-run by default.\n` +
           'Pass --apply to additionally REMOVE the listed candidate dirs (destructive). ' +
-          'Migration (1), repoint (2), and link regen (3) always run regardless of --apply.\n\n' +
-          'Pass --change-links to run ONLY the link-regen step (3); no migration, no repoint, no deletion report.'
+          'Migration (1), repoint (2), and marker sync (3) always run regardless of --apply.'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--apply', 'actually delete the deletion candidates (destructive); without it, dry-run only', false)
       .option('--older-than <days>', `age threshold in days for deletion candidates (default: ${DEFAULT_RECONCILE_AGE_DAYS})`, (value: string) => Number.parseFloat(value))
-      .option(
-        '--change-links',
-        'slice 003: only regenerate the per-change-id symlink layer under .peaks/_runtime/change/ (no migration, no repoint, no deletion-candidate report).',
-        false
-      )
   ).action((options: WorkspaceReconcileOptions) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
@@ -330,39 +317,6 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       }
       const olderThanMs = olderThanDays * MS_PER_DAY;
       const apply = options.apply === true;
-      const changeLinksOnly = options.changeLinks === true;
-
-      if (changeLinksOnly) {
-        // Slice 003: link-only regen. Skip migration, repoint, and
-        // deletion-candidate report; just regenerate the per-change-id
-        // symlinks (or EPERM manifest fallback) under .peaks/_runtime/change/.
-        const linkResult = regenerateChangeLinks({ projectRoot });
-        const warnings: string[] = [];
-        if (linkResult.errors.length > 0) {
-          warnings.push(`${linkResult.errors.length} change-link issue(s) — see response.`);
-        }
-        const nextActions: string[] = [];
-        if (linkResult.manifestWritten) {
-          nextActions.push(`Wrote EPERM-fallback manifest at ${linkResult.manifestPath} (Windows non-developer-mode or symlink rejected).`);
-        }
-        if (linkResult.created.length > 0) {
-          nextActions.push(`Created ${linkResult.created.length} change/<rid> symlink(s).`);
-        }
-        if (linkResult.skipped.length > 0) {
-          nextActions.push(`Skipped ${linkResult.skipped.length} already-correct symlink(s).`);
-        }
-        printResult(io, ok('workspace.reconcile', {
-          changeLinksOnly: true,
-          changeLinks: {
-            created: linkResult.created,
-            skipped: linkResult.skipped,
-            errors: linkResult.errors,
-            manifestWritten: linkResult.manifestWritten,
-            manifestPath: linkResult.manifestPath
-          }
-        }, warnings, nextActions), options.json);
-        return;
-      }
 
       const result = reconcileWorkspace({
         projectRoot,
@@ -388,14 +342,16 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       if (!apply && result.wouldDelete.length > 0) {
         nextActions.push(`Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`);
       }
-      if (result.changeLinks) {
-        const created = result.changeLinks.created.length;
-        const skipped = result.changeLinks.skipped.length;
-        if (result.changeLinks.manifestWritten) {
-          nextActions.push(`Regenerated change/<rid> links: ${created} created, ${skipped} skipped; wrote EPERM-fallback manifest at ${result.changeLinks.manifestPath}.`);
-        } else if (created + skipped > 0) {
-          nextActions.push(`Regenerated change/<rid> links: ${created} created, ${skipped} skipped.`);
-        }
+      if (result.changeMarker.created !== null) {
+        nextActions.push(`Synced change/<${result.changeMarker.created}>/ live marker.`);
+      } else if (result.canonicalSessionId !== null) {
+        nextActions.push(`change/<${result.canonicalSessionId}>/ live marker already in place.`);
+      }
+      if (result.changeMarker.removed.length > 0) {
+        nextActions.push(`Removed ${result.changeMarker.removed.length} stale change/<oldSid>/ marker(s).`);
+      }
+      if (result.systemCleaned.length > 0) {
+        nextActions.push(`Removed ${result.systemCleaned.length} F3 system/ subdir(s).`);
       }
 
       printResult(io, ok('workspace.reconcile', result, warnings, nextActions), options.json);
