@@ -84,7 +84,13 @@ describe('CLAUDE_CODE_ADAPTER — formatDecisionResponse integration', () => {
 
   test('returns Claude deny JSON shape on stdout for a deny with a reason', () => {
     const result = formatDecisionResponse('claude-code', 'deny', 'gate no-todo failed');
-    const parsed = JSON.parse(result.stdout) as { hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string } };
+    const parsed = JSON.parse(result.stdout) as {
+      hookSpecificOutput: {
+        hookEventName: string;
+        permissionDecision: string;
+        permissionDecisionReason: string;
+      };
+    };
     expect(parsed.hookSpecificOutput.hookEventName).toBe('PreToolUse');
     expect(parsed.hookSpecificOutput.permissionDecision).toBe('deny');
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('gate no-todo failed');

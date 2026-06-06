@@ -1,69 +1,130 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-04T07:29:16.031Z",
+  "updatedAt": "2026-06-06T11:38:13.470Z",
   "hot": {
     "feedback": [
       {
         "name": "coverage-red-line",
         "kind": "feedback",
         "description": "When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch.",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/coverage-red-line.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\coverage-red-line.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "dogfood-2026-06-02-wechat-post-sop",
         "kind": "feedback",
         "description": "On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , gates  +  using ) end-to-end against the pea...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/dogfood-2026-06-02-wechat-post-sop.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-02"
+        "updatedAt": "2026-06-01"
       },
       {
         "name": "main-branch-iteration",
         "kind": "feedback",
         "description": "For future iterations in this project, do not create worktrees by default; modify directly on the main branch.",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/main-branch-iteration.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\main-branch-iteration.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "peaks-current-directory-scope",
         "kind": "feedback",
         "description": "Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于当前目录下\"，避免 postinstall、skills、配置等流程触碰  或  这...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/peaks-current-directory-scope.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-current-directory-scope.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "peaks-skill-output-style",
         "kind": "feedback",
         "description": "When the user uses Peaks skills from  in any project, the response should look clearly different from normal Claude C...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/peaks-skill-output-style.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-skill-output-style.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "rd-gstack-dry-run",
         "kind": "feedback",
         "description": "The skills under this project's  directory should deeply integrate and reference gstack (https://github.com/garrytan/...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/rd-gstack-dry-run.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\rd-gstack-dry-run.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "review-memories-extract-and-memory-index",
         "kind": "feedback",
         "description": "This review memory is **closed**.",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/review-memories-extract-and-memory-index.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-04"
+        "updatedAt": "2026-06-03"
       }
     ],
-    "decision": [],
+    "decision": [
+      {
+        "name": "peaks-memory-scan-is-intentionally-not-a-cli",
+        "kind": "decision",
+        "description": "is intentionally NOT a CLI command.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-memory-scan-is-intentionally-not-a-cli.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "slim-ideadapter-shape-is-the-contract",
+        "kind": "decision",
+        "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      }
+    ],
     "rule": [],
-    "convention": [],
-    "module": []
+    "convention": [
+      {
+        "name": "detectidefromcontext-iterates-listadapterids",
+        "kind": "convention",
+        "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "project-option-is-canonical-project-root-source",
+        "kind": "convention",
+        "description": "The  option is the canonical project-root source.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\project-option-is-canonical-project-root-source.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "r-2-symlink-guard-for-settings-writes",
+        "kind": "convention",
+        "description": "R-2 hard rule: settings files (, , etc.) MUST NOT be writable through a symlink.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\r-2-symlink-guard-for-settings-writes.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      }
+    ],
+    "module": [
+      {
+        "name": "src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior",
+        "kind": "module",
+        "description": "The  module is the single source of truth for IDE-aware behavior.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      }
+    ],
+    "lesson": [
+      {
+        "name": "peaks-hook-stdin-test-seam-pattern",
+        "kind": "lesson",
+        "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-hook-stdin-test-seam-pattern.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      }
+    ]
   },
   "warm": {
     "project": [
@@ -71,35 +132,52 @@
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
         "description": "New iteration discussed 2026-05-29 (peaks-prd brainstorm).",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/custom-sop-and-gate-metering.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-and-gate-metering.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       },
       {
         "name": "custom-sop-domain-agnostic-positioning",
         "kind": "project",
         "description": "用户决策 2026-05-29：自定义 SOP（peaks-sop 技能 +  引擎）**不限于研发流程**，要定位成**通用的\"流程不许跳步\"工具**。用户原话：\"不只是研发，像其他场景才是这个工具的更好的发展前景。\" **适用面*...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/custom-sop-domain-agnostic-positioning.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-30"
       },
       {
         "name": "gate-enforcement-hook",
         "kind": "project",
         "description": "决策 2026-05-30(已实现,commit b289cd6):把 SOP 门禁从「约定」变「强制」。这是产品护城河——CI 只拦合并、CLAUDE.md 靠自觉,只有这里能在**对话流程中途、面向 agent 本身**拦住不可逆...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/gate-enforcement-hook.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gate-enforcement-hook.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-30"
+      },
+      {
+        "name": "peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer",
+        "kind": "project",
+        "description": "peaks-cli 1.3.3 (next minor, post-slice-#1) is the first version where the IDE-adapter layer is in place.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
       },
       {
         "name": "token-encrypted-storage-decision",
         "kind": "project",
         "description": "用户 2026-05-29 决策：将来做 Feature B（open-core license/entitlement）时，license key、token、密钥等敏感凭据必须**加密落盘、使用时解密**，而不是明文存储，也不是 ...",
-        "sourcePath": "/Users/yuanyuan/Desktop/ai-tools/peaks-cli/.peaks/memory/token-encrypted-storage-decision.md",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\token-encrypted-storage-decision.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-05-29"
       }
     ],
-    "reference": []
+    "reference": [
+      {
+        "name": "peaks-cli-1-3-2-windows-test-baseline-30-fail",
+        "kind": "reference",
+        "description": "peaks-cli 1.3.2 baseline test failure count on Windows: 30 pre-existing failures (all  on Windows-without-developer-m...",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-2-windows-test-baseline-30-fail.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      }
+    ]
   }
 }
