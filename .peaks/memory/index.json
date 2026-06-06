@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-06T11:38:13.470Z",
+  "updatedAt": "2026-06-06T12:39:09.694Z",
   "hot": {
     "feedback": [
       {
@@ -34,6 +34,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-current-directory-scope.md",
         "sourceArtifact": null,
         "updatedAt": "2026-05-29"
+      },
+      {
+        "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
+        "kind": "feedback",
+        "description": "The  skill's step 5 references a \"thin helper\" for the audit log writer.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
       },
       {
         "name": "peaks-skill-output-style",
@@ -76,6 +84,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified",
+        "kind": "decision",
+        "description": "The Trae adapter's  (vs Claude's ).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
       }
     ],
     "rule": [],
@@ -85,6 +101,14 @@
         "kind": "convention",
         "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives",
+        "kind": "convention",
+        "description": "The  skill () is the canonical example of the dev-preference red line \"skill is primary, CLI is auxiliary\".",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
       },
@@ -103,9 +127,25 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\r-2-symlink-guard-for-settings-writes.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added",
+        "kind": "convention",
+        "description": "Slice #2's Trae support is purely \"fill the table\" —  for Trae users uses the same registry-driven install path as Cl...",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
       }
     ],
     "module": [
+      {
+        "name": "slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly",
+        "kind": "module",
+        "description": "Slice #2's perf baseline shows the cwd-fallback path in  scales linearly with adapter count: 1 adapter = ~17 µs, 2 ad...",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
       {
         "name": "src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior",
         "kind": "module",
@@ -121,6 +161,14 @@
         "kind": "lesson",
         "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-hook-stdin-test-seam-pattern.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
+        "kind": "lesson",
+        "description": "The Trae adapter's , , , and  are based on 1.x assumptions, not on real Trae documentation.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
       }
@@ -167,6 +215,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\token-encrypted-storage-decision.md",
         "sourceArtifact": null,
         "updatedAt": "2026-05-29"
+      },
+      {
+        "name": "trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer",
+        "kind": "project",
+        "description": "Slice #2 registers Trae as a second built-in IDE.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
       }
     ],
     "reference": [
@@ -175,6 +231,14 @@
         "kind": "reference",
         "description": "peaks-cli 1.3.2 baseline test failure count on Windows: 30 pre-existing failures (all  on Windows-without-developer-m...",
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-2-windows-test-baseline-30-fail.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
+        "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable",
+        "kind": "reference",
+        "description": "Slice #2 closed with 12/13 ACs unconditional + 1 PASS-WITH-CAVEAT (AC-10 audit log writer scope).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
       }

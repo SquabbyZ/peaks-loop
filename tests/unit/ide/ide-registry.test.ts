@@ -13,14 +13,15 @@ afterEach(() => {
 });
 
 describe('ide-registry — built-in defaults', () => {
-  test('registers exactly one adapter (claude-code) in slice #1', () => {
-    expect(listAdapterIds()).toEqual(['claude-code']);
+  test('registers two adapters in slice #2 (claude-code + trae) in insertion order', () => {
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
   });
 
-  test('listAdapters returns the Claude adapter instance', () => {
+  test('listAdapters returns both adapter instances', () => {
     const adapters = listAdapters();
-    expect(adapters).toHaveLength(1);
+    expect(adapters).toHaveLength(2);
     expect(adapters[0]?.id).toBe('claude-code');
+    expect(adapters[1]?.id).toBe('trae');
   });
 
   test('getAdapter returns the Claude adapter for the registered id', () => {
@@ -30,8 +31,16 @@ describe('ide-registry — built-in defaults', () => {
     expect(adapter.settings.settingsFileName).toBe('settings.json');
   });
 
-  test('getAdapter throws for an unregistered IDE', () => {
-    expect(() => getAdapter('trae' as IdeId)).toThrow(/Unsupported IDE: trae/);
+  test('getAdapter returns the Trae adapter for the registered id (slice #2)', () => {
+    const adapter = getAdapter('trae');
+    expect(adapter.id).toBe('trae');
+    expect(adapter.envVar).toBe('TRAE_PROJECT_DIR');
+  });
+
+  test('getAdapter throws for an unregistered IDE (e.g. cursor in slice #2)', () => {
+    // slice #2 ships with claude-code + trae. cursor / codex / qoder / tongyi-lingma
+    // are post-#2 adapters. Throwing is the expected behavior.
+    expect(() => getAdapter('cursor' as IdeId)).toThrow(/Unsupported IDE: cursor/);
   });
 });
 
@@ -42,36 +51,31 @@ describe('ide-registry — test seams', () => {
 
   test('_setAdapterForTesting registers a new adapter; getAdapter returns it', () => {
     const fakeAdapter: IdeAdapter = {
-      id: 'trae',
-      displayName: 'Trae (test fixture)',
+      id: 'cursor',
+      displayName: 'Cursor (test fixture)',
       settings: {
-        dirName: '.trae',
+        dirName: '.cursor',
         settingsFileName: 'settings.json',
         resolveSettingsFile: (scope, projectRoot) => {
           const root = scope === 'global' ? 'C:/home' : (projectRoot ?? 'C:/home');
-          return `${root}/.trae/settings.json`;
+          return `${root}/.cursor/settings.json`;
         },
         supportsScope: () => true
       },
-      envVar: 'TRAE_PROJECT_DIR',
-      hookEvent: 'beforeToolCall',
+      envVar: 'CURSOR_PROJECT_DIR',
+      hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      installHints: ['Restart Trae.'],
-      capabilities: {
-        gateEnforce: true,
-        progressStart: false,
-        statusline: true,
-        mcpInstall: false
-      }
+      installHints: [],
+      capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
     };
-    _setAdapterForTesting('trae', fakeAdapter);
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
-    const got = getAdapter('trae');
-    expect(got.envVar).toBe('TRAE_PROJECT_DIR');
+    _setAdapterForTesting('cursor', fakeAdapter);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor']);
+    const got = getAdapter('cursor');
+    expect(got.envVar).toBe('CURSOR_PROJECT_DIR');
     expect(got.toolMatcher).toBe('terminal');
   });
 
-  test('_resetAdaptersForTesting restores the slice #1 default (claude-code only)', () => {
+  test('_resetAdaptersForTesting restores the slice #2 default (claude-code + trae)', () => {
     _setAdapterForTesting('cursor', {
       id: 'cursor',
       displayName: 'Cursor (test fixture)',
@@ -89,6 +93,6 @@ describe('ide-registry — test seams', () => {
     });
     expect(listAdapterIds()).toContain('cursor');
     _resetAdaptersForTesting();
-    expect(listAdapterIds()).toEqual(['claude-code']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
   });
 });
