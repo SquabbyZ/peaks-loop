@@ -192,7 +192,7 @@ done
 **Strict quality guarantee (per user's hard rule: "严格要保证不能比当前的效果差")**:
 - If no in-flight slice is detected, this step is a no-op: zero extra commands beyond the existing Step 0 probe, zero extra token cost.
 - If an in-flight slice is detected, the cost is one `find` + one `grep` loop (sub-millisecond) + one `AskUserQuestion` (one round-trip). The savings are 3-5k tokens (the cost of manually re-reading 3-5 artifact files).
-- The dogfood test in `tests/unit/skill-resume-mode.test.ts` (added in this slice) asserts: (a) fresh-session classification returns "no resume", (b) in-flight slice classification returns the right gate, (c) the classification is deterministic across two invocations on the same fixture.
+- The dogfood test in `tests/unit/skill-resume-mode.test.ts` (8 cases, bash-fixture shim — the legacy interface used by `skills/peaks-solo-resume`) and `tests/unit/services/skill/resume-detector.test.ts` (24 cases, the canonical TypeScript classifier at `src/services/skill/resume-detector.ts`) together cover: (a) fresh / complete / resume:rd-planning / resume:qa-validation / resume:txt-handoff state-based classifications, (b) the "Other resume triggers" overrides (missing `rd/tech-doc.md` → `rd-planning`; missing `rd/code-review.md` or `rd/security-review.md` → `rd-review-fanout`; missing `qa/test-reports/<rid>.md` → `qa-execution`), (c) the mid-implementation distinction (`spec-locked` / `implemented` / `running` / `blocked` all return `in-flight:<state>`), (d) the primary-vs-abandoned filter (multiple RDs → spec-locked wins; single blocked RD stays primary; 2+ all-abandoned → fresh), (e) the legacy `.peaks/<sid>/` path fallback, and (f) determinism across two invocations on the same fixture.
 
 ### Peaks-Cli Step 1: Mode selection
 
