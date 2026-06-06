@@ -1,0 +1,108 @@
+import { Command } from 'commander';
+import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import { detectIdeFromContext, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/hook-protocol.js';
+import { getAdapter } from '../../services/ide/ide-registry.js';
+import { fail, ok } from '../../shared/result.js';
+
+type HookHandleOptions = { project: string; json?: boolean };
+
+/** Read the hook payload from stdin. Returns empty string on TTY. */
+async function readStdin(): Promise<string> {
+  if (process.stdin.isTTY) return '';
+  return new Promise<string>((resolveStdin) => {
+    let data = '';
+    process.stdin.setEncoding('utf8');
+    process.stdin.on('data', (chunk) => { data += chunk; });
+    process.stdin.on('end', () => resolveStdin(data));
+    process.stdin.on('error', () => resolveStdin(data));
+  });
+}
+
+/**
+ * `peaks hook handle` —— peaks 自有 hook 协议的单一入口。
+ *
+ * 该命令是 peaks-cli 拥有的 hook 处理总入口。它:
+ *   1. 读 stdin
+ *   2. auto-detect 来源 IDE(env / stdin shape / cwd)
+ *   3. 归一化到 peaks canonical schema
+ *   4. dispatch 到内部 peaks 逻辑(目前:gate enforce 或 progress start)
+ *   5. 用 IDE 期望的格式发回决策
+ *
+ * Slice #1 阶段:peaks hook handle 与 peaks gate enforce / peaks progress start
+ * 并存(后者内部走 hook-translator)。Slice #2 把 IDE settings 改成调用
+ * peaks hook handle 即可。Slice #3 删除旧命令。
+ */
+export function registerHookHandleCommand(program: Command, io: ProgramIO): void {
+  const hook = program.command('hook').description('Peaks 自有 hook 协议单一入口（slice #1 新增；后续 slice 将逐步替代 gate enforce / progress start）');
+
+  addJsonOption(
+    hook
+      .command('handle')
+      .description('Read stdin hook payload, auto-detect IDE, dispatch to peaks gate/progress logic, output IDE-formatted decision')
+      .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
+  ).action(async (options: HookHandleOptions) => {
+    try {
+      const raw = await readStdin();
+      let parsed: unknown = null;
+      if (raw.trim().length > 0) {
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          // Malformed JSON — treat as empty payload (fail-open)
+          parsed = null;
+        }
+      }
+
+      const ide = detectIdeFromContext({ env: process.env, cwd: process.cwd(), parsedStdin: parsed });
+      const adapter = getAdapter(ide);
+
+      // For slice #1, parse Claude-style stdin (most LLM IDEs share this shape)
+      const { toolName, command } = parseClaudeShapeStdin(parsed);
+      const fallbackToolName = toolName ?? pluckString(parsed, ['toolName']);
+      const fallbackCommand = command ?? pluckString(parsed, ['toolInput', 'command']);
+
+      const projectRoot = process.env[adapter.envVar] ?? options.project;
+
+      const hook = buildCanonicalHook({
+        toolName: fallbackToolName ?? '',
+        toolInput: pluckObject(parsed, ['tool_input']) ?? pluckObject(parsed, ['toolInput']) ?? {},
+        projectRoot,
+        rawIdeFormat: ide,
+        rawPayload: parsed
+      });
+
+      // Dispatch by toolName. For slice #1, we only handle Bash and Task.
+      // Other tools: allow (no-op; future events will be added here).
+      if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
+        // Lazy import to avoid circular: peaks gate enforce logic
+        const { enforceBashCommand } = await import('../../services/sop/gate-enforce-service.js');
+        const decision = await enforceBashCommand(projectRoot, fallbackCommand);
+        if (decision.decision === 'deny') {
+          const formatted = formatDecisionResponse(ide, 'deny', decision.reason);
+          io.stdout(formatted.stdout);
+          if (options.json === true) {
+            io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: decision.reason })));
+          }
+          return;
+        }
+      } else if (hook.toolName === 'Task') {
+        // peaks progress start is a fire-and-forget; do not block hook.handle.
+        // Slice #1: simply acknowledge (no terminal spawn from hook handle itself;
+        // the legacy `peaks progress start` command still does that).
+      }
+
+      const allow = formatDecisionResponse(ide, 'allow');
+      io.stdout(allow.stdout);
+      if (options.json === true) {
+        printResult(io, ok('hook.handle', { ide, tool: hook.toolName, decision: 'allow' }), true);
+      }
+    } catch (error) {
+      // Fail-open: a bug in hook.handle must not brick Claude Code.
+      io.stderr(`hook handle: internal error, allowing command (${error instanceof Error ? error.message : String(error)})`);
+      if (options.json === true) {
+        printResult(io, fail('hook.handle', 'HOOK_HANDLE_FAILED', error instanceof Error ? error.message : 'unknown', {}), true);
+      }
+    }
+  });
+}

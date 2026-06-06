@@ -18,6 +18,7 @@ import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerGateCommands } from './commands/gate-commands.js';
+import { registerHookHandleCommand } from './commands/hook-handle.js';
 import { registerHooksCommands } from './commands/hooks-commands.js';
 import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
@@ -97,6 +98,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerSliceCommands(program, io);
   registerSopCommands(program, io);
   registerGateCommands(program, io);
+  registerHookHandleCommand(program, io);
   registerHooksCommands(program, io);
   registerStatusLineCommands(program, io);
   registerUnderstandCommands(program, io);
