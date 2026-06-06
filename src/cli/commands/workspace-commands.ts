@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
+import { regenerateChangeLinks } from '../../services/workspace/change-link-service.js';
 import { ensureSession } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
@@ -125,6 +126,13 @@ type WorkspaceReconcileOptions = {
   json?: boolean;
   apply?: boolean;
   olderThan?: number;
+  /**
+   * Slice 003: link-only regeneration. When set, ONLY the per-change-id
+   * symlink/manifest regen step runs. No migration, no repoint, no
+   * deletion-candidate report. Use this when the user wants to refresh
+   * `.peaks/_runtime/change/<rid>` without re-running the full reconcile.
+   */
+  changeLinks?: boolean;
 };
 
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
@@ -280,18 +288,33 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
     workspace
       .command('reconcile')
       .description(
-        'Scan .peaks/2026-MM-DD-session-*/ directories and re-point .peaks/_runtime/session.json ' +
-          'to the canonical session (4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
-          'latest any-file mtime -> dir-name sort). Also migrates any legacy .peaks/.session.json / ' +
-          '.peaks/.active-skill.json / .peaks/sop-state/ into .peaks/_runtime/ (idempotent; no-op on a ' +
-          'tree that is already on the new layout). By default the command is a dry-run: it reports empty / abandoned ' +
-          `session dirs older than ${DEFAULT_RECONCILE_AGE_DAYS} days as deletion candidates but does not delete them. ` +
-          'Pass --apply to actually remove the listed candidate dirs (destructive). ' +
-          'Override the age threshold with --older-than <days>.'
+        'Scan .peaks/2026-MM-DD-session-*/ directories and consolidate the runtime state. ' +
+          'By default (no --apply) the command performs four actions:\n' +
+          '  1. Migrates legacy runtime files into .peaks/_runtime/: ' +
+          '.peaks/.session.json -> .peaks/_runtime/session.json, ' +
+          '.peaks/.active-skill.json -> .peaks/_runtime/active-skill.json, ' +
+          '.peaks/sop-state/ -> .peaks/_runtime/sop-state/ ' +
+          '(idempotent; no-op if already on the new layout).\n' +
+          '  2. Re-points .peaks/_runtime/session.json to the canonical session ' +
+          'using a 4-tier heuristic: active-skill binding -> latest session.json mtime -> ' +
+          'latest any-file mtime -> dir-name sort.\n' +
+          '  3. (slice 003) Regenerates the per-change-id symlink layer under ' +
+          '.peaks/_runtime/change/<rid> -> ../<sid>/. On EPERM (Windows non-developer-mode) ' +
+          'a .peaks-link.json manifest is written as a fallback.\n' +
+          '  4. REPORTS (but does not delete) session dirs older than --older-than <days> ' +
+          `(default ${DEFAULT_RECONCILE_AGE_DAYS}) as deletion candidates; this is the only step that is dry-run by default.\n` +
+          'Pass --apply to additionally REMOVE the listed candidate dirs (destructive). ' +
+          'Migration (1), repoint (2), and link regen (3) always run regardless of --apply.\n\n' +
+          'Pass --change-links to run ONLY the link-regen step (3); no migration, no repoint, no deletion report.'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--apply', 'actually delete the deletion candidates (destructive); without it, dry-run only', false)
       .option('--older-than <days>', `age threshold in days for deletion candidates (default: ${DEFAULT_RECONCILE_AGE_DAYS})`, (value: string) => Number.parseFloat(value))
+      .option(
+        '--change-links',
+        'slice 003: only regenerate the per-change-id symlink layer under .peaks/_runtime/change/ (no migration, no repoint, no deletion-candidate report).',
+        false
+      )
   ).action((options: WorkspaceReconcileOptions) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
@@ -307,6 +330,39 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       }
       const olderThanMs = olderThanDays * MS_PER_DAY;
       const apply = options.apply === true;
+      const changeLinksOnly = options.changeLinks === true;
+
+      if (changeLinksOnly) {
+        // Slice 003: link-only regen. Skip migration, repoint, and
+        // deletion-candidate report; just regenerate the per-change-id
+        // symlinks (or EPERM manifest fallback) under .peaks/_runtime/change/.
+        const linkResult = regenerateChangeLinks({ projectRoot });
+        const warnings: string[] = [];
+        if (linkResult.errors.length > 0) {
+          warnings.push(`${linkResult.errors.length} change-link issue(s) — see response.`);
+        }
+        const nextActions: string[] = [];
+        if (linkResult.manifestWritten) {
+          nextActions.push(`Wrote EPERM-fallback manifest at ${linkResult.manifestPath} (Windows non-developer-mode or symlink rejected).`);
+        }
+        if (linkResult.created.length > 0) {
+          nextActions.push(`Created ${linkResult.created.length} change/<rid> symlink(s).`);
+        }
+        if (linkResult.skipped.length > 0) {
+          nextActions.push(`Skipped ${linkResult.skipped.length} already-correct symlink(s).`);
+        }
+        printResult(io, ok('workspace.reconcile', {
+          changeLinksOnly: true,
+          changeLinks: {
+            created: linkResult.created,
+            skipped: linkResult.skipped,
+            errors: linkResult.errors,
+            manifestWritten: linkResult.manifestWritten,
+            manifestPath: linkResult.manifestPath
+          }
+        }, warnings, nextActions), options.json);
+        return;
+      }
 
       const result = reconcileWorkspace({
         projectRoot,
@@ -331,6 +387,15 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       }
       if (!apply && result.wouldDelete.length > 0) {
         nextActions.push(`Re-run with --apply to delete ${result.wouldDelete.length} candidate dir(s).`);
+      }
+      if (result.changeLinks) {
+        const created = result.changeLinks.created.length;
+        const skipped = result.changeLinks.skipped.length;
+        if (result.changeLinks.manifestWritten) {
+          nextActions.push(`Regenerated change/<rid> links: ${created} created, ${skipped} skipped; wrote EPERM-fallback manifest at ${result.changeLinks.manifestPath}.`);
+        } else if (created + skipped > 0) {
+          nextActions.push(`Regenerated change/<rid> links: ${created} created, ${skipped} skipped.`);
+        }
       }
 
       printResult(io, ok('workspace.reconcile', result, warnings, nextActions), options.json);
@@ -360,20 +425,30 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
           'response. By default the command is a dry-run: it reports the planned moves + conflicts ' +
           'and the session dirs that WOULD be deleted. Pass --apply to actually `git mv` the files ' +
           'and `rm -rf` the emptied session dirs. Idempotent: re-running on an already-migrated tree ' +
-          'is a no-op (all files report conflicts with identical content).'
+          'is a no-op (all files report conflicts with identical content).' +
+          '\n\nSlice 003 (--to-runtime): moves every top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/` ' +
+          'for projects still on the pre-runtime-layer layout. Idempotent: re-running on a tree ' +
+          'that is already canonical is a no-op. F15 carve-out: top-level `rd/project-scan.md` is ' +
+          'never overwritten when the runtime copy already exists with different content.'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--apply', 'actually `git mv` the files and delete the emptied session dirs (destructive); without it, dry-run only', false)
-  ).action(async (options: { project: string; apply?: boolean; json?: boolean }) => {
+      .option(
+        '--to-runtime',
+        'slice 003: also consolidate every top-level .peaks/<sid>/ dir into .peaks/_runtime/<sid>/. Idempotent; conflicts are logged but never overwrite.',
+        false
+      )
+  ).action(async (options: { project: string; apply?: boolean; toRuntime?: boolean; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const apply = options.apply === true;
-      const result = await migrateWorkspace({ projectRoot, apply });
+      const toRuntime = options.toRuntime === true;
+      const result = await migrateWorkspace({ projectRoot, apply, toRuntime });
 
       const warnings: string[] = [];
-      if (result.sessions.length === 0) {
+      if (result.sessions.length === 0 && (result.toRuntimePlans?.length ?? 0) === 0) {
         warnings.push('No legacy session directories found under .peaks/. Nothing to migrate.');
-      } else if (result.wouldMove.length === 0) {
+      } else if (result.wouldMove.length === 0 && (result.toRuntimePlans?.length ?? 0) === 0) {
         warnings.push('Legacy session dirs found but no reviewable content to migrate (all files were cross-cutting or transient).');
       }
 
@@ -383,6 +458,29 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       }
       if (result.conflicts.length > 0) {
         nextActions.push(`${result.conflicts.length} file(s) already exist at the target path; review before --apply (or re-run after a partial migrate).`);
+      }
+      if (toRuntime) {
+        const plans = result.toRuntimePlans ?? [];
+        if (apply) {
+          if ((result.toRuntimeMoved?.length ?? 0) > 0) {
+            nextActions.push(`Moved ${result.toRuntimeMoved?.length} top-level session dir(s) to .peaks/_runtime/ (slice 003 --to-runtime).`);
+          }
+          if ((result.toRuntimeConflicts?.length ?? 0) > 0) {
+            nextActions.push(`${result.toRuntimeConflicts?.length} --to-runtime conflict(s) — see response. ${plans.filter((p) => p.action === 'f15-conflict-project-scan').length} are F15 carve-outs (deferred to a separate slice).`);
+          }
+        } else {
+          const wouldMoveCount = plans.filter((p) => p.action === 'moved').length;
+          const wouldSkipCount = plans.filter((p) => p.action === 'skipped-already-canonical').length;
+          if (wouldMoveCount > 0) {
+            nextActions.push(`Re-run with --apply to move ${wouldMoveCount} top-level session dir(s) to .peaks/_runtime/; ${wouldSkipCount} already canonical.`);
+          } else if (wouldSkipCount > 0) {
+            nextActions.push(`All ${wouldSkipCount} top-level session dir(s) are already canonical — no moves needed.`);
+          }
+          const f15Count = plans.filter((p) => p.action === 'f15-conflict-project-scan').length;
+          if (f15Count > 0) {
+            nextActions.push(`${f15Count} F15 carve-out conflict(s) (rd/project-scan.md differs from runtime copy) — see response.`);
+          }
+        }
       }
       if (apply) {
         if (result.moved.length > 0) {
