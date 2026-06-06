@@ -156,7 +156,14 @@ export function buildStartSpawn(options: BuildStartSpawnOptions): StartSpawnSpec
     return {
       ok: true,
       command: 'cmd',
-      args: ['/c', 'start', `"${windowTitle}"`, 'cmd', '/k', bannerCmd]
+      // Wrap bannerCmd in an EXTRA pair of outer quotes so the OUTER
+      // `cmd /c`'s script parser sees the banner as a single arg
+      // (not a `&&`-chained script). The INNER `cmd /k` in the new
+      // window strips the extra outer quotes and parses the banner
+      // as a normal script. windowTitle is left unquoted: Node's
+      // spawn applies the correct Windows escaping naturally,
+      // which is more robust than pre-quoting.
+      args: ['/c', 'start', windowTitle, 'cmd', '/k', `"${bannerCmd}"`]
     };
   }
 

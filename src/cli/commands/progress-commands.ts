@@ -264,7 +264,14 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
       // asked for visible "this is peaks-cli" branding so the
       // spawned terminal is identifiable at a glance; the title
       // also makes `peaks progress close` self-documenting.
-      const windowTitle = `peaks-cli: sub-agent progress${reasonSuffix}`;
+      //
+      // Em-dash (U+2014) instead of a colon. On Windows, cmd /c's
+      // script parser interprets a `:` even inside quotes as a
+      // drive-letter prefix, so `peaks-cli: sub-agent progress`
+      // triggers the "Windows 找不到文件 'sub-agent'" dialog. The
+      // em-dash is a no-op for cmd / c, bash, and AppleScript
+      // string parsing — the visible branding is preserved.
+      const windowTitle = `peaks-cli — sub-agent progress${reasonSuffix}`;
       const watchCommand = `${peaksBin} progress watch --project "${canonical}"`;
       // Build the platform-specific spawn command + args. This
       // is extracted to ./progress-start-spawn.ts so the three
