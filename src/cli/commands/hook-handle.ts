@@ -7,8 +7,16 @@ import { fail, ok } from '../../shared/result.js';
 
 type HookHandleOptions = { project: string; json?: boolean };
 
-/** Read the hook payload from stdin. Returns empty string on TTY. */
+/**
+ * Read the hook payload. `PEAKS_HOOK_STDIN` is a test seam (same convention as
+ * `gate-commands.ts`); production reads stdin. The TTY short-circuit means an
+ * interactive shell invocation is treated as an empty payload (allow).
+ */
 async function readStdin(): Promise<string> {
+  const override = process.env.PEAKS_HOOK_STDIN;
+  if (override !== undefined) {
+    return override;
+  }
   if (process.stdin.isTTY) return '';
   return new Promise<string>((resolveStdin) => {
     let data = '';
