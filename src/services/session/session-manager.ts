@@ -219,9 +219,16 @@ function writeSessionFile(projectRoot: string, info: SessionInfo): void {
  * no binding was present. The caller is expected to do something
  * with that — at minimum surface it in the CLI response so the
  * user can find the directory again if they need to.
+ *
+ * Slice 008 (F22 fix): the read uses the canonicalize-on-read
+ * variant so a binding written with `projectRoot: "."` (relative
+ * form, anchored from inside the project dir) is still found when
+ * the caller passes the absolute realpath. Pre-F22 the
+ * strict-equality read returned null in that case, and rotate
+ * silently no-op'd (the CLI reported "no prior binding").
  */
 export function rotateSessionBinding(projectRoot: string): string | null {
-  const previous = readSessionFile(projectRoot);
+  const previous = readSessionFileCanonical(projectRoot);
   if (previous === null) {
     return null;
   }

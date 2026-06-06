@@ -10,6 +10,7 @@ import {
   listSessions,
   getProjectScanPath,
   hasProjectScan,
+  rotateSessionBinding,
 } from '../../src/services/session/session-manager.js';
 
 describe('session-manager', () => {
@@ -481,6 +482,71 @@ describe('session-manager', () => {
       const found = metas.find((m) => m.sessionId === sessionId);
       expect(found).toBeDefined();
       expect(found!.createdAt).toBe('');
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────
+  // Slice 008 (F22 regression) — `rotateSessionBinding` must
+  // find the binding even when the stored `projectRoot` form
+  // differs from the caller-passed form (the canonicalize-on-read
+  // contract). The pre-F22 implementation used strict equality
+  // via `readSessionFile`, so a binding written with relative "."
+  // (e.g. by `peaks skill presence:set` from inside the project
+  // dir) was invisible to a caller that passed the absolute
+  // realpath, and rotate silently returned null.
+  // ───────────────────────────────────────────────────────────
+  describe('rotateSessionBinding (F22 regression)', () => {
+    test('returns the previous sid and removes the binding when forms differ (relative "." stored, absolute realpath caller)', () => {
+      // Simulate the canonical sub-agent scenario: presence:set
+      // anchored the binding with `projectRoot: "."` (relative form,
+      // written from inside the project dir). The CLI's rotate call
+      // passes the absolute realpath. The strict-equality read
+      // returns null and the binding is left in place; this is the
+      // bug. The fix uses the canonicalize-on-read variant.
+      const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime'), { recursive: true });
+      writeFileSync(
+        sessionFile,
+        JSON.stringify({
+          sessionId: '2026-06-06-session-rotate-a',
+          createdAt: '2026-06-06T00:00:00.000Z',
+          projectRoot: '.'
+        }, null, 2),
+        'utf8'
+      );
+
+      const result = rotateSessionBinding(testProjectRoot);
+
+      expect(result).toBe('2026-06-06-session-rotate-a');
+      expect(existsSync(sessionFile)).toBe(false);
+    });
+
+    test('returns the previous sid and removes the binding when forms match (absolute stored, absolute caller)', () => {
+      // Sanity: the strict-equality happy path still works (no
+      // regression to the existing rotate behavior).
+      const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime'), { recursive: true });
+      writeFileSync(
+        sessionFile,
+        JSON.stringify({
+          sessionId: '2026-06-06-session-rotate-b',
+          createdAt: '2026-06-06T00:00:00.000Z',
+          projectRoot: testProjectRoot
+        }, null, 2),
+        'utf8'
+      );
+
+      const result = rotateSessionBinding(testProjectRoot);
+
+      expect(result).toBe('2026-06-06-session-rotate-b');
+      expect(existsSync(sessionFile)).toBe(false);
+    });
+
+    test('returns null when no binding exists', () => {
+      // No binding written. The function must not invent a value
+      // and must not throw — it just reports "no prior binding".
+      const result = rotateSessionBinding(testProjectRoot);
+      expect(result).toBeNull();
     });
   });
 });

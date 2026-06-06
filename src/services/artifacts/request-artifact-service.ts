@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
-import { ensureSession } from '../session/session-manager.js';
+import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
 import { getCurrentChangeId, getChangeArtifactRoot } from '../../shared/change-id.js';
 import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
@@ -373,6 +373,32 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   //   2. `current-change` binding (live developer working context).
   //   3. The requestId itself (every request is its own scope by default).
   const changeId = options.changeId ?? boundChangeId ?? options.requestId;
+
+  // Slice 008 (F21 fix): fail fast when the resolved session id
+  // looks like a real session id (matches the date+session prefix)
+  // but does NOT correspond to an actual session dir under
+  // `.peaks/_runtime/`. Pre-F21 a sub-agent with a typo or stale
+  // binding (e.g. `2025-01-01-session-deadbe`) silently planned
+  // to write to a non-existent path. The check is intentionally
+  // scoped to "looks like a real session id" — a sid like
+  // `test-session` or `s` (no date prefix) is allowed through so
+  // the existing F3 / slice-007 back-compat flows (e.g. the
+  // `peaks request init --session-id <arbitrary-scope>` tests)
+  // can still create the dir on demand via the writer's
+  // `mkdir(..., { recursive: true })`.
+  const LOOKS_LIKE_SESSION_ID = /^\d{4}-\d{2}-\d{2}-session-/;
+  if (LOOKS_LIKE_SESSION_ID.test(sessionId)) {
+    const sessionDir = join(options.projectRoot, '.peaks', '_runtime', sessionId);
+    if (!(await isDirectory(sessionDir))) {
+      const canonicalSid = getSessionIdCanonical(options.projectRoot);
+      const hint = canonicalSid !== null
+        ? `Use --session-id ${canonicalSid} or run 'peaks workspace init' to create a new session.`
+        : `Run 'peaks workspace init' to create a new session.`;
+      throw new Error(
+        `session id '${sessionId}' does not exist in _runtime/. Current canonical binding is '${canonicalSid ?? '<none>'}'. ${hint}`
+      );
+    }
+  }
 
   // Build numbered path under the session dir (canonical post-F3 home).
   const requestsDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, options.role, 'requests');

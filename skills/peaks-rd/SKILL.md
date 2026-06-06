@@ -47,7 +47,7 @@ When this skill is launched as a sub-agent via `Task(subagent_type="general-purp
 
 What the sub-agent **MUST** still do, from this skill's contract:
 
-0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out (the runbook has the exact `peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json` call). The sub-agent reads the slot via `peaks request show <rid> --role rd --project <repo> --json` if it needs to.
+0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out (the runbook has the exact `peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json` call). The sub-agent reads the slot via `peaks request show <rid> --role rd --project <repo> --json` if it needs to. Note: `peaks request init` is **dry-run by default**. Pass `--apply` to actually create the artifact.
 2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role ui` if UI is in the swarm plan).
 3. Standards preflight (dry-run only; Solo owns the apply step).
 4. Project-scan read; create `rd/project-scan.md` only if Solo flagged it missing in the dispatch prompt.

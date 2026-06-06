@@ -202,6 +202,61 @@ describe('peaks request init command', () => {
     expect(secondOutput.data.sessionId).not.toBe(anchoredSid);
     expect(secondOutput.data.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
   });
+
+  // ───────────────────────────────────────────────────────────
+  // Slice 008 (F21 regression) — `peaks request init
+  // --session-id <bad-sid>` must fail fast with a clear error
+  // message listing the canonical binding, instead of silently
+  // accepting the bad sid and planning to write to a non-
+  // existent path. Pre-F21, a sub-agent with a typo or stale
+  // binding wrote to nowhere.
+  // ───────────────────────────────────────────────────────────
+  test('rejects --session-id when the sid does not exist in _runtime/', async () => {
+    const project = await makeProject('request-init-bad-sid');
+
+    const result = await runCommand([
+      'request', 'init',
+      '--role', 'rd',
+      '--id', '2026-06-06-bad-sid',
+      '--session-id', '2025-01-01-session-bogus',
+      '--project', project,
+      '--json'
+    ]);
+    const output = parseJsonOutput(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('REQUEST_INIT_FAILED');
+    expect(output.message).toContain('2025-01-01-session-bogus');
+    expect(output.message).toContain('does not exist');
+    expect(result.exitCode).toBe(1);
+
+    // No file should be created in the bogus session dir.
+    const bogusDir = join(project, '.peaks', '_runtime', '2025-01-01-session-bogus');
+    expect(existsSync(bogusDir)).toBe(false);
+  });
+
+  test('accepts --session-id when the sid directory exists', async () => {
+    // The existing `explicit --session-id still binds to that sid`
+    // test already covers the happy-path back-compat. This is the
+    // F21 companion: create the session dir explicitly, then
+    // request init with that sid must succeed (not regress).
+    const project = await makeProject('request-init-sid-dir-exists');
+    const sidDir = join(project, '.peaks', '_runtime', '2026-06-06-existing-sid');
+    await mkdir(sidDir, { recursive: true });
+
+    const result = await runCommand([
+      'request', 'init',
+      '--role', 'rd',
+      '--id', '2026-06-06-existing-sid-test',
+      '--session-id', '2026-06-06-existing-sid',
+      '--project', project,
+      '--json'
+    ]);
+    const output = parseJsonOutput<{ sessionId: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.sessionId).toBe('2026-06-06-existing-sid');
+  });
 });
 
 describe('peaks request list command', () => {
