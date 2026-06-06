@@ -1,13 +1,22 @@
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, mkdirSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { assertSafeSettingsFile, isInsidePath } from '../ide/shared/safe-path.js';
+import { getAdapter } from '../ide/ide-registry.js';
 
 /**
- * Installs (and removes) the Peaks statusLine entry in a Claude Code
- * settings.json. The statusLine renders `peaks statusline` on every turn, giving
- * users an out-of-band, harness-painted signal of which Peaks skill is active —
- * independent of LLM tokens and immune to context compaction.
+ * Installs (and removes) the Peaks statusLine entry in an IDE's settings
+ * file. The settings file location is adapter-driven
+ * (`getAdapter(ide).settings.dirName` + `settingsFileName`) so a future slice
+ * adding a Trae / Cursor / Codex adapter does not need to touch this file.
+ *
+ * Slice #1 only registers claude-code, so the resolved path is still
+ * `<root>/.claude/settings.json` — the same as before the refactor. The
+ * statusLine entry is rendered as `{ type: 'command', command: 'peaks
+ * statusline' }` because that is the shape Claude Code expects; future
+ * adapters may need a different entry shape (e.g. Cursor's `statusBar`
+ * field) and would override this in their adapter.
  *
  * Writes preserve all other settings keys, reject symlinked targets, and use an
  * atomic rename so a partial write can never corrupt an existing settings file.
@@ -33,10 +42,9 @@ export const STATUSLINE_COMMAND = 'peaks statusline';
 
 type StatusLineEntry = { type: string; command: string; padding?: number };
 
-function isInsidePath(childPath: string, parentPath: string): boolean {
-  const rel = relative(parentPath, childPath);
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
-}
+// Re-export the shared helper so existing consumers that imported
+// `isInsidePath` from this module keep compiling.
+export { isInsidePath };
 
 function resolveSettingsRoot(scope: StatusLineScope, projectRoot: string | undefined): string {
   if (scope === 'global') return resolve(homedir());
@@ -46,26 +54,25 @@ function resolveSettingsRoot(scope: StatusLineScope, projectRoot: string | undef
   return resolve(projectRoot);
 }
 
-function resolveSettingsPath(scope: StatusLineScope, projectRoot: string | undefined): string {
+/**
+ * Resolve + safety-check the settings path for the given scope. The
+ * `dirName` and `settingsFileName` come from the registered Claude adapter
+ * (`getAdapter('claude-code')`) so the hardcoded `.claude/settings.json` is
+ * gone — future adapters swap by changing the registry, not this file.
+ */
+function resolveAndAssertSettingsPath(
+  scope: StatusLineScope,
+  projectRoot: string | undefined
+): { root: string; settingsPath: string } {
   const root = resolveSettingsRoot(scope, projectRoot);
-  return join(root, '.claude', 'settings.json');
-}
-
-/** Reject symlinked .claude dir or settings file to prevent escape. */
-function assertSafeSettingsPath(scope: StatusLineScope, root: string, settingsPath: string): void {
-  const claudeDir = join(root, '.claude');
-  if (existsSync(claudeDir) && lstatSync(claudeDir).isSymbolicLink()) {
-    throw new Error('.claude directory must not be a symlink');
-  }
-  if (existsSync(settingsPath)) {
-    if (lstatSync(settingsPath).isSymbolicLink()) {
-      throw new Error('settings.json must not be a symlink');
-    }
-    const realRoot = realpathSync(root);
-    if (!isInsidePath(realpathSync(settingsPath), realRoot)) {
-      throw new Error(`settings.json must stay inside the ${scope} root`);
-    }
-  }
+  const adapter = getAdapter('claude-code');
+  const { settingsPath } = assertSafeSettingsFile(
+    scope,
+    root,
+    adapter.settings.dirName,
+    adapter.settings.settingsFileName
+  );
+  return { root, settingsPath };
 }
 
 function readSettings(settingsPath: string): Record<string, unknown> {
@@ -109,9 +116,7 @@ function buildPlan(scope: StatusLineScope, settingsPath: string, settings: Recor
 }
 
 export function planStatusLineInstall(scope: StatusLineScope, projectRoot?: string): StatusLineSettingsPlan {
-  const root = resolveSettingsRoot(scope, projectRoot);
-  const settingsPath = resolveSettingsPath(scope, projectRoot);
-  assertSafeSettingsPath(scope, root, settingsPath);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
   return buildPlan(scope, settingsPath, settings, exists);
@@ -140,9 +145,7 @@ function atomicWriteJson(settingsPath: string, settings: Record<string, unknown>
 }
 
 export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options: { force?: boolean } = {}): StatusLineSettingsResult {
-  const root = resolveSettingsRoot(scope, projectRoot);
-  const settingsPath = resolveSettingsPath(scope, projectRoot);
-  assertSafeSettingsPath(scope, root, settingsPath);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
   const plan = buildPlan(scope, settingsPath, settings, exists);
@@ -161,9 +164,7 @@ export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: str
 }
 
 export function removeStatusLineInstall(scope: StatusLineScope, projectRoot?: string): { scope: StatusLineScope; settingsPath: string; removed: boolean } {
-  const root = resolveSettingsRoot(scope, projectRoot);
-  const settingsPath = resolveSettingsPath(scope, projectRoot);
-  assertSafeSettingsPath(scope, root, settingsPath);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
   if (!existsSync(settingsPath)) {
     return { scope, settingsPath, removed: false };
   }
@@ -176,3 +177,8 @@ export function removeStatusLineInstall(scope: StatusLineScope, projectRoot?: st
   atomicWriteJson(settingsPath, rest);
   return { scope, settingsPath, removed: true };
 }
+
+// Suppress unused-import warning for `isAbsolute` if it becomes unused in
+// future refactors. The pre-refactor file used it in the local isInsidePath;
+// the shared helper owns that logic now.
+void isAbsolute;
