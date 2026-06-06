@@ -44,7 +44,7 @@ peaks-solo (orchestrate only)
 
 | Mode | Swarm side (after PRD) | Repair loop side (RD↔QA) |
 |---|---|---|
-| `full-auto` / `swarm` | `Task(subagent_type="general-purpose")` sub-agent running `peaks-rd`/`peaks-qa`/`peaks-ui` body | `Task(...)` sub-agent per cycle |
+| `full-auto` / `swarm` | `peaks sub-agent dispatch <role>` — IDE-agnostic dispatch primitive; CLI returns a tool-call descriptor the LLM executes in its own environment | `peaks sub-agent dispatch <role>` per cycle |
 | `assisted` / `strict` / inline-fallback | Solo executes the role steps inline in the main loop (the `peaks-solo` skill IS the role's owner) | Solo executes inline |
 
 In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contracts. The only difference is whether the role's body is being read by a sub-agent Task prompt or by Solo's own main loop. **Never bypass the role contracts regardless of which path runs.**
@@ -624,23 +624,25 @@ Sub-agent presence in this list = Solo launched a Task for it. Absence = the rol
 
 In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Solo updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
 
-### Sub-agent mechanism (Task tool, NOT Skill tool)
+### Sub-agent mechanism (IDE-agnostic dispatch, NOT Skill tool)
 
-**Solo is itself a skill running in the current session. To invoke a role in the Swarm, Solo MUST use the `Task` tool with `subagent_type="general-purpose"` and a prompt that embeds the role's contract — NOT the `Skill` tool.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The Task tool is the only mechanism that gives real fan-out in Claude Code.
+**Solo is itself a skill running in the current session. To invoke a role in the Swarm, Solo MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
 
-Each sub-agent Task call looks like:
+Each sub-agent dispatch call looks like:
 
 ```
-Task(
-  subagent_type="general-purpose",
-  description="<role> for rid=<rid>",
-  prompt="<paste peaks-<role>/SKILL.md body, minus the self-presence / Step 0 blocks, plus
-          the runtime arguments: project=<repo>, session-id=<sid>, request-id=<rid>, mode=<mode>>
-          plus the explicit output contract: 'Write your artefacts to the paths listed below and
-          return only the list of paths. Do not call Skill(...). Do not set presence. Do not
-          hand back prose.'"
-)
+peaks sub-agent dispatch <role> \
+  --prompt "<paste peaks-<role>/SKILL.md body, minus the self-presence / Step 0 blocks,
+            plus the runtime arguments: project=<repo>, session-id=<sid>, request-id=<rid>, mode=<mode>,
+            plus the explicit output contract: 'Write your artefacts to the paths listed below and
+            return only the list of paths. Do not call Skill(...). Do not set presence. Do not
+            hand back prose.', plus the heartbeat instruction: 'While running, call
+            peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progress <pct> --note \"<text>\"
+            at least every 30 seconds.'>" \
+  --request-id <rid> --session-id <sid> --project <repo> --json
 ```
+
+Then the LLM takes `data.toolCall` from the envelope (a `{name, args}` descriptor), looks up the tool by `name` in its environment, and invokes it with `args` — IDE-private, no SKILL.md hardcoding.
 
 The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `references/swarm-dispatch-contract.md`):
 
@@ -650,16 +652,17 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 | `rd-planning` | `.peaks/<sid>/rd/tech-doc.md` (feature/refactor) or `.peaks/<sid>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
 | `qa-test-cases` | `.peaks/<sid>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
-**Solo launches all sub-agents in the swarm plan in a single message (multiple Task tool calls in parallel)** — this is what gives real concurrency. Do not sequentialize them. Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Cli Gate B), and only then advances to RD implementation.
+**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Cli Gate B), and only then advances to RD implementation.
 
-**Hard prohibitions on sub-agents** (also passed in each Task prompt):
+**Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 
 - Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
 - Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/<sid>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
 - Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
 - Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
+- **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
 
-After every sub-agent Task returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
+After every sub-agent dispatch returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
 
 ```bash
 peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-converged
@@ -706,7 +709,7 @@ After `peaks-rd` finishes any implementation, repair, or code-output slice, Peak
 
 Solo is itself a skill running in the current session. There are **two distinct mechanisms** in this skill, and they MUST NOT be confused:
 
-1. **Swarm fan-out (planning side, after PRD confirmed)** — uses the `Task` tool with `subagent_type="general-purpose"` to launch real concurrent sub-agents. See "Peaks-Cli Swarm parallel phase" above for the full contract. Sub-agents do NOT call Skill(...) back into the role; they execute the role's instructions inline from the prompt.
+1. **Swarm fan-out (planning side, after PRD confirmed)** — uses `peaks sub-agent dispatch <role>` to launch real concurrent sub-agents. The CLI returns a per-IDE tool-call descriptor that the LLM executes in its environment. See "Peaks-Cli Swarm parallel phase" above for the full contract. Sub-agents do NOT call Skill(...) back into the role; they execute the role's instructions inline from the prompt.
 2. **Sequential handoff (execution side, RD↔QA repair loop)** — Solo is the only loop, and after RD or QA finishes (whether as a sub-agent or directly), Solo drives the next step from the orchestrator seat. Do NOT use the `Skill` tool to "reactivate" peaks-rd or peaks-qa in the main loop; doing so is the v1.x anti-pattern that masqueraded as "calling the role" but actually just re-prompted the same session. From v1.3 onward, the main loop drives roles via the CLI gate (`peaks request transition`) and reads back artefacts (`peaks request show ... --json`); the actual RD/QA work is either done inline by Solo (when Solo has just been re-invoked by the user) or by a Task sub-agent (in swarm mode).
 
 After RD completes (whether inline or sub-agent), Solo does not stop — it must advance to QA. There is no "RD done, ask the user" state in full-auto mode. The only valid stops are: (a) QA verdict=pass, (b) repair cap hit, (c) explicit user cancel.
@@ -721,7 +724,7 @@ peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <curre
 
 This keeps the CLAUDE.md status header accurate (`Peaks-Cli Skill: peaks-solo`) instead of showing a stale role name. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last-known gate permanently.
 
-**Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Solo immediately drives QA — by launching a `Task(subagent_type="general-purpose", ...)` sub-agent carrying the `peaks-qa` body (swarm path), or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
+**Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Solo immediately drives QA — by launching a `peaks sub-agent dispatch qa` sub-agent carrying the `peaks-qa` body (swarm path), then executing the returned toolCall, or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
 
 A QA report with any failing, blocked, missing, or unverified acceptance item is not a pass.
 
@@ -738,7 +741,7 @@ When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite R
    ```
    `spec-locked` is the canonical "needs more RD work" state. The reason is mandatory in repair cycles so the artifact history shows the loop.
 3. Re-launch `peaks-rd` work. Two paths, mode-driven:
-   - **Swarm / full-auto**: launch a fresh `Task(subagent_type="general-purpose", ...)` sub-agent with the same `peaks-rd` body used in the Swarm phase, plus the QA findings path so it can read the failure list. Solo restores presence after the sub-agent returns.
+   - **Swarm / full-auto**: launch a fresh `peaks sub-agent dispatch rd` sub-agent (then execute the returned toolCall) with the same `peaks-rd` body used in the Swarm phase, plus the QA findings path so it can read the failure list. Solo restores presence after the sub-agent returns.
    - **Assisted / strict / inline-fallback**: Solo executes the RD repair steps directly in the main loop, since there is no concurrent fan-out to coordinate.
    In both paths, pass the QA findings path so the repair sees what failed.
 4. peaks-rd fixes the reported issues only (red-line scope: do not modify unrelated surfaces), regenerates code-review and security-review evidence if changes touched reviewed surfaces, then transitions `rd → implemented → qa-handoff` again.

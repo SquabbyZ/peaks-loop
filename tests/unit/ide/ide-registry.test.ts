@@ -66,6 +66,7 @@ describe('ide-registry — test seams', () => {
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
       subAgentToolMatcher: 'SubAgent',
+      subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       installHints: [],
       capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
     };
@@ -90,6 +91,7 @@ describe('ide-registry — test seams', () => {
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
       subAgentToolMatcher: 'SubAgent',
+      subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       installHints: [],
       capabilities: { gateEnforce: true, progressStart: false, statusline: false, mcpInstall: true }
     });

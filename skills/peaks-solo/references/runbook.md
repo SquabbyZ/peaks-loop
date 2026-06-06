@@ -53,10 +53,10 @@ peaks request lint <rid> --role prd --project <repo> --json
 peaks request transition <rid> --role prd --state confirmed-by-user --project <repo> --json
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
-# 3. Peaks-Cli Swarm parallel — sub-agent fan-out (Task tool, NOT Skill tool)
+# 3. Peaks-Cli Swarm parallel — sub-agent fan-out (peaks sub-agent dispatch, NOT Skill tool)
 #    Solo computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
 #    writes it to .peaks/<sid>/sc/swarm-plan.json, then launches one
-#    Task(subagent_type="general-purpose", ...) call per sub-agent in the same message.
+#    `peaks sub-agent dispatch <role>` call per sub-agent in the same message.
 #    See "Peaks-Cli Swarm parallel phase" above for the full decision table and the
 #    prompt template; the role's required artefact paths are listed there.
 #    Hard rule: do NOT call Skill(skill="peaks-rd" | "peaks-qa" | "peaks-ui") from
@@ -75,7 +75,7 @@ peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-
 # e.g. if plan = [ui, rd, qa]: run init for ui, rd, qa.
 # If plan = [rd, qa]: run for rd, qa only.
 # If plan = [] (config|docs|chore skip): no inits here, jump to step 4 directly.
-# 3b. Solo issues N Task(subagent_type="general-purpose", ...) calls in ONE message
+# 3b. Solo issues N `peaks sub-agent dispatch <role>` calls in ONE message
 #     (N = len(swarm-plan.subAgents)). Each prompt embeds the role's body minus
 #     Step 0 / presence, plus the runtime args (rid / sid / mode / type / paths).
 # 3c. After fan-out, Solo restores presence once and runs Gate B (ls checks):

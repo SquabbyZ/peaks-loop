@@ -37,7 +37,7 @@ The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for b
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
-When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/<session-id>/system/sub-agent-rd.json` and only that.
@@ -566,7 +566,7 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (code-review + security-review + perf-baseline + qa-test-cases)
 
-**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via Task() sub-agents, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 Task() calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
 
 **Why 4 sub-agents (added in slice 004):** the original 3-way fan-out (code-review + security-review + perf-baseline) cut the RD→QA wall-clock by running 3 LLM writes in parallel, but `qa/test-cases/<rid>.md` was still written sequentially by QA's main loop AFTER the RD handoff landed. Drafting QA test-cases in the same fan-out means the QA main loop's first action is "execute the pre-drafted test plan + write test-report" instead of "draft a test plan from scratch + execute + write report". Wall-clock drop: ~30-40% on the RD→QA-verdict segment for `feature` / `refactor` / `bugfix` slices.
 
@@ -575,14 +575,18 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 - Bugfix slices: code-review + security-review + qa-test-cases always run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
 - Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact. (qa-test-cases also skipped — config / docs / chore have no acceptance surface to validate.)
 
-**The Task() template (mirror of peaks-solo L705-717):**
+**The dispatch template (mirror of peaks-solo L705-717):**
 
 ```
-Task(
-  subagent_type="general-purpose",
-  description="<role> review for rid=<rid>",
-  prompt="<role contract below>, plus runtime args: project=<repo>, session-id=<sid>, request-id=<rid>. Write your evidence file at .peaks/<sid>/<evidence-path> and return ONLY the path. Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push, install hooks, or mutate settings.json. Do not edit any source file — review only."
-)
+peaks sub-agent dispatch <role> \
+  --prompt "<role contract below>, plus runtime args: project=<repo>, session-id=<sid>, request-id=<rid>.
+             Write your evidence file at .peaks/<sid>/<evidence-path> and return ONLY the path.
+             Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push,
+             install hooks, or mutate settings.json. Do not edit any source file — review only.
+             While running, call peaks sub-agent heartbeat --record <dispatchRecordPath>
+             --status running --progress <pct> --note \"<text>\" at least every 30 seconds;
+             on completion call --status done --progress 100 --note 'completed'." \
+  --request-id <rid> --session-id <sid> --project <repo> --json
 ```
 
 Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/test-cases/<rid>.md` (QA's dir). The role name in the description differentiates them.

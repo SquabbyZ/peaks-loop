@@ -6,41 +6,7 @@
 
 The previous "Swarm" used `Skill(skill="peaks-rd")` calls. That is **single-stack and blocking** — there is no concurrency. Three sequential `Skill` calls run in order on the same main loop, not in parallel. The "parallel Agent calls" wording in the old SKILL.md was a v1.x illusion.
 
-This contract moves the Swarm to the `Task` tool with `subagent_type="general-purpose"`, which is the only Claude Code mechanism that gives real concurrent fan-out. Solo launches all sub-agents in a single message; the platform schedules them concurrently.
-
-## 2. When to swarm (decision)
-
-Solo runs the swarm only after `peaks request show <rid> --role prd` is in state `confirmed-by-user` or `handed-off`. Before that, there is nothing for the sub-agents to derive from.
-
-Solo computes the **swarm plan** from three signals (see "Swarm gate" in the main SKILL.md):
-
-1. `--type` from `peaks request init` (already on the PRD artefact).
-2. `frontendOnly` from `.peaks/<session-id>/rd/project-scan.md` `## Project mode`.
-3. Frontend keyword scan over the PRD body.
-
-The plan is written to `.peaks/<session-id>/sc/swarm-plan.json` before any Task call, so SC and TXT can audit what was launched. Solo updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
-
-| `--type` | Frontend signal | Plan |
-|---|---|---|
-| `feature` / `refactor` / `bugfix` | keyword hit OR `frontendOnly=true` | `[ui, rd-planning, qa-test-cases]` |
-| `feature` / `refactor` / `bugfix` | no keyword hit AND `frontendOnly=false` | `[rd-planning, qa-test-cases]` |
-| `config` / `docs` / `chore` | (any) | `[]` (swarm skipped, recorded in plan) |
-
-In `assisted` and `strict` modes, Solo replaces signal (3) with a three-option `AskUserQuestion` (see "Mode-driven fan-out shape" in the main SKILL.md) and uses the user's choice as the plan.
-
-## 3. Sub-agent invocation template
-
-Solo emits one Task call per sub-agent in the plan, all in the same message:
-
-```js
-Task({
-  subagent_type: "general-purpose",
-  description: "<role> for rid=<rid>",
-  prompt: <see role-specific sections below>
-})
-```
-
-### 3.1 Common prompt header (all sub-agents)
+This contract (slice #009) replaces the IDE-private sub-agent literal with the IDE-agnostic primitive `peaks sub-agent dispatch <role>`. The CLI returns a JSON `data.toolCall` descriptor; the LLM executes that tool in its own environment. SKILL.md is now free of IDE-private tool names and the same prompt works on every registered IDE. Real concurrent fan-out is achieved by Solo launching N dispatch calls in a single message and the platform scheduling the returned toolCalls concurrently.
 
 ```
 You are a sub-agent invoked by peaks-solo. You are NOT the main Claude session.
@@ -158,7 +124,7 @@ no acceptance surface to plan tests for.
 
 ## 4. Reducer (Solo side)
 
-After all sub-agent Tasks return, Solo:
+After all sub-agent dispatch calls return and the LLM has invoked the toolCalls, Solo:
 
 1. Restores presence ONCE (not per-agent):
    ```
@@ -176,7 +142,7 @@ If a sub-agent is misbehaving and writes to `.peaks/.active-skill.json` anyway, 
 
 ## 6. Why not a `peaks-swarm` skill?
 
-A skill cannot itself trigger sub-agents — the Skill tool runs in the main loop. The orchestrator (peaks-solo) has to be in the main loop and has to use the Task tool directly. Putting swarm logic into a separate skill would either re-introduce the "single-stack blocking" anti-pattern or require a custom slash command that bypasses the Skill tool. The current design keeps swarm control in peaks-solo where it belongs.
+A skill cannot itself trigger sub-agents — the Skill tool runs in the main loop. The orchestrator (peaks-solo) has to be in the main loop and has to call `peaks sub-agent dispatch` directly. Putting swarm logic into a separate skill would either re-introduce the "single-stack blocking" anti-pattern or require a custom slash command that bypasses the Skill tool. The current design keeps swarm control in peaks-solo where it belongs.
 
 ## 7. Tests / dogfood
 

@@ -60,7 +60,37 @@ This is the hard-block replacement for the previous "wait for the user" prose. W
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
-When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+
+## QA fan-out (业务 + 性能 + 安全 并发, 业务可再分)
+
+When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out the 3 QA review activities concurrently using the same `peaks sub-agent dispatch` primitive:
+
+```
+peaks sub-agent dispatch qa-business \
+  --prompt "<qa-business contract, plus runtime args project=<repo>, session-id=<sid>, request-id=<rid>>" \
+  --request-id <rid> --session-id <sid> --project <repo> --json
+
+peaks sub-agent dispatch qa-perf \
+  --prompt "<qa-perf contract, plus runtime args>" \
+  --request-id <rid> --session-id <sid> --project <repo> --json
+
+peaks sub-agent dispatch qa-security \
+  --prompt "<qa-security contract, plus runtime args>" \
+  --request-id <rid> --session-id <sid> --project <repo> --json
+```
+
+All three are issued in a single message; the LLM fires all 3 returned toolCalls in parallel; the IDE runs them concurrently; peaks-qa then collects the three envelopes and merges their outputs into:
+
+- `.peaks/<sid>/qa/test-reports/<rid>.md` (business findings)
+- `.peaks/<sid>/qa/performance-findings.md` (perf findings)
+- `.peaks/<sid>/qa/security-findings.md` (security findings)
+
+## 业务测试细分 (optional)
+
+If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`; each gets its own `peaks sub-agent dispatch` call. Names are convention not contract — the dispatcher accepts any non-empty string. **Subdivision must stay ≤ 2 levels deep** (RL-4): `qa-business-api` is fine, `qa-business-api-user` is not. Two levels of depth is the empirical sweet spot — past that, the reducer cannot audit the boundaries between sub-agents, and prompts start overlapping.
+
+For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-solo/references/sub-agent-dispatch.md` §G6.
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/<session-id>/system/sub-agent-qa.json` and only that.
