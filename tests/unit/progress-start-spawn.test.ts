@@ -180,12 +180,60 @@ describe('buildStartSpawn — Windows (win32)', () => {
   test('embeds the `title` builtin BEFORE the banner so the title sticks', () => {
     if (!spec.ok) return;
     // The shell command is the last arg. It must start with
-    // `title <windowTitle>` so the title is re-anchored
-    // before cmd.exe overrides it with the running command.
+    // `title "<windowTitle>"` (double-quote-wrapped) so the title is
+    // re-anchored before cmd.exe overrides it with the running command.
+    // Slice 2026-06-06-sub-agent-spawn-bug-and-decouple: the title MUST
+    // be quoted — unquoted `title peaks-cli: sub-agent progress` causes
+    // cmd /k to mis-parse the colon as a drive-letter prefix and surface
+    // "Windows 找不到文件 'sub-agent'".
     const shellCmd = spec.args[spec.args.length - 1] as string;
-    expect(shellCmd.startsWith(`title ${WINDOW_TITLE}`)).toBe(true);
+    expect(shellCmd.startsWith(`title "${WINDOW_TITLE}"`)).toBe(true);
     expect(shellCmd).toContain('echo peaks-cli --- sub-agent progress');
     expect(shellCmd).toContain(PEAKS_BIN);
+  });
+
+  test('quotes the title so cmd /k cannot mis-parse a colon as a drive letter (G1 bug regression)', () => {
+    // The exact substring that previously triggered "Windows 找不到文件 'sub-agent'"
+    const specWithColon = buildStartSpawn({
+      peaksBin: PEAKS_BIN,
+      projectRoot: PROJECT_ROOT,
+      windowTitle: 'peaks-cli: sub-agent progress — auto-spawn for sub-agent Task',
+      platform: 'win32'
+    });
+    if (!specWithColon.ok) throw new Error('expected ok');
+    // The shell command is `args[5]` (the `/c start "<title>" cmd /k <shell>`
+    // form — args[0..4] are `/c start "<title>" cmd /k` and args[5] is the
+    // shell command that starts with `title "<windowTitle>"`).
+    const shellCmd = specWithColon.args[5] as string;
+    expect(shellCmd).toContain('title "peaks-cli: sub-agent progress — auto-spawn for sub-agent Task"');
+    // The colon-bearing string must NOT appear unquoted anywhere in args[5]
+    // (otherwise cmd /k would still mis-parse the colon).
+    expect(shellCmd).not.toMatch(/title peaks-cli:/);
+  });
+
+  test('returns unsupported when the windowTitle contains a literal " (G1 defensive guard)', () => {
+    // The --reason arg could in theory contain a literal double-quote. cmd
+    // /k cannot survive an un-escaped " in the title, so we fail loud with
+    // the same `unsupported: true` shape used for unknown platforms.
+    const specBad = buildStartSpawn({
+      peaksBin: PEAKS_BIN,
+      projectRoot: PROJECT_ROOT,
+      windowTitle: 'has "embedded" quote',
+      platform: 'win32'
+    });
+    expect(specBad.ok).toBe(false);
+    if (!specBad.ok) expect(specBad.unsupported).toBe(true);
+  });
+
+  test('returns unsupported when the windowTitle contains a newline (G1 defensive guard)', () => {
+    const specBad = buildStartSpawn({
+      peaksBin: PEAKS_BIN,
+      projectRoot: PROJECT_ROOT,
+      windowTitle: 'first line\nsecond line',
+      platform: 'win32'
+    });
+    expect(specBad.ok).toBe(false);
+    if (!specBad.ok) expect(specBad.unsupported).toBe(true);
   });
 });
 

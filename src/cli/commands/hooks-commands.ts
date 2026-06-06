@@ -4,7 +4,6 @@ import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import {
   applyHookInstall,
-  PEAKS_HOOK_ENTRIES,
   planHookInstall,
   readHookStatus,
   removeHookInstall,
@@ -40,17 +39,24 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
 
 // Slice #3: compute the per-IDE peaks hook entries for the CLI response
 // summary. Replaces the slice #1 PEAKS_HOOK_ENTRIES constant which was
-// hardcoded to claude-code values.
+// hardcoded to claude-code values. Slice 2026-06-06-sub-agent-spawn-bug-
+// and-decouple: the sub-agent progress matcher now reads from
+// `adapter.subAgentToolMatcher` instead of being hardcoded to 'Task', so
+// every IDE self-reports its sub-agent tool name (claude-code: 'Task',
+// future adapters: whatever the adapter declares).
 function listInstalledEntriesForIde(ide: IdeId): ReadonlyArray<{ matcher: string; sentinel: string }> {
   const adapter = getAdapter(ide);
   if (ide === 'trae') {
     return [
       { matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' },
-      { matcher: 'Task', sentinel: 'peaks progress start' }
+      { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
     ];
   }
   // Default (claude-code) and any future registered adapters.
-  return PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }));
+  return [
+    { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
+    { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
+  ];
 }
 
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
@@ -77,6 +83,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     try {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot, { ide });
+        const dryRunEntries = listInstalledEntriesForIde(ide);
         printResult(
           io,
           ok(
@@ -86,10 +93,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               ide,
               applied: false,
               dryRun: true,
-              entries: PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+              entries: dryRunEntries
             },
             [],
-            [`would install ${PEAKS_HOOK_ENTRIES.length} peaks-managed hook entries`]
+            [`would install ${dryRunEntries.length} peaks-managed hook entries`]
           ),
           options.json
         );
@@ -168,7 +175,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         ok('hooks.status', {
           ...status,
           ide,
-          entries: PEAKS_HOOK_ENTRIES.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+          entries: listInstalledEntriesForIde(ide)
         }),
         options.json
       );

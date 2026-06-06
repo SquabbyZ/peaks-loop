@@ -33,6 +33,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   envVar: 'CLAUDE_PROJECT_DIR',
   hookEvent: 'PreToolUse',
   toolMatcher: 'Bash',
+  subAgentToolMatcher: 'Task',
   installHints: [
     'Restart Claude Code (or reload the window) so the PreToolUse hooks take effect.'
   ],

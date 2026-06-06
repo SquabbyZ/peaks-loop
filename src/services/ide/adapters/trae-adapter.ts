@@ -49,6 +49,7 @@ export const TRAE_ADAPTER: IdeAdapter = {
   envVar: 'TRAE_PROJECT_DIR',
   hookEvent: 'beforeToolCall', // UNVERIFIED — see slice #2 closeout code-review M-1; will be validated when a real Trae 1.x install dogfoods the install path
   toolMatcher: 'terminal', // UNVERIFIED — see slice #2 closeout code-review M-1
+  subAgentToolMatcher: 'Task', // UNVERIFIED — Trae's sub-agent tool name is unknown; matches the prior hardcoded 'Task' literal so byte-level install output is unchanged. Will be dogfooded when a real Trae 1.x install dispatches a sub-agent.
   installHints: [
     'Restart Trae (or reload the workspace) so the beforeToolCall hooks take effect.'
   ],

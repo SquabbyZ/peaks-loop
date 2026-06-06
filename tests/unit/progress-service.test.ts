@@ -75,10 +75,10 @@ describe('progress service', () => {
     expect(data.current.phase).toBe('starting');
     expect(data.history).toEqual([]);
 
-    // The file lives under the session sub-directory, not directly
-    // under .peaks/. Without the session prefix a session rotation
-    // would orphan the file in the project root.
-    const onDisk = join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system', 'subagent-progress.json');
+    // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the
+    // progress file lives at `.peaks/_sub_agents/<sid>/...` (not
+    // under the session dir's `system/` subdir).
+    const onDisk = join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json');
     expect(existsSync(onDisk)).toBe(true);
   });
 
@@ -125,18 +125,18 @@ describe('progress service', () => {
       expect(result.data.current.step).toBe('done');
       expect(result.data.current.phase).toBe('finished');
       expect(result.data.current.verdict).toBe('pass');
-      // The file lives under the session sub-directory.
+      // The file lives under `.peaks/_sub_agents/<sid>/` (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
       expect(result.path).toBe(
-        join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system', 'subagent-progress.json')
+        join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json')
       );
     }
   });
 
   test('read returns invalid-json when the file is corrupt', () => {
-    // The progress file lives under the session sub-directory.
-    mkdirSync(join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system'), { recursive: true });
+    // The progress file lives under `.peaks/_sub_agents/<sid>/` (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
+    mkdirSync(join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01'), { recursive: true });
     writeFileSync(
-      join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system', 'subagent-progress.json'),
+      join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json'),
       '{not-valid-json',
       'utf8'
     );
@@ -161,11 +161,14 @@ describe('progress service — spawn record + auto-close helpers', () => {
     // helpers resolve to. Without this, the watch banner would
     // point at a file the writer never touches, and the user
     // would `cat` an empty file.
+    // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the
+    // path is `.peaks/_sub_agents/<sid>/<filename>` (not the
+    // pre-slice `.peaks/<sid>/system/<filename>`).
     expect(subAgentProgressPath(projectRoot)).toBe(
-      join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system', 'subagent-progress.json')
+      join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json')
     );
     expect(subAgentSpawnPath(projectRoot)).toBe(
-      join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system', 'progress-spawn.json')
+      join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'progress-spawn.json')
     );
   });
 
@@ -208,7 +211,7 @@ describe('progress service — spawn record + auto-close helpers', () => {
       expect(written).toBeNull();
       // No session binding → no spawn record. The CLI layers
       // surface this as a soft warning (see progress start).
-      expect(existsSync(join(unbound, '.peaks', 'unbound', 'system', 'progress-spawn.json'))).toBe(false);
+      expect(existsSync(join(unbound, '.peaks', '_sub_agents', 'unbound', 'progress-spawn.json'))).toBe(false);
     } finally {
       rmSync(unbound, { recursive: true, force: true });
     }
@@ -221,7 +224,7 @@ describe('progress service — spawn record + auto-close helpers', () => {
   });
 
   test('readSpawnRecord returns invalid-json when the file is corrupt', () => {
-    mkdirSync(join(projectRoot, '.peaks', '2026-06-03-session-progress01', 'system'), { recursive: true });
+    mkdirSync(join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01'), { recursive: true });
     writeFileSync(subAgentSpawnPath(projectRoot), '{not-valid-json', 'utf8');
     const result = readSpawnRecord(projectRoot);
     expect(result.ok).toBe(false);
@@ -266,8 +269,8 @@ describe('isRecentSpawn — Task-hook idempotency guard', () => {
   const TEST_SESSION = '2026-06-03-session-progress01';
 
   function writeSpawnRecordAt(projectRoot: string, spawnedAt: string): void {
-    const path = join(projectRoot, '.peaks', TEST_SESSION, 'system', 'progress-spawn.json');
-    mkdirSync(join(projectRoot, '.peaks', TEST_SESSION, 'system'), { recursive: true });
+    const path = join(projectRoot, '.peaks', '_sub_agents', TEST_SESSION, 'progress-spawn.json');
+    mkdirSync(join(projectRoot, '.peaks', '_sub_agents', TEST_SESSION), { recursive: true });
     const record = {
       version: 1,
       sessionId: TEST_SESSION,

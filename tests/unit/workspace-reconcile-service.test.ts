@@ -7,6 +7,7 @@ import {
   discoverSessions,
   findDeletionCandidates,
   migrateOldRuntimeState,
+  migrateSubAgentState,
   pickCanonicalSession,
   reconcileWorkspace,
   repointSessionJson,
@@ -610,5 +611,101 @@ describe('reconcileWorkspace (slice 006 — system/ subdir cleanup)', () => {
     });
     expect(result.canonicalSessionId).toBe(sid);
     expect(existsSync(sessionDir)).toBe(true);
+  });
+});
+
+/**
+ * Slice 2026-06-06-sub-agent-spawn-bug-and-decouple — sub-agent state
+ * migration. The two legacy files at `.peaks/<sid>/system/{subagent-
+ * progress,progress-spawn}.json` are moved to `.peaks/_sub_agents/<sid>/`
+ * on the first `reconcileWorkspace` run. The empty `<sid>/system/` dir
+ * is removed (R-2 guard) only when it has zero remaining files.
+ */
+describe('migrateSubAgentState (slice 2026-06-06-sub-agent-spawn-bug-and-decouple)', () => {
+  beforeEach(() => { projectRoot = makeProject(); });
+  afterEach(() => { rmSync(projectRoot, { recursive: true, force: true }); });
+
+  test('moves both legacy sub-agent state files into .peaks/_sub_agents/<sid>/', () => {
+    // SESSION_ID_PATTERN requires `[a-f0-9]+` after `session-`, so the
+    // test sid must use a hex-like suffix.
+    const sid = '2026-06-06-session-aa0001';
+    const sessionDir = join(projectRoot, '.peaks', sid);
+    mkdirSync(join(sessionDir, 'system'), { recursive: true });
+    writeFileSync(join(sessionDir, 'system', 'subagent-progress.json'), '{"version":1}', 'utf8');
+    writeFileSync(join(sessionDir, 'system', 'progress-spawn.json'), '{"version":1,"pid":1}', 'utf8');
+
+    const result = migrateSubAgentState(projectRoot);
+
+    expect(result.errors).toEqual([]);
+    expect(result.migratedFiles).toEqual([
+      join('.peaks', sid, 'system', 'subagent-progress.json'),
+      join('.peaks', sid, 'system', 'progress-spawn.json')
+    ]);
+    // New path is populated; old path is gone.
+    expect(existsSync(join(projectRoot, '.peaks', '_sub_agents', sid, 'subagent-progress.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', '_sub_agents', sid, 'progress-spawn.json'))).toBe(true);
+    expect(existsSync(join(sessionDir, 'system', 'subagent-progress.json'))).toBe(false);
+    expect(existsSync(join(sessionDir, 'system', 'progress-spawn.json'))).toBe(false);
+    // The now-empty system/ dir is removed (R-2 guard: nothing else in it).
+    expect(existsSync(join(sessionDir, 'system'))).toBe(false);
+  });
+
+  test('is idempotent: a second call returns migratedFiles: []', () => {
+    const sid = '2026-06-06-session-aa0002';
+    const sessionDir = join(projectRoot, '.peaks', sid);
+    mkdirSync(join(sessionDir, 'system'), { recursive: true });
+    writeFileSync(join(sessionDir, 'system', 'subagent-progress.json'), '{}', 'utf8');
+    writeFileSync(join(sessionDir, 'system', 'progress-spawn.json'), '{}', 'utf8');
+
+    const first = migrateSubAgentState(projectRoot);
+    expect(first.migratedFiles).toHaveLength(2);
+
+    const second = migrateSubAgentState(projectRoot);
+    expect(second.migratedFiles).toEqual([]);
+    expect(second.errors).toEqual([]);
+  });
+
+  test('does NOT remove the legacy system/ dir when it has other files (R-2 guard)', () => {
+    const sid = '2026-06-06-session-aa0003';
+    const sessionDir = join(projectRoot, '.peaks', sid);
+    mkdirSync(join(sessionDir, 'system'), { recursive: true });
+    writeFileSync(join(sessionDir, 'system', 'subagent-progress.json'), '{}', 'utf8');
+    writeFileSync(join(sessionDir, 'system', 'progress-spawn.json'), '{}', 'utf8');
+    // Unrelated user content in the same dir — must not be deleted.
+    writeFileSync(join(sessionDir, 'system', 'user-note.txt'), 'keep me', 'utf8');
+
+    migrateSubAgentState(projectRoot);
+
+    // The sub-agent files moved, but the system/ dir and the user note remain.
+    expect(existsSync(join(projectRoot, '.peaks', '_sub_agents', sid, 'subagent-progress.json'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', '_sub_agents', sid, 'progress-spawn.json'))).toBe(true);
+    expect(existsSync(join(sessionDir, 'system'))).toBe(true);
+    expect(existsSync(join(sessionDir, 'system', 'user-note.txt'))).toBe(true);
+  });
+
+  test('reconcileWorkspace exposes subAgentStateMigrated: 2 after a run on a temp fixture', () => {
+    const sid = '2026-06-06-session-aa0004';
+    const sessionDir = join(projectRoot, '.peaks', sid);
+    mkdirSync(sessionDir, { recursive: true });
+    writeFileSync(join(sessionDir, 'session.json'), JSON.stringify({ sessionId: sid, projectRoot, createdAt: new Date().toISOString() }), 'utf8');
+    mkdirSync(join(sessionDir, 'system'), { recursive: true });
+    writeFileSync(join(sessionDir, 'system', 'subagent-progress.json'), '{}', 'utf8');
+    writeFileSync(join(sessionDir, 'system', 'progress-spawn.json'), '{}', 'utf8');
+
+    const result = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+
+    // Both files migrated → subAgentStateMigrated reflects the count.
+    expect(result.subAgentStateMigrated).toBe(2);
+    // Idempotent re-run: no further migrations.
+    const second = reconcileWorkspace({
+      projectRoot,
+      apply: false,
+      olderThanMs: 7 * 24 * 60 * 60 * 1000
+    });
+    expect(second.subAgentStateMigrated).toBe(0);
   });
 });

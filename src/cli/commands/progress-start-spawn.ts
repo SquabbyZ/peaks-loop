@@ -70,9 +70,25 @@ function buildPosixTitleCmd(windowTitle: string): string {
   return `printf '\\033]0;${escaped}\\007'`;
 }
 
-/** cmd.exe `title` builtin call. Quoting is intentionally bare. */
-function buildWinTitleCmd(windowTitle: string): string {
-  return `title ${windowTitle}`;
+/**
+ * cmd.exe `title` builtin call. Quoting is REQUIRED: cmd /k parses the
+ * subsequent tokens as a command line, and a `:` in the unquoted title (the
+ * canonical peaks windowTitle starts with `peaks-cli:`) gets mis-read as a
+ * drive-letter prefix, triggering Windows' "找不到文件 'sub-agent'" dialog.
+ *
+ * The double-quote wrap makes the whole title one parameter to `title`.
+ * Defensive guard: reject embedded `"`, `\n`, or `\r` (the `cmd /k` parser
+ * will not survive a literal newline or an un-escaped quote in the title).
+ * Callers (progress-commands.ts:267) compose the title from CLI args; if
+ * the user passed a `--reason` containing one of these characters, the
+ * spawn attempt is abandoned with a tagged result so the CLI can surface
+ * a clear error envelope.
+ */
+function buildWinTitleCmd(windowTitle: string): { ok: true; cmd: string } | { ok: false; unsupported: true } {
+  if (windowTitle.includes('"') || windowTitle.includes('\n') || windowTitle.includes('\r')) {
+    return { ok: false, unsupported: true };
+  }
+  return { ok: true, cmd: `title "${windowTitle}"` };
 }
 
 /** Shared helper: the shell command that runs the watch. */
@@ -133,7 +149,10 @@ export function buildStartSpawn(options: BuildStartSpawnOptions): StartSpawnSpec
   }
 
   if (currentPlatform === 'win32') {
-    const bannerCmd = `${winTitleCmd} && echo peaks-cli --- sub-agent progress && ${watchCommand}`;
+    if (!winTitleCmd.ok) {
+      return { ok: false, unsupported: true };
+    }
+    const bannerCmd = `${winTitleCmd.cmd} && echo peaks-cli --- sub-agent progress && ${watchCommand}`;
     return {
       ok: true,
       command: 'cmd',

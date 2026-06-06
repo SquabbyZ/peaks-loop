@@ -65,6 +65,7 @@ describe('ide-registry — test seams', () => {
       envVar: 'CURSOR_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
+      subAgentToolMatcher: 'SubAgent',
       installHints: [],
       capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
     };
@@ -88,6 +89,7 @@ describe('ide-registry — test seams', () => {
       envVar: 'CURSOR_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
+      subAgentToolMatcher: 'SubAgent',
       installHints: [],
       capabilities: { gateEnforce: true, progressStart: false, statusline: false, mcpInstall: true }
     });

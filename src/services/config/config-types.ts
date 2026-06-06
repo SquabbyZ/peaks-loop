@@ -75,7 +75,7 @@ export type PeaksConfig = {
   /**
    * Sub-agent progress surfacing knobs. The `peaks progress watch`
    * CLI (intended to be run in a separate terminal tab while the
-   * LLM is working) reads `.peaks/<sid>/system/subagent-progress.json`
+   * LLM is working) reads `.peaks/_sub_agents/<sid>/subagent-progress.json`
    * and renders elapsed / spinner / sub-step in real time. The
    * `enabled` flag is a kill-switch for users who find the watch
    * distracting; the `heartbeatIntervalMs` lets power users tune

@@ -353,6 +353,9 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       if (result.systemCleaned.length > 0) {
         nextActions.push(`Removed ${result.systemCleaned.length} F3 system/ subdir(s).`);
       }
+      if (result.subAgentStateMigrated > 0) {
+        nextActions.push(`Migrated ${result.subAgentStateMigrated} legacy sub-agent state file(s) into .peaks/_sub_agents/.`);
+      }
 
       printResult(io, ok('workspace.reconcile', result, warnings, nextActions), options.json);
 

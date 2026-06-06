@@ -57,6 +57,17 @@ export interface IdeAdapter {
   readonly hookEvent: string;
   /** hook 数组元素的 matcher 字段(工具名匹配),例如 'Bash' / 'Task' / 'terminal' */
   readonly toolMatcher: string;
+  /**
+   * The tool name used by this IDE to invoke a sub-agent (e.g. Claude Code
+   * uses 'Task' to dispatch a sub-agent, Trae may use a different name).
+   * Consumed by the `peaks progress start` hook entry so each IDE self-
+   * reports its sub-agent tool name. Additive on `toolMatcher`: the
+   * `toolMatcher` field still drives the gate-enforce hook entry, this
+   * one drives the sub-agent-progress hook entry.
+   *
+   * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple.
+   */
+  readonly subAgentToolMatcher: string;
   /** install / uninstall 后展示给用户的提示文本(各 IDE 不同,例如 Claude 提示重启窗口) */
   readonly installHints: readonly string[];
   /** 该 IDE 在 peaks 上可启用的能力(用于在不支持的 IDE 上软警告) */

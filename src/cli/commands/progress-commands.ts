@@ -59,7 +59,7 @@ export function registerProgressCommands(program: Command, io: ProgramIO): void 
   // peaks progress step
   // LLM-side: called by the LLM on phase transitions. Near-zero
   // token cost — one Bash call per phase change. Writes
-  // `.peaks/<sid>/system/subagent-progress.json`. No auto-spawn
+  // `.peaks/_sub_agents/<sid>/subagent-progress.json`. No auto-spawn
   // here; the LLM invokes `peaks progress start` separately when
   // the user-visible window needs to open.
   // ─────────────────────────────────────────────────────────────────

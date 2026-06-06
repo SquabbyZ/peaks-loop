@@ -85,11 +85,11 @@ function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
   if (ide === 'claude-code') {
     return {
       hookEnforceCommand: `peaks gate enforce --project "\${${adapter.envVar}}"`,
-      hookProgressCommand: `peaks progress start --project "\${${adapter.envVar}}" --reason "auto-spawn for sub-agent Task" --quiet`,
+      hookProgressCommand: `peaks progress start --project "\${${adapter.envVar}}" --reason "auto-spawn for sub-agent ${adapter.subAgentToolMatcher}" --quiet`,
       hookEnforceSentinel: HOOK_ENFORCE_SENTINEL,
       hookProgressSentinel: HOOK_PROGRESS_SENTINEL,
       hookEnforceMatcher: adapter.toolMatcher, // 'Bash'
-      hookProgressMatcher: 'Task',
+      hookProgressMatcher: adapter.subAgentToolMatcher, // 'Task' (slice 2026-06-06-sub-agent-spawn-bug-and-decouple — adapter now self-reports sub-agent tool name)
       hookEnforceEvent: adapter.hookEvent, // 'PreToolUse'
       hookProgressEvent: adapter.hookEvent  // 'PreToolUse' for Claude
     };
@@ -97,11 +97,11 @@ function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
   if (ide === 'trae') {
     return {
       hookEnforceCommand: `peaks hook handle --project "\${${adapter.envVar}}"`,
-      hookProgressCommand: `peaks progress start --project "\${${adapter.envVar}}" --reason "auto-spawn for sub-agent Task" --quiet`,
+      hookProgressCommand: `peaks progress start --project "\${${adapter.envVar}}" --reason "auto-spawn for sub-agent ${adapter.subAgentToolMatcher}" --quiet`,
       hookEnforceSentinel: 'peaks hook handle',
       hookProgressSentinel: HOOK_PROGRESS_SENTINEL,
       hookEnforceMatcher: adapter.toolMatcher, // 'terminal'
-      hookProgressMatcher: 'Task',
+      hookProgressMatcher: adapter.subAgentToolMatcher, // 'Task' (UNVERIFIED for Trae; matches prior hardcoded literal so byte-level install output is unchanged)
       hookEnforceEvent: adapter.hookEvent, // 'beforeToolCall'
       hookProgressEvent: adapter.hookEvent  // 'beforeToolCall' (no separate progress event yet for Trae)
     };

@@ -76,6 +76,18 @@ export type ReconcileResult = {
    */
   migratedFiles: string[];
   /**
+   * Count of legacy per-session sub-agent state files moved from
+   * `.peaks/<sid>/system/{subagent-progress,progress-spawn}.json` into
+   * `.peaks/_sub_agents/<sid>/` during this reconcile run.
+   *
+   * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple. The
+   * detailed list of moved files is not surfaced here (the count is
+   * what the CLI summary and QA test assert on); the underlying
+   * `migrateSubAgentState` helper returns the full path list for
+   * forensics. Additive — older consumers can ignore this field.
+   */
+  subAgentStateMigrated: number;
+  /**
    * Errors encountered during the migration step. Each entry has a
    * `kind: 'migrate'` discriminator so consumers can tell migration
    * errors apart from deletion errors. The shape is additive.

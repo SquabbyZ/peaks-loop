@@ -2,7 +2,7 @@
  * Sub-agent progress surfacing for the RD/QA sub-agents in
  * `peaks-solo`'s Swarm phase. A sub-agent (or the LLM via the
  * `peaks progress step` CLI) writes a stable JSON file at
- * `.peaks/<sid>/system/subagent-progress.json`. The user-side
+ * `.peaks/_sub_agents/<sid>/subagent-progress.json`. The user-side
  * `peaks progress watch` CLI polls this file in a separate
  * terminal tab and renders elapsed / spinner / sub-step. The
  * `peaks progress start` CLI auto-spawns the watch in a new
@@ -36,8 +36,16 @@ import { dirname, join, resolve } from 'node:path';
 import { getSessionId, getSessionIdCanonical } from '../session/session-manager.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
-const PROGRESS_REL_PATH = 'system/subagent-progress.json';
-const SPAWN_REL_PATH = 'system/progress-spawn.json';
+// As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the per-session
+// sub-agent state files live under `.peaks/_sub_agents/<sid>/`, NOT under
+// `.peaks/<sid>/system/`. The new path mirrors the existing `_runtime/`
+// and `_dogfood/` convention (leading underscore = meta-classification, not
+// a per-session artifact). The previous `<sid>/system/...` locations are
+// migrated to the new path on first run of `peaks workspace reconcile
+// --apply` (see `migrateSubAgentState` in reconcile-service.ts).
+const SUB_AGENTS_DIR = '_sub_agents';
+const PROGRESS_FILE_NAME = 'subagent-progress.json';
+const SPAWN_FILE_NAME = 'progress-spawn.json';
 
 export type SubAgentProgressPhase = 'starting' | 'running' | 'verifying' | 'completing' | 'finished' | 'failed' | 'idle';
 
@@ -101,17 +109,13 @@ export type WriteProgressOptions = {
 };
 
 function progressPath(projectRoot: string): string {
-  // The progress file lives under the *session* directory, not
-  // directly under .peaks/. Every other per-slice artefact
-  // (rd/tech-doc.md, qa/test-cases/<rid>.md, prd/requests/<rid>.md,
-  // memory/, openspec/) lives under .peaks/<sid>/, so progress
-  // should too. Without the session prefix, a session rotation
-  // would orphan the file in the project root, and switching
-  // sessions would have the watch reading the wrong slice's
-  // progress.
+  // The progress file lives at `.peaks/_sub_agents/<sid>/subagent-progress.json`.
+  // The leading `_sub_agents/` is a meta-classification (mirrors `_runtime/`,
+  // `_dogfood/`) — the SID is the per-session discriminator inside that meta
+  // dir. Without the SID, sessions would collide on the same file.
   const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
-  return join(projectRoot, '.peaks', subDir, PROGRESS_REL_PATH);
+  return join(projectRoot, '.peaks', SUB_AGENTS_DIR, subDir, PROGRESS_FILE_NAME);
 }
 
 function ensureParentDir(path: string): void {
@@ -270,7 +274,7 @@ export function subAgentProgressPath(projectRoot: string): string {
 export function subAgentSpawnPath(projectRoot: string): string {
   const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
-  return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
+  return join(projectRoot, '.peaks', SUB_AGENTS_DIR, subDir, SPAWN_FILE_NAME);
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -298,7 +302,7 @@ export type ProgressSpawnRecord = {
 function spawnRecordPath(projectRoot: string): string {
   const sessionId = getSessionIdCanonical(projectRoot);
   const subDir = sessionId ?? 'unbound';
-  return join(projectRoot, '.peaks', subDir, SPAWN_REL_PATH);
+  return join(projectRoot, '.peaks', SUB_AGENTS_DIR, subDir, SPAWN_FILE_NAME);
 }
 
 export type WriteSpawnRecordOptions = {

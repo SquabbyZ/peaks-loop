@@ -17,7 +17,7 @@
  * session-manager helper for writing the binding. No new dependencies.
  */
 
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, rmdirSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
 import type {
@@ -28,6 +28,16 @@ import type {
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
 const META_FILE = 'session.json';
+
+// Sub-agent state file basenames (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
+// The legacy location was `.peaks/<sid>/system/<filename>`; the canonical new
+// location is `.peaks/_sub_agents/<sid>/<filename>`. `migrateSubAgentState`
+// moves the two files between these homes on every `reconcileWorkspace` run.
+const SUB_AGENT_MIGRATION_FILES: ReadonlyArray<string> = [
+  'subagent-progress.json',
+  'progress-spawn.json'
+];
+const SUB_AGENTS_DIR = '_sub_agents';
 
 // As of slice 2026-06-05-peaks-runtime-layer these old paths are the
 // back-compat read-only fallbacks; the canonical new home is
@@ -513,6 +523,83 @@ function copyDirRecursiveSync(src: string, dest: string): void {
 }
 
 /**
+ * One-time sub-agent state migration (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
+ *
+ * Move the legacy per-session sub-agent state files at:
+ *   - `.peaks/<sid>/system/subagent-progress.json`
+ *   - `.peaks/<sid>/system/progress-spawn.json`
+ * into the new canonical home at:
+ *   - `.peaks/_sub_agents/<sid>/subagent-progress.json`
+ *   - `.peaks/_sub_agents/<sid>/progress-spawn.json`
+ *
+ * Behavior:
+ *   - Idempotent: re-running on a tree that is already on the new layout
+ *     produces `migratedFiles: []`.
+ *   - Best-effort: uses `fs.renameSync` and falls back to `copyFileSync +
+ *     unlinkSync` if rename throws (e.g. cross-device move on Windows).
+ *   - Empty `<sid>/system/` dir removal (R-2 guard): the legacy `system/`
+ *     subdir is only removed when it has zero other files, so a tree where
+ *     the user had unrelated content in `system/` is left untouched.
+ *   - New-path-wins: when both old and new files exist, the old file is
+ *     removed (the new path is authoritative).
+ *
+ * Walks every discovered session — not just the canonical one — so a user
+ * with 6 pre-migration sessions gets all of them migrated in one reconcile
+ * pass.
+ *
+ * @returns `{ migratedFiles, errors }`. `migratedFiles` lists the *old*
+ *   relative paths (e.g. `.peaks/<sid>/system/subagent-progress.json`) that
+ *   were successfully moved. `errors` lists per-file failures.
+ */
+export function migrateSubAgentState(projectRoot: string): { migratedFiles: string[]; errors: Array<{ path: string; message: string }> } {
+  const root = resolve(projectRoot);
+  const newDir = join(root, '.peaks', SUB_AGENTS_DIR);
+  const migratedFiles: string[] = [];
+  const errors: Array<{ path: string; message: string }> = [];
+
+  for (const session of discoverSessions(projectRoot)) {
+    const oldSystemDir = join(session.path, 'system');
+    if (!existsSync(oldSystemDir)) continue;
+    const newSessionDir = join(newDir, session.sessionId);
+    mkdirSync(newSessionDir, { recursive: true });
+    for (const fname of SUB_AGENT_MIGRATION_FILES) {
+      const oldPath = join(oldSystemDir, fname);
+      const newPath = join(newSessionDir, fname);
+      if (!existsSync(oldPath)) continue;
+      if (existsSync(newPath)) {
+        // New path is authoritative; remove stale old file.
+        try { rmSync(oldPath, { force: true }); } catch { /* best effort */ }
+        continue;
+      }
+      try {
+        try {
+          renameSync(oldPath, newPath);
+        } catch (renameError) {
+          // Cross-device or locked-file fallback: copy + unlink.
+          copyFileSync(oldPath, newPath);
+          unlinkSync(oldPath);
+        }
+        migratedFiles.push(join('.peaks', session.sessionId, 'system', fname));
+      } catch (error) {
+        errors.push({
+          path: oldPath,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    // R-2 guard: only remove the legacy system/ dir when it has zero
+    // remaining files (the user might have unrelated content there).
+    try {
+      const remaining = readdirSync(oldSystemDir);
+      if (remaining.length === 0) {
+        rmdirSync(oldSystemDir);
+      }
+    } catch { /* best effort */ }
+  }
+  return { migratedFiles, errors };
+}
+
+/**
  * Top-level orchestrator. Wires migration (added in slice
  * 2026-06-05-peaks-runtime-layer), discovery, canonical pick, re-point,
  * deletion-candidate selection, and deletion into a single result.
@@ -528,11 +615,19 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   // before that read means the new path is the only path observed by
   // `getSessionIdCanonical` after this call returns.
   const migration = migrateOldRuntimeState(projectRoot);
-  const migrateErrors: Array<{ kind: 'migrate'; path: string; message: string }> = migration.errors.map((e) => ({
-    kind: 'migrate' as const,
-    path: e.path,
-    message: e.message
-  }));
+  const subAgentMigration = migrateSubAgentState(projectRoot);
+  const migrateErrors: Array<{ kind: 'migrate'; path: string; message: string }> = [
+    ...migration.errors.map((e) => ({
+      kind: 'migrate' as const,
+      path: e.path,
+      message: e.message
+    })),
+    ...subAgentMigration.errors.map((e) => ({
+      kind: 'migrate' as const,
+      path: e.path,
+      message: e.message
+    }))
+  ];
 
   const sessions = discoverSessions(projectRoot);
   const activeSkillSessionId = readActiveSkillSessionId(projectRoot);
@@ -605,6 +700,7 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
     apply,
     repointed,
     migratedFiles: migration.migratedFiles,
+    subAgentStateMigrated: subAgentMigration.migratedFiles.length,
     errors: [...migrateErrors, ...deletionResult.errors],
     changeMarker,
     systemCleaned

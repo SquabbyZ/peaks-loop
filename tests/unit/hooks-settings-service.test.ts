@@ -12,6 +12,11 @@ import {
   readHookStatus,
   removeHookInstall
 } from '../../src/services/skills/hooks-settings-service.js';
+import {
+  _resetAdaptersForTesting,
+  _setAdapterForTesting
+} from '../../src/services/ide/ide-registry.js';
+import type { IdeAdapter } from '../../src/services/ide/ide-types.js';
 
 let project: string;
 
@@ -125,5 +130,88 @@ describe('removeHookInstall', () => {
     await writeSettings({ model: 'sonnet' });
     const removed = removeHookInstall('project', project);
     expect(removed.removed).toBe(false);
+  });
+});
+
+/**
+ * Slice 2026-06-06-sub-agent-spawn-bug-and-decouple — sub-agent tool
+ * matcher is no longer hardcoded to 'Task' in `resolveHookSpec`. Each
+ * adapter self-reports its sub-agent tool name via `IdeAdapter.
+ * subAgentToolMatcher`. The settings.json output is verified by reading
+ * the file after a per-IDE install: the PreToolUse (Claude) or
+ * beforeToolCall (Trae) entry's `matcher` must match the adapter's
+ * declared sub-agent tool name.
+ */
+describe('slice 2026-06-06: per-IDE subAgentToolMatcher drives the progress hook matcher', () => {
+  beforeEach(() => {
+    _resetAdaptersForTesting();
+  });
+  afterEach(() => {
+    _resetAdaptersForTesting();
+  });
+
+  test('claude-code adapter: progress hook entry uses matcher="Task" (from adapter.subAgentToolMatcher)', async () => {
+    applyHookInstall('project', project, { ide: 'claude-code' });
+    const settings = await readSettings();
+    const pre = (settings.hooks as { PreToolUse: { matcher: string; hooks: { command: string }[] }[] }).PreToolUse;
+    const taskEntry = pre.find((e) => e.matcher === 'Task');
+    expect(taskEntry).toBeDefined();
+    expect(taskEntry?.hooks[0]?.command).toContain(HOOK_PROGRESS_SENTINEL);
+    // Sanity: the Bash gate-enforce entry is still there (uses adapter.toolMatcher, not subAgentToolMatcher).
+    const bashEntry = pre.find((e) => e.matcher === 'Bash');
+    expect(bashEntry).toBeDefined();
+  });
+
+  test('trae adapter: progress hook entry uses matcher="Task" (UNVERIFIED but matches current byte-level output)', async () => {
+    // Trae settings live at .trae/settings.json (not .claude/). Re-point
+    // the helper at a .trae file by installing with ide="trae" and
+    // pointing the readSettings at the new path.
+    await mkdir(join(project, '.trae'), { recursive: true });
+    applyHookInstall('project', project, { ide: 'trae' });
+    const settings = JSON.parse(
+      await readFile(join(project, '.trae', 'settings.json'), 'utf8')
+    ) as Record<string, unknown>;
+    const before = (settings.hooks as { beforeToolCall: { matcher: string; hooks: { command: string }[] }[] }).beforeToolCall;
+    expect(before).toBeDefined();
+    // Trae uses 'terminal' for the gate-enforce entry and 'Task' for the
+    // progress entry. Both are adapter-driven (subAgentToolMatcher='Task').
+    const progressEntry = before.find((e) => e.matcher === 'Task');
+    expect(progressEntry).toBeDefined();
+    expect(progressEntry?.hooks[0]?.command).toContain(HOOK_PROGRESS_SENTINEL);
+    const enforceEntry = before.find((e) => e.matcher === 'terminal');
+    expect(enforceEntry).toBeDefined();
+  });
+
+  test('fake adapter with subAgentToolMatcher: "SubAgent" produces matcher="SubAgent" (no hooks-settings-service change needed)', async () => {
+    // This is the AC-14 contract: a future adapter (codex / cursor / qoder /
+    // tongyi-lingma) registers a custom subAgentToolMatcher, and the
+    // resolveHookSpec consumer picks it up without further code changes.
+    const fakeAdapter: IdeAdapter = {
+      id: 'claude-code', // re-use the registered id slot for the test seam
+      displayName: 'fake-future-ide',
+      settings: {
+        dirName: '.claude',
+        settingsFileName: 'settings.json',
+        resolveSettingsFile: (scope, projectRoot) => {
+          const root = scope === 'global' ? '/home/x' : (projectRoot ?? '/home/x');
+          return join(root, '.claude', 'settings.json');
+        },
+        supportsScope: () => true
+      },
+      envVar: 'CLAUDE_PROJECT_DIR',
+      hookEvent: 'PreToolUse',
+      toolMatcher: 'Bash',
+      subAgentToolMatcher: 'SubAgent', // <- the new field under test
+      installHints: [],
+      capabilities: { gateEnforce: true, progressStart: true, statusline: false, mcpInstall: false }
+    };
+    _setAdapterForTesting('claude-code', fakeAdapter);
+    applyHookInstall('project', project, { ide: 'claude-code' });
+    const settings = await readSettings();
+    const pre = (settings.hooks as { PreToolUse: { matcher: string }[] }).PreToolUse;
+    const subAgentEntry = pre.find((e) => e.matcher === 'SubAgent');
+    expect(subAgentEntry).toBeDefined();
+    // The legacy 'Task' matcher is no longer present.
+    expect(pre.some((e) => e.matcher === 'Task')).toBe(false);
   });
 });

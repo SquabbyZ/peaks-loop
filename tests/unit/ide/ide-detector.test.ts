@@ -83,6 +83,7 @@ function makeAdapter(id: string, dirName: string): IdeAdapter {
     envVar: `${id.toUpperCase()}_PROJECT_DIR`,
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
+    subAgentToolMatcher: 'Task',
     installHints: [],
     capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
   };
