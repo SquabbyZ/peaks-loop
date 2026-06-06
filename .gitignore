@@ -6,57 +6,5 @@ coverage/
 .DS_Store
 .gstack/
 .codegraph/
-
-# Peaks transient/per-session state (regenerable, not shared knowledge).
-# Layout (as of slice 2026-06-05-change-id-as-unit-of-work):
-#   .peaks/_runtime/                ← all ephemeral runtime state
-#                                       (active-skill, session binding,
-#                                        current-change symlink/file)
-#   .peaks/_dogfood/                ← dogfood evidence (regenerable from
-#                                       a fresh slice run; tracked for
-#                                       audit, prefixed with `_` so the
-#                                       visual signal says "scratch")
-#   .peaks/issues/                  ← open cross-cutting SC issues
-#                                       (tracked; tracks defects across
-#                                       slices until a fix slice ships)
-#   .peaks/issues/issue-NNN-<slug>/ ← single issue scope, like change-id
-#   .peaks/memory/                  ← durable project memory (tracked; knowledge base)
-#   .peaks/sops/                    ← durable SOP definitions (tracked; shared with team)
-#   .peaks/PROJECT.md               ← durable project timeline (tracked)
-#   .peaks/.peaks-init-hooks-decision.json ← durable install decision (tracked)
-#   .peaks/retrospective/<change-id>/ ← shipped slice output (tracked;
-#                                       cross-session accumulation of the
-#                                       unit of work — RD/QA/PRD/txt)
-#   .peaks/perf-baseline/, .peaks/project-scan/
-#                                   ← single cross-cutting retrospective
-#                                       artifacts (tracked; not extensible)
-#   .peaks/session.json             ← legacy top-level binding (gitignored;
-#                                       canonical moved to _runtime/session.json)
-#
-# `_` prefix convention: any top-level .peaks/ dir whose name starts with
-# `_` is regenerable / scratch (delete-without-losing-knowledge). Anything
-# without `_` is durable / tracked. This applies to top-level dirs only;
-# nested dirs (rd/, qa/, etc.) follow the role-suffix convention.
-.peaks/**/.bypass-count.json
-.peaks/ontology.json
-# Per-slice session directories — these are session-scoped, regenerable, and
-# large. The gitignore rule below covers both the legacy top-level
-# `.peaks/<session-id>/` and the new canonical `.peaks/_runtime/<session-id>/`.
 .peaks/_runtime/
-.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-session-*/
-# Legacy top-level binding (one-minor-release back-compat; canonical home is _runtime/session.json).
-.peaks/session.json
-# Test / debug backups left by sub-agent baselines (e.g. .peaks/.active-skill.json.test-bak from QA's git-stash verification)
-.peaks/*.bak
-.peaks/*.test-bak
-.peaks/**/*.bak
-.peaks/**/*.test-bak
-# Tracked content that lives at the top level of .peaks/ (NOT ignored):
-#   - .peaks/memory/                       (durable project knowledge)
-#   - .peaks/sops/                         (durable SOP definitions)
-#   - .peaks/PROJECT.md                    (durable session timeline)
-#   - .peaks/.peaks-init-hooks-decision.json (first-run opt-in marker)
-#   - .peaks/issues/                       (open cross-cutting SC issues)
-#   - .peaks/retrospective/                (shipped slice output)
-#   - .peaks/_dogfood/                     (dogfood evidence, regenerable)
-#   - .peaks/_runtime/                     (ephemeral runtime state)
+.peaks/_dogfood/
