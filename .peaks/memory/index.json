@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-06T12:39:09.694Z",
+  "updatedAt": "2026-06-06T17:32:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -94,7 +94,24 @@
         "updatedAt": "2026-06-06"
       }
     ],
-    "rule": [],
+    "rule": [
+      {
+        "name": "sub-agent-resource-lifecycle-red-line",
+        "kind": "rule",
+        "description": "Sub-agent resource lifecycle red line — not \"more is better\"; create responsibly (batch ≤ 6, business subdivide ≤ 2 layers) + must reclaim (dispatch record with lifecycle fields, reducer disposes, slice close archives). Slice #009 G5.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-resource-lifecycle-red-line.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "sub-agent-heartbeat-progress-red-line",
+        "kind": "rule",
+        "description": "Sub-agent heartbeat + dynamic progress red line — Dispatcher must see live progress during batch sync wait (sub-agent writes 30s heartbeat; Solo poller reads every 10s; status line + stale warning after 5min). Slice #009 G6.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-heartbeat-progress-red-line.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-06-07"
+      }
+    ],
     "convention": [
       {
         "name": "detectidefromcontext-iterates-listadapterids",
