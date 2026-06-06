@@ -420,6 +420,27 @@ export async function ensureSession(projectRoot: string): Promise<string> {
     return existing.sessionId;
   }
 
+  // Slice 007 — sub-agent session sharing. When the strict-equality
+  // read returns null (e.g. the binding was written with the relative
+  // form "." from inside the project dir, but the caller passes the
+  // absolute realpath), fall through to the canonical-fallback read.
+  // `ensureSession` is a session-creating primitive — its caller
+  // wants the existing binding if one exists, even if the projectRoot
+  // forms differ. Without this fallback, a sub-agent that anchors via
+  // `cd <repo> && peaks skill presence:set` and then runs
+  // `peaks request init --project <abs-path>` would auto-generate a
+  // new session and create an orphan dir.
+  //
+  // The strict-equality read is preserved for other modules
+  // (notably `shared/change-id.ts` via `buildArtifactRelativePath`)
+  // that depend on the "no session bound" code path — switching the
+  // default would cascade into ~30 test failures in those modules.
+  // The canonical-fallback is opt-in for `ensureSession` only.
+  const canonical = getSessionIdCanonical(projectRoot);
+  if (canonical !== null) {
+    return canonical;
+  }
+
   const sessionId = generateSessionId();
   const now = new Date().toISOString();
   const info: SessionInfo = {

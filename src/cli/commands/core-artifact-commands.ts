@@ -238,10 +238,35 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
 
   addJsonOption(
     session
-      .command('info <sessionId>')
-      .description('Show full metadata for a session directory')
-  ).action((sessionId: string, options: { json?: boolean }) => {
+      .command('info [sessionId]')
+      .description('Show full metadata for a session directory. Pass --active to resolve the canonical binding from .peaks/_runtime/session.json (the "one command a sub-agent runs to find the parent\'s sid" primitive).')
+      .option('--active', 'resolve the canonical session id from .peaks/_runtime/session.json (ignores [sessionId] when set)')
+  ).action(async (sessionId: string | undefined, options: { json?: boolean; active?: boolean }) => {
     const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+    // Slice 007 — sub-agent session sharing. A sub-agent that does
+    // not know the parent's sid reads it from the binding via
+    // `peaks session info --active`. The call uses the
+    // canonicalize-on-read path so a stored "projectRoot: '.'" and a
+    // caller-passed absolute realpath both resolve to the same
+    // binding. Without this primitive the sub-agent has no way to
+    // discover the parent sid short of scanning the filesystem.
+    if (options.active === true) {
+      // Import lazily to avoid a cycle with workspace-commands.
+      const { getSessionIdCanonical } = await import('../../services/session/session-manager.js');
+      const activeSid = getSessionIdCanonical(projectRoot);
+      if (activeSid === null) {
+        printResult(io, fail('session.info', 'NO_ACTIVE_BINDING', 'No canonical session binding at .peaks/_runtime/session.json', { projectRoot }, ['Run `peaks workspace init` or `peaks skill presence:set` to anchor a session']), options.json);
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('session.info', { active: true, sessionId: activeSid, source: '.peaks/_runtime/session.json' }), options.json);
+      return;
+    }
+    if (sessionId === undefined) {
+      printResult(io, fail('session.info', 'SESSION_ID_REQUIRED', 'session.info requires a <sessionId> or --active', {}, ['Pass a <sessionId> argument, or use --active to resolve the canonical binding']), options.json);
+      process.exitCode = 1;
+      return;
+    }
     const meta = getSessionMeta(projectRoot, sessionId);
     if (meta === null) {
       printResult(io, fail('session.info', 'SESSION_NOT_FOUND', `Session "${sessionId}" not found or has no metadata`, { sessionId }, ['Use `peaks session list` to see available sessions']), options.json);

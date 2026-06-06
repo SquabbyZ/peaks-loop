@@ -550,4 +550,48 @@ describe('runDoctor build:workspace-layout-canonical check', () => {
     expect(check?.message).toContain('peaks workspace migrate');
     expect(report.summary.ok).toBe(false);
   });
+
+  /**
+   * Slice 007 — sub-agent session sharing. The post-F3 canonical
+   * layout is "everything under .peaks/_runtime/<sid>/", and reviewable
+   * artifacts live under the per-change-id dir tracked at
+   * `.peaks/<change-id>/<role>/`. The pre-slice-007 layout was
+   * "top-level per-change-id dirs only" (e.g. `.peaks/001-.../`), and
+   * five already-shipped slices left such dirs behind. The doctor
+   * check now flags them so slice 008's migration can clean them up.
+   */
+  test('flags per-change-id top-level dirs (e.g. .peaks/NNN-YYYY-MM-DD-<slug>/) when present', async () => {
+    const offender = '.peaks/001-2026-06-06-doctor-dist-version-check/';
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({
+        topLevelSessionDirs: [],
+        legacyDotfiles: [],
+        perChangeIdDirs: [offender]
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain(offender);
+    expect(check?.message).toContain('per-change-id top-level dir');
+    expect(check?.message).toContain('peaks workspace migrate');
+  });
+
+  test('build:workspace-layout-canonical stays ok when only legacy top-level session dirs are absent (no per-change-id scope)', async () => {
+    // Sanity for the new probe shape: when perChangeIdDirs is also
+    // empty, the check still passes (back-compat for the existing
+    // topLevelSessionDirs + legacyDotfiles assertion).
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({
+        topLevelSessionDirs: [],
+        legacyDotfiles: [],
+        perChangeIdDirs: []
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
+
+    expect(check).toMatchObject({ ok: true });
+  });
 });

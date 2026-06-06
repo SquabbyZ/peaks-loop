@@ -39,6 +39,7 @@ The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for b
 
 When this skill is launched as a sub-agent via `Task(subagent_type="general-purpose", ...)` from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
+- **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/<session-id>/system/sub-agent-rd.json` and only that.
 - **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
 - **Mode selection** — Solo has already chosen the mode. Read it from the prompt arguments (or from `.peaks/.active-skill.json` if you can, but do not write it).

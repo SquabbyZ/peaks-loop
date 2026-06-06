@@ -228,6 +228,49 @@ describe('session-manager', () => {
         expect(second).toBe(first);
       });
     });
+
+    /**
+     * Slice 007 — sub-agent session sharing. A sub-agent may invoke
+     * `peaks request init` (or any session-creating CLI) with a
+     * `--project <abs>` form even though the binding was written
+     * earlier with a relative form. The strict-equality read returns
+     * null, but `ensureSession` must NOT auto-generate a new session
+     * in that case — the canonical form is the same physical
+     * directory, so the existing binding wins.
+     */
+    test('ensureSession reuses the bound session when caller form differs from stored form (canonical fallback)', async () => {
+      // Simulate the parent's binding: written with relative "." from
+      // inside the project dir (this is what the peaks-solo anchor
+      // path actually does — `cd <repo> && peaks skill presence:set`).
+      const existingSid = '2026-06-06-session-shared';
+      // Slice 003 lives the binding at the canonical runtime path;
+      // make sure the dir exists before writing the file.
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime'), { recursive: true });
+      const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
+      writeFileSync(
+        sessionFile,
+        JSON.stringify({
+          sessionId: existingSid,
+          createdAt: '2026-06-06T00:00:00.000Z',
+          projectRoot: '.'
+        }, null, 2),
+        'utf8'
+      );
+      // The sub-agent passes the absolute realpath (the canonical
+      // form). The strict-equality read returns null for this case
+      // (it is intentionally preserved for the "no binding" code
+      // path in shared/change-id.ts), so `ensureSession` must fall
+      // through to the canonical-fallback read.
+      const resolved = await ensureSession(testProjectRoot);
+      expect(resolved).toBe(existingSid);
+    });
+
+    test('ensureSession auto-generates a session only when no binding exists at all', async () => {
+      // No binding written. The canonical fallback also returns
+      // null. ensureSession must auto-generate.
+      const resolved = await ensureSession(testProjectRoot);
+      expect(resolved).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    });
   });
 
   describe('getCurrentSessionDir', () => {

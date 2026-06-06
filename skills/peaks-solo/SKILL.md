@@ -262,6 +262,10 @@ peaks session title $(cat .peaks/.session.json | python3 -c "import sys,json; pr
 
 If the session directory already has a title (check via `peaks session list --json`), skip this step — the title is already set.
 
+## Sub-agent session sharing (MANDATORY — one conversation = one sid)
+
+When peaks-solo dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt, peaks-sc), the sub-agent prompt MUST include the parent's session id. The sub-agent then passes `--session-id <parent-sid>` for any session-creating CLI call (e.g. `peaks request init --session-id <parent-sid>`). The sub-agent MUST NOT call `peaks workspace init` — that would create a new session dir and orphan the parent's binding. The sub-agent reads `.peaks/_runtime/session.json` to discover the parent's sid (or the orchestrator passes it explicitly). Sub-agents also accept the parent's sid via the new `peaks session info --active` primitive when they need a one-shot read.
+
 ## Boundaries
 
 Peaks-Cli Solo may:

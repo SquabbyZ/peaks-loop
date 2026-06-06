@@ -113,6 +113,95 @@ describe('peaks request init command', () => {
     expect(output.ok).toBe(true);
     expect(output.data.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}/);
   });
+
+  /**
+   * Slice 007 — sub-agent session sharing. Without --session-id, a
+   * peaks-solo anchor (binding at .peaks/_runtime/session.json) must
+   * be reused across consecutive `request init` calls in the same
+   * project, NOT overwritten with a freshly-generated id. Pre-slice-
+   * 007 the strict-equality readSessionFile could miss the binding
+   * (relative "." vs absolute realpath) and auto-generate a new one,
+   * producing orphan session dirs (4eec41, 5ca335, 80ba3d, 7bcb6e).
+   */
+  test('two consecutive request init calls reuse the bound session (no new session dirs)', async () => {
+    const project = await makeProject('request-init-reuse-binding');
+    // Anchor the binding the way peaks-solo does it: from inside
+    // the project dir, so the stored projectRoot is the relative ".".
+    // (This matches the slice-006 "presence:set" write path.)
+    const innerProject = join(project, '.');
+
+    // First call: anchors the binding and writes the request.
+    const first = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-a', '--project', innerProject, '--json']);
+    const firstOutput = parseJsonOutput<{ sessionId: string; path: string }>(first.stdout);
+    expect(firstOutput.ok).toBe(true);
+    const boundSid = firstOutput.data.sessionId;
+
+    // The binding on disk points at the first sid.
+    const sessionFile = join(project, '.peaks', '_runtime', 'session.json');
+    const binding1 = JSON.parse(await readFile(sessionFile, 'utf8'));
+    expect(binding1.sessionId).toBe(boundSid);
+
+    // Second call: must reuse the same sid, NOT generate a new one.
+    const second = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-b', '--project', project, '--json']);
+    const secondOutput = parseJsonOutput<{ sessionId: string; path: string }>(second.stdout);
+    expect(secondOutput.ok).toBe(true);
+    expect(secondOutput.data.sessionId).toBe(boundSid);
+
+    // The binding on disk is unchanged.
+    const binding2 = JSON.parse(await readFile(sessionFile, 'utf8'));
+    expect(binding2.sessionId).toBe(boundSid);
+
+    // No new session dir under _runtime/ was created.
+    const { readdir } = await import('node:fs/promises');
+    const runtimeDir = join(project, '.peaks', '_runtime');
+    const sessionDirs = (await readdir(runtimeDir, { withFileTypes: true }))
+      .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}-/.test(e.name))
+      .map((e) => e.name);
+    expect(sessionDirs).toEqual([boundSid]);
+  });
+
+  test('explicit --session-id still binds to that sid (regression for back-compat)', async () => {
+    const project = await makeProject('request-init-explicit-sid');
+
+    const result = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-explicit-sid', '--project', project, '--session-id', '2026-06-06-explicit-shared', '--json']);
+    const output = parseJsonOutput<{ sessionId: string; path: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.sessionId).toBe('2026-06-06-explicit-shared');
+
+    // With explicit --session-id the call path skips ensureSession
+    // (the artifact body records the sid, but the on-disk binding
+    // file is owned by the orchestrator's anchor). The session dir
+    // is created on demand by the writer when --apply is passed, OR
+    // left as a metadata-only path for the dry-run preview. The
+    // contract this test pins is: the explicit --session-id value
+    // survives the call (not auto-generated, not replaced).
+    expect(output.data.path).toContain('2026-06-06-explicit-shared');
+  });
+
+  test('after rotate clears the binding, the next request init auto-generates a new session', async () => {
+    const project = await makeProject('request-init-after-rotate');
+    const innerProject = join(project, '.');
+
+    // Anchor: first call binds a sid.
+    const first = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-rot-a', '--project', innerProject, '--json']);
+    const firstOutput = parseJsonOutput<{ sessionId: string }>(first.stdout);
+    expect(firstOutput.ok).toBe(true);
+    const anchoredSid = firstOutput.data.sessionId;
+
+    // Clear the binding the way peaks session rotate does.
+    const rotate = await runCommand(['session', 'rotate', '--project', project, '--json']);
+    expect(rotate.exitCode === 0 || rotate.exitCode === undefined).toBe(true);
+
+    // Next request init: no binding, so ensureSession auto-generates
+    // a brand-new sid. The anchored session dir is still on disk
+    // (rotate does not delete data), but the bound sid is fresh.
+    const second = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-rot-b', '--project', project, '--json']);
+    const secondOutput = parseJsonOutput<{ sessionId: string }>(second.stdout);
+    expect(secondOutput.ok).toBe(true);
+    expect(secondOutput.data.sessionId).not.toBe(anchoredSid);
+    expect(secondOutput.data.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+  });
 });
 
 describe('peaks request list command', () => {

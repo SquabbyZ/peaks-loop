@@ -46,6 +46,20 @@ export type DistVersionProbe = () => DistVersionComparison;
 export type WorkspaceLayoutInspection = {
   topLevelSessionDirs: string[];
   legacyDotfiles: string[];
+  /**
+   * Slice 007 — per-change-id top-level dirs (e.g. `.peaks/001-2026-06-06-.../`).
+   * The pre-F3 canonical layout put reviewable artifacts under a
+   * per-change-id top-level dir; the post-F3 canonical layout
+   * consolidates them under `.peaks/_runtime/<sid>/<role>/`. Any
+   * leftover per-change-id top-level dir is a regression to flag.
+   * Slice 008's migration will consolidate these; until then, the
+   * check reports them as `ok: false`.
+   *
+   * Optional in the type for back-compat with test probes that
+   * pre-date the slice 007 broadening; the check itself falls back
+   * to an empty array when the field is missing.
+   */
+  perChangeIdDirs?: string[];
 };
 
 export type WorkspaceLayoutProbe = () => WorkspaceLayoutInspection;
@@ -210,12 +224,15 @@ export function inspectWorkspaceLayout(opts: {
   projectRoot: string;
   topLevelScanner?: (root: string) => string[];
   dotfileScanner?: (root: string) => string[];
+  perChangeIdScanner?: (root: string) => string[];
 }): WorkspaceLayoutInspection {
   const topLevel = opts.topLevelScanner ?? defaultTopLevelSessionDirScanner;
   const dotfiles = opts.dotfileScanner ?? defaultLegacyDotfileScanner;
+  const perChangeId = opts.perChangeIdScanner ?? defaultPerChangeIdDirScanner;
   return {
     topLevelSessionDirs: safeList(() => topLevel(opts.projectRoot)),
-    legacyDotfiles: safeList(() => dotfiles(opts.projectRoot))
+    legacyDotfiles: safeList(() => dotfiles(opts.projectRoot)),
+    perChangeIdDirs: safeList(() => perChangeId(opts.projectRoot))
   };
 }
 
@@ -277,9 +294,48 @@ function defaultLegacyDotfileScanner(projectRoot: string): string[] {
 function defaultWorkspaceLayoutProbe(): WorkspaceLayoutInspection {
   const projectRoot = findProjectRoot(process.cwd());
   if (projectRoot === null) {
-    return { topLevelSessionDirs: [], legacyDotfiles: [] };
+    return { topLevelSessionDirs: [], legacyDotfiles: [], perChangeIdDirs: [] };
   }
   return inspectWorkspaceLayout({ projectRoot });
+}
+
+// Slice 007 — per-change-id top-level dir pattern. Matches the
+// F3-canonical (pre-canonicalization) layout the 5 already-shipped
+// slices left behind, e.g. `.peaks/001-2026-06-06-doctor-dist-version-check/`.
+// The pattern is intentionally narrow so it does NOT match the
+// post-F3 system dirs (`_runtime/`, `_dogfood/`, `retrospective/`,
+// `issues/`, `memory/`, `perf-baseline/`, `project-scan/`, `sops/`,
+// `0NN-session-...`, `YYYY-MM-DD-session-...`).
+const PER_CHANGE_ID_PATTERN = /^\d{3}-\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
+
+function defaultPerChangeIdDirScanner(projectRoot: string): string[] {
+  const peaksRoot = join(projectRoot, '.peaks');
+  if (!existsSync(peaksRoot)) return [];
+  let names: string[];
+  try {
+    names = readdirSync(peaksRoot);
+  } catch {
+    return [];
+  }
+  const offenders: string[] = [];
+  for (const name of names) {
+    if (!PER_CHANGE_ID_PATTERN.test(name)) continue;
+    const full = join(peaksRoot, name);
+    try {
+      const stat = existsSync(full) ? lstatSync(full) : null;
+      if (stat === null) continue;
+      // Directories only — the regex should never match a dotfile
+      // or regular file, but be defensive against weird filesystem
+      // state (e.g. someone manually created a file whose name
+      // happens to match the per-change-id pattern).
+      if (stat.isDirectory()) {
+        offenders.push(join('.peaks', name) + '/');
+      }
+    } catch {
+      continue;
+    }
+  }
+  return offenders;
 }
 
 const DESTRUCTIVE_APPLY_PATTERNS = [
@@ -604,23 +660,36 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // the silent-regression failure mode that slice 003 explicitly chose
   // to allow (the current session binding was kept at top-level as a
   // safety measure). This check surfaces any leftover top-level
-  // session dirs OR the legacy runtime dotfiles (`.peaks/.session.json`,
-  // `.peaks/.active-skill.json`) so a future contributor who manually
-  // recreates one of them is warned. The check is read-only; the fix
-  // path is `peaks workspace migrate --to-runtime --project <repo> --apply`.
+  // session dirs, the legacy runtime dotfiles (`.peaks/.session.json`,
+  // `.peaks/.active-skill.json`), OR per-change-id top-level dirs
+  // (`.peaks/NNN-YYYY-MM-DD-<slug>/`) so a future contributor who
+  // manually recreates one of them is warned. The check is read-only;
+  // the fix path is `peaks workspace migrate --to-runtime --project
+  // <repo> --apply`.
+  //
+  // Slice 007 broadened this check to flag per-change-id top-level
+  // dirs (the 5 already-shipped slices left them behind). Until
+  // slice 008's migration consolidates them, the check reports
+  // `ok: false` for any repo that still has the legacy per-change-id
+  // layout.
   const layoutProbe = options.workspaceLayoutProbe ?? defaultWorkspaceLayoutProbe;
   try {
     const layout = layoutProbe();
-    if (layout.topLevelSessionDirs.length === 0 && layout.legacyDotfiles.length === 0) {
+    // Back-compat: probes injected by older tests (pre-slice-007)
+    // return a 2-field shape (no perChangeIdDirs). Treat missing
+    // field as empty.
+    const perChangeIdDirs = layout.perChangeIdDirs ?? [];
+    if (layout.topLevelSessionDirs.length === 0 && layout.legacyDotfiles.length === 0 && perChangeIdDirs.length === 0) {
       checks.push({
         id: 'build:workspace-layout-canonical',
         ok: true,
-        message: 'Workspace layout is canonical: no top-level session dirs, no legacy runtime dotfiles'
+        message: 'Workspace layout is canonical: no top-level session dirs, no legacy runtime dotfiles, no per-change-id top-level dirs'
       });
     } else {
       const offenders = [
         ...layout.topLevelSessionDirs.map((p) => `top-level session dir: ${p}`),
-        ...layout.legacyDotfiles.map((p) => `legacy dotfile: ${p}`)
+        ...layout.legacyDotfiles.map((p) => `legacy dotfile: ${p}`),
+        ...perChangeIdDirs.map((p) => `per-change-id top-level dir: ${p}`)
       ];
       checks.push({
         id: 'build:workspace-layout-canonical',

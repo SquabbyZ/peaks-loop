@@ -305,3 +305,62 @@ describe('lazy role subdir creation (slice 006 — no eager mkdirs at init)', ()
     expect(existsSync(join(targetDir, '001-test.md'))).toBe(true);
   });
 });
+
+/**
+ * Slice 007 — sub-agent session sharing. `initWorkspace` is the
+ * authoritative writer for the per-session directory and the
+ * project-level binding. When the project is already bound to a
+ * session id, a second call to `initWorkspace` with the SAME id is a
+ * no-op (no destructive rewrites, no new dirs, no meta churn beyond
+ * a `lastActivity` refresh). The fix is what makes "3 consecutive
+ * `peaks request init` calls = 1 session" actually hold: every
+ * sub-agent's CLI invocation ends up routing through the bound sid.
+ */
+describe('sub-agent session sharing (slice 007 — no-op when bound)', () => {
+  test('initWorkspace with the already-bound session id is a no-op (no new dirs, binding preserved)', async () => {
+    const project = await makeProject();
+    const boundSid = '2026-06-06-noop-when-bound';
+    // First init: anchor the binding.
+    const first = await initWorkspace({ projectRoot: project, sessionId: boundSid });
+    expect(first.bound).toBe(true);
+    expect(first.sessionId).toBe(boundSid);
+
+    // Second init: same sid. The pre-slice-007 behaviour still
+    // creates the dir (idempotent) and refreshes session meta, but
+    // it must NOT re-anchor the binding to a different sid, and the
+    // session dir must remain a single instance (not a parallel
+    // tree). The "no-op" assertion is: the binding file still
+    // resolves to the same sid AND the session-dir count under
+    // _runtime/ is exactly one.
+    const second = await initWorkspace({ projectRoot: project, sessionId: boundSid });
+    expect(second.sessionId).toBe(boundSid);
+    expect(second.bound).toBe(true);
+    expect(second.previousSessionId).toBeNull();
+
+    const runtimeDir = join(project, '.peaks', '_runtime');
+    const entries = await readdir(runtimeDir);
+    const sessionDirs = entries.filter((e) => /^\d{4}-\d{2}-\d{2}-/.test(e));
+    expect(sessionDirs).toEqual([boundSid]);
+
+    // The binding is unchanged.
+    const { readFile: rf } = await import('node:fs/promises');
+    const binding = JSON.parse(await rf(join(runtimeDir, 'session.json'), 'utf8'));
+    expect(binding.sessionId).toBe(boundSid);
+  });
+
+  test('initWorkspace with a missing binding still creates a new session (the no-binding path)', async () => {
+    // Sanity: when there is no binding, initWorkspace's job is to
+    // anchor one. This is the path a fresh conversation takes.
+    const project = await makeProject();
+    const report = await initWorkspace({ projectRoot: project, sessionId: '2026-06-06-fresh-anchor' });
+    expect(report.bound).toBe(true);
+    expect(report.sessionId).toBe('2026-06-06-fresh-anchor');
+    expect(report.created).toContain('.'); // session dir was created
+
+    const runtimeDir = join(project, '.peaks', '_runtime');
+    const { readFile: rf, stat: fsStat } = await import('node:fs/promises');
+    expect(await fsStat(join(runtimeDir, '2026-06-06-fresh-anchor'))).toBeTruthy();
+    const binding = JSON.parse(await rf(join(runtimeDir, 'session.json'), 'utf8'));
+    expect(binding.sessionId).toBe('2026-06-06-fresh-anchor');
+  });
+});
