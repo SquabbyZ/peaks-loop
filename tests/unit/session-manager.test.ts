@@ -35,10 +35,13 @@ describe('session-manager', () => {
 
       // As of slice 2026-06-05-peaks-runtime-layer the binding lives
       // at the canonical new path `.peaks/_runtime/session.json`.
+      // As of slice 003-2026-06-06-session-layout-canonicalize, the
+      // session dir itself is at `.peaks/_runtime/<sid>/`, NOT at
+      // the top-level `.peaks/<sid>/`.
       const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
       expect(existsSync(sessionFile)).toBe(true);
 
-      const sessionDir = join(testProjectRoot, '.peaks', sessionId);
+      const sessionDir = join(testProjectRoot, '.peaks', '_runtime', sessionId);
       expect(existsSync(sessionDir)).toBe(true);
     });
 
@@ -316,7 +319,9 @@ describe('session-manager', () => {
 
     test('ensureSession writes initial session.json into session dir', async () => {
       const sessionId = await ensureSession(testProjectRoot);
-      const metaPath = join(testProjectRoot, '.peaks', sessionId, 'session.json');
+      // As of slice 003-2026-06-06-session-layout-canonicalize the
+      // session dir is at `.peaks/_runtime/<sid>/`, NOT `.peaks/<sid>/`.
+      const metaPath = join(testProjectRoot, '.peaks', '_runtime', sessionId, 'session.json');
 
       expect(existsSync(metaPath)).toBe(true);
       const raw = JSON.parse(readFileSync(metaPath, 'utf8'));
@@ -344,7 +349,8 @@ describe('session-manager', () => {
       expect(result.title).toBe('修复登录页OAuth回调异常');
       expect(result.sessionId).toBe(sessionId);
 
-      const metaPath = join(testProjectRoot, '.peaks', sessionId, 'session.json');
+      // As of slice 003: meta lives at .peaks/_runtime/<sid>/session.json
+      const metaPath = join(testProjectRoot, '.peaks', '_runtime', sessionId, 'session.json');
       const raw = JSON.parse(readFileSync(metaPath, 'utf8'));
       expect(raw.title).toBe('修复登录页OAuth回调异常');
     });
@@ -365,7 +371,8 @@ describe('session-manager', () => {
 
     test('setSessionTitle creates meta if session dir exists but no meta file', () => {
       const sessionId = '2026-05-28-session-create01';
-      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+      // As of slice 003: session dir at .peaks/_runtime/<sid>/
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sessionId), { recursive: true });
 
       const result = setSessionTitle(testProjectRoot, sessionId, '新建标题');
 
@@ -378,7 +385,8 @@ describe('session-manager', () => {
       await ensureSession(testProjectRoot);
 
       const sid2 = '2026-05-28-session-abcdef';
-      mkdirSync(join(testProjectRoot, '.peaks', sid2), { recursive: true });
+      // As of slice 003: session dir at .peaks/_runtime/<sid>/
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sid2), { recursive: true });
       setSessionTitle(testProjectRoot, sid2, '第二个会话');
 
       const metas = listSessionMetas(testProjectRoot);
@@ -401,23 +409,26 @@ describe('session-manager', () => {
 
     test('getSessionMeta returns null for corrupt session.json', () => {
       const sessionId = '2026-05-28-session-corrupt';
-      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
-      writeFileSync(join(testProjectRoot, '.peaks', sessionId, 'session.json'), '{broken', 'utf8');
+      // As of slice 003: session dir at .peaks/_runtime/<sid>/
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sessionId), { recursive: true });
+      writeFileSync(join(testProjectRoot, '.peaks', '_runtime', sessionId, 'session.json'), '{broken', 'utf8');
 
       expect(getSessionMeta(testProjectRoot, sessionId)).toBeNull();
     });
 
     test('getSessionMeta returns null for session.json with empty sessionId', () => {
       const sessionId = '2026-05-28-session-empty';
-      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
-      writeFileSync(join(testProjectRoot, '.peaks', sessionId, 'session.json'), JSON.stringify({ sessionId: '' }), 'utf8');
+      // As of slice 003: session dir at .peaks/_runtime/<sid>/
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sessionId), { recursive: true });
+      writeFileSync(join(testProjectRoot, '.peaks', '_runtime', sessionId, 'session.json'), JSON.stringify({ sessionId: '' }), 'utf8');
 
       expect(getSessionMeta(testProjectRoot, sessionId)).toBeNull();
     });
 
     test('listSessionMetas returns default meta for session dir without session.json', () => {
       const sessionId = '2026-05-28-session-a1b2c3';
-      mkdirSync(join(testProjectRoot, '.peaks', sessionId), { recursive: true });
+      // As of slice 003: session dir at .peaks/_runtime/<sid>/
+      mkdirSync(join(testProjectRoot, '.peaks', '_runtime', sessionId), { recursive: true });
 
       const metas = listSessionMetas(testProjectRoot);
       const found = metas.find((m) => m.sessionId === sessionId);

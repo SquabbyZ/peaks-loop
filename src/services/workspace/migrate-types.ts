@@ -62,14 +62,50 @@ export type MigrateSessionPlan = {
   fallbackChangeId: string | null;
 };
 
+export type MigrateOptions = {
+  projectRoot: string;
+  /** When true, actually `git mv` the files + `rm -rf` the emptied session dirs. */
+  apply: boolean;
+  /**
+   * Slice 003 (2026-06-06-session-layout-canonicalize): when true, the
+   * command performs the **session-dir consolidation** — moves every
+   * top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent;
+   * conflicts (target exists with different content) are logged but
+   * never overwrite. With `apply: false` (the default), the response
+   * lists what WOULD move + the conflicts.
+   *
+   * Mutually exclusive with the reviewable-content migration: the
+   * `--to-runtime` step is the data side of slice 003, while the
+   * default `migrate` step is the cross-cutting content side
+   * (reviewable files → retrospective). Both run when both flags are
+   * set; the order is `--to-runtime` first (so the cross-cutting
+   * step sees the canonical tree) and then the reviewable-content
+   * step.
+   */
+  toRuntime?: boolean;
+};
+
+export type MigrateToRuntimeFilePlan = {
+  /** Absolute source path (top-level `.peaks/<sid>/`). */
+  from: string;
+  /** Absolute target path (`.peaks/_runtime/<sid>/`). */
+  to: string;
+  /** The session id the dir belongs to. */
+  sessionId: string;
+  /** 'moved' or 'skipped-already-canonical' or 'conflict'. */
+  action: 'moved' | 'skipped-already-canonical' | 'conflict-target-exists-with-different-content' | 'f15-conflict-project-scan';
+  /** Human-readable reason for the action (for the conflicts list). */
+  reason: string;
+};
+
 export type MigrateResult = {
   /** Absolute project root the command operated on. */
   projectRoot: string;
   /** All discovered legacy session dirs, sorted by name. */
   sessions: MigrateSessionPlan[];
-  /** All moves the apply step WOULD perform (only populated when `apply === false` as well, for symmetry). */
+  /** All moves the apply step WOULD perform (only populated when `apply: false` as well, for symmetry). */
   wouldMove: MigrateFilePlan[];
-  /** All moves actually performed (only populated when `apply === true`). */
+  /** All moves actually performed (only populated when `apply: true`). */
   moved: MigrateFilePlan[];
   /** Sessions that became empty after the move and were/will be removed. */
   deletedSessions: string[];
@@ -81,10 +117,14 @@ export type MigrateResult = {
   apply: boolean;
   /** Total files moved or scheduled to move. */
   totalFilesMoved: number;
-};
-
-export type MigrateOptions = {
-  projectRoot: string;
-  /** When true, actually `git mv` the files + `rm -rf` the emptied session dirs. */
-  apply: boolean;
+  /**
+   * Slice 003: per-session-dir move plans for the `--to-runtime` step.
+   * Empty when `toRuntime` was not set. Conflicts include both the
+   * top-level/<sid>/ → _runtime/<sid>/ collisions AND the F15 carve-out
+   * for `rd/project-scan.md`.
+   */
+  toRuntimePlans?: MigrateToRuntimeFilePlan[];
+  toRuntimeMoved?: string[];
+  toRuntimeSkipped?: string[];
+  toRuntimeConflicts?: Array<{ from: string; to: string; reason: string }>;
 };

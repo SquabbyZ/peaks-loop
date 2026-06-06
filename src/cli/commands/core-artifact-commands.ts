@@ -133,7 +133,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .option('--mode <mode>', 'execution mode')
       .option('--gate <gate>', 'current gate')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-  ).action(async (name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
+  ).action((name: string, options: { mode?: string; gate?: string; project?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     if (options.mode !== undefined && !isSkillPresenceMode(options.mode)) {
       printResult(
@@ -148,13 +148,26 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       return;
     }
     const presence = setSkillPresence(name, options.mode, options.gate, options.project);
-    // Also update session metadata so session dirs self-document
-    const sessionId = await ensureSession(projectRoot);
-    setSessionMeta(projectRoot, sessionId, {
-      skill: name,
-      ...(options.mode ? { mode: options.mode } : {}),
-      ...(options.gate ? { gate: options.gate } : {})
-    });
+    // As of slice 003-2026-06-06-session-layout-canonicalize we do NOT
+    // call `ensureSession` here. The CLI wrapper previously spawned a
+    // new session on every presence call, which made the canonical
+    // session binding drift (the LLM saw the session id change every
+    // turn). The presence now reuses the session bound at
+    // `.peaks/_runtime/session.json` (or the legacy `.peaks/.session.json`
+    // during the back-compat window). If no session is bound, the
+    // presence still writes the active-skill marker — downstream code
+    // can `peaks workspace init` separately to create the session.
+    //
+    // Session metadata is updated when a session is bound (read-only
+    // path: `getSessionId`). We do not auto-spawn a session.
+    const boundSessionId = getSessionId(projectRoot);
+    if (boundSessionId !== null) {
+      setSessionMeta(projectRoot, boundSessionId, {
+        skill: name,
+        ...(options.mode ? { mode: options.mode } : {}),
+        ...(options.gate ? { gate: options.gate } : {})
+      });
+    }
     printResult(io, ok('skill.presence:set', { active: true, ...presence }), options.json);
   });
 

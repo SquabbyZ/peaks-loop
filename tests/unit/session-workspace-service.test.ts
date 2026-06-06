@@ -240,3 +240,24 @@ describe('runtime path (slice 2026-06-05-peaks-runtime-layer)', () => {
     expect(getSessionId(project)).toBe('2026-06-05-new-binding');
   });
 });
+
+/**
+ * Slice 003 invariant: initWorkspace must NEVER write a top-level
+ * `.peaks/<sid>/` directory. The only home for the session dir is
+ * `.peaks/_runtime/<sid>/`. Reviewable content (rd/, qa/, prd/, ui/, sc/, txt/)
+ * lives at `.peaks/<change-id>/<role>/` when --change-id is given.
+ */
+describe('canonical layout (slice 003 — no top-level session dir)', () => {
+  test('initWorkspace creates session dir ONLY at .peaks/_runtime/<sid>/, never at top-level', async () => {
+    const project = await makeProject();
+    await initWorkspace({ projectRoot: project, sessionId: '2026-06-06-canonical-only' });
+    // New layout: session dir is at _runtime/<sid>/
+    const runtimeDir = join(project, '.peaks', '_runtime', '2026-06-06-canonical-only');
+    const runtimeStat = await stat(runtimeDir);
+    expect(runtimeStat.isDirectory()).toBe(true);
+    // Invariant: NO top-level session dir
+    const topLevelDir = join(project, '.peaks', '2026-06-06-canonical-only');
+    const { stat: fsStat } = await import('node:fs/promises');
+    await expect(fsStat(topLevelDir)).rejects.toThrow();
+  });
+});

@@ -20,6 +20,7 @@
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { getSessionIdCanonical, setCurrentSessionBinding } from '../session/session-manager.js';
+import { regenerateChangeLinks, type RegenerateChangeLinksResult } from './change-link-service.js';
 import type {
   ReconcileOptions,
   ReconcileResult,
@@ -65,58 +66,75 @@ function runtimeNewBasename(oldBasename: string): string {
  * of files under the dir excluding `session.json` itself.
  */
 export function discoverSessions(projectRoot: string): SessionEntry[] {
+  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
   const peaksRoot = join(projectRoot, '.peaks');
-  if (!existsSync(peaksRoot)) return [];
-
-  let names: string[];
-  try {
-    names = readdirSync(peaksRoot);
-  } catch {
-    return [];
-  }
-
+  // As of slice 003, the canonical home for session dirs is
+  // `.peaks/_runtime/<sid>/`. The legacy top-level layout is
+  // read for back-compat (one minor release) so pre-migration
+  // trees keep working. Both are scanned; duplicates (same sid
+  // in both homes) are de-duplicated with the canonical home
+  // winning.
+  const seen = new Set<string>();
   const entries: SessionEntry[] = [];
-  for (const name of names) {
-    if (!SESSION_ID_PATTERN.test(name)) continue;
-    const dir = join(peaksRoot, name);
-    let stat;
+
+  const collect = (root: string): void => {
+    if (!existsSync(root)) return;
+    let names: string[];
     try {
-      // lstatSync: false for symlinks (prevents rm -rf from following a
-      // malicious symlink that points outside the project root).
-      stat = lstatSync(dir);
+      names = readdirSync(root);
     } catch {
-      continue;
+      return;
     }
-    if (!stat.isDirectory()) continue;
+    for (const name of names) {
+      if (!SESSION_ID_PATTERN.test(name)) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      scanSessionDir(root, name, entries);
+    }
+  };
 
-    const metaPath = join(dir, META_FILE);
-    let lastActivity: number | null = null;
-    if (existsSync(metaPath)) {
-      try {
-        lastActivity = statSync(metaPath).mtimeMs;
-      } catch {
-        lastActivity = null;
-      }
-    }
-
-    let childNames: string[];
-    try {
-      childNames = readdirSync(dir);
-    } catch {
-      childNames = [];
-    }
-    let artifactCount = 0;
-    for (const child of childNames) {
-      if (child === META_FILE) continue;
-      artifactCount += 1;
-    }
-
-    entries.push({ sessionId: name, path: dir, lastActivity, artifactCount });
-  }
+  collect(runtimeRoot);
+  collect(peaksRoot);
 
   entries.sort((a, b) => a.sessionId.localeCompare(b.sessionId));
   return entries;
 }
+
+function scanSessionDir(peaksRoot: string, name: string, entries: SessionEntry[]): void {
+  const dir = join(peaksRoot, name);
+  let stat;
+  try {
+    stat = lstatSync(dir);
+  } catch {
+    return;
+  }
+  if (!stat.isDirectory()) return;
+
+  const metaPath = join(dir, META_FILE);
+  let lastActivity: number | null = null;
+  if (existsSync(metaPath)) {
+    try {
+      lastActivity = statSync(metaPath).mtimeMs;
+    } catch {
+      lastActivity = null;
+    }
+  }
+
+  let childNames: string[];
+  try {
+    childNames = readdirSync(dir);
+  } catch {
+    childNames = [];
+  }
+  let artifactCount = 0;
+  for (const child of childNames) {
+    if (child === META_FILE) continue;
+    artifactCount += 1;
+  }
+
+  entries.push({ sessionId: name, path: dir, lastActivity, artifactCount });
+}
+
 
 /**
  * 4-tier canonical selection. Tiers evaluated in order; first one that
@@ -472,6 +490,12 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
   const deletionCandidates = findDeletionCandidates(sessions, ageThresholdMs);
   const deletionResult = applyDeletions(deletionCandidates, apply);
 
+  // Slice 003: regenerate the per-change-id symlink layer (with the
+  // EPERM manifest fallback) after the repoint step. This step is
+  // idempotent and writes only to `.peaks/_runtime/change/`. It does
+  // NOT touch session dirs or the binding.
+  const linkResult: RegenerateChangeLinksResult = regenerateChangeLinks({ projectRoot });
+
   return {
     projectRoot,
     sessions,
@@ -486,6 +510,13 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
     apply,
     repointed,
     migratedFiles: migration.migratedFiles,
-    errors: [...migrateErrors, ...deletionResult.errors]
+    errors: [...migrateErrors, ...deletionResult.errors],
+    changeLinks: {
+      created: linkResult.created,
+      skipped: linkResult.skipped,
+      errors: linkResult.errors,
+      manifestWritten: linkResult.manifestWritten,
+      manifestPath: linkResult.manifestPath
+    }
   };
 }

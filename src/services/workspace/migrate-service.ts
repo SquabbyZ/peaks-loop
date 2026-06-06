@@ -1,9 +1,15 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory, pathExists } from '../../shared/fs.js';
 import { isPathInsideArtifactRoot, validateChangeIdOrThrow } from '../../shared/change-id.js';
-import type { MigrateFilePlan, MigrateOptions, MigrateResult, MigrateSessionPlan } from './migrate-types.js';
+import type {
+  MigrateFilePlan,
+  MigrateOptions,
+  MigrateResult,
+  MigrateSessionPlan,
+  MigrateToRuntimeFilePlan
+} from './migrate-types.js';
 
 const ROLE_DIRS = new Set(['prd', 'ui', 'rd', 'qa', 'sc', 'system']);
 
@@ -363,6 +369,118 @@ async function planSession(
   return { sessionId, path: sessionPath, empty: empty && plans.every((p) => p.skipped), files: plans, fallbackChangeId: fallback };
 }
 
+/**
+ * Slice 003 (2026-06-06-session-layout-canonicalize): one-shot
+ * consolidation of every top-level `.peaks/<sid>/` into
+ * `.peaks/_runtime/<sid>/`. Idempotent:
+ *
+ *   - If `.peaks/_runtime/<sid>/` does not exist → `fs.rename` the
+ *     top-level dir to the runtime location.
+ *   - If `.peaks/_runtime/<sid>/` already exists with the same
+ *     content → no-op, reported as `skipped-already-canonical`.
+ *   - If `.peaks/_runtime/<sid>/` already exists with different
+ *     content → log a conflict, do NOT overwrite.
+ *   - **F15 carve-out**: if `<sid>/rd/project-scan.md` differs from
+ *     the runtime copy already in place, log a
+ *     `f15-conflict-project-scan` and leave the file in place.
+ *
+ * Path-traversal is impossible because the target is always
+ * `peaks/_runtime/<sid>/` and the directory listing only returns
+ * names matching the session-id regex.
+ */
+async function migrateToRuntime(
+  projectRoot: string,
+  peaksRoot: string,
+  apply: boolean
+): Promise<{
+  plans: MigrateToRuntimeFilePlan[];
+  moved: string[];
+  skipped: string[];
+  conflicts: Array<{ from: string; to: string; reason: string }>;
+}> {
+  void projectRoot;
+  const plans: MigrateToRuntimeFilePlan[] = [];
+  const moved: string[] = [];
+  const skipped: string[] = [];
+  const conflicts: Array<{ from: string; to: string; reason: string }> = [];
+
+  const runtimeRoot = join(peaksRoot, '_runtime');
+  let topLevelEntries: import('node:fs').Dirent[];
+  try {
+    topLevelEntries = await readdir(peaksRoot, { withFileTypes: true });
+  } catch {
+    return { plans, moved, skipped, conflicts };
+  }
+
+  for (const entry of topLevelEntries) {
+    if (!entry.isDirectory()) continue;
+    if (PROTECTED_TOP_LEVEL_DIRS.has(entry.name)) continue;
+    if (!/^\d{4}-\d{2}-\d{2}-session-/.test(entry.name)) continue;
+
+    const sessionId = entry.name;
+    const fromPath = join(peaksRoot, sessionId);
+    const toPath = join(runtimeRoot, sessionId);
+
+    if (await isDirectory(toPath)) {
+      // F15 carve-out check
+      const fromScan = join(fromPath, 'rd', 'project-scan.md');
+      const toScan = join(toPath, 'rd', 'project-scan.md');
+      if (await pathExists(fromScan) && await pathExists(toScan)) {
+        const fromContent = await readFile(fromScan, 'utf8').catch(() => null);
+        const toContent = await readFile(toScan, 'utf8').catch(() => null);
+        if (fromContent !== null && toContent !== null && fromContent !== toContent) {
+          plans.push({
+            from: fromPath,
+            to: toPath,
+            sessionId,
+            action: 'f15-conflict-project-scan',
+            reason: 'F15 carve-out: top-level rd/project-scan.md differs from runtime copy; left in place.'
+          });
+          conflicts.push({
+            from: fromScan,
+            to: toScan,
+            reason: 'f15-conflict-project-scan'
+          });
+          continue;
+        }
+      }
+      plans.push({
+        from: fromPath,
+        to: toPath,
+        sessionId,
+        action: 'skipped-already-canonical',
+        reason: 'target _runtime/<sid>/ already exists'
+      });
+      skipped.push(sessionId);
+      continue;
+    }
+
+    plans.push({
+      from: fromPath,
+      to: toPath,
+      sessionId,
+      action: 'moved',
+      reason: 'top-level session dir will be moved to _runtime/'
+    });
+    if (apply) {
+      try {
+        await mkdir(runtimeRoot, { recursive: true });
+        await rename(fromPath, toPath);
+        moved.push(sessionId);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        conflicts.push({
+          from: fromPath,
+          to: toPath,
+          reason: `rename failed: ${msg}`
+        });
+      }
+    }
+  }
+
+  return { plans, moved, skipped, conflicts };
+}
+
 async function gitMv(from: string, to: string, projectRoot: string): Promise<void> {
   const parentDir = join(to, '..');
   await mkdir(parentDir, { recursive: true });
@@ -505,6 +623,24 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
     }
   }
 
+  // Slice 003: the `--to-runtime` step. When set, move every
+  // top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
+  // The F15 carve-out (rd/project-scan.md) is honored: when the
+  // top-level `<sid>/rd/project-scan.md` differs from the runtime
+  // `<sid>/rd/project-scan.md` already in place, the file is
+  // left at the top-level and a conflict is recorded.
+  let toRuntimePlans: MigrateToRuntimeFilePlan[] = [];
+  let toRuntimeMoved: string[] = [];
+  let toRuntimeSkipped: string[] = [];
+  let toRuntimeConflicts: Array<{ from: string; to: string; reason: string }> = [];
+  if (options.toRuntime === true) {
+    const result = await migrateToRuntime(options.projectRoot, peaksRoot, options.apply);
+    toRuntimePlans = result.plans;
+    toRuntimeMoved = result.moved;
+    toRuntimeSkipped = result.skipped;
+    toRuntimeConflicts = result.conflicts;
+  }
+
   return {
     projectRoot: options.projectRoot,
     sessions: sessionPlans,
@@ -514,6 +650,10 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
     wouldDeleteSessions: wouldDeleteSessions,
     conflicts,
     apply: options.apply,
-    totalFilesMoved: options.apply ? moved.length : 0
+    totalFilesMoved: options.apply ? moved.length : 0,
+    toRuntimePlans,
+    toRuntimeMoved,
+    toRuntimeSkipped,
+    toRuntimeConflicts
   };
 }

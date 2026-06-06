@@ -174,6 +174,18 @@ export type CheckPrerequisitesOptions = {
    * on-disk path now agree on the same top-level dir.
    */
   changeId: string;
+  /**
+   * Session binding (the developer's local session that wrote the
+   * request artifact). Read from the file body's `- session:` line.
+   * Optional, but when present the gate falls back to
+   * `.peaks/_runtime/<sid>/<role>/` and then `.peaks/<sid>/<role>/`
+   * for prerequisite artifacts that don't exist at the per-change-id
+   * path. This mirrors the F1/F2 back-compat pattern (read new path
+   * first, then legacy) and keeps the gate working for users whose
+   * QA / tech-doc / initiated artifacts still live under the session
+   * dir rather than under the change-id dir.
+   */
+  sessionId?: string;
   role: RequestArtifactRole;
   newState: RequestArtifactState;
   requestId: string;
@@ -238,11 +250,36 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
   // lives in), NOT the body's `- session:` line. The body and the path
   // can now disagree (e.g. a request written in one session but read
   // across sessions), and the gate follows the on-disk location.
+  //
+  // As of slice 2026-06-06-session-layout-canonicalize (F3) repair
+  // cycle 1, the gate also falls back to:
+  //   1. `.peaks/_runtime/<sid>/<role>/...` (post-F3 canonical home
+  //      for session-scoped artifacts: `qa/.initiated`,
+  //      `qa/test-cases/<rid>.md`, etc.), then
+  //   2. `.peaks/<sid>/<role>/...` (pre-F3 legacy home for the same
+  //      artifacts).
+  // This mirrors the F1/F2 back-compat pattern (read new path first,
+  // then legacy) so users who have NOT migrated the QA / tech-doc /
+  // initiated artifacts from the session dir to the change-id dir
+  // still get a clean transition. The per-change-id path wins when
+  // both exist (post-F3 source of truth).
   const changeRoot = join(options.projectRoot, '.peaks', options.changeId);
+  const canonicalSessionRoot = options.sessionId !== undefined
+    ? join(options.projectRoot, '.peaks', '_runtime', options.sessionId)
+    : null;
+  const legacySessionRoot = options.sessionId !== undefined
+    ? join(options.projectRoot, '.peaks', options.sessionId)
+    : null;
   const missing: Array<{ path: string; description: string }> = [];
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
-    const absolute = await resolvePrerequisiteAbsolutePath(changeRoot, prerequisite, options.requestId);
+    const absolute = await resolvePrerequisiteAbsolutePathWithFallback(
+      changeRoot,
+      canonicalSessionRoot,
+      legacySessionRoot,
+      prerequisite,
+      options.requestId
+    );
     if (absolute === null) {
       missing.push({ path: relative, description: prerequisite.description });
       continue;
@@ -271,4 +308,32 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
     }
   }
   return { ok: missing.length === 0, missing };
+}
+
+/**
+ * Resolve a prerequisite to an on-disk path, with a 3-tier fallback:
+ *   1. `<changeRoot>/<relative>` (per-change-id scope; post-F3 source
+ *      of truth).
+ *   2. `<canonicalSessionRoot>/<relative>` (post-F3 canonical session
+ *      home, when `canonicalSessionRoot` is provided).
+ *   3. `<legacySessionRoot>/<relative>` (pre-F3 legacy session home,
+ *      when `legacySessionRoot` is provided).
+ * Tolerates the numbered filename prefix that `request init` writes
+ * (e.g. `001-<rid>.md`) at every tier. Returns the matched absolute
+ * path, or null when nothing matches.
+ */
+async function resolvePrerequisiteAbsolutePathWithFallback(
+  changeRoot: string,
+  canonicalSessionRoot: string | null,
+  legacySessionRoot: string | null,
+  prerequisite: ArtifactPrerequisite,
+  requestId: string
+): Promise<string | null> {
+  const roots: Array<string | null> = [changeRoot, canonicalSessionRoot, legacySessionRoot];
+  for (const root of roots) {
+    if (root === null) continue;
+    const found = await resolvePrerequisiteAbsolutePath(root, prerequisite, requestId);
+    if (found !== null) return found;
+  }
+  return null;
 }

@@ -623,16 +623,31 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   // As of slice 2026-06-05-change-id-as-unit-of-work, the dir key is the
   // change-id (not the session-id). When the caller pins `sessionId` we
   // use it as the scope anyway (legacy callers, and tests that pass
-  // `STABLE_SESSION` as a stand-in). The directory layout is identical
-  // for both old session dirs and new change-id dirs, so a single
-  // read path works for both.
+  // `STABLE_SESSION` as a stand-in).
+  //
+  // As of slice 2026-06-06-session-layout-canonicalize (F3), the
+  // canonical home for session dirs is `.peaks/_runtime/<sid>/`.
+  // The pre-F3 layout `.peaks/<sid>/` is preserved as a one-minor
+  // back-compat fallback (the new path wins when both exist). We
+  // resolve the dir to use UP FRONT (not lazily after a miss) so the
+  // prerequisite gate's "request artifact present" check observes
+  // the same path the rest of the canonical layout uses.
   if (options.sessionId !== undefined) {
-    const dir = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests');
+    const canonicalDir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
+    const legacyDir = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests');
+    // Try the canonical (post-F3) path first; fall back to the legacy
+    // path only if the canonical path is absent. The legacy path is
+    // expected to be empty after a `peaks workspace migrate --to-runtime`
+    // run; this fallback exists for users who have not yet migrated.
+    const dir = (await isDirectory(canonicalDir)) ? canonicalDir : legacyDir;
+    const scope = dir === canonicalDir
+      ? join('_runtime', options.sessionId)
+      : options.sessionId;
     const found = await findFileInDir(dir);
     if (found === null) {
       return null;
     }
-    return await readRequestArtifact(options.projectRoot, options.sessionId, options.role, found);
+    return await readRequestArtifact(options.projectRoot, scope, options.role, found);
   }
 
   const peaksRoot = join(options.projectRoot, '.peaks');
@@ -877,6 +892,12 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   const prerequisiteResult = await checkPrerequisites({
     projectRoot: options.projectRoot,
     changeId: existing.changeId,
+    // F3 repair cycle 1: pass the session binding so the gate can fall
+    // back to `.peaks/_runtime/<sid>/<role>/` (and the legacy
+    // `.peaks/<sid>/<role>/`) for prerequisite artifacts that still
+    // live under the session dir rather than the change-id dir. This
+    // mirrors the F1/F2 back-compat pattern.
+    sessionId: existing.sessionId,
     role: options.role,
     newState: options.newState,
     requestId: options.requestId,

@@ -81,6 +81,21 @@ export type ReconcileResult = {
    * errors apart from deletion errors. The shape is additive.
    */
   errors: Array<{ sessionId: string; message: string } | { kind: 'migrate'; path: string; message: string }>;
+  /**
+   * Slice 003 (2026-06-06-session-layout-canonicalize): per-change-id
+   * symlink regeneration result, run after the repoint step. The
+   * `manifestWritten: true` flag means the OS rejected symlinks
+   * (Windows `EPERM` on non-developer-mode) and a `.peaks-link.json`
+   * manifest is the source of truth for this run. Additive — older
+   * consumers can ignore this field.
+   */
+  changeLinks?: {
+    created: string[];
+    skipped: string[];
+    errors: string[];
+    manifestWritten: boolean;
+    manifestPath: string;
+  };
 };
 
 export type ReconcileOptions = {

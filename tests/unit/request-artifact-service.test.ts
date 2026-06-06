@@ -317,6 +317,111 @@ describe('showRequestArtifact', () => {
     expect(result).not.toBeNull();
     expect(result!.requestId).toBe('scan-all');
   });
+
+  /**
+   * Slice 003 repair cycle 1: showRequestArtifact must read from the
+   * canonical post-F3 path `.peaks/_runtime/<sid>/<role>/requests/`
+   * first, and fall back to the legacy pre-F3 path
+   * `.peaks/<sid>/<role>/requests/` when the canonical path is absent.
+   * The pre-F3 read silently pointed at the legacy path and missed
+   * every in-flight session that was created after
+   * `peaks workspace migrate --to-runtime`. After the fix, the
+   * prerequisite gate's "request artifact present" check observes
+   * the same path the rest of the canonical layout uses.
+   */
+  test('finds artifact at the canonical post-F3 path .peaks/_runtime/<sid>/<role>/requests/', async () => {
+    const project = await makeProject();
+    const sid = '2026-06-06-runtime-canonical';
+    const rid = '2026-06-06-runtime-canonical-rid';
+    // Write directly at the canonical post-F3 path.
+    const canonicalDir = join(project, '.peaks', '_runtime', sid, 'rd', 'requests');
+    await mkdir(canonicalDir, { recursive: true });
+    const body = [
+      '# RD Request ' + rid,
+      '',
+      '- session: ' + sid,
+      '- change-id: ' + rid,
+      '- type: refactor',
+      '- state: draft',
+      '',
+      '## Red-line scope',
+      '- in scope: ...',
+      '',
+      '## Status',
+      '- created: 2026-06-06T00:00:00.000Z',
+      '- last update: 2026-06-06T00:00:00.000Z',
+      '- state: draft',
+      ''
+    ].join('\n');
+    await writeFile(join(canonicalDir, `${rid}.md`), body, 'utf8');
+
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'rd', requestId: rid, sessionId: sid
+    });
+    expect(result).not.toBeNull();
+    expect(result!.requestId).toBe(rid);
+    expect(result!.content).toContain('## Red-line scope');
+  });
+
+  test('falls back to the legacy pre-F3 path .peaks/<sid>/<role>/requests/ when canonical path is absent', async () => {
+    const project = await makeProject();
+    const sid = '2026-06-06-legacy-fallback-sid';
+    const rid = '2026-06-06-legacy-fallback-rid';
+    // Write ONLY at the legacy pre-F3 path (the canonical _runtime/<sid>/
+    // dir does NOT exist on disk).
+    const legacyDir = join(project, '.peaks', sid, 'rd', 'requests');
+    await mkdir(legacyDir, { recursive: true });
+    const body = [
+      '# RD Request ' + rid,
+      '',
+      '- session: ' + sid,
+      '- change-id: ' + rid,
+      '- type: refactor',
+      '- state: draft',
+      '',
+      '## Red-line scope',
+      '- in scope: ...',
+      '',
+      '## Status',
+      '- created: 2026-06-06T00:00:00.000Z',
+      '- last update: 2026-06-06T00:00:00.000Z',
+      '- state: draft',
+      ''
+    ].join('\n');
+    await writeFile(join(legacyDir, `${rid}.md`), body, 'utf8');
+
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'rd', requestId: rid, sessionId: sid
+    });
+    expect(result).not.toBeNull();
+    expect(result!.requestId).toBe(rid);
+    expect(result!.content).toContain('## Red-line scope');
+  });
+
+  test('prefers the canonical post-F3 path when both canonical and legacy exist', async () => {
+    const project = await makeProject();
+    const sid = '2026-06-06-canonical-wins';
+    const ridCanonical = '2026-06-06-canonical-rid';
+    const ridLegacy = '2026-06-06-legacy-rid';
+    // Both paths exist with different content; the canonical read wins.
+    const canonicalDir = join(project, '.peaks', '_runtime', sid, 'rd', 'requests');
+    const legacyDir = join(project, '.peaks', sid, 'rd', 'requests');
+    await mkdir(canonicalDir, { recursive: true });
+    await mkdir(legacyDir, { recursive: true });
+    const canonicalBody = '# RD Request CANONICAL\n- state: draft\n- type: refactor\n';
+    const legacyBody = '# RD Request LEGACY\n- state: draft\n- type: refactor\n';
+    await writeFile(join(canonicalDir, `${ridCanonical}.md`), canonicalBody, 'utf8');
+    await writeFile(join(legacyDir, `${ridCanonical}.md`), legacyBody, 'utf8');
+    // Sanity: the legacy-only rid should NOT be picked up when looking for ridCanonical.
+    await writeFile(join(legacyDir, `${ridLegacy}.md`), legacyBody, 'utf8');
+
+    const result = await showRequestArtifact({
+      projectRoot: project, role: 'rd', requestId: ridCanonical, sessionId: sid
+    });
+    expect(result).not.toBeNull();
+    expect(result!.content).toContain('CANONICAL');
+    expect(result!.content).not.toContain('LEGACY');
+  });
 });
 
 describe('allowedStatesForRole', () => {

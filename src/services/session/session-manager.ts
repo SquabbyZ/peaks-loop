@@ -261,7 +261,14 @@ export function setCurrentSessionBinding(projectRoot: string, sessionId: string)
 }
 
 function getMetaFilePath(projectRoot: string, sessionId: string): string {
-  return join(projectRoot, '.peaks', sessionId, META_FILE);
+  // As of slice 2026-06-06-session-layout-canonicalize, the per-session
+  // `session.json` (the file written by `setSessionMeta`) lives at the
+  // canonical runtime home `.peaks/_runtime/<sid>/session.json`, NOT
+  // at the top-level `.peaks/<sid>/session.json` (which would imply
+  // the legacy session-scoped layout and conflict with the workspace
+  // service's `_runtime/<sid>/` invariant). The migration in slice
+  // 003 moved any top-level meta files into the runtime home.
+  return join(projectRoot, '.peaks', '_runtime', sessionId, META_FILE);
 }
 
 function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | null {
@@ -282,7 +289,9 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
 
 function writeSessionMeta(projectRoot: string, sessionId: string, meta: SessionMeta): void {
   const metaPath = getMetaFilePath(projectRoot, sessionId);
-  const metaDir = join(projectRoot, '.peaks', sessionId);
+  // As of slice 003, the meta file lives at `.peaks/_runtime/<sid>/session.json`.
+  // The parent dir of that file is the canonical runtime session dir.
+  const metaDir = dirname(metaPath);
   if (!existsSync(metaDir)) {
     mkdirSync(metaDir, { recursive: true });
   }
@@ -329,24 +338,64 @@ export function setSessionTitle(projectRoot: string, sessionId: string, title: s
 /**
  * List all session directories under .peaks with their metadata.
  * Returns sessions sorted by sessionId descending (most recent first).
+ *
+ * As of slice 2026-06-06-session-layout-canonicalize the session
+ * dirs live at the canonical runtime home `.peaks/_runtime/<sid>/`.
+ * The legacy top-level layout is read for back-compat (one minor
+ * release) but is not authoritative.
  */
 export function listSessionMetas(projectRoot: string): SessionMeta[] {
+  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
   const peaksRoot = join(projectRoot, '.peaks');
-  if (!existsSync(peaksRoot)) return [];
+  const seen = new Set<string>();
+  const result: SessionMeta[] = [];
 
-  const entries = readdirSync(peaksRoot, { withFileTypes: true });
+  const collect = (root: string): void => {
+    if (!existsSync(root)) return;
+    const names: string[] = [];
+    try {
+      const out = readdirSync(root, { withFileTypes: true });
+      for (const e of out) {
+        if (e.isDirectory()) names.push(e.name);
+      }
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      if (!/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(name)) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const meta = readSessionMeta(projectRoot, name);
+      result.push(meta ?? { sessionId: name, projectRoot, createdAt: '' });
+    }
+  };
 
-  return entries
-    .filter((entry) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(entry.name))
-    .map((entry) => {
-      const meta = readSessionMeta(projectRoot, entry.name);
-      return meta ?? {
-        sessionId: entry.name,
-        projectRoot,
-        createdAt: ''
-      };
-    })
-    .sort((a, b) => b.sessionId.localeCompare(a.sessionId));
+  // Canonical home first, then the legacy top-level (back-compat).
+  collect(runtimeRoot);
+  collect(peaksRoot);
+
+  result.sort((a, b) => b.sessionId.localeCompare(a.sessionId));
+  return result;
+}
+
+/**
+ * Back-compat read for the legacy top-level meta file (the one that
+ * pre-slice 003 trees still have at `.peaks/<sid>/session.json`).
+ * Kept as a separate helper so the canonical reader is the default.
+ */
+function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMeta | null {
+  const metaPath = join(peaksRoot, sessionId, META_FILE);
+  if (!existsSync(metaPath)) return null;
+  try {
+    const raw = readFileSync(metaPath, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.sessionId !== 'string' || parsed.sessionId.length === 0) {
+      return null;
+    }
+    return parsed as SessionMeta;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -443,33 +492,59 @@ export function getSessionIdCanonical(projectRoot: string): string | null {
  * Get the absolute path to the current session directory.
  * Creates the session if it doesn't exist.
  *
+ * As of slice 2026-06-06-session-layout-canonicalize the canonical
+ * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
+ * `.peaks/<sid>/` is the back-compat read fallback only.
+ *
  * @param projectRoot - Root directory of the project
- * @returns Absolute path to session directory (e.g., "/path/to/project/.peaks/2026-05-26-session-a3f8b1")
+ * @returns Absolute path to session directory (e.g., "/path/to/project/.peaks/_runtime/2026-05-26-session-a3f8b1")
  */
 export async function getCurrentSessionDir(projectRoot: string): Promise<string> {
   const sessionId = await ensureSession(projectRoot);
-  return join(projectRoot, '.peaks', sessionId);
+  return join(projectRoot, '.peaks', '_runtime', sessionId);
 }
 
 /**
  * List all session directories in the .peaks folder.
  * Returns session IDs (directory names) sorted by date.
  *
+ * As of slice 2026-06-06-session-layout-canonicalize the canonical
+ * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
+ * `.peaks/<sid>/` is read for back-compat (one minor release) so
+ * pre-migration trees keep working.
+ *
  * @param projectRoot - Root directory of the project
  * @returns Array of session IDs
  */
 export function listSessions(projectRoot: string): string[] {
+  const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
   const peaksRoot = join(projectRoot, '.peaks');
-  if (!existsSync(peaksRoot)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
 
-  const { readdirSync } = require('node:fs');
-  const entries = readdirSync(peaksRoot, { withFileTypes: true });
+  const collect = (root: string): void => {
+    if (!existsSync(root)) return;
+    const names: string[] = [];
+    try {
+      const out = readdirSync(root, { withFileTypes: true });
+      for (const e of out) {
+        if (e.isDirectory()) names.push(e.name);
+      }
+    } catch {
+      return;
+    }
+    for (const name of names) {
+      if (!/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(name)) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      result.push(name);
+    }
+  };
 
-  return entries
-    .filter((entry: any) => entry.isDirectory() && /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(entry.name))
-    .map((entry: any) => entry.name)
-    .sort()
-    .reverse(); // Most recent first
+  collect(runtimeRoot);
+  collect(peaksRoot);
+
+  return result.sort().reverse();
 }
 
 /**

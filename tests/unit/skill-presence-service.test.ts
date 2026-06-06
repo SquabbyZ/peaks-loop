@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test, vi, afterEach } from 'vitest';
@@ -291,13 +291,15 @@ describe('skill presence service', () => {
 
         // Seed an existing session binding recorded with outerSessionId=A.
         // The shape mirrors what ensureSession() writes to disk.
-        mks(join(root, '.peaks', '2026-06-03-session-mock'), { recursive: true });
+        // As of slice 003-2026-06-06-session-layout-canonicalize the
+        // per-session session.json lives at `.peaks/_runtime/<sid>/session.json`.
+        mks(join(root, '.peaks', '_runtime', '2026-06-03-session-mock'), { recursive: true });
         wfs(join(root, '.peaks', '.session.json'), JSON.stringify({
           sessionId: '2026-06-03-session-mock',
           createdAt: '2026-06-03T00:00:00.000Z',
           projectRoot: root
         }), 'utf8');
-        wfs(join(root, '.peaks', '2026-06-03-session-mock', 'session.json'), JSON.stringify({
+        wfs(join(root, '.peaks', '_runtime', '2026-06-03-session-mock', 'session.json'), JSON.stringify({
           sessionId: '2026-06-03-session-mock',
           createdAt: '2026-06-03T00:00:00.000Z',
           projectRoot: root,
@@ -906,3 +908,85 @@ describe('skill presence — runtime path (slice 2026-06-05-peaks-runtime-layer)
     expect(result).toBe(resolve(cwd, '.peaks/_runtime/active-skill.json'));
   });
 });
+
+/**
+ * Slice 003 invariant: `setSkillPresence` reuses the session bound in
+ * `.peaks/_runtime/session.json` (or the legacy `.peaks/.session.json`
+ * during the back-compat window). It MUST NOT spawn a new session on
+ * every call. Three consecutive presence writes must produce exactly
+ * the same number of session dirs as the pre-seeded state.
+ *
+ * Pre-slice behaviour: the CLI wrapper called `ensureSession()` after
+ * `setSkillPresence`, and `ensureSession` would auto-generate a new
+ * session id any time the strict-equality read of `.peaks/.session.json`
+ * failed (e.g. when the projectRoot on disk was a relative `"."` but
+ * the caller passed the absolute form). That bug made every presence
+ * write create a fresh session dir, which the LLM saw as "the canonical
+ * session keeps changing". Slice 003 removes the `ensureSession` call
+ * from the CLI wrapper AND ensures `setSkillPresence` itself never
+ * spawns a session — the test pins that contract.
+ */
+describe('canonical layout (slice 003 — presence reuses bound session)', () => {
+  test('3 consecutive setSkillPresence calls do NOT create 3 session dirs (reuse bound session)', () => {
+    const root = createTempDir();
+    try {
+      // Pre-seed a single bound session at the new canonical runtime path.
+      const boundSid = '2026-06-06-bound-session';
+      mkdirSync(join(root, '.peaks', '_runtime'), { recursive: true });
+      writeFileSync(
+        join(root, '.peaks', '_runtime', 'session.json'),
+        JSON.stringify({ sessionId: boundSid, projectRoot: root, createdAt: new Date().toISOString() }),
+        'utf8'
+      );
+      vi.spyOn(process, 'cwd').mockReturnValue(root);
+
+      // Count session dirs BEFORE — there should be exactly 0 (no session.json in any dir, just the binding).
+      const peaksDir = join(root, '.peaks');
+      const before = listSessionDirs(peaksDir);
+
+      // 3 consecutive presence writes.
+      setSkillPresence('peaks-rd', 'full-auto', 'startup', root);
+      setSkillPresence('peaks-rd', 'full-auto', 'startup', root);
+      setSkillPresence('peaks-rd', 'full-auto', 'startup', root);
+
+      // The bound session must remain the same; no new dirs were created.
+      const after = listSessionDirs(peaksDir);
+      expect(after).toEqual(before);
+      // The presence file points at the bound session, not a fresh one.
+      const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
+      const presenceRaw = JSON.parse(readFileSync(presencePath, 'utf8'));
+      expect(presenceRaw.sessionId).toBe(boundSid);
+    } finally {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+function listSessionDirs(peaksDir: string): string[] {
+  // Use the same shape as session-manager.listSessions: any dir matching
+  // the session-id regex, at any depth under .peaks/.
+  if (!existsSync(peaksDir)) return [];
+  const out: string[] = [];
+  const stack = [peaksDir];
+  while (stack.length > 0) {
+    const current = stack.pop() as string;
+    const names: string[] = [];
+    try {
+      const entries = readdirSync(current, { withFileTypes: true });
+      for (const e of entries) {
+        if (e.isDirectory()) names.push(e.name);
+      }
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const full = join(current, name);
+      if (/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/.test(name)) {
+        out.push(full);
+      }
+      stack.push(full);
+    }
+  }
+  return out.sort();
+}
