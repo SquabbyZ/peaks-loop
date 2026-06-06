@@ -1,7 +1,7 @@
 import type { IdeId } from './ide-types.js';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { getAdapter } from './ide-registry.js';
+import { getAdapter, listAdapterIds } from './ide-registry.js';
 
 /**
  * hook-translator —— peaks 自有 hook 协议的核心。
@@ -30,8 +30,10 @@ export interface DetectFromStdinInput {
  * Falls back to 'claude-code' (PRD preserved behavior: backward compat).
  */
 export function detectIdeFromContext(input: DetectFromStdinInput): IdeId {
-  // 1. env 变量优先级最高
-  for (const adapter of ['claude-code', 'trae', 'codex', 'cursor', 'qoder', 'tongyi-lingma'] as const) {
+  // 1. env 变量优先级最高。Iterate ONLY over currently-registered adapters
+  // so the function does not throw on unregistered IDEs while future slices
+  // progressively add trae / codex / cursor / qoder / tongyi-lingma.
+  for (const adapter of listAdapterIds()) {
     const a = getAdapter(adapter);
     if (input.env[a.envVar] !== undefined) {
       return adapter;
@@ -49,8 +51,8 @@ export function detectIdeFromContext(input: DetectFromStdinInput): IdeId {
       return 'trae';
     }
   }
-  // 3. cwd 启发式
-  for (const adapter of ['claude-code', 'trae', 'codex', 'cursor', 'qoder', 'tongyi-lingma'] as const) {
+  // 3. cwd 启发式。Same registration-aware iteration as step 1.
+  for (const adapter of listAdapterIds()) {
     const a = getAdapter(adapter);
     if (existsSync(join(input.cwd, a.settings.dirName))) {
       return adapter;

@@ -2,13 +2,19 @@ import { Command } from 'commander';
 import { enforceBashCommand, recordGateBypass, GateBypassError } from '../../services/sop/gate-enforce-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { detectIdeFromContext, parseClaudeShapeStdin } from '../../services/ide/hook-translator.js';
+import { formatDecisionResponse } from '../../services/ide/hook-protocol.js';
+import { getAdapter } from '../../services/ide/ide-registry.js';
 
 type GateEnforceCliOptions = { project: string; json?: boolean };
 type GateBypassCliOptions = { sop: string; phase: string; reason: string; project: string; json?: boolean };
 
-type HookPayload = { tool_name?: string; tool_input?: { command?: string } };
-
-/** Read the PreToolUse hook payload. `PEAKS_HOOK_STDIN` is a test seam; production reads stdin. */
+/**
+ * Read the PreToolUse hook payload. `PEAKS_HOOK_STDIN` is a test seam; production
+ * reads stdin. The CLI-side stdin reader is intentionally kept here (not in
+ * `hook-translator.ts`) because it owns the `process.stdin` lifecycle and the
+ * test-seam env var. The translator operates on already-parsed payloads.
+ */
 async function readHookPayload(): Promise<string> {
   const override = process.env.PEAKS_HOOK_STDIN;
   if (override !== undefined) {
@@ -28,18 +34,6 @@ async function readHookPayload(): Promise<string> {
   });
 }
 
-function emitDeny(io: ProgramIO, reason: string): void {
-  // The exact, verified PreToolUse decision shape. permissionDecision:"deny"
-  // blocks the tool call before Claude Code's permission checks (un-bypassable).
-  io.stdout(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: reason
-    }
-  }));
-}
-
 export function registerGateCommands(program: Command, io: ProgramIO): void {
   const gate = program.command('gate').description('SOP gate enforcement (PreToolUse hook handler and bypass)');
 
@@ -53,14 +47,24 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
     // decide must FAIL-OPEN (allow), never block the user's Claude Code.
     try {
       const raw = await readHookPayload();
-      let command: string | undefined;
-      let toolName: string | undefined;
+      let parsedStdin: unknown = null;
       if (raw.trim().length > 0) {
-        const payload = JSON.parse(raw) as HookPayload;
-        toolName = payload.tool_name;
-        command = payload.tool_input?.command;
+        try {
+          parsedStdin = JSON.parse(raw);
+        } catch {
+          // Malformed JSON — fail-open. Detect + parse on null fall back to the
+          // default adapter and yield empty tool/command, which short-circuits
+          // to the "not a guarded surface" early exit below.
+        }
       }
-      if (toolName !== 'Bash' || typeof command !== 'string' || command.trim().length === 0) {
+      const ide = detectIdeFromContext({ env: process.env, cwd: process.cwd(), parsedStdin });
+      const adapter = getAdapter(ide);
+      // For slice #1 only the Claude adapter is registered, so the parser is
+      // Claude-shaped. Future slices dispatch on `ide` to pick a per-adapter
+      // parser; the parser entry-point (`parseXxxShapeStdin`) is the only
+      // change required.
+      const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
+      if (toolName !== adapter.toolMatcher || typeof command !== 'string' || command.trim().length === 0) {
         // Not a guarded surface — allow (no output = normal permission flow).
         if (options.json === true) {
           printResult(io, ok('gate.enforce', { decision: 'allow', skipped: true }), true);
@@ -69,7 +73,8 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       }
       const decision = await enforceBashCommand(options.project, command);
       if (decision.decision === 'deny') {
-        emitDeny(io, decision.reason);
+        const { stdout } = formatDecisionResponse(ide, 'deny', decision.reason);
+        io.stdout(stdout);
         if (options.json === true) {
           io.stderr(JSON.stringify(ok('gate.enforce', decision)));
         }
