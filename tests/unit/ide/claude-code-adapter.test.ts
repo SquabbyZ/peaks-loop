@@ -96,7 +96,27 @@ describe('CLAUDE_CODE_ADAPTER — formatDecisionResponse integration', () => {
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('gate no-todo failed');
   });
 
-  test('throws when called with an unsupported IDE (slice #1 only registers Claude)', () => {
-    expect(() => formatDecisionResponse('trae', 'deny', 'x')).toThrow(/unsupported IDE trae/);
+  test('throws when called with an IDE that has no registered adapter (future slices will add support)', () => {
+    // codex / cursor / qoder / tongyi-lingma are reserved IdeIds in slice #1
+    // but not yet registered in the adapter registry. The function should
+    // throw a clear "unsupported IDE" error so the hook runtime fail-opens
+    // (rather than silently producing a Claude-shaped response).
+    expect(() => formatDecisionResponse('codex', 'deny', 'x')).toThrow(/unsupported IDE codex/);
+  });
+
+  test('Trae deny response uses the beforeToolCall event name (slice #3 hook-protocol Trae branch)', () => {
+    // Slice #3 added Trae to formatDecisionResponse. The Trae deny shape is
+    // a 1.x assumption (see hook-protocol.ts TRAE_DENY_SHAPE doc) — Cursor-
+    // style with `hookEventName: 'beforeToolCall'`. This test pins the
+    // shape so a future slice that confirms the real Trae 1.x envelope can
+    // diff against it.
+    const out = formatDecisionResponse('trae', 'deny', 'gate no-rm failed');
+    expect(out.exitCode).toBe(0);
+    const parsed = JSON.parse(out.stdout) as {
+      hookSpecificOutput: { hookEventName: string; permissionDecision: string; permissionDecisionReason: string };
+    };
+    expect(parsed.hookSpecificOutput.hookEventName).toBe('beforeToolCall');
+    expect(parsed.hookSpecificOutput.permissionDecision).toBe('deny');
+    expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe('gate no-rm failed');
   });
 });

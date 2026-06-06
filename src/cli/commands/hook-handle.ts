@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { detectIdeFromContext, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
+import { detectIdeFromContext, parseAdapterStdin, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
 import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/hook-protocol.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { fail, ok } from '../../shared/result.js';
@@ -65,10 +65,15 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       const ide = detectIdeFromContext({ env: process.env, cwd: process.cwd(), parsedStdin: parsed });
       const adapter = getAdapter(ide);
 
-      // For slice #1, parse Claude-style stdin (most LLM IDEs share this shape)
-      const { toolName, command } = parseClaudeShapeStdin(parsed);
-      const fallbackToolName = toolName ?? pluckString(parsed, ['toolName']);
-      const fallbackCommand = command ?? pluckString(parsed, ['toolInput', 'command']);
+      // Slice #3: per-adapter stdin parser dispatch. The detected IDE
+      // determines which parser runs; unknown IDEs fall back to the Claude
+      // shape (preserves slice #1's "fail-open to Claude" semantics).
+      const { toolName, command } = parseAdapterStdin(ide, parsed);
+      // Also try the Claude parser as a secondary fallback so a Trae user who
+      // accidentally pipes a Claude-shaped payload still gets the right fields.
+      const claudeShape = parseClaudeShapeStdin(parsed);
+      const fallbackToolName = toolName ?? claudeShape.toolName ?? pluckString(parsed, ['toolName']);
+      const fallbackCommand = command ?? claudeShape.command ?? pluckString(parsed, ['toolInput', 'command']);
 
       const projectRoot = process.env[adapter.envVar] ?? options.project;
 

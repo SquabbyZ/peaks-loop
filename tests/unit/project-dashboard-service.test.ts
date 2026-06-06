@@ -212,3 +212,58 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.skillPresence.fresh).toBe(false);
   });
 });
+
+/**
+ * peaks-ide SKILL.md contract: Step 1 of the skill reads
+ * `peaks project dashboard --json` and uses the returned envelope to build
+ * a state summary. The fields the skill body depends on MUST stay stable
+ * across slices. If a future refactor changes any of these field names, the
+ * peaks-ide SKILL.md Step 1 will silently produce wrong output.
+ *
+ * This test pins the SKILL.md-visible envelope contract. It is intentionally
+ * stricter than the other dashboard tests: it asserts the EXACT key names
+ * the skill reads, not just "some keys are present". If you need to add a
+ * field, add it below; if you need to remove one, update the SKILL.md first.
+ */
+describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout)', () => {
+  test('envelope exposes every field the peaks-ide SKILL.md Step 1 reads', async () => {
+    const project = await makeProject();
+    const dashboard = await loadProjectDashboard({ projectRoot: project });
+
+    // SKILL.md Step 1 reads the projectRoot label
+    expect(dashboard).toHaveProperty('projectRoot');
+
+    // SKILL.md Step 1 reads requests.count + requests.byRole to detect
+    // any in-flight / completed peaks-* work for this project.
+    expect(dashboard.requests).toHaveProperty('count');
+    expect(dashboard.requests).toHaveProperty('byRole');
+    expect(dashboard.requests.byRole).toHaveProperty('prd');
+    expect(dashboard.requests.byRole).toHaveProperty('ui');
+    expect(dashboard.requests.byRole).toHaveProperty('rd');
+    expect(dashboard.requests.byRole).toHaveProperty('qa');
+    expect(dashboard.requests.byRole).toHaveProperty('sc');
+
+    // SKILL.md Step 1 reads openspec.exists to decide whether to recommend
+    // the OpenSpec-first-run opt-in. (Step 0.5 in the peaks-solo skill, but
+    // peaks-ide inherits the same field.)
+    expect(dashboard.openspec).toHaveProperty('exists');
+
+    // SKILL.md Step 1 reads skillPresence.active to decide whether to render
+    // the "current skill" badge. When active is true, the `skill` field MUST
+    // be present so the badge can label itself. When active is false (no
+    // presence set), `skill` is undefined — the SKILL.md only reads
+    // `skill` when `active` is true.
+    expect(dashboard).toHaveProperty('skillPresence');
+    expect(dashboard.skillPresence).toHaveProperty('active');
+  });
+
+  test('when skill presence is set, skillPresence.skill is present (SKILL.md Step 1 badge label)', async () => {
+    const project = await makeProject();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      skillPresence: { skill: 'peaks-ide', setAt: new Date().toISOString() }
+    });
+    expect(dashboard.skillPresence.active).toBe(true);
+    expect(dashboard.skillPresence.skill).toBe('peaks-ide');
+  });
+});

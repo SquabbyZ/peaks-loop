@@ -4,6 +4,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { assertSafeSettingsFile, isInsidePath } from '../ide/shared/safe-path.js';
 import { getAdapter } from '../ide/ide-registry.js';
+import type { IdeId } from '../ide/ide-types.js';
 
 /**
  * Installs (and removes) the Peaks statusLine entry in an IDE's settings
@@ -18,11 +19,28 @@ import { getAdapter } from '../ide/ide-registry.js';
  * adapters may need a different entry shape (e.g. Cursor's `statusBar`
  * field) and would override this in their adapter.
  *
+ * Slice #3 refactor (this commit): the service is now per-IDE aware via an
+ * optional `options.ide` parameter. The CLI command is responsible for
+ * resolving the IDE (env → stdin shape → cwd → fallback to 'claude-code')
+ * via `detectIdeFromContext` and passing the result here. When `ide` is
+ * omitted, the service defaults to `'claude-code'` so existing tests and
+ * downstream callers continue to work without modification.
+ *
  * Writes preserve all other settings keys, reject symlinked targets, and use an
  * atomic rename so a partial write can never corrupt an existing settings file.
  */
 
 export type StatusLineScope = 'project' | 'global';
+
+export type StatusLineSettingsOptions = {
+  /**
+   * Which IDE's adapter to install for. Defaults to `'claude-code'` for
+   * backward compatibility. The CLI command should resolve this from
+   * `detectIdeFromContext({ env, cwd, parsedStdin })` and pass the result.
+   * Throws if the IDE is not registered in the adapter registry.
+   */
+  readonly ide?: IdeId;
+};
 
 export type StatusLineSettingsPlan = {
   scope: StatusLineScope;
@@ -46,6 +64,10 @@ type StatusLineEntry = { type: string; command: string; padding?: number };
 // `isInsidePath` from this module keep compiling.
 export { isInsidePath };
 
+function resolveIde(options: StatusLineSettingsOptions | undefined): IdeId {
+  return options?.ide ?? 'claude-code';
+}
+
 function resolveSettingsRoot(scope: StatusLineScope, projectRoot: string | undefined): string {
   if (scope === 'global') return resolve(homedir());
   if (!projectRoot) {
@@ -55,17 +77,18 @@ function resolveSettingsRoot(scope: StatusLineScope, projectRoot: string | undef
 }
 
 /**
- * Resolve + safety-check the settings path for the given scope. The
- * `dirName` and `settingsFileName` come from the registered Claude adapter
- * (`getAdapter('claude-code')`) so the hardcoded `.claude/settings.json` is
- * gone — future adapters swap by changing the registry, not this file.
+ * Resolve + safety-check the settings path for the given IDE and scope. The
+ * `dirName` and `settingsFileName` come from the registered adapter
+ * (`getAdapter(ide)`) so the hardcoded `.claude/settings.json` is gone —
+ * future adapters swap by changing the registry, not this file.
  */
 function resolveAndAssertSettingsPath(
   scope: StatusLineScope,
+  ide: IdeId,
   projectRoot: string | undefined
 ): { root: string; settingsPath: string } {
   const root = resolveSettingsRoot(scope, projectRoot);
-  const adapter = getAdapter('claude-code');
+  const adapter = getAdapter(ide);
   const { settingsPath } = assertSafeSettingsFile(
     scope,
     root,
@@ -115,8 +138,9 @@ function buildPlan(scope: StatusLineScope, settingsPath: string, settings: Recor
   };
 }
 
-export function planStatusLineInstall(scope: StatusLineScope, projectRoot?: string): StatusLineSettingsPlan {
-  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
+export function planStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options?: StatusLineSettingsOptions): StatusLineSettingsPlan {
+  const ide = resolveIde(options);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
   return buildPlan(scope, settingsPath, settings, exists);
@@ -144,8 +168,9 @@ function atomicWriteJson(settingsPath: string, settings: Record<string, unknown>
   }
 }
 
-export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options: { force?: boolean } = {}): StatusLineSettingsResult {
-  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
+export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options: { force?: boolean; ide?: IdeId } = {}): StatusLineSettingsResult {
+  const ide = resolveIde(options);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   const exists = existsSync(settingsPath);
   const settings = readSettings(settingsPath);
   const plan = buildPlan(scope, settingsPath, settings, exists);
@@ -163,8 +188,9 @@ export function applyStatusLineInstall(scope: StatusLineScope, projectRoot?: str
   return { ...plan, applied: true };
 }
 
-export function removeStatusLineInstall(scope: StatusLineScope, projectRoot?: string): { scope: StatusLineScope; settingsPath: string; removed: boolean } {
-  const { settingsPath } = resolveAndAssertSettingsPath(scope, projectRoot);
+export function removeStatusLineInstall(scope: StatusLineScope, projectRoot?: string, options?: StatusLineSettingsOptions): { scope: StatusLineScope; settingsPath: string; removed: boolean } {
+  const ide = resolveIde(options);
+  const { settingsPath } = resolveAndAssertSettingsPath(scope, ide, projectRoot);
   if (!existsSync(settingsPath)) {
     return { scope, settingsPath, removed: false };
   }

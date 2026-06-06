@@ -23,22 +23,48 @@ export const CLAUDE_CODE_DENY_TRANSPORT: PeaksDecisionTransport = {
 };
 
 /**
- * Format a decision response for a given IDE. Slice #1 only handles Claude Code
- * (which uses stdout JSON); future slices will add exit-code / both variants
- * for IDEs that don't read stdout.
+ * Compute the deny decision shape for Trae (Cursor-style sibling IDE).
+ * UNVERIFIED — Trae 1.x's actual response envelope is a 1.x assumption
+ * (see src/services/ide/adapters/trae-adapter.ts). Slice #3 ships a
+ * Cursor-style envelope as the best-effort default; if a future slice
+ * confirms Trae's actual shape, update this constant and the related test.
+ */
+export const TRAE_DENY_SHAPE: Record<string, unknown> = {
+  hookSpecificOutput: {
+    hookEventName: 'beforeToolCall',
+    permissionDecision: 'deny',
+    permissionDecisionReason: '__REASON__'  // replaced at format time
+  }
+};
+
+export const TRAE_DENY_TRANSPORT: PeaksDecisionTransport = {
+  kind: 'stdout-json',
+  denyShape: TRAE_DENY_SHAPE
+};
+
+/**
+ * Format a decision response for a given IDE. Slice #1 handles Claude Code;
+ * slice #3 added Trae (1.x-assumption shape — see TRAE_DENY_SHAPE doc).
+ * Future slices will add exit-code / both variants for IDEs that don't read
+ * stdout.
  */
 export function formatDecisionResponse(
   ide: IdeId,
   decision: 'allow' | 'deny',
   reason?: string
 ): { stdout: string; exitCode: number } {
-  if (ide !== 'claude-code') {
-    throw new Error(`formatDecisionResponse: unsupported IDE ${ide} in slice #1`);
-  }
   if (decision === 'allow') {
     return { stdout: '', exitCode: 0 };
   }
-  const filled = JSON.stringify(CLAUDE_CODE_DENY_SHAPE).replace('"__REASON__"', JSON.stringify(reason ?? 'denied'));
+  let shape: Record<string, unknown>;
+  if (ide === 'claude-code') {
+    shape = CLAUDE_CODE_DENY_SHAPE;
+  } else if (ide === 'trae') {
+    shape = TRAE_DENY_SHAPE;
+  } else {
+    throw new Error(`formatDecisionResponse: unsupported IDE ${ide} (not registered in adapter registry; future slice will add support)`);
+  }
+  const filled = JSON.stringify(shape).replace('"__REASON__"', JSON.stringify(reason ?? 'denied'));
   return { stdout: filled, exitCode: 0 };
 }
 

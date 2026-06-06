@@ -9,7 +9,7 @@ description: Orchestrate peaks-cli's IDE-aware behavior (hooks + statusline + ha
 
 **Why this exists (dev-preference red line):** "skill is primary, CLI is auxiliary." The behavior that only an LLM in a skill prompt would use ("detect which IDE the user is on", "plan the migration steps", "ask the user before destructive actions") lives in this SKILL.md, not in a new `peaks <cmd>`. The CLI commands stay as atomic primitives the skill composes.
 
-**Slice #2 scope:** the first version supports Trae (alongside Claude Code, the only other adapter in slice #2's registry). Cursor / Codex / Qoder / Tongyi Lingma will land in slice #3+ — the skill will pick them up automatically because the underlying auto-detect (`peaks detectIdeFromContext`) iterates over `listAdapterIds()` and registers them as the registry grows.
+**Slice #2 scope:** the first version supports Trae (alongside Claude Code, the only other adapter in slice #2's registry). Cursor / Codex / Qoder / Tongyi Lingma will land in slice #3+ — the skill will pick them up automatically because the underlying auto-detect (the `peaks project dashboard --json` flow internally calls `listAdapterIds()` via the `IdeRegistry`) registers them as the registry grows.
 
 ## Skill presence (MANDATORY first action)
 
@@ -109,7 +109,7 @@ Every successful execution writes one JSON line to `.peaks/_runtime/<sid>/ide-on
 {"timestamp":"2026-06-06T19:55:00Z","intent":"first-time-install","detected_ide":"trae","cli_invocations":["peaks hooks install --project <repo>","peaks statusline install --project <repo>"],"outcome":"success","session_id":"2026-06-06-session-22f08c"}
 ```
 
-The audit log is **machine-readable** (so `peaks project dashboard` can read it and surface "you installed peaks for Trae on 2026-06-06") and **human-readable** (so the user can `cat` it to see the install history). The skill does NOT write the log file itself — it delegates to `peaks project dashboard` (which knows the canonical log path) or to a thin helper if the log writer needs to live in the skill.
+The audit log is **machine-readable** (so `peaks project dashboard` can read it and surface "you installed peaks for Trae on 2026-06-06") and **human-readable** (so the user can `cat` it to see the install history). The skill does NOT write the log file itself — it delegates to `peaks project dashboard` (the canonical log writer, per the dev-preference red line "skill-first for workflow, CLI-backed for gates / side effects"). The audit log writer is a CLI primitive, not a per-skill helper; the skill body MUST NOT introduce a new `peaks <cmd>` for the log writer.
 
 ## Boundaries
 
@@ -142,3 +142,18 @@ The audit log is **machine-readable** (so `peaks project dashboard` can read it 
 - The slice #1 RD artifact at `.peaks/_runtime/<sid>/rd/requests/002-2026-06-06-peaks-ide-skeleton.md` documents the slim `IdeAdapter` shape that the skill is built on.
 - The slice #2 PRD at `.peaks/_runtime/<sid>/prd/requests/002-2026-06-06-trae-adapter-and-peaks-ide-skill.md` documents the 13 ACs this skill is part of.
 - The slice #2 RD artifact (in flight) documents the implementation contract.
+
+## Default runbook
+
+The skill is invoked as `/peaks-ide` or via the natural-language triggers listed in the frontmatter. The runbook is the body of this SKILL.md (steps 1-5 plus the boundaries and reference sections above); the runbook-service extracts the section between this `## Default runbook` heading and the next `##` heading.
+
+When the user types `/peaks-ide` (or "set up peaks for my IDE" / "switch peaks to Trae" / "what did peaks install" / "uninstall peaks hooks"), execute Steps 1 → 5 in order:
+
+1. **Skill presence (MANDATORY first action)**: `peaks skill presence:set peaks-ide --project <repo> --gate startup` and `peaks project memories --project <repo> --json` (load durable memory).
+2. **Detect current state** (Step 1 above): `peaks project dashboard --project <repo> --json` + `peaks hooks status --project <repo> --json` + `peaks statusline status --project <repo> --json` + `ls -la <repo>/.claude 2>/dev/null` + `ls -la <repo>/.trae 2>/dev/null`. Build a 1-2 sentence state summary.
+3. **AskUserQuestion** (Step 2 above, only if intent is ambiguous). Default option: "Show current status". Destructive paths (Switch, Uninstall) gate on user confirmation here.
+4. **Plan & preview** (Step 3 above): print the exact `peaks hooks install` / `peaks statusline install` invocations before running them. Wait for "Proceed? (Y/n)".
+5. **Execute** (Step 4 above): run the `peaks hooks install` / `peaks statusline install` (or uninstall / status) commands. Stop on non-zero exit. Do not auto-rollback.
+6. **Audit log** (Step 5 above): delegate the JSONL write to `peaks project dashboard` (the canonical log writer; per the dev-preference red line, the skill MUST NOT introduce a new CLI primitive for the log writer).
+
+CLI primitives the skill composes (per the "Reference" section above): `peaks skill presence:set`, `peaks project memories`, `peaks project dashboard`, `peaks hooks install` / `uninstall` / `status`, `peaks statusline install` / `uninstall` / `status`, `peaks hook handle`, `peaks skill runbook`. The skill does NOT introduce any new `peaks <cmd>` command.

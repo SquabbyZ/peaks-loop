@@ -101,3 +101,52 @@ export function parseClaudeShapeStdin(parsed: unknown): { toolName?: string; com
   if (command !== undefined) result.command = command;
   return result;
 }
+
+/**
+ * Trae stdin parser. UNVERIFIED — Trae 1.x's actual stdin envelope shape is
+ * assumed to be Cursor-style (eventName at top, parameters nested), based on
+ * slice #2's read of Trae as a "Cursor sibling". When a real Trae 1.x hook
+ * payload is dogfooded, this parser is the seam to update.
+ *
+ * Shape (assumed):
+ *   { eventName: 'beforeToolCall', parameters: { command: 'rm -rf /' } }
+ *
+ * Returns the same `{ toolName, command }` shape as parseClaudeShapeStdin so
+ * downstream code (buildCanonicalHook, enforceBashCommand) does not need to
+ * branch on IDE. The `toolName` here is the IDE-specific name (e.g.
+ * 'terminal'); callers may normalize it to the canonical 'Bash' if needed.
+ */
+export function parseTraeShapeStdin(parsed: unknown): { toolName?: string; command?: string } {
+  if (!isObject(parsed)) return {};
+  const eventName = pluckString(parsed, ['eventName']);
+  const command = pluckString(parsed, ['parameters', 'command']);
+  const result: { toolName?: string; command?: string } = {};
+  // Trae sends the event name in the payload (`eventName: 'beforeToolCall'`)
+  // and the tool name on the parameters (e.g. `parameters.tool: 'terminal'`).
+  // We expose the event name as the "toolName" for now since Trae has not
+  // been observed to carry a top-level tool field. Future slice can split
+  // event vs tool if the real shape requires it.
+  if (eventName !== undefined) result.toolName = eventName;
+  if (command !== undefined) result.command = command;
+  return result;
+}
+
+/**
+ * Per-adapter stdin parser dispatch. Returns the `{ toolName, command }` pair
+ * for the given IDE, regardless of which stdin shape the IDE actually emits.
+ *
+ * The dispatch table is keyed on `IdeId` (not stdin shape) so an adapter can
+ * change its wire format without breaking the hook-handle flow. Unknown IDEs
+ * fall back to the Claude parser — that preserves the slice #1 "fail-open to
+ * Claude" behavior so a future adapter that has not yet been added does not
+ * crash the hook runtime.
+ */
+export function parseAdapterStdin(
+  ide: IdeId,
+  parsed: unknown
+): { toolName?: string; command?: string } {
+  if (ide === 'trae') return parseTraeShapeStdin(parsed);
+  // Future adapters (codex, cursor, qoder, tongyi-lingma) — branch here when
+  // their adapters are registered. Until then, fall back to Claude shape.
+  return parseClaudeShapeStdin(parsed);
+}
