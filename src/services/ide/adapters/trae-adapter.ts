@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { IdeAdapter } from '../ide-types.js';
+import { traeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
  * Trae IDE adapter —— peaks-cli 的第二个内置 IDE 适配器。
@@ -50,6 +51,11 @@ export const TRAE_ADAPTER: IdeAdapter = {
   hookEvent: 'beforeToolCall', // UNVERIFIED — see slice #2 closeout code-review M-1; will be validated when a real Trae 1.x install dogfoods the install path
   toolMatcher: 'terminal', // UNVERIFIED — see slice #2 closeout code-review M-1
   subAgentToolMatcher: 'Task', // UNVERIFIED — Trae's sub-agent tool name is unknown; matches the prior hardcoded 'Task' literal so byte-level install output is unchanged. Will be dogfooded when a real Trae 1.x install dispatches a sub-agent.
+  // Slice #009: Trae's sub-agent dispatcher is UNVERIFIED — Trae sub-agent
+  // tool name TBD on real dogfood; byte-level identical to claude-code by
+  // design so the slice #008 `subAgentToolMatcher: 'Task'` install entry
+  // stays byte-stable. Awaiting real Trae 1.x dogfood to confirm/replace.
+  subAgentDispatcher: traeSubAgentDispatcher,
   installHints: [
     'Restart Trae (or reload the workspace) so the beforeToolCall hooks take effect.'
   ],

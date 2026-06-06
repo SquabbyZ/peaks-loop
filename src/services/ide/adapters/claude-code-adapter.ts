@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { IdeAdapter } from '../ide-types.js';
+import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
  * Claude Code adapter —— peaks-cli 的"起源 IDE"。
@@ -34,6 +35,10 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   hookEvent: 'PreToolUse',
   toolMatcher: 'Bash',
   subAgentToolMatcher: 'Task',
+  // Slice #009: Claude Code uses the `Task` tool for sub-agent dispatch.
+  // The CLI calls `claudeCodeSubAgentDispatcher.buildToolCall` to construct
+  // the exact args shape the `Task` tool expects.
+  subAgentDispatcher: claudeCodeSubAgentDispatcher,
   installHints: [
     'Restart Claude Code (or reload the window) so the PreToolUse hooks take effect.'
   ],

@@ -11,6 +11,7 @@
  *
  * 其他全部归一化到 peaks 内部模型(见 hook-protocol.ts)。
  */
+import type { SubAgentDispatcher } from '../dispatch/sub-agent-dispatcher.js';
 
 export type IdeId =
   | 'claude-code'
@@ -68,6 +69,17 @@ export interface IdeAdapter {
    * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple.
    */
   readonly subAgentToolMatcher: string;
+  /**
+   * Per-IDE sub-agent dispatcher. The `peaks sub-agent dispatch` CLI reads
+   * this field, calls `supportsRole` + `buildToolCall`, and returns the
+   * resulting tool-call descriptor in the JSON envelope. Additive on
+   * `subAgentToolMatcher`: the matcher still drives the gate-enforce hook
+   * entry; this field drives the runtime sub-agent dispatch surface.
+   *
+   * Added in slice 2026-06-07-sub-agent-dispatch-decouple. See PRD #002
+   * G1 (AC-1, AC-2) + [[slim-ideadapter-shape-is-the-contract]].
+   */
+  readonly subAgentDispatcher: SubAgentDispatcher;
   /** install / uninstall 后展示给用户的提示文本(各 IDE 不同,例如 Claude 提示重启窗口) */
   readonly installHints: readonly string[];
   /** 该 IDE 在 peaks 上可启用的能力(用于在不支持的 IDE 上软警告) */
