@@ -324,7 +324,7 @@ Use the Peaks-Cli CLI for runtime side effects.
 
 Map gstack stages to Peaks-Cli role artifacts; preserve Peaks-Cli confirmation gates. Do not delegate orchestration to gstack commands.
 
-For frontend workflows, RD and QA must use Playwright MCP (`mcp__playwright__` tool namespace) for real browser E2E (`peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes`). Chrome DevTools MCP is a secondary CDP surface only. Sanitize browser artifacts before retention (no login URLs, cookies, tokens, PII). See `references/browser-workflow.md`.
+For frontend workflows, RD and QA must use Playwright MCP for real browser E2E. The skill body never bakes in the `mcp__playwright__` prefix; it uses the peaks mcp plan/apply/call pattern (`peaks mcp plan --capability playwright-mcp.browser-validation --json` then `peaks mcp apply --capability playwright-mcp.browser-validation --yes --json` then `peaks mcp call --capability playwright-mcp.browser-validation --tool <toolName> --args-json '<args>' --json`). Chrome DevTools MCP is a secondary CDP surface only. Sanitize browser artifacts before retention (no login URLs, cookies, tokens, PII). See `references/browser-workflow.md`.
 
 ## Peaks-Cli Local intermediate artifact workspace (MANDATORY)
 

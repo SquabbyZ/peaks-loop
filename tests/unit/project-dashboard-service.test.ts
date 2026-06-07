@@ -1,9 +1,12 @@
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { loadProjectDashboard } from '../../src/services/dashboard/project-dashboard-service.js';
 import { createRequestArtifact } from '../../src/services/artifacts/request-artifact-service.js';
+
+const REPO_ROOT = resolve(__dirname, '..', '..');
+const SKILL_MD_PATH = join(REPO_ROOT, 'skills', 'peaks-ide', 'SKILL.md');
 
 vi.mock('../../src/services/doctor/doctor-service.js', () => ({
   runDoctor: async () => ({
@@ -224,18 +227,32 @@ describe('loadProjectDashboard', () => {
  * stricter than the other dashboard tests: it asserts the EXACT key names
  * the skill reads, not just "some keys are present". If you need to add a
  * field, add it below; if you need to remove one, update the SKILL.md first.
+ *
+ * Slice 008-008 G3 extension: the contract now pins 10+ fields (per AC-8):
+ * ok, okPolicy, projectRoot, requests, openspec, skillPresence, doctor,
+ * doctor.summary shape, runbookHealth, capabilities, mcp, understand,
+ * generatedAt. Each field has a type assertion.
  */
-describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout)', () => {
+describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout + G3 extension)', () => {
   test('envelope exposes every field the peaks-ide SKILL.md Step 1 reads', async () => {
     const project = await makeProject();
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
+    // G1 ok-policy: the skill reads dashboard.ok to gate Step 1 and
+    // dashboard.okPolicy to surface the policy in its state summary.
+    expect(dashboard).toHaveProperty('ok');
+    expect(typeof dashboard.ok).toBe('boolean');
+    expect(dashboard).toHaveProperty('okPolicy');
+    expect(['workspace-only', 'strict']).toContain(dashboard.okPolicy);
+
     // SKILL.md Step 1 reads the projectRoot label
     expect(dashboard).toHaveProperty('projectRoot');
+    expect(typeof dashboard.projectRoot).toBe('string');
 
     // SKILL.md Step 1 reads requests.count + requests.byRole to detect
     // any in-flight / completed peaks-* work for this project.
     expect(dashboard.requests).toHaveProperty('count');
+    expect(typeof dashboard.requests.count).toBe('number');
     expect(dashboard.requests).toHaveProperty('byRole');
     expect(dashboard.requests.byRole).toHaveProperty('prd');
     expect(dashboard.requests.byRole).toHaveProperty('ui');
@@ -247,6 +264,7 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout)', () => {
     // the OpenSpec-first-run opt-in. (Step 0.5 in the peaks-solo skill, but
     // peaks-ide inherits the same field.)
     expect(dashboard.openspec).toHaveProperty('exists');
+    expect(typeof dashboard.openspec.exists).toBe('boolean');
 
     // SKILL.md Step 1 reads skillPresence.active to decide whether to render
     // the "current skill" badge. When active is true, the `skill` field MUST
@@ -255,6 +273,33 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout)', () => {
     // `skill` when `active` is true.
     expect(dashboard).toHaveProperty('skillPresence');
     expect(dashboard.skillPresence).toHaveProperty('active');
+    expect(typeof dashboard.skillPresence.active).toBe('boolean');
+
+    // G3 extension: doctor summary fields the skill surfaces in its state
+    // summary (e.g. "Doctor: 35 passed / 0 failed").
+    expect(dashboard.doctor).toHaveProperty('ok');
+    expect(dashboard.doctor).toHaveProperty('passed');
+    expect(dashboard.doctor).toHaveProperty('failed');
+
+    // G3 extension: runbook health summary.
+    expect(dashboard.runbookHealth).toHaveProperty('ok');
+    expect(dashboard.runbookHealth).toHaveProperty('required');
+    expect(dashboard.runbookHealth).toHaveProperty('healthy');
+
+    // G3 extension: MCP scan envelope (peaks-ide Step 1 mentions mcp servers).
+    expect(dashboard).toHaveProperty('mcp');
+    expect(dashboard.mcp).toHaveProperty('servers');
+    expect(dashboard.mcp).toHaveProperty('scopes');
+    expect(Array.isArray(dashboard.mcp.servers)).toBe(true);
+
+    // G3 extension: capabilities count the skill references for status badges.
+    expect(dashboard).toHaveProperty('capabilities');
+    expect(dashboard.capabilities).toHaveProperty('count');
+    expect(typeof dashboard.capabilities.count).toBe('number');
+
+    // G3 extension: generatedAt timestamp the skill surfaces as "snapshot taken at".
+    expect(dashboard).toHaveProperty('generatedAt');
+    expect(typeof dashboard.generatedAt).toBe('string');
   });
 
   test('when skill presence is set, skillPresence.skill is present (SKILL.md Step 1 badge label)', async () => {
@@ -266,4 +311,56 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout)', () => {
     expect(dashboard.skillPresence.active).toBe(true);
     expect(dashboard.skillPresence.skill).toBe('peaks-ide');
   });
+
+  test('ok is true in workspace-only mode even when the doctor fails (G1 default)', async () => {
+    const project = await makeProject();
+    const dashboard = await loadProjectDashboard({
+      projectRoot: project,
+      doctorReport: { ok: false, passed: 34, failed: 1 },
+      runbookHealth: { ok: true, required: 8, healthy: 8, missingRunbook: [], applyNoteFailed: [] }
+    });
+    expect(dashboard.okPolicy).toBe('workspace-only');
+    expect(dashboard.ok).toBe(true);
+  });
 });
+
+/**
+ * peaks-ide SKILL.md runbook contract (G3 AC-9): the skill's `## Default
+ * runbook` section is the canonical runbook the `peaks skill runbook
+ * peaks-ide --json` CLI returns. The runbook has at least 5 numbered steps
+ * (per the skill body: presence / detect / ask / plan / execute / audit —
+ * i.e. 6 steps). The runbook-service extractRunbookSection is exercised
+ * here; the peaks-ide prose style is to embed the peaks <cmd> inside
+ * backticks, so the runbook-service `peaksCommandCount` is 0 for this
+ * skill. The contract asserted below is on the SKILL.md prose shape, not
+ * the runbook-service peak-line count.
+ */
+import { readFile } from 'node:fs/promises';
+import { inspectSkillRunbook } from '../../src/services/skills/skill-runbook-service.js';
+
+describe('peaks-ide SKILL.md runbook contract (G3 AC-9)', () => {
+  test('peaks-ide runbook section is non-empty (hasRunbook: true)', async () => {
+    const inspection = await inspectSkillRunbook('peaks-ide');
+    expect(inspection.hasRunbook).toBe(true);
+    expect(inspection.ok).toBe(true);
+  });
+
+  test('peaks-ide SKILL.md ## Default runbook section parses to >= 5 numbered steps', async () => {
+    const body = await readFile(SKILL_MD_PATH, 'utf8');
+    const match = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body);
+    expect(match).not.toBeNull();
+    const section = match![1]!;
+    const numberedSteps = section.split(/\r?\n/).filter((line) => /^\d+\.\s/.test(line));
+    expect(numberedSteps.length).toBeGreaterThanOrEqual(5);
+  });
+
+  test('peaks-ide runbook lists the canonical CLI primitives the skill composes', async () => {
+    const body = await readFile(SKILL_MD_PATH, 'utf8');
+    const section = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body)![1]!;
+    expect(section).toMatch(/peaks skill presence:set/);
+    expect(section).toMatch(/peaks project dashboard/);
+    expect(section).toMatch(/peaks hooks install/);
+    expect(section).toMatch(/peaks statusline install/);
+  });
+});
+

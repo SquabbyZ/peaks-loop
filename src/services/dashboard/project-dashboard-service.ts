@@ -40,7 +40,31 @@ export type ProjectDashboardDoctor = {
   ok: boolean;
   passed: number;
   failed: number;
+  okCount?: number;
+  failCount?: number;
+  lastRunAt?: string;
+  checkIds?: string[];
 };
+
+export type DashboardOkPolicy = 'workspace-only' | 'strict';
+
+/**
+ * Resolves the user-facing `ok` field. `workspace-only` (default) returns true
+ * when the runbook / workspace layout is healthy, even if 1-2 non-blocking
+ * doctor checks fail. `strict` returns false when the doctor aggregate fails.
+ * The CLI default is `workspace-only`; `peaks project dashboard --strict`
+ * restores the legacy aggregate semantics.
+ */
+export function resolveDashboardOk(args: {
+  okPolicy: DashboardOkPolicy;
+  doctor: ProjectDashboardDoctor;
+  runbookHealth: ProjectDashboardRunbookHealth;
+}): { ok: boolean; okPolicy: DashboardOkPolicy } {
+  if (args.okPolicy === 'strict') {
+    return { ok: args.doctor.ok && args.runbookHealth.ok, okPolicy: 'strict' };
+  }
+  return { ok: args.runbookHealth.ok, okPolicy: 'workspace-only' };
+}
 
 export type ProjectDashboardRunbookHealth = {
   ok: boolean;
@@ -68,6 +92,8 @@ export type ProjectDashboardSkillPresence = {
 export type ProjectDashboard = {
   generatedAt: string;
   projectRoot: string;
+  ok: boolean;
+  okPolicy: DashboardOkPolicy;
   requests: ProjectDashboardRequests;
   openspec: ProjectDashboardOpenSpec;
   understand: ProjectDashboardUnderstand;
@@ -85,6 +111,7 @@ export type LoadProjectDashboardOptions = {
   doctorReport?: { ok: boolean; passed: number; failed: number };
   runbookHealth?: ProjectDashboardRunbookHealth;
   skillPresence?: SkillPresence | null;
+  okPolicy?: DashboardOkPolicy;
 };
 
 function defaultClock(): string {
@@ -186,6 +213,7 @@ function buildSkillPresenceSummary(presence: SkillPresence | null | undefined, p
 export async function loadProjectDashboard(options: LoadProjectDashboardOptions): Promise<ProjectDashboard> {
   const clock = options.clock ?? defaultClock;
   const sampleSize = options.sampleCapabilities ?? 8;
+  const okPolicy: DashboardOkPolicy = options.okPolicy ?? 'workspace-only';
 
   const [items, openspecReport, mcpReport, understandReport, doctorAndRunbook] = await Promise.all([
     listRequestArtifacts({ projectRoot: options.projectRoot }),
@@ -195,9 +223,17 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
     loadDoctorAndRunbookHealth(options.doctorReport, options.runbookHealth)
   ]);
 
+  const okVerdict = resolveDashboardOk({
+    okPolicy,
+    doctor: doctorAndRunbook.doctor,
+    runbookHealth: doctorAndRunbook.runbookHealth
+  });
+
   return {
     generatedAt: clock(),
     projectRoot: options.projectRoot,
+    ok: okVerdict.ok,
+    okPolicy: okVerdict.okPolicy,
     requests: {
       count: items.length,
       byRole: groupRequestsByRole(items),

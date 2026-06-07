@@ -8,6 +8,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 type ProjectDashboardOptions = {
   project: string;
   json?: boolean;
+  strict?: boolean;
 };
 
 export function registerProjectCommands(program: Command, io: ProgramIO): void {
@@ -18,9 +19,13 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       .command('dashboard')
       .description('One-call snapshot of doctor / MCP / OpenSpec / requests / Understand Anything / capabilities for a project')
       .requiredOption('--project <path>', 'target project root')
+      .option('--strict', 'ok follows the doctor aggregate (legacy semantics). Default: workspace-only (ok tracks the runbook health)', false)
   ).action(async (options: ProjectDashboardOptions) => {
     try {
-      const dashboard = await loadProjectDashboard({ projectRoot: options.project });
+      const dashboard = await loadProjectDashboard({
+        projectRoot: options.project,
+        okPolicy: options.strict === true ? 'strict' : 'workspace-only'
+      });
       if (!dashboard.runbookHealth.ok) {
         const suggestions = [
           dashboard.runbookHealth.missingRunbook.length > 0
@@ -59,15 +64,15 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
-      if (!dashboard.doctor.ok) {
+      if (!dashboard.doctor.ok && options.strict === true) {
         printResult(
           io,
           fail(
             'project.dashboard',
-            'PROJECT_DASHBOARD_DOCTOR_FAILED',
-            `Doctor reports ${dashboard.doctor.failed} failed check(s) (${dashboard.doctor.passed} passed)`,
+            'PROJECT_DASHBOARD_DOCTOR_STRICT_FAIL',
+            `Doctor reports ${dashboard.doctor.failed} failed check(s) (${dashboard.doctor.passed} passed) — --strict mode requires the doctor aggregate to pass`,
             dashboard,
-            ['Run `peaks doctor --json` and resolve the failing checks before re-running the dashboard']
+            ['Run `peaks doctor --json` and resolve the failing checks, or drop --strict to use the workspace-only policy']
           ),
           options.json
         );

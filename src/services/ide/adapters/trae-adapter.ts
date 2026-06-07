@@ -8,39 +8,47 @@ import { traeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
  *
  * 不可消除的 per-IDE 字段(slice #1 锁定):
  *   - settings.dirName = '.trae'            : Trae 项目根下的配置目录
- *   - settings.settingsFileName = 'settings.json'  (UNVERIFIED at slice time: Trae 实际叫什么待 Trae 1.x 文档确认,先按 Claude 风格)
+ *   - settings.settingsFileName = 'settings.json'  (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
  *   - envVar = 'TRAE_PROJECT_DIR'    : Trae 注入的 env 变量(用于 ${...} 占位)
- *   - hookEvent = 'beforeToolCall'  : UNVERIFIED — Trae 的 hook 数组 key(待 Trae 文档确认,先假设与 Cursor 同名)
- *   - toolMatcher = 'terminal'      : UNVERIFIED — Trae 的 bash 工具 matcher(待 Trae 文档确认)
+ *   - hookEvent = 'beforeToolCall'  (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
+ *   - toolMatcher = 'terminal'      (VERIFIED against Trae 1.x fixture, slice 009-009-2026-06-07-trae-dogfood)
  *
  * Slice #1 的 slim `IdeAdapter` shape 在 slice #1 RD 中被锁为"填表"模式。
  * 本文件是 slice #2 第一个真实客户,验证 slice #1 抽出的形状真的可以
  * 简单复制粘贴就接入新 IDE。
  *
  * 与 slice #1 claude-code-adapter.ts 的区别(故意):
- *   - Trae 的 hookEvent 名是 `beforeToolCall` 而不是 `PreToolUse`(假设)
- *   - Trae 的 toolMatcher 是 `terminal` 而不是 `Bash`(假设)
- *   - Trae 的 settings 路径是 `.trae/settings.json`(同 Claude 风格,只是目录名不同)
+ *   - Trae 的 hookEvent 名是 `beforeToolCall` 而不是 `PreToolUse`(VERIFIED)
+ *   - Trae 的 toolMatcher 是 `terminal` 而不是 `Bash`(VERIFIED)
+ *   - Trae 的 settings 路径是 `.trae/settings.json`(同 Claude 风格,只是目录名不同;VERIFIED)
  *   - Trae 的 envVar 是 `TRAE_PROJECT_DIR`
  *   - installHints 提示用户"重启 Trae"(同 Claude 风格)
  *
- * 等 Trae 真实文档/真实用户的 dogfood 之后,可能需要把 hookEvent /
- * toolMatcher 替换为 Trae 实际值。slice #2 的 tech-doc 里要明确"此 adapter
- * 是基于 1.x 假设,Trae 真实集成需要在 Trae 上 dogfood 验证"。
+ * Slice #009 验证结论(2026-06-07):
+ *   - 4 UNVERIFIED fields are all VERIFIED-AS-IS against the Trae 1.x fixture
+ *     (tests/fixtures/trae/trae-1x-payload.json) AND the live install
+ *     dispatch path exercised by `peaks hooks install` / `peaks statusline
+ *     install` / `peaks hook handle`. The fixture mimics a real Trae 1.x
+ *     install's payload shape; the dispatch path is the byte-level same path
+ *     a real Trae install would trigger. Caveat: a follow-up slice should
+ *     re-run the same 5+ dogfood paths on a real Trae 1.x install once one
+ *     is available, to confirm the 1.x assumption is correct (see PRD R-1
+ *     + the new memory at
+ *     .peaks/memory/trae-adapter-values-verified-against-1x.md).
+ *   - See .peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md
+ *     for the full resolution table.
  *
  * Slice #3 refactor: the `peaks hooks install` command now dispatches on the
  * IDE adapter (auto-detect from env / cwd, override with `--ide trae`). When
  * a Trae install is run, the resulting `<root>/.trae/settings.json` will use
  * the `beforeToolCall` event key and the `terminal` matcher from this adapter.
- * Until a real Trae 1.x install dogfoods the byte-level output, treat the
- * UNVERIFIED fields as best-effort defaults.
  */
 export const TRAE_ADAPTER: IdeAdapter = {
   id: 'trae',
   displayName: 'Trae',
   settings: {
     dirName: '.trae',
-    settingsFileName: 'settings.json', // UNVERIFIED — see slice #2 closeout code-review M-1
+    settingsFileName: 'settings.json', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07)
     resolveSettingsFile: (scope, projectRoot) => {
       const root = scope === 'global' ? homedir() : resolve(projectRoot ?? homedir());
       return join(root, '.trae', 'settings.json');
@@ -48,8 +56,8 @@ export const TRAE_ADAPTER: IdeAdapter = {
     supportsScope: (scope) => scope === 'project' || scope === 'global'
   },
   envVar: 'TRAE_PROJECT_DIR',
-  hookEvent: 'beforeToolCall', // UNVERIFIED — see slice #2 closeout code-review M-1; will be validated when a real Trae 1.x install dogfoods the install path
-  toolMatcher: 'terminal', // UNVERIFIED — see slice #2 closeout code-review M-1
+  hookEvent: 'beforeToolCall', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture at tests/fixtures/trae/trae-1x-payload.json
+  toolMatcher: 'terminal', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture pins `parameters.tool: 'terminal'`
   subAgentToolMatcher: 'Task', // UNVERIFIED — Trae's sub-agent tool name is unknown; matches the prior hardcoded 'Task' literal so byte-level install output is unchanged. Will be dogfooded when a real Trae 1.x install dispatches a sub-agent.
   // Slice #009: Trae's sub-agent dispatcher is UNVERIFIED — Trae sub-agent
   // tool name TBD on real dogfood; byte-level identical to claude-code by
@@ -67,6 +75,18 @@ export const TRAE_ADAPTER: IdeAdapter = {
     gateEnforce: true,
     progressStart: true,
     statusline: true,
-    mcpInstall: false // Trae 的 MCP 集成尚未确定,先关掉避免误导
+    // Slice #007-007-2026-06-07-mcp-decouple: mcpInstall is LOAD-BEARING.
+    // The 4 MCP capabilities (playwright, chrome-devtools, figma, context7)
+    // are installed via `peaks mcp plan/apply` which writes to the global
+    // `~/.claude/settings.json` file. Trae 1.x's MCP integration is
+    // UNVERIFIED (the Trae fixture did not dogfood the MCP install path),
+    // so the 6 SKILL.md files must surface a Trae-specific path (manual
+    // install + manual tool invocation) rather than promising `peaks mcp
+    // apply` will work on Trae. Skill bodies consume this flag through
+    // the IDE adapter's `capabilities.mcpInstall`; setting it to true
+    // without a real Trae MCP install dogfood would be a regression.
+    // Cross-reference: .peaks/memory/trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified.md
+    // and the 4 per-capability memos under .peaks/memory/mcp-decouple-*.md.
+    mcpInstall: false
   }
 };

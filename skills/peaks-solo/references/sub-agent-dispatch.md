@@ -127,7 +127,7 @@ system is dead. G6 is the rule that says: **no**.
 | **Dispatcher reads** | peaks-solo main loop, during the batch-sync wait | In-process async poller (`BatchHeartbeatPoller`) reads `heartbeats[]` + `lastBeatAt` from each record, emits a single-line status per G6.5 | 10 s (offset from 30 s to avoid jitter) |
 | **User / CLI reads** | Anyone, anytime | `peaks sub-agent list --session-id <sid> --json` (G5 RL-10, future slice) | manual |
 
-### Sub-agent prompt template (heartbeat-aware)
+### Sub-agent prompt template (heartbeat-aware + MCP-decoupled)
 
 Every sub-agent prompt dispatched via `peaks sub-agent dispatch` should
 include the heartbeat instruction so the LLM knows when and how to
@@ -142,6 +142,49 @@ While running, call `peaks sub-agent heartbeat --record <dispatchRecordPath>
 `--status failed`. Do not skip heartbeats; the parent Dispatcher uses them
 to keep the user informed during the wait.
 ```
+
+**Slice #007-007-2026-06-07-mcp-decouple (G3 prompt template addition)**:
+when the sub-agent is dispatched into a non-Claude IDE (Trae, Cursor,
+Codex, Qoder, Tongyi, ...) or into a Claude Code environment where the
+LLM cannot directly invoke the `mcp__<server>__*` tool prefix, the
+sub-agent prompt must additionally include the MCP-decouple instruction
+below. Without it, the sub-agent would either fall back to direct
+`mcp__` invocations (which fail in non-Claude IDEs) or skip MCP
+operations entirely (which breaks RD/QA/UI flows that depend on the
+Playwright, Chrome DevTools, Figma, or Context7 servers).
+
+```
+When you need to use an MCP server (playwright, chrome-devtools, figma, or
+context7), do NOT invoke the `mcp__<server>__*` tool prefix directly. The
+canonical path is `peaks mcp call`:
+
+  peaks mcp call --capability <capabilityId> --tool <toolName> --args-json '<argsObject>' --json
+
+where `<capabilityId>` is one of:
+  - playwright-mcp.browser-validation      (headed browser, primary E2E surface)
+  - chrome-devtools-mcp.browser-debug      (CDP to running Chrome on :9222, secondary)
+  - figma-context-mcp.design-context       (Figma design data, requires FIGMA_API_KEY)
+  - context7.docs-lookup                   (library docs, requires CONTEXT7_API_KEY)
+
+For install / plan / detect, use:
+  peaks mcp list   --json
+  peaks mcp plan   --capability <capabilityId> --json
+  peaks mcp apply  --capability <capabilityId> --yes --json
+
+The `peaks mcp plan` envelope's `envCheck.missing` field is the source of
+truth for required env vars. Do not bake the `mcp__<server>__*` prefix
+into any artifact or message; the prefix is owned by the LLM runtime, not
+by the skill. On Trae, `capabilities.mcpInstall` is `false`; do not
+attempt `peaks mcp apply` on Trae — surface the manual install path
+instead.
+```
+
+The MCP-decouple paragraph is required for any sub-agent dispatched
+into a non-Claude environment or any sub-agent that needs an MCP
+capability. The CLI auto-generates it for `role in (rd, qa, ui, txt)`
+when the active IDE is not `claude-code`; for `role = general-purpose`
+or unknown roles, the caller (the SKILL.md heart of the Dispatcher) must
+add it explicitly.
 
 `heartbeatIntervalSec` is overridable per SKILL.md (5..600). Default 30.
 

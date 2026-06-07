@@ -105,11 +105,13 @@ describe('peaks project dashboard command', () => {
     spy.mockRestore();
   });
 
-  test('reports PROJECT_DASHBOARD_DOCTOR_FAILED when doctor fails but runbook health is ok', async () => {
+  test('reports PROJECT_DASHBOARD_DOCTOR_STRICT_FAIL when --strict is set and doctor fails but runbook health is ok', async () => {
     const module = await import('../../src/services/dashboard/project-dashboard-service.js');
     const fakeDashboard = {
       generatedAt: '2026-05-24T00:00:00.000Z',
       projectRoot: '/tmp/fake',
+      ok: false,
+      okPolicy: 'strict',
       requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
       openspec: { exists: false, count: 0, changes: [] },
       understand: { exists: false, graphExists: false, graphPath: '' },
@@ -127,14 +129,42 @@ describe('peaks project dashboard command', () => {
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
 
-    const project = await makeProject('project-dashboard-doctor-failed');
-    const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
+    const project = await makeProject('project-dashboard-doctor-strict-fail');
+    const result = await runCommand(['project', 'dashboard', '--project', project, '--strict', '--json']);
     const output = parseJsonOutput<{ doctor: { ok: boolean; passed: number; failed: number } }>(result.stdout);
 
     expect(output.ok).toBe(false);
-    expect(output.code).toBe('PROJECT_DASHBOARD_DOCTOR_FAILED');
+    expect(output.code).toBe('PROJECT_DASHBOARD_DOCTOR_STRICT_FAIL');
     expect(output.data.doctor).toEqual({ ok: false, passed: 5, failed: 2 });
     expect(result.exitCode).toBe(1);
+    spy.mockRestore();
+  });
+
+  test('default workspace-only policy tolerates a failing doctor (G1)', async () => {
+    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
+    const fakeDashboard = {
+      generatedAt: '2026-05-24T00:00:00.000Z',
+      projectRoot: '/tmp/fake',
+      ok: true,
+      okPolicy: 'workspace-only',
+      requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [], sc: [] }, byState: {} },
+      openspec: { exists: false, count: 0, changes: [] },
+      understand: { exists: false, graphExists: false, graphPath: '' },
+      mcp: { servers: [], scopes: {} },
+      doctor: { ok: false, passed: 5, failed: 2 },
+      runbookHealth: { ok: true, required: 7, healthy: 7, missingRunbook: [], applyNoteFailed: [] },
+      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      skillPresence: { active: false, fresh: true }
+    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
+    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+
+    const project = await makeProject('project-dashboard-workspace-only');
+    const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
+    const output = parseJsonOutput<{ ok: boolean; okPolicy: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.okPolicy).toBe('workspace-only');
+    expect(result.exitCode ?? 0).toBe(0);
     spy.mockRestore();
   });
 

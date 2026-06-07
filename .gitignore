@@ -9,4 +9,7 @@ coverage/
 .peaks/_runtime/
 .peaks/_dogfood/
 .peaks/_sub_agents/
+.peaks/audit/
 .peaks/DS_Store/
+# Defensive: .peaks/runtime/ (no underscore) is a wrong-path pattern; canonical is .peaks/_runtime/
+.peaks/runtime/

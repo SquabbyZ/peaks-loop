@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "purpose": "Mimic a real Trae 1.x install's hook payload shape (UNVERIFIED — see slice #2 closeout code-review M-1).",
+    "traeVersion": "1.x (assumed; no live install available — see slice 009 PRD R-1)",
+    "shapeSource": "Trae documented as a 'Cursor sibling' per slice #2; Cursor uses eventName+parameters envelope. We assume Trae 1.x follows the same shape until a real install is dogfooded.",
+    "usage": "tests/integration/ide/trae-1x.test.ts and tests/unit/ide/trae-1x-adapter.test.ts load this fixture to pin the hookEvent, toolMatcher, settingsFileName, and TRAE_DENY_SHAPE values.",
+    "lastUpdated": "2026-06-07",
+    "owners": "peaks-rd slice 009-009-2026-06-07-trae-dogfood"
+  },
+  "realInstallShape": {
+    "settingsJson": {
+      "_comment": "Settings file that a real Trae 1.x install would pre-populate. peaks's `peaks hooks install` MUST preserve these fields (round-trip case).",
+      "model": "claude-sonnet-4.5",
+      "mcpServers": {
+        "github": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-github"]
+        }
+      },
+      "existingField": "preserved-by-peaks-install"
+    },
+    "hookStdinDenyPath": {
+      "_comment": "Real Trae 1.x is assumed to send { eventName, parameters: { command } } when a hook fires before a tool call. peaks parses this in parseTraeShapeStdin (src/services/ide/hook-translator.ts).",
+      "eventName": "beforeToolCall",
+      "parameters": {
+        "command": "rm -rf /",
+        "cwd": "/repo/root"
+      }
+    },
+    "hookStdinAllowPath": {
+      "_comment": "Allow-path payload: a benign command that should not be denied by peaks gate enforce.",
+      "eventName": "beforeToolCall",
+      "parameters": {
+        "command": "echo hello tra e",
+        "cwd": "/repo/root"
+      }
+    },
+    "hookStdinEmpty": {
+      "_comment": "Empty / no-payload case: peak hook handle must fail-open to allow.",
+      "eventName": "beforeToolCall",
+      "parameters": {}
+    },
+    "hookStdinTerminal": {
+      "_comment": "Real Trae 1.x is assumed to surface the tool name in `parameters.tool` (or similar). peaks currently uses eventName as toolName since Trae has not been observed to carry a top-level tool field. If a future slice finds `parameters.tool: 'terminal'`, parseTraeShapeStdin should be updated to extract that field.",
+      "eventName": "beforeToolCall",
+      "parameters": {
+        "tool": "terminal",
+        "command": "ls -la"
+      }
+    }
+  },
+  "expectedAdapterValues": {
+    "_comment": "The peaks Trae adapter's 4 UNVERIFIED fields. The slice 009 dogfood classifies each as VERIFIED-AS-IS / VERIFIED-WITH-CORRECTION / VERIFIED-AS-UNSUPPORTED against the fixture shape above. See .peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md for the resolution table.",
+    "hookEvent": "beforeToolCall",
+    "toolMatcher": "terminal",
+    "settingsFileName": "settings.json",
+    "TRAE_DENY_SHAPE_NAME": "TRAE_DENY_SHAPE",
+    "TRAE_DENY_SHAPE_FIELDS": [
+      "hookSpecificOutput.hookEventName=beforeToolCall",
+      "hookSpecificOutput.permissionDecision=deny",
+      "hookSpecificOutput.permissionDecisionReason=<reason-substituted-at-format-time>"
+    ]
+  }
+}

@@ -109,7 +109,7 @@ Every successful execution writes one JSON line to `.peaks/_runtime/<sid>/ide-on
 {"timestamp":"2026-06-06T19:55:00Z","intent":"first-time-install","detected_ide":"trae","cli_invocations":["peaks hooks install --project <repo>","peaks statusline install --project <repo>"],"outcome":"success","session_id":"2026-06-06-session-22f08c"}
 ```
 
-The audit log is **machine-readable** (so `peaks project dashboard` can read it and surface "you installed peaks for Trae on 2026-06-06") and **human-readable** (so the user can `cat` it to see the install history). The skill does NOT write the log file itself — it delegates to `peaks project dashboard` (the canonical log writer, per the dev-preference red line "skill-first for workflow, CLI-backed for gates / side effects"). The audit log writer is a CLI primitive, not a per-skill helper; the skill body MUST NOT introduce a new `peaks <cmd>` for the log writer.
+The audit log is **machine-readable** (so `peaks project dashboard` can read it and surface "you installed peaks for Trae on 2026-06-06") and **human-readable** (so the user can `cat` it to see the install history). The skill does NOT write the log file itself — it delegates to `peaks project dashboard` (the canonical log writer, per the dev-preference red line "skill-first for workflow, CLI-backed for gates / side effects"). The audit log writer is a CLI primitive, not a per-skill helper; the skill body MUST NOT introduce a new `peaks <cmd>` for the log writer. The thin helper that writes the log is `scripts/peaks-ide-audit-log.mjs`; see [audit-log-helper.md](references/audit-log-helper.md) for its CLI surface and contract.
 
 ## Boundaries
 

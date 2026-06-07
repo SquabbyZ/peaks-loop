@@ -24,10 +24,13 @@ export const CLAUDE_CODE_DENY_TRANSPORT: PeaksDecisionTransport = {
 
 /**
  * Compute the deny decision shape for Trae (Cursor-style sibling IDE).
- * UNVERIFIED — Trae 1.x's actual response envelope is a 1.x assumption
- * (see src/services/ide/adapters/trae-adapter.ts). Slice #3 ships a
- * Cursor-style envelope as the best-effort default; if a future slice
- * confirms Trae's actual shape, update this constant and the related test.
+ * VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07).
+ * Shape is the standard Cursor/Claude sibling envelope: `hookSpecificOutput`
+ * with `hookEventName`, `permissionDecision`, `permissionDecisionReason`.
+ * The hookEventName is `'beforeToolCall'` for Trae vs `'PreToolUse'` for
+ * Claude Code — the only field that differs between the two siblings.
+ * Fixture: tests/fixtures/trae/trae-1x-payload.json. Constant NAME preserved
+ * (per slice 009 PRD R-3); only the shape was already correct from slice #3.
  */
 export const TRAE_DENY_SHAPE: Record<string, unknown> = {
   hookSpecificOutput: {
