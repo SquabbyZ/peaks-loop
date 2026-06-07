@@ -55,6 +55,7 @@ const RECOMMENDED_ROLES = 'rd | qa | ui | txt | qa-business | qa-perf | qa-secur
 
 type DispatchOptions = {
   prompt?: string;
+  promptLength?: string;
   requestId?: string;
   sessionId?: string;
   project?: string;
@@ -127,6 +128,7 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       )
       .argument('<role>', 'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)')
       .requiredOption('--prompt <text>', 'the prompt to send to the sub-agent')
+      .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)')
       .option('--request-id <rid>', 'the same <rid> used by peaks request init')
       .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
       .option('--project <path>', 'target project root (defaults to cwd)')
@@ -152,6 +154,17 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       ]), asJson);
       process.exitCode = 1;
       return;
+    }
+
+    // DOGFOOD ONLY: --prompt-length overrides the actual prompt content with
+    // a synthetic prompt of the given size in bytes. The original --prompt
+    // is still required (commander needs it). This avoids ARG_MAX limits
+    // on Windows when the dogfood prompt is > 200KB.
+    if (typeof options.promptLength === 'string' && options.promptLength.length > 0) {
+      const len = Number.parseInt(options.promptLength, 10);
+      if (Number.isInteger(len) && len > 0) {
+        options.prompt = 'x'.repeat(len);
+      }
     }
     if (options.prompt.length > PROMPT_LIMIT_BYTES) {
       printResult(io, fail('sub-agent.dispatch', 'PROMPT_TOO_LARGE', `prompt exceeds ${PROMPT_LIMIT_BYTES} bytes (got ${options.prompt.length})`, { role, toolCall: null, dispatchRecordPath: null } as never, [

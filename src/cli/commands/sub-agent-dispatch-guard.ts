@@ -78,8 +78,16 @@ export function registerSubAgentDispatchGuard(program: Command): void {
     .command('sub-agent-dispatch-guard')
     .description('INTERNAL: PreToolUse hook guard (G9.5 / RL-30 strict)')
     .requiredOption('--prompt <text>', 'the prompt to validate (size in bytes is what gets checked)')
-    .action((options: { prompt: string }) => {
-      const promptSize = Buffer.byteLength(options.prompt, 'utf8');
+    .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only)')
+    .action((options: { prompt: string; promptLength?: string }) => {
+      let prompt = options.prompt;
+      if (typeof options.promptLength === 'string' && options.promptLength.length > 0) {
+        const len = Number.parseInt(options.promptLength, 10);
+        if (Number.isInteger(len) && len > 0) {
+          prompt = 'x'.repeat(len);
+        }
+      }
+      const promptSize = Buffer.byteLength(prompt, 'utf8');
       const result = evaluateHookGuard(promptSize);
       // Always exit 0 — the LLM platform reads `allow` from JSON.
       // The decision is encoded in `allow` / `code`, not the exit code.
