@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-07T15:25:00.000Z",
+  "updatedAt": "2026-06-08T03:05:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -292,6 +292,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
         "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "peaks-cli-request-init-filename-truncation-57-char-limit",
+        "kind": "lesson",
+        "description": "peaks request init truncates artefact filenames to 57 characters silently. Slice #014's 58-char request-id (remove-legacy-progress-start-surface) hit REQUEST_NOT_FOUND until the file was renamed manually. New slices: keep slug <= 41 chars so the full path fits 57.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-57-char-limit.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
+        "updatedAt": "2026-06-08"
+      },
+      {
+        "name": "peaks-cli-file-size-scan-readfile-on-deleted-paths",
+        "kind": "lesson",
+        "description": "peaks request transition rd → implemented calls file-size-scan at src/services/scan/file-size-scan.ts:39-42 which calls readFileSync on git-diff deleted paths and crashes. Slice #014 (5 source deletes + 2 test deletes) needed --allow-incomplete bypass. Workaround: pass --allow-incomplete --reason '<justification>'. Slice #015 fix: skip non-existent paths in the scan.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
+        "updatedAt": "2026-06-08"
       }
     ]
   },
