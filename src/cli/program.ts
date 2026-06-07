@@ -18,6 +18,7 @@ import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
+import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
 import { registerHookHandleCommand } from './commands/hook-handle.js';
 import { registerHooksCommands } from './commands/hooks-commands.js';
@@ -99,6 +100,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerSliceCommands(program, io);
   registerSopCommands(program, io);
   registerSubAgentCommands(program, io);
+  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
+  // `peaks --help` (no description text); used by `peaks hooks install`
+  // to wire the PreToolUse hook chain.
+  registerSubAgentDispatchGuard(program);
   registerGateCommands(program, io);
   registerHookHandleCommand(program, io);
   registerHooksCommands(program, io);
