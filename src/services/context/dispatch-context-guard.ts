@@ -152,7 +152,7 @@ export function assertSafeSharedChannelPath(channelPathInput: string, projectRoo
     throw invalidPathErrorShared(channelPathInput, 'must not contain .. segments');
   }
 
-  const expected = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR, SHARED_SUBDIR);
+  const expected = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR);
   const rel = relative(expected, channelPathInput);
   if (rel.startsWith('..') || isAbsolute(rel)) {
     throw invalidPathErrorShared(channelPathInput, 'must be under .peaks/_sub_agents/shared/');
@@ -166,7 +166,7 @@ export function assertSafeSharedChannelPath(channelPathInput: string, projectRoo
     realChannel = resolve(realParent, channelPathInput.slice(parent.length + 1));
     realRoot = realpathSync(projectRoot);
   } catch {
-    const fallback = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR, SHARED_SUBDIR);
+    const fallback = resolve(projectRoot, '.peaks', SUB_AGENTS_DIR);
     const rel2 = relative(fallback, channelPathInput);
     if (rel2.startsWith('..') || isAbsolute(rel2)) {
       throw invalidPathErrorShared(channelPathInput, 'must be under .peaks/_sub_agents/shared/');
@@ -178,7 +178,7 @@ export function assertSafeSharedChannelPath(channelPathInput: string, projectRoo
   if (realRel.startsWith('..') || isAbsolute(realRel)) {
     throw invalidPathErrorShared(channelPathInput, 'symlink/junction escapes project root');
   }
-  const realExpected = resolve(realRoot, '.peaks', SUB_AGENTS_DIR, SHARED_SUBDIR);
+  const realExpected = resolve(realRoot, '.peaks', SUB_AGENTS_DIR);
   const realRelExpected = relative(realExpected, realChannel);
   if (realRelExpected.startsWith('..') || isAbsolute(realRelExpected)) {
     throw invalidPathErrorShared(channelPathInput, 'must be under .peaks/_sub_agents/shared/');
