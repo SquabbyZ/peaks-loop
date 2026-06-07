@@ -89,11 +89,33 @@ describe('incrementing-number', () => {
       expect(buildNumberedFilename(1, '  feature  ')).toBe('001-feature.md');
     });
 
-    test('limits slug length to 50 characters', () => {
-      const longDescription = 'This is a very long description that should be truncated to fifty characters';
+    test('limits slug length to 248 characters (Windows-safe, slice #015)', () => {
+      // Pre-#015 the limit was 50 chars, which silently truncated
+      // request-id slugs and produced orphaned artefacts (the on-disk
+      // file no longer matched the request-id). The new ceiling is
+      // 255 chars (Windows max filename length) minus 7 for the
+      // `<NNN>-` prefix and `.md` suffix.
+      const longDescription = 'This is a very long description that should not be truncated at fifty characters anymore because the 57-character artefact filename buffer bug from slice #014 was fixed by bumping the buffer to two hundred and fifty-five which is the Windows max filename length';
       const result = buildNumberedFilename(1, longDescription);
       const slug = result.replace(/^\d+-/, '').replace('.md', '');
-      expect(slug.length).toBeLessThanOrEqual(50);
+      expect(slug.length).toBeLessThanOrEqual(248);
+      // The result file name itself must be ≤ 255 chars (OS ceiling).
+      expect(result.length).toBeLessThanOrEqual(255);
+    });
+
+    test('preserves full 80-char slug (slice #014 regression)', () => {
+      // Reproduces the slice #014 failure: a 58-char request-id like
+      // `remove-legacy-progress-start-surface` would have been truncated
+      // to `remove-legacy-progress-start-surfac` (50 chars + the 3-digit
+      // prefix would push it past the 57-char buffer, breaking the
+      // on-disk <-> request-id mapping). With the fix, the full slug
+      // is preserved end-to-end.
+      const longSlug = '0000-2026-06-07-a-very-long-slug-that-exceeds-fifty-seven-characters-and-keeps-going';
+      const result = buildNumberedFilename(1, longSlug);
+      const slug = result.replace(/^\d+-/, '').replace('.md', '');
+      expect(slug).toBe('0000-2026-06-07-a-very-long-slug-that-exceeds-fifty-seven-characters-and-keeps-going');
+      // The full request-id appears verbatim in the produced filename.
+      expect(result).toContain('0000-2026-06-07-a-very-long-slug');
     });
 
     test('handles special characters', () => {

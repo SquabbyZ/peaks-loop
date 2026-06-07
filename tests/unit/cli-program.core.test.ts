@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -387,6 +387,99 @@ describe('createProgram', () => {
       // The new block is `kind: convention` → lands in hot.convention
       expect(indexRaw.hot.convention).toHaveLength(1);
       expect(indexRaw.hot.convention[0].name).toBe('click-to-edit-uses-mousedown-on-the-row-not-click');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('peaks project memories:extract --apply persists embedded blocks (slice #015 regression)', async () => {
+    // Pre-#015: `peaks project memories:extract --apply` ALWAYS returned
+    // `code: INVALID_MEMORY_EXTRACT_FLAGS` with "Use either --dry-run or
+    // --apply, not both". Root cause: the `--dry-run` option was defined
+    // with a `true` default (`.option('--dry-run', '...', true)`), so
+    // `options.dryRun === true && options.apply === true` fired on every
+    // `--apply` call. The fix drops the `true` default. `--dry-run` is
+    // now opt-in; passing only `--apply` must succeed.
+    const { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-proj-mem-extract-'));
+    const sessionId = '2026-06-07-session-deadbe';
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
+    try {
+      // Build a fake session artifact with one stable fact.
+      const artifactPath = join(sessionDir, 'txt', 'handoff.md');
+      require('node:fs').mkdirSync(join(sessionDir, 'txt'), { recursive: true });
+      writeFileSync(artifactPath, [
+        '# Handoff',
+        '',
+        '<!-- peaks-memory:start -->',
+        'title: Slice #015 extracted',
+        'kind: project',
+        '---',
+        'The fix for the memories:extract --apply bug landed.',
+        '<!-- peaks-memory:end -->',
+        ''
+      ].join('\n'), 'utf8');
+
+      // --apply directly (no --dry-run) must succeed.
+      const applied = await runCommand([
+        'project', 'memories:extract',
+        '--session-id', sessionId,
+        '--project', projectRoot,
+        '--apply',
+        '--json'
+      ]);
+      const appliedOutput = parseJsonOutput<{
+        ok: boolean;
+        extractedCount: number;
+        writtenFiles: string[];
+      }>(applied.stdout);
+      expect(appliedOutput.ok).toBe(true);
+      expect(appliedOutput.code).not.toBe('INVALID_MEMORY_EXTRACT_FLAGS');
+      expect(appliedOutput.data.extractedCount).toBe(1);
+      expect(appliedOutput.data.writtenFiles).toHaveLength(1);
+
+      // .peaks/memory/ is populated.
+      const memoryDir = join(projectRoot, '.peaks', 'memory');
+      expect(existsSync(memoryDir)).toBe(true);
+      const indexPath = join(memoryDir, 'index.json');
+      expect(existsSync(indexPath)).toBe(true);
+      const indexRaw = JSON.parse(readFileSync(indexPath, 'utf8'));
+      expect(indexRaw.version).toBe(1);
+      // `kind: project` lives in the WARM tier (hot is reserved for
+      // feedback/decision/rule/convention/module/lesson). See
+      // src/services/memory/project-memory-service.ts:474.
+      expect(indexRaw.warm.project).toHaveLength(1);
+      expect(indexRaw.warm.project[0].name).toBe('slice-015-extracted');
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('peaks project memories:extract with both --dry-run and --apply still rejects (mutual exclusion intact)', async () => {
+    // The mutual-exclusion check (`dryRun === true && apply === true`)
+    // must STILL fire when the user explicitly passes BOTH flags. The
+    // fix is "drop the `true` default", not "delete the check".
+    const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-proj-mem-both-'));
+    const sessionId = '2026-06-07-session-feedfa';
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
+    try {
+      const artifactPath = join(sessionDir, 'txt', 'handoff.md');
+      require('node:fs').mkdirSync(join(sessionDir, 'txt'), { recursive: true });
+      writeFileSync(artifactPath, '<!-- peaks-memory:start -->\ntitle: t\nkind: project\n---\nbody\n<!-- peaks-memory:end -->', 'utf8');
+
+      const both = await runCommand([
+        'project', 'memories:extract',
+        '--session-id', sessionId,
+        '--project', projectRoot,
+        '--dry-run', '--apply',
+        '--json'
+      ]);
+      const bothOutput = parseJsonOutput<{ ok: boolean }>(both.stdout);
+      expect(bothOutput.ok).toBe(false);
+      expect(bothOutput.code).toBe('INVALID_MEMORY_EXTRACT_FLAGS');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

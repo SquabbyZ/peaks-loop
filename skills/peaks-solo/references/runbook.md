@@ -20,12 +20,12 @@ peaks skill runbook peaks-solo --json
 peaks workspace init --project <repo> --json
 peaks workspace reconcile --project <repo> --json
 peaks scan archetype --project <repo> --json
-# → copy archetype, frontendOnly, signals into .peaks/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
-# → copy libraries[] into .peaks/<session-id>/rd/project-scan.md under `## Library versions`
+# → copy archetype, frontendOnly, signals into .peaks/_runtime/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
+# → copy libraries[] into .peaks/_runtime/<session-id>/rd/project-scan.md under `## Library versions`
 peaks scan libraries --project <repo> --json
 # → if archetype != greenfield AND archetype != unknown:
 peaks scan existing-system --project <repo> --json
-# → copy tokens, sources, conventions, inconsistencies into .peaks/<session-id>/system/existing-system.md (Peaks-Cli Gate A.5)
+# → copy tokens, sources, conventions, inconsistencies into .peaks/_runtime/<session-id>/system/existing-system.md (Peaks-Cli Gate A.5)
 
 # 1. Peaks-Cli Standards preflight + apply
 #    Run dry-run first to inspect deltas, then APPLY. In full-auto and swarm modes,
@@ -55,7 +55,7 @@ peaks request transition <rid> --role prd --state handed-off --project <repo> --
 
 # 3. Peaks-Cli Swarm parallel — sub-agent fan-out (peaks sub-agent dispatch, NOT Skill tool)
 #    Solo computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
-#    writes it to .peaks/<sid>/sc/swarm-plan.json, then launches one
+#    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then launches one
 #    `peaks sub-agent dispatch <role>` call per sub-agent in the same message.
 #    See "Peaks-Cli Swarm parallel phase" above for the full decision table and the
 #    prompt template; the role's required artefact paths are listed there.
@@ -80,36 +80,36 @@ peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-
 #     Step 0 / presence, plus the runtime args (rid / sid / mode / type / paths).
 # 3c. After fan-out, Solo restores presence once and runs Gate B (ls checks):
 peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-converged
-ls .peaks/<sid>/prd/requests/<rid>.md                # PRD artefact must exist (Gate B hard)
-# feature / refactor → ls .peaks/<sid>/rd/tech-doc.md
-# bugfix             → ls .peaks/<sid>/rd/bug-analysis.md
-ls .peaks/<sid>/qa/test-cases/<rid>.md                # QA test-cases (skipped for docs|chore)
+ls .peaks/_runtime/<sid>/prd/requests/<rid>.md                # PRD artefact must exist (Gate B hard)
+# feature / refactor → ls .peaks/_runtime/<sid>/rd/tech-doc.md
+# bugfix             → ls .peaks/_runtime/<sid>/rd/bug-analysis.md
+ls .peaks/_runtime/<sid>/qa/test-cases/<rid>.md                # QA test-cases (skipped for docs|chore)
 # ui (only when in plan):
-ls .peaks/<sid>/ui/design-draft.md 2>&1               # non-blocking (Gate B info)
+ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (Gate B info)
 # Apply the degradation rules in the main SKILL.md if any artefact is missing.
 # → Peaks-Cli Gate B convergence check. Assisted/Strict: [CONFIRM]
 
 # 4. Peaks-Cli RD planning artifact (the file required by the prerequisite gate)
-#    feature / refactor → write .peaks/<id>/rd/tech-doc.md
-#    bugfix             → write .peaks/<id>/rd/bug-analysis.md
+#    feature / refactor → write .peaks/_runtime/<id>/rd/tech-doc.md
+#    bugfix             → write .peaks/_runtime/<id>/rd/bug-analysis.md
 #    config             → no planning artifact required at this state
 #    docs / chore       → no planning artifact required
 peaks request transition <rid> --role rd --state implemented --project <repo> --json
 
 # 5. Peaks-Cli Code review + security review BEFORE qa-handoff transition.
 #    Produce the evidence files the CLI gate enforces:
-#      - .peaks/<id>/rd/code-review.md     (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
-#      - .peaks/<id>/rd/security-review.md (required for feature/bugfix/refactor/config)
+#      - .peaks/_runtime/<id>/rd/code-review.md     (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
+#      - .peaks/_runtime/<id>/rd/security-review.md (required for feature/bugfix/refactor/config)
 #    Then transition. If --type is docs/chore the gate is empty and the transition is unguarded.
 peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json
 
 # 6. Peaks-Cli QA validation (AUTO-PROCEED from RD in full-auto)
 #    Before each QA transition, produce the evidence files the CLI gate enforces:
-#      Before qa:running        → .peaks/<id>/qa/test-cases/<rid>.md
+#      Before qa:running        → .peaks/_runtime/<id>/qa/test-cases/<rid>.md
 peaks request transition <rid> --role qa --state running --project <repo> --json
-#      Before qa:verdict-issued → .peaks/<id>/qa/test-reports/<rid>.md
-#                                 + .peaks/<id>/qa/security-findings.md
-#                                 + .peaks/<id>/qa/performance-findings.md (feature/refactor only)
+#      Before qa:verdict-issued → .peaks/_runtime/<id>/qa/test-reports/<rid>.md
+#                                 + .peaks/_runtime/<id>/qa/security-findings.md
+#                                 + .peaks/_runtime/<id>/qa/performance-findings.md (feature/refactor only)
 peaks request transition <rid> --role qa --state verdict-issued --project <repo> --json
 # → Peaks-Cli Gate D check. Assisted/Strict: [CONFIRM]
 
@@ -135,12 +135,12 @@ peaks openspec archive <cid> --project <repo> --apply --json
 peaks workspace reconcile --project <repo> --apply --older-than 7
 
 # 10. Peaks-Cli TXT handoff — invoke peaks-txt which embeds memory markers and extracts
-#     peaks-txt writes the handoff capsule to .peaks/<id>/txt/handoff.md. Inside the
+#     peaks-txt writes the handoff capsule to .peaks/_runtime/<id>/txt/handoff.md. Inside the
 #     capsule body, peaks-txt embeds <!-- peaks-memory:start --> blocks for every
 #     stable project fact surfaced this session.
 #
 # 10a. Skill-side scan (do this BEFORE the AskUserQuestion below):
-#      grep -n "peaks-memory:start" .peaks/<id>/txt/handoff.md
+#      grep -n "peaks-memory:start" .peaks/_runtime/<id>/txt/handoff.md
 #      Record the count. This is the skill doing the work, not a CLI command —
 #      we deliberately do not ship a `peaks memory scan` because the LLM is
 #      the only consumer and the LLM has grep.
@@ -148,7 +148,7 @@ peaks workspace reconcile --project <repo> --apply --older-than 7
 # 10b. AskUserQuestion (only if 10a returned count >= 1):
 #      "The TXT handoff has N peaks-memory:start blocks. Persist to .peaks/memory/?
 #       (a) Apply all — `peaks memory extract --project <repo>
-#                            --artifact .peaks/<id>/txt/handoff.md --apply --json`
+#                            --artifact .peaks/_runtime/<id>/txt/handoff.md --apply --json`
 #       (b) Apply selectively — re-edit handoff.md first, then re-apply
 #       (c) Skip for now — blocks stay in the handoff only, no .peaks/memory/ write"
 #      If 10a returned 0 AND the session surfaced a stable project fact
@@ -156,7 +156,7 @@ peaks workspace reconcile --project <repo> --apply --older-than 7
 #      back and embed at least one block before Solo can advance.
 
 # 10c. After the user picks (a) or (b), run:
-peaks memory extract --project <repo> --artifact .peaks/<id>/txt/handoff.md --apply --json
+peaks memory extract --project <repo> --artifact .peaks/_runtime/<id>/txt/handoff.md --apply --json
 #      --apply is REQUIRED to write .peaks/memory/; without it the command only
 #      previews. The extract regenerates index.json in the same call.
 

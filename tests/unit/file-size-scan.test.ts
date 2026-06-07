@@ -139,6 +139,39 @@ describe('scanFileSize', () => {
     expect(result.ok).toBe(false);
     expect(result.violations).toHaveLength(2);
   });
+
+  test('does NOT crash on deleted files in the diff (slice #015 fix)', async () => {
+    // Pre-#015: scanFileSize iterated every entry in `git diff --name-only
+    // HEAD` and called readFileSync unconditionally. A refactor that
+    // deleted files in the working tree produced ENOENT and aborted the
+    // entire `peaks request transition rd → implemented` flow with
+    // `code: PREREQUISITES_MISSING`. The fix uses `git diff --diff-filter=AM`
+    // to exclude Deleted entries up-front; the existsSync guard stays as
+    // belt-and-braces for untracked-then-deleted paths.
+    const project = await makeProject();
+    makeFile(project, 'keep.ts', 100);
+    makeFile(project, 'delete-me.ts', 100);
+    makeFile(project, 'also-delete-me.ts', 100);
+    commitAll(project, 'initial commit with 3 files');
+
+    // Delete 2 of them in the working tree.
+    execFileSync('git', ['-C', project, 'rm', 'delete-me.ts'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', project, 'rm', 'also-delete-me.ts'], { stdio: 'ignore' });
+
+    // Modify the survivor.
+    writeFileSync(join(project, 'keep.ts'), Array.from({ length: 200 }, (_, i) => `line ${i + 1}`).join('\n'), 'utf8');
+
+    // Run the scan — should NOT throw ENOENT.
+    const result = scanFileSize({ projectRoot: project });
+
+    expect(result.ok).toBe(true);
+    expect(result.violations).toEqual([]);
+    // Only the surviving modified file is checked. The 2 deleted files
+    // are excluded by `--diff-filter=AM` and never reach the file
+    // system probe.
+    expect(result.checkedFiles).toBe(1);
+    expect(result.deletedFiles).toEqual([]);
+  });
 });
 
 describe('DEFAULT_FILE_SIZE_THRESHOLD', () => {

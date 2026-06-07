@@ -16,7 +16,7 @@ Return a compact JSON envelope — do not write prose.
 ## Hard prohibitions
 - Do NOT call Skill(skill="..."). You are the role.
 - Do NOT call `peaks skill presence:set` — the main loop owns .peaks/.active-skill.json.
-  If you need to record state, write to .peaks/<session-id>/system/sub-agent-<role>.json.
+  If you need to record state, write to .peaks/_runtime/<session-id>/system/sub-agent-<role>.json.
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask the user interactive questions. If you need clarification, return
   {"status":"blocked","blockedReason":"<text>"} and let the main loop handle it.
@@ -47,14 +47,14 @@ Steps:
 3. Read <project-scan-path> for component library / CSS framework.
 4. Run the prototype fidelity gate: Figma file? PRD visuals? Headed browser?
 5. Write TWO artefacts:
-   - .peaks/<sid>/ui/design-draft.md
-   - .peaks/<sid>/ui/requests/<rid>.md
+   - .peaks/_runtime/<sid>/ui/design-draft.md
+   - .peaks/_runtime/<sid>/ui/requests/<rid>.md
 6. Return:
    {
      "role": "ui",
      "rid": "<rid>",
      "status": "ok" | "blocked" | "skipped",
-     "artefacts": [".peaks/<sid>/ui/design-draft.md", ".peaks/<sid>/ui/requests/<rid>.md"],
+     "artefacts": [".peaks/_runtime/<sid>/ui/design-draft.md", ".peaks/_runtime/<sid>/ui/requests/<rid>.md"],
      "warnings": [],
      "blockedReason": null
    }
@@ -80,15 +80,15 @@ Steps:
    into rd/project-scan.md.
 5. Read <existing-system-path> if archetype is legacy-*.
 6. Write the type-appropriate planning artefact:
-   - feature | refactor  → .peaks/<sid>/rd/tech-doc.md
-   - bugfix              → .peaks/<sid>/rd/bug-analysis.md
+   - feature | refactor  → .peaks/_runtime/<sid>/rd/tech-doc.md
+   - bugfix              → .peaks/_runtime/<sid>/rd/bug-analysis.md
    - config | docs | chore → no planning artefact required. Return skipped.
 7. Return:
    {
      "role": "rd-planning",
      "rid": "<rid>",
      "status": "ok" | "blocked" | "skipped",
-     "artefacts": [".peaks/<sid>/rd/tech-doc.md"],   // or [] when skipped
+     "artefacts": [".peaks/_runtime/<sid>/rd/tech-doc.md"],   // or [] when skipped
      "warnings": [],
      "blockedReason": null
    }
@@ -106,14 +106,14 @@ Steps:
 2. peaks request show <rid> --role prd --project <repo> --json
 3. peaks request show <rid> --role rd  --project <repo> --json
 4. Read <project-scan-path>.
-5. Write .peaks/<sid>/qa/test-cases/<rid>.md with test cases linked to PRD
+5. Write .peaks/_runtime/<sid>/qa/test-cases/<rid>.md with test cases linked to PRD
    acceptance items (use **Acceptance:** A1, A2 style).
 6. Return:
    {
      "role": "qa-test-cases",
      "rid": "<rid>",
      "status": "ok" | "blocked" | "skipped",
-     "artefacts": [".peaks/<sid>/qa/test-cases/<rid>.md"],
+     "artefacts": [".peaks/_runtime/<sid>/qa/test-cases/<rid>.md"],
      "warnings": [],
      "blockedReason": null
    }

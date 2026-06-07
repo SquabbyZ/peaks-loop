@@ -126,7 +126,13 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       .description('Scan a session artifact directory and extract <!-- peaks-memory:start --> blocks into .peaks/memory/')
       .requiredOption('--session-id <id>', 'session id (e.g. 2026-05-29-session-89ff35)')
       .requiredOption('--project <path>', 'target project root')
-      .option('--dry-run', 'preview writes without changing files', true)
+      // Slice #015: drop the `--dry-run true` default. With the default
+      // set to true, `options.dryRun === true && options.apply === true`
+      // fired on every `--apply` call (because dryRun was true by
+      // default), permanently breaking `--apply`. `--dry-run` is now
+      // opt-in; the mutual-exclusion check below is correct without a
+      // special-case.
+      .option('--dry-run', 'preview writes without changing files')
       .option('--apply', 'write extracted memories into .peaks/memory/')
   ).action((options: { sessionId: string; project: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     if (options.dryRun === true && options.apply === true) {

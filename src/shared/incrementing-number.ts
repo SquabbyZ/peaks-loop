@@ -38,13 +38,23 @@ export function getNextNumber(dirPath: string): number {
  * @param description - Human-readable description (converted to kebab-case slug)
  * @returns Formatted filename like "001-feature-name.md"
  */
+// Windows supports up to 255 chars per filename component (and 260 for the
+// full path). Pre-#015 the slug was silently truncated to 50 chars, which
+// produced orphaned artefacts (the on-disk file no longer matched the
+// request-id and the state machine could not find it). 255 is the OS-level
+// ceiling; if a requestId exceeds that, `mkdir` / `writeFile` will surface a
+// real ENAMETOOLONG error instead of a silent mismatch. We reserve 4 chars
+// for the `<NNN>-` numeric prefix and 3 chars for the `.md` suffix, so
+// the slug may be at most 248 chars (giving 4 + 248 + 3 = 255 total).
+const MAX_FILENAME_LENGTH = 255;
+const MAX_FILENAME_SLUG_LENGTH = MAX_FILENAME_LENGTH - 7;
 export function buildNumberedFilename(number: number, description: string): string {
   const padded = String(number).padStart(3, '0');
   const slug = description
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 50); // Limit slug length
+    .slice(0, MAX_FILENAME_SLUG_LENGTH);
   return `${padded}-${slug}.md`;
 }
 

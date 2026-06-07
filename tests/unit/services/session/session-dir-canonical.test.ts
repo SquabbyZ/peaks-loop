@@ -51,28 +51,32 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
 // documentation, retrospective sub-tree readers). Per slice 012, these
 // are explicitly NOT in scope for the 5th-writer fix. New offenders in
 // skills/*/references/*.md that aren't on this list fail the test.
+//
+// Slice #015 removed 2 entries (swarm-dispatch-contract.md, runbook.md)
+// after rewriting their legacy paths to canonical `.peaks/_runtime/<sid>/...`
+// form. Two remain allow-listed with justifications:
+//   - a2a-artifact-mapping.md: this is an A2A spec mapping document; the
+//     A2A protocol uses `.peaks/<artifact-id>/...` style paths as part of
+//     the SPEC (not as a real filesystem path). The mapping cites the A2A
+//     spec literally; rewriting the spec citations would break the
+//     documentation's purpose (to map peaks onto the A2A vocabulary).
+//   - peaks-prd/SKILL.md: contains Playwright MCP `filename=` URL
+//     parameters (e.g. `filename=".peaks/<sid>/prd/source/<doc>-page-<n>.png"`).
+//     These are URL parameter values passed to the browser, NOT Node-side
+//     file joins; the actual file lands at the canonical _runtime home
+//     via the runtime contract. The pattern matches because the string
+//     contains the legacy prefix, but the intent is "browser URL
+//     parameter", not "writer".
 const ALLOWED_LEGACY_SKILL_PATHS: ReadonlyArray<string> = [
   // A2A artifact mapping — A2A is a documentation-only mapping convention
   // that uses the legacy layout to match the upstream A2A spec; the actual
   // peaks artifact layout is canonical and unaffected.
   'skills/peaks-solo/references/a2a-artifact-mapping.md',
-  // PRD source-doc screenshot contract — Playwright filename= is a relative
-  // path the browser writes; not a Node-side join. The actual file lands
-  // at the canonical _runtime home via the runtime contract. This line is
-  // the documented *target*, not a writer.
+  // PRD source-doc screenshot contract — Playwright filename= is a
+  // browser URL parameter the headed browser writes; not a Node-side
+  // join. The actual file lands at the canonical _runtime home via the
+  // runtime contract. This line is the documented *target*, not a writer.
   'skills/peaks-prd/SKILL.md',
-  // peaks-solo swarm-dispatch-contract — sub-agent prompt templates for
-  // peaks-ui / peaks-rd / peaks-qa (planning). Pre-existing legacy
-  // `.peaks/<sid>/...` paths; rewriting all 8 paths here is a separate
-  // slice from the QA 3-way fan-out fix in this slice. Tracked as a
-  // follow-up in slice 012's bug-analysis.md.
-  'skills/peaks-solo/references/swarm-dispatch-contract.md',
-  // peaks-solo default runbook — `ls` commands for Gate B hard checks
-  // (PRD / RD / QA / UI artefacts). Pre-existing legacy paths; same
-  // rationale as swarm-dispatch-contract.md: rewriting these is a
-  // follow-up slice (the runbook is documentation consumed by Solo, not
-  // a sub-agent's write target).
-  'skills/peaks-solo/references/runbook.md'
 ];
 
 function listSrcFiles(dir: string): string[] {
