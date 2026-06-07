@@ -3,6 +3,36 @@ name: peaks-solo
 description: Full-auto orchestration facade for the Peaks-Cli skill family. Use when the user asks Peaks-Cli to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (产品文档/PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-solo`, "peaks solo", "全流程开发", "端到端迭代", "根据产品文档开发", "从需求到上线".
 ---
 
+## Two-axis naming convention
+
+> **Read once at the top of this file; the rest of the skill is written against it.**
+
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+
+| Axis | Path root | Holds | When to use |
+|---|---|---|---|
+| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
+| **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
+
+**Which CLI commands operate on which axis:**
+
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
+- **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
+
+**Placeholder convention used in this file:**
+
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
+- The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
+
+**Cross-references:**
+
+- Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
+- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+
 # Peaks-Cli Solo
 
 Peaks-Cli Solo is the orchestration facade for the Peaks-Cli short skill family.
@@ -192,7 +222,7 @@ done
 **Strict quality guarantee (per user's hard rule: "严格要保证不能比当前的效果差")**:
 - If no in-flight slice is detected, this step is a no-op: zero extra commands beyond the existing Step 0 probe, zero extra token cost.
 - If an in-flight slice is detected, the cost is one `find` + one `grep` loop (sub-millisecond) + one `AskUserQuestion` (one round-trip). The savings are 3-5k tokens (the cost of manually re-reading 3-5 artifact files).
-- The dogfood test in `tests/unit/skill-resume-mode.test.ts` (8 cases, bash-fixture shim — the legacy interface used by `skills/peaks-solo-resume`) and `tests/unit/services/skill/resume-detector.test.ts` (24 cases, the canonical TypeScript classifier at `src/services/skill/resume-detector.ts`) together cover: (a) fresh / complete / resume:rd-planning / resume:qa-validation / resume:txt-handoff state-based classifications, (b) the "Other resume triggers" overrides (missing `rd/tech-doc.md` → `rd-planning`; missing `rd/code-review.md` or `rd/security-review.md` → `rd-review-fanout`; missing `qa/test-reports/<rid>.md` → `qa-execution`), (c) the mid-implementation distinction (`spec-locked` / `implemented` / `running` / `blocked` all return `in-flight:<state>`), (d) the primary-vs-abandoned filter (multiple RDs → spec-locked wins; single blocked RD stays primary; 2+ all-abandoned → fresh), (e) the legacy `.peaks/<sid>/` path fallback, and (f) determinism across two invocations on the same fixture.
+- The dogfood test in `tests/unit/skill-resume-mode.test.ts` (8 cases, bash-fixture shim — the legacy interface used by `skills/peaks-solo-resume`) and `tests/unit/services/skill/resume-detector.test.ts` (24 cases, the canonical TypeScript classifier at `src/services/skill/resume-detector.ts`) together cover: (a) fresh / complete / resume:rd-planning / resume:qa-validation / resume:txt-handoff state-based classifications, (b) the "Other resume triggers" overrides (missing `rd/tech-doc.md` → `rd-planning`; missing `rd/code-review.md` or `rd/security-review.md` → `rd-review-fanout`; missing `qa/test-reports/<rid>.md` → `qa-execution`), (c) the mid-implementation distinction (`spec-locked` / `implemented` / `running` / `blocked` all return `in-flight:<state>`), (d) the primary-vs-abandoned filter (multiple RDs → spec-locked wins; single blocked RD stays primary; 2+ all-abandoned → fresh), (e) the legacy `.peaks/_runtime/<sessionId>/` path fallback, and (f) determinism across two invocations on the same fixture.
 
 ### Peaks-Cli Step 1: Mode selection
 
@@ -326,7 +356,7 @@ The workspace initialization creates this structure under `.peaks/`:
 
 # Per-slice artifact dirs (auto-generated, one per session). Files
 # inside ARE tracked by the 提交中间产物 convention.
-.peaks/<session-id>/
+.peaks/_runtime/<sessionId>/
 prd/source/      # PRD source documents (Feishu exports, pasted content)
 prd/requests/    # PRD request artifacts (goals, non-goals, acceptance, frontend delta)
 ui/requests/     # UI request artifacts (visual direction, taste reports)
@@ -364,7 +394,7 @@ Files written into these directories during the workflow (not pre-created — th
 
 Legitimate source files (e.g. `jest-setup.ts`, `tailwind.config.js`) belong at root — do not move them.
 
-If you are about to Write/Edit an intermediate artifact in the project root, STOP. Create the `.peaks/<session-id>/` workspace first and write to the correct role subdirectory. If existing root-level artifacts from a prior run are discovered, move them into `.peaks/<session-id>/` and note the migration in the TXT handoff.
+If you are about to Write/Edit an intermediate artifact in the project root, STOP. Create the `.peaks/_runtime/<sessionId>/` workspace first and write to the correct role subdirectory. If existing root-level artifacts from a prior run are discovered, move them into `.peaks/_runtime/<sessionId>/` and note the migration in the TXT handoff.
 
 ### Git and sync policy
 
@@ -372,7 +402,7 @@ Do not default to git-backed storage or automatic commits for intermediate artif
 
 ## Peaks-Cli Pre-RD project scan checklist (MANDATORY)
 
-Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/<session-id>/rd/project-scan.md`. RD and UI roles read this before starting work. **project-scan.md is a session-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/<session-id>/rd/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
+Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/_runtime/<sessionId>/rd/project-scan.md`. RD and UI roles read this before starting work. **project-scan.md is a session-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/_runtime/<sessionId>/rd/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
 
 ### 0. Project archetype detection (MANDATORY — run FIRST, deterministic CLI)
 
@@ -522,7 +552,7 @@ When there is no conflict, do not ask — the CLI value wins and the workflow pr
 
 ### Mock data strategy selection
 
-Solo records the chosen mock strategy in `.peaks/<session-id>/rd/tech-doc.md` under a `## Mock Data Strategy` section. The choice depends on the project scan results:
+Solo records the chosen mock strategy in `.peaks/_runtime/<sessionId>/rd/tech-doc.md` under a `## Mock Data Strategy` section. The choice depends on the project scan results:
 
 | Project data-fetching pattern | Recommended mock approach | Rationale |
 |---|---|---|
@@ -541,7 +571,7 @@ Solo records the chosen mock strategy in `.peaks/<session-id>/rd/tech-doc.md` un
 2. Mock data should be realistic (not `"test"`, `"foo"`, `123`) — use plausible Chinese/English content that resembles production data.
 3. Each mock must export its TypeScript interface so RD implementation and QA test-cases can import the same types.
 4. Mark every mock file with a header comment: `// MOCK: Replace with real API call when swagger.json is available`.
-5. Before producing any mock file, register the plan in `.peaks/<session-id>/rd/mock-plan.md` with: chosen strategy (from the table above), planned file paths, and a one-line rationale per file. This file is the source of truth for mock locations across runs — RD must read it before writing code, QA must read it before writing test cases.
+5. Before producing any mock file, register the plan in `.peaks/_runtime/<sessionId>/rd/mock-plan.md` with: chosen strategy (from the table above), planned file paths, and a one-line rationale per file. This file is the source of truth for mock locations across runs — RD must read it before writing code, QA must read it before writing test cases.
 
 ### API contract placeholder pattern
 
@@ -572,7 +602,7 @@ When the PRD source is a Feishu/Lark document that requires authentication:
 
 1. **Primary path**: Playwright MCP headed browser → user completes login → Solo reads document content via `browser_snapshot`.
 2. **Fallback A (user cannot login)**: Ask user to copy-paste the document content or export as Markdown/PDF. Solo creates the PRD artifact from the pasted content.
-3. **Fallback B (user provides export)**: User drops a `.md` or `.pdf` export into `.peaks/<session-id>/prd/source/`. Solo reads and processes it.
+3. **Fallback B (user provides export)**: User drops a `.md` or `.pdf` export into `.peaks/_runtime/<sessionId>/prd/source/`. Solo reads and processes it.
 4. **Fallback C (none of the above)**: Mark PRD as `blocked` with reason `doc-inaccessible`, list the exact next steps for the user, and pause the workflow.
 
 Never silently fall back to unauthenticated `fetch` or `WebFetch` for authenticated documents.
@@ -595,11 +625,11 @@ Before launching any sub-agent, Solo must compute the **swarm plan** from three 
    - `feature` / `refactor` / `bugfix` → RD(planning) and QA(test-cases) are always in the swarm
    - `config` / `docs` / `chore` → no swarm. RD/QA artefacts are not required by Gates B/C/D for these types. Skip the Swarm phase entirely and proceed to step 4 (RD implementation) with only the PRD in hand.
 3. **Frontend touch** — does the request affect user-visible behavior? This is decided by:
-   - Reading `.peaks/<session-id>/rd/project-scan.md` `## Project mode` for `frontendOnly` (project-shape signal)
+   - Reading `.peaks/_runtime/<sessionId>/rd/project-scan.md` `## Project mode` for `frontendOnly` (project-shape signal)
    - **AND** scanning the PRD body for frontend keywords: 页面 / 组件 / 表单 / 弹窗 / 表格 / 样式 / 布局 / 交互 / UI / UX / page / component / form / modal / table / styling / layout / interaction
    - UI joins the swarm when (a) is `true` OR (b) matches. Both signals required `false` to skip UI.
 
-Solo records the swarm plan in `.peaks/<session-id>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
+Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
 
 ```json
 {
@@ -633,13 +663,13 @@ Each sub-agent dispatch call looks like:
 ```
 peaks sub-agent dispatch <role> \
   --prompt "<paste peaks-<role>/SKILL.md body, minus the self-presence / Step 0 blocks,
-            plus the runtime arguments: project=<repo>, session-id=<sid>, request-id=<rid>, mode=<mode>,
+            plus the runtime arguments: project=<repo>, session-id=<session-id>, request-id=<rid>, mode=<mode>,
             plus the explicit output contract: 'Write your artefacts to the paths listed below and
             return only the list of paths. Do not call Skill(...). Do not set presence. Do not
             hand back prose.', plus the heartbeat instruction: 'While running, call
             peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progress <pct> --note \"<text>\"
             at least every 30 seconds.'>" \
-  --request-id <rid> --session-id <sid> --project <repo> --json
+  --request-id <rid> --session-id <session-id> --project <repo> --json
 ```
 
 Then the LLM takes `data.toolCall` from the envelope (a `{name, args}` descriptor), looks up the tool by `name` in its environment, and invokes it with `args` — IDE-private, no SKILL.md hardcoding.
@@ -648,16 +678,16 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 
 | Role | Writes | Reads (PRD-side) |
 |---|---|---|
-| `ui` | `.peaks/<sid>/ui/design-draft.md`, `.peaks/<sid>/ui/requests/<rid>.md` | PRD body, project-scan, archetype |
-| `rd-planning` | `.peaks/<sid>/rd/tech-doc.md` (feature/refactor) or `.peaks/<sid>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
-| `qa-test-cases` | `.peaks/<sid>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
+| `ui` | `.peaks/_runtime/<sessionId>/ui/design-draft.md`, `.peaks/_runtime/<sessionId>/ui/requests/<rid>.md` | PRD body, project-scan, archetype |
+| `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
+| `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
 **Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Cli Gate B), and only then advances to RD implementation.
 
 **Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 
 - Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
-- Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/<sid>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
+- Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
 - Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
 - Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
 - **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
@@ -684,7 +714,7 @@ Skipping the entire swarm (when `--type` is `config|docs|chore`) is not a degrad
 
 Before computing the swarm plan, Solo runs the keyword scan deterministically:
 
-1. Read `.peaks/<session-id>/prd/requests/<rid>.md` body.
+1. Read `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md` body.
 2. Lowercase + strip markdown; check regex `\b(页面|组件|表单|弹窗|表格|样式|布局|交互|UI|UX|page|component|form|modal|table|styling|layout|interaction|frontend|前端)\b`.
 3. If match count ≥ 1 → `frontendKeywordHit=true`.
 4. If `frontendOnly` (from project-scan) is `true` and no keyword hit → UI joins anyway (frontend-only project, even non-visual changes may need visual sanity for regressions).
@@ -782,9 +812,9 @@ Before orchestrating an end-to-end code repository workflow, gather the project 
 
 Use `standards init` for first-time creation and `standards update` for existing `CLAUDE.md` append/review behavior. In `full-auto` and `swarm` profiles, `--apply` runs automatically after `--dry-run` succeeds — these files live inside the target project, are required for downstream skill preflight, and producing them is part of finishing the workflow (Peaks-Cli Gate G enforces this). `assisted` and `strict` profiles pause for explicit user confirmation between dry-run and apply.
 
-**CRITICAL — Standards must reflect the project scan.** When generating or updating `CLAUDE.md`, the content must reference concrete findings from `.peaks/<id>/rd/project-scan.md`: the detected component library (e.g. "This project uses antd 5.x"), CSS solution (e.g. "Uses Less via Umi"), build tool, state management, and routing. Never emit a generic template that says "read .claude/rules/..." without naming the actual project stack. If the project-scan has not been run yet, run it before standards init/update.
+**CRITICAL — Standards must reflect the project scan.** When generating or updating `CLAUDE.md`, the content must reference concrete findings from `.peaks/<changeId>/rd/project-scan.md`: the detected component library (e.g. "This project uses antd 5.x"), CSS solution (e.g. "Uses Less via Umi"), build tool, state management, and routing. Never emit a generic template that says "read .claude/rules/..." without naming the actual project stack. If the project-scan has not been run yet, run it before standards init/update.
 
-**Legacy projects additionally** — when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}, the `CLAUDE.md` Conventions section MUST extract concrete naming, directory, service-layer, and hooks conventions from `.peaks/<id>/system/existing-system.md` and record them as hard constraints for new code. It must also list the `## Legacy constraints` from `project-scan.md` (class components, moment, enzyme, etc.) and instruct that new code in the same module preserves those patterns unless PRD explicitly authorizes modernization. A `CLAUDE.md` for a legacy project that contains only generic rule pointers without naming the actual conventions is a blocking violation — regenerate it.
+**Legacy projects additionally** — when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}, the `CLAUDE.md` Conventions section MUST extract concrete naming, directory, service-layer, and hooks conventions from `.peaks/<changeId>/system/existing-system.md` and record them as hard constraints for new code. It must also list the `## Legacy constraints` from `project-scan.md` (class components, moment, enzyme, etc.) and instruct that new code in the same module preserves those patterns unless PRD explicitly authorizes modernization. A `CLAUDE.md` for a legacy project that contains only generic rule pointers without naming the actual conventions is a blocking violation — regenerate it.
 
 Do not hand-write standards file mutations inside the skill.
 
@@ -811,7 +841,7 @@ It must enforce the shared refactor red lines:
 4. split broad refactors into minimal functional slices;
 5. require strict verifiable specs before each slice;
 6. require 100% acceptance for each slice;
-7. require code changes and sanitized intermediate artifacts to be traceable in local `.peaks/<session-id>/` storage before the next slice; commit or sync sanitized artifacts only when explicitly authorized.
+7. require code changes and sanitized intermediate artifacts to be traceable in local `.peaks/_runtime/<sessionId>/` storage before the next slice; commit or sync sanitized artifacts only when explicitly authorized.
 
 ## Peaks-Cli Quality-gate commands (CLI cheat sheet)
 
@@ -868,7 +898,7 @@ Detailed rules: `references/external-skill-invocation.md`, `references/openspec-
 
 Sub-agent artifacts (rd/tech-doc.md, qa/test-cases/&lt;rid&gt;.md, ui/design-draft.md) MUST NOT be inlined into dispatch records and fed back to the main LLM during reduce.
 
-- Sub-agent writes artifact to disk at a known path (path convention: `.peaks/_sub_agents/<sid>/artifacts/<rid>-<role>-<idx>.<ext>`).
+- Sub-agent writes artifact to disk at a known path (path convention: `.peaks/_sub_agents/<sessionId>/artifacts/<rid>-<role>-<idx>.<ext>`).
 - Sub-agent calls `peaks sub-agent dispatch --write-artifact <path>` (or via dispatch CLI flag). The CLI computes sha256 + size + writes `ArtifactMeta` to record.
 - Main LLM reduces the batch and sees ONLY the metadata view (~200 chars per sub-agent, vs ~1MB if content were inlined) — a 3000-5000× reduction.
 - Main LLM decides whether to `Read <path>` for full content (LLM tool call, NOT via peaks CLI).
@@ -892,7 +922,7 @@ If a sub-agent prompt is too large even after G7 metadata-only (e.g. 1MB artifac
 
 Sub-agent A's completion **immediately** writes a shared entry; sub-agent B (still in flight) can read shared entries from sibling sub-agents. **This is NOT peer-to-peer messaging.** The dispatcher stores, the sub-agents read/write; A and B never directly talk.
 
-- Path: `.peaks/_sub_agents/<sid>/shared/<batchId>.json`.
+- Path: `.peaks/_sub_agents/<sessionId>/shared/<batchId>.json`.
 - Two new CLI atoms (NO new top-level CLI): `peaks sub-agent share` + `peaks sub-agent shared-read`.
 - RL-23 strong constraint: when sub-agent calls `peaks sub-agent heartbeat --status done`, it MUST also call `peaks sub-agent share --key "<role>.completed" --value <artifact-meta>`.
 

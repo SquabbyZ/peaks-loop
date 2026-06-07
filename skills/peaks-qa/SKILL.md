@@ -3,6 +3,36 @@ name: peaks-qa
 description: QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.
 ---
 
+## Two-axis naming convention
+
+> **Read once at the top of this file; the rest of the skill is written against it.**
+
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+
+| Axis | Path root | Holds | When to use |
+|---|---|---|---|
+| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
+| **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
+
+**Which CLI commands operate on which axis:**
+
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
+- **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
+
+**Placeholder convention used in this file:**
+
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
+- The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
+
+**Cross-references:**
+
+- Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
+- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+
 # Peaks-Cli QA
 
 Peaks-Cli QA proves that planned changes are protected and accepted.
@@ -11,29 +41,29 @@ Peaks-Cli QA proves that planned changes are protected and accepted.
 
 These two contracts are non-negotiable. The previous prose-only phrasing let the LLM skip the browser gate entirely when an auth wall appeared, and let screenshots land in the project root because the LLM forgot to pass `filename`. Both fail modes are blocking violations; the rules below are what a reviewer should hold the skill to.
 
-### Contract 1 — Screenshot path is mandatory and must land under .peaks/<sid>/qa/screenshots/
+### Contract 1 — Screenshot path is mandatory and must land under .peaks/_runtime/<sessionId>/qa/screenshots/
 
-Every `mcp__playwright__browser_take_screenshot` call **MUST** pass `filename` whose absolute path is **inside** `.peaks/<session-id>/qa/screenshots/`. Concrete form:
+Every `mcp__playwright__browser_take_screenshot` call **MUST** pass `filename` whose absolute path is **inside** `.peaks/_runtime/<sessionId>/qa/screenshots/`. Concrete form:
 
 ```bash
 mcp__playwright__browser_take_screenshot \
-  filename=".peaks/<sid>/qa/screenshots/<state-or-step>.png" \
+  filename=".peaks/_runtime/<session-id>/qa/screenshots/<state-or-step>.png" \
   fullPage=true
 ```
 
-The default behaviour of Playwright MCP when `filename` is omitted or points outside that directory is to write a screenshot to the current working directory, which leaves `.png` files scattered at the project root. **This is a workflow violation.** If a screenshot does land outside `.peaks/<sid>/qa/screenshots/` for any reason (e.g. an upstream tool wrote there), QA MUST move it into that directory before declaring the test report complete; do not commit project-root `.png` files. Sanitise before retention: no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
+The default behaviour of Playwright MCP when `filename` is omitted or points outside that directory is to write a screenshot to the current working directory, which leaves `.png` files scattered at the project root. **This is a workflow violation.** If a screenshot does land outside `.peaks/_runtime/<session-id>/qa/screenshots/` for any reason (e.g. an upstream tool wrote there), QA MUST move it into that directory before declaring the test report complete; do not commit project-root `.png` files. Sanitise before retention: no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
 This rule is enforced by a Peaks-Cli preflight check inside this skill:
 
 ```bash
 # After every browser_take_screenshot batch and before declaring the test report complete:
-ls .peaks/<sid>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/<session-id>/qa/screenshots/*.png 2>&1
 #   Expected: at least one .png file under the screenshots directory.
 #   "No such file" → BLOCKED. Either the screenshot was never taken, or
 #   it landed in the project root (move it before continuing).
 find . -maxdepth 1 -name '*.png' 2>&1
 #   Expected: empty. Any .png at the project root is a leak — move it
-#   to .peaks/<sid>/qa/screenshots/ before completing this skill.
+#   to .peaks/_runtime/<session-id>/qa/screenshots/ before completing this skill.
 ```
 
 ### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
@@ -68,23 +98,23 @@ When peaks-qa is the **main loop** (i.e. it is the active skill and is about to 
 
 ```
 peaks sub-agent dispatch qa-business \
-  --prompt "<qa-business contract, plus runtime args project=<repo>, session-id=<sid>, request-id=<rid>>" \
-  --request-id <rid> --session-id <sid> --project <repo> --json
+  --prompt "<qa-business contract, plus runtime args project=<repo>, session-id=<session-id>, request-id=<rid>>" \
+  --request-id <rid> --session-id <session-id> --project <repo> --json
 
 peaks sub-agent dispatch qa-perf \
   --prompt "<qa-perf contract, plus runtime args>" \
-  --request-id <rid> --session-id <sid> --project <repo> --json
+  --request-id <rid> --session-id <session-id> --project <repo> --json
 
 peaks sub-agent dispatch qa-security \
   --prompt "<qa-security contract, plus runtime args>" \
-  --request-id <rid> --session-id <sid> --project <repo> --json
+  --request-id <rid> --session-id <session-id> --project <repo> --json
 ```
 
 All three are issued in a single message; the LLM fires all 3 returned toolCalls in parallel; the IDE runs them concurrently; peaks-qa then collects the three envelopes and merges their outputs into:
 
-- `.peaks/<sid>/qa/test-reports/<rid>.md` (business findings)
-- `.peaks/<sid>/qa/performance-findings.md` (perf findings)
-- `.peaks/<sid>/qa/security-findings.md` (security findings)
+- `.peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md` (business findings)
+- `.peaks/_runtime/<sessionId>/qa/performance-findings.md` (perf findings)
+- `.peaks/_runtime/<sessionId>/qa/security-findings.md` (security findings)
 
 ## 业务测试细分 (optional)
 
@@ -93,7 +123,7 @@ If the PRD or project warrants it, subdivide `qa-business` further into roles li
 For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-solo/references/sub-agent-dispatch.md` §G6.
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
-- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/<session-id>/system/sub-agent-qa.json` and only that.
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
 - **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
 - **Mode selection** — Solo has already chosen the mode.
 - **Statusline install** — already done by Solo at session startup.
@@ -103,7 +133,7 @@ What the sub-agent **MUST** still do:
 0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out. The sub-agent reads it via `peaks request show <rid> --role qa --project <repo> --json` if it needs to.
 2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role rd`, `--role ui` if UI is in the swarm plan).
 3. Standards preflight (dry-run only).
-4. Write `.peaks/<session-id>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items.
+4. Write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items.
 5. Return only a compact JSON envelope:
 
 ```json
@@ -111,7 +141,7 @@ What the sub-agent **MUST** still do:
   "role": "qa-test-cases",
   "rid": "<rid>",
   "status": "ok" | "blocked" | "skipped",
-  "artefacts": [".peaks/<sid>/qa/test-cases/<rid>.md"],
+  "artefacts": [".peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md"],
   "warnings": [],
   "blockedReason": null
 }
@@ -167,9 +197,9 @@ Every QA invocation — feature, bug, refactor, clarification — must write **t
 
 | # | File | Path | Reader | Content |
 |---|------|------|--------|---------|
-| 1 | Test cases | `.peaks/<session-id>/qa/test-cases/<request-id>.md` | RD (before impl), QA | Generated test scenarios with status |
-| 2 | Test report | `.peaks/<session-id>/qa/test-reports/<request-id>.md` | QA, SC, Solo | Summary, coverage%, security, perf, risks |
-| 3 | Request artifact | `.peaks/<session-id>/qa/requests/<request-id>.md` | Solo, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
+| 1 | Test cases | `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md` | RD (before impl), QA | Generated test scenarios with status |
+| 2 | Test report | `.peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md` | QA, SC, Solo | Summary, coverage%, security, perf, risks |
+| 3 | Request artifact | `.peaks/_runtime/<sessionId>/qa/requests/<request-id>.md` | Solo, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
@@ -197,12 +227,12 @@ peaks codegraph affected --project <repo> <changed-files...> --json   # regressi
 peaks openspec validate <change-id> --project <repo> --json
 peaks openspec validate <change-id> --project <repo> --prefer-external --json   # optional
 
-# 4. generate test cases — MANDATORY, write to .peaks/<session-id>/qa/test-cases/<request-id>.md
+# 4. generate test cases — MANDATORY, write to .peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md
 #    categories: unit, integration, UI regression (frontend only)
 #
 #    Optimization (slice 004): peaks-rd's parallel fan-out now includes a 4th
 #    sub-agent (`qa-test-cases-writer`) that pre-drafts this file at the
-#    end of RD implementation. If `.peaks/<sid>/qa/test-cases/<rid>.md`
+#    end of RD implementation. If `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md`
 #    already exists when QA's main loop reaches this step, **QA does NOT
 #    re-draft it** — it just verifies the file is present and the
 #    per-criterion `ts` snippets are syntactically valid, then proceeds
@@ -213,8 +243,8 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 
 # 5. EXECUTE tests against the actual implementation — Peaks-Cli Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.
-#    Peaks-Cli Gate A3: Run security review → .peaks/<id>/qa/security-findings.md
-#    Peaks-Cli Gate A4: Run performance check → .peaks/<id>/qa/performance-findings.md
+#    Peaks-Cli Gate A3: Run security review → .peaks/<changeId>/qa/security-findings.md
+#    Peaks-Cli Gate A4: Run performance check → .peaks/<changeId>/qa/performance-findings.md
 #    CRITICAL: Peaks-Cli Gate A3 and Peaks-Cli Gate A4 are NON-NEGOTIABLE. You MUST run actual security
 #    and performance checks — not just write a checklist item. These gates exist
 #    because code review alone does not catch: hardcoded secrets, XSS vectors,
@@ -222,7 +252,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    If you skip A3 or A4, Peaks-Cli Gate C will block the verdict.
 #
 #    Before running A4, read the RD's perf-baseline at
-#    .peaks/<id>/rd/perf-baseline.md (if present) and use the
+#    .peaks/<changeId>/rd/perf-baseline.md (if present) and use the
 #    captured thresholds as the comparison baseline. The QA stage
 #    is still responsible for running the actual measurement
 #    (lighthouse / k6 / autocannon / project-local bench) and
@@ -234,7 +264,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    surface that absence in the QA test-report under a
 #    `## Performance baseline` section.
 
-# 6. write test-report — MANDATORY, write to .peaks/<session-id>/qa/test-reports/<request-id>.md
+# 6. write test-report — MANDATORY, write to .peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md
 #    MUST contain actual execution results (pass/fail counts, coverage %, findings).
 #    A template with placeholder text does not pass Peaks-Cli Gate B.
 
@@ -314,8 +344,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 
 **Peaks-Cli Gate A — After test-case generation:**
 ```bash
-ls .peaks/<id>/qa/test-cases/<rid>.md
-# Expected output: .peaks/<id>/qa/test-cases/<rid>.md
+ls .peaks/<changeId>/qa/test-cases/<rid>.md
+# Expected output: .peaks/<changeId>/qa/test-cases/<rid>.md
 # "No such file" → STOP, generate test cases first. Do not proceed to validation.
 ```
 
@@ -332,8 +362,8 @@ npx vitest run --reporter=verbose 2>&1 | tail -30
 **Peaks-Cli Gate A3 — Security test executed (NOT just a checklist item):**
 ```bash
 # Run security review against the changed surface. Record findings.
-ls .peaks/<id>/qa/security-findings.md 2>&1
-# Expected: .peaks/<id>/qa/security-findings.md
+ls .peaks/<changeId>/qa/security-findings.md 2>&1
+# Expected: .peaks/<changeId>/qa/security-findings.md
 # "No such file" → BLOCKED. Run security review against changed files,
 # record every finding with severity, then re-check.
 ```
@@ -341,30 +371,30 @@ ls .peaks/<id>/qa/security-findings.md 2>&1
 **Peaks-Cli Gate A4 — Performance test executed:**
 ```bash
 # Run available performance check against the changed surface. Record findings.
-ls .peaks/<id>/qa/performance-findings.md 2>&1
-# Expected: .peaks/<id>/qa/performance-findings.md
+ls .peaks/<changeId>/qa/performance-findings.md 2>&1
+# Expected: .peaks/<changeId>/qa/performance-findings.md
 # "No such file" → BLOCKED. Run performance check (build-size, Lighthouse,
 # bundle analysis, or project equivalent), record baseline vs. after, then re-check.
 ```
 
 **Peaks-Cli Gate B — After test-report write (MUST contain execution results, not just planned cases):**
 ```bash
-ls .peaks/<id>/qa/test-reports/<rid>.md
-# Expected output: .peaks/<id>/qa/test-reports/<rid>.md
+ls .peaks/<changeId>/qa/test-reports/<rid>.md
+# Expected output: .peaks/<changeId>/qa/test-reports/<rid>.md
 # "No such file" → STOP, write the test report first. Do not issue a verdict.
 # Additionally verify the report is not a placeholder:
-grep -c "pass\|fail\|blocked" .peaks/<id>/qa/test-reports/<rid>.md
+grep -c "pass\|fail\|blocked" .peaks/<changeId>/qa/test-reports/<rid>.md
 # Expected: non-zero count (report contains actual pass/fail/blocked results)
 # Zero → the report is empty/template-only. Tests were not executed.
 ```
 
 **Peaks-Cli Gate C — Before issuing verdict:**
 ```bash
-ls .peaks/<id>/qa/test-cases/<rid>.md \
-   .peaks/<id>/qa/test-reports/<rid>.md \
-   .peaks/<id>/qa/security-findings.md \
-   .peaks/<id>/qa/performance-findings.md \
-   .peaks/<id>/qa/requests/<rid>.md
+ls .peaks/<changeId>/qa/test-cases/<rid>.md \
+   .peaks/<changeId>/qa/test-reports/<rid>.md \
+   .peaks/<changeId>/qa/security-findings.md \
+   .peaks/<changeId>/qa/performance-findings.md \
+   .peaks/<changeId>/qa/requests/<rid>.md
 # All five must exist. Missing any → QA incomplete, verdict blocked.
 # NOTE: security-findings.md and performance-findings.md are NOT optional.
 # If you can't run a full security scan, run at minimum: grep for secrets,
@@ -375,7 +405,7 @@ ls .peaks/<id>/qa/test-cases/<rid>.md \
 
 **Peaks-Cli Gate E — Acceptance coverage (every PRD acceptance item has a linked test case):**
 ```bash
-peaks scan acceptance-coverage --rid <rid> --project <repo> --session-id <sid> --json
+peaks scan acceptance-coverage --rid <rid> --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
 # uncovered[] non-empty → BLOCKED. List of acceptance items without test cases is in the output.
 #   Add `- **Acceptance:** A<N>` lines to the matching test cases in qa/test-cases/<rid>.md, then re-run.
@@ -387,7 +417,7 @@ peaks scan acceptance-coverage --rid <rid> --project <repo> --session-id <sid> -
 
 **Peaks-Cli Gate F — QA artifact body has no unfilled placeholders:**
 ```bash
-peaks request lint <rid> --role qa --project <repo> --session-id <sid> --json
+peaks request lint <rid> --role qa --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
 # ok=false → BLOCKED. Lint output lists every <placeholder>, "- ..." stub, and TBD marker.
 #   Fill them in before issuing the verdict.
@@ -397,7 +427,7 @@ peaks request lint <rid> --role qa --project <repo> --session-id <sid> --json
 ```bash
 # Verify browser screenshots exist. Screenshots are the only acceptable evidence
 # that Playwright MCP actually launched and interacted with the running app.
-ls .peaks/<id>/qa/screenshots/*.png 2>&1
+ls .peaks/<changeId>/qa/screenshots/*.png 2>&1
 # Expected: one or more .png files
 # "No such file" → BLOCKED. Playwright MCP was not used or screenshots not saved.
 # Screenshots, logs, manual steps, or other tools must NOT substitute for this gate.
@@ -409,7 +439,7 @@ ls .peaks/<id>/qa/screenshots/*.png 2>&1
 ```
 ```bash
 # Verify console and network checks were actually performed
-grep -c "browser_console_messages\|browser_network_requests" .peaks/<id>/qa/test-reports/<rid>.md
+grep -c "browser_console_messages\|browser_network_requests" .peaks/<changeId>/qa/test-reports/<rid>.md
 # Expected: non-zero count (means console/network were checked)
 # Zero → BLOCKED. Browser error feedback loop was not executed.
 ```
@@ -447,7 +477,7 @@ Before QA passes or returns work to RD, it must independently recheck the implem
 
 ## Mandatory test-case generation
 
-QA must generate test cases, not merely inspect existing ones. Every QA invocation that validates code changes must produce a test-case artifact at `.peaks/<session-id>/qa/test-cases/<request-id>.md`.
+QA must generate test cases, not merely inspect existing ones. Every QA invocation that validates code changes must produce a test-case artifact at `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md`.
 
 **Minimum test-case categories:**
 
@@ -475,7 +505,7 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 ## Mandatory test-report output
 
-Every QA invocation must produce a test-report artifact at `.peaks/<session-id>/qa/test-reports/<request-id>.md`. This is separate from both the test-case file and the request artifact — do not merge.
+Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md`. This is separate from both the test-case file and the request artifact — do not merge.
 
 **Minimum test-report sections:**
 
@@ -509,7 +539,7 @@ If Playwright MCP is unavailable (not installed and the user has not authorized 
 
 ## Local intermediate artifacts
 
-QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/<session-id>/qa/` by default, or to the Peaks-Cli CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync unless the user or active profile explicitly authorizes it.
+QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/_runtime/<sessionId>/qa/` by default, or to the Peaks-Cli CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync unless the user or active profile explicitly authorizes it.
 
 ## Compact handoff
 
@@ -563,7 +593,7 @@ Reference: `references/regression-gates.md`.
 
 ### G7 — QA sub-agent protocol
 
-1. Write test cases / perf baseline / security review to `.peaks/_sub_agents/<sid>/artifacts/<rid>-<role>-001.md` (path convention mandatory).
+1. Write test cases / perf baseline / security review to `.peaks/_sub_agents/<sessionId>/artifacts/<rid>-<role>-001.md` (path convention mandatory).
 2. Call `peaks sub-agent dispatch --write-artifact <path>` to register ArtifactMeta.
 3. Main LLM sees metadata-only view (~200 chars/QA sub-agent).
 
