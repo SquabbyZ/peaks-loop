@@ -14,3 +14,5 @@ export {
   type SessionInfo,
   type SessionMeta
 } from './session-manager.js';
+
+export { getSessionDir } from './getSessionDir.js';

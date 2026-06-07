@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { listSessionMetas } from '../session/session-manager.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 
 export type ProjectContextSection = {
   heading: string;
@@ -97,7 +98,7 @@ function buildSessionHistory(projectRoot: string): string {
     const skill = meta.skill ?? '-';
 
     // Extract one-line summary from artifacts for the "What" column
-    const sessionRoot = join(projectRoot, '.peaks', meta.sessionId);
+    const sessionRoot = getSessionDir(projectRoot, meta.sessionId);
     const summary = extractOneLineSummary(sessionRoot);
     const brief = summary ? summary.slice(0, 70) : skill;
 

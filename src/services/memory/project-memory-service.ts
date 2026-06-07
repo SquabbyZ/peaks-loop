@@ -2,6 +2,7 @@ import { closeSync, constants, copyFileSync, existsSync, lstatSync, mkdirSync, o
 import { dirname, basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { isInsidePath, isWindowsAbsolutePath, normalizePath, resolveInputPath, stablePath, stableRealPath } from '../../shared/path-utils.js';
 import { containsSensitiveConfigValue, isSensitiveConfigPath } from '../config/config-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 
 export type ProjectMemoryKind = 'project' | 'rule' | 'decision' | 'reference' | 'feedback' | 'convention' | 'module' | 'lesson';
 
@@ -401,13 +402,13 @@ function summarizeMemoryBody(body: string): string {
 function assertSafeSessionDir(projectRoot: string, sessionId: string): string {
   const normalizedRoot = normalizeRoot(projectRoot);
   const realRoot = normalizeRealRoot(projectRoot);
-  const sessionDir = join(normalizedRoot, '.peaks', sessionId);
+  const sessionDir = getSessionDir(normalizedRoot, sessionId);
   if (!existsSync(sessionDir)) {
     // Distinguish "not found" (caller will treat as no-op) from "escapes project
     // root" (caller must surface a hard error). We probe by checking whether the
     // joined path, after realpath, would still be inside the project root.
-    if (isAbsolute(join(normalizedRoot, '.peaks', sessionId))) {
-      const realJoined = safeRealpath(join(normalizedRoot, '.peaks', sessionId));
+    if (isAbsolute(getSessionDir(normalizedRoot, sessionId))) {
+      const realJoined = safeRealpath(getSessionDir(normalizedRoot, sessionId));
       if (realJoined && !isInsidePath(realJoined, realRoot)) {
         throw new Error('Session directory must stay inside the project root');
       }

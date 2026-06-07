@@ -40,6 +40,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { getSessionId } from '../session/session-manager.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
 export type PerfBaselineInitOptions = {
@@ -148,7 +149,7 @@ function renderBaselineTemplate(): string {
 function buildPlan(projectRoot: string, apply: boolean): PerfBaselinePlan {
   const sessionId = getSessionId(projectRoot);
   const sessionRoot = sessionId !== null
-    ? join(projectRoot, '.peaks', sessionId)
+    ? getSessionDir(projectRoot, sessionId)
     : null;
   const perfBaselinePath = sessionRoot !== null
     ? join(sessionRoot, 'rd', 'perf-baseline.md')

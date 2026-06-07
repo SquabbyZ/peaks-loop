@@ -378,7 +378,11 @@ describe('project memory service', () => {
 
   test('extractSessionMemories is idempotent across repeated runs of the same session', () => {
     const projectRoot = createTempDir('peaks-memory-session-idempotent');
-    const sessionDir = join(projectRoot, '.peaks', 'session-abc');
+    // As of slice 005-session-runtime-dir-regression, the canonical
+    // session workspace lives at `.peaks/_runtime/<sid>/`, not the
+    // legacy `.peaks/<sid>/`. The writer is now routed through
+    // `getSessionDir`, so the scanner looks under `_runtime/`.
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', 'session-abc');
     mkdirSync(sessionDir, { recursive: true });
     writeFileSync(join(sessionDir, 'note.md'), [
       '<!-- peaks-memory:start -->',
@@ -416,10 +420,14 @@ describe('project memory service', () => {
 
     // Build a sessionId whose joined path resolves to outsideDir (a real
     // sibling), so the scanner would happily walk it without the guard.
-    // .peaks/../<outsideBase> collapses to .peaks/<outsideBase>, then we
-    // add an extra .. to climb out of projectRoot.
-    const sessionId = join('..', '..', basename(outsideDir));
-    const joined = join(projectRoot, '.peaks', sessionId);
+    // The canonical session layout is `.peaks/_runtime/<sid>/`, so we
+    // climb out from there. On POSIX `path.join`/`path.resolve` collapse
+    // `..` even when intermediate dirs don't exist; on Windows they do
+    // not — we therefore need THREE `..` segments (one to escape the
+    // (non-existent) `_runtime/`, then two more to climb out of
+    // projectRoot) so the joined path actually resolves to outsideDir.
+    const sessionId = join('..', '..', '..', basename(outsideDir));
+    const joined = join(projectRoot, '.peaks', '_runtime', sessionId);
 
     expect(existsSync(joined)).toBe(true); // sanity: confirms escape path is reachable
 
@@ -460,7 +468,8 @@ describe('project memory service', () => {
 
   test('extractSessionMemories dry-run returns planned writes without touching the filesystem', () => {
     const projectRoot = createTempDir('peaks-memory-session-dry-run');
-    const sessionDir = join(projectRoot, '.peaks', 'session-dry');
+    // Canonical layout (slice 005): `.peaks/_runtime/<sid>/`.
+    const sessionDir = join(projectRoot, '.peaks', '_runtime', 'session-dry');
     mkdirSync(sessionDir, { recursive: true });
     writeFileSync(join(sessionDir, 'note.md'), [
       '<!-- peaks-memory:start -->',
