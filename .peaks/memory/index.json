@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-07T05:07:16.542Z",
+  "updatedAt": "2026-06-07T13:38:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -268,6 +268,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "static-scan-must-cover-skills-tree-not-just-src",
+        "kind": "lesson",
+        "description": "Path-construction static scans must cover skills/<skill>/references/*.md and SKILL.md, not just src/**/*.ts. Slice 005 src/-only scan missed the 5th writer (a markdown contract in qa-fanout-contract.md).",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "peaks-slice-check-axis-mismatch-false-negatives",
+        "kind": "lesson",
+        "description": "peaks slice check looks for review-fanout at change-id axis (.peaks/<changeId>/rd/...) but artefacts live at session-id axis (.peaks/_runtime/<sessionId>/rd/...). False negatives on review-fanout + gate-verify-pipeline stages; QA verdict=pass is the authoritative gate.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "updatedAt": "2026-06-07"
       }
     ]
   },
