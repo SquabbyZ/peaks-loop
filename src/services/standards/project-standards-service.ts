@@ -82,7 +82,7 @@ export type ProjectStandardsUpdateSummary = {
   };
 };
 
-type ProjectStandardsInitOptions = {
+export type ProjectStandardsInitOptions = {
   readonly projectRoot: string;
   readonly language?: string;
   readonly apply?: boolean;

@@ -89,4 +89,12 @@ export const TRAE_ADAPTER: IdeAdapter = {
     // and the 4 per-capability memos under .peaks/memory/mcp-decouple-*.md.
     mcpInstall: false
   }
+  // Standards: UNVERIFIED — see slice #012+ (Trae real-install dogfood for
+  // the `standardsProfile` and `skillInstall` fields). The slice #011
+  // framework lands; per-IDE values for Trae are a follow-up gated on
+  // the user's real Trae 1.x install. Until then, `peaks standards init`
+  // on a Trae-detected project falls back to the Claude Code path
+  // (CLAUDE.md + .claude/rules/**) with a stderr warning, and the
+  // postinstall script writes skills + output-styles to the legacy
+  // `~/.claude/{skills,output-styles}` paths with a stderr warning.
 };

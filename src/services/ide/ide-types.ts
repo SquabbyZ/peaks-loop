@@ -100,6 +100,68 @@ export interface IdeAdapter {
   readonly installHints: readonly string[];
   /** 该 IDE 在 peaks 上可启用的能力(用于在不支持的 IDE 上软警告) */
   readonly capabilities: IdeCapabilities;
+  /**
+   * Where this IDE reads its project-level agent instructions from.
+   * When undefined, the postinstall + `peaks standards init` codepath falls
+   * back to the legacy Claude Code path (CLAUDE.md + .claude/rules/**)
+   * AND emits a stderr warning. Adapters in slice 1.3.2 declare this
+   * value (Claude Code), are annotated UNVERIFIED for future slices
+   * (Trae, slice #012+), or omit it entirely (not-yet-registered IDEs).
+   *
+   * Added in slice 011-2026-06-07-ide-adapter-resource-profile.
+   */
+  readonly standardsProfile?: IdeStandardsProfile;
+  /**
+   * Where `scripts/install-skills.mjs` symlinks the bundled skills +
+   * output styles. When undefined, the postinstall falls back to
+   * `~/.claude/skills` + `~/.claude/output-styles` (legacy) AND emits
+   * a stderr warning. Adapters that opt into the dispatch layer fill
+   * this; adapters that don't (Trae in slice 1.3.2) leave it undefined
+   * and follow the legacy path with a warning.
+   *
+   * Added in slice 011-2026-06-07-ide-adapter-resource-profile.
+   */
+  readonly skillInstall?: IdeSkillInstall;
+}
+
+/**
+ * Per-IDE standards-file location + format profile. Used by the
+ * `peaks standards init` dispatch layer (slice 011) to write the
+ * project-level standards files at the IDE-specific path, not the
+ * Claude Code hardcoded one. Adapters that omit this field trigger
+ * the legacy Claude Code path with a stderr warning.
+ */
+export interface IdeStandardsProfile {
+  /** Filename for the project-root constitution (e.g. 'CLAUDE.md'), or null if the IDE has no equivalent. */
+  readonly rootFile: string | null;
+  /** Directory for module-level rules (e.g. '.claude/rules'), or null if the IDE has no equivalent. */
+  readonly rulesDir: string | null;
+  /** Glob under rulesDir to enumerate rule files. */
+  readonly rulesFileGlob: string;
+  /** True if the IDE auto-loads these files at session start. */
+  readonly autoLoaded: boolean;
+  /** Output format. markdown = plain text; markdown+frontmatter = adds YAML frontmatter to each rule file. */
+  readonly format: 'markdown' | 'markdown+frontmatter';
+  /** Human-readable hint surfaced in the fallback warning. */
+  readonly migrationHint?: string;
+}
+
+/**
+ * Per-IDE postinstall target roots. The `scripts/install-skills.mjs`
+ * script consumes this to symlink the bundled skills + output styles
+ * to the IDE-specific install location, with back-compat for the
+ * legacy `PEAKS_CLAUDE_SKILLS_DIR` / `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`
+ * env vars (precedence: explicit option > env var > IDE profile > legacy default).
+ */
+export interface IdeSkillInstall {
+  /** Absolute path under which the postinstall script symlinks the bundled `skills/` directory. */
+  readonly skillsDir: string;
+  /** Absolute path under which the postinstall script writes the bundled `output-styles/`. Null if the IDE has no equivalent. */
+  readonly outputStylesDir: string | null;
+  /** Symlink strategy. */
+  readonly installStrategy: 'symlink' | 'copy';
+  /** Back-compat env var name (e.g. PEAKS_CLAUDE_SKILLS_DIR). Null if no env var is supported. */
+  readonly envVarOverride: string | null;
 }
 
 /** peaks canonical hook schema 版本标识 */

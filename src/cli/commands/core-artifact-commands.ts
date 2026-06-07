@@ -3,6 +3,7 @@ import { createArtifactInitPlan, getArtifactStatus, createGuidedArtifactSetup } 
 import { getArtifactWorkspaceStatus, planArtifactSync } from '../../services/artifacts/workspace-service.js';
 import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult } from '../../services/memory/project-memory-service.js';
 import { executeProjectStandardsInit, executeProjectStandardsUpdate, summarizeProjectStandardsInitResult, summarizeProjectStandardsUpdateResult } from '../../services/standards/project-standards-service.js';
+import { executeProjectStandardsInitIdeAware, executeProjectStandardsUpdateIdeAware } from '../../services/standards/ide-aware-standards-service.js';
 import { listProfiles } from '../../services/profiles/profile-service.js';
 import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
@@ -339,9 +340,10 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Initialize project-local coding standards for Peaks skill preflight')
       .requiredOption('--project <path>', 'target project root')
       .option('--language <language>', 'standards language pack')
+      .option('--ide <id>', 'override IDE detection (e.g. claude-code, trae)')
       .option('--dry-run', 'preview writes without changing files')
       .option('--apply', 'write missing standards into the target project')
-  ).action((options: { project: string; language?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+  ).action((options: { project: string; language?: string; ide?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     if (options.dryRun === true && options.apply === true) {
       printResult(io, fail('standards.init', 'INVALID_STANDARDS_INIT_FLAGS', 'Use either --dry-run or --apply, not both', {}, ['Run without --apply to preview writes, or omit --dry-run when applying standards']), options.json);
       process.exitCode = 1;
@@ -349,7 +351,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     }
 
     try {
-      const result = executeProjectStandardsInit({ projectRoot: options.project, ...(options.language !== undefined ? { language: options.language } : {}), apply: options.apply === true });
+      const result = executeProjectStandardsInitIdeAware({ projectRoot: options.project, ...(options.language !== undefined ? { language: options.language } : {}), ...(options.ide !== undefined ? { ideId: options.ide as 'claude-code' | 'trae' | 'codex' | 'cursor' | 'qoder' | 'tongyi-lingma' } : {}), apply: options.apply === true });
       printResult(io, ok('standards.init', summarizeProjectStandardsInitResult(result)), options.json);
     } catch (error) {
       printResult(io, fail('standards.init', 'STANDARDS_INIT_FAILED', getErrorMessage(error), {}, ['Check the project path and existing .claude/rules directory before retrying']), options.json);
@@ -362,9 +364,10 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .description('Append managed standards metadata to an existing CLAUDE.md without rewriting the body')
       .requiredOption('--project <path>', 'target project root')
       .option('--language <language>', 'standards language pack')
+      .option('--ide <id>', 'override IDE detection (e.g. claude-code, trae)')
       .option('--dry-run', 'preview writes without changing files')
       .option('--apply', 'append managed metadata to the target project')
-  ).action((options: { project: string; language?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
+  ).action((options: { project: string; language?: string; ide?: string; dryRun?: boolean; apply?: boolean; json?: boolean }) => {
     if (options.dryRun === true && options.apply === true) {
       printResult(io, fail('standards.update', 'INVALID_STANDARDS_UPDATE_FLAGS', 'Use either --dry-run or --apply, not both', {}, ['Run without --apply to preview writes, or omit --dry-run when applying standards updates']), options.json);
       process.exitCode = 1;
@@ -372,7 +375,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     }
 
     try {
-      const result = executeProjectStandardsUpdate({ projectRoot: options.project, ...(options.language !== undefined ? { language: options.language } : {}), apply: options.apply === true });
+      const result = executeProjectStandardsUpdateIdeAware({ projectRoot: options.project, ...(options.language !== undefined ? { language: options.language } : {}), ...(options.ide !== undefined ? { ideId: options.ide as 'claude-code' | 'trae' | 'codex' | 'cursor' | 'qoder' | 'tongyi-lingma' } : {}), apply: options.apply === true });
       const summary = summarizeProjectStandardsUpdateResult(result);
       const response = summary.reviewSuggestions.length > 0
         ? fail('standards.update', 'STANDARDS_UPDATE_REVIEW_REQUIRED', 'Standards update requires manual review', summary, summary.reviewSuggestions)

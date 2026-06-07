@@ -52,4 +52,31 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     statusline: true,
     mcpInstall: true,
   },
+  // Slice #011: standards profile. Claude Code reads its constitution at
+  // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror
+  // the hardcoded paths in `src/services/standards/project-standards-service.ts`
+  // (line 147 = '.claude', line 417/421 = 'CLAUDE.md' + '.claude/rules/...')
+  // and the postinstall target in `scripts/install-skills.mjs` (line 427 =
+  // '~/.claude/skills'). Filling the profile here makes the dispatch layer
+  // route to the SAME paths, so byte-stability on `peaks standards init` for
+  // Claude Code projects is preserved.
+  standardsProfile: {
+    rootFile: 'CLAUDE.md',
+    rulesDir: '.claude/rules',
+    rulesFileGlob: '**/*.md',
+    autoLoaded: true,
+    format: 'markdown',
+    migrationHint: 'Standards live at CLAUDE.md + .claude/rules/** for Claude Code.',
+  },
+  // Slice #011: skill install profile. The postinstall script symlinks
+  // bundled skills to `~/.claude/skills` and writes output-styles to
+  // `~/.claude/output-styles`, matching the existing hardcoded
+  // install-skills.mjs lines 427 + 488. The env-var back-compat name
+  // matches the legacy `PEAKS_CLAUDE_SKILLS_DIR` / `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`.
+  skillInstall: {
+    skillsDir: join(homedir(), '.claude', 'skills'),
+    outputStylesDir: join(homedir(), '.claude', 'output-styles'),
+    installStrategy: 'symlink',
+    envVarOverride: 'PEAKS_CLAUDE_SKILLS_DIR',
+  },
 };

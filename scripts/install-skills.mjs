@@ -363,6 +363,78 @@ function resolveProjectRoot(options) {
   return projectRoot ? resolve(projectRoot) : null;
 }
 
+/**
+ * Slice #011: Detect the installed IDE for the postinstall dispatch layer.
+ *
+ * Mirrors `src/services/ide/ide-detector.ts:detectInstalledIde` (cwd heuristic)
+ * but inlined here because `install-skills.mjs` is a plain `.mjs` script and
+ * cannot import the TS service at runtime. The dispatch:
+ *   - Look for `.claude`, `.trae`, `.codex`, `.cursor`, `.qoder`,
+ *     `.tongyi-lingma` in the project root in that insertion order
+ *     (matches the registry's adapter order in `src/services/ide/ide-registry.ts`).
+ *   - Returns the first match, or `null` if no adapter's directory is present.
+ *
+ * If the resolved IDE has no `skillInstall` declared (Trae in slice 1.3.2),
+ * the caller falls back to the legacy `~/.claude/{skills,output-styles}` path
+ * + emits a stderr warning. The dispatch is conservative: the env-var
+ * overrides `PEAKS_CLAUDE_SKILLS_DIR` / `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`
+ * continue to work, and the legacy default is preserved.
+ */
+const IDE_DETECTION_DIRS = [
+  { id: 'claude-code', dir: '.claude' },
+  { id: 'trae', dir: '.trae' },
+  { id: 'codex', dir: '.codex' },
+  { id: 'cursor', dir: '.cursor' },
+  { id: 'qoder', dir: '.qoder' },
+  { id: 'tongyi-lingma', dir: '.tongyi-lingma' },
+];
+
+const IDE_SKILL_INSTALL_PROFILES = {
+  'claude-code': {
+    skillsDir: join(homedir(), '.claude', 'skills'),
+    outputStylesDir: join(homedir(), '.claude', 'output-styles'),
+    envVar: 'PEAKS_CLAUDE_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_CLAUDE_OUTPUT_STYLES_DIR',
+  },
+  'trae': null,
+  'codex': null,
+  'cursor': null,
+  'qoder': null,
+  'tongyi-lingma': null,
+};
+
+function detectInstalledIdeId(projectRoot) {
+  if (!projectRoot) return null;
+  for (const { id, dir } of IDE_DETECTION_DIRS) {
+    if (existsSync(join(projectRoot, dir))) {
+      return id;
+    }
+  }
+  return null;
+}
+
+function resolveIdeSkillInstallProfile(ideId) {
+  if (ideId === null) return null;
+  return IDE_SKILL_INSTALL_PROFILES[ideId] ?? null;
+}
+
+function warnUnverifiedIde(ideId, projectRoot) {
+  process.stderr.write(
+    `peaks install-skills: IDE '${ideId}' has no skillInstall profile declared; ` +
+      `falling back to the legacy Claude Code path (~/.claude/skills + ~/.claude/output-styles) ` +
+      `for project '${projectRoot}'. This is a slice #011 follow-up gap; ` +
+      `see .peaks/memory/ide-adapter-resource-profile-framework.md.\n`
+  );
+}
+
+function warnNoIdeDetected(projectRoot) {
+  process.stderr.write(
+    `peaks install-skills: no IDE detected in '${projectRoot ?? '(project root unknown)'}'; ` +
+      `installing to the legacy Claude Code path (~/.claude/skills + ~/.claude/output-styles). ` +
+      `Set PEAKS_CLAUDE_SKILLS_DIR / PEAKS_CLAUDE_OUTPUT_STYLES_DIR to override.\n`
+  );
+}
+
 function writeMergedConfig(configPath, label, defaults, writeConfig) {
   const existing = readConfigFile(configPath, label);
   const next = { ...(existing === null ? defaults : mergeMissingConfigValues(existing, defaults)), version: defaults.version };
@@ -424,11 +496,36 @@ export function installProjectConfig(options = {}) {
 export function installBundledSkills(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const skillsRoot = join(packageRoot, 'skills');
-  const targetRoot = resolve(options.targetRoot ?? process.env.PEAKS_CLAUDE_SKILLS_DIR ?? join(homedir(), '.claude', 'skills'));
 
   if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || !existsSync(skillsRoot)) {
     return createInstallResult();
   }
+
+  // Slice #011: IDE-aware dispatch. Precedence (highest first):
+  //   1. explicit options.targetRoot            (test / hook override)
+  //   2. options.ideId skillInstall.skillsDir   (per-IDE dispatch)
+  //   3. PEAKS_CLAUDE_SKILLS_DIR env var        (legacy back-compat)
+  //   4. detected IDE's skillInstall.skillsDir  (auto-detect from projectRoot)
+  //   5. legacy default (~/.claude/skills)      (no-IDE fallback)
+  const projectRoot = resolveProjectRoot(options);
+  const detectedIdeId = detectInstalledIdeId(projectRoot);
+  const detectedProfile = resolveIdeSkillInstallProfile(detectedIdeId);
+
+  if (options.targetRoot === undefined && options.ideId === undefined && detectedProfile === null && detectedIdeId !== null) {
+    warnUnverifiedIde(detectedIdeId, projectRoot ?? '(project root unknown)');
+  }
+  if (options.targetRoot === undefined && options.ideId === undefined && detectedIdeId === null && projectRoot !== null) {
+    warnNoIdeDetected(projectRoot);
+  }
+
+  const profileSkillsDir = detectedProfile?.skillsDir ?? null;
+  const targetRoot = resolve(
+    options.targetRoot
+      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.skillsDir ?? null : null)
+      ?? process.env.PEAKS_CLAUDE_SKILLS_DIR
+      ?? profileSkillsDir
+      ?? join(homedir(), '.claude', 'skills')
+  );
 
   const installed = [];
   const skipped = [];
@@ -485,11 +582,24 @@ export function installBundledSkills(options = {}) {
 export function installBundledOutputStyles(options = {}) {
   const packageRoot = resolvePackageRoot(options);
   const outputStylesRoot = join(packageRoot, 'output-styles');
-  const targetRoot = resolve(options.targetRoot ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR ?? join(homedir(), '.claude', 'output-styles'));
 
   if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || !existsSync(outputStylesRoot)) {
     return createInstallResult();
   }
+
+  // Slice #011: IDE-aware dispatch. Same precedence as installBundledSkills.
+  const projectRoot = resolveProjectRoot(options);
+  const detectedIdeId = detectInstalledIdeId(projectRoot);
+  const detectedProfile = resolveIdeSkillInstallProfile(detectedIdeId);
+
+  const profileOutputStylesDir = detectedProfile?.outputStylesDir ?? null;
+  const targetRoot = resolve(
+    options.targetRoot
+      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.outputStylesDir ?? null : null)
+      ?? process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR
+      ?? profileOutputStylesDir
+      ?? join(homedir(), '.claude', 'output-styles')
+  );
 
   const installed = [];
   const skipped = [];
