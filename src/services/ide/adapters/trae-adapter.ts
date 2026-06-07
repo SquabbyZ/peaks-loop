@@ -56,6 +56,10 @@ export const TRAE_ADAPTER: IdeAdapter = {
   // design so the slice #008 `subAgentToolMatcher: 'Task'` install entry
   // stays byte-stable. Awaiting real Trae 1.x dogfood to confirm/replace.
   subAgentDispatcher: traeSubAgentDispatcher,
+  // Slice #010 G9: Trae supports `beforeToolCall` which can wrap
+  // `peaks sub-agent-dispatch-guard`. Opt in (matches the byte-stable
+  // slice #008 install entry shape).
+  promptSizeAware: true,
   installHints: [
     'Restart Trae (or reload the workspace) so the beforeToolCall hooks take effect.'
   ],

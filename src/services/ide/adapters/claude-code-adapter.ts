@@ -39,6 +39,10 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // The CLI calls `claudeCodeSubAgentDispatcher.buildToolCall` to construct
   // the exact args shape the `Task` tool expects.
   subAgentDispatcher: claudeCodeSubAgentDispatcher,
+  // Slice #010 G9: Claude Code supports the PreToolUse hook event in a
+  // form that can wrap `peaks sub-agent-dispatch-guard` as a sub-command.
+  // Opt in to the G9 hook install.
+  promptSizeAware: true,
   installHints: [
     'Restart Claude Code (or reload the window) so the PreToolUse hooks take effect.'
   ],

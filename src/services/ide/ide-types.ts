@@ -80,6 +80,22 @@ export interface IdeAdapter {
    * G1 (AC-1, AC-2) + [[slim-ideadapter-shape-is-the-contract]].
    */
   readonly subAgentDispatcher: SubAgentDispatcher;
+  /**
+   * Per-IDE opt-in to the G9 prompt-size gate. When `true`, the
+   * `peaks hooks install` command registers the G9 PreToolUse hook
+   * (`peaks sub-agent-dispatch-guard`) for this IDE. When `false`,
+   * the hook is NOT installed (the IDE either doesn't support the
+   * PreToolUse event in a useful form, or the user has opted out).
+   *
+   * The CLI 兜底 layer in `peaks sub-agent dispatch` still enforces
+   * the threshold regardless of this field — `promptSizeAware` only
+   * controls the hook layer (R-15: G9 hook is LLM-platform-specific).
+   *
+   * Added in slice 2026-06-07-sub-agent-context-governance. See PRD
+   * #003 G9.2 + AC-56. Default `false` to preserve slice #009's
+   * `peaks hooks install` output byte-stability.
+   */
+  readonly promptSizeAware: boolean;
   /** install / uninstall 后展示给用户的提示文本(各 IDE 不同,例如 Claude 提示重启窗口) */
   readonly installHints: readonly string[];
   /** 该 IDE 在 peaks 上可启用的能力(用于在不支持的 IDE 上软警告) */

@@ -203,6 +203,7 @@ describe('slice 2026-06-06: per-IDE subAgentToolMatcher drives the progress hook
       toolMatcher: 'Bash',
       subAgentToolMatcher: 'SubAgent', // <- the new field under test
       subAgentDispatcher: { label: 'fake', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
+      promptSizeAware: false,
       installHints: [],
       capabilities: { gateEnforce: true, progressStart: true, statusline: false, mcpInstall: false }
     };
