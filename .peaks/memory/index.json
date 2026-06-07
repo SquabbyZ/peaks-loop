@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-08T03:05:00.000Z",
+  "updatedAt": "2026-06-07T20:47:15.096Z",
   "hot": {
     "feedback": [
       {
@@ -77,6 +77,54 @@
       }
     ],
     "decision": [
+      {
+        "name": "ide-adapter-resource-profile-framework",
+        "kind": "decision",
+        "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-solo full-auto) The  shape...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "mcp-decouple-chrome-devtools",
+        "kind": "decision",
+        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Chrome DevTools MCP as  in the peaks install registry.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-chrome-devtools.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "mcp-decouple-context7",
+        "kind": "decision",
+        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Context7 MCP as  in the peaks install registry.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-context7.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "mcp-decouple-figma",
+        "kind": "decision",
+        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Figma MCP as  in the peaks install registry.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-figma.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "mcp-decouple-playwright",
+        "kind": "decision",
+        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Playwright MCP as  in the peaks install registry.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-playwright.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
+        "kind": "decision",
+        "description": "peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-dashboard-ok-policy-workspace-only-default.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/010-008-008-2026-06-07-peaks-ide-cleanup.md",
+        "updatedAt": "2026-06-07"
+      },
       {
         "name": "peaks-memory-scan-is-intentionally-not-a-cli",
         "kind": "decision",
@@ -230,12 +278,44 @@
     ],
     "lesson": [
       {
+        "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
+        "kind": "lesson",
+        "description": "Commander.js's  flag translation: when a CLI command declares , commander parses the user's  into  (note: the BASE na...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "peaks-cli-file-size-scan-readfile-on-deleted-paths",
+        "kind": "lesson",
+        "description": "calls into the file-size scan at  to enforce the 800-line cap.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "peaks-cli-request-init-filename-truncation-57-char-limit",
+        "kind": "lesson",
+        "description": "writes the request artefact at  where the requestId is the slug passed via .",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-57-char-limit.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
         "name": "peaks-hook-stdin-test-seam-pattern",
         "kind": "lesson",
         "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-hook-stdin-test-seam-pattern.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "peaks-slice-check-axis-mismatch-false-negatives",
+        "kind": "lesson",
+        "description": "looks for review-fanout artefacts at the **change-id axis** () but the actual artefacts live at the **session-id axis...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "updatedAt": "2026-06-07"
       },
       {
         "name": "peaks-slice-check-windows-typecheck-bug",
@@ -262,6 +342,22 @@
         "updatedAt": "2026-06-07"
       },
       {
+        "name": "slice-015-fix-3-dogfood",
+        "kind": "lesson",
+        "description": "This is a test memory from slice #015 fix-3 dogfood.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-015-fix-3-dogfood.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/qa/test-reports/015-2026-06-07-fix-4-peaks-cli-self-bugs-and-md.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "static-scan-must-cover-skills-tree-not-just-src",
+        "kind": "lesson",
+        "description": "The path-construction static scan in  was originally written to cover only  (slice 005's defense-in-depth).",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
         "kind": "lesson",
         "description": "The Trae adapter's , , , and  are based on 1.x assumptions, not on real Trae documentation.",
@@ -270,57 +366,17 @@
         "updatedAt": "2026-06-06"
       },
       {
-        "name": "static-scan-must-cover-skills-tree-not-just-src",
+        "name": "trae-adapter-values-verified-against-1x",
         "kind": "lesson",
-        "description": "Path-construction static scans must cover skills/<skill>/references/*.md and SKILL.md, not just src/**/*.ts. Slice 005 src/-only scan missed the 5th writer (a markdown contract in qa-fanout-contract.md).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
+        "description": "The Trae adapter's 4 UNVERIFIED fields (slice #3 closeout code-review M-1) are **VERIFIED-AS-IS** as of slice 009-009...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-verified-against-1x.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md",
         "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "peaks-slice-check-axis-mismatch-false-negatives",
-        "kind": "lesson",
-        "description": "peaks slice check looks for review-fanout at change-id axis (.peaks/<changeId>/rd/...) but artefacts live at session-id axis (.peaks/_runtime/<sessionId>/rd/...). False negatives on review-fanout + gate-verify-pipeline stages; QA verdict=pass is the authoritative gate.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
-        "kind": "lesson",
-        "description": "Commander.js --no-X flags set options.X = false (NOT options.noX = true). Reading options.noX === true is always wrong after a --no- prefix. Service-layer unit tests alone won't catch it; need e2e CLI-spawning tests. Slice #013 fix: options.noProgress === true → options.progress === false (+ type rename).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "peaks-cli-request-init-filename-truncation-57-char-limit",
-        "kind": "lesson",
-        "description": "peaks request init truncates artefact filenames to 57 characters silently. Slice #014's 58-char request-id (remove-legacy-progress-start-surface) hit REQUEST_NOT_FOUND until the file was renamed manually. New slices: keep slug <= 41 chars so the full path fits 57.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-57-char-limit.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
-        "updatedAt": "2026-06-08"
-      },
-      {
-        "name": "peaks-cli-file-size-scan-readfile-on-deleted-paths",
-        "kind": "lesson",
-        "description": "peaks request transition rd → implemented calls file-size-scan at src/services/scan/file-size-scan.ts:39-42 which calls readFileSync on git-diff deleted paths and crashes. Slice #014 (5 source deletes + 2 test deletes) needed --allow-incomplete bypass. Workaround: pass --allow-incomplete --reason '<justification>'. Slice #015 fix: skip non-existent paths in the scan.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
-        "updatedAt": "2026-06-08"
       }
     ]
   },
   "warm": {
     "project": [
-      {
-        "name": "peaks-companion-watcher-ecs-url-config",
-        "kind": "project",
-        "description": "Planned iteration — peaks-cli gains a 'watcher' capability that pushes LLM-CLI session events to a user-configured ECS relay URL. v0 is a single config item (companion.ecsUrl) in ~/.peaks/config.json; watcher code is not opened yet.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-companion-watcher-ecs-url-config.md",
-        "sourceArtifact": null,
-        "updatedAt": "2026-06-07"
-      },
       {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
@@ -352,6 +408,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "peaks-companion-watcher-ecs-url-config",
+        "kind": "project",
+        "description": "Planned iteration discussed 2026-06-07 (peaks-solo session ).",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-companion-watcher-ecs-url-config.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-07"
       },
       {
         "name": "token-encrypted-storage-decision",
