@@ -8,8 +8,8 @@
 Peaks is a **cross-AI-IDE workflow-gating CLI + skill family** — it turns project governance, workflow planning, controlled execution, QA verification, and change traceability into a reusable engineering process. The `peaks` CLI is the stable cross-IDE backbone (gates, JSON contracts, irreversible side effects); the skill / hook / config layer is rendered into each IDE's native format.
 
 > **Supported IDEs**
-> - ✅ **Claude Code** (shipped today): 11 `peaks-*` skills + `.claude/settings.json` PreToolUse hook
-> - 🚧 **Trae** (adaptation in progress): same role / state-machine / gate model, expressed in Trae's native config format
+> - ✅ **Claude Code** (shipped, primary): 11 `peaks-*` skills + `.claude/settings.json` PreToolUse hook; agent team is dogfooded in this IDE
+> - ⚠️ **Trae** (adapter shipped, real-Trae unverified): the slim `IdeAdapter` is registered in the slice #1 registry (`hookEvent` / `toolMatcher` / `envVar` are 1.x assumptions, **not verified on real Trae**); real Trae integration dogfood is a follow-up slice
 > - 📋 **Codex / Cursor / Qoder / Tongyi Lingma, and more** (on the roadmap)
 
 > **Positioning**: you **work with skills**; the CLI is the cross-IDE quality assurance layer.
@@ -114,6 +114,10 @@ Only when you want to do **one phase** of the workflow yourself (e.g. write a PR
 | `peaks-sop` | Turn any workflow (not just dev) into a gated SOP | Define / register your own SOP |
 
 **3 solo wrappers + 7 role skills + 1 solo orchestrator = 11 skills in the family.** In daily use, 1 skill (`peaks-solo`) covers ≥90% of needs.
+
+## Agent team
+
+`peaks` dispatches an agent team for you — `peaks-solo` / `peaks-rd` / `peaks-qa` / `peaks-ui` send peer sub-agents to isolated sandboxes to write PRDs, do architecture analysis, run tests, and design UIs, while the main LLM only sees each sub-agent's metadata (path + size + summary).
 
 ## How it works: skills first, CLI as gates
 

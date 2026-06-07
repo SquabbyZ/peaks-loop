@@ -8,8 +8,8 @@
 Peaks 是一个**跨 AI IDE 的工作流门禁 CLI + 技能家族**——把项目治理、工作流规划、受控执行、QA 验证、变更追踪组织成可复用的工程流程。CLI 是跨 IDE 稳定的核心（门禁 + JSON 契约 + 不可逆动作），技能 / 钩子 / 配置按各 IDE 的原生格式承载。
 
 > **支持的 IDE**：
-> - ✅ **Claude Code**（当前实现）：11 个 `peaks-*` 技能 + `.claude/settings.json` PreToolUse hook
-> - 🚧 **Trae**（适配中）：用 Trae 的原生配置承载相同的角色 / 状态机 / 门禁
+> - ✅ **Claude Code**（shipped, 当前主用）：11 个 `peaks-*` 技能 + `.claude/settings.json` PreToolUse hook；agent team 在本 IDE 已 dogfood
+> - ⚠️ **Trae**（adapter shipped, real-Trae unverified）：slim `IdeAdapter` 已注册到 slice #1 registry（`hookEvent` / `toolMatcher` / `envVar` 是 1.x 假设，**未在真实 Trae 上验证**）；真实 Trae 集成 dogfood 留到后续切片
 > - 📋 **Codex / Cursor / Qoder / 通义灵码 等**（路线图）
 
 > **产品定位**：你**用技能工作**，CLI 是跨 IDE 的质量保障层。
@@ -114,6 +114,10 @@ peaks-solo strict 模式做 X       # 显式 strict：最严格门禁
 | `peaks-sop` | 把任意工作流（不只是开发）变成带门禁的 SOP | 想定义 / 注册自己的 SOP |
 
 **3 个 solo 包装 + 7 个角色技能 + 1 个 solo 编排 = 11 个技能家族。** 日常使用中，1 个（`peaks-solo`）覆盖 ≥90% 的需求。
+
+## Agent team
+
+`peaks` 帮你调度一个 agent team——`peaks-solo` / `peaks-rd` / `peaks-qa` / `peaks-ui` 把 peer sub-agent 派到隔离沙箱里写 PRD / 做架构分析 / 跑测试 / 设计 UI，主 LLM 只看每个 sub-agent 的元数据（路径 + 大小 + 摘要）。
 
 ## 怎么用：技能优先，CLI 是门禁
 
