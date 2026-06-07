@@ -40,7 +40,7 @@ issues 3 dispatch calls in a **single message**:
 peaks sub-agent dispatch qa-business \
   --prompt "<qa-business contract below, plus runtime args: project=<repo>,
              session-id=<sid>, request-id=<rid>.
-             Write your evidence at .peaks/<sid>/qa/test-reports/<rid>.md
+             Write your evidence at .peaks/_runtime/<sid>/qa/test-reports/<rid>.md
              and return ONLY the path. While running, call
              peaks sub-agent heartbeat --record <dispatchRecordPath>
              --status running --progress <pct> --note '<text>' at least every 30s;
@@ -48,11 +48,11 @@ peaks sub-agent dispatch qa-business \
   --request-id <rid> --session-id <sid> --project <repo> --json
 
 peaks sub-agent dispatch qa-perf \
-  --prompt "<qa-perf contract below, plus runtime args; output .peaks/<sid>/qa/performance-findings.md>" \
+  --prompt "<qa-perf contract below, plus runtime args; output .peaks/_runtime/<sid>/qa/performance-findings.md>" \
   --request-id <rid> --session-id <sid> --project <repo> --json
 
 peaks sub-agent dispatch qa-security \
-  --prompt "<qa-security contract below, plus runtime args; output .peaks/<sid>/qa/security-findings.md>" \
+  --prompt "<qa-security contract below, plus runtime args; output .peaks/_runtime/<sid>/qa/security-findings.md>" \
   --request-id <rid> --session-id <sid> --project <repo> --json
 ```
 
@@ -80,9 +80,9 @@ string. The recommended names above are hints, not a hard list.
 
 | Sub-agent | Reads | Writes | Must not depend on |
 |---|---|---|---|
-| `qa-business` (or subdivisions) | PRD body, RD planning, codegraph, project scan, existing system | `qa/test-reports/<rid>.md` | perf / security output (run in parallel) |
-| `qa-perf` | RD planning, codegraph, perf baselines from prior slices | `qa/performance-findings.md` | business / security output |
-| `qa-security` | PRD body (trust model), codegraph, RD planning, existing security notes | `qa/security-findings.md` | business / perf output |
+| `qa-business` (or subdivisions) | PRD body, RD planning, codegraph, project scan, existing system | `.peaks/_runtime/<sid>/qa/test-reports/<rid>.md` | perf / security output (run in parallel) |
+| `qa-perf` | RD planning, codegraph, perf baselines from prior slices | `.peaks/_runtime/<sid>/qa/performance-findings.md` | business / security output |
+| `qa-security` | PRD body (trust model), codegraph, RD planning, existing security notes | `.peaks/_runtime/<sid>/qa/security-findings.md` | business / perf output |
 
 The reducer merges all 3 outputs into the final QA verdict. None of
 the 3 sub-agents reads another sub-agent's output (no peer-to-peer

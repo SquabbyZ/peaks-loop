@@ -11,5 +11,6 @@ coverage/
 .peaks/_sub_agents/
 .peaks/audit/
 .peaks/DS_Store/
+.peaks/system/       # sub-agent dispatch prompts (rd-prompt-*.txt, qa-prompt-*.txt); ephemeral session state, mirror of _sub_agents/
 # Defensive: .peaks/runtime/ (no underscore) is a wrong-path pattern; canonical is .peaks/_runtime/
 .peaks/runtime/
