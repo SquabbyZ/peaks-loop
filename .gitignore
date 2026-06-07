@@ -8,3 +8,5 @@ coverage/
 .codegraph/
 .peaks/_runtime/
 .peaks/_dogfood/
+.peaks/_sub_agents/
+.peaks/DS_Store/

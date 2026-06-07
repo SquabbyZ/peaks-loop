@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-06T17:32:00.000Z",
+  "updatedAt": "2026-06-07T00:41:07.000Z",
   "hot": {
     "feedback": [
       {
@@ -66,6 +66,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
         "sourceArtifact": null,
         "updatedAt": "2026-06-03"
+      },
+      {
+        "name": "windows-shell-quoting-divergence",
+        "kind": "feedback",
+        "description": "On Windows, Git Bash (MSYS) and PowerShell diverge on command-line escaping for nested double-quote patterns; tests should use the hook-path command (Node spawn) instead of bash-side cmd invocations.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\windows-shell-quoting-divergence.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-07"
       }
     ],
     "decision": [
@@ -92,6 +100,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "subagent-tool-matcher-per-ide",
+        "kind": "decision",
+        "description": "IdeAdapter.subAgentToolMatcher is a per-IDE string field; future adapters declare their own sub-agent tool name without touching hooks-settings-service.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-07"
       }
     ],
     "rule": [
@@ -108,6 +124,30 @@
         "kind": "rule",
         "description": "Sub-agent heartbeat + dynamic progress red line — Dispatcher must see live progress during batch sync wait (sub-agent writes 30s heartbeat; Solo poller reads every 10s; status line + stale warning after 5min). Slice #009 G6.",
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-heartbeat-progress-red-line.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "sub-agent-context-minimal-occupation",
+        "kind": "rule",
+        "description": "Sub-agent context minimal-occupation red line — metadata-only dispatch records (path + size + sha256 + summary, ~200 chars/sub-agent) + 按需 Read, main LLM net context increase 3000-5000x lower. Slice #009 G7 (deferred to slice #010 implementation).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-context-minimal-occupation.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "sub-agent-shared-channel-cross-completion",
+        "kind": "rule",
+        "description": "Cross sub-agent shared channel red line — sub-agent 完成即写 dispatcher 共享 channel (share CLI), in-flight sub-agent 可读 (shared-read CLI); 间接信号不破伪蜂群. Slice #009 G8 (deferred to slice #010 implementation).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
+        "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "sub-agent-headroom-forced-compression-gate",
+        "kind": "rule",
+        "description": "Forced compression gate red line — 75% soft warn + 80% hard reject via peaks CLI + PreToolUse hook double-guard; opt-in --use-headroom flag for headroom-ai integration. Slice #009 G9 (deferred to slice #010 implementation).",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-headroom-forced-compression-gate.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
         "updatedAt": "2026-06-07"
       }
@@ -188,6 +228,14 @@
         "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
+      },
+      {
+        "name": "real-cmdline-regression-test-for-spawn",
+        "kind": "lesson",
+        "description": "For child_process.spawn on Windows, assert against the command line Node ACTUALLY builds (after Windows escaping) — not just args[N] strings. JSON envelope's spawned field is logical, not actual.",
+        "sourcePath": "c:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\real-cmdline-regression-test-for-spawn.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-07"
       }
     ]
   },
