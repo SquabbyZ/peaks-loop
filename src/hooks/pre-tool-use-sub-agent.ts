@@ -31,7 +31,7 @@ export function readPromptSizeFromHookStdin(stdin: unknown): number {
     return 0;
   }
   const obj = stdin as Record<string, unknown>;
-  const toolInput = obj.toolInput;
+  const toolInput = obj.tool_input;
   if (toolInput === null || typeof toolInput !== 'object') {
     return 0;
   }
