@@ -14,15 +14,6 @@
             "command": "peaks gate enforce --project \"${CLAUDE_PROJECT_DIR}\""
           }
         ]
-      },
-      {
-        "matcher": "Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "peaks progress start --project \"${CLAUDE_PROJECT_DIR}\" --reason \"auto-spawn for sub-agent Task\" --quiet"
-          }
-        ]
       }
     ]
   }

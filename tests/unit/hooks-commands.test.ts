@@ -92,3 +92,75 @@ describe('slice 2026-06-06: peaks hooks status --ide derives progress matcher fr
     expect(progressEntry?.matcher).toBe('Task');
   });
 });
+
+/**
+ * Slice #013 (`--no-progress` flag): commander.js translates `--no-progress`
+ * to `options.progress = false` (it does NOT set `options.noProgress`). The
+ * CLI must therefore check `options.progress === false` to detect that the
+ * user passed `--no-progress`. These tests guard against the regression
+ * where the CLI checked `options.noProgress === true` (a key commander
+ * never sets), which made `--no-progress` a silent no-op even though the
+ * service layer accepted `skipProgress: true` correctly.
+ */
+describe('slice 013: peaks hooks install --no-progress threads through the CLI parser', () => {
+  beforeEach(() => {
+    process.exitCode = undefined;
+    resetCliProgramMocks();
+    writeUserConfig();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('peaks hooks install --no-progress strips the progress entry from the JSON envelope (entries=[Bash] only)', async () => {
+    const project = await makeProject('hooks-no-progress-strip');
+    const result = await runCommand(['hooks', 'install', '--project', project, '--no-progress', '--json']);
+    const out = parseJsonOutput<{
+      skipProgress: boolean;
+      entries: Array<{ matcher: string; sentinel: string }>;
+    }>(result.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.data.skipProgress).toBe(true);
+    // Only the gate-enforce entry should be present; the progress-start
+    // entry must be filtered out.
+    expect(out.data.entries).toHaveLength(1);
+    expect(out.data.entries[0]?.sentinel).toBe('peaks gate enforce');
+    expect(out.data.entries.find((e) => e.sentinel === 'peaks progress start')).toBeUndefined();
+  });
+
+  test('peaks hooks install (default) preserves the progress entry in the JSON envelope (regression guard)', async () => {
+    const project = await makeProject('hooks-no-progress-default');
+    const result = await runCommand(['hooks', 'install', '--project', project, '--json']);
+    const out = parseJsonOutput<{
+      skipProgress: boolean;
+      entries: Array<{ matcher: string; sentinel: string }>;
+    }>(result.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.data.skipProgress).toBe(false);
+    // Both gate-enforce and progress-start entries must be present.
+    expect(out.data.entries).toHaveLength(2);
+    expect(out.data.entries.find((e) => e.sentinel === 'peaks gate enforce')).toBeDefined();
+    expect(out.data.entries.find((e) => e.sentinel === 'peaks progress start')).toBeDefined();
+  });
+
+  test('peaks hooks install --no-progress --dry-run previews the stripped entry list (no settings.json written)', async () => {
+    const project = await makeProject('hooks-no-progress-dryrun');
+    const result = await runCommand([
+      'hooks', 'install', '--project', project, '--no-progress', '--dry-run', '--json'
+    ]);
+    const out = parseJsonOutput<{
+      skipProgress: boolean;
+      dryRun: boolean;
+      applied: boolean;
+      entries: Array<{ matcher: string; sentinel: string }>;
+    }>(result.stdout);
+    expect(out.ok).toBe(true);
+    expect(out.data.skipProgress).toBe(true);
+    expect(out.data.dryRun).toBe(true);
+    expect(out.data.applied).toBe(false);
+    expect(out.data.entries).toHaveLength(1);
+    expect(out.data.entries[0]?.sentinel).toBe('peaks gate enforce');
+    // The settings.json must NOT have been written on dry-run.
+    expect(existsSync(join(project, '.claude', 'settings.json'))).toBe(false);
+  });
+});

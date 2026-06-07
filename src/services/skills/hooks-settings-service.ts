@@ -47,6 +47,20 @@ export type HookInstallOptions = {
    * Throws if the IDE is not registered in the adapter registry.
    */
   readonly ide?: IdeId;
+  /**
+   * Slice #013 (bugfix — peaks hooks install --no-progress): when `true`,
+   * skip emitting the progress-start PreToolUse hook entry while still
+   * installing the gate-enforce entry. The progress-start hook auto-spawns
+   * a new terminal running `peaks progress watch`; with dispatch +
+   * heartbeat (slice #009 + #010) that auto-spawn is dead weight. Default
+   * `false` preserves the pre-slice install shape (both entries). The
+   * sentinel-based install is idempotent: re-running with `skipProgress:
+   * true` over a settings.json that previously had the progress entry
+   * installed will remove that entry. `uninstall` honors the same flag
+   * so it can find and remove both entries when both are present and
+   * only the gate-enforce entry when only the gate-enforce is present.
+   */
+  readonly skipProgress?: boolean;
 };
 
 // --- Module-level defaults (claude-code) -----------------------------------
@@ -115,6 +129,11 @@ function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
 
 function resolveIde(options: HookInstallOptions | undefined): IdeId {
   return options?.ide ?? 'claude-code';
+}
+
+/** Slice #013: read the skipProgress opt-in flag (default false = full install). */
+function resolveSkipProgress(options: HookInstallOptions | undefined): boolean {
+  return options?.skipProgress === true;
 }
 
 export type HookInstallPlan = {
@@ -198,13 +217,19 @@ export type PeaksHookEntry = {
  * Compute the per-IDE peaks hook entries to merge into the settings file.
  * Replaces the slice #1 hardcoded `PEAKS_HOOK_ENTRIES` constant; the constant
  * remains exported (computed for claude-code) for backward compat.
+ *
+ * Slice #013 (`--no-progress` flag): when `skipProgress` is true, the
+ * progress-start entry is omitted from the returned list. Install with this
+ * flag will (a) NOT emit the progress hook entry, and (b) will idempotently
+ * remove any previously-installed progress entry (sentinel-based merge).
  */
-function resolveHookEntries(ide: IdeId): PeaksHookEntry[] {
+function resolveHookEntries(ide: IdeId, skipProgress = false): PeaksHookEntry[] {
   const spec = resolveHookSpec(ide);
-  return [
+  const all: PeaksHookEntry[] = [
     { sentinel: spec.hookEnforceSentinel, matcher: spec.hookEnforceMatcher, command: spec.hookEnforceCommand, event: spec.hookEnforceEvent },
     { sentinel: spec.hookProgressSentinel, matcher: spec.hookProgressMatcher, command: spec.hookProgressCommand, event: spec.hookProgressEvent }
   ];
+  return skipProgress ? all.filter((e) => e.sentinel !== spec.hookProgressSentinel) : all;
 }
 
 /** Default (claude-code) peaks-managed hook entries — kept as a stable export for tests. */
@@ -216,8 +241,8 @@ export const PEAKS_HOOK_ENTRIES: ReadonlyArray<PeaksHookEntry> = (() => {
   ];
 })();
 
-function isInstalledForIde(settings: Record<string, unknown>, ide: IdeId): boolean {
-  const entries = resolveHookEntries(ide);
+function isInstalledForIde(settings: Record<string, unknown>, ide: IdeId, skipProgress = false): boolean {
+  const entries = resolveHookEntries(ide, skipProgress);
   const sentinels = entries.map((e) => e.sentinel);
   // Check every distinct event key our entries could be on.
   const eventKeys = new Set(entries.map((e) => e.event));
@@ -229,8 +254,44 @@ function isInstalledForIde(settings: Record<string, unknown>, ide: IdeId): boole
   return false;
 }
 
+/**
+ * Slice #013: detect the "stale progress entry after --no-progress
+ * converge" case. When the caller is installing WITHOUT progress AND
+ * the file currently has a peaks-managed progress entry, the install
+ * is NOT a no-op — it must strip the stale progress entry. The
+ * skipProgress-aware `isInstalledForIde` would otherwise return true
+ * (because the gate-enforce entry is present) and short-circuit the
+ * write. This helper returns true exactly when the caller's desired
+ * shape is fully reflected on disk.
+ */
+function shapeMatchesDesired(settings: Record<string, unknown>, ide: IdeId, skipProgress: boolean): boolean {
+  const desiredEntries = resolveHookEntries(ide, skipProgress);
+  const desiredSentinels = new Set(desiredEntries.map((e) => e.sentinel));
+  const allPeaksSentinels = resolveHookEntries(ide, false).map((e) => e.sentinel);
+  const eventKeys = new Set(resolveHookEntries(ide, false).map((e) => e.event));
+  for (const eventKey of eventKeys) {
+    const present = readHookEventEntries(settings, eventKey);
+    const peaksPresent = present.filter((e) => entryIsPeaksManaged(e, allPeaksSentinels));
+    // (a) every peaks-managed entry currently on disk must match the
+    //     desired sentinel set (no stale entries the caller wants removed).
+    for (const entry of peaksPresent) {
+      const entrySentinels = (entry.hooks ?? []).map((h) => allPeaksSentinels.find((s) => String(h.command ?? '').includes(s))).filter((s): s is string => Boolean(s));
+      if (entrySentinels.some((s) => !desiredSentinels.has(s))) {
+        return false;
+      }
+    }
+    // (b) every desired entry must be on disk.
+    for (const sentinel of desiredSentinels) {
+      const has = peaksPresent.some((entry) => (entry.hooks ?? []).some((h) => String(h.command ?? '').includes(sentinel)));
+      if (!has) return false;
+    }
+  }
+  return true;
+}
+
 export function planHookInstall(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookInstallPlan {
   const ide = resolveIde(options);
+  const skipProgress = resolveSkipProgress(options);
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
@@ -241,7 +302,7 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
     scope,
     settingsPath,
     exists,
-    alreadyInstalled: isInstalledForIde(settings, ide),
+    alreadyInstalled: isInstalledForIde(settings, ide, skipProgress),
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
     matcher: spec.hookEnforceMatcher
@@ -249,7 +310,7 @@ export function planHookInstall(scope: HookScope, projectRoot?: string, options?
 }
 
 /** Merge all peaks-managed hook entries into settings, preserving all other keys and hooks. */
-function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId): Record<string, unknown> {
+function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId, skipProgress = false): Record<string, unknown> {
   const existingHooks = (settings.hooks && typeof settings.hooks === 'object' && !Array.isArray(settings.hooks))
     ? (settings.hooks as Record<string, unknown>)
     : {};
@@ -258,18 +319,24 @@ function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId)
   // Claude: both on PreToolUse). Group by event so each event array is
   // independently merged.
   const ourByEvent = new Map<string, PeaksHookEntry[]>();
-  for (const spec of resolveHookEntries(ide)) {
+  for (const spec of resolveHookEntries(ide, skipProgress)) {
     const list = ourByEvent.get(spec.event) ?? [];
     list.push(spec);
     ourByEvent.set(spec.event, list);
   }
 
-  const sentinels = resolveHookEntries(ide).map((e) => e.sentinel);
+  // Slice #013: when the caller opts out of the progress entry, the merge
+  // must ALSO remove any pre-existing peaks-managed progress entry (so the
+  // re-install is idempotent: it converges on the requested shape, not the
+  // pre-existing one). The sentinel set therefore includes the progress
+  // sentinel regardless of skipProgress so the filter strips the old
+  // progress entry before re-adding only the requested ones.
+  const allSentinels = resolveHookEntries(ide, false).map((e) => e.sentinel);
   const nextHooks: Record<string, unknown> = { ...existingHooks };
 
   for (const [eventKey, ourEntries] of ourByEvent) {
     const existing = readHookEntriesFromHooks(nextHooks, eventKey);
-    const nonPeaks = existing.filter((entry) => !entryIsPeaksManaged(entry, sentinels));
+    const nonPeaks = existing.filter((entry) => !entryIsPeaksManaged(entry, allSentinels));
     const ourFormatted: HookMatcherEntry[] = ourEntries.map((spec) => ({
       matcher: spec.matcher,
       hooks: [{ type: 'command', command: spec.command }]
@@ -289,17 +356,28 @@ function withHooksInstalledForIde(settings: Record<string, unknown>, ide: IdeId)
 
 export function applyHookInstall(scope: HookScope, projectRoot?: string, options?: HookInstallOptions): HookInstallResult {
   const ide = resolveIde(options);
+  const skipProgress = resolveSkipProgress(options);
   const root = resolveSettingsRoot(scope, projectRoot);
   const settingsPath = resolveSettingsPath(scope, ide, projectRoot);
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
   const exists = existsSync(settingsPath);
   const settings = exists ? readJsonObjectFile(settingsPath) : {};
   const spec = resolveHookSpec(ide);
+  // Slice #013: `alreadyInstalled` must reflect the FULL desired shape,
+  // not just "is the gate-enforce entry present". When skipProgress is
+  // true and the file has a stale peaks-managed progress entry, the
+  // install is NOT a no-op — it must strip the stale entry. We use
+  // `shapeMatchesDesired` for the no-op check; `isInstalledForIde`
+  // remains the strict "any peaks-managed entry present" check used
+  // by the CLI summary and by the `installed: true` status flag.
+  const alreadyInstalled = skipProgress
+    ? shapeMatchesDesired(settings, ide, skipProgress)
+    : isInstalledForIde(settings, ide, false);
   const baseResult: HookInstallPlan = {
     scope,
     settingsPath,
     exists,
-    alreadyInstalled: isInstalledForIde(settings, ide),
+    alreadyInstalled,
     desiredCommand: spec.hookEnforceCommand,
     sentinel: spec.hookEnforceSentinel,
     matcher: spec.hookEnforceMatcher
@@ -307,7 +385,7 @@ export function applyHookInstall(scope: HookScope, projectRoot?: string, options
   if (baseResult.alreadyInstalled) {
     return { ...baseResult, applied: false };
   }
-  atomicWriteJson(settingsPath, withHooksInstalledForIde(settings, ide));
+  atomicWriteJson(settingsPath, withHooksInstalledForIde(settings, ide, skipProgress));
   return { ...baseResult, alreadyInstalled: false, applied: true };
 }
 
@@ -322,8 +400,15 @@ export function removeHookInstall(scope: HookScope, projectRoot?: string, option
   const settings = readJsonObjectFile(settingsPath);
 
   const existingHooks = (settings.hooks as Record<string, unknown>) ?? {};
-  const sentinels = resolveHookEntries(ide).map((e) => e.sentinel);
-  const eventKeys = new Set(resolveHookEntries(ide).map((e) => e.event));
+  // Slice #013: uninstall must always remove BOTH peaks-managed entries
+  // when both are present, regardless of the `skipProgress` opt-in. The
+  // opt-in is an install-time decision, not an uninstall-time decision;
+  // a user who re-installs with --no-progress and then later wants to
+  // re-add the progress entry should be able to `uninstall` first to
+  // reset, then `install` to get the full set. So we always honor the
+  // full sentinel set at uninstall time.
+  const sentinels = resolveHookEntries(ide, false).map((e) => e.sentinel);
+  const eventKeys = new Set(resolveHookEntries(ide, false).map((e) => e.event));
   let removedAny = false;
   const nextHooks: Record<string, unknown> = { ...existingHooks };
   for (const eventKey of eventKeys) {
@@ -354,5 +439,5 @@ export function readHookStatus(scope: HookScope, projectRoot?: string, options?:
   assertSafeSettingsPathCompat(scope, ide, root, settingsPath);
   const exists = existsSync(settingsPath);
   const settings = exists ? readJsonObjectFile(settingsPath) : {};
-  return { scope, settingsPath, exists, installed: isInstalledForIde(settings, ide) };
+  return { scope, settingsPath, exists, installed: isInstalledForIde(settings, ide, false) };
 }

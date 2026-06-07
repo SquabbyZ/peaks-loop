@@ -13,7 +13,7 @@ import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 
-type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string };
+type HookCliOptions = { global?: boolean; project?: string; dryRun?: boolean; json?: boolean; ide?: string; progress?: boolean };
 
 function resolveScope(options: { global?: boolean }): HookScope {
   return options.global ? 'global' : 'project';
@@ -44,46 +44,56 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
 // `adapter.subAgentToolMatcher` instead of being hardcoded to 'Task', so
 // every IDE self-reports its sub-agent tool name (claude-code: 'Task',
 // future adapters: whatever the adapter declares).
-function listInstalledEntriesForIde(ide: IdeId): ReadonlyArray<{ matcher: string; sentinel: string }> {
+//
+// Slice #013 (`--no-progress` flag): when `skipProgress` is true, the
+// progress-start entry is omitted. The CLI's `entries` summary mirrors
+// the install shape so the JSON envelope doesn't claim a hook the
+// service did not write.
+function listInstalledEntriesForIde(ide: IdeId, skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
   const adapter = getAdapter(ide);
+  let entries: { matcher: string; sentinel: string }[];
   if (ide === 'trae') {
-    return [
+    entries = [
       { matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' },
       { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
     ];
+  } else {
+    // Default (claude-code) and any future registered adapters.
+    entries = [
+      { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
+      { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
+    ];
   }
-  // Default (claude-code) and any future registered adapters.
-  return [
-    { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
-    { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
-  ];
+  return skipProgress ? entries.filter((e) => e.sentinel !== 'peaks progress start') : entries;
 }
 
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
     .description(
-      "Manage the Peaks-managed hook entries in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae): (1) gate-enforce hook (SOP gate), (2) progress-start hook (auto-spawn sub-agent progress terminal). Both are installed / removed together. The IDE is auto-detected from env / cwd; override with --ide <id>."
+      "Manage the Peaks-managed hook entries in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae): (1) gate-enforce hook (SOP gate), (2) progress-start hook (auto-spawn sub-agent progress terminal). By default both entries are installed / removed together. Use `peaks hooks install --no-progress` to install ONLY the gate-enforce entry and skip the progress-start entry. The IDE is auto-detected from env / cwd; override with --ide <id>."
     );
 
   addJsonOption(
     hooks
       .command('install')
       .description(
-        `Install all peaks-managed hook entries into the adapter's settings.json. Idempotent: re-runs are no-ops. Project scope by default.`
+        `Install peaks-managed hook entries into the adapter's settings.json. By default both gate-enforce and progress-start are installed; pass --no-progress to install ONLY gate-enforce (the progress-start hook auto-spawns a new terminal; with sub-agent dispatch + heartbeat it is dead weight). Idempotent: re-runs are no-ops. Project scope by default.`
       )
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', "target adapter id (claude-code | trae); default: auto-detect from env/cwd")
       .option('--dry-run', 'show what would change without writing')
+      .option('--no-progress', 'skip the progress-start PreToolUse hook entry; install ONLY the gate-enforce entry')
   ).action((options: HookCliOptions) => {
     const scope = resolveScope(options);
     const projectRoot = resolveProjectRoot(scope, options.project);
     const ide = resolveIdeForCommand(options, projectRoot);
+    const skipProgress = options.progress === false;
     try {
       if (options.dryRun === true) {
-        const plan = planHookInstall(scope, projectRoot, { ide });
-        const dryRunEntries = listInstalledEntriesForIde(ide);
+        const plan = planHookInstall(scope, projectRoot, { ide, skipProgress });
+        const dryRunEntries = listInstalledEntriesForIde(ide, skipProgress);
         printResult(
           io,
           ok(
@@ -93,6 +103,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               ide,
               applied: false,
               dryRun: true,
+              skipProgress,
               entries: dryRunEntries
             },
             [],
@@ -102,12 +113,12 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
         );
         return;
       }
-      const result = applyHookInstall(scope, projectRoot, { ide });
+      const result = applyHookInstall(scope, projectRoot, { ide, skipProgress });
       // Slice #3: build the per-IDE entries summary from the actual installed
       // entries, not the slice #1 PEAKS_HOOK_ENTRIES constant (which is the
       // claude-code default). The user's JSON envelope must reflect the IDE
       // they targeted.
-      const installedEntries = listInstalledEntriesForIde(ide);
+      const installedEntries = listInstalledEntriesForIde(ide, skipProgress);
       const nextActions = result.applied
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
@@ -122,6 +133,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             ...result,
             ide,
             dryRun: false,
+            skipProgress,
             entries: installedEntries.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
           },
           [],
@@ -131,7 +143,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       );
     } catch (error: unknown) {
       const message = getErrorMessage(error);
-      printResult(io, fail('hooks.install', 'HOOKS_INSTALL_FAILED', message, { scope, ide, applied: false }, [message]), options.json);
+      printResult(io, fail('hooks.install', 'HOOKS_INSTALL_FAILED', message, { scope, ide, applied: false, skipProgress }, [message]), options.json);
       process.exitCode = 1;
     }
   });

@@ -217,3 +217,92 @@ describe('slice 2026-06-06: per-IDE subAgentToolMatcher drives the progress hook
     expect(pre.some((e) => e.matcher === 'Task')).toBe(false);
   });
 });
+
+/**
+ * Slice #013 (bugfix — peaks hooks install --no-progress): the install
+ * action must accept `skipProgress: true` and emit ONLY the gate-enforce
+ * hook entry. The progress-start entry is removed when re-run over a
+ * settings.json that previously had it (idempotent convergence on the
+ * requested shape). Uninstall still removes BOTH entries when both are
+ * present (uninstall is opt-out-free by design).
+ */
+describe('slice 013: peaks hooks install --no-progress (skipProgress: true)', () => {
+  test('TC-1: default install (no flag) installs BOTH gate-enforce AND progress-start (regression — preserve existing behavior)', async () => {
+    // Already covered by the top-of-file test "installs both gate-enforce
+    // (Bash) and progress-start (Task) entries" but assert it explicitly
+    // here as the TC-1 contract for the new code path.
+    const result = applyHookInstall('project', project);
+    expect(result.applied).toBe(true);
+    const settings = await readSettings();
+    const pre = (settings.hooks as { PreToolUse: { matcher: string; hooks: { command: string }[] }[] }).PreToolUse;
+    const matchers = pre.map((e) => e.matcher);
+    expect(matchers).toContain('Bash');
+    expect(matchers).toContain('Task');
+  });
+
+  test('TC-2: install with skipProgress: true installs ONLY gate-enforce (no progress entry)', async () => {
+    const result = applyHookInstall('project', project, { skipProgress: true });
+    expect(result.applied).toBe(true);
+    const settings = await readSettings();
+    const pre = (settings.hooks as { PreToolUse: { matcher: string; hooks: { command: string }[] }[] }).PreToolUse;
+    const matchers = pre.map((e) => e.matcher);
+    expect(matchers).toEqual(['Bash']); // only gate-enforce
+    const bashEntry = pre.find((e) => e.matcher === 'Bash');
+    expect(bashEntry?.hooks[0]?.command).toContain(HOOK_ENFORCE_SENTINEL);
+    // The progress-start entry must NOT be in the file.
+    expect(pre.some((e) => e.matcher === 'Task')).toBe(false);
+    // The planHookInstall must also report the same shape (skipProgress honored).
+    const plan = planHookInstall('project', project, { skipProgress: true });
+    expect(plan.sentinel).toBe(HOOK_ENFORCE_SENTINEL);
+    expect(plan.matcher).toBe('Bash');
+  });
+
+  test('TC-3: re-running install with skipProgress: true over a settings.json that previously had a progress-start entry REMOVES it (idempotent convergence)', async () => {
+    // First: install BOTH (the legacy shape).
+    applyHookInstall('project', project);
+    const before = await readSettings();
+    const preBefore = (before.hooks as { PreToolUse: { matcher: string }[] }).PreToolUse;
+    expect(preBefore.map((e) => e.matcher)).toEqual(['Bash', 'Task']);
+
+    // Second: re-install with --no-progress. The pre-existing Task entry
+    // must be stripped and ONLY the Bash entry must remain.
+    const result = applyHookInstall('project', project, { skipProgress: true });
+    expect(result.applied).toBe(true); // applied because the shape changed
+    const after = await readSettings();
+    const preAfter = (after.hooks as { PreToolUse: { matcher: string; hooks: { command: string }[] }[] }).PreToolUse;
+    expect(preAfter.map((e) => e.matcher)).toEqual(['Bash']);
+    expect(preAfter.some((e) => e.matcher === 'Task')).toBe(false);
+
+    // Third: a second re-run with skipProgress: true is now a no-op (idempotent).
+    const third = applyHookInstall('project', project, { skipProgress: true });
+    expect(third.applied).toBe(false);
+  });
+
+  test('TC-4: uninstall still removes BOTH entries when both are installed; only removes gate-enforce when only gate-enforce is installed (preserves existing behavior)', async () => {
+    // Case A: both installed → uninstall removes both.
+    applyHookInstall('project', project);
+    const removedA = removeHookInstall('project', project);
+    expect(removedA.removed).toBe(true);
+    const settingsA = await readSettings();
+    expect(settingsA.hooks).toBeUndefined();
+
+    // Case B: only gate-enforce installed (via skipProgress) → uninstall removes it.
+    applyHookInstall('project', project, { skipProgress: true });
+    const removedB = removeHookInstall('project', project);
+    expect(removedB.removed).toBe(true);
+    const settingsB = await readSettings();
+    expect(settingsB.hooks).toBeUndefined();
+  });
+
+  test('TC-5: readHookStatus after a skipProgress: true install reports "installed: true" (gate-enforce is the only entry but it is still considered "installed")', async () => {
+    // readHookStatus honors the full sentinel set (the status command is
+    // an inspection tool, not an install-time decision). The contract is:
+    // after a --no-progress install, status reports installed=true because
+    // the gate-enforce entry IS installed. The per-entry report
+    // (entries[]) in the CLI envelope is what distinguishes gate vs
+    // progress; status.installed is the overall health flag.
+    applyHookInstall('project', project, { skipProgress: true });
+    const status = readHookStatus('project', project);
+    expect(status.installed).toBe(true);
+  });
+});
