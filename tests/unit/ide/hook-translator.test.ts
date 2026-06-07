@@ -162,10 +162,10 @@ function makeAdapter(id: string, dirName: string, envVar: string): IdeAdapter {
     envVar,
     hookEvent: 'PreToolUse',
     toolMatcher: 'Bash',
-    subAgentToolMatcher: 'Task',
     subAgentDispatcher: { label: id, supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
     promptSizeAware: false,
+     capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+
     installHints: [],
-    capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
   };
 }

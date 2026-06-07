@@ -70,7 +70,10 @@ describe('resolveFirstTimeHooksInstall — sticky-marker honour', () => {
     // Verify the hook is now actually written
     const settings = JSON.parse(require('node:fs').readFileSync(join(project, '.claude', 'settings.json'), 'utf8')) as { hooks: { PreToolUse: { matcher: string }[] } };
     expect(settings.hooks.PreToolUse.some((e) => e.matcher === 'Bash')).toBe(true);
-    expect(settings.hooks.PreToolUse.some((e) => e.matcher === 'Task')).toBe(true);
+    // Slice #014: the legacy progress-start hook entry is removed; the
+    // reinstall path must emit ONLY the Bash gate-enforce entry. A Task
+    // matcher would mean the pre-#014 ghost entry has resurfaced.
+    expect(settings.hooks.PreToolUse.some((e) => e.matcher === 'Task')).toBe(false);
   });
 
   test('marker present (skipped) → marker-honored, no install attempt', async () => {

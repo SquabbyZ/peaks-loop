@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { Command } from 'commander';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
@@ -6,9 +7,11 @@ import {
   applyHookInstall,
   planHookInstall,
   readHookStatus,
+  readInstalledEntriesFromSettings,
   removeHookInstall,
   type HookScope
 } from '../../services/skills/hooks-settings-service.js';
+import { readJsonObjectFile } from '../../services/ide/shared/atomic-json.js';
 import { detectIdeFromContext } from '../../services/ide/hook-translator.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
@@ -37,48 +40,38 @@ function resolveIdeForCommand(options: { ide?: string }, projectRoot: string | u
   return detectIdeFromContext({ env: process.env, cwd: projectRoot ?? process.cwd(), parsedStdin: null });
 }
 
-// Slice #3: compute the per-IDE peaks hook entries for the CLI response
-// summary. Replaces the slice #1 PEAKS_HOOK_ENTRIES constant which was
-// hardcoded to claude-code values. Slice 2026-06-06-sub-agent-spawn-bug-
-// and-decouple: the sub-agent progress matcher now reads from
-// `adapter.subAgentToolMatcher` instead of being hardcoded to 'Task', so
-// every IDE self-reports its sub-agent tool name (claude-code: 'Task',
-// future adapters: whatever the adapter declares).
-//
-// Slice #013 (`--no-progress` flag): when `skipProgress` is true, the
-// progress-start entry is omitted. The CLI's `entries` summary mirrors
-// the install shape so the JSON envelope doesn't claim a hook the
-// service did not write.
-function listInstalledEntriesForIde(ide: IdeId, skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
+/**
+ * Slice #014: compute the per-IDE peaks hook entries for the install /
+ * dry-run RESPONSE SUMMARY. This is the *desired* shape (what the install
+ * WOULD write), not what is on disk. The status command uses a different
+ * helper (`readInstalledEntriesFromSettings`) that reads the actual
+ * settings.json.
+ *
+ * After slice #014 only the gate-enforce entry is ever installed
+ * (the legacy progress-start surface is gone). The summary mirrors
+ * the install shape so the JSON envelope doesn't claim a hook the
+ * service did not write.
+ */
+function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyArray<{ matcher: string; sentinel: string }> {
   const adapter = getAdapter(ide);
-  let entries: { matcher: string; sentinel: string }[];
   if (ide === 'trae') {
-    entries = [
-      { matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' },
-      { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
-    ];
-  } else {
-    // Default (claude-code) and any future registered adapters.
-    entries = [
-      { matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' },
-      { matcher: adapter.subAgentToolMatcher, sentinel: 'peaks progress start' }
-    ];
+    return [{ matcher: adapter.toolMatcher, sentinel: 'peaks hook handle' }];
   }
-  return skipProgress ? entries.filter((e) => e.sentinel !== 'peaks progress start') : entries;
+  return [{ matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' }];
 }
 
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
     .description(
-      "Manage the Peaks-managed hook entries in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae): (1) gate-enforce hook (SOP gate), (2) progress-start hook (auto-spawn sub-agent progress terminal). By default both entries are installed / removed together. Use `peaks hooks install --no-progress` to install ONLY the gate-enforce entry and skip the progress-start entry. The IDE is auto-detected from env / cwd; override with --ide <id>."
+      "Manage the Peaks-managed hook entry in the adapter's settings.json (default: .claude/settings.json for Claude, .trae/settings.json for Trae). Slice #014: the only installed entry is the gate-enforce hook (SOP gate). The legacy progress-start hook (auto-spawn sub-agent progress terminal) is no longer installed — sub-agent progress is now surfaced via the dispatch + heartbeat flow (`peaks sub-agent dispatch` / `peaks sub-agent heartbeat`). The IDE is auto-detected from env / cwd; override with --ide <id>."
     );
 
   addJsonOption(
     hooks
       .command('install')
       .description(
-        `Install peaks-managed hook entries into the adapter's settings.json. By default both gate-enforce and progress-start are installed; pass --no-progress to install ONLY gate-enforce (the progress-start hook auto-spawns a new terminal; with sub-agent dispatch + heartbeat it is dead weight). Idempotent: re-runs are no-ops. Project scope by default.`
+        `Install the peaks-managed gate-enforce hook entry into the adapter's settings.json. Slice #014: only the gate-enforce entry is installed; the legacy progress-start entry is no longer installed. Idempotent: re-runs are no-ops. Project scope by default.`
       )
       .option('--global', 'install into the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
@@ -93,7 +86,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     try {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot, { ide, skipProgress });
-        const dryRunEntries = listInstalledEntriesForIde(ide, skipProgress);
+        const dryRunEntries = listExpectedEntriesForIde(ide, skipProgress);
         printResult(
           io,
           ok(
@@ -117,8 +110,10 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // Slice #3: build the per-IDE entries summary from the actual installed
       // entries, not the slice #1 PEAKS_HOOK_ENTRIES constant (which is the
       // claude-code default). The user's JSON envelope must reflect the IDE
-      // they targeted.
-      const installedEntries = listInstalledEntriesForIde(ide, skipProgress);
+      // they targeted. Slice #014: the install only emits the gate-enforce
+      // entry; the summary mirrors the install shape, NOT a hardcoded
+      // expected list.
+      const installedEntries = listExpectedEntriesForIde(ide, skipProgress);
       const nextActions = result.applied
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
@@ -151,7 +146,7 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     hooks
       .command('uninstall')
-      .description("Remove all peaks-managed hook entries (gate-enforce + progress-start) from the target settings.json. Third-party hooks are preserved.")
+      .description("Remove the peaks-managed gate-enforce hook entry from the target settings.json. Any legacy progress-start entry that a pre-#014 install left behind is also removed (sentinel-based scan). Third-party hooks are preserved.")
       .option('--global', 'remove from the user-level ~/.claude/settings.json instead of the project')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--ide <id>', 'target adapter id (claude-code | trae); default: auto-detect from env/cwd')
@@ -182,12 +177,21 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
     const ide = resolveIdeForCommand(options, projectRoot);
     try {
       const status = readHookStatus(scope, projectRoot, { ide });
+      // Slice #014: read the ACTUAL on-disk entries (post-install shape),
+      // not the IDE-EXPECTED list. Pre-#014 `listInstalledEntriesForIde`
+      // returned the expected list and reported `entries: [Bash, Task]`
+      // even when the file only had `Bash`. The new helper reads the
+      // file and reports whatever peaks-managed entries are present,
+      // including any legacy progress-start entry that a pre-#014
+      // install left behind.
+      const settingsPath = status.settingsPath;
+      const settings = existsSync(settingsPath) ? readJsonObjectFile(settingsPath) : {};
       printResult(
         io,
         ok('hooks.status', {
           ...status,
           ide,
-          entries: listInstalledEntriesForIde(ide)
+          entries: readInstalledEntriesFromSettings(settings, ide)
         }),
         options.json
       );

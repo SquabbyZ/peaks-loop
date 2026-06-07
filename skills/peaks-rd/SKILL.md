@@ -119,21 +119,6 @@ On the first presence:set in a project, ensure the out-of-band status bar is ins
 peaks statusline install --project <repo>   # idempotent; skips if already installed
 ```
 
-**Auto-spawn a progress watch terminal once per slice (BLOCKING on the first phase transition).** The user opens a fresh VSCode window per slice, not per Bash call. Without a separate progress terminal the user has no live signal that the sub-agent is alive — the only signal they have is the static statusline. So at the first phase transition of every slice, fire `peaks progress start` ONCE. The CLI auto-spawns a new terminal tab running `peaks progress watch` and the user can close the new tab at any time. Do NOT re-invoke on every phase change — one per slice is the contract. The LLM-side cost of this one invocation is one Bash call plus a small JSON envelope; the watch side is a 1s file poll that does not consume LLM tokens.
-
-```bash
-# At the first phase transition of a slice (after the first
-# peaks progress step), fire the watch:
-peaks progress start --project <repo> --reason "rd-implementing for <rid>"
-
-# On every subsequent phase transition, only update the
-# progress file — the watch is already running in another tab:
-peaks progress step --project <repo> --request-id <rid> --role rd \
-  --step "running pnpm test" --phase running
-```
-
-If `peaks progress start` is unsupported on the current platform (no terminal emulator, headless container, etc.) it returns a recoverable error envelope. Surface that in the RD handoff so the user knows the auto-spawn failed; the sub-agent can still emit `peaks progress step` writes that the user reads from the on-disk file. The auto-spawn is convenience, not a gate.
-
 Read persistent project memory via CLI (durable, LLM-authored memories):
 
 ```bash

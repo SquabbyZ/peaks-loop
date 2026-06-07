@@ -36,12 +36,6 @@ describe('CLAUDE_CODE_ADAPTER — capabilities', () => {
   test('gateEnforce is true (per the PRD R-2 hard rule)', () => {
     expect(CLAUDE_CODE_ADAPTER.capabilities.gateEnforce).toBe(true);
   });
-
-  test('progressStart, statusline, mcpInstall are all enabled in slice #1', () => {
-    expect(CLAUDE_CODE_ADAPTER.capabilities.progressStart).toBe(true);
-    expect(CLAUDE_CODE_ADAPTER.capabilities.statusline).toBe(true);
-    expect(CLAUDE_CODE_ADAPTER.capabilities.mcpInstall).toBe(true);
-  });
 });
 
 describe('CLAUDE_CODE_ADAPTER — settings location', () => {

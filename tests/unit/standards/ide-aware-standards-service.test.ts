@@ -138,11 +138,11 @@ describe('inspectStandardsDispatch — test-seam: custom adapter registration', 
       envVar: 'CURSOR_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      subAgentToolMatcher: 'SubAgent',
       subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
+       capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+
       installHints: [],
-      capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false },
       // Slice #011: a custom test adapter can fill the resource profile to
       // verify the dispatch shape. Cursor itself is a follow-up slice.
       standardsProfile: {

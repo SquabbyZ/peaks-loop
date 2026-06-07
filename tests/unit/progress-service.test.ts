@@ -3,14 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import {
-  clearSpawnRecord,
-  isRecentSpawn,
-  phaseAutoClosesSpawn,
-  readSpawnRecord,
   readSubAgentProgress,
   subAgentProgressPath,
-  subAgentSpawnPath,
-  writeSpawnRecord,
   writeSubAgentProgress
 } from '../../src/services/progress/progress-service.js';
 
@@ -31,7 +25,16 @@ function seedSessionBinding(projectRoot: string, sessionId: string): void {
   );
 }
 
-describe('progress service', () => {
+/**
+ * Slice #014 (refactor — full removal of legacy progress-start
+ * surface): the progress-service module now exposes ONLY the
+ * dispatch-flow bits (write/read/subAgentProgressPath). The spawn
+ * record (writeSpawnRecord/readSpawnRecord/clearSpawnRecord),
+ * the TTL idempotency guard (isRecentSpawn), and the watch-side
+ * auto-close trigger (phaseAutoClosesSpawn) are all DELETED. These
+ * tests cover the dispatch-side surface.
+ */
+describe('progress service — dispatch flow', () => {
   let projectRoot: string;
   beforeEach(() => {
     projectRoot = makeTempProject();
@@ -144,200 +147,16 @@ describe('progress service', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('invalid-json');
   });
-});
-
-describe('progress service — spawn record + auto-close helpers', () => {
-  let projectRoot: string;
-  beforeEach(() => {
-    projectRoot = realpathSync(mkdtempSync(join(tmpdir(), 'peaks-progress-spawn-')));
-    seedSessionBinding(projectRoot, '2026-06-03-session-progress01');
-  });
-  afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
-  });
 
   test('subAgentProgressPath is session-prefixed (matches the file the writer creates)', () => {
     // The exported path MUST agree with the path the read/write
-    // helpers resolve to. Without this, the watch banner would
-    // point at a file the writer never touches, and the user
-    // would `cat` an empty file.
+    // helpers resolve to. Without this, the dispatcher banner would
+    // point at a file the writer never touches.
     // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the
     // path is `.peaks/_sub_agents/<sid>/<filename>` (not the
     // pre-slice `.peaks/<sid>/system/<filename>`).
     expect(subAgentProgressPath(projectRoot)).toBe(
       join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json')
     );
-    expect(subAgentSpawnPath(projectRoot)).toBe(
-      join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'progress-spawn.json')
-    );
-  });
-
-  test('writeSpawnRecord + readSpawnRecord round-trip the launcher metadata', () => {
-    const written = writeSpawnRecord({
-      projectRoot,
-      pid: 12345,
-      platform: 'darwin',
-      command: 'osascript',
-      args: ['-e', 'tell application "Terminal" to do script "..."'],
-      reason: 'rd-slice started',
-      windowTitle: 'peaks-cli: sub-agent progress — rd-slice started'
-    });
-    expect(written).not.toBeNull();
-    expect(written?.version).toBe(1);
-    expect(written?.sessionId).toBe('2026-06-03-session-progress01');
-    expect(written?.pid).toBe(12345);
-    expect(written?.windowTitle).toBe('peaks-cli: sub-agent progress — rd-slice started');
-
-    const result = readSpawnRecord(projectRoot);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data).toEqual(written);
-      expect(result.path).toBe(subAgentSpawnPath(projectRoot));
-    }
-    expect(existsSync(subAgentSpawnPath(projectRoot))).toBe(true);
-  });
-
-  test('writeSpawnRecord with no session binding returns null (no on-disk file written)', () => {
-    const unbound = realpathSync(mkdtempSync(join(tmpdir(), 'peaks-progress-unbound-')));
-    try {
-      const written = writeSpawnRecord({
-        projectRoot: unbound,
-        pid: 1,
-        platform: 'linux',
-        command: 'xterm',
-        args: [],
-        windowTitle: 'peaks-cli'
-      });
-      expect(written).toBeNull();
-      // No session binding → no spawn record. The CLI layers
-      // surface this as a soft warning (see progress start).
-      expect(existsSync(join(unbound, '.peaks', '_sub_agents', 'unbound', 'progress-spawn.json'))).toBe(false);
-    } finally {
-      rmSync(unbound, { recursive: true, force: true });
-    }
-  });
-
-  test('readSpawnRecord returns no-spawn-record when the file is absent', () => {
-    const result = readSpawnRecord(projectRoot);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('no-spawn-record');
-  });
-
-  test('readSpawnRecord returns invalid-json when the file is corrupt', () => {
-    mkdirSync(join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01'), { recursive: true });
-    writeFileSync(subAgentSpawnPath(projectRoot), '{not-valid-json', 'utf8');
-    const result = readSpawnRecord(projectRoot);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe('invalid-json');
-  });
-
-  test('clearSpawnRecord removes the file and is idempotent', () => {
-    writeSpawnRecord({
-      projectRoot,
-      pid: 1,
-      platform: 'darwin',
-      command: 'osascript',
-      args: [],
-      windowTitle: 'peaks-cli'
-    });
-    expect(existsSync(subAgentSpawnPath(projectRoot))).toBe(true);
-    expect(clearSpawnRecord(projectRoot)).toBe(true);
-    expect(existsSync(subAgentSpawnPath(projectRoot))).toBe(false);
-    // Second clear is a no-op and returns false (nothing to
-    // clear). This matters because the watch-side auto-close
-    // calls clearSpawnRecord on every terminal-phase tick, and
-    // a second tick should be silent.
-    expect(clearSpawnRecord(projectRoot)).toBe(false);
-  });
-
-  test('phaseAutoClosesSpawn: finished and failed close, in-flight phases do NOT', () => {
-    // The rule is the user-facing contract for "the watch
-    // window closes itself". Only terminal phases close the
-    // window; in-flight phases (starting / running /
-    // verifying / completing / idle) keep it open.
-    expect(phaseAutoClosesSpawn('finished')).toBe(true);
-    expect(phaseAutoClosesSpawn('failed')).toBe(true);
-    expect(phaseAutoClosesSpawn('starting')).toBe(false);
-    expect(phaseAutoClosesSpawn('running')).toBe(false);
-    expect(phaseAutoClosesSpawn('verifying')).toBe(false);
-    expect(phaseAutoClosesSpawn('completing')).toBe(false);
-    expect(phaseAutoClosesSpawn('idle')).toBe(false);
-  });
-});
-
-describe('isRecentSpawn — Task-hook idempotency guard', () => {
-  const TEST_SESSION = '2026-06-03-session-progress01';
-
-  function writeSpawnRecordAt(projectRoot: string, spawnedAt: string): void {
-    const path = join(projectRoot, '.peaks', '_sub_agents', TEST_SESSION, 'progress-spawn.json');
-    mkdirSync(join(projectRoot, '.peaks', '_sub_agents', TEST_SESSION), { recursive: true });
-    const record = {
-      version: 1,
-      sessionId: TEST_SESSION,
-      pid: 12345,
-      platform: 'darwin',
-      command: 'osascript',
-      args: ['-e', 'tell app "Terminal" to do script "..."'],
-      spawnedAt,
-      windowTitle: 'peaks-cli: sub-agent progress'
-    };
-    writeFileSync(path, JSON.stringify(record), 'utf8');
-  }
-
-  test('returns no-binding when no session is bound', () => {
-    const project = makeTempProject();
-    // intentionally do not seed the session binding
-    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
-    expect(result.recent).toBe(false);
-    expect(result.reason).toBe('no-binding');
-  });
-
-  test('returns no-spawn-record when no spawn record exists', () => {
-    const project = makeTempProject();
-    seedSessionBinding(project, TEST_SESSION);
-    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
-    expect(result.recent).toBe(false);
-    expect(result.reason).toBe('no-spawn-record');
-  });
-
-  test('returns recent-spawn when the record is younger than the TTL', () => {
-    const project = makeTempProject();
-    seedSessionBinding(project, TEST_SESSION);
-    writeSpawnRecordAt(project, new Date(Date.now() - 30_000).toISOString());
-    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
-    expect(result.recent).toBe(true);
-    expect(result.reason).toBe('recent-spawn');
-    expect(result.ageMs).toBeGreaterThanOrEqual(30_000);
-    expect(result.ageMs).toBeLessThan(5 * 60 * 1000);
-  });
-
-  test('returns stale-spawn when the record is older than the TTL (next start re-spawns)', () => {
-    const project = makeTempProject();
-    seedSessionBinding(project, TEST_SESSION);
-    writeSpawnRecordAt(project, new Date(Date.now() - 10 * 60 * 1000).toISOString());
-    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
-    expect(result.recent).toBe(false);
-    expect(result.reason).toBe('stale-spawn');
-    expect(result.ageMs).toBeGreaterThanOrEqual(10 * 60 * 1000);
-  });
-
-  test('honors a custom TTL (e.g. 10 minutes for long sub-agent slices)', () => {
-    const project = makeTempProject();
-    seedSessionBinding(project, TEST_SESSION);
-    writeSpawnRecordAt(project, new Date(Date.now() - 7 * 60 * 1000).toISOString());
-    // 5-min TTL: stale
-    expect(isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000).recent).toBe(false);
-    // 10-min TTL: still recent
-    expect(isRecentSpawn(project, () => Date.now(), 10 * 60 * 1000).recent).toBe(true);
-  });
-
-  test('treats future-dated records (clock skew) as recent (no double-spawn)', () => {
-    const project = makeTempProject();
-    seedSessionBinding(project, TEST_SESSION);
-    writeSpawnRecordAt(project, new Date(Date.now() + 60_000).toISOString());
-    const result = isRecentSpawn(project, () => Date.now(), 5 * 60 * 1000);
-    expect(result.recent).toBe(true);
-    expect(result.reason).toBe('recent-spawn');
-    expect(result.ageMs).toBe(0); // clamped to 0 (no negative age exposed)
   });
 });

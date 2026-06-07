@@ -65,11 +65,11 @@ describe('ide-registry — test seams', () => {
       envVar: 'CURSOR_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      subAgentToolMatcher: 'SubAgent',
       subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
+       capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+
       installHints: [],
-      capabilities: { gateEnforce: true, progressStart: false, statusline: true, mcpInstall: false }
     };
     _setAdapterForTesting('cursor', fakeAdapter);
     expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor']);
@@ -91,11 +91,11 @@ describe('ide-registry — test seams', () => {
       envVar: 'CURSOR_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      subAgentToolMatcher: 'SubAgent',
       subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
+       capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+
       installHints: [],
-      capabilities: { gateEnforce: true, progressStart: false, statusline: false, mcpInstall: true }
     });
     expect(listAdapterIds()).toContain('cursor');
     _resetAdaptersForTesting();

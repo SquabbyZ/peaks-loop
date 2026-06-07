@@ -24,8 +24,6 @@ export type IdeId =
 export interface IdeCapabilities {
   /** peaks gate enforce 是否适用该 IDE(必备) */
   readonly gateEnforce: true;
-  /** peaks progress start(sub-agent 派发)是否适用 */
-  readonly progressStart: boolean;
   /** peaks statusline 状态栏是否适用 */
   readonly statusline: boolean;
   /** peaks mcp install 是否适用 */
@@ -59,22 +57,9 @@ export interface IdeAdapter {
   /** hook 数组元素的 matcher 字段(工具名匹配),例如 'Bash' / 'Task' / 'terminal' */
   readonly toolMatcher: string;
   /**
-   * The tool name used by this IDE to invoke a sub-agent (e.g. Claude Code
-   * uses 'Task' to dispatch a sub-agent, Trae may use a different name).
-   * Consumed by the `peaks progress start` hook entry so each IDE self-
-   * reports its sub-agent tool name. Additive on `toolMatcher`: the
-   * `toolMatcher` field still drives the gate-enforce hook entry, this
-   * one drives the sub-agent-progress hook entry.
-   *
-   * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple.
-   */
-  readonly subAgentToolMatcher: string;
-  /**
    * Per-IDE sub-agent dispatcher. The `peaks sub-agent dispatch` CLI reads
    * this field, calls `supportsRole` + `buildToolCall`, and returns the
-   * resulting tool-call descriptor in the JSON envelope. Additive on
-   * `subAgentToolMatcher`: the matcher still drives the gate-enforce hook
-   * entry; this field drives the runtime sub-agent dispatch surface.
+   * resulting tool-call descriptor in the JSON envelope. Encapsulates the per-IDE sub-agent dispatch surface (slice #009). The dispatcher's `buildToolCall` returns the IDE-native tool-call descriptor at runtime.
    *
    * Added in slice 2026-06-07-sub-agent-dispatch-decouple. See PRD #002
    * G1 (AC-1, AC-2) + [[slim-ideadapter-shape-is-the-contract]].

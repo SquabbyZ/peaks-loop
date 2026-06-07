@@ -34,20 +34,20 @@ async function readStdin(): Promise<string> {
  *   1. 读 stdin
  *   2. auto-detect 来源 IDE(env / stdin shape / cwd)
  *   3. 归一化到 peaks canonical schema
- *   4. dispatch 到内部 peaks 逻辑(目前:gate enforce 或 progress start)
+ *   4. dispatch 到内部 peaks 逻辑(目前:gate enforce)
  *   5. 用 IDE 期望的格式发回决策
  *
- * Slice #1 阶段:peaks hook handle 与 peaks gate enforce / peaks progress start
+ * Slice #1 阶段:peaks hook handle 与 peaks gate enforce
  * 并存(后者内部走 hook-translator)。Slice #2 把 IDE settings 改成调用
  * peaks hook handle 即可。Slice #3 删除旧命令。
  */
 export function registerHookHandleCommand(program: Command, io: ProgramIO): void {
-  const hook = program.command('hook').description('Peaks 自有 hook 协议单一入口（slice #1 新增；后续 slice 将逐步替代 gate enforce / progress start）');
+  const hook = program.command('hook').description('Peaks 自有 hook 协议单一入口（slice #1 新增；后续 slice 将逐步替代 gate enforce）');
 
   addJsonOption(
     hook
       .command('handle')
-      .description('Read stdin hook payload, auto-detect IDE, dispatch to peaks gate/progress logic, output IDE-formatted decision')
+      .description('Read stdin hook payload, auto-detect IDE, dispatch to peaks gate-enforce logic, output IDE-formatted decision')
       .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
   ).action(async (options: HookHandleOptions) => {
     try {
@@ -85,7 +85,7 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         rawPayload: parsed
       });
 
-      // Dispatch by toolName. For slice #1, we only handle Bash and Task.
+      // Dispatch by toolName. For slice #1+, we only handle Bash. Task tool sub-agent dispatch goes through `peaks sub-agent dispatch` (slice #009) and does not need a hook entry.
       // Other tools: allow (no-op; future events will be added here).
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
         // Lazy import to avoid circular: peaks gate enforce logic
@@ -99,11 +99,7 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
           }
           return;
         }
-      } else if (hook.toolName === 'Task') {
-        // peaks progress start is a fire-and-forget; do not block hook.handle.
-        // Slice #1: simply acknowledge (no terminal spawn from hook handle itself;
-        // the legacy `peaks progress start` command still does that).
-      }
+        }
 
       const allow = formatDecisionResponse(ide, 'allow');
       io.stdout(allow.stdout);

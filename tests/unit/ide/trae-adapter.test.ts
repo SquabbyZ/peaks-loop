@@ -46,12 +46,6 @@ describe('TRAE_ADAPTER — capabilities', () => {
   test('gateEnforce is true (per the PRD R-2 hard rule — every adapter enforces gates)', () => {
     expect(TRAE_ADAPTER.capabilities.gateEnforce).toBe(true);
   });
-
-  test('progressStart and statusline are enabled in slice #2', () => {
-    expect(TRAE_ADAPTER.capabilities.progressStart).toBe(true);
-    expect(TRAE_ADAPTER.capabilities.statusline).toBe(true);
-  });
-
   test('mcpInstall is disabled for Trae (Trae MCP integration is unverified at slice time)', () => {
     // This is the safe default until a Trae user dogfoodes the MCP apply path.
     // Slice #1 RD marked MCP as a future slice; the Trae adapter is conservative.

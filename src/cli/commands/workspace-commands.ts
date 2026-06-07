@@ -597,8 +597,7 @@ export async function resolveFirstTimeHooksInstall(
   process.stderr.write(
     '\nPeaks-Cli: install the PreToolUse hooks for this project now?\n' +
       '  → Bash matcher: `peaks gate enforce` (SOP gate enforcement)\n' +
-      '  → Task matcher: `peaks progress start` (auto-spawn sub-agent progress terminal)\n' +
-      'Both run on every Claude Code tool call without further prompting. The decision is sticky\n' +
+ 'The gate-enforce hook runs on every Claude Code tool call without further prompting. The decision is sticky\n' +
       '(recorded in .peaks/.peaks-init-hooks-decision.json) and re-runs of `workspace init` will\n' +
       'honour it. Re-run with --install-hooks=skip or --install-hooks=auto to override.\n\n' +
       'Install now? [Y/n]: '

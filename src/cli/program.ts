@@ -10,7 +10,9 @@ import { registerCodegraphCommands } from './commands/codegraph-commands.js';
 import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerOpenSpecCommands } from './commands/openspec-commands.js';
 import { registerPerfCommands } from './commands/perf-commands.js';
-import { registerProgressCommands } from './commands/progress-commands.js';
+// Slice #014: peaks progress * CLI surface deleted (replaced by sub-agent
+// dispatch + heartbeat, slice #009 + #010). Sub-agent progress is
+// surfaced via `peaks sub-agent dispatch|heartbeat|share`.
 import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
@@ -92,7 +94,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerMcpCommands(program, io);
   registerOpenSpecCommands(program, io);
   registerPerfCommands(program, io);
-  registerProgressCommands(program, io);
   registerProjectCommands(program, io);
   registerRequestCommands(program, io);
   registerScanCommands(program, io);

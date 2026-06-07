@@ -1,39 +1,36 @@
 /**
- * Sub-agent progress surfacing for the RD/QA sub-agents in
- * `peaks-solo`'s Swarm phase. A sub-agent (or the LLM via the
- * `peaks progress step` CLI) writes a stable JSON file at
- * `.peaks/_sub_agents/<sid>/subagent-progress.json`. The user-side
- * `peaks progress watch` CLI polls this file in a separate
- * terminal tab and renders elapsed / spinner / sub-step. The
- * `peaks progress start` CLI auto-spawns the watch in a new
- * terminal window so the user does not have to remember to do
- * it.
+ * Sub-agent progress file for the RD/QA sub-agents in `peaks-solo`'s
+ * Swarm phase. A sub-agent (or the LLM via the `peaks progress step`
+ * CLI) writes a stable JSON file at
+ * `.peaks/_sub_agents/<sid>/subagent-progress.json`. The dispatch +
+ * heartbeat flow (slice #009 + #010) reads this file as the source
+ * of truth for "is this sub-agent still alive?".
  *
  * Token cost design (the binding constraint of this feature):
  *   - The LLM side (step CLI) writes the file at most once per
  *     phase transition. That is approximately one Bash call per
  *     RD/QA sub-step. In a typical 5-step sub-agent slice the
  *     cost is < 10 output tokens.
- *   - The watch side polls a local file, not the LLM. Zero token
- *     cost.
- *   - The auto-spawn side (start CLI) is invoked once per
- *     session by the LLM at the first phase transition. One
- *     Bash call. The user closes the new terminal at any time;
- *     no further side effects.
+ *   - The dispatch side polls the file via `peaks sub-agent
+ *     heartbeat`, not the LLM. Zero token cost.
  *
- * Net: the LLM pays a one-time < 10 token cost per slice to
- * give the user real-time progress visibility. The user pays
- * zero manual setup.
+ * Slice #014: the legacy `peaks progress start|watch|close` auto-spawn
+ * surface is DELETED. With dispatch + heartbeat (slice #009 + #010), the
+ * same sub-agent now runs in the same IDE/terminal as the main loop, so
+ * a separate watch window is dead weight. The only remaining consumer
+ * of this module is the `peaks progress step` write path + the
+ * dispatcher's read-back of the progress file.
  *
  * This module is pure filesystem. It does NOT import the LLM
  * harness, does NOT spawn terminals, and does NOT talk to any
- * IPC. Those are concerns of the CLI layer (../cli/commands/
- * progress-commands.ts and hooks-settings-service.ts).
+ * IPC. The dispatch-side consumption is in
+ * `src/services/dispatch/sub-agent-dispatcher.ts` and reads the
+ * progress file via `subAgentProgressPath`.
  */
 
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { getSessionId, getSessionIdCanonical } from '../session/session-manager.js';
+import { getSessionIdCanonical } from '../session/session-manager.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
 // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the per-session
@@ -45,7 +42,6 @@ import { findProjectRoot } from '../config/config-safety.js';
 // --apply` (see `migrateSubAgentState` in reconcile-service.ts).
 const SUB_AGENTS_DIR = '_sub_agents';
 const PROGRESS_FILE_NAME = 'subagent-progress.json';
-const SPAWN_FILE_NAME = 'progress-spawn.json';
 
 export type SubAgentProgressPhase = 'starting' | 'running' | 'verifying' | 'completing' | 'finished' | 'failed' | 'idle';
 
@@ -254,188 +250,13 @@ export function resolveProgressProjectRoot(override: string | undefined, cwd: st
 /**
  * Compute the absolute path to the progress file for a given
  * project root, for callers that need to display / fs.watch it
- * (the watch banner, the auto-spawn helper, the close command).
- * This MUST agree with `progressPath` — the read/write helpers
- * resolve through `progressPath` and use the session sub-directory,
- * so the displayed path does too. Without this agreement the
- * watch banner would point at a path the file is never written
- * to, and the user would `cat` an empty file.
+ * (the dispatcher's read-back, the LLM-side step write banner,
+ * etc.). This MUST agree with `progressPath` — the read/write
+ * helpers resolve through `progressPath` and use the session
+ * sub-directory, so the displayed path does too. Without this
+ * agreement the dispatcher's read-back would point at a path
+ * the writer never touches.
  */
 export function subAgentProgressPath(projectRoot: string): string {
   return progressPath(resolve(projectRoot));
-}
-
-/**
- * Compute the absolute path to the spawn record for a given
- * project root. Exported so `peaks progress close` (and the
- * start command's success payload) can advertise the on-disk
- * location without re-deriving the session sub-directory.
- */
-export function subAgentSpawnPath(projectRoot: string): string {
-  const sessionId = getSessionIdCanonical(projectRoot);
-  const subDir = sessionId ?? 'unbound';
-  return join(projectRoot, '.peaks', SUB_AGENTS_DIR, subDir, SPAWN_FILE_NAME);
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Spawn record: which terminal process did we open on behalf of
-// this session, so we can kill it on completion. This file is
-// separate from the progress JSON so the watch-side read on the
-// progress file does not have to also parse the spawn record,
-// and so `peaks progress close` can be invoked without
-// reading or writing the progress file at all.
-// ─────────────────────────────────────────────────────────────────────
-
-export type ProgressSpawnRecord = {
-  version: 1;
-  sessionId: string;
-  pid: number;
-  platform: NodeJS.Platform;
-  command: string;
-  args: string[];
-  spawnedAt: string;
-  reason?: string;
-  /** The title we asked the terminal emulator to set. */
-  windowTitle: string;
-};
-
-function spawnRecordPath(projectRoot: string): string {
-  const sessionId = getSessionIdCanonical(projectRoot);
-  const subDir = sessionId ?? 'unbound';
-  return join(projectRoot, '.peaks', SUB_AGENTS_DIR, subDir, SPAWN_FILE_NAME);
-}
-
-export type WriteSpawnRecordOptions = {
-  projectRoot: string;
-  pid: number;
-  platform: NodeJS.Platform;
-  command: string;
-  args: string[];
-  reason?: string;
-  windowTitle: string;
-};
-
-export function writeSpawnRecord(options: WriteSpawnRecordOptions): ProgressSpawnRecord | null {
-  const sessionId = getSessionIdCanonical(options.projectRoot);
-  if (sessionId === null) return null;
-  const now = nowIso();
-  const record: ProgressSpawnRecord = {
-    version: 1,
-    sessionId,
-    pid: options.pid,
-    platform: options.platform,
-    command: options.command,
-    args: options.args,
-    spawnedAt: now,
-    ...(options.reason !== undefined ? { reason: options.reason } : {}),
-    windowTitle: options.windowTitle
-  };
-  const path = spawnRecordPath(options.projectRoot);
-  ensureParentDir(path);
-  writeFileSync(path, JSON.stringify(record, null, 2) + '\n', 'utf8');
-  return record;
-}
-
-export type ReadSpawnRecordResult =
-  | { ok: true; data: ProgressSpawnRecord; path: string }
-  | { ok: false; reason: 'no-binding' | 'no-spawn-record' | 'invalid-json' };
-
-export function readSpawnRecord(projectRoot: string): ReadSpawnRecordResult {
-  const sessionId = getSessionIdCanonical(projectRoot);
-  if (sessionId === null) return { ok: false, reason: 'no-binding' };
-  const path = spawnRecordPath(projectRoot);
-  if (!existsSync(path)) return { ok: false, reason: 'no-spawn-record' };
-  try {
-    const data = JSON.parse(readFileSync(path, 'utf8')) as ProgressSpawnRecord;
-    if (data.version !== 1 || typeof data.pid !== 'number') {
-      return { ok: false, reason: 'invalid-json' };
-    }
-    return { ok: true, data, path };
-  } catch {
-    return { ok: false, reason: 'invalid-json' };
-  }
-}
-
-/**
- * Idempotency check for the `peaks progress start` CLI (and the Task-tool
- * PreToolUse hook that fires it on every Task call). Returns `true` when a
- * recent spawn record exists for this project's session, meaning a watch
- * window was opened within the last `ttlMs` milliseconds. The LLM-side
- * caller treats `true` as "no-op — a watch is already running somewhere".
- *
- * Why TTL instead of pid liveness: the spawned terminal's pid is the
- * osascript/gnome-terminal process, which exits as soon as it spawns the
- * nested shell. Checking pid liveness gives false negatives (the process
- * is gone by design). The spawn record is the canonical "watch was opened
- * for this session" marker. After `ttlMs` the record is treated as stale
- * (e.g. the user closed the window long ago) and a fresh start proceeds.
- *
- * `ttlMs` defaults to 5 minutes — long enough to cover a typical sub-agent
- * slice (RD parallel fan-out + QA verdict), short enough that a user who
- * closed the window gets a fresh one on the next Task call.
- */
-export type RecentSpawnCheck = {
-  recent: boolean;
-  reason: 'recent-spawn' | 'no-spawn-record' | 'no-binding' | 'invalid-json' | 'stale-spawn' | 'process-dead';
-  /** When reason is 'recent-spawn' or 'stale-spawn', the spawn record. */
-  record?: ProgressSpawnRecord;
-  ageMs?: number;
-};
-
-export function isRecentSpawn(projectRoot: string, now: () => number = Date.now, ttlMs: number = 5 * 60 * 1000): RecentSpawnCheck {
-  const result = readSpawnRecord(projectRoot);
-  if (!result.ok) {
-    return { recent: false, reason: result.reason };
-  }
-  const record = result.data;
-  const spawnedMs = Date.parse(record.spawnedAt);
-  if (Number.isNaN(spawnedMs)) {
-    // Treat unparseable timestamps as a stale record so the next start
-    // proceeds normally. This is the conservative choice — the alternative
-    // (treating unparseable as "always recent") would block legitimate
-    // re-spawns forever.
-    return { recent: false, reason: 'stale-spawn', record };
-  }
-  const ageMs = now() - spawnedMs;
-  if (ageMs < 0) {
-    // Clock skew or future-dated record: trust the record as "recent" so
-    // we do not double-spawn. Same conservative default as a 0-age record.
-    return { recent: true, reason: 'recent-spawn', record, ageMs: 0 };
-  }
-  if (ageMs >= ttlMs) {
-    return { recent: false, reason: 'stale-spawn', record, ageMs };
-  }
-  return { recent: true, reason: 'recent-spawn', record, ageMs };
-}
-
-export function clearSpawnRecord(projectRoot: string): boolean {
-  const path = spawnRecordPath(projectRoot);
-  if (!existsSync(path)) return false;
-  try {
-    unlinkSync(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export type PhaseClosingTrigger = 'finished' | 'failed';
-
-const PHASES_THAT_AUTO_CLOSE: ReadonlySet<SubAgentProgressPhase> = new Set<SubAgentProgressPhase>([
-  'finished',
-  'failed'
-]);
-
-/**
- * True if a transition into the given phase should auto-close
- * the spawned watch window. `finished` and `failed` both
- * indicate the sub-agent is done; a `blocked` verdict on a
- * `finished` step is intentionally NOT a close trigger
- * because a blocked slice usually means the user needs to
- * read the watch output before deciding what to do. The CLI
- * layer reads `data.current.phase`, not the verdict, so this
- * helper is the only close-decision source of truth.
- */
-export function phaseAutoClosesSpawn(phase: SubAgentProgressPhase): boolean {
-  return PHASES_THAT_AUTO_CLOSE.has(phase);
 }

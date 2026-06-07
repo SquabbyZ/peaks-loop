@@ -58,11 +58,10 @@ export const TRAE_ADAPTER: IdeAdapter = {
   envVar: 'TRAE_PROJECT_DIR',
   hookEvent: 'beforeToolCall', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture at tests/fixtures/trae/trae-1x-payload.json
   toolMatcher: 'terminal', // VERIFIED against Trae 1.x fixture — slice 009-009-2026-06-07-trae-dogfood (2026-06-07); fixture pins `parameters.tool: 'terminal'`
-  subAgentToolMatcher: 'Task', // UNVERIFIED — Trae's sub-agent tool name is unknown; matches the prior hardcoded 'Task' literal so byte-level install output is unchanged. Will be dogfooded when a real Trae 1.x install dispatches a sub-agent.
   // Slice #009: Trae's sub-agent dispatcher is UNVERIFIED — Trae sub-agent
   // tool name TBD on real dogfood; byte-level identical to claude-code by
-  // design so the slice #008 `subAgentToolMatcher: 'Task'` install entry
-  // stays byte-stable. Awaiting real Trae 1.x dogfood to confirm/replace.
+  // design so the dispatcher shape is uniform across both adapters. Awaiting
+  // real Trae 1.x dogfood to confirm/replace.
   subAgentDispatcher: traeSubAgentDispatcher,
   // Slice #010 G9: Trae supports `beforeToolCall` which can wrap
   // `peaks sub-agent-dispatch-guard`. Opt in (matches the byte-stable
@@ -73,7 +72,6 @@ export const TRAE_ADAPTER: IdeAdapter = {
   ],
   capabilities: {
     gateEnforce: true,
-    progressStart: true,
     statusline: true,
     // Slice #007-007-2026-06-07-mcp-decouple: mcpInstall is LOAD-BEARING.
     // The 4 MCP capabilities (playwright, chrome-devtools, figma, context7)

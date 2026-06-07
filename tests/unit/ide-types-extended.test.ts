@@ -4,15 +4,18 @@ import { TRAE_ADAPTER } from '../../src/services/ide/adapters/trae-adapter.js';
 import { _setAdapterForTesting, getAdapter, _resetAdaptersForTesting } from '../../src/services/ide/ide-registry.js';
 
 describe('IdeAdapter extended with subAgentDispatcher (G1 AC-2)', () => {
-  it('claude-code adapter has subAgentDispatcher field after subAgentToolMatcher', () => {
-    expect(CLAUDE_CODE_ADAPTER.subAgentToolMatcher).toBe('Task');
+  it('claude-code adapter has subAgentDispatcher field', () => {
+    // Slice #014: `subAgentToolMatcher` field is REMOVED from IdeAdapter
+    // (the legacy progress-start hook entry is no longer installed; the
+    // dispatch field's matcher is computed at dispatch time, not at
+    // adapter-declaration time). The sub-agent dispatcher field itself
+    // is preserved.
     expect(CLAUDE_CODE_ADAPTER.subAgentDispatcher).toBeDefined();
     expect(CLAUDE_CODE_ADAPTER.subAgentDispatcher.label).toBe('claude-code');
     expect(CLAUDE_CODE_ADAPTER.subAgentDispatcher.supportsRole('rd')).toBe(true);
   });
 
   it('trae adapter has subAgentDispatcher (UNVERIFIED placeholder)', () => {
-    expect(TRAE_ADAPTER.subAgentToolMatcher).toBe('Task');
     expect(TRAE_ADAPTER.subAgentDispatcher).toBeDefined();
     expect(TRAE_ADAPTER.subAgentDispatcher.label).toBe('trae');
   });

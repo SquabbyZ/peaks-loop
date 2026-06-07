@@ -34,7 +34,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   envVar: 'CLAUDE_PROJECT_DIR',
   hookEvent: 'PreToolUse',
   toolMatcher: 'Bash',
-  subAgentToolMatcher: 'Task',
   // Slice #009: Claude Code uses the `Task` tool for sub-agent dispatch.
   // The CLI calls `claudeCodeSubAgentDispatcher.buildToolCall` to construct
   // the exact args shape the `Task` tool expects.
@@ -48,7 +47,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   ],
   capabilities: {
     gateEnforce: true,
-    progressStart: true,
     statusline: true,
     mcpInstall: true,
   },
