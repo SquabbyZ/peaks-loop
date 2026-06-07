@@ -355,3 +355,29 @@ Use `peaks capabilities --source access-repo --json` and `peaks capabilities --s
 Do not own backend architecture, non-UI implementation, runtime hook installation, or final QA acceptance.
 
 Reference: `references/workflow.md`.
+
+## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+
+> UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifacts (design drafts, component scaffolds) can be large binary-ish files; the 1MB artifact size limit (G7.3) applies. Detailed: `skills/peaks-solo/references/context-governance.md`.
+
+### G7 — UI sub-agent protocol
+
+1. Write design draft / component scaffold to `.peaks/_sub_agents/<sid>/artifacts/<rid>-ui-001.md` (path convention mandatory; size ≤ 1MB).
+2. Call `peaks sub-agent dispatch --write-artifact <path>` to register ArtifactMeta.
+3. Main LLM sees metadata-only view (~200 chars/UI sub-agent).
+
+### G8.6 — UI sub-agent prompt template
+
+```
+You are sub-agent role ui, batch <batchId>.
+
+PROTOCOL (mandatory):
+1. On start: `peaks sub-agent shared-read --batch <batchId> --json`.
+2. While running: write share entry `peaks sub-agent share --key "ui.design-blocker" --value {"reason": "..."}`.
+3. On completion: `peaks sub-agent share --key "ui.completed" --value <artifact-meta>` BEFORE final heartbeat (RL-23).
+```
+
+### G9 — UI prompt size self-check
+
+Same as RD/QA. UI design descriptions can grow large; use `--use-headroom` proactively.
+

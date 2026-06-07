@@ -250,3 +250,20 @@ find .peaks/<id>/txt/ -type f | sort
 Do not choose the refactor plan or install runtime resources. Use artifacts produced by other skills and CLI reports.
 
 Reference: `references/context-capsule.md`.
+
+## Sub-agent context governance (G8 + G9 — slice #010, TXT reducer view)
+
+> peaks-txt is the TXT reducer; it sees the metadata-only view from G7 + the share entries from G8. The TXT handoff summarizes the slice at the slice-close gate. Detailed: `skills/peaks-solo/references/context-governance.md`.
+
+### G8 — TXT reducer sees share entries on completion
+
+When TXT reduces a batch, it consumes:
+- The dispatch record's `artifactMetas[]` (G7.4.d) — paths + sizes + sha256s + summaries.
+- The shared channel's entries (G8) — sibling sub-agent status (`<role>.completed`, `<role>.found-blocker`).
+
+The TXT handoff summarizes the slice by listing the artifact metas + the share entries that arrived during the batch. Both are dispatcher-mediated (NOT inlined from the sub-agent prompt).
+
+### G9 — TXT prompt size self-check
+
+Same G9 threshold table. TXT handoff messages can grow large when the slice has many batches; use `--use-headroom` proactively for handoff prompts > 50%.
+

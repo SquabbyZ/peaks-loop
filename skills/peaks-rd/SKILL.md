@@ -795,3 +795,41 @@ Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. 
 Do not bypass the parallel review fan-out when the slice has a code-review / security-review / perf-baseline surface — see `## Parallel review fan-out` above for the contract. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
 
 Reference: `references/refactor-workflow.md`.
+
+## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+
+> Slice #010 implements the G7 + G7.7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-solo/references/context-governance.md` + `skills/peaks-solo/references/headroom-integration.md`.
+
+### G7 — RD sub-agent protocol
+
+1. Write artifact to `.peaks/_sub_agents/<sid>/artifacts/<rid>-rd-001.md` (path convention mandatory).
+2. Call `peaks sub-agent dispatch --write-artifact <path>` (or via the dispatch CLI flag) to register ArtifactMeta.
+3. The dispatch record stores only `path + size + sha256 + status + contentInlined:false + summary` — main LLM sees ~200 chars/sub-agent.
+
+### G8.6 — RD sub-agent prompt template (mandatory)
+
+Sub-agent prompts dispatched by peaks-rd must include:
+
+```
+You are sub-agent role rd, batch <batchId>.
+
+PROTOCOL (mandatory):
+1. On start: peek at shared channel: `peaks sub-agent shared-read --batch <batchId> --json`
+   to see what other sub-agents in this batch have shared so far.
+2. While running: if you find a blocker or partial work, write share entry
+   `peaks sub-agent share --key "rd.found-blocker" --value {"reason": "..."}`.
+3. On completion: write share entry
+   `peaks sub-agent share --key "rd.completed" --value <artifact-meta>` BEFORE the
+   final `peaks sub-agent heartbeat --status done` heartbeat (RL-23 strong constraint).
+4. The shared channel is your only visibility into sibling sub-agents.
+   Do NOT attempt to read other sub-agents' dispatch records directly.
+```
+
+### G9 — RD prompt size self-check
+
+Before dispatching a sub-agent, RD self-checks prompt size:
+- < 50%: pass through.
+- 50-75%: soft warn (consider `--use-headroom`).
+- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (mandatory suggest `--use-headroom`).
+- 80%+: reject (CLI 兜底 returns `code: "PROMPT_TOO_LARGE"`). Use `--force` at CLI only when overriding; hook layer will still reject (RL-30).
+
