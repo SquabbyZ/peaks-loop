@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-07T13:38:00.000Z",
+  "updatedAt": "2026-06-07T15:25:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -284,11 +284,27 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
         "updatedAt": "2026-06-07"
+      },
+      {
+        "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
+        "kind": "lesson",
+        "description": "Commander.js --no-X flags set options.X = false (NOT options.noX = true). Reading options.noX === true is always wrong after a --no- prefix. Service-layer unit tests alone won't catch it; need e2e CLI-spawning tests. Slice #013 fix: options.noProgress === true → options.progress === false (+ type rename).",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
+        "updatedAt": "2026-06-07"
       }
     ]
   },
   "warm": {
     "project": [
+      {
+        "name": "peaks-companion-watcher-ecs-url-config",
+        "kind": "project",
+        "description": "Planned iteration — peaks-cli gains a 'watcher' capability that pushes LLM-CLI session events to a user-configured ECS relay URL. v0 is a single config item (companion.ecsUrl) in ~/.peaks/config.json; watcher code is not opened yet.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-companion-watcher-ecs-url-config.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-07"
+      },
       {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
