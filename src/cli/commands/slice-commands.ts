@@ -8,7 +8,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
   const slice = program.command('slice').description(
     'Run slice-level checks (TDD micro-cycle boundary, see ' +
       'skills/peaks-solo/references/micro-cycle.md). `peaks slice check` bundles ' +
-      'tsc + vitest + 3-way review fan-out + gate verify-pipeline. ' +
+      'tsc + vitest (changed-only by default) + 3-way review fan-out + gate verify-pipeline. ' +
       'Boundaries only; do NOT run inside a micro-cycle.'
   );
 
@@ -17,22 +17,26 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .command('check')
       .description(
         'Boundary check for a slice (post-micro-cycle, pre-peaks-qa). ' +
-          'Runs 4 stages in order: typecheck → unit-tests → review-fanout → ' +
-          'gate-verify-pipeline. Each stage reports pass / fail / skipped. ' +
+          'Runs 4 stages in order: typecheck → unit-tests (changed-only by default; ' +
+          'use --run-tests for the full suite, or --skip-tests to opt out) → ' +
+          'review-fanout → gate-verify-pipeline. ' +
+          'Each stage reports pass / fail / skipped. ' +
           'Exit 0 only if every stage passes or is skipped.'
       )
       .option('--project <path>', 'target project root', '.')
       .option('--rid <rid>', 'request id; defaults to the active current-change binding')
       .option('--refresh-fanout', 're-run the 3-way review fan-out (peaks-rd) even if the review files already exist', false)
-      .option('--skip-tests', 'skip the unit-test stage (e.g. docs-only slices)', false)
-      .option('--allow-pre-existing-failures', 'opt-in: if the unit-test stage fails, report it as `skipped` with a reason naming the failure count (useful when the repo has unrelated pre-existing failures; the long-term fix is to .skip or coverage.exclude those tests)', false)
-  ).action(async (options: { project: string; rid?: string; refreshFanout?: boolean; skipTests?: boolean; allowPreExistingFailures?: boolean; json?: boolean }) => {
+      .option('--run-tests', 'opt in to the FULL test suite at the boundary (default is the changed-only suite via `vitest run --changed`); use the peaks-solo-test skill to run the full suite standalone', false)
+      .option('--skip-tests', 'skip the unit-test stage entirely (e.g. docs-only slices); use the peaks-solo-test skill to run the full suite manually if you want a separate check', false)
+      .option('--allow-pre-existing-failures', 'opt-in: if the unit-test stage fails, report it as `skipped` with a reason naming the failure count (useful when the repo has unrelated pre-existing failures; the long-term fix is to .skip or coverage.exclude those tests). Only meaningful with --run-tests or the default changed-only mode.', false)
+  ).action(async (options: { project: string; rid?: string; refreshFanout?: boolean; runTests?: boolean; skipTests?: boolean; allowPreExistingFailures?: boolean; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const result = await sliceCheck({
         projectRoot,
         ...(options.rid ? { rid: options.rid } : {}),
         refreshFanout: options.refreshFanout === true,
+        runTests: options.runTests === true,
         skipTests: options.skipTests === true,
         allowPreExistingFailures: options.allowPreExistingFailures === true
       });

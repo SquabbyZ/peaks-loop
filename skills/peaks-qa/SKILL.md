@@ -356,7 +356,10 @@ ls .peaks/<changeId>/qa/test-cases/<rid>.md
 ```bash
 # Run the project's test command. Do NOT skip this. Writing test cases is not enough.
 # Example (adapt to project):
-npx vitest run --reporter=verbose 2>&1 | tail -30
+# QA validation defaults to the CHANGED-ONLY suite (matches `peaks slice check` default as of run 017).
+# Use the full suite only when the slice is structurally significant or when the user explicitly asks
+# for it (e.g. via /peaks-solo-test or `peaks slice check --run-tests`).
+npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 # Expected: exit code 0, actual test output with pass/fail counts
 # "0 tests executed" or "no test files found" → BLOCKED. Tests were written but not run.
 # Record the raw test output and link it in the test report.
@@ -504,7 +507,7 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 **Acceptance linkage (MANDATORY)** — every test case MUST have an `**Acceptance:**` field that references one or more acceptance items from the PRD by their position-based IDs (A1 = first bullet, A2 = second, …). The `peaks scan acceptance-coverage --rid <rid> --project <repo>` command parses both the PRD and this file, builds the coverage map, and fails the QA `verdict-issued` gate if any acceptance item has zero linked test cases. Test cases that genuinely have no acceptance owner (e.g. defense-in-depth regressions) should still include `- **Acceptance:** —` and explain in the **Evidence** field; the coverage report flags these as `unlinkedTestCases` for review without auto-blocking.
 
-**Test-case execution**: Run the project's test command and record results against each generated test case. If the project uses Jest, run `npx jest --coverage` and link the coverage report. If the project uses Vitest, run `npx vitest run --coverage`. Record the coverage percentage for changed files in the test report.
+**Test-case execution**: Run the project's test command and record results against each generated test case. If the project uses Jest, run `npx jest --coverage` and link the coverage report. If the project uses Vitest, run `npx vitest run --changed --coverage` by default (matches the new `peaks slice check` default as of run 017); use the full suite `npx vitest run --coverage` only when the slice warrants a deeper regression check, or when invoked via /peaks-solo-test or `peaks slice check --run-tests`. Record the coverage percentage for changed files in the test report.
 
 ## Mandatory test-report output
 

@@ -89,11 +89,13 @@ peaks slice check [--rid <rid>] [--project <path>] [--json]
 
 这个命令编排：
 1. `npx tsc --noEmit`（typecheck）
-2. `npx vitest run`（全 suite）
+2. `npx vitest run --changed`（默认；changed-only suite，只跑 git 改动相关的 test，~1-3s）。要全量请加 `--run-tests`；要彻底跳过请加 `--skip-tests`。
 3. 3-way fan-out（code-review + security-review + perf-baseline）
 4. `peaks workflow verify-pipeline --rid <rid> --project <path>`
 
 4 个 check 全绿 + verify-pipeline pass → 才进 `peaks request transition --state qa-handoff`，让 peaks-qa 接管。
+
+> **新增 run 017（2026-06-09）**：边界默认走 changed-only suite，原来的全 suite 行为移到 `--run-tests` opt-in。`peaks-solo-test` skill 仍然是手动跑全量的入口。rationale: 全量 30s+ 严重拖慢 workflow；changed-only 命中 99% 真正回归。详见 PRD `.peaks/_runtime/2026-06-07-session-84feb7/prd/requests/002-017-2026-06-09-remove-auto-full-vitest-from-slice-check.md`。
 
 ## Micro-cycle → 边界 check → QA 的串联
 
@@ -139,7 +141,7 @@ verdict=return-to-rd → RD 修 (new slice 内部走 micro-cycle)
 ## 为什么这套比当前 peaks-solo 的设计合理
 
 - **快**：micro-cycle ~100ms（vs 30s 全 suite），改 10 个 bug 从 5 分钟降到 30 秒
-- **稳**：边界 check 不省，4 项检查（tsc + vitest + 3-way + verify-pipeline）一次全跑
+- **稳**：边界 check 不省，4 项检查（tsc + vitest run --changed + 3-way + verify-pipeline）一次全跑；changed-only 模式 1-3s 内出结果，全量用 `--run-tests` opt-in
 - **清晰**：LLM 看到一个 explicit "禁止" 列表 + 强制 sequence，比"建议"更不容易越界
 - **可观测**：micro-cycle 走单测 → 边界跑 verify-pipeline，每步都有 JSON envelope 验证
 

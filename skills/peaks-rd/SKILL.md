@@ -266,7 +266,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
-#    Peaks-Cli Gate B2: unit tests exist and pass → npx vitest run (or project equivalent)
+#    Peaks-Cli Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
 #    Peaks-Cli Gate B3: code review evidence → .peaks/<changeId>/rd/code-review.md
 #    Peaks-Cli Gate B4: security review evidence → .peaks/<changeId>/rd/security-review.md
 #    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
@@ -341,13 +341,18 @@ ls .peaks/<changeId>/rd/requests/<rid>.md \
 # Both must exist. Missing either → BLOCKED, do not hand off to QA
 ```
 
-**Peaks-Cli Gate B2 — Before QA handoff: unit tests exist and pass:**
+**Peaks-Cli Gate B2 — Before QA handoff: unit tests exist and pass for the changed surface:**
 ```bash
 # Run the project's test command against changed files. Record the output.
 # Example (adapt to project test runner):
-npx vitest run --reporter=verbose 2>&1 | tail -20
-# Expected: exit code 0, all tests passing, coverage for new/changed code recorded
+npx vitest run --changed --reporter=verbose 2>&1 | tail -20
+# Expected: exit code 0, all changed-surface tests passing, coverage for new/changed code recorded
 # Any failing test or zero tests for new code → BLOCKED. Write tests, then re-run.
+#
+# To run the FULL suite (slower; not the default for `peaks slice check`),
+# drop `--changed` or use `npx vitest run --reporter=verbose`. The peaks-solo-test
+# skill is the user-facing wrapper for the full suite; the slice check's
+# `--run-tests` flag is the CLI opt-in.
 ```
 
 **Peaks-Cli Gate B3 — Before QA handoff: code review evidence exists:**

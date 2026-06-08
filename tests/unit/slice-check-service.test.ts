@@ -20,6 +20,10 @@ const mockMode = {
   vitestFailureCount: 0
 };
 
+// Recorded vitest invocations for the boundary-test assert.
+// Each entry is { changed: boolean; args: string[] }.
+const vitestInvocations: Array<{ changed: boolean; args: string[] }> = [];
+
 function setMockMode(overrides: Partial<typeof mockMode>): void {
   mockMode.tscShouldFail = overrides.tscShouldFail ?? false;
   mockMode.vitestShouldFail = overrides.vitestShouldFail ?? false;
@@ -45,6 +49,10 @@ vi.mock('node:child_process', async (importOriginal) => {
         return Buffer.from('');
       }
       if (command === 'npx' && Array.isArray(args) && args[0] === 'vitest') {
+        // Record the invocation shape so tests can assert against the
+        // changed-only / full mode contract (run 017).
+        const isChanged = args.includes('--changed');
+        vitestInvocations.push({ changed: isChanged, args: [...args] });
         if (mockMode.vitestShouldFail) {
           const err: any = new Error('vitest failed');
           err.status = 1;
@@ -103,6 +111,7 @@ describe('sliceCheck', () => {
   beforeEach(() => {
     project = makeProject();
     setMockMode({});
+    vitestInvocations.length = 0;
   });
 
   afterEach(() => {
@@ -421,5 +430,100 @@ describe('sliceCheck (allowPreExistingFailures)', () => {
     expect(tests?.status).toBe('pass');
     // No "skipped" reason injected for a passing stage
     expect(tests?.detail).not.toContain('pre-existing failures');
+  });
+});
+
+// Run 017: changed-only default + runTests opt-in. Lives as a top-level
+// describe (not nested under the outer 'sliceCheck' describe) because the
+// outer beforeEach uses symlink-based makeProject which EPERMs on Windows.
+// These tests use makeProjectNoSymlink + explicit rid, mirroring the
+// sliceCheck (allowPreExistingFailures) describe above.
+describe('sliceCheck (run 017: changed-only default + runTests opt-in)', () => {
+  let nsProject: string;
+
+  beforeEach(() => {
+    nsProject = makeProjectNoSymlink();
+    setMockMode({});
+    vitestInvocations.length = 0;
+  });
+
+  test('default (runTests omitted) runs `vitest run --changed`', async () => {
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true,
+      skipTests: false
+      // runTests intentionally omitted — should default to false (= changed-only)
+    });
+
+    // The vitest invocation should have included --changed
+    const lastVitest = vitestInvocations[vitestInvocations.length - 1];
+    expect(lastVitest).toBeDefined();
+    expect(lastVitest?.changed).toBe(true);
+    expect(lastVitest?.args).not.toContain('--coverage=true');
+
+    // Stage description should reflect changed-only
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.description).toContain('--changed');
+    expect(tests?.description).not.toContain('(full test suite');
+
+    // unitTestsRunMode should be 'changed'
+    expect(result.unitTestsRunMode).toBe('changed');
+  });
+
+  test('runTests: true runs `vitest run` (no --changed flag)', async () => {
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true,
+      skipTests: false,
+      runTests: true
+    });
+
+    // The vitest invocation should NOT include --changed
+    const lastVitest = vitestInvocations[vitestInvocations.length - 1];
+    expect(lastVitest).toBeDefined();
+    expect(lastVitest?.changed).toBe(false);
+
+    // Stage description should reflect full suite
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.description).toContain('full test suite');
+    expect(tests?.description).not.toContain('--changed');
+
+    // unitTestsRunMode should be 'full'
+    expect(result.unitTestsRunMode).toBe('full');
+  });
+
+  test('skipTests: true sets unitTestsRunMode to "skipped" and stage is skipped', async () => {
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true,
+      skipTests: true
+    });
+
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.status).toBe('skipped');
+    expect(tests?.detail).toContain('--skip-tests');
+    expect(result.unitTestsRunMode).toBe('skipped');
+  });
+
+  test('runTests: true + allowPreExistingFailures + fail downgrades to "overridden"', async () => {
+    setMockMode({ vitestShouldFail: true, vitestFailureCount: 7 });
+
+    const result = await sliceCheck({
+      projectRoot: nsProject,
+      rid: '2026-06-05-test',
+      refreshFanout: true,
+      skipTests: false,
+      runTests: true,
+      allowPreExistingFailures: true
+    });
+
+    const tests = result.stages.find((s) => s.name === 'unit-tests');
+    expect(tests?.status).toBe('skipped');
+    expect(tests?.detail).toContain('pre-existing failures');
+    expect(tests?.detail).toContain('7');
+    expect(result.unitTestsRunMode).toBe('overridden');
   });
 });

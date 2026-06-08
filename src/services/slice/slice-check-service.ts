@@ -90,16 +90,27 @@ function parseVitestSummary(stdout: string, fallbackDuration: number): VitestSum
   };
 }
 
-async function runUnitTests(projectRoot: string): Promise<SliceCheckStage> {
+async function runUnitTests(projectRoot: string, runTests: boolean): Promise<SliceCheckStage> {
   const start = Date.now();
-  const result = runCommand('npx', ['vitest', 'run', '--reporter=default', '--coverage=false'], projectRoot, 600_000);
+  // Default: changed-only suite (`vitest run --changed`) — runs only tests
+  // related to git-changed files. Cost drops from 30s+ to ~1-3s in steady
+  // state. Opt-in to the full suite via `runTests: true` (CLI flag
+  // `--run-tests`). See `references/runbook.md` for the rationale and
+  // `tests/unit/slice-check-service.test.ts` for the regression net.
+  const args: string[] = runTests
+    ? ['vitest', 'run', '--reporter=default', '--coverage=false']
+    : ['vitest', 'run', '--changed', '--reporter=default', '--coverage=false'];
+  const description = runTests
+    ? 'npx vitest run (full test suite, coverage off)'
+    : 'npx vitest run --changed (tests for git-changed files only, coverage off)';
+  const result = runCommand('npx', args, projectRoot, 600_000);
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.
   const passed = Math.max(summary.tests - summary.failed - summary.skipped, 0);
   return {
     name: 'unit-tests',
-    description: 'npx vitest run (full test suite, coverage off)',
+    description,
     status: result.status,
     durationMs: result.durationMs,
     detail: result.status === 'pass'
@@ -110,6 +121,7 @@ async function runUnitTests(projectRoot: string): Promise<SliceCheckStage> {
       passed,
       failed: summary.failed,
       skipped: summary.skipped,
+      mode: runTests ? 'full' : 'changed',
       exitCode: result.exitCode
     }
   };
@@ -243,17 +255,28 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
 
   const totalStart = Date.now();
   const stages: SliceCheckStage[] = [];
+  let unitTestsRunMode: SliceCheckResult['unitTestsRunMode'] = 'skipped';
 
   // Stage 1: typecheck
   stages.push(await runTypecheck(options.projectRoot));
 
-  // Stage 2: full vitest
-  if (!options.skipTests) {
-    const unitTests = await runUnitTests(options.projectRoot);
-    // Opt-in override: if --allow-pre-existing-failures is set AND the
+  // Stage 2: unit-tests — by default changed-only suite, opt-in to full
+  if (options.skipTests) {
+    stages.push({
+      name: 'unit-tests',
+      description: 'npx vitest run (skipped per --skip-tests)',
+      status: 'skipped',
+      durationMs: 0,
+      detail: 'Skipped: --skip-tests was set. Use the peaks-solo-test skill to run the full suite manually.'
+    });
+    unitTestsRunMode = 'skipped';
+  } else {
+    const unitTests = await runUnitTests(options.projectRoot, options.runTests === true);
     // unit-test stage failed, downgrade `failed` to `skipped` with a
     // reason that names the failure count and points to the long-term
-    // fix. Does NOT affect the other 3 stages.
+    // fix. Does NOT affect the other 3 stages. Only meaningful when
+    // the stage actually runs (skipped-tests bypass short-circuits
+    // above).
     if (
       options.allowPreExistingFailures === true &&
       unitTests.status === 'fail'
@@ -261,23 +284,17 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       const failureCount = (unitTests.data?.failed as number | undefined) ?? 0;
       stages.push({
         name: 'unit-tests',
-        description: 'npx vitest run (overridden via --allow-pre-existing-failures)',
+        description: `npx vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
         status: 'skipped',
         durationMs: unitTests.durationMs,
         detail: `pre-existing failures: ${failureCount} failing test(s) under coverage.exclude or unrelated to this slice; user opted in via --allow-pre-existing-failures. For the long-term fix, mark these tests .skip or move to coverage.exclude (see dogfood-2-f1-f4.md F17c).`,
         data: { ...(unitTests.data ?? {}), overriddenFrom: 'fail', failureCount }
       });
+      unitTestsRunMode = 'overridden';
     } else {
       stages.push(unitTests);
+      unitTestsRunMode = options.runTests === true ? 'full' : 'changed';
     }
-  } else {
-    stages.push({
-      name: 'unit-tests',
-      description: 'npx vitest run (skipped per --skip-tests)',
-      status: 'skipped',
-      durationMs: 0,
-      detail: 'Skipped: --skip-tests was set.'
-    });
   }
 
   // Stage 3: 3-way review fanout check
@@ -303,6 +320,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     projectRoot: options.projectRoot,
     rid,
     stages,
+    unitTestsRunMode,
     boundaryReady,
     totalDurationMs: Date.now() - totalStart,
     nextActions
