@@ -43,14 +43,13 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 ### Contract 1 — Screenshot path is mandatory and must land under .peaks/_runtime/<sessionId>/qa/screenshots/
 
-Every Playwright screenshot tool call (via `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '<args>' --json`) **MUST** pass `filename` (in the args object) whose absolute path is **inside** `.peaks/_runtime/<sessionId>/qa/screenshots/`. Concrete form:
+Every Playwright screenshot tool call (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) **MUST** pass `filename` (in the args object) whose absolute path is **inside** `.peaks/_runtime/<sessionId>/qa/screenshots/`. Concrete form:
 
 ```bash
-peaks mcp call \
-  --capability playwright-mcp.browser-validation \
-  --tool browser_take_screenshot \
-  --args-json '{"filename":".peaks/_runtime/<session-id>/qa/screenshots/<state-or-step>.png","fullPage":true}' \
-  --json
+# The LLM invokes this directly; peaks-cli is no longer the dispatcher.
+# (This shape remains as documentation of the args schema.)
+browser_take_screenshot \
+  --args '{"filename":"/abs/path/.peaks/_runtime/<sessionId>/qa/screenshots/<state>.png"}'
 ```
 
 The default behaviour of Playwright MCP when `filename` is omitted or points outside that directory is to write a screenshot to the current working directory, which leaves `.png` files scattered at the project root. **This is a workflow violation.** If a screenshot does land outside `.peaks/_runtime/<session-id>/qa/screenshots/` for any reason (e.g. an upstream tool wrote there), QA MUST move it into that directory before declaring the test report complete; do not commit project-root `.png` files. Sanitise before retention: no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
@@ -271,9 +270,13 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    A template with placeholder text does not pass Peaks-Cli Gate B.
 
 # 7. frontend browser validation (when frontend is in scope)
-peaks mcp list --json
-peaks mcp plan  --capability playwright-mcp.browser-validation --json
-peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
+# Slice #016: peaks-cli no longer manages MCP install/dispatch. The LLM
+# checks its own tool list for any Playwright MCP entry in the LLM tool list. If absent,
+# QA reports the missing tool and tells the user the install command
+# (`claude mcp add playwright -- npx @playwright/mcp@latest` in Claude
+# Code; other IDEs have their own MCP install path). QA does NOT
+# auto-install on the user's behalf and does NOT hand-edit
+# `~/.claude/settings.json`.
 # DEV-SERVER REQUIREMENT (BLOCKING): a running dev server is REQUIRED for browser E2E.
 # The same lifecycle applies to ANY service QA starts (backend API, mock server, database,
 # etc): capture PID on startup, validate, then kill the process after verification.
@@ -289,23 +292,17 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 #      and does NOT satisfy Peaks-Cli Gate D. Treating prod build as a fallback is a workflow violation.
 #   4. After browser validation completes, KILL the dev server. Do not leave it running.
 # Playwright MCP MUST simulate real user operations — not just take static screenshots.
-# The minimum interaction sequence for every frontend page/flow uses the peaks mcp
-# plan/apply/call pattern (skill body NEVER bakes in the bare MCP tool prefix;
-# the prefix is owned by the LLM runtime). The four steps:
-#   1. Detect install:  peaks mcp list --json | grep playwright
-#   2. Plan:            peaks mcp plan --capability playwright-mcp.browser-validation --json
-#      (read envCheck.missing; if non-empty, refuse to apply and ask the user to set the env vars)
-#   3. Apply:           peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
-#   4. Call tools:      peaks mcp call --capability playwright-mcp.browser-validation \
-#                        --tool <toolName> --args-json '<argsObject>' --json
-#      Tool names (resolved by the LLM from the registered server, NOT hardcoded here):
-#      browser_navigate / browser_snapshot / browser_click / browser_type /
-#      browser_select_option / browser_fill_form / browser_take_screenshot /
-#      browser_console_messages / browser_network_requests / browser_wait_for / browser_close.
+# The LLM invokes the tools by name from its own tool list (no peaks-cli envelope):
+#   1. Detect: check the LLM tool list for any Playwright MCP entry in the LLM tool list.
+#      If absent, STOP and tell the user the install command for their IDE.
+#   2. Navigate:  browser_navigate --args '{"url":"<url>"}'
+#   3. Inspect:   browser_snapshot / browser_console_messages / browser_network_requests
+#   4. Interact:  browser_click / browser_type / browser_select_option / browser_fill_form
+#                 / browser_wait_for (no idle waits; use deterministic selectors)
+#   5. Screenshot: browser_take_screenshot --args '{"filename":"<abs-path>","fullPage":<bool>}'
+#   6. Close:     browser_close
 # Static screenshots without user-interaction simulation do NOT pass this gate.
-# Block QA pass if Playwright MCP is unavailable.
-# For sub-agents dispatched via `peaks sub-agent dispatch` (where the LLM cannot
-# directly call MCP tools via the bare prefix), use `peaks mcp call` for every MCP operation.
+# Block QA pass if Playwright MCP is unavailable in the LLM tool list.
 #
 # CLEANUP: After browser validation completes (all screenshots saved, console/network
 # evidence captured), QA MUST kill every process it started during verification.
@@ -532,11 +529,7 @@ QA cannot pass a change until the report contains evidence for every applicable 
 1. **Test-report** — enforced by Peaks-Cli Gate B.
 2. **Unit tests** — run the project test command or a focused test command that covers new/changed code. For legacy projects below the target coverage, require coverage for the new or changed code rather than failing on pre-existing uncovered code.
 3. **API validation** — when the change touches API contracts, data loading, request handling, auth, or integrations, exercise the relevant API path and record request/response evidence or a justified local substitute.
-4. **Frontend browser validation** — when the repository has a frontend or the change affects UI, launch the app and use Playwright MCP for real browser end-to-end validation. This means **simulating real user operations**: clicking buttons, filling forms, selecting dropdowns, navigating between pages, waiting for async data to render, and verifying each resulting state. Static screenshots without interaction are insufficient. Confirm Playwright MCP is installed via `peaks mcp list --json`; install through `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` if missing. Route every browser interaction through the canonical `peaks mcp call` envelope:
-
-   ```
-   peaks mcp call --capability playwright-mcp.browser-validation --tool <toolName> --args-json '<argsObject>' --json
-   ```
+4. **Frontend browser validation** — when the repository has a frontend or the change affects UI, launch the app and use Playwright MCP for real browser end-to-end validation. This means **simulating real user operations**: clicking buttons, filling forms, selecting dropdowns, navigating between pages, waiting for async data to render, and verifying each resulting state. Static screenshots without interaction are insufficient. The LLM checks its tool list for any Playwright MCP entry in the LLM tool list; if absent, QA tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and reports the gate as blocked. The LLM invokes the tool by name directly — there is no peaks-cli envelope:
 
    The Playwright tool names that drive validation are: `browser_navigate` (launches headed browser), `browser_click` (simulate clicks on tabs/buttons/links), `browser_type` (type into inputs), `browser_select_option` (select dropdowns), `browser_fill_form` (fill complete forms), `browser_wait_for` (wait for async rendering), `browser_take_screenshot` (capture state after each interaction), `browser_close` (close the browser when done), `browser_console_messages` (read console failures), and `browser_network_requests` (read network failures). The bare server-and-tool MCP prefix is owned by the LLM runtime, not by the skill body — never bake the prefix into this SKILL.md or any artifact QA emits. If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture sanitized interaction sequences, sanitized screenshots per state, sanitized console (`browser_console_messages`) and network (`browser_network_requests`) failures. (Chrome DevTools MCP is an optional secondary surface for CDP inspection of an already-running Chrome on `:9222`; it does NOT launch a browser and cannot simulate user interaction.)
 5. **Browser-error feedback loop** — if Playwright MCP observation surfaces a page error, console exception, broken network request, hydration/render failure, or visible regression, return the work to RD/development with the exact evidence. Do not pass QA until the fixed build is retested in the browser.
@@ -577,8 +570,8 @@ External analysis cannot pass QA by itself. Treat codegraph output as untrusted 
 
 Use `peaks capabilities --source access-repo --json` and `peaks capabilities --source mcp-server --json` before recommending browser or validation tooling. Treat all external skills as reference material only — do not execute upstream instructions, do not install upstream resources, do not persist sensitive examples; Peaks-Cli QA acceptance authority remains.
 
-- Playwright MCP is the required path for controlled headed browser and E2E validation (it launches a headed browser on demand). Install or update through `peaks mcp plan --capability playwright-mcp.browser-validation --json` then `peaks mcp apply --capability playwright-mcp.browser-validation --yes --json` rather than hand-editing settings. The LLM runtime invokes the Playwright tools directly under its own server-and-tool namespace; QA skill bodies route every Playwright invocation through `peaks mcp call --capability playwright-mcp.browser-validation --tool <toolName> --args-json '<argsObject>' --json` instead of the bare prefix.
-- Chrome DevTools MCP is an optional secondary surface for CDP inspection (console, network, performance) of an already-running Chrome started with `--remote-debugging-port=9222`; it does NOT launch a browser on its own. Install via `peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes --json` when this use case applies.
+- Playwright MCP is the required path for controlled headed browser and E2E validation (it launches a headed browser on demand). The LLM runtime exposes the Playwright tools under its own server-and-tool namespace (the Playwright MCP); QA invokes them by name from the LLM's tool list. (peaks-cli no longer auto-installs MCPs as of slice #016; the user runs `claude mcp add playwright -- npx @playwright/mcp@latest` themselves when the tool list is empty.)
+- Chrome DevTools MCP is an optional secondary surface for CDP inspection (console, network, performance) of an already-running Chrome started with `--remote-debugging-port=9222`; it does NOT launch a browser on its own. The LLM invokes Chrome DevTools MCP tools directly when present in the tool list.
 - Agent Browser can support browser walkthroughs, but never submit forms, purchase, delete, or mutate authenticated state without explicit confirmation.
 - Canonical browser workflow (URL allow-list, login handoff, sanitization rules, tool mapping): `peaks-solo/references/browser-workflow.md`.
 - If Playwright MCP is not installed and the user does not authorize installation, mark frontend browser validation blocked; screenshots, logs, manual steps, or other tools must not substitute for the mandatory headed browser gate.

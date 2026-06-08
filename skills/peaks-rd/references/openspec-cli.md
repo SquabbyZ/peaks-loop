@@ -1,6 +1,8 @@
-# OpenSpec and MCP CLI for Peaks RD
+# OpenSpec CLI for Peaks RD
 
-Peaks RD reads OpenSpec change packs and external MCP servers through the Peaks CLI rather than re-parsing markdown or spawning subprocesses by hand. The CLI returns the same stable envelope shape (`{ ok, command, data, warnings, nextActions }`) so RD can capture it as artifact JSON.
+Peaks RD reads OpenSpec change packs through the Peaks CLI rather than re-parsing markdown or spawning subprocesses by hand. The CLI returns the same stable envelope shape (`{ ok, command, data, warnings, nextActions }`) so RD can capture it as artifact JSON.
+
+> **Slice #016 (2026-06-09)**: this document used to live at `openspec-mcp-cli.md` and contained a section on the now-retired peaks-cli MCP install / call verbs. The MCP subsystem was retired in slice #016; the LLM's own tool list is now the source of truth for installed MCPs. The OpenSpec CLI recipes below are unchanged.
 
 ## Loading an existing OpenSpec change as RD input
 
@@ -43,23 +45,18 @@ The request JSON shape is:
 
 `render --apply` refuses to overwrite an existing change directory unless `--overwrite` is passed. Treat that refusal as intentional.
 
-## Calling MCP tools for research evidence
+## Library docs lookup via the LLM's own MCP tool list (slice #016)
 
-When RD needs external library or API docs, prefer a registered MCP server through Peaks instead of free-form web fetches:
+When RD needs external library or API docs, the consuming LLM checks its own tool list for an MCP entry (typically `mcp__plugin_context7_context7__*` for Context7). If present, the LLM invokes the tool by name directly (`resolve-library-id` then `query-docs` are the canonical Context7 tool names). If absent, the LLM tells the user the install command:
 
 ```bash
-peaks mcp list --json
-peaks mcp plan --capability context7.docs-lookup --json
-peaks mcp apply --capability context7.docs-lookup --yes --json   # one-time install
-peaks mcp call --capability context7.docs-lookup --tool <toolName> --args-json '{...}' --json
+# Claude Code:
+claude mcp add context7 -- npx @upstash/context7-mcp
+# Restart the IDE after install; the runtime picks up the new server only after a fresh process.
 ```
 
-Rules:
-
-- `plan` must be inspected before `apply`. `apply` is a real side effect; it backs up `~/.claude/settings.json` first.
-- Required env vars must be present before `apply` and `call`; Peaks refuses to spawn a server with missing env.
-- `call` results should be written into the RD artifact (e.g. `.peaks/<session-id>/rd/mcp-call-<ts>.json`) as the evidence link. Do not paste secrets or full network bodies into the RD handoff.
+peaks-cli does not install MCPs on the user's behalf as of slice #016; the LLM is the executor and the IDE is the dispatcher. Evidence of the lookup (sanitized query + response summary) goes into the RD artifact, not full network bodies or secrets.
 
 ## Boundary
 
-Peaks RD must not hand-edit `openspec/changes/**` or `~/.claude/settings.json` directly. All writes go through the CLI commands above with dry-run preview, explicit confirmation, and Peaks-managed source labels.
+Peaks RD must not hand-edit `openspec/changes/**` or `~/.claude/settings.json` directly. All OpenSpec writes go through the CLI commands above with dry-run preview, explicit confirmation, and Peaks-managed source labels.

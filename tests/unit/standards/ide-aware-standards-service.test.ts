@@ -140,7 +140,7 @@ describe('inspectStandardsDispatch — test-seam: custom adapter registration', 
       toolMatcher: 'terminal',
       subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
-       capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+       capabilities: { gateEnforce: true, statusline: true },
 
       installHints: [],
       // Slice #011: a custom test adapter can fill the resource profile to

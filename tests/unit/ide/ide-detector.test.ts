@@ -85,7 +85,7 @@ function makeAdapter(id: string, dirName: string): IdeAdapter {
     toolMatcher: 'Bash',
     subAgentDispatcher: { label: id, supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
     promptSizeAware: false,
-     capabilities: { gateEnforce: true, statusline: true, mcpInstall: false },
+     capabilities: { gateEnforce: true, statusline: true },
 
     installHints: [],
   };

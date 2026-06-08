@@ -21,9 +21,10 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
     const body = await read(join('skills', 'peaks-solo', 'references', 'browser-workflow.md'));
 
     expect(body).toMatch(/Playwright MCP/);
-    expect(body).toMatch(/peaks mcp plan/);
-    expect(body).toMatch(/peaks mcp apply/);
-    expect(body).toMatch(/playwright-mcp\.browser-validation/);
+    // Slice #016 removed the peaks-cli MCP subsystem; the LLM now self-detects
+    // via its own tool list and tells the user the install command.
+    expect(body).toMatch(/tool list|your tool list|mcp__playwright__/);
+    expect(body).toMatch(/claude mcp add playwright/);
     expect(body).toMatch(/URL allow-list/i);
     expect(body).toMatch(/Login \/ CAPTCHA \/ SSO \/ MFA/);
     expect(body).toMatch(/Sensitive data sanitization/);
@@ -36,14 +37,18 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
     for (const name of BROWSER_TOUCHING_SKILLS) {
       const body = await read(join('skills', name, 'SKILL.md'));
       expect.soft(body, `${name} SKILL.md should reference Playwright MCP`).toMatch(/Playwright MCP/);
-      expect.soft(body, `${name} SKILL.md should reference the mcp__playwright__ tool namespace`).toMatch(/mcp__playwright__/);
     }
   });
 
-  test('every browser-touching SKILL.md routes installation through peaks mcp plan/apply for playwright', async () => {
+  test('every browser-touching SKILL.md routes MCP detection through LLM tool list (slice 016 contract)', async () => {
     for (const name of BROWSER_TOUCHING_SKILLS) {
       const body = await read(join('skills', name, 'SKILL.md'));
-      expect.soft(body, `${name} SKILL.md should mention peaks mcp plan/apply for playwright install`).toMatch(/peaks mcp (plan|apply).*playwright-mcp\.browser-validation/);
+      // Slice #016: skill body must NOT bake the peaks mcp plan/apply CLI verbs
+      expect.soft(body, `${name} SKILL.md must not reference the removed peaks mcp CLI`).not.toMatch(/peaks mcp (plan|apply|call|list|rollback|scan)/);
+      // Slice #016: skill body must NOT bake the bare mcp__playwright__ prefix
+      expect.soft(body, `${name} SKILL.md must not bake the bare mcp__playwright__ tool namespace prefix`).not.toMatch(/mcp__playwright__/);
+      // Slice #016: skill body must direct the LLM to check its own tool list
+      expect.soft(body, `${name} SKILL.md should direct the LLM to its own tool list for MCP presence`).toMatch(/tool list/i);
     }
   });
 
@@ -58,11 +63,14 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
     }
   });
 
-  test('peaks-solo external-skill-invocation reference exposes mcp__chrome-devtools__ as an allowed in-process surface', async () => {
+  test('peaks-solo external-skill-invocation reference documents Chrome DevTools MCP as optional secondary surface (slice 016)', async () => {
     const body = await read(join('skills', 'peaks-solo', 'references', 'external-skill-invocation.md'));
 
-    expect(body).toMatch(/mcp__chrome-devtools__/);
-    expect(body).toMatch(/no longer endorsed|deprecated/i);
+    // Slice #016: peaks-cli no longer owns MCP install. The reference must
+    // document the chrome-devtools MCP and direct the LLM to its tool list.
+    expect(body).toMatch(/chrome[- ]?devtools/);
+    expect(body).toMatch(/mcp__chrome_devtools__|mcp__chrome-devtools__/);
+    expect(body).toMatch(/tool list|your tool list/);
   });
 });
 

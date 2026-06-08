@@ -41,7 +41,8 @@ describe('peaks project dashboard command', () => {
     expect(output.data.requests.count).toBe(0);
     expect(output.data.openspec.exists).toBe(false);
     expect(output.data.understand.exists).toBe(false);
-    expect(output.data.mcp.servers).toEqual(expect.any(Array));
+    // Slice #016: the `mcp` field was removed from the dashboard envelope.
+    expect((output.data as { mcp?: unknown }).mcp).toBeUndefined();
     expect(output.data.doctor.ok).toBe(true);
     expect(output.data.capabilities.count).toBeGreaterThan(0);
   });
@@ -79,7 +80,7 @@ describe('peaks project dashboard command', () => {
       requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
       openspec: { exists: false, count: 0, changes: [] },
       understand: { exists: false, graphExists: false, graphPath: '' },
-      mcp: { servers: [], scopes: {} },
+      // slice #016: mcp field removed from the dashboard envelope.
       doctor: { ok: true, passed: 1, failed: 0 },
       runbookHealth: {
         ok: false,
@@ -88,7 +89,7 @@ describe('peaks project dashboard command', () => {
         missingRunbook: [],
         applyNoteFailed: ['peaks-txt']
       },
-      capabilities: { count: 0, mcpCount: 0, sample: [] }
+      capabilities: { count: 0, sample: [] }
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
 
@@ -115,7 +116,7 @@ describe('peaks project dashboard command', () => {
       requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
       openspec: { exists: false, count: 0, changes: [] },
       understand: { exists: false, graphExists: false, graphPath: '' },
-      mcp: { servers: [], scopes: {} },
+      // slice #016: mcp field removed from the dashboard envelope.
       doctor: { ok: false, passed: 5, failed: 2 },
       runbookHealth: {
         ok: true,
@@ -124,7 +125,7 @@ describe('peaks project dashboard command', () => {
         missingRunbook: [],
         applyNoteFailed: []
       },
-      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      capabilities: { count: 0, sample: [] },
       skillPresence: { active: false, fresh: true }
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
@@ -150,10 +151,10 @@ describe('peaks project dashboard command', () => {
       requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [], sc: [] }, byState: {} },
       openspec: { exists: false, count: 0, changes: [] },
       understand: { exists: false, graphExists: false, graphPath: '' },
-      mcp: { servers: [], scopes: {} },
+      // slice #016: mcp field removed from the dashboard envelope.
       doctor: { ok: false, passed: 5, failed: 2 },
       runbookHealth: { ok: true, required: 7, healthy: 7, missingRunbook: [], applyNoteFailed: [] },
-      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      capabilities: { count: 0, sample: [] },
       skillPresence: { active: false, fresh: true }
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
@@ -177,7 +178,7 @@ describe('peaks project dashboard command', () => {
       requests: { count: 0, byRole: { prd: [], ui: [], rd: [], qa: [] }, byState: {} },
       openspec: { exists: false, count: 0, changes: [] },
       understand: { exists: false, graphExists: false, graphPath: '' },
-      mcp: { servers: [], scopes: {} },
+      // slice #016: mcp field removed from the dashboard envelope.
       doctor: { ok: true, passed: 1, failed: 0 },
       runbookHealth: {
         ok: true,
@@ -186,7 +187,7 @@ describe('peaks project dashboard command', () => {
         missingRunbook: [],
         applyNoteFailed: []
       },
-      capabilities: { count: 0, mcpCount: 0, sample: [] },
+      capabilities: { count: 0, sample: [] },
       skillPresence: { active: true, fresh: false, skill: 'peaks-rd', setAt: staleSetAt }
     } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
     const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);

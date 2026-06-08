@@ -115,19 +115,23 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
     expect.soft(section).toMatch(/peaks standards/);
   });
 
-  test('QA runbook references openspec validate and the playwright-mcp install path', async () => {
+  test('QA runbook references openspec validate and the playwright-mcp install command (slice 016: LLM tool-list self-check, not peaks mcp CLI)', async () => {
     const body = await readFile(join(SKILLS_ROOT, 'peaks-qa', 'SKILL.md'), 'utf8');
     const section = await loadRunbookSection('peaks-qa', body);
 
     expect.soft(section).toMatch(/peaks openspec validate/);
-    expect.soft(section).toMatch(/peaks mcp apply --capability playwright-mcp\.browser-validation/);
+    // Slice #016: peaks-cli no longer has `peaks mcp`; the runbook directs
+    // the LLM to its own tool list and the user-facing install command.
+    expect.soft(section).not.toMatch(/peaks mcp (apply|plan|call|list|rollback|scan)/);
+    expect.soft(section).toMatch(/claude mcp add playwright/);
   });
 
-  test('UI runbook references the playwright-mcp install path', async () => {
+  test('UI runbook references the playwright-mcp install command (slice 016: LLM tool-list self-check)', async () => {
     const body = await readFile(join(SKILLS_ROOT, 'peaks-ui', 'SKILL.md'), 'utf8');
     const section = await loadRunbookSection('peaks-ui', body);
 
-    expect(section).toMatch(/peaks mcp apply --capability playwright-mcp\.browser-validation/);
+    expect(section).not.toMatch(/peaks mcp (apply|plan|call|list|rollback|scan)/);
+    expect(section).toMatch(/claude mcp add playwright|tool list/i);
   });
 
   test('PRD runbook references openspec and standards preflight commands', async () => {

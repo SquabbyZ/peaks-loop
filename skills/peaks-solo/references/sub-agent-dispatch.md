@@ -143,45 +143,26 @@ While running, call `peaks sub-agent heartbeat --record <dispatchRecordPath>
 to keep the user informed during the wait.
 ```
 
-**Slice #007-007-2026-06-07-mcp-decouple (G3 prompt template addition)**:
-when the sub-agent is dispatched into a non-Claude IDE (Trae, Cursor,
-Codex, Qoder, Tongyi, ...) or into a Claude Code environment where the
-LLM cannot directly invoke the `mcp__<server>__*` tool prefix, the
-sub-agent prompt must additionally include the MCP-decouple instruction
-below. Without it, the sub-agent would either fall back to direct
-`mcp__` invocations (which fail in non-Claude IDEs) or skip MCP
-operations entirely (which breaks RD/QA/UI flows that depend on the
-Playwright, Chrome DevTools, Figma, or Context7 servers).
+**Slice #016 retirement (G3 prompt template — MCP subsystem removed)**:
+The MCP-decouple paragraph from slice #007-007 no longer applies.
+peaks-cli no longer manages MCP install or invocation. Sub-agents
+check their own tool list for `mcp__<server>__*` entries and invoke
+the tool by name directly. The only prompt-template addition that
+remains is the tool-list self-check:
 
 ```
-When you need to use an MCP server (playwright, chrome-devtools, figma, or
-context7), do NOT invoke the `mcp__<server>__*` tool prefix directly. The
-canonical path is `peaks mcp call`:
-
-  peaks mcp call --capability <capabilityId> --tool <toolName> --args-json '<argsObject>' --json
-
-where `<capabilityId>` is one of:
-  - playwright-mcp.browser-validation      (headed browser, primary E2E surface)
-  - chrome-devtools-mcp.browser-debug      (CDP to running Chrome on :9222, secondary)
-  - figma-context-mcp.design-context       (Figma design data, requires FIGMA_API_KEY)
-  - context7.docs-lookup                   (library docs, requires CONTEXT7_API_KEY)
-
-For install / plan / detect, use:
-  peaks mcp list   --json
-  peaks mcp plan   --capability <capabilityId> --json
-  peaks mcp apply  --capability <capabilityId> --yes --json
-
-The `peaks mcp plan` envelope's `envCheck.missing` field is the source of
-truth for required env vars. Do not bake the `mcp__<server>__*` prefix
-into any artifact or message; the prefix is owned by the LLM runtime, not
-by the skill. On Trae, `capabilities.mcpInstall` is `false`; do not
-attempt `peaks mcp apply` on Trae — surface the manual install path
-instead.
+This task may need an MCP server (playwright, chrome-devtools, figma,
+or context7). Check your tool list for any `mcp__<server>__*` entry.
+If present, invoke the tool by name directly. If absent, tell the user
+the install command for their IDE (Claude Code:
+`claude mcp add <server> -- <npx-command>`) and stop the sub-task until
+the user installs the MCP. Do NOT hand-edit `.claude/settings.json` or
+auto-install on the user's behalf.
 ```
 
-The MCP-decouple paragraph is required for any sub-agent dispatched
-into a non-Claude environment or any sub-agent that needs an MCP
-capability. The CLI auto-generates it for `role in (rd, qa, ui, txt)`
+The tool-list self-check is required for any sub-agent that needs a
+browser, design, or docs-lookup capability. The CLI auto-generates it
+for `role in (rd, qa, ui, txt)`.
 when the active IDE is not `claude-code`; for `role = general-purpose`
 or unknown roles, the caller (the SKILL.md heart of the Dispatcher) must
 add it explicitly.

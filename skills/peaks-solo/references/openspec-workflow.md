@@ -1,6 +1,8 @@
-# OpenSpec and MCP Lifecycle for Peaks Solo
+# OpenSpec Lifecycle for Peaks Solo
 
-Peaks Solo orchestrates RD, QA, and SC. When the target repository uses OpenSpec or external MCP servers, Solo must drive the full lifecycle through the Peaks CLI so each role works against the same stable surface.
+Peaks Solo orchestrates RD, QA, and SC. When the target repository uses OpenSpec, Solo must drive the full lifecycle through the Peaks CLI so each role works against the same stable surface.
+
+> **Slice #016 (2026-06-09)**: this document used to live at `openspec-mcp-workflow.md` and contained a section on the `peaks mcp *` lifecycle. The MCP subsystem was retired in slice #016; that section is gone. The OpenSpec lifecycle described below is unchanged.
 
 ## OpenSpec change lifecycle
 
@@ -20,23 +22,6 @@ Rules Solo applies:
 - `validate` is run twice per change in a refactor flow: once before slicing (RD entry gate) and once before archive (QA exit gate). Both must end with `data.valid === true`.
 - `archive --apply` is the lifecycle terminator; Solo only invokes it after QA acceptance and SC commit.
 
-## MCP capability lifecycle
-
-```text
-peaks mcp list / scan   →  Solo inventories what is configured today
-peaks mcp plan          →  Solo previews the install diff before any write
-peaks mcp apply --yes   →  Solo authorizes the install (real side effect)
-peaks mcp call          →  RD or QA invokes a tool on the installed server
-peaks mcp rollback      →  Solo restores from a peaks-managed backup
-```
-
-Rules Solo applies:
-
-- `apply` is the first real side effect in the MCP track. It requires `--yes`, backs up `~/.claude/settings.json` first, and refuses to overwrite non-peaks-managed entries unless `--claim` is passed. Solo decides whether `--claim` is appropriate.
-- Required env vars must be set in the runtime environment before `apply` or `call`. Peaks refuses to spawn a server with missing env, surfacing each missing key in `envCheck.missing`.
-- `call` writes evidence into the RD or QA artifact. Solo never pastes secrets, full request/response bodies, or session tokens into the handoff capsule.
-- `rollback` is the recovery action when an install or update made things worse. The backup path is the one Peaks reported during `apply`.
-
 ## Refactor workflow wiring
 
 For `peaks-solo refactor` runs against a repository with `openspec/`:
@@ -46,7 +31,7 @@ For `peaks-solo refactor` runs against a repository with `openspec/`:
 3. QA exit gate — re-run `peaks openspec validate <id>` after implementation; record the result in the QA validation report.
 4. Archive — `peaks openspec archive <id> --apply` only after QA passes the exit gate and SC closes the final commit.
 
-If MCP servers are needed for docs lookup or research, Solo coordinates the one-time install before RD starts so RD does not block on capability resolution mid-slice.
+If the consuming LLM needs an MCP server for docs lookup or research (e.g. Context7), it checks its own tool list for `mcp__<server>__*` and tells the user the install command if absent. peaks-cli is no longer in the install path; the LLM is the executor, the IDE is the dispatcher.
 
 ## Boundary
 

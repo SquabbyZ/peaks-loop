@@ -82,13 +82,12 @@ describe('loadProjectDashboard', () => {
     expect(dashboard.understand.graphExists).toBe(true);
   });
 
-  test('exposes the MCP scan envelope under mcp.servers', async () => {
+  test('does NOT expose a MCP scan envelope (slice #016: MCP subsystem removed)', async () => {
     const project = await makeProject();
 
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
-    expect(dashboard.mcp.servers).toBeInstanceOf(Array);
-    expect(dashboard.mcp.scopes).toBeDefined();
+    expect((dashboard as { mcp?: unknown }).mcp).toBeUndefined();
   });
 
   test('reports doctor summary counts from the doctor service', async () => {
@@ -105,7 +104,6 @@ describe('loadProjectDashboard', () => {
     const dashboard = await loadProjectDashboard({ projectRoot: project });
 
     expect(dashboard.capabilities.count).toBeGreaterThan(0);
-    expect(dashboard.capabilities.mcpCount).toBeGreaterThan(0);
     expect(dashboard.capabilities.sample.length).toBeGreaterThan(0);
   });
 
@@ -286,11 +284,9 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout + G3 extensio
     expect(dashboard.runbookHealth).toHaveProperty('required');
     expect(dashboard.runbookHealth).toHaveProperty('healthy');
 
-    // G3 extension: MCP scan envelope (peaks-ide Step 1 mentions mcp servers).
-    expect(dashboard).toHaveProperty('mcp');
-    expect(dashboard.mcp).toHaveProperty('servers');
-    expect(dashboard.mcp).toHaveProperty('scopes');
-    expect(Array.isArray(dashboard.mcp.servers)).toBe(true);
+    // G3 extension: MCP scan envelope was REMOVED in slice #016.
+    // peaks-cli no longer scans MCP servers; the LLM owns that surface now.
+    expect((dashboard as { mcp?: unknown }).mcp).toBeUndefined();
 
     // G3 extension: capabilities count the skill references for status badges.
     expect(dashboard).toHaveProperty('capabilities');

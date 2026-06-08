@@ -99,7 +99,7 @@ To keep the mapping honest, peaks-cli **does not** currently provide the followi
 - A2A **AgentCard** served over HTTP at `/.well-known/agent-card.json`. peaks-cli is a local CLI; its "card" is the on-disk `.peaks/.active-skill.json` plus `peaks skill doctor --json`.
 - A2A **streaming** responses (SSE / WebSocket). peaks commands are synchronous and return a single JSON envelope.
 - A2A **identity / auth** (OAuth, OIDC, mTLS). peaks assumes local-machine trust.
-- A2A **cross-vendor discovery**. peaks has no A2A registry entry; it has `peaks mcp list --json` for MCP-compatible capabilities.
+- A2A **cross-vendor discovery**. peaks has no A2A registry entry; MCP-compatible capabilities are discovered by the LLM via its own tool list (the LLM checks for `mcp__<server>__*` entries in its own function schema) and reported back to the user. Slice #016 retired the `peaks mcp *` indirection layer.
 - A2A **Task delegation across the network**. peaks's "sub-agent" is a Claude Code `Task` tool call in the same process, not a remote A2A server.
 
 These are *deliberate* omissions. peaks-cli solves a different problem (a local workflow-gating CLI for Claude Code), and adopting A2A's networking surface would add weight without addressing peaks's actual failure modes (which are around LLM bypassing gates, not around inter-agent discovery).

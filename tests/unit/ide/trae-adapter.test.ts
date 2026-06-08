@@ -46,10 +46,10 @@ describe('TRAE_ADAPTER — capabilities', () => {
   test('gateEnforce is true (per the PRD R-2 hard rule — every adapter enforces gates)', () => {
     expect(TRAE_ADAPTER.capabilities.gateEnforce).toBe(true);
   });
-  test('mcpInstall is disabled for Trae (Trae MCP integration is unverified at slice time)', () => {
-    // This is the safe default until a Trae user dogfoodes the MCP apply path.
-    // Slice #1 RD marked MCP as a future slice; the Trae adapter is conservative.
-    expect(TRAE_ADAPTER.capabilities.mcpInstall).toBe(false);
+  test('mcpInstall is removed (slice #016: MCP subsystem retired; no per-IDE capability flag needed)', () => {
+    // Slice #016: peaks-cli no longer manages MCP. The `mcpInstall` field is
+    // gone from `IdeCapabilities`; this test guards the surface.
+    expect((TRAE_ADAPTER.capabilities as { mcpInstall?: unknown }).mcpInstall).toBeUndefined();
   });
 });
 

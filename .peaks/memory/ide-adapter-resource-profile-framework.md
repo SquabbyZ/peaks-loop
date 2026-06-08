@@ -64,7 +64,6 @@ The user's design preference (verbatim, 2026-06-07 18:15 GMT+8): "做成较为�
 | **#013+** Codex | One-entry registration | Codex docs available |
 | **#013+** Qoder | One-entry registration | Qoder docs available |
 | **#013+** Tongyi Lingma | One-entry registration | Lingma docs available |
-| **#014+** Trae MCP decouple | Change `capabilities.mcpInstall: false` to `true` after real dogfood | Slice #012 done |
 
 ## How to apply (for future adapter authors)
 
@@ -73,8 +72,9 @@ When adding a new IDE adapter (Cursor, Codex, Qoder, Lingma, or any new one):
 1. Create `src/services/ide/adapters/<id>-adapter.ts` with the 12 existing `IdeAdapter` fields (slice #1 contract).
 2. Add `standardsProfile` if the IDE auto-reads project-level agent instructions (Trae does not, per slice #011). Include `migrationHint` so the fallback warning tells the user where to manually move the file.
 3. Add `skillInstall` if the IDE auto-loads skills from a known directory. Use `installStrategy: 'symlink'` if the IDE hot-reloads symlinks (Claude Code does); `'copy'` if not.
-4. Add `mcpInstall: true` to `capabilities` only after a real install dogfood verifies the MCP install path on this IDE (per the Trae `mcpInstall: false` lesson).
-5. Each new adapter is a one-entry registration on the registry — `peaks-cli`'s dispatch, postinstall, and CLI commands all go through the registry without codepath changes.
+4. Each new adapter is a one-entry registration on the registry — `peaks-cli`'s dispatch, postinstall, and CLI commands all go through the registry without codepath changes.
+
+> **Slice #016 (2026-06-09)**: the `mcpInstall: true/false` capability flag and the `mcpInstall: true` follow-up bullet above are obsolete. The MCP subsystem was retired in slice #016; the LLM's own tool list is the source of truth for installed MCPs. Do not reintroduce `mcpInstall` on any new or existing adapter — IDEs handle their own MCP install.
 
 ## Inverse rule (do not regress)
 

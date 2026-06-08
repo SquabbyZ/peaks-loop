@@ -73,19 +73,6 @@ export const TRAE_ADAPTER: IdeAdapter = {
   capabilities: {
     gateEnforce: true,
     statusline: true,
-    // Slice #007-007-2026-06-07-mcp-decouple: mcpInstall is LOAD-BEARING.
-    // The 4 MCP capabilities (playwright, chrome-devtools, figma, context7)
-    // are installed via `peaks mcp plan/apply` which writes to the global
-    // `~/.claude/settings.json` file. Trae 1.x's MCP integration is
-    // UNVERIFIED (the Trae fixture did not dogfood the MCP install path),
-    // so the 6 SKILL.md files must surface a Trae-specific path (manual
-    // install + manual tool invocation) rather than promising `peaks mcp
-    // apply` will work on Trae. Skill bodies consume this flag through
-    // the IDE adapter's `capabilities.mcpInstall`; setting it to true
-    // without a real Trae MCP install dogfood would be a regression.
-    // Cross-reference: .peaks/memory/trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified.md
-    // and the 4 per-capability memos under .peaks/memory/mcp-decouple-*.md.
-    mcpInstall: false
   }
   // Standards: UNVERIFIED — see slice #012+ (Trae real-install dogfood for
   // the `standardsProfile` and `skillInstall` fields). The slice #011

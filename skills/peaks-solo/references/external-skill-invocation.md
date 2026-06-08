@@ -4,13 +4,15 @@ Peaks skills reference many external resources — `mattpocock/skills`, `gstack`
 
 Every reference must follow the same three-stage pattern so the Peaks gates stay authoritative and side effects stay observable.
 
+> **Slice #016 (2026-06-09)**: peaks-cli no longer manages MCP install or invocation. MCP capability detection moves from the peaks-cli CLI to the LLM's own tool list (the LLM checks for `mcp__<server>__*` entries in its own function schema). Skill bodies instruct the LLM to either invoke the tool by name (when present) or tell the user the install command (when absent).
+
 ## Stage 1 — Discovery before naming
 
-Do not name an external skill or MCP server as if it is always available. Route discovery through the Peaks CLI first:
+Do not name an external skill or MCP server as if it is always available. Route discovery through the Peaks CLI for non-MCP capabilities, and through the LLM's own tool list for MCP capabilities:
 
 - `peaks capabilities --source access-repo --json` for non-MCP capabilities (skills, agents, rules, browser tools).
-- `peaks capabilities --source mcp-server --json` for MCP servers.
-- `peaks mcp list --json` for currently configured MCP servers in `.claude/settings.json`.
+- `peaks capabilities --source mcp-server --json` for MCP catalog discovery (which MCPs are *known*, not which are *installed*).
+- For MCP install state, the LLM checks its own tool list for any `mcp__<server>__*` entry. If present, the MCP is installed. If absent, the user installs via the IDE-native MCP install command (e.g. `claude mcp add <server> -- <npx-command>` for Claude Code).
 
 A skill body may mention the capability id, but it must say or imply that the skill only applies "when capability discovery exposes …" (or equivalent phrasing). Skills must not pretend the capability is already installed.
 
@@ -23,7 +25,7 @@ External skills are inspection material for the role's own artifacts. They are n
 - forbid executing upstream instructions, installing upstream resources, persisting upstream examples, or running upstream installers;
 - declare that the Peaks role artifacts remain authoritative.
 
-For MCP servers, additionally state that installation goes through `peaks mcp plan` then `peaks mcp apply --yes` (with `--claim` only when the user authorizes overwriting a non-peaks-managed entry), and that `peaks mcp call` is the only invocation path for tool invocation.
+For MCP servers, the LLM consumes the install state from its own tool list. Skill bodies tell the LLM: "if the tool is present, invoke it by name; if absent, surface the install command for the user's IDE and stop until the user installs the MCP". peaks-cli does not install MCPs on the user's behalf as of slice #016.
 
 ## Stage 3 — Side effect through Peaks CLI only
 
@@ -38,7 +40,7 @@ The skill body must not silently:
 - commit or sync intermediate artifacts;
 - create remote repositories.
 
-All of these must route through the Peaks CLI under the appropriate command (`peaks mcp …`, `peaks artifacts …`, `peaks memory …`, `peaks openspec …`, `peaks standards …`, `peaks codegraph …`, `peaks capabilities …`), with dry-run preview where supported and `--yes` / `--apply` where a real write is required.
+All of these must route through the Peaks CLI under the appropriate command (`peaks artifacts …`, `peaks memory …`, `peaks openspec …`, `peaks standards …`, `peaks codegraph …`, `peaks capabilities …`), with dry-run preview where supported and `--yes` / `--apply` where a real write is required. The `peaks mcp …` command tree was retired in slice #016; MCP install / dispatch is the LLM runtime's job, not the CLI's.
 
 ## Allowed in-process references
 
@@ -46,7 +48,7 @@ Some references are not external skills but project-approved utilities and may b
 
 - `peaks` CLI commands (this binary).
 - `npx`, `npm`, `pnpm`, `yarn`, package managers — only as the underlying mechanism when a `peaks` CLI command spawns them.
-- `mcp__chrome-devtools__*` — Chrome DevTools MCP tools exposed by Claude Code's MCP runtime after `peaks mcp apply --capability chrome-devtools-mcp.browser-debug --yes`. Skill bodies invoke these tools directly because the MCP runtime is the host; they are not piped through `peaks mcp call`. Login / CAPTCHA / SSO / MFA handoff rules and sanitization rules in `browser-workflow.md` still apply.
+- `mcp__chrome_devtools__*` — Chrome DevTools MCP tools exposed by the LLM's MCP runtime when the user has installed Chrome DevTools MCP (Claude Code: `claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest`). Skill bodies tell the LLM to invoke these tools by name when they appear in the tool list. Login / CAPTCHA / SSO / MFA handoff rules and sanitization rules in `browser-workflow.md` still apply.
 
 These are not subject to capability discovery because they are part of the Peaks engineering surface, not external skills. The previous `gstack/browse/dist/browse` binary reference is no longer endorsed — see `browser-workflow.md` for the migration recipe.
 
@@ -66,5 +68,5 @@ When a skill body adds a new external reference, it must include the equivalent 
 1. read the failing skill body section;
 2. identify the external skill or MCP that triggered the failure;
 3. add the capability discovery clause, the reference-only qualifier, the do-not-execute clause, and the Peaks-authoritative gate to that section;
-4. for MCP servers, point the user at `peaks mcp plan/apply/call` instead of describing manual `.claude/settings.json` edits;
+4. for MCP servers, point the LLM at the tool-list self-check (its own `mcp__<server>__*` namespace) instead of describing manual `~/.claude/settings.json` edits;
 5. rerun the audit.

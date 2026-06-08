@@ -13,7 +13,7 @@ UI's headed-browser work (visual inspection, regression seed capture, Figma / li
 
 ### Contract 1 — Inspection screenshots must land under .peaks/<sid>/qa/screenshots/
 
-Every Playwright screenshot tool call (via `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '<args>' --json`) **MUST** pass `filename` (in the args object) inside `.peaks/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). Do not let Playwright fall back to the project root. After every batch, run:
+Every Playwright screenshot tool call (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) **MUST** pass `filename` (in the args object) inside `.peaks/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). Do not let Playwright fall back to the project root. After every batch, run:
 
 ```bash
 ls .peaks/<sid>/qa/screenshots/*.png 2>&1
@@ -61,7 +61,7 @@ What the sub-agent **MUST** still do:
 - Do NOT call `Skill(skill="...")`.
 - Do NOT call `peaks skill presence:set` — Solo owns the active-skill file.
 - Do NOT modify application code. UI is design-direction only; the actual frontend code is written in the RD implementation phase.
-- Do NOT install MCP servers. If `peaks mcp list` shows playwright-mcp missing and the headed browser is required, return `{"status":"blocked","blockedReason":"playwright-mcp-unavailable"}` and let Solo escalate to the user.
+- Do NOT install MCP servers. If the LLM tool list does not include the Playwright MCP and the headed browser is required, return `{"status":"blocked","blockedReason":"playwright-mcp-unavailable"}` and let Solo escalate to the user. (peaks-cli no longer manages MCP install — the user runs `claude mcp add playwright -- npx @playwright/mcp@latest` themselves in Claude Code, or the IDE-specific install command otherwise.)
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}`.
 
@@ -129,14 +129,13 @@ peaks request init --role ui --id <request-id> --project <repo> --apply --json
 peaks request show <request-id> --role prd --project <repo> --json   # read linked PRD scope
 
 # 2. ensure Playwright MCP is available for the visible browser check
-peaks mcp list --json
-# if playwright-mcp.browser-validation is NOT in the list:
-peaks mcp plan  --capability playwright-mcp.browser-validation --json
-peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
-# if apply fails or user denies installation:
-#   → mark browser gate as blocked with reason "playwright-mcp-unavailable"
-#   → NEVER silently downgrade to screenshots-only, manual steps, or other tools
-#   → NEVER route through chrome-devtools-mcp as a browser-launch substitute (it cannot launch)
+# Slice #016: peaks-cli no longer manages MCP install. The LLM checks
+# its own tool list for any Playwright MCP entry in the LLM tool list. If absent, the
+# LLM tells the user the install command (`claude mcp add playwright
+# -- npx @playwright/mcp@latest` in Claude Code) and reports the gate
+# as blocked. Do NOT silently downgrade to screenshots-only, manual
+# steps, or other tools. Do NOT route through chrome-devtools-mcp as a
+# browser-launch substitute (it cannot launch a browser of its own).
 
 # 3. read project-scan for component library and CSS framework context
 #    check .peaks/<session-id>/rd/project-scan.md (blocking if missing for existing projects)
@@ -151,8 +150,8 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 #    See "Prototype fidelity gate" section for the full decision tree.
 
 # 5. drive the running page or prototype through Claude Code MCP tools
-#    (these are not Peaks-Cli CLI commands; they are invoked by the host MCP runtime)
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_navigate --args-json '{"url":"<url>"}' --json
+#    (the LLM invokes these directly from its tool list — no peaks-cli envelope)
+#    browser_navigate --args '{"url":"<url>"}'
 #    → URL (after allow-list check), launches headed browser
 #
 #    LOGIN GATE (MANDATORY checkpoint):
@@ -162,19 +161,18 @@ peaks mcp apply --capability playwright-mcp.browser-validation --yes --json
 #    If user does not confirm within reasonable time → pause and ask.
 #    Only after user confirmation, continue to:
 #
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '{"filename":"<abs-path>"}' --json
+#    browser_take_screenshot --args '{"filename":"<abs-path>"}'
 #    → visible-browser confirmation
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_snapshot --args-json '{}' --json
+#    browser_snapshot --args '{}'
 #    → accessibility tree for regression seeds
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_console_messages --args-json '{}' --json
+#    browser_console_messages --args '{}'
 #    → console errors
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_network_requests --args-json '{}' --json
+#    browser_network_requests --args '{}'
 #    → failed network
-#    peaks mcp call --capability playwright-mcp.browser-validation --tool browser_close --args-json '{}' --json
+#    browser_close --args '{}'
 #    → end the session cleanly
-# The skill body NEVER bakes in the `mcp__playwright__` prefix; the LLM's runtime
-# resolves the tool name from the registered server. The capability id
-# `playwright-mcp.browser-validation` is the contract; the registry is the source of truth.
+# The skill body NEVER bakes in the the Playwright MCP tools prefix; the LLM's runtime
+# resolves the tool name from the registered server.
 
 # 5. write design-draft artifact to .peaks/<session-id>/ui/design-draft.md
 
@@ -238,7 +236,7 @@ Use gstack as a concrete design-review workflow reference for the `Plan → Revi
 - map browser walkthrough concepts to UI regression seeds when runtime validation is approved;
 - keep accessibility, performance, and product-specific visual direction as Peaks-Cli UI acceptance inputs.
 
-For frontend work, especially full-auto mode, use Playwright MCP to inspect the running page or prototype before accepting the UI direction. The skill body never bakes in the `mcp__playwright__` prefix; it uses `peaks mcp call --capability playwright-mcp.browser-validation --tool <name> --args-json '<args>' --json` for every browser operation (browser_navigate / browser_snapshot / browser_take_screenshot / browser_console_messages / browser_network_requests / browser_close). Playwright MCP launches a headed browser on demand; if `peaks mcp list --json` does not include `playwright`, install it through `peaks mcp plan --capability playwright-mcp.browser-validation --json` then `peaks mcp apply --capability playwright-mcp.browser-validation --yes --json` before attempting to inspect. (Chrome DevTools MCP is a secondary surface that connects to an already-running Chrome via `--remote-debugging-port=9222`; it does NOT launch a browser on its own.) If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-solo/references/browser-workflow.md`.
+For frontend work, especially full-auto mode, use the Playwright MCP to inspect the running page or prototype before accepting the UI direction. The LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if present, it invokes the tools by name directly (browser_navigate / browser_snapshot / browser_take_screenshot / browser_console_messages / browser_network_requests / browser_close) — there is no peaks-cli envelope. Playwright MCP launches a headed browser on demand; if the tool list is empty, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or the IDE's own MCP install path. (Chrome DevTools MCP is a secondary surface that connects to an already-running Chrome via `--remote-debugging-port=9222`; it does NOT launch a browser on its own.) If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions, weak hierarchy, generic template patterns, console errors, and interaction problems as UI feedback that should return to design/RD before handing off to QA; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-solo/references/browser-workflow.md`.
 
 ## Prototype fidelity gate (MANDATORY — check BEFORE any design work)
 
@@ -248,7 +246,7 @@ For frontend work, especially full-auto mode, use Playwright MCP to inspect the 
 
 Check these sources in order:
 
-1. **Figma design file** — If the PRD links to a Figma file, use `peaks mcp call --capability figma-context-mcp.design-context --tool get_figma_data --args-json '{"fileKey":"<key>"}' --json` to fetch the design (the skill body never bakes in the `mcp__Figma_AI_Bridge__` prefix; the prefix is owned by the LLM runtime, and `FIGMA_API_KEY` must be set in the env before `peaks mcp apply` — the plan envelope's `envCheck.missing` field is the source of truth). The Figma data IS the design. Replicate layout, spacing, colors, typography, and component choices exactly as specified.
+1. **Figma design file** — If the PRD links to a Figma file, the LLM checks its own tool list for any the Figma MCP entry. If present, it invokes `get_figma_data` (or similar) directly with `{"fileKey":"<key>"}`; `FIGMA_API_KEY` must be set in the user's env for the MCP to authenticate. The skill body never bakes in the Figma MCP prefix; the LLM's runtime owns the namespace. The Figma data IS the design. Replicate layout, spacing, colors, typography, and component choices exactly as specified.
 2. **PRD document screenshots** — If the PRD source (Feishu/Lark doc) contains screenshots or mockups, those ARE the visual target. Check `.peaks/<id>/prd/source/` for saved screenshots.
 3. **PRD visual descriptions** — If the PRD explicitly describes layout, component placement, or visual behavior, those descriptions are constraints, not suggestions.
 4. **Existing application pages** — If modifying an existing app, the existing visual language (component library, spacing patterns, color usage) is the fidelity baseline. New pages must match existing conventions.
@@ -355,8 +353,8 @@ Use `peaks capabilities --source access-repo --json` and `peaks capabilities --s
 
 - In full-auto frontend mode, prefer the `awesome-design-md` + `taste-skill`/`design-taste-frontend` combination before shadcn/ui or generic component-library output (capability discovery must confirm availability first).
 - shadcn/ui, React Bits, awesome-design-md, taste-skill, and ui-ux-pro-max-skill are UI references; do not treat unreviewed generated UI as finished design.
-- Chrome DevTools MCP and Agent Browser can support runtime UI inspection only after the user approves the app target. Install or update those MCP servers through `peaks mcp plan --capability <id> --json` then `peaks mcp apply --capability <id> --yes --json` rather than hand-editing settings; invoke their tools through `peaks mcp call --capability <id> --tool <name> --args-json '{...}' --json`.
-- Figma Context MCP and Penpot require user-authorized design access and must not persist tokens or private design data in project artifacts. Same `peaks mcp plan / apply / call` installation and invocation path applies.
+- Chrome DevTools MCP and Agent Browser can support runtime UI inspection only after the user approves the app target. (Slice #016: peaks-cli no longer auto-installs these; the user runs the IDE-native MCP install command themselves, and the LLM invokes the tool by name from its tool list when present.)
+- Figma Context MCP and Penpot require user-authorized design access and must not persist tokens or private design data in project artifacts. Same rule: the LLM's tool list is the source of truth; peaks-cli is not in the install path.
 - Check license, accessibility, and performance before translating external visual references into Peaks-Cli UI constraints.
 
 ## Boundaries

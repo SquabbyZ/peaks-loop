@@ -43,7 +43,7 @@ For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP head
 
 ### Contract 1 — Self-test screenshots must land under .peaks/_runtime/<sessionId>/qa/screenshots/
 
-Even though RD runs the self-test, **the screenshot evidence is QA's** by convention (the test report under `.peaks/_runtime/<sessionId>/qa/test-reports/` cites these paths). Therefore RD's Playwright screenshot tool calls (via `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '<args>' --json`) MUST pass `filename` (in the args object) whose absolute path is inside `.peaks/_runtime/<sessionId>/qa/screenshots/`, exactly the same contract QA enforces. Do not let Playwright fall back to the project root.
+Even though RD runs the self-test, **the screenshot evidence is QA's** by convention (the test report under `.peaks/_runtime/<sessionId>/qa/test-reports/` cites these paths). Therefore RD's Playwright screenshot tool calls (the LLM invokes `browser_take_screenshot` directly when the the Playwright MCP tools are present in the LLM's tool list) MUST pass `filename` (in the args object) whose absolute path is inside `.peaks/_runtime/<sessionId>/qa/screenshots/`, exactly the same contract QA enforces. Do not let Playwright fall back to the project root. If the the Playwright MCP tools are absent from the tool list, STOP and tell the user: `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or consult the IDE's MCP install docs.
 
 ### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
 
@@ -249,9 +249,11 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 # NEVER write mock data inline in component files.
 # See "Mock data placement rules" section for the full framework mapping.
 
-# 5. optional library docs lookup through an installed MCP server
-peaks mcp list --json
-peaks mcp call --capability context7.docs-lookup --tool <name> --args-json '{...}' --json
+# 5. optional library docs lookup through the LLM's own tool list (Context7 MCP)
+# If the Context7 MCP is present in the tool list, invoke the
+# tool directly (resolve-library-id / query-docs / etc.). If absent, skip
+# library docs and rely on existing project knowledge — do NOT hand-edit
+# `~/.claude/settings.json` to install MCPs.
 
 # 6. record red-line scope, slice contract, coverage status into the RD artifact, then implement
 
@@ -566,7 +568,7 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 1. OpenSpec change artifacts exist and are linked for non-trivial work when the target repo already has `openspec/`, or the user has approved adding it;
 2. unit tests covering the new or changed behavior have been added or updated and run successfully; **→ verified by Peaks-Cli Gate B2**
 3. if the repository is legacy and total UT coverage is below the project target, do not block on historical coverage, but require coverage evidence for newly added or changed code;
-4. for frontend or UI-affecting slices, RD self-test has launched the app and used Playwright MCP for real browser end-to-end validation with visible-browser confirmation (install via `peaks mcp plan --capability playwright-mcp.browser-validation --json` then `peaks mcp apply --capability playwright-mcp.browser-validation --yes --json` if not yet present; navigate with `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_navigate --args-json '<args>' --json`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests` (each via `peaks mcp call`), sanitize route/actions and observations before retention, record acceptance result, close with `browser_close` (via `peaks mcp call`)); the skill body never bakes in the `mcp__playwright__` prefix; if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
+4. for frontend or UI-affecting slices, RD self-test has launched the app and used the Playwright MCP for real browser end-to-end validation with visible-browser confirmation (the LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` — RD does NOT hand-edit `~/.claude/settings.json` or auto-install on the user's behalf); navigate with `browser_navigate`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests`, sanitize route/actions and observations before retention, record acceptance result, close with `browser_close`; if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
 5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/<changeId>/rd/code-review.md`
 6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/<changeId>/rd/security-review.md`
 6.5. perf-baseline output is in place for any slice with a user-perceivable performance surface — `peaks perf baseline --apply` has been run and `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` exists with the Results table filled in with measurements (or `N/A — no perf surface` in Notes for slices without a perf surface). For docs / chore / pure-bugfix-no-perf, the file is not required. Run the fan-out from "Parallel review fan-out" below; **→ verified by Peaks-Cli Gate B9** — evidence file must exist at `.peaks/<changeId>/rd/perf-baseline.md` and contain a non-empty Results table or the N/A marker.
@@ -801,7 +803,7 @@ Do not run upstream installer flows, mutate agent settings, or commit `.codegrap
 
 **Other external resources** (Context7, SearchCode, everything-claude-code, GitNexus, etc.): Use `peaks capabilities --source access-repo/mcp-server --json` for capability discovery before recommending. References only — do not execute upstream installers, do not install upstream resources, do not persist sensitive examples. Peaks-Cli RD gates remain authoritative.
 
-**OpenSpec and MCP CLI**: Route through Peaks-Cli CLI (`peaks openspec show/to-rd/render`, `peaks mcp list/plan/apply/call`). Do not hand-edit `openspec/changes/**` or `~/.claude/settings.json`. Recipes: `references/openspec-mcp-cli.md`.
+**OpenSpec CLI**: Route through Peaks-Cli CLI (`peaks openspec show/to-rd/render`). Do not hand-edit `openspec/changes/**`. Recipes: `references/openspec-cli.md`. (MCP CLI was retired in slice #016; the LLM's own tool list is the source of truth for which MCPs are installed.)
 
 ## Boundaries
 

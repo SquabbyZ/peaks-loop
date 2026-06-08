@@ -1,8 +1,6 @@
 import { listRequestArtifacts, type RequestArtifactRole, type RequestArtifactSummary } from '../artifacts/request-artifact-service.js';
 import { scanOpenSpec } from '../openspec/openspec-scan-service.js';
 import type { OpenSpecChangeSummary } from '../openspec/openspec-types.js';
-import { scanMcpServers } from '../mcp/mcp-scan-service.js';
-import type { McpScanReport } from '../mcp/mcp-types.js';
 import { scanUnderstandAnything } from '../understand/understand-scan-service.js';
 import { seedCapabilityItems } from '../recommendations/capability-seed-items.js';
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
@@ -29,11 +27,6 @@ export type ProjectDashboardUnderstand = {
   graphExists: boolean;
   graphPath: string;
   parseError?: string;
-};
-
-export type ProjectDashboardMcp = {
-  servers: McpScanReport['servers'];
-  scopes: McpScanReport['scopes'];
 };
 
 export type ProjectDashboardDoctor = {
@@ -76,7 +69,6 @@ export type ProjectDashboardRunbookHealth = {
 
 export type ProjectDashboardCapabilities = {
   count: number;
-  mcpCount: number;
   sample: Array<Pick<CapabilityItem, 'capabilityId' | 'name' | 'itemType' | 'category'>>;
 };
 
@@ -97,7 +89,6 @@ export type ProjectDashboard = {
   requests: ProjectDashboardRequests;
   openspec: ProjectDashboardOpenSpec;
   understand: ProjectDashboardUnderstand;
-  mcp: ProjectDashboardMcp;
   doctor: ProjectDashboardDoctor;
   runbookHealth: ProjectDashboardRunbookHealth;
   capabilities: ProjectDashboardCapabilities;
@@ -181,7 +172,6 @@ function buildCapabilitiesSummary(sampleSize: number): ProjectDashboardCapabilit
   const items = seedCapabilityItems;
   return {
     count: items.length,
-    mcpCount: items.filter((item) => item.itemType === 'mcp').length,
     sample: items.slice(0, sampleSize).map((item) => ({
       capabilityId: item.capabilityId,
       name: item.name,
@@ -215,10 +205,9 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
   const sampleSize = options.sampleCapabilities ?? 8;
   const okPolicy: DashboardOkPolicy = options.okPolicy ?? 'workspace-only';
 
-  const [items, openspecReport, mcpReport, understandReport, doctorAndRunbook] = await Promise.all([
+  const [items, openspecReport, understandReport, doctorAndRunbook] = await Promise.all([
     listRequestArtifacts({ projectRoot: options.projectRoot }),
     scanOpenSpec({ openspecRoot: `${options.projectRoot}/openspec` }),
-    scanMcpServers({ projectRoot: options.projectRoot }),
     scanUnderstandAnything({ projectRoot: options.projectRoot }),
     loadDoctorAndRunbookHealth(options.doctorReport, options.runbookHealth)
   ]);
@@ -249,10 +238,6 @@ export async function loadProjectDashboard(options: LoadProjectDashboardOptions)
       graphExists: understandReport.graph.exists,
       graphPath: understandReport.graph.path,
       ...(understandReport.graph.parseError !== undefined ? { parseError: understandReport.graph.parseError } : {})
-    },
-    mcp: {
-      servers: mcpReport.servers,
-      scopes: mcpReport.scopes
     },
     doctor: doctorAndRunbook.doctor,
     runbookHealth: doctorAndRunbook.runbookHealth,

@@ -7,7 +7,6 @@ import { registerCoreAndArtifactCommands } from './commands/core-artifact-comman
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
 import { registerCodegraphCommands } from './commands/codegraph-commands.js';
-import { registerMcpCommands } from './commands/mcp-commands.js';
 import { registerOpenSpecCommands } from './commands/openspec-commands.js';
 import { registerPerfCommands } from './commands/perf-commands.js';
 // Slice #014: peaks progress * CLI surface deleted (replaced by sub-agent
@@ -91,7 +90,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerWorkflowCommands(program, io);
   registerCapabilityWorkerConfigAndSCCommands(program, io);
   registerCodegraphCommands(program, io);
-  registerMcpCommands(program, io);
   registerOpenSpecCommands(program, io);
   registerPerfCommands(program, io);
   registerProjectCommands(program, io);

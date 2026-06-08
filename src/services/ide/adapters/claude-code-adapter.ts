@@ -48,7 +48,6 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   capabilities: {
     gateEnforce: true,
     statusline: true,
-    mcpInstall: true,
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror

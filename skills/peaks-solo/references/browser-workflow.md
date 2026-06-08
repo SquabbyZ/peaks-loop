@@ -11,6 +11,8 @@ Peaks skills standardize on **Playwright MCP** as the controlled headed-browser 
 
 > **Bug history**: an earlier version of this document recommended Chrome DevTools MCP for "open a headed browser when peaks-solo gets a product document link." Dogfood testing in 2026-05 revealed the tool requires a pre-running Chrome with remote debugging enabled — it does NOT launch its own browser. Playwright MCP is the correct tool for the "open on demand" case.
 
+> **Slice #016 (2026-06-09)**: peaks-cli no longer manages MCP install / dispatch. Skill bodies instruct the LLM to (a) check its own tool list for any Playwright MCP entry, (b) invoke the tool by name if present, (c) tell the user the install command if absent. There is no peaks-cli MCP indirection layer anymore.
+
 ## When to open the headed browser
 
 Open a controlled browser when:
@@ -21,63 +23,71 @@ Open a controlled browser when:
 
 Never open a browser to bypass authentication, run arbitrary URLs the user has not approved, or interact with payment / delete / authenticated mutation flows without explicit user confirmation.
 
-## Install the Playwright MCP server (one-time)
+## Playwright MCP — install + detect
 
-Capability discovery exposes `playwright-mcp.browser-validation`. Install through the Peaks CLI rather than hand-editing settings.json so the peaks-managed marker and backup flow apply:
+The LLM runtime exposes Playwright's tools under the `mcp__playwright__*` namespace when the user has installed the MCP. Skill bodies MUST NOT bake the prefix into a SKILL.md or reference; the prefix is owned by the LLM runtime.
 
-```bash
-peaks mcp list --json
-peaks mcp plan   --capability playwright-mcp.browser-validation --json
-peaks mcp apply  --capability playwright-mcp.browser-validation --yes --json
-```
+**Detect**: the LLM checks its own tool list for any `mcp__playwright__*` entry. If present, the MCP is installed; the LLM invokes the tool by name (e.g. `browser_navigate`, `browser_take_screenshot`).
 
-If a non-peaks-managed Playwright MCP entry already exists in `.claude/settings.json`, `apply` will refuse unless `--claim` is passed. Discuss with the user before claiming.
+**Install (if absent)**: skill bodies surface the install command to the user. The user runs it themselves — peaks-cli does not hand-edit `~/.claude/settings.json`.
 
-After install, Claude Code's MCP runtime exposes the tools under the `mcp__playwright__*` namespace. Peaks skill bodies reference these tools via the `peaks mcp call` primitive (the skill body never bakes in the `mcp__playwright__` prefix; the prefix is owned by Claude Code's runtime, and `peaks mcp call` is the load-bearing fallback for sub-agents and non-Claude IDEs). The 4-step plan → apply → call pattern is the contract.
+- Claude Code:
+  ```bash
+  claude mcp add playwright -- npx @playwright/mcp@latest
+  ```
+  Restart Claude Code (or reload the window) so the MCP runtime picks up the new server.
 
-## Optional: install Chrome DevTools MCP for CDP inspection
+- Other IDEs (Trae, Cursor, Codex, Qoder, Tongyi, ...): consult the IDE's MCP install docs. The install command and the runtime prefix differ per IDE; the LLM checks the tool list rather than assuming a prefix.
 
-When inspecting an already-running Chrome (e.g., the user's own browser session opened with `chrome --remote-debugging-port=9222`), additionally install Chrome DevTools MCP:
+The skill body uses the LLM's tool list as the source of truth — never the cached `~/.claude/settings.json` (the LLM cannot read the file, and the file's contents may have drifted from runtime state).
 
-```bash
-peaks mcp plan   --capability chrome-devtools-mcp.browser-debug --json
-peaks mcp apply  --capability chrome-devtools-mcp.browser-debug --yes --json
-```
+## Chrome DevTools MCP — optional, secondary surface
 
-Tools become available under `mcp__chrome-devtools__*` in the LLM runtime. Peaks skill bodies invoke them via `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool <name> --args-json '<args>' --json` (the skill body never bakes in the `mcp__chrome-devtools__` prefix). They fail with "Could not connect to Chrome" if no Chrome is running on `:9222`; that is by design.
+When inspecting an already-running Chrome (e.g., the user's own browser session opened with `chrome --remote-debugging-port=9222`), the LLM checks its tool list for any `mcp__chrome_devtools__*` entry. If present, the LLM invokes the tool by name directly (e.g. `list_pages`, `take_screenshot`, `performance_start_trace`).
+
+Install (if absent) is the user's responsibility:
+
+- Claude Code:
+  ```bash
+  claude mcp add chrome-devtools -- npx chrome-devtools-mcp@latest
+  ```
+
+Chrome DevTools tools fail with "Could not connect to Chrome" if no Chrome is running on `:9222`; that is by design and the skill must surface it as a blocked precondition, not silently fall back.
 
 ## Tool mapping for the "open a browser on demand" path (Playwright MCP)
 
-| Verb | peaks mcp call invocation | Notes |
+The LLM invokes these tools directly from its `mcp__playwright__*` namespace. Peaks skill bodies describe the args shape; the LLM supplies them.
+
+| Verb | Direct invocation (LLM tool list) | Notes |
 |---|---|---|
-| Open visible browser and navigate | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_navigate --args-json '{"url":"<url>"}' --json` | Spawns a headed browser if none open; navigates in the existing context otherwise. |
-| Confirm visible browser opened | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '{"filename":"<abs-path>"}' --json` | Screenshot is the visible-browser confirmation. |
-| Read structured page (text + a11y) | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_snapshot --args-json '{}' --json` | Accessibility tree with element refs. |
-| Click / fill / press key | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_click --args-json '<args>' --json` (and `browser_fill`, `browser_press_key`) | Drive the page after navigation. |
-| Inspect console errors | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_console_messages --args-json '{"level":"error"}' --json` | Pass `level` to filter (`error`, `warning`). |
-| Inspect network failures | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_network_requests --args-json '{"filter":"<regex>"}' --json` | Pass `filter` regex when the page has many requests. |
-| Resize viewport for responsive checks | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_resize --args-json '<args>' --json` | |
-| Capture a full-page screenshot | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_take_screenshot --args-json '{"filename":"<abs-path>","fullPage":true}' --json` | Sanitize before retention. |
-| Close the session cleanly | `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_close --args-json '{}' --json` | End-of-task. |
-| **Reference (runtime prefix, do not bake into skills)** | `mcp__playwright__<toolName>` | The Claude Code runtime prefix; the LLM resolves this from the registered server. The skill body uses `peaks mcp call` exclusively. |
+| Open visible browser and navigate | `browser_navigate --args '{"url":"<url>"}'` | Spawns a headed browser if none open; navigates in the existing context otherwise. |
+| Confirm visible browser opened | `browser_take_screenshot --args '{"filename":"<abs-path>"}'` | Screenshot is the visible-browser confirmation. |
+| Read structured page (text + a11y) | `browser_snapshot --args '{}'` | Accessibility tree with element refs. |
+| Click / fill / press key | `browser_click --args '<args>'` (and `browser_type`, `browser_press_key`) | Drive the page after navigation. |
+| Inspect console errors | `browser_console_messages --args '{"level":"error"}'` | Pass `level` to filter (`error`, `warning`). |
+| Inspect network failures | `browser_network_requests --args '{"filter":"<regex>"}'` | Pass `filter` regex when the page has many requests. |
+| Resize viewport for responsive checks | `browser_resize --args '<args>'` | |
+| Capture a full-page screenshot | `browser_take_screenshot --args '{"filename":"<abs-path>","fullPage":true}'` | Sanitize before retention. |
+| Close the session cleanly | `browser_close --args '{}'` | End-of-task. |
+| **Runtime prefix (LLM-owned, do not bake into skills)** | `mcp__playwright__<toolName>` | The Claude Code / Trae / etc. runtime prefix; the LLM resolves this from the registered server. |
 
 ## Tool mapping for the "connect to running Chrome" path (Chrome DevTools MCP, optional)
 
-| Verb | peaks mcp call invocation | Notes |
+| Verb | Direct invocation (LLM tool list) | Notes |
 |---|---|---|
-| List pages in user's Chrome | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool list_pages --args-json '{}' --json` | Requires Chrome already running with `--remote-debugging-port=9222`. |
-| Bring a tab to front | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool select_page --args-json '{"bringToFront":true}' --json` | Useful when the user navigated themselves. |
-| Screenshot the visible viewport | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool take_screenshot --args-json '<args>' --json` | |
-| Read structured page | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool take_snapshot --args-json '{}' --json` | |
-| Performance trace | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool performance_start_trace --args-json '<args>' --json` then `performance_stop_trace` (each via `peaks mcp call`) | |
-| Lighthouse audit | `peaks mcp call --capability chrome-devtools-mcp.browser-debug --tool lighthouse_audit --args-json '{"mode":"snapshot"}' --json` | |
-| **Reference (runtime prefix, do not bake into skills)** | `mcp__chrome-devtools__<toolName>` | The Claude Code runtime prefix; the LLM resolves this from the registered server. The skill body uses `peaks mcp call` exclusively. |
+| List pages in user's Chrome | `list_pages --args '{}'` | Requires Chrome already running with `--remote-debugging-port=9222`. |
+| Bring a tab to front | `select_page --args '{"bringToFront":true}'` | Useful when the user navigated themselves. |
+| Screenshot the visible viewport | `take_screenshot --args '<args>'` | |
+| Read structured page | `take_snapshot --args '{}'` | |
+| Performance trace | `performance_start_trace --args '<args>'` then `performance_stop_trace` | |
+| Lighthouse audit | `lighthouse_audit --args '{"mode":"snapshot"}'` | |
+| **Runtime prefix (LLM-owned, do not bake into skills)** | `mcp__chrome_devtools__<toolName>` | The Claude Code / Trae / etc. runtime prefix; the LLM resolves this from the registered server. |
 
 If Chrome is not running on `:9222`, every Chrome DevTools MCP tool fails. The skill must surface that as a blocked precondition, not silently fall back.
 
 ## URL allow-list (always required before navigation)
 
-Before calling `peaks mcp call --capability playwright-mcp.browser-validation --tool browser_navigate --args-json '{"url":"<url>"}' --json` (or any other navigation), verify:
+Before invoking `browser_navigate --args '{"url":"<url>"}'` (or any other navigation), verify:
 
 1. URL uses `https:` (reject `http:`, `file:`, `data:`, `javascript:`).
 2. Host belongs to an approved domain for the role (Feishu/Lark tenant for PRD product docs, the user-approved app target for UI/QA validation).
@@ -107,10 +117,11 @@ Redact sensitive values before retention. Store evidence as sanitized observatio
 
 ## Fallback when Playwright MCP is not installed
 
-If `peaks mcp list --json` does not include `playwright` in `mcpServers`:
+If the LLM tool list does not include `mcp__playwright__*`:
 
-1. Surface the install commands above (peaks mcp plan / apply).
+1. Surface the install command for the user's IDE (the Claude Code install is `claude mcp add playwright -- npx @playwright/mcp@latest`; other IDEs differ).
 2. Do not silently fall back to unauthenticated fetch tools, screenshots-only, or manual transcription.
 3. Frontend QA workflows that require headed browser validation mark the gate `blocked` with the install command in the next action. Manual steps or text-only fetching do not substitute for the mandatory headed browser gate.
+4. Restart the IDE after install; the runtime picks up the new server only after a fresh process / window reload.
 
 Peaks role artifacts (PRD / UI / RD / QA) remain authoritative for what evidence the role recorded; Playwright MCP is the tool, not the verdict.

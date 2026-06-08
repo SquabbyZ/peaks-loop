@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-07T20:47:15.096Z",
+  "updatedAt": "2026-06-08T17:41:17.556Z",
   "hot": {
     "feedback": [
       {
@@ -83,39 +83,7 @@
         "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-solo full-auto) The  shape...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "mcp-decouple-chrome-devtools",
-        "kind": "decision",
-        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Chrome DevTools MCP as  in the peaks install registry.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-chrome-devtools.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "mcp-decouple-context7",
-        "kind": "decision",
-        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Context7 MCP as  in the peaks install registry.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-context7.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "mcp-decouple-figma",
-        "kind": "decision",
-        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Figma MCP as  in the peaks install registry.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-figma.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
-        "updatedAt": "2026-06-07"
-      },
-      {
-        "name": "mcp-decouple-playwright",
-        "kind": "decision",
-        "description": "Slice #007-007-2026-06-07-mcp-decouple registers Playwright MCP as  in the peaks install registry.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\mcp-decouple-playwright.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/008-007-007-2026-06-07-mcp-decouple.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-08"
       },
       {
         "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
@@ -155,14 +123,6 @@
         "description": "Per-IdeAdapter.subAgentToolMatcher is a string field declared in .",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-06"
-      },
-      {
-        "name": "trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified",
-        "kind": "decision",
-        "description": "The Trae adapter's  (vs Claude's ).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-sets-mcpinstall-false-trae-mcp-integration-is-unverified.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-06"
       }
     ],

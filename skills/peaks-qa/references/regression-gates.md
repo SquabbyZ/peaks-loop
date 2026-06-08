@@ -9,7 +9,7 @@ QA must be involved before refactor implementation.
 - baseline report;
 - acceptance checks;
 - API validation evidence when API behavior is in scope;
-- Playwright MCP browser E2E evidence when a frontend exists or UI is in scope (install via `peaks mcp plan/apply --capability playwright-mcp.browser-validation --yes` if not present; capture with `mcp__playwright__browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`), with mandatory visible-browser confirmation;
+- Playwright MCP browser E2E evidence when a frontend exists or UI is in scope (the LLM checks its tool list for `mcp__playwright__*`; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code, or the IDE-native install command otherwise — peaks-cli no longer auto-installs as of slice #016; capture with `browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`), with mandatory visible-browser confirmation;
 - security check evidence;
 - performance check evidence;
 - validation report;

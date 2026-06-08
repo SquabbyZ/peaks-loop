@@ -26,8 +26,6 @@ export interface IdeCapabilities {
   readonly gateEnforce: true;
   /** peaks statusline 状态栏是否适用 */
   readonly statusline: boolean;
-  /** peaks mcp install 是否适用 */
-  readonly mcpInstall: boolean;
 }
 
 export interface IdeSettingsLocation {
