@@ -14,6 +14,7 @@ import { registerPerfCommands } from './commands/perf-commands.js';
 // surfaced via `peaks sub-agent dispatch|heartbeat|share`.
 import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
+import { registerRetrospectiveCommands } from './commands/retrospective-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
 import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import { registerSliceCommands } from './commands/slice-commands.js';
@@ -94,6 +95,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerPerfCommands(program, io);
   registerProjectCommands(program, io);
   registerRequestCommands(program, io);
+  registerRetrospectiveCommands(program, io);
   registerScanCommands(program, io);
   registerShadcnCommands(program, io);
   registerSliceCommands(program, io);

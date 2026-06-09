@@ -981,3 +981,48 @@ export function readProjectMemories(projectRoot: string): ProjectMemoryReadResul
     memories
   };
 }
+
+export interface ProjectMemoryShowResult {
+  projectRoot: string;
+  memoryDir: string;
+  name: string;
+  body: string;
+  filePath: string;
+  updatedAt: string | null;
+  kind: ProjectMemoryKind | null;
+  title: string;
+  /** Whether the on-disk body bytes are returned (true) or a compact form (false). */
+  pretty: boolean;
+}
+
+/**
+ * Read a single project memory's full body by name. Returns null when
+ * the memory does not exist. The on-disk body is returned verbatim
+ * (pretty). The CLI layer applies `formatMdCompact` when `format: 'compact'`
+ * is requested. Slice 023 (R3).
+ */
+export function readProjectMemoryBody(projectRoot: string, name: string): ProjectMemoryShowResult | null {
+  const normalizedRoot = normalizeRoot(projectRoot);
+  const memoryDir = assertSafeProjectMemoryDir(normalizedRoot);
+  if (!existsSync(memoryDir)) {
+    ensureMemoryBootstrap(normalizedRoot);
+  }
+  for (const filePath of listMarkdownFiles(memoryDir)) {
+    if (basename(filePath, '.md') !== name) continue;
+    const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
+    if (parsed === null) continue;
+    const updatedAt = readMemoryFileMtime(filePath);
+    return {
+      projectRoot: normalizedRoot,
+      memoryDir,
+      name: parsed.name,
+      body: parsed.body,
+      filePath,
+      updatedAt,
+      kind: parsed.kind,
+      title: parsed.title,
+      pretty: true
+    };
+  }
+  return null;
+}

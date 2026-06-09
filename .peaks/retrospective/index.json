@@ -1,0 +1,1238 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-09T13:36:21.972Z",
+  "entries": [
+    {
+      "id": "2026-06-06-session-517672",
+      "sessionId": "2026-06-06-session-517672",
+      "type": "chore",
+      "title": "RD Request 007-2026-06-06-sub-agent-session-sharing",
+      "summary": "RD Request 007-2026-06-06-sub-agent-session-sharing",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-06-session-517672/rd/requests/001-007-2026-06-06-sub-agent-session-sharing.md"
+      ],
+      "updatedAt": "2026-06-06T05:29:32.202Z"
+    },
+    {
+      "id": "2026-06-06-session-517672",
+      "sessionId": "2026-06-06-session-517672",
+      "type": "refactor",
+      "title": "TXT Handoff — Slice 007 (sub-agent session sharing + doctor scope broaden)",
+      "summary": "TXT Handoff — Slice 007 (sub-agent session sharing + doctor scope broaden)",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-06-session-517672/txt/handoff.md"
+      ],
+      "updatedAt": "2026-06-06T05:07:28.625Z"
+    },
+    {
+      "id": "2026-06-06-session-layout-canonicalize",
+      "sessionId": "2026-06-06-session-c4c553",
+      "type": "refactor",
+      "title": "QA Request 003-2026-06-06-session-layout-canonicalize",
+      "summary": "QA Request 003-2026-06-06-session-layout-canonicalize",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-06-session-layout-canonicalize/qa/requests/003-2026-06-06-session-layout-canonicalize.md"
+      ],
+      "updatedAt": "2026-06-05T19:01:28.410Z"
+    },
+    {
+      "id": "2026-06-06-session-layout-canonicalize",
+      "sessionId": "2026-06-06-session-layout-canonicalize",
+      "type": "refactor",
+      "title": "QA Test Cases — RD slice 003-2026-06-06-session-layout-canonicalize",
+      "summary": "QA Test Cases — RD slice 003-2026-06-06-session-layout-canonicalize",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-06-session-layout-canonicalize/qa/test-cases/003-2026-06-06-session-layout-canonicalize.md"
+      ],
+      "updatedAt": "2026-06-05T19:01:28.352Z"
+    },
+    {
+      "id": "2026-06-06-session-layout-canonicalize",
+      "sessionId": "2026-06-06-session-layout-canonicalize",
+      "type": "refactor",
+      "title": "QA Test Report — slice 003-2026-06-06-session-layout-canonicalize",
+      "summary": "QA Test Report — slice 003-2026-06-06-session-layout-canonicalize",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-06-session-layout-canonicalize/qa/test-reports/003-2026-06-06-session-layout-canonicalize.md"
+      ],
+      "updatedAt": "2026-06-05T19:01:28.276Z"
+    },
+    {
+      "id": "2026-06-05-dogfood-gateb9-results",
+      "sessionId": "2026-06-05-session-6e8d7d",
+      "type": "feature",
+      "title": "RD Request 2026-06-05-dogfood-gateb9-results",
+      "summary": "RD Request 2026-06-05-dogfood-gateb9-results",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-05-dogfood-gateb9-results/rd/requests/002-2026-06-05-dogfood-gateb9-results.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.709Z"
+    },
+    {
+      "id": "2026-06-05-dogfood-gateb9-empty",
+      "sessionId": "2026-06-05-dogfood-gateb9-empty",
+      "type": "refactor",
+      "title": "TXT Handoff — README / README-en 同步",
+      "summary": "TXT Handoff — README / README-en 同步",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-05-dogfood-gateb9-empty/txt/handoff.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.706Z"
+    },
+    {
+      "id": "2026-06-05-dogfood-gateb9-empty",
+      "sessionId": "2026-06-05-session-6e8d7d",
+      "type": "feature",
+      "title": "RD Request 2026-06-05-dogfood-gateb9-empty",
+      "summary": "RD Request 2026-06-05-dogfood-gateb9-empty",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-05-dogfood-gateb9-empty/rd/requests/003-2026-06-05-dogfood-gateb9-empty.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.705Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "Tech Doc — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "summary": "- Add `peaks workspace reconcile` CLI command that scans `.peaks/2026-MM-DD-session-*/` directories, identifies a canonical session, re-points `.peaks/.session.json`, and (optionally, with `--apply`) deletes empty/abandoned session dirs older than 7 days. - Modify SC `validate` …",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/rd/tech-doc.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.702Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb (this handoff was written in the 89f7cb session; both prior slices' artifacts are in their own session dirs)",
+      "type": "refactor",
+      "title": "TXT Handoff: slice 2026-06-04-workflow-resilience + slice 2026-06-04-workspace-reconcile",
+      "summary": "TXT Handoff: slice 2026-06-04-workflow-resilience + slice 2026-06-04-workspace-reconcile",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/txt/handoff.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.702Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "refactor",
+      "title": "Security Review — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "summary": "Security Review — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/rd/security-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.701Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "RD Request 2026-06-04-workspace-reconcile",
+      "summary": "RD Request 2026-06-04-workspace-reconcile",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/rd/requests/001-2026-06-04-workspace-reconcile.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.700Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "refactor",
+      "title": "Code Review — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "summary": "Implementation matches the PRD scope: W3 adds `peaks workspace reconcile` with a 4-tier canonical heuristic, dry-run by default, `--apply` for destructive deletion, `--older-than <days>` for the age threshold override. W4 adds a 3-tier `resolveArtifactSession` helper that is cal…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/rd/code-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.698Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "refactor",
+      "title": "Perf Baseline — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "summary": "Perf Baseline — Slice 2: `peaks workspace reconcile` + SC Artifact Resolution",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/rd/perf-baseline.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.698Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "QA Test Report: 2026-06-04-workspace-reconcile",
+      "summary": "QA Test Report: 2026-06-04-workspace-reconcile",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/qa/test-reports/2026-06-04-workspace-reconcile.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.697Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "QA Test Cases: 2026-06-04-workspace-reconcile",
+      "summary": "QA Test Cases: 2026-06-04-workspace-reconcile",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/qa/test-cases/2026-06-04-workspace-reconcile.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.695Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "refactor",
+      "title": "QA Security Findings: 2026-06-04-workspace-reconcile",
+      "summary": "QA Security Findings: 2026-06-04-workspace-reconcile",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/qa/security-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.693Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "QA Request 2026-06-04-workspace-reconcile",
+      "summary": "QA Request 2026-06-04-workspace-reconcile",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/qa/requests/001-2026-06-04-workspace-reconcile.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.692Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "refactor",
+      "title": "QA Performance Findings: 2026-06-04-workspace-reconcile",
+      "summary": "QA Performance Findings: 2026-06-04-workspace-reconcile",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/qa/performance-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.691Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "PRD Request 2026-06-04-workspace-reconcile",
+      "summary": "- **W3**: add a new CLI command `peaks workspace reconcile` that scans `.peaks/2026-MM-DD-session-*/` directories under the project root, identifies the canonical session (via 4-tier heuristic: active-skill binding → most-recent mtime → most-recent artifact mtime → dir-name sort…",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workspace-reconcile/prd/requests/001-2026-06-04-workspace-reconcile.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.690Z"
+    },
+    {
+      "id": "2026-06-04-workflow-resilience",
+      "sessionId": "2026-06-04-session-ec7f95",
+      "type": "chore",
+      "title": "RD Security Review: 2026-06-04-workflow-resilience / Slice 1 (W2)",
+      "summary": "RD Security Review: 2026-06-04-workflow-resilience / Slice 1 (W2)",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workflow-resilience/rd/security-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.688Z"
+    },
+    {
+      "id": "2026-06-04-workflow-resilience",
+      "sessionId": "2026-06-04-session-ec7f95",
+      "type": "refactor",
+      "title": "RD Tech-Doc: 2026-06-04-workflow-resilience / Slice 1 (W2)",
+      "summary": "Make `peaks --version` (and any code importing `CLI_VERSION` from `src/shared/version.ts`) always in sync with `package.json` `version` by promoting `scripts/sync-version.mjs` to a `pre*` hook that fires before `dev`, `test`, and `publish` invocations.",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workflow-resilience/rd/tech-doc.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.688Z"
+    },
+    {
+      "id": "2026-06-04-workflow-resilience",
+      "sessionId": "2026-06-04-session-ec7f95",
+      "type": "chore",
+      "title": "RD Request 2026-06-04-workflow-resilience",
+      "summary": "RD Request 2026-06-04-workflow-resilience",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workflow-resilience/rd/requests/001-2026-06-04-workflow-resilience.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.686Z"
+    },
+    {
+      "id": "2026-06-04-workflow-resilience",
+      "sessionId": "2026-06-04-session-ec7f95",
+      "type": "feature",
+      "title": "PRD Request 2026-06-04-workflow-resilience",
+      "summary": "- **W2**: ensure `peaks --version` (and any code that imports `CLI_VERSION` from `src/shared/version.ts`) is always in sync with `package.json`. The version sync must run on `predev`, `prepack`, `prepublish`, and `pretest` so that `pnpm dev` / `pnpm build` / `pnpm pack` / `pnpm …",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-workflow-resilience/prd/requests/001-2026-06-04-workflow-resilience.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.684Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Report: 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "All 8 acceptance test cases pass. The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-solo/SKILL.md`. The new step runs a deterministic, read-only bash loop that classifies the session into one of `fresh | complete | resume:<gate…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/test-reports/003-2026-06-04-solo-step-0-7-resume.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.682Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Cases: 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "QA Test Cases: 003-2026-06-04-solo-step-0-7-resume",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/test-cases/003-2026-06-04-solo-step-0-7-resume.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.681Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Report: 002-2026-06-04-solo-skill-slim-extract",
+      "summary": "All 10 acceptance test cases pass. The slice is a pure documentation + helper-extraction refactor that: 1. Slims `skills/peaks-solo/SKILL.md` from 1071 → 765 lines (under the 800-line cap) 2. Extracts the 168-line bash runbook to `skills/peaks-solo/references/runbook.md` 3. Extr…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/test-reports/002-2026-06-04-solo-skill-slim-extract.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.678Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Cases: 002-2026-06-04-solo-skill-slim-extract",
+      "summary": "QA Test Cases: 002-2026-06-04-solo-skill-slim-extract",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/test-cases/002-2026-06-04-solo-skill-slim-extract.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.676Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Report: 004-2026-06-04-rd-4way-fanout",
+      "summary": "All 13 acceptance test cases pass. The slice expands peaks-rd's parallel review fan-out from 3 to 4 sub-agents. The new 4th sub-agent (`qa-test-cases-writer`) writes `qa/test-cases/<rid>.md` in parallel with the existing 3 review sub-agents, so QA's main loop's first action beco…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/qa/test-reports/004-2026-06-04-rd-4way-fanout.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.674Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Cases: 004-2026-06-04-rd-4way-fanout",
+      "summary": "QA Test Cases: 004-2026-06-04-rd-4way-fanout",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/qa/test-cases/004-2026-06-04-rd-4way-fanout.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.672Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "refactor",
+      "title": "TXT Handoff: slice 2026-06-04-monorepo-and-release",
+      "summary": "TXT Handoff: slice 2026-06-04-monorepo-and-release",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/txt/handoff.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.669Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "RD Tech-Doc: Monorepo discovery for `peaks scan libraries`",
+      "summary": "Make `peaks scan libraries` enumerate dependencies across pnpm / npm / yarn workspaces (monorepo) so that `peaks-rd` preflight and any downstream `## Library versions` consumer see the full surface, not just the root `package.json`.",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/rd/tech-doc.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.667Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-monorepo-and-release",
+      "type": "refactor",
+      "title": "RD Security Review — slice 2026-06-04-monorepo-and-release (A)",
+      "summary": "RD Security Review — slice 2026-06-04-monorepo-and-release (A)",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/rd/security-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.666Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "RD Request 2026-06-04-monorepo-and-release",
+      "summary": "RD Request 2026-06-04-monorepo-and-release",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/rd/requests/001-2026-06-04-monorepo-and-release.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.665Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-monorepo-and-release",
+      "type": "refactor",
+      "title": "RD Code Review — slice 2026-06-04-monorepo-and-release (A)",
+      "summary": "The change extends `peaks scan libraries` to discover pnpm / npm / yarn / lerna monorepo workspaces and enumerate their `package.json` files in addition to the root. Output is additive — `LibraryReport.workspaces` is a new field, single-package projects get `workspaces: []`, and…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/rd/code-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.664Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "QA Test Report — Slice A: 2026-06-04-monorepo-and-release",
+      "summary": "- 22/22 slice unit tests pass. - 0 new regression failures (the 7 pre-existing Windows test failures in `tests/unit/config-safety-canonical-root.test.ts` (5) and `tests/unit/statusline-settings-service.test.ts` (2) are pre-existing on parent commit `92ef8c3` and are NOT introduc…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/qa/test-reports/2026-06-04-monorepo-and-release.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.660Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "QA Test Cases: 2026-06-04-monorepo-and-release (Slice A)",
+      "summary": "QA Test Cases: 2026-06-04-monorepo-and-release (Slice A)",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/qa/test-cases/2026-06-04-monorepo-and-release.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.658Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "QA Security Findings — Slice A: 2026-06-04-monorepo-and-release",
+      "summary": "QA Security Findings — Slice A: 2026-06-04-monorepo-and-release",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/qa/security-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.656Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "QA Request 2026-06-04-monorepo-and-release (Slice A)",
+      "summary": "QA Request 2026-06-04-monorepo-and-release (Slice A)",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/qa/requests/001-2026-06-04-monorepo-and-release.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.655Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "QA Performance Findings — Slice A: 2026-06-04-monorepo-and-release",
+      "summary": "QA Performance Findings — Slice A: 2026-06-04-monorepo-and-release",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/qa/performance-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.653Z"
+    },
+    {
+      "id": "2026-06-04-monorepo-and-release",
+      "sessionId": "2026-06-04-session-cda1cd",
+      "type": "feature",
+      "title": "PRD Request 2026-06-04-monorepo-and-release",
+      "summary": "- Address three findings from the 2026-06-04 ice-cola dogfood pass in a single coordinated release. - Slice C: capture the monorepo-blind defect as a reproducible issue document (no code change). Located at `.peaks/2026-06-04-session-cda1cd/sc/issue-001-monorepo-blind.md` for tr…",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-04-monorepo-and-release/prd/requests/001-2026-06-04-monorepo-and-release.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.652Z"
+    },
+    {
+      "id": "2026-06-02-sop-global-reuse-ux-v2",
+      "sessionId": "2026-06-02-session-prd003ux",
+      "type": "feature",
+      "title": "RD Request 2026-06-02-sop-global-reuse-ux-v2",
+      "summary": "RD Request 2026-06-02-sop-global-reuse-ux-v2",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-sop-global-reuse-ux-v2/rd/requests/002-2026-06-02-sop-global-reuse-ux-v2.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.648Z"
+    },
+    {
+      "id": "2026-06-02-sop-global-reuse-ux-v2",
+      "sessionId": "2026-06-02-sop-global-reuse-ux-v2",
+      "type": "refactor",
+      "title": "Test Report — 2026-06-02-sop-global-reuse-ux-v2",
+      "summary": "- **Verdict:** **pass** - **Test cases:** 18 generated; 18 passed; 0 failed; 0 blocked; 0 skipped - **Test suite execution:** 110 tests in 7 SOP-related files → 110 pass / 0 fail - **Full project suite:** 1639 pass / 2 fail (pre-existing on main, see Residual Risks) - **Build:**…",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-sop-global-reuse-ux-v2/qa/test-reports/2026-06-02-sop-global-reuse-ux-v2.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.645Z"
+    },
+    {
+      "id": "2026-06-02-sop-global-reuse-ux-v2",
+      "sessionId": "2026-06-02-sop-global-reuse-ux-v2",
+      "type": "refactor",
+      "title": "Test Cases — 2026-06-02-sop-global-reuse-ux-v2",
+      "summary": "Test Cases — 2026-06-02-sop-global-reuse-ux-v2",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-sop-global-reuse-ux-v2/qa/test-cases/2026-06-02-sop-global-reuse-ux-v2.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.643Z"
+    },
+    {
+      "id": "2026-06-02-sop-global-reuse-ux-v2",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "QA Request 2026-06-02-sop-global-reuse-ux-v2",
+      "summary": "QA Request 2026-06-02-sop-global-reuse-ux-v2",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-sop-global-reuse-ux-v2/qa/requests/2026-06-02-sop-global-reuse-ux-v2.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.642Z"
+    },
+    {
+      "id": "2026-06-02-sop-global-reuse-ux-v2",
+      "sessionId": "2026-06-02-session-prd003ux (iteration; `peaks request init` reused the legacy 746113 session dir for the request artifact)",
+      "type": "feature",
+      "title": "PRD Request 2026-06-02-sop-global-reuse-ux-v2",
+      "summary": "- G4: `grep` check 新增 `absent: true` —— 找不到 pattern 才 pass,纯文本表达「不准有 X」,免 `--allow-commands`、跨平台、不依赖 `sh`。 - G5: `sop advance` 校验 phase 顺序 —— 只允许进入当前 phase 或其相邻下一个;跳级报 `SOP_PHASE_SKIP`(`bypass --allow-incomplete --reason` 仍可破)。 - G6: `sop init` 成功返回 `nextActions`(编辑 sop.json → l…",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-sop-global-reuse-ux-v2/prd/requests/005-2026-06-02-sop-global-reuse-ux-v2.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.640Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Tech-doc — RD 2026-06-02-grep-strip-meta",
+      "summary": "Tech-doc — RD 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/rd/tech-doc.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.637Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Security Review — RD 2026-06-02-grep-strip-meta",
+      "summary": "Security Review — RD 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/rd/security-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.636Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "RD Request 2026-06-02-grep-strip-meta",
+      "summary": "RD Request 2026-06-02-grep-strip-meta",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/rd/requests/003-2026-06-02-grep-strip-meta.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.635Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Code Review — RD 2026-06-02-grep-strip-meta",
+      "summary": "Code Review — RD 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/rd/code-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.634Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Project scan — peaks-cli (RD preflight)",
+      "summary": "Project scan — peaks-cli (RD preflight)",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/rd/project-scan.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.634Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Test Report — 2026-06-02-grep-strip-meta",
+      "summary": "- **Verdict:** **pass** - **Test cases:** 22 generated; 22 passed; 0 failed; 0 blocked; 0 skipped - **Test suite execution:** 122 pass / 4 fail in focused SOP suite; full suite 1651 pass / 6 fail (4 sop-commands + 2 statusline — all pre-existing on main, unrelated to this slice)…",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/qa/test-reports/2026-06-02-grep-strip-meta.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.633Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Test Cases — 2026-06-02-grep-strip-meta",
+      "summary": "Test Cases — 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/qa/test-cases/2026-06-02-grep-strip-meta.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.631Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "QA Request 2026-06-02-grep-strip-meta",
+      "summary": "QA Request 2026-06-02-grep-strip-meta",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/qa/requests/2027-2026-06-02-grep-strip-meta.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.629Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Security Findings — 2026-06-02-grep-strip-meta",
+      "summary": "Security Findings — 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/qa/security-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.629Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-06-02-grep-strip-meta",
+      "type": "refactor",
+      "title": "Performance Findings — 2026-06-02-grep-strip-meta",
+      "summary": "Performance Findings — 2026-06-02-grep-strip-meta",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/qa/performance-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.628Z"
+    },
+    {
+      "id": "2026-06-02-grep-strip-meta",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "PRD Request 2026-06-02-grep-strip-meta",
+      "summary": "- **G1**: `grep` check 新增可选 `stripMeta: true` 字段。开启后,evaluator 在 `regex.test` 之前先把文件内容做 meta-strip: - HTML/XML 注释 `<!-- ... -->` 整段去掉。 - Fenced code blocks ` ``` ... ``` ` 整段去掉(语言不限,3+ 反引号闭合)。 - 多行 `/* ... */` 注释整段去掉。 - **G2**: `stripMeta: true` 与现有 `absent: true` 正交可叠加。组合语义:`ab…",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-06-02-grep-strip-meta/prd/requests/006-2026-06-02-grep-strip-meta.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.627Z"
+    },
+    {
+      "id": "2026-05-30-sop-global-reuse-and-usability",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "PRD Request 2026-05-30-sop-global-reuse-and-usability",
+      "summary": "- G1:SOP 定义(`sop.json` + `SKILL.md`)与注册表迁到全局 `~/.peaks/sops/`;一次编写,任意项目复用。 - G2:运行态 `state.json` 拆到 `<project>/.peaks/sop-state/<id>.json`;同一全局 SOP 在不同项目各自独立进度,互不覆盖。 - G3:gate 检查目标路径仍相对 `--project` 解析,这是复用的语义基础(`posts/current.md` 在每个项目各自存在)。 - G4:`grep` check 新增 `absent: true` —…",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-30-sop-global-reuse-and-usability/prd/requests/003-2026-05-30-sop-global-reuse-and-usability.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.624Z"
+    },
+    {
+      "id": "2026-05-30-gate-enforcement-hook",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "PRD Request 2026-05-30-gate-enforcement-hook",
+      "summary": "- G1:SOP manifest 可声明 `guards`(把一个 Bash 命令正则绑定到一个 phase),语义=执行该命令即进入该 phase 的不可逆动作,必须先满足该 phase 门禁。 - G2:`peaks gate enforce` 作为 PreToolUse hook handler,读 stdin 的 `tool_input.command`,命中 guard 且门禁失败时输出已核实的 `permissionDecision:\"deny\"` JSON,否则放行。 - G3:`peaks hooks install/uninstal…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-30-gate-enforcement-hook/prd/requests/004-2026-05-30-gate-enforcement-hook.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.622Z"
+    },
+    {
+      "id": "2026-05-29-gate-metering-entitlement",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "PRD Request 2026-05-29-gate-metering-entitlement",
+      "summary": "- G1：定义 entitlement 数据模型——层级 `free|pro|max|ultra` → 门禁配额 `2|6|18|∞`，作为 workspace 门禁池上限的唯一真相源。 - G2：CLI 内嵌**公钥**，能离线验证一个 license 信封（payload = {tier, email, issuedAt, expiresAt, nonce} + 签名）的签名与有效期；**CLI 永不持私钥、永不能签发**。 - G3：`peaks login`（输入 license key）/ `peaks logout` / `peaks li…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-29-gate-metering-entitlement/prd/requests/002-2026-05-29-gate-metering-entitlement.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.620Z"
+    },
+    {
+      "id": "2026-05-29-custom-sop-gate-metering",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "RD Request 2026-05-29-custom-sop-gate-metering",
+      "summary": "RD Request 2026-05-29-custom-sop-gate-metering",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-29-custom-sop-gate-metering/rd/requests/001-2026-05-29-custom-sop-gate-metering.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.619Z"
+    },
+    {
+      "id": "2026-05-29-custom-sop-gate-metering",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "QA Request 2026-05-29-custom-sop-gate-metering",
+      "summary": "QA Request 2026-05-29-custom-sop-gate-metering",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-29-custom-sop-gate-metering/qa/requests/001-2026-05-29-custom-sop-gate-metering.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.617Z"
+    },
+    {
+      "id": "2026-05-29-custom-sop-gate-metering",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "PRD Request 2026-05-29-custom-sop-gate-metering",
+      "summary": "- G1：用户能通过 CLI 定义自己的 SOP（阶段 phases + 绑定在 transition 上的门禁 gates），产物落在 `.peaks/sops/{sop-id}/`，包含结构化 manifest 和可注册的 SKILL.md。 - G2：每个门禁是一等对象，拥有 **workspace 内稳定唯一的可寻址 id**、绑定的 transition、可被 CLI 评估的 check（返回 pass/fail/blocked）。 - G3：存在一张**门禁注册表（gate registry）**，可枚举 workspace 内所有已注册的…",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/2026-05-29-custom-sop-gate-metering/prd/requests/001-2026-05-29-custom-sop-gate-metering.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.616Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Security Review: 004-2026-06-04-rd-4way-fanout",
+      "summary": "The slice adds a 4th sub-agent (`qa-test-cases-writer`) to peaks-rd's parallel review fan-out. The new sub-agent reads the git diff + tech-doc + PRD, and writes `qa/test-cases/<rid>.md` (a markdown file containing `ts` test snippets — NOT actual test code that runs). QA's main l…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/rd/security-review-004.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.615Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "RD Request 004-2026-06-04-rd-4way-fanout",
+      "summary": "RD Request 004-2026-06-04-rd-4way-fanout",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/rd/requests/004-004-2026-06-04-rd-4way-fanout.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.614Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Code Review: 004-2026-06-04-rd-4way-fanout",
+      "summary": "The slice expands peaks-rd's parallel review fan-out from 3 to 4 sub-agents. The new 4th sub-agent (`qa-test-cases-writer`) writes `qa/test-cases/<rid>.md` in parallel with the existing code-review/security-review/perf-baseline sub-agents, so QA's main loop's first action become…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/rd/code-review-004.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.613Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Perf Baseline: 004-2026-06-04-rd-4way-fanout",
+      "summary": "The slice is the **first perf-positive slice in the session** — it actively reduces wall-clock between \"RD code done\" and \"QA verdict-issued\" by ~30% on feature/refactor/bugfix slices. The mechanism: a new 4th sub-agent (`qa-test-cases-writer`) runs in parallel with the existing…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/rd/perf-baseline-004.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.613Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Request 004-2026-06-04-rd-4way-fanout",
+      "summary": "QA Request 004-2026-06-04-rd-4way-fanout",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/qa/requests/004-004-2026-06-04-rd-4way-fanout.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.611Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Security Findings: 004-2026-06-04-rd-4way-fanout",
+      "summary": "The slice was independently security-reviewed during the RD phase. The QA-side re-review confirms the prior verdict: 0 CRITICAL/HIGH/MEDIUM, 1 LOW. The single LOW is out of scope (a malicious PRD could plant a test plan that exfiltrates data when QA's main loop runs it; mitigate…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/qa/security-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.611Z"
+    },
+    {
+      "id": "004-2026-06-04-rd-4way-fanout",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Performance Findings: 004-2026-06-04-rd-4way-fanout",
+      "summary": "The slice is the **first perf-positive slice in the session**. Net wall-clock between \"RD code done\" and \"QA verdict-issued\" drops by ~30% (from ~5-9 min to ~4-7 min) on feature/refactor/bugfix slices. The mechanism: a new 4th sub-agent (`qa-test-cases-writer`) runs in parallel …",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/004-2026-06-04-rd-4way-fanout/qa/performance-findings.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.610Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Security Review: 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-solo/SKILL.md`. The new step reads `.peaks/<sid>/{prd,rd,qa}/requests/*.md` files and classifies the session. Threat-model-wise, the only new code path is the new bash loop in t…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/security-review-003.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.608Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "RD Request 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "RD Request 003-2026-06-04-solo-step-0-7-resume",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/requests/003-003-2026-06-04-solo-step-0-7-resume.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.607Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Perf Baseline: 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "The slice is a pure markdown addition + test infrastructure. The performance surface is:",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/perf-baseline-003.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.606Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Code Review: 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-solo/SKILL.md`, between the existing Step 0 (anchor workspace) and Step 1 (mode selection). The new step runs a deterministic, read-only shell loop that classifies the session i…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/code-review-003.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.605Z"
+    },
+    {
+      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Request 003-2026-06-04-solo-step-0-7-resume",
+      "summary": "QA Request 003-2026-06-04-solo-step-0-7-resume",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/requests/003-003-2026-06-04-solo-step-0-7-resume.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.604Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Peaks-Cli Solo Handoff Capsule",
+      "summary": "Peaks-Cli Solo Handoff Capsule",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/txt/handoff.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.601Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "RD Request 002-2026-06-04-solo-skill-slim-extract",
+      "summary": "RD Request 002-2026-06-04-solo-skill-slim-extract",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/requests/002-002-2026-06-04-solo-skill-slim-extract.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.600Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Security Review: peaks-solo SKILL.md slim + references/ extraction",
+      "summary": "The refactor extracts two reference blocks from `peaks-solo/SKILL.md` to sibling files under `references/`, and adds a new `loadRunbookSection(skillPath, body)` helper in `src/services/skills/skill-runbook-service.ts` that prefers the longer of (a) the inline `## Default runbook…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/security-review-002.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.600Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Perf Baseline: 002-2026-06-04-solo-skill-slim-extract",
+      "summary": "The slice is a pure documentation + helper-extraction refactor. The performance surface is:",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/perf-baseline-002.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.599Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Request 002-2026-06-04-solo-skill-slim-extract",
+      "summary": "QA Request 002-2026-06-04-solo-skill-slim-extract",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/requests/002-002-2026-06-04-solo-skill-slim-extract.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.598Z"
+    },
+    {
+      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Code Review: peaks-solo SKILL.md slim + references/ extraction",
+      "summary": "The slice is a pure documentation + helper-extraction refactor. The 1071-line `peaks-solo/SKILL.md` is slimmed to 765 lines by extracting two reference blocks (the 168-line bash `## Default runbook` and the 175-line contract block covering request-type classification, workflow o…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/code-review-002.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.598Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "RD Tech-Doc: buildArtifactRelativePath projectRoot support",
+      "summary": "RD Tech-Doc: buildArtifactRelativePath projectRoot support",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/rd/tech-doc.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.596Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Code Review: buildArtifactRelativePath projectRoot refactor",
+      "summary": "The slice adds a new `buildArtifactRelativePathInRoot(projectRoot, changeId, ...segments)` sibling to the existing `buildArtifactRelativePath`, refactors the legacy function into a 1-line delegating wrapper, and updates the 6 call sites in `autonomous-resume-writer.ts` to pass t…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/rd/code-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.595Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "Security Review: buildArtifactRelativePath projectRoot refactor",
+      "summary": "The refactor adds a new sibling function `buildArtifactRelativePathInRoot(projectRoot, changeId, ...segments)` to `src/shared/change-id.ts` and converts the existing `buildArtifactRelativePath` into a 1-line delegation wrapper. The 6 call sites in `autonomous-resume-writer.ts` n…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/rd/security-review.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.595Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Test Cases: 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "summary": "QA Test Cases: 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/qa/test-cases/001-001-2026-06-04-buildartifactrelativepath-projectro.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.594Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "RD Request 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "summary": "RD Request 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/rd/requests/001-001-2026-06-04-buildartifactrelativepath-projectro.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.593Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "PRD Request 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "summary": "- Make `buildArtifactRelativePath` accept an optional explicit `projectRoot` parameter (or equivalent workspace handle) so that callers which already have a workspace / artifactWorkspacePath in hand can pass it through. - When caller passes a workspace-derivable `projectRoot`, t…",
+      "outcome": "in-flight",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/prd/requests/001-001-2026-06-04-buildartifactrelativepath-projectro.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.592Z"
+    },
+    {
+      "id": "001-2026-06-04-buildartifactrelativepath-projectroot",
+      "sessionId": "2026-06-04-session-b60252",
+      "type": "refactor",
+      "title": "QA Request 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "summary": "QA Request 001-2026-06-04-buildartifactrelativepath-projectroot",
+      "outcome": "blocked",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [
+        ".peaks/retrospective/001-2026-06-04-buildartifactrelativepath-projectroot/qa/requests/001-001-2026-06-04-buildartifactrelativepath-projectro.md"
+      ],
+      "updatedAt": "2026-06-05T15:00:39.592Z"
+    }
+  ]
+}

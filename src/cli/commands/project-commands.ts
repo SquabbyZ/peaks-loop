@@ -1,7 +1,9 @@
 import { Command } from 'commander';
 import { loadProjectDashboard } from '../../services/dashboard/project-dashboard-service.js';
 import { generateProjectContext, readProjectContext } from '../../services/memory/project-context-service.js';
-import { extractSessionMemories, readMemoryIndex, readProjectMemories } from '../../services/memory/project-memory-service.js';
+import { extractSessionMemories, readMemoryIndex, readProjectMemories, readProjectMemoryBody } from '../../services/memory/project-memory-service.js';
+import { applyStalePolicy, DEFAULT_STALE_DAYS } from '../../shared/stale-policy.js';
+import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -207,6 +209,75 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       }), options.json);
     } catch (error) {
       printResult(io, fail('project.memories', 'PROJECT_MEMORIES_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks/memory directory']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // --- Show one project memory's body (R3: default = compact) ---
+  addJsonOption(
+    project
+      .command('memories:show <name>')
+      .description('Show one project memory body by name. Default format is `compact` (LLM-primary); pass --pretty for the disk verbatim. Stale entries (default ≥30 days) are excluded; pass --include-stale or --stale-days <N> to override.')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--pretty', 'return the on-disk body verbatim; overrides the compact default')
+      .option('--include-stale', 'include stale entries (the default excludes them)')
+      .option('--stale-days <n>', 'override the 30-day stale threshold (must be > 0)', (value: string) => Number(value))
+  ).action((name: string, options: { project: string; pretty?: boolean; includeStale?: boolean; staleDays?: number; json?: boolean }) => {
+    try {
+      const memory = readProjectMemoryBody(options.project, name);
+      if (memory === null) {
+        printResult(
+          io,
+          fail('project.memories:show', 'MEMORY_NOT_FOUND', `memory ${name} not found in .peaks/memory`, { name, projectRoot: options.project }, ['Run `peaks project memories --json` to see available names']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      // Compute the stale decision. R4: stale is computed at CLI load time
+      // only; the source `.md` file is never modified.
+      const updatedAt = memory.updatedAt;
+      const thresholdDays = options.staleDays !== undefined && Number.isFinite(options.staleDays) && options.staleDays > 0
+        ? options.staleDays
+        : DEFAULT_STALE_DAYS;
+      const policy = applyStalePolicy([{ name: memory.name, updatedAt }], {
+        thresholdDays,
+        includeStale: options.includeStale === true
+      });
+      if (policy.entries.length === 0) {
+        const ageDays = policy.entries.length === 0 && policy.droppedCount > 0
+          ? applyStalePolicy([{ name: memory.name, updatedAt }], { thresholdDays, includeStale: true }).entries[0]?.ageDays ?? 0
+          : 0;
+        printResult(
+          io,
+          fail('project.memories:show', 'MEMORY_STALE',
+            `memory ${name} is stale (age ${ageDays} days > ${thresholdDays} day threshold); pass --include-stale to override`,
+            { name, ageDays, thresholdDays },
+            ['Pass --include-stale to load stale memories; pass --stale-days <N> to override the threshold'])
+        , options.json);
+        process.exitCode = 1;
+        return;
+      }
+      const ageDays = policy.entries[0]?.ageDays ?? 0;
+      const isStale = policy.entries[0]?.stale ?? false;
+
+      const format: 'compact' | 'pretty' = options.pretty === true ? 'pretty' : 'compact';
+      const body = format === 'pretty' ? memory.body : formatMdCompact(memory.body);
+      printResult(io, ok('project.memories:show', {
+        name: memory.name,
+        title: memory.title,
+        kind: memory.kind,
+        sourcePath: memory.filePath,
+        updatedAt,
+        ageDays,
+        stale: isStale,
+        body,
+        format,
+        bodyBytes: Buffer.byteLength(body, 'utf8')
+      }), options.json);
+    } catch (error) {
+      printResult(io, fail('project.memories:show', 'PROJECT_MEMORY_SHOW_FAILED', getErrorMessage(error), { name, projectRoot: options.project }, ['Check the project path and .peaks/memory directory']), options.json);
       process.exitCode = 1;
     }
   });
