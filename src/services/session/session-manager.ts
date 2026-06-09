@@ -421,6 +421,28 @@ function getCurrentOuterSessionId(): string | undefined {
   return undefined;
 }
 
+export type EnsureSessionOptions = {
+  /**
+   * When `true`, suppress the outer-session-mismatch auto-rotation.
+   * The caller wants today's "stamp the field, do not rotate" behaviour
+   * even when the outer session id has changed. Used by
+   * `peaks workspace init --no-rotate-on-outer-mismatch`.
+   */
+  skipRotateOnOuterMismatch?: boolean;
+};
+
+/**
+ * Result of `ensureSessionWithRotation`. When the bound session was
+ * rotated because the outer session id had changed, `previousSessionId`
+ * is the id of the unbound session and `rotationReason` is the structured
+ * reason code the CLI surfaces in its JSON envelope.
+ */
+export type EnsureSessionResult = {
+  sessionId: string;
+  previousSessionId: string | null;
+  rotationReason: 'outer-session-mismatch' | null;
+};
+
 export async function ensureSession(projectRoot: string): Promise<string> {
   const existing = readSessionFile(projectRoot);
   if (existing) {
@@ -470,6 +492,83 @@ export async function ensureSession(projectRoot: string): Promise<string> {
   });
 
   return sessionId;
+}
+
+/**
+ * Outer-session-aware wrapper around `ensureSession`.
+ *
+ * Slice 018 (auto-roll on outer-mismatch). When the current outer
+ * session id (sourced from `PEAKS_OUTER_SESSION_ID` with
+ * `CLAUDE_CODE_SESSION_ID` as the Claude-Code fallback) differs from
+ * the outer session id recorded on the *bound* peaks session's
+ * `.peaks/_runtime/<sid>/session.json`, the project-level session
+ * binding is rotated before `ensureSession` is called. The old
+ * session dir is preserved on disk (data is never wiped) — only the
+ * binding changes — and the rotation is surfaced in the return value
+ * so the CLI can include it in the JSON envelope.
+ *
+ * Rotation is suppressed in three cases (all false-positive guards):
+ *
+ *   1. The current outer session id is undefined (no env var set) —
+ *      there is no signal to compare against, defaulting to "do not
+ *      rotate" avoids orphaning the session.
+ *   2. The bound session has no recorded `outerSessionId` (legacy
+ *      session predating the outer-session contract) — there is no
+ *      signal on the other side either.
+ *   3. The bound session's recorded outer session id matches the
+ *      current one (reconnect within the same Claude session) — this
+ *      is the common case, not a swap.
+ *
+ * When `options.skipRotateOnOuterMismatch === true`, the rotation
+ * check is short-circuited and the binding is preserved (opt-out for
+ * `peaks workspace init --no-rotate-on-outer-mismatch`). The wrapper
+ * still delegates to `ensureSession` so the caller gets the existing
+ * binding on a reconnect and a fresh id on a first run.
+ *
+ * Existing public surface is preserved: `ensureSession` is unchanged.
+ * This wrapper is the new entry point the CLI uses.
+ */
+export async function ensureSessionWithRotation(
+  projectRoot: string,
+  options?: EnsureSessionOptions
+): Promise<EnsureSessionResult> {
+  const skipRotate = options?.skipRotateOnOuterMismatch === true;
+  const currentOuterSessionId = getCurrentOuterSessionId();
+
+  // Compute the rotation decision up front. We only rotate when ALL
+  // three pre-conditions hold: (a) the current outer session id is
+  // defined, (b) the bound session has a recorded outer session id,
+  // and (c) the two differ. The bound session id is the *first*
+  // read so we can use it both for the comparison and for the
+  // rotation result.
+  const boundSessionId = getSessionId(projectRoot);
+  let rotated: string | null = null;
+  let rotationReason: 'outer-session-mismatch' | null = null;
+  if (boundSessionId !== null && currentOuterSessionId !== undefined) {
+    const boundMeta = getSessionMeta(projectRoot, boundSessionId);
+    const boundOuter = boundMeta?.outerSessionId;
+    if (
+      typeof boundOuter === 'string' &&
+      boundOuter.length > 0 &&
+      boundOuter !== currentOuterSessionId &&
+      !skipRotate
+    ) {
+      rotated = rotateSessionBinding(projectRoot);
+      rotationReason = 'outer-session-mismatch';
+    }
+  }
+
+  // After the rotation, `ensureSession` will either reuse the
+  // canonical-fallback binding (when one still exists, e.g. a sibling
+  // projectRoot form) or auto-generate a fresh id. We pass through.
+  void rotated; // rotated is the *previous* session id; preserved for the caller via the return value
+  const sessionId = await ensureSession(projectRoot);
+
+  return {
+    sessionId,
+    previousSessionId: rotated,
+    rotationReason
+  };
 }
 
 /**

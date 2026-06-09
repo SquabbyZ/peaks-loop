@@ -38,10 +38,16 @@ export type SkillPresence = {
    * Set by `setSkillPresence` when the outer session id changed
    * between the last presence write and this one AND the bound
    * peaks session has a different (or no) recorded outer session id.
-   * The field is informational only — `setSkillPresence` does not
-   * roll a new session on its own. peaks-solo's Step 0 reads the
-   * field off the presence file and turns it into an
-   * AskUserQuestion: "Start a new peaks session / Keep this one".
+   *
+   * As of slice 018 (auto-roll on outer-mismatch), the field is
+   * informational only — it tells the statusline and any log /
+   * observability consumer that an outer-session swap was observed
+   * on the previous heartbeat. The actual binding rotation is
+   * performed by `ensureSessionWithRotation` (slice 018), not by
+   * `setSkillPresence`. `peaks-solo`'s Step 0 used to read this
+   * field and turn it into an AskUserQuestion; that ask is no
+   * longer needed because the rotation already happened by the time
+   * the skill is invoked.
    */
   outerSessionMismatch?: {
     previous?: string;
@@ -163,18 +169,23 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
  * Used to detect "the LLM just opened a fresh outer session" — if
  * the previously-recorded outer session id differs from the one we
  * are about to stamp, the user probably closed the previous outer
- * session and is now driving peaks from a new one. We do NOT auto-
- * roll a new peaks session (that is destructive — it would leave
- * the in-flight session with no LLM watching it). Instead we emit
- * a structured `outerSessionMismatch` field on the presence
- * envelope, and peaks-solo's Step 0 turns that into an
- * AskUserQuestion. The user can opt to keep the current session
- * (most common when the swap is a no-op reconnect) or to roll a
- * fresh session (when the new outer session is genuinely a new
- * task).
+ * session and is now driving peaks from a new one.
  *
- * Reads from `.peaks/_runtime/active-skill.json` first; falls back to
- * the legacy `.peaks/.active-skill.json` for one minor release.
+ * As of slice 018 (auto-roll on outer-mismatch), the actual rotation
+ * is `ensureSessionWithRotation`'s job, not this one. The presence
+ * service still emits the structured `outerSessionMismatch` field on
+ * the presence envelope (useful for the statusline to render a stale
+ * marker and for the QA / log consumers to know an outer-session swap
+ * happened), but it no longer carries the implicit "ask the user"
+ * promise — `peaks-solo`'s Step 0 no longer needs to surface an
+ * AskUserQuestion, because the rotation already fired by the time the
+ * skill is invoked.
+ *
+ * `getPreviousOuterSessionId` keeps its read-side role: it powers the
+ * informational `outerSessionMismatch` field below and the legacy
+ * `claudeSessionId` back-compat. Reads from
+ * `.peaks/_runtime/active-skill.json` first; falls back to the
+ * legacy `.peaks/.active-skill.json` for one minor release.
  */
 function getPreviousOuterSessionId(projectRootOverride?: string): string | undefined {
   const result = readSkillPresenceBackCompat(projectRootOverride);

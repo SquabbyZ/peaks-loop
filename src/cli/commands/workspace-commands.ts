@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
-import { ensureSession } from '../../services/session/session-manager.js';
+import { ensureSession, ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
 import { fail, ok } from '../../shared/result.js';
@@ -16,6 +16,15 @@ type WorkspaceInitOptions = {
   sessionId?: string;
   json?: boolean;
   allowSessionRebind?: boolean;
+  /**
+   * Slice 018 opt-out, commander-convention form. The user-facing
+   * flag is `--no-rotate-on-outer-mismatch`; commander strips the
+   * `--no-` prefix and assigns the boolean to this property (default
+   * `true`, set to `false` when the flag is passed). The wrapper
+   * reads this as `=== false` to opt out. The presence file still
+   * records `outerSessionMismatch` regardless of the flag's value.
+   */
+  rotateOnOuterMismatch?: boolean;
   /**
    * How to handle the first-time "install peaks hooks" prompt.
    *   - ask  (default in TTY): prompt the user once, sticky-marker the answer
@@ -138,6 +147,10 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
       .option(
+        '--no-rotate-on-outer-mismatch',
+        'suppress the auto-rotation of the project session binding when the outer (Claude / harness) session id has changed. Default rotates on mismatch.'
+      )
+      .option(
         '--change-id <id>',
         'bind the change-id for reviewable artifacts (writes route to .peaks/<change-id>/<role>/, tracked in git). When omitted, the change-id binding is left unchanged.',
         (value: string) => {
@@ -178,11 +191,40 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       // git repo, the helper falls through to the cwd verbatim.
       const projectRoot = resolveCanonicalProjectRoot(options.project);
 
+      // Slice 018: outer-session-mismatch auto-rotation. When the
+      // user did NOT pass --session-id explicitly, run
+      // `ensureSessionWithRotation` so the binding is rotated on
+      // outer-mismatch before `initWorkspace` is called. The
+      // rotation result is surfaced in the JSON envelope via
+      // `data.rotation`. When --session-id IS passed, the user has
+      // explicitly told us which session to bind — we honor that
+      // verbatim and do NOT rotate (rotation only fires for the
+      // auto-detect path).
       let sessionId: string;
+      let rotation: { previousSessionId: string | null; reason: 'outer-session-mismatch' | null } = {
+        previousSessionId: null,
+        reason: null
+      };
       if (options.sessionId !== undefined && options.sessionId.length > 0) {
         sessionId = options.sessionId;
       } else {
-        sessionId = await ensureSession(projectRoot);
+        const result = await ensureSessionWithRotation(projectRoot, {
+          // Commander translates `--no-rotate-on-outer-mismatch` into
+          // `options.rotateOnOuterMismatch = false` (the `--no-` prefix
+          // is consumed and the remainder becomes the JS property name,
+          // with the boolean value flipped). The pre-slice-014 anti-
+          // pattern (reading `options.<flag-with-no-prefix> === true`)
+          // is NOT used here. The default (no flag) leaves
+          // `options.rotateOnOuterMismatch` undefined, which is not
+          // equal to `false`, so the default is "rotate on mismatch"
+          // (the new auto-roll).
+          skipRotateOnOuterMismatch: options.rotateOnOuterMismatch === false
+        });
+        sessionId = result.sessionId;
+        rotation = {
+          previousSessionId: result.previousSessionId,
+          reason: result.rotationReason
+        };
       }
 
       const report = await initWorkspace({
@@ -194,6 +236,16 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
         nextActions.push(`Replaced prior session binding "${report.previousSessionId}" with "${report.sessionId}".`);
+      }
+      if (rotation.previousSessionId !== null && rotation.reason === 'outer-session-mismatch') {
+        // Outer-session-mismatch rotation: the previous Claude / harness
+        // session is no longer the LLM driver. The new binding is fresh,
+        // the old session dir is preserved on disk.
+        nextActions.push(
+          `Auto-rotated session binding: outer session id changed (was "${rotation.previousSessionId}"). ` +
+            `New binding is "${sessionId}". The previous session dir is preserved at .peaks/_runtime/${rotation.previousSessionId}/. ` +
+            `Re-run with --no-rotate-on-outer-mismatch to suppress this rotation.`
+        );
       }
       if (report.created.length === 0) {
         nextActions.push('Workspace already initialized — proceed to project scan.');
@@ -230,6 +282,12 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
           'workspace.init',
           {
             ...report,
+            // Slice 018: surface outer-session-mismatch rotation in the
+            // JSON envelope so the LLM and the human both see the swap.
+            // Field is omitted (not null) when no rotation fired.
+            ...(rotation.previousSessionId !== null && rotation.reason !== null
+              ? { rotation: { previousSessionId: rotation.previousSessionId, reason: rotation.reason } }
+              : {}),
             hooksInstall: {
               decision: hooksOutcome.decision,
               action: hooksOutcome.action,
