@@ -51,7 +51,7 @@ For continuing turns in the same Peaks-Cli workflow, use a compact status header
 Peaks-Cli Skill: <skill-name> | Peaks-Cli Gate: <current gate> | Next: <one short action>
 ```
 
-**Persistence rule:** The active Peaks-Cli skill name and gate are persisted to `.peaks/.active-skill.json` by the skill's runbook. Check this file at the start of EVERY response when a Peaks-Cli skill workflow is active. If the file exists and contains a valid skill name, always show the compact header — even if this is the first turn of a new conversation, even after context compaction, and without exception. Only omit the header when `.peaks/.active-skill.json` is missing, invalid, or the file does not contain a `skill` field. This ensures users unfamiliar with Claude Code's skill system always see which Peaks-Cli skill is orchestrating their session.
+**Persistence rule:** The active Peaks-Cli skill name and gate are persisted to `.peaks/_runtime/active-skill.json` (with a one-minor-release back-compat fallback to the legacy `.peaks/.active-skill.json`). Read the active marker via `peaks skill presence --json` at the start of EVERY response when a Peaks-Cli skill workflow is active — the CLI handles path resolution, do not read those files directly. If the CLI returns a valid skill, always show the compact header — even if this is the first turn of a new conversation, even after context compaction, and without exception. Only omit the header when the CLI reports no active skill. This ensures users unfamiliar with Claude Code's skill system always see which Peaks-Cli skill is orchestrating their session.
 
 Structure active Peaks-Cli responses around:
 
