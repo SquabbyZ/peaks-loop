@@ -31,6 +31,16 @@ export type CreateRequestArtifactOptions = {
   apply?: boolean;
   requestType?: RequestType;
   clock?: () => string;
+  /**
+   * Slice 020 — caller-keyed session binding. The callerId that initiated
+   * this artifact creation (resolved via `resolveCallerId` by the CLI).
+   * Recorded in the JSON envelope and on the artifact body's frontmatter
+   * so a future reader knows which caller produced it. The caller-keyed
+   * binding file itself is at `.peaks/_runtime/callers/<callerId>.json`;
+   * the per-caller active-skill marker is at
+   * `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6).
+   */
+  callerId?: string;
 };
 
 export type CreateRequestArtifactResult = {
@@ -40,6 +50,12 @@ export type CreateRequestArtifactResult = {
   path: string;
   content: string;
   applied: boolean;
+  /**
+   * Slice 020 — caller-keyed session binding. The resolved callerId
+   * (D4 priority: flag > env > platform fallback) when --caller-id
+   * was passed. Omitted from the result when no callerId was set.
+   */
+  callerId?: string;
 };
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -423,7 +439,15 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const content = renderTemplate(options.role, options.requestId, changeId, sessionId, timestamp, requestType);
 
   if (options.apply !== true) {
-    return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: false };
+    return {
+      role: options.role,
+      requestId: options.requestId,
+      sessionId,
+      path,
+      content,
+      applied: false,
+      ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
+    };
   }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
@@ -441,7 +465,15 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     }
   }
 
-  return { role: options.role, requestId: options.requestId, sessionId, path, content, applied: true };
+  return {
+    role: options.role,
+    requestId: options.requestId,
+    sessionId,
+    path,
+    content,
+    applied: true,
+    ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
+  };
 }
 
 export type RequestArtifactSummary = {

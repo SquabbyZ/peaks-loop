@@ -29,6 +29,9 @@ type RequestInitOptions = {
   sessionId?: string;
   apply?: boolean;
   type?: RequestType;
+  // Slice 020 — caller-keyed session binding. D4 priority: this flag
+  // beats PEAKS_CALLER_ID env which beats PLATFORM_FALLBACKS.
+  callerId?: string;
   json?: boolean;
 };
 
@@ -95,6 +98,11 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .option('--session-id <session>', 'override the default date-stamped session id')
       .option('--apply', 'write the artifact file (default: preview only)')
       .option('--type <type>', `request type (${VALID_REQUEST_TYPES.join(' | ')}); default: feature`, parseRequestType)
+      // Slice 020 — caller-keyed session binding. Per-invocation override
+      // (D4 priority level 1). When set, the resolved callerId is surfaced
+      // in the JSON envelope; the on-disk artifact records it in the
+      // artifact body so future reads know which caller produced it.
+      .option('--caller-id <id>', 'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). The resolved callerId is stamped on the artifact body and surfaced in the response envelope.')
   ).action(async (options: RequestInitOptions) => {
     try {
       const serviceOptions: Parameters<typeof createRequestArtifact>[0] = {
@@ -115,6 +123,28 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       }
       if (options.type !== undefined) {
         serviceOptions.requestType = options.type;
+      }
+      // Slice 020 — resolve the callerId (D4 priority, D5 regex check)
+      // when --caller-id is passed. We surface the resolved id in the
+      // envelope so the caller can audit what was used.
+      if (options.callerId !== undefined) {
+        const { resolveCallerId, CallerIdError } = await import('../../services/session/resolve-caller-id.js');
+        try {
+          const callerId = resolveCallerId({ flagValue: options.callerId });
+          serviceOptions.callerId = callerId;
+        } catch (error: unknown) {
+          if (error instanceof CallerIdError) {
+            const code = error.code === 'EX_USAGE' ? 64 : 65;
+            printResult(
+              io,
+              fail('request.init', 'CALLER_ID_INVALID', error.message, { source: error.source }, [`Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$`, 'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)']),
+              options.json
+            );
+            process.exitCode = code;
+            return;
+          }
+          throw error;
+        }
       }
       const result = await createRequestArtifact(serviceOptions);
       printResult(

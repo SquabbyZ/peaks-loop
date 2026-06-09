@@ -206,6 +206,84 @@ export function exportSkillPresence(projectRootOverride?: string): string {
   return resolvePresencePath(projectRootOverride);
 }
 
+// ============================================================================
+// Slice 020 — caller-keyed active-skill marker (D6).
+// ============================================================================
+//
+// Today's per-project active-skill marker (`.peaks/_runtime/active-skill.json`)
+// races when multiple Claude Code windows (or different platforms) drive the
+// same project concurrently. Slice 020 introduces a per-caller file at
+// `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). Two callers
+// bound to the same peak session never clobber each other.
+//
+// The single-file marker is RETAINED for one minor release as read-only
+// back-compat (M1, M4). The new write path is `setSkillPresenceForCaller`;
+// the legacy `setSkillPresence` is now a thin wrapper that synthesises a
+// legacy callerId from `process.env.CLAUDE_CODE_SESSION_ID` (or
+// `projectRoot` for the truly-anonymous case) and delegates.
+
+/**
+ * Write the per-caller active-skill marker to
+ * `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (D6). Returns
+ * the written presence with the `callerId` field set.
+ *
+ * The caller is responsible for resolving the `callerId` (via
+ * `resolveCallerId` from `src/services/session/resolve-caller-id.ts`)
+ * and the `peakSessionId` (via `getCallerBinding` then reading
+ * `peakSessionId`, OR via `ensureSession` for the first-time case).
+ */
+export function setSkillPresenceForCaller(
+  projectRootOverride: string,
+  callerId: string,
+  peakSessionId: string,
+  skill: string,
+  mode?: string,
+  gate?: string
+): SkillPresence {
+  const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
+  const now = new Date().toISOString();
+  const presence: SkillPresence = {
+    skill,
+    ...(validatedMode ? { mode: validatedMode } : {}),
+    ...(gate ? { gate } : {}),
+    ...(peakSessionId ? { sessionId: peakSessionId } : {}),
+    ...(callerId ? { outerSessionId: callerId } : {}),
+    setAt: now,
+    lastHeartbeat: now
+  };
+  const presencePath = getActiveSkillFileForCallerPath(
+    resolveProjectRoot(projectRootOverride),
+    peakSessionId,
+    callerId
+  );
+  const presenceDir = dirname(presencePath);
+  if (!existsSync(presenceDir)) {
+    mkdirSync(presenceDir, { recursive: true });
+  }
+  writeFileSync(presencePath, JSON.stringify(presence, null, 2), 'utf8');
+
+  // Skill-activation side effect: bring the memory store into existence for
+  // fresh projects. Same fail-open contract as the legacy path.
+  ensureMemoryBootstrap(resolveProjectRoot(projectRootOverride));
+  return presence;
+}
+
+/**
+ * Compute the per-caller active-skill file path. Re-exported for test
+ * ergonomics; canonical path lives in
+ * `src/services/session/caller-binding-service.ts` but inlined here to
+ * avoid a circular import (`caller-binding-service` reads
+ * `skill-presence-service` for the `setCallerBinding` integration in
+ * future slices; the inverse import would deadlock).
+ */
+function getActiveSkillFileForCallerPath(
+  projectRoot: string,
+  peakSessionId: string,
+  callerId: string
+): string {
+  return resolve(projectRoot, '.peaks', '_runtime', peakSessionId, `active-skill-${callerId}.json`);
+}
+
 export function setSkillPresence(skill: string, mode?: string, gate?: string, projectRootOverride?: string): SkillPresence {
   const validatedMode = mode && isSkillPresenceMode(mode) ? mode : undefined;
   const sessionId = getCurrentSessionId(projectRootOverride);

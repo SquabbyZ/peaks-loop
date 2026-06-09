@@ -242,8 +242,53 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       .command('info [sessionId]')
       .description('Show full metadata for a session directory. Pass --active to resolve the canonical binding from .peaks/_runtime/session.json (the "one command a sub-agent runs to find the parent\'s sid" primitive).')
       .option('--active', 'resolve the canonical session id from .peaks/_runtime/session.json (ignores [sessionId] when set)')
-  ).action(async (sessionId: string | undefined, options: { json?: boolean; active?: boolean }) => {
+      // Slice 020 — caller-keyed session binding. The --caller-id flag
+      // overrides the per-process PEAKS_CALLER_ID env var and the
+      // PLATFORM_FALLBACKS table (D4 priority). The resolved callerId is
+      // surfaced in the JSON envelope so callers can confirm what was
+      // resolved without re-deriving it.
+      .option('--caller-id <id>', 'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). When set, the response envelope includes the resolved callerId.')
+  ).action(async (sessionId: string | undefined, options: { json?: boolean; active?: boolean; callerId?: string }) => {
     const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+    // Slice 020 — resolve the callerId up front when the flag was passed.
+    // We use `resolveCallerId` for D1/D5 validation; an invalid flag
+    // throws CallerIdError (D5 → exit 65). A missing flag and no env
+    // and no fallback also throws (D2 → exit 64). The resolved id is
+    // surfaced in the envelope so the caller can audit.
+    if (options.callerId !== undefined) {
+      const { resolveCallerId, CallerIdError } = await import('../../services/session/resolve-caller-id.js');
+      let callerId: string;
+      try {
+        callerId = resolveCallerId({ flagValue: options.callerId });
+      } catch (error: unknown) {
+        if (error instanceof CallerIdError) {
+          const code = error.code === 'EX_USAGE' ? 64 : 65;
+          printResult(io, fail('session.info', 'CALLER_ID_INVALID', error.message, { source: error.source }, [`Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$`, 'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)']), options.json);
+          process.exitCode = code;
+          return;
+        }
+        throw error;
+      }
+      // Surface the resolved id in the envelope. When --active is also
+      // passed, look up the binding for this callerId; otherwise
+      // just emit the resolved id so the caller knows what was used.
+      if (options.active === true) {
+        const { getSessionIdCanonical } = await import('../../services/session/session-manager.js');
+        const { getCallerBinding } = await import('../../services/session/caller-binding-service.js');
+        const activeSid = getSessionIdCanonical(projectRoot);
+        const callerBinding = getCallerBinding(projectRoot, callerId);
+        printResult(io, ok('session.info', {
+          active: true,
+          sessionId: activeSid,
+          callerId,
+          callerBindingPeakSessionId: callerBinding?.peakSessionId ?? null,
+          source: '.peaks/_runtime/session.json (legacy back-compat read)'
+        }), options.json);
+        return;
+      }
+      printResult(io, ok('session.info', { callerId, note: '--caller-id resolved; pass --active to also look up the bound peak session' }), options.json);
+      return;
+    }
     // Slice 007 — sub-agent session sharing. A sub-agent that does
     // not know the parent's sid reads it from the binding via
     // `peaks session info --active`. The call uses the

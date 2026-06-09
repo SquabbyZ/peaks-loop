@@ -322,3 +322,180 @@ describe('session-dir-canonical (slice 012 — positive tests for the 5th writer
     expect((cm?.[1] ?? '').includes('_runtime')).toBe(true);
   });
 });
+
+/**
+ * Slice 020 — caller-keyed session binding. A4 / A8 enforcement.
+ *
+ * The new per-caller layout (D6) writes per-caller files at:
+ *   - `.peaks/_runtime/callers/<callerId>.json` (caller binding)
+ *   - `.peaks/_runtime/<peakSid>/active-skill-<callerId>.json` (per-caller active-skill)
+ *
+ * The legacy single-file paths (`.peaks/_runtime/session.json`,
+ * `.peaks/_runtime/active-skill.json`, `.peaks/.session.json`,
+ * `.peaks/.active-skill.json`) are now READ-ONLY back-compat
+ * (M1 / M4). No new code should WRITE to them; only the migration
+ * shim and the back-compat readers touch them.
+ *
+ * This static scan walks `src/` and flags any new code that
+ * constructs one of the legacy single-file paths via `join(...)` or
+ * template literal. Reads via `readFileSync(legacyPath)` are
+ * allowed (back-compat readers) — only writes (writeFileSync /
+ * mkdirSync followed by writeFileSync) are flagged.
+ */
+
+const LEGACY_SINGLE_FILE_PATHS: ReadonlyArray<{
+  /** Display name for the test report. */
+  label: string;
+  /** Substring of the path that uniquely identifies it. */
+  pathToken: string;
+}> = [
+  { label: '.peaks/_runtime/session.json', pathToken: '_runtime/session.json' },
+  { label: '.peaks/_runtime/active-skill.json', pathToken: '_runtime/active-skill.json' },
+  { label: '.peaks/.session.json', pathToken: '.session.json' },
+  { label: '.peaks/.active-skill.json', pathToken: '.active-skill.json' }
+];
+
+const ALLOWED_LEGACY_SINGLE_FILE_WRITES: ReadonlyArray<string> = [
+  // session-manager.ts: writeSessionFile writes `.peaks/_runtime/session.json`.
+  // This is the legacy single-file pointer; per the contract it remains
+  // WRITEABLE during the migration window (so the M1 read shim has
+  // something to read). A future slice should remove the write path
+  // entirely.
+  'src/services/session/session-manager.ts',
+  // skill-presence-service.ts: setSkillPresence still writes the legacy
+  // single-file active-skill marker. Same migration-window justification
+  // as session-manager.ts.
+  'src/services/skills/skill-presence-service.ts'
+];
+
+function findLegacySingleFileWrites(file: string): Array<{ line: number; text: string; reason: string }> {
+  const rel = file.replace(/\\/g, '/');
+  if (ALLOWED_LEGACY_SINGLE_FILE_WRITES.some((allow) => rel.endsWith(allow))) return [];
+
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+  const violations: Array<{ line: number; text: string; reason: string }> = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    const trimmed = line.trim();
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+    // Detect: writeFileSync(<path> that ends with session.json / active-skill.json
+    // (without `<callerId>` interpolation). The new per-caller files are
+    // `active-skill-${callerId}.json` (template-literal interpolation);
+    // the legacy single-file path is just `active-skill.json` or
+    // `session.json` (no callerId).
+    //
+    // Pattern A: writeFileSync(<path>, ..., 'utf8') where <path> is a
+    //            variable ending in `session.json` or `active-skill.json`
+    //            and the variable name suggests it's the legacy single-file
+    //            path (e.g. `presencePath`, `sessionFile`, `bindingPath`).
+    const writeFsMatch = /writeFileSync\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*,/.exec(line);
+    if (writeFsMatch) {
+      const varName = writeFsMatch[1];
+      // Heuristic: the variable name contains "session", "presence",
+      // "binding", or "activeSkill" AND the file's surrounding
+      // function constructs a path that is NOT the per-caller form.
+      // For simplicity (and to keep this scan maintainable), we look
+      // for `varName.endsWith('session.json')` or
+      // `varName.endsWith('active-skill.json')` in any earlier line of
+      // the same function. If found AND it's NOT the per-caller
+      // template (`active-skill-${...}`), flag it.
+      if (
+        varName !== undefined &&
+        (varName.toLowerCase().includes('presence') ||
+          varName.toLowerCase().includes('session') ||
+          varName.toLowerCase().includes('binding') ||
+          varName.toLowerCase().includes('activeskill') ||
+          varName.toLowerCase().includes('skill'))
+      ) {
+        // Walk backwards to find the variable's source.
+        for (let j = i - 1; j >= Math.max(0, i - 30); j--) {
+          const prev = lines[j] ?? '';
+          // Stop at function boundaries
+          if (prev.includes('function ') || prev.includes('=> {')) break;
+          if (prev.includes(varName) && /['"`][^'"`]*(\.json)['"`]/.test(prev)) {
+            // Is the path a per-caller form? It is if it contains a
+            // template interpolation like `${callerId}` or `active-skill-${...}`.
+            const isPerCaller =
+              prev.includes('${callerId}') ||
+              prev.includes('${peakSessionId}') ||
+              prev.includes('active-skill-') ||
+              prev.includes('callers/') ||
+              prev.includes('callers\\');
+            if (!isPerCaller) {
+              violations.push({
+                line: i + 1,
+                text: line.trim(),
+                reason: `write to legacy single-file path via ${varName} (slice 020 caller-keyed migration shim expects per-caller file)`
+              });
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+describe('caller-keyed static scan (slice 020 — A4 / A8)', () => {
+  test('no new code writes to the legacy single-file pointer paths', () => {
+    const srcDir = join(process.cwd(), 'src');
+    const files = listSrcFiles(srcDir);
+    const violations: Array<{ file: string; line: number; text: string; reason: string }> = [];
+    for (const file of files) {
+      const hits = findLegacySingleFileWrites(file);
+      for (const hit of hits) {
+        violations.push({
+          file: file.replace(/\\/g, '/'),
+          line: hit.line,
+          text: hit.text,
+          reason: hit.reason
+        });
+      }
+    }
+    if (violations.length > 0) {
+      const msg = violations
+        .map((v) => `  - ${v.file}:${v.line}  ${v.text}\n    reason: ${v.reason}`)
+        .join('\n');
+      throw new Error(
+        `Found ${violations.length} write(s) to legacy single-file pointer paths in src/. ` +
+          `Slice 020 (caller-keyed session binding) requires new code to write per-caller files ` +
+          `(.peaks/_runtime/callers/<callerId>.json or .peaks/_runtime/<peakSid>/active-skill-<callerId>.json) ` +
+          `instead of the legacy single-file paths. Add the file to ALLOWED_LEGACY_SINGLE_FILE_WRITES ` +
+          `with a migration-window justification, or refactor to the per-caller path:\n${msg}`
+      );
+    }
+    expect(violations).toEqual([]);
+  });
+
+  test('PLATFORM_FALLBACKS table has exactly one entry (A5)', () => {
+    // Re-import the table from the slice 020 foundation module and
+    // assert the size. The test in caller-id-resolution.test.ts is
+    // the unit-level assertion; this one is the static-scan level
+    // (the docstring in src/services/session/platform-fallbacks.ts
+    // declares the contract; this test enforces it).
+    const tablePath = join(process.cwd(), 'src', 'services', 'session', 'platform-fallbacks.ts');
+    expect(existsSync(tablePath)).toBe(true);
+    const body = readFileSync(tablePath, 'utf8');
+    // Strip commented-out future entries (lines starting with `//`).
+    // The slice 020 contract allows the table to be 1 entry today;
+    // future entries (Cursor, Windsurf, peaks-ide) require a contract
+    // doc bump and a corresponding uncomment + this test re-pin.
+    //
+    // Each array element is a multi-line object: `{` on one line,
+    // `envVar: '...'`, `description: '...'`, `addedIn: '...'`, `}`.
+    // We count the literal `envVar:` lines that are NOT inside a
+    // `//` comment. The object-literal `{` is on its own line so we
+    // don't try to match the opening brace — we just count uncommented
+    // `envVar:` lines.
+    const lines = body.split(/\r?\n/);
+    const activeEntries = lines.filter((l) => {
+      const t = l.trim();
+      if (t.startsWith('//')) return false;
+      return /^\s*envVar:\s*['"][^'"]+['"]/.test(l);
+    });
+    expect(activeEntries).toHaveLength(1);
+    expect(activeEntries[0]).toContain('CLAUDE_CODE_SESSION_ID');
+  });
+});
