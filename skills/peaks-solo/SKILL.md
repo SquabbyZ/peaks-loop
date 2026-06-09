@@ -141,11 +141,10 @@ The instant Peaks-Cli Solo is invoked, **before** the mode-selection question, b
 ```bash
 # Session ID is auto-generated when omitted; the command returns it in the JSON output.
 # Do NOT pass --session-id manually — the CLI is the single source of truth for the
-# project session binding. If you forge a session id with `openssl rand` and pass it
-# via --session-id, peaks workspace init will write it to .peaks/.session.json but
-# the binding only sticks if no prior session is open. To avoid the "two sessions
-# in .peaks/" confusion that bites Solo, always omit --session-id here and let the
-# CLI auto-generate.
+# project session binding. To look up the active session id from a skill / sub-agent,
+# use `peaks session info --active --json` (read-only, no side effects). To avoid
+# the "two sessions in .peaks/" confusion that bites Solo, always omit --session-id
+# here and let the CLI auto-generate.
 peaks workspace init --project <repo> --json
 peaks skill presence:set peaks-solo --project <repo> --gate startup
 ```
@@ -170,8 +169,9 @@ After Step 0 has anchored the workspace and presence, before Step 1 mode selecti
 **Detection logic** (all read-only, no side effects; uses only existing CLIs):
 
 ```bash
-# 1. Confirm the current session id
-sid=$(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])")
+# 1. Confirm the current session id via the read-only CLI primitive
+#    (the on-disk binding file is internal — never `cat` it directly)
+sid=$(peaks session info --active --project "$(git rev-parse --show-toplevel)" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['sessionId'])")
 
 # 2. Enumerate the session's artifact tree (one `find` call, no new CLI)
 find ".peaks/$sid/" -type f 2>/dev/null | sort
@@ -287,7 +287,7 @@ Filter with `--kind <decision|convention|module|rule|reference|project|lesson>` 
 Extract a short (8-20 Chinese characters, or 4-10 English words) descriptive title from the user's first request. The title should capture the core task — e.g. "修复登录页OAuth回调异常", "添加暗色模式开关", "搭建项目基础架构". Then run:
 
 ```bash
-peaks session title $(cat .peaks/.session.json | python3 -c "import sys,json; print(json.load(sys.stdin)['sessionId'])") "<title>"
+peaks session title $(peaks session info --active --project "$(git rev-parse --show-toplevel)" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['sessionId'])") "<title>"
 ```
 
 If the session directory already has a title (check via `peaks session list --json`), skip this step — the title is already set.
@@ -332,7 +332,7 @@ For frontend workflows, RD and QA must use Playwright MCP for real browser E2E. 
 
 The workspace is created in Step 0 (Startup sequence) as a mandatory first action — before any analysis, role handoff, or artifact write, and regardless of how lightweight the request is. Session IDs are now **auto-generated** with the format `YYYY-MM-DD-session-<6位hex>` (e.g. `2026-05-26-session-a3f8b1`). The user does not provide a session ID — the system creates and persists it in `.peaks/_runtime/session.json` (the canonical home as of slice `2026-06-05-peaks-runtime-layer`; the legacy `.peaks/.session.json` is read-only back-compat for one minor release).
 
-When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If a valid session binding exists at `.peaks/_runtime/session.json` (or the legacy `.peaks/.session.json` for pre-migration trees), the existing session is reused.
+When `peaks workspace init` is run without `--session-id`, it automatically generates a new session ID using today's date and a random hex suffix. If a valid session binding exists at `.peaks/_runtime/session.json` (the canonical home, slice 2026-06-05-peaks-runtime-layer; the legacy `.peaks/.session.json` is read-only back-compat for one minor release), the existing session is reused. To read the active session id from a skill or sub-agent, use the `peaks session info --active --json` primitive — never `cat` the on-disk file directly (the path is internal).
 
 **Existing old-session cleanup**: If `.peaks/` contains numeric-only or generic session directories from prior runs (e.g. `2026-05-25-auth-system`), create the new correctly-named session, migrate any reusable artifacts into it, and note the migration in the TXT handoff. Delete empty old-session directories.
 
@@ -346,9 +346,13 @@ The workspace initialization creates this structure under `.peaks/`:
 # Canonical home for all per-project ephemeral state (active-skill
 # marker, session binding, sop-state). All writes go here; reads also
 # tolerate the legacy paths (`.peaks/.active-skill.json`,
-# `.peaks/.session.json`, `.peaks/sop-state/`) for one minor release
-# so a fresh upgrade does not break in-flight workflows. Older trees
-# are auto-migrated by `peaks workspace reconcile --apply`.
+# `.peaks/.session.json` — read-only back-compat for one minor release,
+# `.peaks/sop-state/`) for one minor release so a fresh upgrade does
+# not break in-flight workflows. Older trees are auto-migrated by
+# `peaks workspace reconcile --apply`. Skills and sub-agents MUST
+# NOT `cat` any of these files directly — use `peaks session info
+# --active --json` (and the matching read-only primitives for the
+# other two) to discover session-id / active-skill / sop-state.
 .peaks/_runtime/
 ├── active-skill.json   # orchestrator presence marker (peaks-solo / -rd / -qa / -ui / -sc / -sop / -txt)
 ├── session.json        # project → session binding (the only single-session source of truth)

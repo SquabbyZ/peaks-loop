@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-08T17:41:17.556Z",
+  "updatedAt": "2026-06-09T08:30:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -254,12 +254,12 @@
         "updatedAt": "2026-06-07"
       },
       {
-        "name": "peaks-cli-request-init-filename-truncation-57-char-limit",
+        "name": "peaks-cli-request-init-filename-truncation-255-char-actual-limit",
         "kind": "lesson",
-        "description": "writes the request artefact at  where the requestId is the slug passed via .",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-57-char-limit.md",
-        "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
-        "updatedAt": "2026-06-07"
+        "description": "request-init artefact filename slug is silently truncated to 248 chars; the actual code cap is  in :50, NOT 57 as the old memory claimed",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-255-char-actual-limit.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-09-session-d9aff4/txt/handoff-021-2026-06-09-session-info-primitive-and-skill-md-consistency.md",
+        "updatedAt": "2026-06-09"
       },
       {
         "name": "peaks-hook-stdin-test-seam-pattern",
