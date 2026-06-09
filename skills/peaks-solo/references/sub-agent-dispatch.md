@@ -240,3 +240,49 @@ When writing a SKILL.md that fans out sub-agents:
 - `.peaks/memory/sub-agent-heartbeat-progress-red-line.md` (G6 red line)
 - `skills/peaks-solo/references/swarm-dispatch-contract.md` (predecessor contract)
 - `skills/peaks-qa/references/qa-fanout-contract.md` (QA-specific fan-out)
+
+---
+
+### Sub-agent mechanism (IDE-agnostic dispatch, NOT Skill tool)
+
+> Body of `### Sub-agent mechanism`. **Solo is itself a skill running in the current session. To invoke a role in the Swarm, Solo MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
+
+Each sub-agent dispatch call looks like:
+
+```
+peaks sub-agent dispatch <role> \
+  --prompt "<paste peaks-<role>/SKILL.md body, minus the self-presence / Step 0 blocks,
+            plus the runtime arguments: project=<repo>, session-id=<session-id>, request-id=<rid>, mode=<mode>,
+            plus the explicit output contract: 'Write your artefacts to the paths listed below and
+            return only the list of paths. Do not call Skill(...). Do not set presence. Do not
+            hand back prose.', plus the heartbeat instruction: 'While running, call
+            peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progress <pct> --note \"<text>\"
+            at least every 30 seconds.'>" \
+  --request-id <rid> --session-id <session-id> --project <repo> --json
+```
+
+Then the LLM takes `data.toolCall` from the envelope (a `{name, args}` descriptor), looks up the tool by `name` in its environment, and invokes it with `args` — IDE-private, no SKILL.md hardcoding.
+
+The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `references/swarm-dispatch-contract.md`):
+
+| Role | Writes | Reads (PRD-side) |
+|---|---|---|
+| `ui` | `.peaks/_runtime/<sessionId>/ui/design-draft.md`, `.peaks/_runtime/<sessionId>/ui/requests/<rid>.md` | PRD body, project-scan, archetype |
+| `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
+| `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
+
+**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Cli Gate B), and only then advances to RD implementation.
+
+**Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
+
+- Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
+- Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
+- Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
+- Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
+- **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
+
+After every sub-agent dispatch returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
+
+```bash
+peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-converged
+```

@@ -148,3 +148,11 @@ envelope and into the slice's `reducerReport`.
   fan-out pattern
 - `.peaks/memory/sub-agent-resource-lifecycle-red-line.md` — G5 red line
 - `.peaks/memory/sub-agent-heartbeat-progress-red-line.md` — G6 red line
+
+---
+
+## 业务测试细分 (optional)
+
+> Body of `## 业务测试细分 (optional)`. If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`; each gets its own `peaks sub-agent dispatch` call. Names are convention not contract — the dispatcher accepts any non-empty string. **Subdivision must stay ≤ 2 levels deep** (RL-4): `qa-business-api` is fine, `qa-business-api-user` is not. Two levels of depth is the empirical sweet spot — past that, the reducer cannot audit the boundaries between sub-agents, and prompts start overlapping.
+
+For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-solo/references/sub-agent-dispatch.md` §G6.

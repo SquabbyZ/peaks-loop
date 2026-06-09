@@ -2,7 +2,7 @@
 
 > Extracted from `skills/peaks-rd/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim "Transition verification gates" section that was previously inline; nothing was paraphrased, just relocated.
 
-## Transition verification gates (MANDATORY — run the command, see the output)
+## Transition verification gates (MANDATORY — full per-gate contract)
 
 You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. If any file shows "No such file" or any command returns empty, the phase is incomplete.
 

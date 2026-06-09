@@ -71,3 +71,17 @@ When the PRD source is a Feishu/Lark document that requires authentication:
 4. **Fallback C (none of the above)**: Mark PRD as `blocked` with reason `doc-inaccessible`, list the exact next steps for the user, and pause the workflow.
 
 Never silently fall back to unauthenticated `fetch` or `WebFetch` for authenticated documents.
+
+---
+
+### Frontend-only trigger pre-flight
+
+> Body of `### Frontend-only trigger pre-flight`. Before computing the swarm plan, Solo runs the keyword scan deterministically:
+
+1. Read `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md` body.
+2. Lowercase + strip markdown; check regex `\b(页面|组件|表单|弹窗|表格|样式|布局|交互|UI|UX|page|component|form|modal|table|styling|layout|interaction|frontend|前端)\b`.
+3. If match count ≥ 1 → `frontendKeywordHit=true`.
+4. If `frontendOnly` (from project-scan) is `true` and no keyword hit → UI joins anyway (frontend-only project, even non-visual changes may need visual sanity for regressions).
+5. If `frontendOnly` is `false` and no keyword hit → UI skipped.
+
+Solo records the pre-flight result in `sc/swarm-plan.json` so the audit trail shows why UI was or was not included.

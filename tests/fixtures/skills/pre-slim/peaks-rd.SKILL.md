@@ -1,0 +1,737 @@
+---
+name: peaks-rd
+description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Cli refactor workflows.
+---
+
+## Two-axis naming convention
+
+> **Read once at the top of this file; the rest of the skill is written against it.**
+
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+
+| Axis | Path root | Holds | When to use |
+|---|---|---|---|
+| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
+| **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
+
+**Which CLI commands operate on which axis:**
+
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
+- **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
+
+**Placeholder convention used in this file:**
+
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
+- The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
+
+**Cross-references:**
+
+- Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
+- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+
+# Peaks-Cli RD
+
+Peaks-Cli RD owns engineering analysis, implementation planning, and refactor execution contracts.
+
+## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
+
+For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP headed browser to verify the implementation behaves correctly before handing off to QA. The two contracts below are identical in spirit to `peaks-qa`'s contracts — RD and QA share the same headed-browser path and the same evidence conventions; only the role differs.
+
+### Contract 1 — Self-test screenshots must land under .peaks/_runtime/<sessionId>/qa/screenshots/
+
+Even though RD runs the self-test, **the screenshot evidence is QA's** by convention (the test report under `.peaks/_runtime/<sessionId>/qa/test-reports/` cites these paths). Therefore RD's Playwright screenshot tool calls (the LLM invokes `browser_take_screenshot` directly when the the Playwright MCP tools are present in the LLM's tool list) MUST pass `filename` (in the args object) whose absolute path is inside `.peaks/_runtime/<sessionId>/qa/screenshots/`, exactly the same contract QA enforces. Do not let Playwright fall back to the project root. If the the Playwright MCP tools are absent from the tool list, STOP and tell the user: `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or consult the IDE's MCP install docs.
+
+### Contract 2 — Login / CAPTCHA / SSO / MFA wall is a hard block, not a skip
+
+When the headed browser hits an auth wall, RD does **not** skip the browser gate. The skill must surface the wall with `AskUserQuestion` and pick one of three paths:
+
+```
+AskUserQuestion({
+  question: "Headed browser hit a login wall at <URL>. How should RD self-test proceed?",
+  options: [
+    { label: "I am logged in / I'll log in now",
+      description: "Pause RD. The visible browser is already open; the user completes login in-place, then types 'logged in' or equivalent. RD resumes browser_navigate + browser_snapshot from the post-login page." },
+    { label: "Skip browser self-test, hand off to QA",
+      description: "Mark the slice's browser self-test as deferred. Do NOT mark the slice as RD-done; transition to qa-handoff with browser-gate=blocked reason=login-required, and let QA's gate machinery surface the wall to the user again." },
+    { label: "Cancel the workflow",
+      description: "Stop RD. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
+  ]
+})
+```
+
+The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for browser validation" there); RD inherits the same rules. Without an explicit decision from the user, RD does not advance past the wall.
+
+## Sub-agent dispatch (when launched by peaks-solo swarm)
+
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+
+- **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-rd.json` and only that.
+- **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
+- **Mode selection** — Solo has already chosen the mode. Read it from the prompt arguments (or from `.peaks/.active-skill.json` if you can, but do not write it).
+- **Statusline install** — already done by Solo at session startup; do not re-run.
+
+What the sub-agent **MUST** still do, from this skill's contract:
+
+0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out (the runbook has the exact `peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json` call). The sub-agent reads the slot via `peaks request show <rid> --role rd --project <repo> --json` if it needs to. Note: `peaks request init` is **dry-run by default**. Pass `--apply` to actually create the artifact.
+2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role ui` if UI is in the swarm plan).
+3. Standards preflight (dry-run only; Solo owns the apply step).
+4. Project-scan read; create `rd/project-scan.md` only if Solo flagged it missing in the dispatch prompt.
+5. Write the planning artefact: `rd/tech-doc.md` (feature/refactor) or `rd/bug-analysis.md` (bugfix). If `--type` is `config|docs|chore`, **no planning artefact is required** — return immediately with `{"role":"rd-planning","status":"skipped","reason":"type=<type>"}`.
+6. Return only a compact JSON envelope — Solo will run the convergence gate (`ls` checks):
+
+```json
+{
+  "role": "rd-planning",
+  "rid": "<rid>",
+  "status": "ok" | "blocked" | "skipped",
+  "artefacts": [".peaks/_runtime/<sessionId>/rd/tech-doc.md"],
+  "warnings": [],
+  "blockedReason": null
+}
+```
+
+**Hard prohibitions** (sub-agent context, in addition to general red lines):
+
+- Do NOT call `Skill(skill="...")` from inside the sub-agent — that defeats the fan-out.
+- Do NOT call `peaks skill presence:set` — Solo owns the active-skill file.
+- Do NOT commit, push, install hooks, or apply settings.json mutations.
+- Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}` and let Solo handle the user message.
+- Do NOT modify code (the Swarm phase is planning only; code edits happen in the RD implementation phase, which is a separate sub-agent or inline run after Gate B).
+
+After returning, Solo re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/tech-doc.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
+
+## Skill presence (MANDATORY first action — main-loop context only)
+
+When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-solo` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run:
+
+```bash
+peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup
+```
+
+On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
+
+```bash
+peaks statusline install --project <repo>   # idempotent; skips if already installed
+```
+
+Read persistent project memory via CLI (durable, LLM-authored memories):
+
+```bash
+peaks project memories --project <repo> --json
+```
+
+This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
+Then display: `Peaks-Cli Skill: peaks-rd | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+
+## Responsibilities
+
+- scan the current project before changes;
+- prefer existing project standards over built-in language standards;
+- enforce the 95% UT coverage refactor gate;
+- split broad refactors by minimal functional slices;
+- generate refactor options, risk matrix, rollback plan, and task graph preview;
+- implement only after strict specs and confirmations exist.
+
+## Mandatory per-request artifact
+
+Every RD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<sessionId>/rd/requests/<request-id>.md`. This is the canonical engineering record for that request; handoff to QA/SC is blocked while the artifact is missing or its state is `draft` or `spec-locked` without implementation evidence.
+
+Use the `<request-id>` PRD assigned. RD companion artifacts (task graph, scan report, coverage evidence, slice spec, dry-run output, MCP call results) live alongside this file under the same `rd/` workspace and are linked from it.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
+## Two RD artifact files — do not confuse them
+
+RD has two distinct artifact files, and the most common regression is to write the per-slice content into the per-session file. They serve different readers and live in different places:
+
+| File | Scope | Reader | Required content |
+|---|---|---|---|
+| `.peaks/_runtime/<sessionId>/rd/tech-doc.md` | per-session — the whole RD plan for the session, all slices | Solo, future LLM, the human scrolling the session | Architecture, slice graph, mock strategy, cross-cutting decisions. **Not** the place for per-slice implementation evidence. |
+| `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` | per-slice — one request, one planning artifact | QA, SC, the lint gate | Red-line scope, in-scope / out-of-scope, unit-test requirements, **Implementation evidence** (file list, `pnpm test` output, git diff excerpts), MCP usage, handoff, status. **This is the file the lint gate checks for placeholders.** |
+| `.peaks/_runtime/<sessionId>/rd/code-review.md` | per-session — the engineering review | QA, the human reviewer | Code review findings + fixes. |
+| `.peaks/_runtime/<sessionId>/rd/security-review.md` | per-session — the security review | QA | Security review findings + fixes. |
+
+**Failure mode the lint gate catches**: the LLM writes the actual implementation content into `rd/tech-doc.md` and leaves `rd/requests/<rid>.md` as the default template (with placeholder sections like "Implementation evidence: 留待 RD 实施阶段补充" and "MCP usage: N/A"). The lint gate then fails the slice with 6+ lint errors on the `<rid>.md` template even though the actual content lives in `tech-doc.md`.
+
+**Rule**:
+- **Per-slice content** (red-line scope, in-scope / out-of-scope, the implementation evidence list, the unit-test assertions, the handoff) → **belongs in `rd/requests/<rid>.md`**.
+- **Per-session content** (the architecture overview, the slice roadmap, the cross-cutting concerns, the mock strategy for the whole session) → **belongs in `rd/tech-doc.md`**.
+- When in doubt: copy the per-slice content into the `<rid>.md` artifact's "Implementation evidence" section after writing it to `tech-doc.md`. The two files can carry overlapping context; the gate only enforces that `<rid>.md` is not empty placeholders.
+
+Concrete template and rules: `references/artifact-per-request.md`.
+
+## Default runbook
+
+The default sequence the RD skill should execute for a code-touching request. Skip steps that do not apply to the request type; do not skip the artifact, coverage gate, or red-line scope steps.
+
+```bash
+# 0. confirm RD's own runbook integrity before any code edit
+peaks skill runbook peaks-rd --json
+peaks skill presence:set peaks-rd --project <repo>  # show persistent skill presence every turn
+
+# 1. capture the RD request artifact and read upstream PRD / UI scope
+peaks request init --role rd --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role prd --project <repo> --json
+peaks request show <request-id> --role ui  --project <repo> --json   # if UI involved
+
+# 2. standards preflight before planning any code edit
+peaks standards init   --project <repo> --dry-run --json
+peaks standards update --project <repo> --dry-run --json
+
+# 3. pull OpenSpec context when openspec/ exists in the repo
+peaks openspec list --project <repo> --json
+peaks openspec show     <change-id> --project <repo> --json
+peaks openspec validate <change-id> --project <repo> --json    # entry gate
+peaks openspec to-rd    <change-id> --project <repo> --json    # acceptance + commit boundaries
+
+# 4. project-analysis evidence — MANDATORY before implementation
+peaks understand status --project <repo> --json
+peaks understand show   --project <repo> --json                # when UA artifact exists
+peaks codegraph context --project <repo> "<task>"
+peaks codegraph affected --project <repo> <changed-files...> --json
+
+# 4.1 read project-scan from Solo's pre-RD scan — BLOCKING if missing
+# **STOP if .peaks/_runtime/<sessionId>/rd/project-scan.md does not exist.**
+# **Do not write any code, do not plan any implementation, do not pass go.**
+# **Create the project-scan first, then proceed.**
+# NOTE: project-scan.md is a session-scoped singleton. Check if it already exists
+# before regenerating (e.g. via `ls .peaks/<changeId>/rd/project-scan.md`). If it exists
+# and is complete (has `## Archetype` and `## Project mode` sections), reuse it.
+# Required sections in project-scan:
+#   - build tool and framework
+#   - component library (antd, MUI, shadcn, etc.) and version
+#   - CSS solution (Less, Sass, TailwindCSS, CSS-in-JS) and conflicts
+#   - state management, routing, data fetching libraries
+#
+# After writing project-scan, embed durable memory markers for stable project facts.
+# Append one <!-- peaks-memory:start --> block per fact at the end of project-scan.md:
+#
+#   <!-- peaks-memory:start -->
+#   title: <component library>
+#   kind: module
+#   ---
+#   <Library> <version> — detected from package.json and source imports.
+#   <!-- peaks-memory:end -->
+#
+# Embed markers for: component library, CSS solution, build tool, state management,
+# routing, data fetching, and any legacy constraints. These facts are session-invariant
+# and valuable for future sessions. Do NOT embed secrets, credentials, or transient state.
+
+# 4.2 component library detection — verify against package.json, not assumptions
+# WRONG: "looks like a React project, let me use shadcn/ui"
+# RIGHT: check package.json for antd/@mui/@shadcn/etc., match imports in source files
+
+# 4.3 CSS framework conflict check (CRITICAL)
+# Detect conflicts BEFORE adding any CSS dependency:
+# - TailwindCSS + antd → HIGH conflict (preflight reset vs antd base styles)
+# - TailwindCSS + MUI → HIGH conflict (utility classes vs sx/system props)
+# - Adding a second CSS-in-JS lib to a project that already has one → BLOCK
+# - Adding Less/Sass to a CSS-in-JS project → wasteful, not conflicting
+# If a conflict is detected, DO NOT add the conflicting dependency.
+# Record the conflict in the RD artifact and propose a compatible alternative.
+
+# 4.4 source-code component import verification
+# grep source files for actual component imports to confirm library usage:
+# grep -r "from 'antd'" src/ --include="*.tsx" --include="*.ts"
+# grep -r "from '@mui/material'" src/ --include="*.tsx"
+# grep -r "from '@/components/ui'" src/ --include="*.tsx"
+
+# 4.5 mock data strategy — MANDATORY for frontend-only projects
+# Check project-scan for the detected build tool:
+#   Umi → use mock/*.ts (Umi's built-in mock directory)
+#   Vite → use src/mock/ (service-layer mock files)
+#   Next.js → match existing project pattern
+# NEVER write mock data inline in component files.
+# See "Mock data placement rules" section for the full framework mapping.
+
+# 5. optional library docs lookup through the LLM's own tool list (Context7 MCP)
+# If the Context7 MCP is present in the tool list, invoke the
+# tool directly (resolve-library-id / query-docs / etc.). If absent, skip
+# library docs and rely on existing project knowledge — do NOT hand-edit
+# `~/.claude/settings.json` to install MCPs.
+
+# 6. record red-line scope, slice contract, coverage status into the RD artifact, then implement
+
+# 6.5 BEFORE tech-doc: verify EVERY path in the tech-doc against actual project structure (Peaks-Cli Gate A2)
+#     ls every directory path in the tech-doc — zero "No such file" allowed
+#     This is the most common RD failure mode. Do not skip it.
+
+# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Cli Gate A3)
+#     Missing standards files → run `peaks standards init --project .` first
+#     Without project rules, security review and code review triggers won't fire.
+
+# 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
+#    Peaks-Cli Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
+#    Peaks-Cli Gate B3: code review evidence → .peaks/<changeId>/rd/code-review.md
+#    Peaks-Cli Gate B4: security review evidence → .peaks/<changeId>/rd/security-review.md
+#    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
+peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
+#    Peaks-Cli Gate B6 (NEW): declared --type still matches the actual diff after implementation.
+peaks scan request-type-sanity --project <repo> --type <type> --json
+#    Peaks-Cli Gate B7 (NEW, repair cycles only): we have not exceeded the 3-cycle cap.
+peaks request repair-status <rid> --project <repo> --session-id <session-id> --json
+#    Peaks-Cli Gate B8 (NEW): every changed file matches the RD red-line scope (no out-of-bounds writes).
+peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <session-id> --json
+#    All six non-zero → BLOCKED. Fix and re-check before attempting the qa-handoff transition.
+
+# 7. self-validate before QA handoff
+peaks openspec validate <change-id> --project <repo> --json    # exit gate (re-run)
+
+# 8. hand off to QA via the cross-linked request id
+peaks request init --role qa --id <request-id> --project <repo> --apply --json
+peaks request show <request-id> --role rd --project <repo> --json
+peaks project memories:extract --session-id <session-id> --project <repo> --json  # extract durable memories
+peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
+```
+
+For refactor work, the coverage ≥ 95% gate in `Refactor hard gates` still applies and must be recorded in the artifact before slicing begins.
+
+### Transition verification gates (MANDATORY — run the command, see the output)
+
+You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. If any file shows "No such file" or any command returns empty, the phase is incomplete.
+
+The full per-gate contract — including the CLI enforcement table (per `--type` required files), the `ls` / `grep` shell snippets for Gate A, A2, A3, B, B2, B3, B4, B5, B6, B7, B8, B9, and the expected outcomes — lives in [`references/rd-transition-gates.md`](references/rd-transition-gates.md). Read that file before declaring a phase complete. The summary below is the index; the reference file is the contract.
+
+> **CLI enforcement**: the gates below are ALSO enforced by `peaks request transition`. The CLI checks the same files before allowing the transition and fails with `code: PREREQUISITES_MISSING` if any are absent. Per-type required files: see the table at the top of `references/rd-transition-gates.md`. The escape hatch `--allow-incomplete --reason "<text>"` still exists for one-off exceptions.
+
+**Index of gates** (full contract in `references/rd-transition-gates.md`):
+
+| Gate | When | File / command | Why |
+|---|---|---|---|
+| A | After project-scan read, before any implementation | `ls .peaks/<changeId>/rd/project-scan.md` | Confirms the project-scan exists before code edits |
+| A2 | Before tech-doc write | `ls <every-path-in-tech-doc> \| grep -c "No such file"` | Catches wrong paths in the tech-doc |
+| A3 | Before implementation | `ls CLAUDE.md .claude/rules/...` | Confirms project standards exist |
+| B | Before QA handoff | `ls rd/requests/<rid>.md rd/tech-doc.md` | Both files must exist |
+| B2 | Before QA handoff | `npx vitest run --changed` | Unit tests pass on the changed surface |
+| B3 | Before QA handoff | `ls rd/code-review.md` | Code review evidence exists |
+| B4 | Before QA handoff | `ls rd/security-review.md` | Security review evidence exists |
+| B5 | Before QA handoff | `peaks request lint` | RD artifact has no unfilled placeholders |
+| B6 | Before QA handoff | `peaks scan request-type-sanity` | Declared `--type` matches the diff |
+| B7 | Before QA handoff (repair only) | `peaks request repair-status` | Cycle count under the 3-cycle cap |
+| B8 | Before QA handoff | `peaks scan diff-vs-scope` | Diff stays in red-line scope |
+| B9 | Before QA handoff (perf surface) | `ls rd/perf-baseline.md` | Perf baseline filled (or `N/A — no perf surface`) |
+
+## Project standards preflight
+
+Before RD planning or implementation work in a code repository, call the Peaks-Cli CLI:
+
+- `peaks standards init --project <path> --dry-run`
+- `peaks standards update --project <path> --dry-run`
+
+If `CLAUDE.md` is missing, treat creation as the preferred path. If `CLAUDE.md` already exists, use `standards update` to decide whether to append a managed index block or surface review-only suggestions. Apply only when write authorization exists; otherwise keep the CLI output as a preflight next action. Do not hand-write standards file mutations inside the skill.
+
+## Library version awareness (3rd-party breaking-change gate)
+
+After `peaks scan libraries` lands the dependency list under `## Library versions` in `rd/project-scan.md`, RD MUST cross-check the slice's diff against `schemas/library-breaking-changes.data.json` before writing any 3rd-party API call. Concretely:
+
+1. **Read the project's `## Library versions` section** in `.peaks/_runtime/<sessionId>/rd/project-scan.md`. Identify the `name` + `major` of every dependency the slice imports from.
+2. **Open `schemas/library-breaking-changes.data.json`** (LLM reads via the `Read` tool). For each library where the installed `major` matches a `toMajor` in the table, load the corresponding `breakingChanges[]` list.
+3. **For each `import` statement in the slice's diff** (e.g. `import { Drawer } from 'antd'`), check whether the imported symbol or its prop signature matches any `breakingChanges[].api` entry for the library's installed major.
+4. **On a hit**:
+   - **Warn the LLM in the slice's handoff**: in `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` under `## Implementation evidence`, append a one-line note per hit: `- [lib-version] <library> <installed version> imports <api>; breaking-change rule says use <replacement> instead.`
+   - **Persist a `lesson` memory** at the END of `.peaks/_runtime/<sessionId>/rd/project-scan.md` (or the tech-doc, or the handoff — any of these is read by future RD runs):
+     ```
+     <!-- peaks-memory:start -->
+     title: <library> <installed major> requires <api> → <replacement>
+     kind: lesson
+     ---
+     Observed in slice <rid>: project is on <library>@<major> and the diff imported <api> which is on the breaking-changes list. Use <replacement> instead. Source: schemas/library-breaking-changes.data.json.
+     <!-- peaks-memory:end -->
+     ```
+   - The next RD run will see this lesson in `peaks project memories` and skip the same drift.
+
+**Why this exists**: the LLM's training data lags the latest major versions. The user hit `[antd: Drawer] width is deprecated. Please use size instead` in an antv6 project because the LLM wrote v5-style code. The breaking-changes table is the canonical place for "library X at major Y has these known migrations" so the LLM doesn't have to guess.
+
+**Out of scope**: the breaking-changes table is hand-curated; auto-syncing from upstream changelogs (Context7, etc.) is a follow-up slice. Per-slice the LLM only reads the table — it does NOT maintain it.
+
+**Data freshness check (read schemas/library-breaking-changes.meta.json first)**:
+- Before reading `schemas/library-breaking-changes.data.json`, also read `schemas/library-breaking-changes.meta.json`.
+- Compute `ageInDays = (today - meta.lastUpdated)`. The LLM is responsible for this date math.
+- If `ageInDays > meta.freshnessPolicyDays` (default 180 days), surface a **freshness warning** in the handoff: `- [data-staleness] library-breaking-changes.data.json is ${ageInDays} days old (last touched ${meta.lastUpdated}); the breaking-changes below may miss library X's recent major. Re-verify against the library's official changelog before relying on these substitutions.`
+- The warning is **informational**, not blocking. A stale table is better than no table. The LLM still applies the entries it has, just with the caveat.
+- When a row in the table matches an `import` in the diff AND the table is fresh, proceed without the warning.
+
+## GStack integration and code dry-runs
+
+Use gstack as a concrete engineering workflow reference for `Think → Plan → Build → Review → Test → Ship → Reflect`:
+
+- map plan engineering review to Peaks-Cli RD risk matrices, task graphs, and slice contracts;
+- map build/review discipline to strict spec-first implementation and code-review gates;
+- map investigate/careful/guard concepts to root-cause analysis, risky-action confirmation, and scoped edit boundaries;
+- adapt gstack concepts into Peaks-Cli artifacts rather than invoking gstack commands as runtime dependencies.
+
+When Peaks-Cli RD produces or changes code, dry-run repeatedly instead of only during preflight:
+
+1. run standards dry-runs before planning or implementation;
+2. run the relevant Peaks-Cli dry-run again after each meaningful implementation slice or standards-affecting decision;
+3. after implementation, run required unit tests, code review, and security review before any completion claim;
+4. only after those checks pass, run the relevant Peaks-Cli dry-run before handoff, review, or retention-boundary work;
+5. record commands, results, coverage evidence, reviewer/security findings, dry-run result, and remaining action in the RD handoff capsule.
+
+## Requirement boundary red-line self-check
+
+Before every code or mock change, RD must write and then enforce a red-line scope check in the RD artifact:
+
+1. name the exact product requirement, route, UI surface, API path, data model, and **path/glob patterns** that are in scope. Write them under the RD artifact's `## Red-line scope` section as bullets. Use `In-scope:` / `Out-of-scope:` subheaders when both lists are non-trivial, or wrap paths in backticks for clarity (e.g. `` `src/services/login/**` ``);
+2. name adjacent surfaces that are explicitly out of scope, especially list pages, delete/update flows, unrelated API endpoints, existing data records, authentication, permissions, and shared runtime configuration;
+3. reject any implementation that modifies, deletes, mocks, or replaces out-of-scope behavior just to make validation pass;
+4. for API/mock work, mock only the exact request path and method required by the approved slice, and do not override broader collection/list endpoints unless the requirement explicitly includes them;
+5. before handoff, run `peaks scan diff-vs-scope --rid <rid> --project <repo>` to deterministically verify the diff against the declared patterns (this is **Peaks-Cli Gate B8**). The CLI auto-allows test files and `.peaks/` artifacts; any other unclassified or out-of-scope file blocks RD completion until the diff is trimmed OR the scope is widened with PRD approval.
+
+## Mandatory tech-doc output
+
+**BLOCKING — Do not hand off to QA without this file.** Every RD invocation that touches code MUST produce a tech-doc artifact at `.peaks/_runtime/<sessionId>/rd/tech-doc.md`. If this file is missing at QA handoff, the handoff is invalid. The request artifact links to it; QA and SC read it for verification context.
+
+**Minimum tech-doc sections:**
+
+1. **Architecture decisions** — what changed, why, tradeoffs considered, alternatives rejected
+2. **Component changes** — files added/modified/deleted with role (new component, refactor, bug fix)
+   - **CRITICAL: Every file path in this section must be verified against the actual project.** Run `ls` on every directory path before writing it. A wrong path is worse than no tech-doc — it sends QA and future developers to non-existent files.
+3. **Data flow** — how data moves through the changed surface (props, API calls, state updates, events)
+4. **CSS/Style changes** — what CSS files or style blocks changed, which component-library tokens were used, any CSS framework interactions
+5. **API contract changes** — new/modified request paths, request/response shapes, error states
+6. **Dependencies** — new packages added, versions, why each was needed, license check
+
+**CSS framework change rules:**
+- When a component library (antd, MUI, etc.) is already in use, prefer its built-in styling APIs (antd's `token`/`className`/`styles` props, MUI's `sx`/`styled`/`theme`) over adding TailwindCSS classes
+- Never add `tailwindcss` to a project that already uses a component library with its own CSS-in-JS solution unless the project-scan explicitly approves it
+- If TailwindCSS is already present, use it consistently with the project's existing utility patterns; do not mix TailwindCSS utility classes with component-library `style` prop overrides on the same element
+
+## Mandatory perf-baseline output (RD-side perf gate)
+
+**BLOCKING — Do not hand off to QA without a perf-baseline file when the slice has a user-visible performance surface.** The QA stage's Gate A4 (performance check) needs a stable reference to diff against; without an RD-side baseline, the first time Gate A4 runs it has nothing to compare against and any regression it finds is a blind-side surprise. The user-facing pain of leaving perf to QA only has historically been a 3-cycle repair loop ("QA returns for perf", "RD ships a fix", "QA returns for perf again", "RD ships another fix", ...). The RD-side baseline closes that loop.
+
+**When this applies:**
+- feature / refactor slices that touch a route, hook, API, or any user-perceivable surface
+- bugfix slices where the bug is performance-shaped (slow render, hot loop, N+1)
+- any slice where the PRD mentions a number (LCP / FCP / TBT / p95 / rps / etc.)
+
+**When this does NOT apply:**
+- docs / chore slices
+- pure bugfixes whose fix is "remove the bug" (no perf surface)
+- any slice where the slice is documentation-only or otherwise has no perf surface — in that case write `N/A — no perf surface` in the file's "Notes" section and surface that fact in the RD handoff
+
+**How to produce the file:**
+
+```bash
+# 1. dry-run preview (default)
+peaks perf baseline --project <repo>
+# → ok: true, data.plannedWrites shows the file path, no files written
+
+# 2. apply — scaffolds the file at .peaks/_runtime/<sessionId>/rd/perf-baseline.md
+peaks perf baseline --project <repo> --apply --reason "capturing baseline for Gate A4 diff"
+# → ok: true, data.writtenFiles includes the path
+
+# 3. fill in the file's Results table
+#    (lighthouse / k6 / autocannon / project-local bench — the
+#    CLI does not call any of these; that is the RD's job)
+#    open .peaks/_runtime/<sessionId>/rd/perf-baseline.md and complete the
+#    "Path / route | Workload | Tool | Metric | Baseline | Threshold"
+#    table
+
+# 4. hand off to QA. The QA stage reads the file's Results
+#    table as the input to Gate A4 — see peaks-qa SKILL.md
+#    Gate A4.
+```
+
+**Idempotency:** re-running `peaks perf baseline --apply` on a session where the file already exists is a no-op (the CLI does not overwrite hand-edited content). This is the normal RD retry pattern (re-measurement, threshold adjustment, etc.). If the RD really does want to overwrite, delete the file first and re-run.
+
+**The role of the CLI vs. the actual measurement:** the CLI is the *scaffolding*. It writes the file, exposes the path, and keeps the file's structure stable so QA can rely on it. The CLI does NOT call lighthouse / k6 / autocannon — those are project-shape dependent and the right tool is a project-local concern, not a peaks-cli concern. The CLI is justified (4-grounds check): it gates the QA-side decision on a stable artefact, it requires --apply for a destructive write, and it is invokable from a hook on session init. It is *not* a machine-enforced gate that prose cannot enforce — the measurement is the RD's responsibility.
+
+## Implementation completion gates
+
+RD cannot mark a development slice complete until all of these are true. Each gate below maps to a hard verification gate in the Transition Verification Gates section — run the corresponding command, see the output.
+
+0. the project-scan (`.peaks/_runtime/<sessionId>/rd/project-scan.md`) has been read and its component-library, CSS-framework, and build-tool findings have been applied — no implementation may start before this; **→ verified by Peaks-Cli Gate A**
+0.5. NO wrong paths in tech-doc — every directory and file path has been verified with `ls` against the actual project; **→ verified by Peaks-Cli Gate A2**
+0.6. CLAUDE.md and `.claude/rules/common/{coding-style,code-review,security}.md` exist in the project root; **→ verified by Peaks-Cli Gate A3**
+1. OpenSpec change artifacts exist and are linked for non-trivial work when the target repo already has `openspec/`, or the user has approved adding it;
+2. unit tests covering the new or changed behavior have been added or updated and run successfully; **→ verified by Peaks-Cli Gate B2**
+3. if the repository is legacy and total UT coverage is below the project target, do not block on historical coverage, but require coverage evidence for newly added or changed code;
+4. for frontend or UI-affecting slices, RD self-test has launched the app and used the Playwright MCP for real browser end-to-end validation with visible-browser confirmation (the LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` — RD does NOT hand-edit `~/.claude/settings.json` or auto-install on the user's behalf); navigate with `browser_navigate`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests`, sanitize route/actions and observations before retention, record acceptance result, close with `browser_close`; if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
+5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/<changeId>/rd/code-review.md`
+6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/<changeId>/rd/security-review.md`
+6.5. perf-baseline output is in place for any slice with a user-perceivable performance surface — `peaks perf baseline --apply` has been run and `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` exists with the Results table filled in with measurements (or `N/A — no perf surface` in Notes for slices without a perf surface). For docs / chore / pure-bugfix-no-perf, the file is not required. Run the fan-out from "Parallel review fan-out" below; **→ verified by Peaks-Cli Gate B9** — evidence file must exist at `.peaks/<changeId>/rd/perf-baseline.md` and contain a non-empty Results table or the N/A marker.
+7. the post-check dry-run has passed and is linked in the handoff;
+8. the tech-doc artifact (`.peaks/_runtime/<sessionId>/rd/tech-doc.md`) is written and linked from the request artifact. **→ verified by Peaks-Cli Gate B**
+9. the RD request artifact body has no unfilled placeholders, TBD markers, or bare-bullet stubs (`peaks request lint <rid> --role rd`). **→ verified by Peaks-Cli Gate B5**
+10. the declared `--type` is still consistent with the actual git diff (`peaks scan request-type-sanity --type <type>`). **→ verified by Peaks-Cli Gate B6**
+11. the repair-cycle counter is below the cap before a repeat handoff (`peaks request repair-status <rid>`). **→ verified by Peaks-Cli Gate B7**
+12. every changed file matches the RD red-line scope (no out-of-bounds writes); auto-allowed files (tests, .peaks artifacts) don't need an explicit pattern (`peaks scan diff-vs-scope --rid <rid>`). **→ verified by Peaks-Cli Gate B8**
+
+If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
+
+## Parallel review fan-out (code-review + security-review + perf-baseline + qa-test-cases)
+
+**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+
+**Why 4 sub-agents (added in slice 004):** the original 3-way fan-out (code-review + security-review + perf-baseline) cut the RD→QA wall-clock by running 3 LLM writes in parallel, but `qa/test-cases/<rid>.md` was still written sequentially by QA's main loop AFTER the RD handoff landed. Drafting QA test-cases in the same fan-out means the QA main loop's first action is "execute the pre-drafted test plan + write test-report" instead of "draft a test plan from scratch + execute + write report". Wall-clock drop: ~30-40% on the RD→QA-verdict segment for `feature` / `refactor` / `bugfix` slices.
+
+**When to fan out:**
+- Feature / refactor slices: all four sub-agents always run.
+- Bugfix slices: code-review + security-review + qa-test-cases always run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
+- Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact. (qa-test-cases also skipped — config / docs / chore have no acceptance surface to validate.)
+
+**The dispatch template (mirror of peaks-solo L705-717):**
+
+```
+peaks sub-agent dispatch <role> \
+  --prompt "<role contract below>, plus runtime args: project=<repo>, session-id=<session-id>, request-id=<rid>.
+             Write your evidence file at .peaks/_runtime/<sessionId>/<evidence-path> and return ONLY the path.
+             Do not call Skill(...). Do not set presence. Do not prompt the user. Do not commit, push,
+             install hooks, or mutate settings.json. Do not edit any source file — review only.
+             While running, call peaks sub-agent heartbeat --record <dispatchRecordPath>
+             --status running --progress <pct> --note \"<text>\" at least every 30 seconds;
+             on completion call --status done --progress 100 --note 'completed'." \
+  --request-id <rid> --session-id <session-id> --project <repo> --json
+```
+
+Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/test-cases/<rid>.md` (QA's dir). The role name in the description differentiates them.
+
+**Sub-agent 1 — code-reviewer (always runs for feature / refactor / bugfix):**
+- Read the git diff for this slice (`git diff main...HEAD` or equivalent).
+- Read `.peaks/_runtime/<sessionId>/rd/tech-doc.md` for slice intent.
+- Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
+- Output: `.peaks/_runtime/<sessionId>/rd/code-review.md` with sections: Summary, Findings (CRITICAL/HIGH/MEDIUM/LOW with file:line), Required Fixes (CRITICAL+HIGH only), Recommended (MEDIUM+LOW), Verdict (pass | return-to-rd | blocked).
+- Required for Gate B3.
+
+**Sub-agent 2 — security-reviewer (always runs for feature / refactor / bugfix):**
+- Read the git diff and the file list.
+- Read `.peaks/_runtime/<sessionId>/rd/tech-doc.md` for the slice's threat model.
+- Inspect for: hardcoded secrets, unsanitized input, path traversal, SQL injection, XSS, missing auth, dependency changes, external API surface, command injection via Bash guards.
+- Output: `.peaks/_runtime/<sessionId>/rd/security-review.md` with the same shape (Summary, Findings, Required Fixes, Recommended, Verdict).
+- Required for Gate B4.
+
+**Sub-agent 3 — perf-baseline-reviewer (feature / refactor / bugfix-when-perf only):**
+- Read the git diff and the slice's PRD/tech-doc for any mentioned numbers (LCP / FCP / TBT / p95 / rps).
+- Run `peaks perf baseline --project <repo> --apply --reason "parallel fan-out for rid=<rid>"` to scaffold `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` (idempotent: re-run is a no-op per `src/services/perf/perf-baseline-service.ts:188-201`).
+- Inspect the slice for a user-perceivable performance surface (route, hook, API, render, hot loop, N+1).
+- Decide: perf surface exists → leave the scaffold in place for the main RD loop to fill in the Results table with actual measurements (lighthouse / k6 / autocannon / project-local bench — the CLI does NOT run these). No perf surface → write `N/A — no perf surface` in the file's Notes section and return.
+- Output: `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` (scaffolded, or N/A stub), plus a one-line return string: `perf-baseline: scaffolded — main loop must fill Results table` OR `perf-baseline: N/A — no perf surface`.
+- Required for Gate B9. The Results-table-filling happens in the main RD loop AFTER the fan-out returns and BEFORE `rd:qa-handoff` transition.
+
+**Sub-agent 4 — qa-test-cases-writer (always runs for feature / refactor / bugfix; added in slice 004):**
+- Read the git diff for this slice.
+- Read `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (or `bug-analysis.md` for bugfix) for the slice's acceptance criteria.
+- Read `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md` for the user's "Acceptance criteria" section.
+- Draft the test plan: enumerate every acceptance criterion from the PRD as a separate test case; for each, write a `ts` test snippet (using vitest, jest, or the project's test framework per the existing test files), assert the expected outcome, and link the test to the PRD criterion by ID or section reference.
+- Include the standard test plan sections: ## Test cases (with `ts` code blocks), ## Test case summary (table), ## Mandatory validation gates (units / API / browser / security / performance), ## Regression matrix, ## Verdict.
+- The test cases do NOT need to be executed by this sub-agent — execution is the QA main loop's job, AFTER the RD handoff lands. The sub-agent's contract is: "produce a runnable, exhaustive, type-correct test plan that QA can execute verbatim."
+- Output: `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md`.
+- Required for Gate C (RD-side qa-handoff transition, added in slice 004). When this file is present at RD's qa-handoff transition, QA's main loop can skip its own "draft test plan" step and proceed directly to "execute pre-drafted test plan + write test-report + security-findings + performance-findings + verdict".
+- Failure mode: if the PRD is missing or the acceptance criteria are too vague to enumerate, this sub-agent returns `blocked` with a `blockedReason` like `prd-missing` or `acceptance-criteria-vague`; the main RD loop then escalates via AskUserQuestion before falling back to inline QA test-case drafting.
+
+**Hard prohibitions on all 4 sub-agents (mirror of peaks-solo L729-734):**
+- Do NOT call `Skill(skill="...")` — would re-enter RD or another skill and break the fan-out.
+- Do NOT call `peaks skill presence:set` — only the main RD loop owns presence.
+- Do NOT open interactive user prompts. If something is unclear, return `blocked` and let the main loop handle the user.
+- Do NOT commit, push, install hooks, or mutate `~/.claude/settings.json` or `.claude/settings.json`. Only the main RD loop holds those permissions.
+- Do NOT edit any source file under `src/`, `tests/`, `skills/`, `bin/`, `scripts/`, `docs/`, `schemas/`. Review only. (Sub-agent 4, qa-test-cases-writer, may write test code in the test plan body, but does NOT write to `tests/` files on disk — that is the QA main loop's job, after the verdict is issued.)
+
+**Aggregation (after all 4 sub-agents return):**
+
+1. Restore presence: `peaks skill presence:set peaks-rd --project <repo> --gate review-fan-out-converged`
+2. Run the 4 `ls` checks (Gate B3 code-review, Gate B4 security-review, Gate B9 perf-baseline, Gate C2 qa-test-cases — the last one is a new check added in slice 004).
+3. Read each evidence file. Aggregate CRITICAL/HIGH across code-review + security-review.
+4. If any CRITICAL or HIGH finding exists in code-review.md or security-review.md: fix in the main RD loop, then re-launch ONLY the affected sub-agent(s) to verify the fix. Loop until clean, or mark as blocked if the issue cannot be resolved.
+5. For perf-baseline: if scaffolded, run the project's perf measurement tool, fill in the Results table (Path / route | Workload | Tool | Metric | Baseline | Threshold), and `git diff` the file to confirm the table has data (not just the header row). If N/A, no measurement needed.
+6. For qa-test-cases: the file is now pre-drafted by sub-agent 4. The main RD loop does NOT re-draft it; it only verifies (a) the file exists, (b) every PRD acceptance criterion is enumerated, (c) every `ts` test snippet is syntactically valid (the sub-agent's contract guarantees the last two; the main loop's job is just the `ls` check). If the sub-agent's draft is incomplete, fix it inline in the main RD loop (small edits only) OR re-launch the sub-agent (large re-drafts).
+7. Re-run all 4 `ls` checks to confirm the evidence files are present and not empty.
+8. Only then transition `peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json`.
+
+**Degradation when a sub-agent fails or returns blocked:**
+- code-review sub-agent fails: fall back to inline RD code review (the L486-506 Gate B3 is still required; only the fan-out is degraded). TXT handoff note: `code-review-subagent-degraded-to-inline`.
+- security-review sub-agent fails: same fallback. TXT note: `security-review-subagent-degraded-to-inline`.
+- perf-baseline sub-agent fails: same fallback. TXT note: `perf-baseline-subagent-degraded-to-inline`.
+- qa-test-cases sub-agent fails: fall back to inline QA test-case drafting at the start of QA's main loop (i.e. QA drafts the test cases itself, instead of receiving the pre-drafted file). TXT note: `qa-test-cases-subagent-degraded-to-inline-qa-draft`. The wall-clock win is reduced but not eliminated — QA's drafting is still faster than writing from scratch because the test plan can be drafted from the PRD + tech-doc directly.
+- 2 or more fail: do not hand off as clean; transition to `qa-handoff` with `--allow-incomplete --reason "<degradation>"` OR block.
+
+**Why this works (3-loop repair closure):** the original 3-loop repair pain (`qa return for perf → rd fix → qa return for perf again → ...`) was caused by perf being QA-only. This fan-out moves perf measurement to the RD side AND runs it in parallel with the other reviews, so the RD handoff is complete on the first attempt instead of after several cycles. **Slice 004 extends the same pattern to QA test-cases** so the QA→verdict loop is also faster on the first attempt.
+
+## Refactor hard gates
+
+If a request is refactor, cleanup, architecture adjustment, module split, or technical debt work:
+
+1. scan project structure and existing standards;
+2. locate or run UT coverage;
+3. block implementation unless coverage is >= 95%;
+4. treat missing, unknown, or unverifiable coverage as failing;
+5. generate intermediate artifacts before implementation;
+6. call or consume peaks-prd and peaks-qa artifacts even in direct RD mode;
+7. require strict slice spec before each slice;
+8. require 100% acceptance for the slice;
+9. require code changes and intermediate artifacts to be traceable in local `.peaks/_runtime/<sessionId>/` storage before continuing; commit or sync artifacts only when explicitly authorized.
+
+## Unit-test coverage red line
+
+The 100% coverage target on testable files is meaningful coverage, not a score to chase. RD must not write coverage-padding tests.
+
+Rules:
+
+1. If a missing line or branch is a **defensive guard for an unreachable case** (caller invariant, type system, upstream contract), remove the guard rather than write a test that fabricates the impossible. Simpler code beats higher line count.
+2. If a missing line or branch is **IO / platform glue that cannot be tested cleanly** (real process spawn, homedir-default paths, registry side effects), add the file to `coverage.exclude` in `vitest.config.ts` with a one-line comment explaining why. This is the established Peaks-Cli pattern (`mcp-stdio-transport.ts`, `*-types.ts`, `doctor-service.ts`, `artifact-service.ts`, `workspace-service.ts`).
+3. If a missing line or branch is **real behavior a caller relies on**, write the test — but frame the assertion around the user-visible behavior ("uses the wall clock when no clock is injected and writes a real timestamp into the artifact body"), not the implementation branch ("covers the `?? defaultClock` fallback"). A test that would only fail if someone deleted a single branch is a smell.
+4. When the only way to reach 100% is to write a test that documents nothing a future maintainer would care about, the right answer is to **lower the target for that file via `coverage.exclude`** or to **simplify the production code to remove the dead branch**, never to write the padding test.
+5. Test names must describe behavior, not coverage targets. Tests titled like "covers line 73" or "exercises the default factory branch" are red flags during code review and must be rewritten or deleted.
+
+RD slice handoff must record the coverage verdict in the RD request artifact with one of:
+
+- `pass: <percent>%, no exclusions added in this slice` — clean 100%
+- `pass: <percent>%, added <file> to coverage.exclude — reason: <one-line>` — exclusion was the right call
+- `blocked: <percent>% with no meaningful path to 100%` — escalate; do not write padding to clear the gate
+
+## OpenSpec usage
+
+For non-trivial RD changes, use OpenSpec when the project already has `openspec/` or the user approves adding OpenSpec. In repositories that already contain `openspec/`, missing OpenSpec change artifacts are a blocking pre-implementation issue, not an optional suggestion.
+
+Create or update `openspec/changes/<change-id>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/spec.md` before implementation slices begin. If the repository uses a different existing OpenSpec layout, follow that layout and record the file paths in the RD handoff.
+
+OpenSpec artifacts are durable project specification files, not Peaks-Cli runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks-Cli artifact workspace outside the target repository.
+
+Peaks-Cli PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks-Cli artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
+
+## Mock data placement rules (BLOCKING — framework-aware)
+
+When the project-scan in `.peaks/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
+
+### Framework-to-mock-directory mapping
+
+| Project-scan finding | Mock location | Notes |
+|---|---|---|
+| Umi (`@umijs/max`, `.umirc.ts`) | `mock/*.ts` | Umi's built-in mock directory. Zero config, auto-reload. Write `export default { 'GET /api/...': (req, res) => { ... } }` |
+| Next.js (`next.config.*`) | `__mocks__/` or MSW handlers | Match the project's existing pattern |
+| Vite (`vite.config.*`) | `src/mock/` | Service-layer mock files with typed fixtures |
+| CRA / Webpack | `src/__mocks__/` | Match the project's existing pattern |
+
+### Hard rules
+
+1. **Umi project → `mock/*.ts`**: If the project-scan says the build tool is Umi, mock data MUST go in the `mock/` directory at project root. This is Umi's built-in feature — it intercepts requests matching the defined path and method. Do NOT write `Promise.resolve(mockData)` in component files or service files for Umi projects.
+
+2. **Never inline mock data in component files**: Mock data, fixture objects, and stub responses belong in dedicated mock files. Components should receive data through their normal channels (props, API calls via services). Writing `const mockData = [...]` inside a `.tsx` file is prohibited.
+
+3. **Mock files must export TypeScript interfaces**: Every mock response type must be exported so RD implementation and QA test-cases can import the same contract. See peaks-solo's "Frontend-only development mode" for the full mock-to-real migration pattern.
+
+4. **Every mock file must be marked**: Add `// MOCK: Replace with real API call when swagger.json is available` at the top of every mock file.
+
+5. **Mock data must be realistic**: No `"test"`, `"foo"`, `"123"` values. Use plausible content that resembles production data.
+
+### Verification gate (after mock creation)
+
+```bash
+# If project-scan detected Umi, verify mock/ directory was used
+ls mock/*.ts 2>&1
+# Expected: one or more .ts files in mock/
+# "No such file" → BLOCKED. Umi projects must use mock/ directory.
+
+# Verify no inline mock data in component files
+grep -r "const mock\|mockData\|mock_data\|MOCK_DATA" src/ --include="*.tsx" --include="*.ts" -l 2>&1
+# Expected: no matches (or only in dedicated mock files / test files)
+# Any match in a component → BLOCKED. Move to mock/ (Umi) or src/mock/ (Vite).
+```
+
+## Frontend project generation
+
+When RD work creates a frontend application and the user has not specified a technology stack, and the current scan plus existing project standards still do not establish a frontend stack, default to React + Vite + shadcn/ui with:
+
+- `peaks shadcn init --preset [CODE] --template vite`
+
+`[CODE]` is the preset code supplied by the shadcn registry or user workflow; if it is unknown, stop and resolve the intended preset before scaffolding.
+
+If the user specifies a frontend stack or scaffold command, use the specified technology. If the scaffold emits JavaScript, convert generated application files to TypeScript before continuing; if conversion is not practical, ask for a TypeScript-compatible scaffold.
+
+Application projects generated through this skill must not contain JavaScript source or config files. Generate TypeScript only (`.ts`, `.tsx`, and TypeScript config equivalents), including when adapting examples from libraries or templates.
+
+## Artifact and standards output
+
+When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Cli artifact workspace. By default, use local non-git storage at `.peaks/_runtime/<sessionId>/rd/` in the target project or the Peaks-Cli CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/_runtime/<sessionId>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
+
+Do not default to a git-backed artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that clearly authorizes it. Browser evidence must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
+
+When project-local `CLAUDE.md` or project-local `.claude/rules/**` is created or updated, route the mutation through `peaks standards init` or `peaks standards update`; do not hand-write standards mutations. Derive the content from the current scan results and existing project standards. Keep only the rules that match the project's languages, frameworks, tooling, and repository layout. Do not emit generic templates, copy-pasted boilerplate, or rules unrelated to the current scan evidence. Do not update user-global `~/.claude/rules/**` from this workflow.
+
+If the scan results are insufficient to justify a rule, leave it out or surface a review-only suggestion instead of writing it into project standards.
+
+## Compact handoff
+
+Before RD work stops, finishes, blocks, or hands off to another role, emit a short resumable capsule: mode, scope, coverage status, validated decisions, current slice, artifact paths, blockers, and next action. Link to scan reports, matrices, plans, and task graphs instead of restating them.
+
+## External references
+
+**Matt Pocock skills** (`diagnose`, `triage`, `tdd`, `improve-codebase-architecture`, `prototype`): Engineering references only. Inspect before applying; Peaks-Cli RD gates remain authoritative.
+
+## Matt Pocock skills integration
+
+Engineering methods from `mattpocock/skills` can inform RD work but never replace Peaks-Cli gates. Inspect upstream skill content before applying any method.
+
+- `diagnose` — root-cause investigation before fixing
+- `triage` — prioritize bug surface area
+- `tdd` — drive implementation from failing tests
+- `improve-codebase-architecture` — opportunistic refactor framing
+- `prototype` — throwaway exploration before committing to a slice
+
+These are references only; Peaks-Cli RD gates remain authoritative for handoff, acceptance, and slice closure.
+
+**Understand Anything**: Consume via `peaks understand status/show --json`. Fall back to `peaks codegraph context` or local project scan when absent.
+
+**Codegraph**: Optional local analysis via `peaks codegraph context/affected`. Output as untrusted supporting evidence; never commit `.codegraph/` artifacts.
+
+## Codegraph project analysis
+
+RD may use `peaks codegraph affected --project <path> <changed-files...> --json` as local project-analysis evidence to inform red-line scope boundaries before writing tech-doc or starting implementation. Treat the output as untrusted supporting evidence — verify against the actual code before relying on it.
+
+Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts. Peaks-Cli RD gates remain authoritative for handoff and acceptance.
+
+**Other external resources** (Context7, SearchCode, everything-claude-code, GitNexus, etc.): Use `peaks capabilities --source access-repo/mcp-server --json` for capability discovery before recommending. References only — do not execute upstream installers, do not install upstream resources, do not persist sensitive examples. Peaks-Cli RD gates remain authoritative.
+
+**OpenSpec CLI**: Route through Peaks-Cli CLI (`peaks openspec show/to-rd/render`). Do not hand-edit `openspec/changes/**`. Recipes: `references/openspec-cli.md`. (MCP CLI was retired in slice #016; the LLM's own tool list is the source of truth for which MCPs are installed.)
+
+## Boundaries
+
+Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Cli CLI to handle runtime side effects.
+
+Do not bypass the parallel review fan-out when the slice has a code-review / security-review / perf-baseline surface — see `## Parallel review fan-out` above for the contract. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
+
+Reference: `references/refactor-workflow.md`.
+
+## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
+
+> Slice #010 implements the G7 + G7.7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-solo/references/context-governance.md` + `skills/peaks-solo/references/headroom-integration.md`.
+
+### G7 — RD sub-agent protocol
+
+1. Write artifact to `.peaks/_sub_agents/<sessionId>/artifacts/<rid>-rd-001.md` (path convention mandatory).
+2. Call `peaks sub-agent dispatch --write-artifact <path>` (or via the dispatch CLI flag) to register ArtifactMeta.
+3. The dispatch record stores only `path + size + sha256 + status + contentInlined:false + summary` — main LLM sees ~200 chars/sub-agent.
+
+### G8.6 — RD sub-agent prompt template (mandatory)
+
+Sub-agent prompts dispatched by peaks-rd must include:
+
+```
+You are sub-agent role rd, batch <batchId>.
+
+PROTOCOL (mandatory):
+1. On start: peek at shared channel: `peaks sub-agent shared-read --batch <batchId> --json`
+   to see what other sub-agents in this batch have shared so far.
+2. While running: if you find a blocker or partial work, write share entry
+   `peaks sub-agent share --key "rd.found-blocker" --value {"reason": "..."}`.
+3. On completion: write share entry
+   `peaks sub-agent share --key "rd.completed" --value <artifact-meta>` BEFORE the
+   final `peaks sub-agent heartbeat --status done` heartbeat (RL-23 strong constraint).
+4. The shared channel is your only visibility into sibling sub-agents.
+   Do NOT attempt to read other sub-agents' dispatch records directly.
+```
+
+### G9 — RD prompt size self-check
+
+Before dispatching a sub-agent, RD self-checks prompt size:
+- < 50%: pass through.
+- 50-75%: soft warn (consider `--use-headroom`).
+- 75-80%: soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` (mandatory suggest `--use-headroom`).
+- 80%+: reject (CLI 兜底 returns `code: "PROMPT_TOO_LARGE"`). Use `--force` at CLI only when overriding; hook layer will still reject (RL-30).
+

@@ -142,3 +142,54 @@ PROTOCOL (mandatory):
 
 - AC-38..AC-43 (G7) + AC-44..AC-46 (G7.7) + AC-47..AC-49 (G8) + AC-50..AC-65 (G9)
 - See PRD §Acceptance criteria.
+
+---
+
+### G7 — sub-agent context minimal-occupation (metadata-only + 按需 Read)
+
+> Body of `### G7`. Sub-agent artifacts (rd/tech-doc.md, qa/test-cases/&lt;rid&gt;.md, ui/design-draft.md) MUST NOT be inlined into dispatch records and fed back to the main LLM during reduce.
+
+- Sub-agent writes artifact to disk at a known path (path convention: `.peaks/_sub_agents/<sessionId>/artifacts/<rid>-<role>-<idx>.<ext>`).
+- Sub-agent calls `peaks sub-agent dispatch --write-artifact <path>` (or via dispatch CLI flag). The CLI computes sha256 + size + writes `ArtifactMeta` to record.
+- Main LLM reduces the batch and sees ONLY the metadata view (~200 chars per sub-agent, vs ~1MB if content were inlined) — a 3000-5000× reduction.
+- Main LLM decides whether to `Read <path>` for full content (LLM tool call, NOT via peaks CLI).
+
+Main LLM view format (G7.4.e):
+```
+[peaks-solo] batch 3/3 done in 47.3s
+- rd → .peaks/_sub_agents/2026-06-06-session-5b1095/artifacts/003-rd-001.md (12KB, sha256:abc123) summary: "wrote RD tech-doc with 4 sub-roles"
+- qa-business → .../artifacts/003-qa-business-001.md (8KB, sha256:def456) summary: "wrote 12 API test cases"
+- qa-perf → .../artifacts/003-qa-perf-001.md (5KB, sha256:ghi789) summary: "p95 latency target ≤ 200ms"
+```
+
+### G7.7 — headroom-ai integration (opt-in compression)
+
+> Body of `### G7.7`. If a sub-agent prompt is too large even after G7 metadata-only (e.g. 1MB artifact description, 5MB mid-prompt analysis), use `--use-headroom`:
+- Default `false` (G7 remains default).
+- Modes: `balanced` (default) | `aggressive` | `conservative`.
+- Failure: `HEADROOM_UNAVAILABLE` warning + G7 metadata-only fallback (NOT blocking).
+
+### G8 — cross sub-agent shared channel (dispatcher-mediated indirect signal)
+
+> Body of `### G8`. Sub-agent A's completion **immediately** writes a shared entry; sub-agent B (still in flight) can read shared entries from sibling sub-agents. **This is NOT peer-to-peer messaging.** The dispatcher stores, the sub-agents read/write; A and B never directly talk.
+
+- Path: `.peaks/_sub_agents/<sessionId>/shared/<batchId>.json`.
+- Two new CLI atoms (NO new top-level CLI): `peaks sub-agent share` + `peaks sub-agent shared-read`.
+- RL-23 strong constraint: when sub-agent calls `peaks sub-agent heartbeat --status done`, it MUST also call `peaks sub-agent share --key "<role>.completed" --value <artifact-meta>`.
+
+### G9 — forced compression gate (CLI 兜底 + hook double-guard)
+
+> Body of `### G9`. Threshold table (256K default context capacity):
+
+| Threshold | Prompt size | Behavior |
+|---|---|---|
+| 50% (early warn) | ≥ 128KB | Soft warning, suggest `--use-headroom` |
+| **75% (user red line)** | ≥ 192KB | Soft warn + `warnings: ["CONTEXT_NEAR_LIMIT"]` |
+| **80% (hard reject)** | ≥ 204KB | Hard reject `code: "PROMPT_TOO_LARGE"`; `--force` allowed at CLI |
+| 90% (emergency) | ≥ 230KB | Hard reject + `contextWarning: 'high'` |
+
+Two layers:
+- **CLI 兜底** — `peaks sub-agent dispatch` validates prompt size; `--force` allowed.
+- **PreToolUse hook** — `peaks sub-agent-dispatch-guard` re-validates; **NO `--force`** at hook layer (RL-30 strict).
+
+The sub-agent prompt template (G8.6 + G9 self-check) is in `references/context-governance.md`.

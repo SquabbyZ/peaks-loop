@@ -1,0 +1,3 @@
+# Local intermediate artifacts (QA)
+
+> Body of `## Local intermediate artifacts`. QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/_runtime/<sessionId>/qa/` by default, or to the Peaks-Cli CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync unless the user or active profile explicitly authorizes it.

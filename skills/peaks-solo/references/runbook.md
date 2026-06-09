@@ -8,7 +8,7 @@
 > - `peaks skill runbook peaks-solo` (CLI) reads the `## Default runbook` section in either SKILL.md or `references/runbook.md` (whichever has the bash code).
 > - The test in `tests/unit/skill-default-runbook.test.ts` looks for `## Default runbook` in SKILL.md first, then falls back to `references/runbook.md` here.
 
-## Default runbook
+## Default runbook — CLI sequence
 
 The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `swarm` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
 

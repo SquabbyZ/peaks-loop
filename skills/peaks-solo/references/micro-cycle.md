@@ -155,3 +155,71 @@ verdict=return-to-rd → RD 修 (new slice 内部走 micro-cycle)
 - peaks-qa 接管 = 边界 + `verdict != pass` 时的下一轮
 
 完整流程见 SKILL.md。
+
+---
+
+# Mandatory RD QA repair loop (AUTO-PROCEED)
+
+> Body of `## Peaks-Cli Mandatory RD QA repair loop`.
+
+> **CLI gate enforcement**: `peaks request transition` now refuses to move RD/QA to gated states when required artifacts are missing. The required files depend on `--type` chosen at `peaks request init` (default `feature`):
+>
+> - `feature` / `refactor`: full gates (tech-doc, code-review, security-review, test-cases, test-report, security-findings, performance-findings)
+> - `bugfix`: lighter planning (`bug-analysis.md` instead of `tech-doc.md`); still requires code-review + security-review + regression test-cases + security-findings; performance-findings optional unless the bug is performance-related
+> - `config`: only security-review (RD) and security-findings (QA)
+> - `docs` / `chore`: no gates
+>
+> When PRD lands, classify the request type before running `peaks request init` for every role — pass `--type <type>` so the artifact records it and downstream transitions enforce the right gates. Misclassifying a feature as `docs` to skip gates is a workflow violation. If a transition fails with `code: PREREQUISITES_MISSING`, the response lists every missing path — produce them, then re-transition. For one-off exceptions, the escape hatch `--allow-incomplete --reason "<text>"` records the bypass in the artifact transition note.
+
+After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks-Cli Solo MUST automatically route the result to `peaks-qa` without waiting for user confirmation. This is not optional in full-auto mode. Solo must not declare the workflow complete, emit a TXT handoff, or stop at RD completion.
+
+**How Solo invokes another role (mechanism, not metaphor):**
+
+Solo is itself a skill running in the current session. There are **two distinct mechanisms** in this skill, and they MUST NOT be confused:
+
+1. **Swarm fan-out (planning side, after PRD confirmed)** — uses `peaks sub-agent dispatch <role>` to launch real concurrent sub-agents. The CLI returns a per-IDE tool-call descriptor that the LLM executes in its environment. See "Peaks-Cli Swarm parallel phase" above for the full contract. Sub-agents do NOT call Skill(...) back into the role; they execute the role's instructions inline from the prompt.
+2. **Sequential handoff (execution side, RD↔QA repair loop)** — Solo is the only loop, and after RD or QA finishes (whether as a sub-agent or directly), Solo drives the next step from the orchestrator seat. Do NOT use the `Skill` tool to "reactivate" peaks-rd or peaks-qa in the main loop; doing so is the v1.x anti-pattern that masqueraded as "calling the role" but actually just re-prompted the same session. From v1.3 onward, the main loop drives roles via the CLI gate (`peaks request transition`) and reads back artefacts (`peaks request show ... --json`); the actual RD/QA work is either done inline by Solo (when Solo has just been re-invoked by the user) or by a Task sub-agent (in swarm mode).
+
+After RD completes (whether inline or sub-agent), Solo does not stop — it must advance to QA. There is no "RD done, ask the user" state in full-auto mode. The only valid stops are: (a) QA verdict=pass, (b) repair cap hit, (c) explicit user cancel.
+
+**RD's internal reviews are already parallelized.** When RD finishes implementation, it issues a 3-way sub-agent fan-out (code-review + security-review + perf-baseline, see `skills/peaks-rd/SKILL.md` "Parallel review fan-out") and waits for all to return before transitioning to `qa-handoff`. Solo does NOT need to track three separate RD-side sub-runs; the RD role owns the fan-out lifecycle end-to-end. Solo's presence restoration after the swarm converges is the only coordination point.
+
+**Presence restoration after RD/QA work returns (MANDATORY):** In v1.x, role skills called `peaks skill presence:set <role>` internally and stomped on `.peaks/.active-skill.json`. From v1.3 onward, sub-agents in the Swarm path are forbidden from calling `peaks skill presence:set` (see "Sub-agent dispatch" in each role's SKILL.md), so the main loop's presence file is preserved across the fan-out window by construction. The one place Solo still has to actively restore presence is **once after the fan-out returns** (gate=swarm-converged) and again **after each RD↔QA repair iteration** (gate=repair-cycle-<N>). Use the same command from Step 2 with the current mode and the gate that has just advanced:
+
+```bash
+peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <current-gate>
+```
+
+This keeps the CLAUDE.md status header accurate (`Peaks-Cli Skill: peaks-solo`) instead of showing a stale role name. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last-known gate permanently.
+
+**Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Solo immediately drives QA — by launching a `peaks sub-agent dispatch qa` sub-agent carrying the `peaks-qa` body (swarm path), then executing the returned toolCall, or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
+
+A QA report with any failing, blocked, missing, or unverified acceptance item is not a pass.
+
+**How Solo routes QA findings back to RD (mechanism, not metaphor):**
+
+When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite RD artifacts. Instead it follows this exact sequence:
+
+1. Read the QA verdict and findings via `peaks request show <rid> --role qa --project <repo> --json`. The findings live in the QA artifact body (failing acceptance items, evidence paths, severity).
+2. Transition the RD artifact back from `qa-handoff` to a working state and record the QA verdict in the transition note:
+   ```bash
+   peaks request transition <rid> --role rd --state spec-locked \
+     --reason "QA return-to-rd cycle <N>: <one-line summary of failing items; full findings in qa/test-reports/<rid>.md>" \
+     --project <repo> --json
+   ```
+   `spec-locked` is the canonical "needs more RD work" state. The reason is mandatory in repair cycles so the artifact history shows the loop.
+3. Re-launch `peaks-rd` work. Two paths, mode-driven:
+   - **Swarm / full-auto**: launch a fresh `peaks sub-agent dispatch rd` sub-agent (then execute the returned toolCall) with the same `peaks-rd` body used in the Swarm phase, plus the QA findings path so it can read the failure list. Solo restores presence after the sub-agent returns.
+   - **Assisted / strict / inline-fallback**: Solo executes the RD repair steps directly in the main loop, since there is no concurrent fan-out to coordinate.
+   In both paths, pass the QA findings path so the repair sees what failed.
+4. peaks-rd fixes the reported issues only (red-line scope: do not modify unrelated surfaces), regenerates code-review and security-review evidence if changes touched reviewed surfaces, then transitions `rd → implemented → qa-handoff` again.
+5. Solo re-runs QA (sub-agent Task in swarm/full-auto, inline in assisted/strict) with the same `<request-id>`. QA re-runs gates against the new diff.
+6. Repeat steps 1-5 until QA returns `verdict=pass`, or the cap below fires.
+   **After each repair iteration** (after peaks-rd and peaks-qa both return), Solo MUST restore presence:
+   ```bash
+   peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate repair-cycle-<N>
+   ```
+
+**Repair cycle cap**: After 3 repair cycles without a passing QA verdict, emit a blocked TXT handoff regardless of remaining issues. Do not loop indefinitely. If a specific issue cannot be resolved within 3 cycles, mark it as a known blocker in the TXT handoff and proceed to the SC phase.
+
+In full-auto mode, treat the RD↔QA repair loop as a built-in controller objective: loop through RD→QA until all acceptance items pass (max 3 cycles). Do not exit the loop on a non-passing QA verdict unless the TXT handoff marks the workflow as blocked.

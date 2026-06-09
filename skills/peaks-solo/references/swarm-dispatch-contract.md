@@ -150,3 +150,59 @@ A skill cannot itself trigger sub-agents — the Skill tool runs in the main loo
 - `peaks request show <rid> --role prd --json` must surface the `--type` chosen at `peaks request init`. Sub-agents pass it through unchanged.
 - `peaks skill presence:set` must remain single-writer-friendly (the sub-agents do not call it).
 - Smoke test: a full-auto peaks-solo run on a `legacy-frontend` project with a UI-affecting PRD should produce `sc/swarm-plan.json` containing all three sub-agents and three corresponding artefacts in `ui/`, `rd/`, `qa/`.
+
+---
+
+### Swarm gate (decide BEFORE fan-out)
+
+> Body of `### Swarm gate`. Before launching any sub-agent, Solo must compute the **swarm plan** from three signals:
+
+1. **PRD state** — `prd/requests/<rid>.md` must be in state `confirmed-by-user` or `handed-off`. If not, STOP. The Swarm is downstream of PRD, not a substitute for it.
+2. **Request type** (`--type` from `peaks request init`):
+   - `feature` / `refactor` / `bugfix` → RD(planning) and QA(test-cases) are always in the swarm
+   - `config` / `docs` / `chore` → no swarm. RD/QA artefacts are not required by Gates B/C/D for these types. Skip the Swarm phase entirely and proceed to step 4 (RD implementation) with only the PRD in hand.
+3. **Frontend touch** — does the request affect user-visible behavior? This is decided by:
+   - Reading `.peaks/_runtime/<sessionId>/rd/project-scan.md` `## Project mode` for `frontendOnly` (project-shape signal)
+   - **AND** scanning the PRD body for frontend keywords: 页面 / 组件 / 表单 / 弹窗 / 表格 / 样式 / 布局 / 交互 / UI / UX / page / component / form / modal / table / styling / layout / interaction
+   - UI joins the swarm when (a) is `true` OR (b) matches. Both signals required `false` to skip UI.
+
+Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
+
+```json
+{
+  "rid": "<rid>",
+  "type": "feature",
+  "frontendOnly": true,
+  "frontendKeywordHit": true,
+  "subAgents": ["ui", "rd-planning", "qa-test-cases"]
+}
+```
+
+Sub-agent presence in this list = Solo launched a Task for it. Absence = the role was skipped with documented reason.
+
+### Mode-driven fan-out shape
+
+> Body of `### Mode-driven fan-out shape`.
+
+| Mode | How the swarm plan is decided | What Solo does |
+|---|---|---|
+| `full-auto` | Compute plan from signals above, no question to user | Auto-launch all sub-agents in the plan in parallel |
+| `swarm` | Same as `full-auto` | Same as `full-auto` (this profile name is historical — behavior is identical) |
+| `assisted` | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan |
+| `strict` | Same as `assisted` (the question is informational; strict still enforces confirmation gates later) | Same as `assisted` |
+
+In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Solo updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
+
+### Degradation when swarm roles fail or are absent
+
+> Body of `### Degradation when swarm roles fail or are absent`.
+
+| Condition | Solo action | TXT handoff note |
+|---|---|---|
+| UI sub-agent returns blocked/error | RD continues with PRD visual descriptions | `ui-design-missing` |
+| RD planning sub-agent returns blocked/error | RD continues with PRD-derived planning | `tech-doc-missing` |
+| QA test-cases sub-agent returns blocked/error | RD continues; QA backfills test cases before verdict | `qa-test-cases-missing` |
+| Two or more of the above | Fall back to sequential: `peaks request transition rd → spec-locked` then inline RD run, then QA | `swarm-degraded-to-sequential` |
+| All three fail | Pause workflow; surface to user; request confirmation to continue | `swarm-aborted` |
+
+Skipping the entire swarm (when `--type` is `config|docs|chore`) is not a degradation — record `swarm-skipped: type=<type>` and proceed.
