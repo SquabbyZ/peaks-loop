@@ -124,27 +124,41 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       if (options.type !== undefined) {
         serviceOptions.requestType = options.type;
       }
-      // Slice 020 — resolve the callerId (D4 priority, D5 regex check)
-      // when --caller-id is passed. We surface the resolved id in the
-      // envelope so the caller can audit what was used.
-      if (options.callerId !== undefined) {
-        const { resolveCallerId, CallerIdError } = await import('../../services/session/resolve-caller-id.js');
-        try {
-          const callerId = resolveCallerId({ flagValue: options.callerId });
-          serviceOptions.callerId = callerId;
-        } catch (error: unknown) {
-          if (error instanceof CallerIdError) {
-            const code = error.code === 'EX_USAGE' ? 64 : 65;
-            printResult(
-              io,
-              fail('request.init', 'CALLER_ID_INVALID', error.message, { source: error.source }, [`Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$`, 'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)']),
-              options.json
-            );
-            process.exitCode = code;
-            return;
-          }
-          throw error;
+      // Slice 020.1 — resolve the callerId via D4 priority (flag > env >
+      // platform fallback > reject). The CLI integration layer is the
+      // single entry point for the resolver; we do not pre-judge whether
+      // the caller passed a flag. D2 (no callerId available) and D5
+      // (regex fail) both surface as `CALLER_ID_INVALID` with the inner
+      // `CallerIdError.source` propagated for caller-side audit.
+      const { resolveCallerId, CallerIdError } = await import('../../services/session/resolve-caller-id.js');
+      try {
+        const callerId = resolveCallerId(
+          options.callerId !== undefined ? { flagValue: options.callerId } : {}
+        );
+        serviceOptions.callerId = callerId;
+      } catch (error: unknown) {
+        if (error instanceof CallerIdError) {
+          // D2 (EX_USAGE, exit 64) = nothing usable; D5 (EX_DATAERR, exit 65)
+          // = something was passed but did not match the D1 regex.
+          const code = error.code === 'EX_USAGE' ? 64 : 65;
+          printResult(
+            io,
+            fail(
+              'request.init',
+              'CALLER_ID_INVALID',
+              error.message,
+              { source: error.source },
+              [
+                'Set --caller-id to a value matching ^[a-zA-Z0-9._-]{1,200}$',
+                'Or set PEAKS_CALLER_ID env var (or CLAUDE_CODE_SESSION_ID for Claude Code)'
+              ]
+            ),
+            options.json
+          );
+          process.exitCode = code;
+          return;
         }
+        throw error;
       }
       const result = await createRequestArtifact(serviceOptions);
       printResult(

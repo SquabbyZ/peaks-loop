@@ -535,3 +535,116 @@ describe('peaks request transition command', () => {
     ).rejects.toThrowError(/must be one of/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Slice 020.1 — callerId D4 priority integration in `peaks request init`.
+// The CLI integration layer must surface the resolved callerId in the
+// response envelope for all four D4 paths (flag > env > fallback > reject),
+// not only the flag path. Regression guard against the slice 020 dogfood
+// finding (env / fallback paths left envelope.callerId undefined).
+// ---------------------------------------------------------------------------
+
+describe('peaks request init — D4 callerId integration (slice 020.1)', () => {
+  beforeEach(() => {
+    process.exitCode = undefined;
+    resetCliProgramMocks();
+    writeUserConfig();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('D4 level 1 (flag) — envelope.callerId reflects the --caller-id flag', async () => {
+    const project = await makeProject('d4-flag-path');
+    const result = await runCommand([
+      'request', 'init', '--role', 'rd', '--id', '020.1-d4-flag',
+      '--project', project, '--session-id', 's', '--apply',
+      '--caller-id', 'dogfood-flag', '--json'
+    ]);
+    const output = parseJsonOutput<{ callerId?: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.callerId).toBe('dogfood-flag');
+  });
+
+  test('D4 level 2 (env) — envelope.callerId reflects PEAKS_CALLER_ID when no flag is passed', async () => {
+    const project = await makeProject('d4-env-path');
+    const result = await runCommand(
+      [
+        'request', 'init', '--role', 'rd', '--id', '020.1-d4-env',
+        '--project', project, '--session-id', 's', '--apply', '--json'
+      ],
+      { PEAKS_CALLER_ID: 'dogfood-env' }
+    );
+    const output = parseJsonOutput<{ callerId?: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.callerId).toBe('dogfood-env');
+  });
+
+  test('D4 level 3 (platform fallback) — envelope.callerId reflects CLAUDE_CODE_SESSION_ID when no flag/env is set', async () => {
+    const project = await makeProject('d4-fallback-path');
+    const result = await runCommand(
+      [
+        'request', 'init', '--role', 'rd', '--id', '020.1-d4-fallback',
+        '--project', project, '--session-id', 's', '--apply', '--json'
+      ],
+      { CLAUDE_CODE_SESSION_ID: 'dogfood-fb-123' }
+    );
+    const output = parseJsonOutput<{ callerId?: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.callerId).toBe('dogfood-fb-123');
+  });
+
+  test('D4 level 4 (reject / D2) — returns CALLER_ID_INVALID with source=none and exit 64', async () => {
+    const project = await makeProject('d4-reject-path');
+    // Vitest workers inherit the host shell's CLAUDE_CODE_SESSION_ID; explicitly
+    // unset both callerId sources so the resolver reaches D2 (reject).
+    const result = await runCommand(
+      [
+        'request', 'init', '--role', 'rd', '--id', '020.1-d4-reject',
+        '--project', project, '--session-id', 's', '--apply', '--json'
+      ],
+      { PEAKS_CALLER_ID: '', CLAUDE_CODE_SESSION_ID: '' }
+    );
+    const output = parseJsonOutput<{ source?: string }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('CALLER_ID_INVALID');
+    expect(output.data.source).toBe('none');
+    expect(result.exitCode).toBe(64);
+  });
+
+  test('D5 (regex fail via flag) — returns CALLER_ID_INVALID with source=flag and exit 65', async () => {
+    const project = await makeProject('d4-regex-fail');
+    const result = await runCommand([
+      'request', 'init', '--role', 'rd', '--id', '020.1-d5-flag',
+      '--project', project, '--session-id', 's', '--apply',
+      '--caller-id', 'bad/value', '--json'
+    ]);
+    const output = parseJsonOutput<{ source?: string }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('CALLER_ID_INVALID');
+    expect(output.data.source).toBe('flag');
+    expect(result.exitCode).toBe(65);
+  });
+
+  test('D4 priority: flag beats env when both are set', async () => {
+    const project = await makeProject('d4-flag-beats-env');
+    const result = await runCommand(
+      [
+        'request', 'init', '--role', 'rd', '--id', '020.1-d4-priority',
+        '--project', project, '--session-id', 's', '--apply',
+        '--caller-id', 'flag-wins', '--json'
+      ],
+      { PEAKS_CALLER_ID: 'env-loses' }
+    );
+    const output = parseJsonOutput<{ callerId?: string }>(result.stdout);
+
+    expect(output.ok).toBe(true);
+    expect(output.data.callerId).toBe('flag-wins');
+  });
+});
