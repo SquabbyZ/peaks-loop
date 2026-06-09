@@ -19,6 +19,12 @@ import { generateProjectContext } from '../../services/memory/project-context-se
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../cli-helpers.js';
 
+// Slice 021/022: the on-disk home a `peaks session info --active` lookup
+// resolved the binding from. `canonical` = .peaks/_runtime/session.json (the
+// post-slice-006 home); `legacy` = .peaks/.session.json (read-only back-compat).
+// Callers / migration tooling detect pre-migration trees by `source === 'legacy'`.
+type BindingSource = 'canonical' | 'legacy';
+
 export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO): void {
   addJsonOption(program.command('doctor').description('Run repository doctor checks')).action(async (options: { json?: boolean }) => {
     const report = await runDoctor();
@@ -285,10 +291,10 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
         const { getCallerBinding } = await import('../../services/session/caller-binding-service.js');
         const activeSid = getSessionIdCanonical(projectRoot);
         const callerBinding = getCallerBinding(projectRoot, callerId);
-        // Slice 021: source is the enum ('canonical' | 'legacy') that the
-        // unified --active primitive reports. Callers / migration tooling
-        // can detect pre-migration trees by inspecting `source === 'legacy'`.
-        const bindingSource: 'canonical' | 'legacy' = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))
+        // Slice 021: source is the enum that the unified --active primitive
+        // reports. Callers / migration tooling can detect pre-migration trees
+        // by inspecting `source === 'legacy'`.
+        const bindingSource: BindingSource = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))
           ? 'canonical'
           : 'legacy';
         printResult(io, ok('session.info', {
@@ -353,7 +359,7 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       //    migration tooling) can detect pre-migration trees. The
       //    canonical file is preferred when both exist (slice 005
       //    contract).
-      const bindingSource: 'canonical' | 'legacy' = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))
+      const bindingSource: BindingSource = existsSync(join(projectRoot, '.peaks', '_runtime', 'session.json'))
         ? 'canonical'
         : 'legacy';
       // Slice 021: when only the legacy back-compat path is present,

@@ -131,7 +131,7 @@ describe('peaks session info --active', () => {
     // Act: chdir into the project so "." resolves to it
     process.chdir(tempProject);
     const result = await runCommand(['session', 'info', '--active', '--json']);
-    const output = parseJsonOutput<{ sessionId: string; source: 'canonical' | 'legacy' }>(result.stdout);
+    const output = parseJsonOutput<{ sessionId: string; bindingPath: string; source: 'canonical' | 'legacy' }>(result.stdout);
 
     // Assert: the canonicalize-on-read path finds the binding even though
     // the stored projectRoot is "." and the caller-passed projectRoot (cwd)
@@ -139,5 +139,20 @@ describe('peaks session info --active', () => {
     expect(output.ok).toBe(true);
     expect(output.data.sessionId).toBe('2026-06-09-session-relativeform');
     expect(output.data.source).toBe('canonical');
+    // Slice 022 (LOW-4): bindingPath must be surfaced on the canonicalize-on-read
+    // path too, pointing at the canonical runtime home (not the relative form).
+    expect(output.data.bindingPath).toBe(join(tempProject, '.peaks', '_runtime', 'session.json'));
+  });
+
+  test('does NOT surface a bindingPath when no binding exists (NO_ACTIVE_SESSION boundary)', async () => {
+    // Slice 022 (LOW-4): the read-failed path has no on-disk binding to report,
+    // so the envelope's data must not carry a bindingPath field. Guards against
+    // a future regression that defaults bindingPath to a bogus/empty path.
+    const result = await runCommand(['session', 'info', '--active', '--project', tempProject, '--json']);
+    const output = parseJsonOutput<{ projectRoot: string; bindingPath?: string }>(result.stdout);
+
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('NO_ACTIVE_SESSION');
+    expect(output.data.bindingPath).toBeUndefined();
   });
 });
