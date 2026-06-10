@@ -1,6 +1,6 @@
 /**
  * SID naming guard. Enforces the "two-axis" convention from spec §0:
- * session id: YYYY-MM-DD-session-<6chars-lowercase-alnum>
+ * session id: YYYY-MM-DD-session-<3-6 chars lowercase alnum>
  * change id: kebab-case
  *
  * Spec §8.7 — bare forms (sid-3 / sid-h / sid-r / unknown-sid) are
@@ -8,7 +8,7 @@
  */
 
 export const SID_FORMAT_DESCRIPTION =
- '<YYYY-MM-DD>-session-<6chars lowercase alnum>, e.g.2026-06-11-session-abc123';
+ '<YYYY-MM-DD>-session-<3-6 chars lowercase alnum>, e.g. 2026-06-11-session-abc123';
 
 const VALID_SID_REGEX = /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-session-[0-9a-z]{3,6}$/;
 const BARE_SID_REGEX = /^(sid-[a-z0-9]+|unknown-sid)$/;
