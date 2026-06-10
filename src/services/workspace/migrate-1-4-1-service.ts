@@ -65,7 +65,7 @@ function sha256(content: string): string {
 function enumerateLegacySessions(projectRoot: string): string[] {
   // Legacy per-session dirs: `.peaks/<sid>/` (NOT `.peaks/_runtime/<sid>/`).
   // We skip well-known non-session entries.
-  const SKIP = new Set(['memory', 'PROJECT.md', 'retrospective', 'scope', 'skill-scope', '.peaks-init-hooks-decision.json', 'session.json', '.session.json', '_runtime', '_sub_agents', 'change', 'caller', 'callers', 'sop-state', 'system', 'active-skill.json', '.active-skill.json']);
+  const SKIP = new Set(['memory', 'PROJECT.md', 'retrospective', 'scope', '.peaks-init-hooks-decision.json', 'session.json', '.session.json', '_runtime', '_sub_agents', 'change', 'caller', 'callers', 'sop-state', 'system', 'active-skill.json', '.active-skill.json']);
   const peaksRoot = join(projectRoot, '.peaks');
   if (!existsSync(peaksRoot)) return [];
   const out: string[] = [];
