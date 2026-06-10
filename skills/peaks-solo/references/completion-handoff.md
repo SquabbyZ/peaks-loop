@@ -8,7 +8,9 @@ Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, ar
 
 ## Workflow completion (no auto-exit)
 
-Do NOT call `peaks skill presence:clear --project <repo>` at workflow end. The presence file and header remain active so the user stays inside the workflow context. The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo`. The header continues to display the active skill and current gate.
+peaks-solo does NOT itself call `peaks skill presence:clear --project <repo>` at workflow end. Presence management is delegated to the last downstream skill in the workflow (peaks-rd, peaks-qa, peaks-txt); each of those skills owns its own presence:clear step per its SKILL.md. peaks-solo only sets presence: it does not unset it.
+
+The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo` to do so. The header continues to display whatever skill is active; the user can `/peaks-solo` again to re-anchor.
 
 Before ending, extract durable memories from this session:
 ```bash

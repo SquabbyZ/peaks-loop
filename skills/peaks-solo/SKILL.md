@@ -185,7 +185,7 @@ Five CLI commands harden the workflow against silent skips: `peaks request lint`
 
 ## Peaks-Cli Completion handoff
 
-After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas, open questions, next action. Do NOT call `peaks skill presence:clear --project <repo>` at workflow end (presence remains active for follow-ups).
+After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas, open questions, next action. **Presence management is delegated to the last downstream skill in the workflow** — peaks-solo does not call `peaks skill presence:clear` itself, and does not enforce a "no clear" rule. The downstream skills (peaks-rd, peaks-qa, peaks-txt) each manage their own presence per their respective SKILL.md.
 
 → see `references/completion-handoff.md` for the full handoff + "no auto-exit" rule.
 
