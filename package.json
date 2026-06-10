@@ -56,6 +56,7 @@
   "dependencies": {
     "@colbymchenry/codegraph": "0.7.10",
     "commander": "^12.1.0",
+    "fzf": "^0.5.2",
     "headroom-ai": "0.22.4"
   },
   "devDependencies": {
