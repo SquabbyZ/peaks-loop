@@ -9,7 +9,6 @@ const EXTERNAL_TOKENS = [
   'awesome-design-md',
   'taste-skill',
   'design-taste-frontend',
-  'shadcn/ui',
   'React Bits',
   'ui-ux-pro-max-skill',
   'Chrome DevTools MCP',

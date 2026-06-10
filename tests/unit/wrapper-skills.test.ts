@@ -192,7 +192,6 @@ describe('P2 wrapper skills (peaks-solo-resume / -test / -status)', () => {
         'statusline',
         'progress',
         'perf',
-        'shadcn',
         'config',
         'mcp',
         'codegraph',

@@ -124,17 +124,6 @@ describe('component library detection', () => {
     }
   });
 
-  test('detects shadcn/ui (tailwindcss + radix)', () => {
-    const project = makeProject();
-    try {
-      writePkg(project, { tailwindcss: '^3', '@radix-ui/react-dialog': '^1' });
-      const ctx = detectProjectContext(project);
-      expect(ctx.componentLibrary.name).toBe('shadcn');
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
-
   test('detects element-plus', () => {
     const project = makeProject();
     try {
@@ -621,7 +610,6 @@ describe('label functions', () => {
     expect(componentLibraryLabel({ name: 'antd', majorVersion: '5' })).toBe('Ant Design v5');
     expect(componentLibraryLabel({ name: 'antd-pro', hasProSuite: true })).toBe('Ant Design + Ant Design Pro');
     expect(componentLibraryLabel({ name: 'mui', majorVersion: '5' })).toBe('Material UI v5');
-    expect(componentLibraryLabel({ name: 'shadcn' })).toBe('shadcn/ui (Tailwind + Radix)');
     expect(componentLibraryLabel({ name: 'none' })).toBe('no component library detected');
   });
 

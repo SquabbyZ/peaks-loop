@@ -254,7 +254,6 @@ function renderCommonCodingStyle(ctx: ProjectContext): string {
     }
   }
   if (lib === 'mui') stackRules.push('- Style MUI via `sx`, `styled()`, and `theme`. Do NOT apply TailwindCSS utility classes directly to MUI components.');
-  if (lib === 'shadcn') stackRules.push('- Use existing shadcn component variants and Tailwind utility classes. Do not introduce a competing component library.');
   if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {
     stackRules.push('- TailwindCSS is for layout/utility only; component-library tokens own component styling.');
   }
@@ -277,7 +276,7 @@ function renderCodeReview(ctx: ProjectContext): string {
   const extra: string[] = [];
   const lib = ctx.componentLibrary.name;
   if (lib === 'antd' || lib === 'antd-pro') {
-    extra.push('- Block PRs that introduce a second component library (MUI/shadcn/Chakra) alongside antd.');
+    extra.push('- Block PRs that introduce a second component library (MUI/Chakra) alongside antd.');
     extra.push('- Block PRs that import antd v3/v4 APIs in this v5 project, or vice versa.');
   }
   if (ctx.cssFrameworks.includes('tailwind') && (lib === 'antd' || lib === 'antd-pro' || lib === 'mui')) {

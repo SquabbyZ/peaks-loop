@@ -20,7 +20,6 @@ export type ComponentLibrary = {
     | 'antd'
     | 'antd-pro'
     | 'mui'
-    | 'shadcn'
     | 'element-plus'
     | 'element-ui'
     | 'arco'
@@ -118,7 +117,6 @@ function detectComponentLibrary(deps: Record<string, string>): ComponentLibrary 
       : { name: 'antd', ...(major !== undefined ? { majorVersion: major } : {}) };
   }
   if ('@mui/material' in deps) return { name: 'mui', ...(majorOf(deps['@mui/material']) !== undefined ? { majorVersion: majorOf(deps['@mui/material'])! } : {}) };
-  if ('tailwindcss' in deps && Object.keys(deps).some((d) => d.startsWith('@radix-ui/'))) return { name: 'shadcn' };
   if ('element-plus' in deps) return { name: 'element-plus' };
   if ('element-ui' in deps) return { name: 'element-ui' };
   if ('@arco-design/web-react' in deps) return { name: 'arco' };
@@ -306,8 +304,6 @@ export function componentLibraryLabel(lib: ComponentLibrary): string {
         return 'Ant Design + Ant Design Pro';
       case 'mui':
         return 'Material UI';
-      case 'shadcn':
-        return 'shadcn/ui (Tailwind + Radix)';
       case 'element-plus':
         return 'Element Plus';
       case 'element-ui':

@@ -16,7 +16,6 @@ import { registerProjectCommands } from './commands/project-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerRetrospectiveCommands } from './commands/retrospective-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
-import { registerShadcnCommands } from './commands/shadcn-commands.js';
 import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
@@ -98,7 +97,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerRequestCommands(program, io);
  registerRetrospectiveCommands(program, io);
  registerScanCommands(program, io);
- registerShadcnCommands(program, io);
  registerSliceCommands(program, io);
  registerSopCommands(program, io);
  registerSubAgentCommands(program, io);
