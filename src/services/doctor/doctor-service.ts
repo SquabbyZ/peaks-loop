@@ -64,6 +64,43 @@ export type WorkspaceLayoutInspection = {
 
 export type WorkspaceLayoutProbe = () => WorkspaceLayoutInspection;
 
+/**
+ * 2026-06-10 — `gateguard-fact-force` (a third-party PreToolUse hook,
+ * NOT peaks-cli) fires on Edit / Write and demands a 4-fact questionnaire
+ * before allowing the edit. When the LLM is in a peaks-qa flow and tries
+ * to update `.peaks/_runtime/<sid>/qa/requests/*.md` via the Edit/Write
+ * tool, the hook demands facts that are inapplicable to QA envelope
+ * templates (no importers, no public API, no data files, user
+ * instruction already in the conversation context). The check detects
+ * this hook in the user's global and project `.claude/settings.json` and
+ * warns when no `.peaks/**` skip is configured. The probe is injected so
+ * tests do not depend on the real `~/.claude/settings.json` state.
+ */
+export type GateguardHookLocation = {
+  /** Source file the hook was discovered in (`global` or `project .claude/settings.json`). */
+  source: 'global' | 'project';
+  /** Resolved absolute path to the source file (for the message). */
+  sourcePath: string;
+  /** The PreToolUse entry that contains a gateguard hook command. */
+  entry: {
+    matcher?: string;
+    hooks: ReadonlyArray<{ type?: string; command?: string }>;
+  };
+};
+
+export type GateguardProbeResult = {
+  /** Absolute path to `~/.claude/settings.json` (or null when the probe could not resolve it). */
+  globalSettingsPath: string | null;
+  /** Parsed global settings payload (or null when missing / unreadable / malformed). */
+  globalSettings: unknown;
+  /** Absolute path to the project `.claude/settings.json` (or null when the project root is not in a peaks project). */
+  projectSettingsPath: string | null;
+  /** Parsed project settings payload (or null when missing / unreadable / malformed). */
+  projectSettings: unknown;
+};
+
+export type GateguardProbe = () => GateguardProbeResult;
+
 export type DoctorOptions = {
   schemasBaseDir?: string;
   skillsBaseDir?: string;
@@ -79,6 +116,8 @@ export type DoctorOptions = {
   distVersionProbe?: DistVersionProbe;
   /** Injected for the build:workspace-layout-canonical check (defaults to inspectWorkspaceLayout on disk). */
   workspaceLayoutProbe?: WorkspaceLayoutProbe;
+  /** Injected for the integration:gateguard-peaks-conflict check (defaults to defaultGateguardProbe on disk). */
+  gateguardProbe?: GateguardProbe;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -356,6 +395,128 @@ function extractRunbookSection(body: string): string | null {
 function findDestructiveApplyLines(section: string): string[] {
   const lines = section.split(/\r?\n/);
   return lines.filter((line) => DESTRUCTIVE_APPLY_PATTERNS.some((pattern) => pattern.test(line)));
+}
+
+// ---------------------------------------------------------------------------
+// 2026-06-10 — gateguard-fact-force integration check (NOT a peaks-cli hook).
+//
+// The `gateguard-fact-force` hook is a third-party PreToolUse hook that
+// fires on Edit / Write / MultiEdit and demands a 4-fact questionnaire
+// before allowing the edit. It is unrelated to peaks-cli, but when the
+// LLM is in a peaks-qa flow and edits `.peaks/_runtime/<sid>/qa/requests/
+// *.md`, the questionnaire demands facts that do not apply (no
+// importers, no public API, no data files, user instruction already
+// in the conversation context). The check below detects the hook in
+// `~/.claude/settings.json` and the project `.claude/settings.json`,
+// and warns when no `.peaks/**` skip is configured.
+//
+// Probing is split out of the check so the check itself stays a pure
+// mapping over `GateguardProbeResult`. Tests inject the probe to keep
+// `~/.claude/settings.json` from leaking into test fixtures.
+// ---------------------------------------------------------------------------
+
+/** Hook command fragments that identify the gateguard-fact-force hook. */
+const GATEGUARD_HOOK_NEEDLES: ReadonlyArray<string> = ['gateguard', 'fact-force', 'fact_force'];
+
+/** Token the gateguard hook exposes for "skip these paths" — the check
+ *  treats any match against `.peaks` (path or globs) as a routed
+ *  configuration. We accept a few common spellings because the third-
+ *  party hook's CLI surface is not part of peaks-cli's contract. */
+const GATEGUARD_PEAKS_SKIP_NEEDLES: ReadonlyArray<string> = [
+  '.peaks',
+  'peaks-skip',
+  'skip-glob',
+  '--skip',
+  'skip_paths'
+];
+
+function commandMentionsGateguard(command: string | undefined): boolean {
+  if (typeof command !== 'string' || command.length === 0) return false;
+  const lower = command.toLowerCase();
+  return GATEGUARD_HOOK_NEEDLES.some((needle) => lower.includes(needle));
+}
+
+function entrySkipsPeaks(entry: GateguardHookLocation['entry']): boolean {
+  const matcher = typeof entry.matcher === 'string' ? entry.matcher : '';
+  const matcherMentionsPeaks = matcher.toLowerCase().includes('.peaks');
+  if (matcherMentionsPeaks) return true;
+  for (const hook of entry.hooks) {
+    const command = typeof hook.command === 'string' ? hook.command : '';
+    const lower = command.toLowerCase();
+    if (GATEGUARD_PEAKS_SKIP_NEEDLES.some((needle) => lower.includes(needle))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function extractGateguardEntries(
+  source: 'global' | 'project',
+  sourcePath: string,
+  settings: unknown
+): GateguardHookLocation[] {
+  if (settings === null || typeof settings !== 'object') return [];
+  const hooks = (settings as { hooks?: unknown }).hooks;
+  if (hooks === null || typeof hooks !== 'object') return [];
+  const preToolUse = (hooks as { PreToolUse?: unknown }).PreToolUse;
+  if (!Array.isArray(preToolUse)) return [];
+
+  const out: GateguardHookLocation[] = [];
+  for (const rawEntry of preToolUse) {
+    if (rawEntry === null || typeof rawEntry !== 'object') continue;
+    const entry = rawEntry as {
+      matcher?: unknown;
+      hooks?: unknown;
+    };
+    if (!Array.isArray(entry.hooks)) continue;
+    const hooks: Array<{ type?: string; command?: string }> = [];
+    for (const rawHook of entry.hooks) {
+      if (rawHook === null || typeof rawHook !== 'object') continue;
+      const h = rawHook as { type?: unknown; command?: unknown };
+      const hookEntry: { type?: string; command?: string } = {};
+      if (typeof h.type === 'string') hookEntry.type = h.type;
+      if (typeof h.command === 'string') hookEntry.command = h.command;
+      hooks.push(hookEntry);
+    }
+    if (!hooks.some((h) => commandMentionsGateguard(h.command))) continue;
+    const outEntry: {
+      matcher?: string;
+      hooks: ReadonlyArray<{ type?: string; command?: string }>;
+    } = { hooks };
+    if (typeof entry.matcher === 'string') outEntry.matcher = entry.matcher;
+    out.push({ source, sourcePath, entry: outEntry });
+  }
+  return out;
+}
+
+function readSettingsJson(path: string): unknown {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function defaultGateguardProbe(): GateguardProbeResult {
+  const projectRoot = findProjectRoot(process.cwd());
+  const globalPath = join(homedir(), '.claude', 'settings.json');
+  const projectPath = projectRoot === null ? null : join(projectRoot, '.claude', 'settings.json');
+
+  return {
+    globalSettingsPath: globalPath,
+    globalSettings: readSettingsJson(globalPath),
+    projectSettingsPath: projectPath,
+    projectSettings: projectPath === null ? null : readSettingsJson(projectPath)
+  };
+}
+
+export function collectGateguardEntries(probe: GateguardProbeResult): GateguardHookLocation[] {
+  const fromGlobal = extractGateguardEntries('global', probe.globalSettingsPath ?? '~/.claude/settings.json', probe.globalSettings);
+  const fromProject = probe.projectSettingsPath === null
+    ? []
+    : extractGateguardEntries('project', probe.projectSettingsPath, probe.projectSettings);
+  return [...fromGlobal, ...fromProject];
 }
 
 export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorReport> {
@@ -702,6 +863,52 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       id: 'build:workspace-layout-canonical',
       ok: false,
       message: `Workspace layout check failed: ${getErrorMessage(error)}`
+    });
+  }
+
+  // 2026-06-10 — gateguard-fact-force integration check. The hook is a
+  // third-party PreToolUse that fires on Edit / Write and demands a
+  // 4-fact questionnaire; when the LLM is in a peaks-qa flow updating
+  // `.peaks/_runtime/<sid>/qa/requests/*.md` the facts do not apply.
+  // We warn when the hook is installed and no `.peaks/**` skip is
+  // configured. The check stays a pure mapping over the probe result
+  // so tests can drive it without touching the real `~/.claude/`.
+  const gateguardProbe = options.gateguardProbe ?? defaultGateguardProbe;
+  try {
+    const probe = gateguardProbe();
+    const offending = collectGateguardEntries(probe);
+    if (offending.length === 0) {
+      checks.push({
+        id: 'integration:gateguard-peaks-conflict',
+        ok: true,
+        message:
+          'No gateguard-fact-force PreToolUse hook detected in ~/.claude/settings.json or project .claude/settings.json; the Edit/Write fact-forcing flow will not interfere with peaks-qa .peaks/ artifact writes'
+      });
+    } else {
+      const unrouted = offending.filter((location) => !entrySkipsPeaks(location.entry));
+      if (unrouted.length === 0) {
+        checks.push({
+          id: 'integration:gateguard-peaks-conflict',
+          ok: true,
+          message:
+            `gateguard-fact-force hook is installed in ${offending.map((l) => l.source).join(' + ')} but a .peaks/** skip pattern is configured; peaks-qa .peaks/ artifact writes are not blocked`
+        });
+      } else {
+        const sources = Array.from(new Set(unrouted.map((u) => u.sourcePath))).join(' + ');
+        const matchers = unrouted.map((u) => u.entry.matcher ?? '*').join(', ');
+        checks.push({
+          id: 'integration:gateguard-peaks-conflict',
+          ok: false,
+          message:
+            `gateguard-fact-force PreToolUse hook is installed (${sources}, matcher: ${matchers}) with no .peaks/** skip pattern; every Edit/Write of a peaks-qa envelope (.peaks/_runtime/<sid>/qa/requests/*.md) will be intercepted and demand a 4-fact questionnaire that does not apply to QA templates. Workaround: set \`ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force\` for the session, OR add a paired PreToolUse entry whose matcher restricts the hook to non-.peaks paths. peaks-cli is NOT the source of this hook.`
+        });
+      }
+    }
+  } catch (error) {
+    checks.push({
+      id: 'integration:gateguard-peaks-conflict',
+      ok: true,
+      message: `gateguard probe failed (${getErrorMessage(error)}); skipping check`
     });
   }
 

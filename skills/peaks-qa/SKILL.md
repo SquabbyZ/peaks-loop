@@ -13,6 +13,23 @@ The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id**
 
 Peaks-Cli QA proves that planned changes are protected and accepted.
 
+## Pre-flight: gateguard-fact-force conflict (BLOCKING — read before any Edit/Write of a `.peaks/**` file)
+
+The `gateguard-fact-force` hook is a **third-party** PreToolUse hook (ECC_GATEGUARD, NOT peaks-cli) that fires on Edit / Write / MultiEdit and demands a 4-fact questionnaire before allowing the edit. When this skill is mid-flow and the LLM edits `.peaks/_runtime/<sessionId>/qa/requests/*.md` (or any other `.peaks/**` file) via the Edit/Write tool, the questionnaire demands facts that **do not apply to QA envelope templates**:
+
+1. `imports/requirers` — none (QA envelopes are not imported by any code)
+2. `public functions/classes affected` — none (QA envelopes are not source code)
+3. `data files read/written` — none (QA envelopes are pure markdown reports)
+4. `user instruction verbatim` — already in the conversation context
+
+The fix must land in the gateguard repo, not peaks-cli. In the meantime:
+
+- **Diagnostic**: `peaks doctor --json` includes a `integration:gateguard-peaks-conflict` check (slice 026). `ok: true` means the hook is absent OR a `.peaks/**` skip pattern is configured; `ok: false` means gateguard is installed without a `.peaks/**` skip.
+- **Workaround before any Edit/Write of a `.peaks/**` file**: set `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force` in the shell, OR `ECC_GATEGUARD=off` to disable the whole gateguard system. The peaks-cli `peaks gate enforce` hook is unaffected by these env vars.
+- **CLI bypass**: when the workflow's write path goes through `peaks request init --apply` or `peaks workflow plan read|refresh|detect-trigger` rather than the LLM's Edit tool, the gateguard hook does not fire.
+
+Do NOT debug peaks-cli's `peaks gate enforce` / `peaks hook handle` code when the user reports `[Fact-Forcing Gate]` — those are Bash-only by design (`src/cli/commands/hook-handle.ts:90`). The error is from gateguard, not peaks-cli.
+
 ## Hard contracts for browser validation (BLOCKING — read before any browser_take_screenshot / login flow)
 
 These two contracts are non-negotiable. The previous prose-only phrasing let the LLM skip the browser gate entirely when an auth wall appeared, and let screenshots land in the project root because the LLM forgot to pass `filename`. Both fail modes are blocking violations.

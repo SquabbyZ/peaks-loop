@@ -595,3 +595,141 @@ describe('runDoctor build:workspace-layout-canonical check', () => {
     expect(check).toMatchObject({ ok: true });
   });
 });
+
+describe('runDoctor integration:gateguard-peaks-conflict check', () => {
+  /**
+   * 2026-06-10 — the gateguard-fact-force hook is a third-party PreToolUse
+   * hook (NOT peaks-cli) that fires on Edit/Write tools and demands a
+   * 4-fact questionnaire before allowing the edit. When the LLM is in a
+   * peaks-qa flow and tries to update `.peaks/_runtime/<sid>/qa/requests/*.md`
+   * via the Edit/Write tool, the hook demands facts that are inapplicable
+   * to QA envelope templates (no importers, no public API, no data files,
+   * user instruction already in the conversation context).
+   *
+   * The check detects this hook in the user's global and project
+   * `.claude/settings.json` and warns when no `.peaks/**` skip is
+   * configured. Probe is injected so tests do not depend on the real
+   * filesystem state of `~/.claude/settings.json`.
+   */
+
+  test('passes when neither global nor project settings have any gateguard hook', async () => {
+    const report = await runDoctor({
+      gateguardProbe: () => ({
+        globalSettingsPath: '/home/user/.claude/settings.json',
+        globalSettings: { hooks: { PreToolUse: [] } },
+        projectSettingsPath: '/repo/.claude/settings.json',
+        projectSettings: null
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('No gateguard-fact-force');
+    expect(report.summary.ok).toBe(true);
+  });
+
+  test('flags a gateguard PreToolUse hook on Edit/Write with no .peaks skip', async () => {
+    const report = await runDoctor({
+      gateguardProbe: () => ({
+        globalSettingsPath: '/home/user/.claude/settings.json',
+        globalSettings: {
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: 'Edit|Write',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: 'gateguard-fact-force --enforce-facts'
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        projectSettingsPath: '/repo/.claude/settings.json',
+        projectSettings: null
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('gateguard-fact-force');
+    expect(check?.message).toContain('Edit');
+    expect(check?.message).toContain('.peaks');
+    expect(check?.message).toContain('ECC_DISABLED_HOOKS');
+  });
+
+  test('passes when gateguard hook is present but a .peaks skip is configured via separate matcher', async () => {
+    // The check accepts any PreToolUse entry whose command/path mentions
+    // `.peaks` (e.g. a paired matcher that points the hook at a
+    // .peaks-allowlist) as evidence the user has routed the conflict.
+    const report = await runDoctor({
+      gateguardProbe: () => ({
+        globalSettingsPath: '/home/user/.claude/settings.json',
+        globalSettings: {
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: 'Edit|Write',
+                hooks: [
+                  {
+                    type: 'command',
+                    command: 'gateguard-fact-force --skip-glob ".peaks/**" --enforce-facts'
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        projectSettingsPath: '/repo/.claude/settings.json',
+        projectSettings: null
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('.peaks');
+  });
+
+  test('passes when project settings are absent (uninitialized project)', async () => {
+    const report = await runDoctor({
+      gateguardProbe: () => ({
+        globalSettingsPath: '/home/user/.claude/settings.json',
+        globalSettings: null,
+        projectSettingsPath: null,
+        projectSettings: null
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
+
+    expect(check).toMatchObject({ ok: true });
+  });
+
+  test('detects the conflict when only the project .claude/settings.json has the hook', async () => {
+    const report = await runDoctor({
+      gateguardProbe: () => ({
+        globalSettingsPath: '/home/user/.claude/settings.json',
+        globalSettings: { hooks: {} },
+        projectSettingsPath: '/repo/.claude/settings.json',
+        projectSettings: {
+          hooks: {
+            PreToolUse: [
+              {
+                matcher: 'Edit|Write|MultiEdit',
+                hooks: [
+                  { type: 'command', command: 'peaks hook handle' },
+                  { type: 'command', command: 'gateguard-fact-force --strict' }
+                ]
+              }
+            ]
+          }
+        }
+      })
+    });
+    const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
+
+    expect(check).toMatchObject({ ok: false });
+    expect(check?.message).toContain('/repo/.claude/settings.json');
+  });
+});
