@@ -47,6 +47,10 @@ export interface HeadroomPreferences {
 }
 
 export interface ClassifyRuleOverrides {
+  // All fields are optional: a partial override is merged over DEFAULT_PREFERENCES.classifyRules
+  // by preferences-service.ts::mergePreferences (load + save). Missing fields fall back to the
+  // default; present fields replace. Never pass an object missing the `schema_version` guard
+  // upstream — that lives on ProjectPreferences, not on the rule overrides.
   /** File count threshold above which a task is promoted to 'feature' */
   readonly feature_threshold_files?: number;
   /** Line count threshold above which a task is promoted to 'feature' */
@@ -65,6 +69,12 @@ export interface SwarmSpeculativePreferences {
 }
 
 export interface ProjectPreferences {
+  /**
+   * On-disk schema version. The JSON key is `schema_version` (snake_case) — this matches the
+   * raw on-disk key in `.peaks/preferences.json`, NOT the camelCase used by the rest of this
+   * interface. preferences-service.ts validates this value against PREFERENCES_SCHEMA_VERSION
+   * on load and writes the current value on save. Any mismatch throws PREFERENCES_SCHEMA_MISMATCH.
+   */
   readonly schema_version: typeof PREFERENCES_SCHEMA_VERSION;
   readonly economyMode: boolean;
   readonly swarmMode: boolean;
