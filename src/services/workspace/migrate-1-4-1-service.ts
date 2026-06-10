@@ -20,7 +20,7 @@
  * Default: dry-run. Pass `--apply` to actually move.
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const PER_SESSION_ARTIFACT_TYPES = [
@@ -69,7 +69,7 @@ function enumerateLegacySessions(projectRoot: string): string[] {
   const peaksRoot = join(projectRoot, '.peaks');
   if (!existsSync(peaksRoot)) return [];
   const out: string[] = [];
-  for (const entry of require('node:fs').readdirSync(peaksRoot)) {
+  for (const entry of readdirSync(peaksRoot)) {
     if (SKIP.has(entry)) continue;
     if (entry.startsWith('.')) continue;
     // Treat any directory under .peaks/ that doesn't match a known non-session
@@ -86,9 +86,9 @@ function listRequestIdsForSession(legacySessionRoot: string): string[] {
   for (const role of ['prd', 'rd', 'qa', 'sc']) {
     const dir = join(legacySessionRoot, role, 'requests');
     if (!existsSync(dir)) continue;
-    for (const f of require('node:fs').readdirSync(dir)) {
+    for (const f of readdirSync(dir)) {
       const m = f.match(/^\d+-(r\d+)\.md$/);
-      if (m) ids.add(m[1]);
+      if (m && m[1]) ids.add(m[1]);
     }
   }
   return [...ids];

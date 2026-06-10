@@ -515,6 +515,14 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       process.exitCode = 1;
     }
   });
+
+  // R004: subcommand to physically move per-session files from the legacy
+  // `.peaks/<sid>/<role>/<file>.md` path to the canonical
+  // `.peaks/_runtime/<sid>/<role>/<file>.md` path. The 2-tier fallback in
+  // artifact-prerequisites.ts accepts either location, so this command is
+  // purely a UX / filesystem-cleanup helper — the functional behavior is
+  // already correct without it.
+  registerMigrate1_4_1Command(workspace, io);
 }
 
 /**

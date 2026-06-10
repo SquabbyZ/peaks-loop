@@ -71,7 +71,7 @@ describe('R004 peaks workspace migrate-1-4-1', () => {
     expect(result.movedCount).toBe(1);
     expect(result.conflictCount).toBe(1);
     expect(result.errors.length).toBe(1);
-    expect(result.errors[0].path).toContain('code-review.md');
+    expect(result.errors[0]?.path).toContain('code-review.md');
 
     // The legacy session dir was removed (it was the migration target).
     expect(existsSync(join(projectRoot, '.peaks', '2026-05-15-session-r004test'))).toBe(false);
