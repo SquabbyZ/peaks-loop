@@ -20,6 +20,7 @@ import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
+import { registerMemoryCommands } from './commands/memory-commands.js';
 import { registerGateCommands } from './commands/gate-commands.js';
 import { registerHookHandleCommand } from './commands/hook-handle.js';
 import { registerHooksCommands } from './commands/hooks-commands.js';
@@ -97,6 +98,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerRequestCommands(program, io);
  registerRetrospectiveCommands(program, io);
  registerScanCommands(program, io);
+ registerMemoryCommands(program, io);
  registerSliceCommands(program, io);
  registerSopCommands(program, io);
  registerSubAgentCommands(program, io);
