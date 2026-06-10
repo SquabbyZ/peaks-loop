@@ -75,7 +75,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
     const json = JSON.parse(r.stdout);
     expect(json.ok).toBe(true);
     expect(json.data.exists).toBe(false);
-    expect(json.data.path).toBe(join('.peaks', '_runtime', sessionId, 'qa', 'security-test-plan.md'));
+    expect(json.data.path).toBe(resolve(join(projectRoot, '.peaks', '_runtime', sessionId, 'qa', 'security-test-plan.md')));
   });
 
   it_build('T-102: workflow plan read perf returns the expected envelope (exists:false on first run)', async () => {
@@ -84,7 +84,7 @@ describe('peaks workflow plan * — integration (gated on PEAKS_BUILD_AVAILABLE=
     const json = JSON.parse(r.stdout);
     expect(json.ok).toBe(true);
     expect(json.data.exists).toBe(false);
-    expect(json.data.path).toBe(join('.peaks', '_runtime', sessionId, 'qa', 'perf-baseline.md'));
+    expect(json.data.path).toBe(resolve(join(projectRoot, '.peaks', '_runtime', sessionId, 'qa', 'perf-baseline.md')));
   });
 
   it_build('T-103: workflow plan refresh security --apply writes file and is idempotent', async () => {
