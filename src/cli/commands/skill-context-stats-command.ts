@@ -13,6 +13,8 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { Command } from 'commander';
+import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 import { ok, fail, type ResultEnvelope } from '../../shared/result.js';
 
@@ -136,4 +138,37 @@ export async function runContextStats(input: RunContextStatsInput): Promise<Resu
   }
 
   return ok('skill.context-stats', data);
+}
+
+/**
+ * Register the `peaks skill context-stats` subcommand.
+ * R3 PRD AC-2 promised a CLI surface; the function was implemented but
+ * the registration was missed at R3 commit time. R5 wires it up.
+ */
+export function registerSkillContextStatsCommand(program: Command, io: ProgramIO): void {
+  let skillCmd = program.commands.find((c) => c.name() === 'skill');
+  if (skillCmd === undefined) {
+    skillCmd = program.command('skill').description('Manage Peaks skills');
+  }
+  const cmd = skillCmd
+    .command('context-stats')
+    .description('Report the per-project skill context footprint for the LLM: allowed/denied bytes, estimated tokens, shadow-stub reduction %')
+    .option('--project <path>', 'target project root (defaults to cwd)', process.cwd());
+
+  addJsonOption(cmd).action(async (options: { project?: string; json?: boolean }) => {
+    const projectRoot = options.project ?? process.cwd();
+    try {
+      const result = await runContextStats({ projectRoot, json: options.json === true });
+      printResult(io, result, options.json === true);
+      if (!result.ok) process.exitCode = 1;
+    } catch (error: unknown) {
+      const { fail, getErrorMessage } = await import('../../shared/result.js');
+      printResult(
+        io,
+        fail('skill.context-stats', 'INTERNAL_ERROR', getErrorMessage(error), { projectRoot }, ['File a bug report with the full error trace']),
+        options.json === true,
+      );
+      process.exitCode = 1;
+    }
+  });
 }
