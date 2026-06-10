@@ -1,9 +1,8 @@
-import { Command } from 'commander';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { searchMemory, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
 import { fail, ok } from '../../shared/result.js';
-import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 const VALID_KINDS: ReadonlyArray<ProjectMemoryKind> = [
   'project',
@@ -82,27 +81,4 @@ export function runMemorySearch(io: ProgramIO, options: MemorySearchCommandOptio
     );
     process.exitCode = 1;
   }
-}
-
-export function registerMemoryCommands(program: Command, io: ProgramIO): void {
-  const memory = program
-    .command('memory')
-    .description('Read the peaks memory index (R3-compatible) and run on-demand searches');
-
-  addJsonOption(
-    memory
-      .command('search <query>')
-      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
-      .option('--kind <kind>', `filter by memory kind (one of: ${VALID_KINDS.join(', ')})`)
-      .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
-      .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {
-    runMemorySearch(io, {
-      query,
-      ...(options.kind !== undefined ? { kind: options.kind } : {}),
-      ...(options.limit !== undefined ? { limit: options.limit } : {}),
-      ...(options.project !== undefined ? { project: options.project } : {}),
-      ...(options.json !== undefined ? { json: options.json } : {}),
-    });
-  });
 }

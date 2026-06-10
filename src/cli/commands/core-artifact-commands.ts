@@ -595,6 +595,30 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     }
   });
 
+  addJsonOption(
+    memory
+      .command('search <query>')
+      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
+      .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
+      .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+  ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {
+    // Lazy import avoids a top-of-file import cycle (memory-commands.ts
+    // imports services that the rest of this file may also touch).
+    void import('./memory-commands.js').then(({ runMemorySearch }) => {
+      runMemorySearch(io, {
+        query,
+        ...(options.kind !== undefined ? { kind: options.kind } : {}),
+        ...(options.limit !== undefined ? { limit: options.limit } : {}),
+        ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.json !== undefined ? { json: options.json } : {}),
+      });
+    }).catch((error: unknown) => {
+      printResult(io, fail('memory.search', 'MEMORY_SEARCH_BOOTSTRAP_FAILED', getErrorMessage(error), {}, []), options.json);
+      process.exitCode = 1;
+    });
+  });
+
   const proxy = program.command('proxy').description('Manage proxy settings');
   addJsonOption(
     proxy
