@@ -1,5 +1,6 @@
-import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { isBareSid, isValidSessionId } from './sid-naming-guard.js';
 
 export interface RuntimeSessionInfo {
   sid: string;
@@ -76,7 +77,47 @@ export interface SubAgentInvalidPlan {
   invalidSidFormat: string[];
 }
 
-export function listInvalidSubAgentSids(_projectRoot: string): string[] {
-  // Filled in by Task 7
-  return [];
+const SUBAGENT_DIR = '_sub_agents';
+const INVALID_ARCHIVE = '_archive/invalid-sids';
+
+export function subAgentDirPath(projectRoot: string): string {
+  return join(projectRoot, '.peaks', SUBAGENT_DIR);
+}
+
+export function invalidSidsArchivePath(projectRoot: string): string {
+  return join(projectRoot, '.peaks', INVALID_ARCHIVE);
+}
+
+export function listInvalidSubAgentSids(projectRoot: string): string[] {
+  const dir = subAgentDirPath(projectRoot);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .filter((name) => isBareSid(name) || !isValidSessionId(name));
+}
+
+export function executeSubAgentClean(
+  projectRoot: string,
+  options: { apply: boolean }
+): { moved: string[]; skipped: string[] } {
+  const invalid = listInvalidSubAgentSids(projectRoot);
+  const moved: string[] = [];
+  if (options.apply && invalid.length > 0) {
+    const archiveDir = invalidSidsArchivePath(projectRoot);
+    mkdirSync(archiveDir, { recursive: true });
+    for (const sid of invalid) {
+      const from = join(subAgentDirPath(projectRoot), sid);
+      const to = join(archiveDir, sid);
+      if (existsSync(to)) {
+        // collision — append timestamp suffix
+        const stamped = `${sid}-${Date.now()}`;
+        renameSync(from, join(archiveDir, stamped));
+      } else {
+        renameSync(from, to);
+      }
+      moved.push(sid);
+    }
+  }
+  return { moved: options.apply ? moved : invalid, skipped: [] };
 }
