@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-09T13:36:21.972Z",
+  "entries": [
+    {
+      "id": "2026-06-06-session-517672-sub-agent",
+      "sessionId": "2026-06-06-session-517672",
+      "type": "refactor",
+      "title": "Sub-agent session sharing",
+      "summary": "Allows sub-agents to share session state with the parent peaks-cli run.",
+      "outcome": "shipped",
+      "keyDecisions": ["Use IPC over stdin for sub-agent prompts"],
+      "lessonsLearned": 1,
+      "artifactPaths": [".peaks/_runtime/2026-06-06-session-517672/rd/tech-doc.md"],
+      "updatedAt": "2026-06-06T05:29:32.202Z"
+    },
+    {
+      "id": "2026-06-06-session-517672-handoff",
+      "sessionId": "2026-06-06-session-517672",
+      "type": "refactor",
+      "title": "TXT handoff for sub-agent slice",
+      "summary": "Compact TXT handoff for the sub-agent session sharing slice.",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [".peaks/_runtime/2026-06-06-session-517672/txt/handoff.md"],
+      "updatedAt": "2026-06-06T05:07:28.625Z"
+    },
+    {
+      "id": "2026-06-04-workspace-reconcile",
+      "sessionId": "2026-06-04-session-89f7cb",
+      "type": "feature",
+      "title": "Workspace reconcile",
+      "summary": "Adds the new CLI command peaks workspace reconcile.",
+      "outcome": "in-flight",
+      "keyDecisions": ["Use 4-tier heuristic", "Idempotent re-run"],
+      "lessonsLearned": 2,
+      "artifactPaths": [".peaks/_runtime/2026-06-04-session-89f7cb/rd/tech-doc.md"],
+      "updatedAt": "2026-06-04T12:00:00.000Z"
+    },
+    {
+      "id": "2026-05-29-custom-sop-gate",
+      "sessionId": "2026-05-29-session-746113",
+      "type": "feature",
+      "title": "Custom SOP and gate metering",
+      "summary": "Two layered features: user-authored SOP skills, tiered SOP metering.",
+      "outcome": "in-flight",
+      "keyDecisions": ["Metering unit = number of complete SOPs per workspace"],
+      "lessonsLearned": 1,
+      "artifactPaths": [".peaks/_runtime/2026-05-29-session-746113/rd/tech-doc.md"],
+      "updatedAt": "2026-05-29T09:00:00.000Z"
+    },
+    {
+      "id": "2026-06-08-doctor-scope",
+      "sessionId": "2026-06-08-session-aaa111",
+      "type": "bugfix",
+      "title": "Doctor scope broaden",
+      "summary": "Doctor now checks skill scope and skill consistency more broadly.",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [],
+      "updatedAt": "2026-06-08T10:00:00.000Z"
+    },
+    {
+      "id": "2026-06-02-failed-experiment",
+      "sessionId": "2026-06-02-session-bbb222",
+      "type": "chore",
+      "title": "Failed experiment: index by tag",
+      "summary": "Tried indexing memory by tag; abandoned due to maintenance overhead.",
+      "outcome": "cancelled",
+      "keyDecisions": ["Revert"],
+      "lessonsLearned": 1,
+      "artifactPaths": [],
+      "updatedAt": "2026-06-02T11:00:00.000Z"
+    },
+    {
+      "id": "2026-06-01-blocked-by-dep",
+      "sessionId": "2026-06-01-session-ccc333",
+      "type": "refactor",
+      "title": "Blocked by upstream dep",
+      "summary": "Refactor that needs upstream library version bump; deferred.",
+      "outcome": "blocked",
+      "keyDecisions": ["Wait for upstream"],
+      "lessonsLearned": 0,
+      "artifactPaths": [],
+      "updatedAt": "2026-06-01T08:00:00.000Z"
+    },
+    {
+      "id": "2026-05-30-readme-cleanup",
+      "sessionId": "2026-05-30-session-ddd444",
+      "type": "docs",
+      "title": "Readme cleanup",
+      "summary": "Trim verbose sections; consolidate install instructions.",
+      "outcome": "shipped",
+      "keyDecisions": [],
+      "lessonsLearned": 0,
+      "artifactPaths": [".peaks/_runtime/2026-05-30-session-ddd444/rd/tech-doc.md"],
+      "updatedAt": "2026-05-30T14:00:00.000Z"
+    }
+  ]
+}
