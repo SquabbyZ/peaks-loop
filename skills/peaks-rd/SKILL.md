@@ -98,9 +98,9 @@ Before every code or mock change, RD must write and then enforce a red-line scop
 
 ## Mandatory perf-baseline output (RD-side perf gate)
 
-**BLOCKING — Do not hand off to QA without a perf-baseline file when the slice has a user-visible performance surface.** The QA stage's Gate A4 (performance check) needs a stable reference to diff against; without an RD-side baseline, the first time Gate A4 runs it has nothing to compare against.
+**BLOCKING — Do not hand off to QA without a perf-baseline file when the slice has a user-visible performance surface.** The QA stage's Gate A4 (performance check) needs a stable reference to diff against; without an RD-side baseline, the first time Gate A4 runs it has nothing to compare against. **Slice 025**: the perf baseline is stable across slices within a session and is refreshed on trigger; use `peaks workflow plan refresh perf --apply` for refreshes.
 
-→ see `references/mandatory-perf-baseline.md` for the full "when this applies" + `peaks perf baseline --apply` workflow.
+→ see `references/mandatory-perf-baseline.md` for the full "when this applies" + `peaks perf baseline --apply` workflow + slice-025 refresh contract.
 
 ## Implementation completion gates
 

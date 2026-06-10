@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import { isRequestType } from '../artifacts/artifact-prerequisites.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
+import { resolveSecurityFindingsPath, resolvePerformanceFindingsPath } from './artifact-paths.js';
 
 export type PipelineGate = {
   name: string;
@@ -28,6 +29,12 @@ export type PipelineVerification = {
   };
   violations: string[];
   nextActions: string[];
+  /** Form of the security/performance findings artifacts Gate C accepted
+   * (slice 025). `'suffixed'` for the new per-rid form, `'legacy'` for the
+   * pre-slice-025 non-suffixed form, `'none'` when neither was found. */
+  acceptedForm?: 'suffixed' | 'legacy' | 'none';
+  /** `gateC` is the pre-computed verdict string (AC7 dogfood shape). */
+  gateC?: 'pass' | 'fail';
 };
 
 function extractState(markdown: string): string {
@@ -182,14 +189,39 @@ export async function verifyPipeline(options: {
     qaGates[0]!.detail = 'not found';
   }
 
-  // Check QA evidence files (under the same change-id dir)
+  // Check QA evidence files. For the security/performance findings
+  // gates, the canonical form post-slice-025 is the per-rid suffixed
+  // path; the legacy non-suffixed form is still accepted during the
+  // 1-minor-release back-compat window. The path resolver
+  // (artifact-paths.ts) decides which form to consume; we pass the
+  // resolved change-id and the rid.
+  const changeIdForResolver = resolvedChangeId || rdEvidenceDir;
   const QA_EVIDENCE_FILE: Record<string, string> = {
     'test-cases': `test-cases/${options.rid}.md`,
     'test-report': `test-reports/${options.rid}.md`,
-    'security-findings': 'security-findings.md',
-    'performance-findings': 'performance-findings.md'
+    'security-findings': '',
+    'performance-findings': ''
   };
   for (const gate of qaGates.slice(1)) {
+    if (gate.name === 'security-findings' || gate.name === 'performance-findings') {
+      const resolver = gate.name === 'security-findings' ? resolveSecurityFindingsPath : resolvePerformanceFindingsPath;
+      const resolved = resolver({ projectRoot: options.projectRoot, changeId: changeIdForResolver, rid: options.rid });
+      if (existsSync(resolved.path)) {
+        gate.passed = true;
+        gate.detail = resolved.path;
+        if (resolved.form === 'legacy') {
+          // 1-minor-release back-compat window. Surface the warning so
+          // users know to migrate. Per PRD §Migration the form will be
+          // rejected after the next minor bump.
+          violations.push(`QA evidence accepted in legacy form (will be rejected after next minor release): ${resolved.path} — re-run peaks workflow plan refresh to migrate`);
+        }
+      } else {
+        gate.detail = `missing: ${resolved.path}`;
+        violations.push(`QA evidence missing: ${gate.description} (${resolved.path})`);
+        nextActions.push(`Create ${resolved.path} (or use the legacy non-suffixed form during the 1-minor-release back-compat window)`);
+      }
+      continue;
+    }
     const fileName = QA_EVIDENCE_FILE[gate.name]!;
     const evidencePath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'qa', fileName);
     if (existsSync(evidencePath)) {
@@ -219,6 +251,24 @@ export async function verifyPipeline(options: {
   const complete = rdInvoked && qaInvoked && allRdGatesPassed && allQaGatesPassed
     && RD_QA_HANDOFF_STATES.has(rdState) && QA_COMPLETE_STATES.has(qaState);
 
+  // Slice 025 — derive the `acceptedForm` and `gateC` verdict. The form is
+  // 'suffixed' if both the security + perf gates passed via the new
+  // per-rid path; 'legacy' if either was consumed via the legacy fallback;
+  // 'none' if neither passed.
+  const secGate = qaGates.find((g) => g.name === 'security-findings');
+  const perfGate = qaGates.find((g) => g.name === 'performance-findings');
+  const secForm: 'suffixed' | 'legacy' = secGate?.detail?.includes(`-${options.rid}.md`) ? 'suffixed' : 'legacy';
+  const perfForm: 'suffixed' | 'legacy' = perfGate?.detail?.includes(`-${options.rid}.md`) ? 'suffixed' : 'legacy';
+  const acceptedForm: 'suffixed' | 'legacy' | 'none' =
+    !secGate?.passed && !perfGate?.passed
+      ? 'none'
+      : (secForm === 'suffixed' && perfForm === 'suffixed')
+        ? 'suffixed'
+        : (secForm === 'legacy' || perfForm === 'legacy')
+          ? 'legacy'
+          : 'suffixed';
+  const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
+
   return {
     rid: options.rid,
     changeId: resolvedChangeId,
@@ -227,6 +277,8 @@ export async function verifyPipeline(options: {
     rdPhase: { invoked: rdInvoked, state: rdState, gates: rdGates },
     qaPhase: { invoked: qaInvoked, state: qaState, gates: qaGates },
     violations,
-    nextActions
+    nextActions,
+    acceptedForm,
+    gateC
   };
 }

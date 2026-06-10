@@ -6,12 +6,12 @@
 
 | Type | qa:running requires | qa:verdict-issued also requires |
 |---|---|---|
-| feature / refactor | `qa/test-cases/<rid>.md` | `qa/test-reports/<rid>.md` + `qa/security-findings.md` + `qa/performance-findings.md` |
-| bugfix | `qa/test-cases/<rid>.md` (MUST include the regression test) | `qa/test-reports/<rid>.md` + `qa/security-findings.md` (perf optional unless the bug is performance-related) |
-| config | (none) | `qa/security-findings.md` only |
+| feature / refactor | `qa/test-cases/<rid>.md` | `qa/test-reports/<rid>.md` + `qa/security-findings-<rid>.md` + `qa/performance-findings-<rid>.md` |
+| bugfix | `qa/test-cases/<rid>.md` (MUST include the regression test) | `qa/test-reports/<rid>.md` + `qa/security-findings-<rid>.md` (perf optional unless the bug is performance-related) |
+| config | (none) | `qa/security-findings-<rid>.md` only |
 | docs / chore | (none) | (none) |
 
-For feature / refactor, `security-findings.md` and `performance-findings.md` MUST exist — record `"no findings"` inside if truly clean rather than skipping the file.
+For feature / refactor, the `<rid>`-suffixed security-findings and performance-findings MUST exist — record `"no findings"` inside if truly clean rather than skipping the file. The pre-slice-025 non-suffixed `security-findings.md` / `performance-findings.md` paths are accepted as a 1-minor-release back-compat fallback; the resolver in `src/services/workflow/artifact-paths.ts` picks the suffixed form when both exist, and Gate C logs a `legacy-redirect` warning so users know to migrate. The form is rejected after the next minor bump.
 
 **Peaks-Cli Gate A — After test-case generation:**
 ```bash
@@ -29,13 +29,15 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 
 **Peaks-Cli Gate A3 — Security test executed (NOT just a checklist item):**
 ```bash
-ls .peaks/<changeId>/qa/security-findings.md 2>&1
-# Expected: .peaks/<changeId>/qa/security-findings.md
+ls .peaks/<changeId>/qa/security-findings-<rid>.md 2>&1
+# Expected: .peaks/<changeId>/qa/security-findings-<rid>.md
+# Back-compat (1 minor release): .peaks/<changeId>/qa/security-findings.md is also accepted.
 ```
 
 **Peaks-Cli Gate A4 — Performance test executed:**
 ```bash
-ls .peaks/<changeId>/qa/performance-findings.md 2>&1
+ls .peaks/<changeId>/qa/performance-findings-<rid>.md 2>&1
+# Back-compat (1 minor release): .peaks/<changeId>/qa/performance-findings.md is also accepted.
 ```
 
 **Peaks-Cli Gate B — After test-report write (MUST contain execution results):**
@@ -49,10 +51,12 @@ grep -c "pass\|fail\|blocked" .peaks/<changeId>/qa/test-reports/<rid>.md
 ```bash
 ls .peaks/<changeId>/qa/test-cases/<rid>.md \
    .peaks/<changeId>/qa/test-reports/<rid>.md \
-   .peaks/<changeId>/qa/security-findings.md \
-   .peaks/<changeId>/qa/performance-findings.md \
+   .peaks/<changeId>/qa/security-findings-<rid>.md \
+   .peaks/<changeId>/qa/performance-findings-<rid>.md \
    .peaks/<changeId>/qa/requests/<rid>.md
 # All five must exist. Missing any → QA incomplete, verdict blocked.
+# Back-compat (1 minor release): security-findings.md / performance-findings.md
+# (no <rid> suffix) are also accepted during the 1-minor-release window.
 ```
 
 **Peaks-Cli Gate E — Acceptance coverage:**

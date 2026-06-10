@@ -2,6 +2,8 @@
 
 > Body of `## Mandatory perf-baseline output` + numbered perf-baseline steps. **BLOCKING — Do not hand off to QA without a perf-baseline file when the slice has a user-visible performance surface.** The QA stage's Gate A4 (performance check) needs a stable reference to diff against; without an RD-side baseline, the first time Gate A4 runs it has nothing to compare against and any regression it finds is a blind-side surprise. The user-facing pain of leaving perf to QA only has historically been a 3-cycle repair loop. The RD-side baseline closes that loop.
 
+> **Slice 025 — stable across slices within a session; refreshed on trigger.** The perf baseline is a **project-level** artifact (`.peaks/_runtime/<sessionId>/qa/perf-baseline.md`) and is **stable across slices within a session**. It is regenerated only when the slice diff matches the refresh trigger table (see `peaks-qa/references/qa-perf-test-plan.md`). Slices that do not trigger a refresh reference the existing baseline by hash from the per-slice `qa/performance-findings-<rid>.md` (not by regenerating the baseline). The CLI is `peaks workflow plan read|refresh|detect-trigger perf --project <repo>`; the RD-side `peaks perf baseline --apply` workflow below still scaffolds the initial file but the canonical refresh path post-slice-025 is the new `peaks workflow plan refresh` primitive.
+
 **When this applies:**
 - feature / refactor slices that touch a route, hook, API, or any user-perceivable surface
 - bugfix slices where the bug is performance-shaped (slow render, hot loop, N+1)

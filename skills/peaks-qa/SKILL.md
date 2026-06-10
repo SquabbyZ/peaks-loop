@@ -29,6 +29,12 @@ When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>`
 
 → see `references/qa-sub-agent-dispatch.md` for the full contract + hard prohibitions.
 
+## Plan/Result split (slice 025)
+
+Project-level security + perf plans live at `.peaks/_runtime/<sessionId>/qa/security-test-plan.md` and `qa/perf-baseline.md`; the per-rid slice result references them by hash. CLI: `peaks workflow plan read|refresh|detect-trigger <security|perf> --project <repo>`. AC1–AC8 from PRD-025.
+
+→ see `references/qa-security-test-plan.md` + `references/qa-perf-test-plan.md` for the full split contract.
+
 ## QA fan-out (业务 + 性能 + 安全 并发, 业务可再分)
 
 When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out the 3 QA review activities concurrently using the same `peaks sub-agent dispatch` primitive: qa-business, qa-perf, qa-security. All three are issued in a single message; the LLM fires all 3 returned toolCalls in parallel; the IDE runs them concurrently; peaks-qa then collects the three envelopes and merges their outputs into `.peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md` (business findings) + `qa/performance-findings.md` + `qa/security-findings.md`.
@@ -183,6 +189,8 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/qa-matt-pocock-integration.md` | Matt Pocock skills as references. |
 | `references/qa-refactor-role.md` | QA refactor role. |
 | `references/qa-runbook.md` | Default 10-step QA runbook. |
+| `references/qa-security-test-plan.md` | Slice 025 project-level security test plan. |
+| `references/qa-perf-test-plan.md` | Slice 025 project-level perf baseline. |
 | `references/qa-skill-presence.md` | QA skill presence (main loop only). |
 | `references/qa-standards-preflight.md` | Standards preflight dry-run contract. |
 | `references/qa-sub-agent-dispatch.md` | Sub-agent suspended sections + contract. |

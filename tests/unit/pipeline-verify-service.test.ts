@@ -460,8 +460,9 @@ describe('verifyPipeline', () => {
       expect(evVios.length).toBeGreaterThanOrEqual(4);
       expect(evVios.some((v) => v.includes('test-cases/qa-ev-none.md'))).toBe(true);
       expect(evVios.some((v) => v.includes('test-reports/qa-ev-none.md'))).toBe(true);
-      expect(evVios.some((v) => v.includes('security-findings.md'))).toBe(true);
-      expect(evVios.some((v) => v.includes('performance-findings.md'))).toBe(true);
+      // Slice 025: security/performance findings are now per-rid suffixed.
+      expect(evVios.some((v) => v.includes('security-findings-qa-ev-none.md'))).toBe(true);
+      expect(evVios.some((v) => v.includes('performance-findings-qa-ev-none.md'))).toBe(true);
     });
   });
 
@@ -478,8 +479,9 @@ describe('verifyPipeline', () => {
       writeRdEvidence(temp.peaks, 'security-review.md');
       writeQaEvidence(temp.peaks, 'test-cases/complete.md');
       writeQaEvidence(temp.peaks, 'test-reports/complete.md');
-      writeQaEvidence(temp.peaks, 'security-findings.md');
-      writeQaEvidence(temp.peaks, 'performance-findings.md');
+      // Slice 025: per-rid suffixed security + performance findings.
+      writeQaEvidence(temp.peaks, 'security-findings-complete.md');
+      writeQaEvidence(temp.peaks, 'performance-findings-complete.md');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,

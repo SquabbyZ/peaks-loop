@@ -412,7 +412,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
         : fail('workflow.verify-pipeline', 'PIPELINE_INCOMPLETE', `${result.violations.length} violation(s): ${result.violations.join('; ')}`, result, result.nextActions), options.json);
       process.exitCode = exitOk;
     } catch (error) {
-      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), {}, ['Check that --project and --rid are correct; --change-id is optional (resolved from the artifact otherwise)']), options.json);
+      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), { acceptedForm: 'none', gateC: 'fail' }, ['Check that --project and --rid are correct; --change-id is optional (resolved from the artifact otherwise)']), options.json);
       process.exitCode = 1;
     }
   });

@@ -28,6 +28,7 @@ import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerSkillScopeCommands } from './commands/skill-scope-commands.js';
+import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -114,6 +115,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerWorkspaceCommands(program, io);
   // Slice 025: peaks skill scope — per-project multi-IDE skill scoping.
   registerSkillScopeCommands(program, io);
+  // Slice 025: peaks workflow plan — security/perf plan/result split CLI.
+  registerWorkflowPlanCommands(program, io);
 
   return program;
 }
