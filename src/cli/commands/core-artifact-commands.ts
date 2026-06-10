@@ -6,12 +6,14 @@ import { getArtifactWorkspaceStatus, planArtifactSync } from '../../services/art
 import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult } from '../../services/memory/project-memory-service.js';
 import { executeProjectStandardsInit, executeProjectStandardsUpdate, summarizeProjectStandardsInitResult, summarizeProjectStandardsUpdateResult } from '../../services/standards/project-standards-service.js';
 import { executeProjectStandardsInitIdeAware, executeProjectStandardsUpdateIdeAware } from '../../services/standards/ide-aware-standards-service.js';
+import { migrateStandards } from '../../services/standards/migrate-service.js';
 import { listProfiles } from '../../services/profiles/profile-service.js';
 import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
+import { detectPresenceMarker } from '../../services/hooks/presence-marker-detector.js';
 import { ensureSession, getSessionId, getSessionMeta, rotateSessionBinding, setSessionMeta, setSessionTitle, listSessionMetas } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
@@ -231,6 +233,19 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       skill: updated.skill,
       lastHeartbeat: updated.lastHeartbeat
     }), options.json);
+  });
+
+  addJsonOption(
+    skill
+      .command('detect-marker-loss')
+      .description('Detect whether the latest assistant message lost the Peaks-Cli status header while a peaks skill is still active (slice 028 detection primitive).')
+      .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
+      .option('--message <text>', 'latest assistant message text to scan (defaults to reading the most recent LLM response from the stdin pipe, or empty string when no pipe is attached)')
+  ).action((options: { project?: string; message?: string; json?: boolean }) => {
+    const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    const message = options.message ?? '';
+    const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: message });
+    printResult(io, ok('skill.detect-marker-loss', result), options.json);
   });
 
   const session = program.command('session').description('Manage Peaks session directories');
@@ -514,6 +529,22 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       }
     } catch (error) {
       printResult(io, fail('standards.update', 'STANDARDS_UPDATE_FAILED', getErrorMessage(error), {}, ['Check the project path, CLAUDE.md contents, and existing .claude/rules directory before retrying']), options.json);
+      process.exitCode = 1;
+    }
+  });
+  addJsonOption(
+    standards
+      .command('migrate')
+      .description('Rewrite a consumer project CLAUDE.md to drop the legacy heartbeat block (slice 028). Dry-run by default; pass --apply to write.')
+      .option('--project <path>', 'target project root')
+      .option('--apply', 'rewrite the legacy block in place; default is dry-run')
+  ).action((options: { project?: string; apply?: boolean; json?: boolean }) => {
+    const projectRoot = options.project ?? process.cwd();
+    try {
+      const result = migrateStandards({ project: projectRoot, apply: options.apply === true });
+      printResult(io, ok('standards.migrate', result.data, [], result.data.nextActions), options.json);
+    } catch (error: unknown) {
+      printResult(io, fail('standards.migrate', 'STANDARDS_MIGRATE_FAILED', getErrorMessage(error), { file: null, foundOldBlock: false, wouldChange: false, applied: false, before: null, after: null, nextActions: [] }, [getErrorMessage(error)]), options.json);
       process.exitCode = 1;
     }
   });

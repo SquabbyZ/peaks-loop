@@ -377,3 +377,30 @@ describe('project standards service', () => {
     expect(claudeMd).toContain('NextUI');
     rmSync(projectRoot, { recursive: true, force: true });
   });
+
+  // T-028-1: slice 028 — the consumer-facing CLAUDE.md template
+  // must not leak heartbeat-touch / presence:clear LLM instructions
+  // or the everything-claude-code external reference.
+  test('T-028-1: rendered head section drops heartbeat text and references peaks skill presence', () => {
+    const projectRoot = createProjectRoot('peaks-standards-slice-028-');
+    writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
+    const result = executeProjectStandardsInit({ projectRoot, apply: true });
+    expect(result.writtenFiles).toContain('CLAUDE.md');
+    const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
+
+    // Forbidden legacy strings
+    expect(claudeMd).not.toContain('heartbeat:touch');
+    expect(claudeMd).not.toContain('presence:clear');
+    expect(claudeMd).not.toContain('everything-claude-code');
+    expect(claudeMd).not.toContain('Default runbook');
+    expect(claudeMd).not.toContain('Startup sequence');
+    expect(claudeMd).not.toContain('Swarm parallel phase');
+    expect(claudeMd).not.toContain('Do NOT skip step');
+    expect(claudeMd).not.toContain('<!-- Peaks-Cli 心跳检测');
+
+    // Required new-shape markers
+    expect(claudeMd).toContain('peaks skill presence --json');
+    expect(claudeMd).toContain('Peaks-Cli Skill: <skill>');
+
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
