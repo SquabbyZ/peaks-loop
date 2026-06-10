@@ -5,6 +5,7 @@ import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
+import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';
 import { ensureSession, ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
