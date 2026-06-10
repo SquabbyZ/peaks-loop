@@ -160,8 +160,8 @@ function buildScopeConfig(args: {
   };
 }
 
-/** Run the --apply subcommand. */
-async function runApply(input: RunSkillScopeInput): Promise<RunSkillScopeResult> {
+/** Run the --apply subcommand. R003.3: `runApply` is exported for direct testing. */
+export async function runApply(input: RunSkillScopeInput): Promise<RunSkillScopeResult> {
   // 1. Detect the scope.
   const detected = await detectSkillScope({ projectRoot: input.project });
   // --strict wins when both flags are passed. Default is --loose per PRD.
@@ -206,7 +206,9 @@ async function runApply(input: RunSkillScopeInput): Promise<RunSkillScopeResult>
     strict: config.strict,
     projectRoot: input.project,
     sourceConfig: config,
-    shadowFallback: input.shadowFallback === true,
+    // R003.3: default to shadow-fallback=true. Pass `shadowFallback: false` (or the
+    // new --no-shadow-fallback CLI flag) to opt out and copy the full SKILL.md.
+    shadowFallback: input.shadowFallback !== false,
   };
 
   let result: ApplyResult;
@@ -345,7 +347,10 @@ export function registerSkillScopeCommands(program: Command, io: ProgramIO): voi
       .option('--strict', '--apply: only `relevant` skills in the allowlist')
       .option('--loose', '--apply: `relevant` + `borderline` in the allowlist (default)')
       .option('--ide <name>', 'force a specific IDE adapter (overrides auto-detect)')
-      .option('--shadow-fallback', '--apply: Claude Code uses shadow stubs for the denylist')
+      // R003.3: --shadow-fallback is the new default. Pass --no-shadow-fallback
+      // to opt out (copy the full SKILL.md to .claude/skills/ for IDE-side inspection).
+      .option('--shadow-fallback', '--apply: Claude Code uses shadow stubs for the denylist (default)')
+      .option('--no-shadow-fallback', '--apply: copy the full SKILL.md for the denylist (opt out of shadowing)')
   ).action(async (options: {
     detect?: boolean;
     apply?: boolean;

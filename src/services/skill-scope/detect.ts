@@ -29,6 +29,7 @@ import {
   ALWAYS_RELEVANT_SKILLS,
   NON_TS_SKILL_PREFIXES,
   TRACKED_EXTENSIONS,
+  readScopeThreshold,
 } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -88,14 +89,21 @@ function asTsConfig(value: unknown): TsConfigShape | null {
 
 /**
  * Walk `src/` (recursively) AND the project root, collecting the top-50
- * unique file extensions. Sorted lexicographically.
+ * unique file extensions (sorted lexicographically) AND the per-extension
+ * file count (used by R003.1 to compute fractional share).
  */
-export function scanFileTree(projectRoot: string, maxExtensions = 50): string[] {
+export interface ScanResult {
+  readonly extensions: readonly string[];
+  readonly counts: Readonly<Record<string, number>>;
+  readonly totalFiles: number;
+}
+
+export function scanFileTree(projectRoot: string, maxExtensions = 50): ScanResult {
   const roots: string[] = [];
   if (existsSync(join(projectRoot, 'src'))) roots.push(join(projectRoot, 'src'));
   roots.push(projectRoot);
 
-  const exts = new Set<string>();
+  const counts: Record<string, number> = {};
   // Bound the walk: at most 2000 files, 5 levels deep.
   let visited = 0;
   const MAX_FILES = 2000;
@@ -127,14 +135,14 @@ export function scanFileTree(projectRoot: string, maxExtensions = 50): string[] 
           const dot = name.lastIndexOf('.');
           if (dot < 0) continue;
           const ext = name.slice(dot).toLowerCase();
-          exts.add(ext);
-          if (exts.size >= maxExtensions) break;
+          counts[ext] = (counts[ext] ?? 0) + 1;
         }
       }
     }
   }
 
-  return [...exts].sort().slice(0, maxExtensions);
+  const extensions = Object.keys(counts).sort().slice(0, maxExtensions);
+  return { extensions, counts, totalFiles: visited };
 }
 
 function hasExt(exts: readonly string[], ext: string): boolean {
@@ -197,12 +205,21 @@ export async function extractProjectSignals(projectRoot: string): Promise<Projec
       ));
 
   const nodeEngineMajor = parseNodeEngineMajor(pkg?.engines?.node);
-  const topExtensions = scanFileTree(projectRoot);
+  const scan = scanFileTree(projectRoot);
+  const topExtensions = scan.extensions;
 
-  // Build the per-extension presence flag map.
+  // Build the per-extension presence flag map (R003.1: kept for backwards-compat).
   const hasFileExtension: Record<string, boolean> = {};
   for (const ext of TRACKED_EXTENSIONS) {
     hasFileExtension[ext.slice(1)] = hasExt(topExtensions, ext);
+  }
+
+  // Build the per-extension fractional share map (R003.1).
+  const shareByExtension: Record<string, number> = {};
+  if (scan.totalFiles > 0) {
+    for (const [ext, count] of Object.entries(scan.counts)) {
+      shareByExtension[ext.slice(1)] = count / scan.totalFiles;
+    }
   }
 
   return {
@@ -229,6 +246,7 @@ export async function extractProjectSignals(projectRoot: string): Promise<Projec
     nodeEngineMajor,
     topExtensions,
     hasFileExtension,
+    shareByExtension,
   };
 }
 
@@ -297,10 +315,26 @@ export function classifySkill(
   const desc = skill.description.toLowerCase();
   // Special-case: when the project is a non-TS project (Python, etc.),
   // language-specific skills with matching keywords should be relevant.
+  // R003.1: gate this on the language's fractional share >= threshold,
+  // so a 1-file stray `.cpp` does not flip cpp-coding-standards to relevant.
   if (isNonTsProject(signals)) {
     const langMatch = languageKeywordMatch(desc);
     if (langMatch !== null) {
-      reasons.push(`${langMatch} keyword + non-TS project`);
+      const ext = LANGUAGE_TO_EXTENSION[langMatch];
+      const share = ext === undefined ? 1 : (signals.shareByExtension?.[ext] ?? 0);
+      const threshold = readScopeThreshold();
+      if (share < threshold) {
+        reasons.push(
+          `${langMatch} keyword but share ${(share * 100).toFixed(1)}% < threshold ${(threshold * 100).toFixed(0)}%`,
+        );
+        return {
+          name: skill.name,
+          kind: inferSkillKind(skill.name, rules.alwaysRelevant),
+          relevance: 'irrelevant',
+          reasons,
+        };
+      }
+      reasons.push(`${langMatch} keyword + non-TS project (share ${(share * 100).toFixed(1)}%)`);
       return {
         name: skill.name,
         kind: inferSkillKind(skill.name, rules.alwaysRelevant),
@@ -405,6 +439,22 @@ function languageKeywordMatch(description: string): string | null {
   if (/\bc\+\+|\bcpp\b/.test(description)) return 'cpp';
   return null;
 }
+
+/**
+ * R003.1: map a non-TS language keyword to its primary file extension
+ * (used to look up the fractional share from `signals.shareByExtension`).
+ */
+const LANGUAGE_TO_EXTENSION: Readonly<Record<string, string>> = {
+  python: 'py',
+  kotlin: 'kt',
+  java: 'java',
+  rust: 'rs',
+  go: 'go',
+  ruby: 'rb',
+  swift: 'swift',
+  csharp: 'cs',
+  cpp: 'cpp',
+};
 
 /**
  * Multi-language project heuristic: if the project's file tree contains

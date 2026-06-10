@@ -71,6 +71,35 @@ export interface ProjectSignals {
   readonly topExtensions: readonly string[];
   /** Per-extension presence flags derived from topExtensions. */
   readonly hasFileExtension: Readonly<Record<string, boolean>>;
+  /**
+   * Per-extension fractional share (file count / total files, in [0, 1]).
+   * Slice 025 / R003.1: replaces the binary `hasFileExtension` for the
+   * keyword-matching path. A language/framework skill becomes `relevant`
+   * only when its corresponding share is >= the configured threshold
+   * (default 0.05). Extensions with 0 files are absent.
+   */
+  readonly shareByExtension: Readonly<Record<string, number>>;
+}
+
+/**
+ * Default threshold for the share-based relevance check (R003.1).
+ * Override at runtime with `PEAKS_SCOPE_THRESHOLD=0.05` (env) or
+ * `--threshold 0.05` (CLI).
+ */
+export const SCOPE_THRESHOLD_DEFAULT = 0.05;
+
+/**
+ * Read the threshold from `PEAKS_SCOPE_THRESHOLD` env var, clamped to
+ * [0, 1]. Falls back to SCOPE_THRESHOLD_DEFAULT.
+ */
+export function readScopeThreshold(): number {
+  const raw = process.env['PEAKS_SCOPE_THRESHOLD'];
+  if (raw === undefined || raw === '') return SCOPE_THRESHOLD_DEFAULT;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return SCOPE_THRESHOLD_DEFAULT;
+  if (parsed < 0) return 0;
+  if (parsed > 1) return 1;
+  return parsed;
 }
 
 /** The shape of the always-written source-of-truth file. */

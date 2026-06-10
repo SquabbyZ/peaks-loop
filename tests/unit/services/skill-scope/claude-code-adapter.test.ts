@@ -44,6 +44,7 @@ function fakeConfig(): ScopeConfig {
       nodeEngineMajor: 20,
       topExtensions: ['.ts'],
       hasFileExtension: { ts: true },
+      shareByExtension: { ts: 1.0 },
     },
   };
 }
