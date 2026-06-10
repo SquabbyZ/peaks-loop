@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-10T00:00:00.000Z",
+  "hot": {
+    "feedback": [
+      {
+        "name": "wechat-post-sop-dogfood",
+        "kind": "feedback",
+        "description": "Real-world dogfood of the 公众号发文 SOP. Confirms G4/G5/G6/G7 work end-to-end.",
+        "sourcePath": "C:\\repo\\.peaks\\memory\\wechat-post-sop-dogfood.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-02"
+      },
+      {
+        "name": "coverage-red-line",
+        "kind": "feedback",
+        "description": "When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch.",
+        "sourcePath": "C:\\repo\\.peaks\\memory\\coverage-red-line.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-05-29"
+      }
+    ],
+    "rule": [
+      {
+        "name": "active-skill-cli-routing",
+        "kind": "rule",
+        "description": "Active-skill reads go through the CLI. Do not read the active-skill JSON file directly.",
+        "sourcePath": "C:\\repo\\.peaks\\memory\\active-skill-cli-routing.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-09"
+      }
+    ]
+  },
+  "cold": [
+    {
+      "name": "main-branch-iteration",
+      "kind": "feedback",
+      "description": "For future iterations in this project, do not create worktrees by default; modify directly on the main branch.",
+      "sourcePath": "C:\\repo\\.peaks\\memory\\main-branch-iteration.md",
+      "sourceArtifact": null,
+      "updatedAt": "2026-05-29"
+    },
+    {
+      "name": "peaks-current-directory-scope",
+      "kind": "decision",
+      "description": "peaks-cli scopes its operations to the current directory by default, not the entire filesystem.",
+      "sourcePath": "C:\\repo\\.peaks\\memory\\peaks-current-directory-scope.md",
+      "sourceArtifact": null,
+      "updatedAt": "2026-05-29"
+    }
+  ]
+}
