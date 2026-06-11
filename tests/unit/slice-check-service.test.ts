@@ -82,9 +82,11 @@ function makeProject(): string {
   // Set the current-change binding so the slice check resolves rid.
   mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
   // Symlink current-change → retrospective/2026-06-05-test
-  // Actually we need a real change-id dir; let's just symlink to the dir directly
+  // On Windows, use a 'junction' (directory hard link) which does not
+  // require developer-mode / admin. On POSIX, use a regular 'dir' symlink.
   const { symlinkSync } = require('node:fs');
-  symlinkSync(join(project, '.peaks', rid), join(project, '.peaks', '_runtime', 'current-change'), 'dir');
+  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+  symlinkSync(join(project, '.peaks', rid), join(project, '.peaks', '_runtime', 'current-change'), linkType);
   return project;
 }
 
@@ -132,11 +134,12 @@ describe('sliceCheck', () => {
         'typecheck',
         'unit-tests',
         'review-fanout',
-        'gate-verify-pipeline'
+        'gate-verify-pipeline',
+        'mock-placement'
       ]);
 
-      // 4 stages present, each with a duration
-      expect(result.stages).toHaveLength(4);
+      // 5 stages present, each with a duration
+      expect(result.stages).toHaveLength(5);
       for (const stage of result.stages) {
         expect(stage.durationMs).not.toBeNull();
         expect(stage.detail.length).toBeGreaterThan(0);

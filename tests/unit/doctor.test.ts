@@ -208,18 +208,25 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
       const skillPath = joinPath(skillsDir, name, 'SKILL.md');
       const body = await readFile(skillPath, 'utf8');
       // The self-check `peaks skill runbook <self> --json` may live in
-      // references/runbook.md if the skill extracted its runbook to a
-      // sibling reference (e.g. peaks-solo to keep SKILL.md under the
-      // 800-line cap). Fall back to that file when the inline check is
-      // missing.
+      // references/runbook.md (or `<role>-runbook.md`, used by skills
+      // that extracted the runbook to a sibling reference to keep
+      // SKILL.md under the 800-line cap). Try both candidates.
       let haystack = body;
       if (!haystack.includes(`peaks skill runbook ${name} --json`)) {
-        const refPath = joinPath(skillsDir, name, 'references', 'runbook.md');
-        try {
-          const refBody = await readFile(refPath, 'utf8');
-          haystack = refBody;
-        } catch {
-          // reference file does not exist; fall through to body
+        const candidates = [
+          joinPath(skillsDir, name, 'references', 'runbook.md'),
+          joinPath(skillsDir, name, 'references', `${name.replace(/^peaks-/, '')}-runbook.md`)
+        ];
+        for (const refPath of candidates) {
+          try {
+            const refBody = await readFile(refPath, 'utf8');
+            if (refBody.includes(`peaks skill runbook ${name} --json`)) {
+              haystack = refBody;
+              break;
+            }
+          } catch {
+            // candidate not present; try the next one
+          }
         }
       }
       expect(haystack, `skill ${name} should embed its own runbook self-check (in SKILL.md or references/runbook.md)`).toContain(`peaks skill runbook ${name} --json`);
