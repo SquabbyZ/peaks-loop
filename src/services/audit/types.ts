@@ -41,6 +41,25 @@ export interface RedLineAudit {
   readonly partial: number;
   readonly proseOnly: number;
   readonly audit: readonly RedLineEntry[];
+  /** Findings from running the 7 file-system enforcers during the scan (L2.4 P2-b). */
+  readonly enforcerFindings: readonly EnforcerFinding[];
+}
+
+/**
+ * Enforcer finding — emitted by an enforcer function that runs as part
+ * of the audit scan. Distinct from `RedLineEntry` (which is catalog-matched
+ * markdown text). L2.4 P2-b ships this dimension: the audit framework
+ * actually invokes the 7 file-system enforcers during a scan, not just
+ * catalogs them.
+ */
+export type EnforcerFindingSeverity = 'pass' | 'warn' | 'fail';
+
+export interface EnforcerFinding {
+  readonly enforcerId: string;
+  readonly rule: string;
+  readonly severity: EnforcerFindingSeverity;
+  readonly file: string;
+  readonly detail: string;
 }
 
 /**

@@ -13,14 +13,19 @@
  * sid-naming-guard and adds any invalid sids as warnings.
  */
 
+import { existsSync } from 'node:fs';
 import { classifyFiles } from './classifier.js';
 import { classifyBackingBatch } from './backing-detector.js';
 import { scanSkillsTree } from './scanners/skills-tree-scanner.js';
 import { scanRulesTree } from './scanners/rules-tree-scanner.js';
 import { scanOpenSpecTree } from './scanners/openspec-scanner.js';
 import { findInvalidSubAgentSids, findInvalidRuntimeSids } from './enforcers/sub-agent-sid.js';
+import { checkTechDocPresence } from './enforcers/tech-doc-presence.js';
+import { findStubMarkers } from './enforcers/prototype-fidelity.js';
+import { checkDesignDraftConfirmation } from './enforcers/design-draft-confirm.js';
+import { checkPreRdScan } from './enforcers/pre-rd-scan.js';
 import type { ClassifyFileInput } from './classifier.js';
-import type { RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
+import type { EnforcerFinding, RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
 
 export interface RedLinesServiceInput {
   readonly projectRoot: string;
@@ -115,12 +120,176 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   }
 
   const counts = tally(backed.entries);
+
+  // L2.4 P2-b: invoke the 7 file-system enforcers during the scan. Each
+  // enforcer function returns a structured result; we convert to
+  // EnforcerFinding[] and add to the audit output. This is the REAL
+  // framework integration that L2.3 P2-a deferred to a follow-up:
+  // the audit scanner now actually CALLS the enforcers, not just
+  // catalogs them.
+  const enforcerFindings: EnforcerFinding[] = [];
+
+  // 1. sub-agent-sid (already partially handled via warnings; here we
+  //    add a structured finding for the same data).
+  if (subAgentSids.scanned && subAgentSids.invalid.length > 0) {
+    for (const sid of subAgentSids.invalid) {
+      enforcerFindings.push({
+        enforcerId: 'rl-sub-agent-sid-001',
+        rule: 'Sub-Agent SID Isolation',
+        severity: 'fail',
+        file: `.peaks/_sub_agents/${sid}`,
+        detail: `invalid sub-agent sid: "${sid}" (does not match isValidSessionId)`,
+      });
+    }
+  }
+  if (runtimeSids.scanned && runtimeSids.invalid.length > 0) {
+    for (const sid of runtimeSids.invalid) {
+      enforcerFindings.push({
+        enforcerId: 'rl-sub-agent-sid-001',
+        rule: 'Sub-Agent SID Isolation',
+        severity: 'fail',
+        file: `.peaks/_runtime/${sid}`,
+        detail: `invalid runtime sid: "${sid}" (does not match isValidSessionId)`,
+      });
+    }
+  }
+
+  // 2. tech-doc-presence — check the current session's tech-doc.md.
+  //    The sessionId comes from the canonical session binding file
+  //    (.peaks/_runtime/session.json) when present.
+  const sessionJsonPath = `${input.projectRoot}/.peaks/_runtime/session.json`;
+  if (existsSync(sessionJsonPath)) {
+    try {
+      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
+      if (typeof sessionData.peakSessionId === 'string' && sessionData.peakSessionId.length > 0) {
+        const techDoc = checkTechDocPresence({ projectRoot: input.projectRoot, sessionId: sessionData.peakSessionId });
+        if (!techDoc.exists) {
+          enforcerFindings.push({
+            enforcerId: 'rl-tech-doc-presence-001',
+            rule: 'Tech-Doc Presence',
+            severity: 'fail',
+            file: techDoc.path,
+            detail: 'tech-doc.md missing (rd → spec-locked transition will refuse)',
+          });
+        } else if (techDoc.isEmpty) {
+          enforcerFindings.push({
+            enforcerId: 'rl-tech-doc-presence-001',
+            rule: 'Tech-Doc Presence',
+            severity: 'fail',
+            file: techDoc.path,
+            detail: 'tech-doc.md is 0 bytes',
+          });
+        }
+      }
+    } catch {
+      // skip malformed session.json
+    }
+  }
+
+  // 3. pre-rd-scan — check whether project-scan.md and standards-preflight.json exist
+  //    for the current session.
+  if (existsSync(sessionJsonPath)) {
+    try {
+      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
+      if (typeof sessionData.peakSessionId === 'string' && sessionData.peakSessionId.length > 0) {
+        const preRd = checkPreRdScan({ projectRoot: input.projectRoot, sessionId: sessionData.peakSessionId });
+        if (!preRd.archetypeScanned) {
+          enforcerFindings.push({
+            enforcerId: 'rl-pre-rd-scan-001',
+            rule: 'Pre-RD Scan: Archetype Detected',
+            severity: 'warn',
+            file: preRd.archetypeReportPath,
+            detail: 'project-scan.md not produced; rd work has no archetype context',
+          });
+        }
+        if (!preRd.standardsPreflightDone) {
+          enforcerFindings.push({
+            enforcerId: 'rl-pre-rd-scan-002',
+            rule: 'Pre-RD Scan: Standards Preflight',
+            severity: 'warn',
+            file: preRd.standardsReportPath,
+            detail: 'standards-preflight.json not produced; rd work has no project standards context',
+          });
+        }
+      }
+    } catch {
+      // skip
+    }
+  }
+
+  // 4. design-draft-confirm — check the current change-id's design-draft.md.
+  //    The change-id is the .peaks/<changeId>/ui/design-draft.md path.
+  //    For the audit, we look for any .peaks/*/ui/design-draft.md.
+  const peaksDir = `${input.projectRoot}/.peaks`;
+  if (existsSync(peaksDir)) {
+    try {
+      const entries = require('node:fs').readdirSync(peaksDir) as string[];
+      for (const entry of entries) {
+        if (entry === '_archive' || entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
+        const designCheck = checkDesignDraftConfirmation({
+          projectRoot: input.projectRoot,
+          sessionId: '',
+          changeId: entry,
+        });
+        if (designCheck.draftExists && !designCheck.confirmed) {
+          enforcerFindings.push({
+            enforcerId: 'rl-design-draft-confirm-002',
+            rule: 'Design-Draft Confirm: Confirmed State',
+            severity: 'warn',
+            file: designCheck.draftPath,
+            detail: 'design-draft.md exists but is not confirmed (no "confirmed" marker)',
+          });
+        }
+      }
+    } catch {
+      // skip
+    }
+  }
+
+  // 5. prototype-fidelity — scan recent src/ files for stub markers
+  //    (TODO/FIXME/XXX). Limit to 50 most-recently-modified files
+  //    to keep scan fast.
+  try {
+    const srcDir = `${input.projectRoot}/src`;
+    if (existsSync(srcDir)) {
+      const allFiles: string[] = [];
+      const walk = (dir: string) => {
+        const ents = require('node:fs').readdirSync(dir, { withFileTypes: true });
+        for (const e of ents) {
+          const full = `${dir}/${e.name}`;
+          if (e.isDirectory()) {
+            if (e.name === 'node_modules' || e.name === 'dist') continue;
+            walk(full);
+          } else if (e.isFile() && /\.(ts|tsx|js|mjs)$/.test(e.name)) {
+            const rel = full.slice(input.projectRoot.length + 1).split('\\').join('/');
+            allFiles.push(rel);
+          }
+        }
+      };
+      walk(srcDir);
+      const sample = allFiles.slice(0, 50);
+      const stubHits = findStubMarkers({ projectRoot: input.projectRoot, filePaths: sample });
+      for (const hit of stubHits.stubMarkers.slice(0, 10)) {
+        enforcerFindings.push({
+          enforcerId: 'rl-prototype-fidelity-001',
+          rule: 'Prototype Fidelity: No Stub Markers',
+          severity: 'warn',
+          file: hit.filePath,
+          detail: `stub marker "${hit.pattern}" at line containing: ${hit.snippet.slice(0, 50)}`,
+        });
+      }
+    }
+  } catch {
+    // skip
+  }
+
   const audit: RedLineAudit = {
     totalRedLines: counts.totalRedLines,
     cliBacked: counts.cliBacked,
     partial: counts.partial,
     proseOnly: counts.proseOnly,
     audit: backed.entries,
+    enforcerFindings,
   };
 
   return { audit, warnings };

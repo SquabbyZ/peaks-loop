@@ -53,7 +53,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     if (!validation.ok) {
       printResult(
         io,
-        fail<RedLineAudit>('audit.red-lines', validation.code, validation.message, { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [] }, ['Verify the project path exists and is a directory']),
+        fail<RedLineAudit>('audit.red-lines', validation.code, validation.message, { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [], enforcerFindings: [] }, ['Verify the project path exists and is a directory']),
         options.json
       );
       process.exitCode = 1;
@@ -74,7 +74,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
     } catch (error) {
       printResult(
         io,
-        fail<RedLineAudit>('audit.red-lines', 'SCANNER_FAILED', getErrorMessage(error), { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [] }, ['Inspect scanner logs and re-run with the same --project path']),
+        fail<RedLineAudit>('audit.red-lines', 'SCANNER_FAILED', getErrorMessage(error), { totalRedLines: 0, cliBacked: 0, partial: 0, proseOnly: 0, audit: [], enforcerFindings: [] }, ['Inspect scanner logs and re-run with the same --project path']),
         options.json
       );
       process.exitCode = 1;
