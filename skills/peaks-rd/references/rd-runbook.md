@@ -1,4 +1,4 @@
-# Default runbook (RD)
+## Default runbook (RD)
 
 > Body of `## Default runbook` + numbered runbook steps #0–#8. The default sequence the RD skill should execute for a code-touching request. Skip steps that do not apply to the request type; do not skip the artifact, coverage gate, or red-line scope steps.
 

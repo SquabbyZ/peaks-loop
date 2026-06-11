@@ -54,4 +54,6 @@ export function _resetAdaptersForTesting(): void {
   (ADAPTERS as Map<IdeId, IdeAdapter>).clear();
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('claude-code', CLAUDE_CODE_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('trae', TRAE_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('hermes', HERMES_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('openclaw', OPENCLAW_ADAPTER);
 }

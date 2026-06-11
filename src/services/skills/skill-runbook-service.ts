@@ -1,4 +1,5 @@
 import { dirname, join } from 'node:path';
+import * as path from 'node:path';
 import { readText } from '../../shared/fs.js';
 import { loadSkillRegistry } from './skill-registry.js';
 
@@ -26,8 +27,24 @@ export type SkillRunbookInspection = {
 };
 
 function extractRunbookSection(body: string): string | null {
-  const match = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body);
-  return match === null ? null : match[1]!;
+  // Find a `## Default runbook` heading at the start of a line, then capture
+  // the section body up to the next `## ` heading or end of input.
+  //
+  // Implementation note: we avoid a regex with a multiline `(?=\n## |$)`
+  // lookahead because the `m` flag turns `$` into "end of any line" in
+  // JavaScript, which would let the lazy capture stop at the first `\n`.
+  // Instead, we (a) use the regex only to locate the heading, then (b)
+  // manually scan forward for the next `## ` heading or end of input.
+  const headingRe = /^## Default runbook[^\n]*(?:\n|$)/m;
+  const headingMatch = headingRe.exec(body);
+  if (headingMatch === null) return null;
+  const startAfter = headingMatch.index + headingMatch[0].length;
+  const rest = body.slice(startAfter);
+  // Find the next `## ` heading at the start of a line.
+  const nextHeadingRe = /^## /m;
+  const nextMatch = nextHeadingRe.exec(rest);
+  const end = nextMatch === null ? rest.length : nextMatch.index;
+  return rest.slice(0, end);
 }
 
 /**
@@ -47,14 +64,29 @@ function extractRunbookSection(body: string): string | null {
  */
 async function loadRunbookSection(skillPath: string, body: string): Promise<string | null> {
   const inline = extractRunbookSection(body);
-  const refPath = join(dirname(skillPath), 'references', 'runbook.md');
-  let refSection: string | null = null;
-  try {
-    const refBody = await readText(refPath);
-    refSection = extractRunbookSection(refBody);
-  } catch {
-    // reference file does not exist or is not readable
+  const skillDir = dirname(skillPath);
+  // Try multiple reference filenames. Convention: each skill may name its
+  // runbook file `runbook.md` (the generic name, used by peaks-solo), or
+  // `<role>-runbook.md` (the role-suffixed name, used by peaks-rd → rd-runbook.md,
+  // peaks-qa → qa-runbook.md, etc.). Prefer the longest extracted section.
+  const refCandidates = [
+    join(skillDir, 'references', 'runbook.md'),
+    join(skillDir, 'references', `${path.basename(skillDir).replace(/^peaks-/, '')}-runbook.md`)
+  ];
+  let bestRef: string | null = null;
+  for (const refPath of refCandidates) {
+    try {
+      const refBody = await readText(refPath);
+      const refSection = extractRunbookSection(refBody);
+      if (refSection === null) continue;
+      if (bestRef === null || refSection.length > bestRef.length) {
+        bestRef = refSection;
+      }
+    } catch {
+      // candidate not present or unreadable; try the next one
+    }
   }
+  const refSection = bestRef;
   if (inline === null) return refSection;
   if (refSection === null) return inline;
   return inline.length >= refSection.length ? inline : refSection;

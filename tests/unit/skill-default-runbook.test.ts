@@ -22,8 +22,22 @@ const ORCHESTRATOR_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
 ];
 
 function extractRunbookSection(body: string): string | null {
-  const match = /## Default runbook\n+([\s\S]*?)(?=\n## |$)/.exec(body);
-  return match === null ? null : (match[1] ?? null);
+  // Find a `## Default runbook` heading at the start of a line, then capture
+  // the section body up to the next `## ` heading or end of input.
+  //
+  // We avoid a `(?=\n## |$)` lookahead because the `m` flag turns `$` into
+  // "end of any line", which would let the lazy capture stop at the first
+  // newline. Instead, locate the heading with the regex, then manually scan
+  // forward for the next `## ` heading or end of input.
+  const headingRe = /^## Default runbook[^\n]*(?:\n|$)/m;
+  const headingMatch = headingRe.exec(body);
+  if (headingMatch === null) return null;
+  const startAfter = headingMatch.index + headingMatch[0].length;
+  const rest = body.slice(startAfter);
+  const nextHeadingRe = /^## /m;
+  const nextMatch = nextHeadingRe.exec(rest);
+  const end = nextMatch === null ? rest.length : nextMatch.index;
+  return rest.slice(0, end);
 }
 
 /**
@@ -40,14 +54,26 @@ function extractRunbookSection(body: string): string | null {
  */
 async function loadRunbookSection(skillName: string, body: string): Promise<string> {
   const inline = extractRunbookSection(body);
-  const refPath = join(SKILLS_ROOT, skillName, 'references', 'runbook.md');
-  let refSection: string | null = null;
-  try {
-    const refBody = await readFile(refPath, 'utf8');
-    refSection = extractRunbookSection(refBody);
-  } catch {
-    // reference file does not exist or is not readable
+  // Try multiple reference filenames: `runbook.md` (generic) and
+  // `<role>-runbook.md` (role-suffixed; e.g. `rd-runbook.md` for peaks-rd).
+  const refCandidates = [
+    join(SKILLS_ROOT, skillName, 'references', 'runbook.md'),
+    join(SKILLS_ROOT, skillName, 'references', `${skillName.replace(/^peaks-/, '')}-runbook.md`)
+  ];
+  let bestRef: string | null = null;
+  for (const refPath of refCandidates) {
+    try {
+      const refBody = await readFile(refPath, 'utf8');
+      const refSection = extractRunbookSection(refBody);
+      if (refSection === null) continue;
+      if (bestRef === null || refSection.length > bestRef.length) {
+        bestRef = refSection;
+      }
+    } catch {
+      // candidate not present; try the next one
+    }
   }
+  const refSection = bestRef;
   if (inline === null) return refSection ?? '';
   if (refSection === null) return inline;
   return inline.length >= refSection.length ? inline : refSection;

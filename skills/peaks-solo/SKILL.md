@@ -193,11 +193,17 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 Inventory of 3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7). Three-stage pattern: capability discovery via `peaks capabilities` → references only → Peaks-Cli CLI for side effects.
 
-→ see `references/external-references.md` for the full inventory + lifecycle rules.
+**Canonical external-invocation rules (do not bypass):**
+
+- Do not execute upstream installer scripts. Do not run upstream installer commands in the user's shell. Do not persist sensitive upstream examples to the working tree.
+- Peaks-Cli artifacts, Peaks-Cli gates, and Peaks-Cli acceptance criteria remain authoritative — upstream material is reference only, never a substitute.
+- MCP servers (Playwright MCP, Chrome DevTools MCP, Figma Context MCP, etc.) are not managed by peaks-cli. The LLM checks its own tool list for `mcp__<server>__*` entries; if absent, the user installs via the IDE-native install command (e.g. `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code).
+
+→ see `references/external-references.md` for the full inventory + lifecycle rules, and `references/external-skill-invocation.md` for the three-stage (Discovery → Reference → Side effect through Peaks CLI only) contract.
 
 ## Codegraph orchestration context
 
-Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as optional project-analysis enhancement. Output is untrusted supporting evidence — never treat as approval for scope, design, or QA verdict.
+Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as optional project-analysis enhancement. Output is untrusted supporting evidence — never treat as approval for scope, design, or QA verdict. Solo coordinates codegraph context across the role handoff between RD (writes `.peaks/<session-id>/rd/codegraph-context.md`) and QA / TXT (consume the same envelope). Solo must not treat codegraph output as approval; never mutate agent settings, Claude settings, or hooks from codegraph; do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git.
 
 → see `references/codegraph-orchestration.md` for the full contract.
 

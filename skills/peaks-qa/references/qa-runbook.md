@@ -1,4 +1,4 @@
-# Default runbook (QA)
+## Default runbook (QA)
 
 > Body of `## Default runbook` + numbered runbook steps #0–#9. The default sequence the QA skill should execute. Do not skip the boundary check, the unit test gate, the validation report, or — when frontend is in scope — the Playwright MCP browser gate.
 
