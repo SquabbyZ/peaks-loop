@@ -32,6 +32,7 @@ import { registerAuditCommands } from './commands/audit-commands.js';
 import { registerClassifyCommands } from './commands/classify-classify-commands.js';
 import { registerContextCommands } from './commands/context-commands.js';
 import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
+import { registerLoopCommands } from './commands/loop-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -129,6 +130,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // dispatch / verify / loop) are added inline in workflow-commands.ts
  // alongside the existing swarm.plan. This avoids the duplicate top-level
  // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
+ // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
+ registerLoopCommands(program, io);
 
  return program;
 }
