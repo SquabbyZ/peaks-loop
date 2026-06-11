@@ -6,6 +6,8 @@ import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRe
 import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
 import { archiveOpenSpecChange, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
 import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
+import { proposeFromDoctor, type DoctorFinding } from '../../services/openspec/openspec-propose-from-doctor-service.js';
+import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -284,6 +286,63 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       printResult(
         io,
         fail('openspec.init', 'OPENSPEC_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is writable']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice L3.3: from-doctor — auto-generate an OpenSpec change record
+  // (proposal.md) from a doctor finding. The LLM then reviews + edits
+  // the draft before peaks openspec validate will accept it.
+  type FromDoctorOptions = {
+    project: string;
+    checkId: string;
+    json?: boolean;
+  };
+  addJsonOption(
+    openspec
+      .command('from-doctor')
+      .description('Slice L3.3: generate an OpenSpec change draft (proposal.md) from a peaks doctor finding')
+      .requiredOption('--project <path>', 'target project root')
+      .requiredOption('--check-id <id>', 'the doctor check id to draft from (e.g. L3:l3-memory-health)')
+  ).action(async (options: FromDoctorOptions) => {
+    try {
+      const report = await runDoctor();
+      const finding = report.checks.find((c) => c.id === options.checkId);
+      if (finding === undefined) {
+        printResult(
+          io,
+          fail('openspec.from-doctor', 'CHECK_NOT_FOUND', `No doctor check with id "${options.checkId}"`, { availableIds: report.checks.map((c) => c.id) }, ['Run peaks doctor --json to list available check ids']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (finding.ok) {
+        printResult(
+          io,
+          fail('openspec.from-doctor', 'CHECK_ALREADY_PASSING', `Doctor check "${options.checkId}" is already passing; nothing to draft`, { checkId: options.checkId }, ['Pick a failing check from peaks doctor --json']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const doctorFinding: DoctorFinding = {
+        id: finding.id,
+        rule: (finding as unknown as { rule?: string }).rule ?? finding.id,
+        detail: finding.message,
+        severity: 'fail',
+      };
+      const result = proposeFromDoctor({ projectRoot: options.project, finding: doctorFinding });
+      printResult(io, ok('openspec.from-doctor', result, [], [
+        `draft proposal written to ${result.proposalPath}`,
+        'Review + edit the draft, then run `peaks openspec validate <id>`',
+      ]), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('openspec.from-doctor', 'OPENSPEC_FROM_DOCTOR_FAILED', getErrorMessage(error), { projectRoot: options.project, checkId: options.checkId }, ['Verify the project path and the check id']),
         options.json
       );
       process.exitCode = 1;
