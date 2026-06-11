@@ -95,8 +95,6 @@ export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([
   'rl-solo-code-ban-001',
   // Task 6: no-root-pollution — needs PreToolUse Write/Edit wiring
   'rl-no-root-pollution-001',
-  // Task 4: mock-placement — needs slice check 5th-item wiring
-  'rl-mock-placement-001',
 ]);
 
 /**

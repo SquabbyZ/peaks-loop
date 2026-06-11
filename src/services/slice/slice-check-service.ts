@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory, pathExists } from '../../shared/fs.js';
 import { getCurrentChangeId } from '../../shared/change-id.js';
 import { verifyPipeline } from '../workflow/pipeline-verify-service.js';
+import { findMockViolations } from '../audit/enforcers/mock-placement.js';
 import type { SliceCheckOptions, SliceCheckResult, SliceCheckStage } from './slice-check-types.js';
 
 interface RunResult {
@@ -303,6 +304,12 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   // Stage 4: gate verify-pipeline
   stages.push(await runGateVerifyPipeline(options.projectRoot, rid, rid));
 
+  // Stage 5: mock-placement (L2.1 P0 #5) — refuse inline mock data in src/ or skills/.
+  // Lifts changed files via `git diff --name-only HEAD`; falls back to a
+  // warning when the diff is empty (e.g. a fresh tree). Lighter than the
+  // full `peaks scan diff-vs-scope` and keeps the slice check self-contained.
+  stages.push(await runMockPlacement(options.projectRoot));
+
   const boundaryReady = stages.every((s) => s.status === 'pass' || s.status === 'skipped');
 
   const nextActions: string[] = [];
@@ -324,5 +331,55 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     boundaryReady,
     totalDurationMs: Date.now() - totalStart,
     nextActions
+  };
+}
+
+async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
+  const start = Date.now();
+  // List changed files via git. `--name-only` produces one path per line;
+  // we filter to text files in scope and read each.
+  const diffResult = runCommand('git', ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], projectRoot, 30_000);
+  if (diffResult.status !== 'pass') {
+    return {
+      name: 'mock-placement',
+      description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+      status: 'skipped',
+      durationMs: Date.now() - start,
+      detail: 'git diff failed or returned no changed files; mock-placement scan skipped.'
+    };
+  }
+  const changed = diffResult.stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (changed.length === 0) {
+    return {
+      name: 'mock-placement',
+      description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+      status: 'skipped',
+      durationMs: Date.now() - start,
+      detail: 'no changed files in HEAD diff; mock-placement scan skipped.'
+    };
+  }
+  const files = changed
+    .filter((p) => p.startsWith('src/') || p.startsWith('skills/'))
+    .filter((p) => p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js') || p.endsWith('.mjs'))
+    .map((filePath) => {
+      const abs = join(projectRoot, filePath);
+      if (!existsSync(abs)) return null;
+      const content = readFileSync(abs, 'utf-8');
+      return { filePath, content };
+    })
+    .filter((f): f is { filePath: string; content: string } => f !== null);
+  const violations = findMockViolations(files);
+  return {
+    name: 'mock-placement',
+    description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+    status: violations.length === 0 ? 'pass' : 'fail',
+    durationMs: Date.now() - start,
+    detail: violations.length === 0
+      ? `Scanned ${files.length} changed file(s); no inline mock data found.`
+      : `${violations.length} violation(s): ${violations.map((v) => `${v.filePath} (${v.snippet})`).join('; ')}`,
+    data: { scannedFiles: files.length, violations: violations.map((v) => ({ filePath: v.filePath, pattern: v.pattern, snippet: v.snippet })) }
   };
 }
