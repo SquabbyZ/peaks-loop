@@ -961,6 +961,28 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     throw new PrerequisitesNotSatisfiedError(options.role, options.newState, existing.sessionId, prerequisiteResult.missing);
   }
 
+  // L2.1 P0 red line #4: tech-doc-presence. The rd → spec-locked transition
+  // is refused if `rd/tech-doc.md` is missing or empty. This is a machine-
+  // enforced gate that backs the "MANDATORY tech-doc before spec-locked"
+  // prose in the redesign spec §5.4.
+  if (options.role === 'rd' && options.newState === 'spec-locked' && options.allowIncomplete !== true) {
+    const { checkTechDocPresence, TECH_DOC_MISSING_CODE, TECH_DOC_MISSING_MESSAGE } = await import(
+      '../audit/enforcers/tech-doc-presence.js'
+    );
+    const techDoc = checkTechDocPresence({
+      projectRoot: options.projectRoot,
+      sessionId: existing.sessionId,
+    });
+    if (!techDoc.exists || techDoc.isEmpty) {
+      throw new PrerequisitesNotSatisfiedError(
+        options.role,
+        options.newState,
+        existing.sessionId,
+        [{ path: techDoc.path, description: `${TECH_DOC_MISSING_CODE}: ${TECH_DOC_MISSING_MESSAGE}` }],
+      );
+    }
+  }
+
   // Type sanity check for PRD handoff
   if (options.typeSanityCheck !== undefined && options.role === 'prd' && options.newState === 'handed-off') {
     const sanityReport = checkTypeSanity({
