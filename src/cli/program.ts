@@ -28,6 +28,7 @@ import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
+import { registerAuditCommands } from './commands/audit-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -113,6 +114,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerUnderstandCommands(program, io);
  registerWorkspaceCommands(program, io);
  registerWorkflowPlanCommands(program, io);
+ // Slice L2.1: peaks audit * — red-line audit framework.
+ registerAuditCommands(program, io);
 
  return program;
 }

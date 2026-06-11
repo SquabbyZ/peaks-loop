@@ -30,7 +30,7 @@ export type SliceCheckStageStatus = 'pass' | 'fail' | 'skipped';
 
 export type SliceCheckStage = {
   /** Stable id for the stage (matches the runbook's check list). */
-  name: 'typecheck' | 'unit-tests' | 'review-fanout' | 'gate-verify-pipeline';
+  name: 'typecheck' | 'unit-tests' | 'review-fanout' | 'gate-verify-pipeline' | 'mock-placement';
   /** Human-readable description. */
   description: string;
   status: SliceCheckStageStatus;

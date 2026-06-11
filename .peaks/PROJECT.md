@@ -2,16 +2,17 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-10T16:25:38.012Z
+> Last updated: 2026-06-11T03:29:50.768Z
 
 ## Project: peaks-cli
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (5 sessions)
+## Timeline (6 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-06-11 | `2026-06-11-session-f0312d` | Slice #4 L2.1 P0 red-lines + audit 框架 | 1. **Solo-code-ban** — pre-implementation gate that refuses `git commi |
 | 2026-06-10 | `2026-06-10-session-6bcac7` | Fuzzy Matching: implement spec into proj | > **Implementation contract**: peaks-rd implements strictly per the sp |
 | 2026-06-10 | `2026-06-10-session-265ca1` | Untitled | peaks-solo |
 | 2026-06-09 | `2026-06-10-session-c4a2be` | 熟悉项目状态review | <!-- peaks-managed:prd-start --> |

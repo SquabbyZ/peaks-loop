@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-10T16:25:24.006Z",
+  "updatedAt": "2026-06-11T03:29:46.513Z",
   "hot": {
     "feedback": [
       {
@@ -136,12 +136,36 @@
     ],
     "rule": [
       {
+        "name": "jsdoc-breaks-on-glob-literals-in-tsc",
+        "kind": "rule",
+        "description": "JSDoc comments (within ) that contain markdown glob patterns like  or  are mis-parsed by tsc as bold/italic.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\jsdoc-breaks-on-glob-literals-in-tsc.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
+        "updatedAt": "2026-06-11"
+      },
+      {
+        "name": "openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes",
+        "kind": "rule",
+        "description": "The OpenSpec parser () requires exact Title Case section names (, , , , ) and plain  bullets.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
+        "updatedAt": "2026-06-11"
+      },
+      {
         "name": "peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first",
         "kind": "rule",
         "description": "In peaks-cli, each top-level command (, , etc.) is registered in exactly one place.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
         "updatedAt": "2026-06-10"
+      },
+      {
+        "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
+        "kind": "rule",
+        "description": "For multi-commit enforcer delivery (source shipped first, integration wired in a follow-up commit), use a  set in the...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\staged-enforcer-delivery-via-deferred-enforcers-set.md",
+        "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
+        "updatedAt": "2026-06-11"
       },
       {
         "name": "sub-agent-context-minimal-occupation",
