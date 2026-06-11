@@ -16,14 +16,57 @@ interface RunResult {
   durationMs: number;
 }
 
-function runCommand(command: string, args: string[], cwd: string, timeoutMs: number): RunResult {
+interface ResolvedCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly shell: boolean;
+}
+
+/**
+ * Resolve a CLI binary to a project-local path, falling back to
+ * the system `npx`. pnpm (and npm/yarn) all create
+ * `node_modules/.bin/<name>`:
+ *
+ *   - On Unix, this is a symlink to the package's executable.
+ *   - On Windows, this is a `.cmd` shim; `execFileSync` only
+ *     resolves `.cmd` through the shell (PATHEXT), so we pass
+ *     `shell: true` when invoking one. Without this, the
+ *     Windows `npx ENOENT` false-positive from
+ *     observations 2317 + 2792 reproduces for every local
+ *     binary.
+ *
+ * Returns the command + args + a `shell` flag that the
+ * `runCommand` helper threads into `execFileSync`.
+ */
+function resolveLocalBinary(projectRoot: string, name: string): ResolvedCommand {
+  // pnpm creates `node_modules/.bin/<name>` (symlink on Unix,
+  // `.cmd` shim on Windows). We probe both shapes; the
+  // `process.platform === 'win32'` extension probe is the most
+  // portable approach.
+  const isWin = process.platform === 'win32';
+  const candidateNames = isWin ? [`${name}.cmd`, `${name}.ps1`, `${name}`] : [name];
+  for (const candidate of candidateNames) {
+    const cmdPath = join(projectRoot, 'node_modules', '.bin', candidate);
+    if (existsSync(cmdPath)) {
+      return { command: cmdPath, args: [], shell: isWin };
+    }
+  }
+  // Fallback: system npx. On Windows this still has the ENOENT
+  // issue, but the fallback is at least informative when it
+  // fires (the user can see "npx not found" instead of a
+  // silent exit 1).
+  return { command: 'npx', args: [name], shell: false };
+}
+
+function runCommand(command: string, args: string[], cwd: string, timeoutMs: number, shell: boolean = false): RunResult {
   const start = Date.now();
   try {
     const stdout = execFileSync(command, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: 32 * 1024 * 1024
+      maxBuffer: 32 * 1024 * 1024,
+      shell
     }).toString('utf8');
     return {
       status: 'pass',
@@ -53,11 +96,17 @@ function tailLines(text: string, max: number): string {
 
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
-  const result = runCommand('npx', ['tsc', '--noEmit'], projectRoot, 180_000);
+  // Per Windows npx ENOENT (observations 2317+2792 from
+  // 2026-06-09), prefer the project-local `node_modules/.bin/tsc`
+  // (symlink on Unix, .cmd on Windows). The local binary is
+  // installed by pnpm at workspace-install time and avoids the
+  // npx PATH-lookup issue.
+  const tsc = resolveLocalBinary(projectRoot, 'tsc');
+  const result = runCommand(tsc.command, [...tsc.args, '--noEmit'], projectRoot, 180_000, tsc.shell);
   const testFiles = result.stdout.match(/(tests?\/.*\.test\.ts)/g) ?? [];
   return {
     name: 'typecheck',
-    description: 'npx tsc --noEmit (no JS emit, type-only check)',
+    description: `${tsc.command} --noEmit (no JS emit, type-only check)`,
     status: result.status,
     durationMs: result.durationMs,
     detail: result.status === 'pass'
@@ -99,13 +148,17 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   // state. Opt-in to the full suite via `runTests: true` (CLI flag
   // `--run-tests`). See `references/runbook.md` for the rationale and
   // `tests/unit/slice-check-service.test.ts` for the regression net.
-  const args: string[] = runTests
-    ? ['vitest', 'run', '--reporter=default', '--coverage=false']
-    : ['vitest', 'run', '--changed', '--reporter=default', '--coverage=false'];
+  // Per Windows npx ENOENT (observations 2317+2792), resolve
+  // the project-local vitest binary instead of shelling out
+  // through npx.
+  const vitest = resolveLocalBinary(projectRoot, 'vitest');
+  const vitestArgs: string[] = runTests
+    ? ['run', '--reporter=default', '--coverage=false']
+    : ['run', '--changed', '--reporter=default', '--coverage=false'];
   const description = runTests
-    ? 'npx vitest run (full test suite, coverage off)'
-    : 'npx vitest run --changed (tests for git-changed files only, coverage off)';
-  const result = runCommand('npx', args, projectRoot, 600_000);
+    ? `${vitest.command} run (full test suite, coverage off)`
+    : `${vitest.command} run --changed (tests for git-changed files only, coverage off)`;
+  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, 600_000, vitest.shell);
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.
@@ -266,7 +319,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   if (options.skipTests) {
     stages.push({
       name: 'unit-tests',
-      description: 'npx vitest run (skipped per --skip-tests)',
+      description: 'vitest run (skipped per --skip-tests)',
       status: 'skipped',
       durationMs: 0,
       detail: 'Skipped: --skip-tests was set. Use the peaks-solo-test skill to run the full suite manually.'
@@ -286,7 +339,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       const failureCount = (unitTests.data?.failed as number | undefined) ?? 0;
       stages.push({
         name: 'unit-tests',
-        description: `npx vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
+        description: `vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
         status: 'skipped',
         durationMs: unitTests.durationMs,
         detail: `pre-existing failures: ${failureCount} failing test(s) under coverage.exclude or unrelated to this slice; user opted in via --allow-pre-existing-failures. For the long-term fix, mark these tests .skip or move to coverage.exclude (see dogfood-2-f1-f4.md F17c).`,
