@@ -11,6 +11,7 @@ import { listProfiles } from '../../services/profiles/profile-service.js';
 import { planProxyTest } from '../../services/proxy/proxy-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
 import { listSkills } from '../../services/skills/skill-registry.js';
+import { runSkillSync, SYNC_PLATFORMS } from '../../services/skills/sync-service.js';
 import { inspectSkillRunbook } from '../../services/skills/skill-runbook-service.js';
 import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../services/skills/skill-presence-service.js';
 import { detectPresenceMarker } from '../../services/hooks/presence-marker-detector.js';
@@ -90,6 +91,50 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
       process.exitCode = 1;
     }
   });
+  // Slice #12 final piece (per spec §9 line 1105):
+  // `peaks skills sync 8 平台分发`. Idempotent: re-running is a
+  // no-op when the symlinks are already correct.
+  addJsonOption(
+    skill
+      .command('sync')
+      .description(
+        `Sync the peaks-* skill family to one or all of the 8 supported LLM-CLI platforms (${SYNC_PLATFORMS.join(', ')}). Idempotent.`
+      )
+      .option('--platform <id>', `sync only one platform (default: --all). Valid: ${SYNC_PLATFORMS.join(', ')}`)
+      .option('--all', 'sync all 8 platforms (default if --platform is omitted)')
+      .option('--dry-run', 'do not write; emit the same shape with applied=false')
+      .option('--project <path>', 'project root (default: cwd)')
+  ).action(async (options: { platform?: string; all?: boolean; dryRun?: boolean; project?: string; json?: boolean }) => {
+    try {
+      const projectRoot = options.project ?? process.cwd();
+      const platforms = options.platform !== undefined ? [options.platform as never] : undefined;
+      const result = await runSkillSync({
+        projectRoot,
+        ...(platforms !== undefined ? { platforms } : {}),
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+      });
+      const envelope = ok('skill.sync', result, [], [
+        `syncedCount: ${result.syncedCount}/${result.perPlatform.length} platforms`,
+        `totalInstalled: ${result.totalInstalled} skill symlinks`,
+        result.failedCount > 0
+          ? `failedCount: ${result.failedCount} (run \`peaks skill status\` for details)`
+          : 'no failures',
+      ]);
+      printResult(io, envelope, options.json);
+      if (result.failedCount > 0) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      printResult(
+        io,
+        fail('skill.sync', 'SKILL_SYNC_FAILED', message, { applied: false }, [message]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
   addJsonOption(
     skill
       .command('runbook <name>')
