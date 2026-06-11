@@ -31,6 +31,7 @@ import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.
 import { registerAuditCommands } from './commands/audit-commands.js';
 import { registerClassifyCommands } from './commands/classify-classify-commands.js';
 import { registerContextCommands } from './commands/context-commands.js';
+import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -122,6 +123,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerClassifyCommands(program, io);
  // Slice #3: peaks context * — L1c context 4-layer loader.
  registerContextCommands(program, io);
+ // Slice #12: peaks skills:audit-conformance — skill family alignment pass.
+ registerSkillConformanceCommands(program, io);
 
  return program;
 }
