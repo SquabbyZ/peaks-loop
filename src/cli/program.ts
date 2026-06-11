@@ -33,6 +33,7 @@ import { registerClassifyCommands } from './commands/classify-classify-commands.
 import { registerContextCommands } from './commands/context-commands.js';
 import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
 import { registerLoopCommands } from './commands/loop-commands.js';
+import { registerAgentCommands } from './commands/agent-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -132,6 +133,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
  // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
  registerLoopCommands(program, io);
+ // Slice: ECC 64 agents soft-optional (per spec §7.2 line 818).
+ registerAgentCommands(program, io);
 
  return program;
 }
