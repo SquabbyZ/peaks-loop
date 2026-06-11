@@ -13,15 +13,32 @@ const workflowGatesRef = readFileSync(
   'utf8',
 );
 
+// Extract a markdown section by heading, scanning forward manually
+// rather than relying on a `(?=\n## |\Z)` lookahead. Under the `m`
+// flag, `$` matches end-of-line, which would let the lazy capture
+// stop at the first newline. This helper does a non-regex
+// forward-scan for the next `## ` heading and is stable on every
+// platform. The returned body starts AFTER the heading line (not
+// the heading substring) so the test can find sub-agent names that
+// live in the body, not in the heading line's parenthetical
+// suffix.
+function extractSection(body: string, heading: string): string {
+  const start = body.indexOf(heading);
+  if (start < 0) return '';
+  const afterHeading = start + heading.length;
+  // Skip to the end of the heading line, then past the trailing
+  // newlines, so the section body starts on its first content line.
+  const lineEnd = body.indexOf('\n', afterHeading);
+  if (lineEnd < 0) return '';
+  const rest = body.slice(lineEnd + 1);
+  const nextHeading = rest.search(/^## /m);
+  return nextHeading < 0 ? rest : rest.slice(0, nextHeading);
+}
+
 describe('4-way parallel fan-out (slice 004)', () => {
   describe('peaks-rd/SKILL.md fan-out section', () => {
     test('declares 4 sub-agents in the fan-out section', () => {
-      // The fan-out section is `## Parallel review fan-out (...)`
-      const fanOutSectionMatch = rdSkill.match(
-        /## Parallel review fan-out.*?(?=\n## |\Z)/s,
-      );
-      expect(fanOutSectionMatch).not.toBeNull();
-      const section = fanOutSectionMatch![0];
+      const section = extractSection(rdSkill, '## Parallel review fan-out');
 
       // All 4 sub-agents should be mentioned by name
       expect(section).toMatch(/code-reviewer/);
@@ -31,22 +48,26 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('qa-test-cases-writer sub-agent writes to qa/test-cases/<rid>.md', () => {
-      // The 4th sub-agent section must mention the output path
-      const writerSection = rdSkill.match(
-        /\*\*Sub-agent 4 — qa-test-cases-writer[\s\S]*?(?=\*\*Hard prohibitions|\Z)/,
+      // The 4th sub-agent section must mention the output path. We
+      // match the bold-tagged "Sub-agent 4" line, then walk forward
+      // to the next `**` bold tag (the next sub-agent block) or the
+      // end of the section, whichever comes first. Avoid the
+      // `(?=...|\Z)` trap that turns `\Z` into a literal `Z` in JS.
+      const match = rdSkill.match(
+        /\*\*Sub-agent 4 — qa-test-cases-writer\*\*[\s\S]*?(?=\*\*Sub-agent|\n## |\n### )/,
       );
-      expect(writerSection).not.toBeNull();
-      expect(writerSection![0]).toContain('qa/test-cases/<rid>.md');
+      expect(match).not.toBeNull();
+      expect(match![0]).toContain('qa/test-cases/<rid>.md');
     });
 
     test('qa-test-cases-writer contract: do NOT execute tests, do NOT write to tests/ dir', () => {
       // The 4th sub-agent section must include the "do not execute" + "do not write to tests/" prohibitions
-      const writerSection = rdSkill.match(
-        /\*\*Sub-agent 4 — qa-test-cases-writer[\s\S]*?(?=\*\*Hard prohibitions|\Z)/,
+      const match = rdSkill.match(
+        /\*\*Sub-agent 4 — qa-test-cases-writer\*\*[\s\S]*?(?=\*\*Sub-agent|\n## |\n### )/,
       );
-      expect(writerSection).not.toBeNull();
+      expect(match).not.toBeNull();
       // The contract says the sub-agent drafts the test plan, doesn't execute it
-      expect(writerSection![0]).toMatch(/do NOT need to be executed by this sub-agent/);
+      expect(match![0]).toMatch(/do NOT need to be executed by this sub-agent/);
     });
 
     test('Gate C table includes qa/test-cases/<rid>.md for feature/refactor', () => {
@@ -98,8 +119,11 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('Degradation: qa-test-cases sub-agent failure falls back to inline QA drafting', () => {
+      // The Degradation block runs until the next bold-tagged subsection
+      // or the next markdown heading. Avoid the `(?=...|\Z)` trap
+      // (in JS, `\Z` is a literal `Z`, not end-of-input).
       const degradationMatch = rdSkill.match(
-        /\*\*Degradation[\s\S]*?(?=\*\*Why this works|\Z)/,
+        /\*\*Degradation[\s\S]*?(?=\n## |\n### |\Z)/,
       );
       expect(degradationMatch).not.toBeNull();
       expect(degradationMatch![0]).toContain('qa-test-cases-subagent-degraded-to-inline-qa-draft');
