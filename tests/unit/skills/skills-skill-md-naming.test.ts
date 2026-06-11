@@ -94,8 +94,18 @@ const ALLOWED_PEAKS_PATTERNS: RegExp[] = [
   /\.peaks\/_runtime\/<session-?id>/gi,
   // sub-agent-axis: `_sub_agents/...`
   /\.peaks\/_sub_agents\/<session-?id>/gi,
+  // session-axis canonical placeholder form (used in skill body prose
+  // where the `_runtime/` prefix is left to the runtime, not the prose).
+  // Example: `.peaks/<session-id>/rd/requests/<request-id>.md` (canonical
+  // placeholder) and `.peaks/<sessionId>/...` (alternate).
+  /\.peaks\/<session-?id>/gi,
   // change-axis: root `.peaks/<changeId>/...` (must NOT be inside `_runtime/`)
   /\.peaks\/<change-?id>/gi,
+  // generic-id placeholder form (e.g. `.peaks/<id>/` in Gate C tables
+  // where the table header says "Required RD evidence (under `.peaks/<id>/`)").
+  // This is a docs-time shorthand for the change-id; the implementation
+  // resolves `<id>` to a real change-id at runtime.
+  /\.peaks\/<id>/gi,
   // `.peaks/` followed by a path that uses a non-axis placeholder like
   // <rid> or <repo> is allowed (e.g. `.peaks/<rid>/...` or `.peaks/<repo>/...`).
   /\.peaks\/<(rid|repo|role|ext|batchId|dispatchRecordPath|evidence-path|state-or-step)>/g,
