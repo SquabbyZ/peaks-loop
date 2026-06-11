@@ -38,7 +38,7 @@ describe('peaks workspace clean CLI', () => {
     const project = makeProject();
     try {
       touchDir(join(project, '.peaks/_runtime/2026-06-10-session-aaa111'), 100);
-      const { stdout, code } = cli(`workspace clean --runtime --older-than 24 --json`, project);
+      const { stdout, code } = cli(`workspace clean --runtime --older-than 1 --json`, project);
       expect(code).toBe(0);
       const out = JSON.parse(stdout);
       expect(out.ok).toBe(true);
@@ -54,7 +54,7 @@ describe('peaks workspace clean CLI', () => {
     try {
       const sid = '2026-06-10-session-aaa111';
       touchDir(join(project, '.peaks/_runtime', sid), 100);
-      const { stdout, code } = cli(`workspace clean --runtime --older-than 24 --apply --json`, project);
+      const { stdout, code } = cli(`workspace clean --runtime --older-than 1 --apply --json`, project);
       expect(code).toBe(0);
       const out = JSON.parse(stdout);
       expect(out.data[0].dryRun).toBe(false);
