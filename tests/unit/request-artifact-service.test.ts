@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { pathExists } from '../../src/shared/fs.js';
 import { createRequestArtifact, type RequestArtifactRole } from '../../src/services/artifacts/request-artifact-service.js';
@@ -199,6 +199,16 @@ describe('transitionRequestArtifact lint gate', () => {
     const files = await readdir(rdDir);
     const artifactPath = join(rdDir, files[0]!);
     await writeFile(artifactPath, '# RD Request\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
+    // rd → spec-locked requires the tech-doc presence enforcer to pass.
+    // Read the artifact to learn the actual sessionId it was stored
+    // under (it may have been rebound), then place a non-empty
+    // tech-doc at that path so the lint gate (not the prerequisite
+    // gate) is the one that fires.
+    const stored = await showRequestArtifact({ projectRoot: project, role: 'rd', requestId: 'lint-001' });
+    const effectiveSessionId = stored?.sessionId ?? STABLE_SESSION;
+    const techDocPath = join(project, '.peaks', '_runtime', effectiveSessionId, 'rd', 'tech-doc.md');
+    await mkdir(dirname(techDocPath), { recursive: true });
+    await writeFile(techDocPath, '# Tech doc\n\n## Red-line scope\n\n- none\n\n## Implementation evidence\n\n- the lint gate is the one we are testing, not the prereq gate\n', 'utf8');
 
     await expect(
       transitionRequestArtifact({
