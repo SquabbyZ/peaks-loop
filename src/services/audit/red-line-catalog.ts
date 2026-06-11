@@ -8,6 +8,7 @@
 
 import type { RedLineMarker } from './types.js';
 import { RED_LINE_CATALOG_P2_A } from './red-line-catalog-p2-a.js';
+import { RED_LINE_CATALOG_P2_B } from './red-line-catalog-p2-b.js';
 
 export interface RedLineCatalogEntry {
   /** Stable id, e.g. "rl-solo-code-ban-001". */
@@ -159,6 +160,10 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
   // governance). Spread from the P2-a module so future P2-a edits
   // are localized.
   ...RED_LINE_CATALOG_P2_A,
+  // Slice #7 L2.4 P2-b: 25 lint-style red-lines for references/*.md
+  // (Themes H-P) + 4 audit-regression enforcers (Theme L). Spread
+  // from the P2-b module so future P2-b edits are localized.
+  ...RED_LINE_CATALOG_P2_B,
 ] as const;
 
 /**

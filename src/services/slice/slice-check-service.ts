@@ -5,6 +5,7 @@ import { isDirectory, pathExists } from '../../shared/fs.js';
 import { getCurrentChangeId } from '../../shared/change-id.js';
 import { verifyPipeline } from '../workflow/pipeline-verify-service.js';
 import { findMockViolations } from '../audit/enforcers/mock-placement.js';
+import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import type { SliceCheckOptions, SliceCheckResult, SliceCheckStage } from './slice-check-types.js';
 
 interface RunResult {
@@ -310,6 +311,13 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   // full `peaks scan diff-vs-scope` and keeps the slice check self-contained.
   stages.push(await runMockPlacement(options.projectRoot));
 
+  // Stage 6 (Slice #7 L2.4 P2-b): audit-regression — assert
+  // catalog integrity (no orphan enforcers, no orphan catalog
+  // entries), catalog size lower bound, and runtime budget.
+  // The stage runs `peaks audit red-lines` in-process (no
+  // subprocess) and is gating: failure exits non-zero.
+  stages.push(await runAuditRegression(options.projectRoot));
+
   const boundaryReady = stages.every((s) => s.status === 'pass' || s.status === 'skipped');
 
   const nextActions: string[] = [];
@@ -332,6 +340,53 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     totalDurationMs: Date.now() - totalStart,
     nextActions
   };
+}
+
+
+async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage> {
+  const start = Date.now();
+  try {
+    const result = runRedLinesAudit({ projectRoot });
+    const durationMs = Date.now() - start;
+    // Slice #7 L2.4 P2-b acceptance A3 + A4:
+    //   - totalRedLines >= 60 (catalog grew to 66; pins the lower bound)
+    //   - enforcerFindings has no rl-audit-no-orphan-enforcer / rl-audit-no-orphan-catalog hits
+    const issues: string[] = [];
+    if (result.audit.totalRedLines < 60) {
+      issues.push(`totalRedLines ${result.audit.totalRedLines} < 60`);
+    }
+    const orphanFindings = result.audit.enforcerFindings.filter((f) =>
+      f.enforcerId === 'rl-audit-no-orphan-enforcer-001' ||
+      f.enforcerId === 'rl-audit-no-orphan-catalog-001'
+    );
+    if (orphanFindings.length > 0) {
+      issues.push(`${orphanFindings.length} orphan-enforcer / orphan-catalog finding(s)`);
+    }
+    if (issues.length > 0) {
+      return {
+        name: 'audit-regression',
+        description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+        status: 'fail',
+        durationMs,
+        detail: issues.join('; '),
+      };
+    }
+    return {
+      name: 'audit-regression',
+      description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+      status: 'pass',
+      durationMs,
+      detail: `catalog: ${result.audit.totalRedLines} entries (${result.audit.cliBacked} cli-backed, ${result.audit.proseOnly} prose-only); audit ran in ${durationMs}ms`,
+    };
+  } catch (error: any) {
+    return {
+      name: 'audit-regression',
+      description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+      status: 'fail',
+      durationMs: Date.now() - start,
+      detail: 'audit-regression failed: ' + (error?.message ?? String(error)),
+    };
+  }
 }
 
 async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {

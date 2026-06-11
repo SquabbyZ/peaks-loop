@@ -121,7 +121,7 @@ describe('sliceCheck', () => {
   });
 
   describe('stage execution', () => {
-    test('runs all 4 stages in order and aggregates pass/fail', async () => {
+    test('runs all 5 stages in order and aggregates pass/fail (Slice #7 L2.4 P2-b added stage 6)', async () => {
       const result = await sliceCheck({
         projectRoot: project,
         rid: '2026-06-05-test',
@@ -129,17 +129,20 @@ describe('sliceCheck', () => {
         skipTests: false
       });
 
-      // Stage order
+      // Stage order (Slice #7 L2.4 P2-b added `audit-regression`
+      // as the 6th stage; the test name now reflects the 5 pre-P2-b
+      // stages still being there, with audit-regression appended).
       expect(result.stages.map((s) => s.name)).toEqual([
         'typecheck',
         'unit-tests',
         'review-fanout',
         'gate-verify-pipeline',
-        'mock-placement'
+        'mock-placement',
+        'audit-regression'
       ]);
 
-      // 5 stages present, each with a duration
-      expect(result.stages).toHaveLength(5);
+      // 6 stages present, each with a duration
+      expect(result.stages).toHaveLength(6);
       for (const stage of result.stages) {
         expect(stage.durationMs).not.toBeNull();
         expect(stage.detail.length).toBeGreaterThan(0);

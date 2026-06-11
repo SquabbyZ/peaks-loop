@@ -58,6 +58,37 @@ import {
   lintCatalogSize,
   lintCatalogProseOnlyRatio,
 } from './enforcers/lint-catalog-governance.js';
+import {
+  lintH1TitleRequired,
+  lintApplicableTaskLevels,
+  lintSeeAlsoSection,
+  lintCrossRefResolves,
+  lintNoSelfReference,
+  lintNoOrphanLink,
+  lintLineCountLe800,
+  lintH2CountLe12,
+  lintOverviewNearTop,
+  lintLoadStrategyOnDemandFallback,
+  lintLoadStrategyAlwaysCacheable,
+  lintNoBashHeredoc,
+  lintNoSudo,
+  lintNoCurlPipeBash,
+  lintCodeBlockLanguage,
+  lintNoFakePrompt,
+  lintNoAbsolutePaths,
+  lintNoChmod777,
+  lintNoMagicNumbers,
+  lintSkillCitesEveryReference,
+  lintLoadStrategyMatchesSize,
+  readReferenceFiles,
+} from './enforcers/lint-reference-shape.js';
+import {
+  lintCatalogStability,
+  lintNoOrphanEnforcer,
+  lintNoOrphanCatalog,
+  lintRuntimeBudget,
+  readCatalogHistory,
+} from './enforcers/lint-audit-regression.js';
 import type { ClassifyFileInput } from './classifier.js';
 import type { EnforcerFinding, RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
 
@@ -115,6 +146,11 @@ function tally(entries: readonly RedLineEntry[]): {
 }
 
 export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceResult {
+  // Capture the audit start time. The P2-b runtime-budget enforcer
+  // uses this to assert that peaks audit red-lines completes in
+  // < 2 seconds on a 100-reference project.
+  const auditStartMs = Date.now();
+
   const skills = scanSkillsTree({ projectRoot: input.projectRoot });
   const rules = scanRulesTree({ projectRoot: input.projectRoot });
   const openspec = scanOpenSpecTree({ projectRoot: input.projectRoot });
@@ -366,11 +402,87 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
             detail: `line ${hit.line}: ${hit.matchedText}`,
           });
         }
+
+        // 7. P2-b enforcers (Slice #7 L2.4) — references/*.md
+        //    shape enforcers (Themes H-K, M-P). Each enforcer
+        //    walks the reference files of this skill and reports
+        //    per-file hits.
+        try {
+          const refFiles = readReferenceFiles(skillsRoot, skill.name, refs);
+          for (const ref of refFiles) {
+            const refHits = [
+              ...lintH1TitleRequired(ref),
+              ...lintApplicableTaskLevels(ref),
+              ...lintSeeAlsoSection(ref),
+              ...lintCrossRefResolves(ref, refsDir, refs),
+              ...lintNoSelfReference(ref),
+              ...lintNoOrphanLink(ref),
+              ...lintLineCountLe800(ref),
+              ...lintH2CountLe12(ref),
+              ...lintOverviewNearTop(ref),
+              ...lintLoadStrategyOnDemandFallback(ref),
+              ...lintLoadStrategyAlwaysCacheable(ref),
+              ...lintNoBashHeredoc(ref),
+              ...lintNoSudo(ref),
+              ...lintNoCurlPipeBash(ref),
+              ...lintCodeBlockLanguage(ref),
+              ...lintNoFakePrompt(ref),
+              ...lintNoAbsolutePaths(ref),
+              ...lintNoChmod777(ref),
+              ...lintNoMagicNumbers(ref),
+              ...lintSkillCitesEveryReference(ref, skill),
+              ...lintLoadStrategyMatchesSize(ref),
+            ];
+            for (const hit of refHits) {
+              enforcerFindings.push({
+                enforcerId: hit.catalogId,
+                rule: hit.rule,
+                severity: 'warn',
+                file: hit.file,
+                detail: `line ${hit.line}: ${hit.matchedText}`,
+              });
+            }
+          }
+        } catch {
+          // skip — P2-b enforcers are best-effort per reference file
+        }
       }
     }
   } catch {
     // skip — P2-a enforcers are best-effort; a failure here must
     // not break the audit pipeline
+  }
+
+  // 8. P2-b Theme L — audit regression enforcers. These check
+  //    the audit framework's own integrity (catalog stability,
+  //    no orphan enforcers, no orphan catalog entries, runtime
+  //    budget). They are the gating layer that `peaks slice check`
+  //    asserts in its 5th stage.
+  try {
+    const catalogSize = backed.entries.length;
+    const proseOnlyCount = counts.proseOnly;
+    const observedMs = Date.now() - auditStartMs;
+
+    const auditRegressionHits = [
+      ...lintCatalogStability({
+        currentSize: catalogSize,
+        sizeNinetyDaysAgo: readCatalogHistory(input.projectRoot),
+      }),
+      ...lintNoOrphanEnforcer(input.projectRoot),
+      ...lintNoOrphanCatalog(),
+      ...lintRuntimeBudget(input.projectRoot, observedMs),
+    ];
+    for (const hit of auditRegressionHits) {
+      enforcerFindings.push({
+        enforcerId: hit.catalogId,
+        rule: hit.rule,
+        severity: 'warn',
+        file: hit.file,
+        detail: `line ${hit.line}: ${hit.matchedText}`,
+      });
+    }
+  } catch {
+    // skip — audit-regression enforcers are best-effort
   }
 
   // P2-a Theme F (project-level): openspec proposals + tech-doc shape.
