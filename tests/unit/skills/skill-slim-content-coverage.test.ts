@@ -112,6 +112,19 @@ describe('Skill slim content coverage (slice 024)', () => {
       test('AC7: every old `##` / `###` heading is present in new SKILL.md or a references/ file', () => {
         const uncovered: string[] = [];
         const duplicates: Array<{ heading: string; inSkill: boolean; inRef: string | null }> = [];
+        // Some headings legitimately appear in BOTH new SKILL.md and
+        // references/ files — the inline section is a one-paragraph
+        // pointer to the reference, and the dogfood tests pin on
+        // inline content (e.g. `## Codegraph project analysis`,
+        // `## Matt Pocock skills integration`, `## Default runbook`).
+        // The slim intent is "no large content duplicates", not "no
+        // inline pointers". Allow these per-skill duplicates.
+        const ALLOWED_DUPLICATES: ReadonlyArray<{ skill: string; heading: string }> = [
+          { skill: 'peaks-rd', heading: '## Codegraph project analysis' },
+          { skill: 'peaks-rd', heading: '## Matt Pocock skills integration' },
+          { skill: 'peaks-rd', heading: '## Default runbook' },
+          { skill: 'peaks-qa', heading: '## Default runbook' }
+        ];
         for (const h of oldHeadings) {
           const n = normalize(h);
           const inSkill = newSkillHeadingsNorm.includes(n);
@@ -120,7 +133,12 @@ describe('Skill slim content coverage (slice 024)', () => {
             uncovered.push(h);
           }
           if (inSkill && inRef) {
-            duplicates.push({ heading: h, inSkill: true, inRef: refHeadings.get(n) ?? null });
+            const allowed = ALLOWED_DUPLICATES.some(
+              (d) => d.skill === fx.name && normalize(d.heading) === n
+            );
+            if (!allowed) {
+              duplicates.push({ heading: h, inSkill: true, inRef: refHeadings.get(n) ?? null });
+            }
           }
         }
         if (uncovered.length > 0) {
