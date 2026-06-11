@@ -5,6 +5,11 @@ import { createInterface } from 'node:readline';
 import { initWorkspace, InvalidSessionIdError, ConflictingSessionError } from '../../services/workspace/workspace-service.js';
 import { reconcileWorkspace } from '../../services/workspace/reconcile-service.js';
 import { migrateWorkspace } from '../../services/workspace/migrate-service.js';
+import {
+  executeRuntimeCleanup,
+  executeSubAgentClean,
+} from '../../services/workspace/workspace-clean-service.js';
+import { archiveSession } from '../../services/workspace/workspace-archive-service.js';
 import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';
 import { ensureSession, ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
@@ -515,6 +520,103 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
       process.exitCode = 1;
     }
   });
+
+  // Slice 0.5 Task 9: wire the clean and archive subcommands to the
+  // workspace-clean-service and workspace-archive-service that Tasks 6-8
+  // introduced. Both subcommands follow the project-wide JSON-envelope
+  // contract: `--json` writes `{ ok, data }` to stdout, otherwise the
+  // envelope is suppressed. Both default to dry-run; pass `--apply` to
+  // commit. The skill surfaces consume this JSON to gate downstream
+  // decisions (see peaks-solo SKILL.md).
+  workspace
+    .command('clean')
+    .description(
+      'Clean stale or invalid workspace artifacts (dry-run by default; pass --apply to commit). ' +
+        'Combines two cleanup axes: --runtime prunes _runtime/<sid>/ directories older than ' +
+        '--older-than hours (with --grace-hours safety window); --sub-agents --invalid moves ' +
+        'bare/invalid sids from _sub_agents/ to _archive/invalid-sids/.'
+    )
+    .option('--runtime', 'clean _runtime/ sessions older than --older-than')
+    .option('--sub-agents', 'clean _sub_agents/ entries')
+    .option('--invalid', 'with --sub-agents: only move bare/invalid sids to _archive/invalid-sids/')
+    .option('--older-than <hours>', 'age threshold in hours (default 168 = 7d)', '168')
+    .option('--grace-hours <hours>', 'safety grace period in hours added to --older-than (default 24)', '24')
+    .option('--apply', 'actually write changes (default is dry-run)')
+    .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
+    .option('--json', 'emit a JSON envelope { ok, data } to stdout')
+    .action((opts: {
+      runtime?: boolean;
+      subAgents?: boolean;
+      invalid?: boolean;
+      olderThan: string;
+      graceHours: string;
+      apply?: boolean;
+      project: string;
+      json?: boolean;
+    }) => {
+      try {
+        const projectRoot = resolveCanonicalProjectRoot(opts.project);
+        const apply = opts.apply === true;
+        const envelopes: unknown[] = [];
+        if (opts.runtime === true) {
+          const result = executeRuntimeCleanup(projectRoot, {
+            olderThanHours: Number.parseInt(opts.olderThan, 10),
+            graceHours: Number.parseInt(opts.graceHours, 10),
+            apply
+          });
+          envelopes.push({ dryRun: !apply, deleted: result.deleted, skipped: result.skipped });
+        }
+        if (opts.subAgents === true && opts.invalid === true) {
+          const result = executeSubAgentClean(projectRoot, { apply });
+          envelopes.push({ dryRun: !apply, moved: result.moved, skipped: result.skipped });
+        }
+        if (opts.json === true) {
+          process.stdout.write(JSON.stringify({ ok: true, data: envelopes }) + '\n');
+        }
+      } catch (error) {
+        if (opts.json === true) {
+          process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
+        } else {
+          process.stderr.write(getErrorMessage(error) + '\n');
+        }
+        process.exitCode = 1;
+      }
+    });
+
+  workspace
+    .command('archive')
+    .description(
+      'Archive a session from _runtime/<sid>/ to _archive/<yyyy-mm>/<sid>/ ' +
+        'where <yyyy-mm> is derived from the sid prefix. Dry-run by default; ' +
+        'pass --apply to commit. The --session sid must match the canonical ' +
+        'YYYY-MM-DD-... format enforced by the SID naming guard.'
+    )
+    .requiredOption('--session <sid>', 'session id in YYYY-MM-DD-<slug> form')
+    .option('--apply', 'actually move the session (default is dry-run)')
+    .option('--project <path>', 'project root (defaults to current directory)', process.cwd())
+    .option('--json', 'emit a JSON envelope { ok, data } to stdout')
+    .action((opts: { session: string; apply?: boolean; project: string; json?: boolean }) => {
+      try {
+        const projectRoot = resolveCanonicalProjectRoot(opts.project);
+        const apply = opts.apply === true;
+        const result = archiveSession(projectRoot, { sid: opts.session, apply });
+        if (opts.json === true) {
+          process.stdout.write(
+            JSON.stringify({
+              ok: true,
+              data: { dryRun: !apply, moved: result.moved, skipped: result.skipped }
+            }) + '\n'
+          );
+        }
+      } catch (error) {
+        if (opts.json === true) {
+          process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
+        } else {
+          process.stderr.write(getErrorMessage(error) + '\n');
+        }
+        process.exitCode = 1;
+      }
+    });
 
   // R004: subcommand to physically move per-session files from the legacy
   // `.peaks/<sid>/<role>/<file>.md` path to the canonical
