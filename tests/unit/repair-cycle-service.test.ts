@@ -59,12 +59,14 @@ describe('getRepairCycleStatus', () => {
     await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
       newState: 'spec-locked',
+      allowIncomplete: true,
       reason: 'QA return-to-rd cycle 1: failing acceptance items A, B',
       clock: () => '2026-05-25T09:00:00.000Z'
     });
     await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
       newState: 'spec-locked',
+      allowIncomplete: true,
       reason: 'QA cycle 2: regression in module X',
       clock: () => '2026-05-25T10:00:00.000Z'
     });
@@ -85,6 +87,7 @@ describe('getRepairCycleStatus', () => {
       await transitionRequestArtifact({
         role: 'rd', requestId: '2026-05-25-feat', projectRoot: project,
         newState: 'spec-locked',
+        allowIncomplete: true,
         reason: `QA return-to-rd cycle ${cycle}: still failing`,
         clock: () => `2026-05-25T0${8 + cycle}:00:00.000Z`
       });

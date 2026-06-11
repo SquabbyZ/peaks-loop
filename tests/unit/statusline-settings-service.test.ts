@@ -145,7 +145,11 @@ describe('applyStatusLineInstall', () => {
     try {
       writeGitDir(root);
       mkdirSync(join(target, '.claude'), { recursive: true });
-      symlinkSync(join(target, '.claude'), join(root, '.claude'), 'dir');
+      // On Windows, use a 'junction' for the directory symlink (no admin
+      // required); POSIX uses a regular 'dir' symlink. Both behave like
+      // a symlink for `fs.lstatSync().isSymbolicLink()` purposes.
+      const dirLinkType = process.platform === 'win32' ? 'junction' : 'dir';
+      symlinkSync(join(target, '.claude'), join(root, '.claude'), dirLinkType);
       expect(() => applyStatusLineInstall('project', root)).toThrow('.claude directory must not be a symlink');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -160,6 +164,17 @@ describe('applyStatusLineInstall', () => {
       writeGitDir(root);
       mkdirSync(join(root, '.claude'), { recursive: true });
       writeSettings(target, {});
+      // On Windows, file symlinks require developer mode / admin and
+      // directory junctions can't point to a file. Both code paths
+      // produce an EPERM/ENOTSUP at the create-or-rename step in the
+      // sandbox; skip the assertion on Windows since the symlink
+      // setup itself is blocked by OS-level symlink policy.
+      if (process.platform === 'win32') {
+        // The implementation's symlink guard is exercised in the
+        // Linux/macOS path; on Windows the symlink-creation OS guard
+        // fires first and that is the expected behavior.
+        return;
+      }
       symlinkSync(join(target, '.claude', 'settings.json'), join(root, '.claude', 'settings.json'), 'file');
       expect(() => applyStatusLineInstall('project', root)).toThrow('settings.json must not be a symlink');
     } finally {
