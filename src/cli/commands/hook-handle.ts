@@ -5,6 +5,7 @@ import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/h
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { evaluateSoloCodeBan } from '../../services/audit/enforcers/solo-code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
+import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
 import { fail, ok } from '../../shared/result.js';
@@ -118,6 +119,17 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
             io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: decision.reason })));
           }
           return;
+        }
+        }
+
+      // L2.2 P1 #1: login-gate. After solo-code-ban + gate-enforce pass,
+      // flag destructive patterns (uninstall, force-push, --force, --hard,
+      // rm -rf) so the LLM gets a soft warning (still allow). The user
+      // gets the warning via the warn channel; the command proceeds.
+      if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string') {
+        const gate = checkLoginGate({ command: fallbackCommand });
+        if (gate.destructive) {
+          io.stderr(`warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`);
         }
         }
 

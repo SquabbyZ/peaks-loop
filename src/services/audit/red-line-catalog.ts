@@ -79,6 +79,79 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     ],
     enforcerRef: 'src/services/audit/enforcers/mock-placement.ts',
   },
+  // === Slice L2.2 P1 — 10 P1 red lines across 5 categories ===
+  // Each catalog entry has a phrase that distinguishes it from P0; the
+  // backing-detector + DEFERRED_ENFORCERS mechanism handles the rest.
+  {
+    id: 'rl-resume-detection-001',
+    rule: 'Resume Detection: Session Binding',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['resume detection', 'session binding', 'resume session', 'resume from'],
+    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts',
+  },
+  {
+    id: 'rl-resume-detection-002',
+    rule: 'Resume Detection: Request State',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['request state', 'resumable state', 'spec-locked', 'implemented', 'qa-handoff'],
+    enforcerRef: 'src/services/audit/enforcers/resume-detection.ts',
+  },
+  {
+    id: 'rl-prototype-fidelity-001',
+    rule: 'Prototype Fidelity: No Stub Markers',
+    markers: ['MUST NOT', 'MANDATORY'],
+    phrases: ['prototype fidelity', 'no stub', 'no TODO', 'no FIXME', 'no placeholder'],
+    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts',
+  },
+  {
+    id: 'rl-prototype-fidelity-002',
+    rule: 'Prototype Fidelity: Test Coverage',
+    markers: ['MANDATORY', 'RED LINE'],
+    phrases: ['prototype test', 'must have tests', 'test coverage', 'fidelity test'],
+    enforcerRef: 'src/services/audit/enforcers/prototype-fidelity.ts',
+  },
+  {
+    id: 'rl-design-draft-confirm-001',
+    rule: 'Design-Draft Confirm: Existence',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['design-draft', 'design draft', 'design-draft.md', 'design draft exists'],
+    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts',
+  },
+  {
+    id: 'rl-design-draft-confirm-002',
+    rule: 'Design-Draft Confirm: Confirmed State',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['design confirmed', 'design-draft confirmed', 'confirmed-by-user', 'user confirmed'],
+    enforcerRef: 'src/services/audit/enforcers/design-draft-confirm.ts',
+  },
+  {
+    id: 'rl-pre-rd-scan-001',
+    rule: 'Pre-RD Scan: Archetype Detected',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['pre-rd scan', 'project-scan', 'archetype detected', 'scan archetype'],
+    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts',
+  },
+  {
+    id: 'rl-pre-rd-scan-002',
+    rule: 'Pre-RD Scan: Standards Preflight',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['standards preflight', 'pre-rd standards', 'standards init', 'standards update'],
+    enforcerRef: 'src/services/audit/enforcers/pre-rd-scan.ts',
+  },
+  {
+    id: 'rl-login-gate-001',
+    rule: 'Login Gate: Destructive Path Confirmation',
+    markers: ['MANDATORY', 'BLOCKING', 'RED LINE'],
+    phrases: ['login gate', 'destructive path', 'uninstall', 'force-push', 'user confirmation required'],
+    enforcerRef: 'src/services/audit/enforcers/login-gate.ts',
+  },
+  {
+    id: 'rl-login-gate-002',
+    rule: 'Login Gate: Protected Path Auth',
+    markers: ['MANDATORY', 'BLOCKING'],
+    phrases: ['protected path', 'auth required', 'auth header', 'login required', 'session check'],
+    enforcerRef: 'src/services/audit/enforcers/login-gate.ts',
+  },
 ] as const;
 
 /**
@@ -96,10 +169,18 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
  * tracked separately.
  */
 export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([
-  // Task 3: tech-doc-presence — integration deferred
+  // L2.1 carries-over: tech-doc-presence + mock-placement (request-transition / slice-check integrations deferred)
   'rl-tech-doc-presence-001',
-  // Task 4: mock-placement — integration deferred
   'rl-mock-placement-001',
+  // L2.2 P1: 4 source-only enforcers (login-gate is integrated; the other 4 are deferred)
+  'rl-resume-detection-001',
+  'rl-resume-detection-002',
+  'rl-prototype-fidelity-001',
+  'rl-prototype-fidelity-002',
+  'rl-design-draft-confirm-001',
+  'rl-design-draft-confirm-002',
+  'rl-pre-rd-scan-001',
+  'rl-pre-rd-scan-002',
 ]);
 
 /**
