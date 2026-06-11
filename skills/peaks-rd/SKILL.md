@@ -110,7 +110,18 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 **When RD reaches the end of implementation, the four review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The four sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), and `qa-test-cases-writer` (qa/test-cases/<rid>.md). Feature / refactor: all four. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out.
 
-→ see `references/rd-fanout-contracts.md` for the dispatch template + the 4 sub-agents' contracts + hard prohibitions + aggregation + degradation + Gate C evidence table.
+### Peaks-Cli Gate C — type-specific RD evidence
+
+The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with `PREREQUISITES_MISSING`.
+
+| Request type | Required RD evidence (under `.peaks/<id>/`) |
+|---|---|
+| feature / refactor | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
+| bugfix | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when perf-shaped) |
+| config | `rd/security-review.md` |
+| docs / chore | (no extra evidence required) |
+
+→ see `references/rd-fanout-contracts.md` for the 4 sub-agents' contracts + hard prohibitions + aggregation + degradation.
 
 ## Refactor hard gates
 
