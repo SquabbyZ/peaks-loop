@@ -1,12 +1,41 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
+import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
 import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
+import { globalConfigPath, CONFIG_SCHEMA_VERSION_V2 } from './config-migration.js';
+import { isConfigV2 } from './config-types.js';
 
 // Re-export resolveProjectRootForConfig and resolveCanonicalProjectRoot for external consumers
 export { resolveProjectRootForConfig, resolveCanonicalProjectRoot } from './config-safety.js';
+
+/**
+ * Load the slim 2.0 `~/.peaks/config.json` file. Returns the parsed
+ * object when the file is at schema 2.0.0; returns null when the
+ * file is absent (fresh install, no global config yet).
+ *
+ * Throws `CONFIG_LEGACY_VERSION` when the file exists at a 1.x
+ * schema version — the caller is expected to run
+ * `peaks config migrate --apply` to bring it forward before
+ * continuing. This gate is intentional: a slim 2.0 reader must
+ * not silently pass through a 1.x shape, because every field it
+ * ignores is a field the caller is going to look for elsewhere
+ * (preferences.json, .bak, _state/).
+ */
+export function loadGlobalConfig(): ConfigV2 | null {
+  const path = globalConfigPath();
+  if (!existsSync(path)) return null;
+  const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
+  const raw = JSON.parse(content) as Record<string, unknown>;
+  if (isConfigV2(raw)) {
+    return raw;
+  }
+  const detected = typeof raw.version === 'string' ? raw.version : 'unknown';
+  throw new Error(
+    `CONFIG_LEGACY_VERSION: ~/.peaks/config.json is at version "${detected}", expected ${CONFIG_SCHEMA_VERSION_V2}. Run \`peaks config migrate --apply\`.`
+  );
+}
 
 function readJsonFile(path: string | null, validateBeforeRead?: () => void, errorMessage = 'Config path must stay inside the config root'): Partial<PeaksConfig> | null {
   if (!path || !existsSync(path)) return null;

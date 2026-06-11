@@ -1,4 +1,5 @@
 import { CLI_VERSION } from '../../shared/version.js';
+import { CONFIG_SCHEMA_VERSION_V2 } from './config-migration.js';
 
 // Token reference types — tokens never stored raw, always via reference
 export type TokenRef =
@@ -125,3 +126,26 @@ export const DEFAULT_CONFIG: PeaksConfig = {
     heartbeatIntervalMs: 60000
   }
 };
+
+/**
+ * Slim 2.0 schema for `~/.peaks/config.json`. After migration,
+ * the only meaningful field is `version`; everything else
+ * (language, model, economyMode, swarmMode, tokens, providers,
+ * proxy, workspaces, currentWorkspace) is stored elsewhere
+ * (`.peaks/preferences.json`, `.peaks/_state/`, or `.bak`).
+ *
+ * The type is intentionally minimal: extra keys are ignored at
+ * runtime, not rejected, so a hand-written or partially-migrated
+ * file does not fail the loader.
+ */
+export interface ConfigV2 {
+  readonly version: typeof CONFIG_SCHEMA_VERSION_V2;
+}
+
+export function isConfigV2(raw: unknown): raw is ConfigV2 {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    (raw as Record<string, unknown>).version === CONFIG_SCHEMA_VERSION_V2
+  );
+}
