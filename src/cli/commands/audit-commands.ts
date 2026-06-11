@@ -147,8 +147,18 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         agentShield: result.agentShield,
       };
       const nextActions: string[] = [];
+      // Per spec §5.3 + §7.2: when ECC is not installed, surface
+      // the canonical 4-option user opt-in UX (a/b/c/d) via
+      // nextActions. The peaks-cli `peaks audit static` CLI is
+      // non-interactive (JSON envelope by default), so the 4
+      // options are surfaced as machine-readable action strings
+      // — same pattern as understand-commands.ts `INSTALL_HINT`.
       if (!result.agentShield.installed) {
-        nextActions.push('ECC AgentShield not installed. Run `npx ecc-agentshield --help` to install, or set `agentShieldEnabled: true` in `.peaks/preferences.json` after install.');
+        nextActions.push('ECC AgentShield not installed. Pick one of the four options below:');
+        nextActions.push('  a) Install: run `npx ecc-agentshield --help` to install, then re-run `peaks audit static`.');
+        nextActions.push('  b) Skip this run: pass `--disable-agent-shield` to suppress the subprocess for this call.');
+        nextActions.push('  c) Skip forever: run `peaks preferences set agentShieldEnabled false` (writes to `.peaks/preferences.json`).');
+        nextActions.push('  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §5.3 + §7.2.');
       }
       if (result.agentShield.spawned && result.agentShield.findings.length > 0) {
         nextActions.push(`${result.agentShield.findings.length} ECC findings merged into the audit. Review with \`peaks audit static --json\`.`);

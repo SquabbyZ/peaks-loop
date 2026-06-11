@@ -56,6 +56,17 @@ const SECTION_NAMING_AXIOM: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
 };
 
+/** Theme A wireframe — the "ASCII wireframe" hint from spec §5.4
+ *  line 647. The section-order enforcer in lint-style.ts checks
+ *  that the canonical sections appear in the documented order. */
+const SECTION_ORDER_WIREFRAME: RedLineCatalogEntry = {
+  id: 'rl-section-order-wireframe-001',
+  rule: 'Section structure: ASCII wireframe — sections in canonical order',
+  markers: ['MANDATORY'],
+  phrases: ['wireframe', 'section order', 'canonical order', 'ascii wireframe'],
+  enforcerRef: 'src/services/audit/enforcers/lint-style.ts',
+};
+
 /** Theme B — Frontmatter shape (3 enforcers). Grouped with Theme A
  *  in lint-style.ts; the loadStrategy check is a helper
  *  `lintReferenceLoadStrategy` that takes the references dir. */
@@ -239,6 +250,7 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   SECTION_DEFAULT_RUNBOOK,
   SECTION_GATE_INDEX,
   SECTION_NAMING_AXIOM,
+  SECTION_ORDER_WIREFRAME,
   FRONTMATTER_PARSEABLE,
   FRONTMATTER_REFERENCES_LOAD_STRATEGY,
   FRONTMATTER_APPLICABLE_TASK_LEVELS,

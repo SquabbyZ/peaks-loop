@@ -91,6 +91,54 @@ export function lintSectionShape(skill: SkillFile): readonly LintHit[] {
   return hits;
 }
 
+/**
+ * ASCII wireframe section-order check (spec §5.4 line 647).
+ *
+ * The "ASCII wireframe" lint hint in the spec means: SKILL.md
+ * follows a canonical section ordering. The first 5 sections
+ * must appear in this fixed order:
+ *
+ *   1. Two-axis naming axiom (top-of-file naming convention callout)
+ *   2. Hard contracts for browser/IO surface (when present)
+ *   3. Mandatory per-request artifact
+ *   4. Default runbook
+ *   5. RD / QA gate index
+ *
+ * If both sections exist but appear in the wrong order, the
+ * enforcer reports a wireframe-violation hit pointing at the
+ * section that came too early.
+ *
+ * If a section is missing, the per-section enforcer (above)
+ * already fires; this one only handles the **order** invariant
+ * (the wireframe shape).
+ */
+export function lintSectionOrder(skill: SkillFile): readonly LintHit[] {
+  const hits: LintHit[] = [];
+  const order: ReadonlyArray<{ id: string; rule: string; pattern: RegExp }> = [
+    { id: 'rl-section-naming-axiom-001', rule: 'Two-axis naming axiom must precede Hard contracts', pattern: SECTION_NAMING_AXIOM_HEADING },
+    { id: 'rl-section-hard-contracts-001', rule: 'Hard contracts must precede Default runbook', pattern: SECTION_HARD_CONTRACTS_HEADING },
+    { id: 'rl-section-default-runbook-001', rule: 'Default runbook must precede Gate index', pattern: SECTION_DEFAULT_RUNBOOK_HEADING },
+  ];
+  let lastSeenLine = -1;
+  let lastSeenRule = '';
+  for (const r of order) {
+    const line = findLine(skill.lines, r.pattern);
+    if (line === -1) continue; // missing-section is its own enforcer
+    if (line < lastSeenLine) {
+      hits.push({
+        catalogId: 'rl-section-order-wireframe-001',
+        rule: 'Section wireframe order: each section must appear in the canonical order',
+        file: skill.path,
+        line,
+        matchedText: `(section "${r.rule}" at line ${line} comes after "${lastSeenRule}" at line ${lastSeenLine})`,
+      });
+    }
+    lastSeenLine = line;
+    lastSeenRule = r.rule;
+  }
+  return hits;
+}
+
 /** Theme B — frontmatter shape. Same convention as Theme A. */
 export function lintFrontmatterShape(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];

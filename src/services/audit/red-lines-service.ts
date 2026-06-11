@@ -28,6 +28,7 @@ import { checkPreRdScan } from './enforcers/pre-rd-scan.js';
 import {
   readSkillFiles,
   lintSectionShape,
+  lintSectionOrder,
   lintFrontmatterShape,
   lintReferenceLoadStrategy,
 } from './enforcers/lint-style.js';
@@ -342,6 +343,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
 
         const lintHits = [
           ...lintSectionShape(skill),
+          ...lintSectionOrder(skill),
           ...lintFrontmatterShape(skill),
           ...lintRefPathResolves(skillsRoot, skill.name, refs),
           ...lintNoBrokenMkdir(skill),

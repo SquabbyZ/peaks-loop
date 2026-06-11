@@ -12,6 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   lintSectionShape,
+  lintSectionOrder,
   lintFrontmatterShape,
   lintReferenceLoadStrategy,
   type SkillFile,
@@ -65,6 +66,45 @@ This skill has no recognized section headings at all.
       'rl-section-mandatory-artifact-001',
       'rl-section-naming-axiom-001',
     ]);
+  });
+});
+
+describe('lint-style — Theme A wireframe (section order)', () => {
+  it('passes when sections are in canonical order', () => {
+    const skill = makeSkill(`# peaks-test
+
+## Two-axis naming convention
+change-id / session-id.
+
+## Hard contracts for browser/IO surface
+read this first.
+
+## Mandatory per-request artifact
+.peaks/...
+
+## Default runbook
+see references/runbook.md
+`);
+    expect(lintSectionOrder(skill)).toEqual([]);
+  });
+
+  it('reports a hit when Default runbook comes before Hard contracts (wrong wireframe order)', () => {
+    const skill = makeSkill(`# peaks-test
+
+## Two-axis naming convention
+top of file.
+
+## Default runbook
+appears too early!
+
+## Hard contracts for browser/IO surface
+should come first.
+`);
+    const hits = lintSectionOrder(skill);
+    // The "Hard contracts" line is later than "Default runbook",
+    // so the wireframe enforcer fires on the later occurrence.
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0]?.catalogId).toBe('rl-section-order-wireframe-001');
   });
 });
 
