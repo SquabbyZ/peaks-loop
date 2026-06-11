@@ -6,7 +6,7 @@
  * for canonical shape (acceptance bullets, spec reference,
  * red-line scope, peaks-doctor acknowledgement).
  */
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LintHit, SkillFile } from './lint-style.js';
 
@@ -81,13 +81,26 @@ export function lintOpenSpecSpecReference(projectRoot: string): readonly LintHit
 export function lintTechDocPresenceShape(projectRoot: string): readonly LintHit[] {
   // Scan every session's rd/tech-doc.md for the two required
   // sections. The session dir is .peaks/_runtime/<sid>/.
+  // .peaks/_runtime/ also contains marker files like
+  // `active-skill.json`, `classify-audit.jsonl`, and a
+  // `current-change` symlink (per slice 2026-06-12-postinstall-
+  // 1x-detector-tdd, the current-change symlink can be broken
+  // across major session boundaries). Use lstatSync (does not
+  // follow symlinks) + isSymbolicLink guard so broken symlinks
+  // and marker files are skipped, not crashed on.
   const runtimeDir = join(projectRoot, '.peaks', '_runtime');
   if (!existsSync(runtimeDir)) return [];
   const hits: LintHit[] = [];
   for (const sessionEntry of readdirSync(runtimeDir)) {
     const sessionDir = join(runtimeDir, sessionEntry);
-    const stat = statSync(sessionDir);
-    if (!stat.isDirectory()) continue;
+    let stat;
+    try {
+      stat = lstatSync(sessionDir);
+    } catch {
+      // broken symlink or unreadable entry — skip
+      continue;
+    }
+    if (stat.isSymbolicLink() || !stat.isDirectory()) continue;
     const techDoc = join(sessionDir, 'rd', 'tech-doc.md');
     if (!existsSync(techDoc)) continue;
     const body = readFileSync(techDoc, 'utf8');
