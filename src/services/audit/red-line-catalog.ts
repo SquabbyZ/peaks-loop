@@ -7,6 +7,7 @@
  */
 
 import type { RedLineMarker } from './types.js';
+import { RED_LINE_CATALOG_P2_A } from './red-line-catalog-p2-a.js';
 
 export interface RedLineCatalogEntry {
   /** Stable id, e.g. "rl-solo-code-ban-001". */
@@ -152,6 +153,12 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     phrases: ['protected path', 'auth required', 'auth header', 'login required', 'session check'],
     enforcerRef: 'src/services/audit/enforcers/login-gate.ts',
   },
+  // Slice #6 L2.3 P2-a: 24 lint-style red-lines (Theme A: section
+  // structure, B: frontmatter shape, C: output style, D: CLI-back
+  // gaps, E: reference integrity, F: workflow-bound shape, G: catalog
+  // governance). Spread from the P2-a module so future P2-a edits
+  // are localized.
+  ...RED_LINE_CATALOG_P2_A,
 ] as const;
 
 /**

@@ -86,6 +86,18 @@ export interface ProjectPreferences {
   readonly swarmSpeculative: SwarmSpeculativePreferences;
   /** Loop Autonomous (L4 14.5) toggle. Default: false — never auto-enable. */
   readonly loopAutonomousEnabled: boolean;
+  /**
+   * L2.3 P2-a: ECC AgentShield subprocess toggle. Default: false.
+   *
+   * When true, `peaks audit static` spawns `npx ecc-agentshield scan --json`
+   * and merges its findings into the audit report. When false (default),
+   * the audit runs peaks-cli-only and the subprocess is never spawned.
+   *
+   * The preference is independent of whether ECC is installed — i.e.
+   * `agentShieldEnabled: true` with ECC missing surfaces a soft
+   * "ECC not installed" warning and the audit still completes.
+   */
+  readonly agentShieldEnabled: boolean;
 }
 
 export const DEFAULT_PREFERENCES: ProjectPreferences = {
@@ -116,4 +128,5 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     minHitRate: 0.5,
   },
   loopAutonomousEnabled: false,
+  agentShieldEnabled: false,
 };

@@ -13,7 +13,8 @@
  * sid-naming-guard and adds any invalid sids as warnings.
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { classifyFiles } from './classifier.js';
 import { classifyBackingBatch } from './backing-detector.js';
 import { scanSkillsTree } from './scanners/skills-tree-scanner.js';
@@ -24,6 +25,38 @@ import { checkTechDocPresence } from './enforcers/tech-doc-presence.js';
 import { findStubMarkers } from './enforcers/prototype-fidelity.js';
 import { checkDesignDraftConfirmation } from './enforcers/design-draft-confirm.js';
 import { checkPreRdScan } from './enforcers/pre-rd-scan.js';
+import {
+  readSkillFiles,
+  lintSectionShape,
+  lintFrontmatterShape,
+  lintReferenceLoadStrategy,
+} from './enforcers/lint-style.js';
+import {
+  lintRefPathResolves,
+  lintNoBrokenMkdir,
+  lintNoPwdSymlinkJumps,
+  lintNoRelativeArchivePaths,
+} from './enforcers/lint-reference-integrity.js';
+import {
+  lintCliBackMandatorText,
+  lintCliBackNoOrphanBlocking,
+  lintCliBackNoOrphanMustNot,
+} from './enforcers/lint-cli-back.js';
+import {
+  lintNoFluff,
+  lintNoClosingPrompt,
+  lintStatusHeader,
+} from './enforcers/lint-output-style.js';
+import {
+  lintOpenSpecAcceptanceBullets,
+  lintOpenSpecSpecReference,
+  lintTechDocPresenceShape,
+  lintPeaksDoctorAcknowledged,
+} from './enforcers/lint-workflow-shape.js';
+import {
+  lintCatalogSize,
+  lintCatalogProseOnlyRatio,
+} from './enforcers/lint-catalog-governance.js';
 import type { ClassifyFileInput } from './classifier.js';
 import type { EnforcerFinding, RedLineAudit, RedLineEntry, ScanWarning } from './types.js';
 
@@ -121,12 +154,10 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
 
   const counts = tally(backed.entries);
 
-  // L2.4 P2-b: invoke the 7 file-system enforcers during the scan. Each
-  // enforcer function returns a structured result; we convert to
-  // EnforcerFinding[] and add to the audit output. This is the REAL
-  // framework integration that L2.3 P2-a deferred to a follow-up:
-  // the audit scanner now actually CALLS the enforcers, not just
-  // catalogs them.
+  // L2.4 P2-b: invoke the 5 P0/P1 file-system enforcers during the scan.
+  // Each enforcer function returns a structured result; we convert to
+  // EnforcerFinding[] and add to the audit output. The audit scanner
+  // actually CALLS the enforcers, not just catalogs them.
   const enforcerFindings: EnforcerFinding[] = [];
 
   // 1. sub-agent-sid (already partially handled via warnings; here we
@@ -278,6 +309,132 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           detail: `stub marker "${hit.pattern}" at line containing: ${hit.snippet.slice(0, 50)}`,
         });
       }
+    }
+  } catch {
+    // skip
+  }
+
+  // 6. P2-a enforcers (Slice #6 L2.3) — 18 lint-style enforcers
+  //    across Themes A (section), B (frontmatter), C (output
+  //    style), D (CLI-back gaps), E (reference integrity),
+  //    F (workflow shape), G (catalog governance). Each enforcer
+  //    is a pure pattern scan; we walk `skills/` + `references/`,
+  //    call the helpers, and convert LintHit[] into
+  //    EnforcerFinding[]. Failures here are WARN, not FAIL —
+  //    P2-a is the lint layer, not the structural gate layer.
+  try {
+    const skillsRoot = join(input.projectRoot, 'skills');
+    if (existsSync(skillsRoot)) {
+      const skillNames: string[] = [];
+      for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.')) continue;
+        if (!existsSync(join(skillsRoot, entry.name, 'SKILL.md'))) continue;
+        skillNames.push(entry.name);
+      }
+      const skillFiles = readSkillFiles(skillsRoot, skillNames);
+
+      for (const skill of skillFiles) {
+        const refsDir = join(skillsRoot, skill.name, 'references');
+        const refs: string[] = existsSync(refsDir)
+          ? readdirSync(refsDir).filter((f) => f.endsWith('.md'))
+          : [];
+
+        const lintHits = [
+          ...lintSectionShape(skill),
+          ...lintFrontmatterShape(skill),
+          ...lintRefPathResolves(skillsRoot, skill.name, refs),
+          ...lintNoBrokenMkdir(skill),
+          ...lintNoPwdSymlinkJumps(skill),
+          ...lintNoRelativeArchivePaths(skill),
+          ...lintReferenceLoadStrategy(refsDir, refs),
+          ...lintCliBackMandatorText(skill),
+          ...lintCliBackNoOrphanBlocking(skill),
+          ...lintCliBackNoOrphanMustNot(skill),
+          ...lintNoFluff(skill),
+          ...lintNoClosingPrompt(skill),
+          ...lintPeaksDoctorAcknowledged(skill),
+        ];
+        for (const hit of lintHits) {
+          enforcerFindings.push({
+            enforcerId: hit.catalogId,
+            rule: hit.rule,
+            severity: 'warn',
+            file: hit.file,
+            detail: `line ${hit.line}: ${hit.matchedText}`,
+          });
+        }
+      }
+    }
+  } catch {
+    // skip — P2-a enforcers are best-effort; a failure here must
+    // not break the audit pipeline
+  }
+
+  // P2-a Theme F (project-level): openspec proposals + tech-doc shape.
+  try {
+    const openspecHits = [
+      ...lintOpenSpecAcceptanceBullets(input.projectRoot),
+      ...lintOpenSpecSpecReference(input.projectRoot),
+      ...lintTechDocPresenceShape(input.projectRoot),
+    ];
+    for (const hit of openspecHits) {
+      enforcerFindings.push({
+        enforcerId: hit.catalogId,
+        rule: hit.rule,
+        severity: 'warn',
+        file: hit.file,
+        detail: `line ${hit.line}: ${hit.matchedText}`,
+      });
+    }
+  } catch {
+    // skip
+  }
+
+  // P2-a Theme C (session log): status header presence. Reads
+  // .peaks/_runtime/<sid>/session.log. Soft check: if no session
+  // log is present (e.g. dogfood on a fresh project), the enforcer
+  // returns an empty array.
+  try {
+    let peakSessionId = '';
+    if (existsSync(sessionJsonPath)) {
+      const sessionData = JSON.parse(readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
+      if (typeof sessionData.peakSessionId === 'string') {
+        peakSessionId = sessionData.peakSessionId;
+      }
+    }
+    if (peakSessionId.length > 0) {
+      const statusHits = lintStatusHeader(input.projectRoot, peakSessionId);
+      for (const hit of statusHits) {
+        enforcerFindings.push({
+          enforcerId: hit.catalogId,
+          rule: hit.rule,
+          severity: 'warn',
+          file: hit.file,
+          detail: `line ${hit.line}: ${hit.matchedText}`,
+        });
+      }
+    }
+  } catch {
+    // skip
+  }
+
+  // P2-a Theme G: catalog governance. Two checks: catalog size and
+  // prose-only ratio. Both are static checks on the catalog itself,
+  // not on the project.
+  try {
+    const catalogSize = backed.entries.length;
+    const proseOnlyCount = counts.proseOnly;
+    const catalogSizeHits = lintCatalogSize(catalogSize);
+    const ratioHits = lintCatalogProseOnlyRatio(catalogSize, proseOnlyCount);
+    for (const hit of [...catalogSizeHits, ...ratioHits]) {
+      enforcerFindings.push({
+        enforcerId: hit.catalogId,
+        rule: hit.rule,
+        severity: 'warn',
+        file: hit.file,
+        detail: `line ${hit.line}: ${hit.matchedText}`,
+      });
     }
   } catch {
     // skip
