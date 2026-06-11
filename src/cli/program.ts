@@ -30,6 +30,7 @@ import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
 import { registerAuditCommands } from './commands/audit-commands.js';
 import { registerClassifyCommands } from './commands/classify-classify-commands.js';
+import { registerContextCommands } from './commands/context-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -119,6 +120,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerAuditCommands(program, io);
  // Slice #2: peaks classify * — L1a task classification + L1b per-level gate sets.
  registerClassifyCommands(program, io);
+ // Slice #3: peaks context * — L1c context 4-layer loader.
+ registerContextCommands(program, io);
 
  return program;
 }
