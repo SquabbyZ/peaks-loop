@@ -1,22 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { savePreferences } from '../preferences/preferences-service.js';
-import type { ProjectPreferences } from '../preferences/preferences-types.js';
 
 export const CONFIG_SCHEMA_VERSION_V2 = '2.0.0';
 const BACKUP_NAME = 'config.json.1.x.bak';
-
-const PER_PROJECT_FIELDS = ['economyMode', 'swarmMode'] as const;
-const ARCHIVED_FIELDS = [
-  'currentWorkspace',
-  'workspaces',
-  'language',
-  'model',
-  'tokens',
-  'providers',
-  'proxy',
-] as const;
 
 export interface MigrationOptions {
   currentProjectRoot: string;
@@ -25,11 +12,7 @@ export interface MigrationOptions {
 export interface MigrationPlan {
   alreadyAtV2: boolean;
   detectedSchemaVersion: string | null;
-  willMigrateFields: string[];
-  willKeepFields: string[];
-  willArchiveFields: string[];
   newConfigSchemaVersion: string;
-  preferencesTarget: string;
 }
 
 export interface MigrationResult extends MigrationPlan {
@@ -58,21 +41,13 @@ export function planMigration(opts: MigrationOptions): MigrationPlan {
     return {
       alreadyAtV2: true,
       detectedSchemaVersion,
-      willMigrateFields: [],
-      willKeepFields: [],
-      willArchiveFields: [],
       newConfigSchemaVersion: CONFIG_SCHEMA_VERSION_V2,
-      preferencesTarget: join(opts.currentProjectRoot, '.peaks/preferences.json'),
     };
   }
   return {
     alreadyAtV2: false,
     detectedSchemaVersion,
-    willMigrateFields: [...PER_PROJECT_FIELDS],
-    willKeepFields: [],
-    willArchiveFields: [...ARCHIVED_FIELDS],
     newConfigSchemaVersion: CONFIG_SCHEMA_VERSION_V2,
-    preferencesTarget: join(opts.currentProjectRoot, '.peaks/preferences.json'),
   };
 }
 
@@ -92,21 +67,8 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
   // 1. Backup
   const bak = backupConfigPath();
   writeFileSync(bak, JSON.stringify(original, null, 2) + '\n', 'utf8');
-  // 2. Slim config.json
+  // 2. Slim config.json — only the schema version remains.
   mkdirSync(join(homedir(), '.peaks'), { recursive: true });
   writeFileSync(configPath, JSON.stringify({ version: CONFIG_SCHEMA_VERSION_V2 }, null, 2) + '\n', 'utf8');
-  // 3. Migrate per-project fields
-  const overrides: Record<string, unknown> = {};
-  for (const field of PER_PROJECT_FIELDS) {
-    if (field in original) {
-      overrides[field] = original[field];
-    }
-  }
-  if (Object.keys(overrides).length > 0) {
-    if (!existsSync(plan.preferencesTarget)) {
-      mkdirSync(join(plan.preferencesTarget, '..'), { recursive: true });
-    }
-    savePreferences(opts.currentProjectRoot, overrides as Partial<ProjectPreferences>);
-  }
   return { ...plan, applied: true, backupPath: bak, newConfigPath: configPath };
 }
