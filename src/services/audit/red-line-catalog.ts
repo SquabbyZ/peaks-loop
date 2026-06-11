@@ -83,18 +83,23 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
 
 /**
  * Catalog entries for enforcers whose source code is shipped in this slice
- * but whose integration (wiring into PreToolUse hooks, request transition,
- * slice check) is deferred to subsequent commits within L2.1.
+ * but whose integration is deferred to subsequent slices (L2.1.1 or later).
  *
  * The backing-detector downgrades these to `prose-only` at runtime because
- * the integration seam is missing. Once each enforcer's integration lands
- * (Tasks 4-6), the entry is moved out of this list back into RED_LINE_CATALOG.
+ * the integration seam is missing. When the integration lands, the entry
+ * is removed from this set in a single-line follow-up commit.
+ *
+ * L2.1 final state: Tasks 5 (solo-code-ban) + 6 (no-root-pollution) are
+ * wired into peaks hook handle (Tasks 1-4: framework + 3 enforcers also
+ * integrated). Tasks 3 (tech-doc-presence) and 4 (mock-placement) are
+ * deferred — their request-transition / slice-check integrations are
+ * tracked separately.
  */
 export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([
-  // Task 5: solo-code-ban — needs PreToolUse Bash wiring
-  'rl-solo-code-ban-001',
-  // Task 6: no-root-pollution — needs PreToolUse Write/Edit wiring
-  'rl-no-root-pollution-001',
+  // Task 3: tech-doc-presence — integration deferred
+  'rl-tech-doc-presence-001',
+  // Task 4: mock-placement — integration deferred
+  'rl-mock-placement-001',
 ]);
 
 /**
