@@ -29,6 +29,7 @@ import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
 import { registerAuditCommands } from './commands/audit-commands.js';
+import { registerClassifyCommands } from './commands/classify-classify-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -116,6 +117,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerWorkflowPlanCommands(program, io);
  // Slice L2.1: peaks audit * — red-line audit framework.
  registerAuditCommands(program, io);
+ // Slice #2: peaks classify * — L1a task classification + L1b per-level gate sets.
+ registerClassifyCommands(program, io);
 
  return program;
 }
