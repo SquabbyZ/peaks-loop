@@ -1,0 +1,17 @@
+[
+  {
+    "id": "doctor-baseline",
+    "prompt": "/peaks-doctor",
+    "expectedOutcome": "Runs peaks workspace init + peaks audit + peaks doctor; returns a triage of FAIL checks with hand-off suggestions."
+  },
+  {
+    "id": "doctor-from-finding",
+    "prompt": "peaks doctor flagged L3:l3-memory-health. Generate an OpenSpec change record from it.",
+    "expectedOutcome": "Calls peaks openspec from-doctor --check-id L3:l3-memory-health; verifies the proposal.md was written; suggests next step (peaks-rd)."
+  },
+  {
+    "id": "doctor-only-audit",
+    "prompt": "Run only the audit (not the full doctor).",
+    "expectedOutcome": "Calls peaks audit red-lines --project . --json; summarizes the enforcerFindings and the prose-only ratio."
+  }
+]
