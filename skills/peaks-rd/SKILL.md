@@ -15,7 +15,7 @@ Peaks-Cli RD owns engineering analysis, implementation planning, and refactor ex
 
 ## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
 
-For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. The LLM checks its own tool list for any Playwright MCP entry (`mcp__playwright__*`); if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and reports the gate as blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp as a substitute. Two contracts (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion` and pick one of three paths. The full contract is identical in spirit to `peaks-qa`'s; RD and QA share the headed-browser path.
+For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. The LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and reports the gate as blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp as a substitute. Two contracts (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion` and pick one of three paths. The full contract is identical in spirit to `peaks-qa`'s; RD and QA share the headed-browser path.
 
 → see `references/browser-self-test-contracts.md` for the full contract + AskUserQuestion options.
 

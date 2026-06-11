@@ -139,7 +139,7 @@ Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<ses
 
 QA cannot pass a change until the report contains evidence for every applicable gate. The 11 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 6 security check, 7 performance check, 8 library version regressions, 9 validation report, 10 acceptance coverage, 11 QA artifact lint) are mapped to Peaks-Cli Gates A/A2/A3/A4/B/C/D/E/F.
 
-If Playwright MCP is unavailable, the LLM checks its own tool list for any `mcp__playwright__*` entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
+If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 
 ## Local intermediate artifacts
 
