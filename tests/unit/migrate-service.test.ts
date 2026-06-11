@@ -1,9 +1,17 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep as pathSep } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { migrateWorkspace } from '../../src/services/workspace/migrate-service.js';
+
+// Convert any path-style to a forward-slash style for substring checks.
+// Production `to` paths on Windows are emitted with the OS-native
+// backslash separator; the test asserts via `.toContain('/.peaks/...')`.
+// Normalize the production path to forward slashes before comparison.
+function toPosix(p: string): string {
+  return p.split(pathSep).join('/');
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -210,11 +218,11 @@ describe('migrateWorkspace', () => {
       const perfMove = result.moved.find((f) => f.relativePath === 'rd/perf-baseline.md');
 
       expect(scanMove?.changeId).toBe('project-scan');
-      expect(scanMove?.to).toContain('/.peaks/project-scan/rd/project-scan.md');
+      expect(toPosix(scanMove?.to ?? '')).toContain('/.peaks/project-scan/rd/project-scan.md');
       expect(perfMove?.changeId).toBe('perf-baseline');
-      expect(perfMove?.to).toContain('/.peaks/perf-baseline/rd/perf-baseline.md');
+      expect(toPosix(perfMove?.to ?? '')).toContain('/.peaks/perf-baseline/rd/perf-baseline.md');
       expect(perfWithSpaceMove?.changeId).toBe('perf-baseline');
-      expect(perfWithSpaceMove?.to).toContain('/.peaks/perf-baseline/rd/perf baseline.md');
+      expect(toPosix(perfWithSpaceMove?.to ?? '')).toContain('/.peaks/perf-baseline/rd/perf baseline.md');
 
       // Files actually moved on disk
       expect(existsSync(join(project, '.peaks/project-scan/rd/project-scan.md'))).toBe(true);
@@ -270,7 +278,7 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(1);
       expect(result.moved[0]?.changeId).toBe('session-009-move');
-      expect(result.moved[0]?.to).toContain('/retrospective/session-009-move/rd/requests/session-009-move.md');
+      expect(toPosix(result.moved[0]?.to ?? '')).toContain('/retrospective/session-009-move/rd/requests/session-009-move.md');
 
       // File moved on disk
       const expectedTarget = join(project, '.peaks/retrospective/session-009-move/rd/requests/session-009-move.md');
@@ -360,7 +368,7 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(2);
       expect(result.moved.map((m) => m.changeId)).toEqual(['slice-008-shared', 'slice-008-shared']);
-      expect(result.moved.every((m) => m.to.includes('/retrospective/slice-008-shared/'))).toBe(true);
+      expect(result.moved.every((m) => toPosix(m.to).includes('/retrospective/slice-008-shared/'))).toBe(true);
 
       // Both files under the same retrospective change-id
       const retro = join(project, '.peaks/retrospective/slice-008-shared');
