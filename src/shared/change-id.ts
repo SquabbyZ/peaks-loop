@@ -320,7 +320,10 @@ export function setCurrentChangeId(
       try { unlinkSync(bindingPath); } catch { /* best effort */ }
     }
   }
-  symlinkSync(targetDir, bindingPath);
+  // On Windows, use a 'junction' (directory hard link) which doesn't
+  // require developer mode / admin. POSIX uses a regular 'dir' symlink.
+  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+  symlinkSync(targetDir, bindingPath, linkType);
 }
 
 /**

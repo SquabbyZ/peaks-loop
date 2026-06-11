@@ -11,7 +11,7 @@ async function makeProjectWithSession(): Promise<string> {
   // a fixed id so the JSON envelope assertions are stable.
   const project = await mkdtemp(join(tmpdir(), 'peaks-perf-cli-'));
   const sessionId = '2026-06-03-session-perfcli';
-  await mkdir(join(project, '.peaks', sessionId, 'rd'), { recursive: true });
+  await mkdir(join(project, '.peaks', '_runtime', sessionId, 'rd'), { recursive: true });
   await writeFile(
     join(project, '.peaks', '.session.json'),
     JSON.stringify({
@@ -53,15 +53,15 @@ describe('peaks perf commands', () => {
       expect(output.data.apply).toBe(false);
       expect(output.data.sessionId).toBe('2026-06-03-session-perfcli');
       expect(output.data.perfBaselinePath).toBe(
-        join(project, '.peaks', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md')
+        join(project, '.peaks', '_runtime', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md')
       );
       expect(output.data.writtenFiles).toEqual([]);
       expect(output.data.createdDirectories).toEqual([]);
 
       const paths = output.data.plannedWrites.map((w) => w.path).sort();
       expect(paths).toEqual([
-        join(project, '.peaks', '2026-06-03-session-perfcli', 'rd'),
-        join(project, '.peaks', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md')
+        join(project, '.peaks', '_runtime', '2026-06-03-session-perfcli', 'rd'),
+        join(project, '.peaks', '_runtime', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md')
       ].sort());
 
       // Nothing must be on disk after a dry run.
@@ -77,7 +77,7 @@ describe('peaks perf commands', () => {
       // independently of other state.
       const project = await mkdtemp(join(tmpdir(), 'peaks-perf-cli-apply-'));
       const sessionId = '2026-06-03-session-perfcli-apply';
-      await mkdir(join(project, '.peaks', sessionId), { recursive: true });
+      await mkdir(join(project, '.peaks', '_runtime', sessionId), { recursive: true });
       await writeFile(
         join(project, '.peaks', '.session.json'),
         JSON.stringify({
@@ -100,10 +100,10 @@ describe('peaks perf commands', () => {
       expect(output.data.apply).toBe(true);
 
       const { existsSync, readFileSync, statSync } = await import('node:fs');
-      const baselinePath = join(project, '.peaks', sessionId, 'rd', 'perf-baseline.md');
+      const baselinePath = join(project, '.peaks', '_runtime', sessionId, 'rd', 'perf-baseline.md');
       expect(existsSync(baselinePath)).toBe(true);
-      expect(existsSync(join(project, '.peaks', sessionId, 'rd'))).toBe(true);
-      expect(statSync(join(project, '.peaks', sessionId, 'rd')).isDirectory()).toBe(true);
+      expect(existsSync(join(project, '.peaks', '_runtime', sessionId, 'rd'))).toBe(true);
+      expect(statSync(join(project, '.peaks', '_runtime', sessionId, 'rd')).isDirectory()).toBe(true);
 
       const content = readFileSync(baselinePath, 'utf8');
       expect(content).toContain('# Performance baseline');
@@ -112,7 +112,7 @@ describe('peaks perf commands', () => {
       expect(content).toContain('| Path / route | Workload | Tool | Metric | Baseline | Threshold |');
 
       expect(output.data.createdDirectories).toContain(
-        join(project, '.peaks', sessionId, 'rd')
+        join(project, '.peaks', '_runtime', sessionId, 'rd')
       );
       expect(output.data.writtenFiles).toContain(baselinePath);
     });
@@ -135,7 +135,7 @@ describe('peaks perf commands', () => {
       expect(output.ok).toBe(true);
       expect(output.data.apply).toBe(true);
       expect(output.data.createdDirectories).toEqual([]);
-      const baselinePath = join(project, '.peaks', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md');
+      const baselinePath = join(project, '.peaks', '_runtime', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md');
       expect(output.data.writtenFiles).toContain(baselinePath);
     });
 
@@ -161,7 +161,7 @@ describe('peaks perf commands', () => {
 
       // Hand-edit the file so we can detect any overwrite.
       const { readFileSync, writeFileSync } = await import('node:fs');
-      const baselinePath = join(project, '.peaks', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md');
+      const baselinePath = join(project, '.peaks', '_runtime', '2026-06-03-session-perfcli', 'rd', 'perf-baseline.md');
       writeFileSync(baselinePath, '# USER-HAND-WRITTEN — must not be stomped\n', 'utf8');
 
       // Second apply — must report alreadyInitialized and leave content intact.
