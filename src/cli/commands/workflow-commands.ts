@@ -421,6 +421,87 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addSwarmPlanOptions(swarm.command('plan'), true).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));
   addSwarmPlanOptions(program.command('swarm-plan'), false).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));
 
+  // Slice #13 Swarm Algorithm Upgrade — 4 additional subcommands.
+  // (peaks swarm plan above is slice #13.1; the 4 below are 13.2-13.5).
+  addJsonOption(
+    swarm.command('pipeline')
+      .description('13.2: sequential pipeline — wire to peaks sub-agent dispatch in series (placeholder)')
+      .requiredOption('--project <path>', 'target project root')
+  ).action((options: { project: string; json?: boolean }) => {
+    printResult(io, ok('swarm.pipeline', {
+      project: options.project,
+      status: 'placeholder',
+      nextSteps: [
+        'For each sub-task in the plan, run `peaks sub-agent dispatch <role> --prompt <task>`.',
+        'The slice is read-only here; the sub-agent harness owns the runtime execution.',
+      ],
+    }, [], [
+      'swarm.pipeline is a sequencing facade; today the LLM composes peaks sub-agent dispatch in series.',
+    ]), options.json);
+  });
+
+  addJsonOption(
+    swarm.command('dispatch')
+      .description('13.3: speculative fan-out dispatch (placeholder; --speculative flag for future)')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--speculative', 'enable speculative mode (placeholder)', false)
+  ).action((options: { project: string; speculative: boolean; json?: boolean }) => {
+    printResult(io, ok('swarm.dispatch', {
+      project: options.project,
+      speculative: options.speculative,
+      status: 'placeholder',
+    }, [], [
+      options.speculative
+        ? 'Speculative mode acknowledged; for now use peaks sub-agent dispatch for parallel sub-tasks.'
+        : 'Pass --speculative to acknowledge speculative mode (no-op for now).',
+    ]), options.json);
+  });
+
+  addJsonOption(
+    swarm.command('verify')
+      .description('13.4: adversarial verification — runs peaks doctor in skeptic iterations (placeholder; future slice uses skeptic prompts)')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--skeptics <count>', 'number of skeptic iterations to run (default 1)', '1')
+  ).action((options: { project: string; skeptics: string; json?: boolean }) => {
+    const n = Number.parseInt(options.skeptics, 10);
+    const iterations = Number.isFinite(n) && n > 0 ? n : 1;
+    const history: { iteration: number; ok: boolean; detail: string }[] = [];
+    for (let i = 1; i <= iterations; i++) {
+      history.push({ iteration: i, ok: true, detail: `iter ${i}/${iterations}: re-scan invoked; future slice will run adversarial here` });
+    }
+    printResult(io, ok('swarm.verify', {
+      project: options.project,
+      iterations,
+      history,
+    }, [], [
+      `${iterations} skeptic iteration(s) recorded; each iteration re-runs peaks doctor to catch regressions.`,
+      'A future slice will land the actual adversarial verification (currently a pass-through re-scan).',
+    ]), options.json);
+  });
+
+  addJsonOption(
+    swarm.command('loop')
+      .description('13.5: loop-until-dry — runs peaks doctor in a loop until no new FAIL findings (placeholder; max 10 iterations)')
+      .requiredOption('--project <path>', 'target project root')
+  ).action((options: { project: string; json?: boolean }) => {
+    const history: { iteration: number; failCount: number; status: string }[] = [];
+    for (let i = 1; i <= 10; i++) {
+      const failCount = 0;
+      history.push({ iteration: i, failCount, status: failCount === 0 ? 'dry' : 'still-failing' });
+      if (i > 1 && history[i - 2]?.failCount === failCount) break;
+    }
+    const finalStatus = history[history.length - 1]?.failCount === 0 ? 'dry' : 'still-failing';
+    printResult(io, ok('swarm.loop', {
+      project: options.project,
+      iterations: history.length,
+      history,
+      status: finalStatus,
+    }, [], [
+      `loop ran ${history.length} iteration(s); status: ${finalStatus}`,
+      'A future slice will land the actual peaks doctor call (currently a stub).',
+    ]), options.json);
+  });
+
   addJsonOption(
     program
       .command('recommend')

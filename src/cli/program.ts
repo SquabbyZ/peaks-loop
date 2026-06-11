@@ -125,6 +125,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerContextCommands(program, io);
  // Slice #12: peaks skills:audit-conformance — skill family alignment pass.
  registerSkillConformanceCommands(program, io);
+ // Slice #13: peaks swarm * — additional subcommands (pipeline /
+ // dispatch / verify / loop) are added inline in workflow-commands.ts
+ // alongside the existing swarm.plan. This avoids the duplicate top-level
+ // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
 
  return program;
 }
