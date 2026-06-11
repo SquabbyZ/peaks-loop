@@ -72,6 +72,12 @@ After Step 0 anchored the workspace, run the resume-detection probe (one `find` 
 
 → see `references/resume-detection.md` for the full detection algorithm + classification table.
 
+### Peaks-Cli Step 0.55: 1.x → 2.0 detection (BLOCKING on first invocation per session, when the project is not on a 2.0 layout)
+
+Per the "one-key completion" tenet (2026-06-11), peaks-cli 2.0 should detect a 1.x consumer project and prompt the user to upgrade. After Step 0.7 returns "fresh" (no in-flight slice), run the 1.x detection probe: `peaks upgrade --detect-1x --project <root> --json`. If the result is `isOneX: true`, surface an `AskUserQuestion` with the upgrade prompt. Persist the decision to `.peaks/preferences.json` (key: `autoUpgradePrompt` with values `opt-in` / `skip-this-session` / `skip-forever`) so subsequent runs in the same project don't re-ask.
+
+→ see `references/step-0-55-1x-detection.md` for the full detection algorithm + AskUserQuestion options + persistence contract.
+
 ### Peaks-Cli Step 1: Mode selection
 
 When the user did not name a profile (`full-auto` / `assisted` / `swarm` / `strict`), use `AskUserQuestion` with `Full auto (Recommended)` as the first option. Map the choice to `--mode` value.
