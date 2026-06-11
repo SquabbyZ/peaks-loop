@@ -79,17 +79,15 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 
 ## Mandatory per-request artifact
 
-Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/<session-id>/qa/` (the canonical placeholder form: `<session-id>` is the active session id at runtime, `<request-id>` follows the `YYYY-MM-DD-<kebab-slug>` format; the runtime path is `.peaks/_runtime/<session-id>/qa/...`). The request-artifact slot is `.peaks/<session-id>/qa/requests/<request-id>.md`. Do not merge them into one. Each serves a different reader. Codegraph context lives at `.peaks/<session-id>/qa/codegraph-context.md`.
+Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/<session-id>/qa/` (canonical placeholder: `.peaks/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.
 
-External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not run upstream installer commands, do not persist sensitive upstream examples to the working tree. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
+External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
 
-→ see `references/artifact-per-request.md` for the 3-file contract (test cases / test report / request artifact).
+→ see `references/artifact-per-request.md` for the 3-file contract and the do-not-execute upstream guard.
 
 ## Default runbook
 
-The default sequence the QA skill should execute. Do not skip the boundary check, the unit test gate, the validation report, or — when frontend is in scope — the Playwright MCP browser gate. The full 10-step runbook (steps #0–#9) with every CLI invocation, the rd-side pre-drafted test-cases optimization, the dev-server lifecycle requirement, the security/performance check discipline, and the 8 quality-gate CLI checks is in the references file.
-
-→ see `references/qa-runbook.md` for the full runbook.
+See `references/qa-runbook.md` for the full 10-step runbook (steps #0–#9) with every CLI invocation, the rd-side pre-drafted test-cases optimization, the dev-server lifecycle requirement, the security/performance check discipline, and the 8 quality-gate CLI checks.
 
 ## Transition verification gates (MANDATORY — run the command, see the output)
 
@@ -127,7 +125,7 @@ Before QA passes or returns work to RD, it must independently recheck the implem
 
 QA must generate test cases, not merely inspect existing ones. Every QA invocation that validates code changes must produce a test-case artifact at `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md`. Minimum categories: Unit / Integration / UI regression. Each test case MUST have an `**Acceptance:**` field linking to PRD acceptance IDs (A1, A2, ...). The `peaks scan acceptance-coverage` command enforces coverage.
 
-**Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is already pre-drafted at `.peaks/<id>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (e.g. the sub-agent failed, or the request was a config/docs/chore slice that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
+**Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/<id>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
 
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 
