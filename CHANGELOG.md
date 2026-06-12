@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.3] — 2026-06-13
+
+### Fixed
+
+- **`@alibaba-group/open-code-review` reverted to `optionalDependency`**
+  (was promoted to a hard `dependency` in 2.0.1 and carried through
+  2.0.2). The ocr npm package's `postinstall` downloads a Go binary
+  via HTTPS, which fails in restricted/proxied environments and was
+  aborting the whole `npm i -g peaks-cli` flow. The 5-state detector
+  (`ready` / `package-missing` / `binary-missing` / `config-missing` /
+  `detection-failed`) and the soft-fail policy are unchanged — peaks-cli
+  never blocks on ocr being installed; it just no longer forces the
+  install. Users who want the second-opinion review run
+  `npm i -g @alibaba-group/open-code-review` explicitly. Under pnpm
+  they also need `pnpm approve-builds @alibaba-group/open-code-review`
+  for the binary download to run. Source-of-truth refactor (ocr config
+  under `peaksConfig.ocr.llm`) from 2.0.1 is unchanged.
+
+---
+
 ## [2.0.0] — 2026-06-12
 
 ### 🎯 Headline
@@ -28,6 +48,15 @@ Gate B3 merges its findings into `code-review.md` as a second opinion
 alongside the LLM-only review. Soft-fails so missing ocr never blocks
 a slice. New CLI: `peaks code-review detect-ocr` / `run-ocr`. See
 `skills/peaks-rd/references/ocr-integration.md` for the contract.
+
+> **Note:** This `optionalDependency` classification was briefly
+> promoted to a hard `dependency` in 2.0.1 (alongside the source-of-truth
+> refactor) because the user feedback was "peaks-cli should not leave
+> install to the user". 2.0.3 reverts just the classification — the
+> source-of-truth refactor stays — because the ocr postinstall
+> downloads a Go binary via HTTPS, which fails in restricted/proxied
+> environments and was aborting `npm i -g peaks-cli`. See the 2.0.3
+> entry above for the full rationale.
 
 ### Breaking Changes
 
@@ -71,6 +100,14 @@ config surface.
   to download the platform binary still soft-fail at runtime
   (`binary-missing` state) — the install-time failure risk is the
   trade-off.
+
+  > **Reverted in 2.0.3.** The install-time failure risk turned out
+  > to bite too many real-world installs (corporate proxies, region
+  > firewalls, sandboxed dev environments all abort the whole
+  > `npm i -g peaks-cli`). 2.0.3 puts ocr back under
+  > `optionalDependencies`; everything else in this section
+  > (env-var injection, `config-template` CLI, `missingKeys`,
+  > source-of-truth under `peaksConfig.ocr.llm`) is unchanged.
 - **`detectOcr` / `runOcrReview` no longer read `~/.opencodereview/config.json`.**
   The source of truth is `peaksConfig.ocr.llm` (parsed by
   `getOcrLlmConfig()` in `config-service.ts`). Missing fields surface

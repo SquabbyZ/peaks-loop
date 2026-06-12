@@ -147,7 +147,7 @@ describe('detectOcr', () => {
     expect(r.binaryPath).toBeNull();
     expect(r.version).toBeNull();
     expect(r.configPath).toBe(tmpConfigPath);
-    expect(r.nextActions[1]).toContain('hard dependency of peaks-cli');
+    expect(r.nextActions[1]).toContain('peaks-cli 2.0.3 ships with ocr as an optional dependency');
   });
 
   test('state=binary-missing when launcher exists but platform binary did not download', () => {

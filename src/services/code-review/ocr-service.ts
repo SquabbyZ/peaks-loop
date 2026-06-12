@@ -36,12 +36,17 @@
  * To see the JSON template to paste, run:
  *   `peaks code-review config-template`
  *
- * The ocr package is declared in package.json:dependencies (was
- * previously optionalDependencies) so `npm i -g peaks-cli@2.0.x`
- * pulls it automatically (npm runs the ocr postinstall by default,
- * which downloads the Go binary). pnpm-based installs need
- * `pnpm approve-builds @alibaba-group/open-code-review`. Either
- * way, peaks-cli detects the install state and reports it.
+ * The ocr package is declared in package.json:optionalDependencies
+ * (was promoted to `dependencies` in 2.0.1 and reverted in 2.0.3 —
+ * the ocr postinstall downloads a Go binary via HTTPS, which fails
+ * in restricted/proxied environments and would otherwise abort the
+ * whole `npm i -g peaks-cli` flow). Peaks-cli ships with ocr *not*
+ * installed; if the user wants it, they run
+ *   `npm i -g @alibaba-group/open-code-review`
+ * and peaks-cli's 5-state detector (below) reports whether the
+ * binary is actually usable. pnpm-based installs additionally need
+ * `pnpm approve-builds @alibaba-group/open-code-review` for the
+ * binary download to run. Either way, peaks-cli never blocks on it.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -53,7 +58,7 @@ import type { OcrLlmConfig } from '../config/config-types.js';
 const OCR_DETECT_TIMEOUT_MS = 5000;
 const OCR_REVIEW_TIMEOUT_MS = 180000;
 
-const OCR_INSTALL_HINT = 'Install: `npm i -g @alibaba-group/open-code-review` (it is a hard dependency of peaks-cli 2.0.x and ships in the regular `npm install` flow). Then add your LLM endpoint to ~/.peaks/config.json — run `peaks code-review config-template` for the JSON snippet to paste.';
+const OCR_INSTALL_HINT = 'Install: `npm i -g @alibaba-group/open-code-review` (peaks-cli 2.0.3 ships with ocr as an optional dependency — its postinstall downloads a Go binary via HTTPS, which fails in some restricted/proxied environments; that\'s why peaks-cli does not auto-install it). Then add your LLM endpoint to ~/.peaks/config.json — run `peaks code-review config-template` for the JSON snippet to paste. Under pnpm you also need `pnpm approve-builds @alibaba-group/open-code-review` to allow the binary download.';
 
 const OCR_CONFIG_TEMPLATE = JSON.stringify(
   {
