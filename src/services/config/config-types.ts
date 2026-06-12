@@ -64,6 +64,42 @@ export type WorkspaceConfig = {
   installedCapabilityIds: string[];
 };
 
+/**
+ * Open Code Review (ocr) LLM endpoint config. Stored under
+ * `peaksConfig.ocr.llm` so the user has a single, discoverable
+ * place to declare their LLM endpoint for the ocr second-opinion
+ * review. peaks-cli never auto-writes these values; the user pastes
+ * the template (printed by `peaks code-review config-template`) into
+ * their `~/.peaks/config.json` themselves.
+ *
+ * The field names map onto the OCR package's own env-var surface
+ * (the highest-priority config path for the ocr subprocess):
+ *
+ *   peaksConfig.ocr.llm.url          → OCR_LLM_URL
+ *   peaksConfig.ocr.llm.authToken    → OCR_LLM_TOKEN
+ *   peaksConfig.ocr.llm.model        → OCR_LLM_MODEL
+ *   peaksConfig.ocr.llm.useAnthropic → OCR_USE_ANTHROPIC
+ *   peaksConfig.ocr.llm.authHeader   → OCR_LLM_AUTH_HEADER
+ *
+ * All fields are optional at the type level so the user can fill
+ * them in one at a time; the 5-state detector treats the
+ * `url + authToken + model` triple as the minimum for a `ready`
+ * state and reports the missing keys in `nextActions`.
+ */
+export type OcrAuthHeader = 'authorization' | 'x-api-key' | 'bearer';
+
+export type OcrLlmConfig = {
+  url?: string;
+  authToken?: string;
+  model?: string;
+  useAnthropic?: boolean;
+  authHeader?: OcrAuthHeader;
+};
+
+export type OcrConfig = {
+  llm?: OcrLlmConfig;
+};
+
 export type PeaksConfig = {
   version: string;
   language: string;
@@ -93,6 +129,15 @@ export type PeaksConfig = {
     enabled: boolean;
     heartbeatIntervalMs: number;
   };
+  /**
+   * Open Code Review (ocr) second-opinion config. Source of truth
+   * for the LLM endpoint that the ocr subprocess consumes via env
+   * vars (`OCR_LLM_URL` / `OCR_LLM_TOKEN` / ...). peaks-cli does
+   * NOT auto-write this — the user populates it by pasting the
+   * `peaks code-review config-template` output into their
+   * `~/.peaks/config.json`. See `OcrLlmConfig` for the field map.
+   */
+  ocr?: OcrConfig;
 };
 
 export type ConfigLayer = 'user' | 'project';
