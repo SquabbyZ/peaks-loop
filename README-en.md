@@ -9,13 +9,12 @@
 [![npm version](https://img.shields.io/npm/v/peaks-cli.svg)](https://www.npmjs.com/package/peaks-cli)
 [![GitHub stars](https://img.shields.io/github/stars/SquabbyZ/peaks-cli?style=social)](https://github.com/SquabbyZ/peaks-cli/stargazers)
 [![GitHub repo](https://img.shields.io/badge/GitHub-SquabbyZ%2Fpeaks--cli-181717?logo=github)](https://github.com/SquabbyZ/peaks-cli)
-[![Skills.sh](https://img.shields.io/badge/discover%20on-skills.sh-181717)](https://skills.sh)
+[![Skills.sh](https://img.shields.io/badge/discover%20on-skills.sh-181717)](https://skills.sh/SquabbyZ/peaks-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Sponsor](https://img.shields.io/badge/sponsor-❤-ff69b4)](./README-en.md#-sponsor-peaks-cli)
 
 **One CLI + 11 workflow skills. Turn LLM improvisation into auditable engineering process.**
 
-[Install](#-30-seconds-to-running) · [5-min onboarding](#-5-minute-onboarding) · [Skill family](#-11-skills-in-the-family) · [Killer feature: un-bypassable gates](#-killer-feature-un-bypassable-gates) · [Sponsor](#-sponsor-peaks-cli)
+[Install](#-30-seconds-to-running) · [5-min onboarding](#-5-minute-onboarding) · [Skill family](#-11-skills-in-the-family) · [Killer feature: un-bypassable gates](#-killer-feature-un-bypassable-gates)
 
 </div>
 
@@ -151,7 +150,12 @@ Detects the in-flight slice's deepest-completed gate, saves 3-5k tokens vs re-re
 
 ## 📦 Discover peaks on skills.sh
 
-The 11 `peaks-*` skills are also published to the [skills.sh](https://skills.sh) registry. Any environment with `npx skills` installed can pull them directly:
+The 11 `peaks-*` skills auto-index on the [skills.sh](https://skills.sh) registry — **no separate registration needed**. Indexing is driven by the config in this repo:
+
+- 11 `skills/<name>/SKILL.md` files (each with `name` + `description` YAML frontmatter) — the standard skills.sh discovery convention
+- `.claude-plugin/marketplace.json` — explicit manifest listing the 11 public skills (internal `peaks-doctor` / `peaks-ide` are hidden via `metadata.internal: true`)
+
+Any environment with `npx skills` installed (Claude Code, Cursor, Codex, ...) can pull them directly:
 
 ```bash
 # Install all 11:
@@ -163,7 +167,7 @@ npx skills add SquabbyZ/peaks-cli --skill peaks-rd
 npx skills add SquabbyZ/peaks-cli --skill peaks-sop
 ```
 
-Browse [skills.sh](https://skills.sh) for the full catalog. The skills shipped here and the skills shipped via `npm install -g peaks-cli` are the same artifact — both paths deliver the same content.
+Browse [skills.sh/SquabbyZ/peaks-cli](https://skills.sh/SquabbyZ/peaks-cli) for the full catalog. The skills shipped here and the skills shipped via `npm install -g peaks-cli` are the same artifact — both paths deliver the same content.
 
 ## 🛠️ How it works: skills first, CLI as gates
 
@@ -197,29 +201,6 @@ Full list: `peaks --help`.
 | ⚠️ **Trae** | slim `IdeAdapter` registered, real-Trae dogfood is a follow-up slice |
 | 📋 **Codex / Cursor / Qoder / Tongyi Lingma, and more** | On the roadmap |
 
-## ❤️ Sponsor peaks-cli
-
-peaks-cli is an **MIT-licensed open source project** — every skill, CLI command, and hook you see is publicly maintained at [SquabbyZ/peaks-cli](https://github.com/SquabbyZ/peaks-cli). The maintainer team is small; we dogfood peaks-cli on our own real projects (ice-cola / peaks-cli itself / client engineering overhauls) as we go.
-
-**Sponsorship directly fuels this work**:
-
-- 🛠️ **Multi-IDE rollout** — pushing Trae / Codex / Cursor / Qoder from "registered" to "real-dogfood"
-- 🧪 **Test + CI investment** — current 2,800+ tests / tsc / vitest / lint all green, but the matrix grows with every cross-IDE integration
-- 📚 **Skill family expansion** — `peaks-doc` / `peaks-i18n` / `peaks-perf` / `peaks-security` on the roadmap
-- 🤝 **Community ops** — issue triage, SOP template library, partner SOP onboarding
-- 🔒 **Security audits** — gates are the product's lifeline; an independent security review is the floor
-
-**How to sponsor**:
-
-- ⭐ **GitHub Sponsors** (preferred): [github.com/sponsors/SquabbyZ](https://github.com/sponsors/SquabbyZ) — one-time / monthly / custom amount
-- 🎁 **Open Collective**: account being registered (DM a maintainer to be added to README)
-- 💼 **Enterprise support / private SOP customization**: open an issue tagged `sponsor:enterprise` and we'll follow up
-- 🐛 **Bug reports / PRs / docs**: non-cash contributions matter too — merged PRs land in the release-notes "thanks to" section
-
-**Transparent use of funds**: we post a quarterly "where the sponsorship went" update in [discussions](https://github.com/SquabbyZ/peaks-cli/discussions) — broken down by CI minutes / domain costs / cross-IDE test rig time.
-
-> Bulk enterprise rollout, internal SOP template libraries, custom training: contact a maintainer directly.
-
 ## 🏗️ Project status
 
 - ✅ **11 skills** + cross-IDE CLI + 2,800+ tests
@@ -238,7 +219,7 @@ See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.
 
 **Find it useful?**
 
-⭐ [Star peaks-cli on GitHub](https://github.com/SquabbyZ/peaks-cli) · 🔍 [Browse on skills.sh](https://skills.sh) · 💖 [Sponsor the project](https://github.com/sponsors/SquabbyZ)
+⭐ [Star peaks-cli on GitHub](https://github.com/SquabbyZ/peaks-cli) · 🔍 [Browse on skills.sh](https://skills.sh/SquabbyZ/peaks-cli)
 
 Make your AI IDE work like a disciplined engineering team.
 

@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "pluginRoot": ".",
+    "version": "2.0.1"
+  },
+  "plugins": [
+    {
+      "name": "peaks-cli",
+      "description": "Cross-AI-IDE workflow-gating CLI + 11-skill family. Turns LLM improvisation into auditable engineering process. Skills cover PRD / R&D / UI / QA / change-control / context / SOP definition / orchestration. Soft-fail gates block irreversible actions mid-conversation (even under --dangerously-skip-permissions).",
+      "version": "2.0.1",
+      "author": {
+        "name": "SquabbyZ"
+      },
+      "homepage": "https://github.com/SquabbyZ/peaks-cli",
+      "repository": "https://github.com/SquabbyZ/peaks-cli",
+      "license": "MIT",
+      "tags": [
+        "workflow",
+        "gating",
+        "sop",
+        "code-review",
+        "agent-team",
+        "cross-ide",
+        "claude-code",
+        "memory",
+        "second-opinion"
+      ],
+      "keywords": [
+        "AI IDE",
+        "agent guardrails",
+        "SOP engine",
+        "cross-IDE",
+        "developer workflow",
+        "irreversible-action gates"
+      ],
+      "skills": [
+        "./skills/peaks-solo",
+        "./skills/peaks-solo-resume",
+        "./skills/peaks-solo-status",
+        "./skills/peaks-solo-test",
+        "./skills/peaks-prd",
+        "./skills/peaks-rd",
+        "./skills/peaks-qa",
+        "./skills/peaks-ui",
+        "./skills/peaks-sc",
+        "./skills/peaks-txt",
+        "./skills/peaks-sop"
+      ]
+    }
+  ]
+}
