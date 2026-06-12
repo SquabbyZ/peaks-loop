@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "version": 1,
-  "updatedAt": "2026-06-12T14:19:00.000Z",
+  "updatedAt": "2026-06-11T03:29:46.513Z",
   "hot": {
     "feedback": [
       {
@@ -386,14 +386,6 @@
   },
   "warm": {
     "project": [
-      {
-        "name": "parked-2.1.0-browser-service",
-        "kind": "project",
-        "description": "2.1.0 peaks browser service (internal HTTP + Playwright + CDP) parked 2026-06-12 — 4 open concerns (MCP ergonomics, state footgun, headed fallback, scope split). Full design in docs/adr/0006-internal-browser-service.md.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\parked-2.1.0-browser-service.md",
-        "sourceArtifact": "docs/adr/0006-internal-browser-service.md",
-        "updatedAt": "2026-06-12"
-      },
       {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
