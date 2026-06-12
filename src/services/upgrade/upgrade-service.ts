@@ -273,7 +273,7 @@ function writeUpgradeRecord(
     if (result.fromVersion !== null) {
       lines.push(`**From version**: ${result.fromVersion}`);
     }
-    lines.push(`**To version**: 2.0.1`);
+    lines.push(`**To version**: 2.0.0`);
     lines.push(`**Project root**: \`${result.projectRoot}\``);
     lines.push('');
     lines.push('## Sub-step results');
@@ -446,7 +446,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   const partial: UpgradeResult = {
     applied,
     fromVersion,
-    toVersion: '2.0.1',
+    toVersion: '2.0.0',
     projectRoot: input.projectRoot,
     steps,
     passedCount,
