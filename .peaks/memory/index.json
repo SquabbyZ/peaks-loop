@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "version": 1,
-  "updatedAt": "2026-06-11T03:29:46.513Z",
+  "updatedAt": "2026-06-12T15:25:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -386,6 +386,14 @@
   },
   "warm": {
     "project": [
+      {
+        "name": "parked-peaks-workflow-primitive",
+        "kind": "project",
+        "description": "Proposed peaks-workflow primitive (skill + CLI) — parked 2026-06-12. Bundles WHO/HOW/WITH-WHAT; pairs with peaks-sop for WHAT. 5 open concerns; defer-to-dogfood gate. Full design in docs/adr/0007-peaks-workflow-primitive.md.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\parked-peaks-workflow-primitive.md",
+        "sourceArtifact": "docs/adr/0007-peaks-workflow-primitive.md",
+        "updatedAt": "2026-06-12"
+      },
       {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",

@@ -2,7 +2,7 @@
 
 # ⛰️ Peaks
 
-**Make your AI IDE work like a disciplined engineering team**
+**One CLI + 11 workflow skills. Turn LLM improvisation into auditable engineering process.**
 
 **English** | [简体中文](./README.md)
 
@@ -11,8 +11,6 @@
 [![GitHub repo](https://img.shields.io/badge/GitHub-SquabbyZ%2Fpeaks--cli-181717?logo=github)](https://github.com/SquabbyZ/peaks-cli)
 [![Skills.sh](https://img.shields.io/badge/discover%20on-skills.sh-181717)](https://skills.sh/SquabbyZ/peaks-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-**One CLI + 11 workflow skills. Turn LLM improvisation into auditable engineering process.**
 
 [Install](#-30-seconds-to-running) · [5-min onboarding](#-5-minute-onboarding) · [Skill family](#-11-skills-in-the-family) · [Killer feature: un-bypassable gates](#-killer-feature-un-bypassable-gates)
 
@@ -220,7 +218,5 @@ See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.
 **Find it useful?**
 
 ⭐ [Star peaks-cli on GitHub](https://github.com/SquabbyZ/peaks-cli) · 🔍 [Browse on skills.sh](https://skills.sh/SquabbyZ/peaks-cli)
-
-Make your AI IDE work like a disciplined engineering team.
 
 </div>
