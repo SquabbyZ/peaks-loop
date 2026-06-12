@@ -2,15 +2,57 @@
 
 # ⛰️ Peaks
 
-**peaks-cli: cross-AI-IDE engineering gates and orchestration. 11 workflow skills. Gates + audit + cross-IDE adaptation.**
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&duration=3000&pause=800&color=6366F1&center=true&vCenter=true&multiline=true&width=720&height=110&lines=peaks-cli%3A%20cross-AI-IDE%20engineering%20gates%20%26%20orchestration;11%20%E2%9A%99%EF%B8%8F%20workflow%20skills%20%2B%20%E2%9A%96%EF%B8%8F%20executable%20gates;%E2%9C%89%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20gates%20%2B%20audit%20%2B%20cross-IDE%20adaptation" alt="peaks-cli tagline typing animation" />
 
 **English** | [简体中文](./README.md)
 
-[![npm version](https://img.shields.io/npm/v/peaks-cli.svg)](https://www.npmjs.com/package/peaks-cli)
-[![GitHub stars](https://img.shields.io/github/stars/SquabbyZ/peaks-cli?style=social)](https://github.com/SquabbyZ/peaks-cli/stargazers)
-[![GitHub repo](https://img.shields.io/badge/GitHub-SquabbyZ%2Fpeaks--cli-181717?logo=github)](https://github.com/SquabbyZ/peaks-cli)
-[![Skills.sh](https://img.shields.io/badge/discover%20on-skills.sh-181717)](https://skills.sh/SquabbyZ/peaks-cli)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+<table>
+<tr>
+<td align="center" width="180"><b>🔥 PROJECT</b></td>
+<td align="center" width="180"><b>⚡ BASED ON</b></td>
+<td align="center" width="180"><b>📚 SKILLS.SH</b></td>
+</tr>
+<tr>
+<td align="center"><a href="https://github.com/SquabbyZ/peaks-cli">peaks-cli / Homepage</a></td>
+<td align="center">11 Skills + Cross-IDE</td>
+<td align="center"><a href="https://skills.sh/SquabbyZ/peaks-cli">Listed on skills.sh</a></td>
+</tr>
+<tr><td colspan="3">&nbsp;</td></tr>
+<tr>
+<td align="center" width="180"><b>⭐ STARS</b></td>
+<td align="center" width="180"><b>📦 VERSION</b></td>
+<td align="center" width="180"><b>📄 LICENSE</b></td>
+</tr>
+<tr>
+<td align="center"><a href="https://github.com/SquabbyZ/peaks-cli/stargazers"><img src="https://img.shields.io/github/stars/SquabbyZ/peaks-cli?style=for-the-badge&logo=github&logoColor=white" alt="stars" /></a></td>
+<td align="center"><a href="https://www.npmjs.com/package/peaks-cli"><img src="https://img.shields.io/npm/v/peaks-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="npm version" /></a></td>
+<td align="center"><a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="license" /></a></td>
+</tr>
+<tr><td colspan="3">&nbsp;</td></tr>
+<tr>
+<td align="center" width="180"><b>🧪 TESTS</b></td>
+<td align="center" width="180"><b>🔧 LANG</b></td>
+<td align="center" width="180"><b>📥 DOWNLOADS</b></td>
+</tr>
+<tr>
+<td align="center"><b>2,800+</b></td>
+<td align="center"><b>TypeScript</b></td>
+<td align="center"><a href="https://www.npmjs.com/package/peaks-cli"><img src="https://img.shields.io/npm/dm/peaks-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="downloads" /></a></td>
+</tr>
+<tr><td colspan="3">&nbsp;</td></tr>
+<tr>
+<td align="center" width="180"><b>🌐 中文</b></td>
+<td align="center" width="180"><b>🚀 QUICK START</b></td>
+<td align="center" width="180"><b>👁️ VISITORS</b></td>
+</tr>
+<tr>
+<td align="center"><a href="./README.md">简体中文</a></td>
+<td align="center"><a href="#-30-seconds-to-running">30s to running →</a></td>
+<td align="center"><img src="https://komarev.com/ghpvc/?username=SquabbyZ&repo=peaks-cli&label=views&color=blue&style=for-the-badge" alt="visitors" /></td>
+</tr>
+</table>
+
+<img src="https://github-readme-streak-stats.herokuapp.com?user=SquabbyZ&repo=peaks-cli&theme=radical&hide_border=true&date_format=j%20M%5B%20Y%5D" alt="GitHub Streak Stats" />
 
 [Install](#-30-seconds-to-running) · [5-min onboarding](#-5-minute-onboarding) · [Skill family](#-11-skills-in-the-family) · [Killer feature: un-bypassable gates](#-killer-feature-un-bypassable-gates)
 
