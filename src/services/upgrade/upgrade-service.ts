@@ -27,8 +27,8 @@
  * upgrade.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
 
@@ -78,14 +78,100 @@ export interface UpgradeResult {
 const STEPS: ReadonlyArray<{ name: string; args: (projectRoot: string) => string[] }> = [
   { name: 'config-migrate', args: (p) => ['config', 'migrate', '--project', p, '--apply', '--json'] },
   { name: 'standards-migrate', args: (p) => ['standards', 'migrate', '--from-claude-rules', '--project', p, '--apply', '--json'] },
-  // memory extract requires --artifact. The umbrella points it
-  // at every skill's SKILL.md + the project's standards / rules
-  // / config; memory-service aggregates the stable facts.
-  { name: 'memory-extract', args: (p) => ['memory', 'extract', '--project', p, '--artifact', 'skills/**/SKILL.md', 'CLAUDE.md', '.claude/rules/**/*.md', '--json'] },
+  // memory extract is special: its --artifact takes literal file
+  // paths (memory-service rejects glob patterns via realpathSync).
+  // The umbrella expands the three documented patterns
+  // (skills/**/SKILL.md, CLAUDE.md, .claude/rules/**/*.md) on disk
+  // and passes the resulting literal list. See runUpgrade's special
+  // case below for the args resolution; the args function here is
+  // a placeholder so the STEPS table stays uniform.
+  { name: 'memory-extract', args: (p) => ['memory', 'extract', '--project', p, '--json'] },
   { name: 'hooks-install', args: (p) => ['hooks', 'install', '--project', p, '--json'] },
   { name: 'skill-sync', args: (p) => ['skill', 'sync', '--all', '--project', p, '--json'] },
   { name: 'audit-verify', args: (p) => ['audit', 'red-lines', '--project', p, '--json'] },
 ];
+
+/**
+ * Walk `<root>` recursively and collect every file whose basename
+ * matches `predicate`. Returns absolute paths.
+ *
+ * Mirrors `readMarkdownFilesRecursive` in
+ * src/services/standards/migrate-claude-rules-service.ts so the
+ * umbrella does not pull a new glob dependency (Node 20+ engine
+ * constraint — `fs.globSync` requires Node 22+).
+ */
+function collectFilesRecursive(
+  root: string,
+  predicate: (basename: string) => boolean
+): readonly string[] {
+  if (!existsSync(root)) return [];
+  const stat = statSync(root);
+  if (stat.isFile()) {
+    return predicate(root.split(/[\\/]/).pop() ?? '') ? [root] : [];
+  }
+  if (!stat.isDirectory()) return [];
+  const out: string[] = [];
+  for (const entry of readdirSync(root)) {
+    const child = join(root, entry);
+    let childStat;
+    try {
+      childStat = statSync(child);
+    } catch {
+      continue;
+    }
+    if (childStat.isFile()) {
+      if (predicate(entry)) out.push(child);
+    } else if (childStat.isDirectory()) {
+      out.push(...collectFilesRecursive(child, predicate));
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolve the three documented memory-extract artifact patterns
+ * against a real project tree. Returns project-relative paths
+ * (memory-service joins them with --project root) so the
+ * realpathSync inside memory-service's assertInsideProject
+ * succeeds.
+ *
+ * Patterns:
+ *   - skills/[asterisk][asterisk]/SKILL.md
+ *   - CLAUDE.md
+ *   - .claude/rules/[asterisk][asterisk]/[asterisk].md
+ *
+ * Returns an empty list when none of the three roots exist. The
+ * caller marks the step skipped in that case.
+ */
+function expandMemoryArtifacts(projectRoot: string): readonly string[] {
+  const out: string[] = [];
+
+  // skills/**/SKILL.md
+  const skillFiles = collectFilesRecursive(
+    join(projectRoot, 'skills'),
+    (name) => name === 'SKILL.md'
+  );
+  for (const abs of skillFiles) {
+    out.push(relative(projectRoot, abs));
+  }
+
+  // CLAUDE.md (literal)
+  const claudeMd = join(projectRoot, 'CLAUDE.md');
+  if (existsSync(claudeMd) && statSync(claudeMd).isFile()) {
+    out.push('CLAUDE.md');
+  }
+
+  // .claude/rules/**/*.md
+  const claudeRules = collectFilesRecursive(
+    join(projectRoot, '.claude', 'rules'),
+    (name) => name.endsWith('.md')
+  );
+  for (const abs of claudeRules) {
+    out.push(relative(projectRoot, abs));
+  }
+
+  return out;
+}
 
 function read1xVersion(cwd: string): string | null {
   const home = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
@@ -245,6 +331,31 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
 
   // Run the 6 sub-steps
   for (const step of STEPS) {
+    if (step.name === 'memory-extract') {
+      // Special case: expand the three glob patterns to literal
+      // paths before spawning. memory-service rejects literal
+      // '**' in artifact paths (assertInsideProject's realpathSync
+      // throws ENOENT) and refuses to run without --artifact.
+      const artifacts = expandMemoryArtifacts(input.projectRoot);
+      if (artifacts.length === 0) {
+        steps.push({
+          name: 'memory-extract',
+          status: 'skipped',
+          exitCode: null,
+          stdout: '',
+          stderr: 'no skills/, CLAUDE.md, or .claude/rules/ artifacts found in the project',
+          durationMs: 0,
+        });
+        continue;
+      }
+      const args = ['memory', 'extract', '--project', input.projectRoot, '--artifact', ...artifacts, '--json'];
+      const r = runStep(resolvedPeaksBin, 'memory-extract', args);
+      steps.push(r);
+      if (r.status === 'fail') {
+        warnings.push(`memory-extract failed: ${r.stderr.slice(0, 200)}`);
+      }
+      continue;
+    }
     const args = step.args(input.projectRoot);
     const r = runStep(resolvedPeaksBin, step.name, args);
     steps.push(r);

@@ -42,6 +42,22 @@ let originalHome: string | undefined;
 let originalUserprofile: string | undefined;
 let originalStubFail: string | undefined;
 
+/**
+ * Seed the project with the three memory-extract artifact shapes
+ * the umbrella expects (skills/**\/SKILL.md, CLAUDE.md,
+ * .claude/rules/**\/*.md). Tests that exercise the
+ * memory-extract step in its "actually runs" mode call this in
+ * setup; the "skipped on empty project" test deliberately does
+ * not.
+ */
+function seedMemoryArtifacts(projectRoot: string): void {
+  mkdirSync(join(projectRoot, 'skills', 'peaks-solo'), { recursive: true });
+  writeFileSync(join(projectRoot, 'skills', 'peaks-solo', 'SKILL.md'), '# stub\n', 'utf8');
+  writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stub\n', 'utf8');
+  mkdirSync(join(projectRoot, '.claude', 'rules', 'common'), { recursive: true });
+  writeFileSync(join(projectRoot, '.claude', 'rules', 'common', 'coding-style.md'), '# stub\n', 'utf8');
+}
+
 function writeStubPeaks(failArgvCsv: string = ''): string {
   const stubDir = mkdtempSync(join(tmpdir(), 'peaks-stub-'));
   const stubPath = join(stubDir, 'peaks.js');
@@ -113,6 +129,7 @@ afterEach(() => {
 
 describe('runUpgrade', () => {
   test('returns an UpgradeResult with the full documented shape', () => {
+    seedMemoryArtifacts(tmpProject);
     const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
     expect(result).toMatchObject({
       applied: expect.any(Boolean),
@@ -134,6 +151,7 @@ describe('runUpgrade', () => {
   });
 
   test('all 6 sub-steps pass when the stub returns 0 → applied=true, passedCount=6', () => {
+    seedMemoryArtifacts(tmpProject);
     const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
     expect(result.applied).toBe(true);
     expect(result.passedCount).toBe(6);
@@ -146,6 +164,7 @@ describe('runUpgrade', () => {
   });
 
   test('all 6 sub-steps fail when the stub returns 1 for every command → applied=false', () => {
+    seedMemoryArtifacts(tmpProject);
     // Fail every first-argv (config, standards, memory, hooks, skill, audit)
     writeStubPeaks(Object.values(STEP_TO_FIRST_ARGV).join(','));
     const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
@@ -161,6 +180,7 @@ describe('runUpgrade', () => {
   });
 
   test('mixed pass/fail: failing only standards + memory keeps passedCount=4, failedCount=2', () => {
+    seedMemoryArtifacts(tmpProject);
     writeStubPeaks('standards,memory');
     const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
     expect(result.applied).toBe(false);
@@ -173,6 +193,7 @@ describe('runUpgrade', () => {
   });
 
   test('writes the upgrade record to .peaks/memory/upgrade-2.0-YYYY-MM-DD.md', () => {
+    seedMemoryArtifacts(tmpProject);
     const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
     expect(result.upgradeRecordPath).not.toBeNull();
     expect(result.upgradeRecordPath).toMatch(/upgrade-2\.0-\d{4}-\d{2}-\d{2}\.md$/);
@@ -251,5 +272,34 @@ describe('runUpgrade', () => {
     expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
     const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
     expect(body).toContain('| standards-migrate | fail | 1 |');
+  });
+
+  test('memory-extract is skipped (status=skipped) when no artifact files exist in the project', () => {
+    // tmpProject is empty (no skills/, no CLAUDE.md, no .claude/rules/)
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const memStep = result.steps.find((s) => s.name === 'memory-extract');
+    expect(memStep).toBeDefined();
+    expect(memStep?.status).toBe('skipped');
+    expect(result.skippedCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test('memory-extract receives the expanded literal file list when artifacts exist', () => {
+    // Create the three artifact shapes the umbrella expands
+    mkdirSync(join(tmpProject, 'skills', 'peaks-solo'), { recursive: true });
+    writeFileSync(join(tmpProject, 'skills', 'peaks-solo', 'SKILL.md'), '# peaks-solo\n', 'utf8');
+    mkdirSync(join(tmpProject, '.claude', 'rules', 'common'), { recursive: true });
+    writeFileSync(join(tmpProject, '.claude', 'rules', 'common', 'coding-style.md'), '# coding\n', 'utf8');
+    writeFileSync(join(tmpProject, 'CLAUDE.md'), '# project\n', 'utf8');
+
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const memStep = result.steps.find((s) => s.name === 'memory-extract');
+    expect(memStep?.status).toBe('pass');
+    // The stub echoes its argv as JSON; the umbrella must have
+    // passed literal file paths (NOT the literal '**' glob string).
+    expect(memStep?.stdout).not.toContain('**');
+    // And the three files we created should each appear in argv
+    expect(memStep?.stdout).toContain('SKILL.md');
+    expect(memStep?.stdout).toContain('coding-style.md');
+    expect(memStep?.stdout).toContain('CLAUDE.md');
   });
 });
