@@ -132,6 +132,28 @@ export function isSensitiveConfigPath(path: string): boolean {
   return normalized.includes('apikey') || normalized.includes('accesskey') || normalized.includes('privatekey') || normalized.includes('token') || normalized.includes('secret') || normalized.includes('password') || normalized.includes('bearer') || normalized.includes('credential') || normalized.includes('auth');
 }
 
+/**
+ * 2.0.1 slim-config contract: `~/.peaks/config.json` only stores
+ * `version` + `ocr.llm.*` placeholders. The 1.x → 2.0 migration
+ * moved per-project fields (`language`, `model`, `economyMode`,
+ * `swarmMode`) to `<project>/.peaks/preferences.json` (per spec
+ * §10.4). `setConfig` rejects writes to those keys and points the
+ * user to the preferences path; tokens / providers / proxy still
+ * live in `~/.peaks/config.json` (the loader is tolerant of them
+ * but does not synthesise defaults for them anymore).
+ */
+const LEGACY_CONFIG_KEYS: ReadonlySet<string> = new Set<string>([
+  'language',
+  'model',
+  'economyMode',
+  'swarmMode'
+]);
+
+export function isLegacyConfigKey(path: string): boolean {
+  const topLevel = path.split(/[.[].*/, 1)[0] ?? '';
+  return LEGACY_CONFIG_KEYS.has(topLevel);
+}
+
 function isProviderConfigPath(path: string): boolean {
   return path === 'providers' || path.startsWith('providers.');
 }
@@ -617,6 +639,12 @@ export function setConfig(options: ConfigSetOptions): void {
   const layer = options.layer ?? 'user';
   if (!isConfigLayer(layer)) {
     throw new Error('Invalid config layer');
+  }
+  if (isLegacyConfigKey(options.key)) {
+    throw new Error(
+      `Legacy config key "${options.key}" is no longer stored in ~/.peaks/config.json. ` +
+      'Set it under <project>/.peaks/preferences.json (e.g. `peaks preferences set --key <key> --value <value>`).'
+    );
   }
   if (layer === 'project' && (isProviderConfigPath(options.key) || isProxyConfigPath(options.key) || isSensitiveConfigPath(options.key) || containsSensitiveConfigValue(options.value))) {
     throw new Error('Sensitive config keys must be stored in the user config layer');

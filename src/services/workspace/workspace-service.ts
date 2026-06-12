@@ -1,8 +1,13 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
 import { setCurrentChangeId } from '../../shared/change-id.js';
+import {
+  buildClaudeSettingsLocalJson,
+  CLAUDE_SETTINGS_LOCAL_FILENAME
+} from './claude-settings-template.js';
 
 export type WorkspaceInitOptions = {
   projectRoot: string;
@@ -23,6 +28,14 @@ export type WorkspaceInitOptions = {
    * (live sub-agent progress, spawn records).
    */
   changeId?: string;
+  /**
+   * Slice 2.0.1-bug3-fact-forcing-bypass: opt out of writing the
+   * consumer-project `.claude/settings.local.json` file. Default
+   * (`false`) writes the file so the [Fact-Forcing Gate] is bypassed
+   * for tool calls inside `.peaks/**`. The CLI surfaces this as
+   * `--no-claude-hooks`.
+   */
+  noClaudeHooks?: boolean;
 };
 
 export type WorkspaceInitReport = {
@@ -34,6 +47,22 @@ export type WorkspaceInitReport = {
   previousSessionId: string | null;
   changeId: string | null;
   changeIdAction: 'bound' | 'preserved' | 'none';
+  /**
+   * Slice 2.0.1-bug3-fact-forcing-bypass: what the consumer-project
+   * `.claude/settings.local.json` materialization did this call.
+   *   - written:        the file was freshly written
+   *   - refreshed:      the file already existed and was rewritten to
+   *                     match the current peaks-cli release's template
+   *   - already-current: the file already matched the template; no
+   *                     rewrite needed
+   *   - skipped:        the caller passed noClaudeHooks=true
+   * The LLM and the user both see this in the JSON envelope so they
+   * can decide whether the bypass is in effect.
+   */
+  claudeSettings: {
+    action: 'written' | 'refreshed' | 'already-current' | 'skipped';
+    path: string;
+  };
 };
 
 const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
@@ -218,6 +247,138 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     bound,
     previousSessionId,
     changeId: resolvedChangeId,
-    changeIdAction
+    changeIdAction,
+    claudeSettings: await materializeClaudeSettingsLocal(options.projectRoot, options.noClaudeHooks === true)
   };
+}
+
+/**
+ * The peaks-managed snippet appended to the consumer project's
+ * `.peaks/.gitignore` so the local-only settings file never lands
+ * in a commit. Marked with a managed-by header so we can detect (and
+ * not double-append) on subsequent inits.
+ */
+const PEAKS_GITIGNORE_HEADER = '# >>> peaks-cli managed snippet (slice 2.0.1-bug3) — do not edit by hand';
+const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-cli managed snippet';
+
+const PEAKS_GITIGNORE_SNIPPET = [
+  PEAKS_GITIGNORE_HEADER,
+  '# Consumer-project .claude/settings.local.json: written by `peaks workspace init`',
+  '# to bypass Claude Code [Fact-Forcing Gate] for .peaks/** writes. Local-only.',
+  '.claude/settings.local.json',
+  PEAKS_GITIGNORE_FOOTER,
+  ''
+].join('\n');
+
+/**
+ * Materialize the consumer-project `.claude/settings.local.json` and
+ * ensure the consumer's `.peaks/.gitignore` covers it. Returns a
+ * `claudeSettings` descriptor that the caller surfaces in the JSON
+ * envelope.
+ *
+ * The function is idempotent: re-running on an already-materialized
+ * project is a no-op (the file is rewritten only when its content
+ * diverges from the current peaks-cli release's template, which
+ * keeps the consumer up to date as the template evolves).
+ *
+ * Even when the caller passes `noClaudeHooks: true`, the function
+ * still writes a copy of the template at
+ * `.peaks/.claude-settings-template.json` so the user has an offline
+ * recovery path: copy the file contents into
+ * `.claude/settings.local.json` manually. The recovery path is
+ * documented in
+ * `skills/peaks-solo/references/anchoring-and-session-info.md`.
+ */
+async function materializeClaudeSettingsLocal(
+  projectRoot: string,
+  noClaudeHooks: boolean
+): Promise<{ action: 'written' | 'refreshed' | 'already-current' | 'skipped'; path: string }> {
+  const settingsRel = CLAUDE_SETTINGS_LOCAL_FILENAME;
+  const settingsPath = join(projectRoot, settingsRel);
+  const template = buildClaudeSettingsLocalJson();
+  const serialized = JSON.stringify(template, null, 2) + '\n';
+
+  // Always drop a copy of the template under .peaks/ so the
+  // --no-claude-hooks recovery flow has a known source-of-truth on
+  // disk. The file is gitignored by the snippet below.
+  await writeOfflineTemplateCopy(projectRoot, serialized);
+
+  if (noClaudeHooks) {
+    return { action: 'skipped', path: settingsRel };
+  }
+
+  // Best-effort: ensure .claude/ exists, then write the file. We do
+  // not assertSafeSettingsPath here (the .claude/ dir is local to
+  // the consumer and we trust it on first init; the existing
+  // hooks-settings-service applies the safety check for the Bash
+  // gate-enforce path).
+  await mkdir(join(projectRoot, '.claude'), { recursive: true });
+
+  let action: 'written' | 'refreshed' | 'already-current' = 'written';
+  if (existsSync(settingsPath)) {
+    try {
+      const { readFile } = await import('node:fs/promises');
+      const existing = await readFile(settingsPath, 'utf8');
+      if (existing === serialized) {
+        action = 'already-current';
+      } else {
+        action = 'refreshed';
+      }
+    } catch {
+      // Treat any read failure as "needs refresh" so the consumer
+      // always ends up with a valid template on disk.
+      action = 'refreshed';
+    }
+  }
+  if (action !== 'already-current') {
+    await writeFile(settingsPath, serialized, 'utf8');
+  }
+
+  // Ensure the consumer's .peaks/.gitignore covers the local-only
+  // settings file. The snippet is appended only when the header is
+  // missing, so subsequent inits do not double-append.
+  await upsertPeaksGitignoreSnippet(projectRoot);
+
+  return { action, path: settingsRel };
+}
+
+/**
+ * Always write (or refresh) a copy of the template at
+ * `.peaks/.claude-settings-template.json` so the user has a known
+ * source-of-truth on disk for the manual recovery flow. This file is
+ * tracked in git (not gitignored) because it is the recovery anchor
+ * — if the consumer needs to re-create their .claude/settings.local.json
+ * they can copy this file verbatim.
+ */
+async function writeOfflineTemplateCopy(projectRoot: string, serialized: string): Promise<void> {
+  const copyPath = join(projectRoot, '.peaks', '.claude-settings-template.json');
+  await mkdir(join(projectRoot, '.peaks'), { recursive: true });
+  await writeFile(copyPath, serialized, 'utf8');
+}
+
+/**
+ * Append the peaks-managed `.claude/settings.local.json` snippet to
+ * the consumer project's `.peaks/.gitignore`. Preserves any user-
+ * managed entries above the snippet. Idempotent: re-running on a
+ * project that already has the snippet is a no-op.
+ */
+async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
+  const gitignorePath = join(projectRoot, '.peaks', '.gitignore');
+  await mkdir(join(projectRoot, '.peaks'), { recursive: true });
+
+  let existing = '';
+  if (existsSync(gitignorePath)) {
+    try {
+      const { readFile } = await import('node:fs/promises');
+      existing = await readFile(gitignorePath, 'utf8');
+    } catch {
+      existing = '';
+    }
+  }
+  if (existing.includes(PEAKS_GITIGNORE_HEADER)) {
+    return;
+  }
+  const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
+  const next = existing + separator + (existing.length > 0 ? '\n' : '') + PEAKS_GITIGNORE_SNIPPET;
+  await writeFile(gitignorePath, next, 'utf8');
 }

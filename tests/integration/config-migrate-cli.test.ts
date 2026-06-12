@@ -91,7 +91,7 @@ describe('peaks config migrate', () => {
       const out = JSON.parse(stdout);
       expect(out.data.applied).toBe(true);
       const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-      expect(newCfg).toEqual({ version: '2.0.0' });
+      expect(newCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
       expect(existsSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'))).toBe(true);
       const prefs = JSON.parse(readFileSync(join(project, '.peaks/preferences.json'), 'utf8'));
       expect(prefs.swarmMode).toBe(false);

@@ -3,7 +3,7 @@ import { DEFAULT_CONFIG, type ModelProviderConfig, type PeaksConfig } from './co
 export const STRONGEST_MODEL_ID = 'claude-opus-4-7' as const;
 
 export function getConfiguredExecutionModelId(providers: ModelProviderConfig | undefined): string {
-  const providerConfigs = Object.values(providers ?? DEFAULT_CONFIG.providers);
+  const providerConfigs = Object.values(providers ?? {});
   const configuredModel = providerConfigs
     .map((provider) => provider?.model?.trim())
     .find((model): model is string => typeof model === 'string' && model.length > 0);
@@ -14,5 +14,8 @@ export function getConfiguredExecutionModelId(providers: ModelProviderConfig | u
 }
 
 export function getEconomyAwareExecutionModelId(config: Pick<PeaksConfig, 'economyMode' | 'providers'>): string {
-  return config.economyMode ? getConfiguredExecutionModelId(config.providers) : STRONGEST_MODEL_ID;
+  // Slice 2.0.1-bug1 round 3: economy is the project default. Treat undefined as enabled
+  // (matches the pre-slice implicit default from DEFAULT_CONFIG.economyMode = true). Only an
+  // explicit `economyMode === false` switches execution to STRONGEST_MODEL_ID.
+  return config.economyMode !== false ? getConfiguredExecutionModelId(config.providers) : STRONGEST_MODEL_ID;
 }

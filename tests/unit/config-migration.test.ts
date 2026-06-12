@@ -80,7 +80,21 @@ describe('executeMigration', () => {
       const result = executeMigration({ currentProjectRoot: project, apply: true });
       expect(result.applied).toBe(true);
       const newConfig = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-      expect(newConfig).toEqual({ version: '2.0.0' });
+      // 2.0.1 slim: `{ version, ocr: { llm: {...placeholder} } }` — not
+      // the bare `{ version }` of 2.0.0. The placeholder block is the
+      // discoverable surface where the user pastes their LLM endpoint.
+      expect(newConfig).toEqual({
+        version: '2.0.0',
+        ocr: {
+          llm: {
+            url: '',
+            authToken: '',
+            model: '',
+            useAnthropic: false,
+            authHeader: 'authorization'
+          }
+        }
+      });
 
       const bak = readFileSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'), 'utf8');
       expect(bak).toContain('1.4.2');

@@ -621,6 +621,7 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
 
   test('passes when neither global nor project settings have any gateguard hook', async () => {
     const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.1', source: '2.0.1', match: true, distReadable: true }),
       gateguardProbe: () => ({
         globalSettingsPath: '/home/user/.claude/settings.json',
         globalSettings: { hooks: { PreToolUse: [] } },
@@ -637,6 +638,7 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
 
   test('flags a gateguard PreToolUse hook on Edit/Write with no .peaks skip', async () => {
     const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.1', source: '2.0.1', match: true, distReadable: true }),
       gateguardProbe: () => ({
         globalSettingsPath: '/home/user/.claude/settings.json',
         globalSettings: {
@@ -672,6 +674,7 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
     // `.peaks` (e.g. a paired matcher that points the hook at a
     // .peaks-allowlist) as evidence the user has routed the conflict.
     const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.1', source: '2.0.1', match: true, distReadable: true }),
       gateguardProbe: () => ({
         globalSettingsPath: '/home/user/.claude/settings.json',
         globalSettings: {
@@ -701,6 +704,7 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
 
   test('passes when project settings are absent (uninitialized project)', async () => {
     const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.1', source: '2.0.1', match: true, distReadable: true }),
       gateguardProbe: () => ({
         globalSettingsPath: '/home/user/.claude/settings.json',
         globalSettings: null,
@@ -715,6 +719,7 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
 
   test('detects the conflict when only the project .claude/settings.json has the hook', async () => {
     const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.1', source: '2.0.1', match: true, distReadable: true }),
       gateguardProbe: () => ({
         globalSettingsPath: '/home/user/.claude/settings.json',
         globalSettings: { hooks: {} },

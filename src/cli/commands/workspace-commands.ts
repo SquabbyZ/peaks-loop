@@ -50,6 +50,15 @@ type WorkspaceInitOptions = {
    * reviewable artifacts.
    */
   changeId?: string;
+  /**
+   * Slice 2.0.1-bug3-fact-forcing-bypass: opt out of writing the
+   * consumer-project `.claude/settings.local.json` file. Default
+   * (commander `--no-` prefix) is `true`; pass `--no-claude-hooks` to
+   * set this to `false`. The wrapper reads this as `=== false` to
+   * skip the materialization. The bypass is documented in
+   * `peaks-solo/references/anchoring-and-session-info.md`.
+   */
+  claudeHooks?: boolean;
 };
 
 /** Sticky decision marker for the first-time "install hooks" prompt. */
@@ -176,6 +185,10 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
           return value;
         }
       )
+      .option(
+        '--no-claude-hooks',
+        'do NOT materialize .claude/settings.local.json (slice 2.0.1-bug3 fact-forcing bypass). Default: hooks installed so tool calls inside .peaks/** are not blocked by the [Fact-Forcing Gate].'
+      )
   ).action(async (options: WorkspaceInitOptions) => {
     try {
       // Resolve the session id. Two paths:
@@ -237,7 +250,13 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         projectRoot,
         sessionId,
         allowSessionRebind: options.allowSessionRebind === true,
-        ...(options.changeId !== undefined ? { changeId: options.changeId } : {})
+        ...(options.changeId !== undefined ? { changeId: options.changeId } : {}),
+        // Commander translates `--no-claude-hooks` into
+        // `options.claudeHooks = false`. The default (no flag) leaves
+        // `options.claudeHooks` undefined, which is not equal to
+        // `false`, so the default is "install hooks" (the bypass is
+        // on). Pass `--no-claude-hooks` to opt out.
+        noClaudeHooks: options.claudeHooks === false
       });
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
@@ -257,6 +276,31 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         nextActions.push('Workspace already initialized — proceed to project scan.');
       } else {
         nextActions.push('Run `peaks scan archetype --project <path> --json` next to populate rd/project-scan.md.');
+      }
+
+      // Slice 2.0.1-bug3-fact-forcing-bypass: surface the consumer-
+      // project .claude/settings.local.json materialization outcome.
+      // When the bypass is in effect, the LLM knows subsequent Writes
+      // and Bash calls targeting .peaks/** will not be blocked by the
+      // [Fact-Forcing Gate]. When the user opted out, we surface a
+      // nextAction so the manual recovery is documented.
+      if (report.claudeSettings.action === 'written' || report.claudeSettings.action === 'refreshed') {
+        nextActions.push(
+          `Materialized .claude/settings.local.json (action: ${report.claudeSettings.action}) — ` +
+            `the [Fact-Forcing Gate] is bypassed for tool calls inside .peaks/**. ` +
+            'Restart Claude Code so the hooks take effect.'
+        );
+      } else if (report.claudeSettings.action === 'already-current') {
+        // No-op: the bypass is already in effect and matches the
+        // current release. Do not spam the nextAction list on every
+        // init.
+      } else if (report.claudeSettings.action === 'skipped') {
+        nextActions.push(
+          'Skipped .claude/settings.local.json materialization (--no-claude-hooks). ' +
+            'If the [Fact-Forcing Gate] blocks subsequent Writes, run `peaks workspace init` ' +
+            'again without --no-claude-hooks, or drop the contents of ' +
+            '`.peaks/.claude-settings-template.json` into `.claude/settings.local.json` manually.'
+        );
       }
 
       // First-time hooks install decision. Sticky-marker at
