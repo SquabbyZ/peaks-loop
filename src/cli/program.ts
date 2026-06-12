@@ -35,6 +35,7 @@ import { registerSkillConformanceCommands } from './commands/skill-conformance-c
 import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
+import { registerCodeReviewCommands } from './commands/code-review-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -138,6 +139,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerAgentCommands(program, io);
  // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
  registerUpgradeCommands(program, io);
+ // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).
+ registerCodeReviewCommands(program, io);
 
  return program;
 }

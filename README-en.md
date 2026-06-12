@@ -24,6 +24,33 @@ npm install -g peaks-cli
 
 After install, Peaks registers its 11 built-in `peaks-*` skills into the adapted AI IDE (today: Claude Code). Invoke them by name in any conversation.
 
+### 2.0 new: one-key upgrade (1.x → 2.0)
+
+If you already have peaks-cli 1.x installed, running `npm install -g peaks-cli` is all you need. The postinstall hook auto-detects the 1.x state in your project and migrates `.claude/rules/`, `~/.peaks/config.json`, `.gitignore`, etc. to the 2.0 layout (every step writes a timestamped backup first). After the upgrade, `git status` will surface the 2.0 tracked artifacts (`.peaks/standards/`, `.peaks/memory/*.md` durable memories, `.peaks/PROJECT.md`, opt-in markers).
+
+```bash
+# Manual fallback (CI with --ignore-scripts, or PEAKS_SKIP_AUTO_UPGRADE=1):
+peaks upgrade --to 2.0 --auto --project .
+```
+
+> Full 8-step contract + rollback path: [`docs/UPGRADING-2.0.md`](./docs/UPGRADING-2.0.md).
+
+### 2.0 new: ocr second-opinion code review (soft-optional)
+
+peaks-cli 2.0 ships Alibaba's [Open Code Review](https://github.com/alibaba/open-code-review) (`@alibaba-group/open-code-review`) as an `optionalDependency`, augmenting `peaks-rd`'s Gate B3 with a **second opinion**: peaks-rd's own LLM review + ocr's specialized review, merged into `.peaks/<session-id>/rd/code-review.md`.
+
+```bash
+# One-time configuration (your own LLM endpoint):
+ocr config set llm.url <your-endpoint>
+ocr config set llm.auth_token <your-key>
+ocr config set llm.model <your-model>
+
+# Check readiness (peaks-rd runs this automatically):
+peaks code-review detect-ocr --json
+```
+
+Opt-in (user-owned LLM endpoint). Skipping install or config does NOT block peaks-rd — it simply omits the second opinion and proceeds with the LLM-only review. Full integration contract: [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md).
+
 ## 5-minute onboarding
 
 In an adapted AI IDE conversation, **just ask the AI to use a skill by name**. The skill takes over the rest of the flow:

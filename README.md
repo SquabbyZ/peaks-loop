@@ -24,6 +24,33 @@ npm install -g peaks-cli
 
 安装后，Peaks 会把内置的 11 个 `peaks-*` 技能注册到已适配的 AI IDE（当前：Claude Code），会话里直接通过技能名调用即可。
 
+### 2.0 新增：一键升级（1.x → 2.0）
+
+如果你已经装过 peaks-cli 1.x，把 `npm install -g peaks-cli` 跑一遍就够了：postinstall 会自动检测项目里的 1.x 状态，并就地把 `.claude/rules/`、`~/.peaks/config.json`、`.gitignore` 等迁移到 2.0 布局（每一步都带时间戳备份）。完成后 `git status` 里会浮出 `.peaks/standards/`、`.peaks/memory/*.md`（durable）、`.peaks/PROJECT.md` 等 2.0 新增的可跟踪 artifact。
+
+```bash
+# 手动 fallback（当 CI 跳过 postinstall，或者升级被 PEAKS_SKIP_AUTO_UPGRADE=1 抑制时）：
+peaks upgrade --to 2.0 --auto --project .
+```
+
+> 详细说明 + 8 步骤 + rollback 路径见 [`docs/UPGRADING-2.0.md`](./docs/UPGRADING-2.0.md)。
+
+### 2.0 新增：ocr 第二意见 code review（soft-optional）
+
+peaks-cli 2.0 把阿里 [Open Code Review](https://github.com/alibaba/open-code-review)（`@alibaba-group/open-code-review`）以 `optionalDependencies` 形式带进来，给 `peaks-rd` 的 Gate B3（code review 证据）增加**第二意见**：peaks-rd 自己 LLM 评 + ocr 专评工具评，两份结果合并到 `.peaks/<session-id>/rd/code-review.md`。
+
+```bash
+# 一次性配置（用你自己拥有的 LLM 端点）：
+ocr config set llm.url <your-endpoint>
+ocr config set llm.auth_token <your-key>
+ocr config set llm.model <your-model>
+
+# 检查就绪状态（peaks-rd 会自动跑这一步）：
+peaks code-review detect-ocr --json
+```
+
+可选模式（user-owned LLM endpoint）。安装 + 配置都没做也不影响 peaks-rd 工作 — 它会跳过第二意见、继续 LLM-only review。详见 [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md)。
+
 ## 5 分钟上手
 
 在已适配的 AI IDE 对话里，**直接对 AI 说「用 X 技能做 Y」** 即可，技能会接管剩下的所有流程：
