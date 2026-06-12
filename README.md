@@ -37,19 +37,24 @@ peaks upgrade --to 2.0 --auto --project .
 
 ### 2.0 新增：ocr 第二意见 code review（soft-optional）
 
-peaks-cli 2.0 把阿里 [Open Code Review](https://github.com/alibaba/open-code-review)（`@alibaba-group/open-code-review`）以 `optionalDependencies` 形式带进来，给 `peaks-rd` 的 Gate B3（code review 证据）增加**第二意见**：peaks-rd 自己 LLM 评 + ocr 专评工具评，两份结果合并到 `.peaks/<session-id>/rd/code-review.md`。
+peaks-cli 2.0 把阿里 [Open Code Review](https://github.com/alibaba/open-code-review)（`@alibaba-group/open-code-review`）作为 **required dependency** 带进来，给 `peaks-rd` 的 Gate B3（code review 证据）增加**第二意见**：peaks-rd 自己 LLM 评 + ocr 专评工具评，两份结果合并到 `.peaks/<session-id>/rd/code-review.md`。
+
+LLM 端点配置**由用户在 peaks-cli 自己的 config 里维护**（**不**自动配置，**不**写 `~/.opencodereview/config.json`，**不**调 `ocr config set`）：
 
 ```bash
-# 一次性配置（用你自己拥有的 LLM 端点）：
-ocr config set llm.url <your-endpoint>
-ocr config set llm.auth_token <your-key>
-ocr config set llm.model <your-model>
+# 1) 打印要粘贴的 JSON 模板（不写任何东西，只是引导）：
+peaks code-review config-template --json
 
-# 检查就绪状态（peaks-rd 会自动跑这一步）：
+# 2) 把模板贴到 ~/.peaks/config.json 的 "ocr.llm" 段下，替换 <your-api-key>。
+#    也可以分键写：peaks config set --key ocr.llm.url --value '<url>' 等等。
+
+# 3) 验证就绪状态（peaks-rd 也会自动跑这一步）：
 peaks code-review detect-ocr --json
 ```
 
-可选模式（user-owned LLM endpoint）。安装 + 配置都没做也不影响 peaks-rd 工作 — 它会跳过第二意见、继续 LLM-only review。详见 [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md)。
+peaks-cli 永远不会替你写 token / URL — 你的 LLM 端点和 key 都是你的。配置存在 `peaksConfig.ocr.llm`，peaks-rd 调用 ocr 时**作为 env vars 注入**（`OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL` / `OCR_USE_ANTHROPIC` / `OCR_LLM_AUTH_HEADER`）— 这是 ocr 包最高优先级的配置路径，peaks-cli 不必生成 `~/.opencodereview/config.json`。
+
+软失败（soft-fail）策略：缺包、缺 binary、缺配置都**不会**让 peaks-rd 卡住 — 它会跳过第二意见、继续 LLM-only review。详见 [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md)。
 
 ## 5 分钟上手
 

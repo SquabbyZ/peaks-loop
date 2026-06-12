@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
+import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, OcrAuthHeader, OcrConfig, OcrLlmConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
 import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
@@ -448,6 +448,60 @@ export function setMiniMaxProviderConfig(input: MiniMaxProviderConfig): MiniMaxP
   return createMiniMaxProviderStatus(providers.minimax ?? {});
 }
 
+const OCR_AUTH_HEADERS: ReadonlySet<OcrAuthHeader> = new Set<OcrAuthHeader>(['authorization', 'x-api-key', 'bearer']);
+
+function toOcrLlmConfig(value: unknown): OcrLlmConfig {
+  if (!isRecord(value)) return {};
+  const url = typeof value.url === 'string' && value.url.trim().length > 0 ? value.url.trim() : undefined;
+  const authToken = typeof value.authToken === 'string' && value.authToken.length > 0 ? value.authToken : undefined;
+  const model = typeof value.model === 'string' && value.model.trim().length > 0 ? value.model.trim() : undefined;
+  const useAnthropic = typeof value.useAnthropic === 'boolean' ? value.useAnthropic : undefined;
+  const rawAuthHeader = typeof value.authHeader === 'string' ? value.authHeader : undefined;
+  const authHeader = rawAuthHeader !== undefined && OCR_AUTH_HEADERS.has(rawAuthHeader as OcrAuthHeader)
+    ? (rawAuthHeader as OcrAuthHeader)
+    : undefined;
+  return {
+    ...(url !== undefined ? { url } : {}),
+    ...(authToken !== undefined ? { authToken } : {}),
+    ...(model !== undefined ? { model } : {}),
+    ...(useAnthropic !== undefined ? { useAnthropic } : {}),
+    ...(authHeader !== undefined ? { authHeader } : {})
+  };
+}
+
+function toOcrConfig(value: unknown): OcrConfig {
+  if (!isRecord(value)) return {};
+  return {
+    ...(isRecord(value.llm) ? { llm: toOcrLlmConfig(value.llm) } : {})
+  };
+}
+
+/**
+ * Read the ocr LLM endpoint config from the user-layer
+ * `~/.peaks/config.json`. The user populates this themselves by
+ * pasting the `peaks code-review config-template` output (or by
+ * running `peaks config set --key ocr.llm.url --value '...'`).
+ * peaks-cli never auto-writes these values.
+ */
+export function getOcrConfig(): OcrConfig {
+  const userConfig = readUserJsonFile() ?? {};
+  return toOcrConfig(userConfig.ocr);
+}
+
+/**
+ * Return the resolved `OcrLlmConfig` block (`peaksConfig.ocr.llm`)
+ * or `null` when the user has not populated the user config. The
+ * 5-state OCR detector uses this as the source of truth; when the
+ * returned block is missing required fields it produces a
+ * `config-missing` state with a templated `nextActions` payload
+ * the user can paste into their config.
+ */
+export function getOcrLlmConfig(): OcrLlmConfig | null {
+  const ocr = getOcrConfig();
+  if (!ocr.llm) return null;
+  return ocr.llm;
+}
+
 function inferHumanLanguage(value: string): string {
   const normalized = value.trim();
   if (!normalized) {
@@ -753,4 +807,6 @@ export function ensureWorkspaceConfigForCurrentPath(): WorkspaceConfig | null {
   return ensureWorkspaceConfigForPath(process.cwd());
 }
 
-export type { TokenRef, WorkspaceConfig, PeaksConfig, ConfigLayer };
+export type { OcrAuthHeader, OcrConfig, OcrLlmConfig, TokenRef, WorkspaceConfig, PeaksConfig, ConfigLayer };
+export { getUserConfigPath } from './config-safety.js';
+export { globalConfigPath } from './config-migration.js';

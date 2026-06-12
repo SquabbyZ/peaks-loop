@@ -37,19 +37,25 @@ peaks upgrade --to 2.0 --auto --project .
 
 ### 2.0 new: ocr second-opinion code review (soft-optional)
 
-peaks-cli 2.0 ships Alibaba's [Open Code Review](https://github.com/alibaba/open-code-review) (`@alibaba-group/open-code-review`) as an `optionalDependency`, augmenting `peaks-rd`'s Gate B3 with a **second opinion**: peaks-rd's own LLM review + ocr's specialized review, merged into `.peaks/<session-id>/rd/code-review.md`.
+peaks-cli 2.0 ships Alibaba's [Open Code Review](https://github.com/alibaba/open-code-review) (`@alibaba-group/open-code-review`) as a **required dependency**, augmenting `peaks-rd`'s Gate B3 with a **second opinion**: peaks-rd's own LLM review + ocr's specialized review, merged into `.peaks/<session-id>/rd/code-review.md`.
+
+The LLM endpoint config is **user-maintained inside peaks-cli's own config** (peaks-cli does **NOT** auto-configure, does **NOT** write `~/.opencodereview/config.json`, does **NOT** invoke `ocr config set`):
 
 ```bash
-# One-time configuration (your own LLM endpoint):
-ocr config set llm.url <your-endpoint>
-ocr config set llm.auth_token <your-key>
-ocr config set llm.model <your-model>
+# 1) Print the JSON snippet to paste (read-only — does not write anything):
+peaks code-review config-template --json
 
-# Check readiness (peaks-rd runs this automatically):
+# 2) Paste the snippet into ~/.peaks/config.json under "ocr.llm",
+#    replace <your-api-key>. Alternatively, set keys one at a time:
+#    peaks config set --key ocr.llm.url --value '<url>' etc.
+
+# 3) Verify readiness (peaks-rd also runs this automatically):
 peaks code-review detect-ocr --json
 ```
 
-Opt-in (user-owned LLM endpoint). Skipping install or config does NOT block peaks-rd — it simply omits the second opinion and proceeds with the LLM-only review. Full integration contract: [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md).
+peaks-cli never touches your LLM token / URL — that is yours. The config lives at `peaksConfig.ocr.llm`; peaks-rd injects it as **env vars** (`OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL` / `OCR_USE_ANTHROPIC` / `OCR_LLM_AUTH_HEADER`) when spawning the ocr subprocess — that is ocr's highest-priority config path, so peaks-cli never has to materialise `~/.opencodereview/config.json`.
+
+Soft-fail policy: missing package, missing binary, or missing config never blocks peaks-rd — it simply omits the second opinion and proceeds with the LLM-only review. Full integration contract: [`skills/peaks-rd/references/ocr-integration.md`](./skills/peaks-rd/references/ocr-integration.md).
 
 ## 5-minute onboarding
 

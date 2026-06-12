@@ -7,6 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] — 2026-06-12
+
+### Changed — ocr source-of-truth moved into peaks-cli's config
+
+Following user feedback that the 2.0.0 ocr config lived in
+`~/.opencodereview/config.json` (a file outside peaks-cli's reach) and
+was set via the `ocr config set` CLI from the upstream package, the
+ocr LLM endpoint config now lives under `peaksConfig.ocr.llm` in
+`~/.peaks/config.json`. This makes the user-managed LLM endpoint
+discoverable from a single, peaks-cli-owned config surface.
+
+- **`@alibaba-group/open-code-review` is now a hard `dependency`** (was
+  `optionalDependency`). The user no longer has to remember to install
+  it; `npm i -g peaks-cli` pulls it. Network-blocked installs that
+  fail to download the platform binary still soft-fail at runtime
+  (`binary-missing` state) — the install-time failure risk is the
+  trade-off.
+- **`detectOcr` / `runOcrReview` no longer read `~/.opencodereview/config.json`.**
+  The source of truth is `peaksConfig.ocr.llm` (parsed by
+  `getOcrLlmConfig()` in `config-service.ts`). Missing fields surface
+  in `data.missingKeys` and the `config-missing` state's `nextActions`
+  payload embeds the JSON template to paste.
+- **Env-var injection replaces file writes.** `runOcrReview` injects
+  `OCR_LLM_URL` / `OCR_LLM_TOKEN` / `OCR_LLM_MODEL` /
+  `OCR_USE_ANTHROPIC` / `OCR_LLM_AUTH_HEADER` from
+  `peaksConfig.ocr.llm` when spawning the ocr subprocess. The ocr
+  package's env-var surface is its highest-priority config path, so
+  peaks-cli never has to materialise `~/.opencodereview/config.json`.
+  peaks-cli does NOT auto-configure the endpoint — the user is the
+  only party that touches their LLM token / URL.
+- **New CLI: `peaks code-review config-template`.** Prints the JSON
+  snippet the user pastes into `~/.peaks/config.json`. It does NOT
+  write anything. The user is in control; no `peaks ocr config set`,
+  no `ocr config set` — just edit peaks-cli's config.json (or use
+  `peaks config set --key ocr.llm.url --value '...'` if they prefer
+  the peaks-cli setter).
+- **JSON envelope contract change:** `OcrDetectResult.configPath` now
+  points at the peaks-cli config (e.g. `~/.peaks/config.json`) instead
+  of the OCR package's legacy file. A new `missingKeys` field lists
+  the required `ocr.llm.*` keys the user has not yet populated.
+  The five-state contract (`ready` / `package-missing` /
+  `binary-missing` / `config-missing` / `detection-failed`) and the
+  soft-fail policy are unchanged.
+
+### Migration
+
+Users who already configured `~/.opencodereview/config.json` for the
+2.0.0 release should:
+
+1. Run `peaks code-review config-template --json` to see the JSON
+   snippet.
+2. Paste the equivalent values into `~/.peaks/config.json` under
+   `ocr.llm` (peaks-cli does the camelCase conversion for you; the
+   template shows the canonical shape).
+3. Re-run `peaks code-review detect-ocr --json` to verify
+   `state == "ready"`.
+
+The old `~/.opencodereview/config.json` is no longer consulted by
+peaks-cli. The user may delete it at their discretion (the ocr
+subprocess ignores it when peaks-cli's env vars are present).
+
+---
+
 ## [2.0.0] — 2026-06-12
 
 ### 🎯 Headline

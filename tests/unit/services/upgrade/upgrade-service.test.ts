@@ -134,7 +134,7 @@ describe('runUpgrade', () => {
     expect(result).toMatchObject({
       applied: expect.any(Boolean),
       fromVersion: null,
-      toVersion: '2.0.0',
+      toVersion: '2.0.1',
       projectRoot: tmpProject,
       passedCount: expect.any(Number),
       failedCount: expect.any(Number),
