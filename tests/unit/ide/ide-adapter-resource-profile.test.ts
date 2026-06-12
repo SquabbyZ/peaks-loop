@@ -120,7 +120,11 @@ describe('detectAllResourceTargets — enumerate all registered adapters', () =>
 });
 
 describe('registry integration — adapter insertion order is preserved', () => {
-  test('listAdapterIds returns claude-code then trae', () => {
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
+  test('listAdapterIds returns claude-code then trae (in insertion order, before hermes + openclaw)', () => {
+    const ids = listAdapterIds();
+    expect(ids[0]).toBe('claude-code');
+    expect(ids[1]).toBe('trae');
+    expect(ids).toContain('hermes');
+    expect(ids).toContain('openclaw');
   });
 });

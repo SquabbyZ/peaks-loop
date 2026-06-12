@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { closeSync, constants, existsSync, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, realpathSync, readdirSync, renameSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -389,6 +390,19 @@ const IDE_DETECTION_DIRS = [
   { id: 'tongyi-lingma', dir: '.tongyi-lingma' },
 ];
 
+/**
+ * Per-IDE skill install paths. Per peaks-cli tenet
+ * "minimal-user-operation" (2026-06-11), the user should
+ * never have to run a per-platform install command — the
+ * `npm i -g peaks-cli` postinstall iterates ALL of these
+ * and symlinks the peaks-* skill family to every platform
+ * the user might be on.
+ *
+ * 1.x had only `claude-code` (the other 5 entries were
+ * `null`); real Trae users reported the Trae skill
+ * directory was never populated. 2.0 fixes this by giving
+ * all 8 platforms canonical install paths.
+ */
 const IDE_SKILL_INSTALL_PROFILES = {
   'claude-code': {
     skillsDir: join(homedir(), '.claude', 'skills'),
@@ -396,11 +410,48 @@ const IDE_SKILL_INSTALL_PROFILES = {
     envVar: 'PEAKS_CLAUDE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CLAUDE_OUTPUT_STYLES_DIR',
   },
-  'trae': null,
-  'codex': null,
-  'cursor': null,
-  'qoder': null,
-  'tongyi-lingma': null,
+  'trae': {
+    skillsDir: join(homedir(), '.trae', 'skills'),
+    outputStylesDir: join(homedir(), '.trae', 'output-styles'),
+    envVar: 'PEAKS_TRAE_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_TRAE_OUTPUT_STYLES_DIR',
+  },
+  'codex': {
+    skillsDir: join(homedir(), '.codex', 'skills'),
+    outputStylesDir: join(homedir(), '.codex', 'output-styles'),
+    envVar: 'PEAKS_CODEX_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_CODEX_OUTPUT_STYLES_DIR',
+  },
+  'cursor': {
+    skillsDir: join(homedir(), '.cursor', 'skills'),
+    outputStylesDir: join(homedir(), '.cursor', 'output-styles'),
+    envVar: 'PEAKS_CURSOR_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_CURSOR_OUTPUT_STYLES_DIR',
+  },
+  'qoder': {
+    skillsDir: join(homedir(), '.qoder', 'skills'),
+    outputStylesDir: join(homedir(), '.qoder', 'output-styles'),
+    envVar: 'PEAKS_QODER_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_QODER_OUTPUT_STYLES_DIR',
+  },
+  'tongyi-lingma': {
+    skillsDir: join(homedir(), '.tongyi-lingma', 'skills'),
+    outputStylesDir: join(homedir(), '.tongyi-lingma', 'output-styles'),
+    envVar: 'PEAKS_TONGYI_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_TONGYI_OUTPUT_STYLES_DIR',
+  },
+  'hermes': {
+    skillsDir: join(homedir(), '.hermes', 'skills'),
+    outputStylesDir: join(homedir(), '.hermes', 'output-styles'),
+    envVar: 'PEAKS_HERMES_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_HERMES_OUTPUT_STYLES_DIR',
+  },
+  'openclaw': {
+    skillsDir: join(homedir(), '.openclaw', 'skills'),
+    outputStylesDir: join(homedir(), '.openclaw', 'output-styles'),
+    envVar: 'PEAKS_OPENCLAW_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_OPENCLAW_OUTPUT_STYLES_DIR',
+  },
 };
 
 function detectInstalledIdeId(projectRoot) {
@@ -657,9 +708,228 @@ export function installBundledOutputStyles(options = {}) {
   return { installed, skipped };
 }
 
+/**
+ * Per-platform fan-out — iterate ALL 8 IdeIds and call
+ * `installBundledSkills` for each. Per peaks-cli tenet
+ * "minimal-user-operation" (2026-06-11): the user should
+ * never have to run a per-platform install command. The
+ * 1.x postinstall only handled the auto-detected single
+ * IDE; 2.0 fixes this so the peaks-* skill family is
+ * symlinked to every platform the user might be on.
+ *
+ * Returns an array of { ideId, skillsDir, installed, skipped }
+ * per platform. Symlink failures are soft (logged to stderr,
+ * never throw) so one platform's failure doesn't block the
+ * other 7.
+ */
+export function installBundledSkillsForAllPlatforms(options = {}) {
+  const platforms = Object.keys(IDE_SKILL_INSTALL_PROFILES);
+  const perPlatform = [];
+  // Back-compat precedence (regression fix 2026-06-12,
+  // slice 2026-06-12-postinstall-1x-detector-tdd):
+  // when iterating the 8 platforms, the claude-code install
+  // must still honor the PEAKS_CLAUDE_SKILLS_DIR env var
+  // (the legacy back-compat surface from 1.x). The other 7
+  // platforms use their per-IDE profile paths unconditionally.
+  // Without this fix the 8-IDE fan-out regresses the
+  // `peaks install-skills` env-var override contract that
+  // user CI / 1.x → 2.0 migration scripts depend on.
+  const claudeEnv = process.env.PEAKS_CLAUDE_SKILLS_DIR;
+  for (const ideId of platforms) {
+    try {
+      const platformOpts =
+        ideId === 'claude-code' && claudeEnv !== undefined && claudeEnv.length > 0
+          ? { ...options, ideId, targetRoot: claudeEnv }
+          : { ...options, ideId };
+      const result = installBundledSkills(platformOpts);
+      perPlatform.push({
+        ideId,
+        skillsDir: IDE_SKILL_INSTALL_PROFILES[ideId]?.skillsDir ?? '(unknown)',
+        installed: result.installed,
+        skipped: result.skipped,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `peaks install-skills: ${ideId} platform failed (continuing): ${message}\n`
+      );
+      perPlatform.push({
+        ideId,
+        skillsDir: IDE_SKILL_INSTALL_PROFILES[ideId]?.skillsDir ?? '(unknown)',
+        installed: [],
+        skipped: [],
+        error: message,
+      });
+    }
+  }
+  return perPlatform;
+}
+
+/**
+ * 1.x → 2.0 detection — sniff for legacy 1.x project state
+ * in `cwd`. Returns a 1.x detection envelope with the
+ * detected signals (so the postinstall can decide whether
+ * to auto-upgrade).
+ *
+ * 1.x signals (any one fires the detection):
+ *   - `~/.peaks/config.json` exists with `version: '1.4.2'` (or
+ *     any '1.x' version that predates the 2.0 schema)
+ *   - `.claude/rules/common/dev-preference.md` exists and
+ *     references "peaks progress" (the 1.x CLI surface
+ *     removed in slice #014)
+ *   - `<cwd>/.peaks/preferences.json` missing OR has no
+ *     `schema_version: '2.0.0'` field
+ *
+ * Returns:
+ *   { isOneX: boolean, signals: string[], projectRoot: string|null,
+ *     configPath: string|null }
+ */
+export function detect1xProjectState(cwd = process.cwd()) {
+  const home = homedir();
+  const signals = [];
+  let projectRoot = null;
+  let configPath = null;
+
+  // Walk up from cwd looking for .peaks/_runtime (signals
+  // we're inside a peaks project).
+  let dir = cwd;
+  for (let i = 0; i < 8; i += 1) {
+    const peaksRuntime = join(dir, '.peaks', '_runtime');
+    if (existsSync(peaksRuntime)) {
+      projectRoot = dir;
+      break;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  // Signal 1: ~/.peaks/config.json with 1.x version
+  const globalConfig = join(home, '.peaks', 'config.json');
+  if (existsSync(globalConfig)) {
+    try {
+      const raw = JSON.parse(readFileSync(globalConfig, 'utf8'));
+      if (typeof raw.version === 'string' && /^1\./.test(raw.version)) {
+        signals.push(`global config at ${globalConfig} is 1.x (${raw.version})`);
+        if (configPath === null) configPath = globalConfig;
+      }
+    } catch {
+      // ignore parse error — the 1.x detection is best-effort
+    }
+  }
+
+  // Signal 2: .claude/rules/common/dev-preference.md with peaks progress
+  if (projectRoot !== null) {
+    const devPref = join(projectRoot, '.claude', 'rules', 'common', 'dev-preference.md');
+    if (existsSync(devPref)) {
+      try {
+        const body = readFileSync(devPref, 'utf8');
+        if (/peaks progress/i.test(body)) {
+          signals.push(`${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // Signal 3: project preferences.json missing or 1.x
+    const prefs = join(projectRoot, '.peaks', 'preferences.json');
+    if (!existsSync(prefs)) {
+      signals.push(`${prefs} does not exist (1.x project never migrated)`);
+    } else {
+      try {
+        const raw = JSON.parse(readFileSync(prefs, 'utf8'));
+        if (raw.schema_version !== '2.0.0') {
+          signals.push(`${prefs} has schema_version ${JSON.stringify(raw.schema_version)}, expected '2.0.0'`);
+        }
+      } catch {
+        signals.push(`${prefs} exists but is not valid JSON`);
+      }
+    }
+  }
+
+  return {
+    isOneX: signals.length > 0,
+    signals,
+    projectRoot,
+    configPath,
+  };
+}
+
+/**
+ * Postinstall auto-upgrade — when the user just ran
+ * `npm i -g peaks-cli@2.0` and `cwd` is a 1.x peaks-cli
+ * project, this shells out to the installed `peaks`
+ * binary to run the umbrella `peaks upgrade --to 2.0 --auto`.
+ *
+ * Per the "minimal-user-operation" tenet, the user should
+ * never have to run a second command after `npm i -g`. The
+ * upgrade CLI (if installed) is at the resolved `peaks`
+ * binary path; if not, the user gets a hint to run it
+ * manually.
+ *
+ * The auto-upgrade is opt-out via:
+ *   PEAKS_SKIP_AUTO_UPGRADE=1
+ * (so a CI box that installs 2.0 but never wants the
+ * project-level migration can suppress the auto-step).
+ */
+export async function autoUpgrade1xProjectIfPresent(options = {}) {
+  if (process.env.PEAKS_SKIP_AUTO_UPGRADE === '1') {
+    return { ran: false, reason: 'PEAKS_SKIP_AUTO_UPGRADE=1' };
+  }
+  const state = detect1xProjectState(options.cwd ?? process.cwd());
+  if (!state.isOneX) {
+    return { ran: false, reason: 'no 1.x project state detected' };
+  }
+  if (state.projectRoot === null) {
+    return { ran: false, reason: 'cwd is not a peaks project (no .peaks/_runtime/)' };
+  }
+  // The peaks binary should be on PATH after `npm i -g`.
+  // We shell out via spawnSync (synchronous; the postinstall
+  // is already synchronous and the umbrella is fast).
+  try {
+    const result = spawnSync('peaks', ['upgrade', '--to', '2.0', '--auto', '--project', state.projectRoot], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120_000,
+    });
+    return {
+      ran: true,
+      reason: 'auto-upgrade dispatched',
+      signals: state.signals,
+      projectRoot: state.projectRoot,
+      exitCode: result.status,
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+    };
+  } catch (err) {
+    return {
+      ran: true,
+      reason: 'auto-upgrade dispatched but failed',
+      signals: state.signals,
+      projectRoot: state.projectRoot,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   try {
-    const skillsResult = installBundledSkills();
+    // 2.0 fix for the 1.x Trae bug (per real user feedback
+    // 2026-06-11): iterate ALL 8 platforms, not just the
+    // auto-detected one. Per the "minimal-user-operation"
+    // tenet, the user should never have to run a
+    // per-platform install command.
+    const perPlatform = installBundledSkillsForAllPlatforms();
+    let totalInstalled = 0;
+    for (const p of perPlatform) {
+      totalInstalled += p.installed.length;
+    }
+    if (totalInstalled > 0) {
+      process.stdout.write(
+        `Peaks skills linked across ${perPlatform.length} platforms ` +
+          `(${totalInstalled} total symlinks)\n`
+      );
+    }
     const outputStylesResult = installBundledOutputStyles();
     let userConfigResult = createConfigResult({ skipped: true });
     try {
@@ -667,12 +937,6 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       process.stderr.write(`Peaks user config was not installed: ${message}\n`);
-    }
-    if (skillsResult.installed.length > 0) {
-      process.stdout.write(`Peaks skills linked: ${skillsResult.installed.join(', ')}\n`);
-    }
-    if (skillsResult.skipped.length > 0) {
-      process.stderr.write(`Peaks skills skipped because local files already exist: ${skillsResult.skipped.join(', ')}\n`);
     }
     if (outputStylesResult.installed.length > 0) {
       process.stdout.write(`Peaks output styles installed: ${outputStylesResult.installed.join(', ')}\n`);
@@ -682,6 +946,26 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     }
     if (userConfigResult.created) {
       process.stdout.write('Peaks user config created: ~/.peaks/config.json\n');
+    }
+
+    // 2.0 postinstall: auto-detect 1.x project state in cwd
+    // and dispatch the upgrade umbrella. This makes the
+    // user's `npm i -g peaks-cli@2.0` truly one-key.
+    if (process.env.PEAKS_SKIP_AUTO_UPGRADE !== '1') {
+      // Fire-and-forget; the upgrade is async by design so
+      // the npm install output isn't blocked. We print a
+      // one-line hint so the user knows the auto-step
+      // happened.
+      autoUpgrade1xProjectIfPresent().then((result) => {
+        if (result.ran) {
+          process.stdout.write(
+            `\n✓ Detected 1.x peaks-cli project at ${result.projectRoot}\n` +
+              `  → auto-upgraded to 2.0 (${result.signals?.length ?? 0} signals resolved)\n` +
+              `  Run \`peaks audit red-lines --project .\` to verify.\n`
+          );
+        }
+        // When !result.ran we say nothing — silent on success.
+      });
     }
     if (userConfigResult.updated) {
       process.stdout.write('Peaks user config updated: ~/.peaks/config.json\n');

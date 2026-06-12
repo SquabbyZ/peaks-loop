@@ -234,6 +234,7 @@ describe('transitionRequestArtifact (validation)', () => {
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-24-cross-session', projectRoot: project,
       newState: 'spec-locked',
+      allowIncomplete: true,
       clock: () => LATER_TIMESTAMP
     });
 
@@ -322,7 +323,8 @@ describe('transitionRequestArtifact (validation)', () => {
 
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: '2026-05-24-default-clock', projectRoot: project,
-      newState: 'spec-locked'
+      newState: 'spec-locked',
+      allowIncomplete: true
     });
 
     expect(result?.state).toBe('spec-locked');

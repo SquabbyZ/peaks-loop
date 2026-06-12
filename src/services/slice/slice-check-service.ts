@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory, pathExists } from '../../shared/fs.js';
 import { getCurrentChangeId } from '../../shared/change-id.js';
 import { verifyPipeline } from '../workflow/pipeline-verify-service.js';
+import { findMockViolations } from '../audit/enforcers/mock-placement.js';
+import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import type { SliceCheckOptions, SliceCheckResult, SliceCheckStage } from './slice-check-types.js';
 
 interface RunResult {
@@ -14,14 +16,57 @@ interface RunResult {
   durationMs: number;
 }
 
-function runCommand(command: string, args: string[], cwd: string, timeoutMs: number): RunResult {
+interface ResolvedCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly shell: boolean;
+}
+
+/**
+ * Resolve a CLI binary to a project-local path, falling back to
+ * the system `npx`. pnpm (and npm/yarn) all create
+ * `node_modules/.bin/<name>`:
+ *
+ *   - On Unix, this is a symlink to the package's executable.
+ *   - On Windows, this is a `.cmd` shim; `execFileSync` only
+ *     resolves `.cmd` through the shell (PATHEXT), so we pass
+ *     `shell: true` when invoking one. Without this, the
+ *     Windows `npx ENOENT` false-positive from
+ *     observations 2317 + 2792 reproduces for every local
+ *     binary.
+ *
+ * Returns the command + args + a `shell` flag that the
+ * `runCommand` helper threads into `execFileSync`.
+ */
+function resolveLocalBinary(projectRoot: string, name: string): ResolvedCommand {
+  // pnpm creates `node_modules/.bin/<name>` (symlink on Unix,
+  // `.cmd` shim on Windows). We probe both shapes; the
+  // `process.platform === 'win32'` extension probe is the most
+  // portable approach.
+  const isWin = process.platform === 'win32';
+  const candidateNames = isWin ? [`${name}.cmd`, `${name}.ps1`, `${name}`] : [name];
+  for (const candidate of candidateNames) {
+    const cmdPath = join(projectRoot, 'node_modules', '.bin', candidate);
+    if (existsSync(cmdPath)) {
+      return { command: cmdPath, args: [], shell: isWin };
+    }
+  }
+  // Fallback: system npx. On Windows this still has the ENOENT
+  // issue, but the fallback is at least informative when it
+  // fires (the user can see "npx not found" instead of a
+  // silent exit 1).
+  return { command: 'npx', args: [name], shell: false };
+}
+
+function runCommand(command: string, args: string[], cwd: string, timeoutMs: number, shell: boolean = false): RunResult {
   const start = Date.now();
   try {
     const stdout = execFileSync(command, args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: timeoutMs,
-      maxBuffer: 32 * 1024 * 1024
+      maxBuffer: 32 * 1024 * 1024,
+      shell
     }).toString('utf8');
     return {
       status: 'pass',
@@ -51,11 +96,17 @@ function tailLines(text: string, max: number): string {
 
 async function runTypecheck(projectRoot: string): Promise<SliceCheckStage> {
   const start = Date.now();
-  const result = runCommand('npx', ['tsc', '--noEmit'], projectRoot, 180_000);
+  // Per Windows npx ENOENT (observations 2317+2792 from
+  // 2026-06-09), prefer the project-local `node_modules/.bin/tsc`
+  // (symlink on Unix, .cmd on Windows). The local binary is
+  // installed by pnpm at workspace-install time and avoids the
+  // npx PATH-lookup issue.
+  const tsc = resolveLocalBinary(projectRoot, 'tsc');
+  const result = runCommand(tsc.command, [...tsc.args, '--noEmit'], projectRoot, 180_000, tsc.shell);
   const testFiles = result.stdout.match(/(tests?\/.*\.test\.ts)/g) ?? [];
   return {
     name: 'typecheck',
-    description: 'npx tsc --noEmit (no JS emit, type-only check)',
+    description: `${tsc.command} --noEmit (no JS emit, type-only check)`,
     status: result.status,
     durationMs: result.durationMs,
     detail: result.status === 'pass'
@@ -97,13 +148,17 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
   // state. Opt-in to the full suite via `runTests: true` (CLI flag
   // `--run-tests`). See `references/runbook.md` for the rationale and
   // `tests/unit/slice-check-service.test.ts` for the regression net.
-  const args: string[] = runTests
-    ? ['vitest', 'run', '--reporter=default', '--coverage=false']
-    : ['vitest', 'run', '--changed', '--reporter=default', '--coverage=false'];
+  // Per Windows npx ENOENT (observations 2317+2792), resolve
+  // the project-local vitest binary instead of shelling out
+  // through npx.
+  const vitest = resolveLocalBinary(projectRoot, 'vitest');
+  const vitestArgs: string[] = runTests
+    ? ['run', '--reporter=default', '--coverage=false']
+    : ['run', '--changed', '--reporter=default', '--coverage=false'];
   const description = runTests
-    ? 'npx vitest run (full test suite, coverage off)'
-    : 'npx vitest run --changed (tests for git-changed files only, coverage off)';
-  const result = runCommand('npx', args, projectRoot, 600_000);
+    ? `${vitest.command} run (full test suite, coverage off)`
+    : `${vitest.command} run --changed (tests for git-changed files only, coverage off)`;
+  const result = runCommand(vitest.command, [...vitest.args, ...vitestArgs], projectRoot, 600_000, vitest.shell);
   const summary = parseVitestSummary(result.stdout, result.durationMs);
   // Vitest doesn't always print the per-bucket counts cleanly; infer "passed"
   // as total - failed - skipped when failed/skipped buckets are present.
@@ -264,7 +319,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
   if (options.skipTests) {
     stages.push({
       name: 'unit-tests',
-      description: 'npx vitest run (skipped per --skip-tests)',
+      description: 'vitest run (skipped per --skip-tests)',
       status: 'skipped',
       durationMs: 0,
       detail: 'Skipped: --skip-tests was set. Use the peaks-solo-test skill to run the full suite manually.'
@@ -284,7 +339,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       const failureCount = (unitTests.data?.failed as number | undefined) ?? 0;
       stages.push({
         name: 'unit-tests',
-        description: `npx vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
+        description: `vitest run ${options.runTests === true ? '' : '--changed '} (overridden via --allow-pre-existing-failures)`.trim(),
         status: 'skipped',
         durationMs: unitTests.durationMs,
         detail: `pre-existing failures: ${failureCount} failing test(s) under coverage.exclude or unrelated to this slice; user opted in via --allow-pre-existing-failures. For the long-term fix, mark these tests .skip or move to coverage.exclude (see dogfood-2-f1-f4.md F17c).`,
@@ -302,6 +357,19 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
 
   // Stage 4: gate verify-pipeline
   stages.push(await runGateVerifyPipeline(options.projectRoot, rid, rid));
+
+  // Stage 5: mock-placement (L2.1 P0 #5) — refuse inline mock data in src/ or skills/.
+  // Lifts changed files via `git diff --name-only HEAD`; falls back to a
+  // warning when the diff is empty (e.g. a fresh tree). Lighter than the
+  // full `peaks scan diff-vs-scope` and keeps the slice check self-contained.
+  stages.push(await runMockPlacement(options.projectRoot));
+
+  // Stage 6 (Slice #7 L2.4 P2-b): audit-regression — assert
+  // catalog integrity (no orphan enforcers, no orphan catalog
+  // entries), catalog size lower bound, and runtime budget.
+  // The stage runs `peaks audit red-lines` in-process (no
+  // subprocess) and is gating: failure exits non-zero.
+  stages.push(await runAuditRegression(options.projectRoot));
 
   const boundaryReady = stages.every((s) => s.status === 'pass' || s.status === 'skipped');
 
@@ -324,5 +392,102 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     boundaryReady,
     totalDurationMs: Date.now() - totalStart,
     nextActions
+  };
+}
+
+
+async function runAuditRegression(projectRoot: string): Promise<SliceCheckStage> {
+  const start = Date.now();
+  try {
+    const result = runRedLinesAudit({ projectRoot });
+    const durationMs = Date.now() - start;
+    // Slice #7 L2.4 P2-b acceptance A3 + A4:
+    //   - totalRedLines >= 60 (catalog grew to 66; pins the lower bound)
+    //   - enforcerFindings has no rl-audit-no-orphan-enforcer / rl-audit-no-orphan-catalog hits
+    const issues: string[] = [];
+    if (result.audit.totalRedLines < 60) {
+      issues.push(`totalRedLines ${result.audit.totalRedLines} < 60`);
+    }
+    const orphanFindings = result.audit.enforcerFindings.filter((f) =>
+      f.enforcerId === 'rl-audit-no-orphan-enforcer-001' ||
+      f.enforcerId === 'rl-audit-no-orphan-catalog-001'
+    );
+    if (orphanFindings.length > 0) {
+      issues.push(`${orphanFindings.length} orphan-enforcer / orphan-catalog finding(s)`);
+    }
+    if (issues.length > 0) {
+      return {
+        name: 'audit-regression',
+        description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+        status: 'fail',
+        durationMs,
+        detail: issues.join('; '),
+      };
+    }
+    return {
+      name: 'audit-regression',
+      description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+      status: 'pass',
+      durationMs,
+      detail: `catalog: ${result.audit.totalRedLines} entries (${result.audit.cliBacked} cli-backed, ${result.audit.proseOnly} prose-only); audit ran in ${durationMs}ms`,
+    };
+  } catch (error: any) {
+    return {
+      name: 'audit-regression',
+      description: 'audit-regression: catalog integrity + runtime budget (L2.4 P2-b stage 6)',
+      status: 'fail',
+      durationMs: Date.now() - start,
+      detail: 'audit-regression failed: ' + (error?.message ?? String(error)),
+    };
+  }
+}
+
+async function runMockPlacement(projectRoot: string): Promise<SliceCheckStage> {
+  const start = Date.now();
+  // List changed files via git. `--name-only` produces one path per line;
+  // we filter to text files in scope and read each.
+  const diffResult = runCommand('git', ['diff', '--name-only', '--diff-filter=ACMR', 'HEAD'], projectRoot, 30_000);
+  if (diffResult.status !== 'pass') {
+    return {
+      name: 'mock-placement',
+      description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+      status: 'skipped',
+      durationMs: Date.now() - start,
+      detail: 'git diff failed or returned no changed files; mock-placement scan skipped.'
+    };
+  }
+  const changed = diffResult.stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (changed.length === 0) {
+    return {
+      name: 'mock-placement',
+      description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+      status: 'skipped',
+      durationMs: Date.now() - start,
+      detail: 'no changed files in HEAD diff; mock-placement scan skipped.'
+    };
+  }
+  const files = changed
+    .filter((p) => p.startsWith('src/') || p.startsWith('skills/'))
+    .filter((p) => p.endsWith('.ts') || p.endsWith('.tsx') || p.endsWith('.js') || p.endsWith('.mjs'))
+    .map((filePath) => {
+      const abs = join(projectRoot, filePath);
+      if (!existsSync(abs)) return null;
+      const content = readFileSync(abs, 'utf-8');
+      return { filePath, content };
+    })
+    .filter((f): f is { filePath: string; content: string } => f !== null);
+  const violations = findMockViolations(files);
+  return {
+    name: 'mock-placement',
+    description: 'mock-placement: no inline mock data in src/ or skills/ (L2.1 P0 #5)',
+    status: violations.length === 0 ? 'pass' : 'fail',
+    durationMs: Date.now() - start,
+    detail: violations.length === 0
+      ? `Scanned ${files.length} changed file(s); no inline mock data found.`
+      : `${violations.length} violation(s): ${violations.map((v) => `${v.filePath} (${v.snippet})`).join('; ')}`,
+    data: { scannedFiles: files.length, violations: violations.map((v) => ({ filePath: v.filePath, pattern: v.pattern, snippet: v.snippet })) }
   };
 }

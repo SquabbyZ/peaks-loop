@@ -82,7 +82,10 @@ describe('TRAE_ADAPTER — settings location', () => {
 
 describe('TRAE_ADAPTER — registry integration', () => {
   test('production registry lists trae alongside claude-code in insertion order', () => {
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
+    const ids = listAdapterIds();
+    expect(ids).toContain('claude-code');
+    expect(ids).toContain('trae');
+    expect(ids.indexOf('claude-code')).toBeLessThan(ids.indexOf('trae'));
   });
 
   test('getAdapter("trae") returns the Trae adapter instance', () => {

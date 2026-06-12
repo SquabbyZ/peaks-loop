@@ -19,7 +19,9 @@ export type IdeId =
   | 'codex'
   | 'cursor'
   | 'qoder'
-  | 'tongyi-lingma';
+  | 'tongyi-lingma'
+  | 'hermes'
+  | 'openclaw';
 
 export interface IdeCapabilities {
   /** peaks gate enforce 是否适用该 IDE(必备) */

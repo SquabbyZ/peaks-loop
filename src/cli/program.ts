@@ -9,6 +9,7 @@ import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capabili
 import { registerCodegraphCommands } from './commands/codegraph-commands.js';
 import { registerOpenSpecCommands } from './commands/openspec-commands.js';
 import { registerPerfCommands } from './commands/perf-commands.js';
+import { registerPreferencesCommands } from './commands/preferences-commands.js';
 // Slice #014: peaks progress * CLI surface deleted (replaced by sub-agent
 // dispatch + heartbeat, slice #009 + #010). Sub-agent progress is
 // surfaced via `peaks sub-agent dispatch|heartbeat|share`.
@@ -27,6 +28,13 @@ import { registerStatusLineCommands } from './commands/statusline-commands.js';
 import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
+import { registerAuditCommands } from './commands/audit-commands.js';
+import { registerClassifyCommands } from './commands/classify-classify-commands.js';
+import { registerContextCommands } from './commands/context-commands.js';
+import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
+import { registerLoopCommands } from './commands/loop-commands.js';
+import { registerAgentCommands } from './commands/agent-commands.js';
+import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -93,6 +101,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerCodegraphCommands(program, io);
  registerOpenSpecCommands(program, io);
  registerPerfCommands(program, io);
+ registerPreferencesCommands(program);
  registerProjectCommands(program, io);
  registerRequestCommands(program, io);
  registerRetrospectiveCommands(program, io);
@@ -111,6 +120,24 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerUnderstandCommands(program, io);
  registerWorkspaceCommands(program, io);
  registerWorkflowPlanCommands(program, io);
+ // Slice L2.1: peaks audit * — red-line audit framework.
+ registerAuditCommands(program, io);
+ // Slice #2: peaks classify * — L1a task classification + L1b per-level gate sets.
+ registerClassifyCommands(program, io);
+ // Slice #3: peaks context * — L1c context 4-layer loader.
+ registerContextCommands(program, io);
+ // Slice #12: peaks skills:audit-conformance — skill family alignment pass.
+ registerSkillConformanceCommands(program, io);
+ // Slice #13: peaks swarm * — additional subcommands (pipeline /
+ // dispatch / verify / loop) are added inline in workflow-commands.ts
+ // alongside the existing swarm.plan. This avoids the duplicate top-level
+ // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
+ // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
+ registerLoopCommands(program, io);
+ // Slice: ECC 64 agents soft-optional (per spec §7.2 line 818).
+ registerAgentCommands(program, io);
+ // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
+ registerUpgradeCommands(program, io);
 
  return program;
 }

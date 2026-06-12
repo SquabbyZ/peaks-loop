@@ -13,15 +13,17 @@ afterEach(() => {
 });
 
 describe('ide-registry — built-in defaults', () => {
-  test('registers two adapters in slice #2 (claude-code + trae) in insertion order', () => {
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
+  test('registers four adapters in slice #0.7 (claude-code + trae + hermes + openclaw) in insertion order', () => {
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw']);
   });
 
-  test('listAdapters returns both adapter instances', () => {
+  test('listAdapters returns all four adapter instances', () => {
     const adapters = listAdapters();
-    expect(adapters).toHaveLength(2);
+    expect(adapters).toHaveLength(4);
     expect(adapters[0]?.id).toBe('claude-code');
     expect(adapters[1]?.id).toBe('trae');
+    expect(adapters[2]?.id).toBe('hermes');
+    expect(adapters[3]?.id).toBe('openclaw');
   });
 
   test('getAdapter returns the Claude adapter for the registered id', () => {
@@ -72,7 +74,7 @@ describe('ide-registry — test seams', () => {
       installHints: [],
     };
     _setAdapterForTesting('cursor', fakeAdapter);
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw', 'cursor']);
     const got = getAdapter('cursor');
     expect(got.envVar).toBe('CURSOR_PROJECT_DIR');
     expect(got.toolMatcher).toBe('terminal');
@@ -99,6 +101,6 @@ describe('ide-registry — test seams', () => {
     });
     expect(listAdapterIds()).toContain('cursor');
     _resetAdaptersForTesting();
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw']);
   });
 });

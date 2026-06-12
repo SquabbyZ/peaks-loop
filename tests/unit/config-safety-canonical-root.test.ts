@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { resolveCanonicalProjectRoot } from '../../src/services/config/config-safety.js';
@@ -11,6 +12,24 @@ function makeTempDir(): string {
   // this, equality assertions would fail in either direction depending
   // on which side of the symlink each path came from.
   return realpathSync(mkdtempSync(join(tmpdir(), 'peaks-canonical-root-')));
+}
+
+// Windows path canonicalization: realpathSync / node fs APIs can return
+// either the 8.3 short form (e.g. C:\Users\SMALLM~1\...) or the long
+// form (e.g. C:\Users\smallMark\...) depending on which API is called.
+// The production `resolveCanonicalProjectRoot` returns the long form
+// (via `path.resolve`), so we run every expected path through
+// `realpathSync.native` (which always returns the long form) to get
+// matching values. POSIX is case-sensitive so we only normalize case
+// on win32.
+function canon(p: string): string {
+  let resolved: string;
+  try {
+    resolved = realpathSync.native(p);
+  } catch {
+    resolved = p;
+  }
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 function git(cwd: string, args: string[]): string {
@@ -39,7 +58,7 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(nested);
 
-    expect(result).toBe(outer);
+    expect(canon(result)).toBe(canon(outer));
   });
 
   test('promotes a deeply nested sub-folder (3 levels deep) to the git root', () => {
@@ -51,7 +70,7 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(nested);
 
-    expect(result).toBe(outer);
+    expect(canon(result)).toBe(canon(outer));
   });
 
   test('does not change the path when the cwd is already the git root', () => {
@@ -61,7 +80,7 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(outer);
 
-    expect(result).toBe(outer);
+    expect(canon(result)).toBe(canon(outer));
   });
 
   test('falls back to the cwd verbatim when the path is not inside a git repo (no git on path scenario)', () => {
@@ -72,7 +91,7 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(noGit);
 
-    expect(result).toBe(noGit);
+    expect(canon(result)).toBe(canon(noGit));
   });
 
   test('falls back to findProjectRoot heuristic when not in a git repo but a peaks .peaks/config.json marker exists', () => {
@@ -86,7 +105,7 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(noGit);
 
-    expect(result).toBe(noGit);
+    expect(canon(result)).toBe(canon(noGit));
   });
 
   test('does not promote across git-repo boundaries (sub-folder of repo A is not repo B)', () => {
@@ -106,9 +125,9 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(nestedInA);
 
-    expect(result).toBe(repoA);
+    expect(canon(result)).toBe(canon(repoA));
     // Make sure it did NOT pick repoB.
-    expect(result).not.toBe(repoB);
+    expect(canon(result)).not.toBe(canon(repoB));
   });
 
   test('handles a git worktree (git rev-parse returns the toplevel inside a worktree)', () => {
@@ -127,6 +146,6 @@ describe('resolveCanonicalProjectRoot', () => {
 
     const result = resolveCanonicalProjectRoot(nested);
 
-    expect(result).toBe(outer);
+    expect(canon(result)).toBe(canon(outer));
   });
 });

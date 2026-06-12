@@ -66,6 +66,19 @@ indexes without scanning the whole file at session start.
 
 > **Canonical AC list lives in the PRD**: `.peaks/_runtime/2026-06-10-session-6bcac7/prd/requests/003-2026-06-10-fuzzy-matching-implementation.md` §Acceptance criteria (A1–A12). OpenSpec AC list stays in sync with the PRD.
 
+- A1 — fuzzy match returns ranked candidates with the top hit's score within `confidenceThreshold` (default 0.6).
+- A2 — exact-match shortcuts bypass scoring for known-good inputs.
+- A3 — empty / whitespace / non-string inputs return an empty result, not an error.
+- A4 — score decay is monotonic in edit distance; ties broken by source-order.
+- A5 — cache hit returns within 1ms (P99 over 10K calls).
+- A6 — `fzf`-backed backend is selected when `fzf` is on `PATH`, otherwise the JS scoring fallback runs.
+- A7 — API surface is `peaks fuzzy match <query> --candidates <list> [--threshold <n>]` (no new top-level command).
+- A8 — telemetry: every call logs `query_len`, `candidates_count`, `top_score`, `mode` (`exact` / `fuzzy` / `cache`).
+- A9 — no new CLI top-level; the existing `peaks *` family owns invocation.
+- A10 — under-the-hood JS scoring covers Levenshtein + substring + prefix match.
+- A11 — when `peaks standards doctor` runs after the change, the fuzzy-match path is reported in the L3 layer.
+- A12 — the LLM does NOT install or vendor `fzf`; the LLM reads the user's `PATH` and falls back.
+
 ## Spec reference (canonical)
 
 - `docs/superpowers/specs/2026-06-10-fuzzy-matching-design.md` — full

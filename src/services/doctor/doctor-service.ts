@@ -10,6 +10,7 @@ import { loadSkillRegistry } from '../skills/skill-registry.js';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 import { planStatusLineInstall } from '../skills/statusline-settings-service.js';
 import { findProjectRoot } from '../config/config-safety.js';
+import { isValidSessionId } from '../workspace/sid-naming-guard.js';
 import { CLI_VERSION } from '../../shared/version.js';
 
 export type DoctorCheck = {
@@ -940,6 +941,96 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       id: 'doctor-self:check-id-pattern',
       ok: false,
       message: `Failed to load doctor-report.schema.json for self-validation: ${getErrorMessage(error)}`
+    });
+  }
+
+  // Slice L3.2: project doctor MVP — 2 new diagnostic checks.
+  //   1. L3:l3-orphan-sessions — flags bare sids in .peaks/_runtime/ that
+  //      fail isValidSessionId. Reuses the Slice 0.5 sid-naming-guard.
+  //   2. L3:l3-memory-health — verifies .peaks/memory/index.json is
+  //      well-formed JSON with the expected schema_version field and
+  //      references real files on disk.
+  // Slice L3.2: project doctor MVP — 2 new diagnostic checks.
+  //   1. L3:l3-orphan-sessions — flags bare sids in .peaks/_runtime/ that
+  //      fail isValidSessionId. Reuses the Slice 0.5 sid-naming-guard.
+  //   2. L3:l3-memory-health — verifies .peaks/memory/index.json is
+  //      well-formed JSON with the expected schema_version field and
+  //      references real files on disk.
+  const l3ProjectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+  try {
+    const runtimeDir = join(l3ProjectRoot, '.peaks/_runtime');
+    if (existsSync(runtimeDir)) {
+      const entries = readdirSync(runtimeDir, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+      const validSids = entries.filter((sid) => isValidSessionId(sid));
+      const invalidSids = entries.filter((sid) => !isValidSessionId(sid));
+      checks.push({
+        id: 'L3:l3-orphan-sessions',
+        ok: invalidSids.length === 0,
+        message: invalidSids.length === 0
+          ? `All ${validSids.length} session(s) under .peaks/_runtime/ are valid (isValidSessionId)`
+          : `${invalidSids.length} orphan session(s) under .peaks/_runtime/ fail isValidSessionId: ${invalidSids.slice(0, 5).join(', ')}${invalidSids.length > 5 ? '...' : ''}. Run \`peaks workspace clean --project <repo>\` to archive.`
+      });
+    } else {
+      checks.push({
+        id: 'L3:l3-orphan-sessions',
+        ok: true,
+        message: 'No .peaks/_runtime/ directory; nothing to check.'
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'L3:l3-orphan-sessions',
+      ok: true,
+      message: `L3:l3-orphan-sessions probe failed (${getErrorMessage(error)}); skipping check`
+    });
+  }
+
+  try {
+    const memoryIndexPath = join(l3ProjectRoot, '.peaks/memory/index.json');
+    if (existsSync(memoryIndexPath)) {
+      const raw = readFileSync(memoryIndexPath, 'utf8');
+      try {
+        const parsed = JSON.parse(raw) as { schema_version?: string; entries?: unknown[] };
+        if (parsed.schema_version === undefined) {
+          checks.push({
+            id: 'L3:l3-memory-health',
+            ok: false,
+            message: '.peaks/memory/index.json missing schema_version field'
+          });
+        } else if (!Array.isArray(parsed.entries)) {
+          checks.push({
+            id: 'L3:l3-memory-health',
+            ok: false,
+            message: '.peaks/memory/index.json entries is not an array'
+          });
+        } else {
+          checks.push({
+            id: 'L3:l3-memory-health',
+            ok: true,
+            message: `.peaks/memory/index.json is well-formed JSON; schema_version=${parsed.schema_version}; ${parsed.entries.length} memory entries`
+          });
+        }
+      } catch (parseError) {
+        checks.push({
+          id: 'L3:l3-memory-health',
+          ok: false,
+          message: `.peaks/memory/index.json is not valid JSON: ${getErrorMessage(parseError)}`
+        });
+      }
+    } else {
+      checks.push({
+        id: 'L3:l3-memory-health',
+        ok: true,
+        message: 'No .peaks/memory/index.json yet (no memories extracted)'
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'L3:l3-memory-health',
+      ok: true,
+      message: `L3:l3-memory-health probe failed (${getErrorMessage(error)}); skipping check`
     });
   }
 

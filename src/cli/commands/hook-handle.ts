@@ -3,6 +3,11 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectIdeFromContext, parseAdapterStdin, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
 import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/hook-protocol.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
+import { evaluateSoloCodeBan } from '../../services/audit/enforcers/solo-code-ban.js';
+import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
+import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
+import { getSessionIdCanonical } from '../../services/session/session-manager.js';
+import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
 import { fail, ok } from '../../shared/result.js';
 
 type HookHandleOptions = { project: string; json?: boolean };
@@ -88,6 +93,22 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       // Dispatch by toolName. For slice #1+, we only handle Bash. Task tool sub-agent dispatch goes through `peaks sub-agent dispatch` (slice #009) and does not need a hook entry.
       // Other tools: allow (no-op; future events will be added here).
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
+        // L2.1 P0 #1: solo-code-ban. Deny `git commit` / `git apply` from peaks-* skills
+        // BEFORE the SOP gate runs. The active skill is read from the per-caller
+        // active-skill file (see active-skill-resolver.ts).
+        const activeSkill = resolveActiveSkillForCaller(projectRoot);
+        if (activeSkill.skill !== null) {
+          const soloDecision = evaluateSoloCodeBan({ skill: activeSkill.skill, command: fallbackCommand });
+          if (soloDecision.denied) {
+            const formatted = formatDecisionResponse(ide, 'deny', soloDecision.reason);
+            io.stdout(formatted.stdout);
+            if (options.json === true) {
+              io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: soloDecision.reason, enforcer: 'solo-code-ban' })));
+            }
+            return;
+          }
+        }
+
         // Lazy import to avoid circular: peaks gate enforce logic
         const { enforceBashCommand } = await import('../../services/sop/gate-enforce-service.js');
         const decision = await enforceBashCommand(projectRoot, fallbackCommand);
@@ -100,6 +121,39 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
           return;
         }
         }
+
+      // L2.2 P1 #1: login-gate. After solo-code-ban + gate-enforce pass,
+      // flag destructive patterns (uninstall, force-push, --force, --hard,
+      // rm -rf) so the LLM gets a soft warning (still allow). The user
+      // gets the warning via the warn channel; the command proceeds.
+      if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string') {
+        const gate = checkLoginGate({ command: fallbackCommand });
+        if (gate.destructive) {
+          io.stderr(`warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`);
+        }
+        }
+
+      // L2.1 P0 #2: no-root-pollution. Deny Write/Edit to files outside the
+      // root allowlist. file_path is read from toolInput.file_path (Claude
+      // and most IDEs use the same shape). When the field is missing or the
+      // path is not at depth 1, the enforcer allows (no-op).
+      if (hook.toolName === 'Write' || hook.toolName === 'Edit' || hook.toolName === 'MultiEdit' || hook.toolName === 'Create') {
+        const filePath = pluckString(parsed, ['tool_input', 'file_path'])
+          ?? pluckString(parsed, ['toolInput', 'file_path'])
+          ?? pluckString(parsed, ['tool_input', 'path'])
+          ?? pluckString(parsed, ['toolInput', 'path']);
+        if (typeof filePath === 'string' && filePath.trim().length > 0) {
+          const rootCheck = isRootWrite({ projectRoot, filePath });
+          if (!rootCheck.allowed) {
+            const formatted = formatDecisionResponse(ide, 'deny', rootCheck.denyReason);
+            io.stdout(formatted.stdout);
+            if (options.json === true) {
+              io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: rootCheck.denyReason, enforcer: 'no-root-pollution' })));
+            }
+            return;
+          }
+        }
+      }
 
       const allow = formatDecisionResponse(ide, 'allow');
       io.stdout(allow.stdout);

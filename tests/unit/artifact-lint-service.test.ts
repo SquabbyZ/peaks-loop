@@ -54,10 +54,11 @@ describe('lintRequestArtifact', () => {
       sessionId: SESSION, apply: true, clock: () => TS
     });
     // Fill the template's prose placeholders, then add command docs with backticked <id>.
-    // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact lives
-    // under `.peaks/<changeId>/<role>/requests/`. changeId defaults to the
-    // requestId when no `current-change` binding is set.
-    const created = join(project, '.peaks', requestId, 'prd', 'requests');
+    // The artifact lives at .peaks/_runtime/<sessionId>/<role>/requests/
+    // (canonical post-F3 home for new slices). Earlier slices used the
+    // change-id home; the test follows the canonical home so the lint
+    // service finds the file.
+    const created = join(project, '.peaks', '_runtime', SESSION, 'prd', 'requests');
     const { readdir, readFile, writeFile } = await import('node:fs/promises');
     const file = (await readdir(created)).find((f) => f.endsWith(`${requestId}.md`))!;
     const path = join(created, file);
@@ -81,7 +82,10 @@ describe('lintRequestArtifact', () => {
       role: 'prd', requestId, projectRoot: project,
       sessionId: SESSION, apply: true, clock: () => TS
     });
-    const dir = join(project, '.peaks', requestId, 'prd', 'requests');
+    // The service writes to .peaks/_runtime/<sessionId>/<role>/requests/<number>-<requestId>.md
+    // (canonical post-F3 home). The test appends a fenced-code block with a
+    // <placeholder>-like token and asserts the lint doesn't flag it.
+    const dir = join(project, '.peaks', '_runtime', SESSION, 'prd', 'requests');
     const { readdir, readFile, writeFile } = await import('node:fs/promises');
     const file = (await readdir(dir)).find((f) => f.endsWith(`${requestId}.md`))!;
     const path = join(dir, file);

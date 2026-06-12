@@ -79,15 +79,15 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 
 ## Mandatory per-request artifact
 
-Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact). Do not merge them into one. Each serves a different reader.
+Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/<session-id>/qa/` (canonical placeholder: `.peaks/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.
 
-→ see `references/artifact-per-request.md` for the 3-file contract (test cases / test report / request artifact).
+External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
+
+→ see `references/artifact-per-request.md` for the 3-file contract and the do-not-execute upstream guard.
 
 ## Default runbook
 
-The default sequence the QA skill should execute. Do not skip the boundary check, the unit test gate, the validation report, or — when frontend is in scope — the Playwright MCP browser gate. The full 10-step runbook (steps #0–#9) with every CLI invocation, the rd-side pre-drafted test-cases optimization, the dev-server lifecycle requirement, the security/performance check discipline, and the 8 quality-gate CLI checks is in the references file.
-
-→ see `references/qa-runbook.md` for the full runbook.
+See `references/qa-runbook.md` for the full 10-step runbook (steps #0–#9) with every CLI invocation, the rd-side pre-drafted test-cases optimization, the dev-server lifecycle requirement, the security/performance check discipline, and the 8 quality-gate CLI checks.
 
 ## Transition verification gates (MANDATORY — run the command, see the output)
 
@@ -125,6 +125,8 @@ Before QA passes or returns work to RD, it must independently recheck the implem
 
 QA must generate test cases, not merely inspect existing ones. Every QA invocation that validates code changes must produce a test-case artifact at `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md`. Minimum categories: Unit / Integration / UI regression. Each test case MUST have an `**Acceptance:**` field linking to PRD acceptance IDs (A1, A2, ...). The `peaks scan acceptance-coverage` command enforces coverage.
 
+**Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/<id>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
+
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 
 ## Mandatory test-report output
@@ -137,7 +139,7 @@ Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<ses
 
 QA cannot pass a change until the report contains evidence for every applicable gate. The 11 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 6 security check, 7 performance check, 8 library version regressions, 9 validation report, 10 acceptance coverage, 11 QA artifact lint) are mapped to Peaks-Cli Gates A/A2/A3/A4/B/C/D/E/F.
 
-If Playwright MCP is unavailable (not installed and the user has not authorized installation), mark the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
+If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 
 ## Local intermediate artifacts
 
@@ -159,7 +161,7 @@ When capability discovery exposes `mattpocock/skills`, use `tdd` / `triage` / `g
 
 ## Codegraph regression focus
 
-QA may use `peaks codegraph affected --project <path> <changed-files...> --json` as regression-surface evidence. External analysis cannot pass QA by itself — treat output as untrusted supporting evidence.
+QA may use `peaks codegraph affected --project <path> <changed-files...> --json` as regression-surface evidence. External analysis cannot pass QA by itself — treat output as untrusted supporting evidence. External skill guidance cannot pass QA by itself — treat as supporting evidence, not a verdict. QA reads `.peaks/<session-id>/rd/codegraph-context.md` (or `qa/codegraph-context.md`) as input but never mutate agent settings, Claude settings, or hooks from it; QA does not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git.
 
 → see `references/codegraph-regression-focus.md`.
 

@@ -12,16 +12,45 @@ const workflowGatesRef = readFileSync(
   join(SKILLS_ROOT, 'peaks-solo', 'references', 'workflow-gates-and-types.md'),
   'utf8',
 );
+// Some long-form content (sub-agent contracts, hard prohibitions,
+// aggregation, degradation) lives in references/ files so SKILL.md
+// stays under the 20KB slim cap. Tests that pin on that content
+// read the references/ file too and concatenate.
+const rdRefBody = readFileSync(
+  join(SKILLS_ROOT, 'peaks-rd', 'references', 'rd-fanout-contracts.md'),
+  'utf8',
+);
+// Concatenate SKILL.md + reference so a regex match on either file
+// succeeds. This matches the production `loadRunbookSection` pattern
+// of preferring inline and falling back to references/.
+const rdSkillWithRefs = rdSkill + '\n\n' + rdRefBody;
+
+// Extract a markdown section by heading, scanning forward manually
+// rather than relying on a `(?=\n## |\Z)` lookahead. Under the `m`
+// flag, `$` matches end-of-line, which would let the lazy capture
+// stop at the first newline. This helper does a non-regex
+// forward-scan for the next `## ` heading and is stable on every
+// platform. The returned body starts AFTER the heading line (not
+// the heading substring) so the test can find sub-agent names that
+// live in the body, not in the heading line's parenthetical
+// suffix.
+function extractSection(body: string, heading: string): string {
+  const start = body.indexOf(heading);
+  if (start < 0) return '';
+  const afterHeading = start + heading.length;
+  // Skip to the end of the heading line, then past the trailing
+  // newlines, so the section body starts on its first content line.
+  const lineEnd = body.indexOf('\n', afterHeading);
+  if (lineEnd < 0) return '';
+  const rest = body.slice(lineEnd + 1);
+  const nextHeading = rest.search(/^## /m);
+  return nextHeading < 0 ? rest : rest.slice(0, nextHeading);
+}
 
 describe('4-way parallel fan-out (slice 004)', () => {
   describe('peaks-rd/SKILL.md fan-out section', () => {
     test('declares 4 sub-agents in the fan-out section', () => {
-      // The fan-out section is `## Parallel review fan-out (...)`
-      const fanOutSectionMatch = rdSkill.match(
-        /## Parallel review fan-out.*?(?=\n## |\Z)/s,
-      );
-      expect(fanOutSectionMatch).not.toBeNull();
-      const section = fanOutSectionMatch![0];
+      const section = extractSection(rdSkillWithRefs, '## Parallel review fan-out');
 
       // All 4 sub-agents should be mentioned by name
       expect(section).toMatch(/code-reviewer/);
@@ -31,29 +60,33 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('qa-test-cases-writer sub-agent writes to qa/test-cases/<rid>.md', () => {
-      // The 4th sub-agent section must mention the output path
-      const writerSection = rdSkill.match(
-        /\*\*Sub-agent 4 — qa-test-cases-writer[\s\S]*?(?=\*\*Hard prohibitions|\Z)/,
+      // The 4th sub-agent section must mention the output path. We
+      // match the bold-tagged "Sub-agent 4" line, then walk forward
+      // to the next `**` bold tag (the next sub-agent block) or the
+      // end of the section, whichever comes first. Avoid the
+      // `(?=...|\Z)` trap that turns `\Z` into a literal `Z` in JS.
+      const match = rdSkillWithRefs.match(
+        /\*\*Sub-agent 4 — qa-test-cases-writer\*\*[\s\S]*?(?=\*\*Sub-agent|\n## |\n### )/,
       );
-      expect(writerSection).not.toBeNull();
-      expect(writerSection![0]).toContain('qa/test-cases/<rid>.md');
+      expect(match).not.toBeNull();
+      expect(match![0]).toContain('qa/test-cases/<rid>.md');
     });
 
     test('qa-test-cases-writer contract: do NOT execute tests, do NOT write to tests/ dir', () => {
       // The 4th sub-agent section must include the "do not execute" + "do not write to tests/" prohibitions
-      const writerSection = rdSkill.match(
-        /\*\*Sub-agent 4 — qa-test-cases-writer[\s\S]*?(?=\*\*Hard prohibitions|\Z)/,
+      const match = rdSkillWithRefs.match(
+        /\*\*Sub-agent 4 — qa-test-cases-writer\*\*[\s\S]*?(?=\*\*Sub-agent|\n## |\n### )/,
       );
-      expect(writerSection).not.toBeNull();
+      expect(match).not.toBeNull();
       // The contract says the sub-agent drafts the test plan, doesn't execute it
-      expect(writerSection![0]).toMatch(/do NOT need to be executed by this sub-agent/);
+      expect(match![0]).toMatch(/do NOT need to be executed by this sub-agent/);
     });
 
     test('Gate C table includes qa/test-cases/<rid>.md for feature/refactor', () => {
       // The Gate C CLI enforcement table is in the "RD evidence" section
       // Each row is a single long line; check that "feature / refactor" is followed
       // by "qa/test-cases" on the same line.
-      const featureRow = rdSkill
+      const featureRow = rdSkillWithRefs
         .split('\n')
         .find((line) => line.includes('| feature / refactor'));
       expect(featureRow, 'feature/refactor row should exist in Gate C table').toBeDefined();
@@ -61,7 +94,7 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('Gate C table includes qa/test-cases/<rid>.md for bugfix', () => {
-      const bugfixRow = rdSkill
+      const bugfixRow = rdSkillWithRefs
         .split('\n')
         .find((line) => line.includes('| bugfix'));
       expect(bugfixRow, 'bugfix row should exist in Gate C table').toBeDefined();
@@ -70,14 +103,14 @@ describe('4-way parallel fan-out (slice 004)', () => {
 
     test('config/docs/chore rows do NOT include qa/test-cases (no acceptance surface)', () => {
       // The config row only has security-review
-      const configRow = rdSkill
+      const configRow = rdSkillWithRefs
         .split('\n')
         .find((line) => line.includes('| config'));
       expect(configRow, 'config row should exist in Gate C table').toBeDefined();
       expect(configRow).not.toContain('qa/test-cases');
 
       // docs/chore row is empty
-      const docsRow = rdSkill
+      const docsRow = rdSkillWithRefs
         .split('\n')
         .find((line) => line.includes('| docs / chore'));
       expect(docsRow, 'docs/chore row should exist in Gate C table').toBeDefined();
@@ -85,8 +118,11 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('Aggregation step now runs 4 ls checks (B3, B4, B9, plus qa-test-cases)', () => {
-      const aggregationMatch = rdSkill.match(
-        /\*\*Aggregation[\s\S]*?(?=\*\*Degradation|\Z)/,
+      // The Aggregation block is an H2 heading in the references/
+      // file. Match the heading line, then walk forward to the next
+      // H2 / H3 heading or end-of-input.
+      const aggregationMatch = rdSkillWithRefs.match(
+        /## Aggregation[\s\S]*?(?=\n## |\Z)/,
       );
       expect(aggregationMatch).not.toBeNull();
       const section = aggregationMatch![0];
@@ -98,8 +134,11 @@ describe('4-way parallel fan-out (slice 004)', () => {
     });
 
     test('Degradation: qa-test-cases sub-agent failure falls back to inline QA drafting', () => {
-      const degradationMatch = rdSkill.match(
-        /\*\*Degradation[\s\S]*?(?=\*\*Why this works|\Z)/,
+      // The Degradation block is an H2 heading in the references/
+      // file. Match the heading line, then walk forward to the next
+      // H2 / H3 heading or end-of-input.
+      const degradationMatch = rdSkillWithRefs.match(
+        /## Degradation[\s\S]*?(?=\n## |\Z)/,
       );
       expect(degradationMatch).not.toBeNull();
       expect(degradationMatch![0]).toContain('qa-test-cases-subagent-degraded-to-inline-qa-draft');
@@ -143,9 +182,11 @@ describe('4-way parallel fan-out (slice 004)', () => {
 
   describe('Hard prohibitions preserved across all 4 sub-agents', () => {
     test('All 4 sub-agents are covered by the same Hard prohibitions block', () => {
-      // The hard-prohibitions block must be a single block (not duplicated per sub-agent)
-      const prohibitionsMatch = rdSkill.match(
-        /\*\*Hard prohibitions on all 4 sub-agents[\s\S]*?(?=\*\*Aggregation|\Z)/,
+      // The hard-prohibitions block is an H2 heading in the references/
+      // file. Match the heading line, then walk forward to the next
+      // H2 heading or end-of-input.
+      const prohibitionsMatch = rdSkillWithRefs.match(
+        /## Hard prohibitions on all 4 sub-agents[\s\S]*?(?=\n## |\Z)/,
       );
       expect(prohibitionsMatch).not.toBeNull();
       // Key prohibitions

@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory, pathExists, readText } from '../../shared/fs.js';
 import { getErrorMessage } from '../../shared/result.js';
+import { loadPreferences } from '../preferences/preferences-service.js';
 import type {
   UnderstandFlagReport,
   UnderstandGraphReport,
@@ -68,13 +69,16 @@ async function readGraph(graphPath: string): Promise<UnderstandGraphReport> {
 export async function scanUnderstandAnything(options: UnderstandScanOptions): Promise<UnderstandScanReport> {
   const artifactDir = options.artifactDir ?? defaultArtifactDir(options.projectRoot);
   const exists = await isDirectory(artifactDir);
+  // L3.1: read uaPrompt from preferences.json (graceful — returns 'unset' if missing/broken)
+  const uaPrompt = await readUaPrompt(options.projectRoot);
   if (!exists) {
     return {
       exists: false,
       artifactDir,
       graph: { exists: false, path: join(artifactDir, 'knowledge-graph.json') },
       intermediate: { exists: false, path: join(artifactDir, 'intermediate') },
-      diffOverlay: { exists: false, path: join(artifactDir, 'diff-overlay.json') }
+      diffOverlay: { exists: false, path: join(artifactDir, 'diff-overlay.json') },
+      uaPrompt
     };
   }
 
@@ -82,7 +86,16 @@ export async function scanUnderstandAnything(options: UnderstandScanOptions): Pr
   const intermediate = await readFlag(join(artifactDir, 'intermediate'));
   const diffOverlay = await readFlag(join(artifactDir, 'diff-overlay.json'));
 
-  return { exists: true, artifactDir, graph, intermediate, diffOverlay };
+  return { exists: true, artifactDir, graph, intermediate, diffOverlay, uaPrompt };
+}
+
+async function readUaPrompt(projectRoot: string): Promise<'unset' | 'skip-this-session' | 'skip-forever'> {
+  try {
+    const prefs = await loadPreferences(projectRoot);
+    return prefs.uaPrompt;
+  } catch {
+    return 'unset';
+  }
 }
 
 export type UnderstandGraphSummary = {

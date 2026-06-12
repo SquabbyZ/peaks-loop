@@ -102,6 +102,15 @@ ls .peaks/<id>/ui/design-draft.md 2>&1
 
 The CLI gate (`peaks request transition --state qa-handoff`) is the authoritative check; running this `ls` first lets you produce missing files before the CLI rejects the transition.
 
+| Request type | Required RD evidence (under `.peaks/<id>/`) |
+|---|---|
+| `feature` / `refactor` | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` (qa/test-cases pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004) |
+| `bugfix` | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when the bug is performance-shaped) |
+| `config` | `rd/security-review.md` |
+| `docs` / `chore` | (no extra evidence required) |
+
+Always required (in addition to the type-specific row): `ls .peaks/<id>/rd/requests/<rid>.md`. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
+
 ```bash
 # Always required
 ls .peaks/<id>/rd/requests/<rid>.md

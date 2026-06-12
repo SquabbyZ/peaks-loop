@@ -72,6 +72,12 @@ After Step 0 anchored the workspace, run the resume-detection probe (one `find` 
 
 → see `references/resume-detection.md` for the full detection algorithm + classification table.
 
+### Peaks-Cli Step 0.55: 1.x → 2.0 detection (BLOCKING on first invocation per session, when the project is not on a 2.0 layout)
+
+Per the "one-key completion" tenet (2026-06-11), peaks-cli 2.0 should detect a 1.x consumer project and prompt the user to upgrade. After Step 0.7 returns "fresh" (no in-flight slice), run the 1.x detection probe: `peaks upgrade --detect-1x --project <root> --json`. If the result is `isOneX: true`, surface an `AskUserQuestion` with the upgrade prompt. Persist the decision to `.peaks/preferences.json` (key: `autoUpgradePrompt` with values `opt-in` / `skip-this-session` / `skip-forever`) so subsequent runs in the same project don't re-ask.
+
+→ see `references/step-0-55-1x-detection.md` for the full detection algorithm + AskUserQuestion options + persistence contract.
+
 ### Peaks-Cli Step 1: Mode selection
 
 When the user did not name a profile (`full-auto` / `assisted` / `swarm` / `strict`), use `AskUserQuestion` with `Full auto (Recommended)` as the first option. Map the choice to `--mode` value.
@@ -191,15 +197,15 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 ## Peaks-Cli External references and lifecycle
 
-Inventory of 3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7). Three-stage pattern: capability discovery via `peaks capabilities` → references only → Peaks-Cli CLI for side effects.
+Inventory of 3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7). Three-stage pattern: capability discovery via `peaks capabilities` → references only → Peaks-Cli CLI for side effects. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative; do not execute upstream installer scripts; MCP servers (Playwright MCP, Chrome DevTools MCP, Figma Context MCP) are not managed by peaks-cli — the LLM checks its own tool list for `mcp__<server>__*` entries; if absent, the user installs via the IDE-native install command (e.g. `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code).
 
-→ see `references/external-references.md` for the full inventory + lifecycle rules.
+→ see `references/external-references.md` for the full inventory + lifecycle rules, and `references/external-skill-invocation.md` for the three-stage (Discovery → Reference → Side effect through Peaks CLI only) contract + the do-not-execute / do-not-persist / tool-list self-check rules.
 
 ## Codegraph orchestration context
 
-Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as optional project-analysis enhancement. Output is untrusted supporting evidence — never treat as approval for scope, design, or QA verdict.
+Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as optional project-analysis enhancement. Output is untrusted supporting evidence — never treat as approval for scope, design, or QA verdict. Solo must not treat codegraph output as approval; never mutate agent settings, Claude settings, or hooks from codegraph; do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git. Solo coordinates codegraph context across the role handoff between RD (writes `.peaks/<session-id>/rd/codegraph-context.md`) and QA / TXT (consume the same envelope).
 
-→ see `references/codegraph-orchestration.md` for the full contract.
+→ see `references/codegraph-orchestration.md` for the full contract (including the agent-settings / settings-mutation prohibition, the no-`.codegraph/` commit rule, and the role-handoff envelope).
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 

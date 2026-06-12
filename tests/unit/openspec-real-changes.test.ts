@@ -1,23 +1,31 @@
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { scanOpenSpec } from '../../src/services/openspec/openspec-scan-service.js';
+import type { OpenSpecChangeSummary } from '../../src/services/openspec/openspec-types.js';
 import { projectOpenSpecToRdInput } from '../../src/services/openspec/openspec-bridge-service.js';
 import { validateOpenSpecChange } from '../../src/services/openspec/openspec-validate-service.js';
 
 const PROJECT_OPENSPEC = join(process.cwd(), 'openspec');
 
 describe('dogfood: real openspec/changes/* must satisfy the Peaks OpenSpec gates', () => {
+  // Helper: filter out the `archive/` subdirectory. The archive/
+  // subdir is created by `peaks openspec archive` when a change
+  // is shipped — it contains the shipped change packs, but is
+  // itself not a change pack.
+  const realChanges = (report: { changes: ReadonlyArray<OpenSpecChangeSummary> }): ReadonlyArray<OpenSpecChangeSummary> =>
+    report.changes.filter((c) => c.id !== 'archive');
+
   test('scan returns at least one real change pack', async () => {
     const report = await scanOpenSpec({ openspecRoot: PROJECT_OPENSPEC });
 
     expect(report.exists).toBe(true);
-    expect(report.changes.length).toBeGreaterThanOrEqual(1);
+    expect(realChanges(report).length).toBeGreaterThanOrEqual(1);
   });
 
   test('every real change pack passes internal validation with no error-level issues', async () => {
     const report = await scanOpenSpec({ openspecRoot: PROJECT_OPENSPEC });
 
-    for (const change of report.changes) {
+    for (const change of realChanges(report)) {
       const result = await validateOpenSpecChange(change.id, { openspecRoot: PROJECT_OPENSPEC });
       const errors = result?.issues.filter((issue) => issue.level === 'error') ?? [];
       expect.soft(result?.valid, `change ${change.id} should pass validation; issues=${JSON.stringify(errors)}`).toBe(true);
@@ -27,7 +35,7 @@ describe('dogfood: real openspec/changes/* must satisfy the Peaks OpenSpec gates
   test('every real change pack projects to an RD input with non-empty acceptance', async () => {
     const report = await scanOpenSpec({ openspecRoot: PROJECT_OPENSPEC });
 
-    for (const change of report.changes) {
+    for (const change of realChanges(report)) {
       const projection = await projectOpenSpecToRdInput(change.id, { openspecRoot: PROJECT_OPENSPEC });
 
       expect.soft(projection, `change ${change.id} should project to an RD input`).not.toBeNull();
@@ -38,7 +46,7 @@ describe('dogfood: real openspec/changes/* must satisfy the Peaks OpenSpec gates
   test('every real change pack with tasks.md exposes at least one commit boundary', async () => {
     const report = await scanOpenSpec({ openspecRoot: PROJECT_OPENSPEC });
 
-    for (const change of report.changes) {
+    for (const change of realChanges(report)) {
       if (change.paths.tasks === null) {
         continue;
       }

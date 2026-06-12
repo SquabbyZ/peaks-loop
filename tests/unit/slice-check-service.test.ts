@@ -82,9 +82,11 @@ function makeProject(): string {
   // Set the current-change binding so the slice check resolves rid.
   mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
   // Symlink current-change → retrospective/2026-06-05-test
-  // Actually we need a real change-id dir; let's just symlink to the dir directly
+  // On Windows, use a 'junction' (directory hard link) which does not
+  // require developer-mode / admin. On POSIX, use a regular 'dir' symlink.
   const { symlinkSync } = require('node:fs');
-  symlinkSync(join(project, '.peaks', rid), join(project, '.peaks', '_runtime', 'current-change'), 'dir');
+  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
+  symlinkSync(join(project, '.peaks', rid), join(project, '.peaks', '_runtime', 'current-change'), linkType);
   return project;
 }
 
@@ -119,7 +121,7 @@ describe('sliceCheck', () => {
   });
 
   describe('stage execution', () => {
-    test('runs all 4 stages in order and aggregates pass/fail', async () => {
+    test('runs all 5 stages in order and aggregates pass/fail (Slice #7 L2.4 P2-b added stage 6)', async () => {
       const result = await sliceCheck({
         projectRoot: project,
         rid: '2026-06-05-test',
@@ -127,16 +129,20 @@ describe('sliceCheck', () => {
         skipTests: false
       });
 
-      // Stage order
+      // Stage order (Slice #7 L2.4 P2-b added `audit-regression`
+      // as the 6th stage; the test name now reflects the 5 pre-P2-b
+      // stages still being there, with audit-regression appended).
       expect(result.stages.map((s) => s.name)).toEqual([
         'typecheck',
         'unit-tests',
         'review-fanout',
-        'gate-verify-pipeline'
+        'gate-verify-pipeline',
+        'mock-placement',
+        'audit-regression'
       ]);
 
-      // 4 stages present, each with a duration
-      expect(result.stages).toHaveLength(4);
+      // 6 stages present, each with a duration
+      expect(result.stages).toHaveLength(6);
       for (const stage of result.stages) {
         expect(stage.durationMs).not.toBeNull();
         expect(stage.detail.length).toBeGreaterThan(0);

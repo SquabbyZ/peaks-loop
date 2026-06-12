@@ -7,14 +7,14 @@
 > `qa/performance-findings-<rid>.md` references this baseline by path +
 > hash.
 
-## Location
+## File location
 
 `.peaks/_runtime/<sessionId>/qa/perf-baseline.md`. The CLI is
 `peaks workflow plan read perf --project <repo> --json` /
 `peaks workflow plan refresh perf --project <repo> --apply` /
 `peaks workflow plan detect-trigger --project <repo> --rid <rid> --json`.
 
-## Generation workflow
+## Perf generation workflow
 
 1. `peaks workflow plan read perf --project <repo> --json` — return the
    existing baseline envelope. When missing, proceed to step 2.
@@ -30,7 +30,7 @@
    (lighthouse / k6 / autocannon output) — see peaks-rd's
    `mandatory-perf-baseline.md` for the RD-side measurement workflow.
 
-## Content schema (deterministic — body is normalized before hashing)
+## Perf content schema (deterministic)
 
 - `## CLI Command Inventory` — auto-enumerated from
   `src/cli/commands/*-commands.ts`. Sorted alphabetically.
@@ -39,7 +39,7 @@
   actual numbers (CLI does not call measurement tools).
 - `## Thresholds` — placeholder; RD fills per-route thresholds.
 
-## Refresh trigger table (shared with security plan)
+## Perf refresh trigger table (shared with security plan)
 
 | Signal | Reason string | Re-generates the baseline? |
 |---|---|---|
@@ -51,7 +51,7 @@
 | devDependencies change only | (none) | no — locked Q1 default |
 | Pure text edits to `rd/*` or `qa/test-cases/*` | (none) | no |
 
-## Back-compat (1 minor release)
+## Perf back-compat (1 minor release)
 
 The pre-slice-025 non-suffixed `qa/performance-findings.md` is still
 accepted by `peaks workflow verify-pipeline` Gate C during the
@@ -59,7 +59,7 @@ accepted by `peaks workflow verify-pipeline` Gate C during the
 (`src/services/workflow/artifact-paths.ts`) handles the fallback and
 emits a `legacy-redirect` warning.
 
-## CLI surface recap
+## Perf CLI surface recap
 
 | Command | Returns | JSON shape |
 |---|---|---|
