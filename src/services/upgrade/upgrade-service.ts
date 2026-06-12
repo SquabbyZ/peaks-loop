@@ -31,6 +31,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
+import { savePreferences } from '../preferences/preferences-service.js';
 
 export interface UpgradeInput {
   readonly projectRoot: string;
@@ -136,22 +137,34 @@ function collectFilesRecursive(
  * succeeds.
  *
  * Patterns:
- *   - skills/[asterisk][asterisk]/SKILL.md
+ *   - skills/[asterisk][asterisk]/SKILL.md       (project-root convention)
+ *   - .claude/skills/[asterisk][asterisk]/SKILL.md (Claude-Code consumer convention; ice-cola)
  *   - CLAUDE.md
  *   - .claude/rules/[asterisk][asterisk]/[asterisk].md
  *
- * Returns an empty list when none of the three roots exist. The
+ * Returns an empty list when none of the roots exist. The
  * caller marks the step skipped in that case.
  */
 function expandMemoryArtifacts(projectRoot: string): readonly string[] {
   const out: string[] = [];
 
-  // skills/**/SKILL.md
+  // skills/**/SKILL.md (peaks-cli repo convention)
   const skillFiles = collectFilesRecursive(
     join(projectRoot, 'skills'),
     (name) => name === 'SKILL.md'
   );
   for (const abs of skillFiles) {
+    out.push(relative(projectRoot, abs));
+  }
+
+  // .claude/skills/**/SKILL.md (Claude-Code consumer convention;
+  // surfaced by ice-cola dogfood 2026-06-12 — the 1.x install
+  // landed skills under .claude/skills/, not <root>/skills/)
+  const claudeSkillFiles = collectFilesRecursive(
+    join(projectRoot, '.claude', 'skills'),
+    (name) => name === 'SKILL.md'
+  );
+  for (const abs of claudeSkillFiles) {
     out.push(relative(projectRoot, abs));
   }
 
@@ -318,6 +331,21 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   const warnings: string[] = [];
   const nextActions: string[] = [];
 
+  // Ensure .peaks/preferences.json exists. This is the file the
+  // 1.x detector keys off — without it, `peaks upgrade --detect-1x`
+  // keeps returning isOneX=true after a successful upgrade and the
+  // user gets stuck in a re-prompt loop. savePreferences with an
+  // empty override merges with DEFAULT_PREFERENCES and writes; if
+  // the file already exists the user's values are preserved.
+  // Real bug surfaced by ice-cola dogfood 2026-06-12.
+  try {
+    savePreferences(input.projectRoot, {});
+  } catch (err) {
+    warnings.push(
+      `ensure-preferences failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
   // Audit BEFORE the upgrade (baseline)
   let auditBefore: { totalRedLines: number; cliBacked: number } | null = null;
   try {
@@ -348,7 +376,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
         });
         continue;
       }
-      const args = ['memory', 'extract', '--project', input.projectRoot, '--artifact', ...artifacts, '--json'];
+      const args = ['memory', 'extract', '--project', input.projectRoot, '--artifact', ...artifacts, '--apply', '--json'];
       const r = runStep(resolvedPeaksBin, 'memory-extract', args);
       steps.push(r);
       if (r.status === 'fail') {

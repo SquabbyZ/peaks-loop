@@ -302,4 +302,61 @@ describe('runUpgrade', () => {
     expect(memStep?.stdout).toContain('coding-style.md');
     expect(memStep?.stdout).toContain('CLAUDE.md');
   });
+
+  test('memory-extract receives --apply so it actually writes (not dry-run)', () => {
+    // Real bug surfaced by ice-cola dogfood 2026-06-12: the
+    // umbrella was calling memory-extract without --apply, so
+    // memory-service ran in dry-run mode and wrote nothing.
+    seedMemoryArtifacts(tmpProject);
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const memStep = result.steps.find((s) => s.name === 'memory-extract');
+    expect(memStep?.status).toBe('pass');
+    // The stub echoes argv as JSON — '--apply' must be present
+    expect(memStep?.stdout).toContain('--apply');
+  });
+
+  test('expandMemoryArtifacts walks .claude/skills/ in addition to skills/ at root', () => {
+    // Real bug surfaced by ice-cola dogfood 2026-06-12: the
+    // consumer's skills lived at .claude/skills/<name>/SKILL.md,
+    // not <root>/skills/<name>/SKILL.md. The umbrella missed
+    // 100+ SKILL.md files entirely.
+    mkdirSync(join(tmpProject, '.claude', 'skills', 'agent-sort'), { recursive: true });
+    writeFileSync(join(tmpProject, '.claude', 'skills', 'agent-sort', 'SKILL.md'), '# stub\n', 'utf8');
+    mkdirSync(join(tmpProject, '.claude', 'skills', 'blueprint'), { recursive: true });
+    writeFileSync(join(tmpProject, '.claude', 'skills', 'blueprint', 'SKILL.md'), '# stub\n', 'utf8');
+
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const memStep = result.steps.find((s) => s.name === 'memory-extract');
+    expect(memStep?.status).toBe('pass'); // not skipped — artifacts found
+    expect(memStep?.stdout).toContain('agent-sort');
+    expect(memStep?.stdout).toContain('blueprint');
+  });
+
+  test('ensures .peaks/preferences.json exists after upgrade (graduates project out of 1.x)', () => {
+    // Real bug surfaced by ice-cola dogfood 2026-06-12: the
+    // upgrade ran with 6/6 pass, but afterwards `peaks upgrade
+    // --detect-1x` still returned isOneX=true because the detector
+    // keys off `.peaks/preferences.json` existence and nothing in
+    // the umbrella created the file when config-migrate said
+    // "alreadyAtV2" + skipped.
+    expect(existsSync(join(tmpProject, '.peaks', 'preferences.json'))).toBe(false);
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const prefsPath = join(tmpProject, '.peaks', 'preferences.json');
+    expect(existsSync(prefsPath)).toBe(true);
+    const body = JSON.parse(readFileSync(prefsPath, 'utf8'));
+    expect(body.schema_version).toBe('2.0.0');
+  });
+
+  test('preferences.json is preserved if it already exists (no overwrite)', () => {
+    mkdirSync(join(tmpProject, '.peaks'), { recursive: true });
+    writeFileSync(
+      join(tmpProject, '.peaks', 'preferences.json'),
+      JSON.stringify({ schema_version: '2.0.0', economyMode: false, customMarker: true }, null, 2),
+      'utf8'
+    );
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const body = JSON.parse(readFileSync(join(tmpProject, '.peaks', 'preferences.json'), 'utf8'));
+    // User's economyMode=false override survived; the file was not clobbered with defaults.
+    expect(body.economyMode).toBe(false);
+  });
 });
