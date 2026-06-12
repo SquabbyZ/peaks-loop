@@ -33,7 +33,12 @@
     "!skills/**/test-prompts.json",
     "!skills/**/.DS_Store",
     "output-styles/**",
-    "schemas/*.json"
+    "schemas/*.json",
+    ".claude-plugin/**",
+    "README.md",
+    "README-en.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
