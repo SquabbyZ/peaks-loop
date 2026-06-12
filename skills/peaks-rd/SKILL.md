@@ -15,9 +15,9 @@ Peaks-Cli RD owns engineering analysis, implementation planning, and refactor ex
 
 ## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
 
-For frontend or UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. The LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and reports the gate as blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp as a substitute. Two contracts (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion` and pick one of three paths. The full contract is identical in spirit to `peaks-qa`'s; RD and QA share the headed-browser path.
+For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. LLM checks its own tool list for the Playwright MCP entry; if absent, surface the install command (`claude mcp add playwright -- npx @playwright/mcp@latest`) and report the gate blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp. Two contracts: (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion`. Same in spirit as `peaks-qa`'s; RD and QA share the headed-browser path.
 
-→ see `references/browser-self-test-contracts.md` for the full contract + AskUserQuestion options.
+→ see `references/browser-self-test-contracts.md`.
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
@@ -108,7 +108,7 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer)
 
-**When RD reaches the end of implementation, the four review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The four sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), and `qa-test-cases-writer` (qa/test-cases/<rid>.md). Feature / refactor: all four. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out.
+**When RD reaches the end of implementation, the four review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The four sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), and `qa-test-cases-writer` (qa/test-cases/<rid>.md). Feature / refactor: all four. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out. B3 augmentation: ocr soft-optional → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
 
 ### Peaks-Cli Gate C — type-specific RD evidence
 

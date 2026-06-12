@@ -21,6 +21,14 @@ machine-enforced gates, structured-JSON probes, or side-effect primitives.
 See `.claude/rules/common/dev-preference.md` (project-local) for the
 operating tenet.
 
+**ocr second-opinion code review (soft-optional).** Alibaba's
+`@alibaba-group/open-code-review` is now an `optionalDependency`; when
+installed + configured against a user-owned LLM endpoint, peaks-rd's
+Gate B3 merges its findings into `code-review.md` as a second opinion
+alongside the LLM-only review. Soft-fails so missing ocr never blocks
+a slice. New CLI: `peaks code-review detect-ocr` / `run-ocr`. See
+`skills/peaks-rd/references/ocr-integration.md` for the contract.
+
 ### Breaking Changes
 
 - **`.claude/rules/` is no longer the source of truth for project standards.**

@@ -59,6 +59,9 @@
     "fzf": "^0.5.2",
     "headroom-ai": "0.22.4"
   },
+  "optionalDependencies": {
+    "@alibaba-group/open-code-review": "*"
+  },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "@vitest/coverage-v8": "^2.1.8",
