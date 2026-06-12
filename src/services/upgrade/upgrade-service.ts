@@ -32,6 +32,7 @@ import { join, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import { savePreferences } from '../preferences/preferences-service.js';
+import { migrateGitignoreFile } from './gitignore-migrate-service.js';
 
 export interface UpgradeInput {
   readonly projectRoot: string;
@@ -343,6 +344,28 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   } catch (err) {
     warnings.push(
       `ensure-preferences failed: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  // Migrate .gitignore so 2.0 tracked artifacts
+  // (.peaks/standards/, .peaks/memory/*.md durable memories,
+  // .peaks/PROJECT.md) aren't silently hidden by a 1.x wholesale
+  // `/.peaks/` ignore rule. Real bug surfaced by ice-cola dogfood
+  // 2026-06-12: every consumer artifact was being dropped from git
+  // status. Service is idempotent + creates a timestamped backup
+  // before any write.
+  try {
+    const giResult = migrateGitignoreFile({ projectRoot: input.projectRoot, apply: true });
+    if (giResult.changed && giResult.appliedWrite && giResult.backupPath !== null) {
+      nextActions.push(
+        `Updated .gitignore — removed stale wholesale .peaks rule(s): ${giResult.removedRules.join(', ')}. Backup at ${giResult.backupPath}.`
+      );
+    } else if (giResult.missing) {
+      warnings.push('gitignore-migrate skipped: project has no .gitignore');
+    }
+  } catch (err) {
+    warnings.push(
+      `gitignore-migrate failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 

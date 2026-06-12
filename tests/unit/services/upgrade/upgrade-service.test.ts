@@ -359,4 +359,29 @@ describe('runUpgrade', () => {
     // User's economyMode=false override survived; the file was not clobbered with defaults.
     expect(body.economyMode).toBe(false);
   });
+
+  test('migrates a wholesale `/.peaks/` .gitignore rule to the canonical 2.0 block', () => {
+    // Real bug surfaced by ice-cola dogfood 2026-06-12: the 1.x
+    // consumer's .gitignore ended with `/.peaks/` (wholesale),
+    // silently hiding .peaks/standards/, .peaks/memory/*.md
+    // (durable), and .peaks/PROJECT.md from git tracking after
+    // upgrade. The umbrella now patches the .gitignore in place
+    // with a backup.
+    writeFileSync(join(tmpProject, '.gitignore'), 'node_modules/\n/.peaks/\n', 'utf8');
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const after = readFileSync(join(tmpProject, '.gitignore'), 'utf8');
+    expect(after).not.toMatch(/^\/?\.peaks\/?\s*$/m);
+    expect(after).toContain('.peaks/_runtime/');
+    expect(after).toContain('.peaks/preferences.json');
+    expect(after).toContain('node_modules/');
+  });
+
+  test('gitignore migration leaves projects without a .gitignore untouched', () => {
+    // tmpProject has no .gitignore; runUpgrade must not throw
+    // and must not create a .gitignore (that would be a
+    // surprise side effect).
+    expect(existsSync(join(tmpProject, '.gitignore'))).toBe(false);
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(existsSync(join(tmpProject, '.gitignore'))).toBe(false);
+  });
 });
