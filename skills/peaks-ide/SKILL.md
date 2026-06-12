@@ -1,6 +1,8 @@
 ---
 name: peaks-ide
 description: Orchestrate peaks-cli's IDE-aware behavior (hooks + statusline + handle) for a user's specific IDE. Detects the current state (which IDE the user is on, what peaks has already installed), plans the install / switch / status / uninstall actions, and invokes the existing peaks CLI primitives. Triggers on `/peaks-ide`, "set up peaks for my IDE", "switch peaks to Trae", "what did peaks install", "uninstall peaks hooks". Sits between the user and `peaks hooks install` / `peaks statusline install` / `peaks hook handle` — those are the CLI primitives; this skill is the user-facing surface.
+internal: true
+---
 ---
 
 # Peaks-Cli IDE Setup (peaks-ide)

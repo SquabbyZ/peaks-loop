@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@alibaba-group/open-code-review':
+        specifier: '*'
+        version: 1.3.1
       '@colbymchenry/codegraph':
         specifier: 0.7.10
         version: 0.7.10
@@ -36,10 +39,6 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.19)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))
-    optionalDependencies:
-      '@alibaba-group/open-code-review':
-        specifier: '*'
-        version: 1.3.1
 
 packages:
 
@@ -1298,8 +1297,7 @@ packages:
 
 snapshots:
 
-  '@alibaba-group/open-code-review@1.3.1':
-    optional: true
+  '@alibaba-group/open-code-review@1.3.1': {}
 
   '@ampproject/remapping@2.3.0':
     dependencies:
