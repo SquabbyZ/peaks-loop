@@ -43,10 +43,11 @@ export function runCapabilityMap(io: ProgramIO, options: CapabilityMapOptions): 
 
   const config = readConfig();
   const installedCapabilityIds = getInstalledCapabilityIds(config);
+  const httpProxy = config.proxy?.httpProxy;
   printResult(io, ok('capabilities.map', createCapabilityMapPlan({
     source,
     installedCapabilityIds,
-    ...(config.proxy.httpProxy === undefined ? {} : { httpProxy: config.proxy.httpProxy })
+    ...(httpProxy === undefined ? {} : { httpProxy })
   })), options.json);
 }
 

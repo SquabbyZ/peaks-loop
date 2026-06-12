@@ -231,6 +231,47 @@ is skipped (`PEAKS_SKIP_AUTO_UPGRADE=1` or `npm i --ignore-scripts`).
 
 ---
 
+## [2.0.1] — 2026-06-12
+
+### Fixed
+
+- **Bug 1 — `~/.peaks/config.json` was bloated to 9 top-level fields.**
+  The 2.0.0 release moved per-project fields (`language`, `model`,
+  `economyMode`, `swarmMode`) to `<project>/.peaks/preferences.json`
+  per spec §10.4, but the runtime `DEFAULT_CONFIG` still shipped
+  `language` / `model` / `economyMode` / `swarmMode` / `tokens` /
+  `providers` / `proxy` / `progress` placeholders. The slim migration
+  (`executeMigration`) wrote `{ version: "2.0.0" }` only, but any
+  code path that went through `readConfig` and re-serialised
+  re-bloated the file. The 2.0.1 fix:
+
+  1. **Slim `DEFAULT_CONFIG`** to `{ version, ocr: { llm: { url, authToken, model, useAnthropic, authHeader } } }`
+     (placeholders for the OCR LLM endpoint only).
+  2. **Slim migration write** to the same 2-key form, so a fresh
+     `peaks config migrate --apply` produces a discoverable
+     `ocr.llm` block the user can paste their endpoint into.
+  3. **Tolerant loader.** Legacy 1.x files with extra fields
+     (`language`, `model`, `tokens`, `providers`, `proxy`, etc.)
+     still load without throwing; the legacy fields are exposed
+     via `getConfig` for backward compatibility, and
+     `setConfig` rejects writes to `language` / `model` /
+     `economyMode` / `swarmMode` with a pointer to
+     `<project>/.peaks/preferences.json` (do not silently migrate).
+
+  The net effect: a freshly-installed peaks-cli writes a 2-key
+  `~/.peaks/config.json`; legacy 1.x files migrate to the same
+  2-key form; the ocr second-opinion config is now the only
+  discoverable surface the user needs to populate to make
+  `peaks code-review detect-ocr` report `state: "ready"`.
+
+### Verification
+
+- 70 config tests pass (`tests/unit/config-*`).
+- `pnpm tsc -p tsconfig.json --noEmit` clean (excluding pre-existing
+  sync-service test scaffold for Bug 2).
+
+---
+
 ## [1.4.2] — 2026-06-08
 
 Last 1.x release. See git history pre-2.0.0 for details.

@@ -194,10 +194,13 @@ describe('secret config handling', () => {
   });
 
   test('reads configurable HTTP proxy with validation and no default', () => {
-    expect(readConfig().proxy.httpProxy).toBeUndefined();
+    // 2.0.1 slim: proxy is not synthesised by DEFAULT_CONFIG; the
+    // user-side `proxy` key may or may not be present. When absent
+    // the read-side path returns `undefined` for the parent.
+    expect(readConfig().proxy?.httpProxy).toBeUndefined();
 
     writeConfig({ proxy: { httpProxy: 'https://proxy.example:8443' } }, 'user');
-    expect(readConfig().proxy.httpProxy).toBe('https://proxy.example:8443');
+    expect(readConfig().proxy?.httpProxy).toBe('https://proxy.example:8443');
 
     expect(() => setConfig({ key: 'proxy.httpProxy', value: '127.0.0.1:58309' })).toThrow('Proxy URL must be an HTTP or HTTPS URL without embedded credentials');
     expect(() => setConfig({ key: 'proxy.httpProxy', value: 'http://user:pass@127.0.0.1:58309' })).toThrow('Proxy URL must be an HTTP or HTTPS URL without embedded credentials');
@@ -239,12 +242,15 @@ describe('secret config handling', () => {
   test('ignores project-only proxy config', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
-    writeConfig({ proxy: {} }, 'user');
+    // 2.0.1 slim: proxy is a legacy key — writeConfig rejects it; seed
+    // the file directly to verify the read-side project-only filter still
+    // applies.
+    writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({}), 'utf8');
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ proxy: { httpProxy: 'https://project-proxy.example:8443' } }), 'utf8');
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      expect(readConfig().proxy.httpProxy).toBeUndefined();
+      expect(readConfig().proxy?.httpProxy).toBeUndefined();
       expect(getConfig({ key: 'proxy.httpProxy' })).toBeUndefined();
     } finally {
       cwdSpy.mockRestore();
@@ -440,7 +446,9 @@ describe('secret config handling', () => {
     const config = readConfig();
 
     expect(config.version).toBeDefined();
-    expect(config.model).toBeDefined();
+    // 2.0.1 slim: `model` is no longer synthesised by DEFAULT_CONFIG;
+    // assert `ocr.llm` is the new always-present placeholder block.
+    expect(config.ocr?.llm).toBeDefined();
   });
 
   test('rejects user config writes when config.json is hardlinked', () => {
@@ -531,11 +539,13 @@ describe('project config discovery', () => {
   test('falls back to global .peaks config when project config is absent', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
     mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
+    // 2.0.1 slim: legacy fields can still be present in pre-2.0.1
+    // config files and must be exposed via getConfig (loader is tolerant).
     writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ language: 'zh', model: 'minimax' }), 'utf8');
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      expect(readConfig()).toMatchObject({ language: 'zh', economyMode: true, swarmMode: true });
+      expect(readConfig()).toMatchObject({ language: 'zh' });
       expect(getConfig()).toMatchObject({ language: 'zh' });
     } finally {
       cwdSpy.mockRestore();
@@ -720,13 +730,20 @@ describe('CLI integration via program', () => {
     const { DEFAULT_CONFIG } = await import('../../src/services/config/config-types.js');
     const { CLI_VERSION } = await import('../../src/shared/version.js');
     expect(DEFAULT_CONFIG).toBeDefined();
+    // 2.0.1 slim: only `version` + `ocr` placeholders live in DEFAULT_CONFIG.
+    // Legacy fields (language/model/etc.) are rejected by setConfig and live
+    // in `<project>/.peaks/preferences.json`.
     expect(DEFAULT_CONFIG.version).toBe(CLI_VERSION);
-    expect(DEFAULT_CONFIG.language).toBe('en');
-    expect(DEFAULT_CONFIG.model).toBe('sonnet');
-    expect(DEFAULT_CONFIG.economyMode).toBe(true);
-    expect(DEFAULT_CONFIG.swarmMode).toBe(true);
-    expect(DEFAULT_CONFIG.providers.minimax?.model).toBe('minimax-2.7');
-    expect(DEFAULT_CONFIG.proxy).toEqual({});
+    expect(DEFAULT_CONFIG.ocr?.llm).toEqual({
+      url: '',
+      authToken: '',
+      model: '',
+      useAnthropic: false,
+      authHeader: 'authorization'
+    });
+    expect((DEFAULT_CONFIG as Record<string, unknown>).language).toBeUndefined();
+    expect((DEFAULT_CONFIG as Record<string, unknown>).model).toBeUndefined();
+    expect((DEFAULT_CONFIG as Record<string, unknown>).economyMode).toBeUndefined();
   });
 
   test('ConfigLayer type has user and project', async () => {
@@ -734,5 +751,62 @@ describe('CLI integration via program', () => {
     type ConfigLayer = 'user' | 'project';
     const layers: ConfigLayer[] = ['user', 'project'];
     expect(layers).toHaveLength(2);
+  });
+});
+
+describe('Bug 1 — 2.0.1 slim config defaults', () => {
+  // Slice 2.0.1-bug1-config-defaults — the on-disk `~/.peaks/config.json`
+  // must hold only `version` + `ocr` placeholders. Per-project fields
+  // (language, model, economyMode, swarmMode) are rejected at write
+  // time and live in `<project>/.peaks/preferences.json` instead.
+
+  test('case A — fresh migration writes slim 2-key form (version + ocr)', async () => {
+    const { executeMigration } = await import('../../src/services/config/config-migration.js');
+    const configPath = join(configTestHome, '.peaks', 'config.json');
+    mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
+    writeFileSync(configPath, JSON.stringify({ version: '1.4.2', language: 'en', model: 'sonnet', economyMode: true }), 'utf8');
+
+    executeMigration({ currentProjectRoot: configTestHome, apply: true });
+
+    const onDisk = JSON.parse(readFileSync(configPath, 'utf8')) as Record<string, unknown>;
+    expect(Object.keys(onDisk).sort()).toEqual(['ocr', 'version']);
+    const ocr = onDisk.ocr as { llm?: Record<string, unknown> };
+    expect(ocr).toBeDefined();
+    expect(ocr.llm).toEqual({
+      url: '',
+      authToken: '',
+      model: '',
+      useAnthropic: false,
+      authHeader: 'authorization'
+    });
+  });
+
+  test('case B — existing old-format file loads without throwing and exposes legacy fields via getConfig', () => {
+    const configPath = join(configTestHome, '.peaks', 'config.json');
+    mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
+    writeFileSync(configPath, JSON.stringify({
+      version: '1.4.2',
+      language: 'zh-CN',
+      model: 'sonnet',
+      economyMode: true,
+      swarmMode: false
+    }), 'utf8');
+
+    expect(() => getConfig({ layer: 'user' })).not.toThrow();
+    const legacy = getConfig({ layer: 'user' }) as { language?: string; model?: string; economyMode?: boolean; swarmMode?: boolean };
+    expect(legacy.language).toBe('zh-CN');
+    expect(legacy.model).toBe('sonnet');
+    expect(legacy.economyMode).toBe(true);
+    expect(legacy.swarmMode).toBe(false);
+  });
+
+  test('case C — setConfig to a legacy key is rejected with a preferences.json pointer', () => {
+    // 2.0.1 moved per-project fields to .peaks/preferences.json (per spec
+    // §10.4). tokens / providers / proxy still live in the user config
+    // and are not in this rejection set.
+    const legacyKeys = ['language', 'model', 'economyMode', 'swarmMode'];
+    for (const key of legacyKeys) {
+      expect(() => setConfig({ key, value: 'zh-CN' as never }), `setConfig should reject legacy key "${key}"`).toThrow(/preferences\.json/);
+    }
   });
 });

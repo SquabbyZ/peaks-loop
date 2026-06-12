@@ -66,6 +66,12 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-solo` BEFORE any an
 
 → see `references/anchoring-and-session-info.md` for the full Step 0 contract + session-conflict resolution.
 
+#### Step 0 bypass — Claude Code [Fact-Forcing Gate] (slice 2.0.1-bug3)
+
+`peaks workspace init` materializes `.claude/settings.local.json` (a PreToolUse hook allow-list for `.peaks/**` paths and `peaks <subcommand>` Bash) so the [Fact-Forcing Gate] does not block Step 0. Pass `--no-claude-hooks` to opt out.
+
+→ see `references/anchoring-and-session-info.md` for the full bypass contract, recovery flow, and anti-bail-out rule.
+
 ### Peaks-Cli Step 0.7: Detect unfinished work and offer resume (BLOCKING on first invocation per session)
 
 After Step 0 anchored the workspace, run the resume-detection probe (one `find` + one `grep` + classification table). Surface resume options via `AskUserQuestion` if a slice is in flight. Never silently auto-resume.
