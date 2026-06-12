@@ -1,0 +1,255 @@
+/**
+ * TDD coverage for the 1.x → 2.0 upgrade umbrella service.
+ *
+ * Closes the test debt recorded in commit ec6f674
+ * (fix(upgrade): commit upgrade-service.ts to repair broken HEAD).
+ *
+ * Strategy: real filesystem + a stub `peaks.js` script that the
+ * service spawns. The stub reads its first argv (the sub-command
+ * name) and consults env vars to decide whether to exit 0 or 1.
+ * No `vi.mock` — matches the pattern in 1x-detector-service.test.ts.
+ */
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { runUpgrade } from '../../../../src/services/upgrade/upgrade-service.js';
+
+const ALL_STEPS = [
+  'config-migrate',
+  'standards-migrate',
+  'memory-extract',
+  'hooks-install',
+  'skill-sync',
+  'audit-verify',
+] as const;
+
+// Map sub-step name → first argv that the stub will receive
+// (matches the args() functions in upgrade-service.ts STEPS).
+const STEP_TO_FIRST_ARGV: Record<string, string> = {
+  'config-migrate': 'config',
+  'standards-migrate': 'standards',
+  'memory-extract': 'memory',
+  'hooks-install': 'hooks',
+  'skill-sync': 'skill',
+  'audit-verify': 'audit',
+};
+
+let tmpHome: string;
+let tmpProject: string;
+let stubPeaksBin: string;
+let originalHome: string | undefined;
+let originalUserprofile: string | undefined;
+let originalStubFail: string | undefined;
+
+function writeStubPeaks(failArgvCsv: string = ''): string {
+  const stubDir = mkdtempSync(join(tmpdir(), 'peaks-stub-'));
+  const stubPath = join(stubDir, 'peaks.js');
+  // The service spawns `node peaks.js <argv...>` when peaksBin
+  // contains a path separator. The stub exits 1 when its first
+  // argv matches one of the names in process.env.STUB_FAIL_ARGVS
+  // (comma-separated), else exits 0.
+  const stub = `#!/usr/bin/env node
+const argv = process.argv.slice(2);
+const first = argv[0] ?? '';
+const failList = (process.env.STUB_FAIL_ARGVS || '').split(',').filter(Boolean);
+if (failList.includes(first)) {
+  process.stderr.write('stub: simulated failure for ' + first + '\\n');
+  process.exit(1);
+}
+process.stdout.write(JSON.stringify({ ok: true, argv: argv }));
+process.exit(0);
+`;
+  writeFileSync(stubPath, stub, 'utf8');
+  if (failArgvCsv.length > 0) {
+    process.env['STUB_FAIL_ARGVS'] = failArgvCsv;
+  } else {
+    delete process.env['STUB_FAIL_ARGVS'];
+  }
+  return stubPath;
+}
+
+beforeEach(() => {
+  tmpHome = mkdtempSync(join(tmpdir(), 'peaks-upgrade-home-'));
+  tmpProject = mkdtempSync(join(tmpdir(), 'peaks-upgrade-project-'));
+  originalHome = process.env['HOME'];
+  originalUserprofile = process.env['USERPROFILE'];
+  originalStubFail = process.env['STUB_FAIL_ARGVS'];
+  // Both Unix HOME and Windows USERPROFILE need to point at the
+  // stub home; upgrade-service.read1xVersion checks them in
+  // that order via process.env.HOME ?? process.env.USERPROFILE.
+  process.env['HOME'] = tmpHome;
+  process.env['USERPROFILE'] = tmpHome;
+  stubPeaksBin = writeStubPeaks();
+});
+
+afterEach(() => {
+  if (originalHome === undefined) {
+    delete process.env['HOME'];
+  } else {
+    process.env['HOME'] = originalHome;
+  }
+  if (originalUserprofile === undefined) {
+    delete process.env['USERPROFILE'];
+  } else {
+    process.env['USERPROFILE'] = originalUserprofile;
+  }
+  if (originalStubFail === undefined) {
+    delete process.env['STUB_FAIL_ARGVS'];
+  } else {
+    process.env['STUB_FAIL_ARGVS'] = originalStubFail;
+  }
+  try {
+    rmSync(tmpHome, { recursive: true, force: true });
+  } catch {
+    // ignore
+  }
+  try {
+    rmSync(tmpProject, { recursive: true, force: true });
+  } catch {
+    // ignore
+  }
+});
+
+describe('runUpgrade', () => {
+  test('returns an UpgradeResult with the full documented shape', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result).toMatchObject({
+      applied: expect.any(Boolean),
+      fromVersion: null,
+      toVersion: '2.0.0',
+      projectRoot: tmpProject,
+      passedCount: expect.any(Number),
+      failedCount: expect.any(Number),
+      skippedCount: expect.any(Number),
+      nextActions: expect.any(Array),
+      warnings: expect.any(Array),
+    });
+    expect(result.steps).toHaveLength(ALL_STEPS.length);
+    for (const step of result.steps) {
+      expect(ALL_STEPS).toContain(step.name);
+      expect(['pass', 'fail', 'skipped']).toContain(step.status);
+      expect(typeof step.durationMs).toBe('number');
+    }
+  });
+
+  test('all 6 sub-steps pass when the stub returns 0 → applied=true, passedCount=6', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.applied).toBe(true);
+    expect(result.passedCount).toBe(6);
+    expect(result.failedCount).toBe(0);
+    expect(result.skippedCount).toBe(0);
+    for (const step of result.steps) {
+      expect(step.status).toBe('pass');
+      expect(step.exitCode).toBe(0);
+    }
+  });
+
+  test('all 6 sub-steps fail when the stub returns 1 for every command → applied=false', () => {
+    // Fail every first-argv (config, standards, memory, hooks, skill, audit)
+    writeStubPeaks(Object.values(STEP_TO_FIRST_ARGV).join(','));
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.applied).toBe(false);
+    expect(result.passedCount).toBe(0);
+    expect(result.failedCount).toBe(6);
+    expect(result.nextActions.some((a) => a.includes('6 sub-step(s) failed'))).toBe(true);
+    for (const step of result.steps) {
+      expect(step.status).toBe('fail');
+      expect(step.exitCode).toBe(1);
+      expect(step.stderr.length).toBeGreaterThan(0);
+    }
+  });
+
+  test('mixed pass/fail: failing only standards + memory keeps passedCount=4, failedCount=2', () => {
+    writeStubPeaks('standards,memory');
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.applied).toBe(false);
+    expect(result.passedCount).toBe(4);
+    expect(result.failedCount).toBe(2);
+    const failedNames = result.steps.filter((s) => s.status === 'fail').map((s) => s.name).sort();
+    expect(failedNames).toEqual(['memory-extract', 'standards-migrate']);
+    expect(result.warnings.some((w) => w.startsWith('standards-migrate failed'))).toBe(true);
+    expect(result.warnings.some((w) => w.startsWith('memory-extract failed'))).toBe(true);
+  });
+
+  test('writes the upgrade record to .peaks/memory/upgrade-2.0-YYYY-MM-DD.md', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.upgradeRecordPath).not.toBeNull();
+    expect(result.upgradeRecordPath).toMatch(/upgrade-2\.0-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
+    const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
+    expect(body).toContain('# Upgrade to peaks-cli 2.0');
+    expect(body).toContain('| step | status | exitCode | durationMs |');
+    // Each of the 6 step names appears as a table row
+    for (const stepName of ALL_STEPS) {
+      expect(body).toContain(`| ${stepName} |`);
+    }
+    // Audit snapshot section is present (empty project → zero counts, but section still emitted)
+    expect(body).toContain('## Audit snapshot');
+  });
+
+  test('captures auditBefore and auditAfter as { totalRedLines, cliBacked }', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.auditBefore).not.toBeNull();
+    expect(result.auditAfter).not.toBeNull();
+    expect(typeof (result.auditBefore as { totalRedLines: number }).totalRedLines).toBe('number');
+    expect(typeof (result.auditBefore as { cliBacked: number }).cliBacked).toBe('number');
+    expect(typeof (result.auditAfter as { totalRedLines: number }).totalRedLines).toBe('number');
+    expect(typeof (result.auditAfter as { cliBacked: number }).cliBacked).toBe('number');
+  });
+
+  test('auto: false (default) includes the "Run peaks audit red-lines" next action', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.nextActions.some((a) => a.includes('peaks audit red-lines'))).toBe(true);
+  });
+
+  test('auto: true suppresses the manual audit next action', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, auto: true });
+    expect(result.nextActions.every((a) => !a.includes('peaks audit red-lines'))).toBe(true);
+  });
+
+  test('fromVersion is null when global ~/.peaks/config.json is absent', () => {
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.fromVersion).toBeNull();
+  });
+
+  test('fromVersion is read from global ~/.peaks/config.json when present', () => {
+    mkdirSync(join(tmpHome, '.peaks'), { recursive: true });
+    writeFileSync(
+      join(tmpHome, '.peaks', 'config.json'),
+      JSON.stringify({ version: '1.4.2' }),
+      'utf8'
+    );
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.fromVersion).toBe('1.4.2');
+    // The record body should also carry the From version line.
+    const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
+    expect(body).toContain('**From version**: 1.4.2');
+  });
+
+  test('fromVersion survives a malformed global config (does not throw)', () => {
+    mkdirSync(join(tmpHome, '.peaks'), { recursive: true });
+    writeFileSync(join(tmpHome, '.peaks', 'config.json'), '{not valid json', 'utf8');
+    expect(() => runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin })).not.toThrow();
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.fromVersion).toBeNull();
+  });
+
+  test('always emits a "see docs/UPGRADING-2.0.md" hint, regardless of pass/fail', () => {
+    const pass = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    writeStubPeaks(Object.values(STEP_TO_FIRST_ARGV).join(','));
+    const fail = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(pass.nextActions.some((a) => a.includes('docs/UPGRADING-2.0.md'))).toBe(true);
+    expect(fail.nextActions.some((a) => a.includes('docs/UPGRADING-2.0.md'))).toBe(true);
+  });
+
+  test('record is written even on partial failure (forensic artifact guarantee)', () => {
+    writeStubPeaks('standards');
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(result.applied).toBe(false);
+    expect(result.upgradeRecordPath).not.toBeNull();
+    expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
+    const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
+    expect(body).toContain('| standards-migrate | fail | 1 |');
+  });
+});
