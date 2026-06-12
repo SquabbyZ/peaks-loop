@@ -2,7 +2,7 @@
 
 # ⛰️ Peaks
 
-**让 AI IDE 像一支训练有素的工程团队一样工作**
+**一个 CLI + 11 个工作流技能，把 LLM 的随意发挥变成可审计的工程流程。**
 
 [English](./README-en.md) | **简体中文**
 
@@ -11,8 +11,6 @@
 [![GitHub repo](https://img.shields.io/badge/GitHub-SquabbyZ%2Fpeaks--cli-181717?logo=github)](https://github.com/SquabbyZ/peaks-cli)
 [![Skills.sh](https://img.shields.io/badge/discover%20on-skills.sh-181717)](https://skills.sh/SquabbyZ/peaks-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-**一个 CLI + 11 个工作流技能，把 LLM 的随意发挥变成可审计的工程流程。**
 
 [安装](#-30-秒跑起来) · [5 分钟上手](#-5-分钟上手) · [技能家族](#-11-个技能家族) · [杀手锏：不可绕过的门禁](#-杀手锏不可绕过的门禁)
 
@@ -220,7 +218,5 @@ peaks project dashboard / memories
 **觉得有用？**
 
 ⭐ [Star peaks-cli on GitHub](https://github.com/SquabbyZ/peaks-cli) · 🔍 [Browse on skills.sh](https://skills.sh/SquabbyZ/peaks-cli)
-
-让你的 AI IDE 像一支训练有素的工程团队。
 
 </div>
