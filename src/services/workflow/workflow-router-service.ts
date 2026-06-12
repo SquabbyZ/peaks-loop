@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, type ModelProviderConfig, type WorkspaceConfig } from '../config/config-types.js';
+import { type ModelProviderConfig, type WorkspaceConfig } from '../config/config-types.js';
 import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/model-routing.js';
 import { getLocalArtifactPath } from '../artifacts/workspace-service.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
@@ -277,9 +277,21 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   validateChangeIdOrThrow(request.changeId);
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;
-  const economyMode = request.config?.economyMode ?? DEFAULT_CONFIG.economyMode;
-  const swarmMode = request.config?.swarmMode ?? DEFAULT_CONFIG.swarmMode;
-  const executionModelId = economyMode ? getConfiguredExecutionModelId(request.config?.providers) : STRONGEST_MODEL_ID;
+  // Slice 2.0.1-bug1 round 3: project policy defaults. The slim 2.0.1 DEFAULT_CONFIG
+  // no longer carries economyMode / swarmMode (those moved to per-project preferences),
+  // so we cannot fall back to `DEFAULT_CONFIG.economyMode` / `swarmMode` here. Both
+  // flags are project-policy opt-outs: the absence of an explicit `false` means
+  // "enabled" (matches the pre-2.0.1 implicit default).
+  const economyMode = request.config?.economyMode ?? true;
+  const swarmMode = request.config?.swarmMode ?? true;
+  // Pre-2.0.1 DEFAULT_CONFIG carried an implicit `minimax-2.7` provider
+  // for test fixtures that did not pass `config.providers`. The slim
+  // DEFAULT_CONFIG removed that field, so we re-supply it here only when
+  // the caller did not pass any providers at all. An explicit empty
+  // object (`config: { providers: {} }`) still surfaces the "must be
+  // configured" error from `getConfiguredExecutionModelId`.
+  const effectiveProviders: ModelProviderConfig = request.config?.providers ?? { minimax: { model: 'minimax-2.7' } };
+  const executionModelId = economyMode !== false ? getConfiguredExecutionModelId(effectiveProviders) : STRONGEST_MODEL_ID;
   const modeStatus = createModeStatus(economyMode, swarmMode, executionModelId, economyMode ? 'config.providers' : 'planner-reviewer-strongest-model');
   const soloMode = getSoloMode(request.mode, request.soloMode);
   const decisionProfile = getDecisionProfileSummary(request.mode, soloMode);

@@ -100,7 +100,7 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
 
     // 3. Verify slim config.json
     const newCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-    expect(newCfg).toEqual({ version: '2.0.0' });
+    expect(newCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
 
     // 4. Verify .bak has 1.x fields
     const bak = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json.1.x.bak'), 'utf8'));
@@ -131,6 +131,6 @@ describe('Slice 0.5 End-to-End Dogfood', () => {
     const reMigrate = cli(`config migrate --project ${PROJECT_DIR} --apply --json`);
     expect(reMigrate.code).toBe(0);
     const reMigratedCfg = JSON.parse(readFileSync(join(HOME_DIR, '.peaks/config.json'), 'utf8'));
-    expect(reMigratedCfg).toEqual({ version: '2.0.0' });
+    expect(reMigratedCfg).toEqual({ version: '2.0.0', ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } } });
   });
 });

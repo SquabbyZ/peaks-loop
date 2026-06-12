@@ -110,8 +110,27 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
     }
     savePreferences(opts.currentProjectRoot, overrides);
   }
-  // 3. Slim config.json — only the schema version remains.
+  // 3. Slim config.json — schema version + discoverable ocr.llm placeholders.
+  //    Per the 2.0.1 slim spec, the on-disk `~/.peaks/config.json` is
+  //    `{ "version": "2.0.1", "ocr": { "llm": { ... } } }`. Legacy fields
+  //    (language, model, economyMode, swarmMode, tokens, providers,
+  //    proxy) live in <project>/.peaks/preferences.json. peaks-cli writes
+  //    the `ocr.llm.*` placeholders so the user has a discoverable spot
+  //    to paste their endpoint; the placeholders are empty strings, not
+  //    auto-configured values, so the post-migration file MUST contain
+  //    the `ocr.llm.*` block with empty defaults.
   mkdirSync(join(homedir(), '.peaks'), { recursive: true });
-  writeFileSync(configPath, JSON.stringify({ version: CONFIG_SCHEMA_VERSION_V2 }, null, 2) + '\n', 'utf8');
+  writeFileSync(configPath, JSON.stringify({
+    version: CONFIG_SCHEMA_VERSION_V2,
+    ocr: {
+      llm: {
+        url: '',
+        authToken: '',
+        model: '',
+        useAnthropic: false,
+        authHeader: 'authorization'
+      }
+    }
+  }, null, 2) + '\n', 'utf8');
   return { ...plan, applied: true, backupPath: bak, newConfigPath: configPath };
 }

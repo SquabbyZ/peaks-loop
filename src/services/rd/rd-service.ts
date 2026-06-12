@@ -6,6 +6,23 @@ import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-respons
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/model-routing.js';
+
+/**
+ * 2.0.1-bug1: the slim 2.0 `~/.peaks/config.json` no longer carries a
+ * `providers` block (legacy model config lives in
+ * `.peaks/preferences.json` per spec §10.4). `buildPlan` is a pure
+ * planner function and historically took its execution model from
+ * `DEFAULT_CONFIG.providers.minimax.model`; with the slim default
+ * that field is `undefined`, so `getConfiguredExecutionModelId`
+ * would throw. We retain the pre-2.0 default here as a literal so
+ * the planner remains usable when the caller has not passed an
+ * explicit `executionModelId` (unit tests, dry-run previews, the
+ * `peaks swarm plan` onboarding path). Production callers that
+ * have a real `ocr.llm.model` configured pass it via
+ * `request.executionModelId` (or via the legacy preferences.json
+ * bridge) and bypass this fallback.
+ */
+const DEFAULT_EXECUTION_MODEL_ID = 'minimax-2.7';
 import { getTechStatus, TECH_REQUIRED_ARTIFACTS } from '../tech/tech-service.js';
 
 export type RdSkill = 'rd';
@@ -258,6 +275,18 @@ function readArtifactFile(rootPath: string, artifactWorkspacePath: string, artif
   }
 }
 
+function resolveExecutionModelId(): string {
+  try {
+    return getConfiguredExecutionModelId(undefined);
+  } catch {
+    // 2.0.1-bug1: with the slim `~/.peaks/config.json` the legacy
+    // `providers` block is gone, so the configured-model lookup is
+    // expected to throw. Fall back to the pre-2.0 default so the
+    // planner remains usable in unit tests and the dry-run path.
+    return DEFAULT_EXECUTION_MODEL_ID;
+  }
+}
+
 function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePath: string | undefined, hasApprovedTechArtifacts: boolean): string[] {
   if (!artifactWorkspacePath || !hasApprovedTechArtifacts || !hasPlannerArtifactWorkspace(request, artifactWorkspacePath)) {
     return [];
@@ -280,7 +309,7 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
   validateChangeIdOrThrow(request.changeId);
   const goal = normalizeGoal(request.goal);
   const swarmMode = request.swarmMode ?? true;
-  const executionModelId = request.executionModelId?.trim() || getConfiguredExecutionModelId(undefined);
+  const executionModelId = request.executionModelId?.trim() || resolveExecutionModelId();
   const { workerTarget, blockedReasons } = resolveWorkerTarget(request.maxWorkers);
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
   const artifactRoot = buildArtifactRelativePath(request.changeId, 'rd', 'swarm');

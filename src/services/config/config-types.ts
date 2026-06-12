@@ -153,24 +153,33 @@ export type ConfigSetOptions = {
   layer?: ConfigLayer;
 };
 
-export const DEFAULT_CONFIG: PeaksConfig = {
+/**
+ * 2.0.1 slim runtime default. The on-disk `~/.peaks/config.json`
+ * only carries `version` + `ocr.llm.*` placeholders. Legacy fields
+ * (language / model / economyMode / swarmMode / tokens / providers /
+ * proxy) live in `<project>/.peaks/preferences.json` (per spec
+ * §10.4) and are NOT synthesised here — `readConfig()` merges the
+ * user file over this default, and any legacy field that the user
+ * file still carries (1.x file) is exposed via `getConfig` for
+ * backward compatibility.
+ *
+ * Cast to `PeaksConfig` because the type still declares the legacy
+ * fields as required (they are part of the `readConfig()` contract
+ * for tolerant loading of pre-2.0.1 files); the runtime default
+ * itself does not supply them.
+ */
+export const DEFAULT_CONFIG = {
   version: CLI_VERSION,
-  language: 'en',
-  model: 'sonnet',
-  economyMode: true,
-  swarmMode: true,
-  tokens: {},
-  providers: {
-    minimax: {
-      model: 'minimax-2.7'
+  ocr: {
+    llm: {
+      url: '',
+      authToken: '',
+      model: '',
+      useAnthropic: false,
+      authHeader: 'authorization'
     }
-  },
-  proxy: {},
-  progress: {
-    enabled: true,
-    heartbeatIntervalMs: 60000
   }
-};
+} as PeaksConfig;
 
 /**
  * Slim 2.0 schema for `~/.peaks/config.json`. After migration,

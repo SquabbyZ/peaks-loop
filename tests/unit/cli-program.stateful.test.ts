@@ -18,13 +18,20 @@ describe('createProgram', () => {
   });
 
   test('prints config set value', async () => {
-    const result = await runCommand(['config', 'set', '--key', 'language', '--value', '"zh"', '--json']);
+    // 2.0.1-bug1: 'language' is a legacy config key (per the slim
+    // 2.0 schema) and is no longer accepted by `peaks config set`.
+    // Legacy keys (language, model, economyMode, swarmMode, tokens,
+    // providers, proxy) live in <project>/.peaks/preferences.json.
+    // We exercise a non-legacy key (ocr.llm.url) here so the JSON
+    // envelope contract is asserted against a key that the slim
+    // 2.0 form still accepts.
+    const result = await runCommand(['config', 'set', '--key', 'ocr.llm.url', '--value', '"https://api.example.com/v1"', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(true);
     expect(output.command).toBe('config.set');
 
-    const layeredResult = await runCommand(['config', 'set', '--key', 'language', '--value', '"en"', '--layer', 'user', '--json']);
+    const layeredResult = await runCommand(['config', 'set', '--key', 'ocr.llm.url', '--value', '"https://api.example.com/v1"', '--layer', 'user', '--json']);
     const layeredOutput = parseJsonOutput(layeredResult.stdout);
     expect(layeredOutput.ok).toBe(true);
   });
