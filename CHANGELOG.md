@@ -272,8 +272,40 @@ is skipped (`PEAKS_SKIP_AUTO_UPGRADE=1` or `npm i --ignore-scripts`).
 
 ---
 
+## [2.0.2] — 2026-06-13
+
+### Changed — README redesign (docs only)
+
+The top of both `README.md` and `README-en.md` is rebuilt in the
+RAG-Anything style requested from the published repo: card-grid
+metadata (PROJECT / BASED ON / SKILLS.SH / STARS / VERSION / LICENSE
+/ TESTS / LANG / DOWNLOADS / 中文 / QUICK START / VISITORS), a
+multiline `readme-typing-svg` tagline animation, a
+`github-readme-streak-stats` streak band, and a `komarev` visitor
+counter. Both languages are structurally identical (same card grid,
+same animations, same anchor links); only the tagline and
+call-to-action text differ.
+
+- `README.md` updated to the new layout (typing animation uses the
+  Chinese tagline: `peaks-cli: 跨 AI IDE 的工程门禁与编排`).
+- `README-en.md` synced to mirror the new layout (typing animation
+  uses the English tagline: `peaks-cli: cross-AI-IDE engineering
+  gates & orchestration`).
+- Card anchors renamed to ASCII-friendly slugs on the English file
+  (`30-seconds-to-running`, `5-minute-onboarding`, `11-skills-in-the-family`,
+  `killer-feature-un-bypassable-gates`) so the README renders
+  consistently on GitHub's auto-generated anchor list.
+
+No code, CLI, or schema changes. The CLI still reports
+`Peaks CLI 2.0.2` after `prepublish` regenerates
+`src/shared/version.ts`.
+
+---
+
 ## [1.4.2] — 2026-06-08
 
 Last 1.x release. See git history pre-2.0.0 for details.
 
+[2.0.2]: https://github.com/SquabbyZ/peaks-cli/releases/tag/v2.0.2
+[2.0.1]: https://github.com/SquabbyZ/peaks-cli/releases/tag/v2.0.1
 [2.0.0]: https://github.com/SquabbyZ/peaks-cli/releases/tag/v2.0.0

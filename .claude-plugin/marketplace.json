@@ -1,13 +1,13 @@
 {
   "metadata": {
     "pluginRoot": ".",
-    "version": "2.0.1"
+    "version": "2.0.2"
   },
   "plugins": [
     {
       "name": "peaks-cli",
       "description": "Cross-AI-IDE workflow-gating CLI + 11-skill family. Turns LLM improvisation into auditable engineering process. Skills cover PRD / R&D / UI / QA / change-control / context / SOP definition / orchestration. Soft-fail gates block irreversible actions mid-conversation (even under --dangerously-skip-permissions).",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "author": {
         "name": "SquabbyZ"
       },
