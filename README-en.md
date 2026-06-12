@@ -2,7 +2,7 @@
 
 # ⛰️ Peaks
 
-**One CLI + 11 workflow skills. Turn LLM improvisation into auditable engineering process.**
+**peaks-cli: cross-AI-IDE engineering gates and orchestration. 11 workflow skills. Gates + audit + cross-IDE adaptation.**
 
 **English** | [简体中文](./README.md)
 
