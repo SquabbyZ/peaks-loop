@@ -56,7 +56,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
   const codeReview = program
     .command('code-review')
     .description(
-      'Code-review primitives for peaks-rd Gate B3. Wraps the soft-optional `@alibaba-group/open-code-review` (ocr) tool when it is installed + configured; peaks-rd uses the structured JSON output as a second-opinion review alongside its own LLM review. ocr ships as a peaks-cli dependency (not optional). LLM endpoint config lives under `peaksConfig.ocr.llm` in the user config — run `peaks code-review config-template` to see the JSON snippet to paste.'
+      'Code-review primitives for peaks-rd Gate B3. Wraps the soft-optional `@alibaba-group/open-code-review` (ocr) tool when it is installed + configured; peaks-rd uses the structured JSON output as a second-opinion review alongside its own LLM review. ocr is an optional dependency of peaks-cli 2.0.3+ (was briefly promoted to a hard dependency in 2.0.1/2.0.2 — reverted because its postinstall downloads a Go binary via HTTPS and would otherwise abort `npm i -g peaks-cli` in restricted environments). LLM endpoint config lives under `peaksConfig.ocr.llm` in the user config — run `peaks code-review config-template` to see the JSON snippet to paste.'
     );
 
   addJsonOption(
