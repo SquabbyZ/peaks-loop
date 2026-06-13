@@ -479,11 +479,24 @@ describe('secret config handling', () => {
     if (existsSync(configPath)) unlinkSync(configPath);
     symlinkSync(outsideConfigPath, configPath);
 
-    expect(() => setConfig({ key: 'language', value: 'zh-CN' })).toThrow('User config path must stay inside the user root');
-    expect(() => getConfig({ layer: 'user' })).toThrow('User config path must stay inside the user root');
-    expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
-    unlinkSync(configPath);
-    writeFileSync(configPath, '{}', 'utf8');
+    // Slice 2026-06-13-repair-pre-existing-test-failures: use
+    // `writeConfig` (which does not apply the 2.0.1 legacy-key guard)
+    // instead of `setConfig({ key: 'language', ... })`, so the symlink
+    // path guard fires BEFORE the legacy-key rejection. The legacy
+    // guard intentionally short-circuits on `language`, masking the
+    // symlink guard on the older API surface.
+    try {
+      expect(() => writeConfig({ language: 'zh-CN' }, 'user')).toThrow('User config path must stay inside the user root');
+      expect(() => getConfig({ layer: 'user' })).toThrow('User config path must stay inside the user root');
+      expect(readFileSync(outsideConfigPath, 'utf8')).toBe('{}');
+    } finally {
+      // try/finally so a mid-test failure does not leak the symlink
+      // into later tests in this file (cascade caused 5 other
+      // config-service tests to fail with `validateUserConfigPathForWrite`
+      // throwing on a stale symlink at configPath).
+      if (existsSync(configPath)) unlinkSync(configPath);
+      writeFileSync(configPath, '{}', 'utf8');
+    }
   });
 
   test('rejects artifact marker creation when artifact .peaks is a symlink', () => {
@@ -514,6 +527,10 @@ describe('secret config handling', () => {
   });
 
   test('rejects MiniMax provider updates when an existing stored URL is invalid', () => {
+    // Slice 2026-06-13-repair-pre-existing-test-failures: ensure the
+    // `.peaks` directory exists before writeFileSync (otherwise the
+    // write throws ENOENT before the MiniMax URL validator fires).
+    mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
     writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ providers: { minimax: { baseUrl: 'https://example.com/anthropic' } } }), 'utf8');
     expect(() => setMiniMaxProviderConfig({ apiKey: 'secret' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
   });
