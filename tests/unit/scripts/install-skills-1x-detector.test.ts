@@ -279,9 +279,16 @@ describe('autoUpgrade1xProjectIfPresent — gate behavior', () => {
     );
     const result = await autoUpgrade1xProjectIfPresent({ cwd: tmpProject });
     expect(result.ran).toBe(false);
-    expect(['no 1.x project state detected', 'cwd is not a peaks project']).toContain(
-      result.reason
-    );
+    // Slice 2026-06-13-repair-pre-existing-test-failures: the
+    // production reason text is
+    //   'cwd is not a peaks project (no .peaks/_runtime/)'
+    // (see scripts/install-skills.mjs line 884). Match the exact
+    // production strings so the test asserts what the function
+    // actually emits.
+    expect([
+      'no 1.x project state detected',
+      'cwd is not a peaks project (no .peaks/_runtime/)'
+    ]).toContain(result.reason);
   });
 
   test('returns ran=true with exitCode=0 when spawnSync succeeds on a 1.x project', async () => {
