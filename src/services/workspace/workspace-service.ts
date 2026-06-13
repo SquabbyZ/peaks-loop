@@ -6,7 +6,8 @@ import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../sessi
 import { setCurrentChangeId } from '../../shared/change-id.js';
 import {
   buildClaudeSettingsLocalJson,
-  CLAUDE_SETTINGS_LOCAL_FILENAME
+  CLAUDE_SETTINGS_LOCAL_FILENAME,
+  templateContentMatches
 } from './claude-settings-template.js';
 
 export type WorkspaceInitOptions = {
@@ -58,10 +59,26 @@ export type WorkspaceInitReport = {
    *   - skipped:        the caller passed noClaudeHooks=true
    * The LLM and the user both see this in the JSON envelope so they
    * can decide whether the bypass is in effect.
+   *
+   * Slice 2026-06-13-selfheal-claude-settings-template: adds the
+   * `offlineTemplate` sub-field, which describes the self-heal action
+   * taken on the offline `.peaks/.claude-settings-template.json` copy.
+   * The offline copy is ALWAYS written/checked (regardless of
+   * noClaudeHooks) because it is the manual-recovery anchor — see
+   * `skills/peaks-solo/references/anchoring-and-session-info.md`.
+   *   - written:        the file did not exist; it was created
+   *   - refreshed:      the file existed but its parsed hooks tree
+   *                     diverged from the current `buildClaudeSettingsLocalJson()`;
+   *                     it was rewritten
+   *   - already-current: the file already matched; no rewrite needed
    */
   claudeSettings: {
     action: 'written' | 'refreshed' | 'already-current' | 'skipped';
     path: string;
+    offlineTemplate: {
+      action: 'written' | 'refreshed' | 'already-current';
+      path: string;
+    };
   };
 };
 
@@ -266,6 +283,13 @@ const PEAKS_GITIGNORE_SNIPPET = [
   '# Consumer-project .claude/settings.local.json: written by `peaks workspace init`',
   '# to bypass Claude Code [Fact-Forcing Gate] for .peaks/** writes. Local-only.',
   '.claude/settings.local.json',
+  '# Offline template copy (.peaks/.claude-settings-template.json): written by',
+  '# `peaks workspace init` as a manual-recovery anchor. The source-of-truth is',
+  '# peaks-cli\'s own `buildClaudeSettingsLocalJson()` — NOT this committed copy.',
+  '# Gitignored so the init flow\'s drift-driven refresh does not show up as',
+  '# "modified" in `git status` on every release bump. Recovery path: re-run',
+  '# `peaks workspace init` to regenerate; or copy from peaks-cli source.',
+  '.peaks/.claude-settings-template.json',
   PEAKS_GITIGNORE_FOOTER,
   ''
 ].join('\n');
@@ -288,23 +312,38 @@ const PEAKS_GITIGNORE_SNIPPET = [
  * `.claude/settings.local.json` manually. The recovery path is
  * documented in
  * `skills/peaks-solo/references/anchoring-and-session-info.md`.
+ *
+ * Slice 2026-06-13-selfheal-claude-settings-template: the offline copy
+ * is now ALSO drift-checked (via `templateContentMatches`) so stale
+ * on-disk copies from earlier peaks-cli releases (which lacked the
+ * `node -e "..."` wrapper) get refreshed automatically on the next
+ * init. The action taken on the offline copy is surfaced in
+ * `claudeSettings.offlineTemplate.action`.
  */
 async function materializeClaudeSettingsLocal(
   projectRoot: string,
   noClaudeHooks: boolean
-): Promise<{ action: 'written' | 'refreshed' | 'already-current' | 'skipped'; path: string }> {
+): Promise<{
+  action: 'written' | 'refreshed' | 'already-current' | 'skipped';
+  path: string;
+  offlineTemplate: { action: 'written' | 'refreshed' | 'already-current'; path: string };
+}> {
   const settingsRel = CLAUDE_SETTINGS_LOCAL_FILENAME;
   const settingsPath = join(projectRoot, settingsRel);
   const template = buildClaudeSettingsLocalJson();
   const serialized = JSON.stringify(template, null, 2) + '\n';
 
-  // Always drop a copy of the template under .peaks/ so the
-  // --no-claude-hooks recovery flow has a known source-of-truth on
-  // disk. The file is gitignored by the snippet below.
-  await writeOfflineTemplateCopy(projectRoot, serialized);
+  // Always drop (or self-heal) a copy of the template under .peaks/
+  // so the --no-claude-hooks recovery flow has a known source-of-truth
+  // on disk. The file is gitignored by the snippet below.
+  const offlineAction = await writeOfflineTemplateCopy(projectRoot, serialized);
+  const offlineTemplate = {
+    action: offlineAction,
+    path: '.peaks/.claude-settings-template.json'
+  };
 
   if (noClaudeHooks) {
-    return { action: 'skipped', path: settingsRel };
+    return { action: 'skipped', path: settingsRel, offlineTemplate };
   }
 
   // Best-effort: ensure .claude/ exists, then write the file. We do
@@ -339,21 +378,65 @@ async function materializeClaudeSettingsLocal(
   // missing, so subsequent inits do not double-append.
   await upsertPeaksGitignoreSnippet(projectRoot);
 
-  return { action, path: settingsRel };
+  return { action, path: settingsRel, offlineTemplate };
 }
 
 /**
  * Always write (or refresh) a copy of the template at
  * `.peaks/.claude-settings-template.json` so the user has a known
- * source-of-truth on disk for the manual recovery flow. This file is
- * tracked in git (not gitignored) because it is the recovery anchor
- * — if the consumer needs to re-create their .claude/settings.local.json
- * they can copy this file verbatim.
+ * source-of-truth on disk for the manual recovery flow. The file is
+ * GITIGNORED (added to `.peaks/.gitignore` by
+ * `upsertPeaksGitignoreSnippet`) — the source-of-truth lives in
+ * peaks-cli's own `buildClaudeSettingsLocalJson()`, NOT in any
+ * committed copy. Gitignoring it ensures the init flow's drift-driven
+ * refresh does not show up as "modified" in `git status` on every
+ * peaks-cli release bump.
+ *
+ * Recovery path for users who need to re-create their
+ * `.claude/settings.local.json`: re-run `peaks workspace init`
+ * (the file is regenerated); or copy the template straight from
+ * peaks-cli source (`src/services/workspace/claude-settings-template.ts`).
+ *
+ * Slice 2026-06-13-selfheal-claude-settings-template: drift-check via
+ * `templateContentMatches` BEFORE writing. If the on-disk copy's
+ * parsed hooks tree matches the current `buildClaudeSettingsLocalJson()`
+ * output, the write is skipped (`already-current`). If the file is
+ * missing, it is written (`written`). If it exists but has drifted
+ * (e.g. an earlier release's template without the `node -e "..."`
+ * wrapper, or a user-customised copy), it is rewritten (`refreshed`).
+ * The CLI caller surfaces a warning when `refreshed` because manual
+ * edits the user may have made would be overwritten.
+ *
+ * Returns the action taken so the caller can surface it in the
+ * envelope. Read failures are treated as drift so a malformed
+ * on-disk file always self-heals on the next init.
  */
-async function writeOfflineTemplateCopy(projectRoot: string, serialized: string): Promise<void> {
+async function writeOfflineTemplateCopy(
+  projectRoot: string,
+  serialized: string
+): Promise<'written' | 'refreshed' | 'already-current'> {
   const copyPath = join(projectRoot, '.peaks', '.claude-settings-template.json');
   await mkdir(join(projectRoot, '.peaks'), { recursive: true });
-  await writeFile(copyPath, serialized, 'utf8');
+
+  let action: 'written' | 'refreshed' | 'already-current' = 'written';
+  if (existsSync(copyPath)) {
+    try {
+      const { readFile } = await import('node:fs/promises');
+      const existing = await readFile(copyPath, 'utf8');
+      if (templateContentMatches(serialized, existing)) {
+        action = 'already-current';
+      } else {
+        action = 'refreshed';
+      }
+    } catch {
+      // Treat any read failure as drift so the file self-heals.
+      action = 'refreshed';
+    }
+  }
+  if (action !== 'already-current') {
+    await writeFile(copyPath, serialized, 'utf8');
+  }
+  return action;
 }
 
 /**

@@ -35,7 +35,9 @@ import { execFileSync } from 'node:child_process';
 import { describe, expect, test } from 'vitest';
 import {
   buildClaudeSettingsLocalJson,
-  CLAUDE_SETTINGS_LOCAL_FILENAME
+  CLAUDE_SETTINGS_LOCAL_FILENAME,
+  TEMPLATE_VERSION,
+  templateContentMatches
 } from '../../../src/services/workspace/claude-settings-template.js';
 
 describe('claude-settings-template — pure-data structure', () => {
@@ -202,5 +204,103 @@ describe('claude-settings-template — node -e wrapper contract (slice fix-claud
       const r = runHook(writeCommand, p);
       expect(r.exitCode, `expected deny for ${p}`).not.toBe(0);
     }
+  });
+});
+
+describe('claude-settings-template — TEMPLATE_VERSION + templateContentMatches (slice 2026-06-13-selfheal-claude-settings-template)', () => {
+  test('TEMPLATE_VERSION is a non-empty semver-ish string', () => {
+    expect(typeof TEMPLATE_VERSION).toBe('string');
+    expect(TEMPLATE_VERSION.length).toBeGreaterThan(0);
+    expect(TEMPLATE_VERSION).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test('templateContentMatches returns true for identical strings', () => {
+    const serialized = JSON.stringify(buildClaudeSettingsLocalJson(), null, 2) + '\n';
+    expect(templateContentMatches(serialized, serialized)).toBe(true);
+  });
+
+  test('templateContentMatches returns true regardless of whitespace or key order', () => {
+    const serialized = JSON.stringify(buildClaudeSettingsLocalJson(), null, 2) + '\n';
+    // Re-serialize with different indentation.
+    const reformatted = JSON.stringify(buildClaudeSettingsLocalJson(), null, 4) + '\n';
+    // The comparator parses both and compares ASTs — whitespace must not affect the verdict.
+    expect(templateContentMatches(serialized, reformatted)).toBe(true);
+  });
+
+  test('templateContentMatches returns true when on-disk content matches generated content', () => {
+    const generated = JSON.stringify(buildClaudeSettingsLocalJson());
+    const onDisk = JSON.stringify(buildClaudeSettingsLocalJson());
+    expect(templateContentMatches(generated, onDisk)).toBe(true);
+  });
+
+  test('templateContentMatches returns false when on-disk content has drifted (synthesized OLD unwrapped version)', () => {
+    // Build an OLD-style template that lacks the `node -e "..."` wrapper
+    // (pre-9551c52 shape). This is the exact stale-template scenario the
+    // self-heal fixes.
+    const stale = {
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Write|Edit|MultiEdit',
+            hooks: [
+              {
+                type: 'command',
+                command: 'const p=process.argv[1]||"";if(p.includes(".peaks/_runtime/"))process.exit(0);process.exit(1)'
+              }
+            ]
+          },
+          {
+            matcher: 'Bash',
+            hooks: [
+              {
+                type: 'command',
+                command: 'const c=process.argv[1]||"";if(!c.startsWith("peaks "))process.exit(1);process.exit(0)'
+              }
+            ]
+          }
+        ]
+      }
+    };
+    const staleSerialized = JSON.stringify(stale);
+    const generated = JSON.stringify(buildClaudeSettingsLocalJson());
+    expect(templateContentMatches(generated, staleSerialized)).toBe(false);
+  });
+
+  test('templateContentMatches returns false on JSON.parse errors', () => {
+    const valid = JSON.stringify(buildClaudeSettingsLocalJson());
+    expect(templateContentMatches('not json {{{', valid)).toBe(false);
+    expect(templateContentMatches(valid, 'also not json')).toBe(false);
+  });
+
+  test('templateContentMatches returns false when shape is missing hooks.PreToolUse', () => {
+    const missing = JSON.stringify({ hooks: {} });
+    const generated = JSON.stringify(buildClaudeSettingsLocalJson());
+    expect(templateContentMatches(generated, missing)).toBe(false);
+  });
+
+  test('templateContentMatches returns false when entry length differs', () => {
+    const generated = JSON.stringify(buildClaudeSettingsLocalJson());
+    const shorter = JSON.stringify({
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Bash',
+            hooks: [{ type: 'command', command: 'noop' }]
+          }
+        ]
+      }
+    });
+    expect(templateContentMatches(generated, shorter)).toBe(false);
+  });
+
+  test('templateContentMatches returns false when command string differs', () => {
+    const generated = JSON.stringify(buildClaudeSettingsLocalJson());
+    const parsed = JSON.parse(generated) as {
+      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> };
+    };
+    // Mutate the first hook's command to simulate a one-char drift.
+    parsed.hooks.PreToolUse[0]!.hooks[0]!.command = parsed.hooks.PreToolUse[0]!.hooks[0]!.command + 'X';
+    const drifted = JSON.stringify(parsed);
+    expect(templateContentMatches(generated, drifted)).toBe(false);
   });
 });

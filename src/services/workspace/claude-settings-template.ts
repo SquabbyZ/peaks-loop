@@ -55,6 +55,104 @@ const PEAKS_SUBCOMMAND_ALLOWLIST: ReadonlyArray<string> = [
 ];
 
 /**
+ * Informational version of the offline template shape. Bumped when the
+ * template's hooks tree (matchers, allow-list content, wrapper format)
+ * changes in a way that should trigger a refresh of stale on-disk
+ * copies. The comparator (`templateContentMatches`) is the source of
+ * truth for refresh decisions — this constant exists so a developer
+ * reading the diff can correlate a template change with a deliberate
+ * bump. Future work may write a version-marker file to short-circuit
+ * the comparator; for now the constant is informational only.
+ */
+export const TEMPLATE_VERSION = '1.1.0';
+
+/**
+ * Compare two serialized template strings for semantic equivalence.
+ *
+ * Returns `true` iff both strings parse to objects whose
+ * `hooks.PreToolUse` arrays are structurally identical (same length;
+ * each entry's `matcher`, `hooks[].type`, `hooks[].command` match).
+ *
+ * Returns `false` on any `JSON.parse` error, shape mismatch, or
+ * missing `hooks.PreToolUse`. Whitespace and key order do NOT affect
+ * the result — the comparison is on the parsed AST, not on bytes.
+ *
+ * This is the comparator `initWorkspace` uses to decide whether to
+ * refresh a stale `.peaks/.claude-settings-template.json` on disk.
+ */
+export function templateContentMatches(generated: string, onDisk: string): boolean {
+  let parsedGenerated: unknown;
+  let parsedOnDisk: unknown;
+  try {
+    parsedGenerated = JSON.parse(generated);
+  } catch {
+    return false;
+  }
+  try {
+    parsedOnDisk = JSON.parse(onDisk);
+  } catch {
+    return false;
+  }
+
+  if (!isTemplateShape(parsedGenerated) || !isTemplateShape(parsedOnDisk)) {
+    return false;
+  }
+
+  const generatedEntries = parsedGenerated.hooks.PreToolUse;
+  const onDiskEntries = parsedOnDisk.hooks.PreToolUse;
+
+  if (generatedEntries.length !== onDiskEntries.length) {
+    return false;
+  }
+
+  for (let i = 0; i < generatedEntries.length; i += 1) {
+    const a = generatedEntries[i]!;
+    const b = onDiskEntries[i]!;
+    if (a.matcher !== b.matcher) {
+      return false;
+    }
+    if (!sameHooksArray(a.hooks, b.hooks)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+type TemplateShape = {
+  hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> };
+};
+
+function isTemplateShape(value: unknown): value is TemplateShape {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as { hooks?: unknown };
+  if (typeof candidate.hooks !== 'object' || candidate.hooks === null) {
+    return false;
+  }
+  const hooksObj = candidate.hooks as { PreToolUse?: unknown };
+  return Array.isArray(hooksObj.PreToolUse);
+}
+
+function sameHooksArray(
+  a: ReadonlyArray<{ type: string; command: string }>,
+  b: ReadonlyArray<{ type: string; command: string }>
+): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i += 1) {
+    const ha = a[i]!;
+    const hb = b[i]!;
+    if (ha.type !== hb.type || ha.command !== hb.command) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Wrap an inner JavaScript payload as a shell-evaluable `node -e "..."`
  * one-liner. The returned string is what Claude Code writes verbatim
  * into `.claude/settings.local.json` under the `command` field. Per

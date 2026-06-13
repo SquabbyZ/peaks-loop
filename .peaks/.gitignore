@@ -2,4 +2,11 @@
 # Consumer-project .claude/settings.local.json: written by `peaks workspace init`
 # to bypass Claude Code [Fact-Forcing Gate] for .peaks/** writes. Local-only.
 .claude/settings.local.json
+# Offline template copy (.peaks/.claude-settings-template.json): written by
+# `peaks workspace init` as a manual-recovery anchor. The source-of-truth is
+# peaks-cli's own `buildClaudeSettingsLocalJson()` — NOT this committed copy.
+# Gitignored so the init flow's drift-driven refresh does not show up as
+# "modified" in `git status` on every release bump. Recovery path: re-run
+# `peaks workspace init` to regenerate; or copy from peaks-cli source.
+.peaks/.claude-settings-template.json
 # <<< peaks-cli managed snippet
