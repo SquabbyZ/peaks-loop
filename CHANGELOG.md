@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.6] — 2026-06-13
+
+### Fixed
+
+- **23 pre-existing test failures → 0 across 9 test files.** Repair slice
+  `2026-06-13-repair-pre-existing-test-failures` (6 atomic commits, all
+  green, all red-line compliant) eliminated the long-standing flake
+  surface so the test suite is a trustworthy gate again.
+- **`peaks doctor` L3:l3-memory-health now reads the actual on-disk
+  schema.** The detector used to probe for a `schema_version` field
+  that the durable memory store never writes; it now reads the real
+  `version: 1` + hot/warm structure. The user-visible message text
+  changed from `schema_version=N; K memory entries` to the more
+  accurate `version=N; K hot + K warm memory entries` (cosmetic only;
+  the JSON envelope `id` / `ok` / `message` shape is unchanged). The
+  underlying `readMemoryFile` and the 3-state detector logic are
+  unchanged — only the schema probe and the message formatter moved.
+- **`plan-reader assertContained` realpath-resolves both sides
+  symmetrically on macOS.** On macOS, `os.tmpdir()` is a symlink
+  (`/var/folders/...` → `/private/var/folders/...`). The previous
+  implementation realpath-resolved the actual on-disk path but compared
+  it against the unresolved `expectedBase`, producing a spurious
+  "outside project root" failure for any `peaks` CLI invocation that
+  passed through a symlinked temp dir (notably `peaks doctor` and
+  `peaks workflow verify-pipeline` from `/tmp`-style paths). Both
+  sides are now resolved before comparison.
+
+### Changed
+
+- **No public API, command, flag, or dependency change.** Two source
+  files were touched (`src/services/doctor/doctor-service.ts` and
+  `src/services/workflow/plan-reader.ts`); both changes STRENGTHEN
+  existing guards, neither widens the surface. Patch bump, not minor.
+
+### Verified
+
+- 23 → 0 test failures across 9 test files (full suite green).
+- `peaks request transition --state implemented` accepted for
+  `2026-06-13-repair-pre-existing-test-failures` prior to this release.
+- `package.json.version` and `src/shared/version.ts` are in sync at
+  `2.0.6` (regenerated via `node scripts/sync-version.mjs`).
+
+---
+
+## [2.0.5] — 2026-06-13
+
+> **Retroactive entry.** Commit `9ab4154 feat: 2.0.5` only bumped
+> `package.json` and `src/shared/version.ts`; this entry closes the
+> documentation gap.
+
+### Added
+
+- **`peaks workflow skip <rid>`** — explicit gate-bypass primitive
+  for the workflow pipeline. Backed by a three-rule classifier that
+  must all pass before the bypass is allowed:
+  1. **Slice-type allowlist** — only `chore` / `docs` / `refactor` are
+     eligible; `feat` / `fix` / `perf` are not.
+  2. **Env-var caller-id** — `PEAKS_SKIP_CALLER` (or
+     `PEAKS_CALLER_ID`) must identify the human/skill driving the
+     call; a missing or anonymous caller-id is rejected.
+  3. **Mandatory `--reason`** — the CLI rejects `--reason ""`; the
+     reason is persisted into the slice record for the retrospective.
+  Three rules, not one: each rule is independently fail-closed, so a
+  misuse in any one of them blocks the bypass. The classifier is the
+  pure function `canSkipSlice(slice, callerId, reason)` so the rule
+  set is testable in isolation.
+- **`peaks workflow verify-pipeline --gate-skipped`** — reporting
+  flag that surfaces slices that completed via the skip classifier
+  during a pipeline run. The default `verify-pipeline` output hides
+  skipped slices; `--gate-skipped` includes them in the per-slice
+  breakdown with a distinct status and the recorded `--reason` so the
+  retrospective can audit the bypass rate.
+
+### Changed
+
+- **No dependency / config / public-API change.** The 2.0.5 release
+  is a feature-only patch.
+
+### Verified
+
+- 3-rule classifier test suite green (`tests/unit/workflow-skip-*`).
+- `peaks workflow verify-pipeline --gate-skipped` returns the
+  expected envelope shape on synthetic skip and non-skip fixtures.
+- Slice `2026-06-13-peaks-workflow-skip` (the slice that introduced
+  the feature) closed green and transitioned to `implemented` before
+  the version bump.
+
+---
+
 ## [2.0.4] — 2026-06-13 (hotfix)
 
 ### Fixed
