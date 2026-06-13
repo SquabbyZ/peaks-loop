@@ -216,7 +216,7 @@ describe('secret config handling', () => {
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      expect(readConfig().proxy.httpProxy).toBe('https://user-proxy.example:8443');
+      expect(readConfig().proxy?.httpProxy).toBe('https://user-proxy.example:8443');
       expect(getConfig()).toMatchObject({ proxy: { httpProxy: 'https://user-proxy.example:8443' } });
     } finally {
       cwdSpy.mockRestore();
@@ -231,7 +231,7 @@ describe('secret config handling', () => {
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      expect(readConfig().tokens.GitHubToken).toEqual({ env: 'USER_GITHUB_TOKEN' });
+      expect(readConfig().tokens?.GitHubToken).toEqual({ env: 'USER_GITHUB_TOKEN' });
       expect(getConfig({ key: 'tokens.GitHubToken.env' })).toBe('USER_GITHUB_TOKEN');
       expect(getConfig({ layer: 'project', key: 'tokens.GitHubToken.env' })).toBeUndefined();
     } finally {

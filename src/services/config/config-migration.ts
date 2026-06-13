@@ -2,9 +2,31 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { savePreferences } from '../preferences/preferences-service.js';
+import { providersConfigPath, proxyConfigPath, SIDECAR_SCHEMA_VERSION, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
 
 export const CONFIG_SCHEMA_VERSION_V2 = '2.0.0';
 const BACKUP_NAME = 'config.json.1.x.bak';
+
+/**
+ * Slim 2.0 schema for `~/.peaks/config.json`. After migration,
+ * the only meaningful fields are `version` + `ocr.llm.*`; everything
+ * else lives in sidecar files (`providers.json`, `proxy.json`,
+ * `workspaces.json`) or per-project `preferences.json`. The type is
+ * intentionally permissive: extra keys are ignored at runtime, not
+ * rejected, so a hand-written or partially-migrated file does not
+ * fail the loader.
+ */
+export interface ConfigV2 {
+  readonly version: typeof CONFIG_SCHEMA_VERSION_V2;
+}
+
+export function isConfigV2(raw: unknown): raw is ConfigV2 {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    (raw as Record<string, unknown>).version === CONFIG_SCHEMA_VERSION_V2
+  );
+}
 
 /**
  * Per-project fields that the 1.x → 2.0 migration moves
@@ -55,6 +77,10 @@ function discoverMigratableFields(raw: Record<string, unknown>): readonly PerPro
     if (typeof raw[f] === 'boolean') out.push(f);
   }
   return out;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function planMigration(opts: MigrationOptions): MigrationPlan {
@@ -109,6 +135,40 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
       if (typeof v === 'boolean') overrides[f] = v;
     }
     savePreferences(opts.currentProjectRoot, overrides);
+  }
+  // 2.5. Forward LIVE runtime fields to dedicated sidecar files
+  //      under ~/.peaks/. These fields are global/cross-project and
+  //      do NOT belong in per-project preferences.json. Sidecar files
+  //      are owned by their respective services (provider-service.ts,
+  //      proxy-service.ts, workspace-state-service.ts). Only write
+  //      if the legacy field is present in the on-disk file.
+  if (isPlainObject(original.providers)) {
+    const providersPath = providersConfigPath();
+    if (!existsSync(providersPath)) {
+      writeSidecarJson(providersPath, {
+        version: SIDECAR_SCHEMA_VERSION,
+        providers: original.providers as Record<string, unknown>
+      });
+    }
+  }
+  if (isPlainObject(original.proxy) && typeof (original.proxy as Record<string, unknown>).httpProxy === 'string') {
+    const proxyPath = proxyConfigPath();
+    if (!existsSync(proxyPath)) {
+      writeSidecarJson(proxyPath, {
+        version: SIDECAR_SCHEMA_VERSION,
+        httpProxy: (original.proxy as Record<string, unknown>).httpProxy as string
+      });
+    }
+  }
+  if (Array.isArray(original.workspaces) || typeof original.currentWorkspace === 'string') {
+    const workspacesPath = workspacesConfigPath();
+    if (!existsSync(workspacesPath)) {
+      writeSidecarJson(workspacesPath, {
+        version: SIDECAR_SCHEMA_VERSION,
+        workspaces: Array.isArray(original.workspaces) ? original.workspaces : [],
+        currentWorkspace: typeof original.currentWorkspace === 'string' ? original.currentWorkspace : null
+      });
+    }
   }
   // 3. Slim config.json — schema version + discoverable ocr.llm placeholders.
   //    Per the 2.0.1 slim spec, the on-disk `~/.peaks/config.json` is

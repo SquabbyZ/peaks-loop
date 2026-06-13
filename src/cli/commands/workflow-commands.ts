@@ -257,7 +257,7 @@ function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
       goal: options.goal,
       maxWorkers,
       dryRun: true,
-      swarmMode: config.swarmMode,
+      swarmMode: config.swarmMode ?? true,
       executionModelId: getEconomyAwareExecutionModelId(config),
       ...workspaceContext
     });
@@ -594,7 +594,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
 
     printResult(
       io,
-      ok('recommend', createRecommendationPlan({ workflow: options.workflow, language: options.language ?? readConfig().language })),
+      ok('recommend', createRecommendationPlan({ workflow: options.workflow, language: options.language ?? readConfig().language ?? 'en' })),
       options.json
     );
   });
