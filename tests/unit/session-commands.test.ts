@@ -12,7 +12,7 @@
  * happy-path test exercises the real fixture shape — not a synthetic stand-in).
  */
 
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
@@ -141,7 +141,13 @@ describe('peaks session info --active', () => {
     expect(output.data.source).toBe('canonical');
     // Slice 022 (LOW-4): bindingPath must be surfaced on the canonicalize-on-read
     // path too, pointing at the canonical runtime home (not the relative form).
-    expect(output.data.bindingPath).toBe(join(tempProject, '.peaks', '_runtime', 'session.json'));
+    // Slice 2026-06-13-repair-pre-existing-test-failures: realpathSync
+    // `tempProject` because on macOS the OS exposes /tmp and
+    // /var/folders/... as symlinks to /private/tmp and
+    // /private/var/folders/.... `mkdtempSync` returns the unresolved
+    // form; the CLI realpath-resolves it on read. The bindingPath
+    // surface therefore reflects the resolved form.
+    expect(output.data.bindingPath).toBe(join(realpathSync(tempProject), '.peaks', '_runtime', 'session.json'));
   });
 
   test('does NOT surface a bindingPath when no binding exists (NO_ACTIVE_SESSION boundary)', async () => {
