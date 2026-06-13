@@ -12,7 +12,7 @@
  *   F-2 regression: symlink-escape at canonical path returns ok:false / SYMLINK_ESCAPE
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { BACK_COMPAT_FLAG, hashNormalizedBody, normalizePlanBody, readPlan } from '../../../../src/services/workflow/plan-reader.js';
@@ -120,6 +120,39 @@ describe('plan-reader — readPlan', () => {
     const result = readPlan({ type: 'security', project: repo, sessionId });
     expect(result.data.exists).toBe(false);
     expect(result.data.source).toBe('missing');
+  });
+
+  /**
+   * Slice 2026-06-13-repair-pre-existing-test-failures: on macOS the
+   * OS exposes /tmp and /var/folders/... as symlinks to /private/tmp
+   * and /private/var/folders/.... `mkdtempSync` returns the
+   * unresolved form (/var/folders/...); the realpath of the temp dir
+   * is /private/var/folders/.... `readPlan` previously called
+   * `realpathSync` on the canonical/legacy *file* but NOT on the
+   * `expectedBase`, so the prefix check rejected the resolved file
+   * as "escaping" the unresolved base. The fix is to realpath
+   * `expectedBase` too (symmetric resolution). This test reproduces
+   * the macOS-only failure by forcing `repo` to the unresolved
+   * tmpdir form (which the platform returns by default).
+   */
+  it('macOS-realpath regression: legacy path under tmpdir is accepted when BACK_COMPAT_FLAG=1', () => {
+    delete process.env[BACK_COMPAT_FLAG];
+    const body = ['# Legacy Plan'].join('\n');
+    const legacyPath = join(repo, '.peaks', 'security-test-plan.md');
+    mkdirSync(join(repo, '.peaks'), { recursive: true });
+    writeFileSync(legacyPath, body, 'utf8');
+    // Sanity: confirm the platform actually has a realpath delta
+    // (otherwise the regression is a no-op and this test is a no-op).
+    const realRepo = realpathSync(repo);
+    if (realRepo === repo) {
+      // Linux: no symlink delta. Skip to keep this test focused on macOS.
+      return;
+    }
+    process.env[BACK_COMPAT_FLAG] = '1';
+    const result = readPlan({ type: 'security', project: repo, sessionId });
+    expect(result.ok).toBe(true);
+    expect(result.data.exists).toBe(true);
+    expect(result.data.source).toBe('legacy');
   });
 
   it('F-1 regression: invalid sessionId returns ok:false, code:INVALID_SESSION_ID, no throw', () => {

@@ -119,7 +119,22 @@ function assertContained(args: {
       message: `resolved path escapes base directory: cannot resolve ${args.path}`
     };
   }
-  const expectedPrefix = join(args.expectedBase, sep);
+  // Slice 2026-06-13-repair-pre-existing-test-failures: realpath the
+  // expectedBase too. On macOS the OS exposes /tmp and
+  // /var/folders/... as symlinks to /private/tmp and
+  // /private/var/folders/.... `mkdtempSync` returns the unresolved
+  // form; the file inside resolves through the symlink. Without
+  // symmetric realpath on both sides, the prefix check incorrectly
+  // rejects a file that is genuinely inside the base directory.
+  // Falls back to the raw expectedBase when the base itself does
+  // not yet exist (e.g. the canonical session dir before first
+  // write), preserving the pre-fix behavior for that case.
+  let expectedPrefix: string;
+  try {
+    expectedPrefix = join(realpathSync(args.expectedBase), sep);
+  } catch {
+    expectedPrefix = join(args.expectedBase, sep);
+  }
   if (!real.startsWith(expectedPrefix)) {
     return {
       ok: false,
