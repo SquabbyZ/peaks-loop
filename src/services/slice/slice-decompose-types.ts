@@ -163,6 +163,25 @@ export interface DecompositionResult {
   pickHint?: string;
 }
 
+/**
+ * Per-run metrics for the 2.1.1 algorithm. Emitted only when
+ * `peaks slice decompose --benchmark` is passed. The shape is stable
+ * across algorithm versions so it can be diffed across runs.
+ */
+export interface SliceBenchmark {
+  rid: string;
+  totalMs: number;
+  /** Codegraph calls observed during the run (query + status + affected). */
+  codegraphQueries: number;
+  /** Distribution of slice estimate.confidence across all batches. */
+  p50ConfidenceDistribution: { low: number; mid: number; high: number };
+  /** Approximate input bytes (PRD body + work-units + codegraph hits, post-load). */
+  inputApproxBytes: { prd: number };
+  /** Bytes of the serialized decomposition JSON. */
+  outputJsonBytes: number;
+  capturedAt: string;
+}
+
 export interface DecomposeOptions {
   /** When true, re-run `peaks codegraph index` before reading. */
   refresh?: boolean;

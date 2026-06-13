@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { sliceCheck } from '../../services/slice/slice-check-service.js';
 import { decomposeSlices } from '../../services/slice/slice-decompose-service.js';
+import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchmark-service.js';
 import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -70,17 +71,31 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
           'Inputs: PRD body + peaks codegraph + .understand-anything/knowledge-graph.json (optional). ' +
           'Outputs: .peaks/sc/slice-decomposition/<rid>.json with critical-path, ' +
           'parallel-batches, and per-slice work estimates. ' +
-          'Algorithm is fzf-free. Replay vs hand-derived 2.1.0 dry-run: +-10% on p50.'
+          'Algorithm is fzf-free. Replay vs hand-derived 2.1.0 dry-run: +-10% on p50. ' +
+          'Pass --benchmark to also emit a SliceBenchmark envelope (totalMs, codegraphQueries, ' +
+          'p50ConfidenceDistribution, outputJsonBytes) and persist it under ' +
+          '.peaks/_runtime/<sid>/benchmarks/<rid>.benchmark.json for cross-version comparison.'
       )
       .option('--project <path>', 'target project root', '.')
       .option('--refresh', 're-run `peaks codegraph index` before reading', false)
-  ).action(async (rid: string, options: { project: string; refresh?: boolean; json?: boolean }) => {
+      .option('--benchmark', 'record per-run metrics and attach to the result envelope (2.1.1 algorithm optimization comparison)', false)
+  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; json?: boolean }) => {
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const prdMarkdown = readPrdBody(rid, projectRoot);
-      const result: DecompositionResult = await decomposeSlices(rid, prdMarkdown, projectRoot, {
-        ...(options.refresh ? { refresh: true } : {})
-      });
+      let result: DecompositionResult;
+      let benchmark: { totalMs: number; codegraphQueries: number; p50ConfidenceDistribution: { low: number; mid: number; high: number }; inputApproxBytes: { prd: number }; outputJsonBytes: number; capturedAt: string } | null = null;
+      if (options.benchmark === true) {
+        const out = await decomposeSlicesWithBenchmark(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {})
+        });
+        result = out.result;
+        benchmark = out.benchmark;
+      } else {
+        result = await decomposeSlices(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {})
+        });
+      }
       const outPath = writeDecompositionFile(rid, result, projectRoot);
       const nextActions: string[] = [
         `Decomposition written to ${outPath}`,
@@ -93,7 +108,24 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       if (result.pickHint) {
         nextActions.push(result.pickHint);
       }
-      printResult(io, ok('slice.decompose', { ...result, outputPath: outPath }, [], nextActions), options.json ?? false);
+      if (benchmark !== null) {
+        const benchPath = writeBenchmarkArtifact(rid, benchmark, projectRoot);
+        nextActions.push(
+          `Benchmark: totalMs=${benchmark.totalMs} codegraphQueries=${benchmark.codegraphQueries} ` +
+          `p50Conf={low:${benchmark.p50ConfidenceDistribution.low},mid:${benchmark.p50ConfidenceDistribution.mid},high:${benchmark.p50ConfidenceDistribution.high}} ` +
+          `outputJsonBytes=${benchmark.outputJsonBytes}. Persisted to ${benchPath}`
+        );
+      }
+      printResult(
+        io,
+        ok(
+          'slice.decompose',
+          { ...result, outputPath: outPath, ...(benchmark !== null ? { benchmark } : {}) },
+          [],
+          nextActions
+        ),
+        options.json ?? false
+      );
     } catch (error) {
       printResult(io, fail('slice.decompose', 'SLICE_DECOMPOSE_FAILED', getErrorMessage(error), { rid, projectRoot: options.project }, ['Verify codegraph is initialised (npx codegraph init && npx codegraph index), the rid is correct, and the PRD body is non-empty']), options.json ?? false);
       process.exitCode = 1;
@@ -244,5 +276,18 @@ function writeDecompositionFile(rid: string, result: DecompositionResult, projec
   }
   const outPath = join(dir, `${rid}.json`);
   writeFileSync(outPath, JSON.stringify(result, null, 2), 'utf8');
+  return outPath;
+}
+
+function writeBenchmarkArtifact(rid: string, benchmark: unknown, projectRoot: string): string {
+  // Reuse the current session binding if present; otherwise fall back to
+  // a deterministic local dir under the project root. The CLI may be
+  // invoked from non-CLI contexts (skill layer); we don't require a session.
+  const dir = join(projectRoot, '.peaks', '_runtime', 'benchmarks');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const outPath = join(dir, `${rid}.benchmark.json`);
+  writeFileSync(outPath, JSON.stringify(benchmark, null, 2), 'utf8');
   return outPath;
 }

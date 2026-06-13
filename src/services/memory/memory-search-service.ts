@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fuzzyMatchWithKey } from '../fuzzy-matching/fuzzy-match-service.js';
+import { compressPrompt, type HeadroomResult } from '../context/headroom-client.js';
+import { loadPreferences } from '../preferences/preferences-service.js';
+import { shouldCompressResults } from '../context/headroom-prefs.js';
 
 // Re-export the canonical ProjectMemoryKind from the existing memory
 // service so callers can use a single import surface.
@@ -142,4 +145,74 @@ export function searchMemory(input: MemorySearchInput): MemorySearchResult[] {
       positions: m.positions,
     };
   });
+}
+
+/**
+ * Envelope for the optional headroom-compressed version of the search
+ * result text. The compressed text is intended for the LLM-side prompt
+ * (it preserves the entry names + descriptions in a more token-efficient
+ * form); the structured `matches` array is unchanged and remains the
+ * machine-readable form. `null` when compression was not requested,
+ * did not run, or failed (see `warning` for the reason).
+ */
+export interface CompressedResultsEnvelope {
+  readonly mode: 'balanced' | 'aggressive' | 'conservative';
+  readonly originalSize: number;
+  readonly compressedSize: number;
+  readonly compressionRatio: number;
+  readonly compressedText: string;
+  readonly warning: string | null;
+}
+
+export interface MemorySearchWithResults {
+  readonly matches: MemorySearchResult[];
+  readonly compressedResults: CompressedResultsEnvelope | null;
+}
+
+export interface MemorySearchOptions {
+  /** When true, read preferences.headroom.perTouchpoint.memorySearch and
+   *  compress joined match text via headroom-ai. Falls back silently to
+   *  the structured `matches` array when compression is unavailable. */
+  readonly compressResults?: boolean;
+}
+
+/**
+ * Run the search + optionally compress the joined match text via headroom.
+ * The structured `matches` array is the canonical output. The
+ * `compressedResults` is a derived view for LLM-side prompt assembly.
+ */
+export async function searchMemoryWithResults(
+  input: MemorySearchInput,
+  options: MemorySearchOptions = {}
+): Promise<MemorySearchWithResults> {
+  const matches = searchMemory(input);
+  if (options.compressResults !== true) {
+    return { matches, compressedResults: null };
+  }
+
+  const projectRoot = input.projectRoot ?? process.cwd();
+  const prefs = loadPreferences(projectRoot).headroom;
+  const joinedText = matches.map((m) => `${m.name}: ${m.description}`).join('\n');
+  const joinedBytes = Buffer.byteLength(joinedText, 'utf8');
+  const decision = shouldCompressResults(prefs, joinedBytes, 'memorySearch');
+  if (!decision.compress) {
+    return { matches, compressedResults: null };
+  }
+
+  const result: HeadroomResult = await compressPrompt(joinedText, decision.mode);
+  if (result.warning !== null || result.compressedPrompt === null) {
+    return { matches, compressedResults: null };
+  }
+
+  return {
+    matches,
+    compressedResults: {
+      mode: decision.mode,
+      originalSize: result.originalSize,
+      compressedSize: result.compressedSize,
+      compressionRatio: result.compressionRatio,
+      compressedText: result.compressedPrompt,
+      warning: result.warning
+    }
+  };
 }

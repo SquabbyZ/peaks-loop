@@ -39,11 +39,14 @@ export interface HeadroomPreferences {
   readonly defaultMode: HeadroomMode;
   /** Per-touchpoint mode overrides */
   readonly perTouchpoint: {
+    subAgentDispatch: HeadroomMode;
     memorySearch: HeadroomMode;
     retrospectiveSearch: HeadroomMode;
     doctorScan: HeadroomMode;
     doctorRoute: HeadroomMode;
   };
+  /** Minimum joined-result byte count before search-touchpoint compression runs. Default: 4096. */
+  readonly compressMinBytes: number;
 }
 
 export interface ClassifyRuleOverrides {
@@ -116,11 +119,13 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
     enabled: true,
     defaultMode: 'balanced',
     perTouchpoint: {
+      subAgentDispatch: 'balanced',
       memorySearch: 'balanced',
       retrospectiveSearch: 'balanced',
       doctorScan: 'balanced',
       doctorRoute: 'conservative',
     },
+    compressMinBytes: 4096,
   },
   swarmSpeculative: {
     enabled: true,

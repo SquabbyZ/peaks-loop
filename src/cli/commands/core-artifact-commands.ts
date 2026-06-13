@@ -672,19 +672,49 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
 
   addJsonOption(
     memory
+      .command('list')
+      .description('List all memory entries from .peaks/memory/index.json. Pass --pick to spawn fzf for interactive multi-select; the picked subset is written to .peaks/memory/picked.json.')
+      .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
+      .option('--pick', 'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json')
+      .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+  ).action((options: { kind?: string; pick?: boolean; fzfBin?: string; project?: string; json?: boolean }) => {
+    void import('./memory-commands.js').then(({ runMemoryList }) => {
+      void runMemoryList(io, {
+        ...(options.kind !== undefined ? { kind: options.kind } : {}),
+        ...(options.pick === true ? { pick: true } : {}),
+        ...(options.fzfBin ? { fzfBin: options.fzfBin } : {}),
+        ...(options.project !== undefined ? { project: options.project } : {}),
+        ...(options.json !== undefined ? { json: options.json } : {}),
+      });
+    }).catch((error: unknown) => {
+      const msg = /brew install fzf|apt-get install fzf|older than required/.test(getErrorMessage(error))
+        ? 'fzf binary not found or too old. Install with: brew install fzf (or apt: apt-get install fzf). peaks memory list --pick requires fzf >= 0.38.'
+        : getErrorMessage(error);
+      const code = /brew install fzf|apt-get install fzf|older than required/.test(msg) ? 'FZF_UNAVAILABLE' : 'MEMORY_LIST_BOOTSTRAP_FAILED';
+      printResult(io, fail('memory.list', code, msg, {}, ['Install fzf or run without --pick to list entries as JSON']), options.json);
+      if (code === 'FZF_UNAVAILABLE') process.exitCode = 127;
+      else process.exitCode = 1;
+    });
+  });
+
+  addJsonOption(
+    memory
       .command('search <query>')
-      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6.')
+      .description('Fuzzy-search the memory index (deterministic, local, zero-token). Default --limit 6. Pass --compress-results to also emit a headroom-compressed text view of the matches for LLM-side prompt assembly.')
       .option('--kind <kind>', 'filter by memory kind (one of: project, rule, decision, reference, feedback, convention, module, lesson)')
       .option('--limit <n>', 'maximum number of matches to return', (value: string) => Number(value))
+      .option('--compress-results', 'compress joined match text via headroom-ai (uses preferences.headroom.perTouchpoint.memorySearch mode)')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((query: string, options: { kind?: string; limit?: number; project?: string; json?: boolean }) => {
+  ).action((query: string, options: { kind?: string; limit?: number; compressResults?: boolean; project?: string; json?: boolean }) => {
     // Lazy import avoids a top-of-file import cycle (memory-commands.ts
     // imports services that the rest of this file may also touch).
     void import('./memory-commands.js').then(({ runMemorySearch }) => {
-      runMemorySearch(io, {
+      void runMemorySearch(io, {
         query,
         ...(options.kind !== undefined ? { kind: options.kind } : {}),
         ...(options.limit !== undefined ? { limit: options.limit } : {}),
+        ...(options.compressResults === true ? { compressResults: true } : {}),
         ...(options.project !== undefined ? { project: options.project } : {}),
         ...(options.json !== undefined ? { json: options.json } : {}),
       });
