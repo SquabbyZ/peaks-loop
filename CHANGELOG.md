@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] — 2026-06-14
+
+### Added
+
+- **Generic fzf binary picker** — `src/services/fuzzy-matching/fzf-pick-service.ts` exposes
+  `pickFromList<T>({ items, formatLine, parseLine, outputPath, meta, fzfBin, preview, overrideStdin, projectRoot, multi, prompt })`.
+  Promoted from `slice-pick-service.ts`; the algorithm is fzf-free, the binary is the consumer.
+
+- **`peaks memory list`** — new subcommand. Reads `.peaks/memory/index.json`, applies optional
+  `--kind` filter, returns the full entry set as the standard envelope. Mirrors
+  `peaks retrospective index`.
+
+- **`peaks memory list --pick`** and **`peaks retrospective index --pick`** — both spawn fzf
+  for interactive multi-select. Picked subset is written to `.peaks/memory/picked.json` or
+  `.peaks/retrospective/picked.json` respectively. Exit code 127 on missing/old fzf.
+
+- **`headroom-ai` preferences resolver** — `src/services/context/headroom-prefs.ts` with
+  `resolveHeadroomOptions` and `shouldCompressResults` (pure functions, no IO). Sub-agent
+  dispatch now reads `loadPreferences().headroom` and:
+    - Hard-blocks `--use-headroom` when `headroom.enabled = false` (new error code
+      `HEADROOM_DISABLED_BY_PREFERENCE`, exit 1).
+    - Respects `--headroom-mode <m>` CLI override > `perTouchpoint.subAgentDispatch` >
+      `defaultMode` precedence.
+    - Falls back to G7 metadata-only on any preferences load failure (no dispatch break).
+
+- **New preferences fields** — `headroom.perTouchpoint.subAgentDispatch` and
+  `headroom.compressMinBytes` (default 4096). Shallow-merge on existing
+  `preferences.json` files; no migration required.
+
+- **Search result compression** — `searchMemoryWithResults` and
+  `searchRetrospectiveWithResults` return a `CompressedResultsEnvelope` alongside the
+  structured `matches` array. Joined match text is compressed via headroom-ai when the
+  byte count exceeds `headroom.compressMinBytes`. Below-threshold or headroom-disabled
+  cases return `compressedResults: null` (silent, non-blocking fallback).
+
+- **`peaks memory search --compress-results`** — passes the option through. (Retrospective
+  search gets the same in a follow-up slice if requested.)
+
+- **`peaks slice decompose --benchmark`** — emits a `SliceBenchmark` envelope
+  (`totalMs`, `codegraphQueries`, `p50ConfidenceDistribution`, `inputApproxBytes`,
+  `outputJsonBytes`, `capturedAt`) and persists it to
+  `.peaks/_runtime/benchmarks/<rid>.benchmark.json` for cross-version comparison.
+  This is the egress path for verifying 2.1.0 → 2.1.1 algorithm optimizations
+  (Stoer-Wagner min-cut + flow_step weights) end-to-end.
+
+### Changed
+
+- **`src/services/slice/slice-pick-service.ts`** is now a thin wrapper around
+  `fzf-pick-service.ts`. Public API (`pickSlicesInteractive`, `PickOptions`,
+  `PickedResult`) is preserved.
+
+### Tests
+
+- `tests/unit/fuzzy-matching/fzf-pick-service.test.ts` — 10 cases (ENOENT, version check,
+  single/multi select, Esc-130, parseLine rejection, dedup, artifact write, overrideStdin,
+  empty items).
+- `tests/unit/headroom-prefs.test.ts` — 11 cases covering all `resolveHeadroomOptions`
+  branches and `shouldCompressResults` (disabled / below-threshold / enabled / per-touchpoint
+  mode).
+- `tests/unit/slice/slice-pick-service.test.ts` — pre-existing 7 cases still pass.
+- `tests/unit/memory-search-cli.test.ts` — 8 cases updated to await the now-async
+  `runMemorySearch`.
+
+### Dogfood
+
+- `HEADROOM_DISABLED_BY_PREFERENCE` hard block verified end-to-end with a temp
+  `.peaks/preferences.json` (`headroom.enabled=false`): exit 1, envelope code matches,
+  two actionable `nextActions`. Without `--use-headroom`, the same project dispatches
+  normally.
+
+---
+
 ## [2.1.1] — 2026-06-13
 
 ### Added
