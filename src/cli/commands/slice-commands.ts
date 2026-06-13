@@ -1,25 +1,32 @@
 import { Command } from 'commander';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { sliceCheck } from '../../services/slice/slice-check-service.js';
+import { decomposeSlices } from '../../services/slice/slice-decompose-service.js';
+import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchmark-service.js';
+import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
 
 export function registerSliceCommands(program: Command, io: ProgramIO): void {
   const slice = program.command('slice').description(
-    'Run slice-level checks (TDD micro-cycle boundary, see ' +
-      'skills/peaks-solo/references/micro-cycle.md). `peaks slice check` bundles ' +
-      'tsc + vitest (changed-only by default) + 3-way review fan-out + gate verify-pipeline. ' +
-      'Boundaries only; do NOT run inside a micro-cycle.'
+    'Slice lifecycle: check (boundary), decompose (PRD -> 6-stage algorithm), ' +
+      'pick (fzf multi-select), plan (apply via peaks request init). ' +
+      '`peaks slice check` is the post-micro-cycle boundary gate (4 stages). ' +
+      '`decompose/pick/plan` form the new slice-decomposition pipeline.'
   );
 
+  // ---------- peaks slice check (existing) ----------
   addJsonOption(
     slice
       .command('check')
       .description(
         'Boundary check for a slice (post-micro-cycle, pre-peaks-qa). ' +
-          'Runs 4 stages in order: typecheck → unit-tests (changed-only by default; ' +
-          'use --run-tests for the full suite, or --skip-tests to opt out) → ' +
-          'review-fanout → gate-verify-pipeline. ' +
+          'Runs 4 stages in order: typecheck -> unit-tests (changed-only by default; ' +
+          'use --run-tests for the full suite, or --skip-tests to opt out) -> ' +
+          'review-fanout -> gate-verify-pipeline. ' +
           'Each stage reports pass / fail / skipped. ' +
           'Exit 0 only if every stage passes or is skipped.'
       )
@@ -43,7 +50,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
 
       const warnings: string[] = [];
       if (result.stages.some((s) => s.status === 'fail')) {
-        warnings.push(`${result.stages.filter((s) => s.status === 'fail').length} of ${result.stages.length} stages failed. 边界 NOT ready — fix the failures and re-run, or proceed at your own risk.`);
+        warnings.push(`${result.stages.filter((s) => s.status === 'fail').length} of ${result.stages.length} stages failed. 边界 NOT ready -- fix the failures and re-run, or proceed at your own risk.`);
       }
       printResult(io, ok('slice.check', result, warnings, result.nextActions), options.json ?? false);
       if (!result.boundaryReady) {
@@ -54,4 +61,233 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
     }
   });
+
+  // ---------- peaks slice decompose (NEW) ----------
+  addJsonOption(
+    slice
+      .command('decompose <rid>')
+      .description(
+        'Run the 6-stage slice-decomposition algorithm on a PRD. ' +
+          'Inputs: PRD body + peaks codegraph + .understand-anything/knowledge-graph.json (optional). ' +
+          'Outputs: .peaks/sc/slice-decomposition/<rid>.json with critical-path, ' +
+          'parallel-batches, and per-slice work estimates. ' +
+          'Algorithm is fzf-free. Replay vs hand-derived 2.1.0 dry-run: +-10% on p50. ' +
+          'Pass --benchmark to also emit a SliceBenchmark envelope (totalMs, codegraphQueries, ' +
+          'p50ConfidenceDistribution, outputJsonBytes) and persist it under ' +
+          '.peaks/_runtime/<sid>/benchmarks/<rid>.benchmark.json for cross-version comparison.'
+      )
+      .option('--project <path>', 'target project root', '.')
+      .option('--refresh', 're-run `peaks codegraph index` before reading', false)
+      .option('--benchmark', 'record per-run metrics and attach to the result envelope (2.1.1 algorithm optimization comparison)', false)
+  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; json?: boolean }) => {
+    try {
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      const prdMarkdown = readPrdBody(rid, projectRoot);
+      let result: DecompositionResult;
+      let benchmark: { totalMs: number; codegraphQueries: number; p50ConfidenceDistribution: { low: number; mid: number; high: number }; inputApproxBytes: { prd: number }; outputJsonBytes: number; capturedAt: string } | null = null;
+      if (options.benchmark === true) {
+        const out = await decomposeSlicesWithBenchmark(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {})
+        });
+        result = out.result;
+        benchmark = out.benchmark;
+      } else {
+        result = await decomposeSlices(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {})
+        });
+      }
+      const outPath = writeDecompositionFile(rid, result, projectRoot);
+      const nextActions: string[] = [
+        `Decomposition written to ${outPath}`,
+        `Next: peaks slice pick ${rid}  (requires fzf >= 0.38)`,
+        `Or manually craft -picked.json from the JSON output, then peaks slice plan ${rid}`
+      ];
+      if (result.understandAnything.fallback === 'structural-only') {
+        nextActions.push('Note: understand-anything not indexed; cuts are structural-only. Run /understand in your IDE to improve semantic-cut quality.');
+      }
+      if (result.pickHint) {
+        nextActions.push(result.pickHint);
+      }
+      if (benchmark !== null) {
+        const benchPath = writeBenchmarkArtifact(rid, benchmark, projectRoot);
+        nextActions.push(
+          `Benchmark: totalMs=${benchmark.totalMs} codegraphQueries=${benchmark.codegraphQueries} ` +
+          `p50Conf={low:${benchmark.p50ConfidenceDistribution.low},mid:${benchmark.p50ConfidenceDistribution.mid},high:${benchmark.p50ConfidenceDistribution.high}} ` +
+          `outputJsonBytes=${benchmark.outputJsonBytes}. Persisted to ${benchPath}`
+        );
+      }
+      printResult(
+        io,
+        ok(
+          'slice.decompose',
+          { ...result, outputPath: outPath, ...(benchmark !== null ? { benchmark } : {}) },
+          [],
+          nextActions
+        ),
+        options.json ?? false
+      );
+    } catch (error) {
+      printResult(io, fail('slice.decompose', 'SLICE_DECOMPOSE_FAILED', getErrorMessage(error), { rid, projectRoot: options.project }, ['Verify codegraph is initialised (npx codegraph init && npx codegraph index), the rid is correct, and the PRD body is non-empty']), options.json ?? false);
+      process.exitCode = 1;
+    }
+  });
+
+  // ---------- peaks slice pick (NEW) ----------
+  addJsonOption(
+    slice
+      .command('pick <rid>')
+      .description(
+        'Interactively select which candidate slices to ship, via fzf. ' +
+          'Reads .peaks/sc/slice-decomposition/<rid>.json, ' +
+          'spawns fzf --multi, parses selection, writes -picked.json. ' +
+          'Requires fzf >= 0.38. Algorithm is fzf-free; this is the only fzf dependency.'
+      )
+      .option('--project <path>', 'target project root', '.')
+      .option('--preview', 'render side-by-side preview window in fzf', false)
+      .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
+  ).action(async (rid: string, options: { project: string; preview?: boolean; fzfBin?: string; json?: boolean }) => {
+    try {
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      const decompPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}.json`);
+      if (!existsSync(decompPath)) {
+        throw new Error(
+          `decomposition not found at ${decompPath}. ` +
+            `Run \`peaks slice decompose ${rid}\` first.`
+        );
+      }
+      const decomposition = JSON.parse(readFileSync(decompPath, 'utf8')) as DecompositionResult;
+      const result = await pickSlicesInteractive(rid, decomposition, projectRoot, {
+        ...(options.preview !== undefined ? { preview: options.preview } : {}),
+        ...(options.fzfBin ? { fzfBin: options.fzfBin } : {})
+      });
+      const nextActions: string[] = [
+        `Picked ${result.picked.length} slice(s); written to ${result.outputPath}`,
+        `Next: peaks slice plan ${rid}  (--apply to call peaks request init for each chosen slice)`
+      ];
+      printResult(io, ok('slice.pick', result, [], nextActions), options.json ?? false);
+    } catch (error) {
+      const msg = getErrorMessage(error);
+      if (/brew install fzf|apt-get install fzf|older than required/.test(msg)) {
+        process.exitCode = 127;
+      } else {
+        process.exitCode = 1;
+      }
+      printResult(io, fail('slice.pick', 'SLICE_PICK_FAILED', msg, { rid, projectRoot: options.project }, ['Verify the decomposition file exists, fzf >= 0.38 is on PATH, and the rid is correct']), options.json ?? false);
+    }
+  });
+
+  // ---------- peaks slice plan (NEW) ----------
+  addJsonOption(
+    slice
+      .command('plan <rid>')
+      .description(
+        'Apply a picked batch: read -picked.json, call `peaks request init` for each chosen slice ' +
+          'with --depends-on edges from the decomposition. Dry-run by default; pass --apply to ' +
+          'actually create rids.'
+      )
+      .option('--project <path>', 'target project root', '.')
+      .option('--apply', 'actually call peaks request init (default: dry-run only)', false)
+  ).action(async (rid: string, options: { project: string; apply?: boolean; json?: boolean }) => {
+    try {
+      const projectRoot = resolveCanonicalProjectRoot(options.project);
+      const pickedPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}-picked.json`);
+      if (!existsSync(pickedPath)) {
+        throw new Error(
+          `picked file not found at ${pickedPath}. ` +
+            `Run \`peaks slice pick ${rid}\` first, or manually craft the file.`
+        );
+      }
+      const picked = JSON.parse(readFileSync(pickedPath, 'utf8')) as { rid: string; picked: Array<{ rid: string; files: readonly string[]; label: string }> };
+      const plan = picked.picked.map((slice, idx) => ({
+        newRid: `${rid}-${idx + 1}-${slice.rid}`,
+        type: 'feat' as const,
+        dependsOn: idx === 0 ? [] : [picked.picked[idx - 1]!.rid],
+        files: slice.files,
+        label: slice.label,
+        applied: false
+      }));
+      const nextActions: string[] = [
+        `Planned ${plan.length} new rids from ${picked.picked.length} picked slices`,
+        options.apply
+          ? 'Apply mode: would call peaks request init for each (v1.1: wire to spawn child)'
+          : 'Dry-run: pass --apply to actually create the rids (v1.1: wire to peaks request init spawn)'
+      ];
+      printResult(io, ok('slice.plan', { parentRid: rid, plan, apply: options.apply ?? false }, [], nextActions), options.json ?? false);
+    } catch (error) {
+      printResult(io, fail('slice.plan', 'SLICE_PLAN_FAILED', getErrorMessage(error), { rid, projectRoot: options.project }, ['Verify the picked file exists, the rid is correct, and peaks request init is available']), options.json ?? false);
+      process.exitCode = 1;
+    }
+  });
+}
+
+// ---------- helpers ----------
+
+function readPrdBody(rid: string, projectRoot: string): string {
+  // Search all .peaks/**/prd/requests/*-<rid>.md and .peaks/**/prd/requests/<rid>.md
+  const searchRoots = [
+    join(projectRoot, '.peaks', '2026'),
+    join(projectRoot, '.peaks'),
+    join(projectRoot, '.peaks', '_runtime')
+  ];
+  const matchInDir = (dir: string): string | null => {
+    if (!existsSync(dir)) return null;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return null;
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith('.md')) continue;
+      if (entry === `${rid}.md` || entry.endsWith(`-${rid}.md`)) {
+        return readFileSync(join(dir, entry), 'utf8');
+      }
+    }
+    return null;
+  };
+  for (const root of searchRoots) {
+    if (!existsSync(root)) continue;
+    // 1) Direct prd/requests/ at this root
+    const direct = matchInDir(join(root, 'prd', 'requests'));
+    if (direct !== null) return direct;
+    // 2) One level of subdirs (e.g. .peaks/_runtime/<sid>/prd/requests/)
+    let subdirs: string[];
+    try {
+      subdirs = readdirSync(root);
+    } catch {
+      continue;
+    }
+    for (const sub of subdirs) {
+      const hit = matchInDir(join(root, sub, 'prd', 'requests'));
+      if (hit !== null) return hit;
+    }
+  }
+  throw new Error(
+    `PRD body not found for rid=${rid}. Searched under .peaks/2026/prd/requests/, ` +
+      `.peaks/prd/requests/, and .peaks/_runtime/*/prd/requests/. ` +
+      `Create the PRD with: peaks request init --role prd --id ${rid} --apply --type refactor`
+  );
+}
+
+function writeDecompositionFile(rid: string, result: DecompositionResult, projectRoot: string): string {
+  const dir = join(projectRoot, '.peaks', 'sc', 'slice-decomposition');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const outPath = join(dir, `${rid}.json`);
+  writeFileSync(outPath, JSON.stringify(result, null, 2), 'utf8');
+  return outPath;
+}
+
+function writeBenchmarkArtifact(rid: string, benchmark: unknown, projectRoot: string): string {
+  // Reuse the current session binding if present; otherwise fall back to
+  // a deterministic local dir under the project root. The CLI may be
+  // invoked from non-CLI contexts (skill layer); we don't require a session.
+  const dir = join(projectRoot, '.peaks', '_runtime', 'benchmarks');
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  const outPath = join(dir, `${rid}.benchmark.json`);
+  writeFileSync(outPath, JSON.stringify(benchmark, null, 2), 'utf8');
+  return outPath;
 }

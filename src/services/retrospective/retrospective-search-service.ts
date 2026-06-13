@@ -117,3 +117,63 @@ export function searchRetrospective(input: RetrospectiveSearchInput): Retrospect
     };
   });
 }
+
+export interface CompressedRetrospectiveResultsEnvelope {
+  readonly mode: 'balanced' | 'aggressive' | 'conservative';
+  readonly originalSize: number;
+  readonly compressedSize: number;
+  readonly compressionRatio: number;
+  readonly compressedText: string;
+  readonly warning: string | null;
+}
+
+export interface RetrospectiveSearchWithResults {
+  readonly matches: RetrospectiveSearchResult[];
+  readonly compressedResults: CompressedRetrospectiveResultsEnvelope | null;
+}
+
+export interface RetrospectiveSearchOptions {
+  /** When true, compress joined match text via headroom-ai. Falls back
+   *  silently to the structured `matches` array on failure. */
+  readonly compressResults?: boolean;
+}
+
+import { compressPrompt as compressPromptForRetro, type HeadroomResult as HeadroomResultForRetro } from '../context/headroom-client.js';
+import { loadPreferences as loadPreferencesForRetro } from '../preferences/preferences-service.js';
+import { shouldCompressResults as shouldCompressResultsForRetro } from '../context/headroom-prefs.js';
+
+export async function searchRetrospectiveWithResults(
+  input: RetrospectiveSearchInput,
+  options: RetrospectiveSearchOptions = {}
+): Promise<RetrospectiveSearchWithResults> {
+  const matches = searchRetrospective(input);
+  if (options.compressResults !== true) {
+    return { matches, compressedResults: null };
+  }
+
+  const projectRoot = input.projectRoot ?? process.cwd();
+  const prefs = loadPreferencesForRetro(projectRoot).headroom;
+  const joinedText = matches.map((m) => `${m.title}: ${m.summary}`).join('\n');
+  const joinedBytes = Buffer.byteLength(joinedText, 'utf8');
+  const decision = shouldCompressResultsForRetro(prefs, joinedBytes, 'retrospectiveSearch');
+  if (!decision.compress) {
+    return { matches, compressedResults: null };
+  }
+
+  const result: HeadroomResultForRetro = await compressPromptForRetro(joinedText, decision.mode);
+  if (result.warning !== null || result.compressedPrompt === null) {
+    return { matches, compressedResults: null };
+  }
+
+  return {
+    matches,
+    compressedResults: {
+      mode: decision.mode,
+      originalSize: result.originalSize,
+      compressedSize: result.compressedSize,
+      compressionRatio: result.compressionRatio,
+      compressedText: result.compressedPrompt,
+      warning: result.warning
+    }
+  };
+}

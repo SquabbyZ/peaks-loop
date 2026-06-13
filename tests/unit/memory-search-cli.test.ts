@@ -40,10 +40,10 @@ function createIO() {
 }
 
 describe('peaks memory search CLI', () => {
-  test('happy path: --json returns the standard envelope', () => {
+  test('happy path: --json returns the standard envelope', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: 'wechat', project: tmpDir, json: true });
+    await runMemorySearch(io, { query: 'wechat', project: tmpDir, json: true });
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.ok).toBe(true);
     expect(parsed.command).toBe('memory.search');
@@ -52,19 +52,19 @@ describe('peaks memory search CLI', () => {
     expect(parsed.data.total).toBe(parsed.data.matches.length);
   });
 
-  test('top match is the wechat-post-sop entry (dogfood AC A1)', () => {
+  test('top match is the wechat-post-sop entry (dogfood AC A1)', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: 'wechat', project: tmpDir, json: true });
+    await runMemorySearch(io, { query: 'wechat', project: tmpDir, json: true });
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.data.matches[0]?.name).toBe('wechat-post-sop-dogfood');
     expect(parsed.data.matches[0]?.score).toBe(1.0);
   });
 
-  test('--kind filter applies (AC A3)', () => {
+  test('--kind filter applies (AC A3)', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: 'peaks', project: tmpDir, kind: 'feedback', limit: 6, json: true });
+    await runMemorySearch(io, { query: 'peaks', project: tmpDir, kind: 'feedback', limit: 6, json: true });
     const parsed = JSON.parse(io.getStdout());
     for (const m of parsed.data.matches) {
       expect(m.kind).toBe('feedback');
@@ -72,17 +72,17 @@ describe('peaks memory search CLI', () => {
     expect(parsed.data.matches.length).toBeLessThanOrEqual(6);
   });
 
-  test('--limit caps the result count (AC A10)', () => {
+  test('--limit caps the result count (AC A10)', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: 'peaks', project: tmpDir, limit: 2, json: true });
+    await runMemorySearch(io, { query: 'peaks', project: tmpDir, limit: 2, json: true });
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.data.matches.length).toBeLessThanOrEqual(2);
   });
 
-  test('INDEX_MISSING: emits ok:false envelope with code INDEX_MISSING + suggestion (AC A5)', () => {
+  test('INDEX_MISSING: emits ok:false envelope with code INDEX_MISSING + suggestion (AC A5)', async () => {
     const io = createIO();
-    runMemorySearch(io, { query: 'anything', project: tmpDir, json: true });
+    await runMemorySearch(io, { query: 'anything', project: tmpDir, json: true });
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.ok).toBe(false);
     expect(parsed.code).toBe('INDEX_MISSING');
@@ -91,10 +91,10 @@ describe('peaks memory search CLI', () => {
     process.exitCode = 0; // reset for next test
   });
 
-  test('EMPTY_QUERY: emits ok:false envelope with code EMPTY_QUERY + suggestion (AC A6)', () => {
+  test('EMPTY_QUERY: emits ok:false envelope with code EMPTY_QUERY + suggestion (AC A6)', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: '', project: tmpDir, json: true });
+    await runMemorySearch(io, { query: '', project: tmpDir, json: true });
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.ok).toBe(false);
     expect(parsed.code).toBe('EMPTY_QUERY');
@@ -103,10 +103,10 @@ describe('peaks memory search CLI', () => {
     process.exitCode = 0;
   });
 
-  test('non-JSON mode: prints data JSON to stdout (no envelope wrapper)', () => {
+  test('non-JSON mode: prints data JSON to stdout (no envelope wrapper)', async () => {
     writeIndex(SAMPLE);
     const io = createIO();
-    runMemorySearch(io, { query: 'wechat', project: tmpDir, json: false });
+    await runMemorySearch(io, { query: 'wechat', project: tmpDir, json: false });
     const parsed = JSON.parse(io.getStdout());
     // In non-JSON mode, peaks-cli prints only result.data (not the
     // {ok,command,data} envelope) so humans can read the payload
@@ -115,15 +115,15 @@ describe('peaks memory search CLI', () => {
     expect(parsed.query).toBe('wechat');
   });
 
-  test('determinism: 10x same query returns byte-identical envelope (AC A7)', () => {
+  test('determinism: 10x same query returns byte-identical envelope (AC A7)', async () => {
     writeIndex(SAMPLE);
     const first = createIO();
-    runMemorySearch(first, { query: 'peaks', project: tmpDir, json: true });
+    await runMemorySearch(first, { query: 'peaks', project: tmpDir, json: true });
     const firstOut = first.getStdout();
 
     for (let i = 0; i < 10; i++) {
       const io = createIO();
-      runMemorySearch(io, { query: 'peaks', project: tmpDir, json: true });
+      await runMemorySearch(io, { query: 'peaks', project: tmpDir, json: true });
       expect(io.getStdout()).toBe(firstOut);
     }
   });
