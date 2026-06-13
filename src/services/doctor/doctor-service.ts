@@ -119,6 +119,13 @@ export type DoctorOptions = {
   workspaceLayoutProbe?: WorkspaceLayoutProbe;
   /** Injected for the integration:gateguard-peaks-conflict check (defaults to defaultGateguardProbe on disk). */
   gateguardProbe?: GateguardProbe;
+  /**
+   * Slice 2026-06-13-repair-pre-existing-test-failures: injected
+   * root for the L3:l3-memory-health check (defaults to
+   * `findProjectRoot(process.cwd())`). Tests use this to point the
+   * check at a temp dir without monkey-patching `findProjectRoot`.
+   */
+  l3ProjectRoot?: string;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -956,7 +963,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   //   2. L3:l3-memory-health — verifies .peaks/memory/index.json is
   //      well-formed JSON with the expected schema_version field and
   //      references real files on disk.
-  const l3ProjectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+  const l3ProjectRoot = options.l3ProjectRoot ?? findProjectRoot(process.cwd()) ?? process.cwd();
   try {
     const runtimeDir = join(l3ProjectRoot, '.peaks/_runtime');
     if (existsSync(runtimeDir)) {
@@ -992,24 +999,27 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     if (existsSync(memoryIndexPath)) {
       const raw = readFileSync(memoryIndexPath, 'utf8');
       try {
-        const parsed = JSON.parse(raw) as { schema_version?: string; entries?: unknown[] };
-        if (parsed.schema_version === undefined) {
+        // Slice 2026-06-13-repair-pre-existing-test-failures: the
+        // production MemoryIndex schema (see
+        // src/services/memory/project-memory-service.ts) uses
+        // `version: 1` as the schema marker, NOT `schema_version`.
+        // Accept BOTH names for back-compat with any external index
+        // writers (e.g. a future `schema_version: '2.0.0'` form).
+        const parsed = JSON.parse(raw) as { schema_version?: string; version?: number | string; hot?: Record<string, unknown[]>; warm?: Record<string, unknown[]> };
+        const schemaMarker = parsed.schema_version ?? parsed.version;
+        if (schemaMarker === undefined) {
           checks.push({
             id: 'L3:l3-memory-health',
             ok: false,
-            message: '.peaks/memory/index.json missing schema_version field'
-          });
-        } else if (!Array.isArray(parsed.entries)) {
-          checks.push({
-            id: 'L3:l3-memory-health',
-            ok: false,
-            message: '.peaks/memory/index.json entries is not an array'
+            message: '.peaks/memory/index.json missing schema_version / version field'
           });
         } else {
+          const hotCount = Object.values(parsed.hot ?? {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+          const warmCount = Object.values(parsed.warm ?? {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
           checks.push({
             id: 'L3:l3-memory-health',
             ok: true,
-            message: `.peaks/memory/index.json is well-formed JSON; schema_version=${parsed.schema_version}; ${parsed.entries.length} memory entries`
+            message: `.peaks/memory/index.json is well-formed JSON; version=${schemaMarker}; ${hotCount} hot + ${warmCount} warm memory entries`
           });
         }
       } catch (parseError) {
