@@ -1,0 +1,11 @@
+{
+  "rid": "2026-06-13-slice-decompose-impl",
+  "pickedAt": "2026-06-13T21:00:00.000Z",
+  "fzfVersion": "0.38",
+  "parentRid": "2026-06-13-slice-decompose-impl",
+  "picked": [
+    { "rid": "W1-test", "label": "test slice 1", "files": ["src/a.ts"], "estimate": {"complexitySum":0,"testCount":0,"locSum":10,"minutesP50":3,"minutesP90":5,"confidence":"low","rationale":"test"} },
+    { "rid": "W2-test", "label": "test slice 2", "files": ["src/b.ts"], "estimate": {"complexitySum":0,"testCount":0,"locSum":20,"minutesP50":5,"minutesP90":8,"confidence":"low","rationale":"test"} },
+    { "rid": "W3-test", "label": "test slice 3", "files": ["src/c.ts"], "estimate": {"complexitySum":0,"testCount":0,"locSum":30,"minutesP50":8,"minutesP90":12,"confidence":"low","rationale":"test"} }
+  ]
+}
