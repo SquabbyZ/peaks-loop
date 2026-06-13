@@ -7,6 +7,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] — 2026-06-13
+
+### Changed
+
+- **`~/.peaks/config.json` is now strictly `{ version, ocr.llm.* }`.**
+  All LIVE runtime data has moved to dedicated sidecar files under
+  `~/.peaks/`:
+  - `~/.peaks/providers.json` — `providers.minimax.{model, baseUrl, apiKey}`
+    and any future custom provider configs (canonical home: provider-service.ts).
+  - `~/.peaks/proxy.json` — `httpProxy` for outbound HTTP/HTTPS
+    (canonical home: proxy-service.ts).
+  - `~/.peaks/workspaces.json` — registered workspaces + current-workspace
+    pointer (canonical home: workspace-state-service.ts).
+  On-disk legacy bloat is auto-detected and promoted to the correct
+  sidecar on next CLI invocation; the slim `config.json` is then
+  rewritten. The migration is **idempotent and silent** — no user
+  action required.
+- **`peaks config migrate --apply` distributes legacy fields across
+  their canonical homes.** `economyMode` / `swarmMode` continue to
+  forward to `<project>/.peaks/preferences.json`; `providers` /
+  `proxy.httpProxy` / `workspaces` / `currentWorkspace` now forward
+  to their respective sidecar files. Original config is preserved
+  in `~/.peaks/config.json.1.x.bak` for rollback.
+- **`PeaksConfig` type marks legacy fields `@deprecated`.** The slim
+  runtime shape is `{ version, ocr? }`; the legacy fields stay
+  optional on the type so existing consumers (config-service.ts,
+  workflow-commands.ts, etc.) continue to compile during the
+  migration window. A future slice will redirect `setConfig` writes
+  for legacy keys to their canonical homes with a clear migration
+  hint.
+
+### Added
+
+- **New `src/services/config/sidecar-store.ts`** — path helpers
+  (`providersConfigPath()`, `proxyConfigPath()`, `workspacesConfigPath()`)
+  + generic `readSidecarJson<T>` / `writeSidecarJson` with the same
+  hardened-fs guarantees as `config-safety.ts` (symlink / hardlink
+  guards, atomic temp-file rename, 0o600 mode).
+- **New `src/services/config/provider-service.ts`** —
+  `getMiniMaxProviderConfig()`, `setMiniMaxProviderConfig()`,
+  `getMiniMaxProviderStatus()`, `getAllProviders()`,
+  `setProviderConfig(id, …)`, plus URL validation helpers
+  (`isValidMiniMaxBaseUrl`, `validateMiniMaxBaseUrl`,
+  `isValidProviderBaseUrl`, `validateProviderBaseUrl`,
+  `validateModelProviderConfig`).
+- **New `src/services/config/proxy-service.ts`** —
+  `getHttpProxy()`, `setHttpProxy()`, `clearHttpProxy()`,
+  `isValidProxyUrl()`, `validateProxyUrl()`.
+- **New `src/services/config/workspace-state-service.ts`** —
+  `getWorkspaces()`, `getCurrentWorkspace()`, `setCurrentWorkspace()`,
+  `addWorkspace()`, `removeWorkspace()`, `getWorkspaceConfig()`,
+  `getCurrentWorkspaceConfig()`, `getWorkspaceConfigForPath()`,
+  `getWorkspaceConfigForCurrentPath()`,
+  `ensureWorkspaceConfigForPath()`,
+  `ensureWorkspaceConfigForCurrentPath()`.
+- **`loadGlobalConfig()` governance hook.** On any read, if the
+  on-disk `~/.peaks/config.json` contains fields outside
+  `{ version, ocr }`, the function now promotes them to their
+  sidecar file (if not already present) and rewrites the slim
+  shape. Idempotent.
+
+### Deprecated
+
+- The `providers`, `proxy`, `workspaces`, `currentWorkspace`,
+  `language`, `model`, `economyMode`, `swarmMode`, `tokens` fields
+  on `PeaksConfig` are now `@deprecated`. They continue to work
+  during the migration window (reads return merged legacy values;
+  writes go to `~/.peaks/config.json`) but new code should target
+  the sidecar modules directly. The next minor release (2.2.0)
+  will remove them from the type entirely and `setConfig` will
+  reject writes to these keys with a clear migration hint.
+
+### Fixed
+
+- **No public API, command, flag, or dependency change.** Existing
+  CLI commands (`peaks config get/set`, `peaks config migrate`,
+  `peaks config provider minimax …`) continue to work; their
+  on-disk effects now match the slim 2.1.0 layout after the first
+  governance pass.
+
+### Verified
+
+- 229 test files / 2894 tests pass, 0 failures, 12 skipped.
+- Full 1.x → 2.0 → 2.1 dogfood cycle: `peaks config migrate --apply`
+  on a bloated 1.x file produces the correct slim `config.json` +
+  populated `providers.json` / `proxy.json` / `workspaces.json` +
+  `<project>/.peaks/preferences.json` (per-project fields only).
+- Rollback via `peaks config rollback` restores the original 1.x
+  shape from `.bak`.
+- `package.json.version` and `src/shared/version.ts` synced to
+  `2.1.0` via `node scripts/sync-version.mjs` at release time.
+
+---
+
 ## [2.0.6] — 2026-06-13
 
 ### Fixed
