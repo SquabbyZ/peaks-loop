@@ -1,8 +1,10 @@
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
-import { searchMemory, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
+import { loadMemoryIndex, searchMemory, searchMemoryWithResults, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
+import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { join } from 'node:path';
 
 const VALID_KINDS: ReadonlyArray<ProjectMemoryKind> = [
   'project',
@@ -21,13 +23,109 @@ export interface MemorySearchCommandOptions {
   limit?: number;
   project?: string;
   json?: boolean;
+  /** When true, call headroom-ai to compress joined match text for LLM-side prompt assembly. */
+  compressResults?: boolean;
+}
+
+export interface MemoryListCommandOptions {
+  kind?: string;
+  pick?: boolean;
+  fzfBin?: string;
+  project?: string;
+  json?: boolean;
+}
+
+export async function runMemoryList(io: ProgramIO, options: MemoryListCommandOptions): Promise<void> {
+  const projectRoot = options.project !== undefined
+    ? resolveCanonicalProjectRoot(options.project)
+    : (findProjectRoot(process.cwd()) ?? process.cwd());
+
+  try {
+    const snapshot = loadMemoryIndex(projectRoot);
+    const kindFilter = options.kind !== undefined && VALID_KINDS.includes(options.kind as ProjectMemoryKind)
+      ? (options.kind as ProjectMemoryKind)
+      : undefined;
+    const entries = kindFilter === undefined
+      ? snapshot.entries
+      : snapshot.entries.filter((e) => e.kind === kindFilter);
+
+    const warnings: string[] = [];
+    let pickedEntries: MemoryIndexEntry[] = entries;
+    let pickedOutputPath: string | null = null;
+    let fzfVersion: string | null = null;
+
+    if (options.pick === true) {
+      const outputPath = join(projectRoot, '.peaks', 'memory', 'picked.json');
+      const byName = new Map(entries.map((e) => [e.name, e] as const));
+      const result = await pickFromList<MemoryIndexEntry>({
+        items: entries,
+        formatLine: (entry) => `${entry.name} | ${entry.kind} | ${entry.description.slice(0, 60)}`,
+        parseLine: (line) => {
+          const parts = line.split('|').map((p) => p.trim());
+          if (parts.length < 1) return null;
+          const name = parts[0];
+          if (name === undefined || name.length === 0) return null;
+          return byName.get(name) ?? null;
+        },
+        outputPath,
+        meta: { kindFilter: kindFilter ?? null, totalCandidates: entries.length },
+        ...(options.fzfBin !== undefined ? { fzfBin: options.fzfBin } : {}),
+        projectRoot,
+        multi: true,
+        prompt: 'memory> '
+      });
+      pickedEntries = [...result.picked];
+      pickedOutputPath = result.outputPath;
+      fzfVersion = result.fzfVersion;
+    }
+
+    const nextActions: string[] = [];
+    if (pickedOutputPath !== null) {
+      nextActions.push(`Picked ${pickedEntries.length} entr(ies); written to ${pickedOutputPath}`);
+    }
+    if (entries.length === 0) {
+      nextActions.push('No entries match; run `peaks memory extract` to build the index from memory/*.md files.');
+    }
+
+    printResult(
+      io,
+      ok(
+        'memory.list',
+        {
+          indexPath: snapshot.indexPath,
+          version: snapshot.version,
+          updatedAt: snapshot.updatedAt,
+          total: entries.length,
+          kindFilter: kindFilter ?? null,
+          entries,
+          ...(options.pick === true ? { picked: pickedEntries, pickedOutputPath, fzfVersion } : {})
+        },
+        warnings,
+        nextActions
+      ),
+      options.json
+    );
+  } catch (error) {
+    const message = getErrorMessage(error);
+    const code = (error as { code?: string }).code ?? 'MEMORY_LIST_FAILED';
+    const suggestions: string[] = [];
+    if (code === 'INDEX_MISSING') {
+      suggestions.push('Run `peaks memory extract` to build the index from memory/*.md files');
+    }
+    printResult(
+      io,
+      fail('memory.list', code, message, { projectRoot }, suggestions),
+      options.json
+    );
+    process.exitCode = 1;
+  }
 }
 
 /**
  * Run the memory search subcommand. Extracted so unit tests can
  * exercise the full envelope without spawning a subprocess.
  */
-export function runMemorySearch(io: ProgramIO, options: MemorySearchCommandOptions): void {
+export async function runMemorySearch(io: ProgramIO, options: MemorySearchCommandOptions): Promise<void> {
   const projectRoot = options.project !== undefined
     ? resolveCanonicalProjectRoot(options.project)
     : (findProjectRoot(process.cwd()) ?? process.cwd());
@@ -35,19 +133,15 @@ export function runMemorySearch(io: ProgramIO, options: MemorySearchCommandOptio
   const kindFilter = options.kind !== undefined && VALID_KINDS.includes(options.kind as ProjectMemoryKind)
     ? (options.kind as ProjectMemoryKind)
     : undefined;
-  // When the user passes --kind but the value isn't in the valid set,
-  // we silently pass `undefined` so the search returns the full set;
-  // that's friendlier than a hard error and matches the spec's
-  // "invalid kind -> empty matches" semantic for the filter path.
-  // (For the loader unit test we exercise the explicit-invalid path
-  // directly; here the CLI side is forgiving.)
 
   try {
-    const matches = searchMemory({
+    const out = await searchMemoryWithResults({
       query: options.query,
       projectRoot,
       ...(options.limit !== undefined ? { limit: options.limit } : {}),
       ...(kindFilter !== undefined ? { kind: kindFilter } : {}),
+    }, {
+      ...(options.compressResults === true ? { compressResults: true } : {})
     });
 
     printResult(
@@ -56,8 +150,9 @@ export function runMemorySearch(io: ProgramIO, options: MemorySearchCommandOptio
         'memory.search',
         {
           query: options.query,
-          total: matches.length,
-          matches,
+          total: out.matches.length,
+          matches: out.matches,
+          ...(out.compressedResults !== null ? { compressedResults: out.compressedResults } : {}),
           warnings: [],
         },
         []

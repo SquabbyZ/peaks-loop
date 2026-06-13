@@ -45,6 +45,9 @@ import {
 } from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from '../../services/context/dispatch-context-guard.js';
 import { compressPrompt, type HeadroomMode, type HeadroomResult } from '../../services/context/headroom-client.js';
+import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
+import { loadPreferences } from '../../services/preferences/preferences-service.js';
+import { DEFAULT_PREFERENCES } from '../../services/preferences/preferences-types.js';
 import {
   readSharedChannel,
   writeSharedEntry,
@@ -196,6 +199,34 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       const rid = options.requestId ?? 'unknown-rid';
       const batchId = options.batchId ?? randomUUID();
 
+      // G7.7 / G9: resolve headroom options from preferences + CLI overrides.
+      // Preferences hard-block when headroom.enabled=false (returns HEADROOM_DISABLED_BY_PREFERENCE).
+      // loadPreferences can throw on schema mismatch; we fall back to defaults to avoid
+      // breaking the dispatch on a stale preferences.json file.
+      let headroomPrefs = DEFAULT_PREFERENCES.headroom;
+      try {
+        headroomPrefs = loadPreferences(projectRoot).headroom;
+      } catch {
+        // Keep default preferences; the user can re-run with explicit --headroom-mode
+        // if they want to override the fallback.
+      }
+      const headroomResolved = resolveHeadroomOptions(headroomPrefs, {
+        useHeadroom: options.useHeadroom === true,
+        ...(options.headroomMode !== undefined ? { headroomMode: options.headroomMode } : {})
+      });
+      if (headroomResolved.blocked !== null) {
+        printResult(io, fail('sub-agent.dispatch', headroomResolved.blocked, `headroom integration is disabled in preferences (headroom.enabled=false); pass --headroom-mode and update preferences first, or run without --use-headroom`, {
+          role,
+          toolCall: null,
+          dispatchRecordPath: null
+        } as never, [
+          'Edit .peaks/preferences.json: set headroom.enabled = true (per-touchpoint mode is headroom.perTouchpoint.subAgentDispatch).',
+          'Or re-run without --use-headroom to dispatch without compression.'
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+
       const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
       const adapter = getAdapter(ide);
       if (!adapter.subAgentDispatcher.supportsRole(role)) {
@@ -213,9 +244,8 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       let headroomResult: HeadroomResult | null = null;
       const warnings: string[] = [...decision.warnings];
 
-      if (options.useHeadroom === true) {
-        const mode: HeadroomMode = isHeadroomMode(options.headroomMode) ? options.headroomMode : 'balanced';
-        headroomResult = await compressPrompt(effectivePrompt, mode);
+      if (headroomResolved.mode !== null) {
+        headroomResult = await compressPrompt(effectivePrompt, headroomResolved.mode);
         if (headroomResult.warning !== null) {
           warnings.push(headroomResult.warning);
         }
@@ -391,9 +421,6 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       process.exitCode = 1;
     }
   });
-
-  // ─────────────────────────────────────────────────────────────────
-  // peaks sub-agent share --batch <batchId> --key <k> --value <json> --json
   // G8.4: cross sub-agent shared channel write.
   // ─────────────────────────────────────────────────────────────────
   addJsonOption(

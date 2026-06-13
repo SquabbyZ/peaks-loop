@@ -1,10 +1,12 @@
 import { Command } from 'commander';
+import { join } from 'node:path';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { loadRetrospectiveIndex } from '../../services/retrospective/retrospective-index.js';
 import { showRetrospective } from '../../services/retrospective/retrospective-show.js';
 import { migrateRetrospectiveFromMd } from '../../services/retrospective/migrate-from-md.js';
-import { searchRetrospective, type RetrospectiveType, type RetrospectiveOutcome } from '../../services/retrospective/retrospective-search-service.js';
+import { searchRetrospective, type RetrospectiveType, type RetrospectiveOutcome, type RetrospectiveEntry } from '../../services/retrospective/retrospective-search-service.js';
+import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -80,28 +82,75 @@ export function registerRetrospectiveCommands(program: Command, io: ProgramIO): 
   addJsonOption(
     retrospective
       .command('index')
-      .description('List all retrospective entries from .peaks/retrospective/index.json (R3: replaces the per-workflow MD dirs)')
+      .description('List all retrospective entries from .peaks/retrospective/index.json (R3: replaces the per-workflow MD dirs). Pass --pick to spawn fzf for interactive multi-select; the picked subset is written to .peaks/retrospective/picked.json.')
+      .option('--pick', 'spawn fzf for interactive multi-select (requires fzf >= 0.38); writes picked.json')
+      .option('--fzf-bin <path>', 'override fzf binary path (default: fzf on PATH)', 'fzf')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
-  ).action((options: { project?: string; json?: boolean }) => {
+  ).action(async (options: { pick?: boolean; fzfBin?: string; project?: string; json?: boolean }) => {
     const projectRoot = options.project !== undefined
       ? resolveCanonicalProjectRoot(options.project)
       : (findProjectRoot(process.cwd()) ?? process.cwd());
     try {
       const result = loadRetrospectiveIndex(projectRoot);
       const warnings: string[] = result.warning === null ? [] : [result.warning];
+      let picked: RetrospectiveEntry[] | null = null;
+      let pickedOutputPath: string | null = null;
+      let fzfVersion: string | null = null;
+
+      if (options.pick === true) {
+        const outputPath = join(projectRoot, '.peaks', 'retrospective', 'picked.json');
+        const byId = new Map(result.entries.map((e) => [e.id, e] as const));
+        const pickResult = await pickFromList<RetrospectiveEntry>({
+          items: result.entries,
+          formatLine: (e) => `${e.id} | ${e.type} | ${e.title} | ${e.outcome}`,
+          parseLine: (line) => {
+            const parts = line.split('|').map((p) => p.trim());
+            if (parts.length < 1) return null;
+            const id = parts[0];
+            if (id === undefined || id.length === 0) return null;
+            return byId.get(id) ?? null;
+          },
+          outputPath,
+          meta: { totalCandidates: result.totalCount, source: result.source },
+          ...(options.fzfBin !== undefined ? { fzfBin: options.fzfBin } : {}),
+          projectRoot,
+          multi: true,
+          prompt: 'retrospective> '
+        });
+        picked = [...pickResult.picked];
+        pickedOutputPath = pickResult.outputPath;
+        fzfVersion = pickResult.fzfVersion;
+      }
+
       printResult(
         io,
         ok('retrospective.index', {
           indexPath: result.indexPath,
           source: result.source,
           total: result.totalCount,
-          entries: result.entries
+          entries: result.entries,
+          ...(options.pick === true ? { picked, pickedOutputPath, fzfVersion } : {})
         }, warnings),
         options.json
       );
     } catch (error) {
-      printResult(io, fail('retrospective.index', 'RETROSPECTIVE_INDEX_FAILED', getErrorMessage(error), { projectRoot }, ['Check the project path and .peaks/retrospective/index.json']), options.json);
-      process.exitCode = 1;
+      const msg = getErrorMessage(error);
+      const isFzfError = /brew install fzf|apt-get install fzf|older than required/.test(msg);
+      if (isFzfError) process.exitCode = 127;
+      else process.exitCode = 1;
+      printResult(
+        io,
+        fail(
+          'retrospective.index',
+          isFzfError ? 'FZF_UNAVAILABLE' : 'RETROSPECTIVE_INDEX_FAILED',
+          msg,
+          { projectRoot },
+          isFzfError
+            ? ['Install fzf (brew install fzf or apt-get install fzf) or run without --pick to list entries as JSON.']
+            : ['Check the project path and .peaks/retrospective/index.json']
+        ),
+        options.json
+      );
     }
   });
 
