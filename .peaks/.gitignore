@@ -1,0 +1,5 @@
+# >>> peaks-cli managed snippet (slice 2.0.1-bug3) — do not edit by hand
+# Consumer-project .claude/settings.local.json: written by `peaks workspace init`
+# to bypass Claude Code [Fact-Forcing Gate] for .peaks/** writes. Local-only.
+.claude/settings.local.json
+# <<< peaks-cli managed snippet

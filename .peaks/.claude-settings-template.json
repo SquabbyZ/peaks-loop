@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "const p=process.argv[1]||\"\";if(p.includes(\".peaks/_runtime/\"))process.exit(0);const m=p.match(/\\.peaks\\/([a-z0-9][a-z0-9.-]*)\\//);if(m&&m[1]&&m[1]!==\"_runtime\"&&m[1]!==\"_dogfood\"&&m[1]!==\"_sub_agents\"&&m[1]!==\"_archive\"&&m[1]!==\"memory\"&&m[1]!==\"issues\"&&m[1]!==\"sops\"&&m[1]!==\"retrospective\"&&m[1]!==\"project-scan\"&&m[1]!==\"perf-baseline\")process.exit(0);process.exit(1)"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "const c=process.argv[1]||\"\";if(!c.startsWith(\"peaks \"))process.exit(1);const sub=c.slice(6).trim().split(/\\s+/)[0];if([\"workspace\",\"skill\",\"request\",\"session\",\"scan\",\"sub-agent\",\"gate\",\"standards\",\"hooks\",\"statusline\",\"memory\",\"openspec\",\"workflow\",\"doctor\",\"upgrade\"].indexOf(sub)===-1)process.exit(1);process.exit(0)"
+          }
+        ]
+      }
+    ]
+  }
+}
