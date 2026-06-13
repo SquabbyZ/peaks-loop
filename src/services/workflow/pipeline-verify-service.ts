@@ -4,12 +4,30 @@ import type { RequestType } from '../artifacts/artifact-prerequisites.js';
 import { isRequestType } from '../artifacts/artifact-prerequisites.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { resolveSecurityFindingsPath, resolvePerformanceFindingsPath } from './artifact-paths.js';
+import { readSkipState } from './workflow-state-store.js';
 
 export type PipelineGate = {
   name: string;
   description: string;
   passed: boolean;
   detail: string;
+  /**
+   * Slice 2026-06-13-peaks-workflow-skip: optional status that
+   * distinguishes a gate that was BYPASSED via `peaks workflow skip`
+   * from one that actually passed evaluation. When set, the gate
+   * was NOT evaluated by `evaluateGate` — the user/CLI explicitly
+   * marked it as skipped. The boolean `passed` is set to `true` so
+   * existing consumers (which only check `passed`) treat a skipped
+   * gate as "satisfied", but downstream consumers that need
+   * audit-grade distinction (e.g. CI badges, dashboards) can read
+   * `status` to tell pass / fail / skipped apart.
+   *
+   *   - omitted (default): not set, gate was evaluated; treat as legacy.
+   *   - 'pass':          gate evaluated and passed.
+   *   - 'fail':          gate evaluated and failed.
+   *   - 'skipped':       gate was bypassed; never evaluated.
+   */
+  status?: 'pass' | 'fail' | 'skipped';
 };
 
 export type PipelineVerification = {
@@ -110,6 +128,17 @@ export async function verifyPipeline(options: {
    * returns the actual change-id the file lives in). */
   changeId?: string;
   requestType?: string;
+  /**
+   * Slice 2026-06-13-peaks-workflow-skip: the session id under which
+   * `peaks workflow skip` may have written a state file. When set,
+   * `verifyPipeline` reads `.peaks/_runtime/<sessionId>/workflow-state/<rid>.json`
+   * and marks matching gates as `status: 'skipped'` (bypassed). When
+   * omitted, no skip state is consulted (preserves the legacy v0
+   * behavior). The change-id hint and the on-disk resolved change-id
+   * are NOT used for the state-file lookup — only the explicit
+   * `sessionId` parameter is.
+   */
+  sessionId?: string;
 }): Promise<PipelineVerification> {
   const requestType = isRequestType(options.requestType ?? '') ? options.requestType as RequestType : 'feature';
   const violations: string[] = [];
@@ -117,6 +146,39 @@ export async function verifyPipeline(options: {
 
   const rdGates = rdGatesForType(requestType);
   const qaGates = qaGatesForType(requestType);
+
+  // Slice 2026-06-13-peaks-workflow-skip: read the skip-state (if any)
+  // and pre-mark matching gates as `status: 'skipped'`. We do this
+  // BEFORE evaluating evidence files, so a skipped gate never
+  // emits a "missing evidence" violation. The boolean `passed` is
+  // set to `true` so legacy consumers (which only check `passed`)
+  // treat skipped gates as satisfied; the new `status` field
+  // distinguishes the bypass from an actual pass.
+  const skippedGateNames = new Set<string>();
+  if (options.sessionId !== undefined) {
+    const skipState = readSkipState(options.projectRoot, options.sessionId, options.rid);
+    if (skipState !== null) {
+      for (const gateName of skipState.skippedGates) {
+        if (gateName === 'QA' || gateName === 'qa-phase' || gateName === 'qa') {
+          for (const g of qaGates) skippedGateNames.add(g.name);
+        } else if (gateName === 'RD' || gateName === 'rd-phase' || gateName === 'rd') {
+          for (const g of rdGates) skippedGateNames.add(g.name);
+        } else {
+          skippedGateNames.add(gateName);
+        }
+      }
+      nextActions.push(
+        `Skipped gates (via peaks workflow skip): [${skipState.skippedGates.join(', ')}] — reason: ${skipState.skipReason}`
+      );
+    }
+  }
+  function markIfSkipped(gate: PipelineGate): void {
+    if (skippedGateNames.has(gate.name)) {
+      gate.status = 'skipped';
+      gate.passed = true;
+      gate.detail = 'skipped via peaks workflow skip';
+    }
+  }
 
   // Resolve RD + QA on-disk locations via showRequestArtifact (the change-id
   // is whatever dir the file actually lives in, not the caller's session-id).
@@ -240,10 +302,53 @@ export async function verifyPipeline(options: {
     nextActions.push(`Complete QA gates → peaks request transition ${options.rid} --role qa --state verdict-issued`);
   }
 
-  // RD invoked without QA
-  if (rdInvoked && !qaInvoked) {
-    violations.push('CRITICAL: peaks-rd was invoked but peaks-qa was NOT — QA functional/performance/security testing is mandatory after all RD work');
-    nextActions.push('MUST invoke Skill(skill="peaks-qa") before declaring workflow complete');
+  // RD invoked without QA — check is moved to AFTER markIfSkipped
+  // (slice 2026-06-13-peaks-workflow-skip) because the gate.status
+  // values are only final after the post-process pass. We track the
+  // decision with a placeholder here and resolve it below.
+  const rdInvokedWithoutQaRaw = rdInvoked && !qaInvoked;
+
+  // Slice 2026-06-13-peaks-workflow-skip: post-process. For any gate
+  // the user marked as skipped, override the evaluation result. The
+  // boolean `passed` is set to true so the gate counts as satisfied;
+  // the new `status: 'skipped'` field signals the bypass to
+  // downstream consumers. Violations and nextActions pushed for
+  // skipped gates are filtered out (the user explicitly chose to
+  // skip — the missing-evidence message is no longer actionable).
+  for (const gate of [...rdGates, ...qaGates]) {
+    if (skippedGateNames.has(gate.name)) {
+      markIfSkipped(gate);
+    }
+  }
+  if (skippedGateNames.size > 0) {
+    const skippedViolations = new Set<string>();
+    for (const gate of [...rdGates, ...qaGates]) {
+      if (gate.status === 'skipped') {
+        skippedViolations.add(`RD evidence missing: ${gate.description}`);
+        skippedViolations.add(`QA evidence missing: ${gate.description}`);
+      }
+    }
+    for (let i = violations.length - 1; i >= 0; i -= 1) {
+      const v = violations[i]!;
+      for (const sv of skippedViolations) {
+        if (v.startsWith(sv)) {
+          violations.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  // Resolve the "RD invoked without QA" check now that markIfSkipped
+  // has run. The check is suppressed when every QA gate is skipped
+  // (slice 2026-06-13-peaks-workflow-skip: the user explicitly chose
+  // to skip the QA phase).
+  if (rdInvokedWithoutQaRaw) {
+    const allQaSkipped = qaGates.every((g) => g.status === 'skipped');
+    if (!allQaSkipped) {
+      violations.push('CRITICAL: peaks-rd was invoked but peaks-qa was NOT — QA functional/performance/security testing is mandatory after all RD work');
+      nextActions.push('MUST invoke Skill(skill="peaks-qa") before declaring workflow complete');
+    }
   }
 
   const allRdGatesPassed = rdGates.every((g) => g.passed);

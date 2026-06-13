@@ -15,6 +15,7 @@ import { getSessionId } from '../../services/session/session-manager.js';
 import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.js';
+import { applySkip, detectCallerKind, type SkipArgs } from '../../services/workflow/workflow-skip-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -398,13 +399,15 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
       .requiredOption('--project <path>', 'project root path')
       .option('--change-id <id>', 'change-id hint (when omitted, the on-disk change-id is resolved from the RD/QA artifact itself)')
       .option('--type <type>', 'request type: feature, bugfix, refactor, docs, config, chore', 'feature')
-  ).action(async (options: { rid: string; project: string; changeId?: string; type?: string; json?: boolean }) => {
+      .option('--session-id <sid>', 'slice 2026-06-13-peaks-workflow-skip: session id under which to read the skip-state file. When omitted, no skip-state is consulted (legacy behavior).')
+  ).action(async (options: { rid: string; project: string; changeId?: string; type?: string; sessionId?: string; json?: boolean }) => {
     try {
       const result = await verifyPipeline({
         projectRoot: options.project,
         rid: options.rid,
         ...(options.changeId ? { changeId: options.changeId } : {}),
-        ...(options.type ? { requestType: options.type } : {})
+        ...(options.type ? { requestType: options.type } : {}),
+        ...(options.sessionId ? { sessionId: options.sessionId } : {})
       });
       const exitOk = result.complete ? 0 : 1;
       printResult(io, result.complete
@@ -413,6 +416,70 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
       process.exitCode = exitOk;
     } catch (error) {
       printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), { acceptedForm: 'none', gateC: 'fail' }, ['Check that --project and --rid are correct; --change-id is optional (resolved from the artifact otherwise)']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice 2026-06-13-peaks-workflow-skip — `peaks workflow skip`.
+  // Mark gates as bypassed for a specific rid, so the next
+  // `verify-pipeline` reports them as `status: 'skipped'` instead of
+  // missing-evidence violations. See RD
+  // `.peaks/_runtime/<sid>/rd/requests/001-2026-06-13-peaks-workflow-skip.md`
+  // for the three-rule classifier (type allowlist, one-time
+  // semantics, role-based auth).
+  addJsonOption(
+    workflow
+      .command('skip')
+      .description('Skip specific gates for a request (RD/QA). Use --dry-run to preview without writing. Allowed gate names: QA / RD (phase shortcuts) or specific gate names (rd-request-exists, tech-doc, code-review, security-review, qa-request-exists, test-cases, test-report, security-findings, performance-findings). Three rules apply: (1) only docs/config/chore slices can skip; (2) skip is one-time per rid; (3) script callers must also pass --i-have-reviewed.')
+      .requiredOption('--rid <rid>', 'request identifier')
+      .requiredOption('--project <path>', 'project root path')
+      .requiredOption('--gates <list>', 'comma-separated gate names (e.g. "QA" or "QA,slice-check" or "code-review,security-review")')
+      .requiredOption('--reason <text>', 'free-text justification; persisted in the state file and surfaced in verify-pipeline nextActions')
+      .option('--dry-run', 'preview the skip; do not write the state file')
+      .option('--i-have-reviewed', 'required when caller is a script (CI / postinstall / cron). LLM and human callers do not need this.')
+  ).action(async (options: { rid: string; project: string; gates: string; reason: string; dryRun?: boolean; iHaveReviewed?: boolean; json?: boolean }) => {
+    try {
+      // Resolve the session id from the project's current binding
+      // (CLI is the single source of truth per the dev-preference
+      // rules). The skip-state is keyed by session id, so the
+      // operator's current session determines where the marker
+      // lives. Auto-rotation on outer-mismatch is irrelevant here
+      // because we read, not write, the binding.
+      const sessionId = getSessionId(options.project);
+      if (sessionId === null) {
+        printResult(io, fail('workflow.skip', 'NO_ACTIVE_SESSION', `project "${options.project}" has no peaks-solo session binding; run \`peaks workspace init --project ${options.project} --json\` first`, { applied: false }, [`peaks workspace init --project ${options.project} --json`]), options.json);
+        process.exitCode = 1;
+        return;
+      }
+      const callerKind = detectCallerKind(process.env['PEAKS_CALLER_ID']);
+      const skipArgs: SkipArgs = {
+        rid: options.rid,
+        gatesRaw: options.gates,
+        reason: options.reason,
+        ...(options.dryRun === true ? { dryRun: true } : {}),
+        ...(options.iHaveReviewed === true ? { iHaveReviewed: true } : {}),
+        callerKind
+      };
+      const result = await applySkip(options.project, sessionId, skipArgs);
+      if (result.applied) {
+        printResult(io, ok('workflow.skip', result, [], [
+          `Skip applied for rid "${options.rid}": gates [${result.skippedGates.join(', ')}] marked as status: 'skipped' on next verify-pipeline.`,
+          `State file: ${result.persistedTo}`,
+          `Run \`peaks workflow verify-pipeline --rid ${options.rid} --project ${options.project} --session-id ${sessionId} --json\` to confirm.`
+        ]), options.json);
+        return;
+      }
+      if (result.idempotent) {
+        printResult(io, ok('workflow.skip', result, [], [`Skip already applied for rid "${options.rid}"; idempotent no-op.`]), options.json);
+        return;
+      }
+      // applied:false + reason → rejection.
+      printResult(io, fail('workflow.skip', 'SKIP_REJECTED', result.reason ?? 'unknown rejection', result, [
+        'See RD request for the three rules: docs/config/chore only, one-time per rid, script callers need --i-have-reviewed.'
+      ]), options.json);
+      process.exitCode = 1;
+    } catch (error) {
+      printResult(io, fail('workflow.skip', 'SKIP_FAILED', getErrorMessage(error), { applied: false }, ['Check that --project and --rid are correct; --reason and --gates are required.']), options.json);
       process.exitCode = 1;
     }
   });

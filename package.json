@@ -49,11 +49,11 @@
     "dev": "tsx src/cli/index.ts",
     "dev:watch": "node ./scripts/watch.mjs",
     "pretest": "node ./scripts/sync-version.mjs",
-    "test": "vitest run",
+    "test": "vitest run --",
     "test:coverage": "vitest run --coverage",
     "test:coverage:workflow": "vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "pretest:coverage": "node ./scripts/pretest-coverage.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit && vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "engines": {
     "node": ">=20.0.0"
