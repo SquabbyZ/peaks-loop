@@ -32,31 +32,3 @@ If the bypass is not in effect (e.g. `.claude/` was read-only, or the user passe
 **Anti-bail-out rule for the gate:** Do NOT skip Step 0 because the gate fired. The gate is a Claude Code core feature that peaks-cli cannot modify directly; peaks-cli can only sidestep it via the hook allow-list. If the gate still blocks Step 0 after the bypass is in effect, the user has a misconfigured `.claude/settings.json` upstream — surface that as a separate `AskUserQuestion` ("Your `.claude/settings.json` is overriding the local allow-list. May peaks-cli delete the local file and regenerate it?") rather than skipping Step 0.
 
 `presence:set` accepts no `--mode` here on purpose — mode is unknown until Step 1. It is re-run with the selected mode in Step 2. Setting presence early guarantees the status header/line shows `peaks-solo` from the very first turn even if the user never reaches mode selection.
-
-## Step 0.6 — Heal stale templates after a peaks-cli version bump
-
-> Slice 2026-06-13-selfheal-claude-settings-template. Read when the envelope's `claudeSettings.offlineTemplate.action === 'refreshed'` OR when the user just bumped peaks-cli and you suspect the consumer project's templates are out of date.
-
-**Why this step exists:** peaks-cli releases can change `buildClaudeSettingsLocalJson()` — the source-of-truth function for the consumer-project `.claude/settings.local.json` and the offline `.peaks/.claude-settings-template.json`. When that function changes (e.g. the `node -e "..."` wrapper added in commit `9551c52`), existing on-disk copies from previous peaks-cli releases become **stale** and can break Claude Code's [Fact-Forcing Gate] bypass. The drift-driven self-heal inside `initWorkspace` (added in this slice) catches the drift and refreshes both files automatically on the next init. This step is the **user-visible surfacing** of that heal.
-
-**Three trigger paths bring the project to the current peaks-cli baseline:**
-
-1. **Normal workflow (auto):** any `peaks-solo` invocation → Step 0 anchor → `peaks workspace init` → drift check → self-heal if needed. This is the default path; users typically do NOT need to do anything explicit.
-2. **Manual init (idempotent):** `peaks workspace init --project <repo> --json` — same drift check, same self-heal. Safe to re-run any number of times.
-3. **Post-upgrade escape hatch:** `peaks upgrade --apply-init --project <repo> --json` — slice 4 (this slice). For users who upgrade peaks-cli but do not invoke `peaks-solo` after the bump (e.g. they installed 2.0.5 today but their next `peaks-solo` session is next week). The flag triggers `initWorkspace` directly.
-
-**NextActions surfaced after Step 0 when self-heal fires:**
-
-- `claudeSettings.offlineTemplate.action === 'refreshed'` → nextAction: "Self-healed `.peaks/.claude-settings-template.json` (action: refreshed) — the offline recovery anchor now matches the current peaks-cli template."
-- Same → warning nextAction: "⚠️ If you had manually edited `.peaks/.claude-settings-template.json`, those edits have been overwritten by the self-heal. Re-apply your custom matchers / commands on top of the freshly-written template, or open an issue if your customisation is a recurring need (the team may promote it to the canonical template)."
-- `claudeSettings.offlineTemplate.action === 'written'` → nextAction: "Wrote `.peaks/.claude-settings-template.json` (action: written) — the offline recovery anchor is now in place for future manual recoveries."
-- `claudeSettings.action === 'refreshed'` (consumer-project file) → nextAction: "Materialized `.claude/settings.local.json` (action: refreshed) — the [Fact-Forcing Gate] is bypassed for tool calls inside .peaks/\*\*. Restart Claude Code so the hooks take effect."
-- `claudeSettings.action === 'already-current'` → silent (no nextAction) — the bypass is already in effect and matches the current release; do not spam the nextAction list on every init.
-
-**When to surface `--apply-init` to the user (LLM-only guidance):**
-
-- When the user just upgraded peaks-cli (e.g. they ran `npm i -g peaks-cli@latest` between sessions) AND the Step 0 init envelope shows `offlineTemplate.action === 'refreshed'`, do NOT prompt for `--apply-init` — the heal already happened.
-- When the user reports a stuck [Fact-Forcing Gate] that survives Step 0 (i.e. `peaks workspace init` ran without throwing but `Bash` / `Write` calls still get blocked), surface `peaks upgrade --apply-init --project <repo>` as a manual fallback. The flag is idempotent — safe to re-run.
-- When the user's project has NO `.peaks/_runtime/` at all (i.e. they never ran init), do NOT recommend `--apply-init` first; recommend `peaks workspace init` instead. `--apply-init` works on first-time projects too, but `init` is the canonical entry point and produces a richer envelope.
-
-**Anti-bail-out rule:** do NOT silently swallow the warning nextAction about manual-edits-overwritten. If the user customised `.peaks/.claude-settings-template.json` and the self-heal wiped their changes, that is data loss from their perspective — surface it. The loud ⚠️ is a feature, not noise.
