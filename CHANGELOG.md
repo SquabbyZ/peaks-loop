@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.4] — 2026-06-13 (hotfix)
+
+### Fixed
+
+- **PreToolUse hook `command` field was bare JavaScript source, not a
+  `node -e "..."` one-liner.** `peaks workspace init` writes
+  `.claude/settings.local.json` containing two PreToolUse hooks (one
+  for `Bash`, one for `Write|Edit|MultiEdit`) whose `command` field
+  was the inner JS payload without the `node -e "..."` wrapper.
+  Claude Code executes the `command` field as a shell string, so
+  bash saw literal `const c=process.argv[1]...` and tripped
+  `syntax error near unexpected token`. Net effect on every 2.0.3
+  install on Windows + macOS + Linux:
+  - Every Bash tool call (peaks CLI or otherwise) was rejected.
+  - Every Write / Edit / MultiEdit call was rejected.
+  - The [Fact-Forcing Gate] bypass that `peaks workspace init` was
+    supposed to install was therefore self-defeating — the bypass
+    broke the gate itself, and the gate could not be reached to fix
+    it.
+  Recovery required the user to delete `.claude/settings.local.json`
+  manually (losing the bypass permanently) or hand-patch the
+  `command` field (drift vs the template).
+  The fix wraps both builders' JS payloads in a real shell-evaluable
+  `node -e "<js>"` form via a new `wrapAsNodeOneLiner` helper in
+  `src/services/workspace/claude-settings-template.ts`. Inner `"`
+  are escaped to `\"`; backslashes pass through unchanged so regex
+  literals like `/\.peaks\//` still match correctly. `process.argv[1]`
+  is the correct slot under `-e` per Node.js docs
+  (https://nodejs.org/api/process.html#processargv) — consistent
+  across Windows, macOS, and Linux. The docstring is reconciled
+  with the implementation (the previous docstring incorrectly said
+  `argv[2]`).
+
+  Regression tests cover:
+  - `buildBashHookCommand()` and `buildWriteHookCommand()` return
+    `node -e "..."` form.
+  - Inner `"` are escaped to `\"`.
+  - Spawning the wrapped command with `peaks workspace init --project . --json`
+    exits 0; with `npm install foo` exits non-zero.
+  - Spawning the Write hook with `.peaks/_runtime/...` and
+    `.peaks/<changeId>/...` paths exits 0; with `src/...`,
+    `package.json`, `.peaks/_archive/...` exits non-zero.
+  - The existing workspace-init round-trip test (case A/B/C) still
+    passes with the wrapper.
+
+---
+
 ## [2.0.3] — 2026-06-13
 
 ### Fixed

@@ -23,8 +23,15 @@
  * `--no-claude-hooks` opt-out flag is exercised in
  * `workspace-init-claude-hooks.test.ts`; the template itself is a pure
  * function and does not need the flag.
+ *
+ * Slice fix-claude-settings-template-hook-node-wrapper — added node -e
+ * wrapper contract assertions + argv[2] indexing + spawn-based
+ * cross-platform behaviour tests. The wrapper must be a real shell-
+ * evaluable `node -e "<js>"` string so Claude Code's hook runner does
+ * not trip a bash syntax error.
  */
 
+import { execFileSync } from 'node:child_process';
 import { describe, expect, test } from 'vitest';
 import {
   buildClaudeSettingsLocalJson,
@@ -88,5 +95,112 @@ describe('claude-settings-template — pure-data structure', () => {
     const a = buildClaudeSettingsLocalJson();
     const b = buildClaudeSettingsLocalJson();
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+});
+
+describe('claude-settings-template — node -e wrapper contract (slice fix-claude-settings-template-hook-node-wrapper)', () => {
+  function getHookCommand(matcher: string): string {
+    const template = buildClaudeSettingsLocalJson() as {
+      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command: string }> }> }
+    };
+    const entry = template.hooks.PreToolUse.find((e) => e.matcher === matcher);
+    if (!entry || entry.hooks.length === 0) {
+      throw new Error(`matcher ${matcher} missing`);
+    }
+    return entry.hooks[0]!.command;
+  }
+
+  function runHook(command: string, candidate: string): { exitCode: number; stderr: string } {
+    // Execute the wrapped command exactly the way Claude Code's hook
+    // runner would: by passing the `command` field to the platform
+    // shell as a single string. `shell: true` lets the shell parse
+    // the `node -e "..."` wrapper, then the spawned Node child reads
+    // the candidate from `process.argv[1]` (the first user-passed arg
+    // under -e — see https://nodejs.org/api/process.html#processargv,
+    // consistent across Windows, macOS, and Linux). We pass the
+    // candidate as an extra positional arg so the wrapper sees it on
+    // `argv[1]`.
+    try {
+      execFileSync(`${command} ${JSON.stringify(candidate)}`, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'ignore', 'pipe'],
+        shell: true
+      });
+      return { exitCode: 0, stderr: '' };
+    } catch (error: unknown) {
+      const err = error as { status?: number | null; stderr?: string | Buffer };
+      return {
+        exitCode: err.status ?? 1,
+        stderr: typeof err.stderr === 'string' ? err.stderr : err.stderr?.toString() ?? ''
+      };
+    }
+  }
+
+  test('Bash hook command is wrapped in `node -e "..."`', () => {
+    const command = getHookCommand('Bash');
+    expect(command.startsWith('node -e "')).toBe(true);
+    expect(command.endsWith('"')).toBe(true);
+  });
+
+  test('Write hook command is wrapped in `node -e "..."`', () => {
+    const command = getHookCommand('Write|Edit|MultiEdit');
+    expect(command.startsWith('node -e "')).toBe(true);
+    expect(command.endsWith('"')).toBe(true);
+  });
+
+  test('embedded double quotes in the inner JS payload are JSON-escaped as \\"', () => {
+    const command = getHookCommand('Bash');
+    // The wrapped form is `node -e "<inner>"` where every literal `"`
+    // in the inner JS has been escaped to `\"`. We assert the escaping
+    // contract by checking that the inner part contains the expected
+    // `\"peaks \"` (escaped) sequence — not the unescaped `"peaks "`.
+    // We can't simply check `inner.includes('"')` because `\"` is two
+    // characters in the runtime string (backslash + quote), so the
+    // indexOf for `"` would always match the trailing `"` of an
+    // escape pair. Instead, we assert the escaped form is present and
+    // the unescaped form is absent.
+    expect(command).toContain('\\"peaks \\"');
+    expect(command).not.toContain('"peaks "');
+    // The wrapper boundary is intact: the command starts with `node -e "`
+    // and ends with a single closing `"`.
+    expect(command.startsWith('node -e "')).toBe(true);
+    expect(command.endsWith('"')).toBe(true);
+    expect(command.slice('node -e "'.length, -1).includes('"peaks "')).toBe(false);
+  });
+
+  test('inner JS reads candidate from process.argv[1] (Node docs: argv[1] is the first user-passed arg under -e)', () => {
+    const bashCommand = getHookCommand('Bash');
+    expect(bashCommand).toContain('process.argv[1]');
+    // And it MUST NOT read argv[2] — that's the second user-passed
+    // arg under -e, which Claude Code's hook runner does not populate
+    // for this hook.
+    expect(bashCommand).not.toContain('process.argv[2]');
+  });
+
+  test('Bash hook exits 0 for `peaks workspace init --project . --json` and non-zero for `npm install foo`', () => {
+    const bashCommand = getHookCommand('Bash');
+    const allow = runHook(bashCommand, 'peaks workspace init --project . --json');
+    expect(allow.exitCode, `expected allow, stderr=${allow.stderr}`).toBe(0);
+    const deny = runHook(bashCommand, 'npm install foo');
+    expect(deny.exitCode, `expected deny, stderr=${deny.stderr}`).not.toBe(0);
+  });
+
+  test('Write hook allows `.peaks/_runtime/...` and `.peaks/<changeId>/...` paths and denies `src/...`', () => {
+    const writeCommand = getHookCommand('Write|Edit|MultiEdit');
+    const allowed = [
+      '.peaks/_runtime/2026-06-13-session-x/session.json',
+      '.peaks/_runtime/2026-06-13-session-x/rd/requests/001-foo.md',
+      '.peaks/fix-foo/rd/requests/001-foo.md',
+      '.peaks/fix-foo/qa/test-cases/001-foo.md'
+    ];
+    for (const p of allowed) {
+      const r = runHook(writeCommand, p);
+      expect(r.exitCode, `expected allow for ${p}, stderr=${r.stderr}`).toBe(0);
+    }
+    const denied = ['src/index.ts', 'package.json', 'README.md'];
+    for (const p of denied) {
+      const r = runHook(writeCommand, p);
+      expect(r.exitCode, `expected deny for ${p}`).not.toBe(0);
+    }
   });
 });

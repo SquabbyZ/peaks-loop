@@ -37,16 +37,22 @@ function makeProject(): string {
 }
 
 function runHookCommand(command: string, candidatePath: string): { exitCode: number; stdout: string; stderr: string } {
-  // The hook command is a node -e "<one-liner>" inline; we execute it
-  // verbatim and inspect the exit code. Exit 0 = allow, non-zero =
-  // deny (the PreToolUse protocol treats non-zero as the default-
-  // deny case so the gate fires). We capture stdout/stderr for the
-  // failure case so the assertion message has signal when the
-  // matcher regresses.
+  // The hook command is a `node -e "<js>"` wrapper (slice
+  // fix-claude-settings-template-hook-node-wrapper). We invoke it
+  // exactly the way Claude Code's hook runner would: pass the
+  // command string to the platform shell as a single string with
+  // `shell: true`, and append the candidate path as an extra
+  // positional arg so the wrapper sees it on `process.argv[1]`
+  // (Node's argv layout under `-e` is consistent across Windows,
+  // macOS, and Linux). Exit 0 = allow, non-zero = deny (the
+  // PreToolUse protocol treats non-zero as default-deny so the gate
+  // fires). We capture stdout/stderr for the failure case so the
+  // assertion message has signal when the matcher regresses.
   try {
-    const stdout = execFileSync('node', ['-e', command, candidatePath], {
+    const stdout = execFileSync(`${command} ${JSON.stringify(candidatePath)}`, {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true
     });
     return { exitCode: 0, stdout, stderr: '' };
   } catch (error: unknown) {
