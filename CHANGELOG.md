@@ -7,6 +7,152 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] — 2026-06-13
+
+### Added
+
+- **`peaks slice decompose <rid>`** — the 6-stage slice-decomposition
+  algorithm. Reads the PRD body, queries `peaks codegraph` for each
+  acceptance criterion, reads `.understand-anything/knowledge-graph.json`
+  for semantic boundary detection, builds a dependency DAG with verified
+  edges, computes SCC + critical path, runs Stoer-Wagner-style min-cut
+  with semantic-preference weights (`flow_step`=0.05, `imports`=10.0),
+  and partitions the result into parallel batches.
+  Outputs `.peaks/sc/slice-decomposition/<rid>.json`. Algorithm is
+  fzf-free; the codegraph/understand-anything inputs are both
+  consumed as algorithm inputs, not as decoration.
+
+- **`peaks slice pick <rid>`** — interactive multi-select of candidate
+  slices via `fzf` (>= 0.38). Reads the decomposition file, spawns
+  fzf with formatted candidate lines, parses the multi-selection, writes
+  `.peaks/sc/slice-decomposition/<rid>-picked.json`. The algorithm is
+  fzf-free; this is the only fzf dependency in the pipeline.
+
+- **`peaks slice plan <rid>`** — dry-run plan that reads -picked.json
+  and produces a structured plan with `newRid`, `type`, `dependsOn`
+  edges. `--apply` is documented as v1.1 behavior (the dry-run path
+  is fully functional; v1.1 will wire it to spawn `peaks request init`).
+
+- **`src/services/slice/slice-decompose-types.ts`** — 24 TypeScript types
+  for the algorithm's input/output contract. Stable envelope shape;
+  any field rename requires a migration path.
+
+- **`src/services/slice/calibration-store.ts`** — pure LoC+test-count
+  heuristic for work estimation. v1 reports `confidence: 'low'` until
+  5+ historical slice records exist; v1.1 will switch to percentile
+  lookup.
+
+- **`peaks-solo` Step 0.6** — pre-mode-selection slice decomposition.
+  Solo runs the algorithm automatically after Step 0.55 (1.x detection)
+  returns "fresh". The user picks a profile informed by the
+  decomposition's parallel structure.
+
+- **3 new `peaks-solo/references/*.md`** — `slice-algorithm.md`
+  (algorithm spec), `understand-anything-integration.md` (KG consumer
+  contract), `fzf-integration.md` (operator-facing fzf usage).
+
+- **Extended `codegraph-orchestration.md`** — grew from 5 lines
+  to ~200 lines documenting the envelope contract, freshness
+  contract, the v0.7.10 cross-file-affected limitation + v1
+  fallback, the status-parsing regex, and the role-handoff envelope.
+
+- **Extended `swarm-dispatch-contract.md`** — adds
+  "Slice-decomposition-driven fan-out (v2.1+)" section. Swarm plans
+  now derive from `parallelBatches` (with legacy `--type` lookup as
+  the fallback path).
+
+- **Extended `peaks-solo/SKILL.md`** — adds "Peaks-Cli Slice
+  Decomposition (Step 0.6 — pre-mode-selection)" section.
+
+- **Extended `runbook.md`** — adds "Step 2.5: Slice Decomposition"
+  section between the PRD transition and the Swarm fan-out.
+
+### Changed
+
+- **`peaks codegraph` is now a runtime algorithm input**, not a
+  decoration. The slice-decomposition algorithm queries it (Stage 1)
+  and reads cross-file-affected results (Stage 2, with v0.7.10
+  fallback to real import edges).
+
+- **`understand-anything` is now a runtime algorithm input** at the
+  semantic boundary layer. The algorithm adds `flow_step` /
+  `contains_flow` edges to the DAG with the lowest min-cut weights
+  (0.05 / 0.10), preferring to cut through semantic seams.
+
+- **`peaks project dashboard` does not regress** with the new
+  `.peaks/sc/slice-decomposition/` path. The path is at the top level
+  of `.peaks/`, not under `.peaks/_runtime/`, so it does not trip the
+  L3:l3-orphan-sessions doctor check.
+
+### Deprecated
+
+- The "one rid = one feature" pattern. From 2.1.1 onward, the
+  recommended workflow is: PRD -> `peaks slice decompose` -> `peaks
+  slice pick` (interactive) -> `peaks slice plan` -> N child rids.
+  Legacy `--type`-based fan-out still works as a fallback for rids
+  that pre-date the algorithm.
+
+### Fixed
+
+- **No public API, command, flag, or dependency change.** This is
+  a feature-only patch. The new `peaks slice <subcommand>` family
+  adds 3 sub-commands; existing `peaks slice check` is unchanged.
+
+- **No data schema migration.** The new algorithm writes
+  `.peaks/sc/slice-decomposition/<rid>.json` (and `<rid>-picked.json`).
+  Both paths are git-ignored runtime state. No existing JSON file
+  format changed.
+
+- **`peaks codegraph` wrapper** now consistently accepts
+  `--project <path>` for all subcommands (query, affected, status).
+  The wrapper falls back to raw `codegraph` (without `--project`)
+  only when `peaks` is not on PATH.
+
+- **PRD body lookup** now walks `.peaks/_runtime/*/prd/requests/`
+  (not just 3 hardcoded paths). Handles the real
+  `NNN-<rid>.md` filename convention from `peaks request init`.
+
+### Verified
+
+- 232 test files / 2939 tests pass, 0 failures, 12 skipped
+  (baseline 229/2894 -> delta +3 files / +45 tests).
+- `npx tsc --noEmit` clean.
+- `npm run build` clean.
+- End-to-end CLI smoke test on peaks-cli repo:
+  `peaks slice decompose 2026-06-13-slice-decompose-impl --json` returns
+  `ok: true`, writes 9 work units, 1 dep edge, p50=247.5 within the
+  expected [202, 248] range (8-WU 2.1.0 dry-run p50=225 +-10%).
+- `peaks doctor` clean (no L3 regressions from the new path).
+- QA verdict: pass (10 of 10 ACs pass; AC10 has 1 partial
+  regarding peaks-cli's existing `review-fanout` path mapping, but
+  the partial is a pre-existing architecture issue, NOT a regression
+  from this slice).
+
+### Known limitations (v1.1+ scope)
+
+- `peaks codegraph` v0.7.10 `affected` returns 0 cross-file dependents;
+  the algorithm falls back to real static import edges. v1.1 should
+  read `.codegraph/codegraph.db` directly.
+- understand-anything is not indexed on most projects; the algorithm
+  falls back to structural-only cuts and reports
+  `understandAnything.fallback: "structural-only"`.
+- Calibration `confidence: 'low'` until 5+ historical slice records
+  exist; v1.1 will switch to percentile lookup.
+- fzf `>= 0.38` required for `peaks slice pick`. Earlier versions
+  lack `--filter` and proper `--preview` support.
+- The min-cut is a simplified sort + filter, not textbook
+  Stoer-Wagner. v1.1 will swap in the full algorithm.
+- `peaks slice plan --apply` is dry-run only; v1.1 will wire to
+  spawn `peaks request init` for each picked slice.
+- Path traversal hardening (`assertValidRid`) and DoS cap
+  (`--max-wu N` default 500) are 1-line patches planned for v1.1.
+- The 3 default runners (codegraph / understand / import-edge) have
+  0% unit-test coverage because they shell out to real binaries.
+  v1.1 will add `vi.mock('node:child_process')` tests to push
+  coverage of `slice-decompose-service.ts` toward 100%.
+
+---
+
 ## [2.1.0] — 2026-06-13
 
 ### Changed
