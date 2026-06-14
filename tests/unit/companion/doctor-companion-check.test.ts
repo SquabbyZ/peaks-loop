@@ -6,29 +6,62 @@ const PASSING_DIST_PROBE = () => ({ dist: '1.3.3', source: '1.3.3', match: true,
 const CLEAN_WORKSPACE_PROBE = () => ({ topLevelSessionDirs: [], legacyDotfiles: [], perChangeIdDirs: [] });
 
 describe('doctor: capability:companion-binary-resolution', () => {
-  it('reports ok=true with a friendly version+path message when the binary resolves', async () => {
+  it('reports ok=true with a friendly version+path+source message when the binary resolves from node_modules', async () => {
     const report = await runDoctor({
       distVersionProbe: PASSING_DIST_PROBE,
       workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
-      companionBinaryProbe: () => ({ binaryPath: '/usr/local/bin/cc-connect', version: '1.3.2', ok: true, error: null } satisfies CompanionProbe)
+      companionBinaryProbe: () => ({
+        binaryPath: '/repo/node_modules/.bin/cc-connect',
+        version: '1.3.2',
+        ok: true,
+        error: null,
+        resolvedSource: 'node-modules'
+      } satisfies CompanionProbe)
+    });
+    const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
+    expect(check).toBeDefined();
+    expect(check?.ok).toBe(true);
+    expect(check?.message).toContain('cc-connect@1.3.2');
+    expect(check?.message).toContain('/repo/node_modules/.bin/cc-connect');
+    expect(check?.message).toContain('node_modules/.bin');
+  });
+
+  it('reports ok=true with source=PATH when the binary resolves from PATH', async () => {
+    const report = await runDoctor({
+      distVersionProbe: PASSING_DIST_PROBE,
+      workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
+      companionBinaryProbe: () => ({
+        binaryPath: '/usr/local/bin/cc-connect',
+        version: '1.3.2',
+        ok: true,
+        error: null,
+        resolvedSource: 'path'
+      } satisfies CompanionProbe)
     });
     const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
     expect(check).toBeDefined();
     expect(check?.ok).toBe(true);
     expect(check?.message).toContain('cc-connect@1.3.2');
     expect(check?.message).toContain('/usr/local/bin/cc-connect');
+    expect(check?.message).toContain('source=PATH');
   });
 
   it('reports ok=true with an informational message when the binary is missing', async () => {
     const report = await runDoctor({
       distVersionProbe: PASSING_DIST_PROBE,
       workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
-      companionBinaryProbe: () => ({ binaryPath: null, version: null, ok: false, error: 'cc-connect binary not found on PATH' } satisfies CompanionProbe)
+      companionBinaryProbe: () => ({
+        binaryPath: null,
+        version: null,
+        ok: false,
+        error: 'cc-connect binary not found (checked node_modules/.bin, require.resolve, and PATH)',
+        resolvedSource: null
+      } satisfies CompanionProbe)
     });
     const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
     expect(check).toBeDefined();
     expect(check?.ok).toBe(true);
-    expect(check?.message).toContain('cc-connect binary not found on PATH');
+    expect(check?.message).toContain('cc-connect binary not found');
     expect(check?.message).toContain('peaks companion install');
   });
 

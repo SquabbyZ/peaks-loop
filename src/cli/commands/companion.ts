@@ -60,11 +60,9 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
   addJsonOption(
     companion
       .command('install')
-      .description('Install cc-connect (npm: cc-connect@latest, then brew fallback on macOS/Linux). Caches binary path to ~/.peaks/companion/.')
+      .description('Verify the cc-connect binary resolves from peaks-cli node_modules (or PATH) and cache its path under ~/.peaks/companion/. cc-connect is a peaks-cli `dependencies` entry; `pnpm install` already pulled the binary, so this is a verify pass.')
       .option('--channel <name>', `channel (only ${COMPANION_CHANNELS.join(', ')} supported in this slice)`, parseChannel)
-      .option('--prefer-brew', 'try brew first, then npm', false)
-      .option('--version <v>', 'pin a specific version (defaults to @latest)')
-  ).action(async (options: { channel?: CompanionChannel; preferBrew?: boolean; version?: string; json?: boolean }) => {
+  ).action(async (options: { channel?: CompanionChannel; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
       printResult(io, fail('companion.install', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
@@ -72,14 +70,11 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       return;
     }
     try {
-      const result = await installCcConnect({
-        ...(options.preferBrew === true ? { preferBrew: true } : {}),
-        ...(options.version !== undefined ? { version: options.version } : {})
-      });
+      const result = await installCcConnect({});
       if (!result.installed) {
         printResult(
           io,
-          fail('companion.install', 'INSTALL_FAILED', result.error ?? 'install failed', { attempts: result.attempts }, result.nextActions),
+          fail('companion.install', 'INSTALL_FAILED', result.error ?? 'install failed', { attempts: result.attempts, resolvedSource: result.resolvedSource }, result.nextActions),
           options.json
         );
         process.exitCode = 1;

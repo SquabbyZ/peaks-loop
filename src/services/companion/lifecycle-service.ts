@@ -82,6 +82,13 @@ export type StartOptions = {
   spawn?: typeof spawnCompanion;
   /** Path env used to resolve the binary (defaults to process.env.PATH). */
   pathEnv?: string;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin (slice 2): cwd used to scope
+   * the node_modules lookup. Defaults to process.cwd(). Tests use
+   * this to point resolution at a tmp dir without touching the
+   * peaks-cli install's own node_modules.
+   */
+  cwd?: string;
   /** Force-start even if a previous process record exists (kill+relaunch). */
   force?: boolean;
   /** Override the home dir (test seam). */
@@ -110,7 +117,10 @@ export async function startCcConnect(options: StartOptions = {}): Promise<StartR
   if (existing !== null) {
     clearProcessRecord(options.home);
   }
-  const probe = await probeCcConnect(options.pathEnv !== undefined ? { pathEnv: options.pathEnv } : {});
+  const probe = await probeCcConnect({
+    ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
+    ...(options.pathEnv !== undefined ? { pathEnv: options.pathEnv } : {})
+  });
   if (!probe.ok || probe.binaryPath === null) {
     return {
       started: false,
@@ -297,6 +307,11 @@ export type StatusOptions = {
   pathEnv?: string;
   /** Inject a custom probe (default: probeCcConnect). */
   probe?: typeof probeCcConnect;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin (slice 2): cwd used to scope
+   * the node_modules lookup (defaults to process.cwd()).
+   */
+  cwd?: string;
   /** Override the home dir (test seam). */
   home?: string;
 };
@@ -305,7 +320,11 @@ export async function statusCcConnect(options: StatusOptions = {}): Promise<Stat
   const record = readProcessRecord(options.home);
   const alive = record !== null && isPidAlive(record.pid);
   const probeFn = options.probe ?? probeCcConnect;
-  const probe = await probeFn(options.pathEnv !== undefined ? { pathEnv: options.pathEnv, skipSpawn: true } : { skipSpawn: true });
+  const probe = await probeFn({
+    ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
+    ...(options.pathEnv !== undefined ? { pathEnv: options.pathEnv } : {}),
+    skipSpawn: true
+  });
   const cache = readBinaryPathCache(options.home);
   const state = readCcConnectState();
   return {

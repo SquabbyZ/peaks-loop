@@ -815,20 +815,27 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // clean checkout that hasn't installed the companion. The fix
   // path is `peaks companion install`. Mirrors the existing
   // `statusline:install` pattern: informational, not failing.
+  //
+  // Slice 2026-06-14-cc-connect-weixin (slice 2): the resolver
+  // prefers `node_modules/.bin/cc-connect` (peaks-cli's own dep) and
+  // falls back to PATH. We report the source so users can tell at a
+  // glance whether cc-connect came from the peaks-cli dep or a
+  // global install.
   const companionProbe = options.companionBinaryProbe ?? defaultCompanionBinaryProbe;
   try {
     const companionResult = await companionProbe();
     if (companionResult.ok && companionResult.binaryPath !== null && companionResult.version !== null) {
+      const sourceLabel = companionResult.resolvedSource === 'node-modules' ? 'node_modules/.bin' : companionResult.resolvedSource === 'path' ? 'PATH' : 'unknown';
       checks.push({
         id: 'capability:companion-binary-resolution',
         ok: true,
-        message: `cc-connect@${companionResult.version} resolves at ${companionResult.binaryPath}`
+        message: `cc-connect@${companionResult.version} resolves at ${companionResult.binaryPath} (source=${sourceLabel})`
       });
     } else {
       checks.push({
         id: 'capability:companion-binary-resolution',
         ok: true,
-        message: `cc-connect binary not found on PATH (${companionResult.error ?? 'unknown reason'}); run \`peaks companion install\` to install it (informational, not failing)`
+        message: `cc-connect binary not found (${companionResult.error ?? 'unknown reason'}); run \`peaks companion install\` to verify the peaks-cli dep pulled cc-connect (informational, not failing)`
       });
     }
   } catch (error) {

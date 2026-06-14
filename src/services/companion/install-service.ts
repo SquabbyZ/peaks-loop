@@ -1,25 +1,33 @@
 /**
  * Slice 2026-06-14-cc-connect-weixin (slice 2) — install service.
- * Wraps `npm i -g cc-connect@latest` with a `brew install
- * cc-connect` fallback on macOS / Linux brew. On success,
- * probes the binary via `probeCcConnect` and writes the
- * `~/.peaks/companion/cc-connect-binary-path.txt` cache (AC1).
  *
- * No background / opt-out: this is the explicit `peaks companion
- * install` entry point. The peaks-cli `postinstall` script does
- * NOT invoke this (preserved-behavior clause in the PRD).
+ * cc-connect is a peaks-cli `dependencies` entry. The `pnpm install`
+ * (or `npm install`) step on peaks-cli pulls cc-connect and its
+ * `postinstall` script downloads the platform-specific Go binary.
+ * `peaks companion install` is therefore a *verify* command, not an
+ * installer:
+ *
+ *   1. Resolve the binary via `resolveCcConnectAny` (node_modules
+ *      first, then PATH).
+ *   2. Probe via `cc-connect --version`.
+ *   3. Write the resolved path to
+ *      `~/.peaks/companion/cc-connect-binary-path.txt` so subsequent
+ *      peaks-cli invocations skip the resolution walk.
+ *
+ * The legacy `npm i -g cc-connect@latest` / `brew install cc-connect`
+ * shells from slice 1 are gone — those are now irrelevant because
+ * peaks-cli's own install pulls the binary.
  */
-import { spawn } from 'node:child_process';
-import { probeCcConnect } from './cc-connect-resolver.js';
+import { probeCcConnect, resolveCcConnectAny } from './cc-connect-resolver.js';
 import { writeBinaryPathCache } from './binary-cache.js';
 import { getErrorMessage } from '../../shared/result.js';
 import type { CompanionProbe } from './companion-types.js';
 
 export const CC_CONNECT_NPM_PACKAGE = 'cc-connect';
-export const INSTALL_TIMEOUT_MS = 300_000;
 
 export type InstallAttempt = {
-  method: 'npm' | 'brew';
+  /** A no-op marker attempt (we don't shell out anymore). */
+  method: 'verify';
   command: string;
   ok: boolean;
   exitCode: number | null;
@@ -36,146 +44,160 @@ export type InstallResult = {
   cachePath: string;
   nextActions: string[];
   error: string | null;
+  /** Where the binary was resolved from; null when nothing was found. */
+  resolvedSource: 'node-modules' | 'path' | null;
 };
 
+/**
+ * The legacy "runner" signature is preserved (as a no-op type) so
+ * existing call sites / tests don't break on import. The runner is
+ * never invoked — the verify pass doesn't shell out.
+ */
 export type RunInstallCommand = (
   method: 'npm' | 'brew',
   command: string,
   args: readonly string[]
 ) => Promise<{ code: number; stdout: string; stderr: string; durationMs: number }>;
 
-export function defaultRunInstallCommand(
-  method: 'npm' | 'brew',
-  command: string,
-  args: readonly string[]
-): Promise<{ code: number; stdout: string; stderr: string; durationMs: number }> {
-  return new Promise((resolve) => {
-    const started = Date.now();
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-    child.on('error', (err) => {
-      resolve({ code: -1, stdout, stderr: `${stderr}${err.message}`, durationMs: Date.now() - started });
-    });
-    child.on('close', (code) => {
-      resolve({ code: code ?? -1, stdout, stderr, durationMs: Date.now() - started });
-    });
-  });
-}
-
 export type InstallOptions = {
-  /** Skip npm and try brew first. Defaults to npm-then-brew. */
-  preferBrew?: boolean;
-  /** Inject a runner for tests. */
-  runCommand?: RunInstallCommand;
-  /** Force a specific version. */
-  version?: string;
-  /** Path env to probe with after install. */
+  /** Inject a custom resolver for tests (e.g. a tmp cwd with a fake node_modules/.bin). */
+  resolveBinary?: typeof resolveCcConnectAny;
+  /** Inject a custom probe for tests. */
+  probe?: typeof probeCcConnect;
+  /** Cwd to resolve relative to (test seam). Defaults to process.cwd(). */
+  cwd?: string;
+  /** PATH to resolve against (test seam). Defaults to process.env.PATH. */
   pathEnv?: string;
-  /** Skip the post-install probe+cache write. */
+  /** Skip the post-verify probe (path-cache write still runs if resolve succeeded). */
   skipPostProbe?: boolean;
+  /** Skip the --version spawn; only use the resolver (test seam). */
+  skipSpawn?: boolean;
   /** Override the home dir for the binary cache write (test seam). */
   home?: string;
 };
 
-function buildAttempts(opts: { preferBrew: boolean; version?: string }): { method: 'npm' | 'brew'; command: string; args: string[] }[] {
-  const attempts: { method: 'npm' | 'brew'; command: string; args: string[] }[] = [];
-  const pkgSpec = opts.version ? `${CC_CONNECT_NPM_PACKAGE}@${opts.version}` : `${CC_CONNECT_NPM_PACKAGE}@latest`;
-  if (opts.preferBrew) {
-    attempts.push({ method: 'brew', command: 'brew', args: ['install', CC_CONNECT_NPM_PACKAGE] });
-    attempts.push({ method: 'npm', command: 'npm', args: ['install', '-g', pkgSpec] });
-  } else {
-    attempts.push({ method: 'npm', command: 'npm', args: ['install', '-g', pkgSpec] });
-    attempts.push({ method: 'brew', command: 'brew', args: ['install', CC_CONNECT_NPM_PACKAGE] });
-  }
-  return attempts;
-}
-
 export async function installCcConnect(options: InstallOptions = {}): Promise<InstallResult> {
-  const attempts: InstallAttempt[] = [];
-  const runner = options.runCommand ?? defaultRunInstallCommand;
-  const plan = buildAttempts({ preferBrew: options.preferBrew === true, ...(options.version !== undefined ? { version: options.version } : {}) });
-  for (const step of plan) {
-    const result = await runner(step.method, step.command, step.args);
-    attempts.push({
-      method: step.method,
-      command: `${step.command} ${step.args.join(' ')}`,
-      ok: result.code === 0,
-      exitCode: result.code,
-      durationMs: result.durationMs,
-      error: result.code === 0 ? null : getErrorMessage(new Error(result.stderr.trim() || `exit ${result.code}`))
-    });
-    if (result.code === 0) break;
-  }
-  const anyOk = attempts.some((a) => a.ok);
-  if (!anyOk) {
+  const started = Date.now();
+  const resolver = options.resolveBinary ?? resolveCcConnectAny;
+  const probe = options.probe ?? probeCcConnect;
+  const cwd = options.cwd ?? process.cwd();
+  const pathEnv = options.pathEnv;
+
+  const resolved = resolver({ cwd, ...(pathEnv !== undefined ? { pathEnv } : {}) });
+  if (resolved === null) {
     return {
       installed: false,
       binaryPath: null,
       version: null,
-      attempts,
+      attempts: [
+        {
+          method: 'verify',
+          command: 'resolve cc-connect (node_modules, then PATH)',
+          ok: false,
+          exitCode: null,
+          durationMs: Date.now() - started,
+          error: 'cc-connect not found in node_modules/.bin, the installed package bin, or PATH'
+        }
+      ],
       cacheWritten: false,
       cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
       nextActions: [
-        'Verify npm has global write permission (try `npm config get prefix` then `ls` it).',
-        'On macOS, verify Homebrew is installed (`brew --version`).',
-        'On Linux, see https://github.com/chenhg5/cc-connect for manual install instructions.'
+        'Run `pnpm install` (or `npm install`) to pull cc-connect as a peaks-cli dependency; its `postinstall` script downloads the Go binary into node_modules/.bin/cc-connect.',
+        'If you prefer a global install, run `npm i -g cc-connect@latest` (or `brew install cc-connect`) so the binary is on PATH; the resolver falls back to PATH after node_modules.'
       ],
-      error: 'all install attempts failed; see attempts[] for details'
+      error: 'cc-connect binary not resolved; see nextActions',
+      resolvedSource: null
     };
   }
+
   if (options.skipPostProbe === true) {
     return {
       installed: true,
-      binaryPath: null,
+      binaryPath: resolved.binaryPath,
       version: null,
-      attempts,
+      attempts: [
+        {
+          method: 'verify',
+          command: 'resolve cc-connect (node_modules, then PATH)',
+          ok: true,
+          exitCode: null,
+          durationMs: Date.now() - started,
+          error: null
+        }
+      ],
       cacheWritten: false,
       cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
-      nextActions: ['probe skipped; run `peaks companion status` to refresh the cache'],
-      error: null
+      nextActions: ['probe skipped; run `peaks companion install` again to populate the binary-path cache'],
+      error: null,
+      resolvedSource: resolved.source
     };
   }
-  const probe = await probeCcConnect(options.pathEnv !== undefined ? { pathEnv: options.pathEnv } : {});
-  if (!probe.ok || probe.binaryPath === null || probe.version === null) {
+
+  const probeResult: CompanionProbe = await probe({
+    cwd,
+    ...(pathEnv !== undefined ? { pathEnv } : {}),
+    ...(options.skipSpawn === true ? { skipSpawn: true } : {})
+  });
+  if (!probeResult.ok || probeResult.binaryPath === null || probeResult.version === null) {
     return {
       installed: true,
-      binaryPath: null,
+      binaryPath: resolved.binaryPath,
       version: null,
-      attempts,
+      attempts: [
+        {
+          method: 'verify',
+          command: 'resolve cc-connect (node_modules, then PATH)',
+          ok: true,
+          exitCode: null,
+          durationMs: Date.now() - started,
+          error: null
+        }
+      ],
       cacheWritten: false,
       cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
       nextActions: [
-        'install reported success but the binary is not on PATH; check the install output',
-        'verify the install completed; run `peaks companion status` after a shell reload'
+        `Binary resolved at ${resolved.binaryPath} (source=${resolved.source}) but the version probe failed: ${probeResult.error ?? 'unknown'}`,
+        'Re-run `pnpm install` to re-trigger cc-connect postinstall, then re-run `peaks companion install` to re-probe.'
       ],
-      error: probe.error ?? 'cc-connect not on PATH after install'
+      error: probeResult.error ?? 'cc-connect --version probe failed',
+      resolvedSource: resolved.source
     };
   }
-  const cacheResult = writeBinaryPathCache({
-    binaryPath: probe.binaryPath,
-    version: probe.version,
-    resolvedAt: new Date().toISOString(),
-    source: 'INSTALL'
-  }, options.home);
+
+  const cacheResult = writeBinaryPathCache(
+    {
+      binaryPath: probeResult.binaryPath,
+      version: probeResult.version,
+      resolvedAt: new Date().toISOString(),
+      source: probeResult.resolvedSource === 'node-modules' ? 'NODE_MODULES' : 'PATH'
+    },
+    options.home
+  );
   return {
     installed: true,
-    binaryPath: probe.binaryPath,
-    version: probe.version,
-    attempts,
+    binaryPath: probeResult.binaryPath,
+    version: probeResult.version,
+    attempts: [
+      {
+        method: 'verify',
+        command: 'resolve + probe cc-connect',
+        ok: true,
+        exitCode: 0,
+        durationMs: Date.now() - started,
+        error: null
+      }
+    ],
     cacheWritten: cacheResult.ok,
     cachePath: cacheResult.path,
     nextActions: cacheResult.ok
-      ? [`next: run \`peaks companion setup\` to render the iLink QR for WeChat pairing`]
-      : [`cache write failed (${cacheResult.error}); binary is installed at ${probe.binaryPath}`],
-    error: cacheResult.ok ? null : cacheResult.error
+      ? [`binary path cached; next: run \`peaks companion setup\` to render the iLink QR for WeChat pairing`]
+      : [`cache write failed (${cacheResult.error}); binary is installed at ${probeResult.binaryPath}`],
+    error: cacheResult.ok ? null : cacheResult.error,
+    resolvedSource: probeResult.resolvedSource ?? null
   };
 }
 
 export type ProbeSummary = Pick<CompanionProbe, 'binaryPath' | 'version' | 'ok' | 'error'>;
+
+// re-export so older import paths keep working
+export { getErrorMessage };

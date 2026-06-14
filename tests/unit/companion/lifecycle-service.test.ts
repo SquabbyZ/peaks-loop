@@ -45,7 +45,10 @@ function dropFakeBinary(): string {
 
 describe('startCcConnect', () => {
   it('returns started=false with a clear error when the binary is not on PATH', async () => {
-    const result = await startCcConnect({ pathEnv: '/no/such/dir', home: tmp });
+    // Use a tmp cwd so the resolver doesn't accidentally pick up
+    // peaks-cli's own node_modules/.bin/cc-connect (which now exists
+    // because slice 2 added cc-connect as a peaks-cli dep).
+    const result = await startCcConnect({ pathEnv: '/no/such/dir', cwd: tmp, home: tmp });
     expect(result.started).toBe(false);
     expect(result.alreadyRunning).toBe(false);
     expect(result.error).toMatch(/cc-connect|PATH/i);

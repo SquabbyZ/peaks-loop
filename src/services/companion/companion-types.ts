@@ -26,6 +26,13 @@ export type CompanionProbe = {
   ok: boolean;
   /** Underlying error message when ok=false. */
   error: string | null;
+  /**
+   * Where the binary was resolved from. Slice
+   * 2026-06-14-cc-connect-weixin (slice 2): prefer
+   * `node-modules` (peaks-cli's own dep), then fall back to `path`.
+   * `null` when no binary was found.
+   */
+  resolvedSource?: 'node-modules' | 'path' | null;
 };
 
 export type CompanionBinaryCacheRecord = {
