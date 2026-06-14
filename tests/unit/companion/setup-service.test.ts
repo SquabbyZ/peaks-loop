@@ -12,6 +12,7 @@ import { ccConnectConfigFile } from '../../../src/services/companion/config-temp
 import type { CompanionStateSnapshot } from '../../../src/services/companion/state-parser.js';
 import type { CompanionPairingState } from '../../../src/services/companion/companion-types.js';
 import type { CompanionConfig } from '../../../src/services/config/config-types.js';
+import type { CompanionProbe } from '../../../src/services/companion/companion-types.js';
 
 let tmp: string;
 let previousHome: string | undefined;
@@ -37,9 +38,24 @@ function dropFakeBinary(): string {
   return dir;
 }
 
-function fakeProbeOk(binaryPath: string) {
-  return async (_options?: { pathEnv?: string; platform?: NodeJS.Platform; spawnFn?: unknown; skipSpawn?: boolean }) =>
-    ({ binaryPath, version: '1.3.2', ok: true, error: null });
+function fakeProbeOk(binaryPath: string, resolvedSource: 'node-modules' | 'path' | null = 'node-modules'): typeof import('../../../src/services/companion/cc-connect-resolver.js').probeCcConnect {
+  return (async (_options?: { pathEnv?: string; platform?: NodeJS.Platform; spawnFn?: unknown; skipSpawn?: boolean }) =>
+    ({ binaryPath, version: '1.3.2', ok: true, error: null, resolvedSource })) as unknown as typeof import('../../../src/services/companion/cc-connect-resolver.js').probeCcConnect;
+}
+
+/** Returns a fake probe whose resolvedSource can be customized per test. */
+function fakeProbeWithSource(binaryPath: string, resolvedSource: 'node-modules' | 'path' | null): typeof import('../../../src/services/companion/cc-connect-resolver.js').probeCcConnect {
+  return fakeProbeOk(binaryPath, resolvedSource);
+}
+
+/** Captures the argv the spawn was called with. */
+function fakeSpawnSetupCapture() {
+  const calls: Array<{ binaryPath: string; args: readonly string[] }> = [];
+  const factory = (binaryPath: string, args: readonly string[]) => {
+    calls.push({ binaryPath, args });
+    return { kill: () => {}, pid: 54321 };
+  };
+  return { calls, factory };
 }
 
 function fakeProbeFail() {
@@ -293,6 +309,127 @@ describe('runCompanionSetup', () => {
     });
     expect(state.error).toMatch(/QR render failed/);
     expect(state.qrRendered).toBe(false);
+  });
+});
+
+// BUG 2026-06-14-cc-connect-weixin#3: setup-service previously
+// wrote `source: 'SETUP'` to the binary cache, which the legacy
+// `sourceToCompanionBinarySource` enum didn't recognize, so the
+// peaks-config mirror landed on `binaryPathSource: null`. The fix
+// passes `probe.resolvedSource` (uppercased) instead, so the
+// enum resolves cleanly to `'node-modules' | 'path'`.
+
+describe('runCompanionSetup — BUG 3: binaryPathSource regression', () => {
+  function peaksConfigPath(home: string): string {
+    return join(home, '.peaks', 'config.json');
+  }
+
+  function readPeaksConfigCompanion(home: string): { binaryPath: string | null; binaryPathSource: string | null } | null {
+    const p = peaksConfigPath(home);
+    if (!existsSync(p)) return null;
+    const raw = JSON.parse(readFileSync(p, 'utf8')) as { companion?: { binaryPath?: string | null; binaryPathSource?: string | null } };
+    if (raw.companion === undefined) return null;
+    return { binaryPath: raw.companion.binaryPath ?? null, binaryPathSource: raw.companion.binaryPathSource ?? null };
+  }
+
+  it('mirrors binaryPathSource="node-modules" (not null) into peaks config after a node-modules setup', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeWithSource(bin, 'node-modules'),
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    const mirror = readPeaksConfigCompanion(tmp);
+    expect(mirror).not.toBeNull();
+    expect(mirror?.binaryPath).toBe(bin);
+    expect(mirror?.binaryPathSource).toBe('node-modules');
+  });
+
+  it('mirrors binaryPathSource="path" into peaks config when probe resolved from PATH', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeWithSource(bin, 'path'),
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    const mirror = readPeaksConfigCompanion(tmp);
+    expect(mirror?.binaryPath).toBe(bin);
+    expect(mirror?.binaryPathSource).toBe('path');
+  });
+
+  it('falls back to "node-modules" when probe returns resolvedSource=null but version is known', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeWithSource(bin, null),
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    const mirror = readPeaksConfigCompanion(tmp);
+    expect(mirror?.binaryPath).toBe(bin);
+    expect(mirror?.binaryPathSource).toBe('node-modules');
+  });
+});
+
+// BUG 2026-06-14-cc-connect-weixin#4: setup's spawn argv was
+// historically incorrect (cc-connect was invoked without the
+// `weixin setup` subcommand, dumping help and exiting). The fix
+// asserts the canonical argv and that --timeout fires within
+// (timeoutMs + pollInterval) regardless of state-reader output.
+
+describe('runCompanionSetup — BUG 4: spawn argv + deadline race', () => {
+  it('spawns cc-connect with `weixin setup` subcommand (and --project)', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const { calls, factory } = fakeSpawnSetupCapture();
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeWithSource(bin, 'node-modules'),
+      projectName: 'team-bot',
+      spawnSetup: factory,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.binaryPath).toBe(bin);
+    expect(calls[0]?.args).toEqual(['weixin', 'setup', '--project', 'team-bot']);
+  });
+
+  it('fires --timeout within the deadline (no fake logged-in state)', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const startedAt = Date.now();
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeWithSource(bin, 'node-modules'),
+      timeoutMs: 200,
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['not-scanned', 'not-scanned', 'not-scanned'])
+    });
+    const elapsed = Date.now() - startedAt;
+    expect(state.error).toMatch(/did not reach "logged-in"/);
+    expect(state.pairing).toBe('not-scanned');
+    // 200ms timeout + up to one ~1s poll interval slack.
+    expect(elapsed).toBeGreaterThanOrEqual(200);
+    expect(elapsed).toBeLessThan(1500);
   });
 });
 

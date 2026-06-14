@@ -178,8 +178,21 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
   }
   state.binaryPath = probe.binaryPath;
   if (probe.version !== null) {
+    // Use the probe's resolvedSource (uppercased) so the peaks-config
+    // mirror via `sourceToCompanionBinarySource` lands on the right
+    // enum value ('node-modules' or 'path'). The legacy literal
+    // 'SETUP' is unknown to the enum and would wipe binaryPathSource
+    // to null in ~/.peaks/config.json (bug 2026-06-14-cc-connect-weixin#3).
+    // Fall back to NODE_MODULES when the probe couldn't tag a source
+    // (rare; happens when the resolver returned null source but the
+    // probe still produced a binary path).
+    const sourceUpper = probe.resolvedSource === 'node-modules'
+      ? 'NODE_MODULES'
+      : probe.resolvedSource === 'path'
+        ? 'PATH'
+        : 'NODE_MODULES';
     const cached = cacheWriter(
-      { binaryPath: probe.binaryPath, version: probe.version, resolvedAt: new Date().toISOString(), source: 'SETUP' },
+      { binaryPath: probe.binaryPath, version: probe.version, resolvedAt: new Date().toISOString(), source: sourceUpper },
       home
     );
     if (!cached.ok) {
@@ -239,9 +252,19 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
     return state;
   }
 
+  // Capture the deadline BEFORE the spawn so the --timeout clock
+  // starts at setup entry, not after the spawn returns (bug
+  // 2026-06-14-cc-connect-weixin#4: `--timeout` was occasionally
+  // racing the spawn completion path).
+  const deadline = Date.now() + timeoutMs;
+
+  // The cc-connect weixin setup flow handles iLink QR generation +
+  // pairing state-machine progression. argv is fixed: subcommand
+  // `weixin setup` (per `cc-connect --help`); the binary writes its
+  // own state to `~/.cc-connect/state.json` which the polling loop
+  // reads below.
   const setupProc = spawnSetup(probe.binaryPath, ['weixin', 'setup', '--project', options.projectName ?? 'default']);
 
-  const deadline = Date.now() + timeoutMs;
   let latest: CompanionPairingState = 'unknown';
   try {
     while (Date.now() < deadline) {
