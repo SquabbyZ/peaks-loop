@@ -19,7 +19,7 @@
  * peaks-cli's own install pulls the binary.
  */
 import { probeCcConnect, resolveCcConnectAny } from './cc-connect-resolver.js';
-import { writeBinaryPathCache } from './binary-cache.js';
+import { writeBinaryPathCache, binaryPathCacheFile } from './binary-cache.js';
 import { getErrorMessage } from '../../shared/result.js';
 import type { CompanionProbe } from './companion-types.js';
 
@@ -76,8 +76,30 @@ export type InstallOptions = {
   home?: string;
 };
 
-export async function installCcConnect(options: InstallOptions = {}): Promise<InstallResult> {
-  const started = Date.now();
+/**
+ * BUG FIX (2026-06-14 dogfood): shared verify primitive used by both
+ * `installCcConnect` (mutating: writes the binary-path cache) and
+ * `scanCcConnect` (non-mutating: dry-run only). Pulled out of
+ * `installCcConnect` so the dry-run scan command can call the same
+ * resolver + probe without inheriting the cache-write side effect.
+ */
+export type VerifyOptions = {
+  resolveBinary?: typeof resolveCcConnectAny;
+  probe?: typeof probeCcConnect;
+  cwd?: string;
+  pathEnv?: string;
+  skipSpawn?: boolean;
+};
+
+export type VerifyResult = {
+  ok: boolean;
+  binaryPath: string | null;
+  version: string | null;
+  resolvedSource: 'node-modules' | 'path' | null;
+  error: string | null;
+};
+
+export async function verifyCcConnectBinary(options: VerifyOptions = {}): Promise<VerifyResult> {
   const resolver = options.resolveBinary ?? resolveCcConnectAny;
   const probe = options.probe ?? probeCcConnect;
   const cwd = options.cwd ?? process.cwd();
@@ -86,97 +108,184 @@ export async function installCcConnect(options: InstallOptions = {}): Promise<In
   const resolved = resolver({ cwd, ...(pathEnv !== undefined ? { pathEnv } : {}) });
   if (resolved === null) {
     return {
-      installed: false,
+      ok: false,
       binaryPath: null,
+      version: null,
+      resolvedSource: null,
+      error: 'cc-connect binary not resolved (checked node_modules/.bin, require.resolve, and PATH)'
+    };
+  }
+  if (options.skipSpawn === true) {
+    return {
+      ok: true,
+      binaryPath: resolved.binaryPath,
+      version: null,
+      resolvedSource: resolved.source,
+      error: null
+    };
+  }
+  const probeResult: CompanionProbe = await probe({
+    cwd,
+    ...(pathEnv !== undefined ? { pathEnv } : {})
+  });
+  return {
+    ok: probeResult.ok,
+    binaryPath: probeResult.binaryPath,
+    version: probeResult.version,
+    resolvedSource: probeResult.resolvedSource ?? null,
+    error: probeResult.ok ? null : (probeResult.error ?? 'cc-connect --version probe failed')
+  };
+}
+
+export async function installCcConnect(options: InstallOptions = {}): Promise<InstallResult> {
+  const started = Date.now();
+  const verify = await verifyCcConnectBinary({
+    ...(options.resolveBinary !== undefined ? { resolveBinary: options.resolveBinary } : {}),
+    ...(options.probe !== undefined ? { probe: options.probe } : {}),
+    cwd: options.cwd ?? process.cwd(),
+    ...(options.pathEnv !== undefined ? { pathEnv: options.pathEnv } : {}),
+    // `skipPostProbe` implies "resolve only, don't spawn --version" — same
+    // effect as `skipSpawn`. The legacy test relied on this contract.
+    skipSpawn: options.skipSpawn === true || options.skipPostProbe === true
+  });
+  const cachePath = binaryPathCacheFile(options.home);
+
+  if (!verify.ok || verify.binaryPath === null) {
+    if (verify.binaryPath === null) {
+      return {
+        installed: false,
+        binaryPath: null,
+        version: null,
+        attempts: [
+          {
+            method: 'verify',
+            command: 'resolve cc-connect (node_modules, then PATH)',
+            ok: false,
+            exitCode: null,
+            durationMs: Date.now() - started,
+            error: verify.error ?? 'cc-connect not found in node_modules/.bin, the installed package bin, or PATH'
+          }
+        ],
+        cacheWritten: false,
+        cachePath,
+        nextActions: [
+          'Run `pnpm install` (or `npm install`) to pull cc-connect as a peaks-cli dependency; its `postinstall` script downloads the Go binary into node_modules/.bin/cc-connect.',
+          'If you prefer a global install, run `npm i -g cc-connect@latest` (or `brew install cc-connect`) so the binary is on PATH; the resolver falls back to PATH after node_modules.'
+        ],
+        error: verify.error ?? 'cc-connect binary not resolved; see nextActions',
+        resolvedSource: null
+      };
+    }
+    // Resolver succeeded, probe failed.
+    if (options.skipPostProbe === true) {
+      return {
+        installed: true,
+        binaryPath: verify.binaryPath,
+        version: null,
+        attempts: [
+          {
+            method: 'verify',
+            command: 'resolve cc-connect (node_modules, then PATH)',
+            ok: true,
+            exitCode: null,
+            durationMs: Date.now() - started,
+            error: null
+          }
+        ],
+        cacheWritten: false,
+        cachePath,
+        nextActions: ['probe skipped; run `peaks companion install` again to populate the binary-path cache'],
+        error: null,
+        resolvedSource: verify.resolvedSource
+      };
+    }
+    return {
+      installed: true,
+      binaryPath: verify.binaryPath,
       version: null,
       attempts: [
         {
           method: 'verify',
           command: 'resolve cc-connect (node_modules, then PATH)',
-          ok: false,
+          ok: true,
           exitCode: null,
           durationMs: Date.now() - started,
-          error: 'cc-connect not found in node_modules/.bin, the installed package bin, or PATH'
+          error: null
         }
       ],
       cacheWritten: false,
-      cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
+      cachePath,
       nextActions: [
-        'Run `pnpm install` (or `npm install`) to pull cc-connect as a peaks-cli dependency; its `postinstall` script downloads the Go binary into node_modules/.bin/cc-connect.',
-        'If you prefer a global install, run `npm i -g cc-connect@latest` (or `brew install cc-connect`) so the binary is on PATH; the resolver falls back to PATH after node_modules.'
+        `Binary resolved at ${verify.binaryPath} (source=${verify.resolvedSource}) but the version probe failed: ${verify.error ?? 'unknown'}`,
+        'Re-run `pnpm install` to re-trigger cc-connect postinstall, then re-run `peaks companion install` to re-probe.'
       ],
-      error: 'cc-connect binary not resolved; see nextActions',
-      resolvedSource: null
+      error: verify.error ?? 'cc-connect --version probe failed',
+      resolvedSource: verify.resolvedSource
     };
   }
+
+  const probeBinary = verify.binaryPath;
+  const probeVersion = verify.version;
 
   if (options.skipPostProbe === true) {
     return {
       installed: true,
-      binaryPath: resolved.binaryPath,
+      binaryPath: probeBinary,
       version: null,
       attempts: [
         {
           method: 'verify',
           command: 'resolve cc-connect (node_modules, then PATH)',
           ok: true,
-          exitCode: null,
+          exitCode: 0,
           durationMs: Date.now() - started,
           error: null
         }
       ],
       cacheWritten: false,
-      cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
+      cachePath,
       nextActions: ['probe skipped; run `peaks companion install` again to populate the binary-path cache'],
       error: null,
-      resolvedSource: resolved.source
+      resolvedSource: verify.resolvedSource
     };
   }
 
-  const probeResult: CompanionProbe = await probe({
-    cwd,
-    ...(pathEnv !== undefined ? { pathEnv } : {}),
-    ...(options.skipSpawn === true ? { skipSpawn: true } : {})
-  });
-  if (!probeResult.ok || probeResult.binaryPath === null || probeResult.version === null) {
+  if (probeVersion === null) {
     return {
       installed: true,
-      binaryPath: resolved.binaryPath,
+      binaryPath: probeBinary,
       version: null,
       attempts: [
         {
           method: 'verify',
           command: 'resolve cc-connect (node_modules, then PATH)',
           ok: true,
-          exitCode: null,
+          exitCode: 0,
           durationMs: Date.now() - started,
           error: null
         }
       ],
       cacheWritten: false,
-      cachePath: '~/.peaks/companion/cc-connect-binary-path.txt',
-      nextActions: [
-        `Binary resolved at ${resolved.binaryPath} (source=${resolved.source}) but the version probe failed: ${probeResult.error ?? 'unknown'}`,
-        'Re-run `pnpm install` to re-trigger cc-connect postinstall, then re-run `peaks companion install` to re-probe.'
-      ],
-      error: probeResult.error ?? 'cc-connect --version probe failed',
-      resolvedSource: resolved.source
+      cachePath,
+      nextActions: [`Binary resolved at ${probeBinary} but version probe returned no version; rerun without --skip-probe to retry`],
+      error: null,
+      resolvedSource: verify.resolvedSource
     };
   }
 
   const cacheResult = writeBinaryPathCache(
     {
-      binaryPath: probeResult.binaryPath,
-      version: probeResult.version,
+      binaryPath: probeBinary,
+      version: probeVersion,
       resolvedAt: new Date().toISOString(),
-      source: probeResult.resolvedSource === 'node-modules' ? 'NODE_MODULES' : 'PATH'
+      source: verify.resolvedSource === 'node-modules' ? 'NODE_MODULES' : 'PATH'
     },
     options.home
   );
   return {
     installed: true,
-    binaryPath: probeResult.binaryPath,
-    version: probeResult.version,
+    binaryPath: probeBinary,
+    version: probeVersion,
     attempts: [
       {
         method: 'verify',
@@ -191,13 +300,63 @@ export async function installCcConnect(options: InstallOptions = {}): Promise<In
     cachePath: cacheResult.path,
     nextActions: cacheResult.ok
       ? [`binary path cached; next: run \`peaks companion setup\` to render the iLink QR for WeChat pairing`]
-      : [`cache write failed (${cacheResult.error}); binary is installed at ${probeResult.binaryPath}`],
+      : [`cache write failed (${cacheResult.error}); binary is installed at ${probeBinary}`],
     error: cacheResult.ok ? null : cacheResult.error,
-    resolvedSource: probeResult.resolvedSource ?? null
+    resolvedSource: verify.resolvedSource
   };
 }
 
 export type ProbeSummary = Pick<CompanionProbe, 'binaryPath' | 'version' | 'ok' | 'error'>;
+
+/**
+ * BUG FIX (2026-06-14 dogfood): dry-run binary probe. Re-uses
+ * `verifyCcConnectBinary` and explicitly does NOT write the
+ * binary-path cache. Drives `peaks companion scan`.
+ *
+ * The result is rendered as-is by the CLI — no cache side effect.
+ */
+export type ScanOptions = VerifyOptions & {
+  /** Override the home dir used for the cache-path lookup (test seam). */
+  home?: string;
+};
+
+export type ScanResult = {
+  ok: boolean;
+  binaryPath: string | null;
+  version: string | null;
+  resolvedSource: 'node-modules' | 'path' | null;
+  cachePath: string;
+  cacheWritten: boolean;
+  error: string | null;
+  nextActions: string[];
+};
+
+export async function scanCcConnect(options: ScanOptions = {}): Promise<ScanResult> {
+  const { home, ...verifyOpts } = options;
+  const verify = await verifyCcConnectBinary(verifyOpts);
+  const cachePath = binaryPathCacheFile(home);
+  const nextActions: string[] = [];
+  if (verify.ok) {
+    nextActions.push(
+      `next: run \`peaks companion install\` to write the binary-path cache, or \`peaks companion setup\` to render the iLink QR`
+    );
+  } else {
+    nextActions.push(
+      'run `pnpm install` (or `npm install`) to pull cc-connect as a peaks-cli dependency; its `postinstall` script downloads the Go binary into node_modules/.bin/cc-connect.',
+      'If you prefer a global install, run `npm i -g cc-connect@latest` (or `brew install cc-connect`) so the binary is on PATH; the resolver falls back to PATH after node_modules.'
+    );
+  }
+  return {
+    ok: verify.ok,
+    binaryPath: verify.binaryPath,
+    version: verify.version,
+    resolvedSource: verify.resolvedSource,
+    cachePath,
+    cacheWritten: false,
+    error: verify.ok ? null : verify.error,
+    nextActions
+  };
+}
 
 // re-export so older import paths keep working
 export { getErrorMessage };

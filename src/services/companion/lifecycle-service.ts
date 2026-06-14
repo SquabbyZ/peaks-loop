@@ -327,11 +327,16 @@ export async function statusCcConnect(options: StatusOptions = {}): Promise<Stat
   });
   const cache = readBinaryPathCache(options.home);
   const state = readCcConnectState();
+  // BUG FIX (2026-06-14 dogfood): a stale PID record (PID is dead)
+  // may carry a binaryPath that no longer exists on disk; do not let
+  // it shadow the live probe / cache value. Only honor `record.binaryPath`
+  // when the PID is actually alive.
+  const recordBinary = alive ? record?.binaryPath ?? null : null;
   return {
     running: alive,
     channel: DEFAULT_COMPANION_CHANNEL,
     pid: alive ? record?.pid ?? null : null,
-    binaryPath: record?.binaryPath ?? probe.binaryPath ?? cache?.binaryPath ?? null,
+    binaryPath: recordBinary ?? probe.binaryPath ?? cache?.binaryPath ?? null,
     startedAt: alive ? record?.startedAt ?? null : null,
     pidFile: companionPidFile(options.home),
     logFile: companionLogFile(options.home),

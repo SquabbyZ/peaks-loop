@@ -204,4 +204,24 @@ describe('statusCcConnect', () => {
     expect(status.pid).toBe(process.pid);
     expect(status.startedAt).toBe('2026-06-14T08:00:00.000Z');
   });
+
+  // BUG FIX (2026-06-14 dogfood): a stale PID record (PID dead) that
+  // points at a non-existent binaryPath must NOT shadow the live
+  // probe resolution. Without this guard, `status` would render the
+  // stale path even though a working cc-connect is resolvable.
+  it('ignores stale binaryPath in PID record when PID is dead', async () => {
+    const dir = dropFakeBinary();
+    writeProcessRecord({
+      pid: 99999, // guaranteed-dead PID (well above any plausible kernel pid_max for tests)
+      binaryPath: '/tmp/fake/bin/cc-connect',
+      channel: 'weixin',
+      startedAt: '2026-06-14T08:00:00.000Z',
+      argv: ['--daemon']
+    }, tmp);
+    const status = await statusCcConnect({ pathEnv: dir, home: tmp, cwd: tmp });
+    expect(status.running).toBe(false);
+    expect(status.pid).toBeNull();
+    expect(status.binaryPath).not.toBe('/tmp/fake/bin/cc-connect');
+    expect(status.binaryPath).toBe(join(dir, 'cc-connect'));
+  });
 });

@@ -8,7 +8,7 @@
  * `--channel=<other>` exits with EX_USAGE (64) immediately.
  */
 import { Command, InvalidArgumentError } from 'commander';
-import { installCcConnect } from '../../services/companion/install-service.js';
+import { installCcConnect, scanCcConnect } from '../../services/companion/install-service.js';
 import {
   startCcConnect,
   stopCcConnect,
@@ -53,7 +53,7 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
     .command('companion')
     .description(
       'Manage the cc-connect companion binary (weixin channel only in this slice). ' +
-        'Subcommands: install | status | start | stop | restart | setup. ' +
+        'Subcommands: install | scan | status | start | stop | restart | setup. ' +
         '`--channel=<value>` only accepts `weixin`; other channels exit with EX_USAGE (64). ' +
         'Tip: ask your AI agent to run /peaks-companion to walk through the full setup.'
     );
@@ -86,6 +86,45 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       printResult(
         io,
         fail('companion.install', 'INSTALL_THREW', getErrorMessage(error), {}, ['see `peaks companion install --help` for usage']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // BUG FIX (2026-06-14 dogfood): add `peaks companion scan` —
+  // dry-run probe of the cc-connect binary. Reads only; never
+  // writes the binary-path cache. Aliased with `peaks scan
+  // companion-binary` (slice 1) so the CLI surface matches the
+  // PRD's AC8 forward claim.
+  addJsonOption(
+    companion
+      .command('scan')
+      .description('Dry-run probe of the cc-connect binary (read-only; does NOT write the binary-path cache).')
+      .option('--channel <name>', `channel (only ${COMPANION_CHANNELS.join(', ')} supported)`, parseChannel)
+  ).action(async (options: { channel?: CompanionChannel; json?: boolean }) => {
+    const check = rejectChannel(options.channel);
+    if (!check.ok) {
+      printResult(io, fail('companion.scan', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
+      process.exitCode = check.code;
+      return;
+    }
+    try {
+      const result = await scanCcConnect({});
+      if (!result.ok) {
+        printResult(
+          io,
+          fail('companion.scan', 'SCAN_FAILED', result.error ?? 'binary probe failed', { binaryPath: result.binaryPath, version: result.version, resolvedSource: result.resolvedSource }, result.nextActions),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, ok('companion.scan', result, [], result.nextActions), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('companion.scan', 'SCAN_THREW', getErrorMessage(error), {}, ['see `peaks companion scan --help` for usage']),
         options.json
       );
       process.exitCode = 1;
