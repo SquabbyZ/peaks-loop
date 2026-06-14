@@ -10,9 +10,11 @@
  *
  * Sub-cases (per PRD AC):
  *   (A) default flags → `.claude/settings.local.json` exists with the
- *       two hook matchers (Write|Edit|MultiEdit + Bash); the file
+ *       one hook matcher (Write|Edit|MultiEdit); the file
  *       content matches the template returned by
- *       `buildClaudeSettingsLocalJson()`.
+ *       `buildClaudeSettingsLocalJson()`. As of TEMPLATE_VERSION 1.2.0
+ *       the Bash matcher is no longer emitted; Bash enforcement is
+ *       owned by `peaks gate enforce` in `.claude/settings.json`.
  *   (B) `--no-claude-hooks` flag → file does NOT exist.
  *   (C) the path-matching logic in the hook command allows paths
  *       under `.peaks/_runtime/` and `.peaks/<changeId>/` and rejects
@@ -91,13 +93,14 @@ describe('workspace init — consumer-project .claude/settings.local.json (slice
     const expected = buildClaudeSettingsLocalJson();
     expect(onDisk).toEqual(expected);
 
-    // Both matchers must be present in the on-disk file.
+    // Slice 1.2.0: only the Write|Edit|MultiEdit matcher is emitted;
+    // the Bash matcher was removed. Bash enforcement is owned by
+    // `peaks gate enforce` in `settings.json`.
     const template = expected as {
       hooks: { PreToolUse: Array<{ matcher: string }> }
     };
     const matchers = template.hooks.PreToolUse.map((entry) => entry.matcher);
-    expect(matchers).toContain('Write|Edit|MultiEdit');
-    expect(matchers).toContain('Bash');
+    expect(matchers).toEqual(['Write|Edit|MultiEdit']);
   });
 
   test('case B — noClaudeHooks flag → .claude/settings.local.json is NOT created', async () => {

@@ -3,56 +3,36 @@
  * consumer-project `.claude/settings.local.json` file.
  *
  * The template is a PreToolUse hook allow-list that bypasses the
- * Claude Code [Fact-Forcing Gate] for tool calls whose paths or
- * commands target the peaks-managed `.peaks/` workspace. Without this
- * bypass, `peaks workspace init` (Step 0 of every peaks-solo session)
- * is unrunnable in a consumer project because the gate blocks the
- * very first Write.
+ * Claude Code [Fact-Forcing Gate] for tool calls whose paths target
+ * the peaks-managed `.peaks/` workspace. Without this bypass,
+ * `peaks workspace init` (Step 0 of every peaks-solo session) is
+ * unrunnable in a consumer project because the gate blocks the very
+ * first Write.
  *
  * The template is a pure-data function (no filesystem, no clock) so
  * it can be unit-tested in isolation and so the on-disk file matches
  * the in-memory template byte-for-byte.
  *
- * Two matchers are emitted:
+ * One matcher is emitted:
  *   1. `Write|Edit|MultiEdit` — a node one-liner that path-matches
  *      `.peaks/_runtime/` and `.peaks/<changeId>/`. Exits 0 (allow)
  *      for those paths, non-zero (deny → fall through to gate) for
  *      everything else.
- *   2. `Bash` — a node one-liner that allows command strings starting
- *      with `peaks ` (whitelisted subcommand prefix). Exits 0 for
- *      `peaks <subcommand> ...`, non-zero otherwise.
  *
- * The Bash allow-list is conservative: it whitelists the documented
- * peaks subcommands the skill family invokes during Step 0 (workspace,
- * skill presence, request, session, scan, sub-agent, gate, standards,
- * hooks, statusline). See peaks-solo/references/runbook.md for the
- * canonical list.
+ * The previous `Bash` matcher (which whitelisted a fixed `peaks
+ * <subcommand>` prefix) was removed in TEMPLATE_VERSION 1.2.0. The
+ * [Fact-Forcing Gate] is an Edit/Write concern (it forces the LLM
+ * to quote user instructions before any file write), and the Bash
+ * matcher was emitting `process.exit(1)` with no stderr on every
+ * non-peaks Bash call — a non-blocking "No stderr output" noise
+ * decoration in the Claude Code UI even though the underlying tool
+ * call still proceeded. Bash command enforcement is now owned by
+ * `peaks gate enforce`, which `peaks hooks install` injects into the
+ * consumer project's `.claude/settings.json` and which exits 0
+ * silently for any command not guarded by a registered SOP gate.
  */
 
 export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
-
-/**
- * Subcommand allow-list for the Bash matcher. The matcher allows any
- * command that starts with `peaks <subcommand>` for one of these
- * subcommands. Keep this list in sync with peaks-solo/references/runbook.md.
- */
-const PEAKS_SUBCOMMAND_ALLOWLIST: ReadonlyArray<string> = [
-  'workspace',
-  'skill',
-  'request',
-  'session',
-  'scan',
-  'sub-agent',
-  'gate',
-  'standards',
-  'hooks',
-  'statusline',
-  'memory',
-  'openspec',
-  'workflow',
-  'doctor',
-  'upgrade'
-];
 
 /**
  * Informational version of the offline template shape. Bumped when the
@@ -63,8 +43,17 @@ const PEAKS_SUBCOMMAND_ALLOWLIST: ReadonlyArray<string> = [
  * reading the diff can correlate a template change with a deliberate
  * bump. Future work may write a version-marker file to short-circuit
  * the comparator; for now the constant is informational only.
+ *
+ * History:
+ *   1.0.0 — initial template with `Write|Edit|MultiEdit` and `Bash`
+ *           matchers (slice 2.0.1-bug3-fact-forcing-bypass)
+ *   1.1.0 — added `node -e "..."` wrapper contract
+ *           (slice fix-claude-settings-template-hook-node-wrapper)
+ *   1.2.0 — removed the `Bash` matcher; Edit/Write fact-forcing
+ *           bypass is the only emit. Bash enforcement is owned by
+ *           `peaks gate enforce` in `settings.json`.
  */
-export const TEMPLATE_VERSION = '1.1.0';
+export const TEMPLATE_VERSION = '1.2.0';
 
 /**
  * Compare two serialized template strings for semantic equivalence.
@@ -186,33 +175,6 @@ function wrapAsNodeOneLiner(js: string): string {
 }
 
 /**
- * Build the Bash matcher command. The command is a `node -e "..."`
- * one-liner that reads its candidate command string from `argv[1]`
- * and exits 0 iff the command starts with
- * `peaks <whitelisted-subcommand> ` (or is exactly
- * `peaks <whitelisted-subcommand>` with no trailing args).
- *
- * The list is serialised as a JSON array literal embedded in the
- * command string so we avoid regex special-character pitfalls and
- * keep the allow-list declarative.
- */
-function buildBashHookCommand(): string {
-  const allowlistLiteral = JSON.stringify(PEAKS_SUBCOMMAND_ALLOWLIST);
-  // The command reads process.argv[1] (the tool-call command string
-  // passed by Claude Code), checks it starts with `peaks `, splits on
-  // whitespace, and looks up the second token in the allowlist. Exit
-  // 0 = allow, exit 1 = deny (so the gate fires for non-peaks
-  // commands).
-  const js =
-    'const c=process.argv[1]||"";' +
-    'if(!c.startsWith("peaks "))process.exit(1);' +
-    'const sub=c.slice(6).trim().split(/\\s+/)[0];' +
-    `if(${allowlistLiteral}.indexOf(sub)===-1)process.exit(1);` +
-    'process.exit(0)';
-  return wrapAsNodeOneLiner(js);
-}
-
-/**
  * Build the Write|Edit|MultiEdit matcher command. The command reads
  * the candidate file path from argv[2] and exits 0 iff the path
  * contains `.peaks/_runtime/` or `.peaks/<changeId>/` (the change-id
@@ -251,6 +213,11 @@ type ClaudeSettingsLocal = { hooks: { PreToolUse: ClaudePreToolUseEntry[] } };
  * need — we do not emit the `permissions` block because the fact-
  * forcing gate is a core feature that PreToolUse hooks can short-
  * circuit but that the `permissions` block cannot.
+ *
+ * As of TEMPLATE_VERSION 1.2.0, only the `Write|Edit|MultiEdit`
+ * matcher is emitted. Bash command enforcement is the responsibility
+ * of `peaks gate enforce`, which `peaks hooks install` injects into
+ * `.claude/settings.json` (not `.claude/settings.local.json`).
  */
 export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
   return {
@@ -262,15 +229,6 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
             {
               type: 'command',
               command: buildWriteHookCommand()
-            }
-          ]
-        },
-        {
-          matcher: 'Bash',
-          hooks: [
-            {
-              type: 'command',
-              command: buildBashHookCommand()
             }
           ]
         }

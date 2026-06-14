@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.1] — 2026-06-14
+
+### Fixed
+
+- **Removed the `Bash` matcher from the consumer-project
+  `.claude/settings.local.json` template** (`TEMPLATE_VERSION` 1.1.0 →
+  1.2.0). The Bash matcher was emitting `process.exit(1)` with no
+  stderr on every non-`peaks` Bash call, producing
+  `Failed with non-blocking status code: No stderr output` noise in
+  the Claude Code UI even though the underlying tool call still
+  proceeded (per Claude Code's hook contract, `exit 1` is a
+  non-blocking error, not a block — only `exit 2` blocks; only the
+  absence of a downstream `[Fact-Forcing Gate]` turned the exit-1
+  into pure noise). The `[Fact-Forcing Gate]` is an Edit/Write
+  concern (it forces the LLM to quote user instructions before any
+  file write), and the Bash matcher was unrelated to that purpose.
+  Bash command enforcement is now owned by `peaks gate enforce`,
+  which `peaks hooks install` injects into `.claude/settings.json`
+  and which exits 0 silently for any command not guarded by a
+  registered SOP gate.
+
+  Concrete changes:
+  - `src/services/workspace/claude-settings-template.ts` — deleted
+    `PEAKS_SUBCOMMAND_ALLOWLIST`, `buildBashHookCommand()`. The
+    template now emits only the `Write|Edit|MultiEdit` matcher.
+  - `TEMPLATE_VERSION` bumped to `1.2.0`. The offline-template
+    self-heal (`peaks workspace init` re-run; comparator
+    `templateContentMatches` sees the dropped entry) refreshes
+    `.peaks/.claude-settings-template.json` and the consumer's
+    `.claude/settings.local.json` on the next `peaks workspace init`.
+  - The `peaks workspace init` install prompt for the project-level
+    `.claude/settings.json` still installs the `peaks gate enforce`
+    hook for Bash (unchanged).
+
+### Tests
+
+- `tests/unit/workspace/claude-settings-template.test.ts` — added
+  `template only emits the Write|Edit|MultiEdit matcher` assertion.
+  Removed four Bash-specific tests (hook command contract, embedded
+  double-quote escaping, `process.argv[1]` reading for the Bash
+  hook, `peaks workspace init` allow / `npm install foo` deny).
+  `templateContentMatches returns false when entry length differs`
+  now uses an empty `PreToolUse` array to keep the test name
+  accurate.
+- `tests/unit/workspace/workspace-init-claude-hooks.test.ts` — case A
+  (default-flags init) assertion changed from
+  `expect(matchers).toContain('Bash')` to
+  `expect(matchers).toEqual(['Write|Edit|MultiEdit'])`. File-level
+  AC description updated to reflect the one-matcher shape.
+
+Full suite: **2957 passed, 12 skipped, 0 failed**.
+`peaks doctor`: **70 passed, 0 failed**.
+
+---
+
 ## [2.2.0] — 2026-06-14
 
 ### Added

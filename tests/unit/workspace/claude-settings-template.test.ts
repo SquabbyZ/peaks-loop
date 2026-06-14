@@ -74,19 +74,19 @@ describe('claude-settings-template — pure-data structure', () => {
     expect(hook.command).toContain('.peaks/_runtime/');
   });
 
-  test('Bash matcher is present and allow-rules include `peaks ` prefix', () => {
+  test('template only emits the Write|Edit|MultiEdit matcher (Bash matcher is gone as of TEMPLATE_VERSION 1.2.0)', () => {
+    // Slice 1.2.0: the Bash matcher was removed because the
+    // [Fact-Forcing Gate] is an Edit/Write concern, not a Bash one.
+    // Bash enforcement is owned by `peaks gate enforce` which
+    // `peaks hooks install` injects into `.claude/settings.json`.
     const template = buildClaudeSettingsLocalJson() as {
-      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> }
+      hooks: { PreToolUse: Array<{ matcher: string }> }
     };
     const bashMatcher = template.hooks.PreToolUse.find((entry) => entry.matcher === 'Bash');
-    expect(bashMatcher).toBeDefined();
-    expect(bashMatcher!.hooks.length).toBe(1);
-    const hook = bashMatcher!.hooks[0]!;
-    expect(hook.type).toBe('command');
-    // The Bash hook must whitelist the `peaks ` prefix; subcommand-
-    // level whitelisting is layered on top in the implementation but
-    // the prefix literal MUST be present in the command string.
-    expect(hook.command).toContain('peaks ');
+    expect(bashMatcher).toBeUndefined();
+    // Sanity: the only matcher left is the fact-forcing bypass.
+    expect(template.hooks.PreToolUse.length).toBe(1);
+    expect(template.hooks.PreToolUse[0]!.matcher).toBe('Write|Edit|MultiEdit');
   });
 
   test('exposes the canonical filename constant for the caller to use', () => {
@@ -138,53 +138,21 @@ describe('claude-settings-template — node -e wrapper contract (slice fix-claud
     }
   }
 
-  test('Bash hook command is wrapped in `node -e "..."`', () => {
-    const command = getHookCommand('Bash');
-    expect(command.startsWith('node -e "')).toBe(true);
-    expect(command.endsWith('"')).toBe(true);
-  });
-
   test('Write hook command is wrapped in `node -e "..."`', () => {
     const command = getHookCommand('Write|Edit|MultiEdit');
     expect(command.startsWith('node -e "')).toBe(true);
     expect(command.endsWith('"')).toBe(true);
   });
 
-  test('embedded double quotes in the inner JS payload are JSON-escaped as \\"', () => {
-    const command = getHookCommand('Bash');
-    // The wrapped form is `node -e "<inner>"` where every literal `"`
-    // in the inner JS has been escaped to `\"`. We assert the escaping
-    // contract by checking that the inner part contains the expected
-    // `\"peaks \"` (escaped) sequence — not the unescaped `"peaks "`.
-    // We can't simply check `inner.includes('"')` because `\"` is two
-    // characters in the runtime string (backslash + quote), so the
-    // indexOf for `"` would always match the trailing `"` of an
-    // escape pair. Instead, we assert the escaped form is present and
-    // the unescaped form is absent.
-    expect(command).toContain('\\"peaks \\"');
-    expect(command).not.toContain('"peaks "');
-    // The wrapper boundary is intact: the command starts with `node -e "`
-    // and ends with a single closing `"`.
-    expect(command.startsWith('node -e "')).toBe(true);
-    expect(command.endsWith('"')).toBe(true);
-    expect(command.slice('node -e "'.length, -1).includes('"peaks "')).toBe(false);
-  });
-
   test('inner JS reads candidate from process.argv[1] (Node docs: argv[1] is the first user-passed arg under -e)', () => {
-    const bashCommand = getHookCommand('Bash');
-    expect(bashCommand).toContain('process.argv[1]');
+    // Slice 1.2.0: only the Write hook remains; the Bash hook was
+    // removed. argv contract is asserted against the surviving hook.
+    const writeCommand = getHookCommand('Write|Edit|MultiEdit');
+    expect(writeCommand).toContain('process.argv[1]');
     // And it MUST NOT read argv[2] — that's the second user-passed
     // arg under -e, which Claude Code's hook runner does not populate
     // for this hook.
-    expect(bashCommand).not.toContain('process.argv[2]');
-  });
-
-  test('Bash hook exits 0 for `peaks workspace init --project . --json` and non-zero for `npm install foo`', () => {
-    const bashCommand = getHookCommand('Bash');
-    const allow = runHook(bashCommand, 'peaks workspace init --project . --json');
-    expect(allow.exitCode, `expected allow, stderr=${allow.stderr}`).toBe(0);
-    const deny = runHook(bashCommand, 'npm install foo');
-    expect(deny.exitCode, `expected deny, stderr=${deny.stderr}`).not.toBe(0);
+    expect(writeCommand).not.toContain('process.argv[2]');
   });
 
   test('Write hook allows `.peaks/_runtime/...` and `.peaks/<changeId>/...` paths and denies `src/...`', () => {
@@ -279,15 +247,13 @@ describe('claude-settings-template — TEMPLATE_VERSION + templateContentMatches
   });
 
   test('templateContentMatches returns false when entry length differs', () => {
+    // Slice 1.2.0: generated template has 1 entry (Write). A truly
+    // shorter on-disk shape (empty PreToolUse) must be flagged as a
+    // drift — the comparator should catch the missing matcher.
     const generated = JSON.stringify(buildClaudeSettingsLocalJson());
     const shorter = JSON.stringify({
       hooks: {
-        PreToolUse: [
-          {
-            matcher: 'Bash',
-            hooks: [{ type: 'command', command: 'noop' }]
-          }
-        ]
+        PreToolUse: []
       }
     });
     expect(templateContentMatches(generated, shorter)).toBe(false);
