@@ -36,6 +36,7 @@ import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
+import { registerCompanionCommands } from './commands/companion.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
@@ -141,6 +142,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerUpgradeCommands(program, io);
  // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).
  registerCodeReviewCommands(program, io);
+ // Slice 2026-06-14-cc-connect-weixin: `peaks companion` family.
+ registerCompanionCommands(program, io);
 
  return program;
 }

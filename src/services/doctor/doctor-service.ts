@@ -12,6 +12,7 @@ import { planStatusLineInstall } from '../skills/statusline-settings-service.js'
 import { findProjectRoot } from '../config/config-safety.js';
 import { isValidSessionId } from '../workspace/sid-naming-guard.js';
 import { CLI_VERSION } from '../../shared/version.js';
+import { probeCcConnect, type CompanionProbe } from '../companion/cc-connect-resolver.js';
 
 export type DoctorCheck = {
   id: string;
@@ -126,6 +127,29 @@ export type DoctorOptions = {
    * check at a temp dir without monkey-patching `findProjectRoot`.
    */
   l3ProjectRoot?: string;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin: injected probe for the
+   * `capability:companion-binary-resolution` check (defaults to
+   * `probeCcConnect()` on PATH). Tests use this to drive the check
+   * without touching the real `cc-connect` binary.
+   */
+  companionBinaryProbe?: () => CompanionProbe | Promise<CompanionProbe>;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin (change-1): injected probe
+   * for the `companion.enabled` flag + `companion.configPath` from
+   * `~/.peaks/config.json`. Tests use this to drive the
+   * companion-flag suffix without touching the real peaks config
+   * file. When the probe throws, the doctor check degrades
+   * gracefully (no `companion.enabled` suffix is appended).
+   */
+  companionPeaksConfigProbe?: () => CompanionPeaksConfigSnapshot;
+};
+
+export type CompanionPeaksConfigSnapshot = {
+  /** `companion.enabled` flag (or null when peaks config is missing the block). */
+  enabled: boolean | null;
+  /** `companion.configPath` from peaks config (or null). */
+  configPath: string | null;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -142,6 +166,43 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     binaryPath,
     binaryExists: existsSync(binaryPath)
   };
+}
+
+async function defaultCompanionBinaryProbe(): Promise<CompanionProbe> {
+  try {
+    return await probeCcConnect();
+  } catch (error) {
+    return {
+      binaryPath: null,
+      version: null,
+      ok: false,
+      error: getErrorMessage(error)
+    };
+  }
+}
+
+/**
+ * Default peaks-config probe for the companion flag.
+ * Reads `~/.peaks/config.json#companion.{enabled, configPath}`.
+ * Returns `{ enabled: null, configPath: null }` when peaks config
+ * is missing or malformed (so the doctor check degrades to the
+ * legacy binary-only message).
+ */
+function defaultCompanionPeaksConfigProbe(): CompanionPeaksConfigSnapshot {
+  try {
+    const configPath = join(homedir(), '.peaks', 'config.json');
+    if (!existsSync(configPath)) return { enabled: null, configPath: null };
+    const raw = JSON.parse(readFileSync(configPath, 'utf8')) as { companion?: { enabled?: unknown; configPath?: unknown } };
+    const companion = raw.companion;
+    if (companion === null || typeof companion !== 'object' || Array.isArray(companion)) {
+      return { enabled: null, configPath: null };
+    }
+    const enabled = typeof companion.enabled === 'boolean' ? companion.enabled : null;
+    const cfgPath = typeof companion.configPath === 'string' ? companion.configPath : null;
+    return { enabled, configPath: cfgPath };
+  } catch {
+    return { enabled: null, configPath: null };
+  }
 }
 
 function defaultStatusLineInstalledProbe(): boolean {
@@ -785,6 +846,55 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       id: 'capability:codegraph',
       ok: false,
       message: `@colbymchenry/codegraph not resolvable: ${getErrorMessage(error)}`
+    });
+  }
+
+  // Slice 2026-06-14-cc-connect-weixin: optional companion binary
+  // resolution check. We surface a *warn* (ok: true) when the binary
+  // is missing so the rest of the doctor summary stays green on a
+  // clean checkout that hasn't installed the companion. The fix
+  // path is `peaks companion install`. Mirrors the existing
+  // `statusline:install` pattern: informational, not failing.
+  //
+  // Slice 2026-06-14-cc-connect-weixin (slice 2): the resolver
+  // prefers `node_modules/.bin/cc-connect` (peaks-cli's own dep) and
+  // falls back to PATH. We report the source so users can tell at a
+  // glance whether cc-connect came from the peaks-cli dep or a
+  // global install.
+  const companionProbe = options.companionBinaryProbe ?? defaultCompanionBinaryProbe;
+  try {
+    const companionResult = await companionProbe();
+    let peaksConfigSnapshot: { enabled: boolean | null; configPath: string | null } = { enabled: null, configPath: null };
+    try {
+      const peaksConfigProbe = options.companionPeaksConfigProbe ?? defaultCompanionPeaksConfigProbe;
+      peaksConfigSnapshot = peaksConfigProbe();
+    } catch {
+      /* best-effort: peaks config is optional here */
+    }
+    const companionFlagSuffix = peaksConfigSnapshot.enabled === null
+      ? ''
+      : peaksConfigSnapshot.enabled
+        ? `, companion.enabled=true (peaks config)`
+        : `, companion.enabled=false (peaks config; cc-connect will not start until you opt in)`;
+    if (companionResult.ok && companionResult.binaryPath !== null && companionResult.version !== null) {
+      const sourceLabel = companionResult.resolvedSource === 'node-modules' ? 'node_modules/.bin' : companionResult.resolvedSource === 'path' ? 'PATH' : 'unknown';
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect@${companionResult.version} resolves at ${companionResult.binaryPath} (source=${sourceLabel})${companionFlagSuffix}`
+      });
+    } else {
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect binary not found (${companionResult.error ?? 'unknown reason'}); run \`peaks companion install\` to verify the peaks-cli dep pulled cc-connect (informational, not failing)${companionFlagSuffix}`
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'capability:companion-binary-resolution',
+      ok: true,
+      message: `cc-connect probe failed (${getErrorMessage(error)}); skipping check`
     });
   }
 
