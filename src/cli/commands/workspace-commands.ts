@@ -303,6 +303,40 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         );
       }
 
+      // Slice 2026-06-13-selfheal-claude-settings-template: surface
+      // the self-heal outcome for the offline
+      // `.peaks/.claude-settings-template.json` copy. When the offline
+      // file was refreshed (i.e. the previous peaks-cli release left
+      // a stale version without the `node -e "..."` wrapper), the user
+      // benefits from seeing that the manual-recovery anchor now
+      // points at the corrected template. We surface `written` and
+      // `refreshed` as the actionable events; `already-current` is
+      // silent (same rationale as the consumer-project no-op above).
+      //
+      // The `refreshed` nextAction also carries a loud warning that any
+      // MANUAL EDITS the user made to the offline template have been
+      // overwritten — drift detection cannot tell stale-from-prior-release
+      // apart from user-customised, so we surface the warning unconditionally
+      // to make sure anyone who customised sees the prompt.
+      if (report.claudeSettings.offlineTemplate.action === 'refreshed') {
+        nextActions.push(
+          `Self-healed .peaks/.claude-settings-template.json (action: refreshed) — ` +
+            'the offline recovery anchor now matches the current peaks-cli template. ' +
+            'No action required; future manual recoveries will copy the corrected wrapper.'
+        );
+        nextActions.push(
+          '⚠️  If you had manually edited .peaks/.claude-settings-template.json, ' +
+            'those edits have been overwritten by the self-heal. ' +
+            'Re-apply your custom matchers / commands on top of the freshly-written template, ' +
+            'or open an issue if your customisation is a recurring need (the team may promote it to the canonical template).'
+        );
+      } else if (report.claudeSettings.offlineTemplate.action === 'written') {
+        nextActions.push(
+          `Wrote .peaks/.claude-settings-template.json (action: written) — ` +
+            'the offline recovery anchor is now in place for future manual recoveries.'
+        );
+      }
+
       // First-time hooks install decision. Sticky-marker at
       // .peaks/.peaks-init-hooks-decision.json records the user's answer
       // (or the auto-decision) so subsequent inits for new sessions in the

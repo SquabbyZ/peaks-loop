@@ -2,21 +2,20 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-11T03:29:50.768Z
+> Last updated: 2026-06-13T10:12:49.611Z
 
 ## Project: peaks-cli
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (6 sessions)
+## Timeline (5 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-06-11 | `2026-06-11-session-f0312d` | Slice #4 L2.1 P0 red-lines + audit 框架 | 1. **Solo-code-ban** — pre-implementation gate that refuses `git commi |
-| 2026-06-10 | `2026-06-10-session-6bcac7` | Fuzzy Matching: implement spec into proj | > **Implementation contract**: peaks-rd implements strictly per the sp |
-| 2026-06-10 | `2026-06-10-session-265ca1` | Untitled | peaks-solo |
-| 2026-06-09 | `2026-06-10-session-c4a2be` | 熟悉项目状态review | <!-- peaks-managed:prd-start --> |
-| 2026-06-09 | `2026-06-09-session-9bd407` | 复盘索引化+记忆压缩重构 | RD's perf-baseline §Results table (re-measured on the rebuilt `dist/`) |
-| 2026-06-09 | `2026-06-09-session-d9aff4` | slice 021 path-and-filename loud-fail | G1. Add a new CLI primitive `peaks session info --active --json` that  |
+| 2026-06-13 | `2026-06-13-session-3a3073` | Config 治理：激进清理 ~/.peaks/config.json 只留 v | | Library | Version | Scope | |
+| 2026-06-13 | `2026-06-13-session-fefde6` | RD repair of 23 pre-existing test failur | > Required Gate A4 evidence. Compiled by peaks-solo orchestrator. SKIP |
+| 2026-06-13 | `2026-06-13-session-1a3bd5` | 方向讨论：peaks-cli 痛点与多 agent 演进 | > Required Gate A2 evidence. Compiled by peaks-solo orchestrator after |
+| 2026-06-13 | `2026-06-13-session-e961f3` | fix: 自愈 .claude-settings-template.json 缺 | 1. On a Mac (or any POSIX shell where `/bin/sh` does not auto-detect J |
+| ? | `2026-06-11-session-edbe91` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->

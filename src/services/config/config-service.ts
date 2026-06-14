@@ -6,6 +6,8 @@ import { stablePath } from '../../shared/path-utils.js';
 import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
 import { globalConfigPath, CONFIG_SCHEMA_VERSION_V2 } from './config-migration.js';
 import { isConfigV2 } from './config-types.js';
+import { providersConfigPath, proxyConfigPath, readSidecarJson, sidecarExists, workspacesConfigPath, writeSidecarJson } from './sidecar-store.js';
+import { SIDECAR_SCHEMA_VERSION } from './sidecar-store.js';
 
 // Re-export resolveProjectRootForConfig and resolveCanonicalProjectRoot for external consumers
 export { resolveProjectRootForConfig, resolveCanonicalProjectRoot } from './config-safety.js';
@@ -29,12 +31,95 @@ export function loadGlobalConfig(): ConfigV2 | null {
   const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
   const raw = JSON.parse(content) as Record<string, unknown>;
   if (isConfigV2(raw)) {
-    return raw;
+    if (hasLegacyGlobalFields(raw)) {
+      promoteLegacyGlobalFieldsToSidecars(raw);
+      rewriteSlimGlobalConfig();
+    }
+    return readSlimGlobalConfig();
   }
   const detected = typeof raw.version === 'string' ? raw.version : 'unknown';
   throw new Error(
     `CONFIG_LEGACY_VERSION: ~/.peaks/config.json is at version "${detected}", expected ${CONFIG_SCHEMA_VERSION_V2}. Run \`peaks config migrate --apply\`.`
   );
+}
+
+/**
+ * Slim 2.0 schema allows `version` + `ocr` + `companion`. The
+ * `companion` block was added in slice
+ * 2026-06-14-cc-connect-weixin (change-1) so cc-connect settings
+ * live in `~/.peaks/config.json` (the source of truth) instead of
+ * being scattered between peaks config + a sidecar txt cache. Any
+ * other top-level field is a legacy artifact that needs to be
+ * promoted to a sidecar file.
+ */
+function hasLegacyGlobalFields(raw: Record<string, unknown>): boolean {
+  const allowed = new Set(['version', 'ocr', 'companion']);
+  return Object.keys(raw).some((k) => !allowed.has(k));
+}
+
+/**
+ * One-shot promotion of legacy fields into their dedicated sidecar
+ * files. Idempotent: if the sidecar already has the field, the
+ * legacy value is dropped (sidecar is the new source of truth).
+ */
+function promoteLegacyGlobalFieldsToSidecars(raw: Record<string, unknown>): void {
+  if (isRecord(raw.providers)) {
+    const existing = readSidecarJson<Partial<ProvidersSidecarShape>>(providersConfigPath(), { version: SIDECAR_SCHEMA_VERSION, providers: {} });
+    const mergedProviders = { ...(existing.providers ?? {}), ...(raw.providers as Record<string, unknown>) };
+    writeSidecarJson(providersConfigPath(), { version: SIDECAR_SCHEMA_VERSION, providers: mergedProviders });
+  }
+  if (isRecord(raw.proxy) && typeof (raw.proxy as Record<string, unknown>).httpProxy === 'string') {
+    const httpProxy = (raw.proxy as Record<string, unknown>).httpProxy as string;
+    if (!sidecarExists(proxyConfigPath())) {
+      writeSidecarJson(proxyConfigPath(), { version: SIDECAR_SCHEMA_VERSION, httpProxy });
+    }
+  }
+  if (Array.isArray(raw.workspaces) || typeof raw.currentWorkspace === 'string') {
+    if (!sidecarExists(workspacesConfigPath())) {
+      writeSidecarJson(workspacesConfigPath(), {
+        version: SIDECAR_SCHEMA_VERSION,
+        workspaces: Array.isArray(raw.workspaces) ? raw.workspaces : [],
+        currentWorkspace: typeof raw.currentWorkspace === 'string' ? raw.currentWorkspace : null
+      });
+    }
+  }
+}
+
+type ProvidersSidecarShape = { version: string; providers: Record<string, unknown> };
+
+function readSlimGlobalConfig(): ConfigV2 {
+  const path = globalConfigPath();
+  if (!existsSync(path)) {
+    return { version: CONFIG_SCHEMA_VERSION_V2 };
+  }
+  const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
+  return JSON.parse(content) as ConfigV2;
+}
+
+function rewriteSlimGlobalConfig(): void {
+  const path = globalConfigPath();
+  const ocr = readOcrFromRawConfigFile();
+  const companion = readCompanionFromRawConfigFile();
+  const slim: Record<string, unknown> = { version: CONFIG_SCHEMA_VERSION_V2 };
+  if (ocr !== null) slim['ocr'] = ocr;
+  if (companion !== null) slim['companion'] = companion;
+  writeUserConfigFile(path, JSON.stringify(slim, null, 2) + '\n');
+}
+
+function readCompanionFromRawConfigFile(): Record<string, unknown> | null {
+  const path = globalConfigPath();
+  if (!existsSync(path)) return null;
+  const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
+  const raw = JSON.parse(content) as Record<string, unknown>;
+  return isRecord(raw.companion) ? raw.companion : null;
+}
+
+function readOcrFromRawConfigFile(): Record<string, unknown> | null {
+  const path = globalConfigPath();
+  if (!existsSync(path)) return null;
+  const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
+  const raw = JSON.parse(content) as Record<string, unknown>;
+  return isRecord(raw.ocr) ? raw.ocr : null;
 }
 
 function readJsonFile(path: string | null, validateBeforeRead?: () => void, errorMessage = 'Config path must stay inside the config root'): Partial<PeaksConfig> | null {
@@ -549,7 +634,44 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
     ...(typeof value.swarmMode === 'boolean' ? { swarmMode: value.swarmMode } : {}),
     ...(isRecord(value.tokens) ? { tokens: toTokenConfig(value.tokens) } : {}),
     ...(isRecord(value.providers) ? { providers: toModelProviderConfig(value.providers) } : {}),
-    ...(proxy ? { proxy } : {})
+    ...(proxy ? { proxy } : {}),
+    ...(isRecord(value.companion) ? { companion: toCompanionConfig(value.companion) } : {})
+  };
+}
+
+const COMPANION_CHANNELS: ReadonlySet<string> = new Set(['weixin']);
+const COMPANION_BINARY_SOURCES: ReadonlySet<string> = new Set(['node-modules', 'path']);
+
+function toCompanionWeixinConfig(value: Record<string, unknown>): { ilinkQrPayload: string; loginTimeoutSec: number } {
+  const ilinkQrPayload = typeof value.ilinkQrPayload === 'string' && value.ilinkQrPayload.trim().length > 0
+    ? value.ilinkQrPayload.trim()
+    : 'ilink://peaks-cli?project=default';
+  const loginTimeoutSec = typeof value.loginTimeoutSec === 'number' && Number.isFinite(value.loginTimeoutSec) && value.loginTimeoutSec > 0
+    ? Math.floor(value.loginTimeoutSec)
+    : 60;
+  return { ilinkQrPayload, loginTimeoutSec };
+}
+
+function toCompanionConfig(value: Record<string, unknown>): import('./config-types.js').CompanionConfig {
+  const enabled = typeof value.enabled === 'boolean' ? value.enabled : false;
+  const defaultChannel: 'weixin' = typeof value.defaultChannel === 'string' && COMPANION_CHANNELS.has(value.defaultChannel) ? (value.defaultChannel as 'weixin') : 'weixin';
+  const binaryPath = typeof value.binaryPath === 'string' && value.binaryPath.trim().length > 0 ? value.binaryPath.trim() : null;
+  const binaryPathSource: 'node-modules' | 'path' | null = typeof value.binaryPathSource === 'string' && COMPANION_BINARY_SOURCES.has(value.binaryPathSource) ? (value.binaryPathSource as 'node-modules' | 'path') : null;
+  const configPath = typeof value.configPath === 'string' && value.configPath.trim().length > 0 ? value.configPath.trim() : '~/.cc-connect/config.toml';
+  const autoStart = typeof value.autoStart === 'boolean' ? value.autoStart : false;
+  const weixin = isRecord(value.weixin) ? toCompanionWeixinConfig(value.weixin as Record<string, unknown>) : { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 };
+  const agentType = typeof value.agentType === 'string' && value.agentType.trim().length > 0 ? value.agentType.trim() : undefined;
+  const agentWorkDir = typeof value.agentWorkDir === 'string' && value.agentWorkDir.trim().length > 0 ? value.agentWorkDir.trim() : undefined;
+  return {
+    enabled,
+    defaultChannel,
+    binaryPath,
+    binaryPathSource,
+    configPath,
+    weixin,
+    ...(agentType !== undefined ? { agentType } : {}),
+    ...(agentWorkDir !== undefined ? { agentWorkDir } : {}),
+    autoStart
   };
 }
 

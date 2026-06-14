@@ -12,6 +12,7 @@ import { planStatusLineInstall } from '../skills/statusline-settings-service.js'
 import { findProjectRoot } from '../config/config-safety.js';
 import { isValidSessionId } from '../workspace/sid-naming-guard.js';
 import { CLI_VERSION } from '../../shared/version.js';
+import { probeCcConnect, type CompanionProbe } from '../companion/cc-connect-resolver.js';
 
 export type DoctorCheck = {
   id: string;
@@ -119,6 +120,36 @@ export type DoctorOptions = {
   workspaceLayoutProbe?: WorkspaceLayoutProbe;
   /** Injected for the integration:gateguard-peaks-conflict check (defaults to defaultGateguardProbe on disk). */
   gateguardProbe?: GateguardProbe;
+  /**
+   * Slice 2026-06-13-repair-pre-existing-test-failures: injected
+   * root for the L3:l3-memory-health check (defaults to
+   * `findProjectRoot(process.cwd())`). Tests use this to point the
+   * check at a temp dir without monkey-patching `findProjectRoot`.
+   */
+  l3ProjectRoot?: string;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin: injected probe for the
+   * `capability:companion-binary-resolution` check (defaults to
+   * `probeCcConnect()` on PATH). Tests use this to drive the check
+   * without touching the real `cc-connect` binary.
+   */
+  companionBinaryProbe?: () => CompanionProbe | Promise<CompanionProbe>;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin (change-1): injected probe
+   * for the `companion.enabled` flag + `companion.configPath` from
+   * `~/.peaks/config.json`. Tests use this to drive the
+   * companion-flag suffix without touching the real peaks config
+   * file. When the probe throws, the doctor check degrades
+   * gracefully (no `companion.enabled` suffix is appended).
+   */
+  companionPeaksConfigProbe?: () => CompanionPeaksConfigSnapshot;
+};
+
+export type CompanionPeaksConfigSnapshot = {
+  /** `companion.enabled` flag (or null when peaks config is missing the block). */
+  enabled: boolean | null;
+  /** `companion.configPath` from peaks config (or null). */
+  configPath: string | null;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -135,6 +166,43 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     binaryPath,
     binaryExists: existsSync(binaryPath)
   };
+}
+
+async function defaultCompanionBinaryProbe(): Promise<CompanionProbe> {
+  try {
+    return await probeCcConnect();
+  } catch (error) {
+    return {
+      binaryPath: null,
+      version: null,
+      ok: false,
+      error: getErrorMessage(error)
+    };
+  }
+}
+
+/**
+ * Default peaks-config probe for the companion flag.
+ * Reads `~/.peaks/config.json#companion.{enabled, configPath}`.
+ * Returns `{ enabled: null, configPath: null }` when peaks config
+ * is missing or malformed (so the doctor check degrades to the
+ * legacy binary-only message).
+ */
+function defaultCompanionPeaksConfigProbe(): CompanionPeaksConfigSnapshot {
+  try {
+    const configPath = join(homedir(), '.peaks', 'config.json');
+    if (!existsSync(configPath)) return { enabled: null, configPath: null };
+    const raw = JSON.parse(readFileSync(configPath, 'utf8')) as { companion?: { enabled?: unknown; configPath?: unknown } };
+    const companion = raw.companion;
+    if (companion === null || typeof companion !== 'object' || Array.isArray(companion)) {
+      return { enabled: null, configPath: null };
+    }
+    const enabled = typeof companion.enabled === 'boolean' ? companion.enabled : null;
+    const cfgPath = typeof companion.configPath === 'string' ? companion.configPath : null;
+    return { enabled, configPath: cfgPath };
+  } catch {
+    return { enabled: null, configPath: null };
+  }
 }
 
 function defaultStatusLineInstalledProbe(): boolean {
@@ -781,6 +849,55 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     });
   }
 
+  // Slice 2026-06-14-cc-connect-weixin: optional companion binary
+  // resolution check. We surface a *warn* (ok: true) when the binary
+  // is missing so the rest of the doctor summary stays green on a
+  // clean checkout that hasn't installed the companion. The fix
+  // path is `peaks companion install`. Mirrors the existing
+  // `statusline:install` pattern: informational, not failing.
+  //
+  // Slice 2026-06-14-cc-connect-weixin (slice 2): the resolver
+  // prefers `node_modules/.bin/cc-connect` (peaks-cli's own dep) and
+  // falls back to PATH. We report the source so users can tell at a
+  // glance whether cc-connect came from the peaks-cli dep or a
+  // global install.
+  const companionProbe = options.companionBinaryProbe ?? defaultCompanionBinaryProbe;
+  try {
+    const companionResult = await companionProbe();
+    let peaksConfigSnapshot: { enabled: boolean | null; configPath: string | null } = { enabled: null, configPath: null };
+    try {
+      const peaksConfigProbe = options.companionPeaksConfigProbe ?? defaultCompanionPeaksConfigProbe;
+      peaksConfigSnapshot = peaksConfigProbe();
+    } catch {
+      /* best-effort: peaks config is optional here */
+    }
+    const companionFlagSuffix = peaksConfigSnapshot.enabled === null
+      ? ''
+      : peaksConfigSnapshot.enabled
+        ? `, companion.enabled=true (peaks config)`
+        : `, companion.enabled=false (peaks config; cc-connect will not start until you opt in)`;
+    if (companionResult.ok && companionResult.binaryPath !== null && companionResult.version !== null) {
+      const sourceLabel = companionResult.resolvedSource === 'node-modules' ? 'node_modules/.bin' : companionResult.resolvedSource === 'path' ? 'PATH' : 'unknown';
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect@${companionResult.version} resolves at ${companionResult.binaryPath} (source=${sourceLabel})${companionFlagSuffix}`
+      });
+    } else {
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect binary not found (${companionResult.error ?? 'unknown reason'}); run \`peaks companion install\` to verify the peaks-cli dep pulled cc-connect (informational, not failing)${companionFlagSuffix}`
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'capability:companion-binary-resolution',
+      ok: true,
+      message: `cc-connect probe failed (${getErrorMessage(error)}); skipping check`
+    });
+  }
+
   // Build-hygiene check: the published `dist/` ships a different CLI_VERSION
   // than the source-of-truth `src/shared/version.ts` / `package.json#version`
   // whenever the user runs `npx peaks` or `node bin/peaks.js` after `pnpm
@@ -956,7 +1073,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   //   2. L3:l3-memory-health — verifies .peaks/memory/index.json is
   //      well-formed JSON with the expected schema_version field and
   //      references real files on disk.
-  const l3ProjectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+  const l3ProjectRoot = options.l3ProjectRoot ?? findProjectRoot(process.cwd()) ?? process.cwd();
   try {
     const runtimeDir = join(l3ProjectRoot, '.peaks/_runtime');
     if (existsSync(runtimeDir)) {
@@ -992,24 +1109,27 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     if (existsSync(memoryIndexPath)) {
       const raw = readFileSync(memoryIndexPath, 'utf8');
       try {
-        const parsed = JSON.parse(raw) as { schema_version?: string; entries?: unknown[] };
-        if (parsed.schema_version === undefined) {
+        // Slice 2026-06-13-repair-pre-existing-test-failures: the
+        // production MemoryIndex schema (see
+        // src/services/memory/project-memory-service.ts) uses
+        // `version: 1` as the schema marker, NOT `schema_version`.
+        // Accept BOTH names for back-compat with any external index
+        // writers (e.g. a future `schema_version: '2.0.0'` form).
+        const parsed = JSON.parse(raw) as { schema_version?: string; version?: number | string; hot?: Record<string, unknown[]>; warm?: Record<string, unknown[]> };
+        const schemaMarker = parsed.schema_version ?? parsed.version;
+        if (schemaMarker === undefined) {
           checks.push({
             id: 'L3:l3-memory-health',
             ok: false,
-            message: '.peaks/memory/index.json missing schema_version field'
-          });
-        } else if (!Array.isArray(parsed.entries)) {
-          checks.push({
-            id: 'L3:l3-memory-health',
-            ok: false,
-            message: '.peaks/memory/index.json entries is not an array'
+            message: '.peaks/memory/index.json missing schema_version / version field'
           });
         } else {
+          const hotCount = Object.values(parsed.hot ?? {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
+          const warmCount = Object.values(parsed.warm ?? {}).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0);
           checks.push({
             id: 'L3:l3-memory-health',
             ok: true,
-            message: `.peaks/memory/index.json is well-formed JSON; schema_version=${parsed.schema_version}; ${parsed.entries.length} memory entries`
+            message: `.peaks/memory/index.json is well-formed JSON; version=${schemaMarker}; ${hotCount} hot + ${warmCount} warm memory entries`
           });
         }
       } catch (parseError) {

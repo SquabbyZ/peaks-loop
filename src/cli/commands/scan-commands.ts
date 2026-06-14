@@ -9,6 +9,9 @@ import { scanLibraries } from '../../services/scan/libraries-service.js';
 import { isRequestType, VALID_REQUEST_TYPES, type RequestType } from '../../services/artifacts/artifact-prerequisites.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { probeCcConnect } from '../../services/companion/cc-connect-resolver.js';
+import { binaryPathCacheFile, readBinaryPathCache } from '../../services/companion/binary-cache.js';
+import { readCcConnectState } from '../../services/companion/state-parser.js';
 
 type ArchetypeOptions = {
   project: string;
@@ -314,6 +317,63 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('scan.libraries', 'SCAN_LIBRARIES_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is readable']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice 2026-06-14-cc-connect-weixin (slice 1): dry-run scan of the
+  // cc-connect binary. The scan is read-only: it walks PATH, probes
+  // `cc-connect --version` via spawn, and surfaces the cached path
+  // + state.json summary. It does NOT install, configure, or write
+  // anything. The slice 2 / 3 `peaks companion install|setup` commands
+  // own side effects.
+  addJsonOption(
+    scan
+      .command('companion-binary')
+      .description('Dry-run scan of the cc-connect companion binary: resolve PATH, probe --version, and report cached path + state.json summary. Read-only — no install / config / spawn beyond --version.')
+      .option('--no-probe', 'skip `cc-connect --version` spawn (PATH-only resolution)')
+  ).action(async (options: { probe?: boolean; json?: boolean }) => {
+    try {
+      const probe = await probeCcConnect(options.probe === false ? { skipSpawn: true } : {});
+      const cached = readBinaryPathCache();
+      const state = readCcConnectState();
+      const report = {
+        probe: {
+          binaryPath: probe.binaryPath,
+          version: probe.version,
+          ok: probe.ok,
+          error: probe.error
+        },
+        cache: {
+          file: binaryPathCacheFile(),
+          record: cached
+        },
+        state: {
+          file: state.statePath,
+          pairing: state.state,
+          accountId: state.accountId,
+          lastLogin: state.lastLogin,
+          error: state.error,
+          mtimeMs: state.mtimeMs
+        }
+      };
+      const nextActions: string[] = [];
+      if (!probe.ok) {
+        nextActions.push('cc-connect binary not resolved on PATH; run `peaks companion install` to install it (npm: cc-connect / brew: cc-connect).');
+      }
+      if (cached === null && probe.ok) {
+        nextActions.push('cache is empty; `peaks companion install` will populate ~/.peaks/companion/cc-connect-binary-path.txt on success.');
+      }
+      if (state.state === 'unknown' && probe.ok) {
+        nextActions.push('no pairing state yet; run `peaks companion setup` to render the iLink QR for WeChat pairing.');
+      }
+      printResult(io, ok('scan.companion-binary', report, [], nextActions), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('scan.companion-binary', 'SCAN_COMPANION_BINARY_FAILED', getErrorMessage(error), {}, ['Verify the cc-connect binary is installed and reachable on PATH']),
         options.json
       );
       process.exitCode = 1;

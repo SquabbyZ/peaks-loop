@@ -1,0 +1,405 @@
+{
+  "rid": "2026-06-13-slice-decompose-impl",
+  "generatedAt": "2026-06-13T12:44:35.403Z",
+  "codegraph": {
+    "nodes": 5778,
+    "edges": 13158,
+    "dbMB": 11.82,
+    "freshness": "indexed",
+    "affectedCrossFile": false,
+    "note": "codegraph.affected returned 0 cross-file dependents (v0.7.10 limitation); used real import edges"
+  },
+  "understandAnything": {
+    "kgNodes": 0,
+    "kgEdges": 0,
+    "available": false,
+    "fallback": "structural-only",
+    "note": ".understand-anything/knowledge-graph.json not found; algorithm falls back to structural cuts"
+  },
+  "workUnits": [
+    {
+      "id": "W1",
+      "label": "AUTHORIZATION_KEYWORDS_PATTERN",
+      "files": [
+        "src/services/skills/skill-runbook-service.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/services/skills/skill-runbook-service.ts",
+      "candidates": [
+        "constant:d12c0b0477ccd186d2f66597caabc314"
+      ]
+    },
+    {
+      "id": "W2",
+      "label": "project",
+      "files": [
+        "tests/unit/sop-project-layer.test.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "tests/unit/sop-project-layer.test.ts",
+      "candidates": [
+        "variable:3bb55f0f0d4d3542930b7a3ac030e919"
+      ]
+    },
+    {
+      "id": "W3",
+      "label": "resolveLocalBinary",
+      "files": [
+        "src/services/slice/slice-check-service.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/services/slice/slice-check-service.ts",
+      "candidates": [
+        "function:549beab397b08688f9871a201f96962a"
+      ]
+    },
+    {
+      "id": "W4",
+      "label": "fzf",
+      "files": [
+        "src/services/fuzzy-matching/fuzzy-match-service.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/services/fuzzy-matching/fuzzy-match-service.ts",
+      "candidates": [
+        "import:d3108683a5f5cc75c18209e99c0f546f"
+      ]
+    },
+    {
+      "id": "W5",
+      "label": "peaksHomeDir",
+      "files": [
+        "src/services/config/sidecar-store.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/services/config/sidecar-store.ts",
+      "candidates": [
+        "function:0787f54821298679fd6deef591069cf6"
+      ]
+    },
+    {
+      "id": "W6",
+      "label": "fail",
+      "files": [
+        "src/shared/result.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/shared/result.ts",
+      "candidates": [
+        "function:f8ea64a8268d1db1b1306b8e128fadad"
+      ]
+    },
+    {
+      "id": "W7",
+      "label": "step",
+      "files": [
+        "src/services/workflow/workflow-router-service.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "src/services/workflow/workflow-router-service.ts",
+      "candidates": [
+        "function:859980880c853e622c7f5db9495e2a75"
+      ]
+    },
+    {
+      "id": "W8",
+      "label": "makeProjectNoSymlink",
+      "files": [
+        "tests/unit/slice-check-service.test.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "tests/unit/slice-check-service.test.ts",
+      "candidates": [
+        "function:74759d87e39fb44f0862680d36555c41"
+      ]
+    },
+    {
+      "id": "W9",
+      "label": "scan-existing-system-service.test.ts",
+      "files": [
+        "tests/unit/scan-existing-system-service.test.ts"
+      ],
+      "loc": 110,
+      "testsAdded": 0,
+      "filePath": "tests/unit/scan-existing-system-service.test.ts",
+      "candidates": [
+        "file:tests/unit/scan-existing-system-service.test.ts"
+      ]
+    }
+  ],
+  "dependencyDAG": {
+    "edges": [
+      {
+        "from": "W8",
+        "to": "W3",
+        "kind": "imports",
+        "weight": 10,
+        "evidence": "import { sliceCheck } from '../../src/services/slice/slice-check-service.js'",
+        "isSemantic": false,
+        "confidence": "structural"
+      }
+    ]
+  },
+  "sccAnalysis": {
+    "sccCount": 9,
+    "trivialSCCs": [
+      "W1",
+      "W2",
+      "W3",
+      "W4",
+      "W5",
+      "W6",
+      "W7",
+      "W8",
+      "W9"
+    ],
+    "nonTrivialSCCs": [],
+    "condensationEdges": 1
+  },
+  "criticalPath": {
+    "nodes": [
+      "W8",
+      "W3"
+    ],
+    "edges": [
+      "W8 -> W3"
+    ],
+    "totalLoc": 220,
+    "totalDeltaLoc": 220,
+    "rationale": "Longest path by sum of LoC across the dependency DAG; 2 work units, 220 LoC summed"
+  },
+  "minCutResult": {
+    "algorithm": "v1 simplified min-cut: lowest-weight non-critical-path edges; full Stoer-Wagner in v2",
+    "cutEdges": [],
+    "partitions": [
+      {
+        "name": "critical-path",
+        "nodes": [
+          "W8",
+          "W3"
+        ]
+      },
+      {
+        "name": "parallel-1",
+        "nodes": [
+          "W1"
+        ]
+      },
+      {
+        "name": "parallel-2",
+        "nodes": [
+          "W2"
+        ]
+      },
+      {
+        "name": "parallel-3",
+        "nodes": [
+          "W4"
+        ]
+      },
+      {
+        "name": "parallel-4",
+        "nodes": [
+          "W5"
+        ]
+      },
+      {
+        "name": "parallel-5",
+        "nodes": [
+          "W6"
+        ]
+      },
+      {
+        "name": "parallel-6",
+        "nodes": [
+          "W7"
+        ]
+      },
+      {
+        "name": "parallel-7",
+        "nodes": [
+          "W9"
+        ]
+      }
+    ]
+  },
+  "parallelBatches": [
+    {
+      "batch": 1,
+      "dependsOn": [],
+      "slices": [
+        {
+          "rid": "W1-slice",
+          "label": "AUTHORIZATION_KEYWORDS_PATTERN",
+          "files": [
+            "src/services/skills/skill-runbook-service.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/services/skills/skill-runbook-service.ts"
+        },
+        {
+          "rid": "W2-slice",
+          "label": "project",
+          "files": [
+            "tests/unit/sop-project-layer.test.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:tests/unit/sop-project-layer.test.ts"
+        },
+        {
+          "rid": "W4-slice",
+          "label": "fzf",
+          "files": [
+            "src/services/fuzzy-matching/fuzzy-match-service.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/services/fuzzy-matching/fuzzy-match-service.ts"
+        },
+        {
+          "rid": "W5-slice",
+          "label": "peaksHomeDir",
+          "files": [
+            "src/services/config/sidecar-store.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/services/config/sidecar-store.ts"
+        },
+        {
+          "rid": "W6-slice",
+          "label": "fail",
+          "files": [
+            "src/shared/result.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/shared/result.ts"
+        },
+        {
+          "rid": "W7-slice",
+          "label": "step",
+          "files": [
+            "src/services/workflow/workflow-router-service.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/services/workflow/workflow-router-service.ts"
+        },
+        {
+          "rid": "W8-slice",
+          "label": "makeProjectNoSymlink",
+          "files": [
+            "tests/unit/slice-check-service.test.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:tests/unit/slice-check-service.test.ts"
+        },
+        {
+          "rid": "W9-slice",
+          "label": "scan-existing-system-service.test.ts",
+          "files": [
+            "tests/unit/scan-existing-system-service.test.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:tests/unit/scan-existing-system-service.test.ts"
+        }
+      ],
+      "parallelizableWithinBatch": true
+    },
+    {
+      "batch": 2,
+      "dependsOn": [
+        1
+      ],
+      "slices": [
+        {
+          "rid": "W3-slice",
+          "label": "resolveLocalBinary",
+          "files": [
+            "src/services/slice/slice-check-service.ts"
+          ],
+          "estimate": {
+            "complexitySum": 0,
+            "testCount": 0,
+            "locSum": 110,
+            "minutesP50": 27.5,
+            "minutesP90": 44,
+            "confidence": "low",
+            "rationale": "v1 heuristic: 0.25 min/LoC + 0.5 min/test + 0.1 min/complexity; confidence low because no historical sample"
+          },
+          "semanticAnchor": "file:src/services/slice/slice-check-service.ts"
+        }
+      ],
+      "parallelizableWithinBatch": false
+    }
+  ]
+}

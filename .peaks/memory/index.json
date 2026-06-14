@@ -1,88 +1,87 @@
 {
-  "schema_version": 1,
   "version": 1,
-  "updatedAt": "2026-06-12T15:25:00.000Z",
+  "updatedAt": "2026-06-13T06:10:07.162Z",
   "hot": {
     "feedback": [
       {
         "name": "active-skill-cli-routing",
         "kind": "feedback",
         "description": "Active-skill reads go through the CLI When checking the active Peaks skill (for the status header / gate display), **...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\active-skill-cli-routing.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/active-skill-cli-routing.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-09"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "coverage-red-line",
         "kind": "feedback",
         "description": "When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\coverage-red-line.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/coverage-red-line.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "dogfood-2026-06-02-wechat-post-sop",
         "kind": "feedback",
         "description": "On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , gates  +  using ) end-to-end against the pea...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/dogfood-2026-06-02-wechat-post-sop.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-01"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "main-branch-iteration",
         "kind": "feedback",
         "description": "For future iterations in this project, do not create worktrees by default; modify directly on the main branch.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\main-branch-iteration.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/main-branch-iteration.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-current-directory-scope",
         "kind": "feedback",
         "description": "Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于当前目录下\"，避免 postinstall、skills、配置等流程触碰  或  这...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-current-directory-scope.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-current-directory-scope.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
         "kind": "feedback",
         "description": "The  skill's step 5 references a \"thin helper\" for the audit log writer.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-skill-output-style",
         "kind": "feedback",
         "description": "When the user uses Peaks skills from  in any project, the response should look clearly different from normal Claude C...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-skill-output-style.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-skill-output-style.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "rd-gstack-dry-run",
         "kind": "feedback",
         "description": "The skills under this project's  directory should deeply integrate and reference gstack (https://github.com/garrytan/...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\rd-gstack-dry-run.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/rd-gstack-dry-run.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "review-memories-extract-and-memory-index",
         "kind": "feedback",
         "description": "This review memory is **closed**.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/review-memories-extract-and-memory-index.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-03"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "windows-shell-quoting-divergence",
         "kind": "feedback",
         "description": "On Windows, when testing  or similar nested-quote patterns, the test outcome depends on which shell interprets the ou...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\windows-shell-quoting-divergence.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/windows-shell-quoting-divergence.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ],
     "decision": [
@@ -90,49 +89,49 @@
         "name": "ide-adapter-resource-profile-framework",
         "kind": "decision",
         "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-solo full-auto) The  shape...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/ide-adapter-resource-profile-framework.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
-        "updatedAt": "2026-06-08"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
         "kind": "decision",
         "description": "peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-dashboard-ok-policy-workspace-only-default.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-ide-dashboard-ok-policy-workspace-only-default.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/010-008-008-2026-06-07-peaks-ide-cleanup.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-memory-scan-is-intentionally-not-a-cli",
         "kind": "decision",
         "description": "is intentionally NOT a CLI command.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-memory-scan-is-intentionally-not-a-cli.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-memory-scan-is-intentionally-not-a-cli.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
         "kind": "decision",
         "description": "Slice #009 (PRD #002) added a new  CLI primitive.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\skill-first-cli-auxiliary-sub-agent-dispatch.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/skill-first-cli-auxiliary-sub-agent-dispatch.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "slim-ideadapter-shape-is-the-contract",
         "kind": "decision",
         "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/slim-ideadapter-shape-is-the-contract.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "subagent-tool-matcher-per-ide",
         "kind": "decision",
         "description": "Per-IdeAdapter.subAgentToolMatcher is a string field declared in .",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/subagent-tool-matcher-per-ide.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ],
     "rule": [
@@ -140,73 +139,81 @@
         "name": "jsdoc-breaks-on-glob-literals-in-tsc",
         "kind": "rule",
         "description": "JSDoc comments (within ) that contain markdown glob patterns like  or  are mis-parsed by tsc as bold/italic.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\jsdoc-breaks-on-glob-literals-in-tsc.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/jsdoc-breaks-on-glob-literals-in-tsc.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-        "updatedAt": "2026-06-11"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes",
         "kind": "rule",
         "description": "The OpenSpec parser () requires exact Title Case section names (, , , , ) and plain  bullets.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-        "updatedAt": "2026-06-11"
+        "updatedAt": "2026-06-13"
+      },
+      {
+        "name": "peaks-cli-tenet-one-key-completion-and-minimal-user-operation",
+        "kind": "rule",
+        "description": "> Source: peaks-cli repo, user-stated principle 2026-06-11 late session (smallMark).",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-tenet-one-key-completion.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first",
         "kind": "rule",
         "description": "In peaks-cli, each top-level command (, , etc.) is registered in exactly one place.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-        "updatedAt": "2026-06-10"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
         "kind": "rule",
         "description": "For multi-commit enforcer delivery (source shipped first, integration wired in a follow-up commit), use a  set in the...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\staged-enforcer-delivery-via-deferred-enforcers-set.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/staged-enforcer-delivery-via-deferred-enforcers-set.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-        "updatedAt": "2026-06-11"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "sub-agent-context-minimal-occupation",
         "kind": "rule",
         "description": "User hard rule (2026-06-07 1:38 + 1:40 GMT+8): \"**子 agent 会把上下文撑爆吧**\" + \"**能不能让子 agent 不占用上下文,或者极少的占用呢**\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-context-minimal-occupation.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/sub-agent-context-minimal-occupation.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "sub-agent-headroom-forced-compression-gate",
         "kind": "rule",
         "description": "User hard rule (2026-06-07 1:50 GMT+8): \"**我觉得可以加红线当上下文达到 75% 的时候,通过 peaks-cli 的 cli 或者 hook 严格要求先压缩我感觉会更好的保证效果**\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-headroom-forced-compression-gate.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/sub-agent-headroom-forced-compression-gate.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "sub-agent-heartbeat-progress-red-line",
         "kind": "rule",
         "description": "User hard rule (2026-06-07 1:30 GMT+8): \"最好是任务全部派发完有个心跳机制可以动态的更新各自进度给 dispatcher,这样就不会被误认为假死\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-heartbeat-progress-red-line.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/sub-agent-heartbeat-progress-red-line.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "sub-agent-resource-lifecycle-red-line",
         "kind": "rule",
         "description": "User hard rule (2026-06-07 1:19 GMT+8): \"要加一条红线子 agent 不是越多越好,要合理创建,还有用完必须回收\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-resource-lifecycle-red-line.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/sub-agent-resource-lifecycle-red-line.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "sub-agent-shared-channel-cross-completion",
         "kind": "rule",
         "description": "User hard rule (2026-06-07 1:46 GMT+8): \"**而且只要有子 agent 完成就更新 dispatcher 的共享上下文,这样其他未完成的子 agent 也能感知**\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/sub-agent-shared-channel-cross-completion.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ],
     "convention": [
@@ -214,49 +221,49 @@
         "name": "detectidefromcontext-iterates-listadapterids",
         "kind": "convention",
         "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/detectidefromcontext-iterates-listadapterids.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown",
         "kind": "convention",
         "description": "peaks-cli CLI subcommands that accept a structured filter (, , , etc.) should treat unknown values as \"no filter\" rat...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-        "updatedAt": "2026-06-10"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives",
         "kind": "convention",
         "description": "The  skill () is the canonical example of the dev-preference red line \"skill is primary, CLI is auxiliary\".",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "project-option-is-canonical-project-root-source",
         "kind": "convention",
         "description": "The  option is the canonical project-root source.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\project-option-is-canonical-project-root-source.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/project-option-is-canonical-project-root-source.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "r-2-symlink-guard-for-settings-writes",
         "kind": "convention",
         "description": "R-2 hard rule: settings files (, , etc.) MUST NOT be writable through a symlink.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\r-2-symlink-guard-for-settings-writes.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/r-2-symlink-guard-for-settings-writes.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added",
         "kind": "convention",
         "description": "Slice #2's Trae support is purely \"fill the table\" —  for Trae users uses the same registry-driven install path as Cl...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ],
     "module": [
@@ -264,25 +271,25 @@
         "name": "slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly",
         "kind": "module",
         "description": "Slice #2's perf baseline shows the cwd-fallback path in  scales linearly with adapter count: 1 adapter = ~17 µs, 2 ad...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior",
         "kind": "module",
         "description": "The  module is the single source of truth for IDE-aware behavior.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "src-services-session-canonical-workspace-resolver",
         "kind": "module",
         "description": "is the canonical home for the per-session workspace.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\src-services-session-canonical-workspace-resolver.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/src-services-session-canonical-workspace-resolver.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       }
     ],
     "lesson": [
@@ -290,173 +297,173 @@
         "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
         "kind": "lesson",
         "description": "Commander.js's  flag translation: when a CLI command declares , commander parses the user's  into  (note: the BASE na...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/commander-no-flag-sets-progress-false-not-noprogress-true.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-file-size-scan-readfile-on-deleted-paths",
         "kind": "lesson",
         "description": "calls into the file-size scan at  to enforce the 800-line cap.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-request-init-filename-truncation-255-char-actual-limit",
         "kind": "lesson",
         "description": "writes the request artefact at  where the requestId is the slug passed via .",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-255-char-actual-limit.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-request-init-filename-truncation-255-char-actual-limit.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-09-session-d9aff4/txt/handoff-021-2026-06-09-session-info-primitive-and-skill-md-consistency.md",
-        "updatedAt": "2026-06-09"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-hook-stdin-test-seam-pattern",
         "kind": "lesson",
         "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-hook-stdin-test-seam-pattern.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-hook-stdin-test-seam-pattern.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-slice-check-axis-mismatch-false-negatives",
         "kind": "lesson",
         "description": "looks for review-fanout artefacts at the **change-id axis** () but the actual artefacts live at the **session-id axis...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-slice-check-axis-mismatch-false-negatives.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-slice-check-windows-typecheck-bug",
         "kind": "lesson",
         "description": "The  typecheck stage on Windows shells reports  (too fast for tsc to have actually run) and  with empty /, while the ...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-windows-typecheck-bug.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-slice-check-windows-typecheck-bug.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "real-cmdline-regression-test-for-spawn",
         "kind": "lesson",
         "description": "For any  call on Windows that goes through , assertion-only dogfood (e.g.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\real-cmdline-regression-test-for-spawn.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/real-cmdline-regression-test-for-spawn.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "session-dir-canonical-resolver-must-route-all-writes",
         "kind": "lesson",
         "description": "As of slice  (2026-06-07), the canonical per-session workspace lives at  (NOT the legacy ).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\session-dir-canonical-resolver-must-route-all-writes.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/session-dir-canonical-resolver-must-route-all-writes.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "slice-015-fix-3-dogfood",
         "kind": "lesson",
         "description": "This is a test memory from slice #015 fix-3 dogfood.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-015-fix-3-dogfood.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/slice-015-fix-3-dogfood.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/qa/test-reports/015-2026-06-07-fix-4-peaks-cli-self-bugs-and-md.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "static-scan-must-cover-skills-tree-not-just-src",
         "kind": "lesson",
         "description": "The path-construction static scan in  was originally written to cover only  (slice 005's defense-in-depth).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/static-scan-must-cover-skills-tree-not-just-src.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
         "kind": "lesson",
         "description": "The Trae adapter's , , , and  are based on 1.x assumptions, not on real Trae documentation.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "trae-adapter-values-verified-against-1x",
         "kind": "lesson",
         "description": "The Trae adapter's 4 UNVERIFIED fields (slice #3 closeout code-review M-1) are **VERIFIED-AS-IS** as of slice 009-009...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-verified-against-1x.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/trae-adapter-values-verified-against-1x.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md",
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       }
     ]
   },
   "warm": {
     "project": [
       {
-        "name": "parked-peaks-workflow-primitive",
-        "kind": "project",
-        "description": "Proposed peaks-workflow primitive (skill + CLI) — parked 2026-06-12. Bundles WHO/HOW/WITH-WHAT; pairs with peaks-sop for WHAT. 5 open concerns; defer-to-dogfood gate. Full design in docs/adr/0007-peaks-workflow-primitive.md.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\parked-peaks-workflow-primitive.md",
-        "sourceArtifact": "docs/adr/0007-peaks-workflow-primitive.md",
-        "updatedAt": "2026-06-12"
-      },
-      {
         "name": "custom-sop-and-gate-metering",
         "kind": "project",
         "description": "New iteration discussed 2026-05-29 (peaks-prd brainstorm).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-and-gate-metering.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/custom-sop-and-gate-metering.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "custom-sop-domain-agnostic-positioning",
         "kind": "project",
         "description": "用户决策 2026-05-29：自定义 SOP（peaks-sop 技能 +  引擎）**不限于研发流程**，要定位成**通用的\"流程不许跳步\"工具**。用户原话：\"不只是研发，像其他场景才是这个工具的更好的发展前景。\" **适用面*...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/custom-sop-domain-agnostic-positioning.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-30"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "gate-enforcement-hook",
         "kind": "project",
         "description": "决策 2026-05-30(已实现,commit b289cd6):把 SOP 门禁从「约定」变「强制」。这是产品护城河——CI 只拦合并、CLAUDE.md 靠自觉,只有这里能在**对话流程中途、面向 agent 本身**拦住不可逆...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gate-enforcement-hook.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/gate-enforcement-hook.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-30"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "gateguard-vs-peaks-qa-fact-forcing-conflict",
         "kind": "project",
         "description": "> Source: peaks-cli repo, observed 2026-06-10 by user  while a colleague  was running peaks-cli 1.3.9 in .",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gateguard-vs-peaks-qa-fact-forcing-conflict.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/gateguard-vs-peaks-qa-fact-forcing-conflict.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-10"
+        "updatedAt": "2026-06-13"
+      },
+      {
+        "name": "parked-peaks-workflow-primitive",
+        "kind": "project",
+        "description": "User pain: peaks-solo re-derives the phase plan (~3-5k tokens) on every invocation, plus risk of LLM drifting the pha...",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/parked-peaks-workflow-primitive.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer",
         "kind": "project",
         "description": "peaks-cli 1.3.3 (next minor, post-slice-#1) is the first version where the IDE-adapter layer is in place.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-companion-watcher-ecs-url-config",
         "kind": "project",
         "description": "Planned iteration discussed 2026-06-07 (peaks-solo session ).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-companion-watcher-ecs-url-config.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-companion-watcher-ecs-url-config.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-07"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "token-encrypted-storage-decision",
         "kind": "project",
         "description": "用户 2026-05-29 决策：将来做 Feature B（open-core license/entitlement）时，license key、token、密钥等敏感凭据必须**加密落盘、使用时解密**，而不是明文存储，也不是 ...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\token-encrypted-storage-decision.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/token-encrypted-storage-decision.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-05-29"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer",
         "kind": "project",
         "description": "Slice #2 registers Trae as a second built-in IDE.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ],
     "reference": [
@@ -464,541 +471,26 @@
         "name": "fzf-for-js-api-semantics-used-by-peaks-cli-fuzzy-matching",
         "kind": "reference",
         "description": "When wrapping  (npm) in TypeScript, the relevant API surface is: —  is required when items are not strings.",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\fzf-for-js-api-semantics-used-by-peaks-cli-fuzzy-matching.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/fzf-for-js-api-semantics-used-by-peaks-cli-fuzzy-matching.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-        "updatedAt": "2026-06-10"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "peaks-cli-1-3-2-windows-test-baseline-30-fail",
         "kind": "reference",
         "description": "peaks-cli 1.3.2 baseline test failure count on Windows: 30 pre-existing failures (all  on Windows-without-developer-m...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-2-windows-test-baseline-30-fail.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-cli-1-3-2-windows-test-baseline-30-fail.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       },
       {
         "name": "slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable",
         "kind": "reference",
         "description": "Slice #2 closed with 12/13 ACs unconditional + 1 PASS-WITH-CAVEAT (AC-10 audit log writer scope).",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable.md",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-        "updatedAt": "2026-06-06"
+        "updatedAt": "2026-06-13"
       }
     ]
-  },
-  "entries": [
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "active-skill-cli-routing",
-      "description": "Active-skill reads go through the CLI When checking the active Peaks skill (for the status header / gate display), **...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\active-skill-cli-routing.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-09"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "coverage-red-line",
-      "description": "When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\coverage-red-line.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "dogfood-2026-06-02-wechat-post-sop",
-      "description": "On 2026-06-02 I dogfooded a real wechat-style publishing SOP (, phases , gates  +  using ) end-to-end against the pea...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\dogfood-2026-06-02-wechat-post-sop.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-01"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "main-branch-iteration",
-      "description": "For future iterations in this project, do not create worktrees by default; modify directly on the main branch.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\main-branch-iteration.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "peaks-current-directory-scope",
-      "description": "Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。 **Why:** 用户明确要求\"所有 peaks 相关的改动局限于当前目录下\"，避免 postinstall、skills、配置等流程触碰  或  这...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-current-directory-scope.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive",
-      "description": "The  skill's step 5 references a \"thin helper\" for the audit log writer.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "peaks-skill-output-style",
-      "description": "When the user uses Peaks skills from  in any project, the response should look clearly different from normal Claude C...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-skill-output-style.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "rd-gstack-dry-run",
-      "description": "The skills under this project's  directory should deeply integrate and reference gstack (https://github.com/garrytan/...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\rd-gstack-dry-run.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "review-memories-extract-and-memory-index",
-      "description": "This review memory is **closed**.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\review-memories-extract-and-memory-index.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-03"
-    },
-    {
-      "tier": "feedback",
-      "kind": "feedback",
-      "name": "windows-shell-quoting-divergence",
-      "description": "On Windows, when testing  or similar nested-quote patterns, the test outcome depends on which shell interprets the ou...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\windows-shell-quoting-divergence.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "ide-adapter-resource-profile-framework",
-      "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-solo full-auto) The  shape...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
-      "updatedAt": "2026-06-08"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "peaks-ide-dashboard-ok-policy-workspace-only-default",
-      "description": "peaks-ide dashboard ok-policy: workspace-only (default) Rule  now defaults to :  is  whenever the workspace layout / ...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-dashboard-ok-policy-workspace-only-default.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/requests/010-008-008-2026-06-07-peaks-ide-cleanup.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "peaks-memory-scan-is-intentionally-not-a-cli",
-      "description": "is intentionally NOT a CLI command.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-memory-scan-is-intentionally-not-a-cli.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "skill-first-cli-auxiliary-sub-agent-dispatch",
-      "description": "Slice #009 (PRD #002) added a new  CLI primitive.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\skill-first-cli-auxiliary-sub-agent-dispatch.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "slim-ideadapter-shape-is-the-contract",
-      "description": "Slice #1 established the slim  shape: 4 string fields (id, displayName, envVar, hookEvent, toolMatcher) + 1 settings ...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slim-ideadapter-shape-is-the-contract.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "decision",
-      "kind": "decision",
-      "name": "subagent-tool-matcher-per-ide",
-      "description": "Per-IdeAdapter.subAgentToolMatcher is a string field declared in .",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\subagent-tool-matcher-per-ide.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "jsdoc-breaks-on-glob-literals-in-tsc",
-      "description": "JSDoc comments (within ) that contain markdown glob patterns like  or  are mis-parsed by tsc as bold/italic.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\jsdoc-breaks-on-glob-literals-in-tsc.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-      "updatedAt": "2026-06-11"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes",
-      "description": "The OpenSpec parser () requires exact Title Case section names (, , , , ) and plain  bullets.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\openspec-proposal-md-format-title-case-sections-plain-bullets-no-checkboxes.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-      "updatedAt": "2026-06-11"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first",
-      "description": "In peaks-cli, each top-level command (, , etc.) is registered in exactly one place.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-      "updatedAt": "2026-06-10"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
-      "description": "For multi-commit enforcer delivery (source shipped first, integration wired in a follow-up commit), use a  set in the...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\staged-enforcer-delivery-via-deferred-enforcers-set.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-11-session-f0312d/txt/handoff.md",
-      "updatedAt": "2026-06-11"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "sub-agent-context-minimal-occupation",
-      "description": "User hard rule (2026-06-07 1:38 + 1:40 GMT+8): \"**子 agent 会把上下文撑爆吧**\" + \"**能不能让子 agent 不占用上下文,或者极少的占用呢**\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-context-minimal-occupation.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "sub-agent-headroom-forced-compression-gate",
-      "description": "User hard rule (2026-06-07 1:50 GMT+8): \"**我觉得可以加红线当上下文达到 75% 的时候,通过 peaks-cli 的 cli 或者 hook 严格要求先压缩我感觉会更好的保证效果**\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-headroom-forced-compression-gate.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "sub-agent-heartbeat-progress-red-line",
-      "description": "User hard rule (2026-06-07 1:30 GMT+8): \"最好是任务全部派发完有个心跳机制可以动态的更新各自进度给 dispatcher,这样就不会被误认为假死\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-heartbeat-progress-red-line.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "sub-agent-resource-lifecycle-red-line",
-      "description": "User hard rule (2026-06-07 1:19 GMT+8): \"要加一条红线子 agent 不是越多越好,要合理创建,还有用完必须回收\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-resource-lifecycle-red-line.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "rule",
-      "kind": "rule",
-      "name": "sub-agent-shared-channel-cross-completion",
-      "description": "User hard rule (2026-06-07 1:46 GMT+8): \"**而且只要有子 agent 完成就更新 dispatcher 的共享上下文,这样其他未完成的子 agent 也能感知**\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "detectidefromcontext-iterates-listadapterids",
-      "description": "MUST iterate  (from ), never a hardcoded list of IdeId strings.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\detectidefromcontext-iterates-listadapterids.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown",
-      "description": "peaks-cli CLI subcommands that accept a structured filter (, , , etc.) should treat unknown values as \"no filter\" rat...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-forgiving-cli-filters-kind-type-outcome-fall-through-to-unfiltered-on-unknown.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-      "updatedAt": "2026-06-10"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives",
-      "description": "The  skill () is the canonical example of the dev-preference red line \"skill is primary, CLI is auxiliary\".",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "project-option-is-canonical-project-root-source",
-      "description": "The  option is the canonical project-root source.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\project-option-is-canonical-project-root-source.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "r-2-symlink-guard-for-settings-writes",
-      "description": "R-2 hard rule: settings files (, , etc.) MUST NOT be writable through a symlink.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\r-2-symlink-guard-for-settings-writes.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "convention",
-      "kind": "convention",
-      "name": "trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added",
-      "description": "Slice #2's Trae support is purely \"fill the table\" —  for Trae users uses the same registry-driven install path as Cl...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-install-inherits-slice-1-s-registry-driven-code-path-no-install-code-was-added.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "module",
-      "kind": "module",
-      "name": "slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly",
-      "description": "Slice #2's perf baseline shows the cwd-fallback path in  scales linearly with adapter count: 1 adapter = ~17 µs, 2 ad...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-confirms-the-slice-1-slice-2-architecture-scales-linearly.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "module",
-      "kind": "module",
-      "name": "src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior",
-      "description": "The  module is the single source of truth for IDE-aware behavior.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "module",
-      "kind": "module",
-      "name": "src-services-session-canonical-workspace-resolver",
-      "description": "is the canonical home for the per-session workspace.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\src-services-session-canonical-workspace-resolver.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "commander-no-flag-sets-progress-false-not-noprogress-true",
-      "description": "Commander.js's  flag translation: when a CLI command declares , commander parses the user's  into  (note: the BASE na...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\commander-no-flag-sets-progress-false-not-noprogress-true.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-013-2026-06-07-hooks-install-no-progress-flag.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "peaks-cli-file-size-scan-readfile-on-deleted-paths",
-      "description": "calls into the file-size scan at  to enforce the 800-line cap.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "peaks-cli-request-init-filename-truncation-255-char-actual-limit",
-      "description": "writes the request artefact at  where the requestId is the slug passed via .",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-request-init-filename-truncation-255-char-actual-limit.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-09-session-d9aff4/txt/handoff-021-2026-06-09-session-info-primitive-and-skill-md-consistency.md",
-      "updatedAt": "2026-06-09"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "peaks-hook-stdin-test-seam-pattern",
-      "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-hook-stdin-test-seam-pattern.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "peaks-slice-check-axis-mismatch-false-negatives",
-      "description": "looks for review-fanout artefacts at the **change-id axis** () but the actual artefacts live at the **session-id axis...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-axis-mismatch-false-negatives.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "peaks-slice-check-windows-typecheck-bug",
-      "description": "The  typecheck stage on Windows shells reports  (too fast for tsc to have actually run) and  with empty /, while the ...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-slice-check-windows-typecheck-bug.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "real-cmdline-regression-test-for-spawn",
-      "description": "For any  call on Windows that goes through , assertion-only dogfood (e.g.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\real-cmdline-regression-test-for-spawn.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "session-dir-canonical-resolver-must-route-all-writes",
-      "description": "As of slice  (2026-06-07), the canonical per-session workspace lives at  (NOT the legacy ).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\session-dir-canonical-resolver-must-route-all-writes.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "slice-015-fix-3-dogfood",
-      "description": "This is a test memory from slice #015 fix-3 dogfood.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-015-fix-3-dogfood.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/qa/test-reports/015-2026-06-07-fix-4-peaks-cli-self-bugs-and-md.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "static-scan-must-cover-skills-tree-not-just-src",
-      "description": "The path-construction static scan in  was originally written to cover only  (slice 005's defense-in-depth).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\static-scan-must-cover-skills-tree-not-just-src.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-012-2026-06-07-fix-5th-session-runtime-writer.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified",
-      "description": "The Trae adapter's , , , and  are based on 1.x assumptions, not on real Trae documentation.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-hookevent-toolmatcher-envvar-are-1-x-assumptions-not-verified.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "lesson",
-      "kind": "lesson",
-      "name": "trae-adapter-values-verified-against-1x",
-      "description": "The Trae adapter's 4 UNVERIFIED fields (slice #3 closeout code-review M-1) are **VERIFIED-AS-IS** as of slice 009-009...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-values-verified-against-1x.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md",
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "custom-sop-and-gate-metering",
-      "description": "New iteration discussed 2026-05-29 (peaks-prd brainstorm).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-and-gate-metering.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "custom-sop-domain-agnostic-positioning",
-      "description": "用户决策 2026-05-29：自定义 SOP（peaks-sop 技能 +  引擎）**不限于研发流程**，要定位成**通用的\"流程不许跳步\"工具**。用户原话：\"不只是研发，像其他场景才是这个工具的更好的发展前景。\" **适用面*...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\custom-sop-domain-agnostic-positioning.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-30"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "gate-enforcement-hook",
-      "description": "决策 2026-05-30(已实现,commit b289cd6):把 SOP 门禁从「约定」变「强制」。这是产品护城河——CI 只拦合并、CLAUDE.md 靠自觉,只有这里能在**对话流程中途、面向 agent 本身**拦住不可逆...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gate-enforcement-hook.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-30"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "gateguard-vs-peaks-qa-fact-forcing-conflict",
-      "description": "> Source: peaks-cli repo, observed 2026-06-10 by user  while a colleague  was running peaks-cli 1.3.9 in .",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\gateguard-vs-peaks-qa-fact-forcing-conflict.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-10"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer",
-      "description": "peaks-cli 1.3.3 (next minor, post-slice-#1) is the first version where the IDE-adapter layer is in place.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "peaks-companion-watcher-ecs-url-config",
-      "description": "Planned iteration discussed 2026-06-07 (peaks-solo session ).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-companion-watcher-ecs-url-config.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-06-07"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "token-encrypted-storage-decision",
-      "description": "用户 2026-05-29 决策：将来做 Feature B（open-core license/entitlement）时，license key、token、密钥等敏感凭据必须**加密落盘、使用时解密**，而不是明文存储，也不是 ...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\token-encrypted-storage-decision.md",
-      "sourceArtifact": null,
-      "updatedAt": "2026-05-29"
-    },
-    {
-      "tier": "project",
-      "kind": "project",
-      "name": "trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer",
-      "description": "Slice #2 registers Trae as a second built-in IDE.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\trae-adapter-is-the-first-real-consumer-of-the-slice-1-ide-adapter-layer.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "reference",
-      "kind": "reference",
-      "name": "fzf-for-js-api-semantics-used-by-peaks-cli-fuzzy-matching",
-      "description": "When wrapping  (npm) in TypeScript, the relevant API surface is: —  is required when items are not strings.",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\fzf-for-js-api-semantics-used-by-peaks-cli-fuzzy-matching.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-10-session-6bcac7/txt/handoff-2026-06-10-fuzzy-matching-implementation.md",
-      "updatedAt": "2026-06-10"
-    },
-    {
-      "tier": "reference",
-      "kind": "reference",
-      "name": "peaks-cli-1-3-2-windows-test-baseline-30-fail",
-      "description": "peaks-cli 1.3.2 baseline test failure count on Windows: 30 pre-existing failures (all  on Windows-without-developer-m...",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-1-3-2-windows-test-baseline-30-fail.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    },
-    {
-      "tier": "reference",
-      "kind": "reference",
-      "name": "slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable",
-      "description": "Slice #2 closed with 12/13 ACs unconditional + 1 PASS-WITH-CAVEAT (AC-10 audit log writer scope).",
-      "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\slice-2-closeout-verdict-pass-with-caveat-on-ac-10-is-acceptable.md",
-      "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
-      "updatedAt": "2026-06-06"
-    }
-  ]
+  }
 }

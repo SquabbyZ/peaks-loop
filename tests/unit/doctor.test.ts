@@ -1,7 +1,7 @@
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   isWorkspaceInitializedAt,
   runDoctor
@@ -600,6 +600,72 @@ describe('runDoctor build:workspace-layout-canonical check', () => {
     const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
 
     expect(check).toMatchObject({ ok: true });
+  });
+});
+
+/**
+ * L3:l3-memory-health schema drift regression net.
+ *
+ * Slice 2026-06-13-repair-pre-existing-test-failures: the on-disk
+ * .peaks/memory/index.json ships with `version: 1` (per the
+ * MemoryIndex type in src/services/memory/project-memory-service.ts)
+ * but the doctor check historically probed for `schema_version`. The
+ * mismatch turned every doctor test that asserted `summary.ok = true`
+ * into a regression. The probe-driven test below verifies the fix:
+ * the doctor must report ok:true for the L3:l3-memory-health check
+ * when the on-disk index carries `version: 1`.
+ *
+ * Uses an injected l3ProjectRoot option (slice fix in
+ * src/services/doctor/doctor-service.ts) so the test does not depend
+ * on the real .peaks/memory/index.json on disk.
+ */
+describe('runDoctor L3:l3-memory-health check', () => {
+  let cwdSpy: { mockRestore: () => void };
+  let scratchRoot: string;
+
+  beforeEach(async () => {
+    scratchRoot = await mkdtemp(join(tmpdir(), 'peaks-doctor-l3-'));
+    cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(scratchRoot);
+  });
+
+  afterEach(() => {
+    cwdSpy.mockRestore();
+  });
+
+  test('passes when .peaks/memory/index.json has the production schema (version: 1)', async () => {
+    await mkdir(join(scratchRoot, '.peaks', 'memory'), { recursive: true });
+    await writeFile(
+      join(scratchRoot, '.peaks', 'memory', 'index.json'),
+      JSON.stringify({
+        version: 1,
+        updatedAt: '2026-06-13T00:00:00.000Z',
+        hot: { feedback: [], friction: [], lesson: [] },
+        warm: { feedback: [], friction: [], lesson: [] }
+      }),
+      'utf8'
+    );
+
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.5', source: '2.0.5', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      l3ProjectRoot: scratchRoot
+    });
+    const check = report.checks.find((item) => item.id === 'L3:l3-memory-health');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('version=1');
+  });
+
+  test('passes when no .peaks/memory/index.json exists yet (fresh project)', async () => {
+    const report = await runDoctor({
+      distVersionProbe: () => ({ dist: '2.0.5', source: '2.0.5', match: true, distReadable: true }),
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      l3ProjectRoot: scratchRoot
+    });
+    const check = report.checks.find((item) => item.id === 'L3:l3-memory-health');
+
+    expect(check).toMatchObject({ ok: true });
+    expect(check?.message).toContain('No .peaks/memory/index.json yet');
   });
 });
 

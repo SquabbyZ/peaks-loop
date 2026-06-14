@@ -253,6 +253,16 @@ See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.
 
 [MIT](LICENSE) — commercial use, modification, private forks all welcome; keep the copyright notice.
 
+## 💬 Join the WeChat community
+
+Got usage questions, feature requests, or want to chat with the team and other peaks-cli users? Scan to join the **Peaks-Cli** WeChat group:
+
+<div align="center">
+  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Cli WeChat group QR code" width="240" />
+</div>
+
+> When the QR code expires, feel free to open a GitHub Issue / Discussion instead.
+
 ---
 
 <div align="center">

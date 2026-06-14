@@ -253,6 +253,16 @@ peaks project dashboard / memories
 
 [MIT](LICENSE) — 商用、改、私有 fork 都欢迎，保留版权即可。
 
+## 💬 加入微信交流群
+
+遇到使用问题、功能建议、或者想和其他 peaks-cli 用户直接交流？扫码加入 **Peaks-Cli** 微信群：
+
+<div align="center">
+  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Cli 微信群二维码" width="240" />
+</div>
+
+> 二维码图片过期后，欢迎在 GitHub Issues / Discussions 提反馈。
+
 ---
 
 <div align="center">

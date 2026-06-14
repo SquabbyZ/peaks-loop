@@ -2,11 +2,16 @@
 
 > Soft-optional second-opinion code review for peaks-rd Gate B3.
 > Mirrors the ECC 64-agents pattern (spec §7.2): peaks-cli ships
-> `@alibaba-group/open-code-review` as a **required dependency** and
-> reads the LLM endpoint config from `peaksConfig.ocr.llm` in the
-> user's `~/.peaks/config.json` (single source of truth, user-managed).
-> When present + configured, the wrapper turns the output into
-> structured `code-review.md` evidence.
+> `@alibaba-group/open-code-review` as an **`optionalDependency`**
+> (was promoted to `dependencies` in 2.0.1 and reverted in 2.0.3
+> because its postinstall downloads a Go binary via HTTPS and would
+> otherwise abort `npm i -g peaks-cli` in restricted/proxied
+> environments). The LLM endpoint config still lives under
+> `peaksConfig.ocr.llm` in the user's `~/.peaks/config.json` (single
+> source of truth, user-managed). When the user installs + configures
+> ocr, the wrapper turns its output into structured `code-review.md`
+> evidence; when missing, peaks-rd proceeds LLM-only and the slice
+> ships without the second opinion.
 
 ## What ocr is
 
@@ -34,9 +39,19 @@ ships without the second opinion.
 
 ## Install
 
-`@alibaba-group/open-code-review` is a **required `dependency`** of
-peaks-cli 2.0.1+. `npm i -g peaks-cli` pulls it automatically and
-downloads the platform binary in the postinstall step. Verify with:
+`@alibaba-group/open-code-review` is an **`optionalDependency`** of
+peaks-cli 2.0.3+ (was a required `dependency` in 2.0.1/2.0.2; reverted
+because the postinstall downloads a Go binary via HTTPS, which fails in
+restricted/proxied environments and would otherwise abort
+`npm i -g peaks-cli`). peaks-cli does NOT auto-install it. To enable
+the second-opinion review:
+
+```bash
+npm i -g @alibaba-group/open-code-review
+```
+
+(Under pnpm you also need `pnpm approve-builds @alibaba-group/open-code-review`
+so the binary download script can run.) Verify with:
 
 ```bash
 peaks code-review detect-ocr --json
@@ -47,7 +62,7 @@ Five possible states:
 | state | Meaning | Recovery |
 |---|---|---|
 | `ready` | Installed + binary downloaded + peaks-cli's `peaksConfig.ocr.llm` valid | Nothing — `run-ocr` will work. |
-| `package-missing` | npm dep not installed (corrupt node_modules, or user removed it) | `npm i -g @alibaba-group/open-code-review` (peaks-cli 2.0.1+ does this automatically; this state is rare) |
+| `package-missing` | npm dep not installed (peaks-cli 2.0.3+ ships with ocr as an `optionalDependency`, so the common cause is the user has not installed it yet, or it was removed from node_modules) | `npm i -g @alibaba-group/open-code-review` (peaks-cli no longer auto-installs it; under pnpm also run `pnpm approve-builds @alibaba-group/open-code-review`) |
 | `binary-missing` | npm dep present but Go binary did not download | `pnpm approve-builds @alibaba-group/open-code-review`, OR run `node node_modules/@alibaba-group/open-code-review/scripts/install.js`, OR manually fetch from https://github.com/alibaba/open-code-review/releases and place the binary at the path shown in `nextActions[2]`. |
 | `config-missing` | binary present but `peaksConfig.ocr.llm` is empty or partial | See "Configure" below. |
 | `detection-failed` | Unexpected error during detection | Inspect stderr; re-run probe. |

@@ -9,7 +9,7 @@
  *  - missing file => ARTIFACT_NOT_FOUND warning
  *  - file name convention soft warning
  */
-import { existsSync, mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -38,7 +38,14 @@ describe('G7 --write-artifact path safety', () => {
     const p = artifactPath(root, SID, RID, 'rd', 1, 'md');
     expect(p).toBe(resolve(root, '.peaks', '_sub_agents', SID, 'artifacts', `${RID}-rd-001.md`));
     const out = assertSafeArtifactPath(p, root);
-    expect(out).toBe(p);
+    // Slice 2026-06-13-repair-pre-existing-test-failures: on macOS
+    // `assertSafeArtifactPath` realpath-resolves the parent dir
+    // (the test creates the artifacts subdir but not the file
+    // itself, so realpathSync on the full file would ENOENT). The
+    // helper returns `resolve(realParent, basename)` so mirror that
+    // here. On Linux the realpath is a no-op.
+    const realParent = realpathSync(resolve(root, '.peaks', '_sub_agents', SID, 'artifacts'));
+    expect(out).toBe(resolve(realParent, `${RID}-rd-001.md`));
   });
 
   it('rejects `..` segments in the raw path', () => {
