@@ -93,9 +93,28 @@ export type StartOptions = {
   force?: boolean;
   /** Override the home dir (test seam). */
   home?: string;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin (bug 5): if set, pass
+   * `--config <path>` to cc-connect. Otherwise cc-connect is invoked
+   * bare (it resolves its own config from `./config.toml` or
+   * `~/.cc-connect/config.toml`).
+   */
+  configPath?: string;
 };
 
-const START_DEFAULT_ARGV: readonly string[] = ['--daemon'];
+const START_DEFAULT_ARGV: readonly string[] = [];
+
+/** Build the cc-connect argv for `start`. cc-connect has no `--daemon` flag;
+ *  bare invocation IS the canonical daemon form (it reads its config and
+ *  then runs in the foreground). When `configPath` is provided, we pass
+ *  `--config <path>` instead.
+ */
+function buildStartArgv(configPath: string | undefined): readonly string[] {
+  if (configPath === undefined || configPath.length === 0) {
+    return [...START_DEFAULT_ARGV];
+  }
+  return ['--config', configPath];
+}
 
 export async function startCcConnect(options: StartOptions = {}): Promise<StartResult> {
   const pidFile = companionPidFile(options.home);
@@ -136,7 +155,11 @@ export async function startCcConnect(options: StartOptions = {}): Promise<StartR
   }
   const spawnFn = options.spawn ?? spawnCompanion;
   const now = options.now ?? (() => new Date());
-  const argv: readonly string[] = [...START_DEFAULT_ARGV];
+  const argv: readonly string[] = buildStartArgv(options.configPath);
+  // cc-connect v1.3.2 has NO `--daemon` flag. We invoke it bare (or with
+  // `--config <path>`) and rely on `spawnCompanion` to set `detached: true`
+  // + call `child.unref()` so the daemon survives peaks-cli's exit. See
+  // process-manager.ts → spawnCompanion for the actual stdio / unref wiring.
   const { child, logFd } = spawnFn(probe.binaryPath, argv);
   closeLogFd(logFd);
   if (typeof child.pid !== 'number' || child.pid <= 0) {
