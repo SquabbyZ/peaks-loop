@@ -660,7 +660,19 @@ function toCompanionConfig(value: Record<string, unknown>): import('./config-typ
   const configPath = typeof value.configPath === 'string' && value.configPath.trim().length > 0 ? value.configPath.trim() : '~/.cc-connect/config.toml';
   const autoStart = typeof value.autoStart === 'boolean' ? value.autoStart : false;
   const weixin = isRecord(value.weixin) ? toCompanionWeixinConfig(value.weixin as Record<string, unknown>) : { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 };
-  return { enabled, defaultChannel, binaryPath, binaryPathSource, configPath, weixin, autoStart };
+  const agentType = typeof value.agentType === 'string' && value.agentType.trim().length > 0 ? value.agentType.trim() : undefined;
+  const agentWorkDir = typeof value.agentWorkDir === 'string' && value.agentWorkDir.trim().length > 0 ? value.agentWorkDir.trim() : undefined;
+  return {
+    enabled,
+    defaultChannel,
+    binaryPath,
+    binaryPathSource,
+    configPath,
+    weixin,
+    ...(agentType !== undefined ? { agentType } : {}),
+    ...(agentWorkDir !== undefined ? { agentWorkDir } : {}),
+    autoStart
+  };
 }
 
 export function bootstrapProjectLanguageConfig(projectRoot: string, language: string): void {

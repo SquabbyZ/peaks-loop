@@ -9,6 +9,15 @@
  * has no JSON5 / YAML / HOCON variants — TOML is the only config
  * format cc-connect understands.
  *
+ * The schema MUST match what `cc-connect` parses (see BUG 6 — fix
+ * 2026-06-14-cc-connect-weixin#6). cc-connect's Go config struct
+ * decodes `projects` as `[]Project`, so the TOML must use
+ * `[[projects]]` (array of tables), not `[projects]` (single
+ * map). Each project entry binds an agent block
+ * (`[projects.agent]` + `[projects.agent.options]`) to one or more
+ * platform blocks (`[[projects.platforms]]` +
+ * `[projects.platforms.options]`).
+ *
  * Change-1: peaks config is now the source of truth; the renderer
  * takes a typed `CompanionConfig` (from `~/.peaks/config.json`) and
  * derives the TOML from it. When `enabled === false`, the rendered
@@ -52,14 +61,27 @@ export type WeixinPlatformOptions = {
  * outside the typed-peaks-config flow (e.g. legacy tests, CLI
  * overrides). The full slice change-1 path goes through
  * `renderCompanionConfig` (typed `CompanionConfig`).
+ *
+ * `agentType` overrides the default agent type (`"claudecode"`).
+ * `agentWorkDir` overrides the default `work_dir`
+ * (`process.cwd()`) for `[projects.agent.options]`.
+ * `longPollTimeoutMs` (when set) is emitted as
+ * `[projects.platforms.options].long_poll_timeout_ms`.
  */
 export type RenderConfigInput = {
   channel?: 'weixin';
   projectName?: string;
   allowFrom?: string;
+  agentType?: string;
+  agentWorkDir?: string;
+  longPollTimeoutMs?: number;
 };
 
 const DEFAULT_PROJECT_NAME = 'default';
+/** Canonical agent type for AI-agent-on-WeChat (see BUG 6 fix). */
+export const DEFAULT_AGENT_TYPE = 'claudecode';
+/** Canonical agent permission mode (see cc-connect example config). */
+export const DEFAULT_AGENT_MODE = 'default';
 
 /**
  * Extract the project name (the `name = "..."` field) from a
@@ -102,7 +124,12 @@ export function renderCompanionConfig(config: CompanionConfig): string {
     return `${CC_CONNECT_CONFIG_HEADER.trimEnd()}\n# companion.enabled=false; cc-connect will not be started until you opt in.\n`;
   }
   const projectName = projectNameFromIlinkQrPayload(config.weixin.ilinkQrPayload);
-  return renderWeixinConfig({ channel: 'weixin', projectName });
+  return renderWeixinConfig({
+    channel: 'weixin',
+    projectName,
+    ...(config.agentType !== undefined ? { agentType: config.agentType } : {}),
+    ...(config.agentWorkDir !== undefined ? { agentWorkDir: config.agentWorkDir } : {})
+  });
 }
 
 /** Typed error for malformed peaks companion config. */
@@ -116,9 +143,32 @@ export class CompanionConfigError extends Error {
 
 /**
  * Render the weixin-only TOML config body. Returns the full file
- * contents. We always emit the `[projects]` block + a single
+ * contents. We always emit a single `[[projects]]` entry (array of
+ * tables — required by cc-connect's Go config decoder, BUG 6 fix)
+ * bound to a `[projects.agent]` + `[projects.agent.options]`
+ * block (claudecode by default) and a single
  * `[[projects.platforms]]` of type weixin. No other platform types
  * are emitted (PRD: AC2 / AC6).
+ *
+ * Schema reference (canonical, see `cc-connect config example`):
+ *
+ *     [[projects]]
+ *     name = "<projectName>"
+ *
+ *     [projects.agent]
+ *     type = "claudecode"
+ *
+ *     [projects.agent.options]
+ *     work_dir = "<cwd or peaks work dir>"
+ *     mode = "default"
+ *
+ *     [[projects.platforms]]
+ *     type = "weixin"
+ *
+ *     [projects.platforms.options]
+ *     allow_from = "*" | "<comma-separated user ids>"
+ *     account_id = "<projectName>"
+ *     # long_poll_timeout_ms = 35000
  */
 export function renderWeixinConfig(input: RenderConfigInput = {}): string {
   const channel = input.channel ?? DEFAULT_COMPANION_CHANNEL;
@@ -127,11 +177,22 @@ export function renderWeixinConfig(input: RenderConfigInput = {}): string {
   }
   const projectName = input.projectName?.trim() || DEFAULT_PROJECT_NAME;
   const allowFrom = input.allowFrom?.trim();
+  const agentType = input.agentType?.trim() || DEFAULT_AGENT_TYPE;
+  const agentWorkDir = input.agentWorkDir?.trim() || process.cwd();
+  const longPollTimeoutMs = input.longPollTimeoutMs;
+
   const lines: string[] = [
     CC_CONNECT_CONFIG_HEADER.trimEnd(),
     '',
-    '[projects]',
+    '[[projects]]',
     `name = "${projectName}"`,
+    '',
+    '[projects.agent]',
+    `type = "${agentType}"`,
+    '',
+    '[projects.agent.options]',
+    `work_dir = "${agentWorkDir}"`,
+    `mode = "${DEFAULT_AGENT_MODE}"`,
     '',
     '[[projects.platforms]]',
     'type = "weixin"',
@@ -139,11 +200,18 @@ export function renderWeixinConfig(input: RenderConfigInput = {}): string {
     '[projects.platforms.options]',
     '# token is filled in by `cc-connect weixin setup` after the user scans the QR',
     '# base_url defaults to the public ilink gateway when omitted',
-    `# account_id = "${projectName}"`,
-    '# long_poll_timeout_ms = 35000',
+    `account_id = "${projectName}"`,
+    '# long_poll_timeout_ms = 35000'
   ];
+  if (longPollTimeoutMs !== undefined && Number.isFinite(longPollTimeoutMs) && longPollTimeoutMs > 0) {
+    lines.push(`long_poll_timeout_ms = ${Math.floor(longPollTimeoutMs)}`);
+  }
   if (allowFrom !== undefined && allowFrom.length > 0) {
     lines.push(`allow_from = "${allowFrom}"`);
+  } else {
+    // Default to "*" so the user's first scan isn't blocked (matches
+    // the canonical example). Tests can still assert against this.
+    lines.push('allow_from = "*"');
   }
   return lines.join('\n') + '\n';
 }
@@ -200,11 +268,30 @@ export function readCcConnectConfig(home: string = homedir()): { body: string; m
  * (empty when the file is weixin-only or absent). Used by the
  * setup service to warn the user before overwriting an
  * existing config that has feishu / slack / etc.
+ *
+ * Scope: only inspects `type = "..."` lines that appear after an
+ * `[[projects.platforms]]` array-of-tables header. This avoids
+ * false positives from `[projects.agent]\ntype = "claudecode"`
+ * (BUG 6 fix).
  */
 export function detectNonWeixinPlatforms(toml: string): string[] {
   const out = new Set<string>();
   const lines = toml.split(/\r?\n/);
+  let inPlatformsBlock = false;
   for (const line of lines) {
+    // Track block boundaries. We re-enter "platforms" mode on every
+    // `[[projects.platforms]]` marker, and exit when we see a new
+    // top-level `[[...]]` or `[...]` block.
+    if (/^\s*\[\[projects\.platforms\]\]\s*$/.test(line)) {
+      inPlatformsBlock = true;
+      continue;
+    }
+    if (/^\s*(\[\[|\[)[^\]]*(\]\]|\])\s*$/.test(line)) {
+      // Any other table/array-of-tables header — leave platforms scope.
+      inPlatformsBlock = false;
+      continue;
+    }
+    if (!inPlatformsBlock) continue;
     const m = /^\s*type\s*=\s*"([^"]+)"\s*$/.exec(line);
     if (m && m[1] && m[1] !== 'weixin') {
       out.add(m[1]);

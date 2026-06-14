@@ -109,6 +109,14 @@ export type CompanionConfig = {
   configPath: string;
   /** Weixin-only channel block. */
   weixin: CompanionWeixinConfig;
+  /** Optional agent type override for the cc-connect `[projects.agent]` block.
+   *  When unset, the renderer defaults to `"claudecode"` (the canonical
+   *  type for an AI-agent-on-WeChat). See BUG 6 fix in
+   *  config-template.ts for the rationale. */
+  agentType?: string;
+  /** Optional working directory override for `[projects.agent.options].work_dir`.
+   *  When unset, the renderer uses `process.cwd()`. */
+  agentWorkDir?: string;
   /** When true, `peaks companion start` runs on session resume. Out of scope to implement autoStart itself; just store the flag. */
   autoStart: boolean;
 };

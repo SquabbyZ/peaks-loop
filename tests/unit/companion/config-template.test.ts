@@ -33,11 +33,21 @@ describe('paths', () => {
 });
 
 describe('renderWeixinConfig', () => {
-  it('emits a [projects] block and a single weixin platform', () => {
+  it('emits canonical [[projects]] schema with agent + weixin platform', () => {
     const body = renderWeixinConfig();
-    expect(body).toContain('[projects]');
+    // BUG 6 fix: cc-connect expects array-of-tables, not single map.
+    expect(body).toContain('[[projects]]');
+    expect(body).toContain('name = "default"');
+    expect(body).toContain('[projects.agent]');
+    expect(body).toContain('type = "claudecode"');
+    expect(body).toContain('[projects.agent.options]');
+    expect(body).toContain('work_dir =');
+    expect(body).toContain('mode = "default"');
     expect(body).toContain('[[projects.platforms]]');
     expect(body).toContain('type = "weixin"');
+    expect(body).toContain('[projects.platforms.options]');
+    expect(body).toContain('allow_from = "*"');
+    expect(body).toContain('account_id = "default"');
   });
 
   it('does not include any non-weixin platform types', () => {
@@ -50,14 +60,31 @@ describe('renderWeixinConfig', () => {
     expect(renderWeixinConfig()).toContain('name = "default"');
   });
 
-  it('emits allow_from when supplied', () => {
+  it('emits allow_from when supplied (overrides the "*" default)', () => {
     const body = renderWeixinConfig({ allowFrom: 'user@im.wechat' });
     expect(body).toContain('allow_from = "user@im.wechat"');
+    expect(body).not.toContain('allow_from = "*"');
   });
 
-  it('omits allow_from when not supplied', () => {
+  it('defaults allow_from to "*" when not supplied', () => {
     const body = renderWeixinConfig();
-    expect(body).not.toContain('allow_from');
+    expect(body).toContain('allow_from = "*"');
+  });
+
+  it('overrides the agent type when agentType is supplied', () => {
+    const body = renderWeixinConfig({ agentType: 'codex' });
+    expect(body).toContain('type = "codex"');
+    expect(body).not.toContain('type = "claudecode"');
+  });
+
+  it('emits work_dir from agentWorkDir when supplied', () => {
+    const body = renderWeixinConfig({ agentWorkDir: '/tmp/agent' });
+    expect(body).toContain('work_dir = "/tmp/agent"');
+  });
+
+  it('emits long_poll_timeout_ms when supplied', () => {
+    const body = renderWeixinConfig({ longPollTimeoutMs: 45000 });
+    expect(body).toContain('long_poll_timeout_ms = 45000');
   });
 
   it('throws when a non-weixin channel is passed (slice 1 hard constraint)', () => {
@@ -134,7 +161,12 @@ type = "discord"
   });
 
   it('tolerates comments and whitespace before type=', () => {
-    const body = `  # comment
+    // BUG 6 fix: only `type = "..."` lines that follow a
+    // `[[projects.platforms]]` marker are scanned. The synthetic body
+    // below wraps the dingtalk line inside a platforms block so the
+    // heuristic still flags it.
+    const body = `[[projects.platforms]]
+  # comment
    type = "dingtalk"
 `;
     expect(detectNonWeixinPlatforms(body)).toEqual(['dingtalk']);
@@ -183,15 +215,32 @@ describe('projectNameFromIlinkQrPayload', () => {
 });
 
 describe('renderCompanionConfig (typed peaks config)', () => {
-  it('emits a weixin-only TOML when enabled=true and defaultChannel=weixin', () => {
+  it('emits the canonical [[projects]] schema with agent + weixin platform', () => {
     const body = renderCompanionConfig(makeCompanionConfig({
       enabled: true,
       weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 }
     }));
-    expect(body).toContain('[projects]');
+    expect(body).toContain('[[projects]]');
     expect(body).toContain('[[projects.platforms]]');
     expect(body).toContain('type = "weixin"');
     expect(body).toContain('name = "default"');
+    expect(body).toContain('[projects.agent]');
+    expect(body).toContain('type = "claudecode"');
+    expect(body).toContain('[projects.agent.options]');
+    expect(body).toContain('work_dir =');
+    expect(body).toContain('[projects.platforms.options]');
+    expect(body).toContain('allow_from =');
+    expect(body).toContain('account_id =');
+    expect(detectNonWeixinPlatforms(body)).toEqual([]);
+  });
+
+  it('weixin-only: no feishu/slack/discord platforms rendered', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({ enabled: true }));
+    expect(body).not.toContain('"feishu"');
+    expect(body).not.toContain('"slack"');
+    expect(body).not.toContain('"discord"');
+    expect(body).not.toContain('"wecom"');
+    expect(body).not.toContain('"telegram"');
     expect(detectNonWeixinPlatforms(body)).toEqual([]);
   });
 
@@ -203,10 +252,29 @@ describe('renderCompanionConfig (typed peaks config)', () => {
     expect(body).toContain('name = "team-bot"');
   });
 
-  it('emits an empty / no-platforms body when enabled=false', () => {
+  it('peaksConfig.companion.agentType overrides default agent type', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({
+      enabled: true,
+      agentType: 'codex'
+    }));
+    expect(body).toContain('type = "codex"');
+    expect(body).not.toContain('type = "claudecode"');
+  });
+
+  it('peaksConfig.companion.agentWorkDir overrides the default work_dir', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({
+      enabled: true,
+      agentWorkDir: '/srv/peaks/agent'
+    }));
+    expect(body).toContain('work_dir = "/srv/peaks/agent"');
+  });
+
+  it('enabled=false renders empty body (no [[projects]] at all)', () => {
     const body = renderCompanionConfig(makeCompanionConfig({ enabled: false }));
+    expect(body).not.toContain('[[projects]]');
     expect(body).not.toContain('[[projects.platforms]]');
     expect(body).not.toContain('type = "weixin"');
+    expect(body).not.toContain('[projects.agent]');
     expect(detectNonWeixinPlatforms(body)).toEqual([]);
     expect(body).toMatch(/companion\.enabled=false/);
   });
