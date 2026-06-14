@@ -5,11 +5,15 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   ccConnectConfigFile,
   CC_CONNECT_CONFIG_FILENAME,
+  CompanionConfigError,
   detectNonWeixinPlatforms,
+  projectNameFromIlinkQrPayload,
+  renderCompanionConfig,
   renderWeixinConfig,
   writeCcConnectConfig,
   readCcConnectConfig
 } from '../../../src/services/companion/config-template.js';
+import type { CompanionConfig } from '../../../src/services/config/config-types.js';
 
 let home: string;
 
@@ -134,5 +138,88 @@ type = "discord"
    type = "dingtalk"
 `;
     expect(detectNonWeixinPlatforms(body)).toEqual(['dingtalk']);
+  });
+});
+
+// Slice 2026-06-14-cc-connect-weixin (change-1): tests for the
+// typed `renderCompanionConfig` entry point. Peaks config is the
+// source of truth; the renderer derives the TOML from a typed
+// `CompanionConfig`.
+
+function makeCompanionConfig(overrides: Partial<CompanionConfig> = {}): CompanionConfig {
+  return {
+    enabled: true,
+    defaultChannel: 'weixin',
+    binaryPath: null,
+    binaryPathSource: null,
+    configPath: '~/.cc-connect/config.toml',
+    weixin: {
+      ilinkQrPayload: 'ilink://peaks-cli?project=default',
+      loginTimeoutSec: 60
+    },
+    autoStart: false,
+    ...overrides
+  };
+}
+
+describe('projectNameFromIlinkQrPayload', () => {
+  it('extracts project from a basic ilink://peaks-cli?project=NAME payload', () => {
+    expect(projectNameFromIlinkQrPayload('ilink://peaks-cli?project=alpha')).toBe('alpha');
+  });
+
+  it('decodes percent-encoded project names', () => {
+    expect(projectNameFromIlinkQrPayload('ilink://peaks-cli?project=my%20bot')).toBe('my bot');
+  });
+
+  it('falls back to "default" when no project= is present', () => {
+    expect(projectNameFromIlinkQrPayload('ilink://peaks-cli?other=x')).toBe('default');
+  });
+
+  it('falls back to "default" for null/undefined/empty payloads', () => {
+    expect(projectNameFromIlinkQrPayload(undefined)).toBe('default');
+    expect(projectNameFromIlinkQrPayload(null)).toBe('default');
+    expect(projectNameFromIlinkQrPayload('')).toBe('default');
+  });
+});
+
+describe('renderCompanionConfig (typed peaks config)', () => {
+  it('emits a weixin-only TOML when enabled=true and defaultChannel=weixin', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({
+      enabled: true,
+      weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 }
+    }));
+    expect(body).toContain('[projects]');
+    expect(body).toContain('[[projects.platforms]]');
+    expect(body).toContain('type = "weixin"');
+    expect(body).toContain('name = "default"');
+    expect(detectNonWeixinPlatforms(body)).toEqual([]);
+  });
+
+  it('uses the project name from weixin.ilinkQrPayload', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({
+      enabled: true,
+      weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=team-bot', loginTimeoutSec: 60 }
+    }));
+    expect(body).toContain('name = "team-bot"');
+  });
+
+  it('emits an empty / no-platforms body when enabled=false', () => {
+    const body = renderCompanionConfig(makeCompanionConfig({ enabled: false }));
+    expect(body).not.toContain('[[projects.platforms]]');
+    expect(body).not.toContain('type = "weixin"');
+    expect(detectNonWeixinPlatforms(body)).toEqual([]);
+    expect(body).toMatch(/companion\.enabled=false/);
+  });
+
+  it('throws a typed CompanionConfigError when defaultChannel !== "weixin"', () => {
+    expect(() => renderCompanionConfig(makeCompanionConfig({
+      defaultChannel: 'feishu' as never
+    }))).toThrow(CompanionConfigError);
+    try {
+      renderCompanionConfig(makeCompanionConfig({ defaultChannel: 'feishu' as never }));
+    } catch (err) {
+      expect(err).toBeInstanceOf(CompanionConfigError);
+      expect((err as CompanionConfigError).code).toBe('COMPANION_CONFIG_INVALID');
+    }
   });
 });

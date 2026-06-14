@@ -11,6 +11,7 @@ import {
 import { ccConnectConfigFile } from '../../../src/services/companion/config-template.js';
 import type { CompanionStateSnapshot } from '../../../src/services/companion/state-parser.js';
 import type { CompanionPairingState } from '../../../src/services/companion/companion-types.js';
+import type { CompanionConfig } from '../../../src/services/config/config-types.js';
 
 let tmp: string;
 let previousHome: string | undefined;
@@ -292,5 +293,119 @@ describe('runCompanionSetup', () => {
     });
     expect(state.error).toMatch(/QR render failed/);
     expect(state.qrRendered).toBe(false);
+  });
+});
+
+// Slice 2026-06-14-cc-connect-weixin (change-1): setup reads from
+// ~/.peaks/config.json (the typed CompanionConfig block) and
+// builds the TOML from it. The test seeds a tmp home with a real
+// peaks config and asserts the resulting TOML body matches what
+// peaks config prescribes.
+
+describe('runCompanionSetup — peaks-config-driven (slice change-1)', () => {
+  function seedPeaksConfig(home: string, companion: Partial<CompanionConfig>): void {
+    const peaksDir = join(home, '.peaks');
+    mkdirSync(peaksDir, { recursive: true });
+    const configPath = join(peaksDir, 'config.json');
+    writeFileSync(configPath, JSON.stringify({
+      version: '2.0.0',
+      ocr: { llm: { url: '', authToken: '', model: '', useAnthropic: false, authHeader: 'authorization' } },
+      companion: {
+        enabled: true,
+        defaultChannel: 'weixin',
+        binaryPath: null,
+        binaryPathSource: null,
+        configPath: '~/.cc-connect/config.toml',
+        weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=team-bot', loginTimeoutSec: 60 },
+        autoStart: false,
+        ...companion
+      }
+    }, null, 2));
+  }
+
+  it('renders TOML from the typed peaks-config block (project name from ilinkQrPayload)', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    seedPeaksConfig(tmp, {
+      enabled: true,
+      weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=team-bot', loginTimeoutSec: 60 }
+    });
+    let capturedQr: string | null = null;
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      spawnSetup: noopSpawn,
+      qrRenderer: async (payload) => { capturedQr = payload; },
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in']),
+      companionConfig: {
+        enabled: true,
+        defaultChannel: 'weixin',
+        binaryPath: null,
+        binaryPathSource: null,
+        configPath: '~/.cc-connect/config.toml',
+        weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=team-bot', loginTimeoutSec: 60 },
+        autoStart: false
+      }
+    });
+    expect(state.error).toBeNull();
+    expect(state.configWritten).toBe(true);
+    expect(capturedQr).toBe('ilink://peaks-cli?project=team-bot');
+    const toml = readFileSync(ccConnectConfigFile(tmp), 'utf8');
+    expect(toml).toContain('name = "team-bot"');
+    expect(toml).toContain('type = "weixin"');
+  });
+
+  it('emits an empty body when peaks config has companion.enabled=false', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    seedPeaksConfig(tmp, { enabled: false });
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in']),
+      companionConfig: {
+        enabled: false,
+        defaultChannel: 'weixin',
+        binaryPath: null,
+        binaryPathSource: null,
+        configPath: '~/.cc-connect/config.toml',
+        weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 },
+        autoStart: false
+      }
+    });
+    expect(state.error).toBeNull();
+    const toml = readFileSync(ccConnectConfigFile(tmp), 'utf8');
+    expect(toml).not.toContain('[[projects.platforms]]');
+    expect(toml).toMatch(/companion\.enabled=false/);
+  });
+
+  it('uses companion.weixin.loginTimeoutSec when no explicit --timeout is supplied', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    seedPeaksConfig(tmp, {});
+    // loginTimeoutSec=1 → timeoutMs=1_000 → polls ~1×1s before timeout.
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      spawnSetup: noopSpawn,
+      qrRenderer: noopQr,
+      start: noopStart,
+      stateReader: makeStateReader(['not-scanned', 'not-scanned', 'not-scanned']),
+      companionConfig: {
+        enabled: true,
+        defaultChannel: 'weixin',
+        binaryPath: null,
+        binaryPathSource: null,
+        configPath: '~/.cc-connect/config.toml',
+        weixin: { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 1 },
+        autoStart: false
+      }
+    });
+    // Timeout math: loginTimeoutSec=1 → timeoutMs=1_000.
+    expect(state.timeoutMs).toBe(1_000);
   });
 });

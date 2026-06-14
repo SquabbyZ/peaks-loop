@@ -54,7 +54,8 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
     .description(
       'Manage the cc-connect companion binary (weixin channel only in this slice). ' +
         'Subcommands: install | status | start | stop | restart | setup. ' +
-        '`--channel=<value>` only accepts `weixin`; other channels exit with EX_USAGE (64).'
+        '`--channel=<value>` only accepts `weixin`; other channels exit with EX_USAGE (64). ' +
+        'Tip: ask your AI agent to run /peaks-companion to walk through the full setup.'
     );
 
   addJsonOption(

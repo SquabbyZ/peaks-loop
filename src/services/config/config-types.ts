@@ -81,6 +81,38 @@ export type OcrConfig = {
   llm?: OcrLlmConfig;
 };
 
+// Companion types (slice 2026-06-14-cc-connect-weixin change-1)
+// Peaks config is the single source of truth for cc-connect settings.
+// The legacy `~/.cc-connect/config.toml` write path stays, but peaks
+// builds the TOML from typed CompanionConfig + a CC-CONNECT template
+// (not from user prompts re-asking).
+export type CompanionChannel = 'weixin';
+export type CompanionBinarySource = 'node-modules' | 'path';
+
+export type CompanionWeixinConfig = {
+  /** QR payload peaks renders for the iLink scan (default: 'ilink://peaks-cli?project=default'). */
+  ilinkQrPayload: string;
+  /** Pairing timeout in seconds (default 60). */
+  loginTimeoutSec: number;
+};
+
+export type CompanionConfig = {
+  /** Opt-in flag. When false, no cc-connect artifacts are written. Default false. */
+  enabled: boolean;
+  /** Channel lock — only 'weixin' is supported in this rid. */
+  defaultChannel: CompanionChannel;
+  /** Resolved absolute path to the cc-connect binary, or null when not yet resolved. */
+  binaryPath: string | null;
+  /** Source of the binary resolution, or null when not yet resolved. */
+  binaryPathSource: CompanionBinarySource | null;
+  /** Path peaks writes the cc-connect TOML to (default ~/.cc-connect/config.toml). */
+  configPath: string;
+  /** Weixin-only channel block. */
+  weixin: CompanionWeixinConfig;
+  /** When true, `peaks companion start` runs on session resume. Out of scope to implement autoStart itself; just store the flag. */
+  autoStart: boolean;
+};
+
 /**
  * 2.0.1 slim `~/.peaks/config.json` schema. The on-disk file holds
  * ONLY `version` + `ocr.llm.*` placeholders. All other settings
@@ -102,6 +134,8 @@ export type OcrConfig = {
 export type PeaksConfig = {
   version: string;
   ocr?: OcrConfig;
+  /** Companion / cc-connect settings (slice 2026-06-14-cc-connect-weixin). */
+  companion?: CompanionConfig;
   /** @deprecated Moved to `~/.peaks/providers.json` (provider-service.ts) */
   providers?: ModelProviderConfig;
   /** @deprecated Moved to `~/.peaks/proxy.json` (proxy-service.ts) */
@@ -149,6 +183,18 @@ export const DEFAULT_CONFIG = {
       useAnthropic: false,
       authHeader: 'authorization'
     }
+  },
+  companion: {
+    enabled: false,
+    defaultChannel: 'weixin',
+    binaryPath: null,
+    binaryPathSource: null,
+    configPath: '~/.cc-connect/config.toml',
+    weixin: {
+      ilinkQrPayload: 'ilink://peaks-cli?project=default',
+      loginTimeoutSec: 60
+    },
+    autoStart: false
   }
 } as PeaksConfig;
 

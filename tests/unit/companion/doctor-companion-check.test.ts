@@ -77,4 +77,58 @@ describe('doctor: capability:companion-binary-resolution', () => {
     expect(check).toBeDefined();
     expect(typeof check?.ok).toBe('boolean');
   });
+
+  // Slice 2026-06-14-cc-connect-weixin (change-1): doctor surfaces
+  // the peaks-config `companion.enabled` flag in the message so
+  // users can tell at a glance whether cc-connect is opted in.
+  it('appends companion.enabled=true to the message when peaks config opts in', async () => {
+    const report = await runDoctor({
+      distVersionProbe: PASSING_DIST_PROBE,
+      workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
+      companionBinaryProbe: () => ({
+        binaryPath: '/repo/node_modules/.bin/cc-connect',
+        version: '1.3.2',
+        ok: true,
+        error: null,
+        resolvedSource: 'node-modules'
+      } satisfies CompanionProbe),
+      companionPeaksConfigProbe: () => ({ enabled: true, configPath: '~/.cc-connect/config.toml' })
+    });
+    const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
+    expect(check?.message).toContain('companion.enabled=true (peaks config)');
+  });
+
+  it('appends companion.enabled=false when peaks config has not opted in', async () => {
+    const report = await runDoctor({
+      distVersionProbe: PASSING_DIST_PROBE,
+      workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
+      companionBinaryProbe: () => ({
+        binaryPath: '/repo/node_modules/.bin/cc-connect',
+        version: '1.3.2',
+        ok: true,
+        error: null,
+        resolvedSource: 'node-modules'
+      } satisfies CompanionProbe),
+      companionPeaksConfigProbe: () => ({ enabled: false, configPath: '~/.cc-connect/config.toml' })
+    });
+    const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
+    expect(check?.message).toContain('companion.enabled=false (peaks config');
+  });
+
+  it('omits the peaks-config suffix when the probe throws', async () => {
+    const report = await runDoctor({
+      distVersionProbe: PASSING_DIST_PROBE,
+      workspaceLayoutProbe: CLEAN_WORKSPACE_PROBE,
+      companionBinaryProbe: () => ({
+        binaryPath: '/repo/node_modules/.bin/cc-connect',
+        version: '1.3.2',
+        ok: true,
+        error: null,
+        resolvedSource: 'node-modules'
+      } satisfies CompanionProbe),
+      companionPeaksConfigProbe: () => { throw new Error('config missing'); }
+    });
+    const check = report.checks.find((c) => c.id === 'capability:companion-binary-resolution');
+    expect(check?.message).not.toContain('(peaks config');
+  });
 });
