@@ -12,6 +12,7 @@ import { planStatusLineInstall } from '../skills/statusline-settings-service.js'
 import { findProjectRoot } from '../config/config-safety.js';
 import { isValidSessionId } from '../workspace/sid-naming-guard.js';
 import { CLI_VERSION } from '../../shared/version.js';
+import { probeCcConnect, type CompanionProbe } from '../companion/cc-connect-resolver.js';
 
 export type DoctorCheck = {
   id: string;
@@ -126,6 +127,13 @@ export type DoctorOptions = {
    * check at a temp dir without monkey-patching `findProjectRoot`.
    */
   l3ProjectRoot?: string;
+  /**
+   * Slice 2026-06-14-cc-connect-weixin: injected probe for the
+   * `capability:companion-binary-resolution` check (defaults to
+   * `probeCcConnect()` on PATH). Tests use this to drive the check
+   * without touching the real `cc-connect` binary.
+   */
+  companionBinaryProbe?: () => CompanionProbe | Promise<CompanionProbe>;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
@@ -142,6 +150,19 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
     binaryPath,
     binaryExists: existsSync(binaryPath)
   };
+}
+
+async function defaultCompanionBinaryProbe(): Promise<CompanionProbe> {
+  try {
+    return await probeCcConnect();
+  } catch (error) {
+    return {
+      binaryPath: null,
+      version: null,
+      ok: false,
+      error: getErrorMessage(error)
+    };
+  }
 }
 
 function defaultStatusLineInstalledProbe(): boolean {
@@ -785,6 +806,36 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       id: 'capability:codegraph',
       ok: false,
       message: `@colbymchenry/codegraph not resolvable: ${getErrorMessage(error)}`
+    });
+  }
+
+  // Slice 2026-06-14-cc-connect-weixin: optional companion binary
+  // resolution check. We surface a *warn* (ok: true) when the binary
+  // is missing so the rest of the doctor summary stays green on a
+  // clean checkout that hasn't installed the companion. The fix
+  // path is `peaks companion install`. Mirrors the existing
+  // `statusline:install` pattern: informational, not failing.
+  const companionProbe = options.companionBinaryProbe ?? defaultCompanionBinaryProbe;
+  try {
+    const companionResult = await companionProbe();
+    if (companionResult.ok && companionResult.binaryPath !== null && companionResult.version !== null) {
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect@${companionResult.version} resolves at ${companionResult.binaryPath}`
+      });
+    } else {
+      checks.push({
+        id: 'capability:companion-binary-resolution',
+        ok: true,
+        message: `cc-connect binary not found on PATH (${companionResult.error ?? 'unknown reason'}); run \`peaks companion install\` to install it (informational, not failing)`
+      });
+    }
+  } catch (error) {
+    checks.push({
+      id: 'capability:companion-binary-resolution',
+      ok: true,
+      message: `cc-connect probe failed (${getErrorMessage(error)}); skipping check`
     });
   }
 

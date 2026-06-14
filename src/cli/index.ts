@@ -17,6 +17,14 @@ createProgram().parseAsync(process.argv).catch((error: unknown) => {
       process.exitCode = 1;
       return;
     }
+    // Slice 2026-06-14-cc-connect-weixin (AC6): an unsupported channel
+    // argument must exit with EX_USAGE (64). The companion CLI raises
+    // a CommanderError with code `commander.invalidArgument` whose
+    // message starts with "channel not supported in this slice".
+    if (error.code === 'commander.invalidArgument' && /channel not supported in this slice/.test(getErrorMessage(error))) {
+      process.exitCode = 64;
+      return;
+    }
   }
 
   console.error(JSON.stringify({
