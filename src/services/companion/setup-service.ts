@@ -23,12 +23,14 @@
  * qrcode-terminal for the iLink QR"). The QR payload is the
  * `companion.weixin.ilinkQrPayload` from peaks config (change-1).
  */
-import { spawn } from 'node:child_process';
+import { spawn, type StdioOptions } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { renderCompanionConfig, renderWeixinConfig, writeCcConnectConfig, readCcConnectConfig, detectNonWeixinPlatforms, ccConnectConfigFile } from './config-template.js';
 import { readCcConnectState } from './state-parser.js';
 import { COMPANION_PAIRING_LABELS, type CompanionPairingState } from './companion-types.js';
 import { probeCcConnect } from './cc-connect-resolver.js';
-import { writeBinaryPathCache } from './binary-cache.js';
+import { writeBinaryPathCache, companionHomeDir } from './binary-cache.js';
 import { startCcConnect } from './lifecycle-service.js';
 import { DEFAULT_COMPANION_CHANNEL, type CompanionChannel } from './companion-types.js';
 import { getErrorMessage } from '../../shared/result.js';
@@ -36,6 +38,14 @@ import type { CompanionConfig } from '../config/config-types.js';
 
 export const DEFAULT_SETUP_TIMEOUT_MS = 60_000;
 const PROGRESS_POLL_INTERVAL_MS = 1_000;
+export const DEFAULT_QR_IMAGE_FILENAME = 'qr.png';
+/**
+ * cc-connect's weixin-setup prints an iLink URL line alongside the QR
+ * (e.g. `iLink URL: ilink://peaks-cli?project=...`). Capturing it lets
+ * peaks-cli surface the URL in non-TTY / --json mode so the user (or
+ * an LLM driving the slice) can copy/paste it.
+ */
+const ILINK_URL_REGEX = /iLink URL:\s*(\S+)/i;
 
 export type QrRenderer = (qrPayload: string) => Promise<void> | void;
 
@@ -47,6 +57,23 @@ export type SetupState = {
   configPreserved: boolean;
   configWarnings: string[];
   qrRendered: boolean;
+  /**
+   * iLink URL captured from cc-connect's stdout (e.g.
+   * `ilink://peaks-cli?project=team-bot`). Populated only when
+   * peaks-cli captured cc-connect's stdio (non-TTY / --json mode);
+   * in TTY mode the binary inherits the user's terminal directly
+   * and this remains null.
+   */
+  iLinkUrl: string | null;
+  /**
+   * Path cc-connect was asked to write the QR PNG to (via
+   * `--qr-image <path>`). The file is regenerated on every setup run;
+   * users can AirDrop / scan it from this stable path.
+   * Populated only when peaks-cli captured cc-connect's stdio
+   * (non-TTY / --json mode); in TTY mode the binary inherits the
+   * user's terminal directly and this remains null.
+   */
+  qrPath: string | null;
   pairing: CompanionPairingState;
   pairingLabel: string;
   startedDaemon: boolean;
@@ -65,7 +92,7 @@ export type SetupOptions = {
   /** Custom QR renderer. Default uses qrcode-terminal. */
   qrRenderer?: QrRenderer;
   /** Custom spawn for the cc-connect weixin setup flow (test seam). */
-  spawnSetup?: (binaryPath: string, args: readonly string[]) => { kill: () => void; pid: number | null };
+  spawnSetup?: (binaryPath: string, args: readonly string[]) => { kill: () => void; pid: number | null; child?: unknown };
   /** Inject a custom state-reader (test seam). */
   stateReader?: (home?: string) => ReturnType<typeof readCcConnectState>;
   /** Inject probeCcConnect (test seam). */
@@ -91,6 +118,19 @@ export type SetupOptions = {
   /** Typed peaks config (slice change-1). When supplied, peaks config is
    *  the source of truth and `projectName` / `allowFrom` are ignored. */
   companionConfig?: CompanionConfig;
+  /**
+   * Override the path passed to cc-connect's `--qr-image` argument.
+   * When unset and `qrImageDisabled` is false, the CLI defaults to
+   * `~/.peaks/companion/qr.png`. Pass `null` to skip the default
+   * resolution; use `qrImageDisabled: true` to opt out entirely.
+   */
+  qrImagePath?: string | null;
+  /**
+   * Explicitly disable the QR PNG output (CLI `--no-qr-image`). When
+   * true, no `--qr-image` argument is passed to cc-connect and
+   * `state.qrPath` remains null.
+   */
+  qrImageDisabled?: boolean;
 };
 
 /** Default QR renderer: delegates to qrcode-terminal. */
@@ -105,15 +145,79 @@ export async function defaultQrRenderer(qrPayload: string): Promise<void> {
   });
 }
 
+/**
+ * Pick the stdio mode for the cc-connect setup spawn based on
+ * whether peaks-cli is running in an interactive TTY.
+ * BUG 2026-06-14-cc-connect-weixin#7: when running in a TTY,
+ * inherit stdio so cc-connect's ASCII QR (qrcode-terminal) renders
+ * directly to the user's terminal. When stdio is piped (CI, scripts,
+ * --json), keep `pipe` so the orchestrator can still extract the
+ * iLink URL via the regex scanner.
+ */
+export function setupStdioForTty(isTty: boolean | undefined): StdioOptions {
+  return isTty === true
+    ? ['ignore', 'inherit', 'inherit']
+    : ['ignore', 'pipe', 'pipe'];
+}
+
 /** Default spawn for the cc-connect weixin setup flow. */
-export function defaultSpawnSetup(binaryPath: string, args: readonly string[]): { kill: () => void; pid: number | null } {
-  const child = spawn(binaryPath, [...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+export function defaultSpawnSetup(binaryPath: string, args: readonly string[]): { kill: () => void; pid: number | null; child?: unknown } {
+  // BUG 2026-06-14-cc-connect-weixin#7: see `setupStdioForTty`.
+  const stdio = setupStdioForTty(process.stdout.isTTY);
+  const child = spawn(binaryPath, [...args], { stdio });
+  // In pipe mode, capture the iLink URL by tailing stdout. We
+  // attach a single data listener and stash the first URL match.
+  // The listener does not interfere with the spawn lifecycle
+  // (kill/SIGTERM still works the same way).
+  if (process.stdout.isTTY !== true && child.stdout !== null) {
+    let buffer = '';
+    let captured: string | null = null;
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      if (captured !== null) return;
+      buffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+      const match = ILINK_URL_REGEX.exec(buffer);
+      if (match !== null && match[1] !== undefined) {
+        captured = match[1];
+      }
+    });
+    child.on('close', () => {
+      // Best-effort: try the buffer one more time in case the URL
+      // arrived in a final chunk we already consumed.
+      if (captured === null) {
+        const match = ILINK_URL_REGEX.exec(buffer);
+        if (match !== null && match[1] !== undefined) {
+          captured = match[1];
+        }
+      }
+    });
+    // Stash on the ChildProcess so callers that hold a reference
+    // to it can read the captured URL. The orchestrator in
+    // `runCompanionSetup` calls `readIlinkUrl` after the polling
+    // loop to populate `state.iLinkUrl`.
+    (child as { __ilinkUrl?: { value: string | null } }).__ilinkUrl = {
+      get value(): string | null { return captured; }
+    };
+  }
   return {
     kill: () => {
       try { child.kill('SIGTERM'); } catch { /* best-effort */ }
     },
-    pid: typeof child.pid === 'number' ? child.pid : null
+    pid: typeof child.pid === 'number' ? child.pid : null,
+    child
   };
+}
+
+/**
+ * Reads the captured iLink URL from a ChildProcess spawn handle
+ * produced by `defaultSpawnSetup`. Returns null when no URL was
+ * captured (TTY mode, no match yet, or non-default spawn seam).
+ * Exported for the orchestrator in `runCompanionSetup` and for
+ * tests that want to assert pipe-mode capture.
+ */
+export function readIlinkUrl(child: unknown): string | null {
+  if (child === null || typeof child !== 'object') return null;
+  const stash = (child as { __ilinkUrl?: { value: string | null } }).__ilinkUrl;
+  return stash?.value ?? null;
 }
 
 const DEFAULT_PROMPT_QUESTION = 'About to overwrite the existing ~/.cc-connect/config.toml. Continue? [Y/n]';
@@ -159,6 +263,8 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
     configPreserved: false,
     configWarnings: [],
     qrRendered: false,
+    iLinkUrl: null,
+    qrPath: null,
     pairing: 'unknown',
     pairingLabel: COMPANION_PAIRING_LABELS['unknown'],
     startedDaemon: false,
@@ -258,12 +364,53 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
   // racing the spawn completion path).
   const deadline = Date.now() + timeoutMs;
 
+  // BUG 2026-06-14-cc-connect-weixin#7: build the cc-connect argv,
+  // threading `--qr-image <path>` when the user hasn't opted out
+  // (`--no-qr-image`). The default lives at `~/.peaks/companion/qr.png`
+  // so users have a stable path to AirDrop / scan after the setup
+  // completes. We mkdir as needed; the file is overwritten on every
+  // setup run. In pipe mode the path is also surfaced via
+  // `state.qrPath` so --json consumers can locate the PNG.
+  const setupArgs: string[] = ['weixin', 'setup', '--project', options.projectName ?? 'default'];
+  let resolvedQrImagePath: string | null = null;
+  if (options.qrImageDisabled !== true) {
+    resolvedQrImagePath = options.qrImagePath !== undefined && options.qrImagePath !== null
+      ? options.qrImagePath
+      : join(companionHomeDir(home), DEFAULT_QR_IMAGE_FILENAME);
+    try {
+      mkdirSync(dirname(resolvedQrImagePath), { recursive: true });
+    } catch (err) {
+      // mkdir failure should not abort the flow; the QR still
+      // renders via qrcode-terminal. Surface as a warning instead.
+      state.configWarnings.push(`qr-image mkdir failed: ${getErrorMessage(err)}`);
+      resolvedQrImagePath = null;
+    }
+    if (resolvedQrImagePath !== null) {
+      setupArgs.push('--qr-image', resolvedQrImagePath);
+    }
+  }
+  if (process.stdout.isTTY !== true) {
+    state.qrPath = resolvedQrImagePath;
+  }
+
   // The cc-connect weixin setup flow handles iLink QR generation +
   // pairing state-machine progression. argv is fixed: subcommand
   // `weixin setup` (per `cc-connect --help`); the binary writes its
   // own state to `~/.cc-connect/state.json` which the polling loop
   // reads below.
-  const setupProc = spawnSetup(probe.binaryPath, ['weixin', 'setup', '--project', options.projectName ?? 'default']);
+  const setupProc = spawnSetup(probe.binaryPath, setupArgs);
+
+  // BUG 2026-06-14-cc-connect-weixin#7: when peaks-cli captured
+  // cc-connect's stdout (non-TTY / --json / piped mode), the
+  // default spawn attaches a stdout scanner that stashes the iLink
+  // URL on the ChildProcess. We read the stash AFTER the polling
+  // loop (below) once the async listener has had a chance to fire.
+  // When the spawn was inherited (TTY) or the caller provided a
+  // custom `spawnSetup` seam without a ChildProcess reference,
+  // `iLinkUrl` stays null.
+  const captureTarget = process.stdout.isTTY !== true && 'child' in setupProc
+    ? (setupProc as { child?: unknown }).child
+    : null;
 
   let latest: CompanionPairingState = 'unknown';
   try {
@@ -285,6 +432,14 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
     }
   } finally {
     setupProc.kill();
+    // Read the captured iLink URL after the spawn is killed so the
+    // async 'data' listener has had time to drain the buffered
+    // stdout chunks. The 'close' listener inside `defaultSpawnSetup`
+    // also runs at this point and performs a final regex pass.
+    if (captureTarget !== null && captureTarget !== undefined) {
+      const captured = readIlinkUrl(captureTarget);
+      if (captured !== null) state.iLinkUrl = captured;
+    }
   }
 
   if (state.error === null && latest !== 'logged-in') {

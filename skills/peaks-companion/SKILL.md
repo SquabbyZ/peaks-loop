@@ -106,6 +106,15 @@ After each command, check the exit code. If non-zero, STOP and report the failur
 
 For destructive paths (Restart), use a transactional pattern: capture the current status (`peaks companion status --json`), run `peaks companion restart`, then re-check status; if any step fails, report the partial state and let the user decide.
 
+### About the QR rendering (BUG 7)
+
+`peaks companion setup` renders the iLink QR in the **user's terminal** via cc-connect's `qrcode-terminal`. When peaks detects an interactive TTY (`process.stdout.isTTY === true`), it inherits cc-connect's stdio so the block characters land directly on the user's screen — NOT inside the chat where the skill is being invoked. **The LLM must tell the user explicitly**: "the ASCII QR is rendering in YOUR terminal; if you don't see it, check the terminal behind the chat / open the terminal that ran the command."
+
+If the user can't find the QR in their terminal (e.g. they ran `peaks companion setup` via a remote shell, the chat UI is hiding output, or they're on a headless system), they have two fallbacks:
+
+1. `peaks companion setup --json` — JSON output includes `iLinkUrl` (the URL cc-connect printed) and `qrPath` (the stable PNG path). The user can copy/paste the URL into WeChat's "Add by URL" flow, or open the PNG.
+2. `~/.peaks/companion/qr.png` — peaks always writes the QR PNG to this stable path (overwritten on every setup run; mkdir'd as needed). The user can AirDrop, scp, or otherwise transfer the PNG to their phone and scan it from there. Use `--no-qr-image` to skip the PNG write entirely.
+
 ## Step 5: audit log
 
 Every successful execution writes one JSON line to `.peaks/_runtime/<sid>/companion-onboard.log`:
@@ -138,7 +147,7 @@ The audit log is **machine-readable** (so `peaks project dashboard` can read it 
 ## Reference: the CLI primitives the skill composes
 
 - `peaks companion install` — verify cc-connect resolves (peaks-cli dep → PATH fallback); caches path under `~/.peaks/companion/` AND mirrors into `~/.peaks/config.json#companion.binaryPath`.
-- `peaks companion setup` — render iLink QR (qrcode-terminal), write `~/.cc-connect/config.toml` from typed peaks config, poll `~/.cc-connect/state.json` for "logged-in".
+- `peaks companion setup` — render iLink QR (qrcode-terminal; rendered in the user's TTY), write `~/.cc-connect/config.toml` from typed peaks config, write `~/.peaks/companion/qr.png` (overwritten each run), poll `~/.cc-connect/state.json` for "logged-in". Flags: `--qr-image <path>` (override the PNG path), `--no-qr-image` (skip PNG write), `--json` (emit `iLinkUrl` + `qrPath` instead of the ASCII QR).
 - `peaks companion start` — daemonize cc-connect (`~/.peaks/companion/cc-connect.pid`).
 - `peaks companion stop` — SIGTERM with 5s SIGKILL fallback.
 - `peaks companion restart` — stop + start (force).

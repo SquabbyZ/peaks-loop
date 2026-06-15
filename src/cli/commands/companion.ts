@@ -259,7 +259,9 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       .option('--force', 'overwrite an existing ~/.cc-connect/config.toml without prompting', false)
       .option('--project <name>', 'cc-connect project name (default: "default")', 'default')
       .option('--allow-from <id>', 'restrict the weixin platform to a specific WeChat user id (optional)')
-  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; json?: boolean }) => {
+      .option('--qr-image <path>', 'path cc-connect writes the QR PNG to (default ~/.peaks/companion/qr.png; overwritten each run)')
+      .option('--no-qr-image', 'do not pass --qr-image to cc-connect (skip PNG output)')
+  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
       printResult(io, fail('companion.setup', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
@@ -267,12 +269,24 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       return;
     }
     const timeout = Number.parseInt(options.timeout ?? String(DEFAULT_SETUP_TIMEOUT_MS), 10);
+    // BUG 2026-06-14-cc-connect-weixin#7: surface --qr-image /
+    // --no-qr-image. `--qr-image` defaults to
+    // ~/.peaks/companion/qr.png (a stable path the user can
+    // AirDrop / scan after the setup completes). `--no-qr-image`
+    // is the opt-out (commander exposes the negated flag as
+    // `qrImage === false` on the options bag).
+    const qrImageDisabled = options.qrImage === false;
+    const qrImagePath = !qrImageDisabled && typeof options.qrImage === 'string'
+      ? options.qrImage
+      : null;
     try {
       const state = await runCompanionSetup({
         ...(Number.isFinite(timeout) ? { timeoutMs: timeout } : {}),
         ...(options.force === true ? { forceOverwrite: true } : {}),
         ...(options.project !== undefined ? { projectName: options.project } : {}),
-        ...(options.allowFrom !== undefined ? { allowFrom: options.allowFrom } : {})
+        ...(options.allowFrom !== undefined ? { allowFrom: options.allowFrom } : {}),
+        ...(qrImageDisabled ? { qrImageDisabled: true } : {}),
+        ...(qrImagePath !== null ? { qrImagePath } : {})
       });
       if (state.error !== null) {
         printResult(io, fail('companion.setup', 'SETUP_FAILED', state.error, state, state.nextActions), options.json);
