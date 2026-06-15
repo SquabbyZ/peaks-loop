@@ -115,6 +115,49 @@ If the user can't find the QR in their terminal (e.g. they ran `peaks companion 
 1. `peaks companion setup --json` — JSON output includes `iLinkUrl` (the URL cc-connect printed) and `qrPath` (the stable PNG path). The user can copy/paste the URL into WeChat's "Add by URL" flow, or open the PNG.
 2. `~/.peaks/companion/qr.png` — peaks always writes the QR PNG to this stable path (overwritten on every setup run; mkdir'd as needed). The user can AirDrop, scp, or otherwise transfer the PNG to their phone and scan it from there. Use `--no-qr-image` to skip the PNG write entirely.
 
+### Path B: manual token injection (BUG 8)
+
+Path A (QR scan) is **unreliable for new installations** because of three iLink failure modes:
+
+1. WeChat's liteapp webview shows `无法打开页面` with `net::ERR_UNKNOWN_URL_SCHEME` when cc-connect hands it the `ilink://...` URL.
+2. The iLink backend (`ilinkai.weixin.qq.com`) is intermittently unreachable with `net/http: TLS handshake timeout` from some regions.
+3. The QR session expires in ~2 minutes, which is often too short for a user to scan + tap "确认" + debug network errors.
+
+If the user reports any of these (or has been stuck on path A for >2 minutes, or is on a region where the public iLink endpoint is blocked), **switch to Path B** — manual iLink token injection. The token looks like `<botid>@im.bot:<secret>` and can come from any of these sources:
+
+- A friend's working installation (ask them to run `peaks companion token --reveal` and copy the `rawToken`).
+- A previous peaks-cli / cc-connect installation where the QR DID work (re-run `peaks companion token --reveal` to recover the token from `~/.cc-connect/config.toml`).
+- The OpenClaw web UI (which can also mint iLink tokens).
+
+Once the user has a bearer, two CLI surfaces consume it:
+
+```bash
+# 1. Direct: bind the token, then start the daemon manually.
+peaks companion token <bearer>
+peaks companion start
+
+# 2. Short-circuit: bind + start in one shot (recommended for new installs).
+peaks companion setup --token <bearer>
+```
+
+Both forms are JSON-friendly (`--json`); the JSON payload includes `bound: true`, `binaryPath`, and `configPath` on success. The bearer is **never echoed back** in non-`--reveal` mode (the response shows a masked form like `825d03f9b830@im.bot:****` so the botid prefix is visible but the secret is hidden).
+
+Other Path B flags:
+
+- `--api-url <url>` — override the ilink base URL (use a proxy when `ilinkai.weixin.qq.com` is region-blocked).
+- `--skip-verify` — skip cc-connect's post-bind getUpdates check (rare; mostly for tests).
+- `--platform-index <n>` — forwarded to cc-connect (the platform entry index in the config).
+- `--project <name>` — cc-connect project name (default `default`).
+
+**Verify after Path B:**
+
+```bash
+peaks companion token            # → bound: true, maskedToken: <botid>@im.bot:****
+peaks companion status           # → running: true
+```
+
+Then the user sends a message from WeChat to the bot. The bot should respond through the bridge (verify with `tail -n 50 ~/.peaks/companion/cc-connect.log`).
+
 ## Step 5: audit log
 
 Every successful execution writes one JSON line to `.peaks/_runtime/<sid>/companion-onboard.log`:
@@ -147,7 +190,8 @@ The audit log is **machine-readable** (so `peaks project dashboard` can read it 
 ## Reference: the CLI primitives the skill composes
 
 - `peaks companion install` — verify cc-connect resolves (peaks-cli dep → PATH fallback); caches path under `~/.peaks/companion/` AND mirrors into `~/.peaks/config.json#companion.binaryPath`.
-- `peaks companion setup` — render iLink QR (qrcode-terminal; rendered in the user's TTY), write `~/.cc-connect/config.toml` from typed peaks config, write `~/.peaks/companion/qr.png` (overwritten each run), poll `~/.cc-connect/state.json` for "logged-in". Flags: `--qr-image <path>` (override the PNG path), `--no-qr-image` (skip PNG write), `--json` (emit `iLinkUrl` + `qrPath` instead of the ASCII QR).
+- `peaks companion setup` — render iLink QR (qrcode-terminal; rendered in the user's TTY), write `~/.cc-connect/config.toml` from typed peaks config, write `~/.peaks/companion/qr.png` (overwritten each run), poll `~/.cc-connect/state.json` for "logged-in". Flags: `--qr-image <path>` (override the PNG path), `--no-qr-image` (skip PNG write), `--json` (emit `iLinkUrl` + `qrPath` instead of the ASCII QR). With `--token <bearer>`, skip the QR path and bind an existing iLink token directly (Path B; see "Path B" above). Also accepts `--api-url` and `--skip-verify` as forwards.
+- `peaks companion token [bearer]` — BUG 8 (Path B): manual iLink token injection. With no arg, reads the current token (masked; use `--reveal` for the raw bearer). With a bearer, binds it via `cc-connect weixin bind --token <bearer>`. Flags: `--project <name>`, `--platform-index <n>`, `--api-url <url>`, `--skip-verify`, `--reveal` (read mode only), `--json`.
 - `peaks companion start` — daemonize cc-connect (`~/.peaks/companion/cc-connect.pid`).
 - `peaks companion stop` — SIGTERM with 5s SIGKILL fallback.
 - `peaks companion restart` — stop + start (force).

@@ -1,7 +1,8 @@
 /**
- * Slice 2026-06-14-cc-connect-weixin (slice 3 + change-1) — `peaks companion setup`
- * orchestration. Pipeline:
+ * Slice 2026-06-14-cc-connect-weixin (slice 3 + change-1 + BUG 8) — `peaks companion setup`
+ * orchestration. Two pipelines are supported:
  *
+ * Path A (legacy, the default — peaks config has no ilink token yet):
  *   1. (Optional) Confirm overwrite when `~/.cc-connect/config.toml`
  *      already exists (AC7: zero state pollution).
  *   2. Render + write the weixin-only `config.toml` from the typed
@@ -19,9 +20,27 @@
  *      foreground spawn, leave the binary in its current state,
  *      and return a recoverable error per AC10.
  *
+ * Path B (BUG 8 — `--token <bearer>` short-circuit):
+ *   The QR scan path (Path A) is unreliable for new users because
+ *   WeChat's liteapp webview rejects the `ilink://` scheme and
+ *   the iLink backend is intermittently unreachable. When the user
+ *   already has an iLink bearer token (from OpenClaw, a friend's
+ *   installation, a previous successful scan, etc.), they can skip
+ *   the QR entirely:
+ *   1. Skip the config-render step (`bindToken` already implies the
+ *      config exists or will be written by `cc-connect weixin
+ *      setup` when given `--token`).
+ *   2. Spawn `cc-connect weixin setup --project <p> --token <bearer>`
+ *      in a single shot — no polling for "logged-in" (cc-connect
+ *      with `--token` does not produce a login state machine; it
+ *      writes the token and exits).
+ *   3. Hand off to `peaks companion start`.
+ *
  * The QR is rendered via `qrcode-terminal` (per the PRD: "use
  * qrcode-terminal for the iLink QR"). The QR payload is the
  * `companion.weixin.ilinkQrPayload` from peaks config (change-1).
+ * Path B does NOT render the QR (it would be wasted output; the
+ * user is skipping the scan).
  */
 import { spawn, type StdioOptions } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
@@ -32,6 +51,7 @@ import { COMPANION_PAIRING_LABELS, type CompanionPairingState } from './companio
 import { probeCcConnect } from './cc-connect-resolver.js';
 import { writeBinaryPathCache, companionHomeDir } from './binary-cache.js';
 import { startCcConnect } from './lifecycle-service.js';
+import { bindWeixinToken } from './bind-service.js';
 import { DEFAULT_COMPANION_CHANNEL, type CompanionChannel } from './companion-types.js';
 import { getErrorMessage } from '../../shared/result.js';
 import type { CompanionConfig } from '../config/config-types.js';
@@ -80,6 +100,14 @@ export type SetupState = {
   daemonPid: number | null;
   timeoutMs: number;
   durationMs: number;
+  /**
+   * BUG 8 (Path B): true when the orchestrator used the
+   * `--token` short-circuit. When true, `qrRendered` is false,
+   * `pairing` is `'logged-in'` (we never polled for it), and
+   * `bindResult` carries the raw bind-service payload.
+   */
+  bound: boolean;
+  bindError: string | null;
   error: string | null;
   nextActions: string[];
 };
@@ -131,6 +159,38 @@ export type SetupOptions = {
    * `state.qrPath` remains null.
    */
   qrImageDisabled?: boolean;
+  /**
+   * BUG 8 (Path B): when set, skip the QR render + pairing
+   * poll loop and forward `--token <bindToken>` to
+   * `cc-connect weixin setup --project <p> --token <bindToken>`
+   * in a single shot. The QR PNG is also skipped (we don't have
+   * a payload to encode; the user already has a token).
+   */
+  bindToken?: string;
+  /**
+   * BUG 8 (Path B): optional `--api-url <url>` forwarded to
+   * cc-connect. Useful for users in regions where
+   * `ilinkai.weixin.qq.com` is blocked; they can point at a
+   * proxy or alternate endpoint.
+   */
+  bindApiUrl?: string;
+  /**
+   * BUG 8 (Path B): optional `--skip-verify` forwarded to
+   * cc-connect. Skips the post-bind getUpdates check.
+   */
+  bindSkipVerify?: boolean;
+  /**
+   * BUG 8 (Path B, test seam): override the bind execution. The
+   * default uses `bindWeixinToken` from `./bind-service.js`.
+   * Tests inject a fake to avoid spawning cc-connect.
+   */
+  bindRunner?: (options: {
+    token: string;
+    project: string;
+    apiUrl?: string;
+    skipVerify?: boolean;
+    home?: string;
+  }) => Promise<{ ok: boolean; bound: boolean; error: string | null }>;
 };
 
 /** Default QR renderer: delegates to qrcode-terminal. */
@@ -232,6 +292,32 @@ export async function defaultPrompt(_question: string): Promise<boolean> {
 }
 
 /**
+ * BUG 8 (Path B) — default bind runner used by `runCompanionSetup`
+ * when the user passes `--token`. Wraps the bind-service call into
+ * a small async signature that the orchestrator can swap out in
+ * tests via the `bindRunner` SetupOption.
+ */
+export type BindRunnerOptions = {
+  token: string;
+  project: string;
+  apiUrl?: string;
+  skipVerify?: boolean;
+  home?: string;
+};
+export type BindRunnerResult = { ok: boolean; bound: boolean; error: string | null };
+export type BindRunner = (options: BindRunnerOptions) => Promise<BindRunnerResult>;
+export async function defaultBindRunner(options: BindRunnerOptions): Promise<BindRunnerResult> {
+  const result = await bindWeixinToken({
+    token: options.token,
+    project: options.project,
+    ...(options.apiUrl !== undefined ? { apiUrl: options.apiUrl } : {}),
+    ...(options.skipVerify === true ? { skipVerify: true } : {}),
+    ...(options.home !== undefined ? { home: options.home } : {})
+  });
+  return { ok: result.ok, bound: result.bound, error: result.error };
+}
+
+/**
  * Top-level orchestrator. Returns a SetupState (also used as the
  * JSON payload for `peaks companion setup --json`).
  */
@@ -272,8 +358,62 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
     timeoutMs,
     durationMs: 0,
     error: null,
-    nextActions: []
+    nextActions: [],
+    bound: false,
+    bindError: null
   };
+
+  // BUG 8 (Path B): when --token is supplied, short-circuit
+  // the QR / config-render / polling pipeline. We bind the token
+  // via the bind-service (single cc-connect spawn) and, on
+  // success, hand off to the daemon. The QR / config renderer /
+  // state-reader / prompt paths below are all skipped.
+  if (typeof options.bindToken === 'string' && options.bindToken.length > 0) {
+    const bindFn = options.bindRunner ?? defaultBindRunner;
+    const bindResult = await bindFn({
+      token: options.bindToken,
+      project: options.projectName ?? 'default',
+      ...(options.bindApiUrl !== undefined ? { apiUrl: options.bindApiUrl } : {}),
+      ...(options.bindSkipVerify === true ? { skipVerify: true } : {}),
+      ...(home !== undefined ? { home } : {})
+    });
+    // binaryPath comes from the bind-service's resolver; we surface
+    // it on `state.binaryPath` so the JSON payload stays consistent
+    // with the QR-path shape. The bind-service has already verified
+    // the resolver succeeded (it returns ok=false otherwise).
+    state.binaryPath = null;
+    if (bindResult.ok) {
+      const probe = await probeFn();
+      if (probe.ok && probe.binaryPath !== null) {
+        state.binaryPath = probe.binaryPath;
+      }
+    }
+    if (!bindResult.ok) {
+      state.error = bindResult.error ?? 'manual token bind failed';
+      state.bindError = state.error;
+      state.nextActions = [
+        'verify the bearer is correct (should be `<botid>@im.bot:<secret>`)',
+        're-run with `--skip-verify` to bypass getUpdates if the network is blocked'
+      ];
+      state.durationMs = Date.now() - started;
+      return state;
+    }
+    state.bound = true;
+    state.pairing = 'logged-in';
+    state.pairingLabel = COMPANION_PAIRING_LABELS['logged-in'];
+    // Hand off to the daemon (same path the QR flow uses on success).
+    const startOptions: Parameters<typeof startFn>[0] = { force: true };
+    if (home !== undefined) startOptions.home = home;
+    const startedDaemon = await startFn(startOptions);
+    if (startedDaemon.started) {
+      state.startedDaemon = true;
+      state.daemonPid = startedDaemon.pid;
+    } else {
+      state.nextActions.push('binding succeeded but the daemon did not start; run `peaks companion start` manually');
+    }
+    state.durationMs = Date.now() - started;
+    return state;
+  }
 
   const probe = await probeFn();
   if (!probe.ok || probe.binaryPath === null) {

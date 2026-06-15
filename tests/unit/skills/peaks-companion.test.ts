@@ -79,8 +79,9 @@ describe('skills/peaks-companion/SKILL.md', () => {
 
   it('body hash matches a snapshot (catches accidental description / step drift)', () => {
     const hash = createHash('sha256').update(body).digest('hex');
-    // Frozen at slice change-1 (commit f0400c0 + this slice). If you
-    // intentionally edit the body, bump this hash.
-    expect(hash).toBe('5a0daa4fc42712e51f9495d2c73564a6c366d99f38c8feaa77ee40a5012c43bb');
+    // Frozen at slice change-1 (commit f0400c0 + this slice) +
+    // BUG 8 Path B section. If you intentionally edit the body,
+    // bump this hash.
+    expect(hash).toBe('3d9460c4d39a1fa672e97f7120eacde05ca3c134850a0e51f3cd45e35b755582');
   });
 });

@@ -726,3 +726,103 @@ describe('runCompanionSetup — BUG 7: setup TTY stdio + iLink URL capture', () 
     expect(readIlinkUrl(null)).toBeNull();
   });
 });
+
+// BUG 2026-06-14-cc-connect-weixin#8: peaks companion setup
+// supports a `--token <bearer>` short-circuit that bypasses the
+// QR render + pairing poll loop and calls the bind service
+// directly. The tests below cover the three observable
+// behaviors: (a) the bindRunner is invoked with the right args,
+// (b) the QR renderer is *not* called (path B skips the QR), and
+// (c) on a successful bind, the daemon is started and the
+// returned SetupState has `bound: true` + `pairing: 'logged-in'`.
+
+describe('runCompanionSetup — BUG 8: --token short-circuit (Path B)', () => {
+  it('invokes bindRunner with --token and skips the QR renderer', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const bindCalls: Array<{ token: string; project: string; apiUrl?: string; skipVerify?: boolean }> = [];
+    let qrRendererCalls = 0;
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      bindToken: 'real-bot@im.bot:real-secret',
+      bindRunner: async (options) => {
+        bindCalls.push(options);
+        return { ok: true, bound: true, error: null };
+      },
+      qrRenderer: async () => { qrRendererCalls += 1; },
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    expect(state.bound).toBe(true);
+    expect(state.pairing).toBe('logged-in');
+    expect(state.qrRendered).toBe(false);
+    expect(qrRendererCalls).toBe(0);
+    expect(bindCalls).toHaveLength(1);
+    expect(bindCalls[0]?.token).toBe('real-bot@im.bot:real-secret');
+    expect(bindCalls[0]?.project).toBe('default');
+  });
+
+  it('forwards --api-url and --skip-verify to the bind runner', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const bindCalls: Array<{ token: string; project: string; apiUrl?: string; skipVerify?: boolean }> = [];
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      bindToken: 'real-bot@im.bot:real-secret',
+      bindApiUrl: 'https://ilink-proxy.example.com',
+      bindSkipVerify: true,
+      bindRunner: async (options) => {
+        bindCalls.push(options);
+        return { ok: true, bound: true, error: null };
+      },
+      qrRenderer: noopQr,
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.error).toBeNull();
+    expect(bindCalls[0]?.apiUrl).toBe('https://ilink-proxy.example.com');
+    expect(bindCalls[0]?.skipVerify).toBe(true);
+  });
+
+  it('returns an error when the bind runner fails', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      bindToken: 'bad-token',
+      bindRunner: async () => ({ ok: false, bound: false, error: 'invalid bearer' }),
+      qrRenderer: noopQr,
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.bound).toBe(false);
+    expect(state.error).toMatch(/invalid bearer/);
+    expect(state.bindError).toMatch(/invalid bearer/);
+    expect(state.startedDaemon).toBe(false);
+  });
+
+  it('starts the daemon on a successful bind', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      bindToken: 'real-bot@im.bot:real-secret',
+      bindRunner: async () => ({ ok: true, bound: true, error: null }),
+      qrRenderer: noopQr,
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in'])
+    });
+    expect(state.bound).toBe(true);
+    expect(state.startedDaemon).toBe(true);
+    expect(state.daemonPid).toBe(99999);
+  });
+});

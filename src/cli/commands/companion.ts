@@ -1,8 +1,17 @@
 /**
- * Slice 2026-06-14-cc-connect-weixin (slice 2 + 3) — `peaks companion`
+ * Slice 2026-06-14-cc-connect-weixin (slice 2 + 3 + BUG 8) — `peaks companion`
  * CLI surface. Wires the install / status / start / stop / restart
- * subcommands into the existing program router. The setup
- * subcommand lives in slice 3 (setup-service.ts is added later).
+ * / setup / token subcommands into the existing program router.
+ *
+ * BUG 8 adds:
+ *   - `peaks companion token [bearer]` — manual ilink token
+ *     injection (Path B; escape hatch when path A's QR scan
+ *     fails). With no arg, reads the current token (masked by
+ *     default; `--reveal` for the raw bearer). With a bearer,
+ *     binds via `cc-connect weixin bind --token <bearer>`.
+ *   - `peaks companion setup --token <bearer>` — short-circuits
+ *     the QR render / pairing poll loop, binds the token, and
+ *     hands off to the daemon.
  *
  * The default channel is `weixin` (per AC1/AC2/AC6). Passing
  * `--channel=<other>` exits with EX_USAGE (64) immediately.
@@ -16,6 +25,7 @@ import {
   statusCcConnect
 } from '../../services/companion/lifecycle-service.js';
 import { runCompanionSetup, DEFAULT_SETUP_TIMEOUT_MS } from '../../services/companion/setup-service.js';
+import { bindWeixinToken, readBoundToken } from '../../services/companion/bind-service.js';
 import {
   CHANNEL_UNSUPPORTED_EXIT_CODE,
   COMPANION_CHANNELS,
@@ -253,7 +263,7 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
   addJsonOption(
     companion
       .command('setup')
-      .description('Render the weixin-only config.toml, print the iLink QR (qrcode-terminal), and poll pairing state. On "logged-in" we hand off to `peaks companion start`.')
+      .description('Render the weixin-only config.toml, print the iLink QR (qrcode-terminal), and poll pairing state. On "logged-in" we hand off to `peaks companion start`. BUG 8: with --token <bearer>, skip the QR render and bind an existing iLink token directly (Path B; escape hatch when path A fails).')
       .option('--channel <name>', `channel (only ${COMPANION_CHANNELS.join(', ')} supported)`, parseChannel)
       .option('--timeout <ms>', `pairing timeout in ms (default ${DEFAULT_SETUP_TIMEOUT_MS})`, String(DEFAULT_SETUP_TIMEOUT_MS))
       .option('--force', 'overwrite an existing ~/.cc-connect/config.toml without prompting', false)
@@ -261,7 +271,10 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       .option('--allow-from <id>', 'restrict the weixin platform to a specific WeChat user id (optional)')
       .option('--qr-image <path>', 'path cc-connect writes the QR PNG to (default ~/.peaks/companion/qr.png; overwritten each run)')
       .option('--no-qr-image', 'do not pass --qr-image to cc-connect (skip PNG output)')
-  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; json?: boolean }) => {
+      .option('--token <bearer>', 'BUG 8 (Path B): skip the QR path; bind an existing iLink bearer token (e.g. `<botid>@im.bot:<secret>`)')
+      .option('--api-url <url>', 'BUG 8 (Path B): forwarded to cc-connect; overrides the default ilink base URL (useful when ilinkai.weixin.qq.com is region-blocked)')
+      .option('--skip-verify', 'BUG 8 (Path B): forwarded to cc-connect; skip the post-bind getUpdates verification', false)
+  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
       printResult(io, fail('companion.setup', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
@@ -286,7 +299,14 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
         ...(options.project !== undefined ? { projectName: options.project } : {}),
         ...(options.allowFrom !== undefined ? { allowFrom: options.allowFrom } : {}),
         ...(qrImageDisabled ? { qrImageDisabled: true } : {}),
-        ...(qrImagePath !== null ? { qrImagePath } : {})
+        ...(qrImagePath !== null ? { qrImagePath } : {}),
+        // BUG 8 (Path B): forward --token / --api-url / --skip-verify
+        // to the orchestrator. When --token is non-empty, the
+        // orchestrator short-circuits the QR render + pairing poll
+        // and calls the bind service directly.
+        ...(typeof options.token === 'string' && options.token.length > 0 ? { bindToken: options.token } : {}),
+        ...(typeof options.apiUrl === 'string' && options.apiUrl.length > 0 ? { bindApiUrl: options.apiUrl } : {}),
+        ...(options.skipVerify === true ? { bindSkipVerify: true } : {})
       });
       if (state.error !== null) {
         printResult(io, fail('companion.setup', 'SETUP_FAILED', state.error, state, state.nextActions), options.json);
@@ -296,6 +316,90 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       printResult(io, ok('companion.setup', state, [], state.nextActions), options.json);
     } catch (error) {
       printResult(io, fail('companion.setup', 'SETUP_THREW', getErrorMessage(error), {}, ['see `peaks companion setup --help`']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // BUG 2026-06-14-cc-connect-weixin#8: peaks companion token.
+  // First-class surface for path B (manual ilink token injection).
+  // With no arg, reads the current token (masked); with a bearer,
+  // binds it via `cc-connect weixin bind`.
+  addJsonOption(
+    companion
+      .command('token')
+      .description('BUG 8 (Path B): manual ilink token injection. With no arg, read the current token (masked; use --reveal for the raw bearer). With a bearer, bind it via `cc-connect weixin bind --token <bearer>`. Use this when path A (QR scan) is unreliable: WeChat `ERR_UNKNOWN_URL_SCHEME`, iLink TLS timeout, or region-blocked.')
+      .argument('[bearer]', 'iLink bearer token (e.g. `<botid>@im.bot:<secret>`). Omit to read the current bound token.')
+      .option('--channel <name>', `channel (only ${COMPANION_CHANNELS.join(', ')} supported)`, parseChannel)
+      .option('--project <name>', 'cc-connect project name (default: "default")', 'default')
+      .option('--platform-index <n>', 'forwarded to cc-connect weixin bind (the platform entry index in the config)')
+      .option('--api-url <url>', 'forwarded to cc-connect weixin bind; overrides the default ilink base URL')
+      .option('--skip-verify', 'forwarded to cc-connect weixin bind; skip getUpdates verification', false)
+      .option('--reveal', 'read mode only: include the raw bearer in the output (default: masked)', false)
+  ).action(async (bearer: string | undefined, options: { channel?: CompanionChannel; project?: string; platformIndex?: string; apiUrl?: string; skipVerify?: boolean; reveal?: boolean; json?: boolean }) => {
+    const check = rejectChannel(options.channel);
+    if (!check.ok) {
+      printResult(io, fail('companion.token', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
+      process.exitCode = check.code;
+      return;
+    }
+    try {
+      if (typeof bearer === 'string' && bearer.length > 0) {
+        // Bind path: forward to the bind service. parseFloat is
+        // permissive enough for `--platform-index 0`; we floor it
+        // to an integer inside the service.
+        const platformIndex = options.platformIndex !== undefined
+          ? Number.parseInt(options.platformIndex, 10)
+          : undefined;
+        const result = await bindWeixinToken({
+          token: bearer,
+          ...(options.project !== undefined ? { project: options.project } : {}),
+          ...(Number.isFinite(platformIndex) && platformIndex !== undefined ? { platformIndex: platformIndex as number } : {}),
+          ...(typeof options.apiUrl === 'string' && options.apiUrl.length > 0 ? { apiUrl: options.apiUrl } : {}),
+          ...(options.skipVerify === true ? { skipVerify: true } : {})
+        });
+        if (!result.ok) {
+          printResult(io, fail('companion.token', 'BIND_FAILED', result.error ?? 'bind failed', {
+            binaryPath: result.binaryPath,
+            configPath: result.configPath,
+            code: result.code,
+            stderr: result.stderr
+          }, result.nextActions), options.json);
+          process.exitCode = 1;
+          return;
+        }
+        printResult(io, ok('companion.token', {
+          bound: result.bound,
+          channel: 'weixin',
+          binaryPath: result.binaryPath,
+          configPath: result.configPath
+        }, [], result.nextActions), options.json);
+        return;
+      }
+      // Read path: surface the masked token (or raw, with --reveal).
+      const snapshot = readBoundToken({ reveal: options.reveal === true });
+      if (options.json === true) {
+        printResult(io, ok('companion.token', {
+          bound: snapshot.bound,
+          configPath: snapshot.configPath,
+          configPresent: snapshot.configPresent,
+          botid: snapshot.botid,
+          maskedToken: snapshot.maskedToken,
+          ...(options.reveal === true ? { rawToken: snapshot.rawToken } : {})
+        }, [], []), true);
+        return;
+      }
+      io.stdout(`  bound          : ${snapshot.bound}`);
+      io.stdout(`  config         : ${snapshot.configPath}`);
+      io.stdout(`  configPresent  : ${snapshot.configPresent}`);
+      io.stdout(`  botid          : ${snapshot.botid ?? '-'}`);
+      io.stdout(`  maskedToken    : ${snapshot.maskedToken ?? '-'}`);
+      if (options.reveal === true) {
+        io.stdout(`  rawToken       : ${snapshot.rawToken ?? '-'}`);
+      } else {
+        io.stdout(`  (pass --reveal to print the raw bearer)`);
+      }
+    } catch (error) {
+      printResult(io, fail('companion.token', 'TOKEN_THREW', getErrorMessage(error), {}, ['see `peaks companion token --help`']), options.json);
       process.exitCode = 1;
     }
   });
