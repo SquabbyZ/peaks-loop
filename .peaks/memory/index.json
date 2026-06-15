@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-13T06:10:07.162Z",
+  "updatedAt": "2026-06-15T12:49:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "peaks-companion-cc-connect-dogfood-2026-06-15",
+        "kind": "feedback",
+        "description": "iLink 通道 dogfood (rid=2026-06-14-cc-connect-weixin)：path A (QR 扫码) 在 iLink 服务侧不稳定时跑不通；path B (手动 token 注入, peaks companion token <bearer>) 是新装用户兜底；ASCII QR 在 chat 客户端无法扫；iLink bearer token 寿命 >2h；`pairing: unknown` 是 cosmetic drift。",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-companion-cc-connect-dogfood-2026-06-15.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-15"
+      },
       {
         "name": "active-skill-cli-routing",
         "kind": "feedback",
