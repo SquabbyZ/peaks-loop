@@ -283,7 +283,7 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       // 2026-06-15 follow-up: auto-open the QR PNG in the user's default
       // image viewer (macOS: Preview, Windows: Photos, Linux: xdg-open).
       // Default on; opt out for CI / headless servers.
-      .option('--no-auto-open-qr', 'do not auto-open the QR PNG after cc-connect writes it (default: open in macOS Preview / Windows Photos / Linux xdg-open)', false)
+      .option('--no-auto-open-qr', 'do not auto-open the QR PNG after cc-connect writes it (default: open in macOS Preview / Windows Photos / Linux xdg-open)')
   ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; qrInline?: boolean; qrAscii?: boolean; autoOpenQr?: boolean; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
