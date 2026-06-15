@@ -826,3 +826,57 @@ describe('runCompanionSetup — BUG 8: --token short-circuit (Path B)', () => {
     expect(state.daemonPid).toBe(99999);
   });
 });
+
+describe('runCompanionSetup — auto-open QR (2026-06-15 follow-up)', () => {
+  it('autoOpenQr:true invokes the opener when the QR PNG appears on disk', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const qrPath = join(tmp, 'qr-autoopen.png');
+    // Write the PNG synchronously after the orchestrator schedules the
+    // auto-open — this emulates cc-connect writing the file ~50ms in.
+    const opener = vi.fn(async (path: string) => {
+      expect(path).toBe(qrPath);
+      return { ok: true as const, error: null, pid: 99999 };
+    });
+    const writeTimer = setTimeout(() => writeFileSync(qrPath, Buffer.from([0x89, 0x50, 0x4e, 0x47])), 50);
+
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      autoOpenQr: true,
+      autoOpener: opener,
+      qrRenderer: noopQr,
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['unknown', 'logged-in']),
+      qrImagePath: qrPath
+    });
+    // Give the fire-and-forget schedule a moment to run.
+    await new Promise((r) => setTimeout(r, 200));
+    clearTimeout(writeTimer);
+    expect(opener).toHaveBeenCalledTimes(1);
+    // Soft-warning shouldn't appear; opener succeeded.
+    expect(state.configWarnings.find((w) => w.includes('auto-open failed'))).toBeUndefined();
+  });
+
+  it('autoOpenQr:false does NOT invoke the opener (CI / headless opt-out)', async () => {
+    const dir = dropFakeBinary();
+    const bin = join(dir, 'cc-connect');
+    const opener = vi.fn(async () => ({ ok: true as const, error: null, pid: 1 }));
+    const state = await runCompanionSetup({
+      home: tmp,
+      probe: fakeProbeOk(bin),
+      autoOpenQr: false,
+      autoOpener: opener,
+      qrRenderer: noopQr,
+      spawnSetup: noopSpawn,
+      start: noopStart,
+      stateReader: makeStateReader(['logged-in']),
+      qrImagePath: join(tmp, 'qr-no-open.png')
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(opener).not.toHaveBeenCalled();
+    // No auto-open warning should appear.
+    expect(state.configWarnings.find((w) => w.includes('auto-open'))).toBeUndefined();
+  });
+});

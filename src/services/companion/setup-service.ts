@@ -44,6 +44,7 @@
  */
 import { spawn, type StdioOptions } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { access } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { renderCompanionConfig, renderWeixinConfig, writeCcConnectConfig, readCcConnectConfig, detectNonWeixinPlatforms, ccConnectConfigFile } from './config-template.js';
 import { readCcConnectState } from './state-parser.js';
@@ -56,6 +57,7 @@ import { DEFAULT_COMPANION_CHANNEL, type CompanionChannel } from './companion-ty
 import { getErrorMessage } from '../../shared/result.js';
 import type { CompanionConfig } from '../config/config-types.js';
 import { resolveQrRenderer } from './qr-renderers.js';
+import { openInDefaultApp, type OpenResult } from './qr-autoopen.js';
 
 export const DEFAULT_SETUP_TIMEOUT_MS = 60_000;
 const PROGRESS_POLL_INTERVAL_MS = 1_000;
@@ -209,6 +211,24 @@ export type SetupOptions = {
     skipVerify?: boolean;
     home?: string;
   }) => Promise<{ ok: boolean; bound: boolean; error: string | null }>;
+  /**
+   * 2026-06-15 follow-up (auto-open QR): when true (default), the
+   * orchestrator will auto-open the QR PNG produced by cc-connect
+   * (the `--qr-image` file) in the user's default image viewer after
+   * cc-connect has written it. On macOS this pops Preview; on Windows
+   * it opens Photos / the default PNG handler; on Linux it invokes
+   * xdg-open. Set to false for CI, headless servers, or test runs.
+   *
+   * Set `autoOpener` to a custom function to override the platform
+   * `open` (test seam).
+   */
+  autoOpenQr?: boolean;
+  /**
+   * Test seam: override the auto-open implementation. Default uses
+   * `openInDefaultApp` from `./qr-autoopen.js`. Tests inject a no-op
+   * to avoid spawning a child process in unit tests.
+   */
+  autoOpener?: (filePath: string) => Promise<OpenResult>;
 };
 
 /** Default QR renderer: delegates to qrcode-terminal. */
@@ -559,6 +579,20 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
     state.qrPath = resolvedQrImagePath;
   }
 
+  // 2026-06-15 follow-up (auto-open QR): schedule a fire-and-forget
+  // auto-open of the QR PNG once cc-connect has finished writing it.
+  // We don't await — the user can start scanning while the pairing
+  // poll loop continues. On any failure (file not written, xdg-open
+  // not installed, unsupported platform) we surface a soft warning
+  // instead of failing the setup; the user can still scan manually.
+  if (resolvedQrImagePath !== null && options.autoOpenQr !== false) {
+    const opener = options.autoOpener ?? openInDefaultApp;
+    const targetPath = resolvedQrImagePath;
+    void scheduleAutoOpenQr(targetPath, opener, (warning) => {
+      state.configWarnings.push(warning);
+    });
+  }
+
   // The cc-connect weixin setup flow handles iLink QR generation +
   // pairing state-machine progression. argv is fixed: subcommand
   // `weixin setup` (per `cc-connect --help`); the binary writes its
@@ -628,4 +662,43 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
 
   state.durationMs = Date.now() - started;
   return state;
+}
+
+/**
+ * 2026-06-15 follow-up: poll for cc-connect to write the QR PNG, then
+ * call the auto-opener (default: `openInDefaultApp`). Fire-and-forget;
+ * the returned promise resolves only for observability, callers MUST NOT
+ * await it (the orchestrator continues immediately). On any failure
+ * (file not written, OS error, unsupported platform) we surface a soft
+ * warning via the `onWarning` callback so the user can still scan the
+ * file manually from `state.qrPath`.
+ *
+ * Polling: 100ms interval, 10s ceiling. On slow systems where the
+ * PNG takes longer, the user can re-run setup (or use `--no-auto-open-qr`
+ * to silence this and open the file themselves).
+ */
+const AUTO_OPEN_POLL_INTERVAL_MS = 100;
+const AUTO_OPEN_TIMEOUT_MS = 10_000;
+
+export async function scheduleAutoOpenQr(
+  filePath: string,
+  opener: (filePath: string) => Promise<OpenResult>,
+  onWarning: (warning: string) => void
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < AUTO_OPEN_TIMEOUT_MS) {
+    try {
+      await access(filePath);
+      // eslint-disable-next-line no-await-in-loop
+      const result = await opener(filePath);
+      if (!result.ok) {
+        onWarning(`auto-open failed: ${result.error}`);
+      }
+      return;
+    } catch {
+      // File not yet on disk; cc-connect is still writing. Wait and retry.
+    }
+    await new Promise((r) => setTimeout(r, AUTO_OPEN_POLL_INTERVAL_MS));
+  }
+  onWarning(`auto-open timed out after ${AUTO_OPEN_TIMEOUT_MS}ms: cc-connect did not write the QR PNG`);
 }
