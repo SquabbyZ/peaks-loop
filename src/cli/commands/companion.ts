@@ -274,7 +274,13 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       .option('--token <bearer>', 'BUG 8 (Path B): skip the QR path; bind an existing iLink bearer token (e.g. `<botid>@im.bot:<secret>`)')
       .option('--api-url <url>', 'BUG 8 (Path B): forwarded to cc-connect; overrides the default ilink base URL (useful when ilinkai.weixin.qq.com is region-blocked)')
       .option('--skip-verify', 'BUG 8 (Path B): forwarded to cc-connect; skip the post-bind getUpdates verification', false)
-  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; json?: boolean }) => {
+      // 2026-06-15-qr-inline-display: explicit renderer overrides.
+      // Flag precedence > env auto-detect > TTY default. Default
+      // TTY renderer is now unicode-block (denser than qrcode-terminal
+      // ASCII). Claude Code env auto-picks the inline-image mode.
+      .option('--qr-inline', '2026-06-15-qr-inline-display: force the inline-image QR renderer (`![QR code](data:image/png;base64,...)`). Useful for markdown-rendering surfaces (Claude Code chat, GitHub PR comments, Slack markdown plugin).', false)
+      .option('--qr-ascii', '2026-06-15-qr-inline-display: force the legacy qrcode-terminal small-ASCII QR renderer. Escape hatch for screen readers / tests.', false)
+  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; qrInline?: boolean; qrAscii?: boolean; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
       printResult(io, fail('companion.setup', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
@@ -306,7 +312,12 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
         // and calls the bind service directly.
         ...(typeof options.token === 'string' && options.token.length > 0 ? { bindToken: options.token } : {}),
         ...(typeof options.apiUrl === 'string' && options.apiUrl.length > 0 ? { bindApiUrl: options.apiUrl } : {}),
-        ...(options.skipVerify === true ? { bindSkipVerify: true } : {})
+        ...(options.skipVerify === true ? { bindSkipVerify: true } : {}),
+        // 2026-06-15-qr-inline-display: forward the explicit renderer
+        // overrides. The orchestrator applies precedence
+        // (flag > env > default) via `resolveQrRenderer`.
+        ...(options.qrInline === true ? { qrInline: true } : {}),
+        ...(options.qrAscii === true ? { qrAscii: true } : {})
       });
       if (state.error !== null) {
         printResult(io, fail('companion.setup', 'SETUP_FAILED', state.error, state, state.nextActions), options.json);
