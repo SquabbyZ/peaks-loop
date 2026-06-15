@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-15T13:25:00.000Z",
+  "updatedAt": "2026-06-15T16:00:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "peaks-companion-qr-autoopen-2026-06-15",
+        "kind": "feedback",
+        "description": "peaks companion setup now auto-pops the QR PNG in macOS Preview / Windows Photos / Linux xdg-open. Replaces the manual file-open step. The Claude Code chat inline-image path was abandoned (chat does not render any external images). Path B (manual token) remains no-image-required.",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-companion-qr-autoopen-2026-06-15.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-15"
+      },
       {
         "name": "peaks-companion-qr-inline-display-2026-06-15",
         "kind": "feedback",
