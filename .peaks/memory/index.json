@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-15T12:49:00.000Z",
+  "updatedAt": "2026-06-15T13:25:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "peaks-companion-qr-inline-display-2026-06-15",
+        "kind": "feedback",
+        "description": "peaks companion setup QR now renders inline in markdown surfaces (Claude Code chat, GitHub PR) via auto-detected renderer. Default TTY = unicodeBlockQrRenderer (█▀▄); Claude Code env or --qr-inline = inlineQrRenderer (base64 PNG markdown); --qr-ascii = legacy qrcode-terminal. Flag precedence: --qr-inline > --qr-ascii > CLAUDE_CODE env > default. Path B (--token) bypasses renderer.",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/peaks-companion-qr-inline-display-2026-06-15.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-15"
+      },
       {
         "name": "peaks-companion-cc-connect-dogfood-2026-06-15",
         "kind": "feedback",
