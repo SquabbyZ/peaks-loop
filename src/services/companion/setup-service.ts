@@ -55,6 +55,7 @@ import { bindWeixinToken } from './bind-service.js';
 import { DEFAULT_COMPANION_CHANNEL, type CompanionChannel } from './companion-types.js';
 import { getErrorMessage } from '../../shared/result.js';
 import type { CompanionConfig } from '../config/config-types.js';
+import { resolveQrRenderer } from './qr-renderers.js';
 
 export const DEFAULT_SETUP_TIMEOUT_MS = 60_000;
 const PROGRESS_POLL_INTERVAL_MS = 1_000;
@@ -119,6 +120,23 @@ export type SetupOptions = {
   forceOverwrite?: boolean;
   /** Custom QR renderer. Default uses qrcode-terminal. */
   qrRenderer?: QrRenderer;
+  /**
+   * 2026-06-15-qr-inline-display: explicit `--qr-inline` flag.
+   * When true, forces the markdown-image renderer regardless of
+   * env auto-detect. Wins over `qrAscii` and over CLAUDE_CODE.
+   */
+  qrInline?: boolean;
+  /**
+   * 2026-06-15-qr-inline-display: explicit `--qr-ascii` flag.
+   * When true, forces the legacy qrcode-terminal small-ASCII
+   * renderer. Wins over CLAUDE_CODE.
+   */
+  qrAscii?: boolean;
+  /**
+   * 2026-06-15-qr-inline-display: process-env override used by
+   * the renderer resolver. Defaults to `process.env`. Test seam.
+   */
+  env?: NodeJS.ProcessEnv;
   /** Custom spawn for the cc-connect weixin setup flow (test seam). */
   spawnSetup?: (binaryPath: string, args: readonly string[]) => { kill: () => void; pid: number | null; child?: unknown };
   /** Inject a custom state-reader (test seam). */
@@ -338,7 +356,15 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
   const configRenderer = options.configRenderer ?? renderWeixinConfig;
   const stateReader: (h?: string) => ReturnType<typeof readCcConnectState> = options.stateReader ?? ((h?: string) => readCcConnectState(h ?? process.env['HOME']));
   const promptFn = options.prompt ?? defaultPrompt;
-  const qrRenderer = options.qrRenderer ?? defaultQrRenderer;
+  // 2026-06-15-qr-inline-display: prefer the test seam
+  // (`options.qrRenderer`) when supplied; otherwise resolve via
+  // flag > env > default. Path B (bindToken) bypasses this entirely
+  // because the renderer call lives below the bind short-circuit.
+  const qrRenderer = options.qrRenderer ?? resolveQrRenderer({
+    ...(options.qrInline === true ? { qrInline: true } : {}),
+    ...(options.qrAscii === true ? { qrAscii: true } : {}),
+    ...(options.env !== undefined ? { env: options.env } : {})
+  });
   const spawnSetup = options.spawnSetup ?? defaultSpawnSetup;
 
   const state: SetupState = {
