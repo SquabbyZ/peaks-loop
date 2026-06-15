@@ -585,12 +585,23 @@ export async function runCompanionSetup(options: SetupOptions = {}): Promise<Set
   // poll loop continues. On any failure (file not written, xdg-open
   // not installed, unsupported platform) we surface a soft warning
   // instead of failing the setup; the user can still scan manually.
+  // The result is also printed to stdout so the user gets immediate
+  // feedback (the auto-open is otherwise silent UX).
   if (resolvedQrImagePath !== null && options.autoOpenQr !== false) {
     const opener = options.autoOpener ?? openInDefaultApp;
     const targetPath = resolvedQrImagePath;
     void scheduleAutoOpenQr(targetPath, opener, (warning) => {
       state.configWarnings.push(warning);
+      // Also surface to the user's terminal so they know what happened
+      // (without this, a silent fail leaves the user wondering).
+      // eslint-disable-next-line no-console
+      console.log(`  auto-open     : ${warning}`);
     });
+    // Pre-emptively surface a "trying to open" hint so the user
+    // knows the auto-open path is engaged even before the file
+    // appears (cc-connect takes 1-3s to write the PNG).
+    // eslint-disable-next-line no-console
+    console.log(`  auto-open     : opening QR PNG in default viewer (waiting for cc-connect to write it; up to 10s)`);
   }
 
   // The cc-connect weixin setup flow handles iLink QR generation +
