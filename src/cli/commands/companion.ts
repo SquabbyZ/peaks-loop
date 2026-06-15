@@ -280,7 +280,11 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
       // ASCII). Claude Code env auto-picks the inline-image mode.
       .option('--qr-inline', '2026-06-15-qr-inline-display: force the inline-image QR renderer (`![QR code](data:image/png;base64,...)`). Useful for markdown-rendering surfaces (Claude Code chat, GitHub PR comments, Slack markdown plugin).', false)
       .option('--qr-ascii', '2026-06-15-qr-inline-display: force the legacy qrcode-terminal small-ASCII QR renderer. Escape hatch for screen readers / tests.', false)
-  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; qrInline?: boolean; qrAscii?: boolean; json?: boolean }) => {
+      // 2026-06-15 follow-up: auto-open the QR PNG in the user's default
+      // image viewer (macOS: Preview, Windows: Photos, Linux: xdg-open).
+      // Default on; opt out for CI / headless servers.
+      .option('--no-auto-open-qr', 'do not auto-open the QR PNG after cc-connect writes it (default: open in macOS Preview / Windows Photos / Linux xdg-open)', false)
+  ).action(async (options: { channel?: CompanionChannel; timeout?: string; force?: boolean; project?: string; allowFrom?: string; qrImage?: string | boolean; token?: string; apiUrl?: string; skipVerify?: boolean; qrInline?: boolean; qrAscii?: boolean; autoOpenQr?: boolean; json?: boolean }) => {
     const check = rejectChannel(options.channel);
     if (!check.ok) {
       printResult(io, fail('companion.setup', 'CHANNEL_UNSUPPORTED', check.message, { provided: options.channel ?? null }, ['this slice implements only the weixin channel']), options.json);
@@ -317,7 +321,11 @@ export function registerCompanionCommands(program: Command, io: ProgramIO): void
         // overrides. The orchestrator applies precedence
         // (flag > env > default) via `resolveQrRenderer`.
         ...(options.qrInline === true ? { qrInline: true } : {}),
-        ...(options.qrAscii === true ? { qrAscii: true } : {})
+        ...(options.qrAscii === true ? { qrAscii: true } : {}),
+        // 2026-06-15 follow-up: forward the auto-open opt-out. The
+        // orchestrator defaults to opening the QR PNG in the user's
+        // default image viewer; --no-auto-open-qr suppresses that.
+        ...(options.autoOpenQr === false ? { autoOpenQr: false } : {})
       });
       if (state.error !== null) {
         printResult(io, fail('companion.setup', 'SETUP_FAILED', state.error, state, state.nextActions), options.json);
