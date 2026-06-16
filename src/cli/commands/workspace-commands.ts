@@ -16,6 +16,10 @@ import { resolveCanonicalProjectRoot } from '../../services/config/config-servic
 import { applyHookInstall, readHookStatus } from '../../services/skills/hooks-settings-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import {
+  hasStandardsCheckedMarker,
+  markStandardsChecked
+} from '../../services/standards/missing-standards-detector.js';
 
 type WorkspaceInitOptions = {
   project: string;
@@ -59,6 +63,14 @@ type WorkspaceInitOptions = {
    * `peaks-solo/references/anchoring-and-session-info.md`.
    */
   claudeHooks?: boolean;
+  /**
+   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in flag to
+   * auto-scaffold `.claude/rules/{common,<language>}/` when missing.
+   * Default `false` — the diagnostic fires but no write happens.
+   * Set to `true` (via `--init-standards`) to also run
+   * `executeProjectStandardsInit({ projectRoot, apply: true })`.
+   */
+  initStandards?: boolean;
 };
 
 /** Sticky decision marker for the first-time "install hooks" prompt. */
@@ -189,6 +201,10 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         '--no-claude-hooks',
         'do NOT materialize .claude/settings.local.json (slice 2.0.1-bug3 fact-forcing bypass). Default: hooks installed so tool calls inside .peaks/** are not blocked by the [Fact-Forcing Gate].'
       )
+      .option(
+        '--init-standards',
+        'slice 2026-06-16-peaks-solo-auto-scaffold: when the consumer project\'s .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write).'
+      )
   ).action(async (options: WorkspaceInitOptions) => {
     try {
       // Resolve the session id. Two paths:
@@ -256,7 +272,12 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         // `options.claudeHooks` undefined, which is not equal to
         // `false`, so the default is "install hooks" (the bypass is
         // on). Pass `--no-claude-hooks` to opt out.
-        noClaudeHooks: options.claudeHooks === false
+        noClaudeHooks: options.claudeHooks === false,
+        // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in
+        // auto-apply for the missing-standards scaffold. Default false
+        // — only the diagnostic is emitted. Pass --init-standards to
+        // also run `executeProjectStandardsInit({ apply: true })`.
+        initStandards: options.initStandards === true
       });
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
@@ -360,6 +381,40 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
         );
       }
 
+      // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7):
+      //   - When the consumer project's `.claude/rules/` is missing or
+      //     empty, emit the copy-pasteable diagnostic to stderr (via
+      //     the JSON envelope `warnings` array) AND surface the
+      //     structured descriptor in `data.standardsMissing`.
+      //   - AC7: skip the diagnostic banner on subsequent invocations
+      //     within the same session — the once-per-session marker
+      //     `.peaks/_runtime/<sid>/.standards-checked` is written after
+      //     the FIRST diagnostic emit.
+      //   - AC3: when --init-standards was passed and the detector
+      //     reported missing, `report.standardsApplied` already lists the
+      //     freshly-written files. Surface that as a nextAction so the
+      //     human sees what was written.
+      const warningsForEnvelope: string[] = [];
+      if (report.standardsMissing.missing && !hasStandardsCheckedMarker(projectRoot, sessionId)) {
+        warningsForEnvelope.push(report.standardsMissing.remediation);
+        nextActions.push(
+          `Run \`peaks workspace init --init-standards --project ${projectRoot}\` to auto-apply the scaffold, or \`peaks standards init --project ${projectRoot} --apply\` manually.`
+        );
+      }
+      if (report.standardsApplied !== undefined) {
+        nextActions.push(
+          `Auto-applied .claude/rules/${report.standardsApplied.language}/ scaffold (slice 2026-06-16-peaks-solo-auto-scaffold): ` +
+            `wrote ${report.standardsApplied.writtenFiles.length} file(s), ` +
+            `kept ${report.standardsApplied.skippedFiles.length} existing file(s).`
+        );
+      }
+      // Write the once-per-session marker AFTER the envelope is built
+      // (so subsequent inits skip the warning even on rapid back-to-back
+      // calls).
+      if (report.standardsMissing.missing) {
+        markStandardsChecked(projectRoot, sessionId);
+      }
+
       printResult(
         io,
         ok(
@@ -379,7 +434,7 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
               ...(hooksOutcome.reason !== undefined ? { reason: hooksOutcome.reason } : {})
             }
           },
-          [],
+          warningsForEnvelope,
           nextActions
         ),
         options.json
