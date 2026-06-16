@@ -9,6 +9,7 @@ import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
 import { fail, ok } from '../../shared/result.js';
+import { emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type HookHandleOptions = { project: string; json?: boolean };
 
@@ -101,9 +102,9 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
           const soloDecision = evaluateSoloCodeBan({ skill: activeSkill.skill, command: fallbackCommand });
           if (soloDecision.denied) {
             const formatted = formatDecisionResponse(ide, 'deny', soloDecision.reason);
-            io.stdout(formatted.stdout);
+            emitDecision(io, formatted.stdout);
             if (options.json === true) {
-              io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: soloDecision.reason, enforcer: 'solo-code-ban' })));
+              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: soloDecision.reason, enforcer: 'solo-code-ban' })));
             }
             return;
           }
@@ -114,9 +115,9 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         const decision = await enforceBashCommand(projectRoot, fallbackCommand);
         if (decision.decision === 'deny') {
           const formatted = formatDecisionResponse(ide, 'deny', decision.reason);
-          io.stdout(formatted.stdout);
+          emitDecision(io, formatted.stdout);
           if (options.json === true) {
-            io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: decision.reason })));
+            emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: decision.reason })));
           }
           return;
         }
@@ -129,7 +130,7 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string') {
         const gate = checkLoginGate({ command: fallbackCommand });
         if (gate.destructive) {
-          io.stderr(`warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`);
+          emitHint(io, `warning: login-gate: destructive command detected (pattern: ${gate.matchedPattern}). Confirm with the user before proceeding.`);
         }
         }
 
@@ -146,9 +147,9 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
           const rootCheck = isRootWrite({ projectRoot, filePath });
           if (!rootCheck.allowed) {
             const formatted = formatDecisionResponse(ide, 'deny', rootCheck.denyReason);
-            io.stdout(formatted.stdout);
+            emitDecision(io, formatted.stdout);
             if (options.json === true) {
-              io.stderr(JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: rootCheck.denyReason, enforcer: 'no-root-pollution' })));
+              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: rootCheck.denyReason, enforcer: 'no-root-pollution' })));
             }
             return;
           }
@@ -156,13 +157,13 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       }
 
       const allow = formatDecisionResponse(ide, 'allow');
-      io.stdout(allow.stdout);
+      emitDecision(io, allow.stdout);
       if (options.json === true) {
         printResult(io, ok('hook.handle', { ide, tool: hook.toolName, decision: 'allow' }), true);
       }
     } catch (error) {
       // Fail-open: a bug in hook.handle must not brick Claude Code.
-      io.stderr(`hook handle: internal error, allowing command (${error instanceof Error ? error.message : String(error)})`);
+      emitHint(io, `hook handle: internal error, allowing command (${error instanceof Error ? error.message : String(error)})`);
       if (options.json === true) {
         printResult(io, fail('hook.handle', 'HOOK_HANDLE_FAILED', error instanceof Error ? error.message : 'unknown', {}), true);
       }
