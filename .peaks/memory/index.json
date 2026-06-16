@@ -6,7 +6,7 @@
       {
         "name": "2026-06-16-six-issue-user-feedback-batch",
         "kind": "feedback",
-        "description": "6 user-reported issues from real Claude Code usage → 6 PRDs (rules-write-path, fact-forcing-gate-format, hook-governance, peaks-rd-no-gates, playwright-restart-loop, cli-logging) + 1 follow-up PRD (peaks-solo-auto-scaffold). All shipped to develop @ 914e9ef on 2026-06-16. Lessons: (1) realpath-guard false-positive caught ONLY by dogfood, not by 3 QA cycles (synthetic fixtures missed subdir-of-home case); (2) Fact-Forcing Gate fix verified by test seam but NOT by real Claude Code hook (still fires in this session) — needs follow-up; (3) peaks-cli vs consumer project integration gap addressed by PRD#7 auto-scaffold.",
+        "description": "6 user-reported issues from real Claude Code usage → 6 PRDs (rules-write-path, fact-forcing-gate-format, hook-governance, peaks-rd-no-gates, playwright-restart-loop, cli-logging) + 1 follow-up PRD (peaks-solo-auto-scaffold). All shipped to develop @ 914e9ef on 2026-06-16. Lessons: (1) realpath-guard false-positive caught ONLY by dogfood, not by 3 QA cycles (synthetic fixtures missed subdir-of-home case); (2) CORRECTED 2026-06-16: [Fact-Forcing Gate] text is Claude Code's built-in behavior, not a peaks-cli hook — issue template for upstream at .peaks/.../txt/issue-templates/claude-code-fact-forcing-gate-ui.md; (3) peaks-cli vs consumer project integration gap addressed by PRD#7 auto-scaffold. Followups: PRD#8 (stale dist regression test), PRD#9 (workspace-commands split, shipped).",
         "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/2026-06-16-six-issue-user-feedback-batch.md",
         "sourceArtifact": null,
         "updatedAt": "2026-06-16"
