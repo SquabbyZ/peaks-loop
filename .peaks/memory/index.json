@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-15T16:00:00.000Z",
+  "updatedAt": "2026-06-16T13:55:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "2026-06-16-six-issue-user-feedback-batch",
+        "kind": "feedback",
+        "description": "6 user-reported issues from real Claude Code usage → 6 PRDs (rules-write-path, fact-forcing-gate-format, hook-governance, peaks-rd-no-gates, playwright-restart-loop, cli-logging) + 1 follow-up PRD (peaks-solo-auto-scaffold). All shipped to develop @ 914e9ef on 2026-06-16. Lessons: (1) realpath-guard false-positive caught ONLY by dogfood, not by 3 QA cycles (synthetic fixtures missed subdir-of-home case); (2) Fact-Forcing Gate fix verified by test seam but NOT by real Claude Code hook (still fires in this session) — needs follow-up; (3) peaks-cli vs consumer project integration gap addressed by PRD#7 auto-scaffold.",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/2026-06-16-six-issue-user-feedback-batch.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-16"
+      },
       {
         "name": "peaks-companion-qr-autoopen-2026-06-15",
         "kind": "feedback",
