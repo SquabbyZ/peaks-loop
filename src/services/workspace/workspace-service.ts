@@ -9,6 +9,15 @@ import {
   CLAUDE_SETTINGS_LOCAL_FILENAME,
   templateContentMatches
 } from './claude-settings-template.js';
+import {
+  detectMissingProjectStandards,
+  type MissingProjectStandardsDiagnostic
+} from '../standards/missing-standards-detector.js';
+import {
+  detectLanguage,
+  executeProjectStandardsInit,
+  type StandardsLanguage
+} from '../standards/project-standards-service.js';
 
 export type WorkspaceInitOptions = {
   projectRoot: string;
@@ -37,6 +46,22 @@ export type WorkspaceInitOptions = {
    * `--no-claude-hooks`.
    */
   noClaudeHooks?: boolean;
+  /**
+   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in flag for
+   * auto-applying `peaks standards init` when the consumer project's
+   * `.claude/rules/` is missing or empty. Default (`false`) only emits
+   * the diagnostic; set to `true` to also scaffold the rules tree via
+   * `executeProjectStandardsInit({ projectRoot, apply: true })`. The
+   * CLI surfaces this as `--init-standards`.
+   */
+  initStandards?: boolean;
+  /**
+   * Optional language override for the standards scaffold. When unset,
+   * `detectLanguage(projectRoot)` is used (looks for tsconfig.json /
+   * package.json / pyproject.toml / go.mod / Cargo.toml). Pass this to
+   * force a specific language for the auto-apply path.
+   */
+  language?: StandardsLanguage;
 };
 
 export type WorkspaceInitReport = {
@@ -79,6 +104,27 @@ export type WorkspaceInitReport = {
       action: 'written' | 'refreshed' | 'already-current';
       path: string;
     };
+  };
+  /**
+   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): structured
+   * diagnostic for missing or empty `.claude/rules/{common,<language>}/`.
+   * Always present (the detector runs on every init); `missing: false`
+   * means the project's rules tree is already populated and no action is
+   * required. The CLI copies this descriptor into the JSON envelope's
+   * `data.standardsMissing` so the LLM can read it programmatically.
+   */
+  standardsMissing: MissingProjectStandardsDiagnostic;
+  /**
+   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): when the caller
+   * passed `initStandards: true` AND the detector reported `missing:
+   * true`, this field lists the files written by
+   * `executeProjectStandardsInit({ projectRoot, apply: true })`.
+   * Undefined when `initStandards` was not requested.
+   */
+  standardsApplied?: {
+    readonly language: StandardsLanguage;
+    readonly writtenFiles: string[];
+    readonly skippedFiles: string[];
   };
 };
 
@@ -256,6 +302,28 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     bound = true;
   }
 
+  // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7):
+  //   - Always run the detector and surface the descriptor so the CLI can
+  //     put it on stderr + into the JSON envelope's `data.standardsMissing`.
+  //   - When `initStandards: true` AND the detector reports missing, run
+  //     `executeProjectStandardsInit({ apply: true })` to auto-apply.
+  const detectedLanguage: StandardsLanguage = options.language ?? detectLanguage(options.projectRoot);
+  const standardsMissing = detectMissingProjectStandards(options.projectRoot, detectedLanguage);
+  let standardsApplied: WorkspaceInitReport['standardsApplied'];
+  if (options.initStandards === true && standardsMissing.missing) {
+    const initResult = executeProjectStandardsInit({
+      projectRoot: options.projectRoot,
+      apply: true
+    });
+    standardsApplied = {
+      language: initResult.language,
+      writtenFiles: initResult.writtenFiles,
+      skippedFiles: initResult.plannedWrites
+        .filter((write) => write.status === 'existing')
+        .map((write) => write.relativePath)
+    };
+  }
+
   return {
     sessionId: options.sessionId,
     sessionRoot,
@@ -265,7 +333,9 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     previousSessionId,
     changeId: resolvedChangeId,
     changeIdAction,
-    claudeSettings: await materializeClaudeSettingsLocal(options.projectRoot, options.noClaudeHooks === true)
+    claudeSettings: await materializeClaudeSettingsLocal(options.projectRoot, options.noClaudeHooks === true),
+    standardsMissing,
+    ...(standardsApplied !== undefined ? { standardsApplied } : {})
   };
 }
 

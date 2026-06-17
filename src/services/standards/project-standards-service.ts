@@ -1,6 +1,38 @@
 import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir as osHomedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { buildToolLabel, componentLibraryLabel, cssFrameworkLabel, detectProjectContext, type ProjectContext } from './project-context.js';
+
+/**
+ * Typed error raised when a planned `peaks standards` write target would
+ * land outside `projectRoot` (or collide with the user-level baseline
+ * under `<homedir>/.claude/**`). Surfaced as a stable error code so CLI
+ * callers can map it to a recoverable hint.
+ */
+export type ProjectStandardsWriteTargetReason = 'outside-project-root' | 'resolves-to-homedir-claude';
+
+export class ProjectStandardsWriteTargetError extends Error {
+  public readonly code = 'PROJECT_STANDARDS_WRITE_TARGET_OUTSIDE_ROOT' as const;
+  public readonly filePath: string;
+  public readonly projectRoot: string;
+  public readonly reason: ProjectStandardsWriteTargetReason;
+
+  public constructor(input: {
+    readonly filePath: string;
+    readonly projectRoot: string;
+    readonly reason: ProjectStandardsWriteTargetReason;
+  }) {
+    super(
+      `Project standards write target '${input.filePath}' is rejected (reason: ${input.reason}); ` +
+        `writes must stay inside project root '${input.projectRoot}'. ` +
+        `Refusing to pollute the user-level ~/.claude/ baseline.`
+    );
+    this.name = 'ProjectStandardsWriteTargetError';
+    this.filePath = input.filePath;
+    this.projectRoot = input.projectRoot;
+    this.reason = input.reason;
+  }
+}
 
 export type StandardsLanguage = 'generic' | 'typescript' | 'javascript' | 'python' | 'go' | 'rust';
 export type StandardsWriteStatus = 'planned' | 'existing' | 'written' | 'appended' | 'review';
@@ -86,6 +118,14 @@ export type ProjectStandardsInitOptions = {
   readonly projectRoot: string;
   readonly language?: string;
   readonly apply?: boolean;
+  /**
+   * Test seam: override the homedir resolver used by the
+   * write-target containment guard. Defaults to `os.homedir()`.
+   * Production callers should NOT pass this — it exists so unit
+   * tests can simulate the "projectRoot === homedir" trap without
+   * mutating global Node state (which is read-only).
+   */
+  readonly resolveHomedir?: () => string;
 };
 
 type StandardsTemplate = {
@@ -165,13 +205,23 @@ function parseLanguage(value: string): StandardsLanguage {
   throw new Error('Unsupported standards language');
 }
 
-function detectLanguage(projectRoot: string): StandardsLanguage {
+function detectLanguageInternal(projectRoot: string): StandardsLanguage {
   if (existsSync(join(projectRoot, 'tsconfig.json'))) return 'typescript';
   if (existsSync(join(projectRoot, 'package.json'))) return 'javascript';
   if (existsSync(join(projectRoot, 'pyproject.toml')) || existsSync(join(projectRoot, 'requirements.txt'))) return 'python';
   if (existsSync(join(projectRoot, 'go.mod'))) return 'go';
   if (existsSync(join(projectRoot, 'Cargo.toml'))) return 'rust';
   return 'generic';
+}
+
+/**
+ * Public alias for `detectLanguageInternal` so callers outside this
+ * module (e.g. `workspace-service.ts` for the slice 2026-06-16 RD#7
+ * auto-detect path) can ask the same heuristic without re-implementing
+ * the file-probe logic.
+ */
+export function detectLanguage(projectRoot: string): StandardsLanguage {
+  return detectLanguageInternal(projectRoot);
 }
 
 function renderHeader(title: string): string {
@@ -365,7 +415,8 @@ function getPendingStandardsRuleWrites(plan: ProjectStandardsInitPlan): Standard
   return plan.plannedWrites.filter((write) => write.relativePath !== 'CLAUDE.md' && write.status !== 'existing');
 }
 
-function prevalidateWrites(projectRoot: string, writes: StandardsWrite[]): void {
+function prevalidateWrites(projectRoot: string, writes: StandardsWrite[], resolveHomedir: () => string = osHomedir): void {
+  const homeRoot = resolveHomedir();
   for (const write of writes) {
     const targetPath = resolve(write.filePath);
     const targetDir = dirname(targetPath);
@@ -373,6 +424,55 @@ function prevalidateWrites(projectRoot: string, writes: StandardsWrite[]): void 
     if (write.relativePath === 'CLAUDE.md') {
       assertSafeClaudeMdPath(targetPath, projectRoot);
     }
+    assertNotHomedirBaseline(targetPath, projectRoot, homeRoot);
+  }
+}
+
+function assertNotHomedirBaseline(targetPath: string, projectRoot: string, homeRoot: string): void {
+  if (homeRoot === '' || projectRoot === '') return;
+  const realProjectRoot = normalizeRoot(projectRoot);
+  const realHomeRoot = normalizeRoot(homeRoot);
+  // Canonical "rules wrote to global instead of project" bug: when the
+  // resolved projectRoot IS the user-level homedir, the planned write
+  // would land at `~/.claude/**`, polluting the baseline installed by
+  // `scripts/install-skills.mjs`. Defense in depth: never silently
+  // write to the user-level baseline.
+  //
+  // Note: we deliberately do NOT reject projects that are merely
+  // subdirectories of homedir (e.g. `~/Desktop/test/platform-rag-web`).
+  // Those are normal consumer projects; the writes go to
+  // `<projectRoot>/.claude/**`, NOT to `<homedir>/.claude/**`. The
+  // second check below is the real protection: it inspects whether the
+  // resolved write target itself lands inside `<homedir>/.claude/`,
+  // which only fires for the canonical bug case (or any accidental
+  // `~/` reference in the call chain that lands in `.claude/`).
+  if (realProjectRoot === realHomeRoot) {
+    throw new ProjectStandardsWriteTargetError({
+      filePath: targetPath,
+      projectRoot: realProjectRoot,
+      reason: 'resolves-to-homedir-claude'
+    });
+  }
+  // Reject if the resolved write target itself lands inside the
+  // homedir's `.claude/` tree. This catches accidental `~/` usage anywhere
+  // in the call chain even when projectRoot is sane. Walk up to the first
+  // existing ancestor so realpathSync does not ENOENT on a planned file.
+  const homeClaudeDir = join(realHomeRoot, '.claude');
+  const realHomeClaudeDir = existsSync(homeClaudeDir) ? realpathSync(homeClaudeDir) : homeClaudeDir;
+  let cursor = targetPath;
+  while (!existsSync(cursor)) {
+    const parent = dirname(cursor);
+    if (parent === cursor) break;
+    cursor = parent;
+  }
+  if (!existsSync(cursor)) return; // Nothing on disk to inspect; the project-root check above already covered the case.
+  const realTargetAncestor = realpathSync(cursor);
+  if (isInsidePath(realTargetAncestor, realHomeClaudeDir)) {
+    throw new ProjectStandardsWriteTargetError({
+      filePath: realTargetAncestor,
+      projectRoot: realProjectRoot,
+      reason: 'resolves-to-homedir-claude'
+    });
   }
 }
 
@@ -495,7 +595,7 @@ function appendExistingFile(path: string, content: string): void {
 export function createProjectStandardsInitPlan(options: ProjectStandardsInitOptions): ProjectStandardsInitPlan {
   const projectRoot = normalizeRoot(options.projectRoot);
   assertSafeStandardsRoot(projectRoot);
-  const language = options.language === undefined ? detectLanguage(projectRoot) : parseLanguage(options.language);
+  const language = options.language === undefined ? detectLanguageInternal(projectRoot) : parseLanguage(options.language);
   const ctx = detectProjectContext(projectRoot);
   const plannedWrites = createTemplates(language, ctx).map((template) => buildWrite(projectRoot, template));
 
@@ -522,11 +622,12 @@ export function createProjectStandardsUpdatePlan(options: ProjectStandardsInitOp
 export function executeProjectStandardsInit(options: ProjectStandardsInitOptions): ProjectStandardsInitResult {
   const plan = createProjectStandardsInitPlan(options);
   const writtenFiles: string[] = [];
+  const resolveHomedir = options.resolveHomedir ?? osHomedir;
 
   if (plan.apply) {
     assertSafeStandardsRoot(plan.projectRoot);
     const pendingWrites = plan.plannedWrites.filter((write) => write.status !== 'existing');
-    prevalidateWrites(plan.projectRoot, pendingWrites);
+    prevalidateWrites(plan.projectRoot, pendingWrites, resolveHomedir);
     for (const write of pendingWrites) {
       const targetPath = resolve(write.filePath);
       mkdirSync(dirname(targetPath), { recursive: true });
@@ -548,13 +649,14 @@ export function executeProjectStandardsUpdate(options: ProjectStandardsInitOptio
   const appendedFiles: string[] = [];
   const reviewSuggestions = [...plan.claudeMd.reviewSuggestions];
   let claudeMd = { ...plan.claudeMd };
+  const resolveHomedir = options.resolveHomedir ?? osHomedir;
 
   if (plan.apply) {
     assertSafeStandardsRoot(plan.projectRoot);
     const pendingRuleWrites = getPendingStandardsRuleWrites(plan);
-    prevalidateWrites(plan.projectRoot, pendingRuleWrites);
+    prevalidateWrites(plan.projectRoot, pendingRuleWrites, resolveHomedir);
     const targetPath = resolve(claudeMd.filePath);
-    prevalidateWrites(plan.projectRoot, [claudeMd]);
+    prevalidateWrites(plan.projectRoot, [claudeMd], resolveHomedir);
     writtenFiles.push(...writeMissingStandardsRules(plan, pendingRuleWrites));
 
     if (claudeMd.status === 'planned') {

@@ -241,6 +241,52 @@ peaks project dashboard / memories
 | ⚠️ **Trae** | slim `IdeAdapter` 已注册，真实 Trae 集成留到后续切片 |
 | 📋 **Codex / Cursor / Qoder / 通义灵码 等** | 路线图 |
 
+## 🪝 Hooks
+
+peaks-cli 把自己注册为 Claude Code / Trae 的 PreToolUse hook，在**对话中途、面向 agent 本身**拦下不可逆动作——这是 CI 拦不住、CLAUDE.md 只能靠自觉的盲区。
+
+### 装 / 卸
+
+```sh
+# 装到当前项目（写入 .claude/settings.json，幂等）
+peaks hooks install
+
+# 装到全局（写入 ~/.claude/settings.json）
+peaks hooks install --global
+
+# 查状态
+peaks hooks status
+peaks hooks status --global
+
+# 卸（只卸 peaks 自己注册的；保留其他第三方 hook）
+peaks hooks uninstall
+```
+
+装完之后**重启 IDE（或 reload workspace）**让 hook 生效。
+
+### 装了什么
+
+装的是 `peaks gate enforce` 这条 PreToolUse `Bash` 入口——每次 Bash 调用都会跑 SOP 门禁。命中失败 → 写 `permissionDecision: "deny"` 到 stdout + `process.exitCode = 2`，Claude Code 在权限检查**之前**就拦下来（连 `--dangerously-skip-permissions` 也拦得住）。完整审计表见 [`.claude/HOOKS.md`](./.claude/HOOKS.md)。
+
+### 输出契约
+
+| 信号          | 走哪                                    | 含义                       |
+|---------------|-----------------------------------------|----------------------------|
+| `stdout` JSON | `emitBlock` / `emitDecision`            | 给宿主读的 allow/deny 决策 |
+| `stderr` 文本 | `emitHint`                              | 给 LLM/操作者看的人话提示  |
+| 退出码 `0`    | 允许                                    | 宿主继续                   |
+| 退出码 `2`    | 阻塞（`emitBlock` 专用）                | 宿主必须停                 |
+
+所有 hook 走 `src/services/hooks/output.ts` 三个 helper：`emitHint` / `emitBlock` / `emitDecision`。跨平台契约测试（darwin / linux / win32）在 `tests/unit/hooks/contract.test.ts`。
+
+### 一次性放行
+
+```sh
+peaks gate bypass --sop <id> --phase <phase> --reason "<why>"
+```
+
+下次匹配的 Bash 命令放行一次（每个 SOP 每项目上限 3 次）。完整文档：[`.claude/HOOKS.md`](./.claude/HOOKS.md)。
+
 ## 🏗️ 项目状态
 
 - ✅ **11 技能** + 跨 IDE CLI + 2800+ 测试

@@ -37,9 +37,60 @@ import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
 import { registerCompanionCommands } from './commands/companion.js';
+import { registerLogCommands } from './commands/log-commands.js';
+import { registerQaCommands } from './commands/qa-commands.js';
+import { applyRetention } from '../services/log/retention.js';
+import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
 
 export { printResult, type ProgramIO } from './cli-helpers.js';
+
+/**
+ * Slice 2026-06-16-cli-logging (G1, G2, G3, G7). One structured
+ * `peaks-cli start` entry per CLI invocation, plus a 7-day
+ * retention sweep. Wired into the global program so EVERY
+ * peaks-cli command — even a bare `peaks` quickstart — writes
+ * a log line.
+ *
+ * The logger NEVER writes to stdout; it touches only the log
+ * file (always) and stderr (when `verbose` is true or
+ * `PEAKS_LOG_LEVEL=debug`). JSON envelopes stay parseable.
+ */
+function bootstrapLogger(verbose: boolean): void {
+  try {
+    applyRetention({ retentionDays: 7 });
+  } catch {
+    /* best-effort retention sweep; never block the CLI */
+  }
+  const dateOverride = process.env.PEAKS_LOG_DATE_OVERRIDE;
+  const entry = {
+    ts: new Date().toISOString(),
+    level: 'info' as const,
+    command: 'main',
+    msg: 'peaks-cli start',
+    version: CLI_VERSION
+  };
+  try {
+    writeLogEntry(entry, dateOverride !== undefined ? { dateOverride } : {});
+  } catch {
+    /* best-effort */
+  }
+  if (verbose || process.env.PEAKS_LOG_LEVEL === 'debug') {
+    maybeWriteStderr(entry, { verbose: true });
+  }
+}
+
+// Slice 2026-06-16-cli-logging (AC1 regression fix, repair cycle 1):
+// Process-scoped guard so the bootstrap log line is written AT MOST
+// once per process, regardless of whether it fires from the
+// `preAction` hook (subcommand path) or from the version action
+// (`-v` / `--version` / `-V` path). Reset between test invocations
+// via `__resetBootstrapForTests`.
+let bootstrapRan = false;
+export function __resetBootstrapForTests(): void {
+  bootstrapRan = false;
+}
+
 export function createProgram(io: ProgramIO = { stdout: (text) => console.log(text), stderr: (text) => console.error(text) }): Command {
  const program = new Command();
  program
@@ -58,11 +109,49 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  writeOut: (text) => io.stdout(text.trimEnd()),
  writeErr: (text) => io.stderr(text.trimEnd())
  })
- .version(CLI_VERSION, '-v, --version')
+ // Slice 2026-06-16-cli-logging (AC1 regression fix, repair cycle 1):
+ // We DO NOT use Commander's built-in `.version()` here. Commander's
+ // built-in version handler short-circuits the program BEFORE the
+ // `preAction` hook fires, which means a bare `peaks --version`
+ // invocation skips the JSONL bootstrap. Per PRD AC1 the log file
+ // MUST be created on every CLI invocation, including `--version`.
+ //
+ // Instead we register `-V` and `-v, --version` as regular options
+ // and handle them in the program-level action: run the log
+ // bootstrap, print the version, and exit. The `preAction` hook
+ // below still fires for subcommands; we deduplicate via a
+ // `bootstrapRan` guard so the start line is written at most once
+ // per process.
+ .option('-v, --version', 'output the version number')
  .option('-V', 'output the version number')
+ // Slice 2026-06-16-cli-logging (G3): global verbose flag. Mirrors
+ // the PEAKS_LOG_LEVEL=debug env var; with this set, the logger
+ // mirrors every entry to stderr IN ADDITION to the file.
+ // Long-only: `-v` is already bound to `--version` by the
+ // `.option()` call above, so we accept the env-var form
+ // (PEAKS_LOG_LEVEL=debug) as the short-form equivalent.
+ .option('--verbose', 'mirror log lines to stderr (also: PEAKS_LOG_LEVEL=debug)')
+ .hook('preAction', () => {
+   const opts = program.opts<{ verbose?: boolean }>();
+   // Slice 2026-06-16-cli-logging (repair cycle 2): gate the bootstrap on
+   // the same `bootstrapRan` guard the version action uses, so a single
+   // process that invokes the program twice (vitest, programmatic) does
+   // not emit duplicate `peaks-cli start` JSONL entries.
+   if (!bootstrapRan) {
+     bootstrapLogger(opts.verbose === true);
+     bootstrapRan = true;
+   }
+ })
  .action(() => {
- const opts = program.opts<{ V?: boolean }>();
- if (opts.V) {
+ const opts = program.opts<{ V?: boolean; version?: boolean; verbose?: boolean }>();
+ if (opts.V || opts.version) {
+ // AC1: write the peaks-cli start log line BEFORE printing the
+ // version, so even a bare `--version` invocation creates the log
+ // file. `bootstrapRan` dedupes when `preAction` already ran.
+ if (!bootstrapRan) {
+ bootstrapLogger(opts.verbose === true);
+ bootstrapRan = true;
+ }
  io.stdout(CLI_VERSION);
  return;
  }
@@ -144,6 +233,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerCodeReviewCommands(program, io);
  // Slice 2026-06-14-cc-connect-weixin: `peaks companion` family.
  registerCompanionCommands(program, io);
+ // Slice 2026-06-16-cli-logging (G4): `peaks log tail` / `peaks log ls`.
+ registerLogCommands(program, io);
+ // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.
+ registerQaCommands(program, io);
 
  return program;
 }

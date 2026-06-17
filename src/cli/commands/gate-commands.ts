@@ -3,8 +3,8 @@ import { enforceBashCommand, recordGateBypass, GateBypassError } from '../../ser
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectIdeFromContext, parseClaudeShapeStdin } from '../../services/ide/hook-translator.js';
-import { formatDecisionResponse } from '../../services/ide/hook-protocol.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
+import { emitBlock, emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type GateEnforceCliOptions = { project: string; json?: boolean };
 type GateBypassCliOptions = { sop: string; phase: string; reason: string; project: string; json?: boolean };
@@ -73,25 +73,30 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       }
       const decision = await enforceBashCommand(options.project, command);
       if (decision.decision === 'deny') {
-        const { stdout } = formatDecisionResponse(ide, 'deny', decision.reason);
-        io.stdout(stdout);
+        // PRD#2 (2026-06-16-fact-forcing-gate-format): a true SOP gate failure is
+        // a HARD block. emitBlock writes the Claude Code permissionDecision:"deny"
+        // JSON to stdout (the hook's decision signal), sets process.exitCode = 2
+        // (Claude Code's block exit code), AND surfaces the reason to stderr so
+        // the LLM sees it on the next turn. This prevents the previous behaviour
+        // where Claude Code wrapped the output as "PreToolUse:Bash hook error".
+        emitBlock(io, decision.reason);
         if (options.json === true) {
-          io.stderr(JSON.stringify(ok('gate.enforce', decision)));
+          emitHint(io, JSON.stringify(ok('gate.enforce', decision)));
         }
         return;
       }
       if (decision.warnings && decision.warnings.length > 0) {
         for (const warning of decision.warnings) {
-          io.stderr(warning);
+          emitHint(io, warning);
         }
       }
       if (options.json === true) {
-        io.stderr(JSON.stringify(ok('gate.enforce', decision)));
+        emitHint(io, JSON.stringify(ok('gate.enforce', decision)));
       }
       // allow: emit nothing on stdout → normal permission flow.
     } catch (error) {
       // Fail-open: a bug in enforcement must not brick Claude Code.
-      io.stderr(`gate enforce: internal error, allowing command (${getErrorMessage(error)})`);
+      emitHint(io, `gate enforce: internal error, allowing command (${getErrorMessage(error)})`);
     }
   });
 

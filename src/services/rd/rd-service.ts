@@ -24,6 +24,12 @@ import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/mod
  */
 const DEFAULT_EXECUTION_MODEL_ID = 'minimax-2.7';
 import { getTechStatus, TECH_REQUIRED_ARTIFACTS } from '../tech/tech-service.js';
+import {
+  buildRdStandardsGateList,
+  detectMissingProjectStandards,
+  type RdStandardGate,
+  resolveRdStartupStandardsCheck
+} from './standards-diagnostic.js';
 
 export type RdSkill = 'rd';
 export type RdWaveName = 'discovery' | 'planning' | 'implementation candidates' | 'unit-test execution' | 'quality gates' | 'reducer';
@@ -40,6 +46,10 @@ export type RdSwarmPlanRequest = {
   workspace?: WorkspaceConfig;
   requiresTechApproval?: boolean;
   executionModelId?: string;
+  /** Project root for the missing-standards diagnostic (slice 2026-06-16-peaks-rd-no-gates). */
+  projectRoot?: string;
+  /** Opt-in strict mode: hard-fail when project-local standards are missing. */
+  strictStandards?: boolean;
 };
 
 export type RdTask = {
@@ -90,6 +100,12 @@ export type RdPlanResult =
         techApprovalRequired: boolean;
         techStatus: string;
         skipReason?: string;
+        /** Gate list (code-review / security / performance) reflecting standards availability. */
+        standardsGates?: ReadonlyArray<RdStandardGate>;
+        /** Diagnostic line emitted to stderr when standards are missing (slice 2026-06-16-peaks-rd-no-gates). */
+        standardsDiagnostic?: string;
+        /** When `--strict-standards` is on AND standards are missing, the stable error code. */
+        standardsErrorCode?: typeof import('./standards-diagnostic.js').EPEAKS_NO_STANDARDS;
       };
       blockedReasons: string[];
       nextActions: string[];
@@ -114,6 +130,12 @@ export type RdPlanResult =
         techApprovalRequired: boolean;
         techStatus: string;
         skipReason?: string;
+        /** Gate list (code-review / security / performance) reflecting standards availability. */
+        standardsGates?: ReadonlyArray<RdStandardGate>;
+        /** Diagnostic line emitted to stderr when standards are missing (slice 2026-06-16-peaks-rd-no-gates). */
+        standardsDiagnostic?: string;
+        /** When `--strict-standards` is on AND standards are missing, the stable error code. */
+        standardsErrorCode?: typeof import('./standards-diagnostic.js').EPEAKS_NO_STANDARDS;
       };
       blockedReasons: string[];
       nextActions: string[];
@@ -305,7 +327,44 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
   return [...new Set(candidates)];
 }
 
-function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
+/**
+ * Slice 2026-06-16-peaks-rd-no-gates: optional standards overlay stamped onto
+ * every `gateStatus` shape produced by this module. Built once per
+ * `createRdSwarmPlan` call and merged into the result so the JSON envelope
+ * always carries the gate list + diagnostic (or null when standards present).
+ */
+type StandardsOverlay = {
+  readonly standardsGates?: ReadonlyArray<RdStandardGate>;
+  readonly standardsDiagnostic?: string;
+  readonly standardsErrorCode?: typeof import('./standards-diagnostic.js').EPEAKS_NO_STANDARDS;
+};
+
+function withStandardsOverlay(
+  gateStatus: { techApprovalRequired: boolean; techStatus: string; skipReason?: string },
+  overlay: StandardsOverlay
+): { techApprovalRequired: boolean; techStatus: string; skipReason?: string } & StandardsOverlay {
+  return { ...gateStatus, ...overlay };
+}
+
+function buildStandardsOverlay(request: RdSwarmPlanRequest): StandardsOverlay {
+  if (!request.projectRoot) {
+    return {};
+  }
+  const check = resolveRdStartupStandardsCheck({ projectRoot: request.projectRoot, strict: request.strictStandards === true });
+  // Slice 2026-06-16-peaks-rd-no-gates — Repair cycle 1:
+  // thread BOTH diagnostic and errorCode so strict-mode callers still
+  // surface `EPEAKS_NO_STANDARDS`. The pre-fix version early-returned
+  // on `diagnostic !== null` and dropped `errorCode` (QA#4 AC3 violation).
+  const overlay: StandardsOverlay = { standardsGates: check.gates };
+  const withDiagnostic = check.diagnostic !== null
+    ? { ...overlay, standardsDiagnostic: check.diagnostic }
+    : overlay;
+  return check.errorCode !== null
+    ? { ...withDiagnostic, standardsErrorCode: check.errorCode }
+    : withDiagnostic;
+}
+
+function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverlay): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
   validateChangeIdOrThrow(request.changeId);
   const goal = normalizeGoal(request.goal);
   const swarmMode = request.swarmMode ?? true;
@@ -337,11 +396,11 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
         workerBriefs: [],
         reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
-      gateStatus: {
+      gateStatus: withStandardsOverlay({
         techApprovalRequired: requiresTechApproval,
         techStatus: techStatus.status,
-        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' } : {}),
-      },
+        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
+      }, standardsOverlay),
       blockedReasons,
       nextActions: [],
     };
@@ -363,10 +422,10 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
         workerBriefs: [],
         reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
-      gateStatus: {
+      gateStatus: withStandardsOverlay({
         techApprovalRequired: true,
         techStatus: techStatus.status,
-      },
+      }, standardsOverlay),
       blockedReasons: ['tech-approval-required', ...blockedReasons],
       nextActions: ['Run peaks tech plan --dry-run and approve the tech plan before running peaks swarm plan.'],
     };
@@ -388,11 +447,11 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
         workerBriefs: [],
         reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
       },
-      gateStatus: {
+      gateStatus: withStandardsOverlay({
         techApprovalRequired: requiresTechApproval,
         techStatus: techStatus.status,
-        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' } : {}),
-      },
+        ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
+      }, standardsOverlay),
       blockedReasons,
       nextActions: ['Lower max-workers to match the current change scope or accept the capped target.'],
     };
@@ -479,11 +538,11 @@ function buildPlan(request: RdSwarmPlanRequest): Omit<Extract<RdPlanResult, { av
       workerBriefs: tasks.map((task) => task.outputs[0]),
       reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
     },
-    gateStatus: {
+    gateStatus: withStandardsOverlay({
       techApprovalRequired: requiresTechApproval,
       techStatus: techStatus.status,
-      ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' } : {}),
-    },
+      ...(techGateSkipped ? { skipReason: 'tech-gate-skipped-clear-implementation-path' as const } : {}),
+    }, standardsOverlay),
     blockedReasons,
     nextActions: blockedReasons.length > 0 ? ['Lower max-workers to match the current change scope or accept the capped target.'] : [],
   };
@@ -494,7 +553,8 @@ export function createRdSwarmPlan(request: RdSwarmPlanRequest): RdPlanResult {
     throw new Error('Unsupported skill');
   }
 
-  const result = buildPlan(request);
+  const standardsOverlay = buildStandardsOverlay(request);
+  const result = buildPlan(request, standardsOverlay);
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
 
   if (!hasPlannerArtifactWorkspace(request, artifactWorkspacePath)) {

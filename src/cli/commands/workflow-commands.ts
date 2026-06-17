@@ -24,6 +24,9 @@ interface WorkspaceContext {
   artifactWorkspacePath?: string;
   sessionId?: string;
   sessionDir?: string;
+  // Slice 2026-06-16-peaks-rd-no-gates — Repair cycle 2:
+  // thread `projectRoot` so CLI callers surface standards overlays (EPEAKS_NO_STANDARDS).
+  projectRoot?: string;
 }
 
 interface TechPlanOptions {
@@ -56,6 +59,8 @@ interface SwarmPlanOptions {
   maxWorkers: string;
   dryRun?: boolean;
   json?: boolean;
+  /** Slice 2026-06-16-peaks-rd-no-gates — opt-in strict standards mode. */
+  strictStandards?: boolean;
 }
 
 interface AutonomousResumeInitOptions {
@@ -80,8 +85,8 @@ function getWorkflowWorkspaceContext(): WorkspaceContext {
   try {
     const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const workspace = getWorkspaceConfigForPath(projectRoot);
-    if (!workspace) return {};
-    return { workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
+    if (!workspace) return { projectRoot };
+    return { projectRoot, workspace, artifactWorkspacePath: getLocalArtifactPath(workspace) };
   } catch {
     return {};
   }
@@ -259,8 +264,15 @@ function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
       dryRun: true,
       swarmMode: config.swarmMode ?? true,
       executionModelId: getEconomyAwareExecutionModelId(config),
+      ...(options.strictStandards ? { strictStandards: true } : {}),
       ...workspaceContext
     });
+    // Slice 2026-06-16-peaks-rd-no-gates — wire the strict-mode exit code.
+    // The service-layer stamps `standardsErrorCode` onto the envelope; the
+    // CLI is responsible for translating it into a non-zero exit.
+    if (plan.gateStatus.standardsErrorCode === 'EPEAKS_NO_STANDARDS') {
+      process.exitCode = 1;
+    }
     printResult(io, ok('swarm.plan', plan), options.json);
   } catch (error) {
     printResult(io, fail('swarm.plan', 'INVALID_CHANGE_ID_OR_GOAL', getErrorMessage(error), {}, ['Use a safe change id and a non-empty goal']), options.json);
@@ -330,7 +342,8 @@ function addSwarmPlanOptions(command: Command, includeSkill: boolean): Command {
     .requiredOption('--goal <goal>', 'planning goal')
     .option('--max-workers <count>', 'maximum worker count', '40')
     .option('--dry-run', 'preview without writing files', true)
-    .option('--no-dry-run', 'unsupported: do not execute RD planning from this CLI');
+    .option('--no-dry-run', 'unsupported: do not execute RD planning from this CLI')
+    .option('--strict-standards', 'hard-fail (exit non-zero) when project-local standards are missing; surfaces EPEAKS_NO_STANDARDS in the JSON envelope');
 
   if (includeSkill) {
     configured.requiredOption('--skill <skill>', 'skill to plan for');

@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-15T16:00:00.000Z",
+  "updatedAt": "2026-06-16T13:55:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "2026-06-16-six-issue-user-feedback-batch",
+        "kind": "feedback",
+        "description": "6 user-reported issues from real Claude Code usage → 6 PRDs (rules-write-path, fact-forcing-gate-format, hook-governance, peaks-rd-no-gates, playwright-restart-loop, cli-logging) + 1 follow-up PRD (peaks-solo-auto-scaffold). All shipped to develop @ 914e9ef on 2026-06-16. Lessons: (1) realpath-guard false-positive caught ONLY by dogfood, not by 3 QA cycles (synthetic fixtures missed subdir-of-home case); (2) CORRECTED 2026-06-17: [Fact-Forcing Gate] text comes from ECC (everything-claude-code) v1.10.0's gateguard-fact-force.js hook, not peaks-cli and not Claude Code. ECC upstream PR #1531 fixes it. User needs `git cherry-pick 3d30936` on their local ECC clone; (3) peaks-cli vs consumer project integration gap addressed by PRD#7 auto-scaffold. Followups: PRD#8 (stale dist regression test, shipped), PRD#9 (workspace-commands split, shipped).",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/2026-06-16-six-issue-user-feedback-batch.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-16"
+      },
       {
         "name": "peaks-companion-qr-autoopen-2026-06-15",
         "kind": "feedback",
