@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] — 2026-06-17
+
+### Added
+
+- **`peaks workspace consolidate`** (slice 011) — atomic cross-date session retirement.
+  Dry-run by default; `--apply` moves `.peaks/_runtime/<sessionId>/` to
+  `.peaks/_archive/retrospective-<date>/<sessionId>/` with `manifest.json`.
+  Supports `--keep <sessionId>...` and `--older-than <days>`. Invoked by skill,
+  not by user.
+- **`peaks session checkpoint`** (slice 011) — JSON snapshot of session state
+  for context-overflow recovery. 11 fields (sessionId, lastActivity, currentPlan,
+  openQuestions[], recentDecisions[], recentArtifactPaths[], gitStatus,
+  skillsActive, todoState, reason, createdAt). Max 10 retained, oldest auto-pruned.
+- **`peaks session resume`** (slice 011) — reads checkpoint JSON, emits structured
+  markdown block for skill to prepend on session restart.
+- **peaks-solo Step 0.5** (slice 011) — cross-date session check.
+  IDE-agnostic; lives in `skills/peaks-solo/references/cross-date-session-check.md`.
+- **peaks-solo Step 0.75** (slice 011) — checkpoint resume probe.
+- **peaks-solo Step N** (slice 011) — periodic checkpoint guidance.
+
+### Security
+
+- Path-traversal guard on `consolidate` destination (rejects `..`).
+- `checkpoint` writes only inside `.peaks/_runtime/<sessionId>/checkpoints/`.
+- `resume` reads only from `.peaks/_runtime/<sessionId>/checkpoints/*.json`.
+
+### Performance
+
+- 50-session `consolidate` plan+apply completes in <500ms (warm cache).
+- `checkpoint` write <100ms per call.
+- 12th checkpoint prunes oldest (MAX_CHECKPOINTS=10).
+
+### Tests
+
+- 25 new unit tests (12 consolidate + 8 checkpoint + 5 resume) — all green.
+- 112/112 slice-relevant tests pass; 9 pre-existing baseline failures on
+  `26a4bab` are unrelated and out of scope.
+
+### L2 dogfood (deferred)
+
+- Cross-IDE dogfood for Trae deferred to follow-up — see
+  `.peaks/_runtime/2026-06-16-session-aaf8c7/qa/dogfood/2026-06-17-cross-ide.md`.
+- slice #2 adapter registry contains only `claude-code` + `trae`; Cursor / Codex /
+  Qoder / Tongyi Lingma are slice #3+ scope.
+
 ## [2.2.1] — 2026-06-14
 
 ### Fixed

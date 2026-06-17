@@ -20,6 +20,7 @@ import { registerWorkspaceReconcileCommand } from './workspace/reconcile-command
 import { registerWorkspaceMigrateCommand } from './workspace/migrate-command.js';
 import { registerWorkspaceCleanCommand } from './workspace/clean-command.js';
 import { registerWorkspaceArchiveCommand } from './workspace/archive-command.js';
+import { registerWorkspaceConsolidateCommand } from './workspace/consolidate-command.js';
 import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';
 
 // Re-export for back-compat with tests that import from
@@ -42,6 +43,7 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   registerWorkspaceMigrateCommand(workspace, io);
   registerWorkspaceCleanCommand(workspace, io);
   registerWorkspaceArchiveCommand(workspace, io);
+  registerWorkspaceConsolidateCommand(workspace, io);
 
   // R004: slice 0.5 → 1.4.1 migration helper (legacy `.peaks/<sid>/<role>/`
   // → `.peaks/_runtime/<sid>/<role>/`). Idempotent; purely a UX /
