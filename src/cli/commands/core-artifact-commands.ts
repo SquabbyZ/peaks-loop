@@ -502,6 +502,16 @@ export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO)
     }
   });
 
+  // Slice 011: `peaks session checkpoint` and `peaks session resume`.
+  // Skill-level primitives — the LLM is the decision-maker; CLI is the muscle.
+  // Lazy-import to avoid circular resolution with the session-manager.
+  void (async () => {
+    const { registerSessionCheckpointCommand } = await import('./session-checkpoint-command.js');
+    const { registerSessionResumeCommand } = await import('./session-resume-command.js');
+    registerSessionCheckpointCommand(session, io);
+    registerSessionResumeCommand(session, io);
+  })();
+
   addJsonOption(
     session
       .command('rotate')
