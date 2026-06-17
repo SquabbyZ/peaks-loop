@@ -71,8 +71,20 @@ describe('getStandardsProfile — single chokepoint accessor', () => {
     expect(getStandardsProfile('trae')).toBeNull();
   });
 
-  test('throws for an unregistered IDE', () => {
-    expect(() => getStandardsProfile('cursor' as 'cursor')).toThrow(/Unsupported IDE: cursor/);
+  test('returns null for cursor (UNVERIFIED — slice #012+ dogfood; slice #011 fallback path, AC16)', () => {
+    // slice #12 (2.4.0): cursor is registered but standardsProfile is UNVERIFIED
+    // (real Cursor install dogfood required). Returns null = fallback to
+    // legacy Claude Code path with stderr warning. AC16 asserts postinstall
+    // writes to ~/.claude/skills/ (legacy fallback).
+    expect(getStandardsProfile('cursor')).toBeNull();
+  });
+
+  test('returns null for codex (UNVERIFIED — slice #013+ dogfood; slice #011 fallback path, AC16)', () => {
+    expect(getStandardsProfile('codex')).toBeNull();
+  });
+
+  test('throws for an unregistered IDE (qoder, reserved for slice #3+)', () => {
+    expect(() => getStandardsProfile('qoder' as 'qoder')).toThrow(/Unsupported IDE: qoder/);
   });
 });
 
@@ -89,8 +101,18 @@ describe('getSkillInstall — single chokepoint accessor', () => {
     expect(getSkillInstall('trae')).toBeNull();
   });
 
-  test('throws for an unregistered IDE', () => {
-    expect(() => getSkillInstall('cursor' as 'cursor')).toThrow(/Unsupported IDE: cursor/);
+  test('returns null for cursor (UNVERIFIED — slice #012+ dogfood; bundled skills fall back to ~/.claude/skills, AC16)', () => {
+    // AC16: bundled-skills postinstall writes to ~/.claude/skills/ (legacy
+    // Claude Code fallback) with stderr warning, NOT to ~/.cursor/skills/.
+    expect(getSkillInstall('cursor')).toBeNull();
+  });
+
+  test('returns null for codex (UNVERIFIED — slice #013+ dogfood; bundled skills fall back to ~/.claude/skills, AC16)', () => {
+    expect(getSkillInstall('codex')).toBeNull();
+  });
+
+  test('throws for an unregistered IDE (qoder, reserved for slice #3+)', () => {
+    expect(() => getSkillInstall('qoder' as 'qoder')).toThrow(/Unsupported IDE: qoder/);
   });
 });
 

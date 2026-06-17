@@ -13,17 +13,21 @@ afterEach(() => {
 });
 
 describe('ide-registry — built-in defaults', () => {
-  test('registers four adapters in slice #0.7 (claude-code + trae + hermes + openclaw) in insertion order', () => {
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw']);
+  test('registers six adapters in slice #2 + #0.7 + #12 + #13 (claude-code + trae + cursor + codex + hermes + openclaw) in insertion order', () => {
+    // 2.4.0: slice #12 (cursor) and slice #13 (codex) add two more built-in
+    // adapters to the slice #0.7 baseline. Insertion order is preserved.
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw']);
   });
 
-  test('listAdapters returns all four adapter instances', () => {
+  test('listAdapters returns all six adapter instances', () => {
     const adapters = listAdapters();
-    expect(adapters).toHaveLength(4);
+    expect(adapters).toHaveLength(6);
     expect(adapters[0]?.id).toBe('claude-code');
     expect(adapters[1]?.id).toBe('trae');
-    expect(adapters[2]?.id).toBe('hermes');
-    expect(adapters[3]?.id).toBe('openclaw');
+    expect(adapters[2]?.id).toBe('cursor');
+    expect(adapters[3]?.id).toBe('codex');
+    expect(adapters[4]?.id).toBe('hermes');
+    expect(adapters[5]?.id).toBe('openclaw');
   });
 
   test('getAdapter returns the Claude adapter for the registered id', () => {
@@ -39,10 +43,22 @@ describe('ide-registry — built-in defaults', () => {
     expect(adapter.envVar).toBe('TRAE_PROJECT_DIR');
   });
 
-  test('getAdapter throws for an unregistered IDE (e.g. cursor in slice #2)', () => {
-    // slice #2 ships with claude-code + trae. cursor / codex / qoder / tongyi-lingma
-    // are post-#2 adapters. Throwing is the expected behavior.
-    expect(() => getAdapter('cursor' as IdeId)).toThrow(/Unsupported IDE: cursor/);
+  test('getAdapter returns the Cursor adapter for the registered id (slice #12, 2.4.0)', () => {
+    const adapter = getAdapter('cursor');
+    expect(adapter.id).toBe('cursor');
+    expect(adapter.envVar).toBe('CURSOR_PROJECT_DIR');
+  });
+
+  test('getAdapter returns the Codex adapter for the registered id (slice #13, 2.4.0)', () => {
+    const adapter = getAdapter('codex');
+    expect(adapter.id).toBe('codex');
+    expect(adapter.envVar).toBe('CODEX_PROJECT_DIR');
+  });
+
+  test('getAdapter throws for an unregistered IDE (e.g. qoder, deferred to slice #3+)', () => {
+    // slice #2 + #0.7 + #12 + #13 ship with 6 adapters. qoder / tongyi-lingma
+    // are post-2.4.0 adapters. Throwing is the expected behavior.
+    expect(() => getAdapter('qoder' as IdeId)).toThrow(/Unsupported IDE: qoder/);
   });
 });
 
@@ -53,54 +69,54 @@ describe('ide-registry — test seams', () => {
 
   test('_setAdapterForTesting registers a new adapter; getAdapter returns it', () => {
     const fakeAdapter: IdeAdapter = {
-      id: 'cursor',
-      displayName: 'Cursor (test fixture)',
+      id: 'qoder',
+      displayName: 'Qoder (test fixture)',
       settings: {
-        dirName: '.cursor',
+        dirName: '.qoder',
         settingsFileName: 'settings.json',
         resolveSettingsFile: (scope, projectRoot) => {
           const root = scope === 'global' ? 'C:/home' : (projectRoot ?? 'C:/home');
-          return `${root}/.cursor/settings.json`;
+          return `${root}/.qoder/settings.json`;
         },
         supportsScope: () => true
       },
-      envVar: 'CURSOR_PROJECT_DIR',
+      envVar: 'QODER_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
+      subAgentDispatcher: { label: 'qoder', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
        capabilities: { gateEnforce: true, statusline: true },
 
       installHints: [],
     };
-    _setAdapterForTesting('cursor', fakeAdapter);
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw', 'cursor']);
-    const got = getAdapter('cursor');
-    expect(got.envVar).toBe('CURSOR_PROJECT_DIR');
+    _setAdapterForTesting('qoder', fakeAdapter);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'qoder']);
+    const got = getAdapter('qoder');
+    expect(got.envVar).toBe('QODER_PROJECT_DIR');
     expect(got.toolMatcher).toBe('terminal');
   });
 
-  test('_resetAdaptersForTesting restores the slice #2 default (claude-code + trae)', () => {
-    _setAdapterForTesting('cursor', {
-      id: 'cursor',
-      displayName: 'Cursor (test fixture)',
+  test('_resetAdaptersForTesting restores the 2.4.0 default (6 built-in adapters)', () => {
+    _setAdapterForTesting('qoder', {
+      id: 'qoder',
+      displayName: 'Qoder (test fixture)',
       settings: {
-        dirName: '.cursor',
+        dirName: '.qoder',
         settingsFileName: 'mcp.json',
-        resolveSettingsFile: () => '/tmp/.cursor/mcp.json',
+        resolveSettingsFile: () => '/tmp/.qoder/mcp.json',
         supportsScope: () => true
       },
-      envVar: 'CURSOR_PROJECT_DIR',
+      envVar: 'QODER_PROJECT_DIR',
       hookEvent: 'beforeShellCommand',
       toolMatcher: 'terminal',
-      subAgentDispatcher: { label: 'cursor', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
+      subAgentDispatcher: { label: 'qoder', supportsRole: () => false, buildToolCall: () => ({ name: 'subagent', args: {} }) },
       promptSizeAware: false,
        capabilities: { gateEnforce: true, statusline: true },
 
       installHints: [],
     });
-    expect(listAdapterIds()).toContain('cursor');
+    expect(listAdapterIds()).toContain('qoder');
     _resetAdaptersForTesting();
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'hermes', 'openclaw']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw']);
   });
 });
