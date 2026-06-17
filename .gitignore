@@ -7,6 +7,11 @@ coverage/
 .gstack/
 .codegraph/
 .peaks/_runtime/
+# slice 2.5.0 sub-fix C: peaks playwright start session records.
+# The directory lives under _runtime/ so it is already covered by
+# the rule above; this explicit line documents the intent for
+# future readers (and survives a future rule refactor).
+.peaks/_runtime/playwright-sessions/
 .peaks/_dogfood/
 .peaks/_sub_agents/
 .peaks/audit/
