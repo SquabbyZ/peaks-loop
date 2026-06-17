@@ -1,6 +1,8 @@
 import type { IdeAdapter, IdeId } from './ide-types.js';
 import { CLAUDE_CODE_ADAPTER } from './adapters/claude-code-adapter.js';
 import { TRAE_ADAPTER } from './adapters/trae-adapter.js';
+import { CURSOR_ADAPTER } from './adapters/cursor-adapter.js';
+import { CODEX_ADAPTER } from './adapters/codex-adapter.js';
 import { HERMES_ADAPTER } from './adapters/hermes-adapter.js';
 import { OPENCLAW_ADAPTER } from './adapters/openclaw-adapter.js';
 
@@ -14,10 +16,14 @@ import { OPENCLAW_ADAPTER } from './adapters/openclaw-adapter.js';
  * Map 加条目 —— 所有 adapter 使用方(hook-translator、hooks install、statusline
  * install、mcp apply)通过 `getAdapter(ide)` 拿取,无需修改。
  * Slice #0.7 注入 hermes + openclaw。
+ * Slice #12 (2.4.0) 注册 cursor。
+ * Slice #13 (2.4.0) 注册 codex。
  */
 const ADAPTERS: ReadonlyMap<IdeId, IdeAdapter> = new Map<IdeId, IdeAdapter>([
   ['claude-code', CLAUDE_CODE_ADAPTER],
   ['trae', TRAE_ADAPTER],
+  ['cursor', CURSOR_ADAPTER],
+  ['codex', CODEX_ADAPTER],
   ['hermes', HERMES_ADAPTER],
   ['openclaw', OPENCLAW_ADAPTER],
 ]);
@@ -54,6 +60,8 @@ export function _resetAdaptersForTesting(): void {
   (ADAPTERS as Map<IdeId, IdeAdapter>).clear();
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('claude-code', CLAUDE_CODE_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('trae', TRAE_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('cursor', CURSOR_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('codex', CODEX_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('hermes', HERMES_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('openclaw', OPENCLAW_ADAPTER);
 }

@@ -87,8 +87,12 @@ export const HOOK_ENFORCE_COMMAND = `peaks gate enforce --project "\${CLAUDE_PRO
 
 /**
  * Resolve the adapter + per-IDE values used to render the settings.json entries.
- * Each adapter that wants its own gate command (Trae uses `peaks hook handle`,
- * the new dispatcher) overrides the default here.
+ * Each adapter that wants its own gate command (Trae / Cursor / Codex use
+ * `peaks hook handle`, the new dispatcher) overrides the default here.
+ *
+ * Slice #2 + #12 + #13 (2.4.0): the per-IDE hook command is read from a
+ * small dispatch table below. New adapters pick a command by adding a
+ * single line to that table — no if/else growth in this function.
  */
 interface ResolvedHookSpec {
   readonly hookEnforceCommand: string;
@@ -97,29 +101,44 @@ interface ResolvedHookSpec {
   readonly hookEnforceEvent: string;
 }
 
+/**
+ * Per-IDE hook command + sentinel. The default (Claude Code) uses the
+ * legacy `peaks gate enforce` surface; Trae / Cursor / Codex (Cursor-style
+ * siblings with `before*` / `pre_*` hook events) use `peaks hook handle`,
+ * the new dispatcher. New adapters register by adding a single line here.
+ *
+ * Slice #12 + #13 (2.4.0) honor the framework's "fill the table" promise
+ * — adding a new IDE does NOT require editing this function's control
+ * flow, only adding a line to this table.
+ */
+const HOOK_COMMAND_BY_IDE: Readonly<Partial<Record<IdeId, { command: string; sentinel: string }>>> = {
+  'claude-code': { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
+  'trae':       { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
+  'cursor':     { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
+  'codex':      { command: 'peaks hook handle',  sentinel: 'peaks hook handle' },
+  'hermes':     { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
+  'openclaw':   { command: 'peaks gate enforce', sentinel: 'peaks gate enforce' },
+  // qoder / tongyi-lingma are reserved IdeIds (slice #1) but not yet
+  // registered. When a slice adds them, add a HOOK_COMMAND_BY_IDE entry
+  // here — the function below fail-closes on missing entries.
+};
+
 function resolveHookSpec(ide: IdeId): ResolvedHookSpec {
+  // getAdapter throws on unregistered IDEs — the registry is the source of truth.
   const adapter = getAdapter(ide);
-  if (ide === 'claude-code') {
-    return {
-      hookEnforceCommand: `peaks gate enforce --project "\${${adapter.envVar}}"`,
-      hookEnforceSentinel: HOOK_ENFORCE_SENTINEL,
-      hookEnforceMatcher: adapter.toolMatcher, // 'Bash'
-      hookEnforceEvent: adapter.hookEvent // 'PreToolUse'
-    };
+  const spec = HOOK_COMMAND_BY_IDE[ide];
+  if (!spec) {
+    // Defensive fallback: if an adapter is added to the registry without a
+    // HOOK_COMMAND_BY_IDE entry, fail-closed with a clear error instead of
+    // silently writing a Claude-shaped entry to a non-Claude settings.json.
+    throw new Error(`peaks hooks install: unsupported IDE '${ide}' (no HOOK_COMMAND_BY_IDE entry; add one to hooks-settings-service.ts)`);
   }
-  if (ide === 'trae') {
-    return {
-      hookEnforceCommand: `peaks hook handle --project "\${${adapter.envVar}}"`,
-      hookEnforceSentinel: 'peaks hook handle',
-      hookEnforceMatcher: adapter.toolMatcher, // 'terminal'
-      hookEnforceEvent: adapter.hookEvent // 'beforeToolCall'
-    };
-  }
-  // Future adapters (codex, cursor, qoder, tongyi-lingma) — not yet registered.
-  // When a slice adds them, branch here. Until then, throw a clear error so
-  // the CLI surfaces "unsupported IDE" instead of writing a Claude-shaped
-  // entry to a non-Claude settings.json.
-  throw new Error(`peaks hooks install: unsupported IDE '${ide}' (not registered in adapter registry; future slice will add support)`);
+  return {
+    hookEnforceCommand: `${spec.command} --project "\${${adapter.envVar}}"`,
+    hookEnforceSentinel: spec.sentinel,
+    hookEnforceMatcher: adapter.toolMatcher,
+    hookEnforceEvent: adapter.hookEvent
+  };
 }
 
 function resolveIde(options: HookInstallOptions | undefined): IdeId {
