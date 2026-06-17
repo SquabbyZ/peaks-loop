@@ -7,6 +7,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] — 2026-06-17
+
+### Added
+
+- **`CURSOR_ADAPTER`** (slice 012) — Cursor IDE registration on the existing
+  `IdeAdapter` shape. 12 required fields filled: `id: 'cursor'`,
+  `settings.dirName: '.cursor'`, `settingsFileName: 'settings.json'`,
+  `envVar: 'CURSOR_PROJECT_DIR'` (UNVERIFIED),
+  `hookEvent: 'beforeShellExecution'` (UNVERIFIED),
+  `toolMatcher: 'Bash'`, `promptSizeAware: true`, `statusline: true`.
+  `standardsProfile` and `skillInstall` left UNVERIFIED — falls back to
+  the legacy Claude Code path with stderr warning per slice #011 framework.
+- **`CODEX_ADAPTER`** (slice 013) — OpenAI Codex CLI registration. 12
+  required fields: `id: 'codex'`, `settings.dirName: '.codex'`,
+  `settingsFileName: 'settings.json'`,
+  `envVar: 'CODEX_PROJECT_DIR'` (UNVERIFIED),
+  `hookEvent: 'pre_tool_use'` (UNVERIFIED),
+  `toolMatcher: 'shell'`, `promptSizeAware: false` (Codex hook semantics
+  differ from Claude's), `statusline: false` (Codex CLI has no statusline
+  UI). `standardsProfile` and `skillInstall` left UNVERIFIED — same
+  legacy fallback.
+- **`HOOK_COMMAND_BY_IDE` dispatch table** (slice 012+013 infrastructure)
+  — `src/services/skills/hooks-settings-service.ts::resolveHookSpec`
+  refactored from hardcoded if/else into a per-IDE dispatch table.
+  Byte-stable for `claude-code` and `trae` (AC8 / AC15 ✓). New adapters
+  join the table without per-IDE branch rewrites.
+
+### Security
+
+- UNVERIFIED annotations on `envVar` / `hookEvent` for Cursor and Codex
+  carry the same risk profile as the slice #009 Trae UNVERIFIED state —
+  the per-IDE field values are not yet confirmed against real installs.
+  Until L2 dogfood closes, `peaks hooks install --ide cursor|codex`
+  will write hook entries that follow each IDE's most-likely hook
+  schema; if the IDE rejects the entry, the install returns a non-zero
+  exit code with the schema mismatch surfaced in stderr.
+- Bundled-skills postinstall for Cursor / Codex writes to
+  `~/.claude/skills/` (legacy Claude Code fallback), NOT to
+  `~/.cursor/skills/` or `~/.codex/skills/`. This is the slice #011
+  framework's intentional fallback for adapters whose `skillInstall` is
+  UNVERIFIED; AC16 is 3-layer-verified.
+
+### Performance
+
+- `detectIdeFromContext` cwd-fallback path stays linear in adapter count.
+  Slice #2 memory anchor: 2 adapters ≈ 27µs; this release: 6 adapters
+  ≈ 67µs (extrapolated; well under 1ms budget).
+- `HOOK_COMMAND_BY_IDE` dispatch is a `Map.get` lookup — O(1) per hook
+  install, no per-IDE if/else branch overhead.
+
+### Tests
+
+- 48 new vitest cases across `cursor-adapter.test.ts` (24) and
+  `codex-adapter.test.ts` (24). **182/182 pass** in
+  `tests/unit/ide/` (was 134; +48).
+- AC6 / AC13 explicitly assert `<projectRoot>/.<ide>/settings.json` for
+  `scope=project` (L1 default); AC7 explicitly asserts
+  `~/<ide>/settings.json` for `scope=global`.
+- AC16 (UNVERIFIED skillInstall fallback) verified at three layers:
+  (1) adapter field is `undefined`; (2) `getSkillInstall('cursor')` and
+  `getSkillInstall('codex')` return `null`; (3) `install-skills.mjs:474-484`
+  emits stderr "falling back to the legacy Claude Code path
+  (~/.claude/skills + ~/.claude/output-styles)" and writes to
+  `~/.claude/skills/`.
+- Byte-stability: `git diff
+  src/services/ide/adapters/{claude-code,trae}-adapter.ts` returns
+  empty (AC8 / AC15 ✓). Dispatch chokepoints `resource-profile.ts` /
+  `ide-aware-standards-service.ts` / `install-skills.mjs` untouched
+  (R6 inverse rule ✓).
+
+### L2 dogfood (deferred)
+
+- Real-install dogfood for Cursor 1.x — fill `CURSOR_ADAPTER.envVar` and
+  `CURSOR_ADAPTER.hookEvent` from real payload, remove UNVERIFIED
+  annotations. Follow the slice #009 Trae-dogfood pattern
+  (`tests/fixtures/cursor/cursor-1x-payload.json` + 5+ dogfood paths on
+  a real install once available).
+- Real-install dogfood for Codex — same pattern as Cursor.
+- `standardsProfile` + `skillInstall` filling for both adapters is
+  gated on the env/hook dogfood landing first.
+- Qoder + Tongyi Lingma adapters (slice #3+ backlog) remain deferred.
+
+### Notes
+
+- Pipeline layout caveat: `peaks workflow verify-pipeline` expects
+  artifacts under `.peaks/<change-id>/...` (per-change layout) but this
+  session writes under `.peaks/_runtime/<session-id>/...` (per-session
+  runtime layout). The pipeline may report `gateC: fail` despite a
+  PASS verdict; reconcile in a future slice (peaks-cli tooling fix,
+  not a 2.4.0 blocker).
+
+---
+
 ## [2.3.0] — 2026-06-17
 
 ### Added
