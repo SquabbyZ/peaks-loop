@@ -162,7 +162,7 @@ describe('Skill slim content coverage (slice 024)', () => {
         expect(lines, `${fx.name} SKILL.md is ${lines} lines`).toBeLessThanOrEqual(350);
       });
 
-      test('AC2/AC4/AC6: new SKILL.md is ≤ 20,000 bytes', () => {
+      test('AC2/AC4/AC6: new SKILL.md is ≤ 22,000 bytes', () => {
         // Bumped from 18,000 to 20,000 during the unified-dogfood pass:
         // slice 016 (LLM tool-list self-check), the Codegraph project
         // analysis section, the parallel-fan-out sub-agent contracts,
@@ -172,8 +172,16 @@ describe('Skill slim content coverage (slice 024)', () => {
         // satisfies that intent (compared to the pre-slice-002 baseline
         // of >30K bytes per skill). The detail narrative for these
         // additions lives in references/, not inline.
+        //
+        // Bumped from 20,000 to 22,000 during the slice-011 pass:
+        // PRD#11 added three new cross-date / checkpoint / resume
+        // step sections. Detail narrative lives in references/
+        // (per the slim-coverage principle), but the SKILL.md still
+        // carries an inline section header + one-line pointers.
+        // 22K keeps the no-runaway-bloat intent (the pre-slice-002
+        // baseline was >30K bytes per skill).
         const bytes = Buffer.byteLength(newContent, 'utf8');
-        expect(bytes, `${fx.name} SKILL.md is ${bytes} bytes`).toBeLessThanOrEqual(20_000);
+        expect(bytes, `${fx.name} SKILL.md is ${bytes} bytes`).toBeLessThanOrEqual(22_000);
       });
 
       test('R5: new SKILL.md preserves the "Two-axis naming convention" heading inline (pinned by slice 006 test)', () => {

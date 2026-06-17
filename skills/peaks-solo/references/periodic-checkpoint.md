@@ -1,0 +1,60 @@
+# Step N: periodic checkpoint — trigger table + field reference
+
+## Cadence guidance
+
+The LLM is the only one that knows when context pressure is high. Step N
+gives the LLM a clear trigger table and a field reference so it can call
+`peaks session checkpoint` at the right moments without user action. The
+CLI is idempotent and self-pruning (max 10 retained) so the LLM can
+checkpoint as often as it wants.
+
+## Trigger table
+
+| Trigger                                | `--reason`         |
+|----------------------------------------|--------------------|
+| Every ~20 tool calls                   | `periodic` (default) |
+| After each PRD/RD/QA/TXT artifact published | `artifact-written` |
+| LLM notices context getting full       | `context-fill`     |
+| User says "save" / "pause"             | `user-pause`       |
+| User closes the session                | `user-close`       |
+
+## Checkpoint CLI contract
+
+`peaks session checkpoint [--reason <r>] [--session-id <sid>] [--project <path>] [--current-plan <text>] [--open-questions <list>] [--recent-decisions <list>] [--recent-artifact-paths <list>] [--git-status <text>] [--skills-active <list>] [--todo-state <list>] [--json]`
+
+- `<list>` options accept newline-separated values (one per line).
+- `<sid>` defaults to the canonical binding from `.peaks/_runtime/session.json` (`peaks session info --active`).
+- The CLI writes `.peaks/_runtime/<sid>/checkpoints/<iso>.json` with all 11 documented fields.
+- Idempotent: any number of checkpoints may exist; the oldest beyond 10 are auto-pruned by mtime.
+
+## Field reference
+
+| Field | Source |
+|-------|--------|
+| `sessionId` | canonical binding (resolved via `peaks session info --active`) |
+| `lastActivity` | read from `.peaks/_runtime/<sid>/session.json.lastActivity`; falls back to `createdAt` if missing |
+| `currentPlan` | `--current-plan` flag (one-line slice summary) |
+| `openQuestions` | `--open-questions` flag (newline list) |
+| `recentDecisions` | `--recent-decisions` flag (newline list) |
+| `recentArtifactPaths` | `--recent-artifact-paths` flag (newline list) |
+| `gitStatus` | `--git-status` flag (one `git status --short` output) |
+| `skillsActive` | `--skills-active` flag (newline list of peaks skill names) |
+| `todoState` | `--todo-state` flag (newline list of todo lines) |
+| `reason` | `--reason` flag (one of the 5 documented values) |
+| `createdAt` | stamped at writeCheckpoint() invocation |
+
+## Skill recommendations
+
+- After every major artifact write: `peaks session checkpoint --reason artifact-written --recent-artifact-paths <list> --recent-decisions <list>`.
+- Every ~20 tool calls (LLM keeps a counter): `peaks session checkpoint --reason periodic`.
+- When user says "save" / "pause" / "checkpoint": `peaks session checkpoint --reason user-pause --current-plan <text>`.
+
+## Checkpoint edge cases
+
+- **No canonical session**: CLI throws `NO_ACTIVE_SESSION`; LLM should call `peaks workspace init` first.
+- **Invalid reason**: CLI throws `INVALID_REASON`; LLM retries with one of the 5 documented values.
+- **Idempotent**: running checkpoint twice in a row produces two distinct files (different `<iso>` filenames). No state corruption.
+
+## Checkpoint IDE note
+
+This step is strictly IDE-agnostic. The LLM calls the peaks CLI; no IDE-specific tools or paths are involved.

@@ -54,6 +54,10 @@ peaks-solo (orchestrate only)
 
 ## Peaks-Cli Startup sequence (MANDATORY — execute in order)
 
+### Peaks-Cli Slice 011 — workspace consolidate + session checkpoint/resume
+
+`peaks workspace consolidate`, `peaks session checkpoint`, `peaks session resume` — Step 0.5 cross-date check, Step 0.75 resume, Step N periodic checkpoint. IDE-agnostic. See `references/cross-date-session-check.md`, `references/checkpoint-resume.md`, `references/periodic-checkpoint.md`.
+
 ### Peaks-Cli Step 0.5: OpenSpec first-run opt-in (conditional)
 
 Run when `openspec/` is absent and `.peaks/.peaks-openspec-opt-in.json` is missing. Asks once and persists the decision.
