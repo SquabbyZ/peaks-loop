@@ -56,7 +56,15 @@ peaks-solo (orchestrate only)
 
 ### Peaks-Cli Slice 011 — workspace consolidate + session checkpoint/resume
 
-`peaks workspace consolidate`, `peaks session checkpoint`, `peaks session resume` — Step 0.5 cross-date check, Step 0.75 resume, Step N periodic checkpoint. IDE-agnostic. See `references/cross-date-session-check.md`, `references/checkpoint-resume.md`, `references/periodic-checkpoint.md`.
+`peaks workspace consolidate` is the slice-011 umbrella primitive. The two complementary skills it depends on — `peaks session checkpoint` (proactive context-overflow defense) and `peaks session resume` (cross-session continuity) — are surfaced in SKILL.md as Step 0.75 and Step N headings (slice 2.5.0, sub-fix A). See `references/cross-date-session-check.md` for the umbrella, `references/checkpoint-resume.md` for Step 0.75, and `references/periodic-checkpoint.md` for Step N. IDE-agnostic.
+
+### Peaks-Cli Step 0.75: Resume from checkpoint (BLOCKING on same-day re-invocation)
+
+When a NEW conversation opens on a session whose `lastActivity` is from today AND `.peaks/_runtime/<sessionId>/checkpoints/` contains at least one `*.json`, the LLM should surface the most recent checkpoint so the user can resume mid-session without losing context. Run `peaks session info --active --json` to resolve the canonical session id, then `peaks session resume --from <path> --project <repo>` to emit a markdown "resume context" block. The LLM's responsibility: prompt the user via IDE-native `AskUserQuestion` (resume / start fresh), and if "resume", prepend the emitted block to its own prompt. Honors the user choice on "fresh" — the on-disk checkpoint stays untouched for the next invocation. Step 0.75 is a no-op if any precondition fails (no sid, wrong day, no checkpoint). Full probe + decision tree: `references/checkpoint-resume.md`.
+
+### Peaks-Cli Step N: Periodic checkpoint (auto-fire, no user action)
+
+Proactive defense against context overflow. The LLM is the only one that knows when context pressure is high; this step gives it a clear trigger table and a single CLI to call. CLI: `peaks session checkpoint [--reason <r>] [--session-id <sessionId>] [--project <path>] [--current-plan <text>] [--open-questions <list>] [--recent-decisions <list>] [--recent-artifact-paths <list>] [--git-status <text>] [--skills-active <list>] [--todo-state <list>] [--json]`. The LLM's responsibility: keep a running tool-call counter, fire `peaks session checkpoint --reason periodic` every ~20 tool calls, `--reason artifact-written` after each PRD/RD/QA/TXT artifact is published, `--reason context-fill` when context feels full, `--reason user-pause` when the user says "save" / "pause", and `--reason user-close` before any session-end handoff. The CLI is idempotent and self-pruning (max 10 retained by mtime). Full trigger table + field reference: `references/periodic-checkpoint.md`.
 
 ### Peaks-Cli Step 0.5: OpenSpec first-run opt-in (conditional)
 
@@ -248,6 +256,7 @@ Index of every `references/` file. Read on demand.
 | `references/micro-cycle.md` | RD micro-cycle + repair loop. |
 | `references/mode-selection.md` | Step 1 mode + `--mode` mapping. |
 | `references/openspec-workflow.md` | Step 0.5 OpenSpec opt-in + lifecycle. |
+| `references/playwright-mcp-multi-terminal.md` | Multi-terminal Playwright MCP (start/ls/stop, port walk, conflict). |
 | `references/project-memory-loading.md` | Step 2.3 durable memories. |
 | `references/project-scan-checklist.md` | Pre-RD scan + artifact template. |
 | `references/quality-gate-cheatsheet.md` | 5 CLI commands vs silent skips. |

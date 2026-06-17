@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.5.0] — 2026-06-17
+
+### Fixed (realworld-fixes slice 014)
+
+- **Context-overflow guidance now visible in SKILL.md body** (sub-fix A) — slice
+  011 added `peaks session checkpoint` / `peaks session resume` CLIs plus
+  `references/checkpoint-resume.md` + `references/periodic-checkpoint.md`, but
+  SKILL.md body only mentioned them in a single line. New Claude Code sessions
+  that load SKILL.md never learned the optimization existed. `### Peaks-Cli
+  Step 0.75: Resume from checkpoint` and `### Peaks-Cli Step N: Periodic
+  checkpoint` headings are now in the body (≥ 5 lines each), with explicit
+  `peaks session checkpoint` / `peaks session resume` CLI mentions and
+  reference-doc pointers. Byte cap bumped 22K → 24K (precedent: 18K → 20K → 22K).
+- **`peaks test <pattern...>` CLI with smart cache** (sub-fix B) — new CLI
+  auto-detects jest / vitest / mocha from consumer `package.json`, runs with
+  `--cache` (NOT `--no-cache`, overriding the consumer's `test` script).
+  Per-test fingerprint cache at `.peaks/_runtime/test-cache/<hash>.json` with
+  schema `{ fileMtime, fileSha256, testName, status, durationMs, lastRun }`
+  skips unchanged tests on re-run. Options: `--changed`, `--clear-cache`,
+  `--no-cache-result`, `--passthrough`, `--all`. Exits 0 if all pass/skip,
+  1 if any fail. This is a NEW top-level subcommand (peaks-test exception
+  per G16; not a pure wrapper because of smart-cache value-add).
+- **Playwright MCP multi-terminal conflict resolution** (sub-fix C) — new
+  `peaks playwright start | ls | stop` CLI. `start` walks default port 8931
+  → 8949, spawns `playwright-mcp` via `npx` (not bundled), writes
+  `.peaks/_runtime/playwright-sessions/<terminal-id>.json` with
+  `{ port, userDataDir, startedAt, pid }`. Terminal ID: `TERM_SESSION_ID` ||
+  `WT_SESSION` || hash(`ppid` + `SSH_TTY`). Conflict detection emits a
+  clear "port in use; pick --port or --reuse" message.
+
+### Security
+
+- `peaks playwright start` uses `spawn` with array argv (no shell concat) to
+  eliminate command-injection risk.
+- Terminal IDs are sanitized (`[^a-zA-Z0-9_.-]` → `_`) before becoming
+  filenames.
+- Port walk range is bounded 8931-8949 (19 ports) to prevent scanning the
+  full port space.
+
+### Tests
+
+- 81 new vitest assertions across `test-cache-service.test.ts` (19),
+  `test-command.test.ts` (17), `playwright-command.test.ts` (18), and the
+  bumped skill-slim-content-coverage test (now 18 cases under 24K cap).
+- Argv contract: `peaks test` defaults include `--cache`; `--no-cache` is
+  only added when the user explicitly passes it (or `--passthrough`).
+
+### L2 dogfood (deferred)
+
+- None — all 3 sub-fixes are L1-only; no real-install / real-consumer
+  dogfood required for 2.5.0.
+
+---
+
 ## [2.4.0] — 2026-06-17
 
 ### Added

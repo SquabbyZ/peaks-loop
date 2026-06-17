@@ -39,6 +39,8 @@ import { registerCodeReviewCommands } from './commands/code-review-commands.js';
 import { registerCompanionCommands } from './commands/companion.js';
 import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
+import { registerTestCommands } from './commands/test-commands.js';
+import { registerPlaywrightCommands } from './commands/playwright-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -237,6 +239,12 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerLogCommands(program, io);
  // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.
  registerQaCommands(program, io);
+ // Slice 2026-06-17-2.5.0-sub-fix-B: `peaks test` (user-invoked, smart
+ // fingerprint-cache wrapper around jest/vitest/mocha).
+ registerTestCommands(program, io);
+ // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
+ // (multi-terminal Playwright MCP lifecycle).
+ registerPlaywrightCommands(program, io);
 
  return program;
 }
