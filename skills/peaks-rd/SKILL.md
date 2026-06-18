@@ -9,6 +9,19 @@ description: Research and development skill for Peaks. Use for engineering analy
 
 The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
 
+## Karpathy enforcement (Slice 1/6 — karpathy prompt-injection-lift)
+
+> **Read once per RD invocation; RD is built around these 4 guidelines.**
+
+Every RD action (planning, implementation, sub-agent dispatch, fan-out) MUST align with the 4 Karpathy guidelines. The full text lives at `andrej-karpathy-skills:karpathy-guidelines` (skill id, used as reference material only — do not execute upstream, do not run upstream installer, do not install upstream resources; do not persist sensitive examples). RD sub-agents receive the full text via `references/rd-sub-agent-dispatch.md` (see "Karpathy-guidelines context" section). The 4 guidelines are:
+
+1. **Think Before Coding** — surface assumptions, name tradeoffs, ask when unclear. State red-line scope in `## Red-line scope` before any code change.
+2. **Simplicity First** — minimum code that solves the problem. No speculative features, no abstractions for single-use code, no error handling for impossible scenarios. If 200 lines could be 50, rewrite it. The 800-line file cap and `peaks scan file-size` gate enforce this mechanically.
+3. **Surgical Changes** — touch only what the user's request requires. Remove imports / variables / functions that *your* changes made unused. Do not refactor adjacent code. Every changed line must trace to the user's request.
+4. **Goal-Driven Execution** — define verifiable success criteria (`peaks request show --role rd` carries ACs from PRD). For multi-step work, state plan + verify checkpoints before acting.
+
+Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-injection.test.ts` (4-point assertion guard). The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+
 # Peaks-Cli RD
 
 Peaks-Cli RD owns engineering analysis, implementation planning, and refactor execution contracts.
@@ -106,9 +119,13 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
 
-## Parallel review fan-out (code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer)
+## Parallel review fan-out (code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer + **karpathy-reviewer** — Slice 5/6 5-way fanout)
 
-**When RD reaches the end of implementation, the four review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The four sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), and `qa-test-cases-writer` (qa/test-cases/<rid>.md). Feature / refactor: all four. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out. B3 augmentation: ocr (user-owned LLM config at `peaksConfig.ocr.llm`, injected as env vars) → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
+**When RD reaches the end of implementation, the FIVE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The five sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), `qa-test-cases-writer` (qa/test-cases/<rid>.md), and `karpathy-reviewer` (rd/karpathy-review.md — the **hard Karpathy-Gate**). Feature / refactor: all five. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer + karpathy-reviewer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out. B3 augmentation: ocr (user-owned LLM config at `peaksConfig.ocr.llm`, injected as env vars) → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
+
+### Hard Karpathy-Gate (Slice 5/6)
+
+The `karpathy-reviewer` sub-agent is a **hard gate** for `rd:qa-handoff`. Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding ("state your assumptions") + §3 Surgical Changes ("touch only what the user asked"), `peaks request transition --state qa-handoff` is BLOCKED by the CLI gate until `.peaks/_runtime/<sessionId>/rd/karpathy-review.md` exists with the `## Karpathy-Gate` header and at least one of the 4 guideline section markers. The file is enforced by the `KARPATHY_REVIEW` prerequisite in `src/services/artifacts/artifact-prerequisites.ts` (added in Slice 5). The escape hatch is `peaks request transition --allow-incomplete --confirm` (assisted mode). The companion `peaks scan karpathy` CLI is a structural scanner for the same file (`src/services/scan/karpathy-service.ts`); the semantic review is the sub-agent's job.
 
 ### Peaks-Cli Gate C — type-specific RD evidence
 
@@ -121,7 +138,7 @@ The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required
 | config | `rd/security-review.md` |
 | docs / chore | (no extra evidence required) |
 
-→ see `references/rd-fanout-contracts.md` for the 4 sub-agents' contracts + hard prohibitions + aggregation + degradation.
+→ see `references/rd-fanout-contracts.md` for the **5** sub-agents' contracts + hard prohibitions + aggregation + degradation.
 
 ## Refactor hard gates
 

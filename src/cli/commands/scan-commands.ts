@@ -6,6 +6,9 @@ import { getAcceptanceCoverage, isAcceptanceCoverageError } from '../../services
 import { getDiffVsScope, isDiffScopeError } from '../../services/scan/diff-scope-service.js';
 import { scanFileSize, DEFAULT_FILE_SIZE_THRESHOLD } from '../../services/scan/file-size-scan.js';
 import { scanLibraries } from '../../services/scan/libraries-service.js';
+import { scanApiSurface, formatApiSurfaceMarkdown, type ApiSurfaceReport } from '../../services/scan/api-surface-service.js';
+import { scanOrphans, formatOrphanMarkdown, type OrphanReport } from '../../services/scan/orphan-service.js';
+import { scanKarpathy, formatKarpathyMarkdown, type KarpathyScanReport } from '../../services/scan/karpathy-service.js';
 import { isRequestType, VALID_REQUEST_TYPES, type RequestType } from '../../services/artifacts/artifact-prerequisites.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -374,6 +377,228 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail('scan.companion-binary', 'SCAN_COMPANION_BINARY_FAILED', getErrorMessage(error), {}, ['Verify the cc-connect binary is installed and reachable on PATH']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice 3/6 — `peaks scan api-surface`. Feeds the tech-doc "Existing API /
+  // Component Inventory" section with a structured inventory of CLI
+  // subcommands + service-level public exports. Read-only; never writes.
+  addJsonOption(
+    scan
+      .command('api-surface')
+      .description("Enumerate CLI subcommands + service-level public exports for tech-doc 'Existing API / Component Inventory' section")
+      .requiredOption('--project <path>', 'target project root')
+      .option('--format <fmt>', 'output format: md (default) | json', (v) => {
+        if (v !== 'md' && v !== 'json') {
+          throw new InvalidArgumentError('must be md or json');
+        }
+        return v;
+      })
+      .option('--include-dirs <globs>', 'comma-separated dirs to scan (default: src/cli,src/services)')
+      .option('--max-per-kind <n>', 'cap entries per kind (default: no cap)', (v) => {
+        if (!/^\d+$/.test(v)) {
+          throw new InvalidArgumentError('must be a non-negative integer');
+        }
+        return Number(v);
+      })
+  ).action(async (options: {
+    project: string;
+    format?: 'md' | 'json';
+    includeDirs?: string;
+    maxPerKind?: number;
+    json?: boolean;
+  }) => {
+    try {
+      const report: ApiSurfaceReport = await scanApiSurface({
+        projectRoot: options.project,
+        ...(options.includeDirs !== undefined ? { includeDirs: options.includeDirs } : {}),
+        ...(options.maxPerKind !== undefined ? { maxPerKind: options.maxPerKind } : {})
+      });
+      const nextActions: string[] = [];
+      if (report.counts.cli === 0 && report.counts.service === 0) {
+        nextActions.push('No CLI subcommands or service exports found — verify --include-dirs points at the right paths.');
+      } else {
+        nextActions.push('Paste the `--format md` output under `## API surface inventory` in .peaks/<sid>/rd/tech-doc.md.');
+        nextActions.push('Use the inventory to fill the tech-doc "Existing API / Component Inventory" section (karpathy §1 — reuse before create).');
+      }
+      if (options.format === 'json' && !options.json) {
+        // Raw JSON without the ok/data/code envelope.
+        process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+        return;
+      }
+      if (options.format === 'json') {
+        printResult(io, ok('scan.api-surface', report, [], nextActions), options.json);
+        return;
+      }
+      // Default: markdown block
+      const truncated = options.maxPerKind !== undefined
+        ? {
+            cli: report.counts.cli,
+            service: report.counts.service,
+            type: report.counts.type,
+            constant: report.counts.constant
+          }
+        : undefined;
+      const md = formatApiSurfaceMarkdown(
+        report,
+        options.maxPerKind !== undefined
+          ? { maxPerKind: options.maxPerKind, truncatedCounts: truncated! }
+          : {}
+      );
+      if (options.json) {
+        printResult(io, ok('scan.api-surface', { markdown: md, report }, [], nextActions), options.json);
+      } else {
+        process.stdout.write(md + '\n');
+        if (nextActions.length > 0) {
+          process.stderr.write('\nNext actions:\n' + nextActions.map((a) => '  - ' + a).join('\n') + '\n');
+        }
+      }
+    } catch (error) {
+      if (error instanceof InvalidArgumentError) throw error;
+      printResult(
+        io,
+        fail('scan.api-surface', 'SCAN_API_SURFACE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is readable']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice 4/6 — karpathy-enforcement orphan-scan-cli
+  // Detects 4 kinds of orphans: export / import / CLI subcommand / doc
+  // endpoint. Read-only; never writes. karpathy §3 Surgical Changes.
+  addJsonOption(
+    scan
+      .command('orphan')
+      .description("Detect 4 kinds of orphans (export / import / CLI subcommand / doc endpoint) — karpathy §3 Surgical Changes")
+      .requiredOption('--project <path>', 'target project root')
+      .option('--format <fmt>', 'output format: md (default) | json', (v) => {
+        if (v !== 'md' && v !== 'json') {
+          throw new InvalidArgumentError('must be md or json');
+        }
+        return v;
+      })
+      .option('--scope <scope>', 'scope: working-tree (default) | git-diff | all', (v) => {
+        if (v !== 'working-tree' && v !== 'git-diff' && v !== 'all') {
+          throw new InvalidArgumentError('must be working-tree, git-diff, or all');
+        }
+        return v;
+      })
+      .option('--strict', 'strict mode: report exportOrphans even outside working tree', false)
+  ).action(async (options: {
+    project: string;
+    format?: 'md' | 'json';
+    scope?: 'working-tree' | 'git-diff' | 'all';
+    strict?: boolean;
+    json?: boolean;
+  }) => {
+    try {
+      const report: OrphanReport = await scanOrphans({
+        projectRoot: options.project,
+        ...(options.scope !== undefined ? { scope: options.scope } : {}),
+        ...(options.strict !== undefined ? { strict: options.strict } : {})
+      });
+      const nextActions: string[] = [];
+      const totalOrphans = report.counts.export + report.counts.import + report.counts.cliSubcommand + report.counts.docEndpoint;
+      if (totalOrphans === 0) {
+        nextActions.push('No orphans detected in the requested scope. RD may proceed to commit.');
+      } else {
+        nextActions.push(`Found ${totalOrphans} orphan(s): export=${report.counts.export} import=${report.counts.import} cliSubcommand=${report.counts.cliSubcommand} docEndpoint=${report.counts.docEndpoint}.`);
+        nextActions.push('Clean up before commit (karpathy §3 — remove what your changes made unused).');
+        nextActions.push('Re-run `peaks scan orphan --project <path>` after cleanup to confirm zero.');
+      }
+      if (options.format === 'json' && !options.json) {
+        process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+        return;
+      }
+      if (options.format === 'json') {
+        printResult(io, ok('scan.orphan', report, [], nextActions), options.json);
+        return;
+      }
+      const md = formatOrphanMarkdown(report, {});
+      if (options.json) {
+        printResult(io, ok('scan.orphan', { markdown: md, report }, [], nextActions), options.json);
+      } else {
+        process.stdout.write(md + '\n');
+        if (nextActions.length > 0) {
+          process.stderr.write('\nNext actions:\n' + nextActions.map((a) => '  - ' + a).join('\n') + '\n');
+        }
+      }
+    } catch (error) {
+      if (error instanceof InvalidArgumentError) throw error;
+      printResult(
+        io,
+        fail('scan.orphan', 'SCAN_ORPHAN_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is readable', 'Verify the project is a git repository (working-tree scope)']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Karpathy structural scan (Slice 5/6 — karpathy-enforcement 5-way fanout +
+  // hard Karpathy-Gate). Detects violation counts and section coverage for
+  // the 4 Karpathy-guidelines. Read-only; never writes. karpathy §3.
+  addJsonOption(
+    scan
+      .command('karpathy')
+      .description("Surface-level scan of rd/karpathy-review.md for the 4 Karpathy guidelines (Think / Simplicity / Surgical / Goal) — karpathy §1 + §3")
+      .requiredOption('--project <path>', 'target project root')
+      .option('--format <fmt>', 'output format: md (default) | json', (v) => {
+        if (v !== 'md' && v !== 'json') {
+          throw new InvalidArgumentError('must be md or json');
+        }
+        return v;
+      })
+      .option('--scope <scope>', 'scope: working-tree (default) | all', (v) => {
+        if (v !== 'working-tree' && v !== 'all') {
+          throw new InvalidArgumentError('must be working-tree or all');
+        }
+        return v;
+      })
+  ).action(async (options: {
+    project: string;
+    format?: 'md' | 'json';
+    scope?: 'working-tree' | 'all';
+    json?: boolean;
+  }) => {
+    try {
+      const report: KarpathyScanReport = await scanKarpathy({
+        projectRoot: options.project,
+        ...(options.scope !== undefined ? { scope: options.scope } : {})
+      });
+      const nextActions: string[] = [];
+      if (report.gateAction === 'block') {
+        nextActions.push('Karpathy review file missing under scope=all. Per karpathy §1 Think Before Coding, create rd/karpathy-review.md before requesting qa-handoff.');
+      } else if (report.gateAction === 'warn') {
+        nextActions.push(`Karpathy review emitted ${report.totalViolations} violation(s). Review the warnings and re-run after cleanup (karpathy §3 Surgical Changes).`);
+      } else {
+        nextActions.push('Karpathy-Gate passes. All 4 guideline sections present and no anti-patterns detected.');
+      }
+      if (options.format === 'json' && !options.json) {
+        process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+        return;
+      }
+      if (options.format === 'json') {
+        printResult(io, ok('scan.karpathy', report, [], nextActions), options.json);
+        return;
+      }
+      const md = formatKarpathyMarkdown(report, {});
+      if (options.json) {
+        printResult(io, ok('scan.karpathy', { markdown: md, report }, [], nextActions), options.json);
+      } else {
+        process.stdout.write(md + '\n');
+        if (nextActions.length > 0) {
+          process.stderr.write('\nNext actions:\n' + nextActions.map((a) => '  - ' + a).join('\n') + '\n');
+        }
+      }
+    } catch (error) {
+      if (error instanceof InvalidArgumentError) throw error;
+      printResult(
+        io,
+        fail('scan.karpathy', 'SCAN_KARPATHY_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Verify the project path exists and is readable', 'Verify the project is a readable directory']),
         options.json
       );
       process.exitCode = 1;

@@ -9,6 +9,12 @@ description: Full-auto orchestration facade for the Peaks-Cli skill family. Use 
 
 The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>` — ambiguous between axes). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
 
+## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
+
+> **Read once per Solo invocation; the 4 Karpathy guidelines are mandatory context for every sub-agent Solo dispatches.**
+
+Every sub-agent Solo dispatches (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Solo's responsibility: when constructing the dispatch prompt, append the verbatim context block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" (the block is the canonical injection source shared across all RD-spawned sub-agents). Solo MUST NOT silently drop the block. The full guidelines text lives at `andrej-karpathy-skills:karpathy-guidelines` (skill id). Summary of the 4: **#1 Think Before Coding** (surface assumptions, name tradeoffs), **#2 Simplicity First** (minimum code, no speculative features, 800-line file cap, `peaks scan file-size` gate), **#3 Surgical Changes** (touch only what the request requires, clean up only your own orphans), **#4 Goal-Driven Execution** (verifiable ACs, plan + verify checkpoints). Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-injection.test.ts`. The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+
 # Peaks-Cli Solo
 
 Peaks-Cli Solo is the orchestration facade for the Peaks-Cli short skill family. Use it to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
@@ -237,6 +243,7 @@ Index of every `references/` file. Read on demand.
 
 | File | Coverage |
 |---|---|
+| `references/dag-orchestrator.md` | DAG-aware sub-agent dispatch (2.7.0 slice-dag-dispatcher MVP). |
 | `references/a2a-artifact-mapping.md` | A2A artifact-path mapping. |
 | `references/anchoring-and-session-info.md` | Step 0 anchor + session-conflict resolution. |
 | `references/artifact-contracts.md` | Sub-agent handoff contracts. |

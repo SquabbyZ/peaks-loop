@@ -7,6 +7,362 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- _No unreleased changes yet._
+
+### Changed
+
+- _No unreleased changes yet._
+
+### Fixed
+
+- _No unreleased changes yet._
+
+### Security
+
+- _No unreleased changes yet._
+
+---
+
+## [2.7.0] — 2026-06-18
+
+### Added
+
+- **Slice DAG dependency analysis + parallel sub-agent dispatch (slice 1.2)** —
+  the `peaks-cli` repo now ships a typed DAG model for slicing work across
+  parallel sub-agents. `src/services/dispatch/slice-dag.ts` exports
+  `validateDag` (cycle detection with path-in-error-message),
+  `topologicalLevels` (linear / diamond / parallel DAGs), and
+  `sliceReadyToRun(dag, completed)` (next-layer fan-out query). Node IDs are
+  globally unique, node roles are whitelisted, and DAG serialization is
+  SHA-256 hash-stable on key-sorted serialization. The new
+  `peaks sub-agent dispatch --from-dag <file>` flag and the new
+  `peaks sub-agent await --batch <id> [--timeout <ms>]` subcommand wrap the
+  model. The `dispatch <role>` single-sub-agent path is byte-stable zero-change.
+- **Contract broadcast for downstream slices (slice 1.2)** —
+  `src/services/dispatch/contract-store.ts` persists each completed slice's
+  public surface (`exports` / `types` / `publicSignatures`) to
+  `.peaks/_runtime/<sessionId>/dispatch/contracts/<slice-id>.json`. The B/C/D
+  dispatch prompts auto-inject A's contract under a `slice A contract:`
+  segment so downstream slices see the dependency without re-reading source.
+- **Solo DAG orchestrator with cancel-on-fail (slice 1.2)** —
+  `src/services/solo/dag-orchestrator.ts` exports `runDag(dag, opts)`:
+  topological-layer fan-out, per-layer join barrier, 任一叶子失败整组回退
+  (any leaf failure → in-flight sub-agents receive cancel signal → RD
+  returns to repair). peaks-solo SKILL.md references the orchestrator.
+- **5-IDE `awaitBatch` real implementation (slices 1.2 + 1.3 + 1.4)** —
+  `SubAgentDispatcher.awaitBatch(batchId, opts): Promise<BatchResult[]>`
+  is now implemented across **all 5 IDEs**: claude-code (1.2 MVP) +
+  trae + trae-cn + codex + cursor (1.3 expansion). The 4 non-claude-code
+  IDEs share `pollDispatchRecords()` core (cross-platform file-polling via
+  `homedir() + join()`); per-IDE `notePrefix` attributes the surfaced note.
+  Per-IDE timeout defaults: trae 30s / trae-cn 30s / cursor 30s /
+  codex 45s / claude-code 60s. Uniform 120_000ms clamp ceiling.
+- **5-IDE end-to-end dogfood (slice 1.4)** —
+  `tests/unit/dispatch/slice-dag-dispatcher-5ide-dogfood.test.ts` runs the
+  same 5-node mock DAG (4 done + 1 failed at idx 2) through every IDE's
+  `awaitBatch`. Cross-IDE envelope dimensions are byte-stable
+  (length=5 / dispatchIndex 0..4 / status array / recordPath unique /
+  durationMs >= 0). The `note` label is per-IDE attributed as documented
+  divergence (claude-code reads raw outcome; trae/trae-cn/codex/cursor
+  prefix with `${notePrefix} — ${outcome}`). Zero IDE-specific differences
+  required production code fixes — the differences are design-driven.
+- **RD tech-doc `## Slice DAG` section + enforcer (slice 1.2)** —
+  `skills/peaks-rd/references/mandatory-tech-doc.md` gains a new
+  `## Slice DAG` section (visual + text) alongside § Architecture /
+  § Component / § Data flow / § Dependencies. The enforcer
+  (`tech-doc-mandatory-sections.ts`) treats it as a required heading;
+  missing section → `TECH_DOC_MISSING_SECTION` gate failure.
+- **UT 4-dimension split convention (proposal 2, slice 2.1)** —
+  `.peaks/standards/typescript/testing.md` codifies the 4 orthogonal test
+  dimensions: **render** (output shape) / **behavior** (state transitions)
+  / **integration** (boundary mocks) / **a11y** (human-facing signal).
+  Each `describe(...)` block maps to exactly one dimension; no test case
+  spans dimensions. The convention has both a frontend and a CLI/non-UI
+  reading. Promotion is via the code-reviewer sub-agent hint at
+  `skills/peaks-rd/references/code-reviewer-4dim-hint.md` (a verbatim
+  block appended to the code-reviewer prompt at dispatch time). **No lint
+  rule introduced**, no retroactive refactor of existing 3500+ test cases —
+  the convention applies to NEW test files only.
+
+### Changed
+
+- `package.json` and `src/shared/version.ts` bumped 2.6.1 → 2.7.0.
+- `SubAgentDispatcher` interface (5 implementations) gains
+  `awaitBatch(batchId, opts): Promise<BatchResult[]>` (type-only extension).
+- `peaks sub-agent dispatch` and `peaks sub-agent await` gain DAG-aware
+  flags (`--from-dag`, `--batch-id`) and the new subcommand respectively.
+  Single-sub-agent `dispatch <role>` envelope shape is byte-stable zero-change.
+- `karpathy-reviewer` prompt-injection context remains in
+  `references/rd-sub-agent-dispatch.md`; the new 4-dim hint is appended
+  after the Karpathy block.
+
+### Fixed
+
+- **Cross-platform path discipline (slice 1.3)** —
+  `tests/unit/dispatch/sub-agent-dispatcher-cross-platform.test.ts` pins
+  the `homedir() + join()` construction so a Windows user gets
+  `C:\Users\name\.trae\agents` and a Mac user gets
+  `/Users/name/.trae/agents`. No hardcoded `/Users/...` or `C:\...` in
+  any 5-IDE `awaitBatch` path. The 4 new IDE paths (`trae / trae-cn /
+  codex / cursor`) follow the same discipline.
+- **`runDag` cancel-on-fail correctness (slice 1.2.c)** — when any leaf
+  fails, in-flight sub-agents in the same batch receive a cancel signal
+  at the envelope level; the orchestrator no longer waits for them to
+  finish naturally. Pinned by `tests/unit/solo/dag-orchestrator.test.ts`.
+
+### Security
+
+- No new attack surface in 2.7.0. The contract-broadcast path writes
+  JSON to `.peaks/_runtime/<sessionId>/dispatch/contracts/` (project-local,
+  gitignored); no cross-user / cross-process access pattern was added.
+  The 4-dim convention does not introduce eval / dynamic-import / unsafe
+  code paths.
+
+---
+
+## [2.6.1] — 2026-06-18
+
+### Added
+
+- **Multi-IDE agent install (Slice 2.6.1.E)** — the `karpathy-reviewer`
+  sub-agent now auto-installs on `npm i -g peaks-cli@latest` to **5
+  platforms** instead of 1. Previously only `~/.claude/agents/`
+  (claude-code) was populated; 2.6.1 extends to `~/.trae/agents/`,
+  `~/.trae-cn/agents/`, `~/.codex/agents/`, and `~/.cursor/agents/`.
+  The new `trae-cn` profile is opt-in via the existing
+  `IDE_DETECTION_DIRS` table (presence of `~/.trae-cn/` triggers
+  detection). All `agentsDir` paths go through `homedir() + join()` —
+  the new `agentsDir paths are derived from homedir()` vitest pins
+  the construction so a Windows user gets `C:\Users\name\.trae\agents`
+  and a Mac user gets `/Users/name/.trae/agents`, not a hardcoded
+  Unix literal.
+
+### Fixed
+
+- **orphan-service false-positive reductions (Slice 2.6.1.A)** —
+  `peaks scan orphan` had been reporting 77 `cliSubcommandOrphans` for
+  the peaks-cli repo. Four surgical fixes bring this down to 35
+  (54% reduction):
+  1. The `usageCount` algorithm now excludes the declaration file
+     itself, so the threshold is "wired iff referenced in any other
+     file" rather than "wired iff 2+ total string-literal matches
+     (declaration + elsewhere)".
+  2. `DEFAULT_DIRS` now includes `tests/` — test files often reference
+     subcommands and were previously invisible to the scanner.
+  3. `PARENT_COMMANDS` (35 known top-level command names) skips
+     subcommand-orphan detection for the parent commands themselves.
+  4. `scanExportsInFile` now matches `export default function name()`
+     and `export default class Name`; `importedNameCount` now treats
+     re-exports (`export { x } from './y'`, `export type { T } from
+     './y'`) as consumer references.
+  Bonus: `OrphanScanOptions.baseRef` lets the scan diff against an
+  arbitrary git ref (default: `HEAD`) for branch-vs-main reviews.
+- **karpathy-service code-fence skip (Slice 2.6.1.B)** — `peaks scan
+  karpathy` no longer flags anti-pattern phrases (TODO, "should be
+  fine", "maybe", "probably") when they appear inside fenced markdown
+  code blocks. Illustrative code snippets were eroding trust in the
+  structural scanner. The 4 guideline-marker tests
+  (`tests/unit/karpathy-service-fence.test.ts`) pin the contract:
+  inside-fence lines are skipped, outside-fence prose is still
+  flagged, unclosed fences at EOF don't crash.
+
+### Security
+
+- **markdown escape in `formatKarpathyMarkdown` (Slice 2.6.1.C)** —
+  the L1 LOW (`--project` value interpolated into markdown without
+  escaping) is fixed via a new `escapeMarkdown(value: string)` helper
+  that neutralises `\\`, `` ` ``, `[`, `]` in user-controlled strings
+  before they hit the markdown report. Applied at 7 interpolation
+  sites: `projectRoot`, `reviewFile`, `scannedAt`, `v.snippet`,
+  `v.hint`, `warnings[].message`, and the gate header (which is
+  static but routed through the helper for consistency). New vitest
+  file `tests/unit/karpathy-service-escape.test.ts` (7 cases)
+  covers the contract; AC-6 no-regression pins clean-ASCII output as
+  byte-identical.
+- **KARPATHY_REVIEW heading-anchored gate (Slice 2.6.1.F)** — the L3
+  LOW (the 4 guideline `mustContain` substring markers could be
+  spoofed by any file that just *mentioned* the marker names as
+  prose) is fixed by a new `headingMustContain: string[]` field on
+  `ArtifactPrerequisite`. `KARPATHY_REVIEW` now requires each of
+  the 4 guidelines to appear as an actual markdown heading
+  (`#`–`###` line prefix), not just as prose. The `## Karpathy-Gate`
+  header remains a substring match (it is the file's own gate
+  header, not a section anchor). New vitest file
+  `tests/unit/heading-must-contain.test.ts` (4 cases) covers:
+  AC-1 valid headings pass, AC-2 prose-only fails, AC-3 partial
+  headings fail with the missing marker named, AC-4 code-fence
+  headings (regex is strict, not fence-aware) — documented as a
+  known limitation pinned by the test.
+
+### Internal
+
+- **L2-install dogfood verification (Slice 2.6.1.D)** — confirmed
+  end-to-end on a temp HOME that the 2.6.0 tarball's `postinstall`
+  creates `~/.claude/agents/karpathy-reviewer.md` (15.4 KB, mode
+  0600) and the matching `.peaks-managed` marker (245 bytes, JSON
+  with `version`, `kind`, `agentName`, `sourcePath`, `contentSha256`).
+  The 8-platform skill fan-out also confirmed (codex, cursor, trae,
+  trae-cn, qoder, tongyi-lingma, hermes, openclaw). After Slice E,
+  the agent install fans out to 4 of those platforms as well.
+
+---
+
+## [2.6.0] — 2026-06-18
+
+### Added (karpathy-enforcement program — slices 1–5)
+
+- **`peaks-rd` 4-way → 5-way fanout with karpathy-reviewer sub-agent** (slice
+  1+5) — every RD implementation now spawns 5 parallel reviewers
+  (`code-reviewer` + `security-reviewer` + `perf-baseline-reviewer` +
+  `qa-test-cases-writer` + `karpathy-reviewer`). The 5th sub-agent emits a
+  compact JSON envelope `{passed, violations, gateAction}` against the 4
+  Karpathy guidelines (Think Before Coding / Simplicity First / Surgical
+  Changes / Goal-Driven Execution). Contract slot at
+  `skills/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer
+  contract (Slice 5/6)". Karpathy-guidelines context block injected into
+  every RD sub-agent prompt via `rd-sub-agent-dispatch.md` (4-section
+  verbatim).
+- **Hard Karpathy-Gate (Slice 5/6)** — new `KARPATHY_REVIEW` prereq in
+  `src/services/artifacts/artifact-prerequisites.ts` blocks
+  `peaks request transition --state qa-handoff` when `rd/karpathy-review.md`
+  is missing or doesn't contain the `## Karpathy-Gate` header + 4
+  title-case section markers (Think Before Coding / Simplicity First /
+  Surgical Changes / Goal-Driven Execution). CLI error code
+  `PREREQUISITES_MISSING`. Escape hatch: `peaks request transition
+  --allow-incomplete --confirm` (assisted mode).
+- **Karpathy prompt-injection across the full RD surface** (slice 1) —
+  4-layer guard: SKILL.md body + 3 reference docs
+  (`mandatory-tech-doc.md`, `rd-fanout-contracts.md`,
+  `rd-sub-agent-dispatch.md`) + 1 sub-agent dispatch context. Regression
+  test `tests/unit/skills/karpathy-prompt-injection.test.ts` (9 cases)
+  asserts the 4-section guidelines block is present in all 4 layers.
+- **`peaks scan karpathy` CLI** (slice 5) — structural scanner for
+  `rd/karpathy-review.md`; markdown + JSON output; 4 guideline
+  classification + section coverage + violation counts. Companion to
+  the karpathy-reviewer sub-agent (regex / file-presence vs semantic
+  review). New service `src/services/scan/karpathy-service.ts` (330
+  lines).
+- **Tech-doc 3 mandatory sections + Gate C enforcer** (slice 2) —
+  `Architecture` / `Existing API or Component Inventory` / `Trade-offs`
+  sections now required in every RD `tech-doc.md`. Enforced at
+  spec-locked gate. New service
+  `src/services/audit/enforcers/tech-doc-mandatory-sections.ts`.
+- **`peaks scan api-surface` CLI** (slice 3) — identifies existing API
+  endpoints / components / stores / mocks in the consumer project
+  before any new code is written. `--project --format --scope --max-per-kind`
+  options; output feeds the tech-doc's `## Existing API or Component
+  Inventory` section. New service
+  `src/services/scan/api-surface-service.ts` (~280 lines).
+- **`peaks scan orphan` CLI** (slice 4) — 4-kind orphan detection
+  (exportOrphan / importOrphan / cliSubcommandOrphan /
+  docEndpointOrphan). `--project --format --scope --strict` options;
+  aligns with karpathy §3 Surgical Changes "remove what your changes
+  made unused". New service `src/services/scan/orphan-service.ts`
+  (~330 lines).
+- **Slice 1-4 + Slice 5 all converged at `state: verdict-issued`** with
+  cumulative **86/86** vitest pass, 0 tsc errors, 0 lint findings, 0
+  diff-vs-scope violations, 0 unclassified files, 0 repair cycles.
+
+### Added (Slice 6/6 + Slice 7/7 — karpathy-reviewer sub-agent prompt + auto-install)
+
+- **`karpathy-reviewer` LLM sub-agent prompt** (slice 6) — full system
+  prompt at `agents/karpathy-reviewer.md` (15.1 KB, 229 lines). 10
+  sections covering role boundary, 4 input contracts, 4 violation
+  detection rules (one per Karpathy guideline), JSON envelope schema
+  (`passed` / `violations[]` / `gateAction`), file-write contract
+  (title-case `## Karpathy-Gate` + 4 guideline sections), 8 hard
+  prohibitions, 5 anti-patterns. Project-internal 2-line pointer at
+  `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (peaks-cli
+  2.0 rules convention).
+- **Auto-install on `npm i -g peaks-cli@latest`** (slice 7) — the
+  `peaks-cli` postinstall (`scripts/install-skills.mjs`) now copies
+  bundled agents from the tarball to `~/.claude/agents/` with
+  content-hash drift detection (`.peaks-managed` marker + SHA-256).
+  Mirrors the existing `output-styles` install contract. New function
+  `installBundledAgents` + per-platform fan-out
+  `installBundledAgentsForAllPlatforms` (claude-code is the only
+  platform with `agentsDir` today; future platforms opt in by adding
+  the field to their `IDE_SKILL_INSTALL_PROFILES` entry).
+- **Escape hatch** (slice 7) — `PEAKS_SKIP_AGENT_INSTALL=1` (skip
+  agent install in CI / sandboxed environments);
+  `PEAKS_CLAUDE_AGENTS_DIR=/custom/path` (per-IDE env-var override,
+  parallel to `PEAKS_CLAUDE_SKILLS_DIR` and
+  `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`).
+- **Tarball coverage** (slice 7) — `package.json#files` adds
+  `"agents/**"` alongside the existing `"skills/**"` and
+  `"output-styles/**"`. `npm pack --dry-run` confirms
+  `agents/karpathy-reviewer.md` (15.8 kB) ships in the tarball.
+
+### Security
+
+- All 4 karpathy sub-agent review surfaces (RD main loop + 5-way
+  fanout) explicitly **MUST NOT install hooks, agents, MCP, or
+  settings** — the global peaks-rd red line, restated as a
+  hard prohibition in the karpathy-reviewer prompt.
+- `installBundledAgents` uses the same TOCTOU-safe atomic write
+  pattern as `installBundledOutputStyles`:
+  `writeFileExclusively` (O_EXCL + O_NOFOLLOW, 0o600 mode, file
+  identity check after write) + `.peaks-managed` marker with
+  SHA-256 hash. Drift detection refuses to overwrite user-authored
+  files (no marker) or stale markers (different source path).
+- The `PEAKS_CLAUDE_AGENTS_DIR` env-var override is documented but
+  not security-sensitive (it points the install at a user-chosen
+  dir; no escalation path).
+- The 3 LOW security findings documented in `qa/security-findings.md`
+  (markdown injection via `--project` value interpolation, path
+  traversal via arbitrary paths, KARPATHY_REVIEW prereq marker
+  spoof) are all non-blocking by design (RD-authored input only,
+  read-only file IO, drift detection prevents tamper).
+
+### Tests
+
+- **141/141 vitest pass** (was 86 in 2.5.0; +55 across the 7 slices):
+  - 9 new `karpathy-prompt-injection.test.ts` (slice 1)
+  - 7 new `tech-doc-mandatory-sections.test.ts` (slice 2)
+  - 8 new `api-surface-scan.test.ts` (slice 3)
+  - 8 new `orphan-scan.test.ts` (slice 4)
+  - 14 new `karpathy-5way-fanout.test.ts` (slice 5)
+  - 9 new `karpathy-6-agent-prompt.test.ts` (slice 6)
+  - 8 new `installBundledAgents` cases in `install-skills-script.test.ts`
+    (slice 7)
+  - **Zero regression** across the 86 prior cases (slices 1-5) and
+    the 38 prior `install-skills-script.test.ts` cases (slice 7's
+    new agents branch).
+- Hard Karpathy-Gate verified end-to-end:
+  `peaks request transition --state qa-handoff` with
+  `rd/karpathy-review.md` present → `state: qa-handoff`; without it
+  → `code: PREREQUISITES_MISSING, missing: rd/karpathy-review.md`.
+- End-to-end postinstall verified against a temp HOME:
+  `Peaks agents installed across 1 platforms (1 total files)`;
+  `~/.claude/agents/karpathy-reviewer.md` (15,786 bytes, mode 0600);
+  `~/.claude/agents/karpathy-reviewer.md.peaks-managed` (224 bytes,
+  valid JSON marker with SHA-256).
+
+### L2 dogfood (deferred)
+
+- **L2-install test for Slice 7** — the auto-install path is
+  L1-verified (vitest + end-to-end postinstall against a temp HOME)
+  but not yet L2-verified on a real consumer machine. A real
+  `npm i -g peaks-cli@2.6.0` + postinstall + content-hash drift
+  check + uninstall + reinstall cycle is the next L2 step (Slice 8
+  follow-up if issues surface).
+- **Trae / Codex / Cursor / Qoder / Tongyi Lingma / Hermes /
+  OpenClaw agent install** — only `claude-code` has `agentsDir`
+  populated in `IDE_SKILL_INSTALL_PROFILES`. Future slices can add
+  the field per-platform once each IDE's agent directory convention
+  is confirmed.
+- **Slice 6 user-handoff doc** — `rd/karpathy-reviewer-agent-handoff.md`
+  is now the auto-install verification doc (the original user-cp
+  design was superseded by Slice 7). L1-verified via the
+  `karpathy-6-agent-prompt.test.ts` AC-7 + AC-8 assertions; L2
+  verification deferred to the first real npm publish.
+
+---
+
 ## [2.5.0] — 2026-06-17
 
 ### Fixed (realworld-fixes slice 014)

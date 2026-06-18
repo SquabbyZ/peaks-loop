@@ -94,6 +94,71 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     ls every directory path in the tech-doc — zero "No such file" allowed
 #     This is the most common RD failure mode. Do not skip it.
 
+# 1.x API surface scan (Slice 3/6 — `peaks scan api-surface` lands)
+#     Identify existing API endpoints / components / stores / mocks in the
+#     project that the slice could reuse, BEFORE writing any new code. The
+#     output of this step feeds directly into the tech-doc's
+#     `## Existing API / Component Inventory` section (mandatory since
+#     Slice 2, enforced at spec-locked gate C).
+#
+#     Concrete command (Slice 3 lands the CLI):
+#       peaks scan api-surface --project <path> --max-per-kind 50
+#     The default markdown output can be pasted directly into the tech-doc
+#     section 7. For machine-readable JSON use `--format json`.
+#     Ad-hoc grep fallback if the CLI is unavailable:
+#       grep -r "router\.\(get\|post\|put\|delete\)" src/
+#       grep -r "@Get\|@Post\|@Put\|@Delete" src/
+#       grep -r "createSlice\|defineStore" src/
+#       grep -r "mock\|fixture" src/
+#     Record the inventory in the tech-doc section 7 (see mandatory-tech-doc.md).
+
+# 1.y Orphan scan (Slice 4/6 — `peaks scan orphan` lands)
+#     After the slice is implemented (or near-complete), scan for 4 kinds of
+#     orphans that the RD may have left behind (karpathy §3 Surgical Changes
+#     — "remove what your changes made unused"):
+#       1. exportOrphan: declared export with no in-repo importer
+#       2. importOrphan: import whose source no longer exports the symbol
+#       3. cliSubcommandOrphan: `.command('x')` registered but only referenced
+#          at the declaration site
+#       4. docEndpointOrphan: tech-doc declares `peaks <sub>` that the codebase
+#          does not implement
+#
+#     Concrete command (Slice 4 lands the CLI):
+#       peaks scan orphan --project <path>                    # default: working-tree scope
+#       peaks scan orphan --project <path> --scope all --strict  # full audit
+#       peaks scan orphan --project <path> --format json     # machine-readable
+#     Re-run after cleanup; pass with zero counts before `peaks request
+#     transition --state qa-handoff`. The Slice 4 service is read-only and
+#     uses `git diff --name-status HEAD` for working-tree scope (no git CLI
+#     writes). Falls back to empty diff if git is unavailable (degraded mode).
+
+# 1.z Karpathy scan (Slice 5/6 + Slice 6/6 — `peaks scan karpathy` + karpathy-reviewer sub-agent)
+#     After the slice is implemented, scan `rd/karpathy-review.md` for the
+#     4 Karpathy guidelines (Think / Simplicity / Surgical / Goal) and verify
+#     the hard Karpathy-Gate (KARPATHY_REVIEW prereq in artifact-prerequisites.ts).
+#     The structural scanner covers regex / file-presence checks; the semantic
+#     review is owned by the karpathy-reviewer sub-agent.
+#
+#     Concrete commands:
+#       peaks scan karpathy --project <path>                       # markdown report
+#       peaks scan karpathy --project <path> --format json         # machine-readable
+#       peaks scan karpathy --project <path> --scope all           # full audit (gateAction: block if missing)
+#     Required output before `peaks request transition --state qa-handoff`:
+#       - `rd/karpathy-review.md` exists with `## Karpathy-Gate` header
+#       - 4 title-case section headers present (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution)
+#       - `gateAction: pass` (or `warn` with documented justification)
+#
+#     Sub-agent dispatch (Slice 6/6 deliverable — karpathy-reviewer sub-agent):
+#       peaks sub-agent dispatch karpathy-reviewer \
+#         --rid <rid> --project <repo> --json
+#     The sub-agent reads `~/.claude/agents/karpathy-reviewer.md` (user-installed)
+#     which is the project-internal draft at
+#     `skills/peaks-rd/references/karpathy-reviewer-prompt.md` plus a
+#     `rd/karpathy-reviewer-agent-handoff.md` install guide.
+#     Hard gate: missing karpathy-reviewer sub-agent OR missing rd/karpathy-review.md
+#     → `peaks request transition --state qa-handoff` returns `code: PREREQUISITES_MISSING`.
+#     Escape hatch (assisted mode): `--allow-incomplete --confirm`.
+
 # 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Cli Gate A3)
 #     Missing standards files → run `peaks standards init --project .` first
 #     Without project rules, security review and code review triggers won't fire.

@@ -36,6 +36,15 @@ export type ArtifactPrerequisite = {
    * marker must be present.
    */
   mustContainAny?: ReadonlyArray<string>;
+  /**
+   * Slice 2.6.1.F: structural heading markers — when set, the file must
+   * contain ALL of these as markdown headings (line beginning with `#`–`###`
+   * followed by the marker, case-insensitive). This prevents a file from
+   * passing the gate by simply mentioning the marker as prose. Use this for
+   * section-anchored gates like the karpathy 4-guideline review.
+   * Independent of `mustContain` / `mustContainAny`.
+   */
+  headingMustContain?: ReadonlyArray<string>;
 };
 
 export type PrerequisiteCheckResult = {
@@ -76,6 +85,28 @@ const PERF_BASELINE: ArtifactPrerequisite = {
   // Either a real Results table is present, OR the explicit no-perf-surface
   // stub marker. Both paths satisfy Gate B9; absence of both is BLOCKED.
   mustContainAny: ['## Results', 'N/A — no perf surface']
+};
+// Karpathy-Gate (Slice 5/6 — karpathy-enforcement 5-way fanout).
+// Hard gate: rd/karpathy-review.md MUST exist with the 4 guideline section
+// markers (think-before-coding / simplicity-first / surgical-changes /
+// goal-driven-execution) as actual headings before rd:qa-handoff transitions
+// to qa. Slice 2.6.1.F hardening: the 4 guideline markers are now enforced
+// as `headingMustContain` (line-anchored `#`–`###` prefix), not as substring
+// matches. This prevents a malicious or careless file from passing the gate
+// by simply mentioning the guideline names as prose. The `## Karpathy-Gate`
+// header remains a substring match (it is the file's own gate header, not
+// a structural section anchor).
+const KARPATHY_REVIEW: ArtifactPrerequisite = {
+  relativePath: 'rd/karpathy-review.md',
+  description:
+    'RD-side karpathy review (peaks-rd 5-way fanout) — must contain a "## Karpathy-Gate" header AND the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution) as actual markdown headings. Per karpathy §1 / §3.',
+  mustContain: ['## Karpathy-Gate'],
+  headingMustContain: [
+    'Think Before Coding',
+    'Simplicity First',
+    'Surgical Changes',
+    'Goal-Driven Execution'
+  ]
 };
 const TEST_CASES: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
@@ -121,7 +152,7 @@ const QA_INITIATED: ArtifactPrerequisite = {
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [TECH_DOC],
-  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
 };
@@ -280,6 +311,27 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
         missing.push({
           path: relative,
           description: `${prerequisite.description} — missing section(s): ${missingMarkers.join(', ')}`
+        });
+      }
+    }
+    if (prerequisite.headingMustContain && prerequisite.headingMustContain.length > 0) {
+      const body = await readFile(absolute, 'utf8');
+      // Slice 2.6.1.F: a line beginning with `#`, `##`, or `###` followed by
+      // the marker (case-insensitive). Fenced code blocks are NOT excluded
+      // here — a "heading" inside a code fence is rare and, when present,
+      // should still be reported as missing to keep the contract strict.
+      const headingLines = body
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => /^#{1,3}\s+/.test(line));
+      const loweredHeadings = headingLines.map((h) => h.toLowerCase());
+      const missingHeadings = prerequisite.headingMustContain.filter(
+        (marker) => !loweredHeadings.some((h) => h.includes(marker.toLowerCase()))
+      );
+      if (missingHeadings.length > 0) {
+        missing.push({
+          path: relative,
+          description: `${prerequisite.description} — missing heading(s): ${missingHeadings.join(', ')}`
         });
       }
     }

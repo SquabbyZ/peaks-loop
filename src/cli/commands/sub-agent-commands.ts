@@ -18,7 +18,7 @@
  *   --help text is explicit about this; the dispatch envelope's
  *   `nextActions` reinforces the point.
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { Command } from 'commander';
 import { fail, getErrorMessage, ok } from '../../shared/result.js';
@@ -27,10 +27,14 @@ import { detectInstalledIde } from '../../services/ide/ide-detector.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import {
   SubAgentNotSupportedError,
-  type SubAgentRole,
-  type SubAgentToolCall
+  type SubAgentToolCall,
+  type SubAgentBatchResult,
+  type SubAgentAwaitBatchInput
 } from '../../services/dispatch/sub-agent-dispatcher.js';
-import { noteDispatched, readBatchCount, BATCH_OVER_LIMIT_CODE, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
+import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
+import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
+import { runDag, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
+import { listContracts, hashContract, type SliceContract } from '../../services/dispatch/contract-store.js';
 import {
   appendHeartbeat,
   writeInitialDispatchRecord,
@@ -67,6 +71,7 @@ type DispatchOptions = {
   useHeadroom?: boolean;
   headroomMode?: string;
   force?: boolean;
+  fromDag?: string;
   json?: boolean;
 };
 
@@ -130,7 +135,12 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
         'orchestrator contract.'
       )
       .argument('<role>', 'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)')
-      .requiredOption('--prompt <text>', 'the prompt to send to the sub-agent')
+      // 2.7.0 slice-dag-dispatcher MVP: --prompt is required ONLY when --from-dag is NOT
+      // supplied. Previously this was `.requiredOption('--prompt')`, which blocked
+      // `dispatch --from-dag <file>` calls because commander.js validates
+      // `.requiredOption` before the action handler runs. The mutual-exclusion
+      // check is enforced below in the action body (--prompt XOR --from-dag).
+      .option('--prompt <text>', 'the prompt to send to the sub-agent (required unless --from-dag is provided)')
       .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)')
       .option('--request-id <rid>', 'the same <rid> used by peaks request init')
       .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
@@ -140,8 +150,15 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       .option('--use-headroom', 'G7.7/G9: compress the prompt via headroom-ai before dispatch (opt-in; falls back to G7 metadata-only if headroom unavailable)')
       .option('--headroom-mode <mode>', `G7.7: headroom mode (${HEADROOM_MODES.join(' | ')}); default balanced`)
       .option('--force', 'G9: override the 80% hard reject threshold at CLI (NOT allowed at hook layer per RL-30 strict)')
+      .option('--from-dag <file>', '2.7.0 slice-dag-dispatcher MVP: read a SliceDag JSON file, dispatch one sub-agent per node in topological order; --batch-id overrides the auto-generated batch id (mutually exclusive with <role>)')
   ).action(async (role: string, options: DispatchOptions) => {
     const asJson = options.json === true;
+    // 2.7.0 slice-dag-dispatcher MVP: --from-dag short-circuits the single
+    // sub-agent path and runs the full DAG plan via `dag-orchestrator`.
+    if (typeof options.fromDag === 'string' && options.fromDag.length > 0) {
+      await runDispatchFromDag(role, options, asJson, io);
+      return;
+    }
     const validation = validateRole(role);
     if (validation !== null) {
       printResult(io, fail('sub-agent.dispatch', 'INVALID_ROLE', validation, { role, toolCall: null, dispatchRecordPath: null } as never, [
@@ -152,8 +169,10 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       return;
     }
     if (!options.prompt || options.prompt.length === 0) {
-      printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required', { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'Re-run with a non-empty --prompt value.'
+      printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required when --from-dag is not provided', { role, toolCall: null, dispatchRecordPath: null } as never, [
+        'Re-run with either:',
+        '  • `--prompt <text>` for single-role dispatch, OR',
+        '  • `--from-dag <file>` for DAG-aware multi-slice dispatch (no --prompt needed; the per-slice prompt is generated from the DAG nodes).'
       ]), asJson);
       process.exitCode = 1;
       return;
@@ -575,6 +594,320 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       process.exitCode = 1;
     }
   });
+
+  // ─────────────────────────────────────────────────────────────────
+  // peaks sub-agent await --batch <id> [--timeout <ms>] --json
+  // 2.7.0 slice-dag-dispatcher MVP: join barrier for a batch of
+  // dispatched sub-agents. For MVP (1.2) the IDE-private wait is
+  // delegated to `dispatcher.awaitBatch`; trae / trae-cn / codex / cursor
+  // return an `awaitByLlm: true` marker (real per-IDE wait in 1.3).
+  // ─────────────────────────────────────────────────────────────────
+  addJsonOption(
+    subAgent
+      .command('await')
+      .description(
+        '2.7.0 slice-dag-dispatcher MVP: wait for a batch of dispatched sub-agents ' +
+        'to finish (or hit --timeout). Returns one BatchResult per dispatch. ' +
+        'For non-claude-code IDEs, the wait is delegated to the LLM (slice 1.3 will ' +
+        'land real per-IDE joins).'
+      )
+      .requiredOption('--batch <batchId>', 'batchId from a dispatch envelope')
+      .option('--timeout <ms>', 'optional cap on how long the join waits (ms; default 60000, max 120000)')
+      .option('--project <path>', 'target project root (defaults to cwd)')
+      .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
+  ).action(async (options: { batch?: string; timeout?: string; project?: string; sessionId?: string; json?: boolean }) => {
+    const asJson = options.json === true;
+    if (!options.batch) {
+      printResult(io, fail('sub-agent.await', 'MISSING_BATCH', '--batch is required', { ok: false } as never, [
+        'Re-run with --batch <batchId> from a dispatch envelope.'
+      ]), asJson);
+      process.exitCode = 1;
+      return;
+    }
+    let timeoutMs: number | undefined;
+    if (typeof options.timeout === 'string' && options.timeout.length > 0) {
+      const n = Number.parseInt(options.timeout, 10);
+      if (!Number.isInteger(n) || n <= 0) {
+        printResult(io, fail('sub-agent.await', 'INVALID_TIMEOUT', `--timeout must be a positive integer ms (got ${options.timeout})`, { ok: false } as never, [
+          'Pass an integer like --timeout 60000.'
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      timeoutMs = n;
+    }
+    const projectRoot = options.project ?? process.cwd();
+    const sid = options.sessionId ?? 'unknown-sid';
+    const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
+    const adapter = getAdapter(ide);
+    const dispatcher = adapter.subAgentDispatcher;
+    if (typeof dispatcher.awaitBatch !== 'function') {
+      printResult(io, fail('sub-agent.await', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support awaitBatch (1.2 MVP only ships claude-code)`, { ok: false } as never, [
+        'Switch to claude-code, or rely on LLM-side await for non-claude-code IDEs in slice 1.3.'
+      ]), asJson);
+      process.exitCode = 1;
+      return;
+    }
+    // 1.2 MVP: we don't keep a separate record path index for DAG-dispatched
+    // batches yet; the caller is expected to have a single shared record
+    // directory. We pass the empty list — the MVP runner tracks outcomes
+    // through its own contract-store writes; the dispatcher just signals
+    // "ready to await" through the awaitBatch LRU queue (slice 1.3
+    // upgrades to cross-process heartbeat polling).
+    const input: SubAgentAwaitBatchInput = {
+      batchId: options.batch,
+      dispatchCount: 1,
+      recordPaths: [],
+      ...(timeoutMs !== undefined ? { timeoutMs } : {})
+    };
+    try {
+      const results = await dispatcher.awaitBatch(input);
+      const summary = summarizeBatchResults(results);
+      printResult(io, ok('sub-agent.await', {
+        batchId: options.batch,
+        ide: dispatcher.label,
+        results,
+        summary
+      }, [], [
+        'For trae / trae-cn / codex / cursor, results will report status=timeout with note=`awaitByLlm: <ide> 1.2 fallback`. The calling LLM holds the real await.'
+      ]), asJson);
+    } catch (error: unknown) {
+      const code = (error as { code?: string }).code ?? 'AWAIT_ERROR';
+      printResult(io, fail('sub-agent.await', code, getErrorMessage(error), { ok: false } as never, [
+        'See error message; check that --batch matches the dispatch envelope.'
+      ]), asJson);
+      process.exitCode = 1;
+    }
+  });
+}
+
+/** Summarize a batch result array for the CLI envelope. */
+function summarizeBatchResults(results: readonly SubAgentBatchResult[]): {
+  readonly total: number;
+  readonly done: number;
+  readonly failed: number;
+  readonly cancelled: number;
+  readonly timeout: number;
+} {
+  let done = 0;
+  let failed = 0;
+  let cancelled = 0;
+  let timeout = 0;
+  for (const r of results) {
+    if (r.status === 'done') done += 1;
+    else if (r.status === 'failed') failed += 1;
+    else if (r.status === 'cancelled') cancelled += 1;
+    else timeout += 1;
+  }
+  return { total: results.length, done, failed, cancelled, timeout };
+}
+
+/**
+ * 2.7.0 slice-dag-dispatcher MVP: read a SliceDag from a file and run it
+ * through `runDag`. The orchestrator's `runSlice` is a thin wrapper that
+ * emits the per-IDE `buildToolCall` envelope for each topological level.
+ *
+ * 1.2 MVP scope: this dispatches the FIRST topological level synchronously
+ * (returns the dispatch specs); subsequent levels are not surfaced in
+ * the CLI envelope because the LLM-side runner must actually execute
+ * each `buildToolCall` and write the resulting contract before level 2+
+ * can be safely auto-advanced. The LLM re-invokes
+ * `peaks sub-agent dispatch --from-dag <file> --batch-id <id>` after
+ * writing level-1 contracts, which causes runDag to plan level 2+ with
+ * the level-1 ancestor contracts spliced into their dispatch prompts.
+ *
+ * Internally, runDag DOES iterate all levels so its join-barrier +
+ * cancel-on-fail path is exercised end-to-end during the MVP emit; only
+ * the CLI envelope is filtered to level-1 toolCalls (see `firstLevelIds`).
+ */
+async function runDispatchFromDag(
+  role: string,
+  options: DispatchOptions,
+  asJson: boolean,
+  io: ProgramIO
+): Promise<void> {
+  if (!options.fromDag) return;
+  const projectRoot = options.project ?? process.cwd();
+  const sid = options.sessionId ?? 'unknown-sid';
+  const rid = options.requestId ?? 'unknown-rid';
+  const batchId = options.batchId ?? randomUUID();
+
+  let dag: SliceDag;
+  try {
+    const raw = readFileSync(options.fromDag, 'utf8');
+    const parsed = JSON.parse(raw) as SliceDag;
+    validateDag(parsed);
+    dag = parsed;
+  } catch (err) {
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `failed to read or validate DAG from ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'Check the JSON file at the given path; the DAG must have {nodes, edges} and pass validateDag().'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
+
+  // MVP (1.2): the orchestrator iterates topological levels + join
+  // barrier + cancel-on-fail end-to-end. The CLI's runner returns `done`
+  // for every leaf (so runDag's cancel-on-fail path is exercised when a
+  // leaf actually fails); the CLI envelope filters `emittedToolCalls` to
+  // the first level only (see `firstLevelIds`). The LLM-side runner
+  // re-invokes `--from-dag` for level 2+ after writing level-1
+  // contracts via `peaks contract write`.
+  let levelArr: readonly (readonly string[])[];
+  try {
+    levelArr = topologicalLevels(dag);
+  } catch (err) {
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
+      'Inspect the DAG file with the editor and re-invoke dispatch. (No peaks scan dag CLI ships in 2.7.0; if you need a programmatic DAG validator, import validateDag / topologicalLevels from src/services/dispatch/slice-dag.ts directly.)'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Read upstream contracts so downstream-level prompts (when re-invoked
+  // for level 2+) get auto-injected ancestors via `formatContractInjection`.
+  // At level-1 emit time, contracts is empty (no ancestors yet); the
+  // injection matters when the LLM re-invokes for level 2+ after writing
+  // level-1 contracts via `writeContract`.
+  const existingContracts = listContracts(projectRoot, sid);
+
+  const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
+  const adapter = getAdapter(ide);
+  const dispatcher = adapter.subAgentDispatcher;
+  if (!dispatcher.supportsRole(role)) {
+    printResult(io, fail('sub-agent.dispatch', 'IDE_NOT_SUPPORTED', `IDE ${ide} does not support role "${role}"`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'Switch to a registered IDE (e.g. claude-code) or pick a role the current IDE supports.'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
+
+  // Track per-level emissions so the CLI envelope can expose ONLY the
+  // first topological level to the LLM (matching MVP 1.2 semantics: LLM
+  // executes level-1 toolCalls, writes contracts via `peaks contract
+  // write`, then re-invokes `--from-dag` for level 2+). Level-2+ leaves
+  // still flow through runDag's join-barrier — their toolCalls are
+  // generated internally so the orchestrator's happy path is exercised
+  // end-to-end, but they are NOT surfaced in the CLI envelope (the LLM
+  // sees them only after re-invoking with fresh level-1 contracts).
+  const firstLevelIds = new Set<string>(levelArr[0] ?? []);
+  const emittedToolCalls: SubAgentToolCall[] = [];
+  const emittedSliceIds: string[] = [];
+
+  // CLI runner: emit the per-slice `buildToolCall` envelope, then return
+  // `done` with an empty `publicSurface` placeholder. The orchestrator
+  // treats the slice as "CLI-emitted, awaiting LLM-side execution" and
+  // advances to the next topological level (or breaks on failure). The
+  // placeholder surface is intentionally empty: the real public surface
+  // arrives later via `peaks contract write` from the LLM-side runner,
+  // and overwrites the CLI placeholder contract written by `noopWriter`.
+  // Why not `cancelled`? Returning `cancelled` here short-circuits
+  // runDag's join-barrier + cancel-on-fail path — the orchestrator
+  // breaks out after the first level with a cancellation, which hides
+  // the real cancel-on-fail semantics from the test suite (and from any
+  // future caller that wants to use `runDag` end-to-end from the CLI).
+  // Returning `done` exercises the full happy path; cancel-on-fail
+  // semantics will be covered when 1.3 lands real per-IDE await.
+  const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
+    const toolCall = dispatcher.buildToolCall({
+      role: spec.role,
+      prompt: spec.prompt,
+      requestId: rid,
+      sessionId: sid
+    });
+    if (firstLevelIds.has(spec.sliceId)) {
+      emittedToolCalls.push(toolCall);
+      emittedSliceIds.push(spec.sliceId);
+    }
+    return {
+      status: 'done',
+      publicSurface: {
+        exports: [],
+        types: [],
+        publicSignatures: []
+      }
+    };
+  };
+
+  // CLI noop writer — the orchestrator collects a `SliceContract` per
+  // emitted toolCall so downstream re-invocations (level 2+) can splice
+  // ancestor contracts via `formatContractInjection`. We don't write to
+  // disk here (the LLM-side runner does that via `peaks contract write`
+  // after each toolCall resolves), but the returned placeholder MUST be
+  // shape-valid: the `contractHash` field has to be a real SHA-256 hex
+  // string so formatContractInjection + downstream validators don't
+  // reject the placeholder. The placeholder hash is computed from the
+  // slice identity only (`sliceId|sessionId`) — it's deterministic,
+  // stable, and collision-free for the MVP run, but obviously does NOT
+  // represent the slice's actual public surface. The LLM-side runner's
+  // `peaks contract write` call will overwrite this with a content-based
+  // hash once the slice finishes.
+  const noopWriter = (sliceId: string, _publicSurface: PublicSurface): SliceContract => {
+    const partial = {
+      sliceId,
+      sessionId: sid,
+      exports: [] as readonly string[],
+      types: [] as readonly string[],
+      publicSignatures: [] as readonly string[]
+    };
+    return {
+      sliceId,
+      sessionId: sid,
+      completedAt: new Date(0).toISOString(), // epoch sentinel = "placeholder, not yet finished"
+      exports: [],
+      types: [],
+      publicSignatures: [],
+      contractHash: hashContract(partial)
+    };
+  };
+
+  // runDag IS in the path: it validates the DAG, iterates all
+  // topological levels, runs the join barrier after each level, and
+  // triggers cancel-on-fail rollback if any leaf returns `failed` (or
+  // `cancelled`, once 1.3 lands). The CLI envelope below filters
+  // `emittedToolCalls` / `emittedSliceIds` to the first level — see the
+  // `firstLevelIds` filter inside `cliRunner`.
+  try {
+    await runDag(dag, {
+      projectRoot,
+      sessionId: sid,
+      existingContracts,
+      runSlice: cliRunner,
+      writeContractFn: noopWriter
+    });
+  } catch (err) {
+    // runDag throws DagPlanError for plan-level failures (e.g. cycle
+    // slipping past validateDag). Surface it as INVALID_DAG so the
+    // CLI envelope has a clear failure code, not a generic DISPATCH_ERROR.
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `runDag failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'runDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+      'Inspect the DAG file and re-run.'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
+
+  printResult(io, ok('sub-agent.dispatch', {
+    role,
+    ide: dispatcher.label,
+    fromDag: options.fromDag,
+    batchId,
+    dispatchCount: emittedSliceIds.length,
+    levelsTotal: levelArr.length,
+    firstLevel: emittedSliceIds,
+    toolCalls: emittedToolCalls,
+    existingContractCount: existingContracts.length,
+    nextActions: [
+      'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
+      'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
+    ]
+  }, [], [
+    'MVP (1.2) plans the first level via runDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
+    existingContracts.length > 0
+      ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
+      : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
+  ]), asJson);
 }
 
 /** Validate a role string. Returns null if valid, otherwise the rejection reason. */

@@ -2,19 +2,24 @@ import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readlinkSyn
 import { lstat, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir as osHomedir } from 'node:os';
+const os = { homedir: osHomedir };
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, test } from 'vitest';
 
 type InstallBundledSkills = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
 type InstallBundledOutputStyles = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
+type InstallBundledAgents = (options: { packageRoot: string; targetRoot: string }) => { installed: string[]; skipped: string[] };
+type InstallBundledAgentsForAllPlatforms = (options: { packageRoot: string; targetRoot: string }) => Array<{ ideId: string; agentsDir: string; installed: string[]; skipped: string[]; error?: string }>;
 type InstallConfig = (options?: { packageRoot?: string; projectRoot?: string; userRoot?: string }) => { created: boolean; updated: boolean; skipped: boolean };
 
 const scriptUrl = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
-const { installBundledSkills, installBundledOutputStyles, installProjectConfig, installUserConfig } = (await import(scriptUrl)) as {
+const { installBundledSkills, installBundledOutputStyles, installBundledAgents, installBundledAgentsForAllPlatforms, installProjectConfig, installUserConfig } = (await import(scriptUrl)) as {
   installBundledSkills: InstallBundledSkills;
   installBundledOutputStyles: InstallBundledOutputStyles;
+  installBundledAgents: InstallBundledAgents;
+  installBundledAgentsForAllPlatforms: InstallBundledAgentsForAllPlatforms;
   installProjectConfig: InstallConfig;
   installUserConfig: InstallConfig;
 };
@@ -64,7 +69,11 @@ function createOutputStyleMarker(sourcePath: string, outputStyleName = 'peaks-sk
   return `${JSON.stringify({ version: 1, kind: 'output-style', outputStyleName, sourcePath, contentSha256: createHash('sha256').update(readFileSync(sourcePath, 'utf8')).digest('hex') })}\n`;
 }
 
-function createPackageRoot(skillNames: string[], outputStyleNames: string[] = [], version = '9.8.7') {
+function createAgentMarker(sourcePath: string, agentFileName = 'karpathy-reviewer.md'): string {
+  return `${JSON.stringify({ version: 1, kind: 'agent', agentName: agentFileName, sourcePath, contentSha256: createHash('sha256').update(readFileSync(sourcePath, 'utf8')).digest('hex') })}\n`;
+}
+
+function createPackageRoot(skillNames: string[], outputStyleNames: string[] = [], agentFileNames: string[] = [], version = '9.8.7') {
   const packageRoot = mkdtempSync(join(tmpdir(), 'peaks-package-'));
   writeFileSync(join(packageRoot, 'package.json'), JSON.stringify({ version }), 'utf8');
 
@@ -78,6 +87,12 @@ function createPackageRoot(skillNames: string[], outputStyleNames: string[] = []
     const outputStylesRoot = join(packageRoot, 'output-styles');
     mkdirSync(outputStylesRoot, { recursive: true });
     writeFileSync(join(outputStylesRoot, `${outputStyleName}.md`), `---\nname: ${outputStyleName}\n---\n`);
+  }
+
+  for (const agentFileName of agentFileNames) {
+    const agentsRoot = join(packageRoot, 'agents');
+    mkdirSync(agentsRoot, { recursive: true });
+    writeFileSync(join(agentsRoot, agentFileName), `---\nname: ${agentFileName.replace(/\.md$/, '')}\ntools: ["Read", "Bash"]\nmodel: sonnet\n---\n# ${agentFileName}\n`);
   }
 
   return packageRoot;
@@ -306,7 +321,7 @@ describe('install skills script', () => {
 
   test('adds new user config defaults and updates version without overwriting existing values', async () => {
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
-    const packageRoot = createPackageRoot([], [], '9.8.8');
+    const packageRoot = createPackageRoot([], [], [], '9.8.8');
     const configPath = join(userRoot, '.peaks', 'config.json');
     mkdirSync(join(userRoot, '.peaks'), { recursive: true });
     writeFileSync(configPath, JSON.stringify({ version: '1.0.0', language: 'zh-CN', economyMode: false }, null, 2), 'utf8');
@@ -639,5 +654,175 @@ describe('install skills script', () => {
     await expect(readFile(join(outputStylesTargetRoot, 'peaks-skill-swarm.md'), 'utf8')).resolves.toContain('Peaks Skill Swarm');
     await expect(readFile(join(userRoot, '.peaks', 'config.json'), 'utf8')).resolves.toContain('"language": "en"');
     await expect(readFile(join(projectRoot, '.peaks', 'config.json'), 'utf8')).rejects.toThrow();
+  });
+
+  // Slice 7/7 — agents (Claude Code sub-agent prompts).
+  // Mirrors the output-styles test contract: content-hash drift detection
+  // via a `.peaks-managed` JSON marker, atomic write, escape hatch
+  // (PEAKS_SKIP_AGENT_INSTALL=1), and user-authored files preserved.
+
+  test('copies bundled agents into the Claude agents directory', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    await expect(readFile(join(targetRoot, 'karpathy-reviewer.md'), 'utf8')).resolves.toContain('name: karpathy-reviewer');
+    await expect(readFile(join(targetRoot, 'karpathy-reviewer.md.peaks-managed'), 'utf8').then(JSON.parse)).resolves.toMatchObject({
+      version: 1,
+      kind: 'agent',
+      agentName: 'karpathy-reviewer.md',
+      sourcePath: join(packageRoot, 'agents', 'karpathy-reviewer.md')
+    });
+    expect(existsSync(join(targetRoot, 'karpathy-reviewer.md.peaks-managed'))).toBe(true);
+    expect(result).toEqual({ installed: ['karpathy-reviewer.md'], skipped: [] });
+  });
+
+  test('is idempotent on re-install (replaces when content hash matches, reports installed)', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+
+    installBundledAgents({ packageRoot, targetRoot });
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    // Output-styles contract: even when content matches, the function
+    // unlinks + replaces (atomic write). The user-visible state is the
+    // same, but the result reports the file as installed. The atomic
+    // write + marker ensure the second install is safe and idempotent.
+    expect(result.installed).toEqual(['karpathy-reviewer.md']);
+    expect(result.skipped).toEqual([]);
+    await expect(readFile(join(targetRoot, 'karpathy-reviewer.md'), 'utf8')).resolves.toContain('name: karpathy-reviewer');
+  });
+
+  test('skips the target when the source content hash changes (preserves user-edited file)', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+    const sourcePath = join(packageRoot, 'agents', 'karpathy-reviewer.md');
+    const targetPath = join(targetRoot, 'karpathy-reviewer.md');
+
+    // First install
+    installBundledAgents({ packageRoot, targetRoot });
+    const firstContent = readFileSync(targetPath, 'utf8');
+
+    // Upgrade the source content (simulate a new peaks-cli release).
+    // The marker still references the old SHA, so the function
+    // detects drift and SKIPS to preserve the user's local file.
+    writeFileSync(sourcePath, `${firstContent}\nupgraded content`, 'utf8');
+
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    expect(result.installed).toEqual([]);
+    expect(result.skipped).toEqual(['karpathy-reviewer.md']);
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe(firstContent);
+  });
+
+  test('does not overwrite user-authored agents (no Peaks-managed marker)', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+    const targetPath = join(targetRoot, 'karpathy-reviewer.md');
+    writeFileSync(targetPath, '# my custom agent prompt\n', 'utf8');
+
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('# my custom agent prompt\n');
+    expect(result).toEqual({ installed: [], skipped: ['karpathy-reviewer.md'] });
+    expect(existsSync(join(targetRoot, 'karpathy-reviewer.md.peaks-managed'))).toBe(false);
+  });
+
+  test('does not overwrite agents with spoofed Peaks markers', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+    const targetPath = join(targetRoot, 'karpathy-reviewer.md');
+    const forgedSourcePath = join(targetRoot, 'fake-package', 'agents', 'karpathy-reviewer.md');
+    mkdirSync(join(targetRoot, 'fake-package', 'agents'), { recursive: true });
+    writeFileSync(targetPath, 'custom agent prompt', 'utf8');
+    writeFileSync(forgedSourcePath, 'custom agent prompt', 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, createAgentMarker(forgedSourcePath), 'utf8');
+
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toBe('custom agent prompt');
+    expect(result).toEqual({ installed: [], skipped: ['karpathy-reviewer.md'] });
+  });
+
+  test('replaces stale agent markers when the target file is missing', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+    const targetPath = join(targetRoot, 'karpathy-reviewer.md');
+    const sourcePath = join(packageRoot, 'agents', 'karpathy-reviewer.md');
+    writeFileSync(`${targetPath}.peaks-managed`, createAgentMarker(sourcePath), 'utf8');
+
+    const result = installBundledAgents({ packageRoot, targetRoot });
+
+    await expect(readFile(targetPath, 'utf8')).resolves.toContain('name: karpathy-reviewer');
+    expect(result).toEqual({ installed: ['karpathy-reviewer.md'], skipped: [] });
+  });
+
+  test('skips agent installation when PEAKS_SKIP_AGENT_INSTALL=1', async () => {
+    const previousSkipAgent = process.env.PEAKS_SKIP_AGENT_INSTALL;
+    process.env.PEAKS_SKIP_AGENT_INSTALL = '1';
+    try {
+      const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+      const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-'));
+
+      const result = installBundledAgents({ packageRoot, targetRoot });
+
+      expect(result).toEqual({ installed: [], skipped: [] });
+      await expect(lstat(join(targetRoot, 'karpathy-reviewer.md'))).rejects.toThrow();
+    } finally {
+      if (previousSkipAgent === undefined) {
+        delete process.env.PEAKS_SKIP_AGENT_INSTALL;
+      } else {
+        process.env.PEAKS_SKIP_AGENT_INSTALL = previousSkipAgent;
+      }
+    }
+  });
+
+  test('per-platform fan-out installs all platforms that have an agentsDir profile', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const claudeTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-claude-'));
+
+    const perPlatform = installBundledAgentsForAllPlatforms({ packageRoot, targetRoot: claudeTargetRoot });
+
+    // Slice 2.6.1.E: 5 platforms now have agentsDir (claude-code + trae + trae-cn + codex + cursor).
+    // The other 3 (qoder / tongyi-lingma / hermes / openclaw) are still filtered out.
+    expect(perPlatform).toHaveLength(5);
+    const ids = perPlatform.map((p) => p.ideId).sort();
+    expect(ids).toEqual(['claude-code', 'codex', 'cursor', 'trae', 'trae-cn']);
+    for (const p of perPlatform) {
+      expect(p.installed).toEqual(['karpathy-reviewer.md']);
+      expect(p.skipped).toEqual([]);
+    }
+    await expect(readFile(join(claudeTargetRoot, 'karpathy-reviewer.md'), 'utf8')).resolves.toContain('name: karpathy-reviewer');
+  });
+
+  // Slice 2.6.1.E — cross-platform sanity. The user explicitly asked us
+  // NOT to hardcode Unix-style paths. Every agentsDir in the profile
+  // table must be derived from `homedir() + join()`, so a Windows user
+  // gets `C:\Users\name\.trae\agents` and a Mac user gets
+  // `/Users/name/.trae/agents`. The right invariant is that the
+  // reported path equals `join(homedir(), '<idename>', 'agents')`
+  // for the matching ideId — not that it lacks `/Users/`, since on
+  // macOS homedir() itself is `/Users/...`.
+  test('agentsDir paths are derived from homedir() (not hardcoded Unix paths)', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const claudeTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-homedir-'));
+    const perPlatform = installBundledAgentsForAllPlatforms({ packageRoot, targetRoot: claudeTargetRoot });
+
+    const expectedByIdeId: Record<string, string> = {
+      'claude-code': '.claude',
+      'trae': '.trae',
+      'trae-cn': '.trae-cn',
+      'codex': '.codex',
+      'cursor': '.cursor'
+    };
+    for (const p of perPlatform) {
+      const seg = expectedByIdeId[p.ideId] as string;
+      // The reported path must equal homedir() + '<seg>' + 'agents'.
+      // If a refactor hardcodes '/Users/...' or 'C:\\...' this assertion
+      // fails on any platform whose home differs from the hardcode.
+      expect(p.agentsDir).toBeDefined();
+      expect(p.agentsDir).toBe(join(os.homedir(), seg, 'agents'));
+    }
   });
 });

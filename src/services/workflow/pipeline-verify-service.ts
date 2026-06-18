@@ -229,7 +229,7 @@ export async function verifyPipeline(options: {
 
   // Check if RD reached qa-handoff
   if (rdInvoked && !RD_QA_HANDOFF_STATES.has(rdState)) {
-    violations.push(`RD not ready for QA: state is "${rdState}" — must reach "qa-handoff" (unit tests, karpathy standards, code review, security review complete)`);
+    violations.push(`RD not ready for QA: state is "${rdState}" — must reach "qa-handoff" (unit tests, karpathy-guidelines §1 Think / §2 Simplicity / §3 Surgical / §4 Goal-Driven, code review, security review complete)`);
     nextActions.push(`Complete RD gates → peaks request transition ${options.rid} --role rd --state qa-handoff`);
   }
 
