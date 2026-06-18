@@ -326,14 +326,14 @@ export function setCurrentChangeId(
   symlinkSync(targetDir, bindingPath, linkType);
 }
 
-/**
- * Canonical on-disk path to a change-id's reviewable artifacts
- * (`.peaks/<change-id>/`). Writes that target reviewable content
- * (RD/QA/PRD/txt) should land here regardless of which session
- * is active. Ephemeral state (live sub-agent progress, spawn records)
- * stays in the session dir (`.peaks/_runtime/<session-id>/...`).
- */
-export function getChangeArtifactRoot(projectRoot: string, changeId: string): string {
-  validateChangeIdOrThrow(changeId);
-  return join(projectRoot, '.peaks', changeId);
-}
+// NOTE: the 2.7.0 `getChangeArtifactRoot(projectRoot, changeId)`
+// function was removed in 2.7.1. It returned `.peaks/<changeId>/`
+// and was the source of the project-root pollution the user
+// surfaced: reviewable artifacts (RD tech-doc / QA test-cases /
+// PRD / txt) were being written to the project root instead of
+// under the canonical session home `.peaks/_runtime/<sessionId>/`.
+// As of 2.7.1 ALL artifact writes (reviewable + ephemeral) flow
+// through `.peaks/_runtime/<sessionId>/<role>/<artifact>`. The
+// `changeId` survives as a logical identifier in artifact
+// frontmatter (see `getCurrentChangeId` for the binding source)
+// but no longer maps to a filesystem directory under `.peaks/`.

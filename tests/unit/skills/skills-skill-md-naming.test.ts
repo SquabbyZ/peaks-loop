@@ -99,7 +99,13 @@ const ALLOWED_PEAKS_PATTERNS: RegExp[] = [
   // Example: `.peaks/<session-id>/rd/requests/<request-id>.md` (canonical
   // placeholder) and `.peaks/<sessionId>/...` (alternate).
   /\.peaks\/<session-?id>/gi,
-  // change-axis: root `.peaks/<changeId>/...` (must NOT be inside `_runtime/`)
+  // 2.7.1: change-id root `.peaks/<changeId>/...` is DEPRECATED but
+  // historical prose / migration docs may still reference it. The
+  // runtime code no longer writes there (getChangeArtifactRoot was
+  // removed in 2.7.1) and `.peaks/2026-*-*/` is gitignored, so
+  // historical matches are noise; we keep this allowlist entry so
+  // the regression test does not block the 2.7.1 release. New
+  // SKILL.md content MUST use `.peaks/_runtime/<sessionId>/...`.
   /\.peaks\/<change-?id>/gi,
   // generic-id placeholder form (e.g. `.peaks/<id>/` in Gate C tables
   // where the table header says "Required RD evidence (under `.peaks/<id>/`)").

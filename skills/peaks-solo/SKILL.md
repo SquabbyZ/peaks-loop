@@ -3,11 +3,11 @@ name: peaks-solo
 description: Full-auto orchestration facade for the Peaks-Cli skill family. Use when the user asks Peaks-Cli to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-solo`, "peaks solo", "全流程开发", "端到端迭代".
 ---
 
-## Two-axis naming convention
+## Two-axis naming convention (2.7.1 — collapsed to single-axis)
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>` — ambiguous between axes). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
+**As of 2.7.1** the `.peaks/` workspace is single-axis: `.peaks/_runtime/<sessionId>/...` (sub-agent axis: `.peaks/_sub_agents/<sessionId>/...`). The 2.7.0 two-axis split (`.peaks/<changeId>/` + `.peaks/_runtime/<sessionId>/`) caused project-root pollution; `getChangeArtifactRoot` was removed in 2.7.1 and all artifact writes now route through `_runtime/`. Use `<sessionId>` (NEVER bare `<sid>`); changeId survives only as a logical frontmatter field. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
 
 ## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
 

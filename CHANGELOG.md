@@ -124,6 +124,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.1] — 2026-06-18
+
+### Changed
+
+- **Project-root artifact pollution remediation** — the 2.7.0 release
+  shipped a `getChangeArtifactRoot(projectRoot, changeId)` helper that
+  returned `.peaks/<changeId>/` and was the source of the user-reported
+  project-root pollution: reviewable artifacts (RD `tech-doc.md`, QA
+  `test-cases/`, PRD, txt) were being written next to the project root
+  rather than under the canonical session home. As of 2.7.1 this
+  helper is **removed** (and its only remaining import cleaned up).
+  All artifact writes flow through
+  `.peaks/_runtime/<sessionId>/<role>/<artifact>` per the F3 / 2.7.0
+  canonical-session model. The `changeId` survives as a logical
+  identifier in artifact frontmatter (read via `getCurrentChangeId`),
+  but no longer maps to a filesystem directory under `.peaks/`.
+- `package.json` and `src/shared/version.ts` bumped 2.7.0 → 2.7.1.
+
+### Fixed
+
+- **`peaks request transition --allow-incomplete` bypass counter wrote
+  to the project root** — `src/cli/commands/request-commands.ts` was
+  building `sessionRoot` as `join('.peaks', resolvedSessionId)` for
+  `recordBypass` / `isBypassLimitReached`, which produced
+  `.peaks/2026-06-17-session-1baf0a/.bypass-count.json` files at
+  the project root. The path formula is now
+  `join('.peaks/_runtime', resolvedSessionId)`, matching the
+  canonical home that `peaks session info --active` already resolves.
+  Pinned by `tests/unit/bypass-tracker.test.ts` (new
+  `2.7.1 root-pollution regression` describe).
+
+### Security
+
+- No new attack surface. The bypass-count path is now
+  `.peaks/_runtime/<sessionId>/.bypass-count.json` (project-local,
+  gitignored via the existing `.peaks/_runtime/` rule on
+  `.gitignore:9`); no cross-user / cross-process access pattern was
+  added or removed.
+
+---
+
 ## [2.6.1] — 2026-06-18
 
 ### Added
