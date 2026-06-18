@@ -384,6 +384,7 @@ function resolveProjectRoot(options) {
 const IDE_DETECTION_DIRS = [
   { id: 'claude-code', dir: '.claude' },
   { id: 'trae', dir: '.trae' },
+  { id: 'trae-cn', dir: '.trae-cn' },
   { id: 'codex', dir: '.codex' },
   { id: 'cursor', dir: '.cursor' },
   { id: 'qoder', dir: '.qoder' },
@@ -415,20 +416,34 @@ const IDE_SKILL_INSTALL_PROFILES = {
   'trae': {
     skillsDir: join(homedir(), '.trae', 'skills'),
     outputStylesDir: join(homedir(), '.trae', 'output-styles'),
+    agentsDir: join(homedir(), '.trae', 'agents'),
     envVar: 'PEAKS_TRAE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_TRAE_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_TRAE_AGENTS_DIR',
+  },
+  'trae-cn': {
+    skillsDir: join(homedir(), '.trae-cn', 'skills'),
+    outputStylesDir: join(homedir(), '.trae-cn', 'output-styles'),
+    agentsDir: join(homedir(), '.trae-cn', 'agents'),
+    envVar: 'PEAKS_TRAE_CN_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_TRAE_CN_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_TRAE_CN_AGENTS_DIR',
   },
   'codex': {
     skillsDir: join(homedir(), '.codex', 'skills'),
     outputStylesDir: join(homedir(), '.codex', 'output-styles'),
+    agentsDir: join(homedir(), '.codex', 'agents'),
     envVar: 'PEAKS_CODEX_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CODEX_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_CODEX_AGENTS_DIR',
   },
   'cursor': {
     skillsDir: join(homedir(), '.cursor', 'skills'),
     outputStylesDir: join(homedir(), '.cursor', 'output-styles'),
+    agentsDir: join(homedir(), '.cursor', 'agents'),
     envVar: 'PEAKS_CURSOR_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CURSOR_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_CURSOR_AGENTS_DIR',
   },
   'qoder': {
     skillsDir: join(homedir(), '.qoder', 'skills'),

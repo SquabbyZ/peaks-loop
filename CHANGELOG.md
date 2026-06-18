@@ -7,23 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [2.6.1] — 2026-06-18
 
 ### Added
 
-- _No unreleased changes yet._
-
-### Changed
-
-- _No unreleased changes yet._
+- **Multi-IDE agent install (Slice 2.6.1.E)** — the `karpathy-reviewer`
+  sub-agent now auto-installs on `npm i -g peaks-cli@latest` to **5
+  platforms** instead of 1. Previously only `~/.claude/agents/`
+  (claude-code) was populated; 2.6.1 extends to `~/.trae/agents/`,
+  `~/.trae-cn/agents/`, `~/.codex/agents/`, and `~/.cursor/agents/`.
+  The new `trae-cn` profile is opt-in via the existing
+  `IDE_DETECTION_DIRS` table (presence of `~/.trae-cn/` triggers
+  detection). All `agentsDir` paths go through `homedir() + join()` —
+  the new `agentsDir paths are derived from homedir()` vitest pins
+  the construction so a Windows user gets `C:\Users\name\.trae\agents`
+  and a Mac user gets `/Users/name/.trae/agents`, not a hardcoded
+  Unix literal.
 
 ### Fixed
 
-- _No unreleased changes yet._
+- **orphan-service false-positive reductions (Slice 2.6.1.A)** —
+  `peaks scan orphan` had been reporting 77 `cliSubcommandOrphans` for
+  the peaks-cli repo. Four surgical fixes bring this down to 35
+  (54% reduction):
+  1. The `usageCount` algorithm now excludes the declaration file
+     itself, so the threshold is "wired iff referenced in any other
+     file" rather than "wired iff 2+ total string-literal matches
+     (declaration + elsewhere)".
+  2. `DEFAULT_DIRS` now includes `tests/` — test files often reference
+     subcommands and were previously invisible to the scanner.
+  3. `PARENT_COMMANDS` (35 known top-level command names) skips
+     subcommand-orphan detection for the parent commands themselves.
+  4. `scanExportsInFile` now matches `export default function name()`
+     and `export default class Name`; `importedNameCount` now treats
+     re-exports (`export { x } from './y'`, `export type { T } from
+     './y'`) as consumer references.
+  Bonus: `OrphanScanOptions.baseRef` lets the scan diff against an
+  arbitrary git ref (default: `HEAD`) for branch-vs-main reviews.
+- **karpathy-service code-fence skip (Slice 2.6.1.B)** — `peaks scan
+  karpathy` no longer flags anti-pattern phrases (TODO, "should be
+  fine", "maybe", "probably") when they appear inside fenced markdown
+  code blocks. Illustrative code snippets were eroding trust in the
+  structural scanner. The 4 guideline-marker tests
+  (`tests/unit/karpathy-service-fence.test.ts`) pin the contract:
+  inside-fence lines are skipped, outside-fence prose is still
+  flagged, unclosed fences at EOF don't crash.
 
 ### Security
 
-- _No unreleased changes yet._
+- **markdown escape in `formatKarpathyMarkdown` (Slice 2.6.1.C)** —
+  the L1 LOW (`--project` value interpolated into markdown without
+  escaping) is fixed via a new `escapeMarkdown(value: string)` helper
+  that neutralises `\\`, `` ` ``, `[`, `]` in user-controlled strings
+  before they hit the markdown report. Applied at 7 interpolation
+  sites: `projectRoot`, `reviewFile`, `scannedAt`, `v.snippet`,
+  `v.hint`, `warnings[].message`, and the gate header (which is
+  static but routed through the helper for consistency). New vitest
+  file `tests/unit/karpathy-service-escape.test.ts` (7 cases)
+  covers the contract; AC-6 no-regression pins clean-ASCII output as
+  byte-identical.
+- **KARPATHY_REVIEW heading-anchored gate (Slice 2.6.1.F)** — the L3
+  LOW (the 4 guideline `mustContain` substring markers could be
+  spoofed by any file that just *mentioned* the marker names as
+  prose) is fixed by a new `headingMustContain: string[]` field on
+  `ArtifactPrerequisite`. `KARPATHY_REVIEW` now requires each of
+  the 4 guidelines to appear as an actual markdown heading
+  (`#`–`###` line prefix), not just as prose. The `## Karpathy-Gate`
+  header remains a substring match (it is the file's own gate
+  header, not a section anchor). New vitest file
+  `tests/unit/heading-must-contain.test.ts` (4 cases) covers:
+  AC-1 valid headings pass, AC-2 prose-only fails, AC-3 partial
+  headings fail with the missing marker named, AC-4 code-fence
+  headings (regex is strict, not fence-aware) — documented as a
+  known limitation pinned by the test.
+
+### Internal
+
+- **L2-install dogfood verification (Slice 2.6.1.D)** — confirmed
+  end-to-end on a temp HOME that the 2.6.0 tarball's `postinstall`
+  creates `~/.claude/agents/karpathy-reviewer.md` (15.4 KB, mode
+  0600) and the matching `.peaks-managed` marker (245 bytes, JSON
+  with `version`, `kind`, `agentName`, `sourcePath`, `contentSha256`).
+  The 8-platform skill fan-out also confirmed (codex, cursor, trae,
+  trae-cn, qoder, tongyi-lingma, hermes, openclaw). After Slice E,
+  the agent install fans out to 4 of those platforms as well.
 
 ---
 

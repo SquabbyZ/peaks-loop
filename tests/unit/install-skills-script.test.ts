@@ -2,7 +2,8 @@ import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readlinkSyn
 import { lstat, readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir as osHomedir } from 'node:os';
+const os = { homedir: osHomedir };
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -777,18 +778,51 @@ describe('install skills script', () => {
     }
   });
 
-  test('per-platform fan-out installs only platforms that have an agentsDir profile', async () => {
+  test('per-platform fan-out installs all platforms that have an agentsDir profile', async () => {
     const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
     const claudeTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-claude-'));
 
     const perPlatform = installBundledAgentsForAllPlatforms({ packageRoot, targetRoot: claudeTargetRoot });
 
-    // Only claude-code has an agentsDir profile today; the other 7 are filtered out.
-    expect(perPlatform).toHaveLength(1);
-    const [claudePlatform] = perPlatform;
-    expect(claudePlatform?.ideId).toBe('claude-code');
-    expect(claudePlatform?.installed).toEqual(['karpathy-reviewer.md']);
-    expect(claudePlatform?.skipped).toEqual([]);
+    // Slice 2.6.1.E: 5 platforms now have agentsDir (claude-code + trae + trae-cn + codex + cursor).
+    // The other 3 (qoder / tongyi-lingma / hermes / openclaw) are still filtered out.
+    expect(perPlatform).toHaveLength(5);
+    const ids = perPlatform.map((p) => p.ideId).sort();
+    expect(ids).toEqual(['claude-code', 'codex', 'cursor', 'trae', 'trae-cn']);
+    for (const p of perPlatform) {
+      expect(p.installed).toEqual(['karpathy-reviewer.md']);
+      expect(p.skipped).toEqual([]);
+    }
     await expect(readFile(join(claudeTargetRoot, 'karpathy-reviewer.md'), 'utf8')).resolves.toContain('name: karpathy-reviewer');
+  });
+
+  // Slice 2.6.1.E — cross-platform sanity. The user explicitly asked us
+  // NOT to hardcode Unix-style paths. Every agentsDir in the profile
+  // table must be derived from `homedir() + join()`, so a Windows user
+  // gets `C:\Users\name\.trae\agents` and a Mac user gets
+  // `/Users/name/.trae/agents`. The right invariant is that the
+  // reported path equals `join(homedir(), '<idename>', 'agents')`
+  // for the matching ideId — not that it lacks `/Users/`, since on
+  // macOS homedir() itself is `/Users/...`.
+  test('agentsDir paths are derived from homedir() (not hardcoded Unix paths)', async () => {
+    const packageRoot = createPackageRoot([], [], ['karpathy-reviewer.md']);
+    const claudeTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-agents-homedir-'));
+    const perPlatform = installBundledAgentsForAllPlatforms({ packageRoot, targetRoot: claudeTargetRoot });
+
+    const expectedByIdeId: Record<string, string> = {
+      'claude-code': '.claude',
+      'trae': '.trae',
+      'trae-cn': '.trae-cn',
+      'codex': '.codex',
+      'cursor': '.cursor'
+    };
+    for (const p of perPlatform) {
+      const seg = expectedByIdeId[p.ideId] as string;
+      // The reported path must equal homedir() + '<seg>' + 'agents'.
+      // If a refactor hardcodes '/Users/...' or 'C:\\...' this assertion
+      // fails on any platform whose home differs from the hardcode.
+      expect(p.agentsDir).toBeDefined();
+      expect(p.agentsDir).toBe(join(os.homedir(), seg, 'agents'));
+    }
   });
 });

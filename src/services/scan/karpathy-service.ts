@@ -166,8 +166,18 @@ export async function scanKarpathy(options: KarpathyScanOptions): Promise<Karpat
     }
   ];
 
+  // Slice 2.6.1.B: skip lines inside fenced code blocks. Anti-pattern
+  // phrases like "TODO" or "should be fine" appear legitimately inside
+  // illustrative code snippets, and flagging them creates noise that
+  // erodes trust in the structural scanner.
+  let inFence = false;
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
+    if (line.trim().startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
     for (const ap of ANTI_PATTERNS) {
       if (ap.re.test(line)) {
         violations.push({ kind: ap.kind, line: i + 1, snippet: line.trim().slice(0, 120), hint: ap.hint });
@@ -194,16 +204,37 @@ export async function scanKarpathy(options: KarpathyScanOptions): Promise<Karpat
   };
 }
 
+/**
+ * Escape user-controlled strings before they are interpolated into the
+ * markdown report. Slice 2.6.1.C mitigation: prevents L1 LOW markdown
+ * injection when `projectRoot`, `reviewFile`, `v.snippet`, etc. contain
+ * characters that would alter rendered structure (backslashes, inline
+ * code fences, link/image syntax).
+ *
+ * The escape keeps the value readable but neutralises the four most
+ * common markdown structural chars. We deliberately do NOT escape every
+ * punctuation mark — the goal is structural safety, not full sanitisation.
+ * Note: a link `[text](url)` is fully neutralised by escaping just `[]`;
+ * the parens alone have no markdown meaning.
+ */
+export function escapeMarkdown(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')     // backslash first (order matters)
+    .replace(/`/g, '\\`')       // inline code fence
+    .replace(/\[/g, '\\[')      // link/image open
+    .replace(/\]/g, '\\]');     // link/image close
+}
+
 export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title?: string } = {}): string {
   const title = opts.title ?? '## Karpathy inventory';
   const lines: string[] = [];
   lines.push(title);
   lines.push('');
-  lines.push(`- **Project:** ${report.projectRoot}`);
-  lines.push(`- **Review file:** ${report.reviewFile}`);
+  lines.push(`- **Project:** ${escapeMarkdown(report.projectRoot)}`);
+  lines.push(`- **Review file:** ${escapeMarkdown(report.reviewFile)}`);
   lines.push(`- **Present:** ${report.present ? 'yes' : 'no'}`);
   lines.push(`- **Gate action:** ${report.gateAction}`);
-  lines.push(`- **Scanned at:** ${report.scannedAt}`);
+  lines.push(`- **Scanned at:** ${escapeMarkdown(report.scannedAt)}`);
   lines.push('');
 
   lines.push('### Section coverage (4 guidelines)');
@@ -227,8 +258,8 @@ export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title
     lines.push('_No violations detected. karpathy-guidelines 4 段全部 pass._');
   } else {
     for (const v of report.violations) {
-      lines.push(`- **L${v.line} [${v.kind}]**: ${v.snippet}`);
-      lines.push(`  - _hint:_ ${v.hint}`);
+      lines.push(`- **L${v.line} [${v.kind}]**: ${escapeMarkdown(v.snippet)}`);
+      lines.push(`  - _hint:_ ${escapeMarkdown(v.hint)}`);
     }
   }
   lines.push('');
@@ -237,7 +268,7 @@ export function formatKarpathyMarkdown(report: KarpathyScanReport, opts: { title
     lines.push('### Warnings');
     lines.push('');
     for (const w of report.warnings) {
-      lines.push(`- ${w}`);
+      lines.push(`- ${escapeMarkdown(w)}`);
     }
     lines.push('');
   }
