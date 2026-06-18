@@ -12,9 +12,17 @@
 5. **API contract changes** — new/modified request paths, request/response shapes, error states
 6. **Dependencies** — new packages added, versions, why each was needed, license check
 
+7. **Slice DAG** — every slice that touches the dispatcher surface MUST publish its dependency plan as a DAG. Required content (both visual and text forms are mandatory — the visual is for humans, the text is for the orchestrator). The RD MUST write this section as `## Slice DAG` in their `rd/tech-doc.md` (h2 form, byte-stable for the enforcer gate C check). Required sub-bullets:
+   - **Visual (mermaid)**: a `flowchart LR` or `graph TD` block where every node carries `{id, role, label}` and every edge is `{from -> to}` (meaning "to depends on from"). The diagram MUST be parseable by `peaks sub-agent dispatch --from-dag` and the LLM MUST NOT publish a mermaid block that contradicts the text table.
+   - **Text table**: a markdown table with columns `| id | role | label | prompt? | depends-on | contractHash? |`. The `depends-on` column is a comma-separated list of upstream slice IDs (or `-` for roots). The `contractHash?` column is the SHA-256 contract hash once the slice has run at least once; otherwise `-`.
+   - **Mandatory fields per row**: `id`, `role`, `depends-on`. Missing any of these is a hard tech-doc violation (the enforcer will refuse spec-locked transition).
+   - **Optional fields**: `label`, `prompt` (override for the dispatch placeholder), `contractHash` (post-run).
+   - **Cross-reference**: the DAG hash (SHA-256 of `serializeDag`, computed by `src/services/dispatch/slice-dag.ts#hashDag`) MUST be appended at the end of the section as `dagHash: <64-hex>` so reviewers can diff the plan across revisions.
+   - **Failure-rollback note**: if any leaf in a level fails, the entire level's in-flight slices are reported as `cancelled` and downstream levels are NOT advanced. The DAG section MUST surface this fact in a one-line trailing note (e.g. `rollback: any-leaf-fail -> level-cancel`).
+
 **Mandatory self-check sections (Slice 2/6 karpathy-enforcement — enforced by `peaks request transition spec-locked` gate C):**
 
-7. **Existing API / Component Inventory** — enumerate the API endpoints / components / stores / mocks the slice will reuse before adding anything new. Required questions (answer at least these 3):
+8. **Existing API / Component Inventory** — enumerate the API endpoints / components / stores / mocks the slice will reuse before adding anything new. Required questions (answer at least these 3):
    1. List every API endpoint / component / store / mock this slice is adding. If the slice adds none, say "no additions" and explain why.
    2. For each addition, name the existing API / component / store / mock it reuses, with file path + line number. If it does not reuse anything, name the candidate it considered and the reason for rejection (interface mismatch / type mismatch / performance / business logic gap).
    3. For each "decided not to reuse" decision, write the concrete reason in one sentence.

@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { IdeAdapter } from '../ide-types.js';
-import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
+import { codexSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
  * Codex (OpenAI CLI IDE) adapter —— peaks-cli 的第四个内置 IDE 适配器(slice #13, 2.4.0)。
@@ -68,7 +68,11 @@ export const CODEX_ADAPTER: IdeAdapter = {
   // see slice #009 rationale). When real Codex dogfood lands, replace the
   // body of `claudeCodeSubAgentDispatcher.buildToolCall` (or add a
   // `codexSubAgentDispatcher`) without changing the adapter contract.
-  subAgentDispatcher: claudeCodeSubAgentDispatcher,
+  // Slice 1.3: promoted from `claudeCodeSubAgentDispatcher` placeholder
+  // to `codexSubAgentDispatcher` (real file-polling awaitBatch, 45s
+  // default). The `buildToolCall` shape is still byte-identical to
+  // claude-code; only the awaitBatch wiring diverges.
+  subAgentDispatcher: codexSubAgentDispatcher,
   // Slice #13: Codex's `pre_tool_use` event semantics differ from Claude's
   // `PreToolUse`. Opt out of the G9 prompt-size gate until real-install
   // dogfood confirms hook layer compatibility. The CLI 兜底 layer in

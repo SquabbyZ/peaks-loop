@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { IdeAdapter } from '../ide-types.js';
-import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
+import { cursorSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
  * Cursor IDE adapter —— peaks-cli 的第三个内置 IDE 适配器(slice #12, 2.4.0)。
@@ -58,7 +58,11 @@ export const CURSOR_ADAPTER: IdeAdapter = {
   // see slice #009 rationale). When real Cursor dogfood lands, replace the
   // body of `claudeCodeSubAgentDispatcher.buildToolCall` (or add a
   // `cursorSubAgentDispatcher`) without changing the adapter contract.
-  subAgentDispatcher: claudeCodeSubAgentDispatcher,
+  // Slice 1.3: promoted from `claudeCodeSubAgentDispatcher` placeholder
+  // to `cursorSubAgentDispatcher` (real file-polling awaitBatch, 30s
+  // default). The `buildToolCall` shape is still byte-identical to
+  // claude-code; only the awaitBatch wiring diverges.
+  subAgentDispatcher: cursorSubAgentDispatcher,
   // Slice #12: Cursor supports `beforeShellExecution` which can wrap
   // `peaks sub-agent-dispatch-guard`. Opt in (matches the byte-stable
   // slice #008 install entry shape — same pattern as Trae adapter).
