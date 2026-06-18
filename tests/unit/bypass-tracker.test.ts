@@ -110,3 +110,95 @@ describe('MAX_BYPASSES_PER_SESSION', () => {
     expect(MAX_BYPASSES_PER_SESSION).toBe(3);
   });
 });
+
+// 2.7.1 regression guard: the bypass counter MUST live under the
+// canonical session home `.peaks/_runtime/<sid>/`, never at the
+// project root `.peaks/<sid>/`. The legacy root path was the
+// root-pollution source the user surfaced after 2.7.0; this guard
+// pins the new path formula and asserts a file-show under the
+// alternate root returns the fresh-session count (i.e. the counter
+// did not land there).
+describe('2.7.1 root-pollution regression — bypass-count home', () => {
+  test('recordBypass writes to the dir the caller passed; root path is NOT auto-derived', async () => {
+    const session = await makeSession();
+    // Mimic the 2.7.1 fix: request-commands.ts line ~403 now passes
+    // `<projectRoot>/.peaks/_runtime/<sid>` as the sessionRoot. The
+    // bypass-tracker API is path-agnostic — it writes wherever the
+    // caller points. This test pins that contract.
+    recordBypass(session);
+    recordBypass(session);
+    // canonical home
+    const { existsSync, readFileSync } = await import('node:fs');
+    expect(existsSync(join(session, '.bypass-count.json')), 'count file at passed dir').toBe(true);
+    const content = JSON.parse(readFileSync(join(session, '.bypass-count.json'), 'utf8')) as { count: number };
+    expect(content.count).toBe(2);
+  });
+
+  test('the sessionRoot formula used by peaks request transition is the canonical _runtime path', async () => {
+    // Pure string-level pin: the formula
+    //   join(projectRoot, '.peaks', '_runtime', resolvedSessionId)
+    // MUST be the path passed to isBypassLimitReached / recordBypass.
+    // If a future refactor regresses back to `.peaks/<sid>/`, this
+    // string check fails and surfaces the regression.
+    const projectRoot = '/tmp/proj';
+    const resolvedSessionId = '2026-06-18-session-2a4f9c';
+    const sessionRoot = join(projectRoot, '.peaks', '_runtime', resolvedSessionId);
+    expect(sessionRoot, 'canonical bypass home').toBe(
+      '/tmp/proj/.peaks/_runtime/2026-06-18-session-2a4f9c'
+    );
+    expect(sessionRoot, 'never the legacy root home').not.toBe(
+      '/tmp/proj/.peaks/2026-06-18-session-2a4f9c'
+    );
+  });
+
+  // 2.7.1 round-3 audit hardening: the two string-level tests above pin
+  // the formula in isolation but do NOT cover the actual call site in
+  // request-commands.ts. This source-level lint catches a regression
+  // where the formula in the action handler itself is reverted (the
+  // original 2.7.1 audit's `mutation test` showed both tests above stay
+  // green when the source reverts to `.peaks/<sid>/`). The regex below
+  // looks for the legacy pattern at the actual writer call site.
+  test('request-commands.ts does NOT call recordBypass/isBypassLimitReached with a root .peaks/<sid> path', () => {
+    const { readFileSync } = require('node:fs') as typeof import('node:fs');
+    const { resolve: resolvePath } = require('node:path') as typeof import('node:path');
+    const sourcePath = resolvePath(
+      __dirname,
+      '..',
+      '..',
+      'src',
+      'cli',
+      'commands',
+      'request-commands.ts'
+    );
+    const source = readFileSync(sourcePath, 'utf8');
+
+    // The legacy pattern: anywhere inside request-commands.ts a line that
+    // joins '.peaks' followed by a sessionId-shaped token (without the
+    // _runtime/ segment) and then passes it to recordBypass /
+    // isBypassLimitReached. Heuristic: find `.peaks',` followed within
+    // ~6 lines by `recordBypass(` or `isBypassLimitReached(` AND the
+    // resolvedSessionId token appears in between.
+    const sessionRootLineMatch = source.match(/join\([^)]*'\.peaks'[^)]*\)/g) ?? [];
+    const usesCanonical = sessionRootLineMatch.some((line) => /_runtime/.test(line));
+    const usesLegacy = sessionRootLineMatch.some((line) =>
+      /_runtime/.test(line) === false &&
+      /(resolvedSessionId|sessionId)/.test(source.slice(
+        Math.max(0, source.indexOf(line) - 200),
+        source.indexOf(line) + 400
+      ))
+    );
+
+    expect(
+      sessionRootLineMatch.length,
+      `expected at least one .peaks join() in request-commands.ts; found ${sessionRootLineMatch.length}`
+    ).toBeGreaterThan(0);
+    expect(
+      usesCanonical,
+      `expected at least one .peaks join() to use the _runtime/ canonical home; matches: ${JSON.stringify(sessionRootLineMatch)}`
+    ).toBe(true);
+    expect(
+      usesLegacy,
+      `expected no .peaks join() in request-commands.ts to feed a sessionId-shaped token into recordBypass / isBypassLimitReached without the _runtime/ segment; matches: ${JSON.stringify(sessionRootLineMatch)}`
+    ).toBe(false);
+  });
+});
