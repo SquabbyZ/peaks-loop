@@ -33,7 +33,7 @@ import {
 } from '../../services/dispatch/sub-agent-dispatcher.js';
 import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
-import { runDag, buildDispatchSpec, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
+import { runDag, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
 import { listContracts, hashContract, type SliceContract } from '../../services/dispatch/contract-store.js';
 import {
   appendHeartbeat,
@@ -759,7 +759,7 @@ async function runDispatchFromDag(
   } catch (err) {
     printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
       'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
-      'Re-run `peaks scan dag <file>` (slice 1.4 CLI) to inspect the plan before re-invoking dispatch.'
+      'Inspect the DAG file with the editor and re-invoke dispatch. (No peaks scan dag CLI ships in 2.7.0; if you need a programmatic DAG validator, import validateDag / topologicalLevels from src/services/dispatch/slice-dag.ts directly.)'
     ]), asJson);
     process.exitCode = 1;
     return;
@@ -909,8 +909,6 @@ async function runDispatchFromDag(
       : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
   ]), asJson);
 }
-
-void buildDispatchSpec; // re-exported for test seam; see dag-orchestrator.test.ts
 
 /** Validate a role string. Returns null if valid, otherwise the rejection reason. */
 export function validateRole(role: string): string | null {
