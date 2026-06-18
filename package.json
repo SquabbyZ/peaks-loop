@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "2.5.0",
+  "version": "2.6.0",
   "description": "Cross-AI-IDE workflow-gating CLI + skill family (Claude Code shipped, Trae in progress; Codex / Cursor / Qoder / Tongyi Lingma on the roadmap).",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -33,6 +33,7 @@
     "!skills/**/test-prompts.json",
     "!skills/**/.DS_Store",
     "output-styles/**",
+    "agents/**",
     "schemas/*.json",
     ".claude-plugin/**",
     "README.md",

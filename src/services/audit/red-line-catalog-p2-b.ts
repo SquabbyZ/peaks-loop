@@ -65,7 +65,7 @@ const REF_NO_ORPHAN_LINK: RedLineCatalogEntry = {
 /** Theme J — Reference size + structure (3 enforcers) */
 const REF_LINE_COUNT_LE_800: RedLineCatalogEntry = {
   id: 'rl-ref-line-count-le-800-001',
-  rule: 'Reference size: each reference ≤ 800 lines (Karpathy 4 原则 §2.3)',
+  rule: 'Reference size: each reference ≤ 800 lines (Karpathy Guidelines §2 Simplicity First)',
   markers: ['MANDATORY'],
   phrases: ['800 lines', 'line count', 'karpathy cap', 'file size'],
   enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',

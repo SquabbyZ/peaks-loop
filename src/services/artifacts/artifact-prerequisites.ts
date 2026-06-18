@@ -77,6 +77,19 @@ const PERF_BASELINE: ArtifactPrerequisite = {
   // stub marker. Both paths satisfy Gate B9; absence of both is BLOCKED.
   mustContainAny: ['## Results', 'N/A — no perf surface']
 };
+// Karpathy-Gate (Slice 5/6 — karpathy-enforcement 5-way fanout).
+// Hard gate: rd/karpathy-review.md MUST exist with the 4 guideline section
+// markers (think-before-coding / simplicity-first / surgical-changes /
+// goal-driven-execution) before rd:qa-handoff transitions to qa. The
+// presence marker + the "## Karpathy-Gate" header confirm a real review
+// artefact (not a placeholder). karpathy §1 Think Before Coding +
+// karpathy §3 Surgical Changes are encoded in the gate logic.
+const KARPATHY_REVIEW: ArtifactPrerequisite = {
+  relativePath: 'rd/karpathy-review.md',
+  description:
+    'RD-side karpathy review (peaks-rd 5-way fanout) — must contain a "## Karpathy-Gate" header AND the 4 guideline section markers (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). Per karpathy §1 / §3.',
+  mustContain: ['## Karpathy-Gate', 'Think Before Coding', 'Simplicity First', 'Surgical Changes', 'Goal-Driven Execution']
+};
 const TEST_CASES: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
   description: 'Generated test cases (unit / integration / UI regression)',
@@ -121,7 +134,7 @@ const QA_INITIATED: ArtifactPrerequisite = {
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [TECH_DOC],
-  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
 };

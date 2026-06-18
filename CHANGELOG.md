@@ -7,6 +7,158 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.6.0] — 2026-06-18
+
+### Added (karpathy-enforcement program — slices 1–5)
+
+- **`peaks-rd` 4-way → 5-way fanout with karpathy-reviewer sub-agent** (slice
+  1+5) — every RD implementation now spawns 5 parallel reviewers
+  (`code-reviewer` + `security-reviewer` + `perf-baseline-reviewer` +
+  `qa-test-cases-writer` + `karpathy-reviewer`). The 5th sub-agent emits a
+  compact JSON envelope `{passed, violations, gateAction}` against the 4
+  Karpathy guidelines (Think Before Coding / Simplicity First / Surgical
+  Changes / Goal-Driven Execution). Contract slot at
+  `skills/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer
+  contract (Slice 5/6)". Karpathy-guidelines context block injected into
+  every RD sub-agent prompt via `rd-sub-agent-dispatch.md` (4-section
+  verbatim).
+- **Hard Karpathy-Gate (Slice 5/6)** — new `KARPATHY_REVIEW` prereq in
+  `src/services/artifacts/artifact-prerequisites.ts` blocks
+  `peaks request transition --state qa-handoff` when `rd/karpathy-review.md`
+  is missing or doesn't contain the `## Karpathy-Gate` header + 4
+  title-case section markers (Think Before Coding / Simplicity First /
+  Surgical Changes / Goal-Driven Execution). CLI error code
+  `PREREQUISITES_MISSING`. Escape hatch: `peaks request transition
+  --allow-incomplete --confirm` (assisted mode).
+- **Karpathy prompt-injection across the full RD surface** (slice 1) —
+  4-layer guard: SKILL.md body + 3 reference docs
+  (`mandatory-tech-doc.md`, `rd-fanout-contracts.md`,
+  `rd-sub-agent-dispatch.md`) + 1 sub-agent dispatch context. Regression
+  test `tests/unit/skills/karpathy-prompt-injection.test.ts` (9 cases)
+  asserts the 4-section guidelines block is present in all 4 layers.
+- **`peaks scan karpathy` CLI** (slice 5) — structural scanner for
+  `rd/karpathy-review.md`; markdown + JSON output; 4 guideline
+  classification + section coverage + violation counts. Companion to
+  the karpathy-reviewer sub-agent (regex / file-presence vs semantic
+  review). New service `src/services/scan/karpathy-service.ts` (330
+  lines).
+- **Tech-doc 3 mandatory sections + Gate C enforcer** (slice 2) —
+  `Architecture` / `Existing API or Component Inventory` / `Trade-offs`
+  sections now required in every RD `tech-doc.md`. Enforced at
+  spec-locked gate. New service
+  `src/services/audit/enforcers/tech-doc-mandatory-sections.ts`.
+- **`peaks scan api-surface` CLI** (slice 3) — identifies existing API
+  endpoints / components / stores / mocks in the consumer project
+  before any new code is written. `--project --format --scope --max-per-kind`
+  options; output feeds the tech-doc's `## Existing API or Component
+  Inventory` section. New service
+  `src/services/scan/api-surface-service.ts` (~280 lines).
+- **`peaks scan orphan` CLI** (slice 4) — 4-kind orphan detection
+  (exportOrphan / importOrphan / cliSubcommandOrphan /
+  docEndpointOrphan). `--project --format --scope --strict` options;
+  aligns with karpathy §3 Surgical Changes "remove what your changes
+  made unused". New service `src/services/scan/orphan-service.ts`
+  (~330 lines).
+- **Slice 1-4 + Slice 5 all converged at `state: verdict-issued`** with
+  cumulative **86/86** vitest pass, 0 tsc errors, 0 lint findings, 0
+  diff-vs-scope violations, 0 unclassified files, 0 repair cycles.
+
+### Added (Slice 6/6 + Slice 7/7 — karpathy-reviewer sub-agent prompt + auto-install)
+
+- **`karpathy-reviewer` LLM sub-agent prompt** (slice 6) — full system
+  prompt at `agents/karpathy-reviewer.md` (15.1 KB, 229 lines). 10
+  sections covering role boundary, 4 input contracts, 4 violation
+  detection rules (one per Karpathy guideline), JSON envelope schema
+  (`passed` / `violations[]` / `gateAction`), file-write contract
+  (title-case `## Karpathy-Gate` + 4 guideline sections), 8 hard
+  prohibitions, 5 anti-patterns. Project-internal 2-line pointer at
+  `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (peaks-cli
+  2.0 rules convention).
+- **Auto-install on `npm i -g peaks-cli@latest`** (slice 7) — the
+  `peaks-cli` postinstall (`scripts/install-skills.mjs`) now copies
+  bundled agents from the tarball to `~/.claude/agents/` with
+  content-hash drift detection (`.peaks-managed` marker + SHA-256).
+  Mirrors the existing `output-styles` install contract. New function
+  `installBundledAgents` + per-platform fan-out
+  `installBundledAgentsForAllPlatforms` (claude-code is the only
+  platform with `agentsDir` today; future platforms opt in by adding
+  the field to their `IDE_SKILL_INSTALL_PROFILES` entry).
+- **Escape hatch** (slice 7) — `PEAKS_SKIP_AGENT_INSTALL=1` (skip
+  agent install in CI / sandboxed environments);
+  `PEAKS_CLAUDE_AGENTS_DIR=/custom/path` (per-IDE env-var override,
+  parallel to `PEAKS_CLAUDE_SKILLS_DIR` and
+  `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`).
+- **Tarball coverage** (slice 7) — `package.json#files` adds
+  `"agents/**"` alongside the existing `"skills/**"` and
+  `"output-styles/**"`. `npm pack --dry-run` confirms
+  `agents/karpathy-reviewer.md` (15.8 kB) ships in the tarball.
+
+### Security
+
+- All 4 karpathy sub-agent review surfaces (RD main loop + 5-way
+  fanout) explicitly **MUST NOT install hooks, agents, MCP, or
+  settings** — the global peaks-rd red line, restated as a
+  hard prohibition in the karpathy-reviewer prompt.
+- `installBundledAgents` uses the same TOCTOU-safe atomic write
+  pattern as `installBundledOutputStyles`:
+  `writeFileExclusively` (O_EXCL + O_NOFOLLOW, 0o600 mode, file
+  identity check after write) + `.peaks-managed` marker with
+  SHA-256 hash. Drift detection refuses to overwrite user-authored
+  files (no marker) or stale markers (different source path).
+- The `PEAKS_CLAUDE_AGENTS_DIR` env-var override is documented but
+  not security-sensitive (it points the install at a user-chosen
+  dir; no escalation path).
+- The 3 LOW security findings documented in `qa/security-findings.md`
+  (markdown injection via `--project` value interpolation, path
+  traversal via arbitrary paths, KARPATHY_REVIEW prereq marker
+  spoof) are all non-blocking by design (RD-authored input only,
+  read-only file IO, drift detection prevents tamper).
+
+### Tests
+
+- **141/141 vitest pass** (was 86 in 2.5.0; +55 across the 7 slices):
+  - 9 new `karpathy-prompt-injection.test.ts` (slice 1)
+  - 7 new `tech-doc-mandatory-sections.test.ts` (slice 2)
+  - 8 new `api-surface-scan.test.ts` (slice 3)
+  - 8 new `orphan-scan.test.ts` (slice 4)
+  - 14 new `karpathy-5way-fanout.test.ts` (slice 5)
+  - 9 new `karpathy-6-agent-prompt.test.ts` (slice 6)
+  - 8 new `installBundledAgents` cases in `install-skills-script.test.ts`
+    (slice 7)
+  - **Zero regression** across the 86 prior cases (slices 1-5) and
+    the 38 prior `install-skills-script.test.ts` cases (slice 7's
+    new agents branch).
+- Hard Karpathy-Gate verified end-to-end:
+  `peaks request transition --state qa-handoff` with
+  `rd/karpathy-review.md` present → `state: qa-handoff`; without it
+  → `code: PREREQUISITES_MISSING, missing: rd/karpathy-review.md`.
+- End-to-end postinstall verified against a temp HOME:
+  `Peaks agents installed across 1 platforms (1 total files)`;
+  `~/.claude/agents/karpathy-reviewer.md` (15,786 bytes, mode 0600);
+  `~/.claude/agents/karpathy-reviewer.md.peaks-managed` (224 bytes,
+  valid JSON marker with SHA-256).
+
+### L2 dogfood (deferred)
+
+- **L2-install test for Slice 7** — the auto-install path is
+  L1-verified (vitest + end-to-end postinstall against a temp HOME)
+  but not yet L2-verified on a real consumer machine. A real
+  `npm i -g peaks-cli@2.6.0` + postinstall + content-hash drift
+  check + uninstall + reinstall cycle is the next L2 step (Slice 8
+  follow-up if issues surface).
+- **Trae / Codex / Cursor / Qoder / Tongyi Lingma / Hermes /
+  OpenClaw agent install** — only `claude-code` has `agentsDir`
+  populated in `IDE_SKILL_INSTALL_PROFILES`. Future slices can add
+  the field per-platform once each IDE's agent directory convention
+  is confirmed.
+- **Slice 6 user-handoff doc** — `rd/karpathy-reviewer-agent-handoff.md`
+  is now the auto-install verification doc (the original user-cp
+  design was superseded by Slice 7). L1-verified via the
+  `karpathy-6-agent-prompt.test.ts` AC-7 + AC-8 assertions; L2
+  verification deferred to the first real npm publish.
+
+---
+
 ## [2.5.0] — 2026-06-17
 
 ### Fixed (realworld-fixes slice 014)

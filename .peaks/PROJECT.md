@@ -2,16 +2,17 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-17T01:49:42.135Z
+> Last updated: 2026-06-18T02:07:48.984Z
 
 ## Project: peaks-cli
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (12 sessions)
+## Timeline (13 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-06-17 | `2026-06-17-session-1baf0a` | Untitled | 把 karpathy-guidelines #1 Think Before Coding 和 #2 Simplicity First 从"s |
 | 2026-06-16 | `2026-06-16-session-aaf8c7` | Untitled | PreToolUse:Bash hook error |
 | 2026-06-15 | `2026-06-15-session-b86446` | qr-inline-display 2026-06-15 | Not applicable. CLI surface only; no pages / routes / components / sta |
 | 2026-06-15 | `2026-06-15-session-e697b2` | Untitled | | Commit | What | Files | Insertions/Deletions | |

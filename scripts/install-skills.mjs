@@ -407,8 +407,10 @@ const IDE_SKILL_INSTALL_PROFILES = {
   'claude-code': {
     skillsDir: join(homedir(), '.claude', 'skills'),
     outputStylesDir: join(homedir(), '.claude', 'output-styles'),
+    agentsDir: join(homedir(), '.claude', 'agents'),
     envVar: 'PEAKS_CLAUDE_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_CLAUDE_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_CLAUDE_AGENTS_DIR',
   },
   'trae': {
     skillsDir: join(homedir(), '.trae', 'skills'),
@@ -709,6 +711,197 @@ export function installBundledOutputStyles(options = {}) {
 }
 
 /**
+ * Slice 7/7 — bundled agents (Claude Code sub-agent prompts).
+ *
+ * Mirrors `installBundledOutputStyles` but writes to
+ * `~/.claude/agents/` (Claude Code's sub-agent loader directory). Each
+ * agent file ships under `agents/*.md` in the peaks-cli tarball and is
+ * copied on `npm i -g peaks-cli@latest` with content-hash drift detection
+ * via a `.peaks-managed` marker (SHA-256 of the source content).
+ *
+ * Drift policy (mirrors output-styles):
+ *   - file missing, marker missing       → install (write file + marker)
+ *   - file missing, marker present       → install (replace stale marker)
+ *   - file present, marker present,
+ *     SHA matches, sourcePath matches    → skip (idempotent re-install)
+ *   - file present, marker present,
+ *     SHA matches, sourcePath differs    → skip (stale package path;
+ *                                            preserve user's local file)
+ *   - file present, marker present,
+ *     SHA differs                        → overwrite (package upgrade)
+ *   - file present, no marker            → skip (user-authored file;
+ *                                            preserve)
+ */
+function createManagedAgentMarker(sourcePath, agentName) {
+  const content = readPackageSourceFile(sourcePath);
+  return `${JSON.stringify({ version: 1, kind: 'agent', agentName, sourcePath, contentSha256: hashContent(content) })}\n`;
+}
+
+function parseManagedAgentMarker(managedTarget) {
+  if (managedTarget === null) return null;
+  try {
+    const marker = JSON.parse(managedTarget);
+    if (marker?.version !== 1 || marker?.kind !== 'agent' || typeof marker.agentName !== 'string' || typeof marker.sourcePath !== 'string' || typeof marker.contentSha256 !== 'string') {
+      return null;
+    }
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedAgentSource(marker, sourcePath, agentName) {
+  return marker.agentName === agentName && resolve(marker.sourcePath) === resolve(sourcePath) && basename(resolve(marker.sourcePath)) === agentName;
+}
+
+function getManagedPeaksAgentIdentity(managedTarget, targetPath, sourcePath, agentName) {
+  const marker = parseManagedAgentMarker(managedTarget);
+  const sourceHash = hashContent(readPackageSourceFile(sourcePath));
+  if (marker === null || !isTrustedAgentSource(marker, sourcePath, agentName) || !existsSync(targetPath) || hashFileContent(targetPath) !== sourceHash || marker.contentSha256 !== sourceHash) {
+    return null;
+  }
+  return createFileIdentity(targetPath);
+}
+
+export function installBundledAgents(options = {}) {
+  const packageRoot = resolvePackageRoot(options);
+  const agentsRoot = join(packageRoot, 'agents');
+
+  // Per-IDE env-var override (claude-code only today): PEAKS_CLAUDE_AGENTS_DIR.
+  // Universal escape hatch: PEAKS_SKIP_AGENT_INSTALL=1 (parallel to
+  // PEAKS_SKIP_SKILL_INSTALL).
+  if (process.env.PEAKS_SKIP_SKILL_INSTALL === '1' || process.env.PEAKS_SKIP_AGENT_INSTALL === '1' || !existsSync(agentsRoot)) {
+    return createInstallResult();
+  }
+
+  // Slice #011: IDE-aware dispatch. Same precedence as installBundledOutputStyles.
+  const projectRoot = resolveProjectRoot(options);
+  const detectedIdeId = detectInstalledIdeId(projectRoot);
+  const detectedProfile = resolveIdeSkillInstallProfile(detectedIdeId);
+
+  const profileAgentsDir = detectedProfile?.agentsDir ?? null;
+  const targetRoot = resolve(
+    options.targetRoot
+      ?? (options.ideId !== undefined ? resolveIdeSkillInstallProfile(options.ideId)?.agentsDir ?? null : null)
+      ?? process.env.PEAKS_CLAUDE_AGENTS_DIR
+      ?? profileAgentsDir
+      ?? join(homedir(), '.claude', 'agents')
+  );
+
+  const installed = [];
+  const skipped = [];
+  mkdirSync(targetRoot, { recursive: true });
+  const validateAgentsRoot = createInstallRootValidator(targetRoot, 'Peaks agents');
+
+  for (const agentFileName of readdirSync(agentsRoot)) {
+    const sourcePath = join(agentsRoot, agentFileName);
+    const targetPath = join(targetRoot, agentFileName);
+
+    if (!lstatSync(sourcePath).isFile() || !agentFileName.endsWith('.md')) {
+      continue;
+    }
+
+    const current = getPathStats(targetPath);
+    if (current) {
+      const managedTarget = getManagedTarget(targetPath);
+      const managedTargetIdentity = getManagedPeaksAgentIdentity(managedTarget, targetPath, sourcePath, agentFileName);
+      if (isSameFileIdentity(targetPath, managedTargetIdentity)) {
+        validateAgentsRoot();
+        if (!isSameFileIdentity(targetPath, managedTargetIdentity)) {
+          throw new Error('Peaks agent path changed during unlink');
+        }
+        unlinkSync(targetPath);
+        validateAgentsRoot();
+        unlinkSync(`${targetPath}.peaks-managed`);
+      } else {
+        skipped.push(agentFileName);
+        continue;
+      }
+    }
+
+    const markerPath = `${targetPath}.peaks-managed`;
+    validateManagedMarkerPath(markerPath);
+    if (!current && existsSync(markerPath)) {
+      validateAgentsRoot();
+      unlinkSync(markerPath);
+    }
+    const createdTargetIdentity = writeFileExclusively(targetPath, readPackageSourceFile(sourcePath), 'Peaks agent path changed during write', validateAgentsRoot);
+    try {
+      writeFileExclusively(markerPath, createManagedAgentMarker(sourcePath, agentFileName), 'Peaks managed marker path changed during write', () => {
+        validateAgentsRoot();
+        validateManagedMarkerPath(markerPath);
+      });
+    } catch (error) {
+      validateAgentsRoot();
+      if (isSameFileIdentity(targetPath, createdTargetIdentity)) {
+        unlinkSync(targetPath);
+      }
+      throw error;
+    }
+    installed.push(agentFileName);
+  }
+
+  return { installed, skipped };
+}
+
+/**
+ * Per-platform fan-out — iterate ALL 8 IdeIds and call
+ * `installBundledAgents` for each platform that has an `agentsDir` profile
+ * field. Only `claude-code` ships with `agentsDir` set today; the other 7
+ * platforms return `installed: []` from their profile lookup. Future
+ * platforms can add an `agentsDir` field to their `IDE_SKILL_INSTALL_PROFILES`
+ * entry to opt in.
+ *
+ * Per peaks-cli tenet "minimal-user-operation" (2026-06-11): the user
+ * should never have to run a per-platform install command. Symlink /
+ * copy failures are soft (logged to stderr, never throw) so one platform's
+ * failure doesn't block the others.
+ */
+export function installBundledAgentsForAllPlatforms(options = {}) {
+  const platforms = Object.entries(IDE_SKILL_INSTALL_PROFILES)
+    .filter(([, profile]) => typeof profile.agentsDir === 'string');
+  const perPlatform = [];
+  for (const [ideId, profile] of platforms) {
+    try {
+      // Per-platform env-var override (claude-code only today):
+      // PEAKS_CLAUDE_AGENTS_DIR. This is the same precedence as
+      // installBundledSkillsForAllPlatforms (slice #011). For the
+      // claude-code iteration, if the env var is set, use it as
+      // `targetRoot` (so the env var takes priority over the profile).
+      // For test mode, options.targetRoot also wins.
+      const envOverride = ideId === 'claude-code'
+        ? process.env.PEAKS_CLAUDE_AGENTS_DIR
+        : undefined;
+      const platformOpts = (envOverride !== undefined && envOverride.length > 0)
+        ? { ...options, ideId, targetRoot: envOverride }
+        : (options.targetRoot !== undefined
+          ? { ...options, ideId, targetRoot: options.targetRoot }
+          : { ...options, ideId });
+      const result = installBundledAgents(platformOpts);
+      perPlatform.push({
+        ideId,
+        agentsDir: profile.agentsDir,
+        installed: result.installed,
+        skipped: result.skipped,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `peaks install-agents: ${ideId} platform failed (continuing): ${message}\n`
+      );
+      perPlatform.push({
+        ideId,
+        agentsDir: profile.agentsDir,
+        installed: [],
+        skipped: [],
+        error: message,
+      });
+    }
+  }
+  return perPlatform;
+}
+
+/**
  * Per-platform fan-out — iterate ALL 8 IdeIds and call
  * `installBundledSkills` for each. Per peaks-cli tenet
  * "minimal-user-operation" (2026-06-11): the user should
@@ -931,6 +1124,22 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
       );
     }
     const outputStylesResult = installBundledOutputStyles();
+    // Slice 7/7 — bundled agents (Claude Code sub-agent prompts) ship
+    // under `agents/*.md` in the peaks-cli tarball and are auto-installed
+    // to `~/.claude/agents/` on `npm i -g peaks-cli@latest`. Drift
+    // detection is content-hash + `.peaks-managed` marker (mirrors the
+    // output-styles contract).
+    const agentsPerPlatform = installBundledAgentsForAllPlatforms();
+    let totalAgentsInstalled = 0;
+    for (const p of agentsPerPlatform) {
+      totalAgentsInstalled += p.installed.length;
+    }
+    if (totalAgentsInstalled > 0) {
+      process.stdout.write(
+        `Peaks agents installed across ${agentsPerPlatform.length} platforms ` +
+          `(${totalAgentsInstalled} total files)\n`
+      );
+    }
     let userConfigResult = createConfigResult({ skipped: true });
     try {
       userConfigResult = installUserConfig();
