@@ -136,7 +136,12 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
         'orchestrator contract.'
       )
       .argument('<role>', 'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)')
-      .requiredOption('--prompt <text>', 'the prompt to send to the sub-agent')
+      // 2.7.0 slice-dag-dispatcher MVP: --prompt is required ONLY when --from-dag is NOT
+      // supplied. Previously this was `.requiredOption('--prompt')`, which blocked
+      // `dispatch --from-dag <file>` calls because commander.js validates
+      // `.requiredOption` before the action handler runs. The mutual-exclusion
+      // check is enforced below in the action body (--prompt XOR --from-dag).
+      .option('--prompt <text>', 'the prompt to send to the sub-agent (required unless --from-dag is provided)')
       .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)')
       .option('--request-id <rid>', 'the same <rid> used by peaks request init')
       .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
@@ -165,8 +170,10 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
       return;
     }
     if (!options.prompt || options.prompt.length === 0) {
-      printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required', { role, toolCall: null, dispatchRecordPath: null } as never, [
-        'Re-run with a non-empty --prompt value.'
+      printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required when --from-dag is not provided', { role, toolCall: null, dispatchRecordPath: null } as never, [
+        'Re-run with either:',
+        '  • `--prompt <text>` for single-role dispatch, OR',
+        '  • `--from-dag <file>` for DAG-aware multi-slice dispatch (no --prompt needed; the per-slice prompt is generated from the DAG nodes).'
       ]), asJson);
       process.exitCode = 1;
       return;
