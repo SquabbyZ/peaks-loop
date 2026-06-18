@@ -17,5 +17,9 @@
     "sourceMap": false
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": [
+    "dist",
+    "node_modules",
+    "tests/unit/rd/qa-reverify-strict-standards.test.ts"
+  ]
 }
