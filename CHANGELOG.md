@@ -27,6 +27,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.7.0] — 2026-06-18
+
+### Added
+
+- **Slice DAG dependency analysis + parallel sub-agent dispatch (slice 1.2)** —
+  the `peaks-cli` repo now ships a typed DAG model for slicing work across
+  parallel sub-agents. `src/services/dispatch/slice-dag.ts` exports
+  `validateDag` (cycle detection with path-in-error-message),
+  `topologicalLevels` (linear / diamond / parallel DAGs), and
+  `sliceReadyToRun(dag, completed)` (next-layer fan-out query). Node IDs are
+  globally unique, node roles are whitelisted, and DAG serialization is
+  SHA-256 hash-stable on key-sorted serialization. The new
+  `peaks sub-agent dispatch --from-dag <file>` flag and the new
+  `peaks sub-agent await --batch <id> [--timeout <ms>]` subcommand wrap the
+  model. The `dispatch <role>` single-sub-agent path is byte-stable zero-change.
+- **Contract broadcast for downstream slices (slice 1.2)** —
+  `src/services/dispatch/contract-store.ts` persists each completed slice's
+  public surface (`exports` / `types` / `publicSignatures`) to
+  `.peaks/_runtime/<sessionId>/dispatch/contracts/<slice-id>.json`. The B/C/D
+  dispatch prompts auto-inject A's contract under a `slice A contract:`
+  segment so downstream slices see the dependency without re-reading source.
+- **Solo DAG orchestrator with cancel-on-fail (slice 1.2)** —
+  `src/services/solo/dag-orchestrator.ts` exports `runDag(dag, opts)`:
+  topological-layer fan-out, per-layer join barrier, 任一叶子失败整组回退
+  (any leaf failure → in-flight sub-agents receive cancel signal → RD
+  returns to repair). peaks-solo SKILL.md references the orchestrator.
+- **5-IDE `awaitBatch` real implementation (slices 1.2 + 1.3 + 1.4)** —
+  `SubAgentDispatcher.awaitBatch(batchId, opts): Promise<BatchResult[]>`
+  is now implemented across **all 5 IDEs**: claude-code (1.2 MVP) +
+  trae + trae-cn + codex + cursor (1.3 expansion). The 4 non-claude-code
+  IDEs share `pollDispatchRecords()` core (cross-platform file-polling via
+  `homedir() + join()`); per-IDE `notePrefix` attributes the surfaced note.
+  Per-IDE timeout defaults: trae 30s / trae-cn 30s / cursor 30s /
+  codex 45s / claude-code 60s. Uniform 120_000ms clamp ceiling.
+- **5-IDE end-to-end dogfood (slice 1.4)** —
+  `tests/unit/dispatch/slice-dag-dispatcher-5ide-dogfood.test.ts` runs the
+  same 5-node mock DAG (4 done + 1 failed at idx 2) through every IDE's
+  `awaitBatch`. Cross-IDE envelope dimensions are byte-stable
+  (length=5 / dispatchIndex 0..4 / status array / recordPath unique /
+  durationMs >= 0). The `note` label is per-IDE attributed as documented
+  divergence (claude-code reads raw outcome; trae/trae-cn/codex/cursor
+  prefix with `${notePrefix} — ${outcome}`). Zero IDE-specific differences
+  required production code fixes — the differences are design-driven.
+- **RD tech-doc `## Slice DAG` section + enforcer (slice 1.2)** —
+  `skills/peaks-rd/references/mandatory-tech-doc.md` gains a new
+  `## Slice DAG` section (visual + text) alongside § Architecture /
+  § Component / § Data flow / § Dependencies. The enforcer
+  (`tech-doc-mandatory-sections.ts`) treats it as a required heading;
+  missing section → `TECH_DOC_MISSING_SECTION` gate failure.
+- **UT 4-dimension split convention (proposal 2, slice 2.1)** —
+  `.peaks/standards/typescript/testing.md` codifies the 4 orthogonal test
+  dimensions: **render** (output shape) / **behavior** (state transitions)
+  / **integration** (boundary mocks) / **a11y** (human-facing signal).
+  Each `describe(...)` block maps to exactly one dimension; no test case
+  spans dimensions. The convention has both a frontend and a CLI/non-UI
+  reading. Promotion is via the code-reviewer sub-agent hint at
+  `skills/peaks-rd/references/code-reviewer-4dim-hint.md` (a verbatim
+  block appended to the code-reviewer prompt at dispatch time). **No lint
+  rule introduced**, no retroactive refactor of existing 3500+ test cases —
+  the convention applies to NEW test files only.
+
+### Changed
+
+- `package.json` and `src/shared/version.ts` bumped 2.6.1 → 2.7.0.
+- `SubAgentDispatcher` interface (5 implementations) gains
+  `awaitBatch(batchId, opts): Promise<BatchResult[]>` (type-only extension).
+- `peaks sub-agent dispatch` and `peaks sub-agent await` gain DAG-aware
+  flags (`--from-dag`, `--batch-id`) and the new subcommand respectively.
+  Single-sub-agent `dispatch <role>` envelope shape is byte-stable zero-change.
+- `karpathy-reviewer` prompt-injection context remains in
+  `references/rd-sub-agent-dispatch.md`; the new 4-dim hint is appended
+  after the Karpathy block.
+
+### Fixed
+
+- **Cross-platform path discipline (slice 1.3)** —
+  `tests/unit/dispatch/sub-agent-dispatcher-cross-platform.test.ts` pins
+  the `homedir() + join()` construction so a Windows user gets
+  `C:\Users\name\.trae\agents` and a Mac user gets
+  `/Users/name/.trae/agents`. No hardcoded `/Users/...` or `C:\...` in
+  any 5-IDE `awaitBatch` path. The 4 new IDE paths (`trae / trae-cn /
+  codex / cursor`) follow the same discipline.
+- **`runDag` cancel-on-fail correctness (slice 1.2.c)** — when any leaf
+  fails, in-flight sub-agents in the same batch receive a cancel signal
+  at the envelope level; the orchestrator no longer waits for them to
+  finish naturally. Pinned by `tests/unit/solo/dag-orchestrator.test.ts`.
+
+### Security
+
+- No new attack surface in 2.7.0. The contract-broadcast path writes
+  JSON to `.peaks/_runtime/<sessionId>/dispatch/contracts/` (project-local,
+  gitignored); no cross-user / cross-process access pattern was added.
+  The 4-dim convention does not introduce eval / dynamic-import / unsafe
+  code paths.
+
+---
+
 ## [2.6.1] — 2026-06-18
 
 ### Added
