@@ -31,6 +31,7 @@ import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.
 import { registerAuditCommands } from './commands/audit-commands.js';
 import { registerClassifyCommands } from './commands/classify-classify-commands.js';
 import { registerContextCommands } from './commands/context-commands.js';
+import { registerContractCommands } from './commands/contract-commands.js';
 import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
 import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
@@ -202,6 +203,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSliceCommands(program, io);
  registerSopCommands(program, io);
  registerSubAgentCommands(program, io);
+  registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
  // `peaks --help` (no description text); used by `peaks hooks install`
  // to wire the PreToolUse hook chain.
