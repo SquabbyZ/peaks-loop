@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdtemp } from 'node:fs/promises';
 import { CODEX_ADAPTER } from '../../../src/services/ide/adapters/codex-adapter.js';
+import { codexSubAgentDispatcher } from '../../../src/services/dispatch/sub-agent-dispatcher.js';
 import { CLAUDE_CODE_ADAPTER } from '../../../src/services/ide/adapters/claude-code-adapter.js';
 import { _resetAdaptersForTesting, getAdapter, listAdapterIds } from '../../../src/services/ide/ide-registry.js';
 import { applyHookInstall, readHookStatus } from '../../../src/services/skills/hooks-settings-service.js';
@@ -116,13 +117,15 @@ describe('CODEX_ADAPTER — registry integration', () => {
   });
 });
 
-describe('CODEX_ADAPTER — subAgentDispatcher reuse (slice #009 rationale)', () => {
-  test('subAgentDispatcher reference is the claude-code dispatcher (byte-level identical by design)', () => {
-    // Slice #013 rationale: Codex sub-agent tool name TBD on real dogfood;
-    // reuse the claude-code dispatcher for byte-stability. A follow-up slice
-    // can add a `codexSubAgentDispatcher` if Codex's sub-agent shape
-    // diverges, without changing the adapter contract.
-    expect(CODEX_ADAPTER.subAgentDispatcher).toBe(CLAUDE_CODE_ADAPTER.subAgentDispatcher);
+describe('CODEX_ADAPTER — subAgentDispatcher per-IDE attribution (slice 1.3 AC-3.c)', () => {
+  test('subAgentDispatcher reference is the codex dispatcher (real awaitBatch, 45s default)', () => {
+    // Slice 1.3 AC-3.c: Codex promotes off `claudeCodeSubAgentDispatcher`
+    // placeholder to its own `codexSubAgentDispatcher` (real file-polling
+    // awaitBatch, 45s default per slice #13 R-3). The `buildToolCall`
+    // shape remains byte-identical to claude-code; only the awaitBatch
+    // wiring diverges.
+    expect(CODEX_ADAPTER.subAgentDispatcher).toBe(codexSubAgentDispatcher);
+    expect(CODEX_ADAPTER.subAgentDispatcher).not.toBe(CLAUDE_CODE_ADAPTER.subAgentDispatcher);
   });
 });
 

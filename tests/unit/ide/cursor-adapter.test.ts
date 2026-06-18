@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mkdtemp } from 'node:fs/promises';
 import { CURSOR_ADAPTER } from '../../../src/services/ide/adapters/cursor-adapter.js';
 import { CLAUDE_CODE_ADAPTER } from '../../../src/services/ide/adapters/claude-code-adapter.js';
+import { cursorSubAgentDispatcher } from '../../../src/services/dispatch/sub-agent-dispatcher.js';
 import { _resetAdaptersForTesting, getAdapter, listAdapterIds } from '../../../src/services/ide/ide-registry.js';
 import { applyHookInstall, readHookStatus } from '../../../src/services/skills/hooks-settings-service.js';
 
@@ -110,13 +111,14 @@ describe('CURSOR_ADAPTER — registry integration', () => {
   });
 });
 
-describe('CURSOR_ADAPTER — subAgentDispatcher reuse (slice #009 rationale, AC1 byte-stable subAgentDispatcher)', () => {
-  test('subAgentDispatcher reference is the claude-code dispatcher (byte-level identical by design)', () => {
-    // Slice #012 rationale: Cursor sub-agent tool name TBD on real dogfood;
-    // reuse the claude-code dispatcher for byte-stability. A follow-up slice
-    // can add a `cursorSubAgentDispatcher` if Cursor's sub-agent shape
-    // diverges, without changing the adapter contract.
-    expect(CURSOR_ADAPTER.subAgentDispatcher).toBe(CLAUDE_CODE_ADAPTER.subAgentDispatcher);
+describe('CURSOR_ADAPTER — subAgentDispatcher per-IDE attribution (slice 1.3 AC-3.c)', () => {
+  test('subAgentDispatcher reference is the cursor dispatcher (real awaitBatch, 30s default)', () => {
+    // Slice 1.3 AC-3.c: Cursor promotes off `claudeCodeSubAgentDispatcher`
+    // placeholder to its own `cursorSubAgentDispatcher` (real file-polling
+    // awaitBatch, 30s default). The `buildToolCall` shape remains
+    // byte-identical to claude-code; only the awaitBatch wiring diverges.
+    expect(CURSOR_ADAPTER.subAgentDispatcher).toBe(cursorSubAgentDispatcher);
+    expect(CURSOR_ADAPTER.subAgentDispatcher).not.toBe(CLAUDE_CODE_ADAPTER.subAgentDispatcher);
   });
 });
 

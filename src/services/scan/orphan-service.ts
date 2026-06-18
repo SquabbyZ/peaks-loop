@@ -26,6 +26,13 @@ export type OrphanScanOptions = {
   scope?: OrphanScope;
   /** Strict mode: report exportOrphans even outside the working tree. */
   strict?: boolean;
+  /**
+   * Slice 2.6.1.A.4: git ref to diff against (default: HEAD).
+   * When supplied, `git diff --name-status <baseRef>` is used instead of
+   * the implicit `git diff --name-status HEAD`. Useful for branch-vs-main
+   * scans and for cross-branch orphan detection.
+   */
+  baseRef?: string;
 };
 
 export type ExportOrphan = {
@@ -66,7 +73,19 @@ export type OrphanReport = {
   warnings: string[];
 };
 
-const DEFAULT_DIRS = ['src/cli', 'src/services', 'skills'] as const;
+const DEFAULT_DIRS = ['src/cli', 'src/services', 'skills', 'tests'] as const;
+// Slice 2.6.1.A.1: top-level commands registered via `register*Commands(program)`
+// are wired through the program constructor, not through string references.
+// Skip orphan detection for them so sub-commands of these parents aren't
+// confused for top-level orphans.
+const PARENT_COMMANDS = new Set([
+  'scan', 'request', 'session', 'sub-agent', 'openspec', 'sop', 'workspace',
+  'qa', 'sc', 'txt', 'code-review', 'rd', 'sh', 'config', 'audit', 'codegraph',
+  'context', 'agent', 'capability', 'classify', 'companion', 'gstack', 'gate',
+  'hook', 'hooks', 'log', 'loop', 'memory', 'perf', 'playwright', 'preferences',
+  'project', 'retrospective', 'slice', 'statusline', 'understand', 'workflow',
+  'migrate', 'mcp', 'doctor', 'help'
+]);
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
 
 const EXPORT_FUNCTION_RE = /^export\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm;
@@ -75,9 +94,15 @@ const EXPORT_CONST_RE = /^export\s+const\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_INTERFACE_RE = /^export\s+interface\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_TYPE_RE = /^export\s+type\s+([A-Za-z_$][\w$]*)/gm;
 const EXPORT_ENUM_RE = /^export\s+enum\s+([A-Za-z_$][\w$]*)/gm;
+// Slice 2.6.1.A.2: default-export detection (anonymous forms skipped — no name to track).
+const EXPORT_DEFAULT_FUNCTION_RE = /^export\s+default\s+(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm;
+const EXPORT_DEFAULT_CLASS_RE = /^export\s+default\s+class\s+([A-Za-z_$][\w$]*)/gm;
 
 const COMMAND_RE = /\.command\(\s*['"]([a-z][a-z0-9-]*)['"]/g;
 const COMMAND_NAME_USE_RE = /['"]([a-z][a-z0-9-]*)['"]/g;
+// Slice 2.6.1.A.3: re-export detection (`export { a, b } from './c'`).
+const RE_EXPORT_NAMED_RE = /export\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
+const RE_EXPORT_TYPE_RE = /export\s+type\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
 
 const NAMED_IMPORT_RE = /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g;
 const SIDE_EFFECT_IMPORT_RE = /import\s+['"]([^'"]+)['"]/g;
@@ -166,7 +191,8 @@ type ExportedSymbol = { name: string; kind: ExportOrphan['kind']; sourceFile: st
 function scanExportsInFile(content: string, sourceFile: string): ExportedSymbol[] {
   const out: ExportedSymbol[] = [];
   for (const re of [EXPORT_FUNCTION_RE, EXPORT_CLASS_RE, EXPORT_CONST_RE,
-                    EXPORT_INTERFACE_RE, EXPORT_TYPE_RE, EXPORT_ENUM_RE]) {
+                    EXPORT_INTERFACE_RE, EXPORT_TYPE_RE, EXPORT_ENUM_RE,
+                    EXPORT_DEFAULT_FUNCTION_RE, EXPORT_DEFAULT_CLASS_RE]) {
     re.lastIndex = 0;
   }
   let m: RegExpExecArray | null;
@@ -187,6 +213,13 @@ function scanExportsInFile(content: string, sourceFile: string): ExportedSymbol[
   }
   while ((m = EXPORT_CONST_RE.exec(content)) !== null) {
     out.push({ name: m[1] as string, kind: 'const', sourceFile, line: lineOf(content, m.index) });
+  }
+  // Slice 2.6.1.A.2: track named default exports.
+  while ((m = EXPORT_DEFAULT_FUNCTION_RE.exec(content)) !== null) {
+    out.push({ name: m[1] as string, kind: 'function', sourceFile, line: lineOf(content, m.index) });
+  }
+  while ((m = EXPORT_DEFAULT_CLASS_RE.exec(content)) !== null) {
+    out.push({ name: m[1] as string, kind: 'class', sourceFile, line: lineOf(content, m.index) });
   }
   return out;
 }
@@ -255,8 +288,13 @@ function extractTechDocEndpoints(content: string): string[] {
   return Array.from(new Set(out));
 }
 
-function diffVsHead(projectRoot: string): { added: string[]; removed: string[]; modified: string[] } {
-  const res = spawnSync('git', ['diff', '--name-status', 'HEAD'], {
+function diffVsHead(projectRoot: string, baseRef?: string): { added: string[]; removed: string[]; modified: string[] } {
+  // Slice 2.6.1.A.4: when a base ref is supplied, diff against that ref instead of HEAD.
+  // Default behaviour (no baseRef) preserves backward compatibility.
+  const args = baseRef
+    ? ['diff', '--name-status', baseRef]
+    : ['diff', '--name-status', 'HEAD'];
+  const res = spawnSync('git', args, {
     cwd: projectRoot,
     encoding: 'utf8',
     timeout: 5000
@@ -282,6 +320,39 @@ function diffVsHead(projectRoot: string): { added: string[]; removed: string[]; 
 }
 
 /**
+ * Slice 2.6.1.A.3: scan a file for re-export statements of the form
+ *   export { a, b, c } from './source';
+ *   export type { T } from './source';
+ * The returned entries tell the orphan scanner that `a`, `b`, `c` are
+ * consumed (re-exported) and therefore should not be flagged as orphans
+ * when the source file is the only declared source of those symbols.
+ */
+function scanReExportsInFile(
+  content: string,
+  sourceFile: string,
+  projectRoot: string
+): Array<{ symbol: string; from: string; line: number; resolvedFrom: string | null }> {
+  const out: Array<{ symbol: string; from: string; line: number; resolvedFrom: string | null }> = [];
+  for (const re of [RE_EXPORT_NAMED_RE, RE_EXPORT_TYPE_RE]) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+      const raw = m[1] as string;
+      const from = m[2] as string;
+      const resolved = from.startsWith('.') ? resolveImportPath(sourceFile, from, projectRoot) : null;
+      const symbols = raw
+        .split(',')
+        .map((s) => s.trim().split(/\s+as\s+/)[0]?.trim() ?? '')
+        .filter((s) => s.length > 0);
+      for (const sym of symbols) {
+        out.push({ symbol: sym, from, line: lineOf(content, m!.index), resolvedFrom: resolved });
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Scan the project for orphan symbols. Read-only. Never throws;
  * failures surface as warnings in the report.
  */
@@ -302,7 +373,7 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
     }
   }
 
-  const diff = scope === 'all' ? { added: files, removed: [], modified: files } : diffVsHead(options.projectRoot);
+  const diff = scope === 'all' ? { added: files, removed: [], modified: files } : diffVsHead(options.projectRoot, options.baseRef);
   const changedSet = new Set<string>([...diff.added, ...diff.modified]);
 
   const allExports = buildExportIndex(files, fileContents);
@@ -350,6 +421,11 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
         importedNameCount.set(sym, (importedNameCount.get(sym) ?? 0) + 1);
       }
     }
+    // Slice 2.6.1.A.3: re-exports count as a consumer reference.
+    const reExports = scanReExportsInFile(content, rel, options.projectRoot);
+    for (const re of reExports) {
+      importedNameCount.set(re.symbol, (importedNameCount.get(re.symbol) ?? 0) + 1);
+    }
     SIDE_EFFECT_IMPORT_RE.lastIndex = 0;
     let sm: RegExpExecArray | null;
     while ((sm = SIDE_EFFECT_IMPORT_RE.exec(content)) !== null) {
@@ -389,28 +465,33 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
     let m: RegExpExecArray | null;
     while ((m = COMMAND_RE.exec(content)) !== null) {
       const name = m[1] as string;
-      if (['scan', 'request', 'session', 'sub-agent', 'openspec', 'sop', 'workspace', 'qa', 'sc', 'txt', 'code-review', 'rd', 'sh'].includes(name)) continue;
+      // Slice 2.6.1.A.1: skip top-level commands — they're wired through
+      // `register*Commands(program)`, not through string references.
+      if (PARENT_COMMANDS.has(name)) continue;
       declaredCommands.set(name, { sourceFile: rel });
     }
   }
   const usageCount = new Map<string, number>();
-  for (const [name] of declaredCommands) {
+  for (const [name, meta] of declaredCommands) {
+    // Slice 2.6.1.A.1: exclude the declaration file itself. A subcommand
+    // is "wired" iff its name appears as a string literal in any other
+    // file (typically a wiring site or a tech-doc reference).
     let count = 0;
-    for (const [, content] of fileContents) {
+    for (const [rel, content] of fileContents) {
+      if (rel === meta.sourceFile) continue;
       const useRe = new RegExp(`['"]${name}['"]`, 'g');
       const matches = content.match(useRe);
       if (matches) count += matches.length;
-      if (count > 1) break;
     }
     usageCount.set(name, count);
   }
   const cliSubcommandOrphans: CliSubcommandOrphan[] = [];
   for (const [name, meta] of declaredCommands) {
-    if ((usageCount.get(name) ?? 0) <= 1) {
+    if ((usageCount.get(name) ?? 0) === 0) {
       cliSubcommandOrphans.push({
         name,
         sourceFile: meta.sourceFile,
-        reason: `declared in ${meta.sourceFile} but only referenced once (declaration site)`
+        reason: `declared in ${meta.sourceFile} but not referenced in any other file`
       });
     }
   }
@@ -430,7 +511,7 @@ export async function scanOrphans(options: OrphanScanOptions): Promise<OrphanRep
     if (ep.startsWith('peaks ')) {
       const parts = ep.split(/\s+/);
       const sub = parts[1] ?? '';
-      if (sub && !declaredCommands.has(sub) && !['scan', 'request', 'session', 'sub-agent'].includes(sub)) {
+      if (sub && !declaredCommands.has(sub) && !PARENT_COMMANDS.has(sub)) {
         if (scope === 'all' || strict) {
           docEndpointOrphans.push({ endpoint: ep, declaredIn: 'tech-doc' });
         }
