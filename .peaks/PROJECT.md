@@ -2,9 +2,19 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-18T02:07:48.984Z
+> Last updated: 2026-06-19T00:00:00.000Z
 
 ## Project: peaks-cli
+
+## Conventions
+
+- **`.peaks/` workspace underscore-prefix convention (since 2.8.0)** — any
+  top-level segment under `.peaks/` whose name starts with `_` is **ephemeral**
+  (gitignored by the single `.peaks/_*/` rule). Non-underscored segments are
+  git-tracked source-of-truth. Two explicit exceptions are documented in
+  `.gitignore`: `.peaks/runtime/` (typo guard) and `.peaks/preferences.json`
+  (per-project user state). Full rule at
+  `.peaks/memory/workspace-underscore-convention.md`.
 
 <!-- peaks-managed:session-history-start -->
 

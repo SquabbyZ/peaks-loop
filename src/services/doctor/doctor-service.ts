@@ -412,7 +412,7 @@ function defaultWorkspaceLayoutProbe(): WorkspaceLayoutInspection {
 // slices left behind, e.g. `.peaks/001-2026-06-06-doctor-dist-version-check/`.
 // The pattern is intentionally narrow so it does NOT match the
 // post-F3 system dirs (`_runtime/`, `_dogfood/`, `retrospective/`,
-// `issues/`, `memory/`, `perf-baseline/`, `project-scan/`, `sops/`,
+// `memory/`, `perf-baseline/`, `project-scan/`, `sops/`,
 // `0NN-session-...`, `YYYY-MM-DD-session-...`).
 const PER_CHANGE_ID_PATTERN = /^\d{3}-\d{4}-\d{2}-\d{2}-[a-z][a-z0-9-]*[a-z0-9]$/;
 
