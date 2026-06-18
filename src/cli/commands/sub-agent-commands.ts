@@ -27,12 +27,11 @@ import { detectInstalledIde } from '../../services/ide/ide-detector.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import {
   SubAgentNotSupportedError,
-  type SubAgentRole,
   type SubAgentToolCall,
   type SubAgentBatchResult,
   type SubAgentAwaitBatchInput
 } from '../../services/dispatch/sub-agent-dispatcher.js';
-import { noteDispatched, readBatchCount, BATCH_OVER_LIMIT_CODE, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
+import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
 import { runDag, buildDispatchSpec, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
 import { listContracts, hashContract, type SliceContract } from '../../services/dispatch/contract-store.js';
@@ -747,14 +746,24 @@ async function runDispatchFromDag(
     return;
   }
 
-  // MVP (1.2): emit ONE dispatch spec for the first topological level. The
-  // LLM-side runner actually executes each `buildToolCall`; the CLI is a
-  // planning facade only. We delegate the level-by-level iteration +
-  // join barrier + cancel-on-fail to `runDag` (so the orchestrator IS in
-  // the path — not a dead-code import). The CLI's runner emits the level
-  // toolCalls and returns `cancelled` for downstream levels; the
-  // orchestrator's rollback path then breaks out after level 1.
-  const levelArr = topologicalLevels(dag);
+  // MVP (1.2): the orchestrator iterates topological levels + join
+  // barrier + cancel-on-fail end-to-end. The CLI's runner returns `done`
+  // for every leaf (so runDag's cancel-on-fail path is exercised when a
+  // leaf actually fails); the CLI envelope filters `emittedToolCalls` to
+  // the first level only (see `firstLevelIds`). The LLM-side runner
+  // re-invokes `--from-dag` for level 2+ after writing level-1
+  // contracts via `peaks contract write`.
+  let levelArr: readonly (readonly string[])[];
+  try {
+    levelArr = topologicalLevels(dag);
+  } catch (err) {
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `topologicalLevels failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'The DAG passed validateDag() but topologicalLevels threw (likely a cycle that slipped past validateDag, or a runtime invariant).',
+      'Re-run `peaks scan dag <file>` (slice 1.4 CLI) to inspect the plan before re-invoking dispatch.'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
 
   // Read upstream contracts so downstream-level prompts (when re-invoked
   // for level 2+) get auto-injected ancestors via `formatContractInjection`.
@@ -859,13 +868,25 @@ async function runDispatchFromDag(
   // `cancelled`, once 1.3 lands). The CLI envelope below filters
   // `emittedToolCalls` / `emittedSliceIds` to the first level — see the
   // `firstLevelIds` filter inside `cliRunner`.
-  await runDag(dag, {
-    projectRoot,
-    sessionId: sid,
-    existingContracts,
-    runSlice: cliRunner,
-    writeContractFn: noopWriter
-  });
+  try {
+    await runDag(dag, {
+      projectRoot,
+      sessionId: sid,
+      existingContracts,
+      runSlice: cliRunner,
+      writeContractFn: noopWriter
+    });
+  } catch (err) {
+    // runDag throws DagPlanError for plan-level failures (e.g. cycle
+    // slipping past validateDag). Surface it as INVALID_DAG so the
+    // CLI envelope has a clear failure code, not a generic DISPATCH_ERROR.
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `runDag failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'runDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+      'Inspect the DAG file and re-run.'
+    ]), asJson);
+    process.exitCode = 1;
+    return;
+  }
 
   printResult(io, ok('sub-agent.dispatch', {
     role,
