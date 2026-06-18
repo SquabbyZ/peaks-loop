@@ -16,6 +16,8 @@ import { runStaticAudit, type AgentShieldState } from '../../services/audit/stat
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
+import type { AuditDecisionRecord } from '../../services/audit/decision-writer.js';
+import { writeAuditDecision } from '../../services/audit/decision-writer.js';
 
 type RedLinesOptions = {
   project: string;
@@ -29,6 +31,8 @@ type StaticAuditOptions = {
   noColor?: boolean;
   enableAgentShield?: boolean;
   disableAgentShield?: boolean;
+  record?: boolean;
+  rid?: string;
 };
 
 function validateProjectRoot(projectArg: string): { ok: true; projectRoot: string } | { ok: false; code: string; message: string } {
@@ -51,6 +55,8 @@ function validateProjectRoot(projectArg: string): { ok: true; projectRoot: strin
 export interface StaticAuditData {
   readonly audit: RedLineAudit;
   readonly agentShield: AgentShieldState;
+  /** Populated only when `--record` is passed. Persisted decision record path. */
+  readonly decision?: AuditDecisionRecord;
 }
 
 export function registerAuditCommands(program: Command, io: ProgramIO): void {
@@ -101,6 +107,14 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   // `agentShieldEnabled` flag (default false). The CLI flags
   // `--enable-agent-shield` / `--disable-agent-shield` override
   // the preference for a single call.
+  //
+  // Slice K1 (2.8.0): `--record` persists the audit snapshot as a
+  // project-memory decision at `.peaks/memory/audit-decisions/<slug>.md`.
+  // `--rid <id>` is an optional disambiguator for multiple audits on
+  // the same day (slug becomes `audit-decision-<date>-<rid>`).
+  // Per `peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first`
+  // and the dev-preference red line "Default-no on new CLI commands",
+  // we extend the existing command rather than register a new subcommand.
   addJsonOption(
     audit
       .command('static')
@@ -108,6 +122,8 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       .requiredOption('--project <path>', 'target project root')
       .option('--enable-agent-shield', 'force-enable ECC AgentShield subprocess for this call (overrides preference)')
       .option('--disable-agent-shield', 'force-disable ECC AgentShield subprocess for this call (overrides preference)')
+      .option('--record', 'persist the audit snapshot to .peaks/memory/audit-decisions/ as a project-memory decision')
+      .option('--rid <rid>', 'disambiguator for the decision record slug (used with --record; pairs multiple audits on the same day)')
   ).action(async (options: StaticAuditOptions) => {
     const validation = validateProjectRoot(options.project);
     if (!validation.ok) {
@@ -133,6 +149,19 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       return;
     }
 
+    // Slice K1: `--rid` is meaningful only with `--record`. Surface a 422
+    // when the user passes `--rid` without `--record` so the CLI fails
+    // loudly rather than silently ignoring the request id.
+    if (options.rid && !options.record) {
+      printResult(
+        io,
+        fail<StaticAuditData>('audit.static', 'FLAGS_CONFLICT', '`--rid` requires `--record` (decision slug disambiguator has no effect without persistence)', emptyStaticAuditData(), ['Pass `--record` together with `--rid <id>`, or omit `--rid`']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     try {
       const result = runStaticAudit({
         projectRoot: validation.projectRoot,
@@ -142,9 +171,28 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
           ? { enableAgentShield: false }
           : {}),
       });
+
+      // Persist the decision record when `--record` is set. The writer is
+      // idempotent at the slug level (same date+rid → same file); repeated
+      // runs overwrite. Failures here are surfaced as warnings so the
+      // primary audit JSON still reaches the caller.
+      let decision: AuditDecisionRecord | undefined;
+      let recordWarning: string | undefined;
+      if (options.record) {
+        try {
+          decision = writeAuditDecision(result.audit, {
+            projectRoot: validation.projectRoot,
+            ...(options.rid ? { rid: options.rid } : {})
+          });
+        } catch (writeError) {
+          recordWarning = `Failed to write decision record: ${getErrorMessage(writeError)}`;
+        }
+      }
+
       const data: StaticAuditData = {
         audit: result.audit,
         agentShield: result.agentShield,
+        ...(decision ? { decision } : {})
       };
       const nextActions: string[] = [];
       // Per spec §5.3 + §7.2: when ECC is not installed, surface
@@ -163,10 +211,15 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       if (result.agentShield.spawned && result.agentShield.findings.length > 0) {
         nextActions.push(`${result.agentShield.findings.length} ECC findings merged into the audit. Review with \`peaks audit static --json\`.`);
       }
+      if (decision) {
+        nextActions.push(`Decision record written: ${decision.filePath}`);
+        nextActions.push(`Index synced: ${decision.indexSynced ? 'yes' : 'no'} (memory hot.decision[] now includes this audit)`);
+      }
+      const warnings = recordWarning ? [...result.warnings, recordWarning] : [...result.warnings];
       const envelope: ResultEnvelope<StaticAuditData> = ok(
         'audit.static',
         data,
-        [...result.warnings],
+        warnings,
         nextActions,
       );
       printResult(io, envelope, options.json);

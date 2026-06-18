@@ -337,7 +337,7 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
   for (const id of candidateSessionIds) {
     // Legacy session-id format OR new change-id format. Reject files
     // and other non-scope entries (e.g. .peaks-init-hooks-decision.json,
-    // PROJECT.md, _runtime, memory, sops, issues, perf-baseline, etc.)
+    // PROJECT.md, _runtime, memory, sops, perf-baseline, etc.)
     if (!isScopeDirName(id)) continue;
     if (sessionOwnsSlice(projectRoot, id, sliceId)) {
       return id;
