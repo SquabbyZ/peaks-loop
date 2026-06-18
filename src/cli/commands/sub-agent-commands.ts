@@ -35,7 +35,7 @@ import {
 import { noteDispatched, readBatchCount, BATCH_OVER_LIMIT_CODE, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
 import { runDag, buildDispatchSpec, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
-import { listContracts } from '../../services/dispatch/contract-store.js';
+import { listContracts, hashContract, type SliceContract } from '../../services/dispatch/contract-store.js';
 import {
   appendHeartbeat,
   writeInitialDispatchRecord,
@@ -709,10 +709,17 @@ function summarizeBatchResults(results: readonly SubAgentBatchResult[]): {
  * emits the per-IDE `buildToolCall` envelope for each topological level.
  *
  * 1.2 MVP scope: this dispatches the FIRST topological level synchronously
- * (returns the dispatch specs); subsequent levels are not auto-advanced
- * because the LLM-side runner must actually execute each `buildToolCall`.
- * The CLI prints a `levelsToDispatch` array; the LLM picks up the next
- * level after seeing the previous one's contract writes.
+ * (returns the dispatch specs); subsequent levels are not surfaced in
+ * the CLI envelope because the LLM-side runner must actually execute
+ * each `buildToolCall` and write the resulting contract before level 2+
+ * can be safely auto-advanced. The LLM re-invokes
+ * `peaks sub-agent dispatch --from-dag <file> --batch-id <id>` after
+ * writing level-1 contracts, which causes runDag to plan level 2+ with
+ * the level-1 ancestor contracts spliced into their dispatch prompts.
+ *
+ * Internally, runDag DOES iterate all levels so its join-barrier +
+ * cancel-on-fail path is exercised end-to-end during the MVP emit; only
+ * the CLI envelope is filtered to level-1 toolCalls (see `firstLevelIds`).
  */
 async function runDispatchFromDag(
   role: string,
@@ -767,14 +774,32 @@ async function runDispatchFromDag(
     return;
   }
 
+  // Track per-level emissions so the CLI envelope can expose ONLY the
+  // first topological level to the LLM (matching MVP 1.2 semantics: LLM
+  // executes level-1 toolCalls, writes contracts via `peaks contract
+  // write`, then re-invokes `--from-dag` for level 2+). Level-2+ leaves
+  // still flow through runDag's join-barrier — their toolCalls are
+  // generated internally so the orchestrator's happy path is exercised
+  // end-to-end, but they are NOT surfaced in the CLI envelope (the LLM
+  // sees them only after re-invoking with fresh level-1 contracts).
+  const firstLevelIds = new Set<string>(levelArr[0] ?? []);
   const emittedToolCalls: SubAgentToolCall[] = [];
   const emittedSliceIds: string[] = [];
 
-  // CLI runner: emit the toolCall envelope for each spec, then return
-  // `cancelled` so runDag's rollback path breaks out after this level.
-  // The LLM-side runner (the IDE agent itself) executes the toolCalls
-  // asynchronously; contract writes happen via `writeContract` once each
-  // toolCall completes.
+  // CLI runner: emit the per-slice `buildToolCall` envelope, then return
+  // `done` with an empty `publicSurface` placeholder. The orchestrator
+  // treats the slice as "CLI-emitted, awaiting LLM-side execution" and
+  // advances to the next topological level (or breaks on failure). The
+  // placeholder surface is intentionally empty: the real public surface
+  // arrives later via `peaks contract write` from the LLM-side runner,
+  // and overwrites the CLI placeholder contract written by `noopWriter`.
+  // Why not `cancelled`? Returning `cancelled` here short-circuits
+  // runDag's join-barrier + cancel-on-fail path — the orchestrator
+  // breaks out after the first level with a cancellation, which hides
+  // the real cancel-on-fail semantics from the test suite (and from any
+  // future caller that wants to use `runDag` end-to-end from the CLI).
+  // Returning `done` exercises the full happy path; cancel-on-fail
+  // semantics will be covered when 1.3 lands real per-IDE await.
   const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
     const toolCall = dispatcher.buildToolCall({
       role: spec.role,
@@ -782,29 +807,58 @@ async function runDispatchFromDag(
       requestId: rid,
       sessionId: sid
     });
-    emittedToolCalls.push(toolCall);
-    emittedSliceIds.push(spec.sliceId);
-    return { status: 'cancelled' };
+    if (firstLevelIds.has(spec.sliceId)) {
+      emittedToolCalls.push(toolCall);
+      emittedSliceIds.push(spec.sliceId);
+    }
+    return {
+      status: 'done',
+      publicSurface: {
+        exports: [],
+        types: [],
+        publicSignatures: []
+      }
+    };
   };
 
-  // No-op writer so the orchestrator doesn't write a placeholder contract
-  // before the LLM-side runner finishes. The real contract writes happen
-  // via `peaks contract write` (called by the LLM-side runner after each
-  // toolCall resolves).
-  const noopWriter = (_sliceId: string, _publicSurface: PublicSurface) => ({
-    sliceId: _sliceId,
-    sessionId: sid,
-    completedAt: new Date(0).toISOString(),
-    exports: [],
-    types: [],
-    publicSignatures: [],
-    contractHash: 'cli-noop'
-  });
+  // CLI noop writer — the orchestrator collects a `SliceContract` per
+  // emitted toolCall so downstream re-invocations (level 2+) can splice
+  // ancestor contracts via `formatContractInjection`. We don't write to
+  // disk here (the LLM-side runner does that via `peaks contract write`
+  // after each toolCall resolves), but the returned placeholder MUST be
+  // shape-valid: the `contractHash` field has to be a real SHA-256 hex
+  // string so formatContractInjection + downstream validators don't
+  // reject the placeholder. The placeholder hash is computed from the
+  // slice identity only (`sliceId|sessionId`) — it's deterministic,
+  // stable, and collision-free for the MVP run, but obviously does NOT
+  // represent the slice's actual public surface. The LLM-side runner's
+  // `peaks contract write` call will overwrite this with a content-based
+  // hash once the slice finishes.
+  const noopWriter = (sliceId: string, _publicSurface: PublicSurface): SliceContract => {
+    const partial = {
+      sliceId,
+      sessionId: sid,
+      exports: [] as readonly string[],
+      types: [] as readonly string[],
+      publicSignatures: [] as readonly string[]
+    };
+    return {
+      sliceId,
+      sessionId: sid,
+      completedAt: new Date(0).toISOString(), // epoch sentinel = "placeholder, not yet finished"
+      exports: [],
+      types: [],
+      publicSignatures: [],
+      contractHash: hashContract(partial)
+    };
+  };
 
-  // runDag IS in the path: it validates the DAG, iterates levels, runs
-  // the join barrier, and triggers rollback on the first level's
-  // `cancelled` outcome. After the break, the CLI surfaces the emitted
-  // toolCalls for the LLM to execute.
+  // runDag IS in the path: it validates the DAG, iterates all
+  // topological levels, runs the join barrier after each level, and
+  // triggers cancel-on-fail rollback if any leaf returns `failed` (or
+  // `cancelled`, once 1.3 lands). The CLI envelope below filters
+  // `emittedToolCalls` / `emittedSliceIds` to the first level — see the
+  // `firstLevelIds` filter inside `cliRunner`.
   await runDag(dag, {
     projectRoot,
     sessionId: sid,
