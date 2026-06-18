@@ -18,7 +18,6 @@ const ROLE_DIRS = new Set(['prd', 'ui', 'rd', 'qa', 'sc', 'system']);
 const PROTECTED_TOP_LEVEL_DIRS = new Set([
   '_runtime',
   'retrospective',
-  'issues',
   '_dogfood',
   'memory',
   'sops',

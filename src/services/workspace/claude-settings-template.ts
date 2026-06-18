@@ -198,7 +198,7 @@ function buildWriteHookCommand(): string {
     'const p=process.argv[1]||"";' +
     'if(p.includes(".peaks/_runtime/"))process.exit(0);' +
     'const m=p.match(/\\.peaks\\/([a-z0-9][a-z0-9.-]*)\\//);' +
-    'if(m&&m[1]&&m[1]!=="_runtime"&&m[1]!=="_dogfood"&&m[1]!=="_sub_agents"&&m[1]!=="_archive"&&m[1]!=="memory"&&m[1]!=="issues"&&m[1]!=="sops"&&m[1]!=="retrospective"&&m[1]!=="project-scan"&&m[1]!=="perf-baseline")process.exit(0);' +
+    'if(m&&m[1]&&m[1]!=="_runtime"&&m[1]!=="_dogfood"&&m[1]!=="_sub_agents"&&m[1]!=="_archive"&&m[1]!=="memory"&&m[1]!=="sops"&&m[1]!=="retrospective"&&m[1]!=="project-scan"&&m[1]!=="perf-baseline")process.exit(0);' +
     'process.exit(1)';
   return wrapAsNodeOneLiner(js);
 }

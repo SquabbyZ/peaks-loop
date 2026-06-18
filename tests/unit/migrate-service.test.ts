@@ -69,10 +69,9 @@ describe('migrateWorkspace', () => {
       expect(result.totalFilesMoved).toBe(0);
     });
 
-    test('ignores protected top-level dirs (_runtime, retrospective, issues, _dogfood, memory, sops)', async () => {
+    test('ignores protected top-level dirs (_runtime, retrospective, _dogfood, memory, sops, project-scan, perf-baseline)', async () => {
       seedFile(join(project, '.peaks/_runtime/session.json'), '{}');
       seedFile(join(project, '.peaks/retrospective/2026-01-01-foo/rd/tech-doc.md'), '# Tech Doc: 2026-01-01-foo');
-      seedFile(join(project, '.peaks/issues/issue-001-bug/sc/issue-001-bug.md'), '# SC: issue-001-bug');
       seedFile(join(project, '.peaks/_dogfood/2026-01-01-x/prd/requests/001-x.md'), '# PRD 2026-01-01-x');
       seedFile(join(project, '.peaks/memory/decision-foo.md'), '# Decision: foo');
       seedFile(join(project, '.peaks/sops/onboarding.md'), '# Onboarding SOP');
