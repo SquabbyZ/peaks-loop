@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
-import { getCurrentChangeId, getChangeArtifactRoot } from '../../shared/change-id.js';
+import { getCurrentChangeId } from '../../shared/change-id.js';
 import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';

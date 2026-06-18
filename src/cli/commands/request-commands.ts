@@ -399,8 +399,15 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             process.exitCode = 1;
             return;
           }
-          // Check bypass count
-          const sessionRoot = (await import('node:path')).join(options.project, '.peaks', resolvedSessionId ?? 'default');
+          // 2.7.1 fix: bypass-count must live under the canonical session
+          // home `.peaks/_runtime/<sid>/`, NOT `.peaks/<sid>/`. The legacy
+          // path landed `.bypass-count.json` at the project root and was
+          // ignored only by `.gitignore`, not by the runtime — a
+          // back-compat reader on the root would never see it. The
+          // canonical home is the same one `peaks session info --active`
+          // resolves from `_runtime/session.json`, so all session-scoped
+          // state (artifacts + bypass counter) now lives in one tree.
+          const sessionRoot = (await import('node:path')).join(options.project, '.peaks', '_runtime', resolvedSessionId ?? 'default');
           if (isBypassLimitReached(sessionRoot)) {
             printResult(
               io,

@@ -3,11 +3,13 @@ name: peaks-solo
 description: Full-auto orchestration facade for the Peaks-Cli skill family. Use when the user asks Peaks-Cli to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-solo`, "peaks solo", "全流程开发", "端到端迭代".
 ---
 
-## Two-axis naming convention
+## Two-axis naming convention (2.7.1)
 
-> **Read once at the top of this file; the rest of the skill is written against it.**
+> **Read once at the top of this file.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>` — ambiguous between axes). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace has **two axes**: **change-id** (git-tracked artifacts at `.peaks/<changeId>/<role>/...`) and **session-id** (gitignored state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` (NEVER bare `<sid>`). CLI axis: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`.
+
+**2.7.1:** `recordBypass` / `isBypassLimitReached` wrote `.peaks/<sid>/...` at root — fixed to `.peaks/_runtime/<sid>/` (`request-commands.ts:410`). `getChangeArtifactRoot` removed. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
 
 ## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
 
