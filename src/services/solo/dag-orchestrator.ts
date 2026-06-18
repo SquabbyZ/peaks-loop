@@ -58,6 +58,14 @@ export interface RunDagOptions {
     sliceId: string,
     publicSurface: PublicSurface
   ) => SliceContract;
+  /**
+   * Pre-existing contracts from upstream slices (e.g. already completed in
+   * a prior `peaks sub-agent dispatch --from-dag` invocation). The
+   * orchestrator splices these into downstream dispatch prompts via
+   * `formatContractInjection(ancestors)` — matching AC-4.c: "B / C / D
+   * dispatch prompt 自动注入 A 契约".
+   */
+  readonly existingContracts?: readonly SliceContract[];
 }
 
 export type SliceOutcome =
@@ -164,7 +172,7 @@ export async function runDag(dag: SliceDag, opts: RunDagOptions): Promise<DagRun
   const writer = opts.writeContractFn ?? defaultWriter(opts.projectRoot, opts.sessionId);
 
   const completed = new Set<string>();
-  const contracts: SliceContract[] = [];
+  const contracts: SliceContract[] = [...(opts.existingContracts ?? [])];
   const failed: { sliceId: string; reason: string }[] = [];
   const cancelled: string[] = [];
   const inflight = new Set<string>();

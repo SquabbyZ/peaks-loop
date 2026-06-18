@@ -243,6 +243,7 @@ Index of every `references/` file. Read on demand.
 
 | File | Coverage |
 |---|---|
+| `references/dag-orchestrator.md` | DAG-aware sub-agent dispatch (2.7.0 slice-dag-dispatcher MVP). |
 | `references/a2a-artifact-mapping.md` | A2A artifact-path mapping. |
 | `references/anchoring-and-session-info.md` | Step 0 anchor + session-conflict resolution. |
 | `references/artifact-contracts.md` | Sub-agent handoff contracts. |

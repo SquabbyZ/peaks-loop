@@ -33,8 +33,9 @@ import {
   type SubAgentAwaitBatchInput
 } from '../../services/dispatch/sub-agent-dispatcher.js';
 import { noteDispatched, readBatchCount, BATCH_OVER_LIMIT_CODE, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
-import { validateDag, type SliceDag } from '../../services/dispatch/slice-dag.js';
-import { runDag, buildDispatchSpec, type DispatchSpec, type PublicSurface } from '../../services/solo/dag-orchestrator.js';
+import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
+import { runDag, buildDispatchSpec, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
+import { listContracts } from '../../services/dispatch/contract-store.js';
 import {
   appendHeartbeat,
   writeInitialDispatchRecord,
@@ -732,15 +733,21 @@ async function runDispatchFromDag(
     return;
   }
 
-  // MVP: emit ONE dispatch spec for the first topological level. The LLM
-  // executes it, sees the contract on disk, and re-invokes with the next
-  // level. The `runDag` runner is replaced with a plan-only facade so the
-  // CLI stays deterministic.
-  const { topologicalLevels: levels } = await import('../../services/dispatch/slice-dag.js');
-  const levelArr = levels(dag);
-  const firstLevel = levelArr[0] ?? [];
-  const contracts: never[] = [];
-  const specs: DispatchSpec[] = firstLevel.map((sliceId) => buildDispatchSpec(dag, sliceId, contracts));
+  // MVP (1.2): emit ONE dispatch spec for the first topological level. The
+  // LLM-side runner actually executes each `buildToolCall`; the CLI is a
+  // planning facade only. We delegate the level-by-level iteration +
+  // join barrier + cancel-on-fail to `runDag` (so the orchestrator IS in
+  // the path — not a dead-code import). The CLI's runner emits the level
+  // toolCalls and returns `cancelled` for downstream levels; the
+  // orchestrator's rollback path then breaks out after level 1.
+  const levelArr = topologicalLevels(dag);
+
+  // Read upstream contracts so downstream-level prompts (when re-invoked
+  // for level 2+) get auto-injected ancestors via `formatContractInjection`.
+  // At level-1 emit time, contracts is empty (no ancestors yet); the
+  // injection matters when the LLM re-invokes for level 2+ after writing
+  // level-1 contracts via `writeContract`.
+  const existingContracts = listContracts(projectRoot, sid);
 
   const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
   const adapter = getAdapter(ide);
@@ -753,33 +760,75 @@ async function runDispatchFromDag(
     return;
   }
 
-  // Build per-spec toolCalls (byte-stable envelope shape with the new toolCall).
-  const toolCalls = specs.map((spec) => dispatcher.buildToolCall({
-    role: spec.role,
-    prompt: spec.prompt,
-    requestId: rid,
-    sessionId: sid
-  }));
+  const emittedToolCalls: SubAgentToolCall[] = [];
+  const emittedSliceIds: string[] = [];
+
+  // CLI runner: emit the toolCall envelope for each spec, then return
+  // `cancelled` so runDag's rollback path breaks out after this level.
+  // The LLM-side runner (the IDE agent itself) executes the toolCalls
+  // asynchronously; contract writes happen via `writeContract` once each
+  // toolCall completes.
+  const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
+    const toolCall = dispatcher.buildToolCall({
+      role: spec.role,
+      prompt: spec.prompt,
+      requestId: rid,
+      sessionId: sid
+    });
+    emittedToolCalls.push(toolCall);
+    emittedSliceIds.push(spec.sliceId);
+    return { status: 'cancelled' };
+  };
+
+  // No-op writer so the orchestrator doesn't write a placeholder contract
+  // before the LLM-side runner finishes. The real contract writes happen
+  // via `peaks contract write` (called by the LLM-side runner after each
+  // toolCall resolves).
+  const noopWriter = (_sliceId: string, _publicSurface: PublicSurface) => ({
+    sliceId: _sliceId,
+    sessionId: sid,
+    completedAt: new Date(0).toISOString(),
+    exports: [],
+    types: [],
+    publicSignatures: [],
+    contractHash: 'cli-noop'
+  });
+
+  // runDag IS in the path: it validates the DAG, iterates levels, runs
+  // the join barrier, and triggers rollback on the first level's
+  // `cancelled` outcome. After the break, the CLI surfaces the emitted
+  // toolCalls for the LLM to execute.
+  await runDag(dag, {
+    projectRoot,
+    sessionId: sid,
+    existingContracts,
+    runSlice: cliRunner,
+    writeContractFn: noopWriter
+  });
 
   printResult(io, ok('sub-agent.dispatch', {
     role,
     ide: dispatcher.label,
     fromDag: options.fromDag,
     batchId,
-    dispatchCount: specs.length,
+    dispatchCount: emittedSliceIds.length,
     levelsTotal: levelArr.length,
-    firstLevel,
-    toolCalls,
+    firstLevel: emittedSliceIds,
+    toolCalls: emittedToolCalls,
+    existingContractCount: existingContracts.length,
     nextActions: [
       'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
       'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
     ]
   }, [], [
-    'MVP (1.2) plans the first level only; the LLM drives subsequent levels by re-invoking this command after contract writes.'
+    'MVP (1.2) plans the first level via runDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
+    existingContracts.length > 0
+      ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
+      : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'
   ]), asJson);
 }
 
-void runDag as unknown; // silence unused import warning when refactored later.
+void buildDispatchSpec; // re-exported for test seam; see dag-orchestrator.test.ts
 
 /** Validate a role string. Returns null if valid, otherwise the rejection reason. */
 export function validateRole(role: string): string | null {
