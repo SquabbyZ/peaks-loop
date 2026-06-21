@@ -20,8 +20,15 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
 import { buildContext } from '../../services/context/context-builder.js';
-// PRE-FLIGHT FIX: Task 10 will replace this with headroomFetcher.
-import { mockFetcher } from '../../services/context/mock-fetcher.js';
+// Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
+import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
+
+function buildHeadroomFetcher(sid: string): import('../../services/context/doc-retriever.js').DocFetcher {
+  return createHeadroomFetcher({
+    cacheDir: `.peaks/_runtime/${sid}/doc-cache`,
+    // remoteFetcher wired in a future slice (headroom-ai programmatic API).
+  });
+}
 
 async function ensureContextForRd(goal: string, project: string, sid: string): Promise<void> {
   const out = `.peaks/_runtime/${sid}/context.json`;
@@ -33,7 +40,7 @@ async function ensureContextForRd(goal: string, project: string, sid: string): P
       depsMode: 'locked',
       docBudgetTokens: 8000,
       out,
-      fetcher: mockFetcher,
+      fetcher: buildHeadroomFetcher(sid),
     });
   } catch (error) {
     // Plan 1 / Task 9 — context is a pre-step, not a precondition.
