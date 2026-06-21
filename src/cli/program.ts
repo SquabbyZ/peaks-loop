@@ -42,6 +42,7 @@ import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
 import { registerPlaywrightCommands } from './commands/playwright-commands.js';
+import { registerMutCommands } from './commands/mut-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -247,6 +248,12 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
  // (multi-terminal Playwright MCP lifecycle).
  registerPlaywrightCommands(program, io);
+ // Plan 2 / Task 6: `peaks mut run|mutants|asserts|report` — mutation
+ // testing + assertion validity scan (spec §4.2 / §7). The
+ // production Stryker invoker is wired here; tests use the
+ // `createMutCommands({ invokeStryker })` factory directly with a
+ // mock to keep @stryker-mutator/core out of the unit-test path.
+ registerMutCommands(program, io);
 
  return program;
 }
