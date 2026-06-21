@@ -39,6 +39,11 @@ function buildProgram(io: ProgramIO): Command {
 }
 
 async function runInit(args: string[], projectRoot: string): Promise<{ io: ProgramIO; stdout: string; stderr: string; exitCode: number | undefined }> {
+  // Reset the process-global exitCode. Vitest runs test files in one Node
+  // process, so a sibling file (e.g. mut-commands.test.ts) may have set
+  // process.exitCode earlier in the run; that sticky value would otherwise
+  // leak into this helper and poison the assertions below.
+  process.exitCode = undefined;
   const { io, stdout, stderr } = captureIo();
   const program = buildProgram(io);
   let exitCode: number | undefined;
@@ -85,6 +90,9 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
   afterEach(() => {
     vi.useRealTimers();
     delete process.env['PEAKS_CALLER_ID'];
+    // Defensive: clear the process-global exitCode so it cannot leak into
+    // sibling test files (mut-commands sets it to 2, which is sticky).
+    process.exitCode = undefined;
     if (existsSync(projectRoot)) {
       rmSync(projectRoot, { recursive: true, force: true });
     }
