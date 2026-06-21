@@ -1588,9 +1588,9 @@ git commit -m "feat(context): ContextBuilder orchestrator + atomic write + sha25
 ## Task 8: CLI commands — `peaks context <sub>`
 
 **Files:**
-- Create: `src/cli/commands/context-commands.ts`
-- Modify: `src/cli/index.ts`
-- Test: `tests/unit/cli/commands/context-commands.test.ts`
+- Create: `src/cli/commands/context-builder-commands.ts`
+- Test: `tests/unit/cli/commands/context-builder-commands.test.ts`
+- (No modification to `src/cli/index.ts` or `program.ts` in this task — wiring the new commands into the live `peaks` root program is **deferred to Task 9**, which has access to a fetcher.)
 
 - [ ] **Step 1: Read existing CLI structure**
 
@@ -1605,7 +1605,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createContextCommands } from '../../../../src/cli/commands/context-commands.js';
+import { Command } from 'commander';
+import { createContextCommands } from '../../../../src/cli/commands/context-builder-commands.js';
 
 let workdir: string;
 let outdir: string;
@@ -1628,14 +1629,20 @@ afterEach(() => {
 
 describe('peaks context commands', () => {
   it('build writes context.json via CLI', async () => {
-    const program = createContextCommands({
-      fetcher: async (dep, version) => {
+    // Pre-flight fix: createContextCommands returns a NAMED Command('context').
+    // Wrap it in an unnamed root and drop the script-name 'peaks' from argv —
+    // commander 12 strips argv[0..1] unconditionally, so userArgs starts at
+    // argv[2]. With an unnamed root, argv[2] must be 'context' (the first
+    // subcommand), not 'peaks'.
+    const ctx = createContextCommands({
+      fetcher: async (dep: string, version: string) => {
         if (dep === 'antd' && version === '5.21.0') {
           return { version: '5.21.0', excerpt: 'Form.Item' };
         }
         return null;
       },
     });
+    const program = new Command().addCommand(ctx);
     await program.parseAsync([
       'node', 'peaks', 'context', 'build',
       '--goal', 'add OAuth',
@@ -1653,7 +1660,8 @@ describe('peaks context commands', () => {
 
   it('validate accepts a valid context.json', async () => {
     // First, build one.
-    const program = createContextCommands({ fetcher: async () => null });
+    const ctx = createContextCommands({ fetcher: async () => null });
+    const program = new Command().addCommand(ctx);
     const out = join(outdir, 'context.json');
     await program.parseAsync([
       'node', 'peaks', 'context', 'build',
@@ -1661,7 +1669,8 @@ describe('peaks context commands', () => {
       '--deps-mode', 'locked', '--doc-budget-tokens', '8000', '--out', out,
     ]);
     // Reset program state for second invocation.
-    const program2 = createContextCommands({ fetcher: async () => null });
+    const ctx2 = createContextCommands({ fetcher: async () => null });
+    const program2 = new Command().addCommand(ctx2);
     const exitCode = await new Promise<number>((resolve) => {
       program2.exitOverride().parseAsync([
         'node', 'peaks', 'context', 'validate', out,
@@ -1674,12 +1683,12 @@ describe('peaks context commands', () => {
 
 - [ ] **Step 3: Run test — expect FAIL**
 
-Run: `pnpm vitest run tests/unit/cli/commands/context-commands.test.ts`
-Expected: FAIL — `context-commands.ts` does not exist.
+Run: `pnpm vitest run tests/unit/cli/commands/context-builder-commands.test.ts`
+Expected: FAIL — `context-builder-commands.ts` does not exist.
 
-- [ ] **Step 4: Write `context-commands.ts`**
+- [ ] **Step 4: Write `context-builder-commands.ts`**
 
-Create `src/cli/commands/context-commands.ts`. Mirror the existing commander 12 pattern from other command files in `src/cli/commands/`. Provide these subcommands:
+Create `src/cli/commands/context-builder-commands.ts`. Mirror the existing commander 12 pattern from other command files in `src/cli/commands/`. Provide these subcommands:
 
 - `peaks context build` — wraps `buildContext`
 - `peaks context inspect <file>` — pretty-print summary
@@ -1795,13 +1804,13 @@ export function createContextCommands(options: ContextCommandsOptions): Command 
 }
 ```
 
-- [ ] **Step 5: Register in `src/cli/index.ts`**
+- [ ] **Step 5: (NO-OP this task — wiring deferred to Task 9)**
 
-Modify `src/cli/index.ts` — register the new `context` subcommand. Mirror the existing pattern.
+Wiring the new commands into the live `peaks` root program requires a fetcher, which is introduced by Task 9 (mockFetcher) and replaced by Task 10 (headroomFetcher). This task only ships the new file + test. Task 9 wires `program.ts` to call `registerContextBuilderCommands(...)` with the fetcher it produces.
 
 - [ ] **Step 6: Run test — expect PASS**
 
-Run: `pnpm vitest run tests/unit/cli/commands/context-commands.test.ts`
+Run: `pnpm vitest run tests/unit/cli/commands/context-builder-commands.test.ts`
 Expected: PASS, 2 tests pass.
 
 - [ ] **Step 7: Run typecheck**
@@ -1822,7 +1831,7 @@ Expected: writes context.json; validate OK; inspect prints summary.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/cli/commands/context-commands.ts src/cli/index.ts tests/unit/cli/commands/context-commands.test.ts
+git add src/cli/commands/context-builder-commands.ts tests/unit/cli/commands/context-builder-commands.test.ts
 git commit -m "feat(context): CLI commands (build/validate/inspect/schema)"
 ```
 
@@ -1830,33 +1839,34 @@ git commit -m "feat(context): CLI commands (build/validate/inspect/schema)"
 
 ## Task 9: Wire into peaks-rd + peaks-qa (auto-call before run)
 
+> **Pre-flight fix (controller main-loop edit, 2026-06-21):** The original brief had 3 plan bugs:
+> 1. `src/services/qa/qa-service.ts` does NOT exist. The actual QA entry point is `runQaSlice` in `src/cli/commands/qa-commands.ts:79`.
+> 2. The "likely `runRd` / `runQa` or similar" assumption is wrong. Real exports: `createRdSwarmPlan(request: RdSwarmPlanRequest): RdPlanResult` at `src/services/rd/rd-service.ts:551`, and `runQaSlice(input: RunQaSliceInput): QaRunResult` at `src/cli/commands/qa-commands.ts:79`.
+> 3. Both entry points are **synchronous**. The brief's `await buildContext(...)` pattern requires async context. The wrap is done at the CLI command action layer (where async is already available), NOT at the service layer. `createRdSwarmPlan` and `runQaSlice` stay sync.
+>
+> **Ordering:** Task 9.5 (mock-fetcher scaffold) MUST land before Task 9. Dispatch Task 9.5 first.
+
 **Files:**
-- Modify: `src/services/rd/rd-service.ts`
-- Modify: `src/services/qa/qa-service.ts`
+- Modify: `src/cli/commands/workflow-commands.ts` (rd CLI handler — add `await ensureContextForRd(...)` pre-step at the rd action handler around line ~259)
+- Modify: `src/cli/commands/qa-commands.ts` (qa CLI handler — add `await ensureContextForQa(...)` pre-step at the qa action handler around line ~199)
+- NO-OP: `src/services/rd/rd-service.ts` and `src/services/qa/qa-service.ts` are NOT touched. The wrap happens at the CLI command action layer, where async context already exists.
 
 **Interfaces:**
-- The two services gain a pre-step that calls `buildContext` with the appropriate audience.
+- Two new helper functions (one in each CLI handler file): `ensureContextForRd(goal, project, sid)` and `ensureContextForQa(goal, project, sid)`. Both call `buildContext({ ... audience: 'peaks-rd' | 'peaks-qa', fetcher: mockFetcher })` from Task 9.5.
 
-- [ ] **Step 1: Read existing service entry points**
+- [ ] **Step 1: Read existing CLI handler entry points**
 
-Read `src/services/rd/rd-service.ts` and `src/services/qa/qa-service.ts`. Identify the public function each one exports as its "run" entry point (likely `runRd` / `runQa` or similar). Note the signature — do not change existing parameters; only add a side-effect step.
+Read `src/cli/commands/workflow-commands.ts` (rd command action handler around line ~259) and `src/cli/commands/qa-commands.ts` (qa command action handler around line ~199). Identify the existing async context. Both are inside already-async action handlers; prepending `await ensureContextForXxx(...)` is a minimal change.
 
-- [ ] **Step 2: Modify `rd-service.ts`**
+- [ ] **Step 2: Modify `workflow-commands.ts`**
 
-Add a pre-step at the top of the run function (or wrap the call) so that:
-
-- Compute context.json path: `.peaks/_runtime/<sid>/context.json`
-- If file does not exist OR was generated before today's session, call `buildContext({ audience: 'peaks-rd', ... })` with a fetcher that hits `headroom-ai` (already in deps) for doc retrieval.
-- Otherwise, load the existing one.
-
-> **Pre-flight fix (Task 9 vs Task 10 ordering):** Task 10 (which defines `headroomFetcher`) lands AFTER this task. To keep TDD ordering, this step uses a temporary `mockFetcher` (returns `null` for every dep). Task 10 replaces it via a one-line swap in the import block below.
+Add at the top of `src/cli/commands/workflow-commands.ts`:
 
 ```typescript
-// Pseudocode — adapt to actual rd-service signature.
-import { buildContext } from '../context/context-builder.js';
+import { buildContext } from '../../services/context/context-builder.js';
 
 // PRE-FLIGHT FIX: Task 10 will replace this with headroomFetcher.
-import { mockFetcher } from '../context/mock-fetcher.js';
+import { mockFetcher } from '../../services/context/mock-fetcher.js';
 
 async function ensureContextForRd(goal: string, project: string, sid: string): Promise<void> {
   const out = `.peaks/_runtime/${sid}/context.json`;
@@ -1867,9 +1877,28 @@ async function ensureContextForRd(goal: string, project: string, sid: string): P
 }
 ```
 
-- [ ] **Step 3: Modify `qa-service.ts`**
+In the rd action handler, prepend `await ensureContextForRd(goal, project, sid)` BEFORE `createRdSwarmPlan({ ... })`. The existing `goal` / `project` / `sessionId` are already in scope (or compute `sid` from the active session).
 
-Same pattern with `audience: 'peaks-qa'`.
+- [ ] **Step 3: Modify `qa-commands.ts`**
+
+Add at the top of `src/cli/commands/qa-commands.ts` (alongside the existing imports):
+
+```typescript
+import { buildContext } from '../../services/context/context-builder.js';
+
+// PRE-FLIGHT FIX: Task 10 will replace this with headroomFetcher.
+import { mockFetcher } from '../../services/context/mock-fetcher.js';
+
+async function ensureContextForQa(goal: string, project: string, sid: string): Promise<void> {
+  const out = `.peaks/_runtime/${sid}/context.json`;
+  await buildContext({
+    goal, project, audience: 'peaks-qa', depsMode: 'locked',
+    docBudgetTokens: 8000, out, fetcher: mockFetcher,
+  });
+}
+```
+
+In the qa action handler (line ~199), prepend `await ensureContextForQa(goal, project, sid)` BEFORE `runQaSlice({ ... })`. If `goal` is not already in scope, derive it from `input.sessionId` or pass a placeholder ("qa gate run"); the goal is for audience-scoped doc retrieval, not for output semantics.
 
 - [ ] **Step 4: Run peaks-rd smoke**
 
@@ -1877,7 +1906,7 @@ Same pattern with `audience: 'peaks-qa'`.
 pnpm tsx src/cli/index.ts rd <sample request>
 ```
 
-Expected: `.peaks/_runtime/<sid>/context.json` is created; downstream runs see it.
+Expected: `.peaks/_runtime/<active-sid>/context.json` is created with `audience: "peaks-rd"`.
 
 - [ ] **Step 5: Run peaks-qa smoke**
 
@@ -1895,7 +1924,7 @@ Expected: all tests pass (including pre-existing 2,800+ tests — context-comman
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/services/rd/rd-service.ts src/services/qa/qa-service.ts
+git add src/cli/commands/workflow-commands.ts src/cli/commands/qa-commands.ts
 git commit -m "feat(context): wire peaks-context auto-build into rd + qa pre-step"
 ```
 
@@ -1949,10 +1978,13 @@ git commit -m "feat(context): mock-fetcher (scaffolding for Task 9 — replaced 
 
 ## Task 10: headroom-fetcher — production doc fetcher (uses existing `headroom-ai` dep)
 
+> **Pre-flight fix (controller main-loop edit, 2026-06-21):** Step 3 + Step 4 in the original brief say "Modify: `src/services/rd/rd-service.ts` (swap mockFetcher → headroomFetcher)". This is wrong per the Task 9 architecture: the swap happens in the CLI handler files, NOT in `rd-service.ts` (which stays sync and untouched since Task 9). Apply the swap in both `src/cli/commands/workflow-commands.ts` and `src/cli/commands/qa-commands.ts`.
+
 **Files:**
 - Create: `src/services/context/headroom-fetcher.ts`
 - Modify: `src/services/context/mock-fetcher.ts` (add deprecation comment)
-- Modify: `src/services/rd/rd-service.ts` (swap mockFetcher → headroomFetcher)
+- Modify: `src/cli/commands/workflow-commands.ts` (swap mockFetcher → headroomFetcher in `ensureContextForRd`)
+- Modify: `src/cli/commands/qa-commands.ts` (swap mockFetcher → headroomFetcher in `ensureContextForQa`)
 - Test: `tests/unit/services/context/headroom-fetcher.test.ts`
 
 **Interfaces:**
@@ -2041,22 +2073,36 @@ export function createHeadroomFetcher(opts: HeadroomFetcherOptions): DocFetcher 
 }
 ```
 
-- [ ] **Step 3: Replace `mockFetcher` import in `rd-service.ts`**
+- [ ] **Step 3: Replace `mockFetcher` import in CLI handlers**
 
-After Task 10 lands, change the line:
+After Task 10 lands, change the line in BOTH `src/cli/commands/workflow-commands.ts` AND `src/cli/commands/qa-commands.ts`:
+
 ```typescript
-import { mockFetcher } from '../context/mock-fetcher.js';
+import { mockFetcher } from '../../services/context/mock-fetcher.js';
 ```
 to:
 ```typescript
-import { createHeadroomFetcher } from '../context/headroom-fetcher.js';
-const headroomFetcher = createHeadroomFetcher({
-  cacheDir: '.peaks/_runtime/<sid>/doc-cache',
-  // remoteFetcher wired in a future slice (headroom-ai programmatic API).
-});
+import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
+import { getSessionId } from '../../services/session/session-manager.js';
+
+function buildHeadroomFetcher(): DocFetcher {
+  const sid = getSessionId();
+  return createHeadroomFetcher({
+    cacheDir: `.peaks/_runtime/${sid}/doc-cache`,
+    // remoteFetcher wired in a future slice (headroom-ai programmatic API).
+  });
+}
 ```
 
-Mark `mock-fetcher.ts` for deletion in a future cleanup slice.
+Then replace `fetcher: mockFetcher` with `fetcher: buildHeadroomFetcher()` inside both `ensureContextForRd` and `ensureContextForQa`.
+
+Also add a deprecation comment at the top of `src/services/context/mock-fetcher.ts`:
+```typescript
+/**
+ * @deprecated — replaced by headroomFetcher in Task 10. Keep until the next
+ * cleanup slice removes the import in workflow-commands.ts and qa-commands.ts.
+ */
+```
 
 - [ ] **Step 4: Run tests + commit**
 
@@ -2064,7 +2110,7 @@ Run: `pnpm vitest run tests/unit/services/context/headroom-fetcher.test.ts`
 Expected: PASS, 3 tests pass.
 
 ```bash
-git add src/services/context/headroom-fetcher.ts tests/unit/services/context/headroom-fetcher.test.ts src/services/rd/rd-service.ts
+git add src/services/context/headroom-fetcher.ts src/services/context/mock-fetcher.ts tests/unit/services/context/headroom-fetcher.test.ts src/cli/commands/workflow-commands.ts src/cli/commands/qa-commands.ts
 git commit -m "feat(context): headroom-fetcher (production doc fetcher with per-session cache)"
 ```
 
@@ -2072,10 +2118,15 @@ git commit -m "feat(context): headroom-fetcher (production doc fetcher with per-
 
 ## Task 11: End-to-end integration test
 
-**Files:**
-- Create: `tests/integration/context/end-to-end.test.ts`
+> **Pre-flight fix (controller main-loop edit, 2026-06-21):** Round-1 implementer caught a real bug in the brief: when `out` lives inside `project`, the first `buildContext` writes the output file which the second `buildContext` then sweeps up via the collector, breaking the "stable across runs" invariant. This is ALSO a production issue — a user re-running `peaks context build --out context.json --project .` would see `context.json` appear in the file list on subsequent runs. Fix: harden the collector to exclude `out` from the file sweep (architecturally correct fix; closes the production non-determinism window).
 
-- [ ] **Step 1: Write integration test**
+**Files:**
+- Modify: `src/services/context/collector.ts` (add optional `out` field to `CollectInput`; skip `out` in `scanFiles`)
+- Modify: `src/services/context/context-builder.ts` (pass `out` to `collectContext`)
+- Modify: `tests/unit/services/context/collector.test.ts` (add 1 test: collector skips `out` file)
+- Create: `tests/integration/context/end-to-end.test.ts` (the integration test)
+
+- [ ] **Step 1: Add test for collector excludes `out`**
 
 ```typescript
 /**
@@ -2121,14 +2172,102 @@ describe('end-to-end buildContext', () => {
 });
 ```
 
-- [ ] **Step 2: Run + commit**
+- [ ] **Step 2: Implement collector `out` exclusion**
 
-Run: `pnpm vitest run tests/integration/context/end-to-end.test.ts`
-Expected: PASS.
+Modify `src/services/context/collector.ts`:
+
+1. Add `out: z.string().optional()` to `CollectInputSchema`.
+2. In `scanFiles(root, exclude?)`, accept an optional `exclude?: string` argument and skip the file whose `relative(root, full).replaceAll('\\', '/')` equals `exclude`.
+3. In `collectContext`, pass `exclude: input.out` to `scanFiles`.
+
+Existing 3 tests in `collector.test.ts` must continue to pass (no `out` arg = no exclusion).
+
+- [ ] **Step 3: Wire `out` through `context-builder.ts`**
+
+Modify `src/services/context/context-builder.ts` — change the `collectContext` call:
+
+```typescript
+const collected = await collectContext({
+  goal: input.goal,
+  project: input.project,
+  depsMode: input.depsMode,
+  out: input.out,
+});
+```
+
+- [ ] **Step 4: Write the integration test**
+
+Create `tests/integration/context/end-to-end.test.ts`. Use `vi.useFakeTimers()` so all time-derived fields (`generatedAt`, `fetchedAt`, `renderedAt`, `timeDecayScore`) are deterministic across two runs. This is cleaner than stripping — verifies the system is **truly deterministic for fixed inputs**, not just "equal after stripping volatile fields".
+
+```typescript
+/**
+ * End-to-end: buildContext on a fixture repo → context.json has expected shape,
+ * sha256 is stable, retry produces same hash (with mocked clock).
+ *
+ * buildContext carries 4+ time-derived fields:
+ *   - generatedAt (top-level)
+ *   - fetchedAt (per fetched doc)
+ *   - renderedAt (renderer)
+ *   - timeDecayScore (tokenizer metadata, derived from fetchedAt)
+ * Stripping volatile fields is fragile (round 3 caught timeDecayScore drift).
+ * Mocking the clock via vi.useFakeTimers freezes all derived values.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { buildContext } from '../../../src/services/context/context-builder.js';
+
+describe('end-to-end buildContext', () => {
+  beforeEach(() => {
+    // Freeze time at a fixed point so all time-derived fields match across runs.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-21T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('produces a stable context.json across two runs (with mocked clock)', async () => {
+    const workdir = mkdtempSync(join(tmpdir(), 'peaks-e2e-'));
+    try {
+      mkdirSync(join(workdir, 'src'), { recursive: true });
+      writeFileSync(join(workdir, 'src', 'A.ts'), 'export const X = 1;\n');
+      writeFileSync(join(workdir, 'package.json'), JSON.stringify({
+        name: 'demo', dependencies: { antd: '5.21.0' },
+      }));
+      writeFileSync(join(workdir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+
+      const out = join(workdir, 'ctx.json');
+      const fetcher = async () => ({ version: '5.21.0', excerpt: 'Form.Item' });
+
+      const ctx1 = await buildContext({
+        goal: 'x', project: workdir, audience: 'peaks-rd', depsMode: 'locked',
+        docBudgetTokens: 8000, out, fetcher,
+      });
+      const ctx2 = await buildContext({
+        goal: 'x', project: workdir, audience: 'peaks-rd', depsMode: 'locked',
+        docBudgetTokens: 8000, out, fetcher,
+      });
+
+      // With mocked clock, ALL fields are deterministic — including sha256.
+      expect(ctx1).toEqual(ctx2);
+    } finally {
+      rmSync(workdir, { recursive: true, force: true });
+    }
+  });
+});
+```
+
+- [ ] **Step 5: Run tests + commit**
+
+Run: `pnpm vitest run tests/unit/services/context/collector.test.ts tests/integration/context/end-to-end.test.ts`
+Expected: PASS (4 collector tests + 1 integration test).
 
 ```bash
-git add tests/integration/context/end-to-end.test.ts
-git commit -m "test(context): end-to-end buildContext stability"
+git add src/services/context/collector.ts src/services/context/context-builder.ts tests/unit/services/context/collector.test.ts tests/integration/context/end-to-end.test.ts
+git commit -m "feat(context): collector excludes output file + e2e stability test"
 ```
 
 ---
