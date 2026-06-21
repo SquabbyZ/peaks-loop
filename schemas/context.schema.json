@@ -1,0 +1,360 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "collector": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "source",
+                  "test",
+                  "config",
+                  "doc"
+                ]
+              },
+              "lines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "kind",
+              "lines",
+              "hash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "gitStatus": {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string"
+            },
+            "lastCommit": {
+              "type": "string"
+            },
+            "dirty": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "branch",
+            "lastCommit",
+            "dirty"
+          ],
+          "additionalProperties": false
+        },
+        "memoryEntries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "relevanceScore": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "excerptHash": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "title",
+              "relevanceScore",
+              "excerptHash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "deps": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "package.json",
+                  "pnpm-lock.yaml",
+                  "yarn.lock"
+                ]
+              },
+              "resolved": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "version",
+              "source",
+              "resolved"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "files",
+        "gitStatus",
+        "memoryEntries",
+        "deps"
+      ],
+      "additionalProperties": false
+    },
+    "docRetriever": {
+      "type": "object",
+      "properties": {
+        "fetchedDocs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dep": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "local-cache",
+                  "remote-fetch"
+                ]
+              },
+              "url": {
+                "type": "string"
+              },
+              "fetchedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "contentHash": {
+                "type": "string"
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string"
+                    },
+                    "tokenEstimate": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "excerpt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "title",
+                    "tokenEstimate",
+                    "excerpt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "stale": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "dep",
+              "version",
+              "source",
+              "fetchedAt",
+              "contentHash",
+              "sections",
+              "stale"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "dep": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "unconfigured",
+                  "network_error",
+                  "version_unknown"
+                ]
+              }
+            },
+            "required": [
+              "dep",
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "fetchedDocs",
+        "skipped"
+      ],
+      "additionalProperties": false
+    },
+    "tokenizer": {
+      "type": "object",
+      "properties": {
+        "metadata": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "doc",
+                  "code",
+                  "memory",
+                  "git"
+                ]
+              },
+              "version": {
+                "type": "string"
+              },
+              "blastRadius": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "conflictScore": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "timeDecayScore": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "blastRadius",
+              "conflictScore",
+              "timeDecayScore",
+              "tags"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "metadata"
+      ],
+      "additionalProperties": false
+    },
+    "renderer": {
+      "type": "object",
+      "properties": {
+        "audience": {
+          "type": "string",
+          "enum": [
+            "peaks-rd",
+            "peaks-qa",
+            "peaks-mut",
+            "all"
+          ]
+        },
+        "renderedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "truncatedReason": {
+          "type": "string",
+          "enum": [
+            "doc_budget_exceeded",
+            "section_count_exceeded"
+          ]
+        }
+      },
+      "required": [
+        "audience",
+        "renderedAt",
+        "sizeBytes",
+        "truncated"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "goal",
+    "generatedAt",
+    "sha256",
+    "collector",
+    "docRetriever",
+    "tokenizer",
+    "renderer"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
