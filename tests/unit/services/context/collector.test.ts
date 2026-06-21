@@ -63,4 +63,20 @@ describe('collectContext', () => {
       depsMode: 'locked',
     })).rejects.toThrow(/locked version/i);
   });
+
+  it('excludes the `out` file from the file sweep when out is inside project', async () => {
+    makeRepo();
+    const outPath = join(workdir, 'ctx.json');
+    writeFileSync(outPath, '{"placeholder": true}\n');
+    const result = await collectContext({
+      goal: 'x',
+      project: workdir,
+      depsMode: 'locked',
+      out: outPath,
+    });
+    const filePaths = result.collector.files.map((f) => f.path);
+    expect(filePaths).not.toContain('ctx.json');
+    // sanity: real source file is still present
+    expect(filePaths).toContain('src/pages/Login/LoginForm.tsx');
+  });
 });

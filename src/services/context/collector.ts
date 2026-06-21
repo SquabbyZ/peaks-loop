@@ -15,6 +15,7 @@ const CollectInputSchema = z.object({
   goal: z.string().min(1),
   project: z.string().min(1),
   depsMode: z.enum(['locked', 'latest']),
+  out: z.string().optional(),
 });
 
 export type CollectInput = z.infer<typeof CollectInputSchema>;
@@ -38,7 +39,7 @@ function classifyKind(path: string): FileKind {
   return 'source';
 }
 
-async function scanFiles(root: string): Promise<ReadonlyArray<CollectedFile>> {
+async function scanFiles(root: string, exclude?: string): Promise<ReadonlyArray<CollectedFile>> {
   const out: CollectedFile[] = [];
   async function walk(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -51,9 +52,13 @@ async function scanFiles(root: string): Promise<ReadonlyArray<CollectedFile>> {
         await walk(full);
         continue;
       }
+      const rel = relative(root, full).replaceAll('\\', '/');
+      if (exclude !== undefined && rel === exclude) {
+        continue;
+      }
       const s = await stat(full);
       out.push({
-        path: relative(root, full).replaceAll('\\', '/'),
+        path: rel,
         kind: classifyKind(relative(root, full)),
         lines: 0, // computed lazily; full line count is expensive
         hash: '',  // computed lazily via content-hash-cache-pattern
@@ -135,8 +140,11 @@ async function readDeps(
 
 export async function collectContext(rawInput: unknown): Promise<{ readonly goal: string; readonly collector: CollectorOutput }> {
   const input = CollectInputSchema.parse(rawInput);
+  const exclude = input.out !== undefined
+    ? relative(input.project, input.out).replaceAll('\\', '/')
+    : undefined;
   const [files, gitStatus, memoryEntries, deps] = await Promise.all([
-    scanFiles(input.project),
+    scanFiles(input.project, exclude),
     readGitStatus(input.project),
     readMemoryEntries(input.project),
     readDeps(input.project, input.depsMode),

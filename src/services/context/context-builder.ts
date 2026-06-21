@@ -43,6 +43,7 @@ export async function buildContext(rawInput: unknown): Promise<ContextJson> {
     goal: input.goal,
     project: input.project,
     depsMode: input.depsMode,
+    out: input.out,
   });
 
   const docs = await retrieveDocs(collected.collector.deps, { fetcher: input.fetcher });
