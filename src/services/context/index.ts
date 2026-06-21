@@ -1,6 +1,7 @@
 export { collectContext, type CollectInput } from './collector.js';
 export { retrieveDocs, type DocFetcher, type FetcherPayload, type RetrieveOptions } from './doc-retriever.js';
 export { tokenize } from './tokenizer.js';
+export { render, type RenderInput } from './renderer.js';
 export { ContextJsonSchema } from './context-schema.js';
 export type {
   ContextJson, Audience, DepsMode, FileKind,
