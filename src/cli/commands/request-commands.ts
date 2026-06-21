@@ -186,19 +186,33 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .option('--caller-id <id>', 'Override the caller id for this invocation (D4 priority: flag beats env beats platform fallback). The resolved callerId is stamped on the artifact body and surfaced in the response envelope.')
   ).action(async (options: RequestInitOptions) => {
     try {
+      // One-axis layout: --session-id is REQUIRED. The on-disk root
+      // is always `.peaks/_runtime/<sessionId>/<role>/...`. The user
+      // has forbidden the `.peaks/<id>/` root layout — without an
+      // explicit session id, we cannot guarantee the artifact lands
+      // under `_runtime/`. See
+      // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
+      if (options.sessionId === undefined || options.sessionId.trim().length === 0) {
+        printResult(
+          io,
+          fail(
+            'request.init',
+            'SESSION_ID_REQUIRED',
+            '--session-id is required: the CLI writes envelopes only to .peaks/_runtime/<sessionId>/... (one-axis layout)',
+            { role: options.role, requestId: options.id },
+            ['Re-run with --session-id <sid>', 'Or run `peaks workspace init` to create a session first']
+          ),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       const serviceOptions: Parameters<typeof createRequestArtifact>[0] = {
         role: options.role as RequestArtifactRole,
         requestId: options.id,
         projectRoot: options.project
       };
-      if (options.sessionId !== undefined) {
-        serviceOptions.sessionId = options.sessionId;
-        // Back-compat: pre-1.3.0 the `--session-id <scope>` flag also
-        // set the on-disk dir name. Preserve that by passing the same
-        // value as the explicit change-id; the service still records
-        // the session binding separately in the artifact body.
-        serviceOptions.changeId = options.sessionId;
-      }
+      serviceOptions.sessionId = options.sessionId;
       if (options.apply === true) {
         serviceOptions.apply = true;
       }

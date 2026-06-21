@@ -602,41 +602,21 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   if (!(await isDirectory(peaksRoot))) {
     return [];
   }
-  // Slice 006 collapsed the per-change-id top-level dirs. The 2-tier
-  // resolution model is:
-  //   1. `.peaks/_runtime/<sid>/<role>/requests/` (post-F3 canonical
-  //      session home; slice 006's primary home for request artifacts).
-  //   2. `.peaks/<sid>/<role>/requests/` (pre-F3 legacy home; back-compat
-  //      for users who have not yet migrated).
-  //
-  // When `sessionId` is pinned, the function scans that one session's
-  // two tiers (canonical + legacy). When `sessionId` is NOT pinned,
-  // the function scans every session dir under `.peaks/_runtime/`
-  // (canonical) AND every legacy session dir under `.peaks/`
-  // (top-level). Per-change-id dirs (the old `.peaks/<changeId>/<role>/`
-  // layout) are NOT scanned — slice 008 will migrate the 5
-  // already-shipped slices' artifacts to the new layout; new request
-  // artifacts are written to the session dir directly.
+  // One-axis (session-id-only) layout: the canonical on-disk root for
+  // request artifacts is `.peaks/_runtime/<sid>/<role>/requests/`. The
+  // pre-F3 `.peaks/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/<id>/` root layout —
+  // the CLI guarantees no such dirs are created. See
+  // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
   const scopes: string[] = [];
   if (options.sessionId !== undefined) {
     scopes.push(join('_runtime', options.sessionId));
-    scopes.push(options.sessionId);
   } else {
     const runtimeRoot = join(peaksRoot, '_runtime');
     if (await isDirectory(runtimeRoot)) {
       for (const sid of await listDirectories(runtimeRoot)) {
         scopes.push(join('_runtime', sid));
       }
-    }
-    // Legacy top-level session dirs: scan every non-`._peaks` top-level
-    // dir as a potential legacy scope. Slice 006 dropped per-change-id
-    // dirs, so any top-level dir name under `.peaks/` that is NOT
-    // `_runtime` (and not a well-known umbrella like retrospective,
-    // _dogfood, memory, etc. — those have no `<role>/requests/` tree)
-    // is treated as a candidate legacy session dir.
-    for (const dir of await listDirectories(peaksRoot)) {
-      if (dir === '_runtime') continue;
-      scopes.push(dir);
     }
   }
   const roles = options.role !== undefined ? [options.role] : Array.from(VALID_ROLES);
@@ -677,29 +657,13 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
     return null;
   };
 
-  // As of slice 2026-06-05-change-id-as-unit-of-work, the dir key is the
-  // change-id (not the session-id). When the caller pins `sessionId` we
-  // use it as the scope anyway (legacy callers, and tests that pass
-  // `STABLE_SESSION` as a stand-in).
-  //
-  // As of slice 2026-06-06-session-layout-canonicalize (F3), the
-  // canonical home for session dirs is `.peaks/_runtime/<sid>/`.
-  // The pre-F3 layout `.peaks/<sid>/` is preserved as a one-minor
-  // back-compat fallback (the new path wins when both exist). We
-  // resolve the dir to use UP FRONT (not lazily after a miss) so the
-  // prerequisite gate's "request artifact present" check observes
-  // the same path the rest of the canonical layout uses.
+  // One-axis (session-id-only) layout: the canonical on-disk root is
+  // `.peaks/_runtime/<sid>/<role>/requests/`. The pre-F3
+  // `.peaks/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/<id>/` root layout.
   if (options.sessionId !== undefined) {
-    const canonicalDir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
-    const legacyDir = join(options.projectRoot, '.peaks', options.sessionId, options.role, 'requests');
-    // Try the canonical (post-F3) path first; fall back to the legacy
-    // path only if the canonical path is absent. The legacy path is
-    // expected to be empty after a `peaks workspace migrate --to-runtime`
-    // run; this fallback exists for users who have not yet migrated.
-    const dir = (await isDirectory(canonicalDir)) ? canonicalDir : legacyDir;
-    const scope = dir === canonicalDir
-      ? join('_runtime', options.sessionId)
-      : options.sessionId;
+    const dir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
+    const scope = join('_runtime', options.sessionId);
     const found = await findFileInDir(dir);
     if (found === null) {
       return null;
@@ -708,28 +672,15 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
   }
 
   const peaksRoot = join(options.projectRoot, '.peaks');
-  if (!(await isDirectory(peaksRoot))) {
+  const runtimeRoot = join(peaksRoot, '_runtime');
+  if (!(await isDirectory(runtimeRoot))) {
     return null;
   }
-  // Slice 006: scan only session-scoped dirs (canonical + legacy)
-  // for the artifact. The per-change-id top-level dirs are no longer
-  // scanned — they are frozen until slice 008 migrates them.
-  const runtimeRoot = join(peaksRoot, '_runtime');
-  if (await isDirectory(runtimeRoot)) {
-    for (const sid of await listDirectories(runtimeRoot)) {
-      const dir = join(runtimeRoot, sid, options.role, 'requests');
-      const found = await findFileInDir(dir);
-      if (found !== null) {
-        return await readRequestArtifact(options.projectRoot, join('_runtime', sid), options.role, found);
-      }
-    }
-  }
-  for (const dir of await listDirectories(peaksRoot)) {
-    if (dir === '_runtime') continue;
-    const target = join(peaksRoot, dir, options.role, 'requests');
-    const found = await findFileInDir(target);
+  for (const sid of await listDirectories(runtimeRoot)) {
+    const dir = join(runtimeRoot, sid, options.role, 'requests');
+    const found = await findFileInDir(dir);
     if (found !== null) {
-      return await readRequestArtifact(options.projectRoot, dir, options.role, found);
+      return await readRequestArtifact(options.projectRoot, join('_runtime', sid), options.role, found);
     }
   }
   return null;

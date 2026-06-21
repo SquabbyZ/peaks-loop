@@ -445,7 +445,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addJsonOption(
     workflow
       .command('verify-pipeline')
-      .description('Verify the complete rd→qa pipeline was followed for a request')
+      .description('Verify the complete rd→qa pipeline was followed for a request. Scans `.peaks/_runtime/<sid>/` only (one-axis layout).')
       .requiredOption('--rid <rid>', 'request identifier')
       .requiredOption('--project <path>', 'project root path')
       .option('--change-id <id>', 'change-id hint (when omitted, the on-disk change-id is resolved from the RD/QA artifact itself)')
