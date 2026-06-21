@@ -9,6 +9,10 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
 
+## peaks-context auto-build (v3.0)
+
+QA workflow automatically runs `peaks context build --audience peaks-qa` before the LLM is invoked. No manual setup needed.
+
 # Peaks-Cli QA
 
 Peaks-Cli QA proves that planned changes are protected and accepted.

@@ -89,6 +89,19 @@ cd /path/to/your-project && claude
 
 完了。第一次跑 peaks 会自动建 `.peaks/` 工作区 + 扫一次项目原型 + 把任务分给对的技能（PRD → 工程切片 → UI → QA → 变更控制 → 知识压缩），中间产物全部落盘。**日常使用 1 个技能（`peaks-solo`）覆盖 ≥ 90% 的需求**。
 
+## 🧠 peaks-context — 上下文构建模块 (v3.0)
+
+peaks-context 是 CLI 强制执行的上下文采集器,**不再依赖 LLM 自主"读 package.json"**。
+
+```bash
+peaks context build --goal "<你的需求>" --project . --audience peaks-rd --out context.json
+peaks context validate context.json
+peaks context inspect context.json
+```
+
+**承诺**:deps 锁版本 antd@5.21.0 → context.json 绝不返回 6.x API 文档。  
+详见 [design spec §4.1](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
+
 ## ⏱️ 5 分钟上手
 
 在 IDE 对话里直接对 AI 说：
