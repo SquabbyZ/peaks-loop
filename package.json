@@ -54,6 +54,7 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:workflow": "vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "pretest:coverage": "node ./scripts/pretest-coverage.mjs",
+    "schema:generate": "node scripts/generate-context-schema.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/"
   },
   "engines": {
