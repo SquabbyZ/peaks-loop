@@ -1,4 +1,5 @@
 export { collectContext, type CollectInput } from './collector.js';
+export { retrieveDocs, type DocFetcher, type FetcherPayload, type RetrieveOptions } from './doc-retriever.js';
 export { ContextJsonSchema } from './context-schema.js';
 export type {
   ContextJson, Audience, DepsMode, FileKind,
