@@ -102,6 +102,19 @@ peaks context inspect context.json
 **承诺**:deps 锁版本 antd@5.21.0 → context.json 绝不返回 6.x API 文档。  
 详见 [design spec §4.1](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
 
+## 🧬 peaks-mut — 测试假绿拦截 (v3.0)
+
+peaks-mut 通过变异测试 + 断言有效性扫描拦截测试假绿:
+
+```bash
+peaks mut run --project . --test-files src/A.test.ts --input-sig <TACT.sig> --out mut-report.json
+peaks mut mutants --in mut-report.json
+peaks mut asserts --in mut-report.json
+peaks mut report --in mut-report.json
+```
+
+**默认阈值**:变异杀灭率 ≥ 80%、弱断言比例 ≤ 5%。详见 [design spec §4.2](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
+
 ## ⏱️ 5 分钟上手
 
 在 IDE 对话里直接对 AI 说：
