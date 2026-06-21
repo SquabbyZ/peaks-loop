@@ -43,6 +43,9 @@ import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
 import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
 import type { DocFetcher } from '../../services/context/doc-retriever.js';
+// Plan 2 / Task 8 — consume MUT.sig from peaks-mut into verdict envelope.
+import { loadMutReport, mutReportPath } from '../../services/mut/index.js';
+import type { MutReportJson } from '../../services/mut/types.js';
 
 function buildHeadroomFetcher(sid: string): DocFetcher {
   return createHeadroomFetcher({
@@ -80,12 +83,21 @@ export type QaRunOptions = {
   maxBrowserRestarts?: string;
   sessionId?: string;
   json?: boolean;
+  // Plan 2 / Task 8 — MUT.sig gate.
+  mutation?: boolean;
 };
 
 export type QaGateStatus = {
   readonly name: string;
   readonly status: 'passed' | 'skipped' | 'failed';
   readonly reason?: string;
+  /**
+   * Plan 2 / Task 8 — when the gate consumes an artifact with a
+   * deterministic signature, this field carries that signature for
+   * downstream audit-trail consumers. Currently set only on the
+   * `mutation` gate to MUT.sig (the `sha256` of mut-report.json).
+   */
+  readonly mutSig?: string;
 };
 
 export type QaRunResult = {
@@ -96,6 +108,12 @@ export type QaRunResult = {
   readonly detectorTriggered: boolean;
   readonly diagnostic?: string;
   readonly subAgentPromptHint: string;
+  /**
+   * Plan 2 / Task 8 — MUT.sig when peaks-mut ran in this session.
+   * Undefined when peaks-mut was not run (no mut-report.json) or
+   * the user passed --no-mutation.
+   */
+  readonly mutSig?: string;
 };
 
 export const DEFAULT_MAX_BROWSER_RESTARTS = 3;
@@ -107,6 +125,12 @@ export type RunQaSliceInput = {
   readonly maxRestarts: number;
   readonly detectorEnabled: boolean;
   readonly events: readonly BrowserEvent[];
+  // Plan 2 / Task 8 — pre-loaded mut-report.json (null = "not run");
+  // the slice is pure, the CLI action handler does the I/O.
+  readonly mutationReport: MutReportJson | null;
+  // Plan 2 / Task 8 — when false, force the mutation gate to `skipped`
+  // even if a report is present (mirrors --no-browser).
+  readonly mutationEnabled: boolean;
 };
 
 export function runQaSlice(input: RunQaSliceInput): QaRunResult {
@@ -158,10 +182,35 @@ export function runQaSlice(input: RunQaSliceInput): QaRunResult {
       : { name: 'browser-e2e', status: 'passed' }
     : { name: 'browser-e2e', status: 'skipped', reason: '--no-browser' };
 
+  // Plan 2 / Task 8 — MUT.sig gate.
+  // Gate semantics (per spec lines 1292-1341):
+  //   - `skipped` when peaks-mut was not run (no report) OR --no-mutation
+  //   - `passed`  when the report's `thresholds.passed` is true
+  //   - `failed`  when the report's `thresholds.passed` is false
+  // "Skipped" is NOT a failure — the gate is a no-op so existing
+  // sessions that have not yet adopted peaks-mut keep passing.
+  const mutationGate: QaGateStatus = !input.mutationEnabled
+    ? { name: 'mutation', status: 'skipped', reason: '--no-mutation' }
+    : input.mutationReport === null
+      ? { name: 'mutation', status: 'skipped', reason: 'peaks mut not run' }
+      : input.mutationReport.thresholds.passed
+        ? {
+            name: 'mutation',
+            status: 'passed',
+            mutSig: input.mutationReport.sha256
+          }
+        : {
+            name: 'mutation',
+            status: 'failed',
+            reason: deriveMutationFailureReason(input.mutationReport),
+            mutSig: input.mutationReport.sha256
+          };
+
   const gates: QaGateStatus[] = [
     { name: 'functional', status: 'passed' },
     { name: 'security', status: 'passed' },
-    browserGate
+    browserGate,
+    mutationGate
   ];
 
   return {
@@ -171,8 +220,41 @@ export function runQaSlice(input: RunQaSliceInput): QaRunResult {
     gates,
     detectorTriggered: detector.shouldHalt(),
     ...(detector.shouldHalt() ? { diagnostic: detector.diagnostic() } : {}),
-    subAgentPromptHint: BROWSER_REUSE_HINT
+    subAgentPromptHint: BROWSER_REUSE_HINT,
+    // Surface MUT.sig ONLY when the gate is actually evaluated
+    // (mutation enabled AND a report was loaded). --no-mutation or
+    // missing report -> undefined, so downstream consumers cannot
+    // mistake a skipped gate for a chain-trail anchor.
+    ...(input.mutationEnabled && input.mutationReport !== null
+      ? { mutSig: input.mutationReport.sha256 }
+      : {})
   };
+}
+
+/**
+ * Plan 2 / Task 8 — pure helper that explains WHY the mutation gate
+ * failed. Used only when the report's `thresholds.passed` is false.
+ * Reads the threshold block from the report itself (already
+ * CLI-computed by `buildMutReport`) so the message matches what
+ * peaks-mut's CLI surface prints.
+ */
+function deriveMutationFailureReason(report: MutReportJson): string {
+  const t = report.thresholds;
+  const fragments: string[] = [];
+  if (report.mutation.killRate < t.mutationKillRateMin) {
+    fragments.push(
+      `mutation kill rate ${report.mutation.killRate.toFixed(2)} < ${t.mutationKillRateMin.toFixed(2)}`
+    );
+  }
+  if (report.assertions.weakRate > t.weakAssertionRateMax) {
+    fragments.push(
+      `weak assertion rate ${report.assertions.weakRate.toFixed(2)} > ${t.weakAssertionRateMax.toFixed(2)}`
+    );
+  }
+  if (fragments.length === 0) {
+    return `mutation thresholds failed (MUT.sig=${report.sha256})`;
+  }
+  return `${fragments.join('; ')} (MUT.sig=${report.sha256})`;
 }
 
 function resolveMaxRestarts(raw: string | undefined): number {
@@ -196,23 +278,25 @@ export function readQaRunOptions(options: QaRunOptions): {
   readonly browserEnabled: boolean;
   readonly detectorEnabled: boolean;
   readonly maxRestarts: number;
+  readonly mutationEnabled: boolean;
 } {
   return {
     browserEnabled: options.browser !== false,
     detectorEnabled: options.restartDetector !== false,
-    maxRestarts: resolveMaxRestarts(options.maxBrowserRestarts)
+    maxRestarts: resolveMaxRestarts(options.maxBrowserRestarts),
+    mutationEnabled: options.mutation !== false
   };
 }
 
 export function registerQaCommands(program: Command, io: ProgramIO): void {
   const qa = program
     .command('qa')
-    .description('peaks-qa slice: run QA gates (functional / security / browser E2E) for the active project');
+    .description('peaks-qa slice: run QA gates (functional / security / browser E2E / mutation) for the active project');
 
   addJsonOption(
     qa
       .command('run')
-      .description('Run the peaks-qa slice (PRD 2026-06-16-playwright-restart-loop)')
+      .description('Run the peaks-qa slice (PRD 2026-06-16-playwright-restart-loop; Plan 2 mut gate)')
       .option('--project <path>', 'project the gates evaluate against (default: current directory)', '.')
       .option('--session-id <sid>', 'session id; defaults to "ad-hoc" for one-shot runs', 'ad-hoc')
       .option('--no-browser', 'skip the browser E2E gate entirely (PRD G5 / AC4)')
@@ -222,15 +306,25 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
         String(DEFAULT_MAX_BROWSER_RESTARTS)
       )
       .option('--no-restart-detector', 'disable the restart-loop detector escape hatch (PRD AC6)')
+      // Plan 2 / Task 8 — MUT.sig gate opt-out (mirrors --no-browser).
+      .option('--no-mutation', 'skip the mutation gate even if .peaks/_runtime/<sid>/mut/mut-report.json exists')
   ).action(async (options: QaRunOptions) => {
     try {
-      const { browserEnabled, detectorEnabled, maxRestarts } = readQaRunOptions(options);
+      const { browserEnabled, detectorEnabled, maxRestarts, mutationEnabled } =
+        readQaRunOptions(options);
       // Plan 1 / Task 9 — pre-build peaks-context before peaks-qa runs.
       // Goal is audience-scoped doc retrieval only; pass a placeholder
       // when the user did not supply one.
       const qaProject = options.project;
       const qaSid = options.sessionId ?? 'ad-hoc';
       await ensureContextForQa('qa gate run', qaProject, qaSid);
+      // Plan 2 / Task 8 — load peaks-mut's report (MUT.sig) if present.
+      // Returns null when peaks-mut was not run; the gate treats that
+      // as `skipped`, never as `failed`. loadMutReport itself never
+      // throws (per its docstring) so this is safe in the action.
+      const mutationReport = mutationEnabled
+        ? await loadMutReport(qaSid)
+        : null;
       // Production slice: no synthetic events to feed; in real
       // dogfood the LLM tool dispatcher would push events into the
       // detector. Here we record an empty event log so the
@@ -241,19 +335,29 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
         browserEnabled,
         maxRestarts,
         detectorEnabled,
-        events: []
+        events: [],
+        mutationReport,
+        mutationEnabled
       });
+      const mutationGate = result.gates.find((g) => g.name === 'mutation');
+      const mutationFailed = mutationGate?.status === 'failed';
       const nextActions = result.detectorTriggered
         ? [
             'Stop the slice and inspect the diagnostic above',
             'Re-run with --no-restart-detector if the close/reopen was intentional',
             'See .peaks/memory/playwright-restart-loop-2026-06-16.md'
           ]
+        : mutationFailed
+          ? [
+              'Re-run peaks mut and address the threshold breaches (see reason)',
+              'Re-run with --no-mutation to bypass the gate for this slice',
+              `mut-report path: ${mutReportPath(qaSid)}`
+            ]
         : browserEnabled
           ? ['No action required; browser gate passed']
           : ['Browser E2E skipped; run without --no-browser when the slice needs E2E'];
       printResult(io, ok('qa.run', result, [], nextActions), options.json);
-      if (result.detectorTriggered) {
+      if (result.detectorTriggered || mutationFailed) {
         process.exitCode = 2;
       }
     } catch (error) {

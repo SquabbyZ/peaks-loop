@@ -47,9 +47,11 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: DEFAULT_MAX_BROWSER_RESTARTS,
         detectorEnabled: true,
-        events: makeEvents(baseTs, 2)
+        events: makeEvents(baseTs, 2),
+        mutationReport: null,
+        mutationEnabled: true
       });
-      expect(result.gates).toHaveLength(3);
+      expect(result.gates).toHaveLength(4);
       const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
       expect(browserGate?.status).toBe('passed');
       expect(result.detectorTriggered).toBe(false);
@@ -69,7 +71,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: 3,
         detectorEnabled: true,
-        events: makeEvents(baseTs, 4)
+        events: makeEvents(baseTs, 4),
+        mutationReport: null,
+        mutationEnabled: true
       });
       expect(result.detectorTriggered).toBe(true);
       const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
@@ -91,7 +95,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: false,
         maxRestarts: 3,
         detectorEnabled: true,
-        events: makeEvents(baseTs, 4) // events ignored when browser is off
+        events: makeEvents(baseTs, 4), // events ignored when browser is off
+        mutationReport: null,
+        mutationEnabled: true
       });
       const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
       expect(browserGate?.status).toBe('skipped');
@@ -111,7 +117,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: 5,
         detectorEnabled: true,
-        events: makeEvents(baseTs, 4) // 4 < 5 -> no halt
+        events: makeEvents(baseTs, 4), // 4 < 5 -> no halt
+        mutationReport: null,
+        mutationEnabled: true
       });
       const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
       expect(browserGate?.status).toBe('passed');
@@ -130,7 +138,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: 3,
         detectorEnabled: false,
-        events: makeEvents(baseTs, 10)
+        events: makeEvents(baseTs, 10),
+        mutationReport: null,
+        mutationEnabled: true
       });
       const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
       expect(browserGate?.status).toBe('passed');
@@ -149,7 +159,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: 3,
         detectorEnabled: true,
-        events: makeEvents(baseTs, 3)
+        events: makeEvents(baseTs, 3),
+        mutationReport: null,
+        mutationEnabled: true
       });
       const logPath = join(project, '.peaks', '_runtime', 'sess-log', 'qa', 'browser-events.jsonl');
       expect(existsSync(logPath)).toBe(true);
@@ -176,7 +188,9 @@ describe('cli/qa-commands: runQaSlice', () => {
         browserEnabled: true,
         maxRestarts: 3,
         detectorEnabled: true,
-        events: []
+        events: [],
+        mutationReport: null,
+        mutationEnabled: true
       });
       expect(result.subAgentPromptHint).toContain('reuse existing browser tab');
       expect(result.subAgentPromptHint).toContain('do NOT call mcp__playwright__browser_close');
@@ -307,7 +321,7 @@ describe('cli/qa-commands: full CLI → runQaSlice integration (cycle-2 regressi
       const runCmd = program.commands
         .find((c) => c.name() === 'qa')!
         .commands.find((c) => c.name() === 'run')!;
-      const { browserEnabled, detectorEnabled, maxRestarts } =
+      const { browserEnabled, detectorEnabled, maxRestarts, mutationEnabled } =
         readQaRunOptions(runCmd.opts());
       return runQaSlice({
         project,
@@ -315,7 +329,9 @@ describe('cli/qa-commands: full CLI → runQaSlice integration (cycle-2 regressi
         browserEnabled,
         maxRestarts,
         detectorEnabled,
-        events
+        events,
+        mutationReport: null,
+        mutationEnabled
       });
     } finally {
       rmSync(project, { recursive: true, force: true });
@@ -372,5 +388,189 @@ describe('cli/qa-commands: full CLI → runQaSlice integration (cycle-2 regressi
     expect(browserGate?.reason).toBe('--no-browser');
     expect(result.detectorTriggered).toBe(false);
     expect(result.browserEnabled).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plan 2 / Task 8 — MUT.sig gate (MUT.sig consumption contract).
+// ---------------------------------------------------------------------------
+import type { MutReportJson } from '../../../src/services/mut/types.js';
+
+function makeMutReport(overrides: Partial<MutReportJson> = {}): MutReportJson {
+  return {
+    version: '1.0',
+    sha256: 'a'.repeat(64),
+    generatedAt: '2026-06-22T00:00:00.000Z',
+    inputSig: 'b'.repeat(64),
+    mutation: {
+      tool: 'stryker',
+      mutantsTotal: 100,
+      mutantsKilled: 90,
+      mutantsSurvived: 10,
+      mutantsTimeout: 0,
+      killRate: 0.9,
+      byFile: [],
+    },
+    assertions: {
+      totalAssertions: 100,
+      weakAssertions: 0,
+      weakRate: 0,
+      weakPatterns: [],
+    },
+    thresholds: {
+      mutationKillRateMin: 0.8,
+      weakAssertionRateMax: 0.05,
+      passed: true,
+    },
+    followups: [],
+    ...overrides,
+  };
+}
+
+function runWithMut(
+  mutationReport: MutReportJson | null,
+  mutationEnabled = true,
+  overrides: Partial<{ browserEnabled: boolean }> = {}
+) {
+  const project = mkdtempSync(join(tmpdir(), 'peaks-qa-mut-'));
+  try {
+    return runQaSlice({
+      project,
+      sessionId: 'sess-mut',
+      browserEnabled: overrides.browserEnabled ?? true,
+      maxRestarts: 3,
+      detectorEnabled: true,
+      events: [],
+      mutationReport,
+      mutationEnabled,
+    });
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+}
+
+describe('cli/qa-commands: runQaSlice — Plan 2 / Task 8 mutation gate', () => {
+  it('skips the mutation gate with reason "peaks mut not run" when no report is loaded', () => {
+    const result = runWithMut(null);
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(mutationGate?.status).toBe('skipped');
+    expect(mutationGate?.reason).toBe('peaks mut not run');
+    expect(mutationGate?.mutSig).toBeUndefined();
+    expect(result.mutSig).toBeUndefined();
+  });
+
+  it('passes the mutation gate and surfaces MUT.sig when report.thresholds.passed === true', () => {
+    const report = makeMutReport({ sha256: 'f'.repeat(64), thresholds: {
+      mutationKillRateMin: 0.8,
+      weakAssertionRateMax: 0.05,
+      passed: true,
+    } });
+    const result = runWithMut(report);
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(mutationGate?.status).toBe('passed');
+    expect(mutationGate?.mutSig).toBe('f'.repeat(64));
+    expect(mutationGate?.reason).toBeUndefined();
+    expect(result.mutSig).toBe('f'.repeat(64));
+  });
+
+  it('fails the mutation gate when report.thresholds.passed === false and explains WHY', () => {
+    const report = makeMutReport({
+      sha256: 'c'.repeat(64),
+      mutation: {
+        tool: 'stryker',
+        mutantsTotal: 100,
+        mutantsKilled: 60,
+        mutantsSurvived: 40,
+        mutantsTimeout: 0,
+        killRate: 0.6, // below 0.8
+        byFile: [],
+      },
+      thresholds: {
+        mutationKillRateMin: 0.8,
+        weakAssertionRateMax: 0.05,
+        passed: false,
+      },
+    });
+    const result = runWithMut(report);
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(mutationGate?.status).toBe('failed');
+    expect(mutationGate?.reason).toContain('kill rate 0.60');
+    expect(mutationGate?.reason).toContain('0.80');
+    expect(mutationGate?.reason).toContain('c'.repeat(64));
+    expect(mutationGate?.mutSig).toBe('c'.repeat(64));
+    expect(result.mutSig).toBe('c'.repeat(64));
+  });
+
+  it('fails the mutation gate when weak assertion rate exceeds the threshold', () => {
+    const report = makeMutReport({
+      thresholds: {
+        mutationKillRateMin: 0.8,
+        weakAssertionRateMax: 0.05,
+        passed: false,
+      },
+      mutation: {
+        tool: 'stryker',
+        mutantsTotal: 100,
+        mutantsKilled: 90,
+        mutantsSurvived: 10,
+        mutantsTimeout: 0,
+        killRate: 0.9, // OK
+        byFile: [],
+      },
+      assertions: {
+        totalAssertions: 100,
+        weakAssertions: 12,
+        weakRate: 0.12, // > 0.05
+        weakPatterns: [],
+      },
+    });
+    const result = runWithMut(report);
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(mutationGate?.status).toBe('failed');
+    expect(mutationGate?.reason).toContain('weak assertion rate 0.12');
+    expect(mutationGate?.reason).toContain('0.05');
+  });
+
+  it('forces the mutation gate to skipped with reason "--no-mutation" when mutationEnabled is false', () => {
+    const report = makeMutReport(); // even with a passing report
+    const result = runWithMut(report, false);
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(mutationGate?.status).toBe('skipped');
+    expect(mutationGate?.reason).toBe('--no-mutation');
+    expect(mutationGate?.mutSig).toBeUndefined();
+    expect(result.mutSig).toBeUndefined();
+  });
+
+  it('appends the mutation gate AFTER the browser-e2e gate (gate ordering is stable)', () => {
+    const result = runWithMut(null);
+    const names = result.gates.map((g) => g.name);
+    expect(names).toEqual(['functional', 'security', 'browser-e2e', 'mutation']);
+  });
+
+  it('mutation gate is independent of browser gate — passing browser + skipped mut does not regress', () => {
+    const result = runWithMut(null, true, { browserEnabled: true });
+    const browserGate = result.gates.find((g) => g.name === 'browser-e2e');
+    const mutationGate = result.gates.find((g) => g.name === 'mutation');
+    expect(browserGate?.status).toBe('passed');
+    expect(mutationGate?.status).toBe('skipped');
+  });
+});
+
+describe('cli/qa-commands: readQaRunOptions — Plan 2 / Task 8 mutation field', () => {
+  it('returns mutationEnabled=true when options.mutation is undefined (default)', () => {
+    const got = readQaRunOptions({
+      project: '/tmp',
+      maxBrowserRestarts: '3'
+    });
+    expect(got.mutationEnabled).toBe(true);
+  });
+
+  it('returns mutationEnabled=false when options.mutation === false (--no-mutation)', () => {
+    const got = readQaRunOptions({
+      project: '/tmp',
+      mutation: false,
+      maxBrowserRestarts: '3'
+    });
+    expect(got.mutationEnabled).toBe(false);
   });
 });
