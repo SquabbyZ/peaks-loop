@@ -18,6 +18,33 @@ import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.
 import { applySkip, detectCallerKind, type SkipArgs } from '../../services/workflow/workflow-skip-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
+// Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
+import { buildContext } from '../../services/context/context-builder.js';
+// PRE-FLIGHT FIX: Task 10 will replace this with headroomFetcher.
+import { mockFetcher } from '../../services/context/mock-fetcher.js';
+
+async function ensureContextForRd(goal: string, project: string, sid: string): Promise<void> {
+  const out = `.peaks/_runtime/${sid}/context.json`;
+  try {
+    await buildContext({
+      goal,
+      project,
+      audience: 'peaks-rd',
+      depsMode: 'locked',
+      docBudgetTokens: 8000,
+      out,
+      fetcher: mockFetcher,
+    });
+  } catch (error) {
+    // Plan 1 / Task 9 — context is a pre-step, not a precondition.
+    // If the Collector (e.g. missing package.json) or DocRetriever
+    // fails, we still want the rd slice to proceed. Task 11
+    // upgrades this to a hard precondition once the rd slice
+    // actually consumes context.json.
+    const message = error instanceof Error ? error.message : 'unknown context build failure';
+    process.stderr.write(`[peaks-context] rd pre-step skipped: ${message}\n`);
+  }
+}
 
 interface WorkspaceContext {
   workspace?: WorkspaceConfig;
@@ -237,7 +264,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
   }
 }
 
-function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
+async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<void> {
   if ((options.skill ?? 'rd') !== 'rd') {
     printResult(io, fail('swarm.plan', 'UNSUPPORTED_SWARM_SKILL', `Unsupported skill ${options.skill}`, {}, ['Use --skill rd']), options.json);
     process.exitCode = 1;
@@ -256,6 +283,10 @@ function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): void {
     validatePlanningInput(options.changeId, options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const config = readConfig();
+    // Plan 1 / Task 9 — pre-build peaks-context before peaks-rd runs.
+    const projectRoot = workspaceContext.projectRoot ?? process.cwd();
+    const sid = getSessionId(projectRoot) ?? 'ad-hoc';
+    await ensureContextForRd(options.goal, projectRoot, sid);
     const plan = createRdSwarmPlan({
       skill: 'rd',
       changeId: options.changeId,
@@ -498,8 +529,8 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   });
 
   const swarm = program.command('swarm').description('Plan RD swarm dry-run graphs');
-  addSwarmPlanOptions(swarm.command('plan'), true).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));
-  addSwarmPlanOptions(program.command('swarm-plan'), false).action((options: SwarmPlanOptions) => runSwarmPlan(io, options));
+  addSwarmPlanOptions(swarm.command('plan'), true).action(async (options: SwarmPlanOptions) => { await runSwarmPlan(io, options); });
+  addSwarmPlanOptions(program.command('swarm-plan'), false).action(async (options: SwarmPlanOptions) => { await runSwarmPlan(io, options); });
 
   // Slice #13 Swarm Algorithm Upgrade — 4 additional subcommands.
   // (peaks swarm plan above is slice #13.1; the 4 below are 13.2-13.5).

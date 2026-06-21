@@ -38,6 +38,31 @@ import {
   BrowserEventLogger
 } from '../../services/qa/browser-event-logger.js';
 import { BROWSER_REUSE_HINT } from '../../services/qa/browser-reuse-hint.js';
+// Plan 1 / Task 9 — auto-build peaks-context before peaks-qa runs.
+import { buildContext } from '../../services/context/context-builder.js';
+// PRE-FLIGHT FIX: Task 10 will replace this with headroomFetcher.
+import { mockFetcher } from '../../services/context/mock-fetcher.js';
+
+async function ensureContextForQa(goal: string, project: string, sid: string): Promise<void> {
+  const out = `.peaks/_runtime/${sid}/context.json`;
+  try {
+    await buildContext({
+      goal,
+      project,
+      audience: 'peaks-qa',
+      depsMode: 'locked',
+      docBudgetTokens: 8000,
+      out,
+      fetcher: mockFetcher,
+    });
+  } catch (error) {
+    // Plan 1 / Task 9 — context is a pre-step, not a precondition.
+    // Task 11 will upgrade this to a hard precondition once the qa
+    // slice actually consumes context.json.
+    const message = error instanceof Error ? error.message : 'unknown context build failure';
+    process.stderr.write(`[peaks-context] qa pre-step skipped: ${message}\n`);
+  }
+}
 
 export type QaRunOptions = {
   project: string;
@@ -189,9 +214,15 @@ export function registerQaCommands(program: Command, io: ProgramIO): void {
         String(DEFAULT_MAX_BROWSER_RESTARTS)
       )
       .option('--no-restart-detector', 'disable the restart-loop detector escape hatch (PRD AC6)')
-  ).action((options: QaRunOptions) => {
+  ).action(async (options: QaRunOptions) => {
     try {
       const { browserEnabled, detectorEnabled, maxRestarts } = readQaRunOptions(options);
+      // Plan 1 / Task 9 — pre-build peaks-context before peaks-qa runs.
+      // Goal is audience-scoped doc retrieval only; pass a placeholder
+      // when the user did not supply one.
+      const qaProject = options.project;
+      const qaSid = options.sessionId ?? 'ad-hoc';
+      await ensureContextForQa('qa gate run', qaProject, qaSid);
       // Production slice: no synthetic events to feed; in real
       // dogfood the LLM tool dispatcher would push events into the
       // detector. Here we record an empty event log so the
