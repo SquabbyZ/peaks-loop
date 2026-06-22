@@ -7,6 +7,20 @@ import { describe, expect, test } from 'vitest';
 
 const CLI_BIN = resolve(__dirname, '../../bin/peaks.js');
 
+// Snapshot the spawn env at module load. Strip HOME/USERPROFILE so that any
+// prior vitest-side `vi.stubEnv('HOME', ...)` (e.g. from artifact-setup.test.ts)
+// does NOT leak into spawned CLI children. Without this, `os.homedir()` in the
+// child would read the stubbed HOME and `resolveCanonicalProjectRoot` would
+// walk past the test tmpdir into the real user home — making cleanup operate
+// on the wrong directory and producing `deleted: []`. See
+// `.peaks/memory/2026-06-22-workspace-clean-cli-flake-bisected.md`.
+const SPAWN_ENV: NodeJS.ProcessEnv = (() => {
+  const env = { ...process.env };
+  delete env.HOME;
+  delete env.USERPROFILE;
+  return env;
+})();
+
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-ws-cli-'));
 }
@@ -15,6 +29,7 @@ function cli(args: string, cwd: string): { stdout: string; stderr: string; code:
   try {
     const stdout = execSync(`node ${CLI_BIN} ${args}`, {
       cwd,
+      env: SPAWN_ENV,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
