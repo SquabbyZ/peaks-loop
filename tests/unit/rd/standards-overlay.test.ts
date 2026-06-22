@@ -44,7 +44,12 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
       { name: 'performance-review', status: 'skipped', reason: 'no project-local standards' },
     ]);
     expect(plan.gateStatus.standardsDiagnostic).toContain('no project-local standards found');
-    expect(plan.gateStatus.standardsDiagnostic).toContain('peaks standards init --project ' + projectRoot);
+    // Remediation command renders projectRoot with POSIX slashes (deliberate
+    // cross-platform copy-paste; see src/services/rd/standards-diagnostic.ts
+    // `buildRemediationCommand`). Tests must compare against the same
+    // conversion, not raw `projectRoot`.
+    const posixProjectRoot = projectRoot.split('\\').join('/');
+    expect(plan.gateStatus.standardsDiagnostic).toContain('peaks standards init --project ' + posixProjectRoot);
     expect(plan.gateStatus.standardsDiagnostic).toContain('--apply');
     expect(plan.gateStatus.standardsDiagnostic).toContain('code-review');
     expect(plan.gateStatus.standardsDiagnostic).toContain('security-review');
@@ -120,7 +125,8 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
       strictStandards: false,
     });
 
-    const cmd = `peaks standards init --project ${projectRoot} --apply`;
+    const posixProjectRoot = projectRoot.split('\\').join('/');
+    const cmd = `peaks standards init --project ${posixProjectRoot} --apply`;
     expect(plan.gateStatus.standardsDiagnostic).toContain(cmd);
   });
 
@@ -150,7 +156,8 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
     expect(plan.gateStatus.standardsDiagnostic).toContain('no project-local standards found');
     // The diagnostic must remain copy-pasteable even when the error code
     // is present — strict mode is additive, not a replacement.
-    expect(plan.gateStatus.standardsDiagnostic).toContain('peaks standards init --project ' + projectRoot + ' --apply');
+    const posixProjectRoot = projectRoot.split('\\').join('/');
+    expect(plan.gateStatus.standardsDiagnostic).toContain('peaks standards init --project ' + posixProjectRoot + ' --apply');
   });
 
   test('repair-1 regression: strict=false + missing → diagnostic present, error code absent (warn-and-continue)', () => {

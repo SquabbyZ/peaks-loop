@@ -77,10 +77,15 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
     }
   });
 
-  test('strict-standards CLI flag surfaces EPEAKS_NO_STANDARDS in JSON envelope + exits non-zero', () => {
+  test('strict-standards CLI flag surfaces EPEAKS_NO_STANDARDS in JSON envelope + exits non-zero', async () => {
     const { io, stdout } = captureIO();
     const program = buildSwarmProgram(io);
-    program.parse([
+    // The swarm plan handler is async (it pre-builds peaks-context via
+    // ensureContextForRd). `program.parse()` returns synchronously and
+    // does NOT await the action's returned promise, so stdout is empty
+    // when read immediately after `parse()` returns. Use `parseAsync`
+    // so the test actually waits for the JSON envelope to land.
+    await program.parseAsync([
       'node', 'peaks', 'swarm', 'plan',
       '--skill', 'rd',
       '--change-id', '2026-06-16-peaks-rd-no-gates',
@@ -99,10 +104,11 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
     expect(envelope.data.gateStatus.standardsDiagnostic).toContain(projectRoot);
   });
 
-  test('omitted --strict-standards: warn-and-continue (no error code, exit 0)', () => {
+  test('omitted --strict-standards: warn-and-continue (no error code, exit 0)', async () => {
     const { io, stdout } = captureIO();
     const program = buildSwarmProgram(io);
-    program.parse([
+    // See note above — must await async action via `parseAsync`.
+    await program.parseAsync([
       'node', 'peaks', 'swarm', 'plan',
       '--skill', 'rd',
       '--change-id', '2026-06-16-peaks-rd-no-gates',
