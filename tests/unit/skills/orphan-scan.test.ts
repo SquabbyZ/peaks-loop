@@ -104,25 +104,11 @@ async function withTempRepo(fn: (root: string) => Promise<void>): Promise<void> 
 }
 
 describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
-  // TODO(plan-3a-task-3): real bug found — escalate
-  // On Windows, `node:path.relative()` returns backslashed relative
-  // paths (`src\cli\commands\scan-commands.ts`), but
-  // `src/services/scan/orphan-service.ts` line 459 filters with
-  // `f.startsWith('src/cli/commands/')` (forward slashes) and line 500
-  // uses `f.startsWith('skills/')`. The whole orphan report comes back
-  // empty on Windows — no CLI subcommand orphans, no doc-endpoint
-  // orphans, no exports. The production fix is to normalize the
-  // separator (e.g. `f.split(path.sep).join('/')` before the filter,
-  // or store keys with forward slashes from `walkDir`).
-  //
-  // These two behavior tests are platform-conditional: they only
-  // execute meaningfully on POSIX, where `path.relative` returns
-  // forward-slashed paths and the filter matches. Skip on Windows to
-  // keep the suite green until the production bug is fixed. The
-  // Plan-2-era "guard test" assertions (lines 20–85) keep running on
-  // every platform because they read source files directly and don't
-  // depend on the broken filter.
-  test.skipIf(process.platform === 'win32')('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', async () => {
+  // Plan-3a-Task-3.5: `src/services/scan/orphan-service.ts:138` now
+  // normalizes walkDir keys via `.split(sep).join('/')` so the
+  // forward-slash filters on lines 459 / 500 match on Windows hosts
+  // too. The orphan report is no longer empty on Windows.
+  test('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/cli/commands'), { recursive: true });
       // scan-commands.ts declares 'orphan' subcommand; nothing else references it.

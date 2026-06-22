@@ -15,7 +15,7 @@
  */
 
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 export type OrphanScope = 'working-tree' | 'git-diff' | 'all';
@@ -135,7 +135,11 @@ async function walkDir(dir: string, projectRoot: string, out: string[]): Promise
     if (entry.isDirectory()) {
       await walkDir(full, projectRoot, out);
     } else if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
-      out.push(relative(projectRoot, full));
+      // Normalize to POSIX separators: downstream filters (e.g.
+      // `f.startsWith('src/cli/commands/')`) expect forward slashes
+      // regardless of host OS. Without this, Windows hosts see empty
+      // orphan reports because `path.relative` returns `\`-separated paths.
+      out.push(relative(projectRoot, full).split(sep).join('/'));
     }
   }
 }
