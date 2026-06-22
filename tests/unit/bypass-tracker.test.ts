@@ -139,16 +139,20 @@ describe('2.7.1 root-pollution regression — bypass-count home', () => {
     //   join(projectRoot, '.peaks', '_runtime', resolvedSessionId)
     // MUST be the path passed to isBypassLimitReached / recordBypass.
     // If a future refactor regresses back to `.peaks/<sid>/`, this
-    // string check fails and surfaces the regression.
+    // string check fails and surfaces the regression. On Windows the
+    // join() helper emits backslashes; the contract is the segment
+    // ordering (`.peaks/_runtime/<sid>/`), which the
+    // `.includes('/_runtime/')` check pins in a platform-stable way.
     const projectRoot = '/tmp/proj';
     const resolvedSessionId = '2026-06-18-session-2a4f9c';
     const sessionRoot = join(projectRoot, '.peaks', '_runtime', resolvedSessionId);
-    expect(sessionRoot, 'canonical bypass home').toBe(
-      '/tmp/proj/.peaks/_runtime/2026-06-18-session-2a4f9c'
-    );
-    expect(sessionRoot, 'never the legacy root home').not.toBe(
-      '/tmp/proj/.peaks/2026-06-18-session-2a4f9c'
-    );
+    const legacyRoot = join(projectRoot, '.peaks', resolvedSessionId);
+    expect(sessionRoot.includes(`${require('node:path').sep}_runtime${require('node:path').sep}`) ||
+           sessionRoot.includes('/_runtime/'), 'canonical bypass home contains _runtime/ segment').toBe(true);
+    expect(sessionRoot.includes('/_runtime/') || sessionRoot.includes('\\_runtime\\'), 'canonical bypass home uses _runtime/').toBe(true);
+    expect(sessionRoot.endsWith(resolvedSessionId), 'canonical bypass home ends with sid').toBe(true);
+    expect(legacyRoot.includes('/_runtime/') || legacyRoot.includes('\\_runtime\\'), 'never the legacy root home (no _runtime/ segment)').toBe(false);
+    expect(legacyRoot.endsWith(resolvedSessionId), 'legacy root would end with sid').toBe(true);
   });
 
   // 2.7.1 round-3 audit hardening: the two string-level tests above pin

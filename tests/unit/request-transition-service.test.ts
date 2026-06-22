@@ -281,15 +281,18 @@ describe('transitionRequestArtifact (validation)', () => {
 
   test('returns previousState=unknown when the artifact has no state line', async () => {
     const project = await makeProject();
-    // The file lives under `.peaks/<change-id>/<role>/requests/`. We hand-craft
-    // it under the requestId-as-change-id (the default), so the file is at
-    // `.peaks/2026-05-24-no-state/prd/requests/...`.
-    const dir = join(project, '.peaks', '2026-05-24-no-state', 'prd', 'requests');
+    // Plan 1 followup hotfix (5cd4c87): the on-disk root is the
+    // session-id dir under `.peaks/_runtime/<sid>/<role>/requests/`.
+    // We hand-craft the file under STABLE_SESSION so the showRequestArtifact
+    // resolver can find it. The body is intentionally missing a state
+    // line so the transition lands with previousState=unknown.
+    const dir = join(project, '.peaks', '_runtime', STABLE_SESSION, 'prd', 'requests');
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, '2026-05-24-no-state.md'), `# PRD Request 2026-05-24-no-state\n\nNo status block.\n`, 'utf8');
+    await writeFile(join(dir, '2026-05-24-no-state.md'), `# PRD Request 2026-05-24-no-state\n- session: ${STABLE_SESSION}\n\nNo status block.\n`, 'utf8');
 
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-no-state', projectRoot: project,
+      sessionId: STABLE_SESSION,
       newState: 'confirmed-by-user',
       clock: () => LATER_TIMESTAMP
     });
@@ -302,12 +305,17 @@ describe('transitionRequestArtifact (validation)', () => {
 
   test('inserts a last update line when the artifact has state but no last update line', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', '2026-05-24-state-only', 'prd', 'requests');
+    // Plan 1 followup hotfix (5cd4c87): write under
+    // `.peaks/_runtime/<sid>/<role>/requests/` (the canonical post-F3
+    // home) and pass the explicit sessionId so the transition
+    // resolver can find it.
+    const dir = join(project, '.peaks', '_runtime', STABLE_SESSION, 'prd', 'requests');
     await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, '2026-05-24-state-only.md'), `# PRD Request 2026-05-24-state-only\n\n## Status\n\n- state: draft\n`, 'utf8');
+    await writeFile(join(dir, '2026-05-24-state-only.md'), `# PRD Request 2026-05-24-state-only\n- session: ${STABLE_SESSION}\n\n## Status\n\n- state: draft\n`, 'utf8');
 
     const result = await transitionRequestArtifact({
       role: 'prd', requestId: '2026-05-24-state-only', projectRoot: project,
+      sessionId: STABLE_SESSION,
       newState: 'confirmed-by-user',
       clock: () => LATER_TIMESTAMP
     });

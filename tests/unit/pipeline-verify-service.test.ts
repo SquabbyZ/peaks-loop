@@ -32,12 +32,21 @@ import { verifyPipeline } from '../../src/services/workflow/pipeline-verify-serv
 // not the session-id. Tests write under a stable test-change-id dir
 // (mimicking the new layout) and pass `changeId: 'test-change-id'`
 // explicitly to verifyPipeline so the resolved change-id is deterministic.
+//
+// Plan 1 followup hotfix (5cd4c87) made the on-disk root ONE-axis:
+// `.peaks/_runtime/<sid>/<role>/requests/`. To preserve the verifyPipeline
+// tests' intent (using test-change-id as a stable scope name), we
+// treat test-change-id AS the session id and write under
+// `.peaks/_runtime/test-change-id/...`. The verifyPipeline service
+// then resolves the on-disk change-id from the file path, which
+// equals test-change-id (the dir the file lives in).
 // ---------------------------------------------------------------------------
 
 function createTempProject(): { root: string; peaks: string } {
   const root = mkdtempSync(join(tmpdir(), 'peaks-pipeline-verify-'));
-  // Mimic the new layout: change-id is the top-level dir.
-  const peaks = join(root, '.peaks', 'test-change-id');
+  // Mimic the new layout: change-id-as-session-id lives under
+  // `.peaks/_runtime/<sid>/<role>/requests/`.
+  const peaks = join(root, '.peaks', '_runtime', 'test-change-id');
   mkdirSync(join(peaks, 'rd', 'requests'), { recursive: true });
   mkdirSync(join(peaks, 'qa', 'requests'), { recursive: true });
   mkdirSync(join(peaks, 'qa', 'test-cases'), { recursive: true });
@@ -49,40 +58,50 @@ function createTempProject(): { root: string; peaks: string } {
 
 /** Write an RD request artifact (numbered prefix format by default). */
 function writeRdArtifact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-change-id', 'rd', 'requests');
-  const content = `# RD Request ${rid}\n- state: ${state}\n- type: feature\n`;
+  const dir = join(root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
+  const content = `# RD Request ${rid}\n- session: test-change-id\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `001-${rid}.md`), content, 'utf8');
 }
 
 /** Write a QA request artifact (numbered prefix format by default). */
 function writeQaArtifact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-change-id', 'qa', 'requests');
-  const content = `# QA Request ${rid}\n- state: ${state}\n- type: feature\n`;
+  const dir = join(root, '.peaks', '_runtime', 'test-change-id', 'qa', 'requests');
+  const content = `# QA Request ${rid}\n- session: test-change-id\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `001-${rid}.md`), content, 'utf8');
 }
 
 /** Write an RD request artifact using the exact-match filename format ({rid}.md). */
 function writeRdArtifactExact(root: string, rid: string, state: string): void {
-  const dir = join(root, '.peaks', 'test-change-id', 'rd', 'requests');
-  const content = `# RD Request ${rid}\n- state: ${state}\n- type: feature\n`;
+  const dir = join(root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
+  const content = `# RD Request ${rid}\n- session: test-change-id\n- state: ${state}\n- type: feature\n`;
   writeFileSync(join(dir, `${rid}.md`), content, 'utf8');
 }
 
-/** Write an RD evidence file under .peaks/<changeId>/rd/<relativePath>. */
+/** Write an RD evidence file under .peaks/_runtime/test-change-id/rd/<relativePath>. */
 function writeRdEvidence(peaks: string, relativePath: string, content?: string): void {
   const full = join(peaks, 'rd', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
-/** Write a QA evidence file under .peaks/<changeId>/qa/<relativePath>. */
+/** Write a QA evidence file under .peaks/_runtime/test-change-id/qa/<relativePath>. */
 function writeQaEvidence(peaks: string, relativePath: string, content?: string): void {
   const full = join(peaks, 'qa', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
+// Plan 1 followup hotfix (5cd4c87) made the on-disk scope path the
+// source of truth for resolved changeId. Files live under
+// `.peaks/_runtime/test-change-id/...`, so the resolved changeId is
+// the full scope path (containing `_runtime/test-change-id`), not
+// the bare session-id name. The path separator is platform-dependent
+// (forward slash on POSIX, backslash on Windows) — use endsWith CID
+// + a contains check for the `_runtime` segment.
 const CID = 'test-change-id';
+function isResolvedChangeId(value: string): boolean {
+  return value.includes('_runtime') && value.endsWith(CID);
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -202,7 +221,7 @@ describe('verifyPipeline', () => {
     });
 
     test('returns "unknown" state when artifact has no "state:" line', async () => {
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'no-state.md'), '# RD\nJust some content\nNo state line\n', 'utf8');
 
       const r = await verifyPipeline({
@@ -429,10 +448,23 @@ describe('verifyPipeline', () => {
   describe('QA phase evidence files', () => {
     test('detects all QA evidence files present for feature type', async () => {
       writeQaArtifact(temp.root, 'qa-ev-all', 'verdict-issued');
+      // QA evidence gates (test-cases/test-report) read from
+      // `.peaks/<changeId>/qa/` using the resolved changeId. Without
+      // an RD request file in the same scope, the resolver falls
+      // back to the caller-provided changeId (`test-change-id`),
+      // i.e. the bare path. Write the per-rid evidence under both
+      // the _runtime scope and the bare change-id scope so the gate
+      // finds it on both layouts.
+      const bareChangeIdDir = join(temp.root, '.peaks', 'test-change-id');
+      mkdirSync(join(bareChangeIdDir, 'qa', 'test-cases'), { recursive: true });
+      mkdirSync(join(bareChangeIdDir, 'qa', 'test-reports'), { recursive: true });
+      writeFileSync(join(bareChangeIdDir, 'qa', 'test-cases', 'qa-ev-all.md'), '# cases', 'utf8');
+      writeFileSync(join(bareChangeIdDir, 'qa', 'test-reports', 'qa-ev-all.md'), '# reports', 'utf8');
       writeQaEvidence(temp.peaks, 'test-cases/qa-ev-all.md');
       writeQaEvidence(temp.peaks, 'test-reports/qa-ev-all.md');
-      writeQaEvidence(temp.peaks, 'security-findings.md');
-      writeQaEvidence(temp.peaks, 'performance-findings.md');
+      // Slice 025: security + performance findings are per-rid suffixed.
+      writeQaEvidence(temp.peaks, 'security-findings-qa-ev-all.md');
+      writeQaEvidence(temp.peaks, 'performance-findings-qa-ev-all.md');
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
@@ -889,7 +921,7 @@ describe('verifyPipeline', () => {
 
     test('finds QA artifact via exact-match filename', async () => {
       // Write QA artifact with exact filename
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'qa', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'qa', 'requests');
       writeFileSync(join(dir, 'qa-exact.md'), '# QA\n- state: verdict-issued\n', 'utf8');
 
       const r = await verifyPipeline({
@@ -918,7 +950,7 @@ describe('verifyPipeline', () => {
 
     test('returns null when requests directory exists but contains no matching files', async () => {
       // Pre-created dirs exist for test-change-id. Write non-matching files.
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'other.md'), 'nope', 'utf8');
       writeFileSync(join(dir, 'unrelated.md'), 'nope', 'utf8');
 
@@ -957,9 +989,10 @@ describe('verifyPipeline', () => {
 
       // The on-disk location wins. The file is found (invoked=true) and
       // the resolved change-id is the actual dir the file lives in
-      // (test-change-id), not the caller's hint (other-change-id).
+      // (the full scope path `_runtime/test-change-id`), not the
+      // caller's hint (other-change-id).
       expect(r.rdPhase.invoked).toBe(true);
-      expect(r.changeId).toBe('test-change-id');
+      expect(isResolvedChangeId(r.changeId)).toBe(true);
     });
 
     test('isolates by rid - files for one rid are not found when querying another', async () => {
@@ -982,7 +1015,7 @@ describe('verifyPipeline', () => {
 
   describe('state extraction edge cases', () => {
     test('extracts state with leading whitespace and trailing whitespace', async () => {
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
       writeFileSync(join(dir, 'ws.md'), '  - state:   qa-handoff  \n', 'utf8');
 
       const r = await verifyPipeline({
@@ -996,7 +1029,7 @@ describe('verifyPipeline', () => {
     });
 
     test('extracts state when other metadata lines are present', async () => {
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
       writeFileSync(
         join(dir, 'multi.md'),
         '- request-id: multi\n- role: rd\n- state: handed-off\n- created: 2026-05-28\n',
@@ -1014,7 +1047,7 @@ describe('verifyPipeline', () => {
     });
 
     test('handles CRLF line endings in artifact content', async () => {
-      const dir = join(temp.root, '.peaks', 'test-change-id', 'rd', 'requests');
+      const dir = join(temp.root, '.peaks', '_runtime', 'test-change-id', 'rd', 'requests');
       writeFileSync(
         join(dir, 'crlf.md'),
         '- request-id: crlf\r\n- state: implemented\r\n- role: rd\r\n',
@@ -1064,7 +1097,7 @@ describe('verifyPipeline', () => {
       });
 
       expect(r.rid).toBe('shape');
-      expect(r.changeId).toBe(CID);
+      expect(isResolvedChangeId(r.changeId)).toBe(true);
       expect(r.requestType).toBe('feature');
       expect(typeof r.complete).toBe('boolean');
       expect(Array.isArray(r.violations)).toBe(true);

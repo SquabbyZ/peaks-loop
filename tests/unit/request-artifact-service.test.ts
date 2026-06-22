@@ -186,6 +186,8 @@ describe('transitionRequestArtifact lint gate', () => {
 
   test('throws LintGateError when artifact has placeholder text', async () => {
     const project = await makeProject();
+    // Slice 008 F21 fix: pre-create the session dir the writer expects.
+    await mkdir(join(project, '.peaks', '_runtime', STABLE_SESSION), { recursive: true });
     await createRequestArtifact({
       role: 'rd', requestId: 'lint-001', projectRoot: project,
       sessionId: STABLE_SESSION,
@@ -198,7 +200,7 @@ describe('transitionRequestArtifact lint gate', () => {
     const rdDir = join(project, '.peaks', '_runtime', STABLE_SESSION, 'rd', 'requests');
     const files = await readdir(rdDir);
     const artifactPath = join(rdDir, files[0]!);
-    await writeFile(artifactPath, '# RD Request\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
+    await writeFile(artifactPath, '# RD Request\n- session: ' + STABLE_SESSION + '\n- state: draft\n- type: feature\n\n## Red-line scope\n- ...\n\n## Implementation evidence\n- <placeholder>\n', 'utf8');
     // rd → spec-locked requires the tech-doc presence enforcer to pass.
     // Read the artifact to learn the actual sessionId it was stored
     // under (it may have been rebound), then place a non-empty
@@ -208,7 +210,7 @@ describe('transitionRequestArtifact lint gate', () => {
     const effectiveSessionId = stored?.sessionId ?? STABLE_SESSION;
     const techDocPath = join(project, '.peaks', '_runtime', effectiveSessionId, 'rd', 'tech-doc.md');
     await mkdir(dirname(techDocPath), { recursive: true });
-    await writeFile(techDocPath, '# Tech doc\n\n## Red-line scope\n\n- none\n\n## Implementation evidence\n\n- the lint gate is the one we are testing, not the prereq gate\n', 'utf8');
+    await writeFile(techDocPath, '# Tech doc\n\n## Red-line scope\n\n- none\n\n## Implementation evidence\n\n- the lint gate is the one we are testing, not the prereq gate\n\n## Existing API / Component Inventory\n\n- none\n\n## Simplicity self-check\n\n- none\n\n## Reuse / Consolidate plan\n\n- none\n\n## Slice DAG\n\n- none\n', 'utf8');
 
     await expect(
       transitionRequestArtifact({
@@ -374,12 +376,17 @@ describe('showRequestArtifact', () => {
     expect(result!.content).toContain('## Red-line scope');
   });
 
-  test('falls back to the legacy pre-F3 path .peaks/<sid>/<role>/requests/ when canonical path is absent', async () => {
+  // Plan 1 followup hotfix (5cd4c87) removed the dual-root scan.
+  // showRequestArtifact now reads ONLY from the canonical post-F3
+  // path `.peaks/_runtime/<sid>/<role>/requests/`. Artifacts written
+  // at the legacy pre-F3 path `.peaks/<sid>/<role>/requests/` are
+  // no longer reachable. This test pins the new contract.
+  test('does NOT fall back to the legacy pre-F3 path .peaks/<sid>/<role>/requests/', async () => {
     const project = await makeProject();
     const sid = '2026-06-06-legacy-fallback-sid';
     const rid = '2026-06-06-legacy-fallback-rid';
-    // Write ONLY at the legacy pre-F3 path (the canonical _runtime/<sid>/
-    // dir does NOT exist on disk).
+    // Write ONLY at the legacy pre-F3 path. The canonical _runtime/<sid>/
+    // dir does NOT exist on disk.
     const legacyDir = join(project, '.peaks', sid, 'rd', 'requests');
     await mkdir(legacyDir, { recursive: true });
     const body = [
@@ -404,17 +411,21 @@ describe('showRequestArtifact', () => {
     const result = await showRequestArtifact({
       projectRoot: project, role: 'rd', requestId: rid, sessionId: sid
     });
-    expect(result).not.toBeNull();
-    expect(result!.requestId).toBe(rid);
-    expect(result!.content).toContain('## Red-line scope');
+    // The canonical scan does not find it; the legacy path is dead.
+    expect(result).toBeNull();
   });
 
-  test('prefers the canonical post-F3 path when both canonical and legacy exist', async () => {
+  // Plan 1 followup hotfix (5cd4c87) removed the dual-root scan.
+  // showRequestArtifact reads ONLY the canonical post-F3 path. The
+  // "prefers canonical when both exist" branch is gone; the canonical
+  // scan is the only scan. Legacy siblings are silently ignored.
+  test('reads only the canonical post-F3 path; legacy siblings are ignored', async () => {
     const project = await makeProject();
     const sid = '2026-06-06-canonical-wins';
     const ridCanonical = '2026-06-06-canonical-rid';
     const ridLegacy = '2026-06-06-legacy-rid';
-    // Both paths exist with different content; the canonical read wins.
+    // Both paths exist with different content; the canonical read wins
+    // because the legacy read no longer happens.
     const canonicalDir = join(project, '.peaks', '_runtime', sid, 'rd', 'requests');
     const legacyDir = join(project, '.peaks', sid, 'rd', 'requests');
     await mkdir(canonicalDir, { recursive: true });
@@ -432,6 +443,13 @@ describe('showRequestArtifact', () => {
     expect(result).not.toBeNull();
     expect(result!.content).toContain('CANONICAL');
     expect(result!.content).not.toContain('LEGACY');
+
+    // Looking for the legacy-only rid: not found, because the legacy
+    // path is no longer scanned.
+    const legacyOnly = await showRequestArtifact({
+      projectRoot: project, role: 'rd', requestId: ridLegacy, sessionId: sid
+    });
+    expect(legacyOnly).toBeNull();
   });
 });
 

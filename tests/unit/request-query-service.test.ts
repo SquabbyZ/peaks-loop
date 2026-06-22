@@ -20,7 +20,10 @@ async function seedArtifact(
   requestId: string,
   state = 'draft'
 ): Promise<void> {
-  const dir = join(project, '.peaks', sessionId, role, 'requests');
+  // Plan 1 followup hotfix (5cd4c87): the on-disk root for request
+  // artifacts is `.peaks/_runtime/<sid>/<role>/requests/`. The legacy
+  // `.peaks/<sid>/<role>/requests/` home is no longer scanned.
+  const dir = join(project, '.peaks', '_runtime', sessionId, role, 'requests');
   await mkdir(dir, { recursive: true });
   await writeFile(
     join(dir, `${requestId}.md`),
@@ -84,7 +87,7 @@ describe('listRequestArtifacts', () => {
 
   test('ignores non-markdown files in the requests directory', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', 'session-a', 'prd', 'requests');
+    const dir = join(project, '.peaks', '_runtime', 'session-a', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, 'not-a-request.txt'), 'noise', 'utf8');
     await seedArtifact(project, 'prd', 'session-a', '2026-05-23-real');
@@ -96,7 +99,9 @@ describe('listRequestArtifacts', () => {
 
   test('skips sessions that have no per-role requests directory', async () => {
     const project = await makeProject();
-    await mkdir(join(project, '.peaks', 'empty-session', 'prd'), { recursive: true });
+    // Pre-create the empty-session's runtime dir but NOT its per-role
+    // requests dir; only `real-session` should surface.
+    await mkdir(join(project, '.peaks', '_runtime', 'empty-session', 'prd'), { recursive: true });
     await seedArtifact(project, 'prd', 'real-session', '2026-05-23-real');
 
     const result = await listRequestArtifacts({ projectRoot: project });
@@ -106,7 +111,7 @@ describe('listRequestArtifacts', () => {
 
   test('returns state=unknown when the markdown is missing a state line', async () => {
     const project = await makeProject();
-    const dir = join(project, '.peaks', 'session-a', 'prd', 'requests');
+    const dir = join(project, '.peaks', '_runtime', 'session-a', 'prd', 'requests');
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, '2026-05-23-headless.md'), `# PRD Request 2026-05-23-headless\n\nNo status block.\n`, 'utf8');
 

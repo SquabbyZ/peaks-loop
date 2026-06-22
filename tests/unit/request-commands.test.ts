@@ -96,7 +96,7 @@ describe('peaks request init command', () => {
   test('returns REQUEST_INIT_FAILED on invalid request id format', async () => {
     const project = await makeProject('request-init-bad-id');
 
-    const result = await runCommand(['request', 'init', '--role', 'prd', '--id', '../escape', '--project', project, '--json']);
+    const result = await runCommand(['request', 'init', '--role', 'prd', '--id', '../escape', '--project', project, '--session-id', '2026-06-22-baseline-request-cmds', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -104,60 +104,54 @@ describe('peaks request init command', () => {
     expect(result.exitCode).toBe(1);
   });
 
-  test('uses a date-stamped session id when --session-id is omitted', async () => {
+  // Plan 1 followup hotfix (5cd4c87): --session-id is now REQUIRED.
+  // The CLI rejects calls that omit it with SESSION_ID_REQUIRED
+  // (exitCode 1, envelope.ok = false). The pre-hotfix "auto-generate
+  // date-stamped session" behavior is gone. This test pins the new
+  // contract.
+  test('returns SESSION_ID_REQUIRED when --session-id is omitted', async () => {
     const project = await makeProject('request-init-default-session');
 
     const result = await runCommand(['request', 'init', '--role', 'qa', '--id', '2026-05-23-default-session', '--project', project, '--json']);
     const output = parseJsonOutput<{ sessionId: string }>(result.stdout);
 
-    expect(output.ok).toBe(true);
-    expect(output.data.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}/);
+    expect(output.ok).toBe(false);
+    expect(output.code).toBe('SESSION_ID_REQUIRED');
+    expect(result.exitCode).toBe(1);
   });
 
   /**
-   * Slice 007 — sub-agent session sharing. Without --session-id, a
-   * peaks-solo anchor (binding at .peaks/_runtime/session.json) must
-   * be reused across consecutive `request init` calls in the same
-   * project, NOT overwritten with a freshly-generated id. Pre-slice-
-   * 007 the strict-equality readSessionFile could miss the binding
-   * (relative "." vs absolute realpath) and auto-generate a new one,
-   * producing orphan session dirs (4eec41, 5ca335, 80ba3d, 7bcb6e).
+   * Slice 007 — sub-agent session sharing. Plan 1 followup hotfix
+   * (5cd4c87) made --session-id required; the auto-bind behavior is
+   * gone. This test now pins the explicit-sid happy path: passing
+   * the same --session-id to two consecutive request init calls
+   * lands both artifacts under the same session dir, with NO
+   * extra session dirs leaking under `.peaks/_runtime/`.
    */
-  test('two consecutive request init calls reuse the bound session (no new session dirs)', async () => {
+  test('two consecutive request init calls with the same --session-id land under one session dir', async () => {
     const project = await makeProject('request-init-reuse-binding');
-    // Anchor the binding the way peaks-solo does it: from inside
-    // the project dir, so the stored projectRoot is the relative ".".
-    // (This matches the slice-006 "presence:set" write path.)
-    const innerProject = join(project, '.');
+    const sid = '2026-06-22-baseline-request-cmds-shared';
+    // Slice 008 F21 fix: pre-create the session dir the writer
+    // expects to find.
+    await mkdir(join(project, '.peaks', '_runtime', sid), { recursive: true });
 
-    // First call: anchors the binding and writes the request.
-    const first = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-a', '--project', innerProject, '--json']);
+    const first = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-a', '--project', project, '--session-id', sid, '--json']);
     const firstOutput = parseJsonOutput<{ sessionId: string; path: string }>(first.stdout);
     expect(firstOutput.ok).toBe(true);
-    const boundSid = firstOutput.data.sessionId;
+    expect(firstOutput.data.sessionId).toBe(sid);
 
-    // The binding on disk points at the first sid.
-    const sessionFile = join(project, '.peaks', '_runtime', 'session.json');
-    const binding1 = JSON.parse(await readFile(sessionFile, 'utf8'));
-    expect(binding1.sessionId).toBe(boundSid);
-
-    // Second call: must reuse the same sid, NOT generate a new one.
-    const second = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-b', '--project', project, '--json']);
+    const second = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-reuse-b', '--project', project, '--session-id', sid, '--json']);
     const secondOutput = parseJsonOutput<{ sessionId: string; path: string }>(second.stdout);
     expect(secondOutput.ok).toBe(true);
-    expect(secondOutput.data.sessionId).toBe(boundSid);
+    expect(secondOutput.data.sessionId).toBe(sid);
 
-    // The binding on disk is unchanged.
-    const binding2 = JSON.parse(await readFile(sessionFile, 'utf8'));
-    expect(binding2.sessionId).toBe(boundSid);
-
-    // No new session dir under _runtime/ was created.
+    // Both artifacts land under the single pre-created session dir.
     const { readdir } = await import('node:fs/promises');
     const runtimeDir = join(project, '.peaks', '_runtime');
     const sessionDirs = (await readdir(runtimeDir, { withFileTypes: true }))
       .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}-/.test(e.name))
       .map((e) => e.name);
-    expect(sessionDirs).toEqual([boundSid]);
+    expect(sessionDirs).toEqual([sid]);
   });
 
   test('explicit --session-id still binds to that sid (regression for back-compat)', async () => {
@@ -179,28 +173,28 @@ describe('peaks request init command', () => {
     expect(output.data.path).toContain('2026-06-06-explicit-shared');
   });
 
-  test('after rotate clears the binding, the next request init auto-generates a new session', async () => {
+  // Plan 1 followup hotfix (5cd4c87) made --session-id required.
+  // The rotate→auto-generate path no longer exists (no implicit
+  // binding). The post-rotate contract now is: rotate clears the
+  // binding file on disk; the next explicit --session-id call
+  // succeeds without resurrecting an auto-sid. This test pins the
+  // explicit-sid post-rotate happy path.
+  test('after rotate clears the binding, an explicit --session-id still lands the artifact', async () => {
     const project = await makeProject('request-init-after-rotate');
-    const innerProject = join(project, '.');
+    const sid = '2026-06-22-baseline-request-cmds-post-rotate';
+    // Pre-create the session dir (slice-008 F21 fix).
+    await mkdir(join(project, '.peaks', '_runtime', sid), { recursive: true });
 
-    // Anchor: first call binds a sid.
-    const first = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-rot-a', '--project', innerProject, '--json']);
-    const firstOutput = parseJsonOutput<{ sessionId: string }>(first.stdout);
-    expect(firstOutput.ok).toBe(true);
-    const anchoredSid = firstOutput.data.sessionId;
-
-    // Clear the binding the way peaks session rotate does.
+    // Anchor a binding via session-rotate, which writes the binding file.
     const rotate = await runCommand(['session', 'rotate', '--project', project, '--json']);
     expect(rotate.exitCode === 0 || rotate.exitCode === undefined).toBe(true);
 
-    // Next request init: no binding, so ensureSession auto-generates
-    // a brand-new sid. The anchored session dir is still on disk
-    // (rotate does not delete data), but the bound sid is fresh.
-    const second = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-rot-b', '--project', project, '--json']);
-    const secondOutput = parseJsonOutput<{ sessionId: string }>(second.stdout);
-    expect(secondOutput.ok).toBe(true);
-    expect(secondOutput.data.sessionId).not.toBe(anchoredSid);
-    expect(secondOutput.data.sessionId).toMatch(/^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/);
+    // Next request init: explicit --session-id. The CLI accepts it
+    // and the artifact lands under the named session dir.
+    const result = await runCommand(['request', 'init', '--role', 'rd', '--id', '2026-05-23-rot-b', '--project', project, '--session-id', sid, '--json']);
+    const output = parseJsonOutput<{ sessionId: string }>(result.stdout);
+    expect(output.ok).toBe(true);
+    expect(output.data.sessionId).toBe(sid);
   });
 
   // ───────────────────────────────────────────────────────────

@@ -103,6 +103,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
     await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    // karpathy-review is now a blocking prereq for rd:qa-handoff
+    // (per L2.2 Slice 2/6 karpathy-enforcement). Include it.
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'rd/karpathy-review.md',
+      '# Karpathy review\n\n## Karpathy-Gate\n\n### Think Before Coding\n\n- done\n\n### Simplicity First\n\n- done\n\n### Surgical Changes\n\n- done\n\n### Goal-Driven Execution\n\n- done\n'
+    );
     // perf-baseline with a real Results table
     await writeArtifact(
       project,
@@ -126,6 +134,13 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
     await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    // karpathy-review is now a blocking prereq for rd:qa-handoff.
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'rd/karpathy-review.md',
+      '# Karpathy review\n\n## Karpathy-Gate\n\n### Think Before Coding\n\n- done\n\n### Simplicity First\n\n- done\n\n### Surgical Changes\n\n- done\n\n### Goal-Driven Execution\n\n- done\n'
+    );
     // perf-baseline with the N/A escape hatch (no Results table)
     await writeArtifact(
       project,
