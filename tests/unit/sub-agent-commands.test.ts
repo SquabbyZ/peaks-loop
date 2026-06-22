@@ -53,11 +53,19 @@ describe('peaks sub-agent dispatch (G2 / AC-7..AC-10)', () => {
     expect(exitCode).toBe(1);
   });
 
-  it('rejects a missing --prompt via commander requiredOption', async () => {
-    // Commander's `requiredOption` fires before our handler, so the call
-    // throws a `CommanderError` with code `commander.missingMandatoryOptionValue`.
-    await expect(runCommand(['sub-agent', 'dispatch', 'rd', '--json']))
-      .rejects.toMatchObject({ code: 'commander.missingMandatoryOptionValue' });
+  it('rejects a missing --prompt with MISSING_PROMPT envelope', async () => {
+    // 2.7.0 slice-dag-dispatcher MVP: --prompt is now `.option(...)` (not
+    // `.requiredOption`) so that `dispatch --from-dag <file>` can omit it.
+    // The action handler returns a MISSING_PROMPT JSON envelope via
+    // `printResult(... fail(... 'MISSING_PROMPT' ...))` instead of throwing
+    // a commander `CommanderError`. See sub-agent-commands.ts:172.
+    const { stdout, exitCode } = await runCommand([
+      'sub-agent', 'dispatch', 'rd', '--json'
+    ], {});
+    const parsed = parseJsonOutput(stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.code).toBe('MISSING_PROMPT');
+    expect(exitCode).toBe(1);
   });
 
   it('accepts qa-business-api as a sub-division role', async () => {

@@ -117,9 +117,19 @@ describe('detectMissingProjectStandards — slice 2026-06-16-peaks-solo-auto-sca
     }
 
     // Sanity: when we restore POSIX, the path uses '/'.
-    const posixResult = detectMissingProjectStandards(project, 'typescript');
-    expect(posixResult.path).toContain('/');
-    expect(pathSep).toBe('/');
+    // TODO(plan-3a-task-4): this branch only makes sense on a POSIX test
+    // host — on Windows the real `process.platform === 'win32'`, so
+    // `detectMissingProjectStandards` keeps rendering backslashes after
+    // the mock is restored (and `project` itself is backslash-formatted
+    // on Windows, so even a hypothetical POSIX branch would never see a
+    // '/' in the path). Gated to POSIX CI per the d4 contract; the
+    // mocked win32 branch above still verifies the production logic on
+    // every host.
+    if (process.platform !== 'win32') {
+      const posixResult = detectMissingProjectStandards(project, 'typescript');
+      expect(posixResult.path).toContain('/');
+      expect(pathSep).toBe('/');
+    }
   });
 
   test('does not require .peaks/standards/ to exist — that pointer system is orthogonal (R3)', () => {

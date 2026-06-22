@@ -204,7 +204,14 @@ describe('project-standards write-path containment guard (slice 2026-06-16-rules
   // Edge case: when projectRoot contains a `.claude/` symlink that escapes
   // the project, the existing `assertDirectoryNotSymlink` guard fires
   // BEFORE the homedir guard. This is preserved behavior (P5).
-  test('symlinked .claude/rules directory is rejected (preserved behavior)', () => {
+  // TODO(plan-3a-task-4): this test is platform-conditional — Windows
+  // hosts require admin privileges OR developer mode enabled to call
+  // fs.symlinkSync (EPERM: operation not permitted). The production
+  // `assertDirectoryNotSymlink` guard it tests still runs correctly on
+  // Windows; we just cannot create a symlink fixture here. Gated to
+  // POSIX CI per the d4 contract; the guard is otherwise still exercised
+  // by the other 10 tests in this file (no symlink fixture needed).
+  test.skipIf(process.platform === 'win32')('symlinked .claude/rules directory is rejected (preserved behavior, POSIX only)', () => {
     const target = mkdtempSync(join(tmpdir(), 'peaks-stds-symlink-target-'));
     try {
       writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
