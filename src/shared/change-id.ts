@@ -258,7 +258,7 @@ export function getCurrentChangeId(projectRoot: string): string | null {
  *      file-form binding.
  */
 export class LegacyChangeIdBindingError extends Error {
-  readonly code = 'LEGACY_CHANGE_ID_BINDING';
+  readonly code = 'LEGACY_CHANGE_ID_BINDING' as const;
   constructor(
     readonly bindingPath: string,
     readonly symlinkTarget: string | null,
@@ -302,6 +302,24 @@ export function getCurrentChangeIdSource(projectRoot: string): { changeId: strin
  *     `getCurrentChangeId` still resolves it correctly for projects
  *     that have not yet re-init'd.
  *
+ * Behavior notes (slice 2026-06-23-audit-followup):
+ *
+ *   - **Symlink-refusal guard**: when `form: 'file'` is requested
+ *     and `.peaks/_runtime/current-change` already exists as a
+ *     symlink (a legacy 2.8.0-era install), this function REFUSES
+ *     to silently replace it. It throws `LegacyChangeIdBindingError`
+ *     (envelope code `LEGACY_CHANGE_ID_BINDING`) with the symlink
+ *     target resolved for diagnostic purposes. The user must
+ *     manually `unlink` the symlink and re-run the caller. This
+ *     closes the data-loss-shaped bug the 2.8.3 audit surfaced
+ *     (the prior code would have unlinkSync'd + writeFileSync'd
+ *     over the symlink with no log/envelope signal).
+ *   - **Mode 0o600**: the file-form binding is written with POSIX
+ *     mode 0o600 (silently ignored on Windows, where POSIX mode
+ *     bits do not apply). The binding contains a per-user logical
+ *     identifier, not a team-shared file — restricting read/write
+ *     to the owner defends against multi-user hosts.
+ *
  * Idempotent: re-running with the same changeId + form is a no-op.
  * Re-running with a different changeId on an existing file throws —
  * the caller must remove the binding first (or use a different path).
@@ -324,10 +342,8 @@ export function setCurrentChangeId(
   // Ensure `_runtime/` exists.
   const runtimeDir = join(peaksRoot, '_runtime');
   if (!existsSync(runtimeDir)) {
-    // Lazy import: do not pull fs/promises at the top to keep the
-    // module's import graph minimal.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { mkdirSync } = require('node:fs') as typeof import('node:fs');
+    // mkdirSync is statically imported from 'node:fs' at the top of
+    // this module — no lazy require needed.
     mkdirSync(runtimeDir, { recursive: true });
   }
   if (form === 'file') {

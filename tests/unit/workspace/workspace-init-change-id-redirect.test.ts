@@ -43,7 +43,7 @@
  * each other.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
@@ -53,6 +53,8 @@ import {
 } from '../../../src/services/workspace/workspace-service.js';
 import {
   ChangeIdValidationError,
+  getCurrentChangeId,
+  getCurrentChangeIdSource,
   LegacyChangeIdBindingError,
   setCurrentChangeId
 } from '../../../src/shared/change-id.js';
@@ -283,8 +285,84 @@ describe('workspace init --change-id redirect (slice 2026-06-22 + 2026-06-23)', 
     expect(err.message).toContain('(2) unlink');
     expect(err.message).toContain('(3) re-run');
 
-    // The symlink must NOT have been replaced.
+    // The symlink must NOT have been replaced — load-bearing
+    // assertion of the HIGH fix. Use lstatSync (not existsSync)
+    // to prove the symlink itself is still there AND the target
+    // is unchanged. existsSync alone would also pass if the
+    // symlink had been silently replaced with a plain file.
     expect(existsSync(bindingPath)).toBe(true);
+    const afterStat = lstatSync(bindingPath);
+    expect(afterStat.isSymbolicLink()).toBe(true);
+    expect(afterStat.isFile()).toBe(false);
+  });
+
+  test('AC7b: setCurrentChangeId sets symlinkTarget=null when realpathSync throws (broken symlink)', () => {
+    // The production code at change-id.ts catches realpathSync
+    // failures (which happen when the symlink target has been
+    // deleted) and surfaces symlinkTarget=null in the error.
+    // AC7 covers only the resolvable-target case; this case
+    // pins the broken-symlink branch explicitly.
+    const projectRoot = makeProject();
+    createdDirs.push(projectRoot);
+
+    // Create a symlink pointing at a NON-EXISTENT target. On
+    // Linux/macOS symlinkSync accepts a dangling target. On
+    // Windows, junction mode requires the target to exist, so
+    // we use 'file' mode and accept EPERM may block this test
+    // on non-admin Windows shells — guarded with conditional
+    // skip below.
+    const runtimeDir = join(projectRoot, '.peaks', '_runtime');
+    mkdirSync(runtimeDir, { recursive: true });
+    const bindingPath = join(runtimeDir, 'current-change');
+    const danglingTarget = join(projectRoot, '.peaks', 'deleted-change');
+    // danglingTarget is intentionally NOT created — that's the
+    // point of the broken-symlink scenario.
+
+    const isWindows = process.platform === 'win32';
+    let createdBrokenSymlink = false;
+    try {
+      if (isWindows) {
+        // Junction mode requires target to exist; use 'file' mode
+        // and accept that some Windows shells may reject it.
+        try {
+          symlinkSync(danglingTarget, bindingPath, 'file');
+          createdBrokenSymlink = true;
+        } catch {
+          // EPERM on non-admin Windows — skip this AC on Windows
+          // since the broken-symlink case cannot be reproduced
+          // without admin privileges for dangling symlinks.
+        }
+      } else {
+        symlinkSync(danglingTarget, bindingPath);
+        createdBrokenSymlink = true;
+      }
+    } catch {
+      createdBrokenSymlink = false;
+    }
+
+    if (!createdBrokenSymlink) {
+      // Platform cannot reproduce this scenario — skip rather
+      // than fail. The test is a defense-in-depth pin; the
+      // resolvable-symlink AC7 already covers the production
+      // code path on Windows.
+      return;
+    }
+
+    let caught: unknown = null;
+    try {
+      setCurrentChangeId(projectRoot, 'some-change-id', { form: 'file' });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(LegacyChangeIdBindingError);
+    const err = caught as LegacyChangeIdBindingError;
+    // The broken-symlink branch sets symlinkTarget=null because
+    // realpathSync throws ENOENT when the target is gone.
+    expect(err.symlinkTarget).toBeNull();
+    // The error message must NOT include '(target: ...)' since
+    // the target could not be resolved.
+    expect(err.message).not.toMatch(/\(target:/);
   });
 
   test('AC8: initWorkspace rejects change-id "../" before reaching the legacy-sibling guard', async () => {
@@ -325,5 +403,32 @@ describe('workspace init --change-id redirect (slice 2026-06-22 + 2026-06-23)', 
     }
 
     expect(caught).toBeInstanceOf(ChangeIdValidationError);
+  });
+
+  test('AC9: getCurrentChangeId reads the new file-form binding written by initWorkspace', async () => {
+    // Round-trip test: initWorkspace writes the file-form binding;
+    // getCurrentChangeId reads it back. This pins the production
+    // read-path that request-artifact-service and slice-check-service
+    // depend on. Before AC9 was added, the reader had zero direct
+    // test coverage (grep confirmed no test anywhere in the codebase
+    // called getCurrentChangeId directly).
+    const projectRoot = makeProject();
+    createdDirs.push(projectRoot);
+    const changeId = 'round-trip-change';
+
+    await initWorkspace({
+      projectRoot,
+      sessionId: '2026-06-22-session-gggggg',
+      changeId
+    });
+
+    // The reader must resolve the change-id.
+    expect(getCurrentChangeId(projectRoot)).toBe(changeId);
+    // And identify the source as 'file' (the 2.8.3+ form), not
+    // 'symlink' (the 2.8.0 legacy form).
+    const source = getCurrentChangeIdSource(projectRoot);
+    expect(source).not.toBeNull();
+    expect(source?.changeId).toBe(changeId);
+    expect(source?.source).toBe('file');
   });
 });

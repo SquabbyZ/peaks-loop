@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { existsSync, lstatSync } from 'node:fs';
+import { existsSync, lstatSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
@@ -295,7 +295,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     // symlink vs broken symlink) instead of conflating them all into
     // one error. The guard still fires for all non-existent paths
     // because lstatSync throws ENOENT in that case (caught below).
-    let legacyStat: import('node:fs').Stats | null = null;
+    let legacyStat: Stats | null = null;
     try {
       legacyStat = lstatSync(legacySiblingDir);
     } catch (error) {
