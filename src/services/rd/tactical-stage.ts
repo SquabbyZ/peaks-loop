@@ -1,6 +1,8 @@
 /**
- * Per spec §4.2 战术审计 — orchestrator.
+ * Per spec §4.3 战术审计 (peaks-rd/战术) — orchestrator.
  * Runs AST gate first; only writes TACT.sig if gate passes.
+ * Spec anchor: docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md §4.3
+ * (R1-W3 consolidation; previously referenced as §4.2 which is `peaks-mut`).
  */
 import { dirname } from 'node:path';
 import { runAstGate, type AstGateContext } from './ast-gate.js';

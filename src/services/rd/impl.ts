@@ -1,5 +1,7 @@
 /**
- * Per spec §4.2 战术审计 — impl.json writer + TACT.sig computation.
+ * Per spec §4.3 战术审计 (peaks-rd/战术) — impl.json writer + TACT.sig computation.
+ * Spec anchor: docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md §4.3
+ * (R1-W3 consolidation; previously referenced as §4.2 which is `peaks-mut`).
  *
  * Hard constraints:
  *   H8 (audit trail hashable): TACT.sig chains from STRAT.sig via inputSig.
