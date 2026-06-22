@@ -115,6 +115,15 @@ peaks mut report --in mut-report.json
 
 **默认阈值**:变异杀灭率 ≥ 80%、弱断言比例 ≤ 5%。详见 [design spec §4.2](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
 
+## 🎯 peaks-rd 双阶段 (v3.0)
+
+peaks-rd 现在拆成两阶段:
+
+1. **战略审计**:写 `strategy.md` + `STRAT.sig`(根因分析 + 影响面)
+2. **战术审计**:写 `impl.json` + `TACT.sig`,**AST 硬门禁拦截版本错配的 API 调用**
+
+详见 [design spec §4.2](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
+
 ## ⏱️ 5 分钟上手
 
 在 IDE 对话里直接对 AI 说：
