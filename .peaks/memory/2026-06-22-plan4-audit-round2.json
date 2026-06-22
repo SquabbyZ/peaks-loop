@@ -1,0 +1,119 @@
+{
+  "audit_round": 2,
+  "audit_dimension": "test_design_quality",
+  "scope": "Plan 1+2+3 — 22 RD test files (filtered to 8 RD files actually shipped: strategy/impl/strategic-stage/tactical-stage/ast-gate/rd-service + 2 integration)",
+  "test_independence": {
+    "shuffled_run": "14/14 pass (seed=1782114036231)",
+    "shared_state_issues": [],
+    "observations": [
+      "Each test uses mkdtempSync + try/finally rmSync — clean isolation.",
+      "ast-gate.test.ts uses beforeEach/afterEach for a single `workdir` variable that gets reassigned per test (no test-to-test leakage).",
+      "No process.cwd / process.env / process.exitCode mutation.",
+      "tsc-check test excluded from tsc scope per b35f4e7 → no false cascade."
+    ]
+  },
+  "assertion_strength": {
+    "total_expects": 28,
+    "strong": 27,
+    "weak": [
+      {
+        "file:line": "tests/unit/services/rd/rd-service.test.ts:34",
+        "weak_type": "toContain(template-literal-with-fixture-sha256)",
+        "concern": "Uses `expect(stratContent).toContain(`STRAT.sig: ${strat.sha256}`)` — strong-ish but inline computed string is fine.",
+        "fix_suggestion": "None — acceptable."
+      },
+      {
+        "file:line": "tests/unit/services/rd/tactical-stage.test.ts:25",
+        "weak_type": "toBe(true) on existsSync",
+        "concern": "Loose: only verifies file exists, not that sig is correct or AST gate result is recorded.",
+        "fix_suggestion": "Add: `expect(JSON.parse(readFileSync(out)).inputSig).toBe('a'.repeat(64))` — pin the chain."
+      },
+      {
+        "file:line": "tests/integration/rd/end-to-end-split.test.ts:27-28",
+        "weak_type": "toBe(true) x2 on existsSync",
+        "concern": "Just checks files exist after runStrategicStage + runTacticalStage — doesn't verify SHA matches between stages or that sigs are deterministic.",
+        "fix_suggestion": "Replace existsSync with `readFileSync(...).toContain(strat.sha256)` and assert `tact.inputSig === strat.sha256` (already partly there at L26)."
+      }
+    ],
+    "suspicious": [
+      {
+        "file:line": "tests/unit/services/rd/impl.test.ts:23",
+        "concern": "`expect(out.inputSig).toBe('a'.repeat(64))` — uses a 64-char literal 'a' which the source function passes through unchanged (not hashed). This is the only test that pins inputSig passthrough; but if writeImpl silently dropped or mangled inputSig, this catches it.",
+        "verdict": "Strong — pin is real."
+      },
+      {
+        "file:line": "tests/unit/services/rd/impl.test.ts:25",
+        "concern": "`expect(onDisk.sha256).toBe(out.sha256)` — checks the on-disk sha256 matches the in-memory sha256. If writeImpl computes one hash for the return value but writes a different one to disk, this catches it.",
+        "verdict": "Strong — load-bearing."
+      },
+      {
+        "file:line": "tests/unit/services/rd/types.test.ts:13",
+        "concern": "`expect(r.success).toBe(true)` only — happy path. Does NOT verify shape of parsed output.",
+        "fix_suggestion": "Add: `expect(r.data?.goal).toBe('add OAuth')` or parse the data field."
+      }
+    ]
+  },
+  "boundary_coverage": [
+    {"function": "runAstGate", "boundary": "empty file", "current_behavior": "passed=true, 0 violations (handled correctly)", "test_covers": true, "notes": "Covered by `passes when no external API calls` (line 55-67 of ast-gate.test.ts)."},
+    {"function": "runAstGate", "boundary": "nonexistent file (path error)", "current_behavior": "Silently skipped — no error thrown, passed=true, 0 violations", "test_covers": false, "weakness": "ast-gate.test.ts does NOT cover this case. The try/catch on readFile silently `continue`s. Spec is ambiguous — should it fail loud (caller passed a bad path) or silent (only changedFiles actually matter)?"},
+    {"function": "runAstGate", "boundary": "empty imports (side-effect-only `import 'x';`)", "current_behavior": "passed=true, 0 violations (handled correctly)", "test_covers": false, "weakness": "Not covered. IMPORT_RE won't match destructured-import form, but also no test verifies the regex doesn't false-positive on `import 'side-effect';`."},
+    {"function": "runAstGate", "boundary": "imported but not called", "current_behavior": "passed=true, 0 violations (correct — no external call made)", "test_covers": false, "weakness": "ast-gate.test.ts does not exercise this case explicitly. Probe B4 confirmed behavior."},
+    {"function": "runAstGate", "boundary": "called but not imported", "current_behavior": "passed=true, 0 violations (correct — no dep linked to the call)", "test_covers": false, "weakness": "Probe B5 confirmed behavior. No test pins this."},
+    {"function": "runAstGate", "boundary": "multiple imports + multiple calls", "current_behavior": "When alpha is in apis and beta is not, only beta flagged (1 violation)", "test_covers": false, "weakness": "Probe B6 confirmed. ast-gate.test.ts only tests single-import cases."},
+    {"function": "writeStrategy", "boundary": "empty askUserQuestion.options", "current_behavior": "Produces valid sig (no schema rejection)", "test_covers": false, "weakness": "No test for empty options array. Probe S1 confirms it works."},
+    {"function": "writeStrategy", "boundary": "askUserQuestion special chars", "current_behavior": "Produces deterministic sha256 (quotes/newlines hash fine)", "test_covers": false, "weakness": "Probe S2 confirms. No explicit test pins determinism on special chars."},
+    {"function": "writeStrategy", "boundary": "impactSurface empty array", "current_behavior": "Produces valid sig", "test_covers": false, "weakness": "strategy.test.ts uses `['LoginForm.tsx']` — no test with empty array."},
+    {"function": "writeStrategy", "boundary": "unicode goal", "current_behavior": "Produces deterministic sha256", "test_covers": false, "weakness": "Probe S4 confirms. No test for non-ASCII goal."},
+    {"function": "writeImpl", "boundary": "externalApiCalls with multiple entries", "current_behavior": "Succeeds, sha256 computed across array", "test_covers": false, "weakness": "impl.test.ts uses `externalApiCalls: []` — multi-entry case untested."},
+    {"function": "writeImpl", "boundary": "changedFiles references nonexistent path", "current_behavior": "Impl.json writes anyway — writeImpl does not validate file existence", "test_covers": false, "weakness": "Probe I2 confirmed. This is a design choice (impl.json is a record, not a validator) but spec is silent."},
+    {"function": "writeImpl", "boundary": "astGate.passed=true but violations non-empty (lying input)", "current_behavior": "Writes anyway — impl.ts only checks the `passed` flag, not the violations array", "test_covers": false, "weakness": "Probe I3 confirmed. writeImpl.ts:29 has `if (!input.astGate.passed)` — if a caller mutates passed to true while leaving violations, gate is bypassed. Defensive coding opportunity."},
+    {"function": "retrieveDocs", "boundary": "fetcher returns null vs throws", "current_behavior": "null → version_unknown skipped; throw → network_error skipped (both handled)", "test_covers": true, "notes": "Doc-retriever tests already cover both (network_error + version_unknown)."},
+    {"function": "retrieveDocs", "boundary": "fetcher returns payload with mismatched version (defense-in-depth)", "current_behavior": "Skipped with version_unknown (line 69-71 of doc-retriever.ts catches it)", "test_covers": false, "weakness": "Probe D2 confirmed. No existing test pins this — round 1 N5 mutation (audience filter bypass) killed NO tests in part because version_mismatch was also untested."},
+    {"function": "retrieveDocs", "boundary": "version case sensitivity", "current_behavior": "Exact match required (`payload.version !== info.version`)", "test_covers": true, "notes": "Probe D3 confirmed. The check is strict equality, but no existing test pins this."},
+    {"function": "scanAssertions", "boundary": "nested paren / multi-line / same-line multiple expect", "current_behavior": "Not applicable — scanAssertions is in src/services/mut/assert-scanner.ts (NOT part of Plan 1+2+3 scope)", "test_covers": "n/a", "notes": "Plan 4 audit does not cover mut/. Out of scope."}
+  ],
+  "new_weaknesses_found": [
+    {
+      "id": "R2-W1",
+      "location": "src/services/rd/ast-gate.ts:38-42",
+      "issue": "Silently swallowing readFile errors on nonexistent changedFiles. If a caller passes a typo'd path, the gate reports passed=true with zero violations. No negative test pins this.",
+      "severity": "MEDIUM",
+      "fix": "Add test: `it('reports violation when changedFile does not exist', ...)` — and either flip the silent-continue to a violation, or accept the design and pin it explicitly."
+    },
+    {
+      "id": "R2-W2",
+      "location": "src/services/rd/impl.ts:29",
+      "issue": "Gate bypass risk: writeImpl only checks `input.astGate.passed`, ignoring violations[]. A caller (or buggy upstream) passing passed=true with non-empty violations still writes TACT.sig.",
+      "severity": "HIGH",
+      "fix": "Tighten to `if (!input.astGate.passed || input.astGate.violations.length > 0)` OR add a test that pins current behavior so any future tightening is intentional."
+    },
+    {
+      "id": "R2-W3",
+      "location": "src/services/rd/ast-gate.ts:46-54",
+      "issue": "Only destructured-imports handled (`import { a, b } from 'dep'`). `import * as ns from 'dep'` and `import dep from 'dep'` are silently ignored. If LLM uses namespace import (valid TS pattern), the gate cannot link calls to that dep.",
+      "severity": "MEDIUM",
+      "fix": "Add test: `import * as api from 'oauth-client'; api.handleCallback()` — confirm current behavior is to silently skip. Document or fix."
+    },
+    {
+      "id": "R2-W4",
+      "location": "tests/unit/services/rd/impl.test.ts:19",
+      "issue": "externalApiCalls always [] across both tests. The hash chain is stable for empty array — never tested with multi-entry. If a future bug breaks array handling (e.g., sort, dedupe, filter), no test catches it.",
+      "severity": "LOW",
+      "fix": "Add test with 2-3 externalApiCalls entries to pin multi-entry hashing."
+    },
+    {
+      "id": "R2-W5",
+      "location": "tests/unit/services/rd/types.test.ts",
+      "issue": "Only happy path tested for StrategyOutputSchema and ImplOutputSchema. Round 1 N4 mutation (sha256 regex {64}→{1,64}) escaped because no negative test pins invalid sha256.",
+      "severity": "HIGH",
+      "fix": "Add `expect(StrategyOutputSchema.safeParse({...invalid sig...}).success).toBe(false)` — pin 63-char and 65-char sha256 are rejected."
+    }
+  ],
+  "overall_test_quality_score": "B+",
+  "score_rationale": "27/28 expectations are strong (sha256 regex match, .toBe(exact), .toHaveLength, .toThrow(/regex/)). No shared state, clean isolation, shuffled run passes. Weaknesses: missing negative tests for sha256 schema (round 1 N4 escaped), no multi-call AST-gate coverage, lying-input gate bypass untested (R2-W2), and nonexistent-path silent-skip untested (R2-W1). Test count is small (14) — Plan 1+2+3 was scope-bound so this is acceptable, but coverage gaps leave 5 new weaknesses for Plan 5.",
+  "tsc_clean": true,
+  "full_suite": "3715/3715 pass + 141 skipped + 0 failed (deterministic across 2 runs after transient flake on first run)",
+  "shuffled_rd_subset": "14/14 pass",
+  "boundary_probes_run": "16/16 pass (probe file deleted after audit)",
+  "recommendation": "Fix R2-W2 (HIGH — gate bypass) and R2-W5 (HIGH — round 1 mutation escaped because of this) before declaring Plan 4 closed. R2-W1, R2-W3, R2-W4 are MEDIUM/LOW and can ship to Plan 5."
+}

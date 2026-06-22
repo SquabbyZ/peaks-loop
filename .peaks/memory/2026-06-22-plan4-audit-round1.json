@@ -1,0 +1,36 @@
+{
+  "p1_p2_p3_verification": {
+    "p1": {"mutated": true, "tests_failed": 2, "expected_failure": true, "verdict": "PASS"},
+    "p2": {"mutated": true, "tests_failed": 1, "expected_failure": true, "verdict": "PASS"},
+    "p3": {"mutated": true, "warning_present": true, "verdict": "PASS"}
+  },
+  "plan4_replay": [
+    {"id": "M1", "killed": true, "tests_failed": 6},
+    {"id": "M2", "killed": true, "tests_failed": 5},
+    {"id": "M3", "killed": true, "tests_failed": 2},
+    {"id": "M4", "killed": true, "tests_failed": 2},
+    {"id": "M5", "killed": true, "tests_failed": 4},
+    {"id": "M6", "killed": true, "tests_failed": 1},
+    {"id": "M7", "killed": false, "tests_failed": 4, "note": "partial - 4/7 killed"},
+    {"id": "M8", "killed": true, "tests_failed": 7},
+    {"id": "M9", "killed": true, "tests_failed": 1, "note": "P-2 fix verified in p1_p2_p3"},
+    {"id": "M10", "killed": true, "tests_failed": 2},
+    {"id": "M11", "killed": false, "tests_failed": 0, "note": "tsc accepts void 0 expr"},
+    {"id": "M12", "killed": false, "tests_failed": 0, "note": "tsc accepts second return null in nullable fn"}
+  ],
+  "new_mutations": [
+    {"id": "N1", "target": "src/services/mut/assert-scanner.ts:32", "description": "TO_EQUAL_SELF regex broken to never match", "killed": true, "tests_failed": 1},
+    {"id": "N2", "target": "src/services/mut/mut-runner.ts:51", "description": "killRate divide by 1 instead of mutantsTotal", "killed": true, "tests_failed": 1},
+    {"id": "N3", "target": "src/services/context/tokenizer.ts:19", "description": "freshDecayScore boundary 60 -> 30 days", "killed": false, "tests_failed": 0, "blind_spot": true},
+    {"id": "N4", "target": "src/services/rd/types.ts:11,47", "description": "sha256 regex {64} -> {1,64} (allows short)", "killed": false, "tests_failed": 0, "blind_spot": true},
+    {"id": "N5", "target": "src/services/context/renderer.ts:30-32", "description": "peaks-mut returns docs (audience filter bypass)", "killed": false, "tests_failed": 0, "blind_spot": true}
+  ],
+  "new_blind_spots_found": [
+    {"id": "B1", "location": "src/services/context/tokenizer.ts:19", "issue": "freshDecayScore 60-day boundary not tested", "suggestion": "Add test for 60-day-old doc → decay=0"},
+    {"id": "B2", "location": "src/services/rd/types.ts:11,47", "issue": "Schema sha256 regex rejects nothing — no test for invalid sha256 length", "suggestion": "Add types.test.ts case: sha256 with 63 chars or 65 chars should fail parse"},
+    {"id": "B3", "location": "src/services/context/renderer.ts:30-32", "issue": "pickDocsForAudience peaks-mut branch not directly tested — only sizeBytes/truncated assertions", "suggestion": "Add test verifying docs[] is empty in RendererOutput when audience=peaks-mut"}
+  ],
+  "overall_assessment": "All 3 audit fixes (P-1/P-2/P-3) verified PASS via mutation. Plan 4 12 mutations replayed: 9 killed, 1 partial (M7), 2 escaped (M11/M12). 5 new mutations tested: N1+N2 killed, N3+N4+N5 ESCAPED — discovered 3 new blind spots. Final tsc clean, full suite 3715/3715.",
+  "tsc_clean": true,
+  "full_suite": "3715/3715 pass + 141 skipped + 0 failed"
+}
