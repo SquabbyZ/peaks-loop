@@ -81,7 +81,7 @@ const DEFAULT_DIRS = ['src/cli', 'src/services', 'skills', 'tests'] as const;
 const PARENT_COMMANDS = new Set([
   'scan', 'request', 'session', 'sub-agent', 'openspec', 'sop', 'workspace',
   'qa', 'sc', 'txt', 'code-review', 'rd', 'sh', 'config', 'audit', 'codegraph',
-  'context', 'agent', 'capability', 'classify', 'companion', 'gstack', 'gate',
+  'context', 'agent', 'capability', 'classify', 'gstack', 'gate',
   'hook', 'hooks', 'log', 'loop', 'memory', 'perf', 'playwright', 'preferences',
   'project', 'retrospective', 'slice', 'statusline', 'understand', 'workflow',
   'migrate', 'mcp', 'doctor', 'help'
