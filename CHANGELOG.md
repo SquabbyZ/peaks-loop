@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.3] — 2026-06-22
+
+### Fixed
+
+- **Top-level `.peaks/<YYYY-MM-DD-*>/` ban** — the 2.8.0-era legacy path
+  `.peaks/<change-id>/<role>/` (sibling of `.peaks/_runtime/`) is now
+  **forbidden** under the 2.8.0+ two-axis convention. This slice is the
+  final root-out of a 2.8.0-era orphan (`.peaks/2026-06-22-cc-connect-orphan-cleanup/`,
+  4 files, 28 KB, untracked) and pins the rule across THREE layers so a
+  regression cannot survive:
+    1. **`.gitignore` fnmatch rule** —
+       `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks any
+       future untracked date-prefix sibling at `.peaks/<seg>/`. Path-anchored
+       so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
+       by the existing `.peaks/_runtime/` rule, not this one).
+    2. **Vitest guard** at
+       `tests/unit/workspace/top-level-change-id-guard.test.ts` (5 cases)
+       pins the gitignore rule literal, asserts fnmatch matches a synthetic
+       candidate, asserts it does NOT match `.peaks/_runtime/-nested`
+       candidates, scans the live working tree for orphan date-prefix
+       siblings, and scans `git ls-files` for tracked escapes. All 5 pass.
+    3. **Doc-layer guard** — `CLAUDE.md` and `.peaks/PROJECT.md` now state
+       the ban explicitly so future AI sessions cannot recreate the pattern
+       by accident. The same test file (above) extends with two more cases
+       that assert the rule text is present in both doc files.
+- **`CLI_VERSION`** sync bumped 2.8.2 → 2.8.3 (regenerated via
+  `scripts/sync-version.mjs` from `package.json#version`).
+
+### Notes
+
+- No npm dependencies added or removed.
+- No CLI surface change (`peaks --help` output is identical to 2.8.2).
+- The orphan `.peaks/2026-06-22-cc-connect-orphan-cleanup/` contained a
+  redundant duplicate of work already promoted to
+  `.peaks/_runtime/2026-06-22-session-14216e/rd/requests/002-2026-06-22-cc-connect-orphan-cleanup.md`
+  per the 2.8.0+ two-axis convention. Audit confirmed no other orphan
+  date-prefix `.peaks/` siblings exist anywhere in the working tree or git
+  tracking, and zero `src/` / `skills/` / `tests/` paths reference the
+  deleted orphan as a live location.
+- The pre-existing `STRAT.sig` test failure in
+  `tests/integration/rd/ast-gate-cross-version.test.ts` is out of scope
+  and filed separately (unchanged by this release).
+
+---
+
 ## [2.8.2] — 2026-06-22
 
 ### Removed

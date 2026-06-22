@@ -15,6 +15,20 @@
   `.gitignore`: `.peaks/runtime/` (typo guard) and `.peaks/preferences.json`
   (per-project user state). Full rule at
   `.peaks/memory/workspace-underscore-convention.md`.
+- **Top-level `.peaks/<YYYY-MM-DD-*>/` is forbidden (effective 2.8.3)** —
+  change-id / session-id artifacts MUST live under `.peaks/_runtime/<sid>/`
+  (gitignored). Never as siblings of `.peaks/_runtime/`. Three layers of
+  enforcement: (1) root `.gitignore` rule
+  `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks untracked
+  writes; (2) vitest guard at
+  `tests/unit/workspace/top-level-change-id-guard.test.ts` fails CI on
+  regression; (3) `CLAUDE.md` "Hard ban" section tells future AI sessions
+  never to create the pattern. Originating incident: a 2.8.0-era
+  `peaks workspace init --change-id ...` flow left a 4-file orphan at
+  `.peaks/2026-06-22-cc-connect-orphan-cleanup/`, root-caused + fixed in
+  slice `2026-06-22-top-level-change-id-cleanup` (commit `7373f81`).
+  See `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md` for the
+  full audit trail.
 
 <!-- peaks-managed:session-history-start -->
 

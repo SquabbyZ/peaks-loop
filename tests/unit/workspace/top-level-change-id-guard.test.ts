@@ -19,6 +19,9 @@
  *   4. working tree contains no orphan top-level date-prefixed `.peaks/`
  *      directories at the moment the suite runs (catches regressions
  *      if the rule is silently dropped)
+ *   5. `CLAUDE.md` declares the top-level change-id ban as a hard rule
+ *      (so future AI sessions cannot recreate the pattern by accident)
+ *   6. `.peaks/PROJECT.md` documents the ban in its Conventions section
  *
  * No fixtures, no mocks — pure fs + fs-of-gitignore + readFileSync. The
  * test is hermetic against the live working tree and git binary.
@@ -121,5 +124,31 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
         return isDatePrefixedSegment(firstSeg);
       });
     expect(tracked).toEqual([]);
+  });
+
+  test('AC5: CLAUDE.md declares the top-level change-id ban as a hard rule', () => {
+    // Doc-layer guard: CLAUDE.md must explicitly tell future AI sessions
+    // NOT to create .peaks/<change-id>/ siblings. The text is grep-stable
+    // so a future contributor cannot silently weaken the rule without
+    // breaking this test. We look for two anchors: (a) the literal phrase
+    // "Never create", and (b) the explanatory line about routing into
+    // `.peaks/_runtime/<sessionId>/`.
+    const claudePath = join(REPO_ROOT, 'CLAUDE.md');
+    expect(existsSync(claudePath)).toBe(true);
+    const content = readFileSync(claudePath, 'utf8');
+    expect(content).toContain('Never create');
+    expect(content).toMatch(/\.peaks\/_runtime\/<sessionId>\//);
+  });
+
+  test('AC6: .peaks/PROJECT.md documents the ban in its Conventions section', () => {
+    // PROJECT.md is the source-of-truth for project conventions; it must
+    // mention the ban explicitly so a future contributor reading the
+    // project history understands WHY .peaks/<YYYY-MM-DD-*>/ is rejected.
+    const projectPath = join(PEAKS_DIR, 'PROJECT.md');
+    expect(existsSync(projectPath)).toBe(true);
+    const content = readFileSync(projectPath, 'utf8');
+    expect(content).toContain('2.8.3');
+    expect(content).toMatch(/top-level.*forbidden|Top-level.*forbidden/i);
+    expect(content).toContain('7373f81');
   });
 });
