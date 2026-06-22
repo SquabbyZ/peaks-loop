@@ -244,3 +244,20 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/rd-transition-gates.md` | Per-gate A-A3-B-B9 contract. |
 | `references/refactor-workflow.md` | Refactor hard gates + required artifacts. |
 | `references/skill-presence-and-title.md` | RD skill presence (main loop only). |
+
+## Sub-stages (Plan 3 — strategic + tactical split)
+
+peaks-rd runs in two sub-stages:
+
+1. **Strategic** — root-cause analysis, design intent. Outputs `strategy.md` + `STRAT.sig`.
+2. **Tactical** — minimal implementation. AST hard gate compares external API calls against peaks-context's locked-version docs. Outputs `impl.json` + `TACT.sig`.
+
+Hard constraint: TACT.sig cannot be written when the AST gate has violations.
+The LLM auto-fixes and retries (peaks-qa's 3-cycle repair cap).
+
+Karpathy guidelines remain injected in both sub-stages.
+
+Public entry points (from `src/services/rd/rd-service.ts`):
+
+- `runStrategic(input: RunStrategicInput): Promise<StrategyOutput>` — strategy.md writer
+- `runTactical(input: RunTacticalInput): Promise<ImplOutput>` — runs AST gate then writes impl.json + TACT.sig chained to inputSig
