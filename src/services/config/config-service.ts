@@ -44,13 +44,9 @@ export function loadGlobalConfig(): ConfigV2 | null {
 }
 
 /**
- * Slim 2.0 schema allows `version` + `ocr` + `companion`. The
- * `companion` block was added in slice
- * 2026-06-14-cc-connect-weixin (change-1) so cc-connect settings
- * live in `~/.peaks/config.json` (the source of truth) instead of
- * being scattered between peaks config + a sidecar txt cache. Any
- * other top-level field is a legacy artifact that needs to be
- * promoted to a sidecar file.
+ * Slim 2.0 schema allows `version` + `ocr`. Any other top-level
+ * field is a legacy artifact that needs to be promoted to a
+ * sidecar file.
  */
 function hasLegacyGlobalFields(raw: Record<string, unknown>): boolean {
   const allowed = new Set(['version', 'ocr']);
