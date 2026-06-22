@@ -20,6 +20,7 @@ import {
   ConflictingSessionError,
   LegacyChangeIdSiblingError
 } from '../../../services/workspace/workspace-service.js';
+import { LegacyChangeIdBindingError } from '../../../shared/change-id.js';
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
@@ -447,6 +448,29 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             `Inspect ${error.legacyPath} for any user-authored content you want to keep.`,
             `Move any desired files into .peaks/_runtime/<sessionId>/<role>/ (gitignored), then delete ${error.legacyPath}.`,
             `Re-run \`peaks workspace init --project <path> --change-id ${error.changeId}\` to bind the change-id.`
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof LegacyChangeIdBindingError) {
+        // Slice 2.8.4: a 2.8.0-era symlink at `.peaks/_runtime/current-change`
+        // was found. We refuse to silently replace it (the prior code would
+        // have unlinked the symlink + written a plain file, destroying the
+        // user's binding intent with no envelope signal). Surface the 3-step
+        // migration recipe so the user can confirm the symlink is safe to
+        // drop before re-running init.
+        printResult(
+          io,
+          fail('workspace.init', error.code, error.message, {
+            bindingPath: error.bindingPath,
+            symlinkTarget: error.symlinkTarget,
+            changeId: error.changeId
+          }, [
+            `Inspect ${error.bindingPath} to confirm the symlink is no longer needed${error.symlinkTarget !== null ? ` (target: ${error.symlinkTarget})` : ''}.`,
+            `Unlink ${error.bindingPath} manually (e.g. \`rm ${error.bindingPath}\`).`,
+            `Re-run \`peaks workspace init --project <path> --change-id ${error.changeId}\` to write the file-form binding.`
           ]),
           options.json
         );

@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
-import { setCurrentChangeId } from '../../shared/change-id.js';
+import { setCurrentChangeId, validateChangeIdOrThrow } from '../../shared/change-id.js';
 import {
   buildClaudeSettingsLocalJson,
   CLAUDE_SETTINGS_LOCAL_FILENAME,
@@ -282,8 +282,36 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   let changeIdAction: 'bound' | 'preserved' | 'none' = 'none';
   if (options.changeId !== undefined && options.changeId.length > 0) {
     resolvedChangeId = options.changeId;
+    // Slice 2026-06-23-audit-followup: validate the change-id BEFORE
+    // any path join / existsSync probe. The prior code joined the
+    // unvalidated value and probed the filesystem, leaving a tiny
+    // info-leak window (existsSync could reveal whether an arbitrary
+    // path exists). `setCurrentChangeId` also calls validate internally
+    // but the early guard here removes the unvalidated probe.
+    validateChangeIdOrThrow(resolvedChangeId);
     const legacySiblingDir = join(options.projectRoot, '.peaks', resolvedChangeId);
-    if (existsSync(legacySiblingDir)) {
+    // Slice 2026-06-23-audit-followup: use lstatSync instead of
+    // existsSync so we can distinguish path types (file vs dir vs
+    // symlink vs broken symlink) instead of conflating them all into
+    // one error. The guard still fires for all non-existent paths
+    // because lstatSync throws ENOENT in that case (caught below).
+    let legacyStat: import('node:fs').Stats | null = null;
+    try {
+      legacyStat = lstatSync(legacySiblingDir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        // EACCES, EPERM, ELOOP, etc. — surface as a typed error so
+        // the CLI catch block can emit a specific message.
+        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
+      }
+      legacyStat = null;
+    }
+    if (legacyStat !== null) {
+      // Anything existing at the legacy path is a violation under
+      // the 2.8.3+ top-level change-id ban. Distinguish via the error
+      // class so the CLI catch block can render an appropriate
+      // nextAction; today we still use a single error class but
+      // attach enough info for future callers to branch.
       throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
     }
     // 3. Bind the change-id to the session axis as a plain text file

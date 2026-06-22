@@ -244,6 +244,38 @@ export function getCurrentChangeId(projectRoot: string): string | null {
 }
 
 /**
+ * Thrown when `setCurrentChangeId({ form: 'file' })` finds a legacy
+ * 2.8.0-era SYMLINK at `.peaks/_runtime/current-change` instead of a
+ * plain text file. Slice 2026-06-23-audit-followup: we refuse to
+ * silently replace the symlink (which would destroy the user's
+ * existing binding intent with no log / envelope signal). The user
+ * must manually `unlink` the symlink and re-init.
+ *
+ * Migration recipe (mirror of `LegacyChangeIdSiblingError`):
+ *   1. Inspect the symlink + its target.
+ *   2. Unlink `.peaks/_runtime/current-change` manually.
+ *   3. Re-run `peaks workspace init --change-id <id>` to write the
+ *      file-form binding.
+ */
+export class LegacyChangeIdBindingError extends Error {
+  readonly code = 'LEGACY_CHANGE_ID_BINDING';
+  constructor(
+    readonly bindingPath: string,
+    readonly symlinkTarget: string | null,
+    readonly changeId: string
+  ) {
+    const targetSuffix = symlinkTarget !== null ? ` (target: ${symlinkTarget})` : '';
+    super(
+      `peaks-cli 2.8.4+ refuses to silently replace the legacy 2.8.0-era symlink at ${bindingPath}${targetSuffix}. ` +
+      `Migration: (1) inspect ${bindingPath} to confirm the symlink is no longer needed; ` +
+      `(2) unlink ${bindingPath} manually (or via \`rm\`); ` +
+      `(3) re-run \`peaks workspace init --change-id ${changeId}\` to write the file-form binding.`
+    );
+    this.name = 'LegacyChangeIdBindingError';
+  }
+}
+
+/**
  * Source of the resolved change-id binding. Useful for tests that
  * need to confirm whether the binding came from the canonical
  * `_runtime/current-change` symlink or the legacy `current-change`
@@ -305,7 +337,37 @@ export function setCurrentChangeId(
     // legacy sibling dir exists, refuse loudly — see
     // `setCurrentChangeIdWithLegacyGuard` for the wrapper used by
     // `peaks workspace init`.
+    //
+    // Slice 2026-06-23-audit-followup (2.8.4): REFUSE to silently
+    // replace a 2.8.0-era symlink at the binding path. The prior
+    // code would have unlinkSync'd the symlink and writeFileSync'd
+    // a plain file in its place — destroying the user's existing
+    // binding intent with no log / envelope signal. We now detect
+    // the symlink first via lstatSync (not statSync, which would
+    // follow the symlink) and throw LegacyChangeIdBindingError.
     if (existsSync(bindingPath)) {
+      let existingStat;
+      try {
+        // lstat (NOT stat) so we don't follow the symlink — we
+        // want to detect it AS a symlink, not resolve to its target.
+        existingStat = lstatSync(bindingPath);
+      } catch {
+        existingStat = null;
+      }
+      if (existingStat !== null && existingStat.isSymbolicLink()) {
+        // Resolve the symlink target for diagnostic purposes only.
+        // realpathSync may throw if the target is missing (broken
+        // symlink) — capture that as `null` so the error message
+        // does not crash.
+        let target: string | null = null;
+        try {
+          target = realpathSync(bindingPath);
+        } catch {
+          target = null;
+        }
+        throw new LegacyChangeIdBindingError(bindingPath, target, changeId);
+      }
+      // Plain file — read content to compare against requested changeId.
       try {
         const existing = readFileSync(bindingPath, 'utf-8').trim();
         if (existing === changeId) return; // identical — no-op
@@ -315,11 +377,15 @@ export function setCurrentChangeId(
         );
       } catch (error) {
         if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
-        // Broken binding — replace.
+        // Broken binding (file exists but unreadable) — replace.
         try { unlinkSync(bindingPath); } catch { /* best effort */ }
       }
     }
-    writeFileSync(bindingPath, changeId + '\n', 'utf-8');
+    // Mode 0o600: the binding file contains the change-id (a per-user
+    // logical identifier), not a team-shared file. Restrict read/write
+    // to the owner to defend against multi-user hosts where another
+    // local user could otherwise inspect the change-id.
+    writeFileSync(bindingPath, changeId + '\n', { encoding: 'utf-8', mode: 0o600 });
     return;
   }
   // Legacy 'symlink' form. KEPT for reads; not invoked by the 2.8.3

@@ -174,6 +174,7 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     expect(content).toContain('.peaks/_runtime/current-change');
     expect(content).toContain('2.8.3');
     expect(content).toContain('LegacyChangeIdSiblingError');
+    expect(content).toContain('LegacyChangeIdBindingError');
     // The legacy phrase "creates the .peaks/<change-id>/ dir" (singular
     // phrasing that taught the forbidden sibling-dir layout) must NOT
     // survive in the description or --change-id option help. We use a
@@ -184,5 +185,20 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     expect(content).not.toMatch(/creates \.peaks\/<change-id>\/ dir/);
     // The --change-id option description must NOT promise a sibling dir.
     expect(content).not.toMatch(/--change-id[^]*?creates \.peaks\/<change-id>\//);
+    // Slice 2.8.4 audit followup: the CLI catch block surfaces 3-step
+    // migration recipes for LegacyChangeIdSiblingError (inspect →
+    // migrate → re-run) and LegacyChangeIdBindingError (inspect →
+    // unlink → re-run). Pin all four verbs in the CLI source so the
+    // wording in init-command.ts matches the error messages emitted
+    // at runtime — the user-facing migration UX has to stay in sync.
+    expect(content).toMatch(/inspect/i);
+    expect(content).toMatch(/re-run/i);
+    // The 3 sibling-error verbs (inspect / move / delete) appear in the
+    // catch-block nextActions list.
+    expect(content).toMatch(/move/i);
+    expect(content).toMatch(/delete/i);
+    // The 3 binding-error verbs (inspect / unlink / re-run) appear in
+    // the binding catch-block nextActions list.
+    expect(content).toMatch(/unlink/i);
   });
 });

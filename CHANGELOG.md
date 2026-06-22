@@ -54,14 +54,15 @@ the four-step recipe; no data is lost.
        so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
        by the existing `.peaks/_runtime/` rule, not this one).
     2. **Vitest guard** at
-       `tests/unit/workspace/top-level-change-id-guard.test.ts` (7 cases)
+       `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases)
        pins the gitignore rule literal, asserts fnmatch matches a synthetic
        candidate, asserts it does NOT match `.peaks/_runtime/-nested`
        candidates, scans the live working tree for orphan date-prefix
        siblings, scans `git ls-files` for tracked escapes, asserts both
        `CLAUDE.md` and `.peaks/PROJECT.md` carry the ban wording, AND
        asserts the CLI help text (`init-command.ts`) teaches the
-       `.peaks/_runtime/current-change` binding path.
+       `.peaks/_runtime/current-change` binding path + the four
+       migration verbs (inspect / move / delete / unlink / re-run).
     3. **Source-code redirect** —
        `src/shared/change-id.ts#setCurrentChangeId` now defaults to
        `{ form: 'file' }` (was `'symlink'`); the file form writes ONLY
@@ -91,14 +92,80 @@ the four-step recipe; no data is lost.
   The CLI catch block surfaces the error in the JSON envelope with a
   3-item `nextActions` list (inspect → migrate → re-run).
 - **`tests/unit/workspace/workspace-init-change-id-redirect.test.ts`** —
-  7 vitest cases pinning the new init behavior:
+  8 vitest cases pinning the new init behavior:
   (1) no `.peaks/<changeId>/` created; (2) `.peaks/_runtime/current-change`
   written; (3) `LegacyChangeIdSiblingError` fires when legacy sibling
   exists; (4) no `--change-id` leaves binding untouched; (5) idempotent
-  re-init; (6) error envelope data fields; (7) smoke check.
+  re-init; (6) error envelope data fields + 4-step recipe ordering;
+  (7) `LegacyChangeIdBindingError` fires when a legacy 2.8.0-era
+  symlink is found at the binding path (silent-replace defense);
+  (8/8b) `ChangeIdValidationError` fires for `--change-id '../'` / '.'
+  before any path join.
 - **`top-level-change-id-guard.test.ts` AC7** — pins the CLI help text
   in `init-command.ts` so a future refactor cannot silently revert to
-  the forbidden sibling-dir phrasing.
+  the forbidden sibling-dir phrasing. Also pins all four migration
+  verbs (inspect / move / delete / unlink / re-run) so the CLI catch
+  block's wording stays in sync with the runtime error messages.
+
+### Audit followup (post-2.8.3, pre-publish) — multi-dimensional remediation
+
+A multi-dimensional audit (Karpathy + security + silent-failure +
+migration) of the 2.8.3 release surfaced 13 findings, all addressed in
+a single followup commit:
+
+- **HIGH silent failure**: `setCurrentChangeId({ form: 'file' })`
+  silently replaced a 2.8.0-era symlink at the binding path
+  (`unlinkSync` + `writeFileSync` with no log / envelope signal).
+  Fixed: detect the symlink via `lstatSync` BEFORE the read attempt
+  and throw a new `LegacyChangeIdBindingError` (envelope code
+  `LEGACY_CHANGE_ID_BINDING`) with a 3-step migration recipe
+  (inspect / unlink / re-run). The CLI catch block surfaces the
+  error in the JSON envelope with `bindingPath` + `symlinkTarget` +
+  `changeId` fields plus a 3-item `nextActions` list. Live state at
+  the time of audit: this repo's own `.peaks/_runtime/current-change`
+  was a legacy symlink pointing at the now-deleted
+  `.peaks/014-full-dogfood/` — the fix prevented data loss on the
+  next `peaks workspace init --change-id` invocation.
+- **MEDIUM path-validation ordering**: `initWorkspace` joined the
+  unvalidated `--change-id` and ran `existsSync` before
+  `validateChangeIdOrThrow`. Fixed: `validateChangeIdOrThrow` is now
+  called BEFORE any path join / `existsSync` probe.
+- **MEDIUM bare-existsSync guard**: the legacy-sibling guard used
+  bare `existsSync` which conflates files / broken symlinks /
+  escaping symlinks / EACCES into one error. Fixed: use
+  `lstatSync` + try/catch on `ENOENT` so the guard distinguishes
+  path types. (All non-existent paths fall through; the legacy
+  sibling dir of any kind still throws `LegacyChangeIdSiblingError`.)
+- **INFO defense-in-depth**: `writeFileSync` on the binding file now
+  uses `mode: 0o600` (the binding file contains a per-user change-id,
+  not a team-shared file — restricting read/write to the owner defends
+  against multi-user hosts).
+- **Test count**: `workspace-init-change-id-redirect.test.ts` extended
+  from 6 to 8 cases (AC7 symlink-at-binding-path + AC8 / AC8b
+  validation); `top-level-change-id-guard.test.ts` AC7 extended with
+  4-verb pin. Total test count: 8 + 8 = 16 cases pinning the
+  top-level change-id ban (previously stated as "5 cases" in the
+  memory file and "(7 cases)" in the "Vitest guard" bullet above —
+  both have been corrected to reflect the final 8-case state).
+- **Dead-code cleanup**: removed the unused `track` helper from
+  `workspace-init-change-id-redirect.test.ts`.
+- **Doc cleanup**:
+  `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md` updated
+  to describe the full 4-layer defense (was 3-layer) and the 8-case
+  final state (was 5-case). `.peaks/memory/index.json` entry
+  description + `updatedAt` timestamp updated to 2026-06-23.
+  `CLAUDE.md` Hard ban section clarifies the binding vs artifact
+  path distinction. `.peaks/PROJECT.md` second convention bullet
+  expanded to describe all 4 enforcement layers. The
+  `.peaks/_sub_agents/unknown-sid/` followup is marked
+  **tolerated** (gitignored ephemeral, no action needed).
+- **CLI help text** mentions `LegacyChangeIdBindingError` alongside
+  `LegacyChangeIdSiblingError` so an LLM reading
+  `peaks workspace init --help` learns about both error classes.
+
+Verification: `pnpm tsc --noEmit` clean, `pnpm vitest run` 3638/3640
+pass (the 2 pre-existing ast-gate-cross-version STRAT.sig failures
+are unchanged by this release), `pnpm build` clean.
 
 ### Notes
 

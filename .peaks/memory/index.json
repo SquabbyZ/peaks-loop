@@ -1,15 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-22T23:00:00.000Z",
+  "updatedAt": "2026-06-23T00:00:00.000Z",
   "hot": {
     "feedback": [
       {
         "name": "2026-06-22-top-level-change-id-cleanup",
         "kind": "feedback",
-        "description": "Rooted out stale `.peaks/2026-06-22-cc-connect-orphan-cleanup/` (4 files, 28K, untracked) that violated the 2.8.0+ two-axis convention. Added defensive `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` rule to root `.gitignore` + 5-case vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts`. Audit confirmed no other top-level date-prefixed `.peaks/` siblings exist. `.peaks/_runtime/<sid>/` paths are unaffected (rule is path-anchored at the `.peaks/<seg>/` segment). Memory record + index update retained at `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md`.",
+        "description": "Rooted out stale `.peaks/2026-06-22-cc-connect-orphan-cleanup/` (4 files, 28K, untracked) that violated the 2.8.0+ two-axis convention. 4-layer defense shipped: (1) defensive `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` rule in root `.gitignore`; (2) 8-case vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts` pinning gitignore + fnmatch + working-tree + git-ls-files + CLAUDE.md + PROJECT.md + CLI help-text + 4 migration verbs; (3) source-code redirect — `setCurrentChangeId({form:'file'})` writes only `.peaks/_runtime/current-change` (mode 0o600) + `lstatSync` detects legacy symlinks + throws `LegacyChangeIdBindingError` (closes silent symlink-replace data-loss bug); (4) CLI help-text + catch blocks for both `LegacyChangeIdSiblingError` and `LegacyChangeIdBindingError` with envelope-shaped nextActions. Audit confirmed no other top-level date-prefixed `.peaks/` siblings exist. Multi-dimensional audit (Karpathy + security + silent-failure + migration) cleared all 13 findings in a followup commit. Memory record at `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md`.",
         "sourcePath": ".peaks/memory/2026-06-22-top-level-change-id-cleanup.md",
         "sourceArtifact": "tests/unit/workspace/top-level-change-id-guard.test.ts",
-        "updatedAt": "2026-06-22"
+        "sourceArtifactSecondary": "tests/unit/workspace/workspace-init-change-id-redirect.test.ts",
+        "updatedAt": "2026-06-23"
       },
       {
         "name": "2026-06-22-cc-connect-removal-publish",
