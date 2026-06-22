@@ -108,7 +108,7 @@ describe('runAstGate (★ load-bearing)', () => {
   // Calls inside such files are NOT linked to a dep, so they pass the gate.
   // This is a known v1 limitation; production slice migrates to TS Compiler API.
   // Test exists to surface the gap loudly if v1 ever silently widens behavior.
-  it('namespace import is NOT linked to dep (v1 regex limitation, R2-W3)', async () => {
+  it('v1 passes namespace import (limitation, R2-W3)', async () => {
     mkdirSync(join(workdir, 'src'), { recursive: true });
     writeFileSync(join(workdir, 'src', 'ns.ts'), `
       import * as oauth from 'oauth-client';
@@ -130,7 +130,7 @@ describe('runAstGate (★ load-bearing)', () => {
   });
 
   // R2-W3 follow-up: default import form also untracked by v1 regex.
-  it('default import is NOT linked to dep (v1 regex limitation, R2-W3)', async () => {
+  it('v1 passes default import (limitation, R2-W3)', async () => {
     mkdirSync(join(workdir, 'src'), { recursive: true });
     writeFileSync(join(workdir, 'src', 'def.ts'), `
       import oauth from 'oauth-client';
@@ -150,7 +150,9 @@ describe('runAstGate (★ load-bearing)', () => {
     expect(result.violations).toHaveLength(0);
   });
 
-  // Side-effect-only imports: `import 'foo'` should not produce false positives.
+  // R2-EXTRA: side-effect-only import boundary (round-2 JSON boundary_coverage).
+  // Not part of R2-W1..W5; surfaces the gap loudly if v1 ever silently widens
+  // to flag side-effect imports as violations.
   it('side-effect-only import produces no false violations', async () => {
     mkdirSync(join(workdir, 'src'), { recursive: true });
     writeFileSync(join(workdir, 'src', 'side.ts'), `

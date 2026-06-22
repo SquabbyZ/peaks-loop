@@ -281,7 +281,74 @@ interface MutReportJson {
 - 两套阈值:kill_rate 软门禁(可走 AskUserQuestion 放行),weak_rate 硬门禁(默认拒收)。
 - 独立 context:audience=peaks-mut 看不到 RD 设计意图。
 
-### 4.3 `peaks-state-lock` 设计
+### 4.3 `peaks-rd/战术` (战术审计) 设计
+
+> **R1-W3 整合**:本节是新加的"战术审计"专章,把散落在 §3.2 / §3.3 / Phase 3 AC-2 与 H6 / H8 中的战术子阶段要求集中到一处,使 `tactical-stage.ts` / `impl.ts` 等实现可以指向单一权威位置。
+
+#### 4.3.1 角色定位
+
+`peaks-rd/战术` 是 `peaks-rd` 的子阶段,在 `peaks-rd/战略` 产出 STRAT.sig 之后运行。它负责:
+
+1. 读 STRAT.sig + context.json(`audience=peaks-rd`)
+2. 写实现代码(改 source files)
+3. 跑 **AST 硬门禁**(peaks-context 提供 API 白名单,CLI 比对)
+4. AST gate 通过 → 写 `impl.json` + 算 `TACT.sig`(含 STRAT.sig hash)
+5. AST gate 不通过 → **硬失败**,LLM 必须自修后重跑(由 §3.3 场景走读 step 3 可见,失败对用户不可见、由 LLM 自动修复)
+
+#### 4.3.2 Hard Constraints 直接绑定
+
+| 约束 | 在战术阶段的体现 |
+|---|---|
+| **H6 (CLI 裁决 > LLM 主观终裁)** | AST 门禁由 `runAstGate` 计算并拒绝,LLM 没有兜底裁决权 — 写 `impl.json` 之前必须 AST gate 返回 0 violations |
+| **H8 (审计轨迹落盘)** | `TACT.inputSig` **必须等于** `STRAT.sha256` 上游 — 由 `tactical-stage.ts` 中 `STRAT_SIG_REGISTRY` 按 `dirname(out)` 强制;不允许任何 64-hex 字符串伪装成上游 STRAT |
+| **§3.2 不可读未来阶段** | 战术阶段不读 peaks-qa / peaks-mut 产物,只读 goal + STRAT + context |
+| **§3.3 场景走读** | OAuth 回调例:STRAT.sig 已写 → 战术改 LoginForm.tsx → CLI 跑 AST 比对 `oauth-client@2.4.0` API 白名单(不识别的 `unknownApi` 直接拒) |
+
+#### 4.3.3 输入/输出契约
+
+**输入** (`RunTacticalInput`):
+```typescript
+{
+  project: string;                  // project root (用于 AST 门禁扫描)
+  changedFiles: ReadonlyArray<string>;
+  inputSig: string;                 // === STRAT.sha256 (H8 chain)
+  context: AstGateContext;          // peaks-context 输出,含 deps + docSummaries
+  out: string;                      // impl.json 目标路径
+}
+```
+
+**输出** (`ImplOutput`):
+```typescript
+{
+  version: "1.0";
+  sha256: string;                   // TACT.sig
+  generatedAt: string;
+  inputSig: string;                 // 严格透传 === STRAT.sha256
+  changedFiles: ReadonlyArray<string>;
+  externalApiCalls: ReadonlyArray<ExternalApiCall>;
+  astGate: AstGateResult;
+}
+```
+
+#### 4.3.4 错误语义(由 §3.3 step 3 + H6 锁定)
+
+| 触发条件 | 行为 |
+|---|---|
+| AST gate 有 violations | `runTacticalStage` throw `<reason from runAstGate>` — `impl.json` **不写** |
+| `inputSig !== STRAT_SIG_REGISTRY.get(projectDir)` | `runTacticalStage` throw `STRAT.sig chain broken: ...` — H8 forgery defense |
+| `STRAT_SIG_REGISTRY` 未注册该 projectDir | 同上 throw(覆盖"未上游"伪造场景) |
+
+**实现锚点**:`src/services/rd/tactical-stage.ts`(`runTacticalStage` + `STRAT_SIG_REGISTRY` + `STRAT_SIG_CHAIN_INVARIANT`),`src/services/rd/impl.ts`(`writeImpl` + `ImplOutputSchema`)。
+
+#### 4.3.5 与其他组件的关系
+
+- 上游:`peaks-rd/战略` 必须先跑(`runStrategicStage` → `registerStratSig(dirname(out), sha256)`)
+- 下游:`peaks-mut` 读 TACT.sig + 测试子集 context
+- 旁路:`peaks-qa` 通过 `peaks-state-lock verify` 校验 sig 链不断裂
+
+---
+
+### 4.4 `peaks-state-lock` 设计
 
 #### CLI 表面(CLI 原语,非 skill)
 
