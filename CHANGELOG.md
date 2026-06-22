@@ -7,23 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased]
+## [2.8.3] — 2026-06-22
 
-### Added
+Post-release audit cleanup. All entries are follow-up hygiene from the 2.8.2 cc-connect removal slice; no behavior change.
 
-- _No unreleased changes yet._
+### Removed
+
+- **Orphan npm dependencies** — `qrcode ^1.5.4`, `qrcode-terminal ^0.12.0` (runtime), `@types/qrcode ^1.5.6` (dev). These were only consumed by the now-deleted `src/services/companion/*` module; the ambient declaration `src/types/qrcode-terminal.d.ts` (no consumer) was deleted in the same hunk. `pnpm-lock.yaml` regenerated; verified 0 `cc-connect` and 0 `qrcode` entries.
+- **Stale `'companion'` entry in `PARENT_COMMANDS`** static set in `src/services/scan/orphan-service.ts`. The `peaks companion` command was deleted in 2.8.2; its presence in the static set caused orphan-detection false negatives (a stray `companion` directory would be silently skipped).
 
 ### Changed
 
-- _No unreleased changes yet._
+- **Refreshed stale JSDoc** in `src/services/config/config-service.ts` (the `hasLegacyGlobalFields` comment) to describe the current 2.0 schema (`version` + `ocr`) — the old comment still described the deleted `companion` block from slice 2026-06-14-cc-connect-weixin.
+- **Removed dead `commander.invalidArgument` channel-not-supported block** in `src/cli/index.ts` — the only path that raised this exact error was the now-deleted `peaks companion` command.
 
-### Fixed
+### Notes
 
-- _No unreleased changes yet._
+- `skills/peaks-companion/` and `tests/unit/skills/peaks-companion.test.ts` are intentionally retained as a tombstone for users who still have `cc-connect` installed locally (per 2.8.2 CHANGELOG note). They are not loaded by the runtime CLI.
+- The pre-existing `STRAT.sig-chain` test failure in `tests/integration/rd/ast-gate-cross-version.test.ts` is out of scope and filed separately.
 
-### Security
+---
 
-- _No unreleased changes yet._
+## [2.8.2] — 2026-06-22
+
+### Removed
+
+- **cc-connect package + `peaks companion` command family** — the
+  `cc-connect` dependency (and its postinstall Go-binary download) is
+  gone from `package.json#dependencies`, and the entire 12-file
+  `src/services/companion/*` module + `src/cli/commands/companion.ts`
+  CLI + 14 `tests/unit/companion/*` test files are removed
+  (~7,700 lines deleted, 0 added). The `peaks companion install|setup|
+  start|stop|bind|status|restart|verify|token|qr` command tree is gone
+  along with the `peaks scan companion-binary` sub-command and the
+  `capability:companion-binary-resolution` doctor check. Companion
+  types (`CompanionConfig`, `CompanionWeixinConfig`, `CompanionChannel`,
+  `CompanionBinarySource`) and the `~/.peaks/config.json#companion`
+  block are also removed.
+
+  Rationale: `cc-connect@1.3.1`'s postinstall script runs
+  `node scripts/install.js` which downloads a Go binary from
+  `github.com/alibaba/open-code-review/releases` via HTTPS. This was
+  the dominant cause of slow `npm i -g peaks-cli` installs in
+  restricted/proxied environments; `peaks companion` itself is also
+  low-traffic (no Claude Code / Trae workflows depend on it). The
+  `peaks-companion` skill directory remains in `skills/` for users
+  who still have cc-connect installed locally — it is now opt-in and
+  no longer wired into any `peaks` subcommand.
+
+  Action for users with existing `~/.peaks/config.json`: the loader
+  silently strips the legacy `companion` block on next read and
+  rewrites the file in slim form. No data loss.
+
+### Changed
+
+- **`@alibaba-group/open-code-review` is now a peer dependency** —
+  moved from `optionalDependencies` to `peerDependencies` with
+  `peerDependenciesMeta."@alibaba-group/open-code-review".optional =
+  true`. The peer hint lets npm skip the optional resolution entirely
+  during global install; users who want second-opinion reviews via
+  `peaks code-review run-ocr` install it manually with
+  `npm i -g @alibaba-group/open-code-review`. Install hint copy in
+  `ocr-service.ts` and `code-review-commands.ts` updated to reflect
+  the peer-dependency status. `pnpm.onlyBuiltDependencies` is now an
+  empty array (no peaks-cli dep needs postinstall approval).
 
 ---
 

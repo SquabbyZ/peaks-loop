@@ -37,7 +37,6 @@ import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
-import { registerCompanionCommands } from './commands/companion.js';
 import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
@@ -236,8 +235,6 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerUpgradeCommands(program, io);
  // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).
  registerCodeReviewCommands(program, io);
- // Slice 2026-06-14-cc-connect-weixin: `peaks companion` family.
- registerCompanionCommands(program, io);
  // Slice 2026-06-16-cli-logging (G4): `peaks log tail` / `peaks log ls`.
  registerLogCommands(program, io);
  // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.

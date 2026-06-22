@@ -44,16 +44,12 @@ export function loadGlobalConfig(): ConfigV2 | null {
 }
 
 /**
- * Slim 2.0 schema allows `version` + `ocr` + `companion`. The
- * `companion` block was added in slice
- * 2026-06-14-cc-connect-weixin (change-1) so cc-connect settings
- * live in `~/.peaks/config.json` (the source of truth) instead of
- * being scattered between peaks config + a sidecar txt cache. Any
- * other top-level field is a legacy artifact that needs to be
- * promoted to a sidecar file.
+ * Slim 2.0 schema allows `version` + `ocr`. Any other top-level
+ * field is a legacy artifact that needs to be promoted to a
+ * sidecar file.
  */
 function hasLegacyGlobalFields(raw: Record<string, unknown>): boolean {
-  const allowed = new Set(['version', 'ocr', 'companion']);
+  const allowed = new Set(['version', 'ocr']);
   return Object.keys(raw).some((k) => !allowed.has(k));
 }
 
@@ -99,19 +95,9 @@ function readSlimGlobalConfig(): ConfigV2 {
 function rewriteSlimGlobalConfig(): void {
   const path = globalConfigPath();
   const ocr = readOcrFromRawConfigFile();
-  const companion = readCompanionFromRawConfigFile();
   const slim: Record<string, unknown> = { version: CONFIG_SCHEMA_VERSION_V2 };
   if (ocr !== null) slim['ocr'] = ocr;
-  if (companion !== null) slim['companion'] = companion;
   writeUserConfigFile(path, JSON.stringify(slim, null, 2) + '\n');
-}
-
-function readCompanionFromRawConfigFile(): Record<string, unknown> | null {
-  const path = globalConfigPath();
-  if (!existsSync(path)) return null;
-  const content = readConfigFileSafely(path, 'Global config path must stay inside the user root');
-  const raw = JSON.parse(content) as Record<string, unknown>;
-  return isRecord(raw.companion) ? raw.companion : null;
 }
 
 function readOcrFromRawConfigFile(): Record<string, unknown> | null {
@@ -634,44 +620,7 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
     ...(typeof value.swarmMode === 'boolean' ? { swarmMode: value.swarmMode } : {}),
     ...(isRecord(value.tokens) ? { tokens: toTokenConfig(value.tokens) } : {}),
     ...(isRecord(value.providers) ? { providers: toModelProviderConfig(value.providers) } : {}),
-    ...(proxy ? { proxy } : {}),
-    ...(isRecord(value.companion) ? { companion: toCompanionConfig(value.companion) } : {})
-  };
-}
-
-const COMPANION_CHANNELS: ReadonlySet<string> = new Set(['weixin']);
-const COMPANION_BINARY_SOURCES: ReadonlySet<string> = new Set(['node-modules', 'path']);
-
-function toCompanionWeixinConfig(value: Record<string, unknown>): { ilinkQrPayload: string; loginTimeoutSec: number } {
-  const ilinkQrPayload = typeof value.ilinkQrPayload === 'string' && value.ilinkQrPayload.trim().length > 0
-    ? value.ilinkQrPayload.trim()
-    : 'ilink://peaks-cli?project=default';
-  const loginTimeoutSec = typeof value.loginTimeoutSec === 'number' && Number.isFinite(value.loginTimeoutSec) && value.loginTimeoutSec > 0
-    ? Math.floor(value.loginTimeoutSec)
-    : 60;
-  return { ilinkQrPayload, loginTimeoutSec };
-}
-
-function toCompanionConfig(value: Record<string, unknown>): import('./config-types.js').CompanionConfig {
-  const enabled = typeof value.enabled === 'boolean' ? value.enabled : false;
-  const defaultChannel: 'weixin' = typeof value.defaultChannel === 'string' && COMPANION_CHANNELS.has(value.defaultChannel) ? (value.defaultChannel as 'weixin') : 'weixin';
-  const binaryPath = typeof value.binaryPath === 'string' && value.binaryPath.trim().length > 0 ? value.binaryPath.trim() : null;
-  const binaryPathSource: 'node-modules' | 'path' | null = typeof value.binaryPathSource === 'string' && COMPANION_BINARY_SOURCES.has(value.binaryPathSource) ? (value.binaryPathSource as 'node-modules' | 'path') : null;
-  const configPath = typeof value.configPath === 'string' && value.configPath.trim().length > 0 ? value.configPath.trim() : '~/.cc-connect/config.toml';
-  const autoStart = typeof value.autoStart === 'boolean' ? value.autoStart : false;
-  const weixin = isRecord(value.weixin) ? toCompanionWeixinConfig(value.weixin as Record<string, unknown>) : { ilinkQrPayload: 'ilink://peaks-cli?project=default', loginTimeoutSec: 60 };
-  const agentType = typeof value.agentType === 'string' && value.agentType.trim().length > 0 ? value.agentType.trim() : undefined;
-  const agentWorkDir = typeof value.agentWorkDir === 'string' && value.agentWorkDir.trim().length > 0 ? value.agentWorkDir.trim() : undefined;
-  return {
-    enabled,
-    defaultChannel,
-    binaryPath,
-    binaryPathSource,
-    configPath,
-    weixin,
-    ...(agentType !== undefined ? { agentType } : {}),
-    ...(agentWorkDir !== undefined ? { agentWorkDir } : {}),
-    autoStart
+    ...(proxy ? { proxy } : {})
   };
 }
 
