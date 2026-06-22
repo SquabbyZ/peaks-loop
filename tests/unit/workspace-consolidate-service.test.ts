@@ -225,25 +225,11 @@ describe('executeConsolidate (apply)', () => {
     expect(existsSync(keepSrc)).toBe(true);
   });
 
-  // TODO(plan-3a-task-4): REAL PRODUCTION BUG (platform-conditional).
-  // On POSIX hosts, renameSync(srcDir, filePath) correctly throws EEXIST
-  // and the source is left in place — the test passes.
-  // On Windows, the underlying Win32 MoveFileExW replaces the target
-  // file with the source directory (verified by standalone probe). The
-  // rename SUCCEEDS, `result.moved.length === 1`, and the test fails
-  // because no EEXIST error reaches executeConsolidate's catch block.
-  // The actual production code at
-  // `src/services/workspace/workspace-consolidate-service.ts:240`
-  // does not pre-check that `target` is not an existing non-directory,
-  // which is the precondition POSIX rename enforces but Windows
-  // MoveFileExW does NOT.
-  // Recommendation: in production, add a pre-rename guard
-  // `if (existsSync(target) && !statSync(target).isDirectory()) rmSync(target)`
-  // before the rename, so atomicity is preserved on every platform.
-  // Plan 3a does NOT patch production code per the d4 contract; this
-  // test is gated to POSIX CI (the canonical test target) and
-  // escalated to the orchestrator.
-  test.skipIf(process.platform === 'win32')('atomicity: when target rename collides, source is left in place (POSIX only)', async () => {
+  // Plan 3a Task 4.6: production now pre-removes a stale file-shaped
+  // target before renameSync, so Windows MoveFileExW no longer silently
+  // replaces a file with the source directory. Atomicity is preserved
+  // on every platform; this test now runs unconditionally.
+  test('atomicity: when target rename collides, source is left in place', async () => {
     const project = tempProject();
     makeSession(project, '2026-06-15-session-lll222', '2026-06-15');
     const sourcePath = join(project, '.peaks/_runtime/2026-06-15-session-lll222');

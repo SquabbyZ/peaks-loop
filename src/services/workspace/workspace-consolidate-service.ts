@@ -237,6 +237,19 @@ async function moveSessionAtomic(
   const target = targetPath(projectRoot, today, entry.sessionId);
   const parent = join(target, '..');
   mkdirSync(parent, { recursive: true });
+  // Pre-rename guard (plan-3a Task 4.6): on Windows, MoveFileExW will
+  // replace an existing non-directory at `target` with the source
+  // directory, silently losing whatever was at `target`. POSIX
+  // rename(2) throws EEXIST in the same situation. We want identical
+  // semantics on every host: a non-directory at the target path is a
+  // hard collision — surface it as an explicit error so the source is
+  // left untouched and the catch block above rolls back, rather than
+  // silently destroying whatever was at `target`.
+  if (existsSync(target) && !statSync(target).isDirectory()) {
+    throw new Error(
+      `consolidate target collision: ${target} exists and is not a directory; refusing to overwrite`
+    );
+  }
   renameSync(entry.sourcePath, target);
   try {
     const fileList = listRelativeFiles(target, '');
