@@ -5,11 +5,11 @@
  */
 import { mkdtempSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
-import { createRdSwarmPlan } from '/Users/yuanyuan/Desktop/peaks-cli/src/services/rd/rd-service.js';
-import { EPEAKS_NO_STANDARDS } from '/Users/yuanyuan/Desktop/peaks-cli/src/services/rd/standards-diagnostic.js';
+import { createRdSwarmPlan } from '../../../src/services/rd/rd-service.js';
+import { EPEAKS_NO_STANDARDS } from '../../../src/services/rd/standards-diagnostic.js';
 
 describe('QA cycle-2 re-verification — strict-standards end-to-end', () => {
   let projectRoot: string;
@@ -24,7 +24,9 @@ describe('QA cycle-2 re-verification — strict-standards end-to-end', () => {
     expect(plan.gateStatus.standardsErrorCode).toBe(EPEAKS_NO_STANDARDS);
     expect(plan.gateStatus.standardsErrorCode).toBe('EPEAKS_NO_STANDARDS');
     expect(plan.gateStatus.standardsDiagnostic).toContain('no project-local standards found');
-    expect(plan.gateStatus.standardsDiagnostic).toContain(`peaks standards init --project ${projectRoot} --apply`);
+    expect(plan.gateStatus.standardsDiagnostic).toContain(
+      `peaks standards init --project ${projectRoot.split(sep).join('/')} --apply`
+    );
     expect(plan.gateStatus.standardsGates).toEqual([
       { name: 'code-review', status: 'skipped', reason: 'no project-local standards' },
       { name: 'security-review', status: 'skipped', reason: 'no project-local standards' },
