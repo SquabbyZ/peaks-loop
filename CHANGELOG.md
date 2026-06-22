@@ -27,6 +27,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.1] — 2026-06-22
+
+### Fixed
+
+- **H8 STRAT.sig chain enforcement (Plan 5 R1-W2 HIGH)** — `runTacticalStage`
+  now refuses to write `impl.json` when `inputSig` does not equal the
+  upstream `STRAT.sig` for the same project dir, instead of trusting any
+  64-hex string. Backed by a process-local `STRAT_SIG_REGISTRY` keyed by
+  `dirname(out)` and the explicit invariant phrase
+  `"STRAT.sig chain broken"`. Catches a class of orchestrator bugs that
+  could fabricate impl.json authority from a non-existent strategy.
+
+- **Defense-in-depth comment cites H6 verbatim (Plan 5 R1-W3 MED)** —
+  `src/services/rd/impl.ts` defense-in-depth check now cites spec H6
+  (CLI 计算裁决) directly. The accompanying `docs/superpowers/specs/
+  2026-06-21-context-audit-redesign-design.md` gained a new §4.3
+  *战术审计* subsection that consolidates §3.2 / §3.3 / H6 / H8 / Phase 3
+  AC-2 into a single canonical anchor (previous code references to
+  `§4.2` updated to `§4.3`).
+
+### Tests
+
+- **Orphan-test traceability (Plan 5 R1-W1 MED)** — the side-effect-only
+  import test in `tests/unit/services/rd/ast-gate.test.ts` now carries an
+  explicit `R2-EXTRA` comment tag so future audit rounds can locate it
+  in the round-2 boundary_coverage table.
+
+- **v1 regex-limitation test names (Plan 5 R1-W4 LOW)** — namespace-import
+  and default-import tests renamed from "is NOT linked to dep" to
+  "v1 passes namespace/default import (limitation, R2-W3)" so the verdict
+  is in the test name, not just the body.
+
+- **Atomic-write crash test (Plan 5 R1-W5 LOW)** — new test
+  *unlinks .tmp when rename throws* pins the catch→unlink fallback in
+  `writeImpl` (EISDIR-triggered real-rename failure). Mutation probe
+  KILLED: commenting out the unlink makes the test fail at the
+  `existsSync(tmp)` assertion.
+
+- **1-element boundary (Plan 5 R2A-L1 LOW)** — `externalApiCalls` array
+  now asserts that `[]` / `[x]` / `[x,y,z]` produce three distinct sigs,
+  pinning the empty-vs-single-vs-multi collapse class.
+
+- **Uppercase-hex schema pin (Plan 5 R2A-L2 LOW)** — `StrategyOutputSchema`
+  now rejects `'A'.repeat(64)` explicitly, defending against a
+  case-insensitive regex widening mutation.
+
+- **Multi-entry sig-distinction caveat (Plan 5 R3-W1 LOW)** — the
+  `produces distinct sig for multi-entry externalApiCalls` test now
+  documents in its comment that the named sig assertion is best-effort
+  (because `generatedAt` is non-deterministic) and that the load-bearing
+  guards are the on-disk length + element-order assertions.
+
+---
+
 ## [2.7.0] — 2026-06-18
 
 ### Added
