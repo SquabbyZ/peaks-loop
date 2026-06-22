@@ -30,12 +30,17 @@ export type WorkspaceInitOptions = {
    */
   allowSessionRebind?: boolean;
   /**
-   * Optional change-id to bind as the active unit of work. When set,
-   * `peaks workspace init` also writes a `.peaks/_runtime/current-change`
-   * symlink pointing at `.peaks/<changeId>/`, so RD/QA/PRD services
-   * know which `<change-id>` directory to write reviewable artifacts
-   * into. The session id is still the binding for ephemeral state
-   * (live sub-agent progress, spawn records).
+   * Optional change-id to bind as the active unit of work. When set
+   * (slice 2.8.3+), `peaks workspace init` writes the binding as a
+   * plain text file at `.peaks/_runtime/current-change` (NOT a
+   * symlink). The change-id is a logical identifier embedded in the
+   * reviewable-artifact filename (e.g.
+   * `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`), not a
+   * filesystem directory. A 2.8.0-era legacy sibling dir
+   * `.peaks/<changeId>/` at top level is FORBIDDEN and triggers
+   * `LegacyChangeIdSiblingError` so the user can migrate before the
+   * init proceeds. The session id remains the binding for ephemeral
+   * state (live sub-agent progress, spawn records).
    */
   changeId?: string;
   /**
@@ -213,7 +218,8 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   validateSessionId(options.sessionId);
 
   // Phase 6 refactor (slice 2026-06-05-change-id-as-unit-of-work) +
-  // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs):
+  // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs) +
+  // slice 2026-06-22-top-level-change-id-cleanup (2.8.3):
   //   - Reviewable artifacts (rd/, qa/, prd/, txt/) live at
   //     `.peaks/<change-id>/<role>/` (tracked in git) when a change-id
   //     is given. The role subdirs are NOT pre-created — the writer
@@ -224,9 +230,13 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     F3-introduced `system/` subdir is gone — slice 006 removes
   //     it via `peaks workspace reconcile`; new init calls do not
   //     pre-create it.
-  //   - The change-id dir is created when `--change-id` is given,
-  //     but its role subdirs (prd/, qa/, rd/, sc/, txt/) are NOT
-  //     pre-created either — same lazy-mkdir rule.
+  //   - The change-id dir is NOT created at top level when `--change-id`
+  //     is given. Slice 2.8.3+ redirects the binding to
+  //     `.peaks/_runtime/current-change` as a plain text file (see
+  //     `LegacyChangeIdSiblingError` for the migration guard). Reviewable
+  //     artifacts still land under `.peaks/<changeId>/<role>/`, but
+  //     that dir is created lazily by the WRITER, not by init. Init only
+  //     writes the binding.
   //
   // The CLI accepts `--change-id <id>` to bind the change. The legacy
   // session-scoped layout (`.peaks/<session-id>/<role>/<file>`) is

@@ -17,7 +17,8 @@ import type { Command } from 'commander';
 import {
   initWorkspace,
   InvalidSessionIdError,
-  ConflictingSessionError
+  ConflictingSessionError,
+  LegacyChangeIdSiblingError
 } from '../../../services/workspace/workspace-service.js';
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
@@ -61,11 +62,15 @@ export type WorkspaceInitOptions = {
   installHooks?: 'ask' | 'auto' | 'skip';
   /**
    * Optional change-id to bind as the active unit of work (slice 2026-06-05-
-   * change-id-as-unit-of-work). When set, the workspace also creates
-   * `.peaks/<change-id>/<role>/` (tracked) and writes
-   * `.peaks/_runtime/current-change` as a symlink pointing at the change-id
-   * dir. RD/QA/PRD services read this binding to decide where to write
-   * reviewable artifacts.
+   * change-id-as-unit-of-work, redirected in 2.8.3). When set, the workspace
+   * writes the binding as a plain text file at
+   * `.peaks/_runtime/current-change` (NOT a symlink, NOT a sibling dir).
+   * The change-id is a logical identifier embedded in reviewable-artifact
+   * filenames (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`)
+   * — RD/QA/PRD writers create the `.peaks/<changeId>/<role>/` dir lazily.
+   * Top-level `.peaks/<changeId>/` siblings are FORBIDDEN (slice
+   * 2026-06-22-top-level-change-id-cleanup); the CLI surfaces
+   * `LegacyChangeIdSiblingError` if a 2.8.0-era orphan is found.
    */
   changeId?: string;
   /**
@@ -131,7 +136,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, also creates the .peaks/<change-id>/ dir. Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
+      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, writes the binding as a plain text file at .peaks/_runtime/current-change (NOT a sibling dir at .peaks/<change-id>/ — slice 2.8.3 top-level change-id ban). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
@@ -141,7 +146,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       )
       .option(
         '--change-id <id>',
-        'bind the change-id for reviewable artifacts (writes route to .peaks/<change-id>/<role>/, tracked in git). When omitted, the change-id binding is left unchanged.',
+        'bind the change-id for reviewable artifacts. Writes the binding to .peaks/_runtime/current-change as a plain text file (NOT a top-level .peaks/<change-id>/ sibling dir — that path is FORBIDDEN as of peaks-cli 2.8.3). Reviewable artifact paths embed the change-id as a filename slug inside .peaks/_runtime/<sessionId>/<role>/requests/, e.g. .peaks/_runtime/<sid>/rd/requests/002-<change-id>.md. When omitted, the change-id binding is left unchanged. If a 2.8.0-era legacy sibling dir .peaks/<change-id>/ already exists at top level, the init aborts with LegacyChangeIdSiblingError and a 4-step migration message.',
         (value: string) => {
           if (value.length === 0) {
             throw new Error('--change-id must not be empty');
@@ -420,6 +425,28 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
           }, [
             `Finish or abandon session "${error.existingSessionId}" first, then re-run workspace init.`,
             'Or pass --allow-session-rebind to override the binding (overwrites the prior binding).'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof LegacyChangeIdSiblingError) {
+        // Slice 2.8.3: a 2.8.0-era orphan `.peaks/<change-id>/` was
+        // found at top level. The CLI surfaces the migration steps
+        // verbatim from the error message plus three concrete
+        // nextActions so the user (or LLM driver) has an unambiguous
+        // recovery path. We do NOT auto-migrate because the legacy
+        // sibling dir may contain user-authored content.
+        printResult(
+          io,
+          fail('workspace.init', error.code, error.message, {
+            changeId: error.changeId,
+            legacyPath: error.legacyPath
+          }, [
+            `Inspect ${error.legacyPath} for any user-authored content you want to keep.`,
+            `Move any desired files into .peaks/_runtime/<sessionId>/<role>/ (gitignored), then delete ${error.legacyPath}.`,
+            `Re-run \`peaks workspace init --project <path> --change-id ${error.changeId}\` to bind the change-id.`
           ]),
           options.json
         );

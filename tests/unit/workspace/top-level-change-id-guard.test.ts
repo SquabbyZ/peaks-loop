@@ -151,4 +151,38 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     expect(content).toMatch(/top-level.*forbidden|Top-level.*forbidden/i);
     expect(content).toContain('7373f81');
   });
+
+  test('AC7: src/cli/commands/workspace/init-command.ts teaches the correct path (no legacy .peaks/<change-id>/ sibling in description or --change-id option help)', () => {
+    // The CLI is the primary surface LLM drivers read to learn where
+    // to write artifacts. The 2.8.0-era descriptions taught the wrong
+    // path (".peaks/<change-id>/ sibling dir"); slice 2.8.3 redirects
+    // to .peaks/_runtime/current-change (file-form binding). This test
+    // pins the new wording so a future refactor cannot silently revert
+    // to the forbidden phrasing.
+    //
+    // Slice 2.8.3 redirects the help text in TWO places:
+    //   (a) the top-level `init` command description (line ~134)
+    //   (b) the `--change-id` option description (line ~144)
+    //
+    // Both must mention the canonical `.peaks/_runtime/current-change`
+    // binding AND must NOT advertise `.peaks/<change-id>/` as a sibling
+    // dir at top level.
+    const cmdPath = join(REPO_ROOT, 'src', 'cli', 'commands', 'workspace', 'init-command.ts');
+    expect(existsSync(cmdPath)).toBe(true);
+    const content = readFileSync(cmdPath, 'utf8');
+    // Anchors: the new wording must be present.
+    expect(content).toContain('.peaks/_runtime/current-change');
+    expect(content).toContain('2.8.3');
+    expect(content).toContain('LegacyChangeIdSiblingError');
+    // The legacy phrase "creates the .peaks/<change-id>/ dir" (singular
+    // phrasing that taught the forbidden sibling-dir layout) must NOT
+    // survive in the description or --change-id option help. We use a
+    // prose assertion so legitimate references to `.peaks/<change-id>/`
+    // elsewhere (e.g. as the reviewable-artifact root, or in error
+    // messages) are NOT flagged.
+    expect(content).not.toMatch(/also creates the \.peaks\/<change-id>\//);
+    expect(content).not.toMatch(/creates \.peaks\/<change-id>\/ dir/);
+    // The --change-id option description must NOT promise a sibling dir.
+    expect(content).not.toMatch(/--change-id[^]*?creates \.peaks\/<change-id>\//);
+  });
 });

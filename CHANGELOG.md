@@ -9,13 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.8.3] — 2026-06-22
 
+### ⚠ BREAKING — `peaks workspace init --change-id` no longer creates `.peaks/<change-id>/` sibling dir
+
+The 2.8.0-era `peaks workspace init --change-id <id>` flow wrote a
+top-level sibling dir `.peaks/<changeId>/` next to `.peaks/_runtime/`.
+That path is **forbidden** under the 2.8.0+ two-axis convention
+(change-id is a logical identifier, NOT a sibling filesystem dir).
+
+In 2.8.3 the CLI redirects `--change-id` to a **file-form binding** at
+`.peaks/_runtime/current-change` (plain text file containing the
+change-id as its sole content). NO directory is created at
+`.peaks/<changeId>/` at top level. Reviewable artifacts still land
+under `.peaks/<changeId>/<role>/`, but that dir is created **lazily**
+by the writer, not by `init`.
+
+If a 2.8.0-era legacy sibling dir `.peaks/<changeId>/` already exists
+at top level, `peaks workspace init --change-id <id>` aborts with a
+new `LegacyChangeIdSiblingError` (envelope code
+`LEGACY_CHANGE_ID_SIBLING`) carrying a 4-step migration message:
+
+1. Inspect `.peaks/<changeId>/` for user-authored content worth keeping.
+2. Move desired files into `.peaks/_runtime/<sessionId>/<role>/`.
+3. Delete the orphan `.peaks/<changeId>/` dir.
+4. Re-run `peaks workspace init --change-id <id>`.
+
+This is a **deliberate breaking change** — the 2.8.0→2.8.3 transition
+required the redirect because the legacy sibling-dir layout was the
+root cause of `.peaks/<YYYY-MM-DD-*>/` orphans at the project root.
+Users on 2.8.2 with an existing `.peaks/<changeId>/` sibling dir see a
+one-time migration error on next `peaks workspace init`. The CLI surfaces
+the four-step recipe; no data is lost.
+
 ### Fixed
 
 - **Top-level `.peaks/<YYYY-MM-DD-*>/` ban** — the 2.8.0-era legacy path
   `.peaks/<change-id>/<role>/` (sibling of `.peaks/_runtime/`) is now
   **forbidden** under the 2.8.0+ two-axis convention. This slice is the
   final root-out of a 2.8.0-era orphan (`.peaks/2026-06-22-cc-connect-orphan-cleanup/`,
-  4 files, 28 KB, untracked) and pins the rule across THREE layers so a
+  4 files, 28 KB, untracked) and pins the rule across FOUR layers so a
   regression cannot survive:
     1. **`.gitignore` fnmatch rule** —
        `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks any
@@ -23,22 +54,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
        so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
        by the existing `.peaks/_runtime/` rule, not this one).
     2. **Vitest guard** at
-       `tests/unit/workspace/top-level-change-id-guard.test.ts` (5 cases)
+       `tests/unit/workspace/top-level-change-id-guard.test.ts` (7 cases)
        pins the gitignore rule literal, asserts fnmatch matches a synthetic
        candidate, asserts it does NOT match `.peaks/_runtime/-nested`
        candidates, scans the live working tree for orphan date-prefix
-       siblings, and scans `git ls-files` for tracked escapes. All 5 pass.
-    3. **Doc-layer guard** — `CLAUDE.md` and `.peaks/PROJECT.md` now state
-       the ban explicitly so future AI sessions cannot recreate the pattern
-       by accident. The same test file (above) extends with two more cases
-       that assert the rule text is present in both doc files.
+       siblings, scans `git ls-files` for tracked escapes, asserts both
+       `CLAUDE.md` and `.peaks/PROJECT.md` carry the ban wording, AND
+       asserts the CLI help text (`init-command.ts`) teaches the
+       `.peaks/_runtime/current-change` binding path.
+    3. **Source-code redirect** —
+       `src/shared/change-id.ts#setCurrentChangeId` now defaults to
+       `{ form: 'file' }` (was `'symlink'`); the file form writes ONLY
+       `.peaks/_runtime/current-change` and never creates
+       `.peaks/<changeId>/`. The legacy `'symlink'` form is kept for
+       back-compat reads but is no longer written by `peaks workspace init`.
+       `src/services/workspace/workspace-service.ts#initWorkspace`
+       pre-flights the existence of `.peaks/<changeId>/` and throws
+       `LegacyChangeIdSiblingError` if found.
+    4. **CLI help-text guard** — `src/cli/commands/workspace/init-command.ts`
+       rewrites the `init` command description and `--change-id` option
+       description so an LLM reading `peaks workspace init --help` is
+       taught the correct path (`.peaks/_runtime/current-change`) instead
+       of the legacy `.peaks/<change-id>/` sibling dir. A new catch block
+       surfaces `LegacyChangeIdSiblingError` with the 4-step migration
+       recipe in the JSON envelope.
 - **`CLI_VERSION`** sync bumped 2.8.2 → 2.8.3 (regenerated via
   `scripts/sync-version.mjs` from `package.json#version`).
+
+### Added
+
+- **`LegacyChangeIdSiblingError`** (exported from
+  `src/services/workspace/workspace-service.ts`) — thrown by
+  `initWorkspace` when a 2.8.0-era legacy sibling dir
+  `.peaks/<changeId>/` already exists at top level. Carries
+  `code: 'LEGACY_CHANGE_ID_SIBLING'`, `changeId`, and `legacyPath`.
+  The CLI catch block surfaces the error in the JSON envelope with a
+  3-item `nextActions` list (inspect → migrate → re-run).
+- **`tests/unit/workspace/workspace-init-change-id-redirect.test.ts`** —
+  7 vitest cases pinning the new init behavior:
+  (1) no `.peaks/<changeId>/` created; (2) `.peaks/_runtime/current-change`
+  written; (3) `LegacyChangeIdSiblingError` fires when legacy sibling
+  exists; (4) no `--change-id` leaves binding untouched; (5) idempotent
+  re-init; (6) error envelope data fields; (7) smoke check.
+- **`top-level-change-id-guard.test.ts` AC7** — pins the CLI help text
+  in `init-command.ts` so a future refactor cannot silently revert to
+  the forbidden sibling-dir phrasing.
 
 ### Notes
 
 - No npm dependencies added or removed.
-- No CLI surface change (`peaks --help` output is identical to 2.8.2).
+- CLI surface change: the `init` command description and `--change-id`
+  option description text are rewritten to teach the correct path.
+  `peaks workspace init --help` is now a slightly longer message — no
+  flag names changed, no exit codes changed.
 - The orphan `.peaks/2026-06-22-cc-connect-orphan-cleanup/` contained a
   redundant duplicate of work already promoted to
   `.peaks/_runtime/2026-06-22-session-14216e/rd/requests/002-2026-06-22-cc-connect-orphan-cleanup.md`
@@ -49,6 +117,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The pre-existing `STRAT.sig` test failure in
   `tests/integration/rd/ast-gate-cross-version.test.ts` is out of scope
   and filed separately (unchanged by this release).
+- Consumer-projects upgrading from 2.8.0/2.8.1/2.8.2: if you have an
+  existing `.peaks/<change-id>/` dir at top level from a prior
+  `peaks workspace init --change-id <id>` call, run the migration
+  steps surfaced by `LegacyChangeIdSiblingError` (inspect → migrate →
+  delete → re-init). No data is lost. After migration, future
+  `peaks workspace init` calls write only `.peaks/_runtime/current-change`
+  and never create the sibling dir.
 
 ---
 
