@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import { buildResumeContext } from '../../src/services/session/session-resume-service.js';
 
@@ -50,7 +50,7 @@ describe('buildResumeContext', () => {
       checkpointPath: path,
       now: () => new Date('2026-06-17T12:21:42.000Z')
     });
-    expect(ctx.sourcePath).toBe(path);
+    expect(ctx.sourcePath).toBe(path.split(sep).join('/'));
     expect(ctx.checkpointAgeMs).toBe(60 * 60 * 1000);
     expect(ctx.relativeAgeLabel).toBe('1h ago');
     expect(ctx.markdown).toContain('## Resume context (from checkpoint)');

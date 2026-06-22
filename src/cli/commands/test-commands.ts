@@ -79,16 +79,19 @@ export function buildRunnerArgv(
     if (options.all) argv.push('--passWithNoTests');
     if (options.changed) argv.push('--changedSince=HEAD');
     // Commander's `.option('--no-cache')` sets `opts.cache` (BASE name) to
-    // `false` when the flag is passed; the original `options.noCache`
-    // accessor was always undefined. See slice #014 antipattern.
-    if (options.cache !== true) argv.push('--no-cache');
+    // `false` when the flag is passed; `opts.cache` is `true` by default.
+    // The default-mode invariant (G7/NG7) is `--cache`; the explicit
+    // override is `--no-cache`. Inverted from the previous wording
+    // because `options = {}` made the read side `!== true` and silently
+    // flipped every default-mode jest/vitest run to `--no-cache`.
+    if (options.cache === false) argv.push('--no-cache');
     else argv.push('--cache');
     return argv;
   }
   if (framework === 'vitest') {
     const argv = ['run', ...patterns];
     if (options.changed) argv.push('--changed');
-    if (options.cache !== true) argv.push('--no-cache');
+    if (options.cache === false) argv.push('--no-cache');
     else argv.push('--cache');
     return argv;
   }

@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   CHECKPOINT_CONSTANTS,
@@ -140,7 +140,7 @@ describe('writeCheckpoint', () => {
     seedSession(project, sid, '2026-06-17');
     const fakeNow = new Date('2026-06-17T11:21:42.000Z');
     const result = writeCheckpoint(project, { sessionId: sid, reason: 'periodic', now: () => fakeNow });
-    expect(result.path).toContain(join('.peaks/_runtime', sid, 'checkpoints'));
+    expect(result.path).toContain(join('.peaks/_runtime', sid, 'checkpoints').split(sep).join('/'));
     expect(result.path.endsWith('.json')).toBe(true);
   });
 
