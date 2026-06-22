@@ -18,6 +18,7 @@ describe('StrategyOutputSchema', () => {
     ['63-char sha256', 'a'.repeat(63)],
     ['65-char sha256', 'a'.repeat(65)],
     ['non-hex char', 'g'.repeat(64)],
+    ['uppercase hex', 'A'.repeat(64)],
     ['empty string', ''],
   ])('rejects sha256 — %s', (_label, badSha) => {
     const r = StrategyOutputSchema.safeParse({
