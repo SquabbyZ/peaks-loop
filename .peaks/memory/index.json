@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-16T13:55:00.000Z",
+  "updatedAt": "2026-06-22T22:30:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "2026-06-22-cc-connect-removal-publish",
+        "kind": "feedback",
+        "description": "peaks-cli 2.8.2 publish day: cc-connect removal + 4-fix audit cleanup finally shipped to npm as latest. Originally committed locally as 4c845d9 but never published; 2.8.1 stayed as npm latest throughout the day. Lessons: (1) verify npm state before versioning, (2) git add <explicit-list> silently skips deletions (qrcode-terminal.d.ts missed in initial stat, caught by self-audit and amended). peaks-companion skill is intentional tombstone per CHANGELOG.md:53-55. Final: 797 files, 999.9 kB tarball, integrity sha512-Yhg9epDO0/...",
+        "sourcePath": "/Users/yuanyuan/Desktop/peaks-cli/.peaks/memory/2026-06-22-cc-connect-removal-publish.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-22"
+      },
       {
         "name": "2026-06-16-six-issue-user-feedback-batch",
         "kind": "feedback",
