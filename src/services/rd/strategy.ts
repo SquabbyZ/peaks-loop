@@ -13,9 +13,9 @@ export interface WriteStrategyInput {
   readonly out: string;
   readonly goal: string;
   readonly rootCauseAnalysis: string;
-  readonly impactSurface: ReadonlyArray<string>;
+  readonly impactSurface: string[];
   readonly designRationale: string;
-  readonly askUserQuestion?: { readonly question: string; readonly options: ReadonlyArray<string> };
+  readonly askUserQuestion?: { readonly question: string; readonly options: string[] };
 }
 
 function sha256Of(content: object): string {
