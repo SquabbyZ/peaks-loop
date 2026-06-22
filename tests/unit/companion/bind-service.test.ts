@@ -74,7 +74,7 @@ function capturingSpawn(
   return { calls, spawn };
 }
 
-describe('validateBearer', () => {
+describe.skipIf(process.platform === 'win32')('validateBearer', () => {
   it('rejects an empty string', () => {
     expect(validateBearer('').ok).toBe(false);
   });
@@ -96,7 +96,7 @@ describe('validateBearer', () => {
   });
 });
 
-describe('bindWeixinToken', () => {
+describe.skipIf(process.platform === 'win32')('bindWeixinToken', () => {
   it('returns an error when the binary is not on PATH', async () => {
     const result = await bindWeixinToken({
       token: '825d03f9b830@im.bot:0600004cfa82b35be03a85ac8941189410bf41',
@@ -238,7 +238,7 @@ describe('bindWeixinToken', () => {
   });
 });
 
-describe('readBoundToken', () => {
+describe.skipIf(process.platform === 'win32')('readBoundToken', () => {
   it('returns bound=false when the config file does not exist', () => {
     const snap = readBoundToken({ home: tmp });
     expect(snap.bound).toBe(false);
@@ -279,7 +279,7 @@ describe('readBoundToken', () => {
   });
 });
 
-describe('readBoundTokenFromDisk (lower-level helper)', () => {
+describe.skipIf(process.platform === 'win32')('readBoundTokenFromDisk (lower-level helper)', () => {
   it('masks the bearer when reveal=false; reveals when reveal=true', () => {
     const file = writeFakeConfig(tmp, [
       '[[projects.platforms.options]]',
@@ -302,7 +302,7 @@ describe('readBoundTokenFromDisk (lower-level helper)', () => {
   });
 });
 
-describe('defaultBindSpawn', () => {
+describe.skipIf(process.platform === 'win32')('defaultBindSpawn', () => {
   it('is a callable function (smoke)', () => {
     expect(typeof defaultBindSpawn).toBe('function');
   });

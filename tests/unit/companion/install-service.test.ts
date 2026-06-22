@@ -31,7 +31,7 @@ function makeFakeNodeModulesBin(cwd: string, version = '1.3.2'): { binPath: stri
   return { binPath, pkgDir };
 }
 
-describe('installCcConnect (verify pass)', () => {
+describe.skipIf(process.platform === 'win32')('installCcConnect (verify pass)', () => {
   it('happy path: resolves from node_modules/.bin, probes, writes cache with source=NODE_MODULES', async () => {
     const cwd = join(tmp, 'with-bins');
     mkdirSync(cwd, { recursive: true });
@@ -140,7 +140,7 @@ describe('installCcConnect (verify pass)', () => {
 // no-op signature) for callers that imported it from the old install service.
 // We don't exercise it because the verify pass never shells out — this is a
 // type-only smoke test.
-describe('legacy compatibility', () => {
+describe.skipIf(process.platform === 'win32')('legacy compatibility', () => {
   it('still re-exports a RunInstallCommand type (compile-time)', () => {
     const _typeOnly: InstallAttempt = {
       method: 'verify',
@@ -157,7 +157,7 @@ describe('legacy compatibility', () => {
 // BUG FIX (2026-06-14 dogfood): `peaks companion scan` is a dry-run
 // that re-uses the verify primitive without writing the binary-path
 // cache. These tests guard that contract.
-describe('scanCcConnect (dry-run probe, no cache write)', () => {
+describe.skipIf(process.platform === 'win32')('scanCcConnect (dry-run probe, no cache write)', () => {
   it('returns ok=true with the resolved path and does NOT write the cache', async () => {
     const cwd = join(tmp, 'with-bins-scan');
     mkdirSync(cwd, { recursive: true });

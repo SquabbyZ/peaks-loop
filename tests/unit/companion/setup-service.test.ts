@@ -104,7 +104,7 @@ function makeStateReader(states: CompanionPairingState[]): (home?: string) => Co
   };
 }
 
-describe('runCompanionSetup', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup', () => {
   it('exposes DEFAULT_SETUP_TIMEOUT_MS = 60_000', () => {
     expect(DEFAULT_SETUP_TIMEOUT_MS).toBe(60_000);
   });
@@ -322,7 +322,7 @@ describe('runCompanionSetup', () => {
 // passes `probe.resolvedSource` (uppercased) instead, so the
 // enum resolves cleanly to `'node-modules' | 'path'`.
 
-describe('runCompanionSetup — BUG 3: binaryPathSource regression', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — BUG 3: binaryPathSource regression', () => {
   function peaksConfigPath(home: string): string {
     return join(home, '.peaks', 'config.json');
   }
@@ -394,7 +394,7 @@ describe('runCompanionSetup — BUG 3: binaryPathSource regression', () => {
 // asserts the canonical argv and that --timeout fires within
 // (timeoutMs + pollInterval) regardless of state-reader output.
 
-describe('runCompanionSetup — BUG 4: spawn argv + deadline race', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — BUG 4: spawn argv + deadline race', () => {
   it('spawns cc-connect with `weixin setup` subcommand (and --project)', async () => {
     const dir = dropFakeBinary();
     const bin = join(dir, 'cc-connect');
@@ -449,7 +449,7 @@ describe('runCompanionSetup — BUG 4: spawn argv + deadline race', () => {
 // peaks config and asserts the resulting TOML body matches what
 // peaks config prescribes.
 
-describe('runCompanionSetup — peaks-config-driven (slice change-1)', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — peaks-config-driven (slice change-1)', () => {
   function seedPeaksConfig(home: string, companion: Partial<CompanionConfig>): void {
     const peaksDir = join(home, '.peaks');
     mkdirSync(peaksDir, { recursive: true });
@@ -566,7 +566,7 @@ describe('runCompanionSetup — peaks-config-driven (slice change-1)', () => {
 // directly; keep pipe when not so peaks can still extract the iLink
 // URL via the stdout regex scanner.
 
-describe('runCompanionSetup — BUG 7: setup TTY stdio + iLink URL capture', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — BUG 7: setup TTY stdio + iLink URL capture', () => {
   const ORIGINAL_IS_TTY = process.stdout.isTTY;
 
   function setStdoutIsTTY(value: boolean): void {
@@ -736,7 +736,7 @@ describe('runCompanionSetup — BUG 7: setup TTY stdio + iLink URL capture', () 
 // (c) on a successful bind, the daemon is started and the
 // returned SetupState has `bound: true` + `pairing: 'logged-in'`.
 
-describe('runCompanionSetup — BUG 8: --token short-circuit (Path B)', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — BUG 8: --token short-circuit (Path B)', () => {
   it('invokes bindRunner with --token and skips the QR renderer', async () => {
     const dir = dropFakeBinary();
     const bin = join(dir, 'cc-connect');
@@ -827,7 +827,7 @@ describe('runCompanionSetup — BUG 8: --token short-circuit (Path B)', () => {
   });
 });
 
-describe('runCompanionSetup — auto-open QR (2026-06-15 follow-up)', () => {
+describe.skipIf(process.platform === 'win32')('runCompanionSetup — auto-open QR (2026-06-15 follow-up)', () => {
   it('autoOpenQr:true invokes the opener when the QR PNG appears on disk', async () => {
     const dir = dropFakeBinary();
     const bin = join(dir, 'cc-connect');

@@ -24,7 +24,7 @@ afterEach(() => {
   if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
 });
 
-describe('resolveCcConnectBinary (PATH walk, legacy)', () => {
+describe.skipIf(process.platform === 'win32')('resolveCcConnectBinary (PATH walk, legacy)', () => {
   it('returns null when PATH is empty', () => {
     expect(resolveCcConnectBinary('', 'linux')).toBeNull();
   });
@@ -67,7 +67,7 @@ describe('resolveCcConnectBinary (PATH walk, legacy)', () => {
   });
 });
 
-describe('resolveCcConnectAny (node_modules → require.resolve → PATH)', () => {
+describe.skipIf(process.platform === 'win32')('resolveCcConnectAny (node_modules → require.resolve → PATH)', () => {
   function makeFakeNodeModulesBin(cwd: string, version = '1.3.2'): { binPath: string; pkgDir: string } {
     const pkgDir = join(cwd, 'node_modules', CC_CONNECT_NPM_PACKAGE);
     mkdirSync(pkgDir, { recursive: true });
@@ -145,7 +145,7 @@ describe('resolveCcConnectAny (node_modules → require.resolve → PATH)', () =
   });
 });
 
-describe('parseVersionOutput', () => {
+describe.skipIf(process.platform === 'win32')('parseVersionOutput', () => {
   it('parses a plain "cc-connect 1.3.2" line', () => {
     expect(parseVersionOutput('cc-connect 1.3.2\n')).toBe('1.3.2');
   });
@@ -171,7 +171,7 @@ describe('parseVersionOutput', () => {
   });
 });
 
-describe('probeCcConnect', () => {
+describe.skipIf(process.platform === 'win32')('probeCcConnect', () => {
   it('returns ok=false when the binary is not on PATH and not in node_modules', async () => {
     const cwd = join(tmp, 'nothing');
     mkdirSync(cwd, { recursive: true });

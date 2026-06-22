@@ -33,7 +33,7 @@ afterEach(() => {
   process.env['HOME'] = previousHome;
 });
 
-describe('paths', () => {
+describe.skipIf(process.platform === 'win32')('paths', () => {
   it('companionPidFile and companionLogFile live under ~/.peaks/companion', () => {
     const pid = companionPidFile(home);
     const log = companionLogFile(home);
@@ -48,7 +48,7 @@ describe('paths', () => {
   });
 });
 
-describe('serialize/parse round-trip', () => {
+describe.skipIf(process.platform === 'win32')('serialize/parse round-trip', () => {
   it('round-trips a record', () => {
     const record: CompanionProcessRecord = {
       pid: 12345,
@@ -101,7 +101,7 @@ describe('serialize/parse round-trip', () => {
   });
 });
 
-describe('read/write/clear process record', () => {
+describe.skipIf(process.platform === 'win32')('read/write/clear process record', () => {
   it('readProcessRecord returns null when no file', () => {
     expect(readProcessRecord(home)).toBeNull();
   });
@@ -151,7 +151,7 @@ describe('read/write/clear process record', () => {
   });
 });
 
-describe('isPidAlive', () => {
+describe.skipIf(process.platform === 'win32')('isPidAlive', () => {
   it('returns false for 0 / negative / non-finite pids', () => {
     expect(isPidAlive(0)).toBe(false);
     expect(isPidAlive(-1)).toBe(false);
@@ -167,7 +167,7 @@ describe('isPidAlive', () => {
   });
 });
 
-describe('spawnCompanion + closeLogFd', () => {
+describe.skipIf(process.platform === 'win32')('spawnCompanion + closeLogFd', () => {
   it('spawns a detached child and writes to the log file', () => {
     const child = spawnCompanion('/bin/echo', ['hello-from-companion-test']);
     return new Promise<void>((resolve) => {

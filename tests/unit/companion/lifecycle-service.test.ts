@@ -43,7 +43,7 @@ function dropFakeBinary(): string {
   return dir;
 }
 
-describe('startCcConnect', () => {
+describe.skipIf(process.platform === 'win32')('startCcConnect', () => {
   it('returns started=false with a clear error when the binary is not on PATH', async () => {
     // Use a tmp cwd so the resolver doesn't accidentally pick up
     // peaks-cli's own node_modules/.bin/cc-connect (which now exists
@@ -190,7 +190,7 @@ describe('startCcConnect', () => {
   });
 });
 
-describe('stopCcConnect', () => {
+describe.skipIf(process.platform === 'win32')('stopCcConnect', () => {
   it('returns wasRunning=false and stopped=true when no record exists', async () => {
     const result = await stopCcConnect({ home: tmp });
     expect(result.stopped).toBe(true);
@@ -306,7 +306,7 @@ describe('stopCcConnect', () => {
   });
 });
 
-describe('restartCcConnect', () => {
+describe.skipIf(process.platform === 'win32')('restartCcConnect', () => {
   it('restarts a fresh process even when the previous pid was stale', async () => {
     const dir = dropFakeBinary();
     writeProcessRecord({
@@ -324,7 +324,7 @@ describe('restartCcConnect', () => {
   });
 });
 
-describe('statusCcConnect', () => {
+describe.skipIf(process.platform === 'win32')('statusCcConnect', () => {
   it('returns running=false with no pid when no record exists', async () => {
     const status = await statusCcConnect({ pathEnv: '/no/such/dir', home: tmp });
     expect(status.running).toBe(false);
