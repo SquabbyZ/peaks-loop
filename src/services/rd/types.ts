@@ -54,3 +54,4 @@ export const ImplOutputSchema = z.object({
 export type ImplOutput = z.infer<typeof ImplOutputSchema>;
 export type AstViolation = z.infer<typeof AstViolationSchema>;
 export type AstGateResult = z.infer<typeof AstGateResultSchema>;
+export type ExternalApiCall = z.infer<typeof ExternalApiCallSchema>;
