@@ -51,7 +51,7 @@ describe('test-command: buildRunnerArgv (jest)', () => {
   });
 
   test('--no-cache forces --no-cache (explicit opt-in)', () => {
-    const argv = buildRunnerArgv('jest', ['foo.test.ts'], { noCache: true });
+    const argv = buildRunnerArgv('jest', ['foo.test.ts'], { cache: false });
     expect(argv).toEqual(['foo.test.ts', '--no-cache']);
     expect(argv).not.toContain('--cache');
   });
@@ -69,7 +69,7 @@ describe('test-command: buildRunnerArgv (vitest)', () => {
   });
 
   test('--no-cache forces --no-cache', () => {
-    const argv = buildRunnerArgv('vitest', ['foo.test.ts'], { noCache: true });
+    const argv = buildRunnerArgv('vitest', ['foo.test.ts'], { cache: false });
     expect(argv).toEqual(['run', 'foo.test.ts', '--no-cache']);
   });
 

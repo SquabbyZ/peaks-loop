@@ -47,7 +47,9 @@ type TestOptions = {
   changed?: boolean;
   clearCache?: boolean;
   noCacheResult?: boolean;
-  noCache?: boolean;
+  /** Whether the test runner's --cache should be enabled. Commander maps
+   * `--no-cache` to `cache = false` (BASE name); default `true`. */
+  cache?: boolean;
   passthrough?: boolean;
   framework?: string;
   project?: string;
@@ -63,7 +65,7 @@ type TestOptions = {
 export function buildRunnerArgv(
   framework: TestFramework,
   patterns: string[],
-  options: { all?: boolean; changed?: boolean; noCache?: boolean; passthrough?: boolean }
+  options: { all?: boolean; changed?: boolean; cache?: boolean; passthrough?: boolean }
 ): string[] {
   if (options.passthrough) {
     // Caller has explicitly chosen to honor the consumer's argv;
@@ -76,14 +78,17 @@ export function buildRunnerArgv(
     const argv: string[] = [...patterns];
     if (options.all) argv.push('--passWithNoTests');
     if (options.changed) argv.push('--changedSince=HEAD');
-    if (options.noCache === true) argv.push('--no-cache');
+    // Commander's `.option('--no-cache')` sets `opts.cache` (BASE name) to
+    // `false` when the flag is passed; the original `options.noCache`
+    // accessor was always undefined. See slice #014 antipattern.
+    if (options.cache !== true) argv.push('--no-cache');
     else argv.push('--cache');
     return argv;
   }
   if (framework === 'vitest') {
     const argv = ['run', ...patterns];
     if (options.changed) argv.push('--changed');
-    if (options.noCache === true) argv.push('--no-cache');
+    if (options.cache !== true) argv.push('--no-cache');
     else argv.push('--cache');
     return argv;
   }
@@ -186,7 +191,7 @@ export function registerTestCommands(program: Command, _io: ProgramIO): void {
         const argv = buildRunnerArgv(framework, effectivePatterns, {
           all: opts.all === true,
           changed: opts.changed === true,
-          noCache: opts.noCache === true,
+          cache: opts.cache === true,
           passthrough: opts.passthrough === true
         });
 
