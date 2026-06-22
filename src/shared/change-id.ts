@@ -257,15 +257,21 @@ export function getCurrentChangeIdSource(projectRoot: string): { changeId: strin
  * Write a change-id binding for a project. Two forms are supported
  * (the same as `getCurrentChangeId` reads):
  *
- *   - `{ form: 'symlink' }` (default): creates
+ *   - `{ form: 'file' }` (default since 2.8.3): writes the change-id
+ *     as the sole content of `.peaks/_runtime/current-change`. No
+ *     sibling directory is created at `.peaks/<changeId>/`. This is
+ *     the canonical 2.8.0+ form — the change-id is a logical
+ *     identifier carried in RD/QA artifact frontmatter, not a
+ *     filesystem directory.
+ *   - `{ form: 'symlink' }` (legacy 2.8.0): creates
  *     `.peaks/_runtime/current-change` as a symlink pointing at
- *     `.peaks/<changeId>/`. Requires the target dir to exist (the
- *     caller is responsible for `initWorkspace` + the change-id dir).
- *   - `{ form: 'file' }`: writes the change-id as the sole content of
- *     `.peaks/_runtime/current-change`. The legacy plain-file form.
+ *     `.peaks/<changeId>/`. KEPT for back-compat reads only; the
+ *     2.8.3 `peaks workspace init` no longer writes this form.
+ *     `getCurrentChangeId` still resolves it correctly for projects
+ *     that have not yet re-init'd.
  *
  * Idempotent: re-running with the same changeId + form is a no-op.
- * Re-running with a different changeId on an existing symlink throws —
+ * Re-running with a different changeId on an existing file throws —
  * the caller must remove the binding first (or use a different path).
  */
 export function setCurrentChangeId(
@@ -274,7 +280,13 @@ export function setCurrentChangeId(
   options: { form?: 'symlink' | 'file' } = {}
 ): void {
   validateChangeIdOrThrow(changeId);
-  const form = options.form ?? 'symlink';
+  // Slice 2026-06-22-top-level-change-id-cleanup: default to 'file'
+  // form. The legacy 'symlink' form created `.peaks/<changeId>/` as a
+  // sibling of `_runtime/`, which violates the 2.8.0+ two-axis
+  // convention. The 'file' form writes the binding to
+  // `.peaks/_runtime/current-change` as a plain text file with the
+  // change-id as its sole content — no sibling directory created.
+  const form = options.form ?? 'file';
   const peaksRoot = join(projectRoot, '.peaks');
   const bindingPath = join(peaksRoot, CURRENT_CHANGE_REL);
   // Ensure `_runtime/` exists.
@@ -287,18 +299,37 @@ export function setCurrentChangeId(
     mkdirSync(runtimeDir, { recursive: true });
   }
   if (form === 'file') {
+    // Pure-file binding. Slice 2.8.3+: do NOT create
+    // `.peaks/<changeId>/` (that path was the 2.8.0-era violation).
+    // If a caller explicitly asks to set the binding while a
+    // legacy sibling dir exists, refuse loudly — see
+    // `setCurrentChangeIdWithLegacyGuard` for the wrapper used by
+    // `peaks workspace init`.
+    if (existsSync(bindingPath)) {
+      try {
+        const existing = readFileSync(bindingPath, 'utf-8').trim();
+        if (existing === changeId) return; // identical — no-op
+        throw new Error(
+          `current-change binding points at "${existing}" but caller asked to set "${changeId}". ` +
+          `Remove .peaks/_runtime/current-change first or pass the existing changeId.`
+        );
+      } catch (error) {
+        if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
+        // Broken binding — replace.
+        try { unlinkSync(bindingPath); } catch { /* best effort */ }
+      }
+    }
     writeFileSync(bindingPath, changeId + '\n', 'utf-8');
     return;
   }
-  // symlink form: point at .peaks/<changeId>/
+  // Legacy 'symlink' form. KEPT for reads; not invoked by the 2.8.3
+  // `peaks workspace init`. Do NOT add new callers; the sibling-dir
+  // layout is forbidden by the 2.8.0+ two-axis convention.
   const targetDir = join(peaksRoot, changeId);
   if (!existsSync(targetDir)) {
     mkdirSync(targetDir, { recursive: true });
   }
   if (existsSync(bindingPath)) {
-    // Re-running with a different changeId is a configuration error;
-    // surface it loudly so the caller (peaks workspace init) can decide
-    // whether to --allow-session-rebind for the underlying session.
     try {
       const existing = readFileSync(bindingPath, 'utf-8').trim();
       if (existing !== changeId) {
@@ -311,17 +342,13 @@ export function setCurrentChangeId(
           );
         }
       } else {
-        return; // identical — no-op
+        return;
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
-      // Could not read the existing binding (e.g. it's a broken symlink).
-      // Replace.
       try { unlinkSync(bindingPath); } catch { /* best effort */ }
     }
   }
-  // On Windows, use a 'junction' (directory hard link) which doesn't
-  // require developer mode / admin. POSIX uses a regular 'dir' symlink.
   const linkType = process.platform === 'win32' ? 'junction' : 'dir';
   symlinkSync(targetDir, bindingPath, linkType);
 }

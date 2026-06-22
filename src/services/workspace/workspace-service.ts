@@ -155,6 +155,36 @@ export class ConflictingSessionError extends Error {
   }
 }
 
+/**
+ * Thrown when `peaks workspace init --change-id <id>` is invoked but a
+ * 2.8.0-era legacy sibling directory `.peaks/<changeId>/` already exists
+ * at top level. Under the 2.8.0+ two-axis convention, change-id is a
+ * logical identifier in the SESSION axis — NOT a top-level sibling dir.
+ *
+ * The caller is expected to:
+ *   1. Inspect `.peaks/<changeId>/` to see if it contains user-authored
+ *      content worth preserving.
+ *   2. Migrate or delete the sibling dir.
+ *   3. Re-run `peaks workspace init --change-id <id>`.
+ */
+export class LegacyChangeIdSiblingError extends Error {
+  readonly code = 'LEGACY_CHANGE_ID_SIBLING';
+  constructor(
+    readonly changeId: string,
+    readonly legacyPath: string
+  ) {
+    super(
+      `peaks-cli 2.8.3+ forbids the legacy sibling dir ${legacyPath}. ` +
+      `Under the two-axis convention, change-id "${changeId}" must live in the SESSION axis ` +
+      `(.peaks/_runtime/<sessionId>/), not as a top-level sibling of .peaks/_runtime/. ` +
+      `Migration: (1) inspect ${legacyPath} for user-authored content; ` +
+      `(2) move any desired files into .peaks/_runtime/<sessionId>/<role>/; ` +
+      `(3) delete ${legacyPath}; (4) re-run 'peaks workspace init --change-id ${changeId}'.`
+    );
+    this.name = 'LegacyChangeIdSiblingError';
+  }
+}
+
 export function validateSessionId(sessionId: string): void {
   // Auto-generated session IDs (YYYY-MM-DD-session-<hex>) bypass manual validation
   if (AUTO_SESSION_PATTERN.test(sessionId)) {
@@ -224,29 +254,32 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     init and refreshed on every subsequent init. Idempotent.
   setSessionMeta(options.projectRoot, options.sessionId, {});
 
-  // 2. If a change-id is given, also create the change-id dir at
-  //    `.peaks/<change-id>/` (tracked) with NO role subdirs. The
-  //    role subdirs (prd/, qa/, rd/, sc/, txt/) are created on demand
-  //    by the writer at the write site. When the caller did NOT
-  //    specify a change-id, this step is skipped — reviewable writes
-  //    for this session are then blocked until a change-id is bound
-  //    (or the user re-runs init with `--change-id`). Surfaces in
-  //    `changeIdAction: 'none'`.
+  // 2. If a change-id is given, bind it to the SESSION axis (NOT a
+  //    top-level sibling dir). Slice 2026-06-22-top-level-change-id-cleanup:
+  //    the 2.8.0-era `.peaks/<changeId>/` sibling layout is FORBIDDEN under
+  //    the 2.8.0+ two-axis convention. The change-id is a logical
+  //    identifier — RD/QA artifact paths embed it in the filename
+  //    (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`).
+  //    The binding itself lives at `.peaks/_runtime/current-change` as
+  //    a plain text file (NOT a symlink to a sibling dir).
+  //
+  //    2a. Pre-flight guard: if a 2.8.0-era legacy sibling
+  //    `.peaks/<changeId>/` already exists at top level, refuse with
+  //    a clear migration message. We do NOT auto-migrate because the
+  //    legacy sibling dir may contain user-authored content the user
+  //    needs to inspect before deletion.
   let resolvedChangeId: string | null = null;
   let changeIdAction: 'bound' | 'preserved' | 'none' = 'none';
   if (options.changeId !== undefined && options.changeId.length > 0) {
     resolvedChangeId = options.changeId;
-    const changeDir = join(options.projectRoot, '.peaks', resolvedChangeId);
-    if (await isDirectory(changeDir)) {
-      alreadyExisted.push(resolvedChangeId);
-    } else {
-      await mkdir(changeDir, { recursive: true });
-      created.push(resolvedChangeId);
+    const legacySiblingDir = join(options.projectRoot, '.peaks', resolvedChangeId);
+    if (existsSync(legacySiblingDir)) {
+      throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
     }
-    // 3. Bind the change-id so RD/QA/PRD services know where to write
-    //    reviewable artifacts. The binding is a symlink at
-    //    `.peaks/_runtime/current-change` pointing at the change-id dir.
-    setCurrentChangeId(options.projectRoot, resolvedChangeId);
+    // 3. Bind the change-id to the session axis as a plain text file
+    //    at `.peaks/_runtime/current-change`. NO sibling directory
+    //    is created at `.peaks/<changeId>/`.
+    setCurrentChangeId(options.projectRoot, resolvedChangeId, { form: 'file' });
     changeIdAction = 'bound';
   } else if (options.changeId !== undefined && options.changeId.length === 0) {
     // Empty string — same as undefined; treat as no change-id.
