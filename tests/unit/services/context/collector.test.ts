@@ -48,7 +48,7 @@ describe('collectContext', () => {
   });
 
   it('throws when package.json is missing', async () => {
-    expect(() => collectContext({
+    await expect(collectContext({
       goal: 'x',
       project: workdir,
       depsMode: 'locked',

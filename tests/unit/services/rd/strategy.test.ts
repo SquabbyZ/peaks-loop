@@ -19,6 +19,7 @@ describe('writeStrategy', () => {
       const onDisk = readFileSync(join(workdir, 'strategy.md'), 'utf8');
       expect(onDisk).toContain('add OAuth');
       expect(onDisk).toContain('STRAT.sig:');
+      expect(onDisk).toContain(out.sha256);
     } finally {
       rmSync(workdir, { recursive: true, force: true });
     }

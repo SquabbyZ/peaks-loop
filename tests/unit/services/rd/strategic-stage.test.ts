@@ -18,7 +18,9 @@ describe('runStrategicStage', () => {
       });
       expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(existsSync(out)).toBe(true);
-      expect(readFileSync(out, 'utf8')).toContain('STRAT.sig');
+      const onDisk = readFileSync(out, 'utf8');
+      expect(onDisk).toContain('STRAT.sig');
+      expect(onDisk).toContain(result.sha256);
     } finally {
       rmSync(workdir, { recursive: true, force: true });
     }
