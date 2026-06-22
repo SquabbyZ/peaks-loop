@@ -30,6 +30,18 @@ import {
   type RdStandardGate,
   resolveRdStartupStandardsCheck
 } from './standards-diagnostic.js';
+import { runStrategicStage, type RunStrategicInput } from './strategic-stage.js';
+import { runTacticalStage, type RunTacticalInput } from './tactical-stage.js';
+
+/**
+ * Plan 3 — sub-stage entry points (strategic + tactical).
+ * The existing `createRdSwarmPlan` / swarm-planner surface is unchanged;
+ * these thin re-exports give callers a single-import path into the
+ * strategic + tactical sub-stages.
+ */
+export const runStrategic = runStrategicStage;
+export const runTactical = runTacticalStage;
+export type { RunStrategicInput, RunTacticalInput };
 
 export type RdSkill = 'rd';
 export type RdWaveName = 'discovery' | 'planning' | 'implementation candidates' | 'unit-test execution' | 'quality gates' | 'reducer';
