@@ -128,19 +128,12 @@ describe('slice #014 — defense-in-depth: no `--no-X` flag may use options.noX 
  // --no-cache` is silently ignored on every host. The correct
  // adapter is `noCache: opts.cache === false` (or `opts.cache !== true`).
  //
- // Plan 3a does NOT patch production code per the d4 contract.
- // This test is `.todo` until the production fix lands; once fixed
- // (replace `opts.noCache === true` with `opts.cache !== true` in
- // test-commands.ts:189 AND rename the function parameter `noCache` to
- // `cache` to make the contract obvious), delete this `.todo` and
- // re-enable the assertions below.
- test.todo('slice #014 belt-and-suspenders: no `options.noX === true` reads in src/cli/commands/*.ts (BLOCKED on real bug in test-commands.ts:79,86)');
- // Kept the original scan + assertion logic below for reference, but
- // disabled so the rest of the slice #014 scan still runs. Commented
- // out (not removed) so the next reviewer can see what needs to be
- // re-enabled.
- /*
- test('no file reads options.noX === true anywhere — the only correct read forms are `options.X === false` or `options.X !== true`', () => {
+ // Plan 3a Task 4.5 (commit dc6220b) renamed `options.noCache` to
+ // `options.cache` in `src/cli/commands/test-commands.ts`, so every
+ // `options.noX === true` read is gone from production. Both the
+ // belt-and-suspenders test below and the unconditional `test.todo`
+ // it replaced are now real assertions.
+ test('slice #014 belt-and-suspenders: no `options.noX === true` reads in src/cli/commands/*.ts', () => {
  const files = listCommandFiles();
  const hits: NoFlagHit[] = [];
  for (const file of files) {
@@ -158,7 +151,6 @@ describe('slice #014 — defense-in-depth: no `--no-X` flag may use options.noX 
  hits.map((h) => `${h.file}:${h.readLine} — \`${h.readText}\``).join('\n')
  ).toEqual([]);
  });
- */
 
  test('scan covers all .ts files under src/cli/commands/ (no skip-list, no exclusion)', () => {
  const files = listCommandFiles();
