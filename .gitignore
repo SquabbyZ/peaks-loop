@@ -23,5 +23,11 @@ coverage/
 .peaks/preferences.json
 # Auto-generated upgrade record from `peaks upgrade --to 2.0`; per-installation artifact, not source-of-truth.
 .peaks/memory/upgrade-2.0-*.md
+# Defense (slice 2026-06-22-top-level-change-id-cleanup): no YYYY-MM-DD-prefixed
+# directories are allowed at `.peaks/` top level. change-id / session-id style
+# dirs must live under `.peaks/_runtime/<sid>/` (gitignored) — never as siblings.
+# Matches: .peaks/2026-06-22-cc-connect-orphan-cleanup/, .peaks/2026-06-21-... etc.
+# Does NOT match: .peaks/_runtime/2026-06-22-session-14216e/ (underscore prefix).
+.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/
 # Dogfood / scratch test runners; ephemeral, never source-of-truth.
 .tmp/

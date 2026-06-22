@@ -1,8 +1,16 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-22T22:30:00.000Z",
+  "updatedAt": "2026-06-22T23:00:00.000Z",
   "hot": {
     "feedback": [
+      {
+        "name": "2026-06-22-top-level-change-id-cleanup",
+        "kind": "feedback",
+        "description": "Rooted out stale `.peaks/2026-06-22-cc-connect-orphan-cleanup/` (4 files, 28K, untracked) that violated the 2.8.0+ two-axis convention. Added defensive `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` rule to root `.gitignore` + 5-case vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts`. Audit confirmed no other top-level date-prefixed `.peaks/` siblings exist. `.peaks/_runtime/<sid>/` paths are unaffected (rule is path-anchored at the `.peaks/<seg>/` segment). Memory record + index update retained at `.peaks/memory/2026-06-22-top-level-change-id-cleanup.md`.",
+        "sourcePath": ".peaks/memory/2026-06-22-top-level-change-id-cleanup.md",
+        "sourceArtifact": "tests/unit/workspace/top-level-change-id-guard.test.ts",
+        "updatedAt": "2026-06-22"
+      },
       {
         "name": "2026-06-22-cc-connect-removal-publish",
         "kind": "feedback",
