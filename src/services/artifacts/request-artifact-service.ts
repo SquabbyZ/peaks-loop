@@ -56,6 +56,16 @@ export type CreateRequestArtifactResult = {
    * was passed. Omitted from the result when no callerId was set.
    */
   callerId?: string;
+  /**
+   * Slice 2026-06-23-request-init-change-scope-leak. The canonical
+   * change-id scope dir under `.peaks/_runtime/change/<changeId>/`.
+   * Pre-created on `--apply` (idempotent) so the sub-agent prompt
+   * always has a single, well-known place to write reviewable
+   * artifacts — never the forbidden top-level `.peaks/<id>/`. In
+   * dry-run mode this is the would-be path (the dir is NOT created).
+   * Absolute path.
+   */
+  scopeDir?: string;
 };
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -439,6 +449,12 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const content = renderTemplate(options.role, options.requestId, changeId, sessionId, timestamp, requestType);
 
   if (options.apply !== true) {
+    // Slice 2026-06-23-request-init-change-scope-leak. Even in dry-run
+    // we surface the canonical scopeDir so the user (and the LLM
+    // sub-agent prompt downstream) knows exactly where the dir WOULD
+    // be created on `--apply`. We do NOT touch the filesystem here.
+    const { ensureChangeScopeDir } = await import('./change-scope-service.js');
+    const scopeResult = ensureChangeScopeDir(options.projectRoot, changeId, { dryRun: true });
     return {
       role: options.role,
       requestId: options.requestId,
@@ -446,11 +462,22 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
       path,
       content,
       applied: false,
+      scopeDir: scopeResult.path,
       ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
     };
   }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
+
+  // Slice 2026-06-23-request-init-change-scope-leak. Pre-create the
+  // canonical change-id scope dir so the sub-agent prompt always has
+  // a well-known place to write reviewable artifacts — never the
+  // forbidden top-level `.peaks/<id>/`. Idempotent: re-running with
+  // the same change-id is a no-op. The dir lives under
+  // `.peaks/_runtime/change/<changeId>/` so it is covered by the
+  // existing `.peaks/_runtime/` gitignore rule.
+  const { ensureChangeScopeDir } = await import('./change-scope-service.js');
+  const scopeResult = ensureChangeScopeDir(options.projectRoot, changeId);
 
   // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
   // Slice 006: the marker lives under the SESSION dir (canonical post-F3
@@ -472,6 +499,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     path,
     content,
     applied: true,
+    scopeDir: scopeResult.path,
     ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
   };
 }
