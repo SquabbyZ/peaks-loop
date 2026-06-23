@@ -54,6 +54,13 @@ export type TailLogOptions = {
   dirOverride?: string;
   /** Override the date (PRD AC2: PEAKS_LOG_DATE_OVERRIDE). */
   dateOverride?: string;
+  /**
+   * Slice 2026-06-23-audit-4th #B2: filter by batchId. When set,
+   * only entries whose `batchId` field matches are returned (and
+   * the trailing-window accounting respects the post-filter total
+   * so a busy day does not push old matching entries out of view).
+   */
+  batchId?: string;
 };
 
 export type TailLogResult = {
@@ -63,6 +70,8 @@ export type TailLogResult = {
   entries: LogEntry[];
   /** The total number of entries in the file (for header messaging). */
   total: number;
+  /** When `batchId` filter is applied, the number of matches in the file. */
+  batchMatches?: number;
 };
 
 /**
@@ -79,15 +88,27 @@ export function tailLog(opts: TailLogOptions = {}): TailLogResult {
   const fileName = buildLogFileName(dateForFile);
   const fullPath = join(logDir, fileName);
 
-  const entries = readLogEntries({
+  const allEntries = readLogEntries({
     now: () => now,
     ...(opts.dirOverride !== undefined ? { dirOverride: opts.dirOverride } : {}),
     ...(opts.dateOverride !== undefined ? { dateOverride: opts.dateOverride } : {})
   });
-  const total = entries.length;
+  const total = allEntries.length;
   if (total === 0) {
     return { file: null, entries: [], total: 0 };
   }
-  const trailing = entries.slice(Math.max(0, total - lines));
-  return { file: fullPath, entries: trailing, total };
+  // Slice 2026-06-23-audit-4th #B2: batchId filter — apply AFTER the
+  // read but BEFORE the trailing window, so a single batch's
+  // interleaved log lines surface as a coherent sequence instead of
+  // being pushed out by sibling-batch lines.
+  const filtered = opts.batchId !== undefined
+    ? allEntries.filter((e) => e.batchId === opts.batchId)
+    : allEntries;
+  if (filtered.length === 0) {
+    return { file: fullPath, entries: [], total, batchMatches: 0 };
+  }
+  const trailing = filtered.slice(Math.max(0, filtered.length - lines));
+  return opts.batchId !== undefined
+    ? { file: fullPath, entries: trailing, total, batchMatches: filtered.length }
+    : { file: fullPath, entries: trailing, total };
 }

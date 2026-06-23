@@ -101,6 +101,39 @@ export interface ProjectPreferences {
    * "ECC not installed" warning and the audit still completes.
    */
   readonly agentShieldEnabled: boolean;
+  /**
+   * Slice 2026-06-24-audit-5th-p2: fan-out is now a HARD constraint.
+   * The previous opt-out (`defaultMode = 'serial'`) is removed by user
+   * direction. Single-sub-agent dispatch is no longer permitted when
+   * the slice DAG has ≥ 2 leaves at the same topological level; the
+   * LLM-side runner MUST use `peaks sub-agent dispatch --from-dag`
+   * (N parallel `buildToolCall` per dispatch).
+   *
+   * The field is kept on `ProjectPreferences` for backward-compatible
+   * load (legacy preferences.json files still parse) but the runtime
+   * shape is fixed: `defaultMode === 'fan-out'`. Any other value in a
+   * saved file is rejected at load time.
+   */
+  readonly fanout: FanoutPreference;
+}
+
+export type FanoutMode = 'fan-out';
+
+export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out'];
+
+/**
+ * Runtime type guard for `FanoutMode`. Slice 2026-06-24-audit-5th-p2
+ * narrowed the closed set from `['fan-out','serial']` to `['fan-out']`
+ * — stale preferences.json files with `"serial"` must now fail-fast at
+ * load (see `preferences-service.ts`) instead of being silently coerced.
+ */
+export function isFanoutMode(value: unknown): value is FanoutMode {
+  return typeof value === 'string' && (FANOUT_MODES as readonly string[]).includes(value);
+}
+
+export interface FanoutPreference {
+  /** Hard-coded mode. Slice 2026-06-24-audit-5th-p2 removed the serial opt-out. */
+  readonly defaultMode: FanoutMode;
 }
 
 export const DEFAULT_PREFERENCES: ProjectPreferences = {
@@ -134,4 +167,7 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   },
   loopAutonomousEnabled: false,
   agentShieldEnabled: false,
+  fanout: {
+    defaultMode: 'fan-out'
+  },
 };

@@ -2,6 +2,28 @@
 
 > Reference for `peaks-solo` Swarm phase and the role sub-agents (`peaks-ui` / `peaks-rd` planning / `peaks-qa` test-cases). Defines the **mechanism** of fan-out: how Solo launches sub-agents, what the sub-agent prompt must contain, what the sub-agent must return, and how Solo reduces the result.
 
+## Peaks-Cli Swarm parallel phase (sub-agent fan-out, default)
+
+> **Slice 5 (2026-06-23) + slice 2026-06-23-audit-4th #F3:** the
+> previous "conditional swarm" framing is replaced by the **default
+> fan-out rule** in `skills/peaks-solo/SKILL.md` §"Peaks-Cli Default
+> sub-agent fan-out". When the slice DAG has ≥ 2 leaves at the same
+> topological level, dispatch goes through
+> `peaks sub-agent dispatch --from-dag` (NOT one-at-a-time). The
+> gate logic below remains the canonical source for: PRD state,
+> request type, frontend touch, mode-driven shape, and degradation
+> rules. As of 2.8.4 the `'serial'` opt-out was removed by user
+> direction — single-sub-agent dispatch is no longer permitted when
+> ≥ 2 leaves exist at one topological level (see
+> `references/fanout-mandatory.md`).
+
+The Swarm phase is the **default** for any DAG with ≥ 2 leaves at
+the same topological level. Solo derives the fan-out set from the
+DAG topology — not from a default of "always launch three", and
+not from a strict conditional check. The swarm gate (PRD state +
+request type + frontend touch), mode-driven fan-out shape, and
+degradation rules live in the references file.
+
 ## 1. Why this exists
 
 The previous "Swarm" used `Skill(skill="peaks-rd")` calls. That is **single-stack and blocking** — there is no concurrency. Three sequential `Skill` calls run in order on the same main loop, not in parallel. The "parallel Agent calls" wording in the old SKILL.md was a v1.x illusion.

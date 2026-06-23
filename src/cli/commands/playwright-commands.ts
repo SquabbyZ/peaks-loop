@@ -33,9 +33,10 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import type { Command } from 'commander';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import { runBrowserAction } from '../../services/qa/browser-wrapper-service.js';
 
 export const DEFAULT_PORT = 8931;
 export const MAX_PORT = 8949;
@@ -264,7 +265,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
 
         // userDataDir default
         const userDataDir = opts.userDataDir
-          ? opts.userDataDir
+          ? resolveUserDataDir(opts.userDataDir, projectRoot)
           : join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
 
         // Spawn the MCP via npx. Detached so it survives our exit.
@@ -372,4 +373,115 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
         process.exitCode = 1;
       }
     });
+
+  // Slice 3: `peaks browser action <intent> [args...]` — thin wrapper
+  // around 5 Playwright MCP intents. One MCP call per invocation; no
+  // auto-snapshot between intents. See src/services/qa/browser-wrapper-service.ts.
+  registerBrowserActionCommand(program);
+}
+
+/**
+ * Wire `peaks browser action <intent>`. The wrapper is a thin adapter
+ * for the 5 intents. The real MCP caller is provided by the IDE / agent
+ * harness — this CLI surface is invoked by tests and skills to drive
+ * browser flows without hand-shelling the MCP protocol.
+ */
+export function registerBrowserActionCommand(program: Command): void {
+  const browser = program
+    .command('browser')
+    .description('Browser action helpers (slice 3: thin Playwright MCP wrapper, 5 intents only)');
+
+  browser
+    .command('action')
+    .description('Run one of 5 browser intents: navigate, click, fill, snapshot, extract')
+    .argument('<intent>', 'one of: navigate, click, fill, snapshot, extract')
+    .option('--url <url>', 'URL (navigate)')
+    .option('--selector <selector>', 'simple selector: #id, .class, tag, tag#id, tag.class')
+    .option('--value <value>', 'value to fill')
+    .option('--expression <expr>', 'JS expression to evaluate (extract)')
+    .option('--json', 'emit JSON envelope')
+    .action(
+      async (
+        intent: string,
+        opts: {
+          url?: string;
+          selector?: string;
+          value?: string;
+          expression?: string;
+          json?: boolean;
+        }
+      ) => {
+        try {
+          if (!isSupportedIntent(intent)) {
+            throw new Error(
+              `unknown intent "${intent}" — fall back to raw MCP (supported: navigate, click, fill, snapshot, extract)`
+            );
+          }
+          // The IDE/agent harness bridges `mcp__playwright__browser_*` tools.
+          // Outside the harness, we use a pass-through caller that records
+          // the intent + args so skills and tests can route the call.
+          const result = await runBrowserAction(intent, {
+            url: opts.url,
+            selector: opts.selector,
+            value: opts.value,
+            expression: opts.expression
+          }, mockOrPassThroughCaller);
+          if (opts.json === true) {
+            process.stdout.write(JSON.stringify({ ok: true, data: result }) + '\n');
+          } else {
+            process.stdout.write(`intent=${result.intent} ok=${result.ok} elapsedMs=${result.elapsedMs}\n`);
+          }
+        } catch (error) {
+          if (opts.json === true) {
+            process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
+          } else {
+            process.stderr.write(getErrorMessage(error) + '\n');
+          }
+          process.exitCode = 1;
+        }
+      }
+    );
+}
+
+function isSupportedIntent(value: string): value is 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract' {
+  return value === 'navigate' || value === 'click' || value === 'fill' || value === 'snapshot' || value === 'extract';
+}
+
+/**
+ * Resolve and validate a caller-supplied `--user-data-dir`. The dir must
+ * live under `projectRoot` so a malicious `--user-data-dir /etc/foo`
+ * cannot coerce the playwright-mcp browser into writing state to an
+ * arbitrary filesystem path (slice 2026-06-23-audit-3rd #5).
+ *
+ * Resolves `..` segments before checking, so a path like
+ * `<projectRoot>/../escape` is correctly normalized and rejected.
+ *
+ * Throws `Error('INVALID_USER_DATA_DIR: ...')` on validation failure;
+ * the action handler catches and emits the JSON envelope.
+ */
+export function resolveUserDataDir(raw: string, projectRoot: string): string {
+  const resolved = resolve(projectRoot, raw);
+  const rootResolved = resolve(projectRoot) + (projectRoot.endsWith('/') || projectRoot.endsWith('\\') ? '' : '/');
+  // Use the projectRoot + sep as the prefix; require either an exact
+  // match or a child path. The `+ '/'` guard prevents sibling-prefix
+  // collisions (e.g. /home/A/proj2 passes the check for /home/A/proj).
+  if (resolved !== resolve(projectRoot) && !resolved.startsWith(rootResolved)) {
+    throw new Error(
+      `INVALID_USER_DATA_DIR: --user-data-dir must resolve to a path under project root ${projectRoot} (got ${resolved})`
+    );
+  }
+  return resolved;
+}
+
+/**
+ * Pass-through caller used when the CLI surface is invoked outside the
+ * harness. In production the IDE/agent harness intercepts the wrapper's
+ * output and routes the underlying MCP call. Tests inject a stub via
+ * the `runBrowserAction(..., caller)` overload.
+ */
+async function mockOrPassThroughCaller(
+  tool: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  return { tool, args, routedBy: 'peaks-cli-browser-wrapper' };
 }

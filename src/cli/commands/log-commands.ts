@@ -28,16 +28,21 @@ export function registerLogCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     log
       .command('tail')
-      .description('Print the last 50 lines of today\'s peaks-cli log (JSONL). Pass --lines N to change the count, --date YYYY-MM-DD to read a different day, --json to print a JSON envelope.')
+      .description('Print the last 50 lines of today\'s peaks-cli log (JSONL). Pass --lines N to change the count, --date YYYY-MM-DD to read a different day, --batch <id> to filter by batchId, --json to print a JSON envelope.')
       .option('--lines <n>', 'number of lines to show (default 50)', (value: string) => Number(value))
       .option('--date <YYYY-MM-DD>', 'read the log for this UTC date instead of today (PRD AC2: PEAKS_LOG_DATE_OVERRIDE)')
-  ).action((options: { lines?: number; date?: string; json?: boolean }) => {
+      // Slice 2026-06-23-audit-4th #B2: --batch filter for cross-run
+      // correlation. Without this, a user post-hoc cannot group the
+      // log lines for one batch (they interleave in the JSONL file).
+      .option('--batch <id>', 'filter entries by batchId (sub-agent dispatch / heartbeat / share)')
+  ).action((options: { lines?: number; date?: string; batch?: string; json?: boolean }) => {
     try {
       const requestedLines = options.lines ?? 50;
       const safeLines = Number.isFinite(requestedLines) && requestedLines > 0 ? Math.floor(requestedLines) : 50;
       const result = tailLog({
         lines: safeLines,
-        ...(options.date !== undefined ? { dateOverride: options.date } : {})
+        ...(options.date !== undefined ? { dateOverride: options.date } : {}),
+        ...(options.batch !== undefined ? { batchId: options.batch } : {})
       });
       printResult(
         io,
@@ -45,6 +50,7 @@ export function registerLogCommands(program: Command, io: ProgramIO): void {
           file: result.file,
           total: result.total,
           lines: safeLines,
+          ...(options.batch !== undefined ? { batch: options.batch, batchMatches: result.batchMatches ?? 0 } : {}),
           entries: result.entries
         }, []),
         options.json

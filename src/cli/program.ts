@@ -41,6 +41,7 @@ import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
 import { registerPlaywrightCommands } from './commands/playwright-commands.js';
+import { registerSoloCommands } from './commands/solo-commands.js';
 import { registerMutCommands } from './commands/mut-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
@@ -245,6 +246,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
  // (multi-terminal Playwright MCP lifecycle).
  registerPlaywrightCommands(program, io);
+ // Slice 2 (peaks-solo fast mode): `peaks solo plan [--fast] <change-id>`
+ registerSoloCommands(program);
  // Plan 2 / Task 6: `peaks mut run|mutants|asserts|report` — mutation
  // testing + assertion validity scan (spec §4.2 / §7). The
  // production Stryker invoker is wired here; tests use the

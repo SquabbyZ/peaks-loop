@@ -37,13 +37,16 @@ describe('writeAutonomousResumeArtifacts', () => {
       expect(existsSync(file.path)).toBe(false);
     }
     const relativePaths = result.files.map((file) => file.path.replace(workspace, '').replace(/\\/g, '/'));
+    // Slice 2026-06-23-audit-5th-p1: resume artifacts now land under
+    // `.peaks/_runtime/change/<changeId>/...` (the canonical change-id
+    // scope dir), NOT the forbidden top-level `.peaks/<changeId>/`.
     expect(relativePaths).toEqual([
-      '/.peaks/resume-writer-preview/prd/autonomous-goal-package.json',
-      '/.peaks/resume-writer-preview/rd/swarm/autonomous-rd-plan.json',
-      '/.peaks/resume-writer-preview/rd/swarm/checkpoints/checkpoint-1.json',
-      '/.peaks/resume-writer-preview/rd/swarm/evidence/unit-tests.md',
-      '/.peaks/resume-writer-preview/rd/swarm/evidence/validation-report.md',
-      '/.peaks/resume-writer-preview/rd/swarm/resume-instructions.md'
+      '/.peaks/_runtime/change/resume-writer-preview/prd/autonomous-goal-package.json',
+      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/autonomous-rd-plan.json',
+      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/checkpoints/checkpoint-1.json',
+      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/evidence/unit-tests.md',
+      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/evidence/validation-report.md',
+      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/resume-instructions.md'
     ]);
   });
 
@@ -69,8 +72,11 @@ describe('writeAutonomousResumeArtifacts', () => {
 
   test('refuses to overwrite an existing artifact file when apply is true', async () => {
     const workspace = newWorkspace();
-    const goalPackagePath = join(workspace, '.peaks', 'resume-writer-overwrite', 'prd', 'autonomous-goal-package.json');
-    mkdirSync(join(workspace, '.peaks', 'resume-writer-overwrite', 'prd'), { recursive: true });
+    // Slice 2026-06-23-audit-5th-p1: pre-existing artifact is staged at
+    // the canonical change-id scope dir `.peaks/_runtime/change/<id>/...`
+    // (the location `writeAutonomousResumeArtifacts` would write to).
+    const goalPackagePath = join(workspace, '.peaks', '_runtime', 'change', 'resume-writer-overwrite', 'prd', 'autonomous-goal-package.json');
+    mkdirSync(join(workspace, '.peaks', '_runtime', 'change', 'resume-writer-overwrite', 'prd'), { recursive: true });
     writeFileSync(goalPackagePath, '{}', 'utf8');
 
     await expect(

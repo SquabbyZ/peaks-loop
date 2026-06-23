@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
+import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
 import { createCapabilityMapPlan } from '../recommendations/capability-map-service.js';
 import type { CapabilityAvailabilityStatus, CapabilityItemType } from '../recommendations/recommendation-types.js';
 import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
@@ -408,8 +409,37 @@ function readFully(fd: number, size: number): string | null {
   return buffer.toString('utf8');
 }
 
-function readResumeArtifact(artifactWorkspacePath: string, artifact: string): string | null {
-  const artifactPath = resolve(artifactWorkspacePath, artifact);
+function stripChangeScopePrefix(artifact: string, changeId: string): string {
+  // Slice 2026-06-23-audit-5th-p1: `buildArtifactRelativePath` returns
+  // `.peaks/_runtime/change/<changeId>/<role>/...`. `readResumeArtifact`
+  // now expects just the role-relative sub-path (e.g.
+  // `rd/swarm/checkpoints/checkpoint-1.json`) because the change-id
+  // scope root is computed by `getChangeScopeDirAbs`. This helper
+  // strips the well-known prefix. Falls back to the input string when
+  // the prefix is not present (e.g. a caller passed a bare
+  // sub-path directly), keeping `readResumeArtifact` tolerant of both
+  // shapes.
+  const normalized = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
+  const prefix = `.peaks/_runtime/change/${changeId}/`;
+  if (normalized.startsWith(prefix)) {
+    return normalized.slice(prefix.length);
+  }
+  return normalized;
+}
+
+function readResumeArtifact(artifactWorkspacePath: string, changeId: string, artifact: string): string | null {
+  // Slice 2026-06-23-audit-5th-p1: the on-disk home for change-id
+  // content is the canonical scope dir under
+  // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
+  // The previous read path `.peaks/<changeId>/` was a SKILL.md 2.8.3
+  // hard-ban violation (sibling of `.peaks/_runtime/`). The
+  // relative-path argument is still useful for the role/swarm drill
+  // (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) — we use it
+  // strictly to identify the sub-root, not to derive a new top-level
+  // dir.
+  const changeScopeRoot = getChangeScopeDirAbs(artifactWorkspacePath, changeId);
+  const normalizedArtifact = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
+  const artifactPath = resolve(changeScopeRoot, normalizedArtifact);
   try {
     const artifactWorkspaceRealPath = realpathSync(artifactWorkspacePath);
     const artifactStat = lstatSync(artifactPath);
@@ -417,15 +447,15 @@ function readResumeArtifact(artifactWorkspacePath: string, artifact: string): st
       return null;
     }
 
-    const pathSegments = artifact.replace(/\\/g, '/').split('/');
-    const sessionRootPath = resolve(artifactWorkspacePath, '.peaks', pathSegments[1]!);
-    const roleRootPath = resolve(sessionRootPath, pathSegments[2]!);
+    const sessionRootPath = changeScopeRoot;
+    const roleRootPath = resolve(sessionRootPath, normalizedArtifact.split('/')[0] ?? '');
     if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(roleRootPath).isSymbolicLink()) {
       return null;
     }
 
+    const roleSegment = normalizedArtifact.split('/')[0] ?? '';
     let allowedRootRealPath: string;
-    if (pathSegments[2] === 'rd') {
+    if (roleSegment === 'rd') {
       const swarmRootPath = resolve(roleRootPath, 'swarm');
       if (lstatSync(swarmRootPath).isSymbolicLink()) {
         return null;
@@ -586,7 +616,7 @@ function isSafeEvidenceRef(ref: string): boolean {
 }
 
 function evidenceRefsExist(artifactWorkspacePath: string, changeId: string, refs: readonly string[]): boolean {
-  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', ref)) !== null);
+  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, changeId, `rd/swarm/evidence/${ref}`) !== null);
 }
 
 function hasMatchingEvidenceRefs(artifactWorkspacePath: string, changeId: string, validationReportContent: string, checkpointContent: string): boolean {
@@ -623,7 +653,10 @@ function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifac
   let hasInvalidArtifact = false;
   const artifactContents = new Map<string, string>();
   for (const artifact of requiredArtifacts) {
-    const content = readResumeArtifact(artifactWorkspacePath, artifact);
+    // Slice 2026-06-23-audit-5th-p1: pass the explicit changeId so
+    // `readResumeArtifact` can route through `getChangeScopeDirAbs`
+    // rather than guessing from path segments.
+    const content = readResumeArtifact(artifactWorkspacePath, changeId, stripChangeScopePrefix(artifact, changeId));
     if (content === null) {
       return 'missing';
     }

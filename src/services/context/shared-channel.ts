@@ -16,11 +16,17 @@
  * See: `.peaks/memory/sub-agent-shared-channel-cross-completion.md` for
  * the full G8 rule.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { assertSafeSharedChannelPath, sharedChannelPath } from './dispatch-context-guard.js';
+import { withFileLockSync } from '../filesystem/file-lock.js';
 
 export interface SharedChannelEntry {
+  // Slice 2026-06-23-audit-4th #E2: shape version marker so future
+  // field additions/removals can run a documented deprecation cycle
+  // (1 version behind is still readable; 2 versions behind is dropped).
+  // Default-on-read via isValidEntry() handles pre-versioning records.
+  readonly version: 1;
   readonly at: string;                                         // ISO8601
   readonly from: string;                                       // sub-agent role string
   readonly key: string;                                        // '<role>.<event>' convention
@@ -98,99 +104,107 @@ export function writeSharedEntry(opts: {
   const channelFile = sharedChannelPath(opts.projectRoot, opts.sid, opts.rid, opts.batchId);
   assertSafeSharedChannelPath(channelFile, opts.projectRoot);
 
-  let channel: SharedChannel;
-  try {
-    channel = readChannelOrEmpty(channelFile, opts.batchId);
-  } catch (err) {
-    return {
-      ok: false,
-      code: 'WRITE_ERROR',
-      message: `failed to read existing channel: ${(err as Error).message}`
-    };
-  }
-
-  const lastWriteWins = Object.prototype.hasOwnProperty.call(channel.entries, opts.key);
-
-  // LRU eviction: if writing would push the file over the 1MB cap,
-  // evict oldest entries until the new write fits.
-  const entry: SharedChannelEntry = {
-    at: new Date().toISOString(),
-    from: opts.from,
-    key: opts.key,
-    value: Object.freeze({ ...opts.value }),
-    valueSize
-  };
-  const projectedChannel: SharedChannel = {
-    ...channel,
-    updatedAt: entry.at,
-    entries: { ...channel.entries, [opts.key]: entry }
-  };
-  const projectedSize = JSON.stringify(projectedChannel).length;
-  let lruEvicted = 0;
-  if (projectedSize > SHARED_CHANNEL_MAX_FILE_BYTES) {
-    const sortedKeys = Object.keys(projectedChannel.entries).sort((a, b) => {
-      const ea = projectedChannel.entries[a];
-      const eb = projectedChannel.entries[b];
-      if (!ea || !eb) return 0;
-      return ea.at.localeCompare(eb.at);
-    });
-    let working: SharedChannel = projectedChannel;
-    while (
-      JSON.stringify(working).length > SHARED_CHANNEL_MAX_FILE_BYTES &&
-      sortedKeys.length > 0
-    ) {
-      const oldestKey = sortedKeys.shift() as string;
-      if (oldestKey === opts.key) {
-        // Don't evict the entry we just wrote.
-        break;
-      }
-      const nextEntries: Record<string, SharedChannelEntry> = {};
-      for (const [k, v] of Object.entries(working.entries)) {
-        if (k !== oldestKey) {
-          nextEntries[k] = v;
-        }
-      }
-      working = { ...working, entries: nextEntries };
-      lruEvicted += 1;
-    }
+  // Slice 2026-06-23-audit-3rd #2: the read-modify-write sequence below
+  // is wrapped in withFileLockSync to prevent lost updates from two
+  // concurrent `peaks sub-agent share` calls landing on the same batch.
+  // Without the lock, the second writer's read sees a stale channel,
+  // and its renameSync silently overwrites the first writer's entry.
+  return withFileLockSync(channelFile, () => {
+    let channel: SharedChannel;
     try {
-      writeAtomic(channelFile, working);
+      channel = readChannelOrEmpty(channelFile, opts.batchId);
     } catch (err) {
       return {
         ok: false,
         code: 'WRITE_ERROR',
-        message: `failed to write channel after LRU eviction: ${(err as Error).message}`
+        message: `failed to read existing channel: ${(err as Error).message}`
       };
     }
+
+    const lastWriteWins = Object.prototype.hasOwnProperty.call(channel.entries, opts.key);
+
+    // LRU eviction: if writing would push the file over the 1MB cap,
+    // evict oldest entries until the new write fits.
+    const entry: SharedChannelEntry = {
+      version: 1,
+      at: new Date().toISOString(),
+      from: opts.from,
+      key: opts.key,
+      value: Object.freeze({ ...opts.value }),
+      valueSize
+    };
+    const projectedChannel: SharedChannel = {
+      ...channel,
+      updatedAt: entry.at,
+      entries: { ...channel.entries, [opts.key]: entry }
+    };
+    const projectedSize = JSON.stringify(projectedChannel).length;
+    let lruEvicted = 0;
+    if (projectedSize > SHARED_CHANNEL_MAX_FILE_BYTES) {
+      const sortedKeys = Object.keys(projectedChannel.entries).sort((a, b) => {
+        const ea = projectedChannel.entries[a];
+        const eb = projectedChannel.entries[b];
+        if (!ea || !eb) return 0;
+        return ea.at.localeCompare(eb.at);
+      });
+      let working: SharedChannel = projectedChannel;
+      while (
+        JSON.stringify(working).length > SHARED_CHANNEL_MAX_FILE_BYTES &&
+        sortedKeys.length > 0
+      ) {
+        const oldestKey = sortedKeys.shift() as string;
+        if (oldestKey === opts.key) {
+          // Don't evict the entry we just wrote.
+          break;
+        }
+        const nextEntries: Record<string, SharedChannelEntry> = {};
+        for (const [k, v] of Object.entries(working.entries)) {
+          if (k !== oldestKey) {
+            nextEntries[k] = v;
+          }
+        }
+        working = { ...working, entries: nextEntries };
+        lruEvicted += 1;
+      }
+      try {
+        writeAtomic(channelFile, working);
+      } catch (err) {
+        return {
+          ok: false,
+          code: 'WRITE_ERROR',
+          message: `failed to write channel after LRU eviction: ${(err as Error).message}`
+        };
+      }
+      return {
+        ok: true,
+        entry,
+        channelSize: JSON.stringify(working).length,
+        lastWriteWins,
+        softWarning
+      };
+    }
+
+    try {
+      writeAtomic(channelFile, projectedChannel);
+    } catch (err) {
+      return {
+        ok: false,
+        code: 'WRITE_ERROR',
+        message: `failed to write channel: ${(err as Error).message}`
+      };
+    }
+    // lruEvicted is 0 here; expose the count through the size of the
+    // returned channel for caller diagnostics.
+    void lruEvicted;
+
     return {
       ok: true,
       entry,
-      channelSize: JSON.stringify(working).length,
+      channelSize: projectedSize,
       lastWriteWins,
       softWarning
     };
-  }
-
-  try {
-    writeAtomic(channelFile, projectedChannel);
-  } catch (err) {
-    return {
-      ok: false,
-      code: 'WRITE_ERROR',
-      message: `failed to write channel: ${(err as Error).message}`
-    };
-  }
-  // lruEvicted is 0 here; expose the count through the size of the
-  // returned channel for caller diagnostics.
-  void lruEvicted;
-
-  return {
-    ok: true,
-    entry,
-    channelSize: projectedSize,
-    lastWriteWins,
-    softWarning
-  };
+  });
 }
 
 /**
@@ -248,7 +262,6 @@ export function gcChannel(opts: {
   // but kept for safety.
   assertSafeSharedChannelPath(channelFile, opts.projectRoot);
   try {
-    const { unlinkSync } = require('node:fs') as typeof import('node:fs');
     unlinkSync(channelFile);
     return true;
   } catch {
@@ -272,8 +285,7 @@ export function isOrphanChannel(opts: {
   if (!existsSync(channelFile)) {
     return true;
   }
-  const stat = require('node:fs') as typeof import('node:fs');
-  const s = stat.statSync(channelFile);
+  const s = statSync(channelFile);
   const now = opts.now ?? new Date();
   const ageMs = now.getTime() - s.mtimeMs;
   const ttlMs = SHARED_CHANNEL_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -314,13 +326,22 @@ function readChannelOrEmpty(channelFile: string, batchId: string): SharedChannel
 
 function isValidEntry(v: unknown): v is SharedChannelEntry {
   if (!isObject(v)) return false;
-  return (
-    typeof v.at === 'string' &&
-    typeof v.from === 'string' &&
-    typeof v.key === 'string' &&
-    isObject(v.value) &&
-    typeof v.valueSize === 'number'
-  );
+  // Slice 2026-06-23-audit-4th #E2: pre-versioning records (no
+  // `version` field) are still accepted on read for backward compat.
+  // The writer stamps `version: 1` going forward; readers default
+  // missing/legacy entries to version 1 in memory.
+  if (!('version' in v) || v.version === 1) {
+    return (
+      typeof v.at === 'string' &&
+      typeof v.from === 'string' &&
+      typeof v.key === 'string' &&
+      isObject(v.value) &&
+      typeof v.valueSize === 'number'
+    );
+  }
+  // Future versions: read-side handler can branch on `v.version` once
+  // v2 lands. For now, anything other than 1 is rejected.
+  return false;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -329,7 +350,14 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function writeAtomic(path: string, channel: SharedChannel): void {
   const dir = dirname(path);
-  mkdirSync(dir, { recursive: true });
+  // Slice 2026-06-23-audit-3rd #11: skip mkdirSync when the dir already
+  // exists. The `recursive: true` mkdir is a syscall (~50µs on macOS,
+  // ~10ms on cold Windows cache); the `existsSync` short-circuit saves
+  // it on the hot path (every `peaks sub-agent share` + every
+  // `peaks sub-agent heartbeat`).
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   writeFileSync(tmp, JSON.stringify(channel, null, 2) + '\n', 'utf8');
   renameSync(tmp, path);

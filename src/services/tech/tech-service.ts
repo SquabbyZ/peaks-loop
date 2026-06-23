@@ -5,6 +5,7 @@ import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
+import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
 
 export type TechWaveName = 'scan' | 'document' | 'review' | 'reducer';
 export type TechStatusValue = 'unavailable' | 'missing' | 'blocked' | 'approved';
@@ -107,7 +108,20 @@ function assertNonEmptyGoal(goal: string): void {
 }
 
 function architectureRoot(changeId: string): string {
+  // Descriptive string used in `TechPlanResult.artifactRoot` and as a
+  // brief `inputs` entry. The actual on-disk location is the canonical
+  // change-id scope dir — see `getChangeScopeDirAbs(workspace, changeId)`
+  // for the absolute path and `getTechStatus` for the reader.
   return buildArtifactRelativePath(changeId, 'rd', 'architecture');
+}
+
+function architectureRootAbs(artifactWorkspacePath: string, changeId: string): string {
+  // Slice 2026-06-23-audit-5th-p1: read path lives under the canonical
+  // change-id scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`,
+  // matching the test helper `writeApprovedTechArtifacts` and
+  // `autonomous-resume-writer.ts`. The previous `.peaks/${changeId}/...`
+  // shape was a SKILL.md 2.8.3 hard-ban violation.
+  return join(getChangeScopeDirAbs(artifactWorkspacePath, changeId), 'rd', 'architecture');
 }
 
 function hasPlannerArtifactWorkspace(artifactWorkspacePath: string, workspace?: WorkspaceConfig): boolean {
@@ -296,7 +310,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
     };
   }
 
-  const rootPath = resolve(options.artifactWorkspacePath, '.peaks', options.changeId, 'rd', 'architecture');
+  const rootPath = architectureRootAbs(options.artifactWorkspacePath, options.changeId);
   const approvalRecord = buildArtifactRelativePath(options.changeId, 'rd', 'architecture', 'tech-approval-record.md');
   if (isEscapedArchitectureRoot(rootPath, options.artifactWorkspacePath)) {
     return {

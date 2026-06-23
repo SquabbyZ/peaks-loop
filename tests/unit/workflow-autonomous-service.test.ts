@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createAutonomousWorkflowPlan } from '../../src/services/workflow/workflow-autonomous-service.js';
 import { createWorkspace, createWorkspaceWithArtifactWorkspace, writeApprovedTechArtifacts, writeResumeArtifacts } from './helpers/workflow-autonomous-test-helpers.js';
+import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
 
 describe('createAutonomousWorkflowPlan', () => {
   test('creates a resumable autonomous goal package and dry-run constraints', () => {
@@ -277,7 +278,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs');
     writeResumeArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs', 'Resume autonomous RD planning from artifacts');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-terminal-evidence-refs', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-terminal-evidence-refs'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nchangeId: resume-terminal-evidence-refs\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- validation-details.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.8.4] — 2026-06-24
+
+**Breaking change.** Single-sub-agent dispatch is no longer permitted when the slice DAG has ≥ 2 leaves at one topological level. The 2.8.3-era `preferences.fanout.defaultMode = 'serial'` opt-out was removed by user directive ("禁止单 sub-agent").
+
+### Changed
+
+- **`FanoutMode` closed set narrowed to `['fan-out']`.** The `'serial'` member is gone from `src/services/preferences/preferences-types.ts`; any preferences.json file carrying `defaultMode = 'serial'` (or any non-fan-out value) now throws `PREFERENCES_FANOUT_INVALID` at load. The `migratePreferences` path silently rewrites legacy `'serial'` → `'fan-out'` for 2.8.3-era files and surfaces the change in the migration envelope's `changes[]`.
+- **SKILL.md contract flipped.** `peaks-solo` SKILL.md now states "Hard constraint: fan-out is mandatory"; the previous "Fan-out opt-out" subsection is removed.
+- **Reference docs reorganized.** `references/fanout-opt-out.md` (escape hatch) → `references/fanout-mandatory.md` (hard constraint + migration contract). `references/swarm-dispatch-contract.md` opt-out callout removed.
+- **Test surface refreshed.** `tests/unit/solo/skills-solo-fanout-opt-out.test.ts` → `tests/unit/solo/skills-solo-fanout-mandatory.test.ts`; pins the new hard constraint and verifies the opt-out file is deleted.
+
+### Migration
+
+Run `peaks preferences migrate --write` once. The CLI will rewrite `serial` → `fan-out` in your `.peaks/preferences.json` and surface the change in stdout. Manual recovery: delete the `fanout` block from `.peaks/preferences.json`.
+
+### Slice
+
+`2026-06-24-audit-5th-p2` — removes the 2.8.3 serial opt-out entirely. Compatible with the 2.8.4 release tag; no DB migration required.
+
+---
+
 ## [2.8.3] — 2026-06-22
 
 ### ⚠ BREAKING — `peaks workspace init --change-id` no longer creates `.peaks/<change-id>/` sibling dir

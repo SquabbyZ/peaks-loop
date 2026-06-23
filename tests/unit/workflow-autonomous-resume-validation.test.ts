@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { createAutonomousWorkflowPlan } from '../../src/services/workflow/workflow-autonomous-service.js';
 import { createWorkspace, createWorkspaceWithArtifactWorkspace, writeApprovedTechArtifacts, writeResumeArtifacts } from './helpers/workflow-autonomous-test-helpers.js';
+import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
 
 describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   test('keeps resume preview when opened resume artifact identity does not match path identity', async () => {
@@ -52,13 +53,16 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   test('keeps resume preview when swarm root is a symbolic link', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const changeId = 'resume-swarm-root-link';
-    const swarmRoot = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm');
+    const swarmRoot = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'swarm');
     const outsideRoot = join(tmpdir(), `peaks-autonomous-swarm-link-${Date.now()}-${Math.random()}`);
     writeApprovedTechArtifacts(artifactWorkspace, changeId);
     writeResumeArtifacts(outsideRoot, changeId);
-    mkdirSync(join(artifactWorkspace, '.peaks', changeId, 'rd'), { recursive: true });
+    mkdirSync(join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd'), { recursive: true });
     rmSync(swarmRoot, { recursive: true, force: true });
-    symlinkSync(join(outsideRoot, '.peaks', changeId, 'rd', 'swarm'), swarmRoot, 'junction');
+    // Slice 2026-06-23-audit-5th-p1: symlink target lives at the
+    // canonical change-id scope dir `.peaks/_runtime/change/<changeId>/rd/swarm/`,
+    // matching where `writeResumeArtifacts` writes it.
+    symlinkSync(join(getChangeScopeDirAbs(outsideRoot, changeId), 'rd', 'swarm'), swarmRoot, 'junction');
 
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -98,7 +102,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-directory-artifact');
     writeResumeArtifacts(artifactWorkspace, 'resume-directory-artifact');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-directory-artifact', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-directory-artifact'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     rmSync(checkpointPath);
     mkdirSync(checkpointPath, { recursive: true });
     const plan = createAutonomousWorkflowPlan({
@@ -121,7 +125,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const changeId = 'resume-oversized-artifact';
     writeApprovedTechArtifacts(artifactWorkspace, changeId);
     writeResumeArtifacts(artifactWorkspace, changeId);
-    const checkpointPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     writeFileSync(checkpointPath, 'x'.repeat(256_001), 'utf8');
 
     const plan = createAutonomousWorkflowPlan({
@@ -144,10 +148,10 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const changeId = 'resume-rd-outside-swarm';
     writeApprovedTechArtifacts(artifactWorkspace, changeId);
     writeResumeArtifacts(artifactWorkspace, changeId);
-    const checkpointPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     rmSync(checkpointPath);
-    mkdirSync(join(artifactWorkspace, '.peaks', changeId, 'rd', 'checkpoints'), { recursive: true });
-    writeFileSync(join(artifactWorkspace, '.peaks', changeId, 'rd', 'checkpoints', 'checkpoint-1.json'), '{}', 'utf8');
+    mkdirSync(join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'checkpoints'), { recursive: true });
+    writeFileSync(join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'checkpoints', 'checkpoint-1.json'), '{}', 'utf8');
 
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -169,7 +173,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const changeId = 'resume-swarm-link';
     writeApprovedTechArtifacts(artifactWorkspace, changeId);
     writeResumeArtifacts(artifactWorkspace, changeId);
-    const swarmPath = join(artifactWorkspace, '.peaks', changeId, 'rd', 'swarm');
+    const swarmPath = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'swarm');
     const linkedSwarmPath = join(tmpdir(), `peaks-autonomous-linked-swarm-${Date.now()}-${Math.random()}`);
     rmSync(swarmPath, { recursive: true, force: true });
     mkdirSync(linkedSwarmPath, { recursive: true });
@@ -201,10 +205,17 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
       ...nodeFs,
       lstatSync: (path: Parameters<typeof nodeFs.lstatSync>[0], options?: Parameters<typeof nodeFs.lstatSync>[1]) => {
         const stat = nodeFs.lstatSync(path, options) as Stats;
-        if (String(path).includes(join('.peaks', changeId, 'rd', 'swarm')) && !String(path).includes(join('swarm', 'checkpoints')) && !String(path).includes(join('swarm', 'evidence')) && !String(path).endsWith('swarm')) {
+        const pathStr = typeof path === 'string' ? path : (path as { toString(): string }).toString();
+        const scopeRoot = getChangeScopeDirAbs(artifactWorkspace, changeId);
+        // Slice 2026-06-23-audit-5th-p1: use `join` so the separator
+        // matches what `getChangeScopeDirAbs` produces on Windows
+        // (`\`), not POSIX `/` (which would never `endsWith` the path
+        // produced by `node:fs`).
+        const swarmPath = join(scopeRoot, 'rd', 'swarm');
+        if (pathStr.includes(swarmPath) && !pathStr.includes(join('swarm', 'checkpoints')) && !pathStr.includes(join('swarm', 'evidence')) && !pathStr.endsWith('swarm')) {
           return stat;
         }
-        if (String(path).endsWith(join('.peaks', changeId, 'rd', 'swarm'))) {
+        if (pathStr.endsWith(swarmPath)) {
           return { ...stat, isSymbolicLink: () => true } as Stats;
         }
         return stat;
@@ -310,7 +321,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-empty-evidence');
     writeResumeArtifacts(artifactWorkspace, 'resume-empty-evidence');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-empty-evidence', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-empty-evidence'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -331,7 +342,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-frontmatter-only');
     writeResumeArtifacts(artifactWorkspace, 'resume-frontmatter-only');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-frontmatter-only', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-frontmatter-only'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nchangeId: resume-frontmatter-only\nartifactType: validation-report\nstatus: passed\n---', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -352,7 +363,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-malformed-frontmatter');
     writeResumeArtifacts(artifactWorkspace, 'resume-malformed-frontmatter');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-malformed-frontmatter', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-malformed-frontmatter'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nchangeId resume-malformed-frontmatter\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- validation-details.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -373,7 +384,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-unterminated-frontmatter');
     writeResumeArtifacts(artifactWorkspace, 'resume-unterminated-frontmatter');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-unterminated-frontmatter', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-unterminated-frontmatter'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nchangeId: resume-unterminated-frontmatter\nartifactType: validation-report\nstatus: passed', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -394,7 +405,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-placeholder-evidence');
     writeResumeArtifacts(artifactWorkspace, 'resume-placeholder-evidence');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-placeholder-evidence', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-placeholder-evidence'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, 'validation evidence recorded', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -415,7 +426,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-body-markers');
     writeResumeArtifacts(artifactWorkspace, 'resume-body-markers');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-body-markers', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-body-markers'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '```yaml\nchangeId: resume-body-markers\nstatus: passed\n```', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -436,7 +447,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-change-only-evidence');
     writeResumeArtifacts(artifactWorkspace, 'resume-change-only-evidence');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-change-only-evidence', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-change-only-evidence'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, 'changeId: resume-change-only-evidence', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -457,7 +468,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-blank-evidence');
     writeResumeArtifacts(artifactWorkspace, 'resume-blank-evidence');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-blank-evidence', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-blank-evidence'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '   ', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -478,7 +489,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-large-artifact');
     writeResumeArtifacts(artifactWorkspace, 'resume-large-artifact');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-large-artifact', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-large-artifact'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, 'x'.repeat(256_001), 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -499,7 +510,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-ref-mismatch');
     writeResumeArtifacts(artifactWorkspace, 'resume-ref-mismatch');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-ref-mismatch', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-ref-mismatch'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nchangeId: resume-ref-mismatch\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- different-report.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -520,8 +531,8 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-unsafe-ref');
     writeResumeArtifacts(artifactWorkspace, 'resume-unsafe-ref');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-unsafe-ref', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-unsafe-ref', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-unsafe-ref'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-unsafe-ref'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(checkpointPath, JSON.stringify({ changeId: 'resume-unsafe-ref', artifactType: 'checkpoint', status: 'ready', checkpointId: 'checkpoint-1', createdAt: '2026-05-17T00:00:00.000Z', workerQueueState: { pending: 0, completed: 3 }, validationRefs: ['../../outside.md'] }), 'utf8');
     writeFileSync(evidencePath, '---\nchangeId: resume-unsafe-ref\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- ../../outside.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
@@ -543,8 +554,8 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-self-ref');
     writeResumeArtifacts(artifactWorkspace, 'resume-self-ref');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-self-ref', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
-    const evidencePath = join(artifactWorkspace, '.peaks', 'resume-self-ref', 'rd', 'swarm', 'evidence', 'validation-report.md');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-self-ref'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-self-ref'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(checkpointPath, JSON.stringify({ changeId: 'resume-self-ref', artifactType: 'checkpoint', status: 'ready', checkpointId: 'checkpoint-1', createdAt: '2026-05-17T00:00:00.000Z', workerQueueState: { pending: 0, completed: 3 }, validationRefs: ['Validation-Report.md'] }), 'utf8');
     writeFileSync(evidencePath, '---\nchangeId: resume-self-ref\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- Validation-Report.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
@@ -585,7 +596,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-json-placeholder');
     writeResumeArtifacts(artifactWorkspace, 'resume-json-placeholder');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-json-placeholder', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-json-placeholder'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     writeFileSync(checkpointPath, JSON.stringify({ changeId: 'resume-json-placeholder', artifactType: 'checkpoint' }), 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -606,7 +617,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-json-array');
     writeResumeArtifacts(artifactWorkspace, 'resume-json-array');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-json-array', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-json-array'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     writeFileSync(checkpointPath, JSON.stringify(['resume-json-array']), 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -627,7 +638,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-malformed-json');
     writeResumeArtifacts(artifactWorkspace, 'resume-malformed-json');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-malformed-json', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-malformed-json'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     writeFileSync(checkpointPath, '{', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -648,7 +659,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-change-mismatch');
     writeResumeArtifacts(artifactWorkspace, 'resume-change-mismatch');
-    const checkpointPath = join(artifactWorkspace, '.peaks', 'resume-change-mismatch', 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
+    const checkpointPath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-change-mismatch'), 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json');
     writeFileSync(checkpointPath, JSON.stringify({ changeId: 'different-change' }), 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
@@ -694,11 +705,13 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   test('keeps resume preview when role root is a directory link', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const changeId = 'resume-role-link';
-    const roleRoot = join(artifactWorkspace, '.peaks', changeId, 'rd');
+    const roleRoot = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd');
     const outsideRoot = join(tmpdir(), `peaks-autonomous-role-link-${Date.now()}-${Math.random()}`);
     writeResumeArtifacts(outsideRoot, changeId);
     mkdirSync(dirname(roleRoot), { recursive: true });
-    symlinkSync(join(outsideRoot, '.peaks', changeId, 'rd'), roleRoot, 'junction');
+    // Slice 2026-06-23-audit-5th-p1: symlink target uses the canonical
+    // change-id scope dir (see `getChangeScopeDirAbs`).
+    symlinkSync(join(getChangeScopeDirAbs(outsideRoot, changeId), 'rd'), roleRoot, 'junction');
     writeApprovedTechArtifacts(artifactWorkspace, changeId);
 
     const plan = createAutonomousWorkflowPlan({

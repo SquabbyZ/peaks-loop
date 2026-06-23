@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import type { WorkspaceConfig } from '../../../src/services/config/config-types.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../../src/services/tech/tech-service.js';
 import { getLocalArtifactPath } from '../../../src/services/artifacts/workspace-service.js';
+import { getChangeScopeDirAbs } from '../../../src/services/artifacts/change-scope-service.js';
 
 export function createWorkspace(rootPath = join(tmpdir(), `peaks-autonomous-root-${Date.now()}-${Math.random()}`), artifactWorkspace?: string): WorkspaceConfig {
   return {
@@ -25,7 +26,13 @@ export function createWorkspaceWithArtifactWorkspace(): { workspace: WorkspaceCo
 }
 
 export function writeApprovedTechArtifacts(artifactWorkspace: string, changeId: string): void {
-  const architectureRoot = join(artifactWorkspace, '.peaks', changeId, 'rd', 'architecture');
+  // Slice 2026-06-23-audit-5th-p1: stage under the canonical change-id
+  // scope dir (`.peaks/_runtime/change/<changeId>/rd/architecture/`),
+  // matching where `tech-service.ts`'s `getTechStatus` reads from. The
+  // old top-level `.peaks/<changeId>/` is a SKILL.md 2.8.3 hard-ban
+  // violation — see `change-scope-service.ts` for the canonical
+  // location.
+  const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'architecture');
   mkdirSync(architectureRoot, { recursive: true });
   for (const artifact of TECH_REQUIRED_ARTIFACTS) {
     writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -33,7 +40,9 @@ export function writeApprovedTechArtifacts(artifactWorkspace: string, changeId: 
 }
 
 export function writeResumeArtifacts(artifactWorkspace: string, changeId: string, goal = 'Resume autonomous RD planning from artifacts'): void {
-  const changeRoot = join(artifactWorkspace, '.peaks', changeId);
+  // Slice 2026-06-23-audit-5th-p1: route under
+  // `.peaks/_runtime/change/<changeId>/...` (see `getChangeScopeDirAbs`).
+  const changeRoot = getChangeScopeDirAbs(artifactWorkspace, changeId);
   const artifacts = new Map([
     [join(changeRoot, 'prd', 'autonomous-goal-package.json'), JSON.stringify({ changeId, artifactType: 'goal-package', status: 'ready', goal, doneCondition: 'all acceptance criteria pass', resumeCondition: 'checkpoint verified', acceptanceCriteria: ['validation evidence exists'] })],
     [join(changeRoot, 'rd', 'swarm', 'autonomous-rd-plan.json'), JSON.stringify({ changeId, artifactType: 'rd-plan', status: 'ready', workerQueueStatus: 'ready', taskCount: 3, reducerRequired: true })],

@@ -4,6 +4,7 @@ import { stableRealPath } from '../../shared/path-utils.js';
 import { validateChangeIdOrThrow, buildArtifactRelativePath } from '../../shared/change-id.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
+import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/model-routing.js';
 
@@ -326,7 +327,12 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
     return [];
   }
 
-  const architectureRoot = join(artifactWorkspacePath, '.peaks', request.changeId, 'rd', 'architecture');
+  // Slice 2026-06-23-audit-5th-p1: read under the canonical change-id
+  // scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`. The
+  // previous `.peaks/${changeId}/...` was a SKILL.md 2.8.3 hard-ban
+  // violation (sibling of `.peaks/_runtime/`). `getChangeScopeDirAbs`
+  // is the canonical location authority.
+  const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspacePath, request.changeId), 'rd', 'architecture');
   const candidates = TECH_REQUIRED_ARTIFACTS.flatMap((artifact) => {
     if (artifact === 'tech-approval-record.md') {
       return [];

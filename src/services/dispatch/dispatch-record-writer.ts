@@ -24,10 +24,11 @@
  * `null` / `false` / `'no-execution'` if the file was written by an
  * older peaks build.
  */
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
 import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
+import { withFileLockSync } from '../filesystem/file-lock.js';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {
@@ -113,6 +114,14 @@ export type LifecycleInput = {
   status: DispatchRecordStatus;
   artifactPaths?: readonly string[];
   now?: () => Date;
+  /**
+   * Slice 2026-06-23-audit-4th #A4: trusted project root. Required
+   * so the active-dispatches index can be updated without deriving
+   * the root from the recordPath (the same anti-pattern that
+   * audit-3rd #1 fixed for heartbeat). The CLI / LLM-side runner
+   * passes this from `--project` or `process.cwd()`.
+   */
+  projectRoot?: string;
 };
 
 const MAX_PROMPT_BYTES = 256 * 1024;
@@ -148,7 +157,11 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     requestId,
     sessionId,
     prompt,
-    toolCall,
+    // Slice 2026-06-23-audit-4th #C2: propagate toolCallVersion.
+    // The dispatcher's buildToolCall already stamps it (claude-code 2.0.0
+    // etc.); we re-default to '2.0.0' if absent so the on-disk record
+    // is self-describing without reading the dispatcher source.
+    toolCall: { ...toolCall, toolCallVersion: toolCall.toolCallVersion ?? '2.0.0' },
     batchId,
     heartbeats: [],
     lastBeatAt: null,
@@ -156,7 +169,169 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
   };
 
   writeAtomic(safePath, record);
+  // Slice 2026-06-23-audit-4th #A4: register the path in the
+  // session's active-dispatches index so a future restart can
+  // discover in-flight records without scanning the directory.
+  // The index is best-effort (no lock): the on-disk record is the
+  // source of truth; the index is purely a hint for the LLM-side
+  // runner. A crash between writeAtomic and the index write is
+  // non-fatal — the next restart scans the directory anyway.
+  registerActiveDispatch({
+    projectRoot,
+    sessionId,
+    recordPath: safePath,
+    requestId,
+    role,
+    batchId,
+    now
+  });
   return { path: safePath, record };
+}
+
+/**
+ * Active-dispatches index. Per-session JSON file at
+ * `.peaks/_sub_agents/<sid>/active-dispatches.json`. Map<recordPath,
+ * ActiveDispatchEntry>. Updated on dispatch + completion.
+ */
+export interface ActiveDispatchEntry {
+  readonly recordPath: string;
+  readonly requestId: string;
+  readonly role: string;
+  readonly batchId: string;
+  readonly createdAt: string;
+  readonly status: 'queued' | 'running' | 'finalizing' | 'done' | 'failed' | 'cancelled' | 'stale' | 'no-execution';
+}
+
+function activeDispatchIndexPath(projectRoot: string, sessionId: string): string {
+  return resolve(projectRoot, '.peaks', '_sub_agents', sessionId, 'active-dispatches.json');
+}
+
+function registerActiveDispatch(input: {
+  projectRoot: string;
+  sessionId: string;
+  recordPath: string;
+  requestId: string;
+  role: string;
+  batchId: string;
+  now: () => Date;
+}): void {
+  const indexPath = activeDispatchIndexPath(input.projectRoot, input.sessionId);
+  const dir = dirname(indexPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  let index: Record<string, ActiveDispatchEntry> = {};
+  try {
+    if (existsSync(indexPath)) {
+      const raw = readFileSync(indexPath, 'utf8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      if (typeof parsed === 'object' && parsed !== null) {
+        for (const [k, v] of Object.entries(parsed)) {
+          if (typeof v === 'object' && v !== null && 'recordPath' in v) {
+            index[k] = v as ActiveDispatchEntry;
+          }
+        }
+      }
+    }
+  } catch {
+    // Corrupt index — start fresh. The on-disk record is the source of truth.
+    index = {};
+  }
+  index[input.recordPath] = {
+    recordPath: input.recordPath,
+    requestId: input.requestId,
+    role: input.role,
+    batchId: input.batchId,
+    createdAt: input.now().toISOString(),
+    status: 'queued'
+  };
+  const tmp = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tmp, JSON.stringify(index, null, 2) + '\n', 'utf8');
+  renameSync(tmp, indexPath);
+}
+
+function unregisterActiveDispatch(input: {
+  projectRoot: string;
+  sessionId: string;
+  recordPath: string;
+  status: ActiveDispatchEntry['status'];
+}): void {
+  const indexPath = activeDispatchIndexPath(input.projectRoot, input.sessionId);
+  if (!existsSync(indexPath)) return;
+  let index: Record<string, ActiveDispatchEntry> = {};
+  try {
+    const raw = readFileSync(indexPath, 'utf8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed === 'object' && parsed !== null) {
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'object' && v !== null && 'recordPath' in v) {
+          index[k] = v as ActiveDispatchEntry;
+        }
+      }
+    }
+  } catch {
+    return;
+  }
+  if (input.recordPath in index) {
+    index[input.recordPath] = { ...index[input.recordPath]!, status: input.status };
+    if (input.status === 'done' || input.status === 'failed' || input.status === 'cancelled' || input.status === 'no-execution') {
+      delete index[input.recordPath];
+    }
+    const tmp = `${indexPath}.tmp-${process.pid}-${Date.now()}`;
+    writeFileSync(tmp, JSON.stringify(index, null, 2) + '\n', 'utf8');
+    renameSync(tmp, indexPath);
+  }
+}
+
+/**
+ * Slice 2026-06-23-audit-4th #A4: read the active-dispatches index
+ * for a session. Returns the current map<recordPath, entry>. Used
+ * by the LLM-side runner to discover in-flight records on restart.
+ * Returns an empty map when the index file is missing or corrupt
+ * (the on-disk records directory is the next fallback).
+ */
+export function readActiveDispatchIndex(projectRoot: string, sessionId: string): Record<string, ActiveDispatchEntry> {
+  const indexPath = activeDispatchIndexPath(projectRoot, sessionId);
+  if (!existsSync(indexPath)) return {};
+  try {
+    const raw = readFileSync(indexPath, 'utf8');
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const out: Record<string, ActiveDispatchEntry> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === 'object' && v !== null && 'recordPath' in v && 'role' in v) {
+        out[k] = v as ActiveDispatchEntry;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Slice 2026-06-23-audit-4th #A3: default TTL for dispatch records. */
+export const DISPATCH_RECORD_TTL_DAYS = 30;
+
+/**
+ * Slice 2026-06-23-audit-4th #A3: is this dispatch record an orphan
+ * (older than DISPATCH_RECORD_TTL_DAYS or already GC'd)? Mirrors
+ * `isOrphanChannel` in shared-channel.ts so a future
+ * `peaks sub-agent cleanup` umbrella can run all three sweeps
+ * (shared channel + dispatch record + contract) in one pass.
+ */
+export function isOrphanDispatchRecord(opts: {
+  projectRoot: string;
+  sid: string;
+  rid: string;
+  recordPath: string;
+  now?: Date;
+}): boolean {
+  if (!existsSync(opts.recordPath)) return true;
+  const s = statSync(opts.recordPath);
+  const now = opts.now ?? new Date();
+  const ageMs = now.getTime() - s.mtimeMs;
+  const ttlMs = DISPATCH_RECORD_TTL_DAYS * 24 * 60 * 60 * 1000;
+  return ageMs > ttlMs;
 }
 
 /** Append a heartbeat (G6). Idempotent on (at, status) — append-only. */
@@ -189,8 +364,33 @@ export function appendHeartbeat(input: AppendHeartbeatInput): { record: Dispatch
     lastBeatAt: entry.at,
     status: mapStatusToAggregate(status, existing.status)
   };
-  writeAtomic(recordPath, next);
-  return { record: next, truncated };
+  // Slice 2026-06-23-audit-3rd #3: wrap the read-then-write in a file
+  // lock. Without the lock, a heartbeat arriving 100ms before
+  // markCompleted can be silently discarded — the parent's view of the
+  // sub-agent shows "completed" but the last progress update is lost.
+  return withFileLockSync(recordPath, () => {
+    // Re-read under the lock — the file may have been mutated between
+    // our pre-lock `readRecord` above and lock acquisition (heartbeats
+    // and markCompleted share the same record file).
+    const lockedExisting = readRecord(recordPath);
+    const lockedHeartbeats = applyTruncation([
+      ...lockedExisting.heartbeats,
+      entry
+    ]).heartbeats;
+    const lockedNext: DispatchRecord = {
+      ...lockedExisting,
+      heartbeats: lockedHeartbeats,
+      lastBeatAt: entry.at,
+      status: mapStatusToAggregate(status, lockedExisting.status)
+    };
+    writeAtomic(recordPath, lockedNext);
+    // Recompute truncated flag from the locked-read result so the
+    // caller sees the actual post-lock truncation state.
+    return {
+      record: lockedNext,
+      truncated: lockedHeartbeats.length < lockedExisting.heartbeats.length + 1
+    };
+  });
 }
 
 /** Apply truncation: keep most recent 100, mark truncated flag. */
@@ -212,28 +412,54 @@ function mapStatusToAggregate(latest: HeartbeatStatus, current: DispatchRecordSt
 
 /** Mark a record as completed (success / failed / cancelled / no-execution). */
 export function markCompleted(input: LifecycleInput): { record: DispatchRecord } {
-  const existing = readRecord(input.recordPath);
-  const next: DispatchRecord = {
-    ...existing,
-    completedAt: (input.now ?? (() => new Date()))().toISOString(),
-    outcome: input.outcome,
-    status: input.status,
-    artifactPaths: input.artifactPaths ?? existing.artifactPaths
-  };
-  writeAtomic(input.recordPath, next);
-  return { record: next };
+  // Slice 2026-06-23-audit-3rd #3: lock + re-read so a concurrent
+  // heartbeat arriving just before markCompleted is preserved in the
+  // final record.
+  const result = withFileLockSync(input.recordPath, () => {
+    const existing = readRecord(input.recordPath);
+    const next: DispatchRecord = {
+      ...existing,
+      completedAt: (input.now ?? (() => new Date()))().toISOString(),
+      outcome: input.outcome,
+      status: input.status,
+      artifactPaths: input.artifactPaths ?? existing.artifactPaths
+    };
+    writeAtomic(input.recordPath, next);
+    return { record: next };
+  });
+  // Slice 2026-06-23-audit-4th #A4: update the active-dispatches
+  // index. Best-effort (the on-disk record is the source of truth);
+  // we only attempt the update when the trusted projectRoot is
+  // available so a malicious recordPath cannot redirect the index
+  // write (audit-3rd #1 anti-pattern).
+  if (typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
+    try {
+      unregisterActiveDispatch({
+        projectRoot: input.projectRoot,
+        sessionId: result.record.sessionId,
+        recordPath: input.recordPath,
+        status: input.status
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+  return result;
 }
 
 /** Mark a record as disposed (reducer ran). */
 export function markDisposed(recordPath: string, now: () => Date = () => new Date()): { record: DispatchRecord } {
-  const existing = readRecord(recordPath);
-  const next: DispatchRecord = {
-    ...existing,
-    disposed: true,
-    disposedAt: now().toISOString()
-  };
-  writeAtomic(recordPath, next);
-  return { record: next };
+  // Lock + re-read (see markCompleted).
+  return withFileLockSync(recordPath, () => {
+    const existing = readRecord(recordPath);
+    const next: DispatchRecord = {
+      ...existing,
+      disposed: true,
+      disposedAt: now().toISOString()
+    };
+    writeAtomic(recordPath, next);
+    return { record: next };
+  });
 }
 
 /**
@@ -285,10 +511,18 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
   const requestId = stringField(obj, 'requestId');
   const sessionId = stringField(obj, 'sessionId');
   const prompt = stringField(obj, 'prompt');
-  const toolCall = obj.toolCall as SubAgentToolCall;
-  if (!isObject(toolCall) || typeof toolCall.name !== 'string') {
+  // Slice 2026-06-23-audit-4th #C2: preserve toolCallVersion on read.
+  // Pre-versioning records default to '2.0.0' (the pre-#C2 implicit
+  // shape; matches the version stamped by every current dispatcher).
+  const rawToolCall = obj.toolCall as Record<string, unknown>;
+  if (!isObject(rawToolCall) || typeof rawToolCall.name !== 'string') {
     throw new Error('Dispatch record toolCall must be { name, args }');
   }
+  const toolCall: SubAgentToolCall = {
+    name: rawToolCall.name as string,
+    args: (isObject(rawToolCall.args) ? rawToolCall.args : {}) as Readonly<Record<string, unknown>>,
+    ...(typeof rawToolCall.toolCallVersion === 'string' ? { toolCallVersion: rawToolCall.toolCallVersion } : { toolCallVersion: '2.0.0' })
+  };
   const createdAt = stringField(obj, 'createdAt');
   const heartbeats = Array.isArray(obj.heartbeats)
     ? (obj.heartbeats.filter(isValidHeartbeat) as Heartbeat[])
@@ -374,7 +608,11 @@ export { isDispatchStatus, isOutcome };
 
 function writeAtomic(path: string, record: DispatchRecord): void {
   const dir = dirname(path);
-  mkdirSync(dir, { recursive: true });
+  // Slice 2026-06-23-audit-3rd #11: skip mkdirSync when the dir already
+  // exists (every heartbeat + every dispatch read-modify-write).
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   const safeTmp = resolve(dir, tmp.split(/[\\/]/).pop() as string);
   writeFileSync(safeTmp, JSON.stringify(record, null, 2) + '\n', 'utf8');

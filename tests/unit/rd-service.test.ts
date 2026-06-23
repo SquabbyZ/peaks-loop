@@ -5,6 +5,7 @@ import { describe, expect, test } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createRdSwarmPlan } from '../../src/services/rd/rd-service.js';
+import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 
 function createWorkspaceWithArtifactWorkspace(): { workspace: WorkspaceConfig; artifactWorkspace: string } {
@@ -28,7 +29,7 @@ function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-')
 describe('createRdSwarmPlan', () => {
   test('generates deterministic waves, worker target, and artifact paths', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -44,8 +45,8 @@ describe('createRdSwarmPlan', () => {
     expect(plan.tasks.length).toBeGreaterThanOrEqual(25);
     expect(plan.tasks.length).toBeLessThanOrEqual(40);
     expect(plan.tasks.length).toBeLessThanOrEqual(plan.workerTarget);
-    expect(plan.outputs.taskGraph).toBe('.peaks/checkout-refactor/rd/swarm/task-graph.json');
-    expect(plan.outputs.reducerReport).toBe('.peaks/checkout-refactor/rd/swarm/reducer-report.md');
+    expect(plan.outputs.taskGraph).toBe('.peaks/_runtime/change/checkout-refactor/rd/swarm/task-graph.json');
+    expect(plan.outputs.reducerReport).toBe('.peaks/_runtime/change/checkout-refactor/rd/swarm/reducer-report.md');
 
     const conflictGroupIds = new Set(plan.conflictGroups.map((group) => group.groupId));
     for (const task of plan.tasks) {
@@ -57,7 +58,7 @@ describe('createRdSwarmPlan', () => {
       expect(task.modelRole).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'execution' : 'strongest');
       expect(task.modelId).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'minimax-2.7' : 'claude-opus-4-7');
       expect(task.inputs.length).toBeGreaterThan(0);
-      expect(task.outputs.every((output) => output.startsWith('.peaks/checkout-refactor/rd/swarm/'))).toBe(true);
+      expect(task.outputs.every((output) => output.startsWith('.peaks/_runtime/change/checkout-refactor/rd/swarm/'))).toBe(true);
       expect(task.outputs.every((output) => !output.includes('\\'))).toBe(true);
       expect(conflictGroupIds.has(task.conflictGroup)).toBe(true);
       expect(task.targetArea.length).toBeGreaterThan(0);
@@ -74,7 +75,7 @@ describe('createRdSwarmPlan', () => {
 
   test('blocks RD swarm planning when tech approval is required but not approved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: pending' : 'ready', 'utf8');
@@ -93,7 +94,7 @@ describe('createRdSwarmPlan', () => {
 
   test('uses the workspace default artifact path when no explicit artifact path is provided', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'default-artifact-workspace', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'default-artifact-workspace'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -102,13 +103,13 @@ describe('createRdSwarmPlan', () => {
     const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'default-artifact-workspace', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, workspace });
 
     expect(plan.available).toBe(true);
-    expect(plan.outputs.taskGraph).toBe('.peaks/default-artifact-workspace/rd/swarm/task-graph.json');
+    expect(plan.outputs.taskGraph).toBe('.peaks/_runtime/change/default-artifact-workspace/rd/swarm/task-graph.json');
     expect(plan.blockedReasons).toEqual([]);
   });
 
   test('represents coding and unit-test execution as configured-model swarm workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'configured-execution-workers', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'configured-execution-workers'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -138,7 +139,7 @@ describe('createRdSwarmPlan', () => {
 
   test('derives implementation target areas from approved tech artifacts', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -174,7 +175,7 @@ describe('createRdSwarmPlan', () => {
 
   test('ignores empty implementation target area sections', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -193,7 +194,7 @@ describe('createRdSwarmPlan', () => {
 
   test('ignores artifact target areas when tech artifacts are not approved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'frontend-tech-doc.md'), 'Implementation target areas:\n- `packages/client/src/stores/authStore.ts`', 'utf8');
 
@@ -208,7 +209,7 @@ describe('createRdSwarmPlan', () => {
 
   test('keeps tasks within a wave independent for parallel execution', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -241,7 +242,7 @@ describe('createRdSwarmPlan', () => {
 
   test('does not mark the tech gate skipped when governed work has too few workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -258,7 +259,7 @@ describe('createRdSwarmPlan', () => {
 
   test('supports larger safe swarm plans up to eighty workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -283,7 +284,7 @@ describe('createRdSwarmPlan', () => {
 
   test('returns capped approved swarm plans with next actions', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
