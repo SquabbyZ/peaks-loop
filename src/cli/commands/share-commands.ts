@@ -115,11 +115,26 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'SHARE_ERROR';
       printResult(io, fail('sub-agent.share', code, getErrorMessage(error), { ok: false, batchId: options.batch } as never, [
-        'See error message; check that the path lives under .peaks/_sub_agents/<sid>/shared/.'
+        shareErrorNextActions(code)
       ]), asJson);
       process.exitCode = 1;
     }
   });
+}
+
+/**
+ * Slice 2026-06-23-audit-3rd #9: branch on `error.code` so the LLM-side
+ * runner gets an actionable hint instead of a generic "see error
+ * message" fallback. Each branch names the most likely next step.
+ */
+function shareErrorNextActions(code: string): string {
+  if (code === 'LOCK_TIMEOUT') {
+    return 'A concurrent `peaks sub-agent share` is holding the channel lock for >5s; retry, or check for a crashed holder (the .lock file is reaped after 30s).';
+  }
+  if (code === 'RECORD_NOT_FOUND' || code === 'INVALID_RECORD_PATH') {
+    return 'The dispatch record path is missing or outside .peaks/_sub_agents/. Re-run `peaks sub-agent dispatch <role>` to get a fresh record path, then use that here.';
+  }
+  return 'See error message; check that --batch matches the dispatch envelope and the value is a JSON object ≤ 64KB.';
 }
 
 export function registerSharedReadCommand(parent: Command, io: ProgramIO): void {
@@ -171,11 +186,18 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'SHARED_READ_ERROR';
       printResult(io, fail('sub-agent.shared-read', code, getErrorMessage(error), { ok: false, batchId: options.batch } as never, [
-        'See error message; check that the batchId matches the dispatch envelope.'
+        sharedReadErrorNextActions(code)
       ]), asJson);
       process.exitCode = 1;
     }
   });
+}
+
+function sharedReadErrorNextActions(code: string): string {
+  if (code === 'INVALID_BATCH_ID' || code === 'MISSING_BATCH') {
+    return 'Pass --batch <batchId> exactly as returned by the `peaks sub-agent dispatch` envelope.';
+  }
+  return 'See error message; check that --batch matches the dispatch envelope (typo / wrong batch will return an empty channel, not an error).';
 }
 
 export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
@@ -257,9 +279,19 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'AWAIT_ERROR';
       printResult(io, fail('sub-agent.await', code, getErrorMessage(error), { ok: false } as never, [
-        'See error message; check that --batch matches the dispatch envelope.'
+        awaitErrorNextActions(code)
       ]), asJson);
       process.exitCode = 1;
     }
   });
+}
+
+function awaitErrorNextActions(code: string): string {
+  if (code === 'INVALID_TIMEOUT') {
+    return 'Pass --timeout as a positive integer ms (e.g. --timeout 60000). 0 and non-numeric values are rejected.';
+  }
+  if (code === 'IDE_NOT_SUPPORTED') {
+    return 'Switch to claude-code, or rely on LLM-side await for non-claude-code IDEs in slice 1.3.';
+  }
+  return 'See error message; check that --batch matches the dispatch envelope and --timeout is a positive integer ms.';
 }

@@ -33,7 +33,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'node:fs';
 import type { Command } from 'commander';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import { runBrowserAction } from '../../services/qa/browser-wrapper-service.js';
@@ -265,7 +265,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
 
         // userDataDir default
         const userDataDir = opts.userDataDir
-          ? opts.userDataDir
+          ? resolveUserDataDir(opts.userDataDir, projectRoot)
           : join(projectRoot, '.peaks', '_runtime', 'playwright-userdata', terminalId);
 
         // Spawn the MCP via npx. Detached so it survives our exit.
@@ -445,6 +445,32 @@ export function registerBrowserActionCommand(program: Command): void {
 
 function isSupportedIntent(value: string): value is 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract' {
   return value === 'navigate' || value === 'click' || value === 'fill' || value === 'snapshot' || value === 'extract';
+}
+
+/**
+ * Resolve and validate a caller-supplied `--user-data-dir`. The dir must
+ * live under `projectRoot` so a malicious `--user-data-dir /etc/foo`
+ * cannot coerce the playwright-mcp browser into writing state to an
+ * arbitrary filesystem path (slice 2026-06-23-audit-3rd #5).
+ *
+ * Resolves `..` segments before checking, so a path like
+ * `<projectRoot>/../escape` is correctly normalized and rejected.
+ *
+ * Throws `Error('INVALID_USER_DATA_DIR: ...')` on validation failure;
+ * the action handler catches and emits the JSON envelope.
+ */
+export function resolveUserDataDir(raw: string, projectRoot: string): string {
+  const resolved = resolve(projectRoot, raw);
+  const rootResolved = resolve(projectRoot) + (projectRoot.endsWith('/') || projectRoot.endsWith('\\') ? '' : '/');
+  // Use the projectRoot + sep as the prefix; require either an exact
+  // match or a child path. The `+ '/'` guard prevents sibling-prefix
+  // collisions (e.g. /home/A/proj2 passes the check for /home/A/proj).
+  if (resolved !== resolve(projectRoot) && !resolved.startsWith(rootResolved)) {
+    throw new Error(
+      `INVALID_USER_DATA_DIR: --user-data-dir must resolve to a path under project root ${projectRoot} (got ${resolved})`
+    );
+  }
+  return resolved;
 }
 
 /**

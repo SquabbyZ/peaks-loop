@@ -28,6 +28,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname, resolve } from 'node:path';
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
 import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
+import { withFileLockSync } from '../filesystem/file-lock.js';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {
@@ -189,8 +190,33 @@ export function appendHeartbeat(input: AppendHeartbeatInput): { record: Dispatch
     lastBeatAt: entry.at,
     status: mapStatusToAggregate(status, existing.status)
   };
-  writeAtomic(recordPath, next);
-  return { record: next, truncated };
+  // Slice 2026-06-23-audit-3rd #3: wrap the read-then-write in a file
+  // lock. Without the lock, a heartbeat arriving 100ms before
+  // markCompleted can be silently discarded — the parent's view of the
+  // sub-agent shows "completed" but the last progress update is lost.
+  return withFileLockSync(recordPath, () => {
+    // Re-read under the lock — the file may have been mutated between
+    // our pre-lock `readRecord` above and lock acquisition (heartbeats
+    // and markCompleted share the same record file).
+    const lockedExisting = readRecord(recordPath);
+    const lockedHeartbeats = applyTruncation([
+      ...lockedExisting.heartbeats,
+      entry
+    ]).heartbeats;
+    const lockedNext: DispatchRecord = {
+      ...lockedExisting,
+      heartbeats: lockedHeartbeats,
+      lastBeatAt: entry.at,
+      status: mapStatusToAggregate(status, lockedExisting.status)
+    };
+    writeAtomic(recordPath, lockedNext);
+    // Recompute truncated flag from the locked-read result so the
+    // caller sees the actual post-lock truncation state.
+    return {
+      record: lockedNext,
+      truncated: lockedHeartbeats.length < lockedExisting.heartbeats.length + 1
+    };
+  });
 }
 
 /** Apply truncation: keep most recent 100, mark truncated flag. */
@@ -212,28 +238,36 @@ function mapStatusToAggregate(latest: HeartbeatStatus, current: DispatchRecordSt
 
 /** Mark a record as completed (success / failed / cancelled / no-execution). */
 export function markCompleted(input: LifecycleInput): { record: DispatchRecord } {
-  const existing = readRecord(input.recordPath);
-  const next: DispatchRecord = {
-    ...existing,
-    completedAt: (input.now ?? (() => new Date()))().toISOString(),
-    outcome: input.outcome,
-    status: input.status,
-    artifactPaths: input.artifactPaths ?? existing.artifactPaths
-  };
-  writeAtomic(input.recordPath, next);
-  return { record: next };
+  // Slice 2026-06-23-audit-3rd #3: lock + re-read so a concurrent
+  // heartbeat arriving just before markCompleted is preserved in the
+  // final record.
+  return withFileLockSync(input.recordPath, () => {
+    const existing = readRecord(input.recordPath);
+    const next: DispatchRecord = {
+      ...existing,
+      completedAt: (input.now ?? (() => new Date()))().toISOString(),
+      outcome: input.outcome,
+      status: input.status,
+      artifactPaths: input.artifactPaths ?? existing.artifactPaths
+    };
+    writeAtomic(input.recordPath, next);
+    return { record: next };
+  });
 }
 
 /** Mark a record as disposed (reducer ran). */
 export function markDisposed(recordPath: string, now: () => Date = () => new Date()): { record: DispatchRecord } {
-  const existing = readRecord(recordPath);
-  const next: DispatchRecord = {
-    ...existing,
-    disposed: true,
-    disposedAt: now().toISOString()
-  };
-  writeAtomic(recordPath, next);
-  return { record: next };
+  // Lock + re-read (see markCompleted).
+  return withFileLockSync(recordPath, () => {
+    const existing = readRecord(recordPath);
+    const next: DispatchRecord = {
+      ...existing,
+      disposed: true,
+      disposedAt: now().toISOString()
+    };
+    writeAtomic(recordPath, next);
+    return { record: next };
+  });
 }
 
 /**
@@ -374,7 +408,11 @@ export { isDispatchStatus, isOutcome };
 
 function writeAtomic(path: string, record: DispatchRecord): void {
   const dir = dirname(path);
-  mkdirSync(dir, { recursive: true });
+  // Slice 2026-06-23-audit-3rd #11: skip mkdirSync when the dir already
+  // exists (every heartbeat + every dispatch read-modify-write).
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
   const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
   const safeTmp = resolve(dir, tmp.split(/[\\/]/).pop() as string);
   writeFileSync(safeTmp, JSON.stringify(record, null, 2) + '\n', 'utf8');

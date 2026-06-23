@@ -45,6 +45,7 @@ export type HeartbeatOptions = {
   status?: string;
   progress?: string;
   note?: string;
+  project?: string;
   json?: boolean;
 };
 
@@ -112,20 +113,6 @@ export function validateRole(role: string): string | null {
 }
 
 /**
- * Best-effort project root derivation for the R-2 path guard on
- * `peaks sub-agent heartbeat --record <path>`. Walks the path backward
- * to the `.peaks` segment; falls back to `process.cwd()` when not found.
- */
-export function deriveProjectRoot(recordPath: string): string {
-  const parts = recordPath.split(/[\\/]/);
-  const idx = parts.lastIndexOf('.peaks');
-  if (idx <= 0) {
-    return process.cwd();
-  }
-  return parts.slice(0, idx).join('/') || '/';
-}
-
-/**
  * Roll up a batch result array into the summary the CLI envelope exposes
  * for `peaks sub-agent await`. Counts per status; the orchestrator
  * surface (`SubAgentBatchResult.status`) is a closed set so a single
@@ -159,3 +146,8 @@ export function summarizeBatchResults(results: readonly SubAgentBatchResult[]): 
 //   - `RegisterSubCommand` was never used as a type anywhere; the entry
 //     point (`sub-agent-commands.ts`) calls each register function with
 //     `(program, io)` directly.
+//   - `deriveProjectRoot` (audit-p0-reaudit) was removed in slice
+//     2026-06-23-audit-3rd: it trusted the record path's `.peaks` segment,
+//     letting a caller point `--record` at any project's record tree. The
+//     heartbeat command now trusts `--project` (or `process.cwd()`) and
+//     leaves the relative() backstop to the R-2 guard.

@@ -245,6 +245,16 @@ Layer 3.5 context-governance push for sub-agent dispatch. Main LLM reducer sees 
 
 → see `references/context-governance.md` for the full protocol.
 
+## Sub-agent cross-batch signal — G8.4 share / shared-read / await (slice 2026-06-23-audit-3rd)
+
+Three CLI primitives complement `dispatch` and let sibling sub-agents (within the same batch) coordinate without peer-to-peer messaging (pseudo-swarm property 3). All three are LLM-invoked from peaks-rd / peaks-qa / peaks-ui / peaks-txt skills; the LLM-side runner executes the returned tool calls.
+
+- **`peaks sub-agent share --batch <batchId> --key <role>.<event> --value <jsonObject> [--from <role>]`** — write one entry to the per-batch shared channel (≤ 1KB soft warn, ≥ 64KB hard reject). Dispatcher-mediated; last-write-wins per key.
+- **`peaks sub-agent shared-read --batch <batchId> [--since <iso>] [--key <glob>]`** — read sibling entries (glob `*` supported, e.g. `rd.*`).
+- **`peaks sub-agent await --batch <batchId> [--timeout <ms>]`** — block until the batch finishes (or `--timeout`); claude-code 1.2 MVP only; other IDEs fall back to LLM-side await (1.3).
+
+Batch lifecycle contract: the LLM receives a `batchId` from the `dispatch` envelope. Sub-agents `share` events; the parent LLM `shared-read`s between dispatch levels (slice-dag) or before `await`. The channel file is gitignored under `.peaks/_sub_agents/<sid>/shared/`.
+
 ## References
 
 Index of every `references/` file. Read on demand.

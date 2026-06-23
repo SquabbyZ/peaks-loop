@@ -6,7 +6,8 @@
  * parent `sub-agent` command. The actual implementations live in
  * sibling files (slice 2026-06-23-audit-p0-split refactor):
  *
- *   - `dispatch-commands.ts`  — `dispatch` action + `runDispatchFromDag`
+ *   - `dispatch-commands.ts`  — `dispatch` single-dispatch action
+ *   - `dispatch-from-dag.ts`  — `dispatch --from-dag` codepath (slice 9 perf)
  *   - `heartbeat-commands.ts` — `heartbeat` action (G6)
  *   - `share-commands.ts`     — `share` + `shared-read` + `await` actions (G8.4 / 2.7.0)
  *   - `sub-agent-shared.ts`   — shared types, constants, helpers
