@@ -18,6 +18,7 @@ import {
   writeSharedEntry,
   SHARED_CHANNEL_SOFT_VALUE_WARN
 } from '../../services/context/shared-channel.js';
+import { writeLogEntry } from '../../services/log/logger.js';
 import {
   AwaitOptions,
   ShareOptions,
@@ -102,6 +103,8 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
       }
 
       printResult(io, ok('sub-agent.share', {
+        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+        envelopeVersion: '2.1.0',
         ok: true,
         batchId: options.batch,
         entryKey: options.key,
@@ -112,6 +115,24 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
       }, warnings, [
         'Sub-agents in the same batch can read this entry via `peaks sub-agent shared-read --batch ' + options.batch + '`.'
       ]), asJson);
+      // Slice 2026-06-23-audit-4th #B1: structured log on success.
+      try {
+        writeLogEntry({
+          ts: new Date().toISOString(),
+          level: 'info',
+          command: 'sub-agent.share',
+          msg: 'shared',
+          sessionId: sid,
+          data: {
+            batchId: options.batch,
+            key: options.key,
+            valueSize: result.entry.valueSize,
+            lastWriteWins: result.lastWriteWins
+          }
+        });
+      } catch {
+        /* best-effort */
+      }
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'SHARE_ERROR';
       printResult(io, fail('sub-agent.share', code, getErrorMessage(error), { ok: false, batchId: options.batch } as never, [
@@ -174,6 +195,8 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
         ...(options.key !== undefined ? { keyPattern: options.key } : {})
       });
       printResult(io, ok('sub-agent.shared-read', {
+        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+        envelopeVersion: '2.1.0',
         ok: true,
         batchId: options.batch,
         entries: channel.entries,
@@ -269,6 +292,8 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       const results = await dispatcher.awaitBatch(input);
       const summary = summarizeBatchResults(results);
       printResult(io, ok('sub-agent.await', {
+        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+        envelopeVersion: '2.1.0',
         batchId: options.batch,
         ide: dispatcher.label,
         results,

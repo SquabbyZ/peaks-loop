@@ -233,6 +233,8 @@ export async function runDispatchFromDag(
   }
 
   printResult(io, ok('sub-agent.dispatch', {
+    // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+    envelopeVersion: '2.1.0',
     role,
     ide: dispatcher.label,
     fromDag: options.fromDag,

@@ -23,6 +23,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { withFileLockSync } from '../filesystem/file-lock.js';
 
 export const BATCH_LIMIT = 6;
 export const BATCH_OVER_LIMIT_CODE = 'BATCH_OVER_LIMIT';
@@ -68,31 +69,47 @@ export function noteDispatched(
   now: () => Date = () => new Date()
 ): { count: number; warning: BatchCounterWarning | null } {
   const path = batchCounterPath(projectRoot, sid, batchId);
-  mkdirSync(dirname(path), { recursive: true });
-  const previous = readBatchCount(projectRoot, sid, batchId);
-  const next: BatchCounterRecord = {
-    batchId,
-    sessionId: sid,
-    createdAt: now().toISOString(),
-    count: previous + 1
-  };
-  writeFileSync(path, JSON.stringify(next, null, 2) + '\n', 'utf8');
-  if (next.count > BATCH_LIMIT) {
-    return {
-      count: next.count,
-      warning: {
-        code: BATCH_OVER_LIMIT_CODE,
-        batchId,
-        dispatched: next.count,
-        limit: BATCH_LIMIT,
-        message:
-          `per RL-1, batch size 6 is empirical upper bound; you have ` +
-          `${next.count}. If you need more, split into multiple batches ` +
-          `with an explicit reducer step between them.`
-      }
+  // Slice 2026-06-23-audit-4th #A1: wrap the read-modify-write in a
+  // file lock. Two concurrent `peaks sub-agent dispatch` invocations
+  // for the same (sid, batchId) would otherwise race — both call
+  // readBatchCount first, both see the same N, both write N+1, and
+  // the second write clobbers the first (lost update). The BATCH_OVER_LIMIT
+  // warning fires for the wrong threshold when this happens. The lock
+  // serializes the writes; contention is rare (only when a single
+  // batch is dispatched in parallel from the same LLM) so the spin-wait
+  // cost is bounded by MAX_LOCK_RETRIES * LOCK_RETRY_MAX_MS.
+  return withFileLockSync(path, () => {
+    const previous = readBatchCount(projectRoot, sid, batchId);
+    const next: BatchCounterRecord = {
+      batchId,
+      sessionId: sid,
+      createdAt: now().toISOString(),
+      count: previous + 1
     };
-  }
-  return { count: next.count, warning: null };
+    // mkdirSync is conditional via the lock helper (it ensures the
+    // parent dir exists), but the counter file may live in a session
+    // sub-dir that the lock helper's recursive mkdir handles. Belt +
+    // suspenders: keep the explicit mkdir here so the path resolves
+    // even if withFileLockSync's mkdir is bypassed in the future.
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(next, null, 2) + '\n', 'utf8');
+    if (next.count > BATCH_LIMIT) {
+      return {
+        count: next.count,
+        warning: {
+          code: BATCH_OVER_LIMIT_CODE,
+          batchId,
+          dispatched: next.count,
+          limit: BATCH_LIMIT,
+          message:
+            `per RL-1, batch size 6 is empirical upper bound; you have ` +
+            `${next.count}. If you need more, split into multiple batches ` +
+            `with an explicit reducer step between them.`
+        }
+      };
+    }
+    return { count: next.count, warning: null };
+  });
 }
 
 /** Reset a batch counter (called by the reducer when starting a new batch). */

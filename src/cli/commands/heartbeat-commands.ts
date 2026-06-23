@@ -17,6 +17,7 @@ import { fail, getErrorMessage, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { appendHeartbeat, type HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
+import { writeLogEntry } from '../../services/log/logger.js';
 import {
   HeartbeatOptions,
   HEARTBEAT_STATUSES
@@ -85,12 +86,31 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
         ...(options.note !== undefined ? { note: options.note } : {})
       });
       printResult(io, ok('sub-agent.heartbeat', {
+        // Slice 2026-06-23-audit-4th #E1: envelopeVersion marker
+        envelopeVersion: '2.1.0',
         recordPath: options.record,
         heartbeatCount: result.record.heartbeats.length,
         lastBeatAt: result.record.lastBeatAt,
         status: result.record.status,
         truncated: result.truncated
       }, [], ['Continue business logic; heartbeat is fire-and-forget.']), asJson);
+      // Slice 2026-06-23-audit-4th #B1: structured log on success.
+      try {
+        writeLogEntry({
+          ts: new Date().toISOString(),
+          level: 'info',
+          command: 'sub-agent.heartbeat',
+          msg: 'heartbeat',
+          data: {
+            recordPath: options.record,
+            status: result.record.status,
+            heartbeatCount: result.record.heartbeats.length,
+            truncated: result.truncated
+          }
+        });
+      } catch {
+        /* best-effort */
+      }
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'HEARTBEAT_ERROR';
       printResult(io, fail('sub-agent.heartbeat', code, getErrorMessage(error), { recordPath: options.record ?? null, truncated: false } as never, [

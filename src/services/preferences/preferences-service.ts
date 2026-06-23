@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
   DEFAULT_PREFERENCES,
   FANOUT_MODES,
   isFanoutMode,
   PREFERENCES_SCHEMA_VERSION,
+  type HeadroomPreferences,
   type ProjectPreferences,
 } from './preferences-types.js';
 
@@ -68,9 +69,29 @@ export function savePreferences(
   const filePath = preferencesPath(projectRoot);
   const current = loadPreferences(projectRoot);
   const merged = mergePreferences(current, overrides);
-  mkdirSync(dirname(filePath), { recursive: true });
-  writeFileSync(filePath, JSON.stringify(merged, null, 2) + '\n', 'utf8');
+  // Slice 2026-06-23-audit-4th #A2: use tmp + rename so a crash
+  // mid-write cannot leave a zero-byte or half-written preferences
+  // file. Before the fix, a power-cut or OOM-kill between
+  // writeFileSync's open and the final byte would leave
+  // .peaks/preferences.json unreadable, and the next loadPreferences
+  // would throw PREFERENCES_JSON_INVALID with no recovery path.
+  // The tmp+rename pattern matches dispatch-record-writer.ts:409-420
+  // and shared-channel.ts:336-349.
+  writeAtomic(filePath, merged);
   return merged;
+}
+
+/**
+ * Atomic write helper for preferences.json. Writes to `<path>.tmp-<pid>-<ts>`
+ * and renames over the target. On Windows, `rename` is atomic for files
+ * on the same volume; on POSIX, `rename(2)` is atomic by spec.
+ */
+export function writeAtomic(filePath: string, prefs: ProjectPreferences): void {
+  const dir = dirname(filePath);
+  mkdirSync(dir, { recursive: true });
+  const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  writeFileSync(tmp, JSON.stringify(prefs, null, 2) + '\n', 'utf8');
+  renameSync(tmp, filePath);
 }
 
 function mergePreferences(
@@ -108,4 +129,120 @@ function mergePreferences(
     ...shallow,
     schema_version: PREFERENCES_SCHEMA_VERSION,
   };
+}
+
+/**
+ * Slice 2026-06-23-audit-4th #C1: migrate a legacy preferences.json
+ * (any `schema_version` older than PREFERENCES_SCHEMA_VERSION) to the
+ * current shape. Returns the migrated object + a list of changes
+ * applied (for surfacing in the CLI envelope and the migration log).
+ *
+ * The v1 → v2 mapping fills in the `headroom.perTouchpoint` sub-keys
+ * that v1 didn't track: each touchpoint gets the v1 `headroom.defaultMode`
+ * (or 'balanced' if absent), and `compressMinBytes` is preserved
+ * verbatim. v1's `agentShieldPrompt` and `loopAutonomousEnabled` were
+ * already present, so they carry through unchanged. The `fanout` field
+ * is new in v2 — it defaults to `{ defaultMode: 'fan-out' }` so the
+ * pre-v2 behavior (peak-solo SKILL instructed fan-out when ≥ 2 leaves)
+ * is preserved.
+ */
+export type MigrateResult = {
+  readonly fromVersion: string;
+  readonly toVersion: typeof PREFERENCES_SCHEMA_VERSION;
+  readonly migrated: ProjectPreferences;
+  readonly changes: readonly string[];
+  readonly written: boolean;
+};
+
+export function migratePreferences(
+  projectRoot: string,
+  opts: { write?: boolean; now?: () => Date } = {}
+): MigrateResult | null {
+  const filePath = preferencesPath(projectRoot);
+  if (!existsSync(filePath)) {
+    return null;
+  }
+  let raw: Record<string, unknown>;
+  try {
+    raw = JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+  } catch (err) {
+    throw new Error(
+      `PREFERENCES_JSON_INVALID: failed to parse ${filePath}: ${(err as Error).message}`
+    );
+  }
+  const fromVersion = typeof raw.schema_version === 'string'
+    ? raw.schema_version
+    : 'unknown';
+  if (fromVersion === PREFERENCES_SCHEMA_VERSION) {
+    return {
+      fromVersion,
+      toVersion: PREFERENCES_SCHEMA_VERSION,
+      migrated: mergePreferences(DEFAULT_PREFERENCES, raw as Partial<ProjectPreferences>),
+      changes: [],
+      written: false
+    };
+  }
+
+  const changes: string[] = [];
+  // v1 → v2: headroom.perTouchpoint fill-in (v1 only had defaultMode).
+  const headroomRaw = (raw.headroom ?? {}) as Record<string, unknown>;
+  const defaultMode = isHeadroomModeString(headroomRaw.defaultMode)
+    ? headroomRaw.defaultMode
+    : 'balanced';
+  const perTouchpoint: HeadroomPreferences['perTouchpoint'] = {
+    subAgentDispatch: defaultMode,
+    memorySearch: defaultMode,
+    retrospectiveSearch: defaultMode,
+    doctorScan: defaultMode,
+    doctorRoute: 'conservative'
+  };
+  changes.push(
+    `headroom.perTouchpoint filled in with defaultMode='${defaultMode}' (v1 lacked per-touchpoint overrides)`
+  );
+  if (typeof headroomRaw.compressMinBytes === 'number') {
+    changes.push(`headroom.compressMinBytes preserved at ${headroomRaw.compressMinBytes}`);
+  } else {
+    changes.push(`headroom.compressMinBytes defaulted to 4096`);
+  }
+  // v1 → v2: fanout block was absent; v2 needs it. Default to the
+  // pre-v2 behavior (fan-out when ≥ 2 leaves).
+  if (raw.fanout === undefined) {
+    changes.push(`fanout.defaultMode set to 'fan-out' (matches pre-v2 default behavior)`);
+  } else {
+    changes.push(`fanout block preserved from v1`);
+  }
+
+  // Apply the migration through mergePreferences so the result is a
+  // fully-valid v2 ProjectPreferences.
+  const migrated = mergePreferences(DEFAULT_PREFERENCES, {
+    ...(raw as Partial<ProjectPreferences>),
+    headroom: {
+      enabled: typeof headroomRaw.enabled === 'boolean' ? headroomRaw.enabled : true,
+      defaultMode,
+      perTouchpoint,
+      compressMinBytes: typeof headroomRaw.compressMinBytes === 'number'
+        ? headroomRaw.compressMinBytes
+        : 4096
+    },
+    fanout: typeof raw.fanout === 'object' && raw.fanout !== null && !Array.isArray(raw.fanout)
+      ? (raw.fanout as ProjectPreferences['fanout'])
+      : { defaultMode: 'fan-out' }
+  });
+
+  let written = false;
+  if (opts.write === true) {
+    writeAtomic(filePath, migrated);
+    written = true;
+  }
+  return {
+    fromVersion,
+    toVersion: PREFERENCES_SCHEMA_VERSION,
+    migrated,
+    changes,
+    written
+  };
+}
+
+function isHeadroomModeString(value: unknown): value is 'balanced' | 'aggressive' | 'conservative' {
+  return value === 'balanced' || value === 'aggressive' || value === 'conservative';
 }

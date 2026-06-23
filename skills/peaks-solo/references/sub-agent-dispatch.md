@@ -40,27 +40,50 @@ stays IDE-agnostic.
 peaks sub-agent dispatch <role> --prompt <text> [--request-id <rid>] [--session-id <sid>] [--project <repo>] [--batch-id <uuid>] --json
 ```
 
-**Envelope** (AC-8):
+**Envelope** (AC-8) — **2.1.0** (slice 2026-06-23-audit-4th #E1):
+
+> **Audit-3rd #4 + audit-4th #E1**: the `data.prompt` field was
+> deliberately removed from the CLI envelope. Prompts can carry user
+> content (sometimes test credentials / internal URLs) that has no
+> business landing in shell history, log aggregators, or tmux
+> scrollback. The dispatch record on disk (gitignored under
+> `.peaks/_sub_agents/`) keeps the prompt for the sub-agent to read;
+> CLI stdout stays metadata-only. Surface `originalPromptSize` +
+> `promptSize` so the LLM-side runner can still reason about headroom
+> without seeing the content. The prompt content the LLM should pass
+> through lives in `data.toolCall.args.prompt` (the IDE-arg the
+> consumer passes to the tool), NOT in the outer envelope.
 
 ```json
 {
   "ok": true,
   "command": "sub-agent.dispatch",
   "data": {
+    "envelopeVersion": "2.1.0",
     "role": "rd",
     "ide": "claude-code",
-    "prompt": "<complete prompt the LLM should pass through>",
+    "originalPromptSize": 4321,
+    "promptSize": 4321,
     "toolCall": {
       "name": "Task",
       "args": {
         "subagent_type": "general-purpose",
         "description": "rd for rid=002-2026-06-07-...",
-        "prompt": "..."
+        "prompt": "<complete prompt the LLM should pass through to the tool>"
       }
     },
     "dispatchRecordPath": ".peaks/_sub_agents/2026-06-06-session-5b1095/dispatch-002-2026-06-07-...-...json",
     "batchId": "<uuid>",
-    "dispatchedInBatch": 3
+    "dispatchedInBatch": 3,
+    "headroomCompressed": false,
+    "headroomResult": null,
+    "forcedAt": null,
+    "contextImpact": {
+      "promptBytes": 4321,
+      "artifactBytes": 0,
+      "totalBytes": 4321
+    },
+    "artifactMetas": []
   },
   "warnings": [],
   "nextActions": [
