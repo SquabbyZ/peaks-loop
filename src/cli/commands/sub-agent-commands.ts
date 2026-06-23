@@ -18,7 +18,7 @@
  *   --help text is explicit about this; the dispatch envelope's
  *   `nextActions` reinforces the point.
  */
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { Command } from 'commander';
 import { fail, getErrorMessage, ok } from '../../shared/result.js';
@@ -32,9 +32,6 @@ import {
   type SubAgentAwaitBatchInput
 } from '../../services/dispatch/sub-agent-dispatcher.js';
 import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
-import { validateDag, topologicalLevels, type SliceDag } from '../../services/dispatch/slice-dag.js';
-import { runDag, type DispatchSpec, type PublicSurface, type SliceOutcome } from '../../services/solo/dag-orchestrator.js';
-import { listContracts, hashContract, type SliceContract } from '../../services/dispatch/contract-store.js';
 import {
   appendHeartbeat,
   writeInitialDispatchRecord,
@@ -57,6 +54,17 @@ import {
   writeSharedEntry,
   SHARED_CHANNEL_SOFT_VALUE_WARN
 } from '../../services/context/shared-channel.js';
+
+// Slice 9 (dispatch CLI latency): the `--from-dag` codepath pulls in three
+// heavy modules — slice-dag, dag-orchestrator, contract-store — which
+// transitively load 10+ more services (dispatch-record-writer chain,
+// format-contract-injection, contract-store persistence layer, ...).
+// None of those modules is touched by the warm-path `dispatch <role>
+// --prompt ...` action; lazy-loading them inside `runDispatchFromDag`
+// keeps the warm-path top-level import graph minimal.
+type SliceDagModule = typeof import('../../services/dispatch/slice-dag.js');
+type DagOrchestratorModule = typeof import('../../services/solo/dag-orchestrator.js');
+type ContractStoreModule = typeof import('../../services/dispatch/contract-store.js');
 
 const RECOMMENDED_ROLES = 'rd | qa | ui | txt | qa-business | qa-perf | qa-security | qa-business-<*> | general-purpose';
 
@@ -732,10 +740,27 @@ async function runDispatchFromDag(
   const rid = options.requestId ?? 'unknown-rid';
   const batchId = options.batchId ?? randomUUID();
 
-  let dag: SliceDag;
+  // Slice 9 (dispatch CLI latency): the --from-dag codepath loads three
+  // heavy modules (slice-dag, dag-orchestrator, contract-store) that
+  // transitively import 10+ more services. They are NOT touched by the
+  // warm-path single-dispatch action, so we lazy-load them here only
+  // when --from-dag is actually requested. The dynamic-import promise
+  // resolves on first call, then ESM caches the module for subsequent
+  // calls in the same process.
+  const [{ readFileSync }, sliceDagMod, dagOrchestratorMod, contractStoreMod] = await Promise.all([
+    import('node:fs'),
+    import('../../services/dispatch/slice-dag.js') as Promise<SliceDagModule>,
+    import('../../services/solo/dag-orchestrator.js') as Promise<DagOrchestratorModule>,
+    import('../../services/dispatch/contract-store.js') as Promise<ContractStoreModule>
+  ]);
+  const { validateDag, topologicalLevels } = sliceDagMod;
+  const { runDag } = dagOrchestratorMod;
+  const { listContracts, hashContract } = contractStoreMod;
+
+  let dag: import('../../services/dispatch/slice-dag.js').SliceDag;
   try {
     const raw = readFileSync(options.fromDag, 'utf8');
-    const parsed = JSON.parse(raw) as SliceDag;
+    const parsed = JSON.parse(raw) as import('../../services/dispatch/slice-dag.js').SliceDag;
     validateDag(parsed);
     dag = parsed;
   } catch (err) {
@@ -809,7 +834,7 @@ async function runDispatchFromDag(
   // future caller that wants to use `runDag` end-to-end from the CLI).
   // Returning `done` exercises the full happy path; cancel-on-fail
   // semantics will be covered when 1.3 lands real per-IDE await.
-  const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
+  const cliRunner = async (spec: import('../../services/solo/dag-orchestrator.js').DispatchSpec): Promise<import('../../services/solo/dag-orchestrator.js').SliceOutcome> => {
     const toolCall = dispatcher.buildToolCall({
       role: spec.role,
       prompt: spec.prompt,
@@ -843,7 +868,7 @@ async function runDispatchFromDag(
   // represent the slice's actual public surface. The LLM-side runner's
   // `peaks contract write` call will overwrite this with a content-based
   // hash once the slice finishes.
-  const noopWriter = (sliceId: string, _publicSurface: PublicSurface): SliceContract => {
+  const noopWriter = (sliceId: string, _publicSurface: import('../../services/solo/dag-orchestrator.js').PublicSurface): import('../../services/dispatch/contract-store.js').SliceContract => {
     const partial = {
       sliceId,
       sessionId: sid,
