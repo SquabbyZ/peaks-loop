@@ -44,6 +44,10 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 → see `references/browser-validation-contracts.md` for the full contract + AskUserQuestion options.
 
+## Scope directory (slice 10 — read scopeDir from envelope)
+
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Solo already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.

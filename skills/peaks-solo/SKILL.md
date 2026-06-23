@@ -11,6 +11,10 @@ The `.peaks/` workspace has **two axes**: **change-id** (git-tracked artifacts a
 
 **2.7.1:** `recordBypass` / `isBypassLimitReached` wrote `.peaks/<sid>/...` at root — fixed to `.peaks/_runtime/<sid>/` (`request-commands.ts:410`). `getChangeArtifactRoot` removed. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
 
+## Hard ban (effective 2.8.3 — read every session, no exceptions)
+
+Never create `.peaks/<change-id>/` or `.peaks/<YYYY-MM-DD-*>/` at the top level of `.peaks/`. The 2.8.0+ two-axis convention requires ALL change-id / session-id artifacts to live under `.peaks/_runtime/<sessionId>/<role>/...` (gitignored) — never as siblings of `.peaks/_runtime/`. The `peaks workspace init --change-id <id>` flow writes the **binding** to `.peaks/_runtime/current-change` (a plain text file containing the change-id) and embeds the change-id as a filename slug in the reviewable artifacts under `.peaks/_runtime/<sessionId>/<role>/requests/<rid>-<change-id>.md`. Reviewable artifact files still land under `.peaks/<changeId>/<role>/` (created lazily by the writer), but that dir is git-tracked and lives UNDER `.peaks/_runtime/`, not at top level. If you find yourself about to write a date-prefixed directory directly under `.peaks/`, STOP and reroute under `.peaks/_runtime/<sessionId>/`. The `.gitignore` rule `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` will block the write at commit time; the vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases, including CLI help-text) will fail the suite if a regression sneaks through.
+
 ## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
 
 > **Read once per Solo invocation; the 4 Karpathy guidelines are mandatory context for every sub-agent Solo dispatches.**
@@ -100,7 +104,7 @@ After Step 0 anchored the workspace, run the resume-detection probe (one `find` 
 
 ### Peaks-Cli Step 0.55: 1.x → 2.0 detection (BLOCKING on first invocation per session, when the project is not on a 2.0 layout)
 
-Per the "one-key completion" tenet (2026-06-11), peaks-cli 2.0 should detect a 1.x consumer project and prompt the user to upgrade. After Step 0.7 returns "fresh" (no in-flight slice), run the 1.x detection probe: `peaks upgrade --detect-1x --project <root> --json`. If `isOneX: true`, surface an `AskUserQuestion` with the upgrade prompt. Persist the decision to `.peaks/preferences.json` (key: `autoUpgradePrompt` with values `opt-in` / `skip-this-session` / `skip-forever`) so subsequent runs in the same project don't re-ask.
+Per the "one-key completion" tenet, peaks-cli 2.0 detects 1.x consumers and prompts upgrade. After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> --json`. If `isOneX: true`, surface `AskUserQuestion`. Persist to `.peaks/preferences.json` (`autoUpgradePrompt`: opt-in / skip-this-session / skip-forever).
 
 → see `references/step-0-55-1x-detection.md` for the full detection algorithm + AskUserQuestion options + persistence contract.
 
@@ -130,23 +134,21 @@ Extract a short title from the user's first request (8-20 Chinese chars or 4-10 
 
 ## Sub-agent session sharing (MANDATORY — one conversation = one sid)
 
-When peaks-solo dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt, peaks-sc), the sub-agent prompt MUST include the parent's session id. The sub-agent MUST NOT call `peaks workspace init` — that would orphan the parent's binding.
-
-→ see `references/context-governance.md` for the full G7 / G7.7 / G8 / G9 protocol.
+When peaks-solo dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt, peaks-sc), the prompt MUST include the parent's sid. The sub-agent MUST NOT call `peaks workspace init` (would orphan the parent's binding). See `references/context-governance.md`.
 
 ## Boundaries
 
 Peaks-Cli Solo may: identify scenarios (refactor, bugfix, QA hardening, release validation, incident response); recommend profiles; coordinate role skills through artifacts; coordinate project memory extraction; request user confirmation at risk and commit boundaries.
 
-Peaks-Cli Solo must NOT silently: install hooks, create agents, enable MCP servers, modify Claude settings, create GitHub repos, or bypass role-skill artifacts.
+Peaks-Cli Solo must NOT silently install hooks, create agents, enable MCP servers, modify Claude settings, create GitHub repos, or bypass role-skill artifacts.
 
 → see `references/boundaries.md` for the full do / don't list.
 
 ## Peaks-Cli GStack integration
 
-Map gstack stages to Peaks-Cli role artifacts; preserve Peaks-Cli confirmation gates. Do not delegate orchestration to gstack commands. For frontend workflows, RD and QA use Playwright MCP for real browser E2E.
+Map gstack stages to Peaks-Cli role artifacts; preserve confirmation gates. Do not delegate orchestration to gstack commands. RD and QA use Playwright MCP for browser E2E.
 
-→ see `references/gstack-integration.md` for the full integration contract and `references/browser-workflow.md` for the browser details.
+→ see `references/gstack-integration.md` and `references/browser-workflow.md`.
 
 ## Peaks-Cli Local intermediate artifact workspace (MANDATORY)
 
@@ -180,15 +182,15 @@ Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-ag
 
 ## Peaks-Cli Mandatory RD QA repair loop (AUTO-PROCEED)
 
-After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks-Cli Solo MUST automatically route the result to `peaks-qa` without waiting for user confirmation. Repair cap is 3 cycles; after 3 cycles without a passing QA verdict, emit a blocked TXT handoff.
+After `peaks-rd` finishes implementation, repair, or code-output, Solo MUST auto-route to `peaks-qa` without waiting for confirmation. Cap: 3 cycles; on 3rd failure emit blocked TXT handoff.
 
 → see `references/micro-cycle.md` for the full 5-step procedure (transition, re-launch, fix, re-run, restore presence) + 3-cycle cap.
 
 ## Default runbook
 
-The end-to-end CLI sequence for the `full-auto` profile lives in `references/runbook.md`. `assisted` and `strict` profiles pause at `[CONFIRM]` markers in the runbook; `full-auto` and `swarm` auto-proceed through all gates.
+The end-to-end CLI sequence for `full-auto` lives in `references/runbook.md`. `assisted`/`strict` pause at `[CONFIRM]`; `full-auto`/`swarm` auto-proceed.
 
-Maintenance: when adding new CLI commands to the runbook, mirror them into both `references/runbook.md` and the test in `tests/unit/skill-default-runbook.test.ts` (the test falls back to `references/runbook.md` when the SKILL.md section is a pointer).
+When adding new CLI commands, mirror into `references/runbook.md` and `tests/unit/skill-default-runbook.test.ts` (test falls back to the reference).
 
 Repair loop details: see `## Mandatory RD QA repair loop` above for the full 5-step procedure and the 3-cycle cap.
 
@@ -209,31 +211,29 @@ Gather the project standards preflight status via `peaks standards init --projec
 
 ## Peaks-Cli Refactor mode
 
-Read `references/refactor-mode.md` before handling refactor requests. Default MVP path: `peaks-solo refactor`. Enforces shared refactor red lines (understand before changes, ≥95% UT coverage, split broad refactors, strict verifiable specs, 100% acceptance per slice, traceable sanitized artifacts).
+Read `references/refactor-mode.md` first. Default MVP: `peaks-solo refactor`. Red lines: understand before changes, ≥95% UT coverage, split broad refactors, strict verifiable specs, 100% acceptance per slice, traceable sanitized artifacts.
 
 ## Peaks-Cli Quality-gate commands (CLI cheat sheet)
 
-Five CLI commands harden the workflow against silent skips: `peaks request lint`, `peaks request repair-status`, `peaks scan request-type-sanity`, `peaks scan libraries`, `peaks slice check`. Together with `peaks request transition`, they form the runtime quality net.
-
-→ see `references/quality-gate-cheatsheet.md`.
+Five CLI commands harden the workflow against silent skips: `peaks request lint`, `peaks request repair-status`, `peaks scan request-type-sanity`, `peaks scan libraries`, `peaks slice check` (plus `peaks request transition`). See `references/quality-gate-cheatsheet.md`.
 
 ## Peaks-Cli Completion handoff
 
-After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas, open questions, next action. **Presence management is delegated to the last downstream skill in the workflow** — peaks-solo does not call `peaks skill presence:clear` itself, and does not enforce a "no clear" rule. The downstream skills (peaks-rd, peaks-qa, peaks-txt) each manage their own presence per their respective SKILL.md.
+After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Use Peaks-Cli TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas, open questions, next action. **Presence management is delegated to the last downstream skill** — peaks-solo does not call `peaks skill presence:clear` itself.
 
-→ see `references/completion-handoff.md` for the full handoff + "no auto-exit" rule.
+→ see `references/completion-handoff.md`.
 
 ## Peaks-Cli External references and lifecycle
 
-Inventory of 3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7). Three-stage pattern: capability discovery via `peaks capabilities` → references only → Peaks-Cli CLI for side effects. Peaks-Cli artifacts and acceptance criteria remain authoritative; do not execute upstream installer scripts; MCP servers (Playwright MCP, Chrome DevTools MCP, Figma Context MCP) are not managed by peaks-cli — the LLM checks its own tool list for `mcp__<server>__*` entries; if absent, the user installs via the IDE-native install command (e.g. `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code).
+3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7) follow Discovery → Reference → Side effect through Peaks CLI only. Before naming external skills, run `peaks capabilities` for capability discovery; treat all external skills as reference material only. Peaks-Cli artifacts and ACs remain authoritative; do not execute upstream installers; MCP servers (Playwright / Chrome DevTools / Figma) are user-installed — the LLM checks its own tool list for `mcp__<server>__*` entries.
 
-→ see `references/external-references.md` for the full inventory + lifecycle rules, and `references/external-skill-invocation.md` for the three-stage (Discovery → Reference → Side effect through Peaks CLI only) contract + the do-not-execute / do-not-persist / tool-list self-check rules.
+→ see `references/external-references.md` and `references/external-skill-invocation.md`.
 
 ## Codegraph orchestration context
 
-Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as optional project-analysis enhancement. Output is untrusted supporting evidence — never treat as approval for scope, design, or QA verdict. Solo must not treat codegraph output as approval; never mutate agent settings, Claude settings, or hooks from codegraph; do not commit `.codegraph/` artifacts. Solo coordinates codegraph context across the role handoff between RD (writes `.peaks/<session-id>/rd/codegraph-context.md`) and QA / TXT (consume the same envelope).
+`peaks codegraph affected` is an optional project-analysis enhancement; treat output as untrusted supporting evidence. Solo must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings, Claude settings, or hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/<session-id>/rd/codegraph-context.md`; QA / TXT consume the same envelope in the role handoff.
 
-→ see `references/codegraph-orchestration.md` for the full contract (including the agent-settings / settings-mutation prohibition, the no-`.codegraph/` commit rule, and the role-handoff envelope).
+→ see `references/codegraph-orchestration.md`.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 

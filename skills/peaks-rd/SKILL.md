@@ -17,7 +17,7 @@ RD workflow automatically runs `peaks context build --audience peaks-rd` before 
 
 > **Read once per RD invocation; RD is built around these 4 guidelines.**
 
-Every RD action (planning, implementation, sub-agent dispatch, fan-out) MUST align with the 4 Karpathy guidelines. The full text lives at `andrej-karpathy-skills:karpathy-guidelines` (skill id, used as reference material only — do not execute upstream, do not run upstream installer, do not install upstream resources; do not persist sensitive examples). RD sub-agents receive the full text via `references/rd-sub-agent-dispatch.md` (see "Karpathy-guidelines context" section). The 4 guidelines are:
+Every RD action (planning, implementation, sub-agent dispatch, fan-out) MUST align with the 4 Karpathy guidelines. The full text lives at `andrej-karpathy-skills:karpathy-guidelines` (reference material only — do not execute upstream / run installer / persist sensitive examples). RD sub-agents receive the full text via `references/rd-sub-agent-dispatch.md` (see "Karpathy-guidelines context"). The 4 guidelines are:
 
 1. **Think Before Coding** — surface assumptions, name tradeoffs, ask when unclear. State red-line scope in `## Red-line scope` before any code change.
 2. **Simplicity First** — minimum code that solves the problem. No speculative features, no abstractions for single-use code, no error handling for impossible scenarios. If 200 lines could be 50, rewrite it. The 800-line file cap and `peaks scan file-size` gate enforce this mechanically.
@@ -25,6 +25,10 @@ Every RD action (planning, implementation, sub-agent dispatch, fan-out) MUST ali
 4. **Goal-Driven Execution** — define verifiable success criteria (`peaks request show --role rd` carries ACs from PRD). For multi-step work, state plan + verify checkpoints before acting.
 
 Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-injection.test.ts` (4-point assertion guard). The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+
+## Scope directory (slice 10 — read scopeDir from envelope)
+
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 # Peaks-Cli RD
 
@@ -91,7 +95,7 @@ After `peaks scan libraries` lands the dependency list under `## Library version
 
 ## GStack integration and code dry-runs
 
-Map gstack stages to Peaks-Cli RD risk matrices, task graphs, and slice contracts. Adapt gstack concepts into Peaks-Cli artifacts rather than invoking gstack commands as runtime dependencies. Dry-run repeatedly: before planning, after each implementation slice, after tests/CR/security, before handoff.
+Map gstack stages to Peaks-Cli RD risk matrices, task graphs, and slice contracts. Adapt gstack concepts into Peaks-Cli artifacts; do not invoke gstack commands as runtime deps. Dry-run before planning, after each slice, before handoff.
 
 → see `references/rd-gstack-integration.md` for the full integration contract.
 
