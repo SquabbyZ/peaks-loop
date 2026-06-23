@@ -40,11 +40,15 @@ export function loadPreferences(projectRoot: string): ProjectPreferences {
       `PREFERENCES_SCHEMA_MISMATCH: expected schema_version=${PREFERENCES_SCHEMA_VERSION} in ${filePath}, got ${(raw as Record<string, unknown> | null)?.schema_version}`
     );
   }
-  // Slice 2026-06-23-audit-p0-cleanup: fail fast on a stale fanout mode
-  // value (e.g. hand-edited "parallel") so the consumer never sees a
-  // value outside the documented closed set. Fall back to the default
-  // rather than throwing — callers can opt to honor the saved intent
-  // (default fan-out) without crashing.
+  // Slice 2026-06-24-audit-5th-p2: fail fast on any fanout mode value
+  // outside the closed set `['fan-out']`. The previous 'serial' opt-out
+  // was removed by user direction — a saved `defaultMode = 'serial'`
+  // (or a hand-edited unknown value) now throws at load rather than
+  // being silently coerced, so callers see the break loudly and can
+  // remove the block from preferences.json. Migration of legacy v2
+  // preferences.json files with `fanout = {defaultMode: 'serial'}` is
+  // handled by `migratePreferences` further down — that path rewrites
+  // to `defaultMode: 'fan-out'` before `loadPreferences` re-reads.
   const rawObj = raw as Record<string, unknown>;
   if (
     typeof rawObj.fanout === 'object' &&
@@ -55,7 +59,7 @@ export function loadPreferences(projectRoot: string): ProjectPreferences {
     if ('defaultMode' in fanoutObj && !isFanoutMode(fanoutObj.defaultMode)) {
       const known = FANOUT_MODES.join(' | ');
       throw new Error(
-        `PREFERENCES_FANOUT_INVALID: fanout.defaultMode must be one of ${known} (got ${JSON.stringify(fanoutObj.defaultMode)}) in ${filePath}`
+        `PREFERENCES_FANOUT_INVALID: fanout.defaultMode must be one of ${known} (got ${JSON.stringify(fanoutObj.defaultMode)}) in ${filePath}. The 'serial' opt-out was removed in 2.8.4 — remove the fanout block to use the fan-out default.`
       );
     }
   }
@@ -208,6 +212,19 @@ export function migratePreferences(
   // pre-v2 behavior (fan-out when ≥ 2 leaves).
   if (raw.fanout === undefined) {
     changes.push(`fanout.defaultMode set to 'fan-out' (matches pre-v2 default behavior)`);
+  } else if (
+    typeof raw.fanout === 'object' &&
+    raw.fanout !== null &&
+    !Array.isArray(raw.fanout) &&
+    (raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
+  ) {
+    // Slice 2026-06-24-audit-5th-p2: 2.8.3-era preferences.json files
+    // that opted into serial dispatch must be migrated to fan-out on
+    // load. The user's directive ("禁止单 sub-agent") makes the serial
+    // opt-out a breaking change for any project that used it.
+    changes.push(
+      `fanout.defaultMode rewrote 'serial' → 'fan-out' (the 'serial' opt-out was removed in 2.8.4; single-sub-agent dispatch is no longer permitted when DAG has >= 2 leaves)`
+    );
   } else {
     changes.push(`fanout block preserved from v1`);
   }
@@ -225,7 +242,9 @@ export function migratePreferences(
         : 4096
     },
     fanout: typeof raw.fanout === 'object' && raw.fanout !== null && !Array.isArray(raw.fanout)
-      ? (raw.fanout as ProjectPreferences['fanout'])
+      ? ((raw.fanout as { defaultMode?: unknown }).defaultMode === 'serial'
+          ? { defaultMode: 'fan-out' as const }
+          : (raw.fanout as ProjectPreferences['fanout']))
       : { defaultMode: 'fan-out' }
   });
 

@@ -178,11 +178,13 @@ The full contract for the 6-type classification table, the 11-step workflow orde
 
 Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). No N serial `peaks sub-agent dispatch <role>` calls. Exceptions: `config|docs|chore` → skip Swarm; all attempts in a level fail → degrade per table.
 
-### Fan-out opt-out (slice 2026-06-23-audit-p0)
+### Hard constraint: fan-out is mandatory (slice 2026-06-24-audit-5th-p2)
 
-> Backward-compatible escape hatch via `preferences.fanout.defaultMode = 'serial'` (see `references/fanout-opt-out.md`).
+> **No serial opt-out.** `preferences.fanout.defaultMode = 'serial'`
+> was removed in 2.8.4; legacy values auto-migrate to `fan-out`. See
+> `references/fanout-mandatory.md` for the rationale + migration contract.
 
-→ see `references/swarm-dispatch-contract.md` for the canonical gate logic + degradation tables, `references/sub-agent-dispatch.md` for the dispatch mechanism (NOT `Skill` tool), and `references/fanout-opt-out.md` for the opt-out contract.
+→ see `references/swarm-dispatch-contract.md` for the canonical gate logic + degradation tables, `references/sub-agent-dispatch.md` for the dispatch mechanism (NOT `Skill` tool), and `references/fanout-mandatory.md` for the hard-constraint rationale + migration contract.
 
 ## Peaks-Cli Mandatory RD QA repair loop (AUTO-PROCEED)
 

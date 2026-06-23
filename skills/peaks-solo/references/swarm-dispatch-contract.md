@@ -12,10 +12,10 @@
 > `peaks sub-agent dispatch --from-dag` (NOT one-at-a-time). The
 > gate logic below remains the canonical source for: PRD state,
 > request type, frontend touch, mode-driven shape, and degradation
-> rules. The opt-out for callers that want deterministic per-slice
-> logs is `fanout.defaultMode: 'serial'` in
-> `.peaks/preferences.json` (see `peaks preferences get|set
-> fanout.defaultMode`).
+> rules. As of 2.8.4 the `'serial'` opt-out was removed by user
+> direction — single-sub-agent dispatch is no longer permitted when
+> ≥ 2 leaves exist at one topological level (see
+> `references/fanout-mandatory.md`).
 
 The Swarm phase is the **default** for any DAG with ≥ 2 leaves at
 the same topological level. Solo derives the fan-out set from the

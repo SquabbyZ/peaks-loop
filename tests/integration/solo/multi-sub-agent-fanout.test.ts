@@ -127,7 +127,7 @@ describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
     expect(firstLevelRecorded.length).toBe(3);
 
     // Contract: the recorded slice ids at the fan-out level are exactly the leaf ids.
-    const recordedIds = firstLevelRecorded.map((r) => r.sliceId).sort();
+    const recordedIds = [...firstLevelRecorded.map((r) => r.sliceId)].sort();
     expect(recordedIds).toEqual(['L1', 'L2', 'L3']);
 
     // Contract: every fan-out recorded call hit the qa role (the leaves are qa).
@@ -137,7 +137,7 @@ describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
 
     // Contract: orchestrator reports all 3 leaves completed in one batch —
     // the CLI envelope `dispatchCount` field would therefore be 3, not 1.
-    expect(result.completed.sort()).toEqual(['A', 'L1', 'L2', 'L3']);
+    expect([...result.completed].sort()).toEqual(['A', 'L1', 'L2', 'L3']);
     expect(result.failed).toEqual([]);
     expect(result.cancelled).toEqual([]);
 
@@ -148,11 +148,11 @@ describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
     // check that we did not accidentally serialise them with `await` in
     // a loop (which would still produce 3 recorded calls but violate
     // the "wall-time ≈ max, not sum" promise).
-    const leafTimestamps = firstLevelRecorded
-      .map((r) => r.emittedAt)
+    const leafTimestamps = [...firstLevelRecorded
+      .map((r) => r.emittedAt)]
       .sort((a, b) => a - b);
     const wallTimeSpan =
-      leafTimestamps[leafTimestamps.length - 1] - leafTimestamps[0];
+      (leafTimestamps[leafTimestamps.length - 1] ?? 0) - (leafTimestamps[0] ?? 0);
     expect(wallTimeSpan).toBeLessThan(250);
 
     // Contract: each leaf received its own prompt via buildDispatchSpec,
@@ -211,7 +211,7 @@ describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
 
     const firstLevelRecorded = recorded.filter((r) => fanOutLevelIds.has(r.sliceId));
     expect(firstLevelRecorded.length).toBe(5);
-    expect(result.completed.sort()).toEqual(['A', 'L1', 'L2', 'L3', 'L4', 'L5']);
+    expect([...result.completed].sort()).toEqual(['A', 'L1', 'L2', 'L3', 'L4', 'L5']);
     expect(result.failed).toEqual([]);
   });
 

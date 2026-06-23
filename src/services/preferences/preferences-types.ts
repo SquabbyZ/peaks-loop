@@ -102,38 +102,37 @@ export interface ProjectPreferences {
    */
   readonly agentShieldEnabled: boolean;
   /**
-   * Slice 2026-06-23-audit-p0-no-fanout-opt-out: per-project opt-out for
-   * the default multi-sub-agent fan-out behavior (≥ 2 leaves at the
-   * same topological level → `peaks sub-agent dispatch --from-dag`).
+   * Slice 2026-06-24-audit-5th-p2: fan-out is now a HARD constraint.
+   * The previous opt-out (`defaultMode = 'serial'`) is removed by user
+   * direction. Single-sub-agent dispatch is no longer permitted when
+   * the slice DAG has ≥ 2 leaves at the same topological level; the
+   * LLM-side runner MUST use `peaks sub-agent dispatch --from-dag`
+   * (N parallel `buildToolCall` per dispatch).
    *
-   *   - 'fan-out' (default) — peak-solo SKILL instructs fan-out when ≥ 2 leaves.
-   *   - 'serial'             — peak-solo SKILL instructs serial dispatch even
-   *                            when ≥ 2 leaves (escape hatch for callers that
-   *                            want deterministic per-slice logs).
-   *
-   * Backward compatible: existing preferences.json files load with
-   * `fanout` defaulted to 'fan-out' via `mergePreferences`.
+   * The field is kept on `ProjectPreferences` for backward-compatible
+   * load (legacy preferences.json files still parse) but the runtime
+   * shape is fixed: `defaultMode === 'fan-out'`. Any other value in a
+   * saved file is rejected at load time.
    */
   readonly fanout: FanoutPreference;
 }
 
-export type FanoutMode = 'fan-out' | 'serial';
+export type FanoutMode = 'fan-out';
 
-export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out', 'serial'];
+export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out'];
 
 /**
- * Runtime type guard for `FanoutMode`. Stale preferences.json files
- * (or hand-edited ones) can carry an invalid string like `"parallel"`
- * that passes the schema_version check but would crash at the consumer
- * site. This guard lets the LLM-side runner log a clear error and fall
- * back to the default. Slice 2026-06-23-audit-p0-cleanup.
+ * Runtime type guard for `FanoutMode`. Slice 2026-06-24-audit-5th-p2
+ * narrowed the closed set from `['fan-out','serial']` to `['fan-out']`
+ * — stale preferences.json files with `"serial"` must now fail-fast at
+ * load (see `preferences-service.ts`) instead of being silently coerced.
  */
 export function isFanoutMode(value: unknown): value is FanoutMode {
   return typeof value === 'string' && (FANOUT_MODES as readonly string[]).includes(value);
 }
 
 export interface FanoutPreference {
-  /** Slice default mode. Default: 'fan-out' (matches the pre-slice behavior). */
+  /** Hard-coded mode. Slice 2026-06-24-audit-5th-p2 removed the serial opt-out. */
   readonly defaultMode: FanoutMode;
 }
 
