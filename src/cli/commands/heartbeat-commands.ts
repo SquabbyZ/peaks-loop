@@ -101,6 +101,7 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
           level: 'info',
           command: 'sub-agent.heartbeat',
           msg: 'heartbeat',
+          batchId: result.record.batchId,
           data: {
             recordPath: options.record,
             status: result.record.status,

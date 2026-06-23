@@ -304,6 +304,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
           command: 'sub-agent.dispatch',
           msg: 'dispatched',
           sessionId: sid,
+          batchId,
           data: {
             rid,
             role,

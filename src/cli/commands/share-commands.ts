@@ -123,6 +123,7 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
           command: 'sub-agent.share',
           msg: 'shared',
           sessionId: sid,
+          batchId: options.batch,
           data: {
             batchId: options.batch,
             key: options.key,

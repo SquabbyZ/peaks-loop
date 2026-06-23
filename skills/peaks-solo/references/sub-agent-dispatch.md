@@ -98,6 +98,14 @@ up the tool by `name` in the current environment, and invoke it with
 `args`. The CLI does not spawn anything. The IDE (Claude Code, Trae,
 etc.) is the one that actually runs the sub-agent.
 
+> **Slice 2026-06-23-audit-4th #F2 callout**: the prompt content the
+> LLM should pass through lives in `data.toolCall.args.prompt` (the
+> IDE-arg the consumer passes to the tool), NOT in the outer envelope
+> (`data.prompt` was removed in slice 2026-06-23-audit-3rd #4; see the
+> `envelopeVersion: '2.1.0'` marker and the `envelope-contract.md`
+> reference for the full contract). A reader skimming the example
+> should not conflate the two fields.
+
 **Side effect**: the CLI writes a dispatch record to
 `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json` (R-2 path-guarded).
 The record starts with `heartbeats: []`, `lastBeatAt: null`, `status: 'queued'`

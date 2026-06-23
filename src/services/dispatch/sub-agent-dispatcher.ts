@@ -53,6 +53,17 @@ export type SubAgentRole = string;
 export interface SubAgentToolCall {
  readonly name: string;
  readonly args: Readonly<Record<string, unknown>>;
+ /**
+  * Slice 2026-06-23-audit-4th #C2: toolCall version. The IDE's
+  * arg shape can change between versions (e.g. Claude Code's
+  * `subagent_type: "general-purpose"` may become
+  * `subagent_type: "claude-code-3.5"` in a future release). The
+  * dispatcher stamps this on `buildToolCall`; the dispatch record
+  * propagates it so a future reader can detect "this record is for
+  * v2.0 Task, current IDE is v3.0" without inspecting args.
+  * Pre-versioning records default to '2.0.0' on read.
+  */
+ readonly toolCallVersion?: string;
 }
 
 /**
@@ -156,6 +167,11 @@ export const claudeCodeSubAgentDispatcher: SubAgentDispatcher = {
  description: `${role} for rid=${requestId}`,
  prompt,
  },
+ // Slice 2026-06-23-audit-4th #C2: stamp the IDE-arg shape
+ // version. When Claude Code changes the Task args shape (e.g.
+ // a new subagent_type value), bump this and the dispatch record
+ // propagates it so a future reader can detect a stale record.
+ toolCallVersion: '2.0.0',
  }),
  // 2.7.0 slice-dag-dispatcher MVP: real join barrier for claude-code.
  // The MVP harness uses an in-process promise queue keyed by batchId.
@@ -193,6 +209,7 @@ export const traeSubAgentDispatcher: SubAgentDispatcher = {
  description: `${role} for rid=${requestId}`,
  prompt,
  },
+ toolCallVersion: '2.0.0',
  }),
  // 2.7.0 slice-dag-dispatcher (slice 1.3): real file-polling awaitBatch
  // for Trae. Per-IDE wrapper around `pollDispatchRecords` with the
@@ -253,6 +270,7 @@ export const codexSubAgentDispatcher: SubAgentDispatcher = {
  description: `${role} for rid=${requestId}`,
  prompt,
  },
+ toolCallVersion: '2.0.0',
  }),
  awaitBatch: async (input) =>
  pollDispatchRecords(input, {
@@ -280,6 +298,7 @@ export const cursorSubAgentDispatcher: SubAgentDispatcher = {
  description: `${role} for rid=${requestId}`,
  prompt,
  },
+ toolCallVersion: '2.0.0',
  }),
  awaitBatch: async (input) =>
  pollDispatchRecords(input, {
