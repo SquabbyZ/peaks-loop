@@ -174,7 +174,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .command('init')
       .description('Create the per-request artifact template for a Peaks role (dry-run by default)')
       .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
-      .requiredOption('--id <request-id>', 'request id, e.g. 2026-05-23-add-foo')
+      .requiredOption('--id <request-id>', 'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/<id>/ at top level.')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'override the default date-stamped session id')
       .option('--apply', 'write the artifact file (default: preview only)')
