@@ -34,6 +34,7 @@ import { compressPrompt, type HeadroomResult } from '../../services/context/head
 import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 import { DEFAULT_PREFERENCES } from '../../services/preferences/preferences-types.js';
+import { writeLogEntry } from '../../services/log/logger.js';
 import {
   DispatchOptions,
   HEADROOM_MODES,
@@ -258,6 +259,10 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         nextActions.push('Headroom daemon unavailable; dispatched with G7 metadata-only fallback.');
       }
       printResult(io, ok('sub-agent.dispatch', {
+        // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
+        // an envelopeVersion marker so consumers can detect contract
+        // changes (the previous #4 dropped `data.prompt` silently).
+        envelopeVersion: '2.1.0',
         role,
         ide: adapter.subAgentDispatcher.label,
         // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.
@@ -289,6 +294,29 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         contextImpact,
         artifactMetas: artifactMeta ? [artifactMeta] : []
       }, warnings, nextActions), asJson);
+      // Slice 2026-06-23-audit-4th #B1: structured log on success path.
+      // Best-effort: writeLogEntry swallows its own errors (logger.ts:155-159),
+      // so a full disk or missing ~/.peaks/logs/ dir never blocks the dispatch.
+      try {
+        writeLogEntry({
+          ts: new Date().toISOString(),
+          level: 'info',
+          command: 'sub-agent.dispatch',
+          msg: 'dispatched',
+          sessionId: sid,
+          batchId,
+          data: {
+            rid,
+            role,
+            batchId,
+            dispatchedInBatch: counter.count,
+            headroomCompressed,
+            forcedAt: decision.forcedAt
+          }
+        });
+      } catch {
+        /* best-effort */
+      }
     } catch (error: unknown) {
       printResult(io, fail('sub-agent.dispatch', 'DISPATCH_ERROR', getErrorMessage(error), { role, toolCall: null, dispatchRecordPath: null } as never, [
         'See error message; if you are dispatching from a SKILL.md, the LLM should retry with a smaller prompt or pick a different role.'

@@ -88,9 +88,13 @@ describe('withFileLockSync — concurrent RMW safety', () => {
     for (let i = 0; i < N; i += 1) {
       writers.push(
         new Promise<void>((resolveWriter, rejectWriter) => {
-          // Schedule the lock acquisition across the event loop so all
-          // 50 writers race for the same .lock file in the same tick.
-          setImmediate(() => {
+          // Slice 2026-06-23-audit-4th #D1: queueMicrotask instead of
+          // setImmediate. queueMicrotask runs before any I/O so the
+          // contention is deterministic — on slow CI (cold cache, GC
+          // pauses) setImmediate can starve the spin-wait inside
+          // withFileLockSync. The new batch-counter parallel test
+          // (tests/unit/batch-counter.test.ts) uses the same pattern.
+          queueMicrotask(() => {
             try {
               withFileLockSync(target, () => {
                 const current = JSON.parse(readFileSync(target, 'utf8')) as {

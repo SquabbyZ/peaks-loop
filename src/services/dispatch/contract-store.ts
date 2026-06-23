@@ -17,7 +17,7 @@
  * Node `path.join`) to keep Windows / macOS / Linux interop.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Public surface of a finished slice. */
@@ -48,6 +48,31 @@ export class ContractStoreError extends Error {
     super(message);
     this.name = 'ContractStoreError';
   }
+}
+
+/** Slice 2026-06-23-audit-4th #A3: default TTL for slice contracts. */
+export const CONTRACT_TTL_DAYS = 30;
+
+/**
+ * Slice 2026-06-23-audit-4th #A3: is this contract an orphan
+ * (older than CONTRACT_TTL_DAYS or already GC'd)? Mirrors
+ * `isOrphanChannel` and `isOrphanDispatchRecord` so a future
+ * `peaks sub-agent cleanup` umbrella can run all three sweeps
+ * (shared channel + dispatch record + contract) in one pass.
+ */
+export function isOrphanContract(opts: {
+  projectRoot: string;
+  sessionId: string;
+  sliceId: string;
+  now?: Date;
+}): boolean {
+  const path = contractPath(opts.projectRoot, opts.sessionId, opts.sliceId);
+  if (!existsSync(path)) return true;
+  const s = statSync(path);
+  const now = opts.now ?? new Date();
+  const ageMs = now.getTime() - s.mtimeMs;
+  const ttlMs = CONTRACT_TTL_DAYS * 24 * 60 * 60 * 1000;
+  return ageMs > ttlMs;
 }
 
 /** Resolve the contracts directory for a session. */

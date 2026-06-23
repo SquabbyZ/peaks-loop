@@ -22,6 +22,11 @@ import { assertSafeSharedChannelPath, sharedChannelPath } from './dispatch-conte
 import { withFileLockSync } from '../filesystem/file-lock.js';
 
 export interface SharedChannelEntry {
+  // Slice 2026-06-23-audit-4th #E2: shape version marker so future
+  // field additions/removals can run a documented deprecation cycle
+  // (1 version behind is still readable; 2 versions behind is dropped).
+  // Default-on-read via isValidEntry() handles pre-versioning records.
+  readonly version: 1;
   readonly at: string;                                         // ISO8601
   readonly from: string;                                       // sub-agent role string
   readonly key: string;                                        // '<role>.<event>' convention
@@ -121,6 +126,7 @@ export function writeSharedEntry(opts: {
     // LRU eviction: if writing would push the file over the 1MB cap,
     // evict oldest entries until the new write fits.
     const entry: SharedChannelEntry = {
+      version: 1,
       at: new Date().toISOString(),
       from: opts.from,
       key: opts.key,
@@ -320,13 +326,22 @@ function readChannelOrEmpty(channelFile: string, batchId: string): SharedChannel
 
 function isValidEntry(v: unknown): v is SharedChannelEntry {
   if (!isObject(v)) return false;
-  return (
-    typeof v.at === 'string' &&
-    typeof v.from === 'string' &&
-    typeof v.key === 'string' &&
-    isObject(v.value) &&
-    typeof v.valueSize === 'number'
-  );
+  // Slice 2026-06-23-audit-4th #E2: pre-versioning records (no
+  // `version` field) are still accepted on read for backward compat.
+  // The writer stamps `version: 1` going forward; readers default
+  // missing/legacy entries to version 1 in memory.
+  if (!('version' in v) || v.version === 1) {
+    return (
+      typeof v.at === 'string' &&
+      typeof v.from === 'string' &&
+      typeof v.key === 'string' &&
+      isObject(v.value) &&
+      typeof v.valueSize === 'number'
+    );
+  }
+  // Future versions: read-side handler can branch on `v.version` once
+  // v2 lands. For now, anything other than 1 is rejected.
+  return false;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {

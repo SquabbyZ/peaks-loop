@@ -36,6 +36,12 @@ export type LogEntry = {
   msg: string;
   sessionId?: string;
   version?: string;
+  // Slice 2026-06-23-audit-4th #B2: batchId is a cross-run
+  // correlation key. Sub-agents dispatching under the same batchId
+  // write log lines with this field; `peaks log tail --batch <id>`
+  // filters by it. Without this, a user post-hoc cannot group the
+  // log lines for one batch (they interleave in the JSONL file).
+  batchId?: string;
   // Catch-all for command-specific structured metadata.
   // The logger redacts any field whose key matches a secret pattern.
   data?: Record<string, unknown>;
@@ -166,6 +172,7 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
     msg: redactLine(entry.msg),
     ...(entry.sessionId !== undefined ? { sessionId: entry.sessionId } : {}),
     ...(entry.version !== undefined ? { version: entry.version } : {}),
+    ...(entry.batchId !== undefined ? { batchId: entry.batchId } : {}),
     ...(entry.data !== undefined ? { data: redactPayload(entry.data) as Record<string, unknown> } : {})
   };
 

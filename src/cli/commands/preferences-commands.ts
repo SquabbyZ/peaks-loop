@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Command } from 'commander';
 import {
   loadPreferences,
+  migratePreferences,
   preferencesPath,
   savePreferences,
 } from '../../services/preferences/preferences-service.js';
@@ -36,6 +37,12 @@ interface SetOptions {
 interface ResetOptions {
   key: string;
   project: string;
+  json?: boolean;
+}
+
+interface MigrateOptions {
+  project: string;
+  apply?: boolean;
   json?: boolean;
 }
 
@@ -157,14 +164,64 @@ export function registerPreferencesCommands(program: Command): void {
         const hadKey = Object.prototype.hasOwnProperty.call(raw, opts.key);
         if (hadKey) {
           delete raw[opts.key];
+          // Slice 2026-06-23-audit-4th #A2: write atomically (tmp+rename)
+          // so a crash mid-write cannot leave a half-written file. Same
+          // pattern as preferences-service.savePreferences (post-fix) and
+          // dispatch-record-writer.writeAtomic. renameSync is imported
+          // statically at the top of this file (see node:fs import).
           mkdirSync(dirname(filePath), { recursive: true });
-          writeFileSync(filePath, JSON.stringify(raw, null, 2) + '\n', 'utf8');
+          const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+          writeFileSync(tmp, JSON.stringify(raw, null, 2) + '\n', 'utf8');
+          renameSync(tmp, filePath);
         }
         const envelope = {
           ok: true,
           data: { key: opts.key, removed: hadKey },
         };
         process.stdout.write(JSON.stringify(envelope) + '\n');
+      } catch (err) {
+        process.stderr.write((err as Error).message + '\n');
+        process.exit(1);
+      }
+    });
+
+  // Slice 2026-06-23-audit-4th #C1: peaks preferences migrate — apply
+  // the v1 → v2 (and future) schema migration. Default is dry-run
+  // (preview the change list + migrated JSON without writing); pass
+  // --apply to write. Without this CLI, an old preferences.json
+  // makes loadPreferences throw PREFERENCES_SCHEMA_MISMATCH and the
+  // LLM is stuck with no recovery path.
+  prefs
+    .command('migrate')
+    .description('Migrate a legacy preferences.json to the current schema_version (v1 → v2; dry-run by default)')
+    .option('--project <path>', 'project root', process.cwd())
+    .option('--apply', 'write the migrated JSON to .peaks/preferences.json (default: dry-run preview)')
+    .option('--json', 'JSON envelope output')
+    .action((opts: MigrateOptions) => {
+      try {
+        const result = migratePreferences(opts.project, { write: opts.apply === true });
+        if (result === null) {
+          const envelope = {
+            ok: true,
+            data: { migrated: false, reason: 'no-preferences-file' }
+          };
+          process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
+          return;
+        }
+        const envelope = {
+          ok: true,
+          data: {
+            fromVersion: result.fromVersion,
+            toVersion: result.toVersion,
+            changes: result.changes,
+            written: result.written,
+            migrated: result.migrated
+          },
+          warnings: result.written ? [] : [
+            'Dry-run only — re-run with --apply to write the migrated file.'
+          ]
+        };
+        process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
       } catch (err) {
         process.stderr.write((err as Error).message + '\n');
         process.exit(1);

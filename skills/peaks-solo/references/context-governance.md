@@ -121,12 +121,21 @@ PROTOCOL (mandatory):
 
 ### Threshold table (256K default context capacity)
 
+> **Slice 2026-06-23-audit-4th #F4:** the canonical source is
+> `src/services/context/threshold.ts` (4 tiers: `ok` / `soft-warn` /
+> `near-limit` / `hard-reject` / `emergency`). When editing this
+> table, ALSO edit the constants in `threshold.ts` — drift between
+> the two is a contract bug. Pre-#F4 the doc listed
+> `+ contextWarning: 'high'` for 90%, which did NOT match the
+> in-code `code: "PROMPT_EMERGENCY"`. The row below is the
+> post-#F4 fix.
+
 | Threshold | Prompt size | Behavior |
 |---|---|---|
 | 50% (early warn) | ≥ 128KB | Soft warning, suggest `--use-headroom` |
 | **75% (user red line)** | ≥ 192KB | Soft warn + mandatory suggest `--use-headroom`; `warnings: ["CONTEXT_NEAR_LIMIT"]` |
 | **80% (hard reject)** | ≥ 204KB | Hard reject `code: "PROMPT_TOO_LARGE"`; `--force` allowed at CLI |
-| 90% (emergency) | ≥ 230KB | Hard reject + `contextWarning: 'high'` |
+| **90% (emergency)** | ≥ 230KB | Hard reject `code: "PROMPT_EMERGENCY"`; `--force` STILL rejects at 90% (no override) |
 
 ### Two-layer enforcement (G9.2)
 

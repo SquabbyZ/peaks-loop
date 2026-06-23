@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 export type ResultEnvelope<T> = {
   ok: boolean;
   command: string;
@@ -6,6 +8,15 @@ export type ResultEnvelope<T> = {
   nextActions: string[];
   code?: string;
   message?: string;
+  /**
+   * Slice 2026-06-23-audit-4th #B3: opaque per-failure correlation
+   * id. Always present on `fail()` envelopes. Lets a user say
+   * "my last failure was errorId=X; show me the JSONL log lines
+   * tagged with X" without grepping on a code/message that may be
+   * repeated. Also written to the next writeLogEntry call (best-effort)
+   * by the caller so the log entry can be cross-referenced.
+   */
+  errorId?: string;
 };
 
 export function ok<T>(command: string, data: T, warnings: string[] = [], nextActions: string[] = []): ResultEnvelope<T> {
@@ -13,7 +24,20 @@ export function ok<T>(command: string, data: T, warnings: string[] = [], nextAct
 }
 
 export function fail<T>(command: string, code: string, message: string, data: T, nextActions: string[] = []): ResultEnvelope<T> {
-  return { ok: false, command, code, message, data, warnings: [], nextActions };
+  // Slice 2026-06-23-audit-4th #B3: mint a fresh errorId per failure.
+  // The id is opaque (uuid v4) and never reused; downstream log
+  // entries from the same code path can carry the same id for
+  // post-hoc correlation.
+  return {
+    ok: false,
+    command,
+    code,
+    message: redactSensitiveErrorMessage(message),
+    data,
+    warnings: [],
+    nextActions,
+    errorId: randomUUID()
+  };
 }
 
 const SENSITIVE_ERROR_PATTERNS = [
