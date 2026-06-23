@@ -119,6 +119,19 @@ export interface ProjectPreferences {
 
 export type FanoutMode = 'fan-out' | 'serial';
 
+export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out', 'serial'];
+
+/**
+ * Runtime type guard for `FanoutMode`. Stale preferences.json files
+ * (or hand-edited ones) can carry an invalid string like `"parallel"`
+ * that passes the schema_version check but would crash at the consumer
+ * site. This guard lets the LLM-side runner log a clear error and fall
+ * back to the default. Slice 2026-06-23-audit-p0-cleanup.
+ */
+export function isFanoutMode(value: unknown): value is FanoutMode {
+  return typeof value === 'string' && (FANOUT_MODES as readonly string[]).includes(value);
+}
+
 export interface FanoutPreference {
   /** Slice default mode. Default: 'fan-out' (matches the pre-slice behavior). */
   readonly defaultMode: FanoutMode;

@@ -11,8 +11,6 @@
  *
  * Everything else is internal to the `peaks sub-agent` group.
  */
-import type { Command } from 'commander';
-import type { ProgramIO } from '../cli-helpers.js';
 import type { SubAgentBatchResult } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { HeadroomMode } from '../../services/context/headroom-client.js';
 import type { HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
@@ -153,19 +151,11 @@ export function summarizeBatchResults(results: readonly SubAgentBatchResult[]): 
   return { total: results.length, done, failed, cancelled, timeout };
 }
 
-/**
- * Type-narrowing helper for the `--headroom-mode <mode>` option. Keeps
- * the call sites readable without sprinkling `as HeadroomMode` casts.
- */
-export function isHeadroomMode(value: string | undefined): value is HeadroomMode {
-  if (typeof value !== 'string') return false;
-  return (HEADROOM_MODES as readonly string[]).includes(value);
-}
-
-/**
- * Shape contract for each `registerXxxCommand` helper. The thin
- * `sub-agent-commands.ts` entry calls them in order to attach the
- * `dispatch | heartbeat | share | shared-read | await` sub-commands
- * to the parent `sub-agent` command.
- */
-export type RegisterSubCommand = (parent: Command, io: ProgramIO) => void;
+// Note: `isHeadroomMode` and `RegisterSubCommand` used to live here as
+// duplicate exports. Removed in slice 2026-06-23-audit-p0-cleanup:
+//   - `isHeadroomMode` is exported by `src/services/context/headroom-prefs.ts`
+//     and that is the canonical source — dispatch consumer imports from
+//     there directly.
+//   - `RegisterSubCommand` was never used as a type anywhere; the entry
+//     point (`sub-agent-commands.ts`) calls each register function with
+//     `(program, io)` directly.

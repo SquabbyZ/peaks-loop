@@ -13,8 +13,6 @@
 import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { detectInstalledIde } from '../../services/ide/ide-detector.js';
-import { getAdapter } from '../../services/ide/ide-registry.js';
 import {
   readSharedChannel,
   writeSharedEntry,
@@ -217,6 +215,12 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
     }
     const projectRoot = options.project ?? process.cwd();
     const sid = options.sessionId ?? 'unknown-sid';
+    // Lazy-import IDE modules so `peaks sub-agent share` and
+    // `peaks sub-agent shared-read` (the high-frequency G8.4 path) do not
+    // pay for adapter resolution at module-load time. Slice
+    // 2026-06-23-audit-p0-cleanup.
+    const { detectInstalledIde } = await import('../../services/ide/ide-detector.js');
+    const { getAdapter } = await import('../../services/ide/ide-registry.js');
     const ide = detectInstalledIde(projectRoot) ?? 'claude-code';
     const adapter = getAdapter(ide);
     const dispatcher = adapter.subAgentDispatcher;

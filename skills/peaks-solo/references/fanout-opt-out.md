@@ -8,8 +8,10 @@
 ## When to opt out
 
 The default rule ("≥ 2 leaves at the same topological level → fan-out")
-is the right call for most workflows, but a small set of callers benefit
-from forcing serial dispatch:
+is defined canonically in `references/swarm-dispatch-contract.md` §1–2
+— see that file for the trigger logic, degradation table, and Swarm
+gate. This reference is the **escape hatch** for that default: a small
+set of callers benefit from forcing serial dispatch:
 
 - **Deterministic per-slice logs** — every slice prints to stdout in
   sequence, no interleaving with concurrent sub-agents.
@@ -42,11 +44,15 @@ the `fanout` block.
 
 ## What changes when `defaultMode = 'serial'`
 
-- The LLM-side runner (peak-solo SKILL) MUST dispatch each slice
+- The LLM-side runner (peaks-solo SKILL) MUST dispatch each slice
   individually via `peaks sub-agent dispatch <role> --prompt ...`
-  even if the DAG has ≥ 2 leaves at one topological level.
+  even if the DAG has ≥ 2 leaves at one topological level. The trigger
+  logic itself is unchanged (see `swarm-dispatch-contract.md` §1) —
+  only the LLM's decision flips from "use --from-dag" to "use N serial
+  dispatches".
 - The CLI surface (`peaks sub-agent dispatch --from-dag`) is unchanged —
-  only the LLM-side decision flips.
+  callers that invoke it directly still get fan-out; this opt-out only
+  governs the LLM-side runner.
 - `references/swarm-dispatch-contract.md` assumes `defaultMode = 'fan-out'`;
   the `serial` path bypasses the DAG codepath entirely.
 - Wall-time is `sum` of per-slice dispatch latencies (not `max`).

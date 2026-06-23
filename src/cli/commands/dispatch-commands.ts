@@ -33,6 +33,13 @@ import { compressPrompt, type HeadroomResult } from '../../services/context/head
 import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 import { DEFAULT_PREFERENCES } from '../../services/preferences/preferences-types.js';
+import type { SliceDag } from '../../services/dispatch/slice-dag.js';
+import type { SliceContract } from '../../services/dispatch/contract-store.js';
+import type {
+  DispatchSpec,
+  PublicSurface,
+  SliceOutcome
+} from '../../services/solo/dag-orchestrator.js';
 import {
   DispatchOptions,
   HEADROOM_MODES,
@@ -338,10 +345,10 @@ async function runDispatchFromDag(
   const { runDag } = dagOrchestratorMod;
   const { listContracts, hashContract } = contractStoreMod;
 
-  let dag: import('../../services/dispatch/slice-dag.js').SliceDag;
+  let dag: SliceDag;
   try {
     const raw = readFileSync(options.fromDag, 'utf8');
-    const parsed = JSON.parse(raw) as import('../../services/dispatch/slice-dag.js').SliceDag;
+    const parsed = JSON.parse(raw) as SliceDag;
     validateDag(parsed);
     dag = parsed;
   } catch (err) {
@@ -415,7 +422,7 @@ async function runDispatchFromDag(
   // future caller that wants to use `runDag` end-to-end from the CLI).
   // Returning `done` exercises the full happy path; cancel-on-fail
   // semantics will be covered when 1.3 lands real per-IDE await.
-  const cliRunner = async (spec: import('../../services/solo/dag-orchestrator.js').DispatchSpec): Promise<import('../../services/solo/dag-orchestrator.js').SliceOutcome> => {
+  const cliRunner = async (spec: DispatchSpec): Promise<SliceOutcome> => {
     const toolCall = dispatcher.buildToolCall({
       role: spec.role,
       prompt: spec.prompt,
@@ -449,7 +456,7 @@ async function runDispatchFromDag(
   // represent the slice's actual public surface. The LLM-side runner's
   // `peaks contract write` call will overwrite this with a content-based
   // hash once the slice finishes.
-  const noopWriter = (sliceId: string, _publicSurface: import('../../services/solo/dag-orchestrator.js').PublicSurface): import('../../services/dispatch/contract-store.js').SliceContract => {
+  const noopWriter = (sliceId: string, _publicSurface: PublicSurface): SliceContract => {
     const partial = {
       sliceId,
       sessionId: sid,
