@@ -19,8 +19,7 @@ import { appendHeartbeat, type HeartbeatStatus } from '../../services/dispatch/d
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
 import {
   HeartbeatOptions,
-  HEARTBEAT_STATUSES,
-  deriveProjectRoot
+  HEARTBEAT_STATUSES
 } from './sub-agent-shared.js';
 
 export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
@@ -37,6 +36,7 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
       .requiredOption('--status <state>', 'queued | running | finalizing | done | failed | stale')
       .requiredOption('--progress <pct>', 'integer 0-100')
       .option('--note <text>', 'free-form progress note (≤ 200 chars)')
+      .option('--project <path>', 'trusted project root (defaults to cwd); used for the R-2 path guard so a malicious --record cannot point at another project\'s dispatch record')
   ).action((options: HeartbeatOptions) => {
     const asJson = options.json === true;
     if (!options.record || !existsSync(options.record)) {
@@ -70,8 +70,14 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
     }
 
     try {
-      // R-2 guard: ensure the path lives under `.peaks/_sub_agents/`.
-      assertSafeDispatchRecordPath(options.record, deriveProjectRoot(options.record));
+      // R-2 guard (slice 2026-06-23-audit-3rd): trust --project or process.cwd(),
+      // NOT the --record path. deriveProjectRoot(recordPath) walked the path
+      // itself, which let an attacker point --record at any other project's
+      // .peaks/_sub_agents/ tree and slip past the guard. The relative()
+      // backstop still applies — the record must live under the trusted
+      // root's .peaks/_sub_agents/ subdir.
+      const trustedRoot = options.project ?? process.cwd();
+      assertSafeDispatchRecordPath(options.record, trustedRoot);
       const result = appendHeartbeat({
         recordPath: options.record as string,
         status: options.status as HeartbeatStatus,
@@ -88,9 +94,30 @@ export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
     } catch (error: unknown) {
       const code = (error as { code?: string }).code ?? 'HEARTBEAT_ERROR';
       printResult(io, fail('sub-agent.heartbeat', code, getErrorMessage(error), { recordPath: options.record ?? null, truncated: false } as never, [
-        'See error message; if the record file is missing or corrupted, the parent Dispatcher will mark the sub-agent as stale after 5 minutes.'
+        heartbeatErrorNextActions(code)
       ]), asJson);
       process.exitCode = 1;
     }
   });
+}
+
+/**
+ * Slice 2026-06-23-audit-3rd #9: branch nextActions on `error.code` so
+ * the LLM-side runner gets a specific hint instead of the generic
+ * "see error message" fallback.
+ */
+function heartbeatErrorNextActions(code: string): string {
+  if (code === 'LOCK_TIMEOUT') {
+    return 'A concurrent writer (markCompleted or another heartbeat) holds the record lock for >5s; retry, or check for a crashed holder (the .lock file is reaped after 30s).';
+  }
+  if (code === 'RECORD_NOT_FOUND') {
+    return 'The dispatch record does not exist on disk. Re-run `peaks sub-agent dispatch <role>` to materialize a fresh record path; the previous batch may have been garbage-collected.';
+  }
+  if (code === 'INVALID_RECORD_JSON') {
+    return 'The record file is corrupted (truncated mid-write or hand-edited). Delete it and re-run `peaks sub-agent dispatch`; the parent Dispatcher will treat this as a fresh dispatch.';
+  }
+  if (code === 'INVALID_PROGRESS' || code === 'NOTE_TOO_LONG') {
+    return 'Pass --progress as integer 0..100 and --note as ≤ 200 chars. Both are validated by the CLI before reaching the writer.';
+  }
+  return 'See error message; if the record file is missing or corrupted, the parent Dispatcher will mark the sub-agent as stale after 5 minutes.';
 }
