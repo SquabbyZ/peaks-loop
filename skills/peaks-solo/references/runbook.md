@@ -53,14 +53,21 @@ peaks request lint <rid> --role prd --project <repo> --json
 peaks request transition <rid> --role prd --state confirmed-by-user --project <repo> --json
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
-# 3. Peaks-Cli Swarm parallel — sub-agent fan-out (peaks sub-agent dispatch, NOT Skill tool)
+# 3. Peaks-Cli Default sub-agent fan-out (slice 5 contract)
 #    Solo computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
-#    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then launches one
-#    `peaks sub-agent dispatch <role>` call per sub-agent in the same message.
-#    See "Peaks-Cli Swarm parallel phase" above for the full decision table and the
-#    prompt template; the role's required artefact paths are listed there.
+#    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then writes the slice
+#    DAG to .peaks/_runtime/<sid>/sc/slice-dag.json and launches ONE
+#    `peaks sub-agent dispatch --from-dag <dag-file>` call. The CLI's
+#    envelope.dispatchCount is N (not 1) when the DAG has >= 2 leaves at the
+#    same topological level — that is the canonical "fan-out" signal. The
+#    orchestrator emits N parallel `buildToolCall` descriptors in ONE response;
+#    the LLM-side runner executes them concurrently.
+#    See "Peaks-Cli Default sub-agent fan-out" above for the default rule and
+#    exceptions; the gate logic is single-sourced in references/swarm-dispatch-contract.md.
 #    Hard rule: do NOT call Skill(skill="peaks-rd" | "peaks-qa" | "peaks-ui") from
-#    the Swarm phase — that's the v1.x anti-pattern.
+#    the Swarm phase — that's the v1.x anti-pattern. And do NOT issue N sequential
+#    `peaks sub-agent dispatch <role>` calls in N separate messages when a fan-out
+#    shape exists — `--from-dag` is the only path that exercises the orchestrator.
 #
 # 3a. Pre-fan-out: Solo initialises every role's request artefact slot in the main
 #     loop so sub-agents find a stable rid <-> artefact binding. Each role's
@@ -75,9 +82,16 @@ peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-
 # e.g. if plan = [ui, rd, qa]: run init for ui, rd, qa.
 # If plan = [rd, qa]: run for rd, qa only.
 # If plan = [] (config|docs|chore skip): no inits here, jump to step 4 directly.
-# 3b. Solo issues N `peaks sub-agent dispatch <role>` calls in ONE message
-#     (N = len(swarm-plan.subAgents)). Each prompt embeds the role's body minus
-#     Step 0 / presence, plus the runtime args (rid / sid / mode / type / paths).
+# 3b. Solo writes the slice DAG to a JSON file then issues ONE
+#     `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` call.
+#     The CLI envelope returns N parallel buildToolCall descriptors
+#     (dispatchCount = len(swarm-plan.subAgents) when the DAG has >= 2
+#     same-level leaves; 1 otherwise). Each prompt embeds the role's body
+#     minus Step 0 / presence, plus the runtime args (rid / sid / mode /
+#     type / paths). The orchestrator's Promise.all drives the N leaves
+#     concurrently, so wall-time approximates max(per-leaf time), not sum.
+peaks sc build-dag --change-id <cid> --project <repo> --json > .peaks/_runtime/<sid>/sc/slice-dag.json
+peaks sub-agent dispatch --from-dag .peaks/_runtime/<sid>/sc/slice-dag.json --batch-id <id> --project <repo> --json
 # 3c. After fan-out, Solo restores presence once and runs Gate B (ls checks):
 peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate swarm-converged
 ls .peaks/_runtime/<sid>/prd/requests/<rid>.md                # PRD artefact must exist (Gate B hard)
