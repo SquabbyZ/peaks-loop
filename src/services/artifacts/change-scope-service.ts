@@ -20,7 +20,7 @@
  * Pure hand-rolled. No new npm deps. Uses only node:fs + node:path.
  */
 import { existsSync, mkdirSync } from 'node:fs';
-import { isAbsolute, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 // Pin the hard-ban marker so other modules can assert against it
 // in tests without re-deriving the path shape each time.
@@ -88,7 +88,11 @@ export function getChangeScopeDirAbs(projectRoot: string, changeId: string): str
   if (!isSafeChangeScopeId(changeId)) {
     throw new ChangeScopeIdValidationError(changeId);
   }
-  const rootAbs = isAbsolute(projectRoot) ? resolve(projectRoot) : resolve(projectRoot);
+  // `resolve()` accepts both absolute and relative paths and always
+  // returns an absolute path — the explicit `isAbsolute()` branch was
+  // redundant (both arms did the same thing). Trimmed in slice
+  // 2026-06-23-audit-p0.
+  const rootAbs = resolve(projectRoot);
   return join(rootAbs, ...CHANGE_SCOPE_RELATIVE_PARTS, changeId);
 }
 

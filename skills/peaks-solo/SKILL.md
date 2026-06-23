@@ -178,7 +178,11 @@ The full contract for the 6-type classification table, the 11-step workflow orde
 
 Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). No N serial `peaks sub-agent dispatch <role>` calls. Exceptions: `config|docs|chore` → skip Swarm; all attempts in a level fail → degrade per table.
 
-→ see `references/swarm-dispatch-contract.md` for the canonical gate logic + degradation tables, and `references/sub-agent-dispatch.md` for the dispatch mechanism (NOT `Skill` tool).
+### Fan-out opt-out (slice 2026-06-23-audit-p0)
+
+> Backward-compatible escape hatch via `preferences.fanout.defaultMode = 'serial'` (see `references/fanout-opt-out.md`).
+
+→ see `references/swarm-dispatch-contract.md` for the canonical gate logic + degradation tables, `references/sub-agent-dispatch.md` for the dispatch mechanism (NOT `Skill` tool), and `references/fanout-opt-out.md` for the opt-out contract.
 
 ## Peaks-Cli Mandatory RD QA repair loop (AUTO-PROCEED)
 

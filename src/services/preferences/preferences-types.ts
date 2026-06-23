@@ -101,6 +101,40 @@ export interface ProjectPreferences {
    * "ECC not installed" warning and the audit still completes.
    */
   readonly agentShieldEnabled: boolean;
+  /**
+   * Slice 2026-06-23-audit-p0-no-fanout-opt-out: per-project opt-out for
+   * the default multi-sub-agent fan-out behavior (≥ 2 leaves at the
+   * same topological level → `peaks sub-agent dispatch --from-dag`).
+   *
+   *   - 'fan-out' (default) — peak-solo SKILL instructs fan-out when ≥ 2 leaves.
+   *   - 'serial'             — peak-solo SKILL instructs serial dispatch even
+   *                            when ≥ 2 leaves (escape hatch for callers that
+   *                            want deterministic per-slice logs).
+   *
+   * Backward compatible: existing preferences.json files load with
+   * `fanout` defaulted to 'fan-out' via `mergePreferences`.
+   */
+  readonly fanout: FanoutPreference;
+}
+
+export type FanoutMode = 'fan-out' | 'serial';
+
+export const FANOUT_MODES: readonly FanoutMode[] = ['fan-out', 'serial'];
+
+/**
+ * Runtime type guard for `FanoutMode`. Stale preferences.json files
+ * (or hand-edited ones) can carry an invalid string like `"parallel"`
+ * that passes the schema_version check but would crash at the consumer
+ * site. This guard lets the LLM-side runner log a clear error and fall
+ * back to the default. Slice 2026-06-23-audit-p0-cleanup.
+ */
+export function isFanoutMode(value: unknown): value is FanoutMode {
+  return typeof value === 'string' && (FANOUT_MODES as readonly string[]).includes(value);
+}
+
+export interface FanoutPreference {
+  /** Slice default mode. Default: 'fan-out' (matches the pre-slice behavior). */
+  readonly defaultMode: FanoutMode;
 }
 
 export const DEFAULT_PREFERENCES: ProjectPreferences = {
@@ -134,4 +168,7 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   },
   loopAutonomousEnabled: false,
   agentShieldEnabled: false,
+  fanout: {
+    defaultMode: 'fan-out'
+  },
 };
