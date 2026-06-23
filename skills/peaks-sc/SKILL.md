@@ -7,6 +7,10 @@ description: Source control, sync, and change-control skill for Peaks. Use when 
 
 Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
 
+## Scope directory (slice 10 — read scopeDir from envelope)
+
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+
 ## Skill presence (MANDATORY first action)
 
 Before any analysis or tool call, immediately run:
