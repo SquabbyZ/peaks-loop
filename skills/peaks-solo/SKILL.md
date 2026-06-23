@@ -108,13 +108,13 @@ Per the "one-key completion" tenet (2026-06-11), peaks-cli 2.0 should detect a 1
 
 When the user did not name a profile (`full-auto` / `assisted` / `swarm` / `strict`), use `AskUserQuestion` with `Full auto (Recommended)` as the first option. Map the choice to `--mode` value.
 
-→ see `references/mode-selection.md` for the 4-mode table.
+→ see `references/mode-selection.md` + `references/fast-mode.md` (slice 2 hot-fix mode).
 
 ### Peaks-Cli Step 2: Re-set skill presence with the chosen mode
 
-Re-run `peaks skill presence:set peaks-solo --mode <mode-value> --gate startup` so the status header shows the profile. Install statusline on first run (`peaks statusline install`).
+Re-run `peaks skill presence:set peaks-solo --mode <mode-value> --gate startup`. Install statusline on first run (`peaks statusline install`).
 
-→ see `references/skill-presence-and-title.md` for the full Step 2 contract.
+→ see `references/skill-presence-and-title.md`.
 
 ### Peaks-Cli Step 2.3: Load project memory (durable, LLM-authored memories)
 

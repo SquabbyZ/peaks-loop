@@ -34,7 +34,7 @@ Peaks-Cli RD owns engineering analysis, implementation planning, and refactor ex
 
 For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. LLM checks its own tool list for the Playwright MCP entry; if absent, surface the install command (`claude mcp add playwright -- npx @playwright/mcp@latest`) and report the gate blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp. Two contracts: (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion`. Same in spirit as `peaks-qa`'s; RD and QA share the headed-browser path.
 
-→ see `references/browser-self-test-contracts.md`.
+→ see `references/browser-self-test-contracts.md` and `references/browser-action-wrapper.md` (slice 3 thin wrapper).
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 

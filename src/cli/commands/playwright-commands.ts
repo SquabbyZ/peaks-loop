@@ -36,6 +36,7 @@ import type { Command } from 'commander';
 import { join, dirname } from 'node:path';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { getErrorMessage, type ProgramIO } from '../cli-helpers.js';
+import { runBrowserAction } from '../../services/qa/browser-wrapper-service.js';
 
 export const DEFAULT_PORT = 8931;
 export const MAX_PORT = 8949;
@@ -372,4 +373,89 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
         process.exitCode = 1;
       }
     });
+
+  // Slice 3: `peaks browser action <intent> [args...]` — thin wrapper
+  // around 5 Playwright MCP intents. One MCP call per invocation; no
+  // auto-snapshot between intents. See src/services/qa/browser-wrapper-service.ts.
+  registerBrowserActionCommand(program);
+}
+
+/**
+ * Wire `peaks browser action <intent>`. The wrapper is a thin adapter
+ * for the 5 intents. The real MCP caller is provided by the IDE / agent
+ * harness — this CLI surface is invoked by tests and skills to drive
+ * browser flows without hand-shelling the MCP protocol.
+ */
+export function registerBrowserActionCommand(program: Command): void {
+  const browser = program
+    .command('browser')
+    .description('Browser action helpers (slice 3: thin Playwright MCP wrapper, 5 intents only)');
+
+  browser
+    .command('action')
+    .description('Run one of 5 browser intents: navigate, click, fill, snapshot, extract')
+    .argument('<intent>', 'one of: navigate, click, fill, snapshot, extract')
+    .option('--url <url>', 'URL (navigate)')
+    .option('--selector <selector>', 'simple selector: #id, .class, tag, tag#id, tag.class')
+    .option('--value <value>', 'value to fill')
+    .option('--expression <expr>', 'JS expression to evaluate (extract)')
+    .option('--json', 'emit JSON envelope')
+    .action(
+      async (
+        intent: string,
+        opts: {
+          url?: string;
+          selector?: string;
+          value?: string;
+          expression?: string;
+          json?: boolean;
+        }
+      ) => {
+        try {
+          if (!isSupportedIntent(intent)) {
+            throw new Error(
+              `unknown intent "${intent}" — fall back to raw MCP (supported: navigate, click, fill, snapshot, extract)`
+            );
+          }
+          // The IDE/agent harness bridges `mcp__playwright__browser_*` tools.
+          // Outside the harness, we use a pass-through caller that records
+          // the intent + args so skills and tests can route the call.
+          const result = await runBrowserAction(intent, {
+            url: opts.url,
+            selector: opts.selector,
+            value: opts.value,
+            expression: opts.expression
+          }, mockOrPassThroughCaller);
+          if (opts.json === true) {
+            process.stdout.write(JSON.stringify({ ok: true, data: result }) + '\n');
+          } else {
+            process.stdout.write(`intent=${result.intent} ok=${result.ok} elapsedMs=${result.elapsedMs}\n`);
+          }
+        } catch (error) {
+          if (opts.json === true) {
+            process.stdout.write(JSON.stringify({ ok: false, error: getErrorMessage(error) }) + '\n');
+          } else {
+            process.stderr.write(getErrorMessage(error) + '\n');
+          }
+          process.exitCode = 1;
+        }
+      }
+    );
+}
+
+function isSupportedIntent(value: string): value is 'navigate' | 'click' | 'fill' | 'snapshot' | 'extract' {
+  return value === 'navigate' || value === 'click' || value === 'fill' || value === 'snapshot' || value === 'extract';
+}
+
+/**
+ * Pass-through caller used when the CLI surface is invoked outside the
+ * harness. In production the IDE/agent harness intercepts the wrapper's
+ * output and routes the underlying MCP call. Tests inject a stub via
+ * the `runBrowserAction(..., caller)` overload.
+ */
+async function mockOrPassThroughCaller(
+  tool: string,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  return { tool, args, routedBy: 'peaks-cli-browser-wrapper' };
 }
