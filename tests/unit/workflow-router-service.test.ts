@@ -6,6 +6,7 @@ import type { WorkspaceConfig } from '../../src/services/config/config-types.js'
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 import { createWorkflowRouterPlan } from '../../src/services/workflow/workflow-router-service.js';
+import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
 
 function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig; artifactWorkspace: string } {
   const rootPath = mkdtempSync(join(tmpdir(), 'peaks-workflow-root-'));
@@ -18,7 +19,7 @@ function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig
     artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace }
   };
   const workspaceArtifactPath = getLocalArtifactPath(workspace);
-  const architectureRoot = join(workspaceArtifactPath, '.peaks', changeId, 'rd', 'architecture');
+  const architectureRoot = join(getChangeScopeDirAbs(workspaceArtifactPath, changeId), 'rd', 'architecture');
   mkdirSync(join(workspaceArtifactPath, '.peaks'), { recursive: true });
   mkdirSync(architectureRoot, { recursive: true });
   writeFileSync(join(workspaceArtifactPath, '.peaks', 'config.json'), '{}', 'utf8');

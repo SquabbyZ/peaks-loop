@@ -96,15 +96,15 @@ describe('isUnsafePathInput', () => {
 describe('buildArtifactRelativePath', () => {
   test('generates artifact-relative path with role segment', () => {
     const result = buildArtifactRelativePath('checkout-refactor', 'rd', 'architecture');
-    expect(result).toBe('.peaks/checkout-refactor/rd/architecture');
+    expect(result).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture');
   });
   test('generates artifact-relative path with nested role-scoped segments', () => {
     const result = buildArtifactRelativePath('my-change', 'rd', 'swarm', 'workers', 'rd-impl-001');
-    expect(result).toBe('.peaks/my-change/rd/swarm/workers/rd-impl-001');
+    expect(result).toBe('.peaks/_runtime/change/my-change/rd/swarm/workers/rd-impl-001');
   });
   test('normalizes backslashes to forward slashes', () => {
     const result = buildArtifactRelativePath('my-change', 'rd', 'waves\\wave-1-discovery');
-    expect(result).toBe('.peaks/my-change/rd/waves/wave-1-discovery');
+    expect(result).toBe('.peaks/_runtime/change/my-change/rd/waves/wave-1-discovery');
   });
   test('rejects unsafe segments', () => {
     expect(() => buildArtifactRelativePath('checkout-refactor', '..')).toThrow(ChangeIdValidationError);
@@ -131,12 +131,12 @@ describe('buildArtifactRelativePath — change-id routing (slice 2026-06-05-chan
     // Reviewable content lives under the change-id; session is the binding
     // for ephemeral state only.
     const result = buildArtifactRelativePath('test-feature', 'rd', '001-test-feature.md');
-    expect(result).toBe('.peaks/test-feature/rd/001-test-feature.md');
+    expect(result).toBe('.peaks/_runtime/change/test-feature/rd/001-test-feature.md');
   });
   test('generates path with nested segments under change-id', () => {
     mockGetSessionId.mockReturnValue('2026-01-01-session-bbbb');
     const result = buildArtifactRelativePath('my-bug', 'qa', '001-my-bug.md');
-    expect(result).toBe('.peaks/my-bug/qa/001-my-bug.md');
+    expect(result).toBe('.peaks/_runtime/change/my-bug/qa/001-my-bug.md');
   });
   test('rejects unsafe change-id (path traversal in changeId)', () => {
     mockGetSessionId.mockReturnValue(null);
@@ -156,14 +156,14 @@ describe('buildArtifactRelativePathInRoot', () => {
   test('returns changeId-based path with explicit projectRoot', () => {
     mockGetSessionId.mockReturnValue(null);
     const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'checkout-refactor', 'rd', 'architecture');
-    expect(result).toBe('.peaks/checkout-refactor/rd/architecture');
+    expect(result).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture');
   });
 
   test('returns change-id-based path even when caller projectRoot has a session binding (slice 2026-06-05-change-id-as-unit-of-work)', () => {
     mockGetSessionId.mockReturnValue('2026-06-04-session-aaa111');
     // Session is bound but the artifact path is the change-id dir.
     const result = buildArtifactRelativePathInRoot('/tmp/explicit-project-root', 'my-feature', 'rd', '001-my-feature.md');
-    expect(result).toBe('.peaks/my-feature/rd/001-my-feature.md');
+    expect(result).toBe('.peaks/_runtime/change/my-feature/rd/001-my-feature.md');
   });
 
   test('two different projectRoots produce the same change-id-based path (defense against cross-workspace pollution)', () => {
@@ -175,10 +175,10 @@ describe('buildArtifactRelativePathInRoot', () => {
     mockGetSessionId.mockClear();
     mockGetSessionId.mockImplementation((root: string) => root === '/root/with-session' ? '2026-06-04-session-bbb222' : null);
     const noSessionPath = buildArtifactRelativePathInRoot('/root/without-session', 'shared-change', 'rd', 'x');
-    expect(noSessionPath).toBe('.peaks/shared-change/rd/x');
+    expect(noSessionPath).toBe('.peaks/_runtime/change/shared-change/rd/x');
     const sessionPath = buildArtifactRelativePathInRoot('/root/with-session', 'shared-change', 'rd', 'x');
     // Same change-id → same path. Session id is irrelevant.
-    expect(sessionPath).toBe('.peaks/shared-change/rd/x');
+    expect(sessionPath).toBe('.peaks/_runtime/change/shared-change/rd/x');
     // The function does NOT consult the session binding anymore;
     // both calls must produce the change-id path deterministically.
     expect(mockGetSessionId).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe('buildArtifactRelativePathInRoot', () => {
     // session-based path inside the empty string as a project root.
     mockGetSessionId.mockReturnValue(null);
     const result = buildArtifactRelativePathInRoot('', 'degraded-change', 'rd');
-    expect(result).toBe('.peaks/degraded-change/rd');
+    expect(result).toBe('.peaks/_runtime/change/degraded-change/rd');
   });
 
   test('rejects invalid change id before doing any work', () => {
@@ -203,26 +203,32 @@ describe('buildArtifactRelativePathInRoot', () => {
 });
 
 describe('isPathInsideArtifactRoot', () => {
+  // Slice 2026-06-23-audit-5th-p1: the artifact root is now the
+  // canonical change-id scope dir
+  // `.peaks/_runtime/change/<changeId>/...` (see
+  // `getChangeScopeDirAbs` in
+  // `services/artifacts/change-scope-service.ts`). The previous
+  // `.peaks/<changeId>/` form was a SKILL.md 2.8.3 hard-ban violation.
   test('returns true for path inside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/my-change/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change/rd/swarm/task-graph.json', '.peaks/_runtime/change/my-change')).toBe(true);
   });
   test('returns true for artifact root itself', () => {
-    expect(isPathInsideArtifactRoot('.peaks/my-change', '.peaks/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change', '.peaks/_runtime/change/my-change')).toBe(true);
   });
   test('returns false for sibling-prefix path outside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/my-change-evil/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change-evil/rd/swarm/task-graph.json', '.peaks/_runtime/change/my-change')).toBe(false);
   });
   test('returns false for path outside artifact root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/other-change/rd/swarm/task-graph.json', '.peaks/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/other-change/rd/swarm/task-graph.json', '.peaks/_runtime/change/my-change')).toBe(false);
   });
   test('normalizes backslashes on Windows', () => {
-    expect(isPathInsideArtifactRoot('.peaks\\my-change\\rd\\swarm', '.peaks/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks\\_runtime\\change\\my-change\\rd\\swarm', '.peaks/_runtime/change/my-change')).toBe(true);
   });
   test('handles trailing slashes consistently', () => {
-    expect(isPathInsideArtifactRoot('.peaks/my-change/', '.peaks/my-change')).toBe(true);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change/', '.peaks/_runtime/change/my-change')).toBe(true);
   });
   test('rejects traversal that escapes the root', () => {
-    expect(isPathInsideArtifactRoot('.peaks/my-change/../other-change/rd/swarm', '.peaks/my-change')).toBe(false);
+    expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change/../other-change/rd/swarm', '.peaks/_runtime/change/my-change')).toBe(false);
   });
   test('returns false for empty normalized paths', () => {
     expect(isPathInsideArtifactRoot('', '.')).toBe(false);
@@ -258,7 +264,7 @@ describe('isUnsafeArtifactPath', () => {
     expect(isUnsafeArtifactPath('..')).toBe(true);
   });
   test('returns false for safe artifact paths', () => {
-    expect(isUnsafeArtifactPath('.peaks/my-change/rd/swarm/task-graph.json')).toBe(false);
+    expect(isUnsafeArtifactPath('.peaks/_runtime/change/my-change/rd/swarm/task-graph.json')).toBe(false);
     expect(isUnsafeArtifactPath('rd/swarm/workers/rd-impl-001')).toBe(false);
   });
 });

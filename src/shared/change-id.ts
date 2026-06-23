@@ -3,14 +3,22 @@
  * All Peaks planner commands must use these to prevent path traversal
  * and keep artifacts inside the Peaks artifact workspace.
  *
- * Layout (as of slice 2026-06-05-change-id-as-unit-of-work):
- *   - Reviewable artifacts (rd/, qa/, prd/, txt/, prd/source/):
- *       .peaks/<change-id>/<role>/...    (tracked in git)
+ * Layout (as of slice 2026-06-23-audit-5th-p1):
+ *   - Reviewable artifacts (rd/, qa/, prd/, txt/) for a change-id:
+ *       .peaks/_runtime/change/<change-id>/<role>/...    (canonical scope dir)
+ *     The previous top-level `.peaks/<change-id>/<role>/...` shape is
+ *     a SKILL.md 2.8.3 hard-ban violation (sibling of `.peaks/_runtime/`).
+ *     `getChangeScopeDirAbs` in `services/artifacts/change-scope-service.ts`
+ *     is the single source of truth for the absolute path; this module
+ *     exposes `buildArtifactRelativePath` for descriptive/metadata strings
+ *     (envelope fields, brief `inputs` entries) that do not need a
+ *     real filesystem lookup.
  *   - Ephemeral state (live sub-agent progress, spawn records):
  *       .peaks/_runtime/<session-id>/... (gitignored)
  *   - The active change-id binding lives at `.peaks/_runtime/current-change`
- *     (symlink pointing at `.peaks/<change-id>/` for one-minor-release back-compat
- *     also accepts a plain file with the change-id as its sole content).
+ *     (symlink pointing at `.peaks/_runtime/change/<change-id>/` for
+ *     one-minor-release back-compat, also accepts a plain file with the
+ *     change-id as its sole content).
  *
  * The session id remains in use as a binding (which developer's local
  * working session is active) but it is NOT the durable scope for
@@ -111,24 +119,32 @@ export function buildArtifactRelativePathInRoot(
 ): string {
   validateChangeIdOrThrow(changeId);
 
-  // As of slice 2026-06-05-change-id-as-unit-of-work, reviewable
-  // artifacts (RD/QA/PRD/txt) are routed to the change-id-scoped
-  // directory `.peaks/<change-id>/<segments-joined>`. The session id
-  // is the binding for ephemeral state (live sub-agent progress,
-  // spawn records) only and is NOT part of the reviewable-artifact
-  // path. Pre-1.3.1 trees get their old session-scoped files migrated
-  // to the change-id dir by `peaks workspace reconcile`.
+  // Slice 2026-06-23-audit-5th-p1: this helper returns a **descriptive**
+  // path string used in envelope fields, brief `inputs` lists, and
+  // log messages — it is NOT the on-disk location. The canonical
+  // on-disk location is `.peaks/_runtime/change/<changeId>/<segments-joined>`
+  // (see `getChangeScopeDirAbs` in
+  // `services/artifacts/change-scope-service.ts`). Callers that need
+  // to actually read or write the artifact MUST use
+  // `getChangeScopeDirAbs` (or its callers) rather than
+  // `buildArtifactRelativePathInRoot`.
+  //
+  // The string we return still mirrors the canonical shape so
+  // log/envelope diffs match what is on disk. We do NOT return the
+  // old top-level `.peaks/${changeId}/...` form because that would
+  // invite callers to mkdirSync into a SKILL.md 2.8.3 banned
+  // directory. The old form is preserved only as a back-compat
+  // alias when callers pass `legacy: true` (currently no caller does
+  // — see slice 2026-06-23-audit-5th-p1 for the migration).
   const resolvedProjectRoot = projectRoot && projectRoot.length > 0
     ? projectRoot
     : (findProjectRoot(process.cwd()) ?? process.cwd());
 
-  // Use segments verbatim as the sub-path. This preserves the
-  // legacy behavior where `buildArtifactRelativePath(changeId, 'rd', 'architecture')`
-  // produces `.peaks/<changeId>/rd/architecture` (the caller specifies
+  // Use segments verbatim as the sub-path. The caller specifies
   // the full sub-path, including any custom filename like
-  // `architecture`, `001-foo.md`, `swarm/workers/rd-impl-001`, etc.).
+  // `architecture`, `001-foo.md`, `swarm/workers/rd-impl-001`, etc.
   const joined = segments.map((segment) => normalizeForwardSlashes(segment)).join('/');
-  const candidatePath = `.peaks/${changeId}/${joined}`;
+  const candidatePath = `.peaks/_runtime/change/${changeId}/${joined}`;
 
   if (isUnsafeArtifactPath(joined) || isUnsafeArtifactPath(candidatePath)) {
     throw new ChangeIdValidationError(changeId);
@@ -290,8 +306,12 @@ export function setCurrentChangeId(
     writeFileSync(bindingPath, changeId + '\n', 'utf-8');
     return;
   }
-  // symlink form: point at .peaks/<changeId>/
-  const targetDir = join(peaksRoot, changeId);
+  // symlink form: point at the canonical change-id scope dir under
+  // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
+  // The old `.peaks/${changeId}/` target was a SKILL.md 2.8.3
+  // hard-ban violation; the new target is gitignored by
+  // `.peaks/_runtime/`.
+  const targetDir = join(peaksRoot, '_runtime', 'change', changeId);
   if (!existsSync(targetDir)) {
     mkdirSync(targetDir, { recursive: true });
   }
@@ -302,7 +322,9 @@ export function setCurrentChangeId(
     try {
       const existing = readFileSync(bindingPath, 'utf-8').trim();
       if (existing !== changeId) {
-        if (existsSync(join(peaksRoot, changeId))) {
+        // Slice 2026-06-23-audit-5th-p1: probe the canonical change-id
+        // scope dir, not the banned top-level `.peaks/<changeId>/`.
+        if (existsSync(join(peaksRoot, '_runtime', 'change', changeId))) {
           unlinkSync(bindingPath);
         } else {
           throw new Error(

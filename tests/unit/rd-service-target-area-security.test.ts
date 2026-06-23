@@ -7,6 +7,7 @@ import { describe, expect, test, vi } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createRdSwarmPlan } from '../../src/services/rd/rd-service.js';
+import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 
 function createArtifactWorkspace(): string {
@@ -37,9 +38,9 @@ function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-')
 describe('createRdSwarmPlan artifact target area security', () => {
   test('ignores artifact target areas when architecture root escapes after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd');
+    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-approved-outside-artifact-'));
-    mkdirSync(join(artifactWorkspace, '.peaks', 'checkout-refactor'), { recursive: true });
+    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -83,9 +84,9 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when rd root is a symbolic link after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd');
+    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-root-link-'));
-    mkdirSync(join(artifactWorkspace, '.peaks', 'checkout-refactor'), { recursive: true });
+    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -129,7 +130,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact file is reported as a symbolic link after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -172,7 +173,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact file is not a readable file after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       if (artifact === 'frontend-tech-doc.md') {
@@ -215,7 +216,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact realpath escapes the architecture root', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -256,7 +257,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when opened artifact identity does not match path identity', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -302,7 +303,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when bounded artifact read exceeds the byte limit', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -342,7 +343,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when opened artifact identity changes after read', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -393,7 +394,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact validation throws', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd', 'architecture');
+    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -434,9 +435,9 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('blocks when architecture root escapes the artifact workspace', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(artifactWorkspace, '.peaks', 'checkout-refactor', 'rd');
+    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-outside-artifact-'));
-    mkdirSync(join(artifactWorkspace, '.peaks', 'checkout-refactor'), { recursive: true });
+    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { buildArtifactRelativePathInRoot, validateChangeIdOrThrow } from '../../shared/change-id.js';
+import { validateChangeIdOrThrow } from '../../shared/change-id.js';
+import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
 import { pathExists } from '../../shared/fs.js';
 
 export type AutonomousResumeWriteRequest = {
@@ -134,29 +135,38 @@ Next actions:
 }
 
 function buildFiles(changeId: string, goal: string, createdAt: string, artifactWorkspacePath: string): AutonomousResumeArtifactFile[] {
+  // Slice 2026-06-23-audit-5th-p1: route every reviewable artifact under
+  // the canonical change-id scope dir at
+  // `.peaks/_runtime/change/<changeId>/...` (see
+  // `getChangeScopeDirAbs` in `services/artifacts/change-scope-service.ts`).
+  // The old `.peaks/${changeId}/...` shape was a SKILL.md 2.8.3 hard-ban
+  // violation — change-id content must NEVER appear as a sibling of
+  // `.peaks/_runtime/`. The `.peaks/_runtime/` gitignore rule covers
+  // the new path; reviewable-vs-ephemeral split is preserved.
+  const scopeRoot = getChangeScopeDirAbs(artifactWorkspacePath, changeId);
   return [
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'prd', 'autonomous-goal-package.json')),
+      path: join(scopeRoot, 'prd', 'autonomous-goal-package.json'),
       content: renderGoalPackage(changeId, goal)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'autonomous-rd-plan.json')),
+      path: join(scopeRoot, 'rd', 'swarm', 'autonomous-rd-plan.json'),
       content: renderRdPlan(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json')),
+      path: join(scopeRoot, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'),
       content: renderCheckpoint(changeId, createdAt)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'evidence', 'unit-tests.md')),
+      path: join(scopeRoot, 'rd', 'swarm', 'evidence', 'unit-tests.md'),
       content: renderUnitTestsEvidence(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'evidence', 'validation-report.md')),
+      path: join(scopeRoot, 'rd', 'swarm', 'evidence', 'validation-report.md'),
       content: renderValidationReport(changeId)
     },
     {
-      path: join(artifactWorkspacePath, buildArtifactRelativePathInRoot(artifactWorkspacePath, changeId, 'rd', 'swarm', 'resume-instructions.md')),
+      path: join(scopeRoot, 'rd', 'swarm', 'resume-instructions.md'),
       content: renderResumeInstructions(changeId)
     }
   ];
