@@ -24,9 +24,9 @@
  * be imported as a TypeScript module.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
@@ -117,6 +117,57 @@ let tmpProject: string;
 let originalHome: string | undefined;
 let originalAutoSkip: string | undefined;
 
+// Slice 2026-06-24-doctor-1xdetector-residual: per-test fixture
+// scrub of stale `.peaks/_runtime/` directories between
+// `tmpProject` and the OS temp boundary. The production
+// `detect1xProjectState` walks UP from the cwd looking for
+// `.peaks/_runtime`. On a developer box (and on this CI
+// runner) `os.tmpdir()` may contain a stale `.peaks/_runtime/`
+// left over from a prior `peaks session init` (e.g.
+// `peaks-ac3-*`). Without scrubbing, the walk-up returns the
+// stale dir as `projectRoot` and the tests that expect
+// `projectRoot=null` fail. The scrub is best-effort, restores
+// on afterEach, and never touches `tmpdir()` itself (we stop
+// at its parent).
+const stashedAncestors: Array<{ runtime: string; backup: string }> = [];
+let ancestorScrubCounter = 0;
+
+function scrubAncestorPeaksRuntime(start: string): void {
+  const sysTmp = tmpdir();
+  const sysTmpParent = dirname(sysTmp);
+  let dir = dirname(start);
+  while (dir.length > sysTmpParent.length) {
+    const candidate = join(dir, '.peaks', '_runtime');
+    if (existsSync(candidate)) {
+      const backup = `${candidate}.test-scrub-${process.pid}-${ancestorScrubCounter}`;
+      ancestorScrubCounter += 1;
+      try {
+        renameSync(candidate, backup);
+        stashedAncestors.push({ runtime: candidate, backup });
+      } catch {
+        // best-effort — concurrent test worker may have moved it
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+}
+
+function restoreAncestorPeaksRuntime(): void {
+  while (stashedAncestors.length > 0) {
+    const entry = stashedAncestors.pop();
+    if (entry === undefined) break;
+    if (existsSync(entry.backup)) {
+      try {
+        renameSync(entry.backup, entry.runtime);
+      } catch {
+        // best-effort restore
+      }
+    }
+  }
+}
+
 beforeEach(() => {
   tmpHome = mkdtempSync(join(tmpdir(), 'peaks-1x-home-'));
   tmpProject = mkdtempSync(join(tmpdir(), 'peaks-1x-project-'));
@@ -130,6 +181,7 @@ beforeEach(() => {
   // assert on the LOCAL signals (dev-preference.md,
   // preferences.json) which do not depend on homedir().
   process.env['HOME'] = tmpHome;
+  scrubAncestorPeaksRuntime(tmpProject);
 });
 
 afterEach(() => {
@@ -143,6 +195,7 @@ afterEach(() => {
   } else {
     process.env['PEAKS_SKIP_AUTO_UPGRADE'] = originalAutoSkip;
   }
+  restoreAncestorPeaksRuntime();
   if (existsSync(tmpHome)) rmSync(tmpHome, { recursive: true, force: true });
   if (existsSync(tmpProject)) rmSync(tmpProject, { recursive: true, force: true });
   mockedSpawnSync.mockReset();
