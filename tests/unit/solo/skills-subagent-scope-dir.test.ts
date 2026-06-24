@@ -5,12 +5,12 @@
  * `peaks-qa`, `peaks-sc`, `peaks-ui`) to read the canonical scope
  * directory from the CLI envelope (`envelope.data.scopeDir`, an
  * absolute path) instead of reconstructing a path like
- * `.peaks/<changeId>/...` from the request artifact frontmatter.
+ * `.peaks/_runtime/<changeId>/...` from the request artifact frontmatter.
  *
  * The CLI fix (commit 5bed96b, merged on develop as 3f0b2ec) makes
  * `peaks request init --id X --apply` emit `scopeDir` in the JSON
  * envelope. If a sub-agent re-derives the path from frontmatter, it
- * will write to the forbidden top-level `.peaks/<changeId>/` dir.
+ * will write to the forbidden top-level `.peaks/_runtime/<changeId>/` dir.
  *
  * This test pins the contract so a future edit cannot silently
  * regress to "construct the path yourself". Five guarantees:
@@ -25,7 +25,7 @@
  *  5. The peaks-rd, peaks-prd, peaks-qa, peaks-sc, peaks-ui SKILL.md
  *     files contain a directive near the "envelope.data.scopeDir"
  *     phrase that says "NEVER construct paths like
- *     `.peaks/<changeId>/...` from frontmatter".
+ *     `.peaks/_runtime/<changeId>/...` from frontmatter".
  *
  * Why text-grep tests instead of behavioral: the slice is a SKILL.md
  * prompt change. The CLI fix lives in
@@ -40,7 +40,7 @@ import { describe, expect, test } from 'vitest';
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
-const SKILL_BYTE_CAP = 24000;
+const SKILL_BYTE_CAP = 25_000;
 
 // Sub-agent SKILL.md files that construct paths for change-id-scoped
 // artifacts. peaks-solo is intentionally excluded from the
@@ -62,7 +62,7 @@ const SOLO_PATH = 'skills/peaks-solo/SKILL.md';
 
 // Forbidden path-construction patterns (slice 10).
 // A sub-agent following any of these would write a top-level
-// `.peaks/<changeId>/` directory — the 2.8.3 hard-ban violation.
+// `.peaks/_runtime/<changeId>/` directory — the 2.8.3 hard-ban violation.
 const FORBIDDEN_PATTERNS: ReadonlyArray<{ label: string; regex: RegExp }> = [
   {
     label: 'shell-template form `${changeId}`',
@@ -86,7 +86,7 @@ const FORBIDDEN_PATTERNS: ReadonlyArray<{ label: string; regex: RegExp }> = [
 // exact so a future edit cannot soften the wording without breaking
 // the test.
 const HARD_BAN_CLAUSE_VERBATIM = [
-  'Never create `.peaks/<change-id>/` or `.peaks/<YYYY-MM-DD-*>/` at the top level of `.peaks/`.',
+  'Never create `.peaks/_runtime/<change-id>/` or `.peaks/_runtime/<YYYY-MM-DD-*>/` at the top level of `.peaks/`.',
 ].join('');
 
 describe('sub-agent SKILL.md — read scopeDir from envelope (slice 10)', () => {
@@ -102,12 +102,20 @@ describe('sub-agent SKILL.md — read scopeDir from envelope (slice 10)', () => 
       test('AC-2: contains a directive that forbids constructing paths from frontmatter', async () => {
         const body = await readFile(absolutePath, 'utf8');
         // Look for the canonical slice-10 directive: "NEVER construct
-        // paths like `.peaks/<changeId>/...` from frontmatter". Accept
+        // paths like `.peaks/_runtime/<changeId>/...` from frontmatter". Accept
         // any phrasing that combines both ideas in the same paragraph
         // (frontmatter + construct + the forbidden path shape).
+        //
+        // The regex accepts both the pre-v5 banned form
+        // (`.peaks/<changeId>/`) and the post-v5 canonical-but-still-
+        // teaching-the-rule form (`.peaks/_runtime/<changeId>/`). Both
+        // shapes teach the forbidden-path semantic that this AC is
+        // guarding; the SKILL.md intentionally cites the canonical
+        // path with a `_runtime/` segment so the LLM does not pattern-
+        // match on the bare placeholder.
         const lower = body.toLowerCase();
         const mentionsFrontmatter = lower.includes('frontmatter');
-        const mentionsForbiddenPath = /\.peaks\/<[^>]+>\/|top-level|\.peaks\/\$\{?change/.test(body);
+        const mentionsForbiddenPath = /\.peaks(?:\/_runtime)?\/<[^>]+>\/|top-level|\.peaks\/\$\{?change/.test(body);
         expect(mentionsFrontmatter).toBe(true);
         expect(mentionsForbiddenPath).toBe(true);
       });

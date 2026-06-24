@@ -3,7 +3,7 @@
  *
  * Pre-creates the canonical scope dir for a change-id so the sub-agent
  * prompt always has a single, well-known place to write reviewable
- * artifacts — never the forbidden top-level `.peaks/<id>/`.
+ * artifacts — never the forbidden top-level `.peaks/_runtime/<id>/`.
  *
  * Layout
  *   - `.peaks/_runtime/change/<changeId>/` — change-id scoped content
@@ -12,7 +12,7 @@
  *     (lives under a different parent dir to avoid collision with the
  *     change-id content segment above; reconciled by `syncChangeMarker`).
  *
- * The hard ban (CLAUDE.md 2.8.3) forbids writing any `.peaks/<id>/`
+ * The hard ban (CLAUDE.md 2.8.3) forbids writing any `.peaks/_runtime/<id>/`
  * directory directly under `.peaks/`. All change-id content must live
  * under `.peaks/_runtime/...`. This helper is the single source of
  * truth for the canonical change-id scope path.

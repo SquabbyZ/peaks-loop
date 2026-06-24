@@ -2,7 +2,7 @@
   {
     "id": 1,
     "prompt": "根据 peaks-prd 产出的前端待联调 delta，在 /Users/yuanyuan/Desktop/work/platform-rag-web 中实现 UI/交互/API mock。项目没有后端 swagger.json，需要先用 mock/API contract 开发。",
-    "expected": "RD 先做 standards init/update dry-run 和项目扫描；非平凡变更检查 OpenSpec；按最小 slice 实现；新增/变更代码有单测或合理 focused coverage；前端/UI slice 自测必须用 headed gstack/browse/dist/browse 有头浏览器端到端验证并记录脱敏 route/actions、脱敏 console/network 观察和验收结果；完成 code review、安全 review、post-check dry-run 后才交给 QA；所有进入 .peaks/<session-id>/rd/ 的浏览器证据必须脱敏，不得保留登录 URL、cookie、headers、tokens、storage state、browser traces、raw browser/network state 或 PII/SSO/MFA 截图/日志。"
+    "expected": "RD 先做 standards init/update dry-run 和项目扫描；非平凡变更检查 OpenSpec；按最小 slice 实现；新增/变更代码有单测或合理 focused coverage；前端/UI slice 自测必须用 headed gstack/browse/dist/browse 有头浏览器端到端验证并记录脱敏 route/actions、脱敏 console/network 观察和验收结果；完成 code review、安全 review、post-check dry-run 后才交给 QA；所有进入 .peaks/_runtime/<session-id>/rd/ 的浏览器证据必须脱敏，不得保留登录 URL、cookie、headers、tokens、storage state、browser traces、raw browser/network state 或 PII/SSO/MFA 截图/日志。"
   },
   {
     "id": 2,

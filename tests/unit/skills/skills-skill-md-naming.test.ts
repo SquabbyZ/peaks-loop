@@ -82,11 +82,11 @@ function findBareSidMentions(content: string): Array<{ line: number; text: strin
 }
 
 /**
- * AC-2: every `.peaks/<X>/` reference is annotated with the right axis label.
+ * AC-2: every `.peaks/_runtime/<X>/` reference is annotated with the right axis label.
  * Allowlist:
  *   - `.peaks/_runtime/<sessionId>` / `.peaks/_runtime/<session-id>` (session-axis)
  *   - `.peaks/_sub_agents/<sessionId>` / `.peaks/_sub_agents/<session-id>` (sub-agent-axis)
- *   - `.peaks/<changeId>` / `.peaks/<change-id>` (change-axis root)
+ *   - `.peaks/_runtime/<changeId>` / `.peaks/_runtime/<change-id>` (change-axis root)
  * Anything else is flagged.
  */
 const ALLOWED_PEAKS_PATTERNS: RegExp[] = [
@@ -96,10 +96,10 @@ const ALLOWED_PEAKS_PATTERNS: RegExp[] = [
   /\.peaks\/_sub_agents\/<session-?id>/gi,
   // session-axis canonical placeholder form (used in skill body prose
   // where the `_runtime/` prefix is left to the runtime, not the prose).
-  // Example: `.peaks/<session-id>/rd/requests/<request-id>.md` (canonical
-  // placeholder) and `.peaks/<sessionId>/...` (alternate).
+  // Example: `.peaks/_runtime/<session-id>/rd/requests/<request-id>.md` (canonical
+  // placeholder) and `.peaks/_runtime/<sessionId>/...` (alternate).
   /\.peaks\/<session-?id>/gi,
-  // 2.7.1: change-id root `.peaks/<changeId>/...` is DEPRECATED but
+  // 2.7.1: change-id root `.peaks/_runtime/<changeId>/...` is DEPRECATED but
   // historical prose / migration docs may still reference it. The
   // runtime code no longer writes there (getChangeArtifactRoot was
   // removed in 2.7.1) and `.peaks/2026-*-*/` is gitignored, so
@@ -107,13 +107,13 @@ const ALLOWED_PEAKS_PATTERNS: RegExp[] = [
   // the regression test does not block the 2.7.1 release. New
   // SKILL.md content MUST use `.peaks/_runtime/<sessionId>/...`.
   /\.peaks\/<change-?id>/gi,
-  // generic-id placeholder form (e.g. `.peaks/<id>/` in Gate C tables
-  // where the table header says "Required RD evidence (under `.peaks/<id>/`)").
+  // generic-id placeholder form (e.g. `.peaks/_runtime/<id>/` in Gate C tables
+  // where the table header says "Required RD evidence (under `.peaks/_runtime/<id>/`)").
   // This is a docs-time shorthand for the change-id; the implementation
   // resolves `<id>` to a real change-id at runtime.
   /\.peaks\/<id>/gi,
   // `.peaks/` followed by a path that uses a non-axis placeholder like
-  // <rid> or <repo> is allowed (e.g. `.peaks/<rid>/...` or `.peaks/<repo>/...`).
+  // <rid> or <repo> is allowed (e.g. `.peaks/_runtime/<rid>/...` or `.peaks/_runtime/<repo>/...`).
   /\.peaks\/<(rid|repo|role|ext|batchId|dispatchRecordPath|evidence-path|state-or-step)>/g,
   // `.peaks/.session.json` / `.peaks/.active-skill.json` (dotfiles, not dirs).
   /\.peaks\/\.[a-z][a-z0-9-]*\.json/g,
@@ -131,7 +131,7 @@ function findUnannotatedPeaksRefs(content: string): PeaksRefHit[] {
   const calloutStart = content.indexOf(CALLOUT_HEADING);
   const calloutEnd = findCalloutEndIndex(content);
 
-  // Find every `.peaks/<X>/` reference (any placeholder after `.peaks/`).
+  // Find every `.peaks/_runtime/<X>/` reference (any placeholder after `.peaks/`).
   const refRegex = /\.peaks\/<[^>]+>\//g;
   const lines = content.split('\n');
   const hits: PeaksRefHit[] = [];
@@ -206,13 +206,13 @@ describe('skills SKILL.md naming convention (slice 006-5th-writer-changeid-path)
         expect(hits).toHaveLength(0);
       });
 
-      test('AC-2: every .peaks/<X>/ reference uses an unambiguous axis label', () => {
+      test('AC-2: every .peaks/_runtime/<X>/ reference uses an unambiguous axis label', () => {
         const hits = findUnannotatedPeaksRefs(content);
         if (hits.length > 0) {
           const formatted = hits.map((h) => `  line ${h.line}: ${h.match} — ${h.text}`).join('\n');
           throw new Error(
-            `Found ${hits.length} unannotated .peaks/<X>/ reference(s) in ${skill.relativePath}. ` +
-            `Each .peaks/<X>/ reference MUST use one of: <changeId>/<change-id> (change-axis root), ` +
+            `Found ${hits.length} unannotated .peaks/_runtime/<X>/ reference(s) in ${skill.relativePath}. ` +
+            `Each .peaks/_runtime/<X>/ reference MUST use one of: <changeId>/<change-id> (change-axis root), ` +
             `<sessionId>/<session-id> (session-axis via .peaks/_runtime/ or .peaks/_sub_agents/).\n${formatted}`
           );
         }

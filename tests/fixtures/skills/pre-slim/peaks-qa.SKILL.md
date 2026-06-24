@@ -7,31 +7,31 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/_runtime/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
 
 | Axis | Path root | Holds | When to use |
 |---|---|---|---|
-| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **change-id axis** (reviewable artifacts) | `.peaks/_runtime/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
 | **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
 | **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
 
 **Which CLI commands operate on which axis:**
 
-- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/_runtime/<changeId>/...`.
 - **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
 - **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
 
 **Placeholder convention used in this file:**
 
-- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/_runtime/<changeId>/...` (root-level, NOT inside `_runtime/`).
 - `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
 - The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
 
 **Cross-references:**
 
 - Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
-- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
-- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/_runtime/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
 
 # Peaks-Cli QA
 
@@ -244,8 +244,8 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 
 # 5. EXECUTE tests against the actual implementation — Peaks-Cli Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.
-#    Peaks-Cli Gate A3: Run security review → .peaks/<changeId>/qa/security-findings.md
-#    Peaks-Cli Gate A4: Run performance check → .peaks/<changeId>/qa/performance-findings.md
+#    Peaks-Cli Gate A3: Run security review → .peaks/_runtime/<changeId>/qa/security-findings.md
+#    Peaks-Cli Gate A4: Run performance check → .peaks/_runtime/<changeId>/qa/performance-findings.md
 #    CRITICAL: Peaks-Cli Gate A3 and Peaks-Cli Gate A4 are NON-NEGOTIABLE. You MUST run actual security
 #    and performance checks — not just write a checklist item. These gates exist
 #    because code review alone does not catch: hardcoded secrets, XSS vectors,
@@ -253,7 +253,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    If you skip A3 or A4, Peaks-Cli Gate C will block the verdict.
 #
 #    Before running A4, read the RD's perf-baseline at
-#    .peaks/<changeId>/rd/perf-baseline.md (if present) and use the
+#    .peaks/_runtime/<changeId>/rd/perf-baseline.md (if present) and use the
 #    captured thresholds as the comparison baseline. The QA stage
 #    is still responsible for running the actual measurement
 #    (lighthouse / k6 / autocannon / project-local bench) and
@@ -347,8 +347,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 
 **Peaks-Cli Gate A — After test-case generation:**
 ```bash
-ls .peaks/<changeId>/qa/test-cases/<rid>.md
-# Expected output: .peaks/<changeId>/qa/test-cases/<rid>.md
+ls .peaks/_runtime/<changeId>/qa/test-cases/<rid>.md
+# Expected output: .peaks/_runtime/<changeId>/qa/test-cases/<rid>.md
 # "No such file" → STOP, generate test cases first. Do not proceed to validation.
 ```
 
@@ -368,8 +368,8 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 **Peaks-Cli Gate A3 — Security test executed (NOT just a checklist item):**
 ```bash
 # Run security review against the changed surface. Record findings.
-ls .peaks/<changeId>/qa/security-findings.md 2>&1
-# Expected: .peaks/<changeId>/qa/security-findings.md
+ls .peaks/_runtime/<changeId>/qa/security-findings.md 2>&1
+# Expected: .peaks/_runtime/<changeId>/qa/security-findings.md
 # "No such file" → BLOCKED. Run security review against changed files,
 # record every finding with severity, then re-check.
 ```
@@ -377,30 +377,30 @@ ls .peaks/<changeId>/qa/security-findings.md 2>&1
 **Peaks-Cli Gate A4 — Performance test executed:**
 ```bash
 # Run available performance check against the changed surface. Record findings.
-ls .peaks/<changeId>/qa/performance-findings.md 2>&1
-# Expected: .peaks/<changeId>/qa/performance-findings.md
+ls .peaks/_runtime/<changeId>/qa/performance-findings.md 2>&1
+# Expected: .peaks/_runtime/<changeId>/qa/performance-findings.md
 # "No such file" → BLOCKED. Run performance check (build-size, Lighthouse,
 # bundle analysis, or project equivalent), record baseline vs. after, then re-check.
 ```
 
 **Peaks-Cli Gate B — After test-report write (MUST contain execution results, not just planned cases):**
 ```bash
-ls .peaks/<changeId>/qa/test-reports/<rid>.md
-# Expected output: .peaks/<changeId>/qa/test-reports/<rid>.md
+ls .peaks/_runtime/<changeId>/qa/test-reports/<rid>.md
+# Expected output: .peaks/_runtime/<changeId>/qa/test-reports/<rid>.md
 # "No such file" → STOP, write the test report first. Do not issue a verdict.
 # Additionally verify the report is not a placeholder:
-grep -c "pass\|fail\|blocked" .peaks/<changeId>/qa/test-reports/<rid>.md
+grep -c "pass\|fail\|blocked" .peaks/_runtime/<changeId>/qa/test-reports/<rid>.md
 # Expected: non-zero count (report contains actual pass/fail/blocked results)
 # Zero → the report is empty/template-only. Tests were not executed.
 ```
 
 **Peaks-Cli Gate C — Before issuing verdict:**
 ```bash
-ls .peaks/<changeId>/qa/test-cases/<rid>.md \
-   .peaks/<changeId>/qa/test-reports/<rid>.md \
-   .peaks/<changeId>/qa/security-findings.md \
-   .peaks/<changeId>/qa/performance-findings.md \
-   .peaks/<changeId>/qa/requests/<rid>.md
+ls .peaks/_runtime/<changeId>/qa/test-cases/<rid>.md \
+   .peaks/_runtime/<changeId>/qa/test-reports/<rid>.md \
+   .peaks/_runtime/<changeId>/qa/security-findings.md \
+   .peaks/_runtime/<changeId>/qa/performance-findings.md \
+   .peaks/_runtime/<changeId>/qa/requests/<rid>.md
 # All five must exist. Missing any → QA incomplete, verdict blocked.
 # NOTE: security-findings.md and performance-findings.md are NOT optional.
 # If you can't run a full security scan, run at minimum: grep for secrets,
@@ -433,7 +433,7 @@ peaks request lint <rid> --role qa --project <repo> --session-id <session-id> --
 ```bash
 # Verify browser screenshots exist. Screenshots are the only acceptable evidence
 # that Playwright MCP actually launched and interacted with the running app.
-ls .peaks/<changeId>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/<changeId>/qa/screenshots/*.png 2>&1
 # Expected: one or more .png files
 # "No such file" → BLOCKED. Playwright MCP was not used or screenshots not saved.
 # Screenshots, logs, manual steps, or other tools must NOT substitute for this gate.
@@ -445,7 +445,7 @@ ls .peaks/<changeId>/qa/screenshots/*.png 2>&1
 ```
 ```bash
 # Verify console and network checks were actually performed
-grep -c "browser_console_messages\|browser_network_requests" .peaks/<changeId>/qa/test-reports/<rid>.md
+grep -c "browser_console_messages\|browser_network_requests" .peaks/_runtime/<changeId>/qa/test-reports/<rid>.md
 # Expected: non-zero count (means console/network were checked)
 # Zero → BLOCKED. Browser error feedback loop was not executed.
 ```

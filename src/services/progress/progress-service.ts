@@ -35,7 +35,7 @@ import { findProjectRoot } from '../config/config-safety.js';
 
 // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the per-session
 // sub-agent state files live under `.peaks/_sub_agents/<sid>/`, NOT under
-// `.peaks/<sid>/system/`. The new path mirrors the existing `_runtime/`
+// `.peaks/_runtime/<sid>/system/`. The new path mirrors the existing `_runtime/`
 // and `_dogfood/` convention (leading underscore = meta-classification, not
 // a per-session artifact). The previous `<sid>/system/...` locations are
 // migrated to the new path on first run of `peaks workspace reconcile
@@ -237,7 +237,7 @@ export function writeSubAgentProgress(options: WriteProgressOptions): SubAgentPr
 /**
  * Resolve the project root for a CLI invocation: --project
  * override wins, otherwise the canonical git-root promotion
- * (so the sub-agent's writes land in the same `.peaks/<sid>/`
+ * (so the sub-agent's writes land in the same `.peaks/_runtime/<sid>/`
  * the user's manual CLI would use). Re-exports the same
  * helper peaks workspace init / session rotate already use
  * for symmetry.

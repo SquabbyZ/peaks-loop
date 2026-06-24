@@ -105,7 +105,7 @@ If the page redirects to a login challenge:
 
 ## Sensitive data sanitization
 
-Never persist any of the following in `.peaks/<session-id>/**` artifacts:
+Never persist any of the following in `.peaks/_runtime/<session-id>/**` artifacts:
 
 - Login URLs, redirect URLs, OAuth callback URLs containing tokens or state.
 - Cookies, request or response headers, session tokens, storage state, QR payloads.

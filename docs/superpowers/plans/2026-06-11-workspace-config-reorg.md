@@ -789,7 +789,7 @@ import { join } from 'node:path';
 
 /**
  * Spec §8.4 + §8.5 — `.peaks/_state/` collects one-time decision dotfiles.
- * Migrates from legacy `.peaks/<name>` flat layout.
+ * Migrates from legacy `.peaks/_runtime/<name>` flat layout.
  */
 
 const LEGACY_DOTFILES: readonly string[] = [

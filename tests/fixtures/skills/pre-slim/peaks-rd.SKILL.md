@@ -7,31 +7,31 @@ description: Research and development skill for Peaks. Use for engineering analy
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/_runtime/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
 
 | Axis | Path root | Holds | When to use |
 |---|---|---|---|
-| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **change-id axis** (reviewable artifacts) | `.peaks/_runtime/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
 | **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
 | **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
 
 **Which CLI commands operate on which axis:**
 
-- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/_runtime/<changeId>/...`.
 - **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
 - **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
 
 **Placeholder convention used in this file:**
 
-- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/_runtime/<changeId>/...` (root-level, NOT inside `_runtime/`).
 - `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
 - The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
 
 **Cross-references:**
 
 - Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
-- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
-- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+- Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/_runtime/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
 
 # Peaks-Cli RD
 
@@ -200,7 +200,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 # **Do not write any code, do not plan any implementation, do not pass go.**
 # **Create the project-scan first, then proceed.**
 # NOTE: project-scan.md is a session-scoped singleton. Check if it already exists
-# before regenerating (e.g. via `ls .peaks/<changeId>/rd/project-scan.md`). If it exists
+# before regenerating (e.g. via `ls .peaks/_runtime/<changeId>/rd/project-scan.md`). If it exists
 # and is complete (has `## Archetype` and `## Project mode` sections), reuse it.
 # Required sections in project-scan:
 #   - build tool and framework
@@ -267,8 +267,8 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
 #    Peaks-Cli Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
-#    Peaks-Cli Gate B3: code review evidence → .peaks/<changeId>/rd/code-review.md
-#    Peaks-Cli Gate B4: security review evidence → .peaks/<changeId>/rd/security-review.md
+#    Peaks-Cli Gate B3: code review evidence → .peaks/_runtime/<changeId>/rd/code-review.md
+#    Peaks-Cli Gate B4: security review evidence → .peaks/_runtime/<changeId>/rd/security-review.md
 #    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
 peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
 #    Peaks-Cli Gate B6 (NEW): declared --type still matches the actual diff after implementation.
@@ -303,7 +303,7 @@ The full per-gate contract — including the CLI enforcement table (per `--type`
 
 | Gate | When | File / command | Why |
 |---|---|---|---|
-| A | After project-scan read, before any implementation | `ls .peaks/<changeId>/rd/project-scan.md` | Confirms the project-scan exists before code edits |
+| A | After project-scan read, before any implementation | `ls .peaks/_runtime/<changeId>/rd/project-scan.md` | Confirms the project-scan exists before code edits |
 | A2 | Before tech-doc write | `ls <every-path-in-tech-doc> \| grep -c "No such file"` | Catches wrong paths in the tech-doc |
 | A3 | Before implementation | `ls CLAUDE.md .claude/rules/...` | Confirms project standards exist |
 | B | Before QA handoff | `ls rd/requests/<rid>.md rd/tech-doc.md` | Both files must exist |
@@ -454,9 +454,9 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 2. unit tests covering the new or changed behavior have been added or updated and run successfully; **→ verified by Peaks-Cli Gate B2**
 3. if the repository is legacy and total UT coverage is below the project target, do not block on historical coverage, but require coverage evidence for newly added or changed code;
 4. for frontend or UI-affecting slices, RD self-test has launched the app and used the Playwright MCP for real browser end-to-end validation with visible-browser confirmation (the LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` — RD does NOT hand-edit `~/.claude/settings.json` or auto-install on the user's behalf); navigate with `browser_navigate`, capture with `browser_snapshot` / `browser_take_screenshot` / `browser_console_messages` / `browser_network_requests`, sanitize route/actions and observations before retention, record acceptance result, close with `browser_close`; if login, CAPTCHA, SSO, or MFA appears, the headed browser is already visible — wait for the user to complete login and explicitly confirm completion before continuing;
-5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/<changeId>/rd/code-review.md`
-6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/<changeId>/rd/security-review.md`
-6.5. perf-baseline output is in place for any slice with a user-perceivable performance surface — `peaks perf baseline --apply` has been run and `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` exists with the Results table filled in with measurements (or `N/A — no perf surface` in Notes for slices without a perf surface). For docs / chore / pure-bugfix-no-perf, the file is not required. Run the fan-out from "Parallel review fan-out" below; **→ verified by Peaks-Cli Gate B9** — evidence file must exist at `.peaks/<changeId>/rd/perf-baseline.md` and contain a non-empty Results table or the N/A marker.
+5. code review has been performed with findings recorded and CRITICAL/HIGH issues fixed before progression; unresolved CRITICAL/HIGH findings only allow a blocked handoff; **→ verified by Peaks-Cli Gate B3** — evidence file must exist at `.peaks/_runtime/<changeId>/rd/code-review.md`
+6. security review has been performed for the changed surface, with CRITICAL/HIGH issues fixed before progression and particular attention to user input, file system access, external calls, auth, secrets, and dependency changes; **→ verified by Peaks-Cli Gate B4** — evidence file must exist at `.peaks/_runtime/<changeId>/rd/security-review.md`
+6.5. perf-baseline output is in place for any slice with a user-perceivable performance surface — `peaks perf baseline --apply` has been run and `.peaks/_runtime/<sessionId>/rd/perf-baseline.md` exists with the Results table filled in with measurements (or `N/A — no perf surface` in Notes for slices without a perf surface). For docs / chore / pure-bugfix-no-perf, the file is not required. Run the fan-out from "Parallel review fan-out" below; **→ verified by Peaks-Cli Gate B9** — evidence file must exist at `.peaks/_runtime/<changeId>/rd/perf-baseline.md` and contain a non-empty Results table or the N/A marker.
 7. the post-check dry-run has passed and is linked in the handoff;
 8. the tech-doc artifact (`.peaks/_runtime/<sessionId>/rd/tech-doc.md`) is written and linked from the request artifact. **→ verified by Peaks-Cli Gate B**
 9. the RD request artifact body has no unfilled placeholders, TBD markers, or bare-bullet stubs (`peaks request lint <rid> --role rd`). **→ verified by Peaks-Cli Gate B5**
@@ -597,7 +597,7 @@ Peaks-Cli PRD/RD/QA gates remain authoritative: OpenSpec structures the durable 
 
 ## Mock data placement rules (BLOCKING — framework-aware)
 
-When the project-scan in `.peaks/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
+When the project-scan in `.peaks/_runtime/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
 
 ### Framework-to-mock-directory mapping
 

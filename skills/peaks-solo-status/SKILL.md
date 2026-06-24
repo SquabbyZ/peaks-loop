@@ -101,7 +101,7 @@ Then yield control.
 
 ## Hard rules (do NOT skip)
 
-- **Never write to `.peaks/<sid>/`.** This skill is read-only on the workspace; it only reads existing CLI state.
+- **Never write to `.peaks/_runtime/<sid>/`.** This skill is read-only on the workspace; it only reads existing CLI state.
 - **Never add a new `peaks <cmd>`.** Use only the existing read-only CLI primitives: `peaks skill presence`, `peaks session list`, `peaks session info`, `peaks project dashboard`, `peaks request show`. **Note**: `peaks session list` does not support `--project`; filter its output by `projectRoot` post-hoc.
 - **Never auto-progress the workflow.** The status table is informational only. The user chooses what to do via `AskUserQuestion`. Never silent about what comes next — always present the 3 options.
 - **Never expose sensitive data in the table.** Do NOT include full PRD bodies, full tech-doc bodies, or any test code in the table. Just state names, paths, and counts.
@@ -110,7 +110,7 @@ Then yield control.
 
 - Do NOT run `peaks workspace init` on the real session. The wrapper is read-only.
 - Do NOT run `peaks request transition` (would change state). The wrapper is informational only.
-- Do NOT write the status to a file (e.g. `.peaks/<sid>/status.md`). The user can see it in the chat; persisting it adds noise to the workspace.
+- Do NOT write the status to a file (e.g. `.peaks/_runtime/<sid>/status.md`). The user can see it in the chat; persisting it adds noise to the workspace.
 - Do NOT block on slow CLI calls. The 5 read-only calls are sub-second each. If any takes >5s, fail fast and report the slow command.
 
 ## Cross-references

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 // We do NOT mock the real slice-check-service; we drive it through a
-// tmp project that has the right shape (.peaks/<rid>/rd/{code-review,security-review,perf baseline}.md,
+// tmp project that has the right shape (.peaks/_runtime/<rid>/rd/{code-review,security-review,perf baseline}.md,
 // pass tsc, pass vitest, pass verify-pipeline). The unit-test focus is
 // the SERVICE's stage-wiring + skip-Tests handling + fanout-presence
 // checks, not the inner tsc/vitest/verify-pipeline implementations
@@ -72,7 +72,7 @@ vi.mock('node:child_process', async (importOriginal) => {
 
 function makeProject(): string {
   const project = mkdtempSync(join(tmpdir(), 'peaks-slice-'));
-  // Stage a fake .peaks/<rid>/ dir with the 3 review artifacts.
+  // Stage a fake .peaks/_runtime/<rid>/ dir with the 3 review artifacts.
   const rid = '2026-06-05-test';
   const reviewDir = join(project, '.peaks', rid, 'rd');
   mkdirSync(reviewDir, { recursive: true });

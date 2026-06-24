@@ -267,7 +267,7 @@ describe('classifyResume — primary vs abandoned filter', () => {
 });
 
 describe('classifyResume — legacy path fallback', () => {
-  test('falls back to .peaks/<sid>/ when .peaks/_runtime/<sid>/ is absent', () => {
+  test('falls back to .peaks/_runtime/<sid>/ when .peaks/_runtime/<sid>/ is absent', () => {
     // Simulate a pre-v1.3.2 tree: only the legacy path exists.
     const legacyRoot = tmpRoot + '_legacy';
     mkdirSync(join(legacyRoot, '.peaks', SID, 'prd', 'requests'), { recursive: true });
@@ -276,7 +276,7 @@ describe('classifyResume — legacy path fallback', () => {
       'state: handed-off\n'
     );
     // Caller passes the canonical root (.peaks/_runtime), but the
-    // classifier should also look one level up at .peaks/<sid>/.
+    // classifier should also look one level up at .peaks/_runtime/<sid>/.
     const result = classifyResume(SID, join(legacyRoot, '.peaks', '_runtime'));
     expect(result.kind).toBe('resume');
     expect(result.point).toBe<ResumePoint>('rd-planning');

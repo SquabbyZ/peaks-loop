@@ -274,7 +274,7 @@ describe('createAutonomousWorkflowPlan', () => {
     // artifacts route under `.peaks/_runtime/change/<changeId>/`
     // (see `getChangeScopeDirAbs` and the hard-ban callout in
     // SKILL.md). The test was written against the pre-F3 top-level
-    // `.peaks/<changeId>/...` layout; the assertion tracks the
+    // `.peaks/_runtime/<changeId>/...` layout; the assertion tracks the
     // F3-canonical shape.
     expect(plan.resumePlan.requiredArtifacts).toContain('.peaks/_runtime/change/resume-ready/rd/swarm/resume-instructions.md');
     expect(plan.rdPlan.workerTarget).toBe(40);

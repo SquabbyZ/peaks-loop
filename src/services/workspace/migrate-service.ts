@@ -84,7 +84,7 @@ const H1_CHANGE_ID_PATTERNS: Array<{ test: (h1: string) => boolean; extract: (h1
   { test: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
 ];
 
-/** Tier 3 — body frontmatter: `- rid: <change-id>` OR `- linked-rd: .peaks/<sid>/<role>/<num>-<change-id>.md`
+/** Tier 3 — body frontmatter: `- rid: <change-id>` OR `- linked-rd: .peaks/_runtime/<sid>/<role>/<num>-<change-id>.md`
  * The legacy request artifact template writes `- rid:` and the linked-* lines.
  */
 const FRONTMATTER_RID_RE = /^-\s*rid\s*:\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*$/m;
@@ -262,7 +262,8 @@ function isTransientRuntimeFile(relativePath: string): boolean {
 
 async function planSession(
   sessionId: string,
-  sessionPath: string
+  sessionPath: string,
+  peaksRoot: string
 ): Promise<MigrateSessionPlan> {
   const fallback = await deriveFallbackChangeId(sessionPath);
   const files = await collectFiles(sessionPath);
@@ -292,7 +293,7 @@ async function planSession(
       // change-id. Move them to their dedicated top-level dir as part of the
       // same migration pass.
       const crossCuttingDir = deriveCrossCuttingDirName(f.relativePath);
-      const to = join(sessionPath, '..', crossCuttingDir, f.relativePath);
+      const to = join(peaksRoot, crossCuttingDir, f.relativePath);
       empty = false;
       plans.push({
         from: f.absPath,
@@ -353,7 +354,7 @@ async function planSession(
     }
 
     empty = false;
-    const to = join(sessionPath, '..', 'retrospective', extracted.changeId, f.relativePath);
+    const to = join(peaksRoot, 'retrospective', extracted.changeId, f.relativePath);
     plans.push({
       from: f.absPath,
       to,
@@ -370,7 +371,7 @@ async function planSession(
 
 /**
  * Slice 003 (2026-06-06-session-layout-canonicalize): one-shot
- * consolidation of every top-level `.peaks/<sid>/` into
+ * consolidation of every top-level `.peaks/_runtime/<sid>/` into
  * `.peaks/_runtime/<sid>/`. Idempotent:
  *
  *   - If `.peaks/_runtime/<sid>/` does not exist → `fs.rename` the
@@ -522,14 +523,37 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
 
   const topLevel = await readdir(peaksRoot, { withFileTypes: true });
   const sessionPlans: MigrateSessionPlan[] = [];
+  const discoveredSessions = new Set<string>();
   for (const entry of topLevel) {
     if (!entry.isDirectory()) continue;
     if (PROTECTED_TOP_LEVEL_DIRS.has(entry.name)) continue;
     // Only treat dirs matching the legacy session pattern as sessions.
     if (!/^\d{4}-\d{2}-\d{2}-session-/.test(entry.name)) continue;
     const sessionPath = join(peaksRoot, entry.name);
-    const plan = await planSession(entry.name, sessionPath);
+    const plan = await planSession(entry.name, sessionPath, peaksRoot);
     sessionPlans.push(plan);
+    discoveredSessions.add(entry.name);
+  }
+
+  // Slice 003 (canonical): also discover sessions under `.peaks/_runtime/<sid>/`.
+  // The pre-canonical legacy walker above already handles legacy layouts;
+  // this branch handles the post-canonical layout where every session
+  // lives under `_runtime/`. We dedupe by session id so a session that
+  // exists in both locations is only planned once (legacy takes
+  // precedence — `_runtime/` is the canonical form, and the legacy
+  // tree is the migration source).
+  const runtimeRoot = join(peaksRoot, '_runtime');
+  if (await isDirectory(runtimeRoot)) {
+    const runtimeEntries = await readdir(runtimeRoot, { withFileTypes: true });
+    for (const entry of runtimeEntries) {
+      if (!entry.isDirectory()) continue;
+      if (discoveredSessions.has(entry.name)) continue;
+      if (!/^\d{4}-\d{2}-\d{2}-session-/.test(entry.name)) continue;
+      const sessionPath = join(runtimeRoot, entry.name);
+      const plan = await planSession(entry.name, sessionPath, peaksRoot);
+      sessionPlans.push(plan);
+      discoveredSessions.add(entry.name);
+    }
   }
 
   const wouldMove: MigrateFilePlan[] = [];
@@ -623,7 +647,7 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
   }
 
   // Slice 003: the `--to-runtime` step. When set, move every
-  // top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
+  // top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
   // The F15 carve-out (rd/project-scan.md) is honored: when the
   // top-level `<sid>/rd/project-scan.md` differs from the runtime
   // `<sid>/rd/project-scan.md` already in place, the file is

@@ -46,7 +46,7 @@
 - Conflicts detected: none
 
 ## State management, routing, data fetching
-- State: in-memory + on-disk artifact store (`.peaks/<session>/`, JSON files; no React/store library)
+- State: in-memory + on-disk artifact store (`.peaks/_runtime/<session>/`, JSON files; no React/store library)
 - Routing: commander.js (`peaks <cmd>` CLI tree, not URL routing)
 - Data fetching: native fs + child_process spawn (no HTTP client by default; codegraph uses optional `@colbymchenry/codegraph`)
 

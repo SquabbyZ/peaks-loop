@@ -3,11 +3,11 @@
  * slice 2026-06-23-audit-followup (2.8.4) — verifies the
  * `peaks workspace init --change-id <id>` redirect.
  *
- * Background: the 2.8.0-era layout wrote `.peaks/<changeId>/` as a
+ * Background: the 2.8.0-era layout wrote `.peaks/_runtime/<changeId>/` as a
  * top-level sibling of `.peaks/_runtime/`. Slice 2.8.3 redirects the
  * binding to `.peaks/_runtime/current-change` as a plain text file —
  * NO sibling dir is created at top level. If a 2.8.0-era legacy
- * sibling `.peaks/<changeId>/` already exists, the init aborts with
+ * sibling `.peaks/_runtime/<changeId>/` already exists, the init aborts with
  * `LegacyChangeIdSiblingError` so the user can migrate first.
  *
  * Slice 2.8.4 adds:
@@ -22,11 +22,11 @@
  *
  * ACs (slice 2.8.3):
  *   1. `initWorkspace({ changeId: '<id>' })` does NOT create
- *      `.peaks/<changeId>/` at top level.
+ *      `.peaks/_runtime/<changeId>/` at top level.
  *   2. The binding file `.peaks/_runtime/current-change` IS created
  *      and contains the change-id as its sole content.
  *   3. `initWorkspace({ changeId: '<id>' })` throws
- *      `LegacyChangeIdSiblingError` when `.peaks/<changeId>/` exists.
+ *      `LegacyChangeIdSiblingError` when `.peaks/_runtime/<changeId>/` exists.
  *   4. `initWorkspace({})` (no changeId) does NOT touch the binding.
  *   5. Re-init with the same change-id is idempotent.
  *   6. Error envelope fields + 4-step migration recipe are present.
@@ -79,7 +79,7 @@ afterEach(() => {
 });
 
 describe('workspace init --change-id redirect (slice 2026-06-22 + 2026-06-23)', () => {
-  test('AC1: initWorkspace with --change-id does NOT create .peaks/<changeId>/ sibling dir', async () => {
+  test('AC1: initWorkspace with --change-id does NOT create .peaks/_runtime/<changeId>/ sibling dir', async () => {
     const projectRoot = makeProject();
     createdDirs.push(projectRoot);
     const changeId = '2026-06-22-my-change';
@@ -114,7 +114,7 @@ describe('workspace init --change-id redirect (slice 2026-06-22 + 2026-06-23)', 
     expect(content).toBe(changeId);
   });
 
-  test('AC3: initWorkspace throws LegacyChangeIdSiblingError when .peaks/<changeId>/ already exists', async () => {
+  test('AC3: initWorkspace throws LegacyChangeIdSiblingError when .peaks/_runtime/<changeId>/ already exists', async () => {
     const projectRoot = makeProject();
     createdDirs.push(projectRoot);
     const changeId = 'legacy-orphan';

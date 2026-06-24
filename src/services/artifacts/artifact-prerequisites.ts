@@ -21,7 +21,7 @@ export function isRequestType(value: string): value is RequestType {
 }
 
 export type ArtifactPrerequisite = {
-  /** Relative path under `.peaks/<session-id>/`. May contain `<rid>` placeholder. */
+  /** Relative path under `.peaks/_runtime/<session-id>/`. May contain `<rid>` placeholder. */
   relativePath: string;
   /** Human-readable description of what this artifact represents. */
   description: string;
@@ -198,8 +198,8 @@ const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {
 export type CheckPrerequisitesOptions = {
   projectRoot: string;
   /**
-   * Durable scope of the artifact (the `.peaks/<changeId>/` directory
-   * the file lives in). The gate scans under `.peaks/<changeId>/<role>/`
+   * Durable scope of the artifact (the `.peaks/_runtime/<changeId>/` directory
+   * the file lives in). The gate scans under `.peaks/_runtime/<changeId>/<role>/`
    * for prerequisite artifacts. As of slice 2026-06-05-change-id-as-unit-of-work,
    * this replaces the legacy `sessionId` field — the file body and the
    * on-disk path now agree on the same top-level dir.
@@ -209,7 +209,7 @@ export type CheckPrerequisitesOptions = {
    * Session binding (the developer's local session that wrote the
    * request artifact). Read from the file body's `- session:` line.
    * Optional, but when present the gate falls back to
-   * `.peaks/_runtime/<sid>/<role>/` and then `.peaks/<sid>/<role>/`
+   * `.peaks/_runtime/<sid>/<role>/` and then `.peaks/_runtime/<sid>/<role>/`
    * for prerequisite artifacts that don't exist at the per-change-id
    * path. This mirrors the F1/F2 back-compat pattern (read new path
    * first, then legacy) and keeps the gate working for users whose
@@ -276,11 +276,11 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
     return { ok: true, missing: [] };
   }
   // Slice 006 simplifies the resolution to a 2-tier fallback. The
-  // per-change-id scope (`.peaks/<changeId>/<role>/`) is gone — new
+  // per-change-id scope (`.peaks/_runtime/<changeId>/<role>/`) is gone — new
   // artifacts go to the session dir directly. The 2 tiers are:
   //   1. `.peaks/_runtime/<sid>/<role>/...` (post-F3 canonical
   //      session home; primary).
-  //   2. `.peaks/<sid>/<role>/...` (pre-F3 legacy session home;
+  //   2. `.peaks/_runtime/<sid>/<role>/...` (pre-F3 legacy session home;
   //      back-compat).
   // The changeId is preserved in the artifact body's frontmatter for
   // human navigation; it is no longer a filesystem path key.

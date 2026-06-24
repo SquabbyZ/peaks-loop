@@ -6,7 +6,7 @@ metadata:
   sourceArtifact: .peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md
 ---
 
-As of slice `005-session-runtime-dir-regression` (2026-06-07), the canonical per-session workspace lives at `<root>/.peaks/_runtime/<sid>/` (NOT the legacy `<root>/.peaks/<sid>/`). All **write** paths in `src/` MUST route through the `getSessionDir(root, sid)` resolver at `src/services/session/getSessionDir.ts`. The legacy top-level path is preserved as a back-compat **read** fallback only (see `src/services/artifacts/request-artifact-service.ts:662`, `src/services/artifacts/artifact-prerequisites.ts:260`, `src/services/sc/sc-service.ts:289-291`).
+As of slice `005-session-runtime-dir-regression` (2026-06-07), the canonical per-session workspace lives at `<root>/.peaks/_runtime/<sid>/` (NOT the legacy `<root>/.peaks/_runtime/<sid>/`). All **write** paths in `src/` MUST route through the `getSessionDir(root, sid)` resolver at `src/services/session/getSessionDir.ts`. The legacy top-level path is preserved as a back-compat **read** fallback only (see `src/services/artifacts/request-artifact-service.ts:662`, `src/services/artifacts/artifact-prerequisites.ts:260`, `src/services/sc/sc-service.ts:289-291`).
 
 The invariant is enforced at test-time by the static scan in `tests/unit/services/session/session-dir-canonical.test.ts`. Any new source file that joins `.peaks` + `sessionId` outside the resolver (and outside the explicit back-compat read allow-list) will fail the suite. If a new legitimate back-compat read is needed, add the file to `ALLOWED_LEGACY_READ_PATHS` with a justification comment, otherwise route the write through `getSessionDir`.
 

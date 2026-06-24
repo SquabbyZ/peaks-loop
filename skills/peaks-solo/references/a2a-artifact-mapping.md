@@ -1,6 +1,6 @@
 # A2A artifact mapping (informational)
 
-> Reference for `peaks-solo` and any other peaks skill that produces durable artefacts in `.peaks/<session-id>/`. Maps peaks's on-disk artefact vocabulary onto the A2A (Agent2Agent) protocol's vocabulary so a future peaks consumer (e.g. an external LLM agent or a downstream peaks-cli extension) can read peaks output without having to learn a brand-new schema. This is a **documentation mapping**, not a protocol implementation: peaks-cli does not speak A2A over HTTP, does not host an AgentCard endpoint, and does not advertise its capabilities via A2A's discovery mechanism. It only uses A2A's *concepts* as a shared naming layer.
+> Reference for `peaks-solo` and any other peaks skill that produces durable artefacts in `.peaks/_runtime/<session-id>/`. Maps peaks's on-disk artefact vocabulary onto the A2A (Agent2Agent) protocol's vocabulary so a future peaks consumer (e.g. an external LLM agent or a downstream peaks-cli extension) can read peaks output without having to learn a brand-new schema. This is a **documentation mapping**, not a protocol implementation: peaks-cli does not speak A2A over HTTP, does not host an AgentCard endpoint, and does not advertise its capabilities via A2A's discovery mechanism. It only uses A2A's *concepts* as a shared naming layer.
 
 ## 1. Why this reference exists
 
@@ -16,12 +16,12 @@ This is the kind of borrowing that costs zero code and earns some interoperabili
 
 The mapping below uses peaks's own paths verbatim. Each row also notes where peaks **diverges** from A2A, so a reader does not assume parity.
 
-| A2A concept | peaks artefact | Path (under `.peaks/<session-id>/`) | Notes |
+| A2A concept | peaks artefact | Path (under `.peaks/_runtime/<session-id>/`) | Notes |
 |---|---|---|---|
 | **AgentCard** (capability advertisement) | `peaks-skill-output-style` + `.peaks/.active-skill.json` | `.peaks/.active-skill.json`, `.peaks/.session.json` | peaks is a *local* tool, not a service. The "card" is the active-skill file plus a peek at `.peaks/PROJECT.md` for human-readable history. There is no `/.well-known/agent-card.json` endpoint. |
-| **Task** (stateful unit of work) | `peaks request` state machine for a single `<rid>` | `.peaks/<sid>/{prd,rd,qa,ui,sc}/requests/<rid>.md` (the request artefact); `.peaks/<sid>/<role>/session.json` (per-session metadata) | peaks's task lifecycle is `prd:confirmed-by-user → handed-off`, then per role `draft → spec-locked → implemented → qa-handoff`, then `qa:running → verdict-issued`. The full state graph is enforced by `peaks request transition`. A2A's Task object is JSON; peaks's task is **a set of files with a `state` field per role**. |
+| **Task** (stateful unit of work) | `peaks request` state machine for a single `<rid>` | `.peaks/_runtime/<sid>/{prd,rd,qa,ui,sc}/requests/<rid>.md` (the request artefact); `.peaks/_runtime/<sid>/<role>/session.json` (per-session metadata) | peaks's task lifecycle is `prd:confirmed-by-user → handed-off`, then per role `draft → spec-locked → implemented → qa-handoff`, then `qa:running → verdict-issued`. The full state graph is enforced by `peaks request transition`. A2A's Task object is JSON; peaks's task is **a set of files with a `state` field per role**. |
 | **Artifact** (immutable output) | `rd/tech-doc.md`, `rd/code-review.md`, `rd/security-review.md`, `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md`, `qa/security-findings.md`, `qa/performance-findings.md`, `sc/handoff.md` | as listed | peaks's artefacts are *append-once*, not strictly immutable: a `qa/test-reports/<rid>.md` may be re-emitted on repair cycles. The convention is "newest write wins; the file at the end of the workflow is the truth", which is close enough to A2A's immutable-Artifact semantics for translation purposes. |
-| **Message** (non-artifact communication) | `peaks skill presence` heartbeat + transition `--reason` notes | `.peaks/.active-skill.json` (`lastHeartbeat`), transition notes in `.peaks/<sid>/<role>/requests/<rid>.md` | peaks does **not** separate Messages from Artifacts at the storage layer; a "message" is anything that is not the artefact body (the `<!-- peaks-memory:start -->` markers, the `state` field, the `--reason` text on a transition). Treat these as inline metadata of the artefact, not as separate objects. |
+| **Message** (non-artifact communication) | `peaks skill presence` heartbeat + transition `--reason` notes | `.peaks/.active-skill.json` (`lastHeartbeat`), transition notes in `.peaks/_runtime/<sid>/<role>/requests/<rid>.md` | peaks does **not** separate Messages from Artifacts at the storage layer; a "message" is anything that is not the artefact body (the `<!-- peaks-memory:start -->` markers, the `state` field, the `--reason` text on a transition). Treat these as inline metadata of the artefact, not as separate objects. |
 | **Part** (atomic content unit) | Markdown sections within an artefact, frontmatter fields | inline within the artefact | peaks's Artifacts are single Markdown files, so the "Part" concept maps to a heading or a frontmatter field. A `Part`'s `kind` in A2A terms is `text` (the prose), `file` (a `<!-- peaks-memory:start -->` block as a structured chunk), or `data` (the frontmatter). A2A's `form` / `iframe` / video `Part` kinds are not produced by peaks. |
 
 ## 3. Field-level mapping (A2A Part ↔ peaks frontmatter)
@@ -73,20 +73,20 @@ A consumer translating peaks states to A2A should:
 A user runs `peaks-solo` for a "add user authentication" feature. Mapping the resulting files to A2A concepts:
 
 ```
-.peaks/<sid>/prd/requests/001.md      → A2A Artifact (kind=proposal)
-.peaks/<sid>/ui/requests/001.md       → A2A Artifact (kind=design-direction)
-.peaks/<sid>/ui/design-draft.md       → A2A Artifact (kind=visual-spec)
-.peaks/<sid>/rd/tech-doc.md           → A2A Artifact (kind=implementation-plan)
-.peaks/<sid>/qa/test-cases/001.md     → A2A Artifact (kind=test-cases)
-.peaks/<sid>/rd/code-review.md        → A2A Artifact (kind=review, status=fixed)
-.peaks/<sid>/rd/security-review.md    → A2A Artifact (kind=security-review)
-.peaks/<sid>/qa/test-reports/001.md    → A2A Artifact (kind=test-report, verdict=pass)
-.peaks/<sid>/qa/security-findings.md  → A2A Artifact (kind=security-findings)
-.peaks/<sid>/qa/performance-findings.md → A2A Artifact (kind=performance-findings)
-.peaks/<sid>/sc/handoff.md            → A2A Artifact (kind=change-record)
-.peaks/<sid>/txt/handoff.md           → A2A Artifact (kind=handoff-capsule)
-.peaks/<sid>/system/sub-agent-*.json  → A2A Message (sub-agent presence markers)
-.peaks/<sid>/sc/swarm-plan.json       → A2A Message (the dispatch plan)
+.peaks/_runtime/<sessionId>/prd/requests/001.md      → A2A Artifact (kind=proposal)
+.peaks/_runtime/<sessionId>/ui/requests/001.md       → A2A Artifact (kind=design-direction)
+.peaks/_runtime/<sessionId>/ui/design-draft.md       → A2A Artifact (kind=visual-spec)
+.peaks/_runtime/<sessionId>/rd/tech-doc.md           → A2A Artifact (kind=implementation-plan)
+.peaks/_runtime/<sessionId>/qa/test-cases/001.md     → A2A Artifact (kind=test-cases)
+.peaks/_runtime/<sessionId>/rd/code-review.md        → A2A Artifact (kind=review, status=fixed)
+.peaks/_runtime/<sessionId>/rd/security-review.md    → A2A Artifact (kind=security-review)
+.peaks/_runtime/<sessionId>/qa/test-reports/001.md    → A2A Artifact (kind=test-report, verdict=pass)
+.peaks/_runtime/<sessionId>/qa/security-findings.md  → A2A Artifact (kind=security-findings)
+.peaks/_runtime/<sessionId>/qa/performance-findings.md → A2A Artifact (kind=performance-findings)
+.peaks/_runtime/<sessionId>/sc/handoff.md            → A2A Artifact (kind=change-record)
+.peaks/_runtime/<sessionId>/txt/handoff.md           → A2A Artifact (kind=handoff-capsule)
+.peaks/_runtime/<sessionId>/system/sub-agent-*.json  → A2A Message (sub-agent presence markers)
+.peaks/_runtime/<sessionId>/sc/swarm-plan.json       → A2A Message (the dispatch plan)
 .peaks/memory/*.md                    → A2A Artifact (kind=project-memory, persists across sessions)
 ```
 

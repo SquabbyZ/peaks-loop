@@ -245,6 +245,10 @@ describe('buildDispatchSpec edge cases', () => {
       'A',
       []
     );
-    expect(spec.prompt).toBe('custom A prompt');
+    // Slice 2026-06-24-test-tool-detection-injection: every dispatched
+    // prompt is prepended with the Test Tool Detection block. The
+    // custom `node.prompt` is preserved verbatim AFTER the block.
+    expect(spec.prompt.endsWith('custom A prompt')).toBe(true);
+    expect(spec.prompt).toContain('## Test Tool Detection (mandatory)');
   });
 });

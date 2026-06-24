@@ -3,7 +3,7 @@
  *
  * As of slice 2026-06-05-peaks-runtime-layer the per-session workspace
  * lives at `<root>/.peaks/_runtime/<sessionId>/` (NOT at the legacy
- * `<root>/.peaks/<sessionId>/` location). All **write** paths MUST route
+ * `<root>/.peaks/_runtime/<sessionId>/` location). All **write** paths MUST route
  * through this helper. The legacy top-level path is preserved as a
  * back-compat **read** fallback only (see
  * `src/services/artifacts/request-artifact-service.ts:662` etc.).

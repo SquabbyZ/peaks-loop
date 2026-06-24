@@ -26,7 +26,7 @@
  * Legacy path fallback: prefers the canonical
  * `.peaks/_runtime/<sid>/` layout introduced in slice
  * `2026-06-05-peaks-runtime-layer`; falls back to the pre-migration
- * `.peaks/<sid>/` for one minor release so older trees do not show as
+ * `.peaks/_runtime/<sid>/` for one minor release so older trees do not show as
  * false "fresh". The `usedLegacyPath` field reports which path was
  * read.
  */
@@ -80,7 +80,7 @@ export type ResumeClassification = {
   abandonedRequestCount: number;
   /**
    * True when the canonical `.peaks/_runtime/<sid>/` path was absent
-   * and the classifier fell back to `.peaks/<sid>/`. Lets the SKILL.md
+   * and the classifier fell back to `.peaks/_runtime/<sid>/`. Lets the SKILL.md
    * surface a one-time migration reminder to the user.
    */
   usedLegacyPath: boolean;
@@ -375,7 +375,7 @@ function classifyTerminalGates(
 /**
  * Resolve the session directory. Prefers the canonical
  * `.peaks/_runtime/<sid>/`; falls back to the legacy
- * `.peaks/<sid>/` (one level up from the runtime root) for one
+ * `.peaks/_runtime/<sid>/` (one level up from the runtime root) for one
  * minor release. Returns `null` when neither path exists.
  */
 function resolveSessionDir(sid: string, peaksRoot: string): { sessionDir: string; usedLegacyPath: boolean } | null {

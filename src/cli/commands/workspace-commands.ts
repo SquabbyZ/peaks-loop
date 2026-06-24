@@ -36,7 +36,7 @@ export {
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
   const workspace = program
     .command('workspace')
-    .description('Manage the Peaks per-session artifact workspace (.peaks/<session-id>/)');
+    .description('Manage the Peaks per-session artifact workspace (.peaks/_runtime/<session-id>/)');
 
   registerWorkspaceInitCommand(workspace, io);
   registerWorkspaceReconcileCommand(workspace, io);
@@ -45,7 +45,7 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   registerWorkspaceArchiveCommand(workspace, io);
   registerWorkspaceConsolidateCommand(workspace, io);
 
-  // R004: slice 0.5 → 1.4.1 migration helper (legacy `.peaks/<sid>/<role>/`
+  // R004: slice 0.5 → 1.4.1 migration helper (legacy `.peaks/_runtime/<sid>/<role>/`
   // → `.peaks/_runtime/<sid>/<role>/`). Idempotent; purely a UX /
   // filesystem-cleanup helper — the functional behavior is already
   // correct without it.

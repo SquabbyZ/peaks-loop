@@ -33,7 +33,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 # **Do not write any code, do not plan any implementation, do not pass go.**
 # **Create the project-scan first, then proceed.**
 # NOTE: project-scan.md is a session-scoped singleton. Check if it already exists
-# before regenerating (e.g. via `ls .peaks/<changeId>/rd/project-scan.md`). If it exists
+# before regenerating (e.g. via `ls .peaks/_runtime/change/<changeId>/rd/project-scan.md`). If it exists
 # and is complete (has `## Archetype` and `## Project mode` sections), reuse it.
 # Required sections in project-scan:
 #   - build tool and framework
@@ -165,8 +165,8 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
 #    Peaks-Cli Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
-#    Peaks-Cli Gate B3: code review evidence → .peaks/<changeId>/rd/code-review.md
-#    Peaks-Cli Gate B4: security review evidence → .peaks/<changeId>/rd/security-review.md
+#    Peaks-Cli Gate B3: code review evidence → .peaks/_runtime/change/<changeId>/rd/code-review.md
+#    Peaks-Cli Gate B4: security review evidence → .peaks/_runtime/change/<changeId>/rd/security-review.md
 #    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
 peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
 #    Peaks-Cli Gate B6 (NEW): declared --type still matches the actual diff after implementation.

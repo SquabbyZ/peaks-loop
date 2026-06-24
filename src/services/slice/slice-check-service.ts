@@ -213,7 +213,7 @@ async function runReviewFanout(
   }
 
   // Default: verify all 3 review files exist with non-empty content. The
-  // files can live under EITHER `.peaks/<rid>/rd/` (active change-id) or
+  // files can live under EITHER `.peaks/_runtime/<rid>/rd/` (active change-id) or
   // `.peaks/retrospective/<rid>/rd/` (shipped). The boundary check
   // accepts either — the LLM may be at a slice that's still active
   // (not yet archived) or one that just shipped.
@@ -263,7 +263,7 @@ async function runGateVerifyPipeline(
     const duration = Date.now() - start;
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
       status: result.complete ? 'pass' : 'fail',
       durationMs: duration,
       detail: result.complete
@@ -281,7 +281,7 @@ async function runGateVerifyPipeline(
   } catch (error: any) {
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
       status: 'fail',
       durationMs: Date.now() - start,
       detail: error?.message ?? 'verify-pipeline threw',

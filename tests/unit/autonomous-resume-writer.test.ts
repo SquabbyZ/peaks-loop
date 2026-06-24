@@ -39,7 +39,7 @@ describe('writeAutonomousResumeArtifacts', () => {
     const relativePaths = result.files.map((file) => file.path.replace(workspace, '').replace(/\\/g, '/'));
     // Slice 2026-06-23-audit-5th-p1: resume artifacts now land under
     // `.peaks/_runtime/change/<changeId>/...` (the canonical change-id
-    // scope dir), NOT the forbidden top-level `.peaks/<changeId>/`.
+    // scope dir), NOT the forbidden top-level `.peaks/_runtime/<changeId>/`.
     expect(relativePaths).toEqual([
       '/.peaks/_runtime/change/resume-writer-preview/prd/autonomous-goal-package.json',
       '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/autonomous-rd-plan.json',

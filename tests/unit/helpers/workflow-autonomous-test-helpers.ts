@@ -29,7 +29,7 @@ export function writeApprovedTechArtifacts(artifactWorkspace: string, changeId: 
   // Slice 2026-06-23-audit-5th-p1: stage under the canonical change-id
   // scope dir (`.peaks/_runtime/change/<changeId>/rd/architecture/`),
   // matching where `tech-service.ts`'s `getTechStatus` reads from. The
-  // old top-level `.peaks/<changeId>/` is a SKILL.md 2.8.3 hard-ban
+  // old top-level `.peaks/_runtime/<changeId>/` is a SKILL.md 2.8.3 hard-ban
   // violation — see `change-scope-service.ts` for the canonical
   // location.
   const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, changeId), 'rd', 'architecture');

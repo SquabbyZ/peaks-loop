@@ -13,7 +13,7 @@
  * RD runs themselves (lighthouse is project-shape dependent and we
  * don't want to bake a lighthouse dependency into the CLI), but capture
  * the result in a stable, scaffolded file under
- * `.peaks/<sid>/rd/perf-baseline.md` so QA Gate A4 has a known-good
+ * `.peaks/_runtime/<sid>/rd/perf-baseline.md` so QA Gate A4 has a known-good
  * reference to diff against. The CLI itself only writes the scaffold
  * and records the path; the actual measurement is a project-local
  * concern that lives in the README, not in peaks-cli.

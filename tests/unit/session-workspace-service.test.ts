@@ -56,7 +56,7 @@ describe('initWorkspace', () => {
     // sc/, txt/, ui/) and the legacy `system/` subdir are NO LONGER
     // pre-created at init time — they are created lazily when a
     // slice writes a file under them. Reviewable content lives
-    // under `.peaks/<change-id>/<role>/` when --change-id is passed.
+    // under `.peaks/_runtime/<change-id>/<role>/` when --change-id is passed.
     const project = await makeProject();
     const report = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
     expect(report.sessionId).toBe('2026-05-25-feature');
@@ -130,7 +130,7 @@ describe('initWorkspace', () => {
     expect(getSessionId(project)).toBe('2026-05-25-second-feature');
   });
 
-  test('rebind path leaves the .peaks/<first>/ directory on disk (not deleted)', async () => {
+  test('rebind path leaves the .peaks/_runtime/<first>/ directory on disk (not deleted)', async () => {
     // We only overwrite the .session.json binding; the prior session directory
     // is the user’s data. listSessionMetas still surfaces both.
     const project = await makeProject();
@@ -144,7 +144,7 @@ describe('initWorkspace', () => {
 
   test('leftover empty session dir does not block rebind (no error)', async () => {
     const project = await makeProject();
-    // Simulate: a .peaks/<Y>/ exists but is empty (true leftover, e.g. previous
+    // Simulate: a .peaks/_runtime/<Y>/ exists but is empty (true leftover, e.g. previous
     // run crashed before mkdir -p the sub-directories). Pre-seed .session.json
     // by hand pointing at that leftover, then call init with X.
     const leftover = '2026-05-25-orphan-zzz';
@@ -177,12 +177,12 @@ describe('initWorkspace', () => {
     ).rejects.toBeInstanceOf(ConflictingSessionError);
   });
 
-  test('does NOT pre-create .peaks/<change-id>/qa/screenshots/ (slice 006 lazy mkdir)', async () => {
+  test('does NOT pre-create .peaks/_runtime/<change-id>/qa/screenshots/ (slice 006 lazy mkdir)', async () => {
     // Slice 006 collapsed the per-session layout. The role subdirs
     // (prd/, qa/, rd/, sc/, txt/) are NOT pre-created by init.
     // They are created on demand by the writer at the write site
     // (e.g. `peaks qa --screenshot ...` does `mkdir -p
-    // .peaks/<change-id>/qa/screenshots/` before writing the file).
+    // .peaks/_runtime/<change-id>/qa/screenshots/` before writing the file).
     // The LLM never has to mkdir under skill pressure because the
     // writer does it. This test confirms the absence.
     const project = await makeProject();
@@ -212,8 +212,8 @@ describe('initWorkspace', () => {
     expect(second.created).not.toContain('qa/screenshots');
   });
 
-  test('AC-1.3: legacy residue at .peaks/<changeId>/ (non-writer content) still throws LegacyChangeIdSiblingError', async () => {
-    // The 2.8.3+ hard ban is preserved: if a sibling `.peaks/<changeId>/`
+  test('AC-1.3: legacy residue at .peaks/_runtime/<changeId>/ (non-writer content) still throws LegacyChangeIdSiblingError', async () => {
+    // The 2.8.3+ hard ban is preserved: if a sibling `.peaks/_runtime/<changeId>/`
     // contains files that are NOT recognized as writer-created, init must
     // still throw `LegacyChangeIdSiblingError` with the migration message.
     // The user has to inspect the dir, migrate desired files, then re-run.
@@ -247,7 +247,7 @@ describe('initWorkspace', () => {
   });
 
   test('AC-1.3c: symlinks inside the sibling dir cause rejection (symlink evasion is not allowed)', async () => {
-    // A symlinked entry inside `.peaks/<changeId>/` could defeat the
+    // A symlinked entry inside `.peaks/_runtime/<changeId>/` could defeat the
     // content-shape heuristic. The helper `isWriterCreatedSiblingShape`
     // must explicitly reject ANY symlinked entry — even when the target
     // looks like a screenshot. The risk is that a symlinked `.png`
@@ -304,7 +304,7 @@ describe('initWorkspace', () => {
   });
 
   test('AC-1.4: writer-created sibling dir (only WRITER_ALLOWED patterns) is tolerated on re-init', async () => {
-    // If the sibling `.peaks/<changeId>/` ONLY contains entries that
+    // If the sibling `.peaks/_runtime/<changeId>/` ONLY contains entries that
     // match the writer-allowed shape (`qa/screenshots/*.{png,jpg,jpeg,...}`,
     // `*/requests/*.md`, `*/findings/*.md`), init treats it as the lazy
     // writer output and re-init succeeds without throwing. Surviving
@@ -312,7 +312,7 @@ describe('initWorkspace', () => {
     const project = await makeProject();
     // First init — no sibling dir yet.
     await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'writer-change' });
-    // Simulate the writer creating typical artifacts under `.peaks/<changeId>/`.
+    // Simulate the writer creating typical artifacts under `.peaks/_runtime/<changeId>/`.
     const writerDir = join(project, '.peaks', 'writer-change');
     const qaScreens = join(writerDir, 'qa', 'screenshots');
     const qaFindings = join(writerDir, 'qa', 'findings');
@@ -386,9 +386,9 @@ describe('runtime path (slice 2026-06-05-peaks-runtime-layer)', () => {
 
 /**
  * Slice 003 invariant: initWorkspace must NEVER write a top-level
- * `.peaks/<sid>/` directory. The only home for the session dir is
+ * `.peaks/_runtime/<sid>/` directory. The only home for the session dir is
  * `.peaks/_runtime/<sid>/`. Reviewable content (rd/, qa/, prd/, ui/, sc/, txt/)
- * lives at `.peaks/<change-id>/<role>/` when --change-id is given.
+ * lives at `.peaks/_runtime/<change-id>/<role>/` when --change-id is given.
  */
 describe('canonical layout (slice 003 — no top-level session dir)', () => {
   test('initWorkspace creates session dir ONLY at .peaks/_runtime/<sid>/, never at top-level', async () => {

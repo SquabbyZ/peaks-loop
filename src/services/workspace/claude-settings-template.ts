@@ -15,7 +15,7 @@
  *
  * One matcher is emitted:
  *   1. `Write|Edit|MultiEdit` — a node one-liner that path-matches
- *      `.peaks/_runtime/` and `.peaks/<changeId>/`. Exits 0 (allow)
+ *      `.peaks/_runtime/` and `.peaks/_runtime/<changeId>/`. Exits 0 (allow)
  *      for those paths, non-zero (deny → fall through to gate) for
  *      everything else.
  *
@@ -177,14 +177,14 @@ function wrapAsNodeOneLiner(js: string): string {
 /**
  * Build the Write|Edit|MultiEdit matcher command. The command reads
  * the candidate file path from argv[2] and exits 0 iff the path
- * contains `.peaks/_runtime/` or `.peaks/<changeId>/` (the change-id
+ * contains `.peaks/_runtime/` or `.peaks/_runtime/<changeId>/` (the change-id
  * segment is the next path component after `.peaks/`). All other
  * paths exit 1 so the gate fires normally.
  *
  * The matcher is intentionally narrow: it only fires for tools that
  * take a `file_path` (Write/Edit/MultiEdit) and for the Bash
  * subcommand allow-list. It does NOT silently allow arbitrary paths
- * under `.peaks/<changeId>/` — only those matching the documented
+ * under `.peaks/_runtime/<changeId>/` — only those matching the documented
  * pattern. Future slice work can broaden the allow-list if the
  * peaks-solo workflow needs more paths.
  */

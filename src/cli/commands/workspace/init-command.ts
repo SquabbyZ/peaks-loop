@@ -68,8 +68,8 @@ export type WorkspaceInitOptions = {
    * `.peaks/_runtime/current-change` (NOT a symlink, NOT a sibling dir).
    * The change-id is a logical identifier embedded in reviewable-artifact
    * filenames (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`)
-   * — RD/QA/PRD writers create the `.peaks/<changeId>/<role>/` dir lazily.
-   * Top-level `.peaks/<changeId>/` siblings are FORBIDDEN (slice
+   * — RD/QA/PRD writers create the `.peaks/_runtime/<changeId>/<role>/` dir lazily.
+   * Top-level `.peaks/_runtime/<changeId>/` siblings are FORBIDDEN (slice
    * 2026-06-22-top-level-change-id-cleanup); the CLI surfaces
    * `LegacyChangeIdSiblingError` if a 2.8.0-era orphan is found.
    */
@@ -137,7 +137,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, writes the binding as a plain text file at .peaks/_runtime/current-change (NOT a sibling dir at .peaks/<change-id>/ — slice 2.8.3 top-level change-id ban). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
+      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, writes the binding as a plain text file at .peaks/_runtime/current-change (NOT a sibling dir at .peaks/_runtime/<change-id>/ — slice 2.8.3 top-level change-id ban). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
@@ -147,7 +147,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       )
       .option(
         '--change-id <id>',
-        'bind the change-id for reviewable artifacts. Writes the binding to .peaks/_runtime/current-change as a plain text file (NOT a top-level .peaks/<change-id>/ sibling dir — that path is FORBIDDEN as of peaks-cli 2.8.3). Reviewable artifact paths embed the change-id as a filename slug inside .peaks/_runtime/<sessionId>/<role>/requests/, e.g. .peaks/_runtime/<sid>/rd/requests/002-<change-id>.md. When omitted, the change-id binding is left unchanged. If a 2.8.0-era legacy sibling dir .peaks/<change-id>/ already exists at top level, the init aborts with LegacyChangeIdSiblingError and a 4-step migration message.',
+        'bind the change-id for reviewable artifacts. Writes the binding to .peaks/_runtime/current-change as a plain text file (NOT a top-level .peaks/_runtime/<change-id>/ sibling dir — that path is FORBIDDEN as of peaks-cli 2.8.3). Reviewable artifact paths embed the change-id as a filename slug inside .peaks/_runtime/<sessionId>/<role>/requests/, e.g. .peaks/_runtime/<sid>/rd/requests/002-<change-id>.md. When omitted, the change-id binding is left unchanged. If a 2.8.0-era legacy sibling dir .peaks/_runtime/<change-id>/ already exists at top level, the init aborts with LegacyChangeIdSiblingError and a 4-step migration message.',
         (value: string) => {
           if (value.length === 0) {
             throw new Error('--change-id must not be empty');
@@ -433,7 +433,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         return;
       }
       if (error instanceof LegacyChangeIdSiblingError) {
-        // Slice 2.8.3: a 2.8.0-era orphan `.peaks/<change-id>/` was
+        // Slice 2.8.3: a 2.8.0-era orphan `.peaks/_runtime/<change-id>/` was
         // found at top level. The CLI surfaces the migration steps
         // verbatim from the error message plus three concrete
         // nextActions so the user (or LLM driver) has an unambiguous

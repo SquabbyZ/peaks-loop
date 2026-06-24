@@ -134,7 +134,7 @@ The transition CLI gate reads `mustContain: ['## Karpathy-Gate',
 
 ## Gate C evidence (RD-side, type-specific)
 
-| Request type | Required RD evidence (under `.peaks/<id>/`) |
+| Request type | Required RD evidence (under `.peaks/_runtime/change/<changeId>/`) |
 |---|---|
 | feature / refactor | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
 | bugfix | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when perf-shaped) |
@@ -142,6 +142,6 @@ The transition CLI gate reads `mustContain: ['## Karpathy-Gate',
 | docs / chore | (no extra evidence required) |
 
 Always required (in addition to the type-specific row):
-`ls .peaks/<id>/rd/requests/<rid>.md`. Missing any required file →
+`ls .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md`. Missing any required file →
 DO NOT attempt the qa-handoff transition; CLI will reject with
 `PREREQUISITES_MISSING`.

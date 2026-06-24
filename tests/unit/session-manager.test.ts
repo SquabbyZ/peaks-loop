@@ -38,7 +38,7 @@ describe('session-manager', () => {
       // at the canonical new path `.peaks/_runtime/session.json`.
       // As of slice 003-2026-06-06-session-layout-canonicalize, the
       // session dir itself is at `.peaks/_runtime/<sid>/`, NOT at
-      // the top-level `.peaks/<sid>/`.
+      // the top-level `.peaks/_runtime/<sid>/`.
       const sessionFile = join(testProjectRoot, '.peaks', '_runtime', 'session.json');
       expect(existsSync(sessionFile)).toBe(true);
 
@@ -368,7 +368,7 @@ describe('session-manager', () => {
     test('ensureSession writes initial session.json into session dir', async () => {
       const sessionId = await ensureSession(testProjectRoot);
       // As of slice 003-2026-06-06-session-layout-canonicalize the
-      // session dir is at `.peaks/_runtime/<sid>/`, NOT `.peaks/<sid>/`.
+      // session dir is at `.peaks/_runtime/<sid>/`, NOT `.peaks/_runtime/<sid>/`.
       const metaPath = join(testProjectRoot, '.peaks', '_runtime', sessionId, 'session.json');
 
       expect(existsSync(metaPath)).toBe(true);

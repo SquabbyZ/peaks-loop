@@ -19,7 +19,7 @@ metadata:
 
 两个独立的合理诉求合并到一个 workplan：
 
-1. **`.peaks/` 目录一致性**：2.7.1 已经把 `.peaks/<changeId>/` 顶级污染源清理掉，但 git-tracked 下仍有 ID-as-folder 孤儿（`.peaks/issues/issue-001-...`）和 `.gitignore` 里的冗余/僵尸规则——违反"下划线前缀 = ephemeral"约定。
+1. **`.peaks/` 目录一致性**：2.7.1 已经把 `.peaks/_runtime/change/<changeId>/` 顶级污染源清理掉，但 git-tracked 下仍有 ID-as-folder 孤儿（`.peaks/issues/issue-001-...`）和 `.gitignore` 里的冗余/僵尸规则——违反"下划线前缀 = ephemeral"约定。
 2. **zvec 集成的 LLM 上下文节省**：`peaks memory search` 当前 fuzzy + headroom 链路每次输出 ~600 tokens；zvec semantic + model API embed 预期降到 ~300 tokens。跟 locked decision `sub-agent-context-minimal-occupation` + `sub-agent-headroom-forced-compression-gate` 形成闭环。
 
 ## Architectural Shift vs Earlier Drafts

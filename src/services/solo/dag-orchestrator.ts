@@ -37,6 +37,7 @@ import {
   writeContract,
   type SliceContract
 } from '../dispatch/contract-store.js';
+import { formatTestToolDetection } from '../dispatch/test-tool-detection.js';
 
 export interface DispatchSpec {
   readonly sliceId: string;
@@ -153,7 +154,7 @@ export function buildDispatchSpec(
       sliceId,
       role: node.role,
       label: node.label ?? null,
-      prompt: node.prompt,
+      prompt: `${formatTestToolDetection()}\n\n${node.prompt}`,
       contractBlock
     };
   }
@@ -179,6 +180,8 @@ export function buildDispatchSpec(
     ? `\n\n${contractBlock}`
     : '';
   const prompt = [
+    formatTestToolDetection(),
+    '',
     `[slice-dag-dispatcher MVP 1.2] execute slice "${sliceId}" (role=${node.role})${labelFragment}.`,
     '',
     'Scope: this is the 2.7.0 MVP dogfood of peaks-cli DAG-aware dispatch. You are one leaf in a multi-slice plan; the orchestrator has already validated the DAG, built a topological order, and injected your upstream contracts above.',

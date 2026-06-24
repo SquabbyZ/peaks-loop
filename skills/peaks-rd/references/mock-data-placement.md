@@ -2,7 +2,7 @@
 
 > Body of `## Mock data placement rules` + `### Framework-to-mock-directory mapping` + `### Hard rules` + `### Verification gate`. **BLOCKING — framework-aware.**
 
-When the project-scan in `.peaks/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
+When the project-scan in `.peaks/_runtime/change/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
 
 ## Framework-to-mock-directory mapping
 

@@ -7,6 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.0] — 2026-06-25 — Path canonicalization + fan-out mandatory + test-tool-detection
+
+**MINOR bump from 2.8.4** (supersedes the unpublished 2.9.1 / 2.9.2 intermediate work; those entries below are kept as historical context only).
+
+### Features
+
+- **Sub-agent fan-out is mandatory** (slice `2026-06-24-audit-5th-p2`): `preferences.fanout.defaultMode = 'serial'` opt-out removed. When the slice DAG has ≥ 2 leaves at one topological level, the orchestrator MUST use `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>`. No preference, env-var, or CLI flag overrides this. `FANOUT_MODES = ['fan-out']` only; legacy `serial` values auto-migrate via `peaks preferences migrate --write`.
+- **4-policy bundle (slice `2026-06-24-efficiency-4p-bundle`)**: (a) default fan-out via `--from-dag`; (b) periodic checkpoint frequency locked at 20 tool calls (no `~` approximation, no `--periodic-every` override); (c) Karpathy reviewer skipped for `config | docs | chore` request types (5-way review otherwise); (d) `swarmSpeculative.maxConcurrent` default bumped 2 → 3.
+- **Test-tool-detection block** (slice `2026-06-24-test-tool-detection-injection`): Every sub-agent dispatched by Solo (`peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-txt`, `peaks-sc`, `peaks-general-purpose`, single + DAG) receives a hard "Test Tool Detection (mandatory)" block at the top of its prompt: read `package.json#scripts.test`, use project-local runner (`./node_modules/.bin/<runner>` or `pnpm test --`), NEVER `npx <runner>`. Wired at both `dispatch-commands.ts` and `dag-orchestrator.ts` chokepoints; envelope version bumped to `2.2.0`.
+
+### Bugfixes — handoff path canonicalization (v1 + v2 + v3 + v4 + v5 + v6 + v7)
+
+LLM was creating top-level `.peaks/_runtime/<change-id>/` siblings of `.peaks/_runtime/`, violating the 2.8.3 hard ban. Sweep across all surfaces:
+
+- **v1 (`9893d3a`)**: 20 hardcoded `.peaks/_runtime/${changeId}/` template strings in the 5 render functions of `src/services/artifacts/artifact-templates.ts` (split from `request-artifact-service.ts`). 4-helper API: `formatHandoffPath`, `formatCommitBoundaryPath`, `formatSkillUsageLessonsPath`, `formatChangeScopePath`.
+- **v2-v5 (`9afb702`, `41ad7a5`, `70bb568`, `83f23b2`, `975d9fc`)**: 11 B-class LLM/CLI directive strings in `src/cli/commands/` + `src/services/{refactor,sc,slice}/`, 71 B-class strings in `skills/`, 5 `.peaks/` project metadata files, 8 remaining SKILL.md literals. Plus R3 hotfix on `request-artifact-service.ts:515` runtime error message.
+- **File split**: `core-artifact-commands.ts` 889 → 39 lines + 8 new `core/*-command.ts` modules (each ≤ 800 lines), preserving public API.
+- **Regression test**: `tests/unit/workspace/banned-path-directive-guard.test.ts` — 7 directive-context patterns, 3-entry KEEP allow-list, covers `src/` + `skills/`.
+- **v7 (`b4d666b`)**: `migrateWorkspace` updated to discover sessions under canonical `.peaks/_runtime/<sid>/` (was only walking the legacy top-level path).
+
+### Tests
+
+- 3873 passed / 0 failed / 17 skipped at release time.
+- New: `dispatch-fanout-mandatory.test.ts` (11), `karpathy-skip-on-config-docs-chore.test.ts` (11), `checkpoint-periodic-frequency.test.ts` (6), `test-tool-detection.test.ts` (6) + injection test + docs test, `banned-path-directive-guard.test.ts` (2), `reviewer-dispatch-policy.test.ts` (11).
+- New reviewable artifact helpers tested in `request-artifact-handoff-path.test.ts` (21 total now).
+
+### Pre-existing violations preserved as-is
+
+6 ban-explanation memory files under `.peaks/memory/`, 28 historic session files under `.peaks/_runtime/2026-06-*/`, 5 historic dispatch records under `.peaks/_sub_agents/`, `.peaks/.gitignore` (gitignore contract), `tests/fixtures/skills/pre-slim/*.md` (slim-evidence baseline) — all explicitly labeled historical.
+
+---
+
+## [2.9.2] — 2026-06-25 — Handoff path canonicalization v2 (INTERMEDIATE, SUPERSEDED BY 2.9.0)
+
+**Bugfix.** v1 (2.9.1, commit 9893d3a) fixed 20 hardcoded `.peaks/_runtime/${changeId}/` template strings in the 5 render functions of `src/services/artifacts/artifact-templates.ts`. User review then surfaced 11 additional B-class (LLM/CLI directive) hits across `src/cli/commands/`, `src/services/{refactor,sc,slice}/`, and 71 hits in `skills/` SKILL.md/references that the LLM would read as write instructions. v2 cleans all of them.
+
+- **11 B-class string edits** in 8 source files (CLI descriptions, `nextActions.push`, service-emit `warnings:` / `helpLines:` / `hardGates`, `slice-check` gate descriptions)
+- **1 R3 hotfix**: `src/services/artifacts/request-artifact-service.ts:515` runtime error message path
+- **1 C-class back-compat comment** on `src/services/audit/enforcers/design-draft-confirm.ts:38-41` design-draft read path
+- **71 B-class edits** across 15 skills/ files (SKILL.md + references/)
+- **5 .peaks/ project metadata files** updated (PROJECT.md, retrospective index, project-scan, 2 memory entries)
+- **File split**: `src/cli/commands/core-artifact-commands.ts` 889 → 39 lines (orchestrator) + 8 new `src/cli/commands/core/*.ts` modules (each ≤ 800 lines), preserving the public API (`registerCoreAndArtifactCommands`, `DoctorLogsSection`, `BindingSource`)
+- **4 new tests** in `request-artifact-handoff-path.test.ts` (21 total now)
+- **1 new regression test**: `tests/unit/workspace/banned-path-directive-guard.test.ts` (2 tests, 7 directive-context patterns, 3-entry KEEP allow-list for explicit legacy/canonical contrast descriptions; covers `src/` and `skills/` directive contexts)
+- **1 test sync**: `tests/unit/sc-service.test.ts:151` updated to match the production warning string at `src/services/sc/sc-service.ts:567`
+- Bumps `package.json#version` from 2.9.1 to 2.9.2
+
+**Pre-existing violations preserved as-is** (intentional historical/forbidden documentation, all explicitly labeled):
+- 6 ban-explanation memory files under `.peaks/memory/` (slice 005 / 2.8.3 / 2.7.1 lessons)
+- 28 historic session files under `.peaks/_runtime/2026-06-*/`
+- 5 historic dispatch records under `.peaks/_sub_agents/`
+- `.peaks/.gitignore` (gitignore contract)
+- `tests/fixtures/skills/pre-slim/*.md` (slim-evidence baseline)
+
+---
+
+## [2.9.1] — 2026-06-24 — Handoff path canonicalization
+
+**Bugfix.** Sub-agents were still creating `.peaks/_runtime/<change-id>/` at the top level of `.peaks/`, which is hard-banned by 2.8.3+. Root cause: 20 hardcoded `.peaks/_runtime/${changeId}/...` template strings in `src/services/artifacts/request-artifact-service.ts` were emitted into artifact markdown and read by sub-agents as handoff write instructions.
+
+Replaced all 20 with a 4-helper API at `src/services/artifacts/artifact-templates.ts:31,36,41,46` (`formatHandoffPath`, `formatCommitBoundaryPath`, `formatSkillUsageLessonsPath`, `formatChangeScopePath`); the public surface is re-exported from `request-artifact-service.ts:28`. The service file was also split — 5 render functions + dispatcher moved to the new sibling module — bringing it from 1101 lines down to 788, satisfying the 800-line cap (Karpathy #2 Simplicity First).
+
+- New module: `src/services/artifacts/artifact-templates.ts` (333 lines; 4 helpers + 5 render fns + dispatcher)
+- `src/services/artifacts/request-artifact-service.ts` — re-exports only, 1101 → 788 lines
+- New test: `tests/unit/artifacts/request-artifact-handoff-path.test.ts` (17 assertions: 4 helper shapes, 5× role-path-prefix, 1 source-grep, 1 line-count cap, 1 lazy-load guard)
+- Hard ban (2.8.3+) regression-tested: zero hardcoded `.peaks/_runtime/${changeId}/` strings in either file
+- Also bumps `package.json#version` from 2.8.4 to 2.9.1 (closing the slice 006 gap where CHANGELOG was bumped to 2.9.0 but package.json was not)
+
+---
+
+## [2.9.0] — 2026-06-24 — Test Tool Detection injection
+
+**Added.** Sub-agent dispatch (both single + DAG paths, all roles rd/qa/ui/txt/sc/general-purpose) now prepends a `## Test Tool Detection (mandatory)` block to every sub-agent prompt. The block tells the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`) — never `npx <runner>`. Runtime introspection: `peaks test --json`.
+
+- New module: `src/services/dispatch/test-tool-detection.ts` (47 lines; exports `TEST_TOOL_DETECTION_BLOCK` + `formatTestToolDetection()`)
+- Dispatch chokepoints updated: `src/cli/commands/dispatch-commands.ts:187`, `src/services/solo/dag-orchestrator.ts:157,182-183`
+- Dispatch envelope bumped: `envelopeVersion: '2.1.0'` → `'2.2.0'` (consumers can detect the new prompt shape)
+- New tests: `tests/unit/dispatch/test-tool-detection.test.ts` (6), `tests/unit/dispatch/test-tool-detection-injection.test.ts` (9), `tests/unit/skills/test-tool-detection-docs.test.ts` (4) — 19 new assertions
+- Block size: 749 bytes UTF-8 (≤800 cap)
+
+---
+
 ## [2.8.4] — 2026-06-24
 
 **Breaking change.** Single-sub-agent dispatch is no longer permitted when the slice DAG has ≥ 2 leaves at one topological level. The 2.8.3-era `preferences.fanout.defaultMode = 'serial'` opt-out was removed by user directive ("禁止单 sub-agent").
@@ -30,48 +112,48 @@ Run `peaks preferences migrate --write` once. The CLI will rewrite `serial` → 
 
 ## [2.8.3] — 2026-06-22
 
-### ⚠ BREAKING — `peaks workspace init --change-id` no longer creates `.peaks/<change-id>/` sibling dir
+### ⚠ BREAKING — `peaks workspace init --change-id` no longer creates `.peaks/_runtime/<change-id>/` sibling dir
 
 The 2.8.0-era `peaks workspace init --change-id <id>` flow wrote a
-top-level sibling dir `.peaks/<changeId>/` next to `.peaks/_runtime/`.
+top-level sibling dir `.peaks/_runtime/<changeId>/` next to `.peaks/_runtime/`.
 That path is **forbidden** under the 2.8.0+ two-axis convention
 (change-id is a logical identifier, NOT a sibling filesystem dir).
 
 In 2.8.3 the CLI redirects `--change-id` to a **file-form binding** at
 `.peaks/_runtime/current-change` (plain text file containing the
 change-id as its sole content). NO directory is created at
-`.peaks/<changeId>/` at top level. Reviewable artifacts still land
-under `.peaks/<changeId>/<role>/`, but that dir is created **lazily**
+`.peaks/_runtime/<changeId>/` at top level. Reviewable artifacts still land
+under `.peaks/_runtime/<changeId>/<role>/`, but that dir is created **lazily**
 by the writer, not by `init`.
 
-If a 2.8.0-era legacy sibling dir `.peaks/<changeId>/` already exists
+If a 2.8.0-era legacy sibling dir `.peaks/_runtime/<changeId>/` already exists
 at top level, `peaks workspace init --change-id <id>` aborts with a
 new `LegacyChangeIdSiblingError` (envelope code
 `LEGACY_CHANGE_ID_SIBLING`) carrying a 4-step migration message:
 
-1. Inspect `.peaks/<changeId>/` for user-authored content worth keeping.
+1. Inspect `.peaks/_runtime/<changeId>/` for user-authored content worth keeping.
 2. Move desired files into `.peaks/_runtime/<sessionId>/<role>/`.
-3. Delete the orphan `.peaks/<changeId>/` dir.
+3. Delete the orphan `.peaks/_runtime/<changeId>/` dir.
 4. Re-run `peaks workspace init --change-id <id>`.
 
 This is a **deliberate breaking change** — the 2.8.0→2.8.3 transition
 required the redirect because the legacy sibling-dir layout was the
-root cause of `.peaks/<YYYY-MM-DD-*>/` orphans at the project root.
-Users on 2.8.2 with an existing `.peaks/<changeId>/` sibling dir see a
+root cause of `.peaks/_runtime/<YYYY-MM-DD-*>/` orphans at the project root.
+Users on 2.8.2 with an existing `.peaks/_runtime/<changeId>/` sibling dir see a
 one-time migration error on next `peaks workspace init`. The CLI surfaces
 the four-step recipe; no data is lost.
 
 ### Fixed
 
-- **Top-level `.peaks/<YYYY-MM-DD-*>/` ban** — the 2.8.0-era legacy path
-  `.peaks/<change-id>/<role>/` (sibling of `.peaks/_runtime/`) is now
+- **Top-level `.peaks/_runtime/<YYYY-MM-DD-*>/` ban** — the 2.8.0-era legacy path
+  `.peaks/_runtime/<change-id>/<role>/` (sibling of `.peaks/_runtime/`) is now
   **forbidden** under the 2.8.0+ two-axis convention. This slice is the
   final root-out of a 2.8.0-era orphan (`.peaks/2026-06-22-cc-connect-orphan-cleanup/`,
   4 files, 28 KB, untracked) and pins the rule across FOUR layers so a
   regression cannot survive:
     1. **`.gitignore` fnmatch rule** —
        `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks any
-       future untracked date-prefix sibling at `.peaks/<seg>/`. Path-anchored
+       future untracked date-prefix sibling at `.peaks/_runtime/<seg>/`. Path-anchored
        so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
        by the existing `.peaks/_runtime/` rule, not this one).
     2. **Vitest guard** at
@@ -88,16 +170,16 @@ the four-step recipe; no data is lost.
        `src/shared/change-id.ts#setCurrentChangeId` now defaults to
        `{ form: 'file' }` (was `'symlink'`); the file form writes ONLY
        `.peaks/_runtime/current-change` and never creates
-       `.peaks/<changeId>/`. The legacy `'symlink'` form is kept for
+       `.peaks/_runtime/<changeId>/`. The legacy `'symlink'` form is kept for
        back-compat reads but is no longer written by `peaks workspace init`.
        `src/services/workspace/workspace-service.ts#initWorkspace`
-       pre-flights the existence of `.peaks/<changeId>/` and throws
+       pre-flights the existence of `.peaks/_runtime/<changeId>/` and throws
        `LegacyChangeIdSiblingError` if found.
     4. **CLI help-text guard** — `src/cli/commands/workspace/init-command.ts`
        rewrites the `init` command description and `--change-id` option
        description so an LLM reading `peaks workspace init --help` is
        taught the correct path (`.peaks/_runtime/current-change`) instead
-       of the legacy `.peaks/<change-id>/` sibling dir. A new catch block
+       of the legacy `.peaks/_runtime/<change-id>/` sibling dir. A new catch block
        surfaces `LegacyChangeIdSiblingError` with the 4-step migration
        recipe in the JSON envelope.
 - **`CLI_VERSION`** sync bumped 2.8.2 → 2.8.3 (regenerated via
@@ -108,13 +190,13 @@ the four-step recipe; no data is lost.
 - **`LegacyChangeIdSiblingError`** (exported from
   `src/services/workspace/workspace-service.ts`) — thrown by
   `initWorkspace` when a 2.8.0-era legacy sibling dir
-  `.peaks/<changeId>/` already exists at top level. Carries
+  `.peaks/_runtime/<changeId>/` already exists at top level. Carries
   `code: 'LEGACY_CHANGE_ID_SIBLING'`, `changeId`, and `legacyPath`.
   The CLI catch block surfaces the error in the JSON envelope with a
   3-item `nextActions` list (inspect → migrate → re-run).
 - **`tests/unit/workspace/workspace-init-change-id-redirect.test.ts`** —
   8 vitest cases pinning the new init behavior:
-  (1) no `.peaks/<changeId>/` created; (2) `.peaks/_runtime/current-change`
+  (1) no `.peaks/_runtime/<changeId>/` created; (2) `.peaks/_runtime/current-change`
   written; (3) `LegacyChangeIdSiblingError` fires when legacy sibling
   exists; (4) no `--change-id` leaves binding untouched; (5) idempotent
   re-init; (6) error envelope data fields + 4-step recipe ordering;
@@ -206,7 +288,7 @@ are unchanged by this release), `pnpm build` clean.
   `tests/integration/rd/ast-gate-cross-version.test.ts` is out of scope
   and filed separately (unchanged by this release).
 - Consumer-projects upgrading from 2.8.0/2.8.1/2.8.2: if you have an
-  existing `.peaks/<change-id>/` dir at top level from a prior
+  existing `.peaks/_runtime/<change-id>/` dir at top level from a prior
   `peaks workspace init --change-id <id>` call, run the migration
   steps surfaced by `LegacyChangeIdSiblingError` (inspect → migrate →
   delete → re-init). No data is lost. After migration, future
@@ -427,7 +509,7 @@ are unchanged by this release), `pnpm build` clean.
 
 - **Project-root artifact pollution remediation** — the 2.7.0 release
   shipped a `getChangeArtifactRoot(projectRoot, changeId)` helper that
-  returned `.peaks/<changeId>/` and was the source of the user-reported
+  returned `.peaks/_runtime/<changeId>/` and was the source of the user-reported
   project-root pollution: reviewable artifacts (RD `tech-doc.md`, QA
   `test-cases/`, PRD, txt) were being written next to the project root
   rather than under the canonical session home. As of 2.7.1 this
@@ -840,7 +922,7 @@ are unchanged by this release), `pnpm build` clean.
 ### Notes
 
 - Pipeline layout caveat: `peaks workflow verify-pipeline` expects
-  artifacts under `.peaks/<change-id>/...` (per-change layout) but this
+  artifacts under `.peaks/_runtime/<change-id>/...` (per-change layout) but this
   session writes under `.peaks/_runtime/<session-id>/...` (per-session
   runtime layout). The pipeline may report `gateC: fail` despite a
   PASS verdict; reconcile in a future slice (peaks-cli tooling fix,
@@ -1389,7 +1471,7 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
   - Spawning the wrapped command with `peaks workspace init --project . --json`
     exits 0; with `npm install foo` exits non-zero.
   - Spawning the Write hook with `.peaks/_runtime/...` and
-    `.peaks/<changeId>/...` paths exits 0; with `src/...`,
+    `.peaks/_runtime/<changeId>/...` paths exits 0; with `src/...`,
     `package.json`, `.peaks/_archive/...` exits non-zero.
   - The existing workspace-init round-trip test (case A/B/C) still
     passes with the wrapper.
@@ -1633,7 +1715,7 @@ subprocess ignores it when peaks-cli's env vars are present).
   decision template in `.claude/rules/common/dev-preference.md`.
 
 - **Two-axis naming convention** for `.peaks/` workspace:
-  `<changeId>` for reviewable artifacts under `.peaks/<changeId>/...`;
+  `<changeId>` for reviewable artifacts under `.peaks/_runtime/<changeId>/...`;
   `<sessionId>` for ephemeral state under `.peaks/_runtime/<sessionId>/...`.
   Regression test pins zero use of ambiguous `<sid>`.
 

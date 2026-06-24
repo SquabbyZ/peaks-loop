@@ -1,6 +1,6 @@
 ---
 name: 2026-06-22-top-level-change-id-cleanup
-description: .peaks/<YYYY-MM-DD-*>/ top-level dirs forbidden in 2.8.0+; 2.8.0-era orphan cleaned up + 4-layer defense (gitignore + vitest 8 cases + source-code redirect + CLI help-text guard).
+description: .peaks/_runtime/<YYYY-MM-DD-*>/ top-level dirs forbidden in 2.8.0+; 2.8.0-era orphan cleaned up + 4-layer defense (gitignore + vitest 8 cases + source-code redirect + CLI help-text guard).
 metadata:
   type: feedback
   sourceArtifact: tests/unit/workspace/top-level-change-id-guard.test.ts
@@ -8,7 +8,7 @@ metadata:
   sliceFollowup: 2026-06-23-audit-followup
 ---
 
-# Top-level `.peaks/<YYYY-MM-DD-*>/` cleanup — slice 2026-06-22-top-level-change-id-cleanup + 2026-06-23-audit-followup
+# Top-level `.peaks/_runtime/<YYYY-MM-DD-*>/` cleanup — slice 2026-06-22-top-level-change-id-cleanup + 2026-06-23-audit-followup
 
 **Commits delivered:** 7373f81 (chore: drop orphan + pin defense rule),
 d557ed8 (release: 2.8.3 — gitignore + docs + tests), f18a518 (wip:
@@ -25,7 +25,7 @@ peaks-cli 2.8.0+ enforces a **two-axis workspace convention**:
 - **change-id axis** (logical identifier, not a directory): the change-id is a *string*
   carried by RD/QA artifacts (`peaks request init --change-id <id>` writes them under
   `.peaks/_runtime/<sessionId>/<role>/requests/<rid>-<changeId>.md`), not a filesystem
-  directory. Reviewable artifacts still land under `.peaks/<changeId>/<role>/` (created
+  directory. Reviewable artifacts still land under `.peaks/_runtime/<changeId>/<role>/` (created
   lazily by the writer), but the **binding** lives at
   `.peaks/_runtime/current-change` as a plain text file (slice 2.8.3 redirect) — NOT
   as a top-level sibling dir next to `.peaks/_runtime/`.
@@ -77,7 +77,7 @@ so the top-level dir was a redundant duplicate.
 4. **Source-code redirect** (commits f18a518 + bc0423d + audit followup):
    - `src/shared/change-id.ts#setCurrentChangeId` defaults to `{ form: 'file' }` —
      writes only `.peaks/_runtime/current-change` (mode 0o600), never creates
-     `.peaks/<changeId>/` at top level.
+     `.peaks/_runtime/<changeId>/` at top level.
    - `src/services/workspace/workspace-service.ts#initWorkspace` pre-flights
      `validateChangeIdOrThrow` + `lstatSync` legacy sibling dir. Throws
      `LegacyChangeIdSiblingError` if found.
@@ -88,7 +88,7 @@ so the top-level dir was a redundant duplicate.
      data-loss-shaped bug the audit surfaced.
 5. **CLI help-text guard** (commit bc0423d + audit followup):
    - `peaks workspace init` command description rewritten to teach
-     `.peaks/_runtime/current-change` (not `.peaks/<change-id>/`).
+     `.peaks/_runtime/current-change` (not `.peaks/_runtime/<change-id>/`).
    - `--change-id` option description rewritten with the same redirect + a
      mention of both `LegacyChangeIdSiblingError` and `LegacyChangeIdBindingError`.
    - Catch blocks for both errors emit JSON envelope `data` + `nextActions`
@@ -131,7 +131,7 @@ silent-failure + migration) were resolved in a single followup commit. Highlight
 1. **Trust no pattern outside `_runtime/`.** Any date-prefixed sibling at `.peaks/`
    top level is a 2.8.0-era artifact. The defense rule + test pins this so it cannot
    silently regress.
-2. **Untracked ≠ harmless.** Even an untracked `.peaks/<id>/` confuses `git status`,
+2. **Untracked ≠ harmless.** Even an untracked `.peaks/_runtime/<id>/` confuses `git status`,
    pollutes search results, and can be force-added by mistake. Root out at audit time.
 3. **gitignore + test = defense in depth.** The rule alone is bypassable by `--force-add`
    (rare but possible); the test alone is bypassable by deleting the test. Together they
@@ -157,10 +157,10 @@ silent-failure + migration) were resolved in a single followup commit. Highlight
 
 ## Why: Why this slice exists
 
-**Why:** A 2.8.0-era install left a stale `.peaks/<change-id>/` sibling that violated
+**Why:** A 2.8.0-era install left a stale `.peaks/_runtime/<change-id>/` sibling that violated
 the 2.8.0+ convention. The user wanted a thorough root-out (delete + defense + memory),
 not a one-shot `rm`.
 
-**How to apply:** Whenever you see an untracked `.peaks/<YYYY-MM-DD-*>/` at top level,
+**How to apply:** Whenever you see an untracked `.peaks/_runtime/<YYYY-MM-DD-*>/` at top level,
 treat it as a regression. The vitest guard catches new occurrences automatically; do
 not bypass it.

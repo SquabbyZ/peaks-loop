@@ -8,7 +8,7 @@
  * surfaced as ISO-8601.
  *
  * Back-compat: when the BACK_COMPAT_FLAG env var is "1" and the
- * legacy path (`.peaks/<planFile>` at the project root) exists but
+ * legacy path (`.peaks/_runtime/<planFile>` at the project root) exists but
  * the canonical session path does not, the reader falls back to the
  * legacy path and reports `source: "legacy"`.
  */
@@ -101,7 +101,7 @@ function buildData(args: {
  *
  * The caller passes the expected base:
  *   - session dir for canonical reads (`.peaks/_runtime/<sid>/qa/...`)
- *   - project root for legacy back-compat reads (`.peaks/<planFile>`)
+ *   - project root for legacy back-compat reads (`.peaks/_runtime/<planFile>`)
  */
 function assertContained(args: {
   expectedBase: string;

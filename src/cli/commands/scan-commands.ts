@@ -309,7 +309,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       if (report.libraries.length === 0) {
         nextActions.push('No dependencies found — verify package.json exists and is valid JSON.');
       } else {
-        nextActions.push('Paste the report under `## Library versions` in .peaks/<sid>/rd/project-scan.md.');
+        nextActions.push('Paste the report under `## Library versions` in .peaks/_runtime/<sid>/rd/project-scan.md.');
         nextActions.push('peaks-rd preflight will cross-check diff imports against schemas/library-breaking-changes.data.json.');
       }
       printResult(io, ok('scan.libraries', report, [], nextActions), options.json);
@@ -361,7 +361,7 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       if (report.counts.cli === 0 && report.counts.service === 0) {
         nextActions.push('No CLI subcommands or service exports found — verify --include-dirs points at the right paths.');
       } else {
-        nextActions.push('Paste the `--format md` output under `## API surface inventory` in .peaks/<sid>/rd/tech-doc.md.');
+        nextActions.push('Paste the `--format md` output under `## API surface inventory` in .peaks/_runtime/<sid>/rd/tech-doc.md.');
         nextActions.push('Use the inventory to fill the tech-doc "Existing API / Component Inventory" section (karpathy §1 — reuse before create).');
       }
       if (options.format === 'json' && !options.json) {

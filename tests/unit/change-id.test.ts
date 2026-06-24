@@ -119,13 +119,13 @@ describe('buildArtifactRelativePath', () => {
 });
 
 describe('buildArtifactRelativePath — change-id routing (slice 2026-06-05-change-id-as-unit-of-work)', () => {
-  // As of this slice, the write path is ALWAYS `.peaks/<change-id>/<segments-joined>`,
+  // As of this slice, the write path is ALWAYS `.peaks/_runtime/<change-id>/<segments-joined>`,
   // regardless of whether a session is bound. The session id remains the
   // binding for ephemeral state (live sub-agent progress, spawn records)
   // but is NOT the durable scope for reviewable content. The tests in
   // this block replace the legacy "buildArtifactRelativePath with
   // session" suite.
-  test('uses segments verbatim under .peaks/<change-id>/', () => {
+  test('uses segments verbatim under .peaks/_runtime/<change-id>/', () => {
     mockGetSessionId.mockReturnValue('2026-05-28-session-a3f8b1');
     // The session id is bound but does NOT appear in the artifact path.
     // Reviewable content lives under the change-id; session is the binding
@@ -151,7 +151,7 @@ describe('buildArtifactRelativePath — change-id routing (slice 2026-06-05-chan
 describe('buildArtifactRelativePathInRoot', () => {
   // As of slice 2026-06-05-change-id-as-unit-of-work, the function
   // does NOT need to look up the session id. The path is always
-  // `.peaks/<change-id>/<segments-joined>`, regardless of which
+  // `.peaks/_runtime/<change-id>/<segments-joined>`, regardless of which
   // session is bound. The legacy "session-bound path" branch is gone.
   test('returns changeId-based path with explicit projectRoot', () => {
     mockGetSessionId.mockReturnValue(null);
@@ -208,7 +208,7 @@ describe('isPathInsideArtifactRoot', () => {
   // `.peaks/_runtime/change/<changeId>/...` (see
   // `getChangeScopeDirAbs` in
   // `services/artifacts/change-scope-service.ts`). The previous
-  // `.peaks/<changeId>/` form was a SKILL.md 2.8.3 hard-ban violation.
+  // `.peaks/_runtime/<changeId>/` form was a SKILL.md 2.8.3 hard-ban violation.
   test('returns true for path inside artifact root', () => {
     expect(isPathInsideArtifactRoot('.peaks/_runtime/change/my-change/rd/swarm/task-graph.json', '.peaks/_runtime/change/my-change')).toBe(true);
   });

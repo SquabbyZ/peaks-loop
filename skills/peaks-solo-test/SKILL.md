@@ -73,7 +73,7 @@ Then yield control. The user's next message will land in `peaks-solo` (in QA val
 ## Anti-patterns (do NOT do)
 
 - Do NOT run `peaks workspace init` on the real session. The wrapper is read-only on the workspace; it only reads the test results, not the workflow state.
-- Do NOT write to `.peaks/<sid>/`. This skill is read-only on the workspace.
+- Do NOT write to `.peaks/_runtime/<sid>/`. This skill is read-only on the workspace.
 - Do NOT auto-fail the workflow if the tests fail. The user gets a summary + 3 options; the workflow state is unchanged.
 - Do NOT run `pnpm vitest run --watch` or any interactive mode. The wrapper captures the output as a one-shot run; interactive mode would block the orchestrator.
 

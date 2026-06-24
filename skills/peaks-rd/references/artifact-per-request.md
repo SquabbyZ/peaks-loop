@@ -5,7 +5,7 @@ Every RD invocation must leave one durable artifact under the workflow-local wor
 ## Required path
 
 ```
-.peaks/<session-id>/rd/requests/<request-id>.md
+.peaks/_runtime/<session-id>/rd/requests/<request-id>.md
 ```
 
 Use the `<request-id>` PRD assigned (`YYYY-MM-DD-<kebab-slug>`). RD may also produce companion artifacts (task graph JSON, scan report, coverage evidence, slice spec, dry-run output) under the same `rd/` workspace and link to them from this file.
@@ -15,8 +15,8 @@ Use the `<request-id>` PRD assigned (`YYYY-MM-DD-<kebab-slug>`). RD may also pro
 ```markdown
 # RD Request <request-id>
 
-- linked-prd: .peaks/<session-id>/prd/requests/<request-id>.md
-- linked-ui:  .peaks/<session-id>/ui/requests/<request-id>.md  (when UI involved)
+- linked-prd: .peaks/_runtime/<session-id>/prd/requests/<request-id>.md
+- linked-ui:  .peaks/_runtime/<session-id>/ui/requests/<request-id>.md  (when UI involved)
 - type: feature | bug | refactor | clarification
 
 ## Red-line scope

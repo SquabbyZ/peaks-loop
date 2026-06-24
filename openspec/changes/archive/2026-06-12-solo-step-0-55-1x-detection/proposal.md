@@ -30,7 +30,7 @@ Slices 1 + 2 of the 1.x → 2.0 closeout shipped: the postinstall auto-detects 1
 ## Risks
 
 - Mirroring `detect1xProjectState` from `.mjs` to TS risks drift if the two implementations diverge. Mitigation: Slice 3 writes a contract test that exercises both the TS service AND the .mjs function and asserts their outputs match for the same fixture (a small standalone integration test).
-- Adding Step 0.55 to peaks-solo breaks the `tests/unit/skills/skills-skill-md-naming.test.ts` invariant (zero bare `<sid>`, every `.peaks/<X>/` has an axis label). Mitigation: carefully follow the established pattern (the step heading, the reference file path, the CLI invocation pattern).
+- Adding Step 0.55 to peaks-solo breaks the `tests/unit/skills/skills-skill-md-naming.test.ts` invariant (zero bare `<sid>`, every `.peaks/_runtime/<X>/` has an axis label). Mitigation: carefully follow the established pattern (the step heading, the reference file path, the CLI invocation pattern).
 - The new `peaks upgrade --detect-1x` CLI subcommand is a NEW CLI surface. Per the dev-preference `default-no on new CLI commands` rule, this is justified because (a) the skill needs a structured JSON envelope to gate a downstream decision (AskUserQuestion for the 1.x upgrade prompt).
 
 ## Acceptance Criteria

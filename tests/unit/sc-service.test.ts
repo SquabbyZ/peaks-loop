@@ -148,7 +148,7 @@ describe('peaks-sc service', () => {
 
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toContain('Invalid slice id');
-    expect(result.warnings).toContain('Slice id must stay inside .peaks/<session-id> and only contain letters, numbers, dots, underscores, or hyphens');
+    expect(result.warnings).toContain('Slice id must stay inside .peaks/_runtime/<session-id> and only contain letters, numbers, dots, underscores, or hyphens');
   });
 
   test('renders SC help text', () => {
@@ -683,7 +683,7 @@ describe('peaks-sc artifact session resolution (W4)', () => {
 
   // Slice 2026-06-05-change-id-as-unit-of-work: shipped slice content lives
   // under `.peaks/retrospective/<change-id>/<role>/...`, ONE level deeper
-  // than legacy `.peaks/<session-id>/<role>/...`. The find-fallback tier
+  // than legacy `.peaks/_runtime/<session-id>/<role>/...`. The find-fallback tier
   // must scan the nested umbrella, not just top-level.
   test('find-fallback: finds session under retrospective/ when only nested layout is on disk', () => {
     // Use a valid 6-hex session-id format: YYYY-MM-DD-session-<6hex>.

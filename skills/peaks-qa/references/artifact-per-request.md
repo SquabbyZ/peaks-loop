@@ -4,7 +4,7 @@
 
 ## Required path
 
-The three files for any QA invocation land under the active session's `qa/` workspace, using the canonical placeholder `.peaks/<session-id>/qa/...` (e.g. `.peaks/<session-id>/qa/requests/<request-id>.md`).
+The three files for any QA invocation land under the active session's `qa/` workspace, using the canonical placeholder `.peaks/_runtime/<session-id>/qa/...` (e.g. `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md`).
 
 | # | File | Path | Reader | Content |
 |---|------|------|--------|---------|

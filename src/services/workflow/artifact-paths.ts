@@ -8,7 +8,7 @@
  * source of truth for the canonical and legacy paths and the lazy
  * migration that bridges the 1-minor-release back-compat window.
  *
- * The QA artifacts live under the change-id dir (`.peaks/<changeId>/qa/`),
+ * The QA artifacts live under the change-id dir (`.peaks/_runtime/<changeId>/qa/`),
  * which is the same dir Gate C has historically looked at. The
  * `<sessionId>` argument is accepted for symmetry with the
  * plan/result services (which DO use `.peaks/_runtime/<sessionId>/qa/`)

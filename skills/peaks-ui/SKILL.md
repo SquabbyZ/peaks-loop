@@ -11,12 +11,12 @@ Peaks-Cli UI handles experience, interaction, visual direction, and UI-specific 
 
 Inherits `peaks-qa`'s two browser contracts.
 
-### Contract 1 — Inspection screenshots must land under .peaks/<sid>/qa/screenshots/
+### Contract 1 — Inspection screenshots must land under .peaks/_runtime/<sessionId>/qa/screenshots/
 
-Every Playwright `browser_take_screenshot` (invoked by name when the Playwright MCP is in the LLM tool list) **MUST** pass `filename` inside `.peaks/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). No project-root fallback. After every batch, run:
+Every Playwright `browser_take_screenshot` (invoked by name when the Playwright MCP is in the LLM tool list) **MUST** pass `filename` inside `.peaks/_runtime/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). No project-root fallback. After every batch, run:
 
 ```bash
-ls .peaks/<sid>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/<sessionId>/qa/screenshots/*.png 2>&1
 find . -maxdepth 1 -name '*.png' 2>&1
 ```
 
@@ -31,7 +31,7 @@ UI inherits `peaks-qa`'s hard-block contract: `AskUserQuestion` with three optio
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` from `peaks-solo`, these sections are **suspended** for the sub-agent run:
 
 - **Session id** — use parent's sid (`.peaks/_runtime/session.json` or `--session-id <parent-sid>`). Do NOT spawn your own session; `peaks session info --active` reads the canonical binding.
-- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Solo owns `.peaks/.active-skill.json`. Marker file at `.peaks/<session-id>/system/sub-agent-ui.json` only.
+- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Solo owns `.peaks/.active-skill.json`. Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
 - **Workspace initialization** — Solo ran `peaks workspace init` before fan-out; do not re-run.
 - **Mode selection** — Solo chose the mode.
 - **Statusline install** — done by Solo at startup.
@@ -42,7 +42,7 @@ What the sub-agent **MUST** still do:
 2. Read PRD scope via `peaks request show <rid> --role prd --project <repo> --json`.
 3. Read `rd/project-scan.md` for component library / CSS framework / design-system context.
 4. Run the prototype fidelity check (Figma / PRD visuals / headed browser).
-5. Write `.peaks/<session-id>/ui/design-draft.md` and `.peaks/<session-id>/ui/requests/<rid>.md`.
+5. Write `.peaks/_runtime/<session-id>/ui/design-draft.md` and `.peaks/_runtime/<session-id>/ui/requests/<rid>.md`.
 6. Return a compact JSON envelope:
 
 ```json
@@ -50,7 +50,7 @@ What the sub-agent **MUST** still do:
   "role": "ui",
   "rid": "<rid>",
   "status": "ok" | "blocked" | "skipped",
-  "artefacts": [".peaks/<sid>/ui/design-draft.md", ".peaks/<sid>/ui/requests/<rid>.md"],
+  "artefacts": [".peaks/_runtime/<sessionId>/ui/design-draft.md", ".peaks/_runtime/<sessionId>/ui/requests/<rid>.md"],
   "warnings": [],
   "blockedReason": null
 }
@@ -99,8 +99,8 @@ Every UI invocation that touches user-visible behavior — including bug fixes t
 
 | # | File | Purpose |
 |---|------|---------|
-| 1 | `.peaks/<session-id>/ui/design-draft.md` | Design direction, dials, component specs, anti-template checklist |
-| 2 | `.peaks/<session-id>/ui/requests/<request-id>.md` | Links to #1, records visual direction decisions, regression seeds |
+| 1 | `.peaks/_runtime/<session-id>/ui/design-draft.md` | Design direction, dials, component specs, anti-template checklist |
+| 2 | `.peaks/_runtime/<session-id>/ui/requests/<request-id>.md` | Links to #1, records visual direction decisions, regression seeds |
 
 RD consumes the design-draft to implement; QA consumes it for visual regression checks.
 
@@ -132,7 +132,7 @@ peaks request show <request-id> --role prd --project <repo> --json   # read link
 # browser-launch substitute (it cannot launch a browser of its own).
 
 # 3. read project-scan for component library and CSS framework context
-#    check .peaks/<session-id>/rd/project-scan.md (blocking if missing for existing projects)
+#    check .peaks/_runtime/<session-id>/rd/project-scan.md (blocking if missing for existing projects)
 #    NOTE: project-scan.md is a session-scoped singleton — check before regenerating. Reuse if complete.
 
 # 4. PROTOTYPE FIDELITY CHECK (MANDATORY before any design work):
@@ -155,7 +155,7 @@ peaks request show <request-id> --role prd --project <repo> --json   # read link
 #    browser_console_messages (errors), browser_network_requests (failures), browser_close.
 # The skill body NEVER bakes in the Playwright MCP prefix; the LLM's runtime resolves the name.
 
-# 5. write design-draft artifact to .peaks/<session-id>/ui/design-draft.md
+# 5. write design-draft artifact to .peaks/_runtime/<session-id>/ui/design-draft.md
 
 # 5.5 DESIGN-DRAFT CONFIRMATION GATE (MANDATORY):
 #      After writing the design-draft, present a summary to the user:
@@ -185,14 +185,14 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` comma
 
 **Peaks-Cli Gate A — After design-draft write:**
 ```bash
-ls .peaks/<id>/ui/design-draft.md
-# Expected output: .peaks/<id>/ui/design-draft.md
+ls .peaks/_runtime/change/<changeId>/ui/design-draft.md
+# Expected output: .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # "No such file" → STOP, write the design-draft first. Do not proceed to handoff.
 
 # Peaks-Cli Gate A also requires an ASCII wireframe section with at least one fenced block.
-grep -c "^## Layout (ASCII wireframe)" .peaks/<id>/ui/design-draft.md
+grep -c "^## Layout (ASCII wireframe)" .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # Expected: >= 1. Zero → BLOCKED. The mandatory ASCII wireframe section is missing.
-grep -c '^```' .peaks/<id>/ui/design-draft.md
+grep -c '^```' .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # Expected: >= 2 (one or more fenced code blocks for ASCII wireframes).
 # Zero → BLOCKED. Prose-only layout description is not acceptable; add ASCII wireframes
 # for the main page and every meaningful modal/drawer/state.
@@ -200,8 +200,8 @@ grep -c '^```' .peaks/<id>/ui/design-draft.md
 
 **Peaks-Cli Gate B — Before handoff to RD:**
 ```bash
-ls .peaks/<id>/ui/design-draft.md \
-   .peaks/<id>/ui/requests/<rid>.md
+ls .peaks/_runtime/change/<changeId>/ui/design-draft.md \
+   .peaks/_runtime/change/<changeId>/ui/requests/<rid>.md
 # Both must exist. Missing either → BLOCKED, do not hand off to RD.
 ```
 
@@ -228,7 +228,7 @@ For frontend work, especially full-auto mode, use the Playwright MCP to inspect 
 Check these sources in order:
 
 1. **Figma design file** — PRD links to Figma → LLM invokes `get_figma_data` directly (`FIGMA_API_KEY` in user env). Replicate layout, spacing, colors, typography, component choices exactly.
-2. **PRD document screenshots** — Feishu/Lark doc screenshots ARE the visual target. Check `.peaks/<id>/prd/source/`.
+2. **PRD document screenshots** — Feishu/Lark doc screenshots ARE the visual target. Check `.peaks/_runtime/<sessionId>/prd/source/`.
 3. **PRD visual descriptions** — Layout/component/visual constraints, not suggestions.
 4. **Existing application pages** — The fidelity baseline; new pages must match existing conventions.
 
@@ -299,7 +299,7 @@ Full-auto Peaks-Cli UI output must include a short taste report: visual directio
 
 ## Mandatory design-draft output
 
-Every UI invocation touching user-visible behavior MUST produce a design-draft at `.peaks/<session-id>/ui/design-draft.md`. RD consumes for implementation; QA for regression. Per-request artifact links to it.
+Every UI invocation touching user-visible behavior MUST produce a design-draft at `.peaks/_runtime/<session-id>/ui/design-draft.md`. RD consumes for implementation; QA for regression. Per-request artifact links to it.
 
 **Minimum design-draft sections:**
 
@@ -313,7 +313,7 @@ Every UI invocation touching user-visible behavior MUST produce a design-draft a
 8. **Anti-template checklist** — which generic patterns were rejected.
 
 **Component library awareness rules:**
-- Read `.peaks/<session-id>/rd/project-scan.md` before proposing UI changes.
+- Read `.peaks/_runtime/<session-id>/rd/project-scan.md` before proposing UI changes.
 - antd → `theme.token`, `className`/`styles` APIs; no TailwindCSS utilities on antd components.
 - MUI → `sx` prop, `styled()`, `theme`; no TailwindCSS utilities on MUI components.
 - shadcn/ui → TailwindCSS utility classes + existing shadcn variants (expected pattern).
@@ -336,7 +336,7 @@ Use `peaks capabilities --source access-repo --json` and `--source mcp-server --
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 ## Boundaries
 

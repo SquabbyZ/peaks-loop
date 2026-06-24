@@ -5,7 +5,7 @@
  *   T-001 read security plan returns full envelope when plan exists
  *   T-002 read security plan returns exists:false when missing; no throw
  *   T-003 read perf plan returns same envelope shape
- *   T-004 back-compat: falls back to legacy `.peaks/<planFile>` when
+ *   T-004 back-compat: falls back to legacy `.peaks/_runtime/<planFile>` when
  *        PEAKS_PLAN_LEGACY_FALLBACK=1 and legacy path exists
  *   T-004b back-compat: when BACK_COMPAT_FLAG !== "1", legacy is not consumed
  *   F-1 regression: invalid sessionId returns ok:false / INVALID_SESSION_ID
@@ -96,7 +96,7 @@ describe('plan-reader — readPlan', () => {
     expect(result.data.source).toBe('canonical');
   });
 
-  it('T-004: back-compat falls back to legacy .peaks/<planFile> when BACK_COMPAT_FLAG=1', () => {
+  it('T-004: back-compat falls back to legacy .peaks/_runtime/<planFile> when BACK_COMPAT_FLAG=1', () => {
     const body = ['# Legacy Security Plan', '## Threat Model', 'auth boundary'].join('\n');
     const legacyPath = join(repo, '.peaks', 'security-test-plan.md');
     mkdirSync(join(repo, '.peaks'), { recursive: true });

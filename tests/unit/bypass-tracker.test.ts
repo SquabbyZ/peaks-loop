@@ -113,7 +113,7 @@ describe('MAX_BYPASSES_PER_SESSION', () => {
 
 // 2.7.1 regression guard: the bypass counter MUST live under the
 // canonical session home `.peaks/_runtime/<sid>/`, never at the
-// project root `.peaks/<sid>/`. The legacy root path was the
+// project root `.peaks/_runtime/<sid>/`. The legacy root path was the
 // root-pollution source the user surfaced after 2.7.0; this guard
 // pins the new path formula and asserts a file-show under the
 // alternate root returns the fresh-session count (i.e. the counter
@@ -138,7 +138,7 @@ describe('2.7.1 root-pollution regression — bypass-count home', () => {
     // Pure string-level pin: the formula
     //   join(projectRoot, '.peaks', '_runtime', resolvedSessionId)
     // MUST be the path passed to isBypassLimitReached / recordBypass.
-    // If a future refactor regresses back to `.peaks/<sid>/`, this
+    // If a future refactor regresses back to `.peaks/_runtime/<sid>/`, this
     // string check fails and surfaces the regression. On Windows the
     // join() helper emits backslashes; the contract is the segment
     // ordering (`.peaks/_runtime/<sid>/`), which the
@@ -160,9 +160,9 @@ describe('2.7.1 root-pollution regression — bypass-count home', () => {
   // request-commands.ts. This source-level lint catches a regression
   // where the formula in the action handler itself is reverted (the
   // original 2.7.1 audit's `mutation test` showed both tests above stay
-  // green when the source reverts to `.peaks/<sid>/`). The regex below
+  // green when the source reverts to `.peaks/_runtime/<sid>/`). The regex below
   // looks for the legacy pattern at the actual writer call site.
-  test('request-commands.ts does NOT call recordBypass/isBypassLimitReached with a root .peaks/<sid> path', () => {
+  test('request-commands.ts does NOT call recordBypass/isBypassLimitReached with a root .peaks/_runtime/<sid> path', () => {
     const { readFileSync } = require('node:fs') as typeof import('node:fs');
     const { resolve: resolvePath } = require('node:path') as typeof import('node:path');
     const sourcePath = resolvePath(

@@ -29,11 +29,11 @@ function classify(sid: string): string {
 }
 
 describe('resume-mode detection (Step 0.7)', () => {
-  test('fresh session: no .peaks/<sid>/ → "fresh"', () => {
+  test('fresh session: no .peaks/_runtime/<sid>/ → "fresh"', () => {
     expect(classify('2026-06-04-session-aaaaaa')).toBe('fresh');
   });
 
-  test('fresh session: .peaks/<sid>/ exists but empty → "fresh"', () => {
+  test('fresh session: .peaks/_runtime/<sid>/ exists but empty → "fresh"', () => {
     mkdirSync(join(tmpRoot, '2026-06-04-session-aaaaaa'), { recursive: true });
     expect(classify('2026-06-04-session-aaaaaa')).toBe('fresh');
   });

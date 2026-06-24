@@ -13,7 +13,19 @@ import { scanFileSize } from '../scan/file-size-scan.js';
 
 export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
 
-export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
+// Re-export the pure-function template surface so external callers (CLI,
+// tests) keep importing from this module unchanged. The render templates,
+// handoff-path helpers, and `RequestArtifactRole` type all live in the
+// sibling `artifact-templates.ts` module — see slice
+// 2026-06-24-handoff-path-canonicalization for the rationale.
+//
+// `import type` is required so the type is in scope as a bare identifier
+// within this file (the value re-export alone does not bring types into
+// the local namespace under `isolatedModules`).
+import type { RequestArtifactRole } from './artifact-templates.js';
+import { renderTemplate } from './artifact-templates.js';
+export type { RequestArtifactRole } from './artifact-templates.js';
+export { formatHandoffPath, formatCommitBoundaryPath, formatSkillUsageLessonsPath, formatChangeScopePath } from './artifact-templates.js';
 
 export type CreateRequestArtifactOptions = {
   role: RequestArtifactRole;
@@ -22,7 +34,7 @@ export type CreateRequestArtifactOptions = {
   sessionId?: string;
   /**
    * Optional explicit change-id. When set, the artifact file lands at
-   * `.peaks/<changeId>/<role>/requests/...` regardless of any
+   * `.peaks/_runtime/<changeId>/<role>/requests/...` regardless of any
    * `current-change` binding. When unset, falls back to the binding, then
    * to the requestId. The CLI's `--session-id <scope>` flag uses this to
    * preserve the legacy "session-id as scope dir name" behavior.
@@ -61,7 +73,7 @@ export type CreateRequestArtifactResult = {
    * change-id scope dir under `.peaks/_runtime/change/<changeId>/`.
    * Pre-created on `--apply` (idempotent) so the sub-agent prompt
    * always has a single, well-known place to write reviewable
-   * artifacts — never the forbidden top-level `.peaks/<id>/`. In
+   * artifacts — never the forbidden top-level `.peaks/_runtime/<id>/`. In
    * dry-run mode this is the would-be path (the dir is NOT created).
    * Absolute path.
    */
@@ -81,292 +93,6 @@ function dateSlugFromIso(iso: string): string {
 
 function defaultSessionId(iso: string): string {
   return `${dateSlugFromIso(iso)}-session`;
-}
-
-function renderPrdTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  return `# PRD Request ${requestId}
-
-- session: ${sessionId}
-- change-id: ${changeId}
-- type: ${requestType}
-- source: <ticket, message URL, or "verbal" with a short sanitized quote>
-- raw input (sanitized): <one-paragraph restatement of what the user actually asked for>
-
-## Goals
-
-- ...
-
-## Non-goals
-
-- ...
-
-## Preserved behavior
-
-- ...
-
-## Acceptance criteria
-
-- ... (browser-verifiable when frontend is in scope)
-
-## Frontend delta (only when target is frontend)
-
-- pages / routes / components / states / permissions / data deps / edge cases
-- 待联调态: ...
-- API contracts pending: ...
-
-## Risks and open questions
-
-- ...
-
-## Handoff
-
-- to peaks-rd: .peaks/${changeId}/rd/requests/${requestId}.md
-- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
-- to peaks-ui: .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
-
-## Status
-
-- created: ${timestamp}
-- last update: ${timestamp}
-- state: draft
-`;
-}
-
-function renderUiTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  return `# UI Request ${requestId}
-
-- session: ${sessionId}
-- change-id: ${changeId}
-- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
-- type: ${requestType}
-- scope: full new surface | iteration on existing surface | regression fix | visual refresh
-- design direction: editorial | bento | Swiss | luxury | retro-futurist | glass | product-system | other-explicit-name
-
-## Affected surfaces
-
-- pages / routes / components / modals / states (loading, empty, error, hover, focus, active, responsive)
-- explicit out-of-scope surfaces (do not modify)
-
-## UX flow and page states
-
-- entry points, primary flow, secondary flows, exit points
-- state machine per surface when state transitions matter
-
-## Visual constraints
-
-- typography pair: ...
-- palette: ...
-- density and motion intensity dials: ...
-- rejected generic patterns
-
-## Interaction constraints
-
-- keyboard, focus order, ARIA roles, gesture support, accessibility minima
-
-## UI regression seeds
-
-- list of visible regressions QA must check against the prior state
-
-## Browser evidence
-
-- sanitized observations only — no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs with PII / SSO / MFA material
-
-## Handoff
-
-- to peaks-rd: .peaks/${changeId}/rd/requests/${requestId}.md
-- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
-
-## Status
-
-- created: ${timestamp}
-- last update: ${timestamp}
-- state: draft
-`;
-}
-
-function renderRdTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  return `# RD Request ${requestId}
-
-- session: ${sessionId}
-- change-id: ${changeId}
-- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
-- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
-- type: ${requestType}
-
-## Red-line scope
-
-- in-scope files / routes / API paths / data models
-- explicit out-of-scope surfaces (do not modify, mock, delete, or replace)
-
-## Standards preflight
-
-- peaks standards init/update --project <path> --dry-run output paths and status
-- planned application: apply | review-only | blocked
-
-## OpenSpec linkage (when openspec/ exists)
-
-- change-id: <openspec change id>
-- entry validate: peaks openspec validate <change-id> data.valid status
-- to-rd projection: peaks openspec to-rd <change-id> artifact path
-- exit validate (after implementation): status
-
-## Coverage status
-
-- current total UT coverage: <percent>
-- new/changed code coverage: <percent>
-- gate verdict: pass | legacy-accepted | blocked
-
-## Slice contract
-
-- slice id, functional boundary, pre-refactor behavior, target structure, unit-test requirements, acceptance checks, rollback plan, commit boundary
-
-## Implementation evidence
-
-- diff paths, test commands + outputs, code review findings + fixes, security review findings + fixes, dry-run output
-
-## MCP usage (when external docs lookup was used)
-
-- capabilityId / tool / sanitized args
-- artifact path of stored result
-- no secrets, no full network bodies
-
-## Handoff
-
-- to peaks-qa: .peaks/${changeId}/qa/requests/${requestId}.md
-- to peaks-sc: .peaks/${changeId}/sc/commit-boundaries/${requestId}.md
-
-## Status
-
-- created: ${timestamp}
-- last update: ${timestamp}
-- state: draft
-`;
-}
-
-function renderQaTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  return `# QA Request ${requestId}
-
-- session: ${sessionId}
-- change-id: ${changeId}
-- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
-- linked-rd:  .peaks/${changeId}/rd/requests/${requestId}.md
-- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
-- type: ${requestType}
-
-## Red-line boundary check
-
-- in-scope changes seen in the diff (match PRD + RD scope)
-- out-of-scope changes flagged (any extra file, route, mock, fixture, behavior)
-- verdict: clean | boundary-violation
-
-## OpenSpec exit gate (when openspec/ exists)
-
-- change-id: <id>
-- peaks openspec validate <id> data.valid: true | false
-- issues: ...
-
-## Acceptance checks
-
-- per-criterion: check method, result (pass | fail | blocked), evidence path
-
-## Mandatory validation gates
-
-- unit tests: command + pass/fail + coverage delta
-- API validation (when applicable): request paths exercised, evidence
-- browser E2E (when frontend): headed gstack/browse/dist/browse visible-browser confirmation, sanitized route/actions, console/network observations
-- browser-error feedback loop: page errors, console exceptions, broken network, hydration failures → return-to-RD evidence
-- security check: tool used, findings, fixes, unresolved risks
-- performance check: tool used, baseline vs after numbers when available
-- validation report path
-
-## Regression matrix
-
-- list of surfaces / API paths / browser flows checked
-- pass/fail per row
-
-## Browser evidence
-
-- sanitized observations only — no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs with PII / SSO / MFA material
-
-## Verdict
-
-- overall: pass | return-to-rd | blocked
-
-## Status
-
-- created: ${timestamp}
-- last update: ${timestamp}
-- state: draft
-`;
-}
-
-function renderScTemplate(requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  return `# SC Request ${requestId}
-
-- session: ${sessionId}
-- change-id: ${changeId}
-- linked-prd: .peaks/${changeId}/prd/requests/${requestId}.md
-- linked-rd:  .peaks/${changeId}/rd/requests/${requestId}.md
-- linked-qa:  .peaks/${changeId}/qa/requests/${requestId}.md
-- linked-ui:  .peaks/${changeId}/ui/requests/${requestId}.md  (when UI involved)
-- type: ${requestType}
-
-## Change impact
-
-- modules / files / routes / data models touched
-- blast radius: local | cross-cutting | release-critical
-- rollback strategy
-
-## Commit boundaries
-
-- one commit per OpenSpec heading (when openspec/ exists)
-- otherwise: list of slice ids → commit message + scope
-
-## Artifact retention
-
-- prd artifact: ...
-- rd artifact: ...
-- qa artifact: ...
-- ui artifact: ... (when UI involved)
-- coverage evidence: ...
-- code review evidence: ...
-
-## Sync / authorization
-
-- artifact workspace path: .peaks/${changeId}/
-- memory sync authorized: yes | no
-- artifact sync authorized: yes | no
-- rationale if not authorized: keep local
-
-## Rollback points
-
-- commits / tags / branches that can revert each boundary
-
-## Handoff
-
-- to peaks-txt: .peaks/${changeId}/txt/skill-usage-lessons.md (when reusable lesson exists)
-
-## Status
-
-- created: ${timestamp}
-- last update: ${timestamp}
-- state: draft
-`;
-}
-
-function renderTemplate(role: RequestArtifactRole, requestId: string, changeId: string, sessionId: string, timestamp: string, requestType: RequestType): string {
-  switch (role) {
-    case 'prd':
-      return renderPrdTemplate(requestId, changeId, sessionId, timestamp, requestType);
-    case 'ui':
-      return renderUiTemplate(requestId, changeId, sessionId, timestamp, requestType);
-    case 'rd':
-      return renderRdTemplate(requestId, changeId, sessionId, timestamp, requestType);
-    case 'qa':
-      return renderQaTemplate(requestId, changeId, sessionId, timestamp, requestType);
-    case 'sc':
-      return renderScTemplate(requestId, changeId, sessionId, timestamp, requestType);
-  }
 }
 
 export async function createRequestArtifact(options: CreateRequestArtifactOptions): Promise<CreateRequestArtifactResult> {
@@ -472,7 +198,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // Slice 2026-06-23-request-init-change-scope-leak. Pre-create the
   // canonical change-id scope dir so the sub-agent prompt always has
   // a well-known place to write reviewable artifacts — never the
-  // forbidden top-level `.peaks/<id>/`. Idempotent: re-running with
+  // forbidden top-level `.peaks/_runtime/<id>/`. Idempotent: re-running with
   // the same change-id is a no-op. The dir lives under
   // `.peaks/_runtime/change/<changeId>/` so it is covered by the
   // existing `.peaks/_runtime/` gitignore rule.
@@ -507,7 +233,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
 export type RequestArtifactSummary = {
   role: RequestArtifactRole;
   /**
-   * Durable scope of the artifact: the top-level `.peaks/<changeId>/`
+   * Durable scope of the artifact: the top-level `.peaks/_runtime/<changeId>/`
    * directory the file lives in. As of slice 2026-06-05-change-id-as-unit-of-work,
    * the prerequisite gate resolves paths under this dir (not the body
    * `- session:` line), so the file body and the on-disk path agree.
@@ -632,8 +358,8 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   }
   // One-axis (session-id-only) layout: the canonical on-disk root for
   // request artifacts is `.peaks/_runtime/<sid>/<role>/requests/`. The
-  // pre-F3 `.peaks/<sid>/<role>/requests/` legacy home is no longer
-  // scanned. The user has forbidden the `.peaks/<id>/` root layout —
+  // pre-F3 `.peaks/_runtime/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout —
   // the CLI guarantees no such dirs are created. See
   // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
   const scopes: string[] = [];
@@ -687,8 +413,8 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
 
   // One-axis (session-id-only) layout: the canonical on-disk root is
   // `.peaks/_runtime/<sid>/<role>/requests/`. The pre-F3
-  // `.peaks/<sid>/<role>/requests/` legacy home is no longer
-  // scanned. The user has forbidden the `.peaks/<id>/` root layout.
+  // `.peaks/_runtime/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout.
   if (options.sessionId !== undefined) {
     const dir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
     const scope = join('_runtime', options.sessionId);
@@ -786,7 +512,7 @@ export class PrerequisitesNotSatisfiedError extends Error {
   readonly missing: PrerequisiteCheckResult['missing'];
   constructor(role: RequestArtifactRole, newState: RequestArtifactState, sessionId: string, missing: PrerequisiteCheckResult['missing']) {
     super(
-      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/${sessionId}/`
+      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/_runtime/${sessionId}/`
     );
     this.name = 'PrerequisitesNotSatisfiedError';
     this.role = role;
@@ -927,7 +653,7 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     changeId: existing.changeId,
     // F3 repair cycle 1: pass the session binding so the gate can fall
     // back to `.peaks/_runtime/<sid>/<role>/` (and the legacy
-    // `.peaks/<sid>/<role>/`) for prerequisite artifacts that still
+    // `.peaks/_runtime/<sid>/<role>/`) for prerequisite artifacts that still
     // live under the session dir rather than the change-id dir. This
     // mirrors the F1/F2 back-compat pattern.
     sessionId: existing.sessionId,

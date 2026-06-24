@@ -77,7 +77,7 @@ export type ReconcileResult = {
   migratedFiles: string[];
   /**
    * Count of legacy per-session sub-agent state files moved from
-   * `.peaks/<sid>/system/{subagent-progress,progress-spawn}.json` into
+   * `.peaks/_runtime/<sid>/system/{subagent-progress,progress-spawn}.json` into
    * `.peaks/_sub_agents/<sid>/` during this reconcile run.
    *
    * Added in slice 2026-06-06-sub-agent-spawn-bug-and-decouple. The

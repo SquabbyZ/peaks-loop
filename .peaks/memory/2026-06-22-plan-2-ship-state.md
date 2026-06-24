@@ -39,7 +39,7 @@ cf4480e chore(mut): add Stryker dependencies + scaffold directories
 ```
 
 **Key architectural decisions (locked):**
-1. **One-axis envelope**: `.peaks/<id>/` 完全禁止;所有 envelope 走 `.peaks/_runtime/<sid>/` (CLI hotfix 81f00ce)
+1. **One-axis envelope**: `.peaks/_runtime/<id>/` 完全禁止;所有 envelope 走 `.peaks/_runtime/<sid>/` (CLI hotfix 81f00ce)
 2. **MUT.sig**: recursive key canonicalization in `report-builder.ts` (not top-level-only as plan suggested). Deterministic across runs.
 3. **AssertScanner**: regex v1 (5 patterns: toBeDefined, toBeTruthy, toEqual-self, expect-anything, toBe-self) — plan explicitly defers AST migration to a follow-up
 4. **MutRunner**: Stryker 8 programmatic API (lazy-imported in production-stryker.ts), not subprocess

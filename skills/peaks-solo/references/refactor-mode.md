@@ -15,9 +15,9 @@
 9. Execute one minimal functional slice at a time.
 10. After every RD slice, coordinate `peaks-qa`; if QA reports any failed, blocked, missing, or unverified item, return the report to RD for repair and repeat QA.
 11. Require 100% acceptance for the slice before completion or the next slice.
-12. Coordinate `peaks-sc` for local artifact retention and the `.peaks/<session-id>/sc/retention-boundary.md` boundary.
+12. Coordinate `peaks-sc` for local artifact retention and the `.peaks/_runtime/<session-id>/sc/retention-boundary.md` boundary.
 13. Exclude login URLs, cookies, headers, tokens, storage state, browser traces, and PII/SSO/MFA screenshots or logs from retained artifacts.
-14. Refuse the next slice until code changes and sanitized intermediate artifacts are traceable in local `.peaks/<session-id>/` storage; commit or sync only after explicit user or profile authorization.
+14. Refuse the next slice until code changes and sanitized intermediate artifacts are traceable in local `.peaks/_runtime/<session-id>/` storage; commit or sync only after explicit user or profile authorization.
 
 ## Runtime resources
 

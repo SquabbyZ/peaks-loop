@@ -154,7 +154,7 @@ describe('progress service — dispatch flow', () => {
     // point at a file the writer never touches.
     // As of slice 2026-06-06-sub-agent-spawn-bug-and-decouple, the
     // path is `.peaks/_sub_agents/<sid>/<filename>` (not the
-    // pre-slice `.peaks/<sid>/system/<filename>`).
+    // pre-slice `.peaks/_runtime/<sid>/system/<filename>`).
     expect(subAgentProgressPath(projectRoot)).toBe(
       join(projectRoot, '.peaks', '_sub_agents', '2026-06-03-session-progress01', 'subagent-progress.json')
     );

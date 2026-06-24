@@ -103,11 +103,11 @@ For each of the 7 files, find the test helper that invokes `request init`. The p
 
 - [ ] **Step 2: Choose a stable `--session-id` per file**
 
-Pick a per-file stable sid matching `.peaks/<sid>` shape (e.g., `2026-06-22-baseline-test`). Pre-create the session dir in `beforeEach` (the slice-008 F21 fix expects it for sid-shaped values).
+Pick a per-file stable sid matching `.peaks/_runtime/<sid>` shape (e.g., `2026-06-22-baseline-test`). Pre-create the session dir in `beforeEach` (the slice-008 F21 fix expects it for sid-shaped values).
 
 - [ ] **Step 3: Add `--session-id <sid>` to each helper invocation**
 
-For happy-path tests: insert `'--session-id', stableSid,` into the `runCommand` arg array. For tests that asserted on the OLD dual-root behavior (envelope at `.peaks/<rid>/`), rewrite the path assertion to `.peaks/_runtime/<sid>/rd/requests/`.
+For happy-path tests: insert `'--session-id', stableSid,` into the `runCommand` arg array. For tests that asserted on the OLD dual-root behavior (envelope at `.peaks/_runtime/<rid>/`), rewrite the path assertion to `.peaks/_runtime/<sid>/rd/requests/`.
 
 - [ ] **Step 4: Run scoped test to confirm**
 

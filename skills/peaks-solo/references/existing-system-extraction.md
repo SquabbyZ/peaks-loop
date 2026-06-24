@@ -2,7 +2,7 @@
 
 Run this step when `project-scan.md` archetype is `legacy-frontend`, `legacy-fullstack`, or `frontend-monorepo`. Skip for `greenfield` and `unknown`.
 
-Output: `.peaks/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file records both UI tokens AND code conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. UI design-draft and RD implementation MUST read this file and treat extracted tokens/conventions as hard constraints. New tokens or conventions may only be introduced when PRD explicitly authorizes them.
+Output: `.peaks/_runtime/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file records both UI tokens AND code conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. UI design-draft and RD implementation MUST read this file and treat extracted tokens/conventions as hard constraints. New tokens or conventions may only be introduced when PRD explicitly authorizes them.
 
 ## Step 1 — Run the CLI (deterministic, source of truth)
 
