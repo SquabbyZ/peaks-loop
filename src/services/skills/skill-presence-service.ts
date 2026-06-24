@@ -144,7 +144,7 @@ function getCurrentSessionId(projectRootOverride?: string): string | null {
 /**
  * Look up the outer-session-id that was bound to the *current* peaks
  * session, i.e. the one written to the per-session
- * `.peaks/<sid>/session.json` by `ensureSession`/`initWorkspace`. This
+ * `.peaks/_runtime/<sid>/session.json` by `ensureSession`/`initWorkspace`. This
  * is the source of truth for "which outer session owns the
  * in-flight peaks session".
  *

@@ -7,7 +7,7 @@ description: Mutation testing + assertion validity scan for Peaks. Use when a wo
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/_runtime/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
 
 # Peaks-Cli Mut
 
@@ -109,7 +109,7 @@ The MUT.sig digest is **deterministic**: object keys are sorted recursively, `ge
 
 ## One-axis envelope invariant
 
-peaks-mut writes ONLY to `.peaks/_runtime/<sessionId>/mut/mut-report.json` (or wherever `--out` points inside that prefix). It never reads from `.peaks/_sub_agents/...`, never writes to `.peaks/<changeId>/...`, and never accepts `--change-id`. This invariant matches peaks-qa / peaks-context and keeps the chain MUT.sig → TACT.sig → PRD sig auditable in one place.
+peaks-mut writes ONLY to `.peaks/_runtime/<sessionId>/mut/mut-report.json` (or wherever `--out` points inside that prefix). It never reads from `.peaks/_sub_agents/...`, never writes to `.peaks/_runtime/<changeId>/...`, and never accepts `--change-id`. This invariant matches peaks-qa / peaks-context and keeps the chain MUT.sig → TACT.sig → PRD sig auditable in one place.
 
 ## Independent context (防合谋)
 

@@ -42,7 +42,7 @@ async function writeTestCases(project: string, rid: string, body: string): Promi
   // The acceptance-coverage service resolves the test-cases dir from
   // `prdArtifact.changeId` (the dir the PRD lives in), so the test
   // must write the test cases to that same dir, not to
-  // `.peaks/<rid>/qa/test-cases/` (which is the change-id home
+  // `.peaks/_runtime/<rid>/qa/test-cases/` (which is the change-id home
   // when changeId is the requestId).
   const dir = join(project, '.peaks', '_runtime', SESSION, 'qa', 'test-cases');
   await mkdir(dir, { recursive: true });

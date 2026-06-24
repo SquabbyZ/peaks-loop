@@ -2,7 +2,7 @@
   {
     "id": 1,
     "prompt": "Feishu 文档 https://example.feishu.cn/wiki/PRODUCT_DOC_ID 是产品文档，需要登录。目标是 /Users/yuanyuan/Desktop/work/platform-rag-web 前端项目，请从文档提取可以交给 RD 实现、QA 复测的前端改动点。",
-    "expected": "先校验文档 URL 使用 https 且属于批准的 Feishu/Lark tenant 域名，再使用 headed gstack/browse/dist/browse 打开有头浏览器访问，遇到登录时等待用户完成并回复确认后再继续；登录后只提取产品实现逻辑、页面/路由/组件/状态/API contract/mock 假设/验收标准/联调问题，输出 .peaks/<session-id>/prd/ 下的脱敏实现型 PRD handoff；不得保留登录 URL、cookie、headers、tokens、storage state、browser traces、raw browser/network state 或 PII/SSO/MFA 截图/日志。"
+    "expected": "先校验文档 URL 使用 https 且属于批准的 Feishu/Lark tenant 域名，再使用 headed gstack/browse/dist/browse 打开有头浏览器访问，遇到登录时等待用户完成并回复确认后再继续；登录后只提取产品实现逻辑、页面/路由/组件/状态/API contract/mock 假设/验收标准/联调问题，输出 .peaks/_runtime/<session-id>/prd/ 下的脱敏实现型 PRD handoff；不得保留登录 URL、cookie、headers、tokens、storage state、browser traces、raw browser/network state 或 PII/SSO/MFA 截图/日志。"
   },
   {
     "id": 2,

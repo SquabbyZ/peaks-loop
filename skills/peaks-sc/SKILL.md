@@ -9,7 +9,7 @@ Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/change/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 ## Skill presence (MANDATORY first action)
 
@@ -55,7 +55,7 @@ Solo reads this record before declaring the workflow complete.
 
 ## Refactor role
 
-Each refactor slice must leave a traceable local artifact boundary in `.peaks/<session-id>/` by default. A git commit boundary containing code changes and PRD/RD/QA/TXT intermediate artifacts is required only when the user or active profile explicitly authorizes committing artifacts.
+Each refactor slice must leave a traceable local artifact boundary in `.peaks/_runtime/<session-id>/` by default. A git commit boundary containing code changes and PRD/RD/QA/TXT intermediate artifacts is required only when the user or active profile explicitly authorizes committing artifacts.
 
 ## GStack integration
 
@@ -135,7 +135,7 @@ peaks artifacts sync --workspace <workspace> --apply --json
 peaks skill presence:clear --project <repo>                      # SC complete, remove presence indicator
 ```
 
-The final two `--apply` calls require explicit authorization. Without it, default to `--dry-run` or omit the sync calls entirely and keep the boundary evidence local under `.peaks/<session-id>/`.
+The final two `--apply` calls require explicit authorization. Without it, default to `--dry-run` or omit the sync calls entirely and keep the boundary evidence local under `.peaks/_runtime/<session-id>/`.
 
 ### Transition verification gates (MANDATORY — run the command, see the output)
 

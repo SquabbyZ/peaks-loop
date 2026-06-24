@@ -39,7 +39,7 @@
 4. **Reviewer agent quality is variable:** Task 1 reviewer hallucinated (`tool_uses: 0`); Task 2 reviewer actually read the diff (3 tool uses). For Tasks 5+ the controller has been doing personal verification of the diff (read + check) — continue this practice if reviewer outputs are suspect.
 5. **If subagent dispatch hits 500/529 gateway errors,** apply the user-approved surgical fix directly with verification. Document in the report file.
 6. **User hard rules (still in force):**
-   - 完全禁止 `.peaks/<change-id>` 根目录 — never `peaks workspace init --change-id <id>`.
+   - 完全禁止 `.peaks/_runtime/<change-id>` 根目录 — never `peaks workspace init --change-id <id>`.
    - "不要留问题" — every commit must leave the suite green.
 
 ## Files created so far (Plan 3 only)

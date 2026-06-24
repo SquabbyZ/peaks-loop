@@ -368,8 +368,8 @@ describe('isWorkspaceInitializedAt — runtime-layer canonical + legacy back-com
     expect(isWorkspaceInitializedAt(project)).toBe(true);
   });
 
-  test('does not be confused by other .peaks/<sid>/session.json files (per-session, not the binding)', async () => {
-    // The per-session file at .peaks/<sid>/session.json is NOT the binding —
+  test('does not be confused by other .peaks/_runtime/<sid>/session.json files (per-session, not the binding)', async () => {
+    // The per-session file at .peaks/_runtime/<sid>/session.json is NOT the binding —
     // it's the session artifact. The probe must NOT treat it as "initialized"
     // or it will give a false positive on projects that have a session
     // subdir but no runtime binding (e.g. a half-reconciled migration).
@@ -562,7 +562,7 @@ describe('runDoctor build:workspace-layout-canonical check', () => {
    * Slice 007 — sub-agent session sharing. The post-F3 canonical
    * layout is "everything under .peaks/_runtime/<sid>/", and reviewable
    * artifacts live under the per-change-id dir tracked at
-   * `.peaks/<change-id>/<role>/`. The pre-slice-007 layout was
+   * `.peaks/_runtime/<change-id>/<role>/`. The pre-slice-007 layout was
    * "top-level per-change-id dirs only" (e.g. `.peaks/001-.../`), and
    * five already-shipped slices left such dirs behind. The doctor
    * check now flags them so slice 008's migration can clean them up.

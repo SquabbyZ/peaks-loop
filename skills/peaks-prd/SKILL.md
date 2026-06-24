@@ -13,7 +13,7 @@ When the PRD source is an authenticated web document (Feishu / Lark / Notion / C
 
 ### Contract 1 — Source-document screenshots must land under .peaks/_runtime/<sessionId>/prd/source/
 
-PRD's Playwright screenshot tool calls (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) MUST pass `filename` inside `.peaks/<session-id>/prd/source/`, not in the project root and not in `.peaks/<sid>/qa/screenshots/` (PRD's evidence is upstream of QA's). Example:
+PRD's Playwright screenshot tool calls (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) MUST pass `filename` inside `.peaks/_runtime/<session-id>/prd/source/`, not in the project root and not in `.peaks/_runtime/<sid>/qa/screenshots/` (PRD's evidence is upstream of QA's). Example:
 
 ```bash
 browser_take_screenshot \
@@ -45,7 +45,7 @@ Do not infer login from DOM state. The full hard-block contract is defined in `p
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 ## Skill presence (MANDATORY first action)
 
@@ -82,7 +82,7 @@ Then display: `Peaks-Cli Skill: peaks-prd | Peaks-Cli Gate: startup | Next: <one
 
 ## Mandatory per-request artifact
 
-Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state.
+Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state.
 
 Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the user assigned) so PRD/UI/RD/QA/SC can cross-link the same request.
 
@@ -235,16 +235,16 @@ Inspect upstream skill content before applying any method. Treat examples and in
 
 ## Local intermediate artifacts
 
-PRD artifacts must be written to the workflow-local `.peaks/<session-id>/prd/` workspace by default, unless the active Peaks-Cli CLI profile supplies a different local artifact workspace. This workspace is the handoff surface between `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, and `peaks-txt`.
+PRD artifacts must be written to the workflow-local `.peaks/_runtime/<session-id>/prd/` workspace by default, unless the active Peaks-Cli CLI profile supplies a different local artifact workspace. This workspace is the handoff surface between `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, and `peaks-txt`.
 
 ### Document snapshot placement (BLOCKING)
 
-**When PRD captures content from an external document (Feishu/Lark/wiki/web page), ALL intermediate snapshots MUST go into `.peaks/<session-id>/prd/source/` — NEVER to the project root directory.**
+**When PRD captures content from an external document (Feishu/Lark/wiki/web page), ALL intermediate snapshots MUST go into `.peaks/_runtime/<session-id>/prd/source/` — NEVER to the project root directory.**
 
 Specifically:
-- `browser_snapshot` output → save to `.peaks/<session-id>/prd/source/<doc-name>-snapshot.md`
-- `browser_take_screenshot` output → save to `.peaks/<session-id>/prd/source/<doc-name>-screenshot.png`
-- Any exported `.md` or `.pdf` the user provides → save to `.peaks/<session-id>/prd/source/`
+- `browser_snapshot` output → save to `.peaks/_runtime/<session-id>/prd/source/<doc-name>-snapshot.md`
+- `browser_take_screenshot` output → save to `.peaks/_runtime/<session-id>/prd/source/<doc-name>-screenshot.png`
+- Any exported `.md` or `.pdf` the user provides → save to `.peaks/_runtime/<session-id>/prd/source/`
 
 **Prohibited paths** (BLOCKING — do not write to these):
 - `./feishu-doc-snapshot.md` (project root)
@@ -252,7 +252,7 @@ Specifically:
 - `./<anything>-snapshot.md` (project root)
 - `./screenshots/` (project root — use `.peaks/_runtime/<sessionId>/qa/screenshots/`)
 
-The canonical PRD request artifact at `.peaks/<session-id>/prd/requests/<request-id>.md` should link to the source files in `prd/source/` for traceability.
+The canonical PRD request artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md` should link to the source files in `prd/source/` for traceability.
 
 Do not default to a git-backed artifact repository or commit intermediate artifacts automatically. Git commits, artifact sync, or external repository storage require explicit user confirmation or an active profile that clearly authorizes them.
 

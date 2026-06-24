@@ -17,7 +17,7 @@ describe('R004 peaks workspace migrate-1-4-1', () => {
   });
 
   // Seed a fake project with:
-  //   - 1 session in legacy location (`.peaks/<sid>/<role>/<file>.md`)
+  //   - 1 session in legacy location (`.peaks/_runtime/<sid>/<role>/<file>.md`)
   //   - Some files duplicated in canonical (`.peaks/_runtime/<sid>/<role>/<file>.md`)
   //   - Some files only in legacy (will be moved)
   //   - 1 file with content mismatch (will be reported as conflict, NOT moved)

@@ -286,7 +286,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   }
 
   // 4. design-draft-confirm — check the current change-id's design-draft.md.
-  //    The change-id is the .peaks/<changeId>/ui/design-draft.md path.
+  //    The change-id is the .peaks/_runtime/<changeId>/ui/design-draft.md path.
   //    For the audit, we look for any .peaks/*/ui/design-draft.md.
   const peaksDir = `${input.projectRoot}/.peaks`;
   if (existsSync(peaksDir)) {

@@ -8,7 +8,7 @@
  * files (`.peaks/.session.json`, `.peaks/.active-skill.json`,
  * `.peaks/sop-state/` → `.peaks/_runtime/`), `peaks workspace migrate`
  * handles the much bigger case: legacy reviewable content under
- * `.peaks/<session-id>/<role>/<file>` → `.peaks/retrospective/<change-id>/<role>/<file>`.
+ * `.peaks/_runtime/<session-id>/<role>/<file>` → `.peaks/retrospective/<change-id>/<role>/<file>`.
  *
  * Each legacy session dir typically contains multiple change-ids worth
  * of work (the old layout allowed one session to host several slices).
@@ -20,7 +20,7 @@
  */
 
 export type MigrateFilePlan = {
-  /** Absolute source path (under `.peaks/<session-id>/...`). */
+  /** Absolute source path (under `.peaks/_runtime/<session-id>/...`). */
   from: string;
   /** Absolute target path (under `.peaks/retrospective/<change-id>/...`). */
   to: string;
@@ -69,7 +69,7 @@ export type MigrateOptions = {
   /**
    * Slice 003 (2026-06-06-session-layout-canonicalize): when true, the
    * command performs the **session-dir consolidation** — moves every
-   * top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent;
+   * top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent;
    * conflicts (target exists with different content) are logged but
    * never overwrite. With `apply: false` (the default), the response
    * lists what WOULD move + the conflicts.
@@ -86,7 +86,7 @@ export type MigrateOptions = {
 };
 
 export type MigrateToRuntimeFilePlan = {
-  /** Absolute source path (top-level `.peaks/<sid>/`). */
+  /** Absolute source path (top-level `.peaks/_runtime/<sid>/`). */
   from: string;
   /** Absolute target path (`.peaks/_runtime/<sid>/`). */
   to: string;

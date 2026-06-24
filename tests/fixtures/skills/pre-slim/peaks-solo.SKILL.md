@@ -7,23 +7,23 @@ description: Full-auto orchestration facade for the Peaks-Cli skill family. Use 
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
+The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in this SKILL.md uses one of them; mixing them is the original `.peaks/_runtime/<sid>/` / `.peaks/_runtime/<sid>/` bug class this slice corrects.
 
 | Axis | Path root | Holds | When to use |
 |---|---|---|---|
-| **change-id axis** (reviewable artifacts) | `.peaks/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
+| **change-id axis** (reviewable artifacts) | `.peaks/_runtime/<changeId>/...` | PRD, RD plan, code-review, security-review, test-cases, handoff capsules, gate targets | The artifact should be reviewable on its own and survives across sessions for the same change. Change-id is the unit of work. |
 | **session-id axis** (ephemeral state) | `.peaks/_runtime/<sessionId>/...` | Session bindings (`.peaks/_runtime/session.json`), live in-flight state, the per-session project-scan and tech-doc scaffold while the session is open | The artifact is session-scoped and only meaningful while the parent session is live. |
 | **sub-agent axis** | `.peaks/_sub_agents/<sessionId>/...` | Sub-agent dispatch records, sub-agent heartbeats, per-sub-agent shared channel entries, sub-agent artifact outputs | A sub-agent ran in a parent session. The axis nests under the parent session-id; sub-agent outputs are flushed into the change-id root on commit. |
 
 **Which CLI commands operate on which axis:**
 
-- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/<changeId>/...`.
+- **change-id axis** (reviewable artifacts): `peaks request init`, `peaks request transition`, `peaks request show`, `peaks request lint`, `peaks request repair-status`, `peaks scan diff-vs-scope`, `peaks scan acceptance-coverage`. Inputs reference `.peaks/_runtime/<changeId>/...`.
 - **session-id axis** (ephemeral state): `peaks session info`, `peaks session start`, `peaks session finish`, `peaks session list`. Reads/writes `.peaks/_runtime/<sessionId>/session.json`.
 - **sub-agent axis** (under parent session-id): `peaks sub-agent dispatch`, `peaks sub-agent heartbeat`, `peaks sub-agent share`, `peaks sub-agent shared-read`. All output paths are under `.peaks/_sub_agents/<sessionId>/...`.
 
 **Placeholder convention used in this file:**
 
-- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/<changeId>/...` (root-level, NOT inside `_runtime/`).
+- `<changeId>` / `<change-id>` — the change-id axis. Use when describing a path that lives at `.peaks/_runtime/<changeId>/...` (root-level, NOT inside `_runtime/`).
 - `<sessionId>` / `<session-id>` — the session-id axis. Use when describing a path that lives at `.peaks/_runtime/<sessionId>/...` or `.peaks/_sub_agents/<sessionId>/...`. The long form `<session-id>` is used inside bash / shell examples where `<sessionId>` would break parsing.
 - The bare `<sid>` placeholder is **forbidden** in new content — it is ambiguous between the two axes. Legacy occurrences are replaced by this convention; new content must use the right axis label.
 
@@ -31,7 +31,7 @@ The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in
 
 - Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
 - Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
-- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
 
 # Peaks-Cli Solo
 
@@ -621,9 +621,9 @@ Before orchestrating an end-to-end code repository workflow, gather the project 
 
 Use `standards init` for first-time creation and `standards update` for existing `CLAUDE.md` append/review behavior. In `full-auto` and `swarm` profiles, `--apply` runs automatically after `--dry-run` succeeds — these files live inside the target project, are required for downstream skill preflight, and producing them is part of finishing the workflow (Peaks-Cli Gate G enforces this). `assisted` and `strict` profiles pause for explicit user confirmation between dry-run and apply.
 
-**CRITICAL — Standards must reflect the project scan.** When generating or updating `CLAUDE.md`, the content must reference concrete findings from `.peaks/<changeId>/rd/project-scan.md`: the detected component library (e.g. "This project uses antd 5.x"), CSS solution (e.g. "Uses Less via Umi"), build tool, state management, and routing. Never emit a generic template that says "read .claude/rules/..." without naming the actual project stack. If the project-scan has not been run yet, run it before standards init/update.
+**CRITICAL — Standards must reflect the project scan.** When generating or updating `CLAUDE.md`, the content must reference concrete findings from `.peaks/_runtime/<changeId>/rd/project-scan.md`: the detected component library (e.g. "This project uses antd 5.x"), CSS solution (e.g. "Uses Less via Umi"), build tool, state management, and routing. Never emit a generic template that says "read .claude/rules/..." without naming the actual project stack. If the project-scan has not been run yet, run it before standards init/update.
 
-**Legacy projects additionally** — when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}, the `CLAUDE.md` Conventions section MUST extract concrete naming, directory, service-layer, and hooks conventions from `.peaks/<changeId>/system/existing-system.md` and record them as hard constraints for new code. It must also list the `## Legacy constraints` from `project-scan.md` (class components, moment, enzyme, etc.) and instruct that new code in the same module preserves those patterns unless PRD explicitly authorizes modernization. A `CLAUDE.md` for a legacy project that contains only generic rule pointers without naming the actual conventions is a blocking violation — regenerate it.
+**Legacy projects additionally** — when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}, the `CLAUDE.md` Conventions section MUST extract concrete naming, directory, service-layer, and hooks conventions from `.peaks/_runtime/<changeId>/system/existing-system.md` and record them as hard constraints for new code. It must also list the `## Legacy constraints` from `project-scan.md` (class components, moment, enzyme, etc.) and instruct that new code in the same module preserves those patterns unless PRD explicitly authorizes modernization. A `CLAUDE.md` for a legacy project that contains only generic rule pointers without naming the actual conventions is a blocking violation — regenerate it.
 
 Do not hand-write standards file mutations inside the skill.
 

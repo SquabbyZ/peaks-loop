@@ -1,10 +1,10 @@
 /**
  * Slice 2026-06-22-top-level-change-id-cleanup — defense test for the
- * `.peaks/<YYYY-MM-DD-*>/` rule.
+ * `.peaks/_runtime/<YYYY-MM-DD-*>/` rule.
  *
  * Background: peaks-cli 2.8.0+ requires change-id / session-id artifacts
  * to live under `.peaks/_runtime/<sessionId>/` (gitignored) — NOT as
- * siblings at `.peaks/<date-prefix>/`. A 2.8.0-era install left a stale
+ * siblings at `.peaks/_runtime/<date-prefix>/`. A 2.8.0-era install left a stale
  * `.peaks/2026-06-22-cc-connect-orphan-cleanup/` directory at the
  * working-tree top level; the same root `.gitignore` was hardened with
  * a YYYY-MM-DD-prefix fnmatch pattern (see DEFENSE_RULE below) to
@@ -128,7 +128,7 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
 
   test('AC5: CLAUDE.md declares the top-level change-id ban as a hard rule', () => {
     // Doc-layer guard: CLAUDE.md must explicitly tell future AI sessions
-    // NOT to create .peaks/<change-id>/ siblings. The text is grep-stable
+    // NOT to create .peaks/_runtime/<change-id>/ siblings. The text is grep-stable
     // so a future contributor cannot silently weaken the rule without
     // breaking this test. We look for two anchors: (a) the literal phrase
     // "Never create", and (b) the explanatory line about routing into
@@ -143,7 +143,7 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
   test('AC6: .peaks/PROJECT.md documents the ban in its Conventions section', () => {
     // PROJECT.md is the source-of-truth for project conventions; it must
     // mention the ban explicitly so a future contributor reading the
-    // project history understands WHY .peaks/<YYYY-MM-DD-*>/ is rejected.
+    // project history understands WHY .peaks/_runtime/<YYYY-MM-DD-*>/ is rejected.
     const projectPath = join(PEAKS_DIR, 'PROJECT.md');
     expect(existsSync(projectPath)).toBe(true);
     const content = readFileSync(projectPath, 'utf8');
@@ -152,10 +152,10 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     expect(content).toContain('7373f81');
   });
 
-  test('AC7: src/cli/commands/workspace/init-command.ts teaches the correct path (no legacy .peaks/<change-id>/ sibling in description or --change-id option help)', () => {
+  test('AC7: src/cli/commands/workspace/init-command.ts teaches the correct path (no legacy .peaks/_runtime/<change-id>/ sibling in description or --change-id option help)', () => {
     // The CLI is the primary surface LLM drivers read to learn where
     // to write artifacts. The 2.8.0-era descriptions taught the wrong
-    // path (".peaks/<change-id>/ sibling dir"); slice 2.8.3 redirects
+    // path (".peaks/_runtime/<change-id>/ sibling dir"); slice 2.8.3 redirects
     // to .peaks/_runtime/current-change (file-form binding). This test
     // pins the new wording so a future refactor cannot silently revert
     // to the forbidden phrasing.
@@ -165,7 +165,7 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     //   (b) the `--change-id` option description (line ~144)
     //
     // Both must mention the canonical `.peaks/_runtime/current-change`
-    // binding AND must NOT advertise `.peaks/<change-id>/` as a sibling
+    // binding AND must NOT advertise `.peaks/_runtime/<change-id>/` as a sibling
     // dir at top level.
     const cmdPath = join(REPO_ROOT, 'src', 'cli', 'commands', 'workspace', 'init-command.ts');
     expect(existsSync(cmdPath)).toBe(true);
@@ -175,10 +175,10 @@ describe('top-level change-id guard (slice 2026-06-22-top-level-change-id-cleanu
     expect(content).toContain('2.8.3');
     expect(content).toContain('LegacyChangeIdSiblingError');
     expect(content).toContain('LegacyChangeIdBindingError');
-    // The legacy phrase "creates the .peaks/<change-id>/ dir" (singular
+    // The legacy phrase "creates the .peaks/_runtime/<change-id>/ dir" (singular
     // phrasing that taught the forbidden sibling-dir layout) must NOT
     // survive in the description or --change-id option help. We use a
-    // prose assertion so legitimate references to `.peaks/<change-id>/`
+    // prose assertion so legitimate references to `.peaks/_runtime/<change-id>/`
     // elsewhere (e.g. as the reviewable-artifact root, or in error
     // messages) are NOT flagged.
     expect(content).not.toMatch(/also creates the \.peaks\/<change-id>\//);

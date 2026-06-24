@@ -203,7 +203,7 @@ describe('migrateWorkspace', () => {
       expect(explicit?.source).toBe('content-frontmatter');
     });
 
-    test('cross-cutting files route to .peaks/<topic>/<role>/<file> (top-level)', async () => {
+    test('cross-cutting files route to .peaks/_runtime/<topic>/<role>/<file> (top-level)', async () => {
       const sid = '2026-06-06-session-fffffff';
       seedFile(join(project, `.peaks/${sid}/rd/project-scan.md`), '# Project Scan: react-prompt-editor');
       seedFile(join(project, `.peaks/${sid}/rd/perf-baseline.md`), '# Perf Baseline');

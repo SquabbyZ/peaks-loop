@@ -431,7 +431,7 @@ function readResumeArtifact(artifactWorkspacePath: string, changeId: string, art
   // Slice 2026-06-23-audit-5th-p1: the on-disk home for change-id
   // content is the canonical scope dir under
   // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
-  // The previous read path `.peaks/<changeId>/` was a SKILL.md 2.8.3
+  // The previous read path `.peaks/_runtime/<changeId>/` was a SKILL.md 2.8.3
   // hard-ban violation (sibling of `.peaks/_runtime/`). The
   // relative-path argument is still useful for the role/swarm drill
   // (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) — we use it

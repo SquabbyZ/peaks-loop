@@ -6,9 +6,9 @@
 // `src/shared/change-id.ts:buildArtifactRelativePath` walks
 // `process.cwd()` to find the project root and reads `.peaks/.session.json`
 // from it. When the file exists with a session id, the helper returns
-// session-based paths like `.peaks/<sessionId>/<role>/<numberedFilename>`
+// session-based paths like `.peaks/_runtime/<sessionId>/<role>/<numberedFilename>`
 // instead of legacy changeId-based paths like
-// `.peaks/<changeId>/rd/architecture`. The 31 tests under
+// `.peaks/_runtime/<changeId>/rd/architecture`. The 31 tests under
 // `tests/unit/{tech,rd,workflow-autonomous,autonomous-resume-writer,
 // workflow-autonomous-resume-validation,cli-program.workflow}.test.ts`
 // assert the legacy changeId-based shape; they were written assuming the

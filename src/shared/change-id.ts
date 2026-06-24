@@ -6,7 +6,7 @@
  * Layout (as of slice 2026-06-23-audit-5th-p1):
  *   - Reviewable artifacts (rd/, qa/, prd/, txt/) for a change-id:
  *       .peaks/_runtime/change/<change-id>/<role>/...    (canonical scope dir)
- *     The previous top-level `.peaks/<change-id>/<role>/...` shape is
+ *     The previous top-level `.peaks/_runtime/<change-id>/<role>/...` shape is
  *     a SKILL.md 2.8.3 hard-ban violation (sibling of `.peaks/_runtime/`).
  *     `getChangeScopeDirAbs` in `services/artifacts/change-scope-service.ts`
  *     is the single source of truth for the absolute path; this module
@@ -94,10 +94,10 @@ export function isUnsafeArtifactPath(path: string): boolean {
  * the helper does not need to walk `process.cwd()` to find a session.
  *
  * If a session exists for `projectRoot`, files are stored in:
- *   .peaks/<sessionId>/<role>/<number>-<changeId>.md
+ *   .peaks/_runtime/<sessionId>/<role>/<number>-<changeId>.md
  *
  * If no session exists, falls back to legacy behavior:
- *   .peaks/<changeId>/<segments>
+ *   .peaks/_runtime/<changeId>/<segments>
  *
  * Use this from callers that have a workspace or `artifactWorkspacePath` in
  * hand (e.g. CLI subcommands that received `--project`, or test fixtures
@@ -157,10 +157,10 @@ export function buildArtifactRelativePathInRoot(
  * Build an artifact-relative path using session-based storage.
  *
  * If a session exists, files are stored in:
- *   .peaks/<sessionId>/<role>/<number>-<changeId>.md
+ *   .peaks/_runtime/<sessionId>/<role>/<number>-<changeId>.md
  *
  * If no session exists, falls back to legacy behavior:
- *   .peaks/<changeId>/<segments>
+ *   .peaks/_runtime/<changeId>/<segments>
  *
  * This function walks `process.cwd()` to find the project root and reads
  * `.peaks/.session.json` from it. Callers that already have an explicit
@@ -197,7 +197,7 @@ export function isPathInsideArtifactRoot(path: string, artifactRoot: string): bo
 // Two forms are accepted (back-compat for the legacy file-based binding
 // that pre-dates the runtime-layer refactor):
 //
-//   1. Symlink: the symlink target resolves to `.peaks/<change-id>/`
+//   1. Symlink: the symlink target resolves to `.peaks/_runtime/<change-id>/`
 //      inside the project root. This is the canonical form that
 //      `peaks workspace init --change-id <id>` writes.
 //
@@ -211,7 +211,7 @@ export function isPathInsideArtifactRoot(path: string, artifactRoot: string): bo
 // pointing outside).
 //
 // The binding is read by RD/QA/PRD services when they need to know
-// which `.peaks/<change-id>/` directory to write reviewable artifacts
+// which `.peaks/_runtime/<change-id>/` directory to write reviewable artifacts
 // into, and by reconciliation to figure out which slice each legacy
 // session file belongs to.
 
@@ -253,7 +253,7 @@ function safeReadBinding(projectRoot: string): { changeId: string; source: 'syml
  * root. As of slice 2026-06-05-change-id-as-unit-of-work this is the
  * primary routing key for reviewable artifact writes — RD/QA/PRD
  * services should call this (rather than guess from the session id)
- * to decide which `.peaks/<change-id>/` directory to write into.
+ * to decide which `.peaks/_runtime/<change-id>/` directory to write into.
  */
 export function getCurrentChangeId(projectRoot: string): string | null {
   return safeReadBinding(projectRoot)?.changeId ?? null;
@@ -307,13 +307,13 @@ export function getCurrentChangeIdSource(projectRoot: string): { changeId: strin
  *
  *   - `{ form: 'file' }` (default since 2.8.3): writes the change-id
  *     as the sole content of `.peaks/_runtime/current-change`. No
- *     sibling directory is created at `.peaks/<changeId>/`. This is
+ *     sibling directory is created at `.peaks/_runtime/<changeId>/`. This is
  *     the canonical 2.8.0+ form — the change-id is a logical
  *     identifier carried in RD/QA artifact frontmatter, not a
  *     filesystem directory.
  *   - `{ form: 'symlink' }` (legacy 2.8.0): creates
  *     `.peaks/_runtime/current-change` as a symlink pointing at
- *     `.peaks/<changeId>/`. KEPT for back-compat reads only; the
+ *     `.peaks/_runtime/<changeId>/`. KEPT for back-compat reads only; the
  *     2.8.3 `peaks workspace init` no longer writes this form.
  *     `getCurrentChangeId` still resolves it correctly for projects
  *     that have not yet re-init'd.
@@ -347,7 +347,7 @@ export function setCurrentChangeId(
 ): void {
   validateChangeIdOrThrow(changeId);
   // Slice 2026-06-22-top-level-change-id-cleanup: default to 'file'
-  // form. The legacy 'symlink' form created `.peaks/<changeId>/` as a
+  // form. The legacy 'symlink' form created `.peaks/_runtime/<changeId>/` as a
   // sibling of `_runtime/`, which violates the 2.8.0+ two-axis
   // convention. The 'file' form writes the binding to
   // `.peaks/_runtime/current-change` as a plain text file with the
@@ -364,7 +364,7 @@ export function setCurrentChangeId(
   }
   if (form === 'file') {
     // Pure-file binding. Slice 2.8.3+: do NOT create
-    // `.peaks/<changeId>/` (that path was the 2.8.0-era violation).
+    // `.peaks/_runtime/<changeId>/` (that path was the 2.8.0-era violation).
     // If a caller explicitly asks to set the binding while a
     // legacy sibling dir exists, refuse loudly — see
     // `setCurrentChangeIdWithLegacyGuard` for the wrapper used by
@@ -434,7 +434,7 @@ export function setCurrentChangeId(
       const existing = readFileSync(bindingPath, 'utf-8').trim();
       if (existing !== changeId) {
         // Slice 2026-06-23-audit-5th-p1: probe the canonical change-id
-        // scope dir, not the banned top-level `.peaks/<changeId>/`.
+        // scope dir, not the banned top-level `.peaks/_runtime/<changeId>/`.
         if (existsSync(join(peaksRoot, '_runtime', 'change', changeId))) {
           unlinkSync(bindingPath);
         } else {
@@ -456,7 +456,7 @@ export function setCurrentChangeId(
 }
 
 // NOTE: the 2.7.0 `getChangeArtifactRoot(projectRoot, changeId)`
-// function was removed in 2.7.1. It returned `.peaks/<changeId>/`
+// function was removed in 2.7.1. It returned `.peaks/_runtime/<changeId>/`
 // and was the source of the project-root pollution the user
 // surfaced: reviewable artifacts (RD tech-doc / QA test-cases /
 // PRD / txt) were being written to the project root instead of

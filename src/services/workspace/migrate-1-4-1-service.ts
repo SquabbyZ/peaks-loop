@@ -7,7 +7,7 @@
  * `.peaks/_runtime/<sid>/`. Per-request artifacts (PRD, RD, QA, SC requests)
  * were written to the new root, but per-session artifacts (tech-doc.md,
  * code-review.md, test-cases/<rid>.md, etc.) were kept at the legacy
- * `.peaks/<sid>/<role>/<file>.md` path. The 2-tier fallback in
+ * `.peaks/_runtime/<sid>/<role>/<file>.md` path. The 2-tier fallback in
  * `resolvePrerequisiteAbsolutePathWithFallback` accepts either location, so
  * the functional behavior is correct, but the user's filesystem has visible
  * dual-path duplication ("飘逸" — the user's term for the UX).
@@ -63,7 +63,7 @@ function sha256(content: string): string {
 }
 
 function enumerateLegacySessions(projectRoot: string): string[] {
-  // Legacy per-session dirs: `.peaks/<sid>/` (NOT `.peaks/_runtime/<sid>/`).
+  // Legacy per-session dirs: `.peaks/_runtime/<sid>/` (NOT `.peaks/_runtime/<sid>/`).
   // We skip well-known non-session entries.
   const SKIP = new Set(['memory', 'PROJECT.md', 'retrospective', 'scope', '.peaks-init-hooks-decision.json', 'session.json', '.session.json', '_runtime', '_sub_agents', 'change', 'caller', 'callers', 'sop-state', 'system', 'active-skill.json', '.active-skill.json']);
   const peaksRoot = join(projectRoot, '.peaks');

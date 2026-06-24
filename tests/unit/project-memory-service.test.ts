@@ -380,7 +380,7 @@ describe('project memory service', () => {
     const projectRoot = createTempDir('peaks-memory-session-idempotent');
     // As of slice 005-session-runtime-dir-regression, the canonical
     // session workspace lives at `.peaks/_runtime/<sid>/`, not the
-    // legacy `.peaks/<sid>/`. The writer is now routed through
+    // legacy `.peaks/_runtime/<sid>/`. The writer is now routed through
     // `getSessionDir`, so the scanner looks under `_runtime/`.
     const sessionDir = join(projectRoot, '.peaks', '_runtime', 'session-abc');
     mkdirSync(sessionDir, { recursive: true });

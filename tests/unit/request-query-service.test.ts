@@ -22,7 +22,7 @@ async function seedArtifact(
 ): Promise<void> {
   // Plan 1 followup hotfix (5cd4c87): the on-disk root for request
   // artifacts is `.peaks/_runtime/<sid>/<role>/requests/`. The legacy
-  // `.peaks/<sid>/<role>/requests/` home is no longer scanned.
+  // `.peaks/_runtime/<sid>/<role>/requests/` home is no longer scanned.
   const dir = join(project, '.peaks', '_runtime', sessionId, role, 'requests');
   await mkdir(dir, { recursive: true });
   await writeFile(

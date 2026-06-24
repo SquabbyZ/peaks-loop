@@ -37,7 +37,7 @@ export type WorkspaceInitOptions = {
    * reviewable-artifact filename (e.g.
    * `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`), not a
    * filesystem directory. A 2.8.0-era legacy sibling dir
-   * `.peaks/<changeId>/` at top level is FORBIDDEN and triggers
+   * `.peaks/_runtime/<changeId>/` at top level is FORBIDDEN and triggers
    * `LegacyChangeIdSiblingError` so the user can migrate before the
    * init proceeds. The session id remains the binding for ephemeral
    * state (live sub-agent progress, spawn records).
@@ -142,10 +142,10 @@ const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
 
 /**
  * Slice C10 (2026-06-24-legacy-change-id-sibling): the relative path
- * patterns under `.peaks/<changeId>/` that the lazy WRITER (peaks-qa,
+ * patterns under `.peaks/_runtime/<changeId>/` that the lazy WRITER (peaks-qa,
  * peaks-rd, peaks-prd, peaks-txt, peaks-sc) creates via
  * `mkdir(parent, { recursive: true })` immediately before a write. When
- * a sibling `.peaks/<changeId>/` exists on disk AND every entry below
+ * a sibling `.peaks/_runtime/<changeId>/` exists on disk AND every entry below
  * it matches one of these patterns (AND no entry is a symlink), the
  * dir is treated as legitimate writer output and `initWorkspace`
  * re-init is tolerant — the binding is rewritten without throwing.
@@ -186,12 +186,12 @@ export class ConflictingSessionError extends Error {
 
 /**
  * Thrown when `peaks workspace init --change-id <id>` is invoked but a
- * 2.8.0-era legacy sibling directory `.peaks/<changeId>/` already exists
+ * 2.8.0-era legacy sibling directory `.peaks/_runtime/<changeId>/` already exists
  * at top level. Under the 2.8.0+ two-axis convention, change-id is a
  * logical identifier in the SESSION axis — NOT a top-level sibling dir.
  *
  * The caller is expected to:
- *   1. Inspect `.peaks/<changeId>/` to see if it contains user-authored
+ *   1. Inspect `.peaks/_runtime/<changeId>/` to see if it contains user-authored
  *      content worth preserving.
  *   2. Migrate or delete the sibling dir.
  *   3. Re-run `peaks workspace init --change-id <id>`.
@@ -245,7 +245,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // slice 006 (2026-06-06-change-folder-simplify-and-lazy-role-subdirs) +
   // slice 2026-06-22-top-level-change-id-cleanup (2.8.3):
   //   - Reviewable artifacts (rd/, qa/, prd/, txt/) live at
-  //     `.peaks/<change-id>/<role>/` (tracked in git) when a change-id
+  //     `.peaks/_runtime/<change-id>/<role>/` (tracked in git) when a change-id
   //     is given. The role subdirs are NOT pre-created — the writer
   //     (e.g. `peaks request init`, `peaks rd`) creates the parent
   //     dirs on demand via `mkdirSync(..., { recursive: true })`.
@@ -258,12 +258,12 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     is given. Slice 2.8.3+ redirects the binding to
   //     `.peaks/_runtime/current-change` as a plain text file (see
   //     `LegacyChangeIdSiblingError` for the migration guard). Reviewable
-  //     artifacts still land under `.peaks/<changeId>/<role>/`, but
+  //     artifacts still land under `.peaks/_runtime/<changeId>/<role>/`, but
   //     that dir is created lazily by the WRITER, not by init. Init only
   //     writes the binding.
   //
   // The CLI accepts `--change-id <id>` to bind the change. The legacy
-  // session-scoped layout (`.peaks/<session-id>/<role>/<file>`) is
+  // session-scoped layout (`.peaks/_runtime/<session-id>/<role>/<file>`) is
   // no longer used by writes; pre-1.3.1 trees get their session
   // files migrated to the change-id dir by `peaks workspace reconcile`.
 
@@ -290,7 +290,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
 
   // 2. If a change-id is given, bind it to the SESSION axis (NOT a
   //    top-level sibling dir). Slice 2026-06-22-top-level-change-id-cleanup:
-  //    the 2.8.0-era `.peaks/<changeId>/` sibling layout is FORBIDDEN under
+  //    the 2.8.0-era `.peaks/_runtime/<changeId>/` sibling layout is FORBIDDEN under
   //    the 2.8.0+ two-axis convention. The change-id is a logical
   //    identifier — RD/QA artifact paths embed it in the filename
   //    (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`).
@@ -298,7 +298,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //    a plain text file (NOT a symlink to a sibling dir).
   //
   //    2a. Pre-flight guard: if a 2.8.0-era legacy sibling
-  //    `.peaks/<changeId>/` already exists at top level, refuse with
+  //    `.peaks/_runtime/<changeId>/` already exists at top level, refuse with
   //    a clear migration message. We do NOT auto-migrate because the
   //    legacy sibling dir may contain user-authored content the user
   //    needs to inspect before deletion.
@@ -332,7 +332,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     }
     if (legacyStat !== null) {
       // Slice C10 (2026-06-24-legacy-change-id-sibling): the legacy
-      // sibling dir at `.peaks/<changeId>/` is no longer an automatic
+      // sibling dir at `.peaks/_runtime/<changeId>/` is no longer an automatic
       // violation. When the SAME session previously ran the writer
       // (peaks-qa, peaks-rd, ...) it may have lazily created the
       // sibling dir via `mkdir(..., { recursive: true })` before
@@ -363,7 +363,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     }
     // 3. Bind the change-id to the session axis as a plain text file
     //    at `.peaks/_runtime/current-change`. NO sibling directory
-    //    is created at `.peaks/<changeId>/`.
+    //    is created at `.peaks/_runtime/<changeId>/`.
     setCurrentChangeId(options.projectRoot, resolvedChangeId, { form: 'file' });
     changeIdAction = 'bound';
   } else if (options.changeId !== undefined && options.changeId.length === 0) {
@@ -656,7 +656,7 @@ async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
 
 /**
  * Slice C10 (2026-06-24-legacy-change-id-sibling): whole-dir shape check
- * for the legacy sibling `.peaks/<changeId>/`. Returns `true` ONLY when
+ * for the legacy sibling `.peaks/_runtime/<changeId>/`. Returns `true` ONLY when
  * every leaf path under the sibling matches one of
  * `WRITER_ALLOWED_RELATIVE_PATTERNS` AND no entry is a symlink (anywhere
  * in the tree).
@@ -673,7 +673,7 @@ async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
  *
  * Symlink rejection (Karpathy #3 — surgical): any symlinked entry — at
  * the root or nested — returns `false` immediately. A symlinked
- * `.peaks/<changeId>/qa/foo.png` could otherwise bypass the file-extension
+ * `.peaks/_runtime/<changeId>/qa/foo.png` could otherwise bypass the file-extension
  * check by resolving to user content outside the project.
  *
  * Implementation note: the helper is synchronous and uses `lstatSync`

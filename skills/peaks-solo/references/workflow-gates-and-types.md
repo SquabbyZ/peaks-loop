@@ -28,9 +28,9 @@ For ambiguous cases (e.g. "improve login flow"), ask the user to clarify before 
 When Peaks-Cli Solo coordinates development in a code repository, keep this order explicit:
 
 0. **Peaks-Cli Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
-0.5. **Peaks-Cli Workspace initialization** — `.peaks/<session-id>/` created, directory structure verified;
-0.6. **Peaks-Cli Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/<session-id>/rd/project-scan.md`;
-0.7. **Peaks-Cli Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
+0.5. **Peaks-Cli Workspace initialization** — `.peaks/_runtime/<session-id>/` created, directory structure verified;
+0.6. **Peaks-Cli Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/_runtime/<session-id>/rd/project-scan.md`;
+0.7. **Peaks-Cli Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/_runtime/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
 1. **Peaks-Cli Standards preflight** — `peaks standards init/update --dry-run`, must reference concrete project-scan findings (never emit generic templates);
 2. **Peaks-Cli PRD phase** — capture request as canonical artifact, extract scope and acceptance criteria:
    - Full-auto/Swarm: auto-transition to `confirmed-by-user` once the artifact is complete;

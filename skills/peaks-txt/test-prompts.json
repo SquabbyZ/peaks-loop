@@ -2,7 +2,7 @@
   {
     "id": 1,
     "prompt": "本次 peaks-solo 实战发现了 Feishu 登录、前端 mock 联调、浏览器可见 E2E 和本地 .peaks 产物的使用习惯，需要沉淀给后续 session。",
-    "expected": "Peaks TXT 在 .peaks/<session-id>/txt/skill-usage-lessons.md 和 context-capsule.md 中记录规则、原因、影响技能、未来应用方式和是否适合 memory extraction，不保存 secrets、登录态、PII 或原始浏览器数据。"
+    "expected": "Peaks TXT 在 .peaks/_runtime/<session-id>/txt/skill-usage-lessons.md 和 context-capsule.md 中记录规则、原因、影响技能、未来应用方式和是否适合 memory extraction，不保存 secrets、登录态、PII 或原始浏览器数据。"
   },
   {
     "id": 2,

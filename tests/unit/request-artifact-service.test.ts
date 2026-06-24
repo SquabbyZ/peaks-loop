@@ -335,7 +335,7 @@ describe('showRequestArtifact', () => {
    * Slice 003 repair cycle 1: showRequestArtifact must read from the
    * canonical post-F3 path `.peaks/_runtime/<sid>/<role>/requests/`
    * first, and fall back to the legacy pre-F3 path
-   * `.peaks/<sid>/<role>/requests/` when the canonical path is absent.
+   * `.peaks/_runtime/<sid>/<role>/requests/` when the canonical path is absent.
    * The pre-F3 read silently pointed at the legacy path and missed
    * every in-flight session that was created after
    * `peaks workspace migrate --to-runtime`. After the fix, the
@@ -379,9 +379,9 @@ describe('showRequestArtifact', () => {
   // Plan 1 followup hotfix (5cd4c87) removed the dual-root scan.
   // showRequestArtifact now reads ONLY from the canonical post-F3
   // path `.peaks/_runtime/<sid>/<role>/requests/`. Artifacts written
-  // at the legacy pre-F3 path `.peaks/<sid>/<role>/requests/` are
+  // at the legacy pre-F3 path `.peaks/_runtime/<sid>/<role>/requests/` are
   // no longer reachable. This test pins the new contract.
-  test('does NOT fall back to the legacy pre-F3 path .peaks/<sid>/<role>/requests/', async () => {
+  test('does NOT fall back to the legacy pre-F3 path .peaks/_runtime/<sid>/<role>/requests/', async () => {
     const project = await makeProject();
     const sid = '2026-06-06-legacy-fallback-sid';
     const rid = '2026-06-06-legacy-fallback-rid';

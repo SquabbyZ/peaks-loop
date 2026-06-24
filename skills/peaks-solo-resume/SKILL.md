@@ -71,7 +71,7 @@ Then tell the user: "Resuming from `<gate>`. The main peaks-solo skill will take
 
 - Do NOT re-read 3-5 artifact files to determine the workflow state. The detection script does this in <1ms; re-reading is the bug Step 0.7 was added to prevent.
 - Do NOT skip the `AskUserQuestion` even if the user says "just continue". The user might have changed their mind, or there might be multiple in-flight slices.
-- Do NOT write to `.peaks/<sid>/` files. This skill is read-only on the workspace; it only reads `.peaks/.session.json` + runs the detection script.
+- Do NOT write to `.peaks/_runtime/<sid>/` files. This skill is read-only on the workspace; it only reads `.peaks/.session.json` + runs the detection script.
 - Do NOT run `peaks workspace init` on a real session (would bind a new session id). Only run it on a fresh detection where no session exists.
 
 ## Cross-references

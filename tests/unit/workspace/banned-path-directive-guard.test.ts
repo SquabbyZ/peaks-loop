@@ -1,10 +1,10 @@
 /**
  * Slice 2026-06-24-handoff-path-canonicalization-v2 — defense test for
- * the B-class `.peaks/<id>/` LLM/CLI directive ban.
+ * the B-class `.peaks/_runtime/<id>/` LLM/CLI directive ban.
  *
  * Background: peaks-cli 2.8.0+ routes change-id / session-id artifacts
  * under `.peaks/_runtime/<sessionId>/` (gitignored), never as siblings
- * at `.peaks/<id>/`. After PRD1 (commit 9893d3a) shipped, a follow-up
+ * at `.peaks/_runtime/<id>/`. After PRD1 (commit 9893d3a) shipped, a follow-up
  * audit (slice 2026-06-24 v2) found 11 B-class hits in production code
  * where the LLM/CLI was being told to write to the forbidden layout
  * — e.g. via `description(...)`, `nextActions.push(...)`, `warnings: [...]`,
@@ -13,7 +13,7 @@
  * surface: the LLM reads the string and follows it.
  *
  * This test source-greps the production directories listed in PRD AC-2.2
- * for the forbidden `.peaks/<id>/` literal appearing inside a directive
+ * for the forbidden `.peaks/_runtime/<id>/` literal appearing inside a directive
  * context. It fails if any are found, locking the v2 fix in place.
  *
  * Design:
@@ -25,18 +25,18 @@
  *     trigger false positives.
  *   - Defines directive contexts as multi-line regexes anchored on the
  *     opening call/array. The patterns are intentionally lenient about
- *     the literal that follows `.peaks/<id>/` (anything can follow) so
+ *     the literal that follows `.peaks/_runtime/<id>/` (anything can follow) so
  *     a future regression in any of: description, nextActions, warnings,
  *     helpLines, recommendations, or `throw new Error` containing a
  *     write target gets caught.
  *
  * AC-2.2 patterns (see PRD1 v2 §Acceptance criteria):
- *   - `description\(\s*['"\`].*\.peaks/<[^>]+>/`  (CLI help-text)
- *   - `nextActions.push\(\s*['"\`].*\.peaks/<\w+>/`
- *   - `recommendations.push\(\s*['"\`].*\.peaks/<\w+>/`
- *   - `warnings:\s*\[.*?\.peaks/<\w+>\]
- *   - `helpLines:.*?\.peaks/<\w+>`
- *   - any `throw new Error\(...\.peaks/<\w+>/...\)` string-literal
+ *   - `description\(\s*['"\`].*\.peaks/_runtime/<[^>]+>/`  (CLI help-text)
+ *   - `nextActions.push\(\s*['"\`].*\.peaks/_runtime/<\w+>/`
+ *   - `recommendations.push\(\s*['"\`].*\.peaks/_runtime/<\w+>/`
+ *   - `warnings:\s*\[.*?\.peaks/_runtime/<\w+>\]
+ *   - `helpLines:.*?\.peaks/_runtime/<\w+>`
+ *   - any `throw new Error\(...\.peaks/_runtime/<\w+>/...\)` string-literal
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -67,23 +67,23 @@ const TARGET_EXTS = new Set(['.ts', '.mts', '.cts']);
  * re-flag a removed description.
  */
 const KEEP_DESCRIPTIONS: ReadonlyArray<{ file: string; anchor: string }> = [
-  // migrate-1-4-1: contrast legacy `.peaks/<sid>/` vs canonical `.peaks/_runtime/<sid>/`
+  // migrate-1-4-1: contrast legacy `.peaks/_runtime/<sid>/` vs canonical `.peaks/_runtime/<sid>/`
   {
     file: 'src/cli/commands/migrate-1-4-1-command.ts',
-    anchor: 'Move per-session files from the legacy `.peaks/<sid>/',
+    anchor: 'Move per-session files from the legacy `.peaks/_runtime/<sid>/',
   },
-  // workspace/migrate: contrast legacy `.peaks/<session-id>/` vs `.peaks/retrospective/<change-id>/`
+  // workspace/migrate: contrast legacy `.peaks/_runtime/<session-id>/` vs `.peaks/retrospective/<change-id>/`
   {
     file: 'src/cli/commands/workspace/migrate-command.ts',
-    anchor: 'Migrate legacy `.peaks/<session-id>/',
+    anchor: 'Migrate legacy `.peaks/_runtime/<session-id>/',
   },
   // workspace/init: contrast canonical `.peaks/_runtime/<session-id>/` against forbidden
-  // `.peaks/<change-id>/` sibling. The description teaches the LLM the difference
+  // `.peaks/_runtime/<change-id>/` sibling. The description teaches the LLM the difference
   // (slice 2.8.3 top-level change-id ban). Removing the contrast destroys the
   // pedagogical value.
   {
     file: 'src/cli/commands/workspace/init-command.ts',
-    anchor: 'NOT a sibling dir at .peaks/<change-id>/',
+    anchor: 'NOT a sibling dir at .peaks/_runtime/<change-id>/',
   },
 ];
 
@@ -163,14 +163,14 @@ const DIRECTIVE_PATTERNS: ReadonlyArray<{ label: string; regex: RegExp }> = [
   },
   {
     label: 'hardGates / requiredArtifacts / nextActions array literal',
-    // Catches entries like: 'Retain ... in .peaks/<session-id>/ storage ...'
+    // Catches entries like: 'Retain ... in .peaks/_runtime/<session-id>/ storage ...'
     // inside array literals emitted to the LLM.
     regex: /'(?:Retain|Keep|Create|Discover|Paste|Open|Save)[^']*\.peaks\/<\w+>\/[^']*'/,
   },
 ];
 
 describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
-  test('AC-2.2: zero .peaks/<id>/ literals inside LLM/CLI directive contexts in production code', () => {
+  test('AC-2.2: zero .peaks/_runtime/<id>/ literals inside LLM/CLI directive contexts in production code', () => {
     const files: string[] = [];
     for (const root of TARGET_ROOTS) {
       const abs = join(REPO_ROOT, root);
@@ -203,7 +203,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
           // For the description(...) pattern, check if the matched
           // substring falls inside a keep-listed description anchor.
           // Keep-listed descriptions are the only place where
-          // `.peaks/<id>/` may legitimately appear inside a directive
+          // `.peaks/_runtime/<id>/` may legitimately appear inside a directive
           // (they explicitly label the path as legacy or forbidden).
           if (label === 'description(...) help-text') {
             const isKeep = fileKeepList.some((k) => stripped.includes(k.anchor));
@@ -234,7 +234,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
    *
    * Scope:
    *   - Skills files: skills all-md (excluding tests/fixtures/skills/pre-slim subdir)
-   *   - Banned: literal `.peaks/<id>/`, `.peaks/<sid>/`, `.peaks/<session-id>/`
+   *   - Banned: literal `.peaks/_runtime/<id>/`, `.peaks/_runtime/<sid>/`, `.peaks/_runtime/<session-id>/`
    *     inside markdown triple-backtick code fences OR inside backtick spans
    *     acting as path tokens. Bare axis labels that include `<session-id>`,
    *     `<changeId>`, `<sessionId>`, `<sid>`, `<rid>` (rid is a request id
@@ -251,7 +251,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
    *     `<id>`, `<X>` (single-letter placeholder for id), and patterns that
    *     lack any axis label.
    */
-  test('v3 AC: skills all-md must not contain `.peaks/<id>/` inside code fences or path backtick spans', () => {
+  test('v3 AC: skills all-md must not contain `.peaks/_runtime/<id>/` inside code fences or path backtick spans', () => {
     const skillsRoot = join(REPO_ROOT, 'skills');
     const mdFiles: string[] = [];
     // Skills files are markdown, not TS — reuse the synchronous walk
@@ -294,20 +294,20 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
     // tool call verbatim. Allow only the proper axis labels:
     // `<session-id>`, `<changeId>`, `<change-id>`, `<sessionId>`,
     // `<sid>`, plus a wildcard `<X>` placeholder (used in canonical axes
-    // explanation prose like "every `.peaks/<X>/` has an axis label")
+    // explanation prose like "every `.peaks/_runtime/<X>/` has an axis label")
     // and the date-prefix placeholder `<YYYY-MM-DD-*>` (the 2.8.3 hard-ban
     // pattern). Bare `<id>` is BANNED.
     //
     // Pattern matches:
-    //   .peaks/<id>/   (literally)
+    //   .peaks/_runtime/<id>/   (literally)
     // And EXCLUDES:
-    //   .peaks/<session-id>/
-    //   .peaks/<sid>/
-    //   .peaks/<changeId>/
-    //   .peaks/<change-id>/
-    //   .peaks/<sessionId>/
-    //   .peaks/<X>/     (canonical "any axis" placeholder)
-    //   .peaks/<YYYY-MM-DD-*>/  (date-prefix hard-ban placeholder)
+    //   .peaks/_runtime/<session-id>/
+    //   .peaks/_runtime/<sid>/
+    //   .peaks/_runtime/<changeId>/
+    //   .peaks/_runtime/<change-id>/
+    //   .peaks/_runtime/<sessionId>/
+    //   .peaks/_runtime/<X>/     (canonical "any axis" placeholder)
+    //   .peaks/_runtime/<YYYY-MM-DD-*>/  (date-prefix hard-ban placeholder)
     const BANNED_PATH = /\.peaks\/<(?!session-id>|sid>|changeId>|change-id>|sessionId>|X>|YYYY-MM-DD-\*>)([^>]+)>\//g;
 
     const violations: string[] = [];
@@ -329,7 +329,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
         BANNED_PATH.lastIndex = 0;
         for (const bm of body.matchAll(BANNED_PATH)) {
           if (bm[1] !== undefined) {
-            violations.push(`${rel} [code-fence]: .peaks/<${bm[1]}>/...`);
+            violations.push(`${rel} [code-fence]: .peaks/_runtime/<${bm[1]}>/...`);
           }
         }
       }

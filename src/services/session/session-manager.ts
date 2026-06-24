@@ -253,7 +253,7 @@ export function rotateSessionBinding(projectRoot: string): string | null {
  * for `ensureSession()` and any other path that needs to discover the
  * active session without an explicit --session-id flag.
  *
- * This does NOT touch the per-session `session.json` inside `.peaks/<id>/`;
+ * This does NOT touch the per-session `session.json` inside `.peaks/_runtime/<id>/`;
  * that file is owned by `setSessionMeta` and records session-scoped
  * metadata (title, skill, mode, gate, etc.).
  */
@@ -271,7 +271,7 @@ function getMetaFilePath(projectRoot: string, sessionId: string): string {
   // As of slice 2026-06-06-session-layout-canonicalize, the per-session
   // `session.json` (the file written by `setSessionMeta`) lives at the
   // canonical runtime home `.peaks/_runtime/<sid>/session.json`, NOT
-  // at the top-level `.peaks/<sid>/session.json` (which would imply
+  // at the top-level `.peaks/_runtime/<sid>/session.json` (which would imply
   // the legacy session-scoped layout and conflict with the workspace
   // service's `_runtime/<sid>/` invariant). The migration in slice
   // 003 moved any top-level meta files into the runtime home.
@@ -387,7 +387,7 @@ export function listSessionMetas(projectRoot: string): SessionMeta[] {
 
 /**
  * Back-compat read for the legacy top-level meta file (the one that
- * pre-slice 003 trees still have at `.peaks/<sid>/session.json`).
+ * pre-slice 003 trees still have at `.peaks/_runtime/<sid>/session.json`).
  * Kept as a separate helper so the canonical reader is the default.
  */
 function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMeta | null {
@@ -621,7 +621,7 @@ export function getSessionIdCanonical(projectRoot: string): string | null {
  *
  * As of slice 2026-06-06-session-layout-canonicalize the canonical
  * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
- * `.peaks/<sid>/` is the back-compat read fallback only.
+ * `.peaks/_runtime/<sid>/` is the back-compat read fallback only.
  *
  * @param projectRoot - Root directory of the project
  * @returns Absolute path to session directory (e.g., "/path/to/project/.peaks/_runtime/2026-05-26-session-a3f8b1")
@@ -637,7 +637,7 @@ export async function getCurrentSessionDir(projectRoot: string): Promise<string>
  *
  * As of slice 2026-06-06-session-layout-canonicalize the canonical
  * home is `.peaks/_runtime/<sid>/`. The legacy top-level layout
- * `.peaks/<sid>/` is read for back-compat (one minor release) so
+ * `.peaks/_runtime/<sid>/` is read for back-compat (one minor release) so
  * pre-migration trees keep working.
  *
  * @param projectRoot - Root directory of the project

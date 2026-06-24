@@ -3,12 +3,12 @@
  *
  * Verifies that `peaks request init`:
  *   1. Writes envelopes ONLY to `.peaks/_runtime/<sessionId>/<role>/...`
- *      (never to the forbidden `.peaks/<id>/<role>/...` root).
+ *      (never to the forbidden `.peaks/_runtime/<id>/<role>/...` root).
  *   2. Refuses to run without `--session-id` (SESSION_ID_REQUIRED).
  *   3. The legacy `--change-id` flag is no longer accepted by the parser.
  *
  * Reference: `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
- * Hard rule (user 2026-06-21): the `.peaks/<id>/` root layout is completely
+ * Hard rule (user 2026-06-21): the `.peaks/_runtime/<id>/` root layout is completely
  * forbidden — all envelopes land under `.peaks/_runtime/<sid>/`.
  */
 
@@ -123,11 +123,11 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
     // File name is numbered (NNN-<rid>.md) — check the rid is the stem.
     expect(files.some((f) => f.endsWith(`-${STABLE_RID}.md`))).toBe(true);
 
-    // The forbidden .peaks/<sid>/rd/requests/ dir MUST NOT exist.
+    // The forbidden .peaks/_runtime/<sid>/rd/requests/ dir MUST NOT exist.
     const forbiddenDir = join(projectRoot, '.peaks', STABLE_SESSION, 'rd', 'requests');
     expect(existsSync(forbiddenDir)).toBe(false);
 
-    // No stray top-level .peaks/<sid>/ dir (the "session-id-as-change-id" bug).
+    // No stray top-level .peaks/_runtime/<sid>/ dir (the "session-id-as-change-id" bug).
     const forbiddenRoot = join(projectRoot, '.peaks', STABLE_SESSION);
     expect(existsSync(forbiddenRoot)).toBe(false);
   });
@@ -179,7 +179,7 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
   // Slice 2026-06-23-request-init-change-scope-leak
   //
   // User bug report: `peaks request init --id <long-change-id> ...`
-  // caused the LLM (sub-agent) to construct `.peaks/<id>/` at top
+  // caused the LLM (sub-agent) to construct `.peaks/_runtime/<id>/` at top
   // level, violating the 2.8.3 hard ban. The CLI must pre-create
   // the canonical scope dir under `.peaks/_runtime/change/<id>/`
   // and surface the absolute path via `scopeDir` so the sub-agent
@@ -208,7 +208,7 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
     expect(scopeDirAbs.endsWith(join('.peaks', '_runtime', 'change', changeStyleId))).toBe(true);
     expect(existsSync(scopeDirAbs)).toBe(true);
 
-    // The forbidden top-level .peaks/<id>/ MUST NOT exist.
+    // The forbidden top-level .peaks/_runtime/<id>/ MUST NOT exist.
     const forbiddenTop = join(projectRoot, '.peaks', changeStyleId);
     expect(existsSync(forbiddenTop)).toBe(false);
 

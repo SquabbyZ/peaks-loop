@@ -3,7 +3,7 @@ import { join, posix } from 'node:path';
 
 /**
  * Spec §8.4 + §8.5 — `.peaks/_state/` collects one-time decision dotfiles.
- * Migrates from legacy `.peaks/<name>` flat layout.
+ * Migrates from legacy `.peaks/_runtime/<name>` flat layout.
  *
  * `stateDirPath` returns a POSIX-normalized logical path so callers and tests
  * can compare against a platform-independent string (the .peaks tree is a

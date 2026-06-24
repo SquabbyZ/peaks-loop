@@ -15,7 +15,7 @@
   `.gitignore`: `.peaks/runtime/` (typo guard) and `.peaks/preferences.json`
   (per-project user state). Full rule at
   `.peaks/memory/workspace-underscore-convention.md`.
-- **Top-level `.peaks/<YYYY-MM-DD-*>/` is forbidden (effective 2.8.3)** —
+- **Top-level `.peaks/_runtime/<YYYY-MM-DD-*>/` is forbidden (effective 2.8.3)** —
   change-id / session-id artifacts MUST live under `.peaks/_runtime/<sid>/`
   (gitignored). Never as siblings of `.peaks/_runtime/`. **Path
   distinction**: the change-id **binding** (the active change-id for the

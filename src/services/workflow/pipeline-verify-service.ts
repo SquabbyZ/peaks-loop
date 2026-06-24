@@ -65,11 +65,11 @@ function extractState(markdown: string): string {
 
 /**
  * As of slice 2026-06-05-change-id-as-unit-of-work, the file's durable
- * scope is the change-id (the `.peaks/<changeId>/` dir the file lives
+ * scope is the change-id (the `.peaks/_runtime/<changeId>/` dir the file lives
  * in), NOT the session-id. We resolve the on-disk location via
  * `showRequestArtifact` (which scans all top-level dirs and returns the
  * actual dir the file was found in) instead of assuming
- * `.peaks/<sessionId>/<role>/requests/`.
+ * `.peaks/_runtime/<sessionId>/<role>/requests/`.
  */
 async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; changeId: string } | null> {
   const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
@@ -212,7 +212,7 @@ export async function verifyPipeline(options: {
   };
   // The evidence dir: prefer the on-disk changeId; fall back to the
   // caller's hint; final fallback to the requestId (back-compat for
-  // pre-1.3.0 trees where the file lived under .peaks/<rid>/).
+  // pre-1.3.0 trees where the file lived under .peaks/_runtime/<rid>/).
   const rdEvidenceDir = resolvedChangeId || options.changeId || options.rid;
   for (const gate of rdGates.slice(1)) {
     const fileName = RD_EVIDENCE_FILE[gate.name]!;

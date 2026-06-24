@@ -5,7 +5,7 @@ Every UI invocation must leave one durable artifact under the workflow-local wor
 ## Required path
 
 ```
-.peaks/<session-id>/ui/requests/<request-id>.md
+.peaks/_runtime/<session-id>/ui/requests/<request-id>.md
 ```
 
 Use the same `<request-id>` PRD assigned (`YYYY-MM-DD-<kebab-slug>`) so the PRD/UI/RD/QA records can be cross-linked.
@@ -15,7 +15,7 @@ Use the same `<request-id>` PRD assigned (`YYYY-MM-DD-<kebab-slug>`) so the PRD/
 ```markdown
 # UI Request <request-id>
 
-- linked-prd: .peaks/<session-id>/prd/requests/<request-id>.md
+- linked-prd: .peaks/_runtime/<session-id>/prd/requests/<request-id>.md
 - scope: full new surface | iteration on existing surface | regression fix | visual refresh
 - design direction: editorial | bento | Swiss | luxury | retro-futurist | glass | product-system | other-explicit-name
 

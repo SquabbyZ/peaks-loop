@@ -616,7 +616,7 @@ describe('reconcileWorkspace (slice 006 — system/ subdir cleanup)', () => {
 
 /**
  * Slice 2026-06-06-sub-agent-spawn-bug-and-decouple — sub-agent state
- * migration. The two legacy files at `.peaks/<sid>/system/{subagent-
+ * migration. The two legacy files at `.peaks/_runtime/<sid>/system/{subagent-
  * progress,progress-spawn}.json` are moved to `.peaks/_sub_agents/<sid>/`
  * on the first `reconcileWorkspace` run. The empty `<sid>/system/` dir
  * is removed (R-2 guard) only when it has zero remaining files.

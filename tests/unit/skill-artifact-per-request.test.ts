@@ -17,7 +17,7 @@ describe('dogfood: per-request artifact requirement is documented in SKILL.md an
       const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
 
       expect(body).toMatch(/## Mandatory per-request artifact/);
-      expect(body).toMatch(new RegExp(`\\.peaks/<session-id>/${role}/requests/<request-id>\\.md`));
+      expect(body).toMatch(new RegExp(`\\.peaks/_runtime/<session-id>/${role}/requests/<request-id>\\.md`));
       expect(body).toMatch(/references\/artifact-per-request\.md/);
     });
 
@@ -27,7 +27,7 @@ describe('dogfood: per-request artifact requirement is documented in SKILL.md an
       expect(body).toMatch(/## Required path/);
       expect(body).toMatch(/## Required content/);
       expect(body).toMatch(/## Rules/);
-      expect(body).toMatch(new RegExp(`\\.peaks/<session-id>/${role}/requests/<request-id>\\.md`));
+      expect(body).toMatch(new RegExp(`\\.peaks/_runtime/<session-id>/${role}/requests/<request-id>\\.md`));
     });
   }
 

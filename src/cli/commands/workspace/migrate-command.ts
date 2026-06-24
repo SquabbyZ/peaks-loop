@@ -3,7 +3,7 @@
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
  * 2026-06-16-workspace-commands-split) to keep that entry file under the
- * 800-line Karpathy cap. Migrates legacy `.peaks/<sid>/<role>/<file>`
+ * 800-line Karpathy cap. Migrates legacy `.peaks/_runtime/<sid>/<role>/<file>`
  * into the new `.peaks/retrospective/<change-id>/<role>/<file>` layout.
  */
 
@@ -25,7 +25,7 @@ export function registerWorkspaceMigrateCommand(workspace: Command, io: ProgramI
     workspace
       .command('migrate')
       .description(
-        'Migrate legacy `.peaks/<session-id>/<role>/<file>` content into the new layout: ' +
+        'Migrate legacy `.peaks/_runtime/<session-id>/<role>/<file>` content into the new layout: ' +
           '`.peaks/retrospective/<change-id>/<role>/<file>`. Each file is routed by a 4-tier ' +
           'change-id resolver (filename regex → content H1 → body frontmatter → per-session fallback ' +
           'to the most recent rd/requests entry). Cross-cutting files (project-scan, perf-baseline) ' +
@@ -34,7 +34,7 @@ export function registerWorkspaceMigrateCommand(workspace: Command, io: ProgramI
           'and the session dirs that WOULD be deleted. Pass --apply to actually `git mv` the files ' +
           'and `rm -rf` the emptied session dirs. Idempotent: re-running on an already-migrated tree ' +
           'is a no-op (all files report conflicts with identical content).' +
-          '\n\nSlice 003 (--to-runtime): moves every top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/` ' +
+          '\n\nSlice 003 (--to-runtime): moves every top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/` ' +
           'for projects still on the pre-runtime-layer layout. Idempotent: re-running on a tree ' +
           'that is already canonical is a no-op. F15 carve-out: top-level `rd/project-scan.md` is ' +
           'never overwritten when the runtime copy already exists with different content.'
@@ -43,7 +43,7 @@ export function registerWorkspaceMigrateCommand(workspace: Command, io: ProgramI
       .option('--apply', 'actually `git mv` the files and delete the emptied session dirs (destructive); without it, dry-run only', false)
       .option(
         '--to-runtime',
-        'slice 003: also consolidate every top-level .peaks/<sid>/ dir into .peaks/_runtime/<sid>/. Idempotent; conflicts are logged but never overwrite.',
+        'slice 003: also consolidate every top-level .peaks/_runtime/<sid>/ dir into .peaks/_runtime/<sid>/. Idempotent; conflicts are logged but never overwrite.',
         false
       )
   ).action(async (options: WorkspaceMigrateOptions) => {

@@ -449,7 +449,7 @@ describe('verifyPipeline', () => {
     test('detects all QA evidence files present for feature type', async () => {
       writeQaArtifact(temp.root, 'qa-ev-all', 'verdict-issued');
       // QA evidence gates (test-cases/test-report) read from
-      // `.peaks/<changeId>/qa/` using the resolved changeId. Without
+      // `.peaks/_runtime/<changeId>/qa/` using the resolved changeId. Without
       // an RD request file in the same scope, the resolver falls
       // back to the caller-provided changeId (`test-change-id`),
       // i.e. the bare path. Write the per-rid evidence under both

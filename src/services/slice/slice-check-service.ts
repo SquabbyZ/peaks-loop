@@ -213,7 +213,7 @@ async function runReviewFanout(
   }
 
   // Default: verify all 3 review files exist with non-empty content. The
-  // files can live under EITHER `.peaks/<rid>/rd/` (active change-id) or
+  // files can live under EITHER `.peaks/_runtime/<rid>/rd/` (active change-id) or
   // `.peaks/retrospective/<rid>/rd/` (shipped). The boundary check
   // accepts either — the LLM may be at a slice that's still active
   // (not yet archived) or one that just shipped.

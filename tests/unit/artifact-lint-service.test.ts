@@ -13,7 +13,7 @@ async function makeProject(): Promise<string> {
 }
 
 // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact file
-// lives at `.peaks/<changeId>/<role>/requests/` where changeId defaults
+// lives at `.peaks/_runtime/<changeId>/<role>/requests/` where changeId defaults
 // to the requestId. The lint service resolves via showRequestArtifact
 // which scans all top-level dirs when sessionId is omitted.
 

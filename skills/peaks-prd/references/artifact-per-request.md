@@ -5,7 +5,7 @@ Every PRD invocation must leave one durable artifact under the workflow-local wo
 ## Required path
 
 ```
-.peaks/<session-id>/prd/requests/<request-id>.md
+.peaks/_runtime/<session-id>/prd/requests/<request-id>.md
 ```
 
 `<request-id>` is `YYYY-MM-DD-<kebab-slug>` when the user does not name it explicitly. Use a stable id so QA/RD/SC handoffs can reference it.

@@ -281,7 +281,7 @@ function readSessionJsonBinding(projectRoot: string): string | null {
 function sessionOwnsSlice(projectRoot: string, sessionId: string, sliceId: string): boolean {
   // As of slice 2026-06-05-change-id-as-unit-of-work, the same
   // session id can live at multiple umbrella locations:
-  //   - `.peaks/<sessionId>/` (legacy or top-level active)
+  //   - `.peaks/_runtime/<sessionId>/` (legacy or top-level active)
   //   - `.peaks/retrospective/<sessionId>/` (shipped slice)
   //   - `.peaks/_dogfood/<sessionId>/` (dogfood evidence)
   // Try each in turn; the first match wins.
@@ -317,7 +317,7 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
   // As of slice 2026-06-05-change-id-as-unit-of-work, shipped slices
   // are archived under `.peaks/retrospective/<dir>/` and dogfood
   // evidence lives under `.peaks/_dogfood/<dir>/`. Both umbrellas host
-  // scopes at one level deeper than the top-level `.peaks/<dir>/`
+  // scopes at one level deeper than the top-level `.peaks/_runtime/<dir>/`
   // shape. Expand the candidate list so the find-fallback tier can
   // locate these. Accept both legacy session-id format
   // (`YYYY-MM-DD-session-<6hex>`) and new change-id format
@@ -574,7 +574,7 @@ export function validateArtifactRetention(sliceId: string): {
   const effectiveSliceId = resolution.resolvedSessionId ?? sliceId;
 
   // W4: if the resolver found a session, ALSO accept artifacts under
-  // `<projectRoot>/.peaks/<resolvedSessionId>/` (the canonical per-slice
+  // `<projectRoot>/.peaks/_runtime/<resolvedSessionId>/` (the canonical per-slice
   // dir). The project-root peaks is where the orchestrator's skills
   // actually write (see `initWorkspace` in `workspace-service.ts`), so
   // when the resolution chain lands on a real session the artifacts are
@@ -602,7 +602,7 @@ export function validateArtifactRetention(sliceId: string): {
   if (!workspace) {
     // No workspace: validate against the resolved session dir directly
     // (this is the common peaks-solo / peaks-rd invocation: the slice
-    // lives under the project-root `.peaks/<sessionId>/`, and the
+    // lives under the project-root `.peaks/_runtime/<sessionId>/`, and the
     // workspace artifact path is irrelevant). When the resolution also
     // fails, fall back to the legacy "No workspace configured" failure
     // mode so the existing CLI contract is preserved.

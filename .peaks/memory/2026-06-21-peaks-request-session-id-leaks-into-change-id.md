@@ -20,13 +20,13 @@ if (options.sessionId !== undefined) {
 
 **Why:** The "back-compat" comment is misleading — pre-1.3.0 the on-disk
 dir was session-keyed, but peaks-solo SKILL.md now mandates two
-orthogonal axes (change-id at `.peaks/<changeId>/` vs session-id at
+orthogonal axes (change-id at `.peaks/_runtime/<changeId>/` vs session-id at
 `.peaks/_runtime/<sessionId>/`). Mirroring `--session-id` into
 `changeId` collapses them.
 
 **Symptom:** Running
 `peaks request transition <rid> --session-id <sid> --apply` writes the
-envelope to `.peaks/<sid>/rd/tech-doc.md` (NOT `.peaks/_runtime/<sid>/rd/tech-doc.md`).
+envelope to `.peaks/_runtime/<sid>/rd/tech-doc.md` (NOT `.peaks/_runtime/<sid>/rd/tech-doc.md`).
 
 If the session-id happens to match the `.peaks/2026-*-*/` gitignore
 pattern, the dir is silently ignored and looks "fine" in `git status`
@@ -43,7 +43,7 @@ regression. Plan 2 (peaks-mut) should add a preflight task:
   `.peaks/_runtime/<sid>/...` exclusively.
 - Severity: MEDIUM. Doesn't break ship (verify-pipeline tolerates both
   roots today), but leaks axis semantics, makes cross-machine handoff
-  fragile (Mac clone won't see `.peaks/<sid>/` because gitignore hides
+  fragile (Mac clone won't see `.peaks/_runtime/<sid>/` because gitignore hides
   it AND because it's only created when CLI runs locally).
 
 **Why:** Why I should remember this: in Plan 1 ship wave I noticed
@@ -53,7 +53,7 @@ cause is the back-compat line above. Fix in Plan 2 or later; do NOT
 fix in Plan 1 ship (out of scope, would invalidate the working-tree
 that just shipped).
 
-**How to apply:** When you see `.peaks/<sessionIdShape>/` directories
+**How to apply:** When you see `.peaks/_runtime/<sessionIdShape>/` directories
 appear in `git status` (or in `ls .peaks/`), check `request-commands.ts`
 to confirm whether the CLI is the source. If yes, this is the same
 bug — don't try to delete the dir manually (it'll just come back on
@@ -79,14 +79,14 @@ What changed:
   the dual-root scan in `listRequestArtifacts` and
   `showRequestArtifact`. Both now scan only
   `.peaks/_runtime/<sid>/<role>/requests/`. The pre-F3 legacy
-  `.peaks/<sid>/<role>/requests/` home is no longer read or
+  `.peaks/_runtime/<sid>/<role>/requests/` home is no longer read or
   written.
 - `src/cli/commands/workflow-commands.ts` — `peaks workflow
   verify-pipeline` description now documents the one-axis scan.
   The CLI itself does not embed dual-root logic; it goes through
   the service.
 - `.gitignore` — deleted the `.peaks/2026-*-*/` rule. The CLI
-  no longer creates `.peaks/<id>/` dirs, so the broad ignore is
+  no longer creates `.peaks/_runtime/<id>/` dirs, so the broad ignore is
   no longer needed.
 - `tests/unit/cli/commands/request-commands.test.ts` (new) — pins
   the one-axis invariant: envelope lands ONLY at

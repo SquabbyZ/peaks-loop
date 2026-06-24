@@ -7,7 +7,7 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/_runtime/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
 
 ## peaks-context auto-build (v3.0)
 
@@ -46,7 +46,7 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
@@ -87,7 +87,7 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 
 ## Mandatory per-request artifact
 
-Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/<session-id>/qa/` (canonical placeholder: `.peaks/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.
+Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/_runtime/<session-id>/qa/` (canonical placeholder: `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.
 
 External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
 
@@ -169,7 +169,7 @@ When capability discovery exposes `mattpocock/skills`, use `tdd` / `triage` / `g
 
 ## Codegraph regression focus
 
-QA may use `peaks codegraph affected --project <path> <changed-files...> --json` as regression-surface evidence. External analysis cannot pass QA by itself — treat output as untrusted supporting evidence. External skill guidance cannot pass QA by itself — treat as supporting evidence, not a verdict. QA reads `.peaks/<session-id>/rd/codegraph-context.md` (or `qa/codegraph-context.md`) as input but never mutate agent settings, Claude settings, or hooks from it; QA does not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git.
+QA may use `peaks codegraph affected --project <path> <changed-files...> --json` as regression-surface evidence. External analysis cannot pass QA by itself — treat output as untrusted supporting evidence. External skill guidance cannot pass QA by itself — treat as supporting evidence, not a verdict. QA reads `.peaks/_runtime/<session-id>/rd/codegraph-context.md` (or `qa/codegraph-context.md`) as input but never mutate agent settings, Claude settings, or hooks from it; QA does not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git.
 
 → see `references/codegraph-regression-focus.md`.
 

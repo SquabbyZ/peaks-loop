@@ -9,7 +9,7 @@
  *
  * The CLI uses this helper to pre-create the change-id scope dir on
  * `peaks request init --apply` so the sub-agent prompt always has a
- * canonical scope to write to — never `.peaks/<id>/` at top level
+ * canonical scope to write to — never `.peaks/_runtime/<id>/` at top level
  * (hard ban from CLAUDE.md 2.8.3).
  */
 
@@ -82,7 +82,7 @@ describe('ensureChangeScopeDir', () => {
     expect(existsSync(second.path)).toBe(true);
   });
 
-  it('NEVER writes a top-level .peaks/<changeId>/ dir (hard ban)', () => {
+  it('NEVER writes a top-level .peaks/_runtime/<changeId>/ dir (hard ban)', () => {
     const changeId = '2026-06-23-top-level-guard';
     ensureChangeScopeDir(projectRoot, changeId);
     // The forbidden top-level dir MUST NOT exist.

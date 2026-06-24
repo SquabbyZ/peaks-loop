@@ -174,7 +174,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       .command('init')
       .description('Create the per-request artifact template for a Peaks role (dry-run by default)')
       .requiredOption('--role <role>', `target role (${VALID_ROLES.join(' | ')})`, parseRole)
-      .requiredOption('--id <request-id>', 'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/<id>/ at top level.')
+      .requiredOption('--id <request-id>', 'request id, e.g. 2026-05-23-add-foo. With --apply, also pre-creates the canonical change-id scope dir at .peaks/_runtime/change/<id>/ so sub-agents never write .peaks/_runtime/<id>/ at top level.')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <session>', 'override the default date-stamped session id')
       .option('--apply', 'write the artifact file (default: preview only)')
@@ -188,7 +188,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
     try {
       // One-axis layout: --session-id is REQUIRED. The on-disk root
       // is always `.peaks/_runtime/<sessionId>/<role>/...`. The user
-      // has forbidden the `.peaks/<id>/` root layout — without an
+      // has forbidden the `.peaks/_runtime/<id>/` root layout — without an
       // explicit session id, we cannot guarantee the artifact lands
       // under `_runtime/`. See
       // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
@@ -414,7 +414,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
             return;
           }
           // 2.7.1 fix: bypass-count must live under the canonical session
-          // home `.peaks/_runtime/<sid>/`, NOT `.peaks/<sid>/`. The legacy
+          // home `.peaks/_runtime/<sid>/`, NOT `.peaks/_runtime/<sid>/`. The legacy
           // path landed `.bypass-count.json` at the project root and was
           // ignored only by `.gitignore`, not by the runtime — a
           // back-compat reader on the root would never see it. The

@@ -49,7 +49,7 @@ describe('Codegraph skill analysis integration guidance', () => {
     const section = readSection(readSkill('peaks-txt'), '## Codegraph context capsules');
 
     expect(section).toContain('supporting evidence');
-    expect(section).toContain('.peaks/<session-id>/rd/codegraph-context.md');
+    expect(section).toContain('.peaks/_runtime/<session-id>/rd/codegraph-context.md');
     expect(section).toContain('Durable memory extraction still requires explicit authorization');
     expectCodegraphGuardrails(section);
   });

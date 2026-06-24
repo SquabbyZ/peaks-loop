@@ -15,6 +15,6 @@ metadata:
 
 **Risk surface:** High. A path-literal regression in this resolver (e.g. dropping `_runtime` from the join, or normalizing the root aggressively) would break every downstream write path. The `tests/unit/services/session/session-dir-canonical.test.ts` static scan guards against regressions in OTHER files, but a regression INSIDE the resolver itself would only be caught by TC-1 (resolver shape) and TC-2 (projectRoot shape). Both cases are covered by the existing 3 tests; no new test gap.
 
-**Why:** Slice `005-session-runtime-dir-regression` (2026-06-07) introduced this resolver to consolidate 4 stragglers that were hard-coding `<root>/.peaks/<sid>/`. The static-scan test makes future bypasses impossible to ship silently.
+**Why:** Slice `005-session-runtime-dir-regression` (2026-06-07) introduced this resolver to consolidate 4 stragglers that were hard-coding `<root>/.peaks/_runtime/<sid>/`. The static-scan test makes future bypasses impossible to ship silently.
 
 **How to apply:** When touching this module, keep the resolver a 2-line join. If a future need requires more logic (e.g. migration-aware path resolution), add a separate `getLegacySessionDir` for the dual-read case rather than overloading the resolver's behavior.

@@ -84,7 +84,7 @@ const H1_CHANGE_ID_PATTERNS: Array<{ test: (h1: string) => boolean; extract: (h1
   { test: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.test(h), extract: (h) => /^#\s*(?:UI|SC)\s+Request[\s:—–-]+(.+)$/i.exec(h)?.[1]?.trim() ?? null },
 ];
 
-/** Tier 3 — body frontmatter: `- rid: <change-id>` OR `- linked-rd: .peaks/<sid>/<role>/<num>-<change-id>.md`
+/** Tier 3 — body frontmatter: `- rid: <change-id>` OR `- linked-rd: .peaks/_runtime/<sid>/<role>/<num>-<change-id>.md`
  * The legacy request artifact template writes `- rid:` and the linked-* lines.
  */
 const FRONTMATTER_RID_RE = /^-\s*rid\s*:\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*$/m;
@@ -370,7 +370,7 @@ async function planSession(
 
 /**
  * Slice 003 (2026-06-06-session-layout-canonicalize): one-shot
- * consolidation of every top-level `.peaks/<sid>/` into
+ * consolidation of every top-level `.peaks/_runtime/<sid>/` into
  * `.peaks/_runtime/<sid>/`. Idempotent:
  *
  *   - If `.peaks/_runtime/<sid>/` does not exist → `fs.rename` the
@@ -623,7 +623,7 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
   }
 
   // Slice 003: the `--to-runtime` step. When set, move every
-  // top-level `.peaks/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
+  // top-level `.peaks/_runtime/<sid>/` to `.peaks/_runtime/<sid>/`. Idempotent.
   // The F15 carve-out (rd/project-scan.md) is honored: when the
   // top-level `<sid>/rd/project-scan.md` differs from the runtime
   // `<sid>/rd/project-scan.md` already in place, the file is

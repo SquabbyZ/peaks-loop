@@ -2,7 +2,7 @@
  * `peaks workspace migrate-1-4-1` — R004 subcommand.
  *
  * Cleanup helper for projects upgraded from 1.4.1 → 1.4.2. Moves per-session
- * files from the legacy `.peaks/<sid>/<role>/<file>.md` path into the canonical
+ * files from the legacy `.peaks/_runtime/<sid>/<role>/<file>.md` path into the canonical
  * `.peaks/_runtime/<sid>/<role>/<file>.md` path. Default is dry-run; pass
  * `--apply` to actually `rename` the files and remove emptied legacy dirs.
  */
@@ -19,7 +19,7 @@ export function registerMigrate1_4_1Command(workspace: Command, io: ProgramIO): 
     workspace
       .command('migrate-1-4-1')
       .description(
-        'R004: Move per-session files from the legacy `.peaks/<sid>/<role>/<file>.md` path into the canonical `.peaks/_runtime/<sid>/<role>/<file>.md` path. ' +
+        'R004: Move per-session files from the legacy `.peaks/_runtime/<sid>/<role>/<file>.md` path into the canonical `.peaks/_runtime/<sid>/<role>/<file>.md` path. ' +
           'Default: dry-run. Pass --apply to actually `rename` the files and remove emptied legacy dirs. ' +
           'Reads each file once, computes sha256, compares to canonical. Identical-content duplicates are removed from legacy. Content-mismatch files are reported and NOT deleted (manual review).'
       )

@@ -8,16 +8,16 @@
  *  (b) A static scan over `src/` flags any direct join of `.peaks` +
  *      `sessionId` that does NOT route through `getSessionDir`. The
  *      back-compat **read** sites are excluded by an explicit allow-list
- *      (those reads intentionally dual-read the legacy `<root>/.peaks/<sid>/`
+ *      (those reads intentionally dual-read the legacy `<root>/.peaks/_runtime/<sid>/`
  *      layout to support pre-migration trees; the bug is write-paths only).
  *
  *  (c) A static scan over `skills/<skill>/references/<file>.md` flags any legacy
- *      `.peaks/<sid>/...` artifact path that a sub-agent would write to
+ *      `.peaks/_runtime/<sid>/...` artifact path that a sub-agent would write to
  *      without going through `_runtime/`. The 5th writer (slice 012) was
  *      the QA 3-way fan-out contract `skills/peaks-qa/references/qa-fanout-contract.md`,
- *      which instructed sub-agents to write to `.peaks/<sid>/qa/test-reports/<rid>.md`,
- *      `.peaks/<sid>/qa/performance-findings.md`, and
- *      `.peaks/<sid>/qa/security-findings.md` — all missing `_runtime/`.
+ *      which instructed sub-agents to write to `.peaks/_runtime/<sid>/qa/test-reports/<rid>.md`,
+ *      `.peaks/_runtime/<sid>/qa/performance-findings.md`, and
+ *      `.peaks/_runtime/<sid>/qa/security-findings.md` — all missing `_runtime/`.
  *      The skill markdown is the "fifth writer" because the four fixed in
  *      slice 005 were all in `src/` and the static scan only covered
  *      `src/`. The contract is documentation, not code, but the LLM
@@ -31,7 +31,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { getSessionDir } from '../../../../src/services/session/getSessionDir.js';
 
 // Back-compat READ paths that intentionally dual-read the legacy
-// `<root>/.peaks/<sid>/` layout. Per slice 005 PRD, these are NOT in scope
+// `<root>/.peaks/_runtime/<sid>/` layout. Per slice 005 PRD, these are NOT in scope
 // for this fix. Format: "<rel-path>:<line>". The list is a defense-in-depth
 // allow-list: if a new suspect appears in `src/` that isn't on this list,
 // the test fails and the new suspect must be either (a) routed through
@@ -47,7 +47,7 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
 ];
 
 // Skill markdown files that intentionally reference the legacy
-// `.peaks/<sid>/...` path (e.g. browser-screenshot evidence paths, A2A
+// `.peaks/_runtime/<sid>/...` path (e.g. browser-screenshot evidence paths, A2A
 // documentation, retrospective sub-tree readers). Per slice 012, these
 // are explicitly NOT in scope for the 5th-writer fix. New offenders in
 // skills/*/references/*.md that aren't on this list fail the test.
@@ -56,12 +56,12 @@ const ALLOWED_LEGACY_READ_PATHS: ReadonlyArray<string> = [
 // after rewriting their legacy paths to canonical `.peaks/_runtime/<sid>/...`
 // form. Two remain allow-listed with justifications:
 //   - a2a-artifact-mapping.md: this is an A2A spec mapping document; the
-//     A2A protocol uses `.peaks/<artifact-id>/...` style paths as part of
+//     A2A protocol uses `.peaks/_runtime/<artifact-id>/...` style paths as part of
 //     the SPEC (not as a real filesystem path). The mapping cites the A2A
 //     spec literally; rewriting the spec citations would break the
 //     documentation's purpose (to map peaks onto the A2A vocabulary).
 //   - peaks-prd/SKILL.md: contains Playwright MCP `filename=` URL
-//     parameters (e.g. `filename=".peaks/<sid>/prd/source/<doc>-page-<n>.png"`).
+//     parameters (e.g. `filename=".peaks/_runtime/<sid>/prd/source/<doc>-page-<n>.png"`).
 //     These are URL parameter values passed to the browser, NOT Node-side
 //     file joins; the actual file lands at the canonical _runtime home
 //     via the runtime contract. The pattern matches because the string
@@ -121,7 +121,7 @@ function findSessionDirJoinViolations(file: string): Array<{ line: number; text:
   // canonical sub-segment) and does NOT include `_sub_agents` (the
   // sub-agent dispatch sub-tree, which is a separate layout, not the
   // per-session workspace). This catches the regression: writers that
-  // produce `<root>/.peaks/<sid>/...` (legacy) instead of
+  // produce `<root>/.peaks/_runtime/<sid>/...` (legacy) instead of
   // `<root>/.peaks/_runtime/<sid>/...` (canonical).
   //
   // The negative-lookahead is a single string check on the gap between
@@ -135,7 +135,7 @@ function findSessionDirJoinViolations(file: string): Array<{ line: number; text:
   // intentional back-compat read sites.
   const joinPattern = /join\([^)]*\.peaks[^)]*?,\s*(sessionId|meta\.sessionId)\s*\)/;
   // Template literal: `` `.peaks/${...sessionId...}` `` — same intent,
-  // produces `<root>/.peaks/<sid>/...`.
+  // produces `<root>/.peaks/_runtime/<sid>/...`.
   const templatePattern = /`\.peaks\/\$\{[^}]*sessionId[^}]*\}`/;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? '';
@@ -160,16 +160,16 @@ function findSessionDirJoinViolations(file: string): Array<{ line: number; text:
 }
 
 /**
- * Find legacy `.peaks/<sid>/...` paths in a skill markdown file. The
+ * Find legacy `.peaks/_runtime/<sid>/...` paths in a skill markdown file. The
  * `<sid>` placeholder can appear in two shapes:
- *   (1) literal "<sid>" inside `.peaks/<sid>/...` (the QA sub-agent
+ *   (1) literal "<sid>" inside `.peaks/_runtime/<sid>/...` (the QA sub-agent
  *       dispatch contract writes the placeholder as a copy-pasteable
  *       target, then resolves the placeholder to a real session id at
  *       dispatch time),
  *   (2) literal "<session-id>" (older form),
  *   (3) literal "<sessionId>" (rare, when the dispatch was emitted
  *       programmatically).
- * Each occurrence produces a path under `<root>/.peaks/<sid>/...` —
+ * Each occurrence produces a path under `<root>/.peaks/_runtime/<sid>/...` —
  * legacy, NOT canonical. The canonical form is `.peaks/_runtime/<sid>/...`.
  */
 function findSkillMarkdownLegacySessionPaths(file: string): Array<{ line: number; text: string }> {
@@ -179,8 +179,8 @@ function findSkillMarkdownLegacySessionPaths(file: string): Array<{ line: number
 
   const lines = readFileSync(file, 'utf8').split(/\r?\n/);
   const violations: Array<{ line: number; text: string }> = [];
-  // Match `.peaks/<sid>/...` where the next path segment after
-  // `.peaks/<sid>` is a write target (qa/, rd/, prd/, txt/, sc/) AND
+  // Match `.peaks/_runtime/<sid>/...` where the next path segment after
+  // `.peaks/_runtime/<sid>` is a write target (qa/, rd/, prd/, txt/, sc/) AND
   // `_runtime` is NOT already present between `.peaks` and `<sid>`.
   // The negative-lookahead is a single string check on the gap between
   // `.peaks` and the placeholder.
@@ -247,7 +247,7 @@ describe('session-dir-canonical (slice 005)', () => {
     expect(violations).toEqual([]);
   });
 
-  test('static scan: no legacy .peaks/<sid>/ artifact paths in skills/*/references/*.md (slice 012 — 5th writer)', () => {
+  test('static scan: no legacy .peaks/_runtime/<sid>/ artifact paths in skills/*/references/*.md (slice 012 — 5th writer)', () => {
     const skillsRoot = join(process.cwd(), 'skills');
     const files = listSkillReferenceFiles(skillsRoot);
     const violations: Array<{ file: string; line: number; text: string }> = [];
@@ -262,7 +262,7 @@ describe('session-dir-canonical (slice 005)', () => {
         .map((v) => `  - ${v.file}:${v.line}  ${v.text}`)
         .join('\n');
       throw new Error(
-        `Found ${violations.length} legacy .peaks/<sid>/... path(s) in skills/*/references/*.md ` +
+        `Found ${violations.length} legacy .peaks/_runtime/<sid>/... path(s) in skills/*/references/*.md ` +
           `that would cause a sub-agent to write outside the canonical _runtime/ tree. ` +
           `Use the canonical .peaks/_runtime/<sid>/... form, or add the file to ` +
           `ALLOWED_LEGACY_SKILL_PATHS with a justification:\n${msg}`,
@@ -279,12 +279,12 @@ describe('session-dir-canonical (slice 012 — positive tests for the 5th writer
     const body = readFileSync(contractPath, 'utf8');
     // The 3 sub-agent dispatch lines (qa-business, qa-perf, qa-security)
     // must each reference the canonical _runtime/ form, not the legacy
-    // .peaks/<sid>/ form. The slice 012 fix changed lines 43, 51, 55
+    // .peaks/_runtime/<sid>/ form. The slice 012 fix changed lines 43, 51, 55
     // and the table rows at 83-85.
     expect(body).toContain('.peaks/_runtime/<sid>/qa/test-reports/<rid>.md');
     expect(body).toContain('.peaks/_runtime/<sid>/qa/performance-findings.md');
     expect(body).toContain('.peaks/_runtime/<sid>/qa/security-findings.md');
-    // Negative assertion: no remaining legacy `.peaks/<sid>/qa/...`
+    // Negative assertion: no remaining legacy `.peaks/_runtime/<sid>/qa/...`
     // path that omits `_runtime` (the slice 012 bug class). The
     // 3 sub-agent target lines and the table must all be canonical.
     const legacyHits = (body.match(/\.peaks(?:<[^>]*>)?\/<sid>\/qa\//g) ?? []).filter(
@@ -295,15 +295,15 @@ describe('session-dir-canonical (slice 012 — positive tests for the 5th writer
 
   test('static scan catches the original 5th-writer pattern (regression for the bug)', () => {
     // The 5th-writer bug class: a markdown line of the form
-    // `.peaks/<sid>/qa/...` (no `_runtime` between `.peaks` and `<sid>`)
+    // `.peaks/_runtime/<sid>/qa/...` (no `_runtime` between `.peaks` and `<sid>`)
     // must be flagged by the scan. We exercise the regex inline on a
     // string fixture (the same shape the slice 012 bug produced) and
     // verify the catch. A canonical `.peaks/_runtime/<sid>/qa/...` line
     // must NOT be flagged.
     const legacyFixture = [
-      'Write your evidence at .peaks/<sid>/qa/test-reports/<rid>.md',
-      'output .peaks/<sid>/qa/performance-findings.md',
-      'output .peaks/<sid>/qa/security-findings.md'
+      'Write your evidence at .peaks/_runtime/<sid>/qa/test-reports/<rid>.md',
+      'output .peaks/_runtime/<sid>/qa/performance-findings.md',
+      'output .peaks/_runtime/<sid>/qa/security-findings.md'
     ];
     const pattern = /\.peaks(?:\/([^\s/]+))?\/<sid>/;
     for (const line of legacyFixture) {

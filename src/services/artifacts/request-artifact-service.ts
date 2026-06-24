@@ -34,7 +34,7 @@ export type CreateRequestArtifactOptions = {
   sessionId?: string;
   /**
    * Optional explicit change-id. When set, the artifact file lands at
-   * `.peaks/<changeId>/<role>/requests/...` regardless of any
+   * `.peaks/_runtime/<changeId>/<role>/requests/...` regardless of any
    * `current-change` binding. When unset, falls back to the binding, then
    * to the requestId. The CLI's `--session-id <scope>` flag uses this to
    * preserve the legacy "session-id as scope dir name" behavior.
@@ -73,7 +73,7 @@ export type CreateRequestArtifactResult = {
    * change-id scope dir under `.peaks/_runtime/change/<changeId>/`.
    * Pre-created on `--apply` (idempotent) so the sub-agent prompt
    * always has a single, well-known place to write reviewable
-   * artifacts — never the forbidden top-level `.peaks/<id>/`. In
+   * artifacts — never the forbidden top-level `.peaks/_runtime/<id>/`. In
    * dry-run mode this is the would-be path (the dir is NOT created).
    * Absolute path.
    */
@@ -198,7 +198,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // Slice 2026-06-23-request-init-change-scope-leak. Pre-create the
   // canonical change-id scope dir so the sub-agent prompt always has
   // a well-known place to write reviewable artifacts — never the
-  // forbidden top-level `.peaks/<id>/`. Idempotent: re-running with
+  // forbidden top-level `.peaks/_runtime/<id>/`. Idempotent: re-running with
   // the same change-id is a no-op. The dir lives under
   // `.peaks/_runtime/change/<changeId>/` so it is covered by the
   // existing `.peaks/_runtime/` gitignore rule.
@@ -233,7 +233,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
 export type RequestArtifactSummary = {
   role: RequestArtifactRole;
   /**
-   * Durable scope of the artifact: the top-level `.peaks/<changeId>/`
+   * Durable scope of the artifact: the top-level `.peaks/_runtime/<changeId>/`
    * directory the file lives in. As of slice 2026-06-05-change-id-as-unit-of-work,
    * the prerequisite gate resolves paths under this dir (not the body
    * `- session:` line), so the file body and the on-disk path agree.
@@ -358,8 +358,8 @@ export async function listRequestArtifacts(options: ListRequestArtifactsOptions)
   }
   // One-axis (session-id-only) layout: the canonical on-disk root for
   // request artifacts is `.peaks/_runtime/<sid>/<role>/requests/`. The
-  // pre-F3 `.peaks/<sid>/<role>/requests/` legacy home is no longer
-  // scanned. The user has forbidden the `.peaks/<id>/` root layout —
+  // pre-F3 `.peaks/_runtime/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout —
   // the CLI guarantees no such dirs are created. See
   // `.peaks/memory/2026-06-21-peaks-request-session-id-leaks-into-change-id.md`.
   const scopes: string[] = [];
@@ -413,8 +413,8 @@ export async function showRequestArtifact(options: ShowRequestArtifactOptions): 
 
   // One-axis (session-id-only) layout: the canonical on-disk root is
   // `.peaks/_runtime/<sid>/<role>/requests/`. The pre-F3
-  // `.peaks/<sid>/<role>/requests/` legacy home is no longer
-  // scanned. The user has forbidden the `.peaks/<id>/` root layout.
+  // `.peaks/_runtime/<sid>/<role>/requests/` legacy home is no longer
+  // scanned. The user has forbidden the `.peaks/_runtime/<id>/` root layout.
   if (options.sessionId !== undefined) {
     const dir = join(options.projectRoot, '.peaks', '_runtime', options.sessionId, options.role, 'requests');
     const scope = join('_runtime', options.sessionId);
@@ -653,7 +653,7 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     changeId: existing.changeId,
     // F3 repair cycle 1: pass the session binding so the gate can fall
     // back to `.peaks/_runtime/<sid>/<role>/` (and the legacy
-    // `.peaks/<sid>/<role>/`) for prerequisite artifacts that still
+    // `.peaks/_runtime/<sid>/<role>/`) for prerequisite artifacts that still
     // live under the session dir rather than the change-id dir. This
     // mirrors the F1/F2 back-compat pattern.
     sessionId: existing.sessionId,

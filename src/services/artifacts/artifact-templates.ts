@@ -12,7 +12,7 @@ export type RequestArtifactRole = 'prd' | 'ui' | 'rd' | 'qa' | 'sc';
  * Handoff path helpers (slice 2026-06-24-handoff-path-canonicalization).
  *
  * Hard ban (effective 2.8.3, no exceptions): NEVER create
- * `.peaks/<change-id>/` or `.peaks/<YYYY-MM-DD-*>/` at the top level
+ * `.peaks/_runtime/<change-id>/` or `.peaks/_runtime/<YYYY-MM-DD-*>/` at the top level
  * of `.peaks/`. All change-id / session-id reviewable artifacts must
  * live under `.peaks/_runtime/change/<changeId>/<role>/...`. Sub-agent
  * prompts read the artifact body emitted by these render functions

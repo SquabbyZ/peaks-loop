@@ -30,7 +30,7 @@ const SESSION_ID_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]+$/;
 const META_FILE = 'session.json';
 
 // Sub-agent state file basenames (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
-// The legacy location was `.peaks/<sid>/system/<filename>`; the canonical new
+// The legacy location was `.peaks/_runtime/<sid>/system/<filename>`; the canonical new
 // location is `.peaks/_sub_agents/<sid>/<filename>`. `migrateSubAgentState`
 // moves the two files between these homes on every `reconcileWorkspace` run.
 const SUB_AGENT_MIGRATION_FILES: ReadonlyArray<string> = [
@@ -526,8 +526,8 @@ function copyDirRecursiveSync(src: string, dest: string): void {
  * One-time sub-agent state migration (slice 2026-06-06-sub-agent-spawn-bug-and-decouple).
  *
  * Move the legacy per-session sub-agent state files at:
- *   - `.peaks/<sid>/system/subagent-progress.json`
- *   - `.peaks/<sid>/system/progress-spawn.json`
+ *   - `.peaks/_runtime/<sid>/system/subagent-progress.json`
+ *   - `.peaks/_runtime/<sid>/system/progress-spawn.json`
  * into the new canonical home at:
  *   - `.peaks/_sub_agents/<sid>/subagent-progress.json`
  *   - `.peaks/_sub_agents/<sid>/progress-spawn.json`
@@ -548,7 +548,7 @@ function copyDirRecursiveSync(src: string, dest: string): void {
  * pass.
  *
  * @returns `{ migratedFiles, errors }`. `migratedFiles` lists the *old*
- *   relative paths (e.g. `.peaks/<sid>/system/subagent-progress.json`) that
+ *   relative paths (e.g. `.peaks/_runtime/<sid>/system/subagent-progress.json`) that
  *   were successfully moved. `errors` lists per-file failures.
  */
 export function migrateSubAgentState(projectRoot: string): { migratedFiles: string[]; errors: Array<{ path: string; message: string }> } {
