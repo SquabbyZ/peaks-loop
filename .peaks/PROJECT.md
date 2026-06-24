@@ -24,7 +24,7 @@
   artifacts (RD/QA/PRD) embed the change-id as a filename slug under
   `.peaks/_runtime/<sid>/<role>/requests/<rid>-<change-id>.md` and
   may lazily create a tracked reviewable-artifact root at
-  `.peaks/<changeId>/<role>/` — but that dir lives UNDER `.peaks/`,
+  `.peaks/_runtime/change/<changeId>/<role>/` — but that dir lives UNDER `.peaks/_runtime/`,
   not at the `.peaks/` top level. **Four layers of enforcement**:
   (1) root `.gitignore` rule
   `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks untracked
