@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.1] — 2026-06-24 — Handoff path canonicalization
+
+**Bugfix.** Sub-agents were still creating `.peaks/<change-id>/` at the top level of `.peaks/`, which is hard-banned by 2.8.3+. Root cause: 20 hardcoded `.peaks/${changeId}/...` template strings in `src/services/artifacts/request-artifact-service.ts` were emitted into artifact markdown and read by sub-agents as handoff write instructions.
+
+Replaced all 20 with a 4-helper API at `src/services/artifacts/artifact-templates.ts:31,36,41,46` (`formatHandoffPath`, `formatCommitBoundaryPath`, `formatSkillUsageLessonsPath`, `formatChangeScopePath`); the public surface is re-exported from `request-artifact-service.ts:28`. The service file was also split — 5 render functions + dispatcher moved to the new sibling module — bringing it from 1101 lines down to 788, satisfying the 800-line cap (Karpathy #2 Simplicity First).
+
+- New module: `src/services/artifacts/artifact-templates.ts` (333 lines; 4 helpers + 5 render fns + dispatcher)
+- `src/services/artifacts/request-artifact-service.ts` — re-exports only, 1101 → 788 lines
+- New test: `tests/unit/artifacts/request-artifact-handoff-path.test.ts` (17 assertions: 4 helper shapes, 5× role-path-prefix, 1 source-grep, 1 line-count cap, 1 lazy-load guard)
+- Hard ban (2.8.3+) regression-tested: zero hardcoded `.peaks/${changeId}/` strings in either file
+- Also bumps `package.json#version` from 2.8.4 to 2.9.1 (closing the slice 006 gap where CHANGELOG was bumped to 2.9.0 but package.json was not)
+
+---
+
 ## [2.9.0] — 2026-06-24 — Test Tool Detection injection
 
 **Added.** Sub-agent dispatch (both single + DAG paths, all roles rd/qa/ui/txt/sc/general-purpose) now prepends a `## Test Tool Detection (mandatory)` block to every sub-agent prompt. The block tells the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`) — never `npx <runner>`. Runtime introspection: `peaks test --json`.
