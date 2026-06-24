@@ -564,7 +564,7 @@ export function validateArtifactRetention(sliceId: string): {
     return {
       valid: false,
       missingArtifacts: ['Invalid slice id'],
-      warnings: ['Slice id must stay inside .peaks/<session-id> and only contain letters, numbers, dots, underscores, or hyphens'],
+      warnings: ['Slice id must stay inside .peaks/_runtime/<session-id> and only contain letters, numbers, dots, underscores, or hyphens'],
       resolvedSessionId: null,
       candidateSources: []
     };
@@ -679,7 +679,7 @@ export function getScHelpText(): string[] {
     'Change traceability workflow integration:',
     '  1. Run peaks sc status to check current state',
     '  2. After slice completion, run peaks sc retention --slice-id <id>',
-    '  3. Keep artifacts local in .peaks/<session-id>/ by default',
+    '  3. Keep artifacts local in .peaks/_runtime/<session-id>/ by default',
     '  4. Commit or sync artifacts only after explicit authorization'
   ];
 }

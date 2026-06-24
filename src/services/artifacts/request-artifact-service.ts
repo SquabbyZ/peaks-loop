@@ -512,7 +512,7 @@ export class PrerequisitesNotSatisfiedError extends Error {
   readonly missing: PrerequisiteCheckResult['missing'];
   constructor(role: RequestArtifactRole, newState: RequestArtifactState, sessionId: string, missing: PrerequisiteCheckResult['missing']) {
     super(
-      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/${sessionId}/`
+      `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/_runtime/${sessionId}/`
     );
     this.name = 'PrerequisitesNotSatisfiedError';
     this.role = role;

@@ -22,7 +22,7 @@ export function createRefactorDryRun(mode: RefactorMode): RefactorDryRun {
       'Generate strict verifiable spec before each slice',
       'Require peaks-prd and peaks-qa artifacts even for direct peaks-rd refactor',
       'Require 100% acceptance for each slice',
-      'Retain code changes and intermediate artifacts in local .peaks/<session-id>/ storage before the next slice',
+      'Retain code changes and intermediate artifacts in local .peaks/_runtime/<session-id>/ storage before the next slice',
       'Commit or sync artifacts only after explicit authorization'
     ],
     requiredArtifacts: [
@@ -39,7 +39,7 @@ export function createRefactorDryRun(mode: RefactorMode): RefactorDryRun {
     ],
     nextActions: [
       'Run doctor checks',
-      'Create or discover local .peaks/<session-id>/ artifact workspace',
+      'Create or discover local .peaks/_runtime/<session-id>/ artifact workspace',
       'Generate the first refactor slice spec before implementation'
     ]
   };

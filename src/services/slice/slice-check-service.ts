@@ -263,7 +263,7 @@ async function runGateVerifyPipeline(
     const duration = Date.now() - start;
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
       status: result.complete ? 'pass' : 'fail',
       durationMs: duration,
       detail: result.complete
@@ -281,7 +281,7 @@ async function runGateVerifyPipeline(
   } catch (error: any) {
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
       status: 'fail',
       durationMs: Date.now() - start,
       detail: error?.message ?? 'verify-pipeline threw',

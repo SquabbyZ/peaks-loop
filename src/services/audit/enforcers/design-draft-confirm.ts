@@ -35,6 +35,10 @@ export interface DesignDraftConfirmResult {
 }
 
 export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): DesignDraftConfirmResult {
+  // Back-compat read: 2.8.0-era `peaks workspace init` wrote design drafts
+  // at `.peaks/<changeId>/ui/design-draft.md`. The 2.8.3+ canonical path
+  // is `.peaks/_runtime/change/<changeId>/ui/design-draft.md`, but the
+  // audit gate must continue to read the legacy sibling dir if it exists.
   // Design drafts live at .peaks/<changeId>/ui/design-draft.md (UI role) or
   // .peaks/<changeId>/prd/requests/<rid>.md (PRD). For L2.2 the canonical
   // location is the UI design-draft.

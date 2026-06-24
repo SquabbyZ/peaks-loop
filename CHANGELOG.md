@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.2] — 2026-06-25 — Handoff path canonicalization v2
+
+**Bugfix.** v1 (2.9.1, commit 9893d3a) fixed 20 hardcoded `.peaks/${changeId}/` template strings in the 5 render functions of `src/services/artifacts/artifact-templates.ts`. User review then surfaced 11 additional B-class (LLM/CLI directive) hits across `src/cli/commands/`, `src/services/{refactor,sc,slice}/`, and 71 hits in `skills/` SKILL.md/references that the LLM would read as write instructions. v2 cleans all of them.
+
+- **11 B-class string edits** in 8 source files (CLI descriptions, `nextActions.push`, service-emit `warnings:` / `helpLines:` / `hardGates`, `slice-check` gate descriptions)
+- **1 R3 hotfix**: `src/services/artifacts/request-artifact-service.ts:515` runtime error message path
+- **1 C-class back-compat comment** on `src/services/audit/enforcers/design-draft-confirm.ts:38-41` design-draft read path
+- **71 B-class edits** across 15 skills/ files (SKILL.md + references/)
+- **5 .peaks/ project metadata files** updated (PROJECT.md, retrospective index, project-scan, 2 memory entries)
+- **File split**: `src/cli/commands/core-artifact-commands.ts` 889 → 39 lines (orchestrator) + 8 new `src/cli/commands/core/*.ts` modules (each ≤ 800 lines), preserving the public API (`registerCoreAndArtifactCommands`, `DoctorLogsSection`, `BindingSource`)
+- **4 new tests** in `request-artifact-handoff-path.test.ts` (21 total now)
+- **1 new regression test**: `tests/unit/workspace/banned-path-directive-guard.test.ts` (2 tests, 7 directive-context patterns, 3-entry KEEP allow-list for explicit legacy/canonical contrast descriptions; covers `src/` and `skills/` directive contexts)
+- **1 test sync**: `tests/unit/sc-service.test.ts:151` updated to match the production warning string at `src/services/sc/sc-service.ts:567`
+- Bumps `package.json#version` from 2.9.1 to 2.9.2
+
+**Pre-existing violations preserved as-is** (intentional historical/forbidden documentation, all explicitly labeled):
+- 6 ban-explanation memory files under `.peaks/memory/` (slice 005 / 2.8.3 / 2.7.1 lessons)
+- 28 historic session files under `.peaks/_runtime/2026-06-*/`
+- 5 historic dispatch records under `.peaks/_sub_agents/`
+- `.peaks/.gitignore` (gitignore contract)
+- `tests/fixtures/skills/pre-slim/*.md` (slim-evidence baseline)
+
+---
+
 ## [2.9.1] — 2026-06-24 — Handoff path canonicalization
 
 **Bugfix.** Sub-agents were still creating `.peaks/<change-id>/` at the top level of `.peaks/`, which is hard-banned by 2.8.3+. Root cause: 20 hardcoded `.peaks/${changeId}/...` template strings in `src/services/artifacts/request-artifact-service.ts` were emitted into artifact markdown and read by sub-agents as handoff write instructions.

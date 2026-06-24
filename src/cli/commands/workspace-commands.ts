@@ -36,7 +36,7 @@ export {
 export function registerWorkspaceCommands(program: Command, io: ProgramIO): void {
   const workspace = program
     .command('workspace')
-    .description('Manage the Peaks per-session artifact workspace (.peaks/<session-id>/)');
+    .description('Manage the Peaks per-session artifact workspace (.peaks/_runtime/<session-id>/)');
 
   registerWorkspaceInitCommand(workspace, io);
   registerWorkspaceReconcileCommand(workspace, io);

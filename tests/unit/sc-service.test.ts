@@ -148,7 +148,7 @@ describe('peaks-sc service', () => {
 
     expect(result.valid).toBe(false);
     expect(result.missingArtifacts).toContain('Invalid slice id');
-    expect(result.warnings).toContain('Slice id must stay inside .peaks/<session-id> and only contain letters, numbers, dots, underscores, or hyphens');
+    expect(result.warnings).toContain('Slice id must stay inside .peaks/_runtime/<session-id> and only contain letters, numbers, dots, underscores, or hyphens');
   });
 
   test('renders SC help text', () => {

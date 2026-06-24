@@ -14,7 +14,7 @@ export function registerPerfCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     perf
       .command('baseline')
-      .description('Scaffold .peaks/<sid>/rd/perf-baseline.md so the RD can record the slice\'s perf numbers in a stable place that QA Gate A4 can diff against. Default dry-run; pass --apply to write.')
+      .description('Scaffold .peaks/_runtime/<sid>/rd/perf-baseline.md so the RD can record the slice\'s perf numbers in a stable place that QA Gate A4 can diff against. Default dry-run; pass --apply to write.')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--apply', 'write the scaffold into the target project', false)
       .option('--reason <text>', 'human-readable reason for the baseline (recorded in the response data)')
