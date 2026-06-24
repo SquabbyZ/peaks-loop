@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runStrategicStage } from '../../../../src/services/rd/strategic-stage.js';
-import { runTacticalStage } from '../../../../src/services/rd/tactical-stage.js';
+import { runTacticalStage, registerStratSig, STRAT_SIG_REGISTRY } from '../../../../src/services/rd/tactical-stage.js';
 import type { ImplOutput } from '../../../../src/services/rd/types.js';
 
 /**
@@ -147,5 +147,108 @@ describe('runTacticalStage', () => {
     } finally {
       rmSync(workdir, { recursive: true, force: true });
     }
+  });
+});
+
+// =============================================================================
+// C11 STRAT.sig chain contract — call-order & mismatch coverage
+// (PRD: 2026-06-24-c11-ast-gate-strat-sig; AC-1.2 / AC-1.3 / AC-1.5 + JSDoc-derived)
+// =============================================================================
+//
+// The chain check is per-process (STRAT_SIG_REGISTRY: Map<projectDir, sig>).
+// Tests must isolate entries between cases to avoid bleed-through, since
+// the map is a process-wide singleton. Using a fresh workdir per test is
+// enough because registerStratSig keys by dirname(input.out) which is the
+// unique workdir. Still, a beforeEach/afterEach pair is added as defense
+// against any future test that reuses a workdir.
+let c11Workdir = '';
+beforeEach(() => {
+  c11Workdir = mkdtempSync(join(tmpdir(), 'peaks-c11-chain-'));
+});
+afterEach(() => {
+  // Wipe the c11 workdir entry from the chain registry (defense in depth).
+  if (c11Workdir) STRAT_SIG_REGISTRY.delete(c11Workdir);
+  rmSync(c11Workdir, { recursive: true, force: true });
+});
+
+describe('runTacticalStage (★ C11 STRAT.sig chain contract)', () => {
+  it('AC-1.2 — throws STRAT_SIG_CHAIN_INVARIANT when inputSig mismatches registered STRAT.sig', async () => {
+    mkdirSync(join(c11Workdir, 'src'), { recursive: true });
+    writeFileSync(join(c11Workdir, 'src', 'A.ts'), `
+      import { add } from './local';
+      export const x = add(1, 2);
+    `);
+    // Register sig b…
+    registerStratSig(c11Workdir, 'b'.repeat(64));
+    // …but pass sig a. Chain check must reject.
+    await expect(runTacticalStage({
+      project: c11Workdir,
+      changedFiles: ['src/A.ts'],
+      inputSig: 'a'.repeat(64),
+      context: { deps: {}, docSummaries: [] },
+      out: join(c11Workdir, 'impl.json'),
+    })).rejects.toThrow(STRAT_SIG_CHAIN_INVARIANT);
+  });
+
+  it('AC-1.3 — chain check fires even when AST gate would pass (no 6.x API used)', async () => {
+    mkdirSync(join(c11Workdir, 'src'), { recursive: true });
+    // Valid 5.x-only code — AST gate would pass.
+    writeFileSync(join(c11Workdir, 'src', 'A.ts'), `
+      import { add } from './local';
+      export const x = add(1, 2);
+    `);
+    // Register sig b, but pass sig a (mismatch). The chain check fires AFTER
+    // the AST gate but BEFORE writeImpl. Even with no AST violations, the
+    // mismatch must surface the chain error — chain is its own gate.
+    registerStratSig(c11Workdir, 'b'.repeat(64));
+    await expect(runTacticalStage({
+      project: c11Workdir,
+      changedFiles: ['src/A.ts'],
+      inputSig: 'a'.repeat(64),
+      context: { deps: {}, docSummaries: [] },
+      out: join(c11Workdir, 'impl.json'),
+    })).rejects.toThrow(STRAT_SIG_CHAIN_INVARIANT);
+    // Defense: confirm impl.json was NOT written.
+    expect(existsSync(join(c11Workdir, 'impl.json'))).toBe(false);
+  });
+
+  it('AC-1.5 — positive happy-path: register STRAT.sig, valid 5.x-only code, resolves', async () => {
+    mkdirSync(join(c11Workdir, 'src'), { recursive: true });
+    // Valid 5.x-only code, locked-version doc summary allows it.
+    writeFileSync(join(c11Workdir, 'src', 'A.ts'), `
+      import { add } from './local';
+      export const x = add(1, 2);
+    `);
+    const sig = 'c'.repeat(64);
+    registerStratSig(c11Workdir, sig);
+    const out = join(c11Workdir, 'impl.json');
+    const result = await runTacticalStage({
+      project: c11Workdir,
+      changedFiles: ['src/A.ts'],
+      inputSig: sig,
+      context: { deps: {}, docSummaries: [] },
+      out,
+    });
+    expect(result.inputSig).toBe(sig);
+    expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(existsSync(out)).toBe(true);
+  });
+
+  it('JSDoc contract — runTacticalStage without prior registerStratSig throws "<unregistered>" chain error', async () => {
+    mkdirSync(join(c11Workdir, 'src'), { recursive: true });
+    writeFileSync(join(c11Workdir, 'src', 'A.ts'), `
+      import { add } from './local';
+      export const x = add(1, 2);
+    `);
+    // No registerStratSig call — the @remarks JSDoc contract says this must
+    // throw the chain error with stratSig=<unregistered>. Pins the documented
+    // call-order so future refactors cannot silently weaken it.
+    await expect(runTacticalStage({
+      project: c11Workdir,
+      changedFiles: ['src/A.ts'],
+      inputSig: 'd'.repeat(64),
+      context: { deps: {}, docSummaries: [] },
+      out: join(c11Workdir, 'impl.json'),
+    })).rejects.toThrow(/<unregistered>/);
   });
 });
