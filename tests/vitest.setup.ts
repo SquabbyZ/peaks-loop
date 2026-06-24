@@ -53,7 +53,31 @@
 // session-aware tests. The file-stash approach is non-invasive.
 
 import { existsSync, renameSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Pin process.cwd() to the project root regardless of how vitest was invoked.
+// vitest.config.ts sets `root` for test discovery, but production code paths
+// under test (e.g. src/shared/change-id.ts:buildArtifactRelativePath, skill
+// loaders, openspec scanners) walk process.cwd() to resolve repo-relative
+// paths. When the test runner inherits a Temp cwd from `peaks session init`
+// (the orchestrator creates a workspace under AppData/Local/Temp), those
+// walkers resolve to a directory that does not contain the repo and ENOENT.
+// The peaks session init Temp side-effect itself is a design choice (see
+// PRD 2026-06-24-baseline-92-triage risk R4) and is intentionally NOT
+// modified; this chdir isolates vitest workers from that side-effect so the
+// production code sees the real repo cwd.
+//
+// Safe because: vitest runs all tests in a single forked process
+// (singleFork: true) per vitest.config.ts poolOptions, so chdir is applied
+// once before any test sees process.cwd(). Any test that explicitly needs a
+// different cwd already overrides process.cwd() via vi.spyOn(process, 'cwd')
+// (e.g. tests/unit/doctor.test.ts).
+const here = dirname(fileURLToPath(import.meta.url));
+const setupProjectRoot = resolve(here, '..');
+if (process.cwd() !== setupProjectRoot) {
+  process.chdir(setupProjectRoot);
+}
 
 const projectRoot = process.cwd();
 const sessionPath = join(projectRoot, '.peaks', '.session.json');
