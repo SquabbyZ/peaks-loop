@@ -7,7 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.9.2] — 2026-06-25 — Handoff path canonicalization v2
+## [2.9.0] — 2026-06-25 — Path canonicalization + fan-out mandatory + test-tool-detection
+
+**MINOR bump from 2.8.4** (supersedes the unpublished 2.9.1 / 2.9.2 intermediate work; those entries below are kept as historical context only).
+
+### Features
+
+- **Sub-agent fan-out is mandatory** (slice `2026-06-24-audit-5th-p2`): `preferences.fanout.defaultMode = 'serial'` opt-out removed. When the slice DAG has ≥ 2 leaves at one topological level, the orchestrator MUST use `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>`. No preference, env-var, or CLI flag overrides this. `FANOUT_MODES = ['fan-out']` only; legacy `serial` values auto-migrate via `peaks preferences migrate --write`.
+- **4-policy bundle (slice `2026-06-24-efficiency-4p-bundle`)**: (a) default fan-out via `--from-dag`; (b) periodic checkpoint frequency locked at 20 tool calls (no `~` approximation, no `--periodic-every` override); (c) Karpathy reviewer skipped for `config | docs | chore` request types (5-way review otherwise); (d) `swarmSpeculative.maxConcurrent` default bumped 2 → 3.
+- **Test-tool-detection block** (slice `2026-06-24-test-tool-detection-injection`): Every sub-agent dispatched by Solo (`peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-txt`, `peaks-sc`, `peaks-general-purpose`, single + DAG) receives a hard "Test Tool Detection (mandatory)" block at the top of its prompt: read `package.json#scripts.test`, use project-local runner (`./node_modules/.bin/<runner>` or `pnpm test --`), NEVER `npx <runner>`. Wired at both `dispatch-commands.ts` and `dag-orchestrator.ts` chokepoints; envelope version bumped to `2.2.0`.
+
+### Bugfixes — handoff path canonicalization (v1 + v2 + v3 + v4 + v5 + v6 + v7)
+
+LLM was creating top-level `.peaks/_runtime/<change-id>/` siblings of `.peaks/_runtime/`, violating the 2.8.3 hard ban. Sweep across all surfaces:
+
+- **v1 (`9893d3a`)**: 20 hardcoded `.peaks/_runtime/${changeId}/` template strings in the 5 render functions of `src/services/artifacts/artifact-templates.ts` (split from `request-artifact-service.ts`). 4-helper API: `formatHandoffPath`, `formatCommitBoundaryPath`, `formatSkillUsageLessonsPath`, `formatChangeScopePath`.
+- **v2-v5 (`9afb702`, `41ad7a5`, `70bb568`, `83f23b2`, `975d9fc`)**: 11 B-class LLM/CLI directive strings in `src/cli/commands/` + `src/services/{refactor,sc,slice}/`, 71 B-class strings in `skills/`, 5 `.peaks/` project metadata files, 8 remaining SKILL.md literals. Plus R3 hotfix on `request-artifact-service.ts:515` runtime error message.
+- **File split**: `core-artifact-commands.ts` 889 → 39 lines + 8 new `core/*-command.ts` modules (each ≤ 800 lines), preserving public API.
+- **Regression test**: `tests/unit/workspace/banned-path-directive-guard.test.ts` — 7 directive-context patterns, 3-entry KEEP allow-list, covers `src/` + `skills/`.
+- **v7 (`b4d666b`)**: `migrateWorkspace` updated to discover sessions under canonical `.peaks/_runtime/<sid>/` (was only walking the legacy top-level path).
+
+### Tests
+
+- 3873 passed / 0 failed / 17 skipped at release time.
+- New: `dispatch-fanout-mandatory.test.ts` (11), `karpathy-skip-on-config-docs-chore.test.ts` (11), `checkpoint-periodic-frequency.test.ts` (6), `test-tool-detection.test.ts` (6) + injection test + docs test, `banned-path-directive-guard.test.ts` (2), `reviewer-dispatch-policy.test.ts` (11).
+- New reviewable artifact helpers tested in `request-artifact-handoff-path.test.ts` (21 total now).
+
+### Pre-existing violations preserved as-is
+
+6 ban-explanation memory files under `.peaks/memory/`, 28 historic session files under `.peaks/_runtime/2026-06-*/`, 5 historic dispatch records under `.peaks/_sub_agents/`, `.peaks/.gitignore` (gitignore contract), `tests/fixtures/skills/pre-slim/*.md` (slim-evidence baseline) — all explicitly labeled historical.
+
+---
+
+## [2.9.2] — 2026-06-25 — Handoff path canonicalization v2 (INTERMEDIATE, SUPERSEDED BY 2.9.0)
 
 **Bugfix.** v1 (2.9.1, commit 9893d3a) fixed 20 hardcoded `.peaks/_runtime/${changeId}/` template strings in the 5 render functions of `src/services/artifacts/artifact-templates.ts`. User review then surfaced 11 additional B-class (LLM/CLI directive) hits across `src/cli/commands/`, `src/services/{refactor,sc,slice}/`, and 71 hits in `skills/` SKILL.md/references that the LLM would read as write instructions. v2 cleans all of them.
 
