@@ -28,6 +28,26 @@ export interface RunTacticalInput {
   readonly out: string;
 }
 
+/**
+ * Run the tactical stage: AST gate → STRAT.sig chain check → TACT.sig write.
+ *
+ * @remarks
+ * **Call-order contract (H8 / load-bearing):** the caller MUST invoke
+ * `registerStratSig(projectDir, inputSig)` BEFORE calling `runTacticalStage`.
+ * The chain check runs AFTER the AST gate (intentionally — see inline comment
+ * below) and keys `STRAT_SIG_REGISTRY` by `dirname(input.out)`. If no STRAT.sig
+ * is registered for that key, this function throws
+ * `${STRAT_SIG_CHAIN_INVARIANT}: stratSig=<unregistered>`. The common
+ * production path is `runStrategicStage(...)` → `runTacticalStage(...)`;
+ * `runStrategicStage` calls `registerStratSig` internally.
+ *
+ * @param input - project, changed files, inputSig (must match registered
+ *                STRAT.sig for `dirname(input.out)`), AST-gate context, output path.
+ * @returns `ImplOutput` written atomically to `input.out`.
+ * @throws When the AST gate fails (re-thrown from `runAstGate`).
+ * @throws When `inputSig` does not match the registered STRAT.sig for the
+ *         project dir, or when no STRAT.sig is registered.
+ */
 export async function runTacticalStage(input: RunTacticalInput): Promise<ImplOutput> {
   const astGate = await runAstGate({
     project: input.project,

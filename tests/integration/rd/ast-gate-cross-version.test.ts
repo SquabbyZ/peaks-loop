@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { collectContext } from '../../../src/services/context/collector.js';
 import { retrieveDocs } from '../../../src/services/context/doc-retriever.js';
-import { runTacticalStage } from '../../../src/services/rd/tactical-stage.js';
+import { runTacticalStage, registerStratSig } from '../../../src/services/rd/tactical-stage.js';
 
 describe('context + ast-gate alignment', () => {
   it('AST gate fails when LLM uses 6.x API in 5.x project (BOTH layers aligned)', async () => {
@@ -44,6 +44,11 @@ describe('context + ast-gate alignment', () => {
         dep: d.dep, version: d.version,
         apis: [...new Set(d.sections.flatMap((s) => s.excerpt.split(/[\s,]+/)).filter(Boolean))],
       }));
+
+      // H8: register STRAT.sig BEFORE runTacticalStage so the chain check
+      // does not fire before the AST gate. (Call-order contract — see
+      // runTacticalStage JSDoc.)
+      registerStratSig(workdir, 'a'.repeat(64));
 
       await expect(runTacticalStage({
         project: workdir,
