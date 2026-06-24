@@ -963,13 +963,24 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   //   2. L3:l3-memory-health — verifies .peaks/memory/index.json is
   //      well-formed JSON with the expected schema_version field and
   //      references real files on disk.
+  //
+  // Round 2 (slice 2026-06-24-doctor-1xdetector-residual): the reducer
+  // must skip canonical system subdirs that intentionally live under
+  // `.peaks/_runtime/` (e.g. `change/` — used by
+  // `change-scope-service` / `request-artifact-service` /
+  // `workflow-autonomous-service` to route per-change-id reviewable
+  // artifacts). Excluding these from the orphan scan is a reducer-
+  // level narrowing of which entries are subject to the check; it
+  // does NOT change the pass/fail rule for actual session ids.
+  const RUNTIME_SYSTEM_SUBDIRS: ReadonlySet<string> = new Set(['change']);
   const l3ProjectRoot = options.l3ProjectRoot ?? findProjectRoot(process.cwd()) ?? process.cwd();
   try {
     const runtimeDir = join(l3ProjectRoot, '.peaks/_runtime');
     if (existsSync(runtimeDir)) {
       const entries = readdirSync(runtimeDir, { withFileTypes: true })
         .filter((e) => e.isDirectory())
-        .map((e) => e.name);
+        .map((e) => e.name)
+        .filter((name) => !RUNTIME_SYSTEM_SUBDIRS.has(name));
       const validSids = entries.filter((sid) => isValidSessionId(sid));
       const invalidSids = entries.filter((sid) => !isValidSessionId(sid));
       checks.push({
