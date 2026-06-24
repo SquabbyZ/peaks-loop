@@ -44,7 +44,7 @@ Then display: `Peaks-Cli Skill: peaks-sc | Peaks-Cli Gate: startup | Next: <one 
 
 ## Mandatory per-request artifact
 
-Every SC invocation must write a change-control record at `.peaks/<id>/sc/change-control/<rid>.md` linking:
+Every SC invocation must write a change-control record at `.peaks/_runtime/<sessionId>/sc/change-control/<rid>.md` linking:
 
 - impact evidence (`peaks sc impact` output);
 - retention evidence (`peaks sc retention` output);
@@ -143,8 +143,8 @@ You cannot declare SC complete from memory. Each gate below is a `ls` command yo
 
 **Peaks-Cli Gate A — After impact + retention + validate + boundary:**
 ```bash
-ls .peaks/<id>/sc/change-control/<rid>.md
-# Expected output: .peaks/<id>/sc/change-control/<rid>.md
+ls .peaks/_runtime/<sessionId>/sc/change-control/<rid>.md
+# Expected output: .peaks/_runtime/<sessionId>/sc/change-control/<rid>.md
 # "No such file" → STOP, write the change-control record first.
 ```
 

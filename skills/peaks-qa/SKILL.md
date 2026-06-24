@@ -133,7 +133,7 @@ Before QA passes or returns work to RD, it must independently recheck the implem
 
 QA must generate test cases, not merely inspect existing ones. Every QA invocation that validates code changes must produce a test-case artifact at `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md`. Minimum categories: Unit / Integration / UI regression. Each test case MUST have an `**Acceptance:**` field linking to PRD acceptance IDs (A1, A2, ...). The `peaks scan acceptance-coverage` command enforces coverage.
 
-**Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/<id>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
+**Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
 
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 

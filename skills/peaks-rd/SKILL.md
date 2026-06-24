@@ -148,7 +148,7 @@ The `karpathy-reviewer` sub-agent is a **hard gate** for `rd:qa-handoff`. Per `a
 
 The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with `PREREQUISITES_MISSING`.
 
-| Request type | Required RD evidence (under `.peaks/<id>/`) |
+| Request type | Required RD evidence (under `.peaks/_runtime/change/<changeId>/`) |
 |---|---|
 | feature / refactor | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
 | bugfix | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when perf-shaped) |

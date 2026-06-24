@@ -11,13 +11,13 @@ Peaks-Cli PRD turns user intent into verifiable product artifacts.
 
 When the PRD source is an authenticated web document (Feishu / Lark / Notion / Confluence / GitHub / any site that demands a login before the document body is reachable), PRD uses the Playwright MCP headed browser to render it. The two contracts are the same as in `peaks-qa` and `peaks-rd`; the role differs.
 
-### Contract 1 — Source-document screenshots must land under .peaks/<sid>/prd/source/
+### Contract 1 — Source-document screenshots must land under .peaks/_runtime/<sessionId>/prd/source/
 
 PRD's Playwright screenshot tool calls (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) MUST pass `filename` inside `.peaks/<session-id>/prd/source/`, not in the project root and not in `.peaks/<sid>/qa/screenshots/` (PRD's evidence is upstream of QA's). Example:
 
 ```bash
 browser_take_screenshot \
-  filename=".peaks/<sid>/prd/source/<doc-name>-page-<n>.png" \
+  filename=".peaks/_runtime/<sessionId>/prd/source/<doc-name>-page-<n>.png" \
   fullPage=true
 ```
 
@@ -34,7 +34,7 @@ AskUserQuestion({
     { label: "I am logged in / I'll log in now",
       description: "Pause PRD. The user completes login in the visible browser, then types 'logged in' or equivalent. PRD resumes browser_navigate + browser_snapshot from the post-login page." },
     { label: "Skip browser capture, paste the document",
-      description: "The user pastes the document content as Markdown / plain text into the chat or drops a .md / .pdf export into .peaks/<sid>/prd/source/. PRD ingests the paste / file. Sanitise cookies / PII / SSO before retention." },
+      description: "The user pastes the document content as Markdown / plain text into the chat or drops a .md / .pdf export into .peaks/_runtime/<sessionId>/prd/source/. PRD ingests the paste / file. Sanitise cookies / PII / SSO before retention." },
     { label: "Mark PRD as blocked",
       description: "Set the PRD state to blocked with reason doc-inaccessible. Do not fabricate facts from a partial read." }
   ]
@@ -148,14 +148,14 @@ You cannot declare PRD complete from memory. Each gate below is a `ls` command y
 
 **Peaks-Cli Gate A — After PRD artifact write (before handoff to RD/UI/QA):**
 ```bash
-ls .peaks/<id>/prd/requests/<rid>.md
-# Expected output: .peaks/<id>/prd/requests/<rid>.md
+ls .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
+# Expected output: .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
 # "No such file" → STOP, write the PRD artifact first. Do not hand off.
 ```
 
 **Peaks-Cli Gate B — Before clearing PRD presence (verify user confirmation):**
 ```bash
-grep -E "state:.*(confirmed-by-user|handed-off)" .peaks/<id>/prd/requests/<rid>.md
+grep -E "state:.*(confirmed-by-user|handed-off)" .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
 # Expected: a line containing state: confirmed-by-user or state: handed-off
 # No match → STOP, the PRD has not been confirmed. Ask the user to confirm.
 ```
@@ -250,7 +250,7 @@ Specifically:
 - `./feishu-doc-snapshot.md` (project root)
 - `./feishu-doc-snapshot-2.md` (project root)
 - `./<anything>-snapshot.md` (project root)
-- `./screenshots/` (project root — use `.peaks/<id>/qa/screenshots/`)
+- `./screenshots/` (project root — use `.peaks/_runtime/<sessionId>/qa/screenshots/`)
 
 The canonical PRD request artifact at `.peaks/<session-id>/prd/requests/<request-id>.md` should link to the source files in `prd/source/` for traceability.
 

@@ -11,12 +11,12 @@ Peaks-Cli UI handles experience, interaction, visual direction, and UI-specific 
 
 Inherits `peaks-qa`'s two browser contracts.
 
-### Contract 1 — Inspection screenshots must land under .peaks/<sid>/qa/screenshots/
+### Contract 1 — Inspection screenshots must land under .peaks/_runtime/<sessionId>/qa/screenshots/
 
 Every Playwright `browser_take_screenshot` (invoked by name when the Playwright MCP is in the LLM tool list) **MUST** pass `filename` inside `.peaks/<session-id>/qa/screenshots/`, named after the inspection target (e.g. `home-after-cta.png`, `empty-state-v2.png`). No project-root fallback. After every batch, run:
 
 ```bash
-ls .peaks/<sid>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/<sessionId>/qa/screenshots/*.png 2>&1
 find . -maxdepth 1 -name '*.png' 2>&1
 ```
 
@@ -50,7 +50,7 @@ What the sub-agent **MUST** still do:
   "role": "ui",
   "rid": "<rid>",
   "status": "ok" | "blocked" | "skipped",
-  "artefacts": [".peaks/<sid>/ui/design-draft.md", ".peaks/<sid>/ui/requests/<rid>.md"],
+  "artefacts": [".peaks/_runtime/<sessionId>/ui/design-draft.md", ".peaks/_runtime/<sessionId>/ui/requests/<rid>.md"],
   "warnings": [],
   "blockedReason": null
 }
@@ -185,14 +185,14 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` comma
 
 **Peaks-Cli Gate A — After design-draft write:**
 ```bash
-ls .peaks/<id>/ui/design-draft.md
-# Expected output: .peaks/<id>/ui/design-draft.md
+ls .peaks/_runtime/change/<changeId>/ui/design-draft.md
+# Expected output: .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # "No such file" → STOP, write the design-draft first. Do not proceed to handoff.
 
 # Peaks-Cli Gate A also requires an ASCII wireframe section with at least one fenced block.
-grep -c "^## Layout (ASCII wireframe)" .peaks/<id>/ui/design-draft.md
+grep -c "^## Layout (ASCII wireframe)" .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # Expected: >= 1. Zero → BLOCKED. The mandatory ASCII wireframe section is missing.
-grep -c '^```' .peaks/<id>/ui/design-draft.md
+grep -c '^```' .peaks/_runtime/change/<changeId>/ui/design-draft.md
 # Expected: >= 2 (one or more fenced code blocks for ASCII wireframes).
 # Zero → BLOCKED. Prose-only layout description is not acceptable; add ASCII wireframes
 # for the main page and every meaningful modal/drawer/state.
@@ -200,8 +200,8 @@ grep -c '^```' .peaks/<id>/ui/design-draft.md
 
 **Peaks-Cli Gate B — Before handoff to RD:**
 ```bash
-ls .peaks/<id>/ui/design-draft.md \
-   .peaks/<id>/ui/requests/<rid>.md
+ls .peaks/_runtime/change/<changeId>/ui/design-draft.md \
+   .peaks/_runtime/change/<changeId>/ui/requests/<rid>.md
 # Both must exist. Missing either → BLOCKED, do not hand off to RD.
 ```
 
@@ -228,7 +228,7 @@ For frontend work, especially full-auto mode, use the Playwright MCP to inspect 
 Check these sources in order:
 
 1. **Figma design file** — PRD links to Figma → LLM invokes `get_figma_data` directly (`FIGMA_API_KEY` in user env). Replicate layout, spacing, colors, typography, component choices exactly.
-2. **PRD document screenshots** — Feishu/Lark doc screenshots ARE the visual target. Check `.peaks/<id>/prd/source/`.
+2. **PRD document screenshots** — Feishu/Lark doc screenshots ARE the visual target. Check `.peaks/_runtime/<sessionId>/prd/source/`.
 3. **PRD visual descriptions** — Layout/component/visual constraints, not suggestions.
 4. **Existing application pages** — The fidelity baseline; new pages must match existing conventions.
 

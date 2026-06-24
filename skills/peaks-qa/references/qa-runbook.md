@@ -35,11 +35,11 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 
 # 5. EXECUTE tests against the actual implementation — Peaks-Cli Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.
-#    Peaks-Cli Gate A3: Run security review → .peaks/<changeId>/qa/security-findings.md
-#    Peaks-Cli Gate A4: Run performance check → .peaks/<changeId>/qa/performance-findings.md
+#    Peaks-Cli Gate A3: Run security review → .peaks/_runtime/change/<changeId>/qa/security-findings.md
+#    Peaks-Cli Gate A4: Run performance check → .peaks/_runtime/change/<changeId>/qa/performance-findings.md
 #    CRITICAL: Peaks-Cli Gate A3 and Peaks-Cli Gate A4 are NON-NEGOTIABLE.
 #    Before running A4, read the RD's perf-baseline at
-#    .peaks/<changeId>/rd/perf-baseline.md (if present) and use the
+#    .peaks/_runtime/change/<changeId>/rd/perf-baseline.md (if present) and use the
 #    captured thresholds as the comparison baseline.
 
 # 6. write test-report — MANDATORY, write to .peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md

@@ -15,8 +15,8 @@ For feature / refactor, the `<rid>`-suffixed security-findings and performance-f
 
 **Peaks-Cli Gate A — After test-case generation:**
 ```bash
-ls .peaks/<changeId>/qa/test-cases/<rid>.md
-# Expected: .peaks/<changeId>/qa/test-cases/<rid>.md
+ls .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md
+# Expected: .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md
 # "No such file" → STOP, generate test cases first.
 ```
 
@@ -29,31 +29,31 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 
 **Peaks-Cli Gate A3 — Security test executed (NOT just a checklist item):**
 ```bash
-ls .peaks/<changeId>/qa/security-findings-<rid>.md 2>&1
-# Expected: .peaks/<changeId>/qa/security-findings-<rid>.md
-# Back-compat (1 minor release): .peaks/<changeId>/qa/security-findings.md is also accepted.
+ls .peaks/_runtime/change/<changeId>/qa/security-findings-<rid>.md 2>&1
+# Expected: .peaks/_runtime/change/<changeId>/qa/security-findings-<rid>.md
+# Back-compat (1 minor release): .peaks/_runtime/change/<changeId>/qa/security-findings.md is also accepted.
 ```
 
 **Peaks-Cli Gate A4 — Performance test executed:**
 ```bash
-ls .peaks/<changeId>/qa/performance-findings-<rid>.md 2>&1
-# Back-compat (1 minor release): .peaks/<changeId>/qa/performance-findings.md is also accepted.
+ls .peaks/_runtime/change/<changeId>/qa/performance-findings-<rid>.md 2>&1
+# Back-compat (1 minor release): .peaks/_runtime/change/<changeId>/qa/performance-findings.md is also accepted.
 ```
 
 **Peaks-Cli Gate B — After test-report write (MUST contain execution results):**
 ```bash
-ls .peaks/<changeId>/qa/test-reports/<rid>.md
-grep -c "pass\|fail\|blocked" .peaks/<changeId>/qa/test-reports/<rid>.md
+ls .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
+grep -c "pass\|fail\|blocked" .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
 # Zero → the report is empty/template-only. Tests were not executed.
 ```
 
 **Peaks-Cli Gate C — Before issuing verdict:**
 ```bash
-ls .peaks/<changeId>/qa/test-cases/<rid>.md \
-   .peaks/<changeId>/qa/test-reports/<rid>.md \
-   .peaks/<changeId>/qa/security-findings-<rid>.md \
-   .peaks/<changeId>/qa/performance-findings-<rid>.md \
-   .peaks/<changeId>/qa/requests/<rid>.md
+ls .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md \
+   .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md \
+   .peaks/_runtime/change/<changeId>/qa/security-findings-<rid>.md \
+   .peaks/_runtime/change/<changeId>/qa/performance-findings-<rid>.md \
+   .peaks/_runtime/change/<changeId>/qa/requests/<rid>.md
 # All five must exist. Missing any → QA incomplete, verdict blocked.
 # Back-compat (1 minor release): security-findings.md / performance-findings.md
 # (no <rid> suffix) are also accepted during the 1-minor-release window.
@@ -75,9 +75,9 @@ peaks request lint <rid> --role qa --project <repo> --session-id <session-id> --
 
 **Peaks-Cli Gate D — Frontend browser evidence (BLOCKING when frontend is in scope):**
 ```bash
-ls .peaks/<changeId>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/change/<changeId>/qa/screenshots/*.png 2>&1
 # Expected: one or more .png files
 # "No such file" → BLOCKED.
-grep -c "browser_console_messages\|browser_network_requests" .peaks/<changeId>/qa/test-reports/<rid>.md
+grep -c "browser_console_messages\|browser_network_requests" .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
 # Expected: non-zero count
 ```
