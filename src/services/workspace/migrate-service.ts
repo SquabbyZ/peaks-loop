@@ -262,7 +262,8 @@ function isTransientRuntimeFile(relativePath: string): boolean {
 
 async function planSession(
   sessionId: string,
-  sessionPath: string
+  sessionPath: string,
+  peaksRoot: string
 ): Promise<MigrateSessionPlan> {
   const fallback = await deriveFallbackChangeId(sessionPath);
   const files = await collectFiles(sessionPath);
@@ -292,7 +293,7 @@ async function planSession(
       // change-id. Move them to their dedicated top-level dir as part of the
       // same migration pass.
       const crossCuttingDir = deriveCrossCuttingDirName(f.relativePath);
-      const to = join(sessionPath, '..', crossCuttingDir, f.relativePath);
+      const to = join(peaksRoot, crossCuttingDir, f.relativePath);
       empty = false;
       plans.push({
         from: f.absPath,
@@ -353,7 +354,7 @@ async function planSession(
     }
 
     empty = false;
-    const to = join(sessionPath, '..', 'retrospective', extracted.changeId, f.relativePath);
+    const to = join(peaksRoot, 'retrospective', extracted.changeId, f.relativePath);
     plans.push({
       from: f.absPath,
       to,
@@ -522,14 +523,37 @@ export async function migrateWorkspace(options: MigrateOptions): Promise<Migrate
 
   const topLevel = await readdir(peaksRoot, { withFileTypes: true });
   const sessionPlans: MigrateSessionPlan[] = [];
+  const discoveredSessions = new Set<string>();
   for (const entry of topLevel) {
     if (!entry.isDirectory()) continue;
     if (PROTECTED_TOP_LEVEL_DIRS.has(entry.name)) continue;
     // Only treat dirs matching the legacy session pattern as sessions.
     if (!/^\d{4}-\d{2}-\d{2}-session-/.test(entry.name)) continue;
     const sessionPath = join(peaksRoot, entry.name);
-    const plan = await planSession(entry.name, sessionPath);
+    const plan = await planSession(entry.name, sessionPath, peaksRoot);
     sessionPlans.push(plan);
+    discoveredSessions.add(entry.name);
+  }
+
+  // Slice 003 (canonical): also discover sessions under `.peaks/_runtime/<sid>/`.
+  // The pre-canonical legacy walker above already handles legacy layouts;
+  // this branch handles the post-canonical layout where every session
+  // lives under `_runtime/`. We dedupe by session id so a session that
+  // exists in both locations is only planned once (legacy takes
+  // precedence — `_runtime/` is the canonical form, and the legacy
+  // tree is the migration source).
+  const runtimeRoot = join(peaksRoot, '_runtime');
+  if (await isDirectory(runtimeRoot)) {
+    const runtimeEntries = await readdir(runtimeRoot, { withFileTypes: true });
+    for (const entry of runtimeEntries) {
+      if (!entry.isDirectory()) continue;
+      if (discoveredSessions.has(entry.name)) continue;
+      if (!/^\d{4}-\d{2}-\d{2}-session-/.test(entry.name)) continue;
+      const sessionPath = join(runtimeRoot, entry.name);
+      const plan = await planSession(entry.name, sessionPath, peaksRoot);
+      sessionPlans.push(plan);
+      discoveredSessions.add(entry.name);
+    }
   }
 
   const wouldMove: MigrateFilePlan[] = [];
