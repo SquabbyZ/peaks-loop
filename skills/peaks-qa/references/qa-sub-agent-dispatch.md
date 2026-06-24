@@ -36,3 +36,11 @@ What the sub-agent **MUST** still do:
 - Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}`.
 
 If `--type` is `docs` or `chore`, return `{"status":"skipped","reason":"type=<type>"}` and exit — there is no acceptance surface to plan tests for.
+
+## Test Tool Detection (mandatory)
+
+The dispatch CLI (`peaks sub-agent dispatch`) automatically prepends a Test Tool Detection block to every sub-agent prompt — telling the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`). NEVER use `npx <runner>`. This rule is machine-injected, not a prompt ritual — every sub-agent gets it including rd/qa/ui/txt/sc.
+
+If the framework is not obvious from `package.json#scripts.test`, the sub-agent should run `peaks test --json` to introspect the resolved framework + argv before picking a runner.
+
+See the block constant at `src/services/dispatch/test-tool-detection.ts` for the verbatim text.

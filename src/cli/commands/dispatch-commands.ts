@@ -43,6 +43,10 @@ import {
   validateRole
 } from './sub-agent-shared.js';
 import { runDispatchFromDag } from './dispatch-from-dag.js';
+import {
+  TEST_TOOL_DETECTION_BLOCK,
+  formatTestToolDetection
+} from '../../services/dispatch/test-tool-detection.js';
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -110,7 +114,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         options.prompt = 'x'.repeat(len);
       }
     }
-    if (options.prompt.length > PROMPT_LIMIT_BYTES) {
+    if (options.prompt.length + TEST_TOOL_DETECTION_BLOCK.length > PROMPT_LIMIT_BYTES) {
       printResult(io, fail('sub-agent.dispatch', 'PROMPT_TOO_LARGE', `prompt exceeds ${PROMPT_LIMIT_BYTES} bytes (got ${options.prompt.length})`, { role, toolCall: null, dispatchRecordPath: null } as never, [
         'Truncate the prompt or split into multiple dispatches.',
         'Pass --force to override the 80% threshold at CLI (NOT allowed at hook layer).'
@@ -180,7 +184,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
       // G7.7 headroom compress (opt-in). If headroom fails or is unavailable,
       // fall back to the original prompt + emit warning.
-      let effectivePrompt = options.prompt;
+      let effectivePrompt = `${formatTestToolDetection()}\n\n${options.prompt}`;
       let headroomCompressed = false;
       let headroomResult: HeadroomResult | null = null;
       const warnings: string[] = [...decision.warnings];
@@ -262,7 +266,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         // Slice 2026-06-23-audit-4th #E1: every CLI envelope carries
         // an envelopeVersion marker so consumers can detect contract
         // changes (the previous #4 dropped `data.prompt` silently).
-        envelopeVersion: '2.1.0',
+        envelopeVersion: '2.2.0',
         role,
         ide: adapter.subAgentDispatcher.label,
         // Slice 2026-06-23-audit-3rd #4: do NOT echo `prompt` in stdout.

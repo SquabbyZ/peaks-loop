@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.9.0] — 2026-06-24 — Test Tool Detection injection
+
+**Added.** Sub-agent dispatch (both single + DAG paths, all roles rd/qa/ui/txt/sc/general-purpose) now prepends a `## Test Tool Detection (mandatory)` block to every sub-agent prompt. The block tells the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`) — never `npx <runner>`. Runtime introspection: `peaks test --json`.
+
+- New module: `src/services/dispatch/test-tool-detection.ts` (47 lines; exports `TEST_TOOL_DETECTION_BLOCK` + `formatTestToolDetection()`)
+- Dispatch chokepoints updated: `src/cli/commands/dispatch-commands.ts:187`, `src/services/solo/dag-orchestrator.ts:157,182-183`
+- Dispatch envelope bumped: `envelopeVersion: '2.1.0'` → `'2.2.0'` (consumers can detect the new prompt shape)
+- New tests: `tests/unit/dispatch/test-tool-detection.test.ts` (6), `tests/unit/dispatch/test-tool-detection-injection.test.ts` (9), `tests/unit/skills/test-tool-detection-docs.test.ts` (4) — 19 new assertions
+- Block size: 749 bytes UTF-8 (≤800 cap)
+
+---
+
 ## [2.8.4] — 2026-06-24
 
 **Breaking change.** Single-sub-agent dispatch is no longer permitted when the slice DAG has ≥ 2 leaves at one topological level. The 2.8.3-era `preferences.fanout.defaultMode = 'serial'` opt-out was removed by user directive ("禁止单 sub-agent").
