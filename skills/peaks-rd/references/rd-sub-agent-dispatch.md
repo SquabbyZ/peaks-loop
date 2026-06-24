@@ -2,6 +2,40 @@
 
 > Body of `## Sub-agent dispatch`. When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
+## Default `--from-dag` is mandatory (slice 2026-06-24-efficiency-4p-bundle / G2 / P0.3)
+
+> **Hard constraint**: when the swarm plan DAG has ≥ 2 leaves at the
+> same topological level, the **only** allowed dispatch shape is
+>
+> ```
+> peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>
+> ```
+>
+> — i.e. one batch with `dispatchCount === N` parallel `buildToolCall`
+> envelopes. Do NOT fan out by issuing N separate
+> `peaks sub-agent dispatch <role> --prompt ...` calls in sequence
+> (or as a non-DAG multi-call in one message); that serialises the
+> wait and turns wall-time into `sum`, not `max`. The CLI rejects
+> hand-rolled serial fan-out for ≥ 2-leaf DAGs at the SKILL.md /
+> orchestrator level — there is no preference, env-var, or CLI flag
+> that overrides this constraint.
+>
+> Single-leaf (≥ 1 leaf, exactly 1) DAGs may still use the legacy
+> single-dispatch shape `peaks sub-agent dispatch <role> --prompt ...`
+> because no parallelism is on the table. `config | docs | chore`
+> request types still skip Swarm (no DAG emitted) and remain on the
+> single-dispatch path.
+>
+> This constraint is **text-locked** in this reference (so the LLM
+> runner sees the rule every time it reads the dispatch contract) and
+> **test-locked** by
+> `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts` (≥ 8 cases
+> covering 1-leaf, 2-leaf, 3+-leaf, config/docs/chore type-bypass, and
+> the preferences-with-serial-default fan-out escape hatch). See also
+> `skills/peaks-solo/references/fanout-mandatory.md` for the
+> orchestrator-side rationale; the two files share the same wording by
+> design — if either changes, update the other.
+
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-rd.json` and only that.
 - **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
