@@ -12,11 +12,22 @@ checkpoint as often as it wants.
 
 | Trigger                                | `--reason`         |
 |----------------------------------------|--------------------|
-| Every ~20 tool calls                   | `periodic` (default) |
+| Every 20 tool calls (LLM keeps a counter; **hard-coded — do NOT override**) | `periodic` (default) |
 | After each PRD/RD/QA/TXT artifact published | `artifact-written` |
 | LLM notices context getting full       | `context-fill`     |
 | User says "save" / "pause"             | `user-pause`       |
 | User closes the session                | `user-close`       |
+
+> **Slice 2026-06-24-efficiency-4p-bundle / G1 (P0.1) — frequency lock**:
+> The `--reason periodic` row above is hard-locked at **20 tool calls**.
+> The threshold is a textual contract between SKILL.md (line 79) and
+> this reference doc; the LLM runner is expected to fire
+> `peaks session checkpoint --reason periodic` once every 20 tool calls
+> (i.e. on each 20-call mark, not "approximately every 20"). The CLI
+> does **not** expose a `--periodic-every <n>` override flag — the
+> cadence is owned by the skill, not the CLI. Any patch that relaxes
+> this must update both files in lockstep or fail the
+> `tests/unit/solo/checkpoint-periodic-frequency.test.ts` guard.
 
 ## Checkpoint CLI contract
 
@@ -46,7 +57,7 @@ checkpoint as often as it wants.
 ## Skill recommendations
 
 - After every major artifact write: `peaks session checkpoint --reason artifact-written --recent-artifact-paths <list> --recent-decisions <list>`.
-- Every ~20 tool calls (LLM keeps a counter): `peaks session checkpoint --reason periodic`.
+- Every 20 tool calls (LLM keeps a counter; locked at 20 per slice 2026-06-24-efficiency-4p-bundle / G1): `peaks session checkpoint --reason periodic`.
 - When user says "save" / "pause" / "checkpoint": `peaks session checkpoint --reason user-pause --current-plan <text>`.
 
 ## Checkpoint edge cases

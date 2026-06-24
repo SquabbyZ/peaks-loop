@@ -36,13 +36,13 @@ Peaks-Cli RD owns engineering analysis, implementation planning, and refactor ex
 
 ## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
 
-For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. LLM checks its own tool list for the Playwright MCP entry; if absent, surface the install command (`claude mcp add playwright -- npx @playwright/mcp@latest`) and report the gate blocked. Do not silently downgrade to screenshots-only, manual steps, or chrome-devtools-mcp. Two contracts: (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion`. Same in spirit as `peaks-qa`'s; RD and QA share the headed-browser path.
+For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP headed browser. LLM checks its own tool list for the Playwright MCP entry; if absent, surface the install command (`claude mcp add playwright -- npx @playwright/mcp@latest`) and report the gate blocked. Two contracts: (1) self-test screenshots land under `.peaks/_runtime/<sessionId>/qa/screenshots/`, (2) login / CAPTCHA / SSO / MFA is a hard block — surface with `AskUserQuestion`. Same in spirit as `peaks-qa`'s; RD and QA share the headed-browser path.
 
 → see `references/browser-self-test-contracts.md` and `references/browser-action-wrapper.md` (slice 3 thin wrapper).
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id (use parent's), Skill presence (do NOT call `peaks skill presence:set peaks-rd`), Workspace initialization (already done by Solo), Mode selection, Statusline install.
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id (use parent's), Skill presence, Workspace initialization, Mode selection, Statusline install.
 
 What the sub-agent MUST still do: read PRD via `peaks request show`, run standards preflight (dry-run only), write planning artefact (`rd/tech-doc.md` for feature/refactor; `rd/bug-analysis.md` for bugfix; skip for config/docs/chore), return compact JSON envelope.
 
@@ -65,9 +65,9 @@ When this skill is running in the main Claude session (not as a sub-agent — i.
 
 ## Mandatory per-request artifact
 
-Every RD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/rd/requests/<request-id>.md` (the canonical placeholder form: `<session-id>` is the active session id at runtime, `<request-id>` follows the `YYYY-MM-DD-<kebab-slug>` format; the runtime path is `.peaks/_runtime/<session-id>/rd/requests/<request-id>.md`). This is the canonical engineering record for that request; handoff to QA/SC is blocked while the artifact is missing or its state is `draft` or `spec-locked` without implementation evidence. Codegraph context lives at `.peaks/<session-id>/rd/codegraph-context.md`.
+Every RD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/<session-id>/rd/requests/<request-id>.md` (the canonical placeholder form: `<session-id>` is the active session id at runtime, `<request-id>` follows `YYYY-MM-DD-<kebab-slug>`; the runtime path is `.peaks/_runtime/<session-id>/rd/requests/<request-id>.md`). This is the canonical engineering record for that request; handoff to QA/SC is blocked while the artifact is missing or its state is `draft` / `spec-locked` without implementation evidence.
 
-→ see `references/artifact-per-request.md` for the template + the "two RD artifact files" rule (per-slice vs per-session scope).
+→ see `references/artifact-per-request.md` for the template + the per-slice vs per-session rule.
 
 ## Default runbook
 
@@ -75,17 +75,17 @@ See `references/rd-runbook.md` for the full 9-step runbook (steps #0–#8) with 
 
 ## RD gate index
 
-You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. CLI enforcement: the gates are ALSO enforced by `peaks request transition`, which fails with `code: PREREQUISITES_MISSING` if any are absent. Per-type required files: see the table at the top of `references/rd-transition-gates.md`.
+You cannot declare a phase complete from memory. Each gate below is a `ls` or `grep` command you **MUST run** and whose output you **MUST see** before proceeding. CLI enforcement: the gates are ALSO enforced by `peaks request transition`, which fails with `code: PREREQUISITES_MISSING` if any are absent.
 
 Gate index: A (project-scan), A2 (tech-doc path verification), A3 (CLAUDE.md + .claude/rules), B (tech-doc + request artifact), B2 (unit tests on changed surface), B3 (code-review.md), B4 (security-review.md), B5 (lint — no unfilled placeholders), B6 (request-type-sanity), B7 (repair-status — 3-cycle cap), B8 (diff-vs-scope), B9 (perf-baseline).
 
-→ see `references/rd-transition-gates.md` for the full per-gate contract + `ls` / `grep` shell snippets.
+→ see `references/rd-transition-gates.md` for the per-gate contract + `ls` / `grep` shell snippets.
 
 ## Project standards preflight
 
-Before RD planning or implementation work in a code repository, call `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run`. If `CLAUDE.md` is missing, treat creation as the preferred path. Apply only when write authorization exists; otherwise keep the CLI output as a preflight next action.
+Before RD planning or implementation work in a code repository, call `peaks standards init --project <path> --dry-run` and `peaks standards update --project <path> --dry-run`. Apply only when write authorization exists; otherwise keep the CLI output as a preflight next action.
 
-→ see `references/rd-standards-preflight.md` for the full preflight contract.
+→ see `references/rd-standards-preflight.md` for the preflight contract.
 
 ## Library version awareness (3rd-party breaking-change gate)
 
@@ -129,7 +129,16 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer + **karpathy-reviewer** — Slice 5/6 5-way fanout)
 
-**When RD reaches the end of implementation, the FIVE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. The five sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), `qa-test-cases-writer` (qa/test-cases/<rid>.md), and `karpathy-reviewer` (rd/karpathy-review.md — the **hard Karpathy-Gate**). Feature / refactor: all five. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer + karpathy-reviewer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out. B3 augmentation: ocr (user-owned LLM config at `peaksConfig.ocr.llm`, injected as env vars) → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
+**When RD reaches the end of implementation, the FIVE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** The five sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), `qa-test-cases-writer` (qa/test-cases/<rid>.md), and `karpathy-reviewer` (rd/karpathy-review.md — the **hard Karpathy-Gate**). Feature / refactor: all five. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer + karpathy-reviewer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out — **and therefore no `karpathy-reviewer` sub-agent is dispatched**. B3 augmentation: ocr (user-owned LLM config at `peaksConfig.ocr.llm`) → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
+
+> **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3)** — the canonical
+> programmatic decision table for "should karpathy-reviewer be dispatched
+> for this request type?" lives at
+> `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`,
+> `reviewerListFor`). The LLM-side runner reads this helper before firing
+> the 5-way fanout and skips the `karpathy-reviewer` slot for
+> `config | docs | chore`. The policy is pinned by
+> `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` (≥ 6 cases).
 
 ### Hard Karpathy-Gate (Slice 5/6)
 
@@ -156,7 +165,7 @@ If a request is refactor, cleanup, architecture adjustment, module split, or tec
 
 ## Unit-test coverage red line
 
-The 100% coverage target on testable files is meaningful coverage, not a score to chase. RD must not write coverage-padding tests. Rules: defensive guards for unreachable cases → remove the guard; IO/platform glue that cannot be tested cleanly → add to `coverage.exclude`; real behavior a caller relies on → write a behavior-framed test; if the only way to 100% is a padding test, lower the target or simplify the production code. Test names must describe behavior, not coverage targets. RD slice handoff must record the coverage verdict in the RD request artifact.
+The 100% coverage target on testable files is meaningful coverage, not a score to chase. RD must not write coverage-padding tests. Rules: defensive guards for unreachable cases → remove the guard; IO/platform glue that cannot be tested cleanly → add to `coverage.exclude`; real behavior a caller relies on → write a behavior-framed test; if the only way to 100% is a padding test, lower the target or simplify the production code. Test names must describe behavior, not coverage targets.
 
 ## OpenSpec usage
 
@@ -172,15 +181,15 @@ Peaks-Cli PRD/RD/QA gates remain authoritative: OpenSpec structures the durable 
 
 ## Mock data placement rules (BLOCKING — framework-aware)
 
-When the project-scan in `.peaks/<changeId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
+When the project-scan in `.peaks/_runtime/<sessionId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
 
-→ see `references/mock-data-placement.md` for the full framework-to-mock-directory mapping + hard rules + verification gate.
+→ see `references/mock-data-placement.md` for the framework-to-mock-directory mapping + hard rules + verification gate.
 
 ## Frontend project generation
 
-When RD work creates a frontend application and the user has not specified a technology stack, default to React + Vite + shadcn/ui with `peaks shadcn init --preset [CODE] --template vite`. Application projects generated through this skill must not contain JavaScript source or config files. Generate TypeScript only.
+When RD work creates a frontend application and the user has not specified a technology stack, default to React + Vite + shadcn/ui with `peaks shadcn init --preset [CODE] --template vite`. Generated projects must not contain JavaScript source or config files. TypeScript only.
 
-→ see `references/frontend-project-generation.md` for the full scaffold protocol.
+→ see `references/frontend-project-generation.md` for the scaffold protocol.
 
 ## Artifact and standards output
 
@@ -198,7 +207,7 @@ Before RD work stops, finishes, blocks, or hands off to another role, emit a sho
 
 ## Codegraph project analysis
 
-Codegraph is local project-analysis evidence, scoped to red-line scope boundaries (changed files / symbols) and read via `peaks codegraph affected --project <path> <changed-files...> --json`. Peaks-Cli RD gates remain authoritative; codegraph is untrusted supporting evidence. Do not let codegraph output drive scope, design, or QA verdict decisions, and never mutate agent settings, Claude settings, or hooks from codegraph. Do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git. Codegraph context is written to `.peaks/<session-id>/rd/codegraph-context.md` for handoff to QA / TXT.
+Codegraph is local project-analysis evidence, scoped to red-line scope boundaries (changed files / symbols) and read via `peaks codegraph affected --project <path> <changed-files...> --json`. Peaks-Cli RD gates remain authoritative; codegraph is untrusted supporting evidence. Do not let codegraph output drive scope, design, or QA verdict decisions, and never mutate agent settings, Claude settings, or hooks from codegraph. Do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git. Codegraph context is written to `.peaks/_runtime/<sessionId>/rd/codegraph-context.md` for handoff to QA / TXT.
 
 ## Matt Pocock skills integration
 
