@@ -270,7 +270,13 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(true);
     expect(plan.resumePlan.status).toBe('ready');
-    expect(plan.resumePlan.requiredArtifacts).toContain('.peaks/resume-ready/rd/swarm/resume-instructions.md');
+    // Slice 2026-06-23-audit-5th-p1 canonical path: reviewable
+    // artifacts route under `.peaks/_runtime/change/<changeId>/`
+    // (see `getChangeScopeDirAbs` and the hard-ban callout in
+    // SKILL.md). The test was written against the pre-F3 top-level
+    // `.peaks/<changeId>/...` layout; the assertion tracks the
+    // F3-canonical shape.
+    expect(plan.resumePlan.requiredArtifacts).toContain('.peaks/_runtime/change/resume-ready/rd/swarm/resume-instructions.md');
     expect(plan.rdPlan.workerTarget).toBe(40);
   });
 
