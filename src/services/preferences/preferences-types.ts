@@ -65,7 +65,7 @@ export interface ClassifyRuleOverrides {
 export interface SwarmSpeculativePreferences {
   /** Whether speculative dispatch is enabled. Default: true */
   readonly enabled: boolean;
-  /** Max concurrent speculative sub-agents. Default: 2 */
+  /** Max concurrent speculative sub-agents. Default: 3 (slice 2026-06-24-efficiency-4p-bundle, G3/P1.1) */
   readonly maxConcurrent: number;
   /** Min hit rate below which speculative auto-disables. Default: 0.5 */
   readonly minHitRate: number;
@@ -162,7 +162,7 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   },
   swarmSpeculative: {
     enabled: true,
-    maxConcurrent: 2,
+    maxConcurrent: 3,
     minHitRate: 0.5,
   },
   loopAutonomousEnabled: false,
