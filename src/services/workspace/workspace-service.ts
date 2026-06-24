@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { existsSync, lstatSync, type Stats } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
@@ -139,6 +139,30 @@ const PROHIBITED_SUFFIXES: ReadonlyArray<string> = ['session', 'work', 'task', '
 
 // Auto-generated session ID pattern: YYYY-MM-DD-session-<6位hex>
 const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
+
+/**
+ * Slice C10 (2026-06-24-legacy-change-id-sibling): the relative path
+ * patterns under `.peaks/<changeId>/` that the lazy WRITER (peaks-qa,
+ * peaks-rd, peaks-prd, peaks-txt, peaks-sc) creates via
+ * `mkdir(parent, { recursive: true })` immediately before a write. When
+ * a sibling `.peaks/<changeId>/` exists on disk AND every entry below
+ * it matches one of these patterns (AND no entry is a symlink), the
+ * dir is treated as legitimate writer output and `initWorkspace`
+ * re-init is tolerant — the binding is rewritten without throwing.
+ *
+ * Adding a new pattern here is a deliberate, reviewed change because
+ * it widens the heuristic. The list is intentionally narrow:
+ *   - `qa/screenshots/<file>.{png,jpg,jpeg,webp,gif}` — peaks-qa screenshots
+ *   - `<role>/requests/<file>.md`                     — RD/QA/PRD/TXT/SC artifacts
+ *   - `<role>/findings/<file>.md`                     — QA findings files
+ *
+ * Re-exported so unit tests can assert the pattern list directly.
+ */
+export const WRITER_ALLOWED_RELATIVE_PATTERNS: ReadonlyArray<RegExp> = [
+  /^qa\/screenshots\/[^/]+\.(png|jpg|jpeg|webp|gif)$/i,
+  /^[^/]+\/requests\/[^/]+\.md$/,
+  /^[^/]+\/findings\/[^/]+\.md$/
+];
 
 export class InvalidSessionIdError extends Error {
   readonly code = 'INVALID_SESSION_ID';
@@ -307,12 +331,35 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
       legacyStat = null;
     }
     if (legacyStat !== null) {
-      // Anything existing at the legacy path is a violation under
-      // the 2.8.3+ top-level change-id ban. Distinguish via the error
-      // class so the CLI catch block can render an appropriate
-      // nextAction; today we still use a single error class but
-      // attach enough info for future callers to branch.
-      throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
+      // Slice C10 (2026-06-24-legacy-change-id-sibling): the legacy
+      // sibling dir at `.peaks/<changeId>/` is no longer an automatic
+      // violation. When the SAME session previously ran the writer
+      // (peaks-qa, peaks-rd, ...) it may have lazily created the
+      // sibling dir via `mkdir(..., { recursive: true })` before
+      // writing a screenshot or artifact. On re-init we MUST tolerate
+      // that content (preserving the on-disk artifact material) and
+      // only throw `LegacyChangeIdSiblingError` when the dir contains
+      // entries that are NOT writer-shaped — i.e. user-authored residue
+      // from a 2.8.0-era install that needs the migration message.
+      //
+      // The check is a whole-dir heuristic: every leaf path under the
+      // sibling must match one of `WRITER_ALLOWED_RELATIVE_PATTERNS`,
+      // AND no entry may be a symlink. One mismatched entry ⇒ reject.
+      // This avoids silent acceptance of mixed user-content + writer-
+      // content dirs and defeats symlink-attack evasion (where a
+      // symlinked `.png` would otherwise bypass the pattern check).
+      if (legacyStat.isSymbolicLink()) {
+        // A symlink AT the legacy sibling path itself is unambiguous
+        // evasion — even if the target is writer-shaped, refuse.
+        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
+      }
+      const shapeOk = isWriterCreatedSiblingShape(legacySiblingDir);
+      if (!shapeOk) {
+        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
+      }
+      // Writer-shaped content: silently tolerate. The binding gets
+      // refreshed (setCurrentChangeId is idempotent) and the dir is
+      // preserved on disk — no auto-cleanup.
     }
     // 3. Bind the change-id to the session axis as a plain text file
     //    at `.peaks/_runtime/current-change`. NO sibling directory
@@ -605,4 +652,91 @@ async function upsertPeaksGitignoreSnippet(projectRoot: string): Promise<void> {
   const separator = existing.length > 0 && !existing.endsWith('\n') ? '\n' : '';
   const next = existing + separator + (existing.length > 0 ? '\n' : '') + PEAKS_GITIGNORE_SNIPPET;
   await writeFile(gitignorePath, next, 'utf8');
+}
+
+/**
+ * Slice C10 (2026-06-24-legacy-change-id-sibling): whole-dir shape check
+ * for the legacy sibling `.peaks/<changeId>/`. Returns `true` ONLY when
+ * every leaf path under the sibling matches one of
+ * `WRITER_ALLOWED_RELATIVE_PATTERNS` AND no entry is a symlink (anywhere
+ * in the tree).
+ *
+ * Heuristic rationale (Karpathy #1 — name the tradeoff):
+ *   - False negative (reject writer-shaped content): we accept this
+ *     failure mode because it preserves the 2.8.3+ hard ban. The user
+ *     gets a clear migration message and can re-run after deleting the
+ *     sibling dir.
+ *   - False positive (accept legacy residue as writer output): we
+ *     REJECT this failure mode by requiring EVERY entry to match the
+ *     writer-allowed shape. One mismatched leaf ⇒ `false`. The whole-dir
+ *     check is conservative on purpose.
+ *
+ * Symlink rejection (Karpathy #3 — surgical): any symlinked entry — at
+ * the root or nested — returns `false` immediately. A symlinked
+ * `.peaks/<changeId>/qa/foo.png` could otherwise bypass the file-extension
+ * check by resolving to user content outside the project.
+ *
+ * Implementation note: the helper is synchronous and uses `lstatSync`
+ * recursively so the caller (the guard in `initWorkspace`) can decide
+ * inline without paying an async round-trip. Tree depth is bounded by
+ * the writer's mkdir pattern (≤3 levels: `<role>/<subdir>/<file>`).
+ * We cap the recursion at 8 levels as a defense-in-depth limit.
+ */
+export function isWriterCreatedSiblingShape(siblingDir: string): boolean {
+  const MAX_DEPTH = 8;
+  const stack: Array<{ abs: string; rel: string; depth: number }> = [
+    { abs: siblingDir, rel: '', depth: 0 }
+  ];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node === undefined) break;
+    if (node.depth > MAX_DEPTH) {
+      // Pathological depth — reject. The writer never goes this deep.
+      return false;
+    }
+    let stat: Stats;
+    try {
+      stat = lstatSync(node.abs);
+    } catch {
+      // Any lstat failure (broken symlink, EACCES, etc.) ⇒ not
+      // writer-shaped. Be conservative.
+      return false;
+    }
+    if (stat.isSymbolicLink()) {
+      // Symlink anywhere — reject.
+      return false;
+    }
+    if (stat.isDirectory()) {
+      let entries: string[];
+      try {
+        entries = readdirSync(node.abs);
+      } catch {
+        return false;
+      }
+      if (entries.length === 0) {
+        // Empty subdir under the sibling is fine — writer creates parent
+        // dirs lazily and may leave a placeholder behind. Skip.
+        continue;
+      }
+      for (const entry of entries) {
+        stack.push({
+          abs: join(node.abs, entry),
+          rel: node.rel.length > 0 ? `${node.rel}/${entry}` : entry,
+          depth: node.depth + 1
+        });
+      }
+      continue;
+    }
+    if (stat.isFile()) {
+      const rel = node.rel.replace(/\\/g, '/');
+      const matches = WRITER_ALLOWED_RELATIVE_PATTERNS.some((re) => re.test(rel));
+      if (!matches) {
+        return false;
+      }
+      continue;
+    }
+    // Sockets, FIFOs, devices, etc. — not writer-shaped.
+    return false;
+  }
+  return true;
 }
