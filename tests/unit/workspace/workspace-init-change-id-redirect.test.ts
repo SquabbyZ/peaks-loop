@@ -198,6 +198,13 @@ describe('workspace init --change-id redirect (slice 2026-06-22 + 2026-06-23)', 
     createdDirs.push(projectRoot);
     const changeId = 'envelope-check';
     mkdirSync(join(projectRoot, '.peaks', changeId), { recursive: true });
+    // Slice C10 (2026-06-24-legacy-change-id-sibling): an EMPTY legacy
+    // sibling dir is tolerated by `initWorkspace` (it could be a
+    // writer-created parent dir that crashed mid-mkdir). To exercise
+    // the LegacyChangeIdSiblingError path here (which is the test's
+    // intent — verify the envelope fields + 4-step recipe), plant a
+    // non-writer file so the whole-dir heuristic rejects the dir.
+    writeFileSync(join(projectRoot, '.peaks', changeId, 'notes.txt'), 'user scratch', 'utf8');
 
     let caught: unknown = null;
     try {
