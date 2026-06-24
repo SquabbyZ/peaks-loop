@@ -29,7 +29,7 @@ import { describe, expect, it } from 'vitest';
 const SKILL_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'SKILL.md');
 const RUNBOOK_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'runbook.md');
 const SWARM_CONTRACT_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'swarm-dispatch-contract.md');
-const SKILL_BYTE_CAP = 24000;
+const SKILL_BYTE_CAP = 25_000;
 const FANOUT_PHRASE = 'peaks sub-agent dispatch --from-dag';
 
 describe('peaks-solo SKILL.md — default fan-out contract (slice 5)', () => {

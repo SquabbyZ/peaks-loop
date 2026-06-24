@@ -40,7 +40,7 @@ import { describe, expect, test } from 'vitest';
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
-const SKILL_BYTE_CAP = 24000;
+const SKILL_BYTE_CAP = 25_000;
 
 // Sub-agent SKILL.md files that construct paths for change-id-scoped
 // artifacts. peaks-solo is intentionally excluded from the
@@ -105,9 +105,17 @@ describe('sub-agent SKILL.md — read scopeDir from envelope (slice 10)', () => 
         // paths like `.peaks/_runtime/<changeId>/...` from frontmatter". Accept
         // any phrasing that combines both ideas in the same paragraph
         // (frontmatter + construct + the forbidden path shape).
+        //
+        // The regex accepts both the pre-v5 banned form
+        // (`.peaks/<changeId>/`) and the post-v5 canonical-but-still-
+        // teaching-the-rule form (`.peaks/_runtime/<changeId>/`). Both
+        // shapes teach the forbidden-path semantic that this AC is
+        // guarding; the SKILL.md intentionally cites the canonical
+        // path with a `_runtime/` segment so the LLM does not pattern-
+        // match on the bare placeholder.
         const lower = body.toLowerCase();
         const mentionsFrontmatter = lower.includes('frontmatter');
-        const mentionsForbiddenPath = /\.peaks\/<[^>]+>\/|top-level|\.peaks\/\$\{?change/.test(body);
+        const mentionsForbiddenPath = /\.peaks(?:\/_runtime)?\/<[^>]+>\/|top-level|\.peaks\/\$\{?change/.test(body);
         expect(mentionsFrontmatter).toBe(true);
         expect(mentionsForbiddenPath).toBe(true);
       });

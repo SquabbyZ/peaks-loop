@@ -329,7 +329,7 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
 
   // Slice 2026-06-23-audit-5th-p1: read under the canonical change-id
   // scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`. The
-  // previous `.peaks/${changeId}/...` was a SKILL.md 2.8.3 hard-ban
+  // previous `.peaks/_runtime/${changeId}/...` was a SKILL.md 2.8.3 hard-ban
   // violation (sibling of `.peaks/_runtime/`). `getChangeScopeDirAbs`
   // is the canonical location authority.
   const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspacePath, request.changeId), 'rd', 'architecture');

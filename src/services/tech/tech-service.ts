@@ -119,7 +119,7 @@ function architectureRootAbs(artifactWorkspacePath: string, changeId: string): s
   // Slice 2026-06-23-audit-5th-p1: read path lives under the canonical
   // change-id scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`,
   // matching the test helper `writeApprovedTechArtifacts` and
-  // `autonomous-resume-writer.ts`. The previous `.peaks/${changeId}/...`
+  // `autonomous-resume-writer.ts`. The previous `.peaks/_runtime/${changeId}/...`
   // shape was a SKILL.md 2.8.3 hard-ban violation.
   return join(getChangeScopeDirAbs(artifactWorkspacePath, changeId), 'rd', 'architecture');
 }

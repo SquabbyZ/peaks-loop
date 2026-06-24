@@ -139,7 +139,7 @@ function buildFiles(changeId: string, goal: string, createdAt: string, artifactW
   // the canonical change-id scope dir at
   // `.peaks/_runtime/change/<changeId>/...` (see
   // `getChangeScopeDirAbs` in `services/artifacts/change-scope-service.ts`).
-  // The old `.peaks/${changeId}/...` shape was a SKILL.md 2.8.3 hard-ban
+  // The old `.peaks/_runtime/${changeId}/...` shape was a SKILL.md 2.8.3 hard-ban
   // violation — change-id content must NEVER appear as a sibling of
   // `.peaks/_runtime/`. The `.peaks/_runtime/` gitignore rule covers
   // the new path; reviewable-vs-ephemeral split is preserved.

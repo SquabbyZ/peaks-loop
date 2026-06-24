@@ -131,7 +131,7 @@ export function buildArtifactRelativePathInRoot(
   //
   // The string we return still mirrors the canonical shape so
   // log/envelope diffs match what is on disk. We do NOT return the
-  // old top-level `.peaks/${changeId}/...` form because that would
+  // old top-level `.peaks/_runtime/${changeId}/...` form because that would
   // invite callers to mkdirSync into a SKILL.md 2.8.3 banned
   // directory. The old form is preserved only as a back-compat
   // alias when callers pass `legacy: true` (currently no caller does
@@ -422,7 +422,7 @@ export function setCurrentChangeId(
   }
 // symlink form: point at the canonical change-id scope dir under
   // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
-  // The old `.peaks/${changeId}/` target was a SKILL.md 2.8.3
+  // The old `.peaks/_runtime/${changeId}/` target was a SKILL.md 2.8.3
   // hard-ban violation; the new target is gitignored by
   // `.peaks/_runtime/`.
   const targetDir = join(peaksRoot, '_runtime', 'change', changeId);

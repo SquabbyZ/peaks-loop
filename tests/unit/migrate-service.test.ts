@@ -98,10 +98,10 @@ describe('migrateWorkspace', () => {
     test('tier 1 — filename regex: 001-2026-01-15-foo.md (strip 3-digit prefix)', async () => {
       const sid = '2026-01-15-session-aaaaaa';
       seedFile(
-        join(project, `.peaks/${sid}/rd/requests/001-2026-01-15-foo.md`),
+        join(project, `.peaks/_runtime/${sid}/rd/requests/001-2026-01-15-foo.md`),
         '# RD Request\n- state: draft\n- type: feature\n'
       );
-      seedFile(join(project, `.peaks/${sid}/session.json`), '{}');
+      seedFile(join(project, `.peaks/_runtime/${sid}/session.json`), '{}');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'rd/requests/001-2026-01-15-foo.md');
@@ -113,7 +113,7 @@ describe('migrateWorkspace', () => {
     test('tier 1 — filename regex: 001-fix-title.md (strip 3-digit prefix, change-id starts with non-digit)', async () => {
       const sid = '2026-02-20-session-aaaaa2';
       seedFile(
-        join(project, `.peaks/${sid}/rd/requests/001-fix-title.md`),
+        join(project, `.peaks/_runtime/${sid}/rd/requests/001-fix-title.md`),
         '# RD 001-fix-title\n- state: draft\n'
       );
 
@@ -127,7 +127,7 @@ describe('migrateWorkspace', () => {
       const sid = '2026-02-21-session-aaaaa3';
       // 4-digit prefix is part of the change-id (date-prefixed), not a sequence number.
       seedFile(
-        join(project, `.peaks/${sid}/prd/requests/2026-02-21-default.md`),
+        join(project, `.peaks/_runtime/${sid}/prd/requests/2026-02-21-default.md`),
         '# PRD Request 2026-02-21-default\n- state: draft\n- type: feature\n'
       );
 
@@ -141,7 +141,7 @@ describe('migrateWorkspace', () => {
     test('tier 2 — content H1: "# Tech Doc: 003-leaf-and-content-locked-callbacks"', async () => {
       const sid = '2026-06-03-session-bbbbbb';
       seedFile(
-        join(project, `.peaks/${sid}/rd/tech-doc.md`),
+        join(project, `.peaks/_runtime/${sid}/rd/tech-doc.md`),
         '# Tech Doc: 003-leaf-and-content-locked-callbacks\n\n- **Date:** 2026-06-03\n'
       );
 
@@ -155,7 +155,7 @@ describe('migrateWorkspace', () => {
     test('tier 2 — content H1: "# Code Review 009-fix-test-harness-tailwind"', async () => {
       const sid = '2026-06-03-session-cccccccc';
       seedFile(
-        join(project, `.peaks/${sid}/rd/code-review.md`),
+        join(project, `.peaks/_runtime/${sid}/rd/code-review.md`),
         '# Code Review 009-fix-test-harness-tailwind\n\n**Date:** 2026-06-03\n'
       );
 
@@ -169,7 +169,7 @@ describe('migrateWorkspace', () => {
       const sid = '2026-06-04-session-ddddddd';
       // Filename has no 3-digit prefix → tier 1 doesn't match → tier 3 (frontmatter) wins.
       seedFile(
-        join(project, `.peaks/${sid}/qa/test-cases/orphan-rid-004.md`),
+        join(project, `.peaks/_runtime/${sid}/qa/test-cases/orphan-rid-004.md`),
         '# QA Test Cases\n- rid: 004-foo\n- state: draft\n- type: feature\n\n## Test cases\n\ntest("example")\n'
       );
 
@@ -182,14 +182,14 @@ describe('migrateWorkspace', () => {
     test('tier 4 — per-session fallback to most recent rd/requests/', async () => {
       const sid = '2026-06-05-session-eeeeeeee';
       // The request artifact (no 3-digit prefix; date-prefixed change-id).
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-005-rid.md`), '# RD Request session-005-rid\n- state: draft\n- type: feature\n');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-005-rid.md`), '# RD Request session-005-rid\n- state: draft\n- type: feature\n');
       // Then a "top-level" QA file with no 3-digit prefix and no H1/frontmatter
       seedFile(
-        join(project, `.peaks/${sid}/qa/test-cases/some-test.md`),
+        join(project, `.peaks/_runtime/${sid}/qa/test-cases/some-test.md`),
         '# QA Test Cases\n\n## Test cases\n\ntest("example")\n'
       );
       // Another QA file with explicit frontmatter override
-      seedFile(join(project, `.peaks/${sid}/qa/test-cases/other-test.md`), '# QA Test Cases\n- rid: session-005-explicit-override\n- type: feature\n');
+      seedFile(join(project, `.peaks/_runtime/${sid}/qa/test-cases/other-test.md`), '# QA Test Cases\n- rid: session-005-explicit-override\n- type: feature\n');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       // some-test.md has no tier-1/2/3 signal, so tier-4 fallback is used.
@@ -205,10 +205,10 @@ describe('migrateWorkspace', () => {
 
     test('cross-cutting files route to .peaks/_runtime/<topic>/<role>/<file> (top-level)', async () => {
       const sid = '2026-06-06-session-fffffff';
-      seedFile(join(project, `.peaks/${sid}/rd/project-scan.md`), '# Project Scan: react-prompt-editor');
-      seedFile(join(project, `.peaks/${sid}/rd/perf-baseline.md`), '# Perf Baseline');
-      seedFile(join(project, `.peaks/${sid}/rd/perf baseline.md`), '# Performance Baseline');
-      seedFile(join(project, `.peaks/${sid}/rd/requests/001-cross.md`), '# RD 001-cross'); // non-cross-cutting
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/project-scan.md`), '# Project Scan: react-prompt-editor');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/perf-baseline.md`), '# Perf Baseline');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/perf baseline.md`), '# Performance Baseline');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/001-cross.md`), '# RD 001-cross'); // non-cross-cutting
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       // Cross-cutting files are now in wouldMove (NOT skipped)
@@ -237,10 +237,10 @@ describe('migrateWorkspace', () => {
       // territory (moved to `.peaks/_runtime/session.json`), not migrate
       // territory — migrate only walks role subdirs.
       const sid = '2026-06-07-session-gggggg';
-      seedFile(join(project, `.peaks/${sid}/session.json`), '{}');
-      seedFile(join(project, `.peaks/${sid}/system/existing-system.md`), '# Existing System');
-      seedFile(join(project, `.peaks/${sid}/system/existing-system.json`), '{}');
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-007-trans.md`), '# RD Request session-007-trans');
+      seedFile(join(project, `.peaks/_runtime/${sid}/session.json`), '{}');
+      seedFile(join(project, `.peaks/_runtime/${sid}/system/existing-system.md`), '# Existing System');
+      seedFile(join(project, `.peaks/_runtime/${sid}/system/existing-system.json`), '{}');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-007-trans.md`), '# RD Request session-007-trans');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const sysMd = result.sessions[0]?.files.find((f) => f.relativePath === 'system/existing-system.md');
@@ -254,7 +254,7 @@ describe('migrateWorkspace', () => {
 
     test('returns null change-id and skipReason="no-change-id" when no tier resolves', async () => {
       const sid = '2026-06-08-session-hhhhhh';
-      seedFile(join(project, `.peaks/${sid}/prd/requests/orphan.md`), '# PRD\n- state: draft\n');
+      seedFile(join(project, `.peaks/_runtime/${sid}/prd/requests/orphan.md`), '# PRD\n- state: draft\n');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const orphan = result.sessions[0]?.files.find((f) => f.relativePath === 'prd/requests/orphan.md');
@@ -271,7 +271,7 @@ describe('migrateWorkspace', () => {
     test('git mv the file into retrospective/<changeId>/<role>/<path>', async () => {
       const sid = '2026-06-09-session-iiiiiii';
       // Use a no-3-digit-prefix filename so the change-id survives verbatim.
-      const sourcePath = join(project, `.peaks/${sid}/rd/requests/session-009-move.md`);
+      const sourcePath = join(project, `.peaks/_runtime/${sid}/rd/requests/session-009-move.md`);
       seedFile(sourcePath, '# RD Request session-009-move\n- state: qa-handoff');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
@@ -291,7 +291,7 @@ describe('migrateWorkspace', () => {
 
     test('is idempotent: re-running on an already-migrated tree is a no-op with conflicts', async () => {
       const sid = '2026-06-10-session-jjjjjjj';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-010-idem.md`), '# RD Request session-010-idem');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-010-idem.md`), '# RD Request session-010-idem');
 
       const first = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(first.moved.length).toBe(1);
@@ -304,8 +304,8 @@ describe('migrateWorkspace', () => {
 
     test('does not delete a non-empty session dir', async () => {
       const sid = '2026-06-11-session-kkkkkk';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-011-non-empty.md`), '# RD Request session-011-non-empty');
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-011-extra.md`), '# RD Request session-011-extra');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-011-non-empty.md`), '# RD Request session-011-non-empty');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-011-extra.md`), '# RD Request session-011-extra');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(2);
@@ -315,7 +315,7 @@ describe('migrateWorkspace', () => {
 
     test('skips and reports conflicts when target file already exists with different content', async () => {
       const sid = '2026-06-12-session-llllll';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-012-conflict.md`), '# RD Request session-012-conflict\n- state: qa-handoff\n');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-012-conflict.md`), '# RD Request session-012-conflict\n- state: qa-handoff\n');
       // Pre-create the target with different content
       seedFile(join(project, '.peaks/retrospective/session-012-conflict/rd/requests/session-012-conflict.md'), '# DIFFERENT CONTENT');
 
@@ -327,13 +327,13 @@ describe('migrateWorkspace', () => {
       expect(result.conflicts.length).toBe(1);
       expect(result.conflicts[0]?.reason).toBe('target-exists-with-different-content');
       // Source file should still exist (move was skipped)
-      expect(existsSync(join(project, `.peaks/${sid}/rd/requests/session-012-conflict.md`))).toBe(true);
+      expect(existsSync(join(project, `.peaks/_runtime/${sid}/rd/requests/session-012-conflict.md`))).toBe(true);
     });
 
     test('treats identical-content collision as already-migrated (no error, no re-write)', async () => {
       const sid = '2026-06-13-session-mmmmmm';
       const content = '# RD Request session-013-identical\n- state: qa-handoff\n';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-013-identical.md`), content);
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-013-identical.md`), content);
       seedFile(join(project, '.peaks/retrospective/session-013-identical/rd/requests/session-013-identical.md'), content);
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
@@ -351,7 +351,7 @@ describe('migrateWorkspace', () => {
   describe('cross-cutting', () => {
     test('retrospective dir is created when first file is moved there', async () => {
       const sid = '2026-06-14-session-nnnnnn';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-014-first.md`), '# RD Request session-014-first');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-014-first.md`), '# RD Request session-014-first');
 
       await migrateWorkspace({ projectRoot: project, apply: true });
       expect(existsSync(join(project, '.peaks/retrospective'))).toBe(true);
@@ -361,8 +361,8 @@ describe('migrateWorkspace', () => {
     test('multiple sessions contributing to the same change-id converge in retrospective', async () => {
       const sid1 = '2026-06-15-session-aaaaa1';
       const sid2 = '2026-06-15-session-bbbbb1';
-      seedFile(join(project, `.peaks/${sid1}/rd/tech-doc.md`), '# Tech Doc: slice-008-shared');
-      seedFile(join(project, `.peaks/${sid2}/rd/code-review.md`), '# Code Review slice-008-shared');
+      seedFile(join(project, `.peaks/_runtime/${sid1}/rd/tech-doc.md`), '# Tech Doc: slice-008-shared');
+      seedFile(join(project, `.peaks/_runtime/${sid2}/rd/code-review.md`), '# Code Review slice-008-shared');
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(2);
@@ -379,7 +379,7 @@ describe('migrateWorkspace', () => {
       seedFile(join(project, '.peaks/_runtime/session.json'), '{"sessionId":"x"}');
       seedFile(join(project, '.peaks/_runtime/active-skill.json'), '{}');
       const sid = '2026-06-16-session-pppppp';
-      seedFile(join(project, `.peaks/${sid}/rd/requests/session-016-runtime.md`), '# RD Request session-016-runtime');
+      seedFile(join(project, `.peaks/_runtime/${sid}/rd/requests/session-016-runtime.md`), '# RD Request session-016-runtime');
 
       await migrateWorkspace({ projectRoot: project, apply: true });
       // _runtime/ untouched

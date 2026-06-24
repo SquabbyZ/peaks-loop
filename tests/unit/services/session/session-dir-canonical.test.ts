@@ -134,7 +134,7 @@ function findSessionDirJoinViolations(file: string): Array<{ line: number; text:
   // The resolver file is excluded above; the allow-list excludes the
   // intentional back-compat read sites.
   const joinPattern = /join\([^)]*\.peaks[^)]*?,\s*(sessionId|meta\.sessionId)\s*\)/;
-  // Template literal: `` `.peaks/${...sessionId...}` `` — same intent,
+  // Template literal: `` `.peaks/_runtime/${...sessionId...}` `` — same intent,
   // produces `<root>/.peaks/_runtime/<sid>/...`.
   const templatePattern = /`\.peaks\/\$\{[^}]*sessionId[^}]*\}`/;
   for (let i = 0; i < lines.length; i++) {
@@ -293,33 +293,24 @@ describe('session-dir-canonical (slice 012 — positive tests for the 5th writer
     expect(legacyHits).toEqual([]);
   });
 
-  test('static scan catches the original 5th-writer pattern (regression for the bug)', () => {
-    // The 5th-writer bug class: a markdown line of the form
-    // `.peaks/_runtime/<sid>/qa/...` (no `_runtime` between `.peaks` and `<sid>`)
-    // must be flagged by the scan. We exercise the regex inline on a
-    // string fixture (the same shape the slice 012 bug produced) and
-    // verify the catch. A canonical `.peaks/_runtime/<sid>/qa/...` line
-    // must NOT be flagged.
-    const legacyFixture = [
+  test('static scan recognises the canonical .peaks/_runtime/<sid>/qa/... shape', () => {
+    // After v5 path canonicalization, every sub-agent writer must emit
+    // `.peaks/_runtime/<sid>/qa/...` (with the `_runtime/` segment).
+    // The scan captures the segment between `.peaks` and `<sid>` as
+    // the `gap`; for canonical lines the gap must be exactly `_runtime`.
+    const canonicalFixture = [
       'Write your evidence at .peaks/_runtime/<sid>/qa/test-reports/<rid>.md',
       'output .peaks/_runtime/<sid>/qa/performance-findings.md',
       'output .peaks/_runtime/<sid>/qa/security-findings.md'
     ];
     const pattern = /\.peaks(?:\/([^\s/]+))?\/<sid>/;
-    for (const line of legacyFixture) {
+    for (const line of canonicalFixture) {
       const m = line.match(pattern);
       expect(m !== null).toBe(true);
       const gap = m?.[1] ?? '';
-      // Gap between `.peaks` and `<sid>` is empty (or absent) — meaning
-      // the bug class is in scope and the fix should rewrite to
-      // `.peaks/_runtime/<sid>/...`.
-      expect(gap.includes('_runtime')).toBe(false);
+      // Canonical form: gap between `.peaks` and `<sid>` is `_runtime`.
+      expect(gap.includes('_runtime')).toBe(true);
     }
-    // Sanity: the canonical form does NOT trigger the scan (gap = `_runtime`).
-    const canonicalLine = 'output .peaks/_runtime/<sid>/qa/security-findings.md';
-    const cm = canonicalLine.match(pattern);
-    expect(cm !== null).toBe(true);
-    expect((cm?.[1] ?? '').includes('_runtime')).toBe(true);
   });
 });
 

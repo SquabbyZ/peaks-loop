@@ -223,7 +223,7 @@ export async function verifyPipeline(options: {
     } else {
       gate.detail = `missing: ${evidencePath}`;
       violations.push(`RD evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/${rdEvidenceDir}/rd/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/rd/${fileName}`);
     }
   }
 
@@ -292,7 +292,7 @@ export async function verifyPipeline(options: {
     } else {
       gate.detail = `missing: ${evidencePath}`;
       violations.push(`QA evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/${rdEvidenceDir}/qa/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/qa/${fileName}`);
     }
   }
 

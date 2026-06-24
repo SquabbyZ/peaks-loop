@@ -32,7 +32,7 @@ const FAKE_CHANGE_ID = '2026-06-24-fake-change';
 const FAKE_SESSION_ID = '2026-06-24-fake-session';
 const FAKE_TIMESTAMP = '2026-06-24T00:00:00.000Z';
 
-// The banned string pattern: any literal `.peaks/${changeId}/` template
+// The banned string pattern: any literal `.peaks/_runtime/${changeId}/` template
 // fragment. We assert BOTH that the rendered output contains zero
 // matches AND that the source file's template literals contain zero
 // matches.
@@ -73,7 +73,7 @@ describe('handoff path helpers — canonical shape', () => {
 
 /**
  * Each render function's output must contain ZERO references to the
- * banned top-level path `.peaks/${changeId}/` (the templated form)
+ * banned top-level path `.peaks/_runtime/${changeId}/` (the templated form)
  * AND every Handoff/linked-* path it emits must start with the
  * canonical prefix `.peaks/_runtime/change/`.
  *
@@ -102,7 +102,7 @@ describe('render templates — banned top-level handoff paths are eliminated', (
   const ROLES = ['prd', 'ui', 'rd', 'qa', 'sc'] as const;
 
   for (const role of ROLES) {
-    it(`rendered ${role} template contains zero banned .peaks/${'${changeId}'}/ references`, async () => {
+    it(`rendered ${role} template contains zero banned .peaks/_runtime/${'${changeId}'}/ references`, async () => {
       const mod = await import('../../../src/services/artifacts/request-artifact-service.js');
       const result = await mod.createRequestArtifact({
         role,
@@ -155,12 +155,12 @@ describe('render templates — banned top-level handoff paths are eliminated', (
 });
 
 describe('source file — banned template literals are eliminated', () => {
-  it('the service source file contains zero `.peaks/${changeId}/` template strings', async () => {
+  it('the service source file contains zero `.peaks/_runtime/${changeId}/` template strings', async () => {
     const source = await readFile(SERVICE_ABS, 'utf8');
     const matches = source.match(BANNED_TOP_LEVEL_REGEX) ?? [];
     expect(
       matches,
-      `request-artifact-service.ts still contains banned template literal .peaks/${'${changeId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
+      `request-artifact-service.ts still contains banned template literal .peaks/_runtime/${'${changeId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
     ).toEqual([]);
   });
 });
@@ -184,7 +184,7 @@ describe('file-size cap — service file stays within 800 lines (Karpathy §2 Si
  * `PrerequisitesNotSatisfiedError` constructor message. The session
  * axis (`sessionId`) follows the 2.8.0 two-axis convention and must
  * route through `.peaks/_runtime/<sessionId>/`. If a future regression
- * reintroduces the banned `.peaks/${sessionId}/` literal, the runtime
+ * reintroduces the banned `.peaks/_runtime/${sessionId}/` literal, the runtime
  * error message will tell the LLM to write to a wrong path, which the
  * LLM may treat as a write instruction (same failure mode that
  * motivated the original hard-ban).
@@ -197,7 +197,7 @@ describe('PrerequisitesNotSatisfiedError — session-axis handoff path is canoni
     expect(err.message).toContain(`.peaks/_runtime/${FAKE_SESSION_ID}/`);
   });
 
-  it('error message does NOT contain the banned top-level `.peaks/${sessionId}/` literal', () => {
+  it('error message does NOT contain the banned top-level `.peaks/_runtime/${sessionId}/` literal', () => {
     const err = new PrerequisitesNotSatisfiedError('qa', 'verdict-issued', FAKE_SESSION_ID, [
       { path: '.peaks/_runtime/change/2026-06-24-fake-change/rd/requests/rid-2.md', description: 'RD request artifact' },
       { path: '.peaks/_runtime/change/2026-06-24-fake-change/qa/requests/rid-3.md', description: 'QA request artifact' }
@@ -214,13 +214,13 @@ describe('PrerequisitesNotSatisfiedError — session-axis handoff path is canoni
   });
 });
 
-describe('source file — banned `.peaks/${sessionId}/` template literals are eliminated', () => {
-  it('the service source file contains zero `.peaks/${sessionId}/` template strings', async () => {
+describe('source file — banned `.peaks/_runtime/${sessionId}/` template literals are eliminated', () => {
+  it('the service source file contains zero `.peaks/_runtime/${sessionId}/` template strings', async () => {
     const source = await readFile(SERVICE_ABS, 'utf8');
     const matches = source.match(/\.peaks\/\$\{sessionId\}\//g) ?? [];
     expect(
       matches,
-      `request-artifact-service.ts still contains banned template literal .peaks/${'${sessionId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
+      `request-artifact-service.ts still contains banned template literal .peaks/_runtime/${'${sessionId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
     ).toEqual([]);
   });
 });
