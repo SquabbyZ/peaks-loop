@@ -7,6 +7,23 @@ const stableCoverageRoot = process.platform === 'win32'
   ? projectRoot.replace(/^[A-Z]:/, (drive) => drive.toLowerCase())
   : projectRoot;
 
+// Hard-code `root` to the project root (resolved from import.meta.url), NOT
+// `process.cwd()`. This is deliberate and load-bearing — DO NOT "simplify"
+// to process.cwd() in a future cleanup. See PRD 2026-06-24-baseline-92-triage
+// (change-id 014-full-dogfood) for the full root-cause analysis.
+//
+// Why: `peaks session init` / peaks-solo orchestrators create a temporary
+// workspace under the system Temp dir (e.g. C:\Users\...\AppData\Local\Temp\)
+// and the orchestrator's child processes (including vitest workers spawned
+// via npm/pnpm scripts) inherit that Temp cwd. vitest's default `root` is
+// `process.cwd()`, so worker processes resolve every `tests/**\/*.fixture`
+// path against the Temp dir and ENOENT. Pinning `root` to the project root
+// computed from `import.meta.url` forces vitest to resolve test files and
+// fixtures from the real repo, independent of whatever cwd the orchestrator
+// passed down. The peaks session init CWD Temp side-effect itself is a
+// design choice (see PRD risk R4) and is intentionally NOT modified here —
+// this config isolates vitest from that side-effect without touching the
+// orchestrator.
 export default defineConfig({
   root: stableCoverageRoot,
   test: {
