@@ -71,6 +71,11 @@ When LLM presents the goal at touchpoint #2, the human should be able to accept 
   - Create new top-level skill `peaks-audit` (SKILL.md + reference for the 6 audit dimensions).
   - Update `peaks-solo/SKILL.md` to invoke `peaks-audit` immediately after need expression, and gate autonomous execution on goal approval.
   - Explicitly note in `peaks-slice-decompose/SKILL.md` that this skill is invoked AFTER audit + goal approval.
+- **Handoff frontmatter schema** (NEW — Option A, addresses JSON vs markdown trade-off):
+  - Add `HandoffFrontmatter` type for structured fields (rid, slice_id, agent_id, status, test_result, etc.).
+  - Add `parseHandoff()` / `writeHandoff()` utilities with YAML frontmatter parsing.
+  - Update `peaks-rd`, `peaks-qa`, `peaks-final-review` skills to read/write structured frontmatter.
+  - Backward compat: legacy handoffs without frontmatter parse with default values.
 
 ## Out of Scope
 

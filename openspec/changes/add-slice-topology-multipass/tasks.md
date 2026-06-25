@@ -133,7 +133,27 @@ Touchpoint #3 is NOT approve/reject — it is a structured 4-dim business review
   - If any dimension failed → loop back to LLM with feedback (stays within LLM's 90% authority).
 - [ ] Integration test: peaks-solo flow with Final Review correctly accepts or loops back based on human input.
 
-## 11. Documentation + standards
+## 11. Handoff frontmatter schema (Option A — JSON for structure, markdown for prose)
+
+The handoff artifact uses YAML frontmatter for structured fields + markdown body for prose context. This combines JSON's schema enforcement with markdown's prose flexibility.
+
+### 11.1 Types + parser + writer
+
+- [ ] Add `src/services/handoff/handoff-types.ts` with `HandoffFrontmatter`, `HandoffStatus`, `HandoffTestResult` types.
+- [ ] Add `src/services/handoff/handoff-parser.ts` with `parseHandoff(filePath): { frontmatter, body }`.
+- [ ] Add `src/services/handoff/handoff-writer.ts` with `writeHandoff(filePath, frontmatter, body)`.
+- [ ] Use existing YAML parser (peaks-cli already depends on one for `.peaks/standards/`).
+- [ ] Validation: throw `IncompleteHandoffError` if required fields missing (rid, slice_id, agent_id, schema_version, status, created_at).
+- [ ] Backward compat: legacy handoffs without frontmatter parse with `schema_version: '0'`, `status: 'unknown'`. No automatic rewrite.
+- [ ] Unit tests: parse valid handoff, parse invalid handoff (missing required fields), roundtrip (write → parse equal), legacy handoff backward compat.
+
+### 11.2 Agent integration
+
+- [ ] Update `peaks-rd/SKILL.md`: instruct RD agent to write frontmatter when producing handoff (status, files_changed, lines_added/removed, test_result, coverage).
+- [ ] Update `peaks-qa/SKILL.md`: instruct QA agent to read frontmatter (status, test_result) and update if needed (e.g., override test_result after deeper testing).
+- [ ] Update `peaks-final-review` skill (Task 10.2): read frontmatter for functional completeness (`files_changed`, `test_result`) and problem resolution evidence.
+
+## 12. Documentation + standards
 
 - [ ] Update `docs/superpowers/specs/` index (if any) to reference this change.
 - [ ] Update `.peaks/standards/` slice-decompose reference (if any) to document v2 schema.

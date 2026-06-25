@@ -224,6 +224,108 @@ Owned by `peaks-solo` (orchestrator). Invoked after LLM completes all autonomous
 
 The 90% LLM does code-level reviews. The 10% human does business-outcome reviews. Different layers.
 
+## Handoff Frontmatter Schema (Option A — JSON for structure, markdown for prose)
+
+The handoff artifact combines the best of both: **YAML frontmatter** (structured, schema-enforced, JSON-friendly for LLM extraction) + **markdown body** (prose, context-rich, human-readable). This is the canonical answer to the JSON-vs-markdown-for-LLM trade-off.
+
+### Data Model
+
+```ts
+type HandoffStatus = 'done' | 'failed' | 'partial' | 'blocked' | 'unknown';
+type HandoffTestResult = 'pass' | 'fail' | 'inconclusive' | null;
+
+interface HandoffFrontmatter {
+  // Required
+  readonly rid: string;                          // Request ID
+  readonly slice_id: string;                     // Slice ID within the request
+  readonly agent_id: string;                     // Agent that produced this handoff
+  readonly schema_version: '1';                  // Handoff schema version (for future migration)
+  readonly status: HandoffStatus;
+  readonly created_at: string;                   // ISO-8601
+
+  // Recommended
+  readonly duration_seconds?: number;            // Wall-clock time
+  readonly files_changed?: readonly string[];    // Project-relative paths
+  readonly lines_added?: number;
+  readonly lines_removed?: number;
+  readonly test_result?: HandoffTestResult;
+  readonly coverage?: number;                    // Float 0-1
+
+  // Optional (issue tracking)
+  readonly errors?: readonly string[];
+  readonly warnings?: readonly string[];
+  readonly blockers?: readonly string[];
+
+  // Optional (dependency tracking)
+  readonly upstream_dependencies?: readonly string[];  // Slice IDs this depended on
+}
+```
+
+### Example
+
+```markdown
+---
+rid: "008-2026-06-25-p0"
+slice_id: "S3"
+agent_id: "peaks-rd"
+schema_version: "1"
+status: "done"
+created_at: "2026-06-25T10:00:00Z"
+duration_seconds: 720
+files_changed:
+  - "src/services/foo/bar.ts"
+  - "src/services/foo/baz.ts"
+lines_added: 200
+lines_removed: 50
+test_result: "pass"
+coverage: 0.85
+upstream_dependencies:
+  - "S1"
+  - "S2"
+---
+
+# Slice 3 Handoff
+
+## Decision Rationale
+
+Considered three approaches:
+- A: best performance, complex API
+- B: simple but 200ms latency unacceptable
+- **C: batched processing, 50ms latency, minimal code change → selected**
+
+## Risks
+
+- If batch size > 1000, memory overflow
+- Backward compatibility depends on deprecation cycle
+
+## Next Steps
+
+- Downstream slice S4 can now consume the new `batchedProcessor` export.
+- Coordinate with S4 on the deprecation timeline.
+```
+
+### Parser / Writer contract
+
+```ts
+function parseHandoff(filePath: string): { frontmatter: HandoffFrontmatter; body: string };
+function writeHandoff(filePath: string, frontmatter: HandoffFrontmatter, body: string): void;
+```
+
+- Parser uses a YAML library (peaks-cli already depends on one for `.peaks/standards/` configs).
+- Validation: throws `IncompleteHandoffError` if any required field is missing.
+- Backward compat: legacy handoffs without frontmatter parse with `schema_version: '0'` and `status: 'unknown'`. No automatic rewrite.
+
+### Why this is better than pure JSON or pure markdown
+
+| Concern | Pure JSON | Pure markdown | YAML frontmatter + markdown |
+|---|---|---|---|
+| Schema enforcement | ✅ | ❌ | ✅ (frontmatter is parsed as structured) |
+| Prose context | ❌ | ✅ | ✅ (body) |
+| LLM extraction accuracy | ✅ | ⚠️ | ✅ (frontmatter) + ⚠️ (body) |
+| Human readability | ❌ | ✅ | ✅ (both) |
+| Tool compatibility (Read) | ❌ | ✅ | ✅ (still markdown file) |
+| Backward compat | ❌ | ✅ | ✅ (legacy parses with defaults) |
+
 ## Skill Layer (LLM-facing operation manual)
 
 In peaks-cli's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
