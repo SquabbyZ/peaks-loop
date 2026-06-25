@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.10.0] — 2026-06-26 — Slice topology multi-pass + 10/90 paradigm
 
-**MINOR bump from 2.9.0** (slice `add-slice-topology-multipass`, 57 commits ahead of `develop`, 7 waves W1-W7, plan at `docs/superpowers/plans/2026-06-25-slice-topology-multipass.md`).
+**MINOR bump from 2.9.0** (slice `add-slice-topology-multipass`, 63 commits ahead of `develop`, 8 waves W1-W8-b, plan at `docs/superpowers/plans/2026-06-25-slice-topology-multipass.md`).
 
 Implements the 10/90 paradigm foundation: 10% human / 90% LLM autonomous workflow with structured multi-pass slice decomposition, audit gates, and final-review gates. v2 schema is breaking vs v1; v1 remains readable via `SchemaRouter`.
 
@@ -40,13 +40,18 @@ Implements the 10/90 paradigm foundation: 10% human / 90% LLM autonomous workflo
 
 ### Tests
 
-- 3974 passed / 0 failed / 17 skipped at release time (354 test files, 110s).
+- 3974 passed / 0 failed / 17 skipped at release time (354 test files, ~80s smoke / ~310s full).
 - New: 3 e2e integration tests in `tests/integration/slice-topology-e2e.test.ts` (multi-pass, service-only, file-only against real `src/services/config/`); 10 picked-envelope validation tests in `tests/unit/cli/commands/slice-commands.test.ts`; 4 LlmArbitration shape tests + 1 internalEdges test in `tests/unit/slice/multi-pass-orchestrator.test.ts` and `cross-pass-edge-merger.test.ts`.
 - **3 mutation probes pass** (W7 T21, `.peaks/memory/2026-06-25-mutation-probes-w7-t21.md`): Probe A (comment-out type-shares), Probe B (`>` → `>=` in `shouldSubdivide`), Probe C (cache short-circuit disabled) — all 3 mutations cause the corresponding test to fail, then revert to green.
 
+### Bugfixes — W8 / W8-b stabilization (slice `add-slice-topology-multipass`, post-W7 follow-up)
+
+- **W8 CC-α** (commit `56a9d9e`): stabilize 3 pre-existing flaky tests — `tests/unit/cli-program.workflow.test.ts` per-file timeout raised from vitest default 5000ms → 10000ms (`vi.setConfig({ testTimeout: 10000 })`); `tests/unit/dispatch-cli-latency-benchmark.test.ts` 250ms → 300ms threshold (median + min) with description + inline-comment updates for Karpathy #3 honesty.
+- **W8-b CC-α** (commits `e17f868` + `30f9b51`): fix 3 newly-surfaced state-bound pre-existing failures — `tests/unit/package.test.ts` `beforeAll` runs `scripts/sync-version.mjs` so the version-source assertion is deterministic without `pnpm build`; `tests/unit/cli-program.core.test.ts` + `tests/unit/project-commands.test.ts` use `vi.hoisted` + `vi.mock` to isolate from real-project filesystem state (synthetic passing doctor report + `vi.importActual` passthrough with default `doctorReport`/`runbookHealth` injection); `src/shared/version.ts` synced to `2.10.0` (W7-solo T22 missed this; W8-b surfaced it via the `beforeAll` sync-version run).
+- Net effect: full suite `3974 / 0 failed / 17 skipped` (was `3974 / 3 failed / 17 skipped` after W7 due to the 3 state-bound failures, and 3974 / 0 / 17 was timing-flaky due to the 3 W8 targets).
+
 ### Risks / gaps carried forward
 
-- **Pre-existing flaky tests** (3 from W2-W4, item #5 from candidate list): `cli-program.workflow.test.ts` × 2 (5000ms timeout) + `dispatch-cli-latency-benchmark.test.ts` (256.39ms vs 250ms threshold, Windows ESM startup variance). Confirmed NOT regressions — last touched in pre-W6 commits (`8e07352`, `342444e`). Stabilization fix is a follow-up candidate.
 - **peaks slice pick only supports v1 envelopes** (W3 T11) — explicitly documented in W4 T12 SKILL.md. v2-pick is a future-slice candidate.
 - **No CLI for `peaks audit-goal` discovered via auto-audit** (W4 T13) — `auditGoal()` is a service consumed by `final-review-service`, `slice/llm-arbitrator`, `slice/multi-pass-orchestrator` via direct import. CLI registration is a future-slice candidate.
 
