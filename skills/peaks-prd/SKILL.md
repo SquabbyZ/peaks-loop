@@ -198,6 +198,8 @@ When the source PRD is an authenticated web document such as Feishu/Lark, use th
 
 When analyzing product documents, do not over-index on business background, stakeholder narrative, or market rationale. Extract the parts that can become implementation and verification work:
 
+- For **multi-pass** topology (peaks-slice-decompose v2), tag ACs with `[pass-1]` / `[pass-2]` and split cross-cutting ACs into per-service units. See `references/prd-for-multi-pass.md` for the 5-rule contract.
+
 - product logic, state transitions, permissions, validation, data dependencies, edge cases, and error handling;
 - concrete UI/API behavior that `peaks-rd` can build;
 - acceptance checks, fixtures, browser paths, and risk cases that `peaks-qa` can retest;

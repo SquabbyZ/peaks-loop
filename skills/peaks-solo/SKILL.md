@@ -84,6 +84,18 @@ Run when `openspec/` is absent and `.peaks/.peaks-openspec-opt-in.json` is missi
 
 → see `references/openspec-workflow.md` for the full opt-in flow + lifecycle.
 
+### Peaks-Cli Step 0.6: Audit + Goal (NEW)
+
+After human expresses need, invoke peaks-audit to summarize + multi-dim audit + propose goal. Display audit + goal to human for one-shot approval. Store approved goal at `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. **All subsequent autonomous work requires an approved goal.**
+
+→ see `references/audit-goal-gate.md` for the full Step 0.6 contract.
+
+### Peaks-Cli Step N+1: Final Review (NEW)
+
+After all autonomous LLM work (RD, QA, security, perf) completes, invoke peaks-final-review to prepare 4-dim evidence. Display evidence to human for judgment. If all 4 dims pass → final delivery. If any fail → loop back with feedback.
+
+→ see `references/final-review-gate.md` for the full Step N+1 contract.
+
 ### Peaks-Cli Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
 Run `peaks workspace init` + `peaks skill presence:set peaks-solo` BEFORE any analysis, role handoff, or mode-selection question. Even "分析下这个项目" / "看一下代码" / one-line questions anchor first.
