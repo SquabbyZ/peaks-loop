@@ -44,6 +44,88 @@ Enable `peaks slice decompose` to produce hierarchical multi-pass slice topology
 
 Each Pass internally calls `decomposeSlices()` from `src/services/slice/slice-decompose-service.ts` (UNCHANGED), passing a pass-specific `granularity` option. The existing 6-stage algorithm is the inner loop; the orchestrator only adds recursion and cross-pass joining.
 
+## Audit + Goal Primitive (10/90 paradigm gate)
+
+The 10% human / 90% LLM model requires a structured **audit + goal** step between human need expression and autonomous LLM execution. Without this gate, the human would have to iterate, which defeats the 10/90 model.
+
+### Why this lives BEFORE slice decomposition
+
+| Step | Owner | Purpose |
+|---|---|---|
+| Need expression | Human | One-shot natural language input |
+| Audit + goal | LLM (autonomous) | Multi-dim audit + goal proposal |
+| Goal approval | Human | One-shot acceptance check |
+| Slice decomposition | LLM (autonomous) | This change's algorithm |
+| RD / QA / verify | LLM (autonomous) | Implementation and verification |
+| Final acceptance | Human | Review final delivery |
+
+Audit + goal is the **last gate where the human's understanding of the need is canonicalized**. After goal approval, all subsequent work is the LLM's responsibility.
+
+### Data Model
+
+```ts
+interface AuditGoalInput {
+  readonly need: string;                    // Human's natural language expression
+  readonly context?: {
+    readonly projectRoot?: string;
+    readonly sessionMemory?: readonly string[];
+    readonly relevantMemories?: readonly string[];
+  };
+}
+
+interface AuditDimension {
+  readonly dimension: 'correctness' | 'completeness' | 'scope' | 'risks' | 'alternatives' | 'constraints';
+  readonly finding: string;                 // 1-3 sentence finding
+  readonly severity: 'info' | 'concern' | 'blocker';
+}
+
+interface AuditGoalOutput {
+  readonly summary: string;                 // 1-2 sentence summary of the need
+  readonly audit: readonly AuditDimension[]; // Exactly 6 dimensions
+  readonly proposedGoal: string;            // What success looks like
+  readonly successCriteria: readonly string[]; // Acceptance criteria for final acceptance
+  readonly roughEffort: 'small' | 'medium' | 'large' | 'epic';
+  readonly confidence: 'high' | 'medium' | 'low';
+  /** LLM-rendered one-paragraph rationale tying audit → goal → criteria. */
+  readonly rationale: string;
+}
+```
+
+### 6 audit dimensions (mandatory — LLM must fill all 6)
+
+1. **Correctness**: Is the problem stated correctly? Are we solving the right thing? Common failure: solving the symptom, not the root cause.
+2. **Completeness**: Are all aspects of the need covered? Edge cases? Implicit assumptions that should be explicit?
+3. **Scope**: Is the scope reasonable? Too big (should be split)? Too small (over-engineering for trivial case)?
+4. **Risks**: What could go wrong? Technical risks, dependency risks, schedule risks?
+5. **Alternatives**: Are there better approaches? What did we consider and reject? Why?
+6. **Constraints**: Hard constraints (must use existing API, can't change schema, etc.)? Soft constraints (preference for one approach)?
+
+### Algorithm
+
+```ts
+async function auditGoal(input: AuditGoalInput, llmRunner: LlmRunner): Promise<AuditGoalOutput>;
+```
+
+1. Build a structured prompt: "Audit the following need across 6 dimensions. For each, give a finding and severity. Then propose a goal. Then list success criteria. Then assess rough effort and confidence."
+2. Call `llmRunner` with the prompt (one LLM call, no need for 兜底 in v1).
+3. Parse the structured output into `AuditGoalOutput`.
+4. Validate that all 6 audit dimensions are present; throw if missing.
+
+### One-shot accuracy target
+
+The audit must be **good enough that the human accepts the goal on first review**. Tactics:
+
+- Force all 6 dimensions (no skipping) — surfaces implicit assumptions.
+- Require explicit `severity` per dimension — surfaces blockers early.
+- Require `confidence` on the overall output — honest signal when LLM is unsure.
+- Require `successCriteria` as a list — gives the human something concrete to verify against at final acceptance.
+
+### Where audit + goal lives
+
+Owned by `peaks-solo` (the orchestrator). Invoked immediately after the human expresses the need, BEFORE any PRD / RD / QA work begins. The `peaks-audit` skill (new in this change) documents the audit algorithm and 6 dimensions.
+
+The `peaks-slice-decompose` skill explicitly states it is invoked AFTER audit + goal approval.
+
 ## Skill Layer (LLM-facing operation manual)
 
 In peaks-cli's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.

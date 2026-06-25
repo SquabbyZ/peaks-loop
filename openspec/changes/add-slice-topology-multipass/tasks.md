@@ -73,7 +73,36 @@ The CLI exposes atomic primitives; skills are how the LLM knows when to invoke w
 - [ ] Update `peaks-prd/SKILL.md`: add `references/prd-for-multi-pass.md` (~80 LoC) explaining how to write ACs that yield clean slice boundaries.
 - [ ] Update `peaks-sc/SKILL.md`: add reference link to `peaks-slice-decompose/SKILL.md` as the first step in slice planning.
 
-## 9. Documentation + standards
+## 9. Audit + Goal primitive (10% human / 90% LLM paradigm gate)
+
+The audit + goal step is the bridge between human need expression and autonomous LLM execution. It MUST produce a goal that the human accepts on first review (one-shot accuracy).
+
+### 9.1 Audit types + service
+
+- [ ] Add `src/services/audit/audit-goal-types.ts` with `AuditGoalInput`, `AuditGoalOutput`, `AuditDimension` types.
+- [ ] Add `src/services/audit/audit-goal-service.ts` with `auditGoal(input, llmRunner)` function.
+- [ ] Validation: throw `IncompleteAuditError` if any of the 6 audit dimensions is missing in the LLM output.
+- [ ] Unit tests: all 6 dimensions present, missing-dimension failure, malformed JSON output handling.
+
+### 9.2 New skill: peaks-audit
+
+- [ ] Create `skills/peaks-audit/SKILL.md` (50-80 lines, the entry point).
+- [ ] Document the 3 human touchpoints (need expression, goal approval, final acceptance).
+- [ ] Document the 6 audit dimensions (correctness, completeness, scope, risks, alternatives, constraints) with examples.
+- [ ] Document the one-shot accuracy target and tactics for achieving it.
+- [ ] Skill tests: SKILL.md loads, all referenced files exist, no broken cross-references.
+
+### 9.3 Integration with peaks-solo and peaks-slice-decompose
+
+- [ ] Update `peaks-solo/SKILL.md` Step 0.6 (NEW — between Step 0.5 OpenSpec opt-in and Step 0.7 resume detection):
+  - Invoke `peaks-audit` immediately after human need expression.
+  - Display the audit + proposed goal to the human.
+  - Gate the rest of the workflow on human's explicit goal approval.
+  - Record the approved goal to `.peaks/_runtime/<sid>/audit-goal/<rid>.json` for downstream skills to read.
+- [ ] Update `peaks-slice-decompose/SKILL.md` (in the v1 Skill layer work) to include an explicit precondition note: "This skill is invoked AFTER audit + goal approval. If you have not received an approved goal, do NOT invoke this skill — return to peaks-solo."
+- [ ] Integration test: end-to-end peaks-solo flow with audit + goal approval gates slice-decompose invocation correctly.
+
+## 10. Documentation + standards
 
 - [ ] Update `docs/superpowers/specs/` index (if any) to reference this change.
 - [ ] Update `.peaks/standards/` slice-decompose reference (if any) to document v2 schema.

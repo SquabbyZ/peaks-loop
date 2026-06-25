@@ -13,6 +13,38 @@ The recent 800-line cap refactors (config-service, doctor-service, project-memor
 
 User is the only consumer (`confirmed 2026-06-25`), so a breaking JSON schema change is acceptable as long as old files remain readable via a schema-version router.
 
+## Product Philosophy (10% Human / 90% LLM)
+
+This change is part of peaks-cli's broader shift to a **10% human / 90% LLM** model. The human's role is supervisor, not operator.
+
+### 3 human touchpoints (the 10%)
+
+1. **Need expression** — Human states the problem or need in natural language.
+2. **Goal approval** — After LLM autonomously summarizes + audits + proposes a goal, human does a one-shot acceptance check.
+3. **Final acceptance** — After LLM completes all work autonomously, human reviews and accepts (or requests revision within the LLM's authority).
+
+### LLM's responsibility (the 90%)
+
+- Multi-dimensional audit of the need (correctness, completeness, scope, risks, alternatives, constraints).
+- Goal proposal synthesized from the audit.
+- Slice decomposition (the algorithm in this change).
+- Sub-agent dispatch per the decomposition.
+- RD / QA / Security / Performance work.
+- Verification of acceptance criteria.
+- Iteration within its own authority.
+- Final delivery preparation.
+
+### One-shot accuracy target
+
+When LLM presents the goal at touchpoint #2, the human should be able to accept on first review without iteration. **The audit is the critical gate for this** — a poor audit forces the human to iterate, which defeats the 10/90 model.
+
+### Impact on this change
+
+- The slice-decomposition algorithm is part of the LLM's autonomous execution chain (post goal approval).
+- The `peaks-slice-decompose` skill is invoked by the LLM autonomously, not by the human via CLI.
+- CLI primitives remain as LLM's internal tools; the skill layer is the LLM-facing surface.
+- A new **Audit + Goal primitive** is introduced as the bridge between human need expression and autonomous execution. See design.md §"Audit + Goal primitive".
+
 ## What Changes
 
 - Add `MultiPassOrchestrator` that runs the existing 6-stage algorithm multiple times at different granularities (service → file → optional sub-file), reusing `slice-decompose-service.ts` unmodified as each Pass's inner loop.
@@ -25,6 +57,12 @@ User is the only consumer (`confirmed 2026-06-25`), so a breaking JSON schema ch
 - Add CLI flag `--granularity=service|file|both|auto` to `peaks slice decompose` (default: `both`, which is the v2 multi-pass default).
 - Add tests for each new component plus integration tests for 3 fixture scenarios (chain, diamond, 3-level-deep).
 - Update `peaks slice pick` and `peaks slice plan` to consume v2 schema via `SchemaRouter` (additive change; v1 schema still works).
+- **Audit + Goal primitive** (NEW — part of 10% human / 90% LLM paradigm shift):
+  - Add `AuditGoalInput` / `AuditGoalOutput` types in a new `src/services/audit/audit-goal-types.ts`.
+  - Add `auditGoal(input, llmRunner)` service in `src/services/audit/audit-goal-service.ts` (one LLM call, structured output).
+  - Create new top-level skill `peaks-audit` (SKILL.md + reference for the 6 audit dimensions).
+  - Update `peaks-solo/SKILL.md` to invoke `peaks-audit` immediately after need expression, and gate autonomous execution on goal approval.
+  - Explicitly note in `peaks-slice-decompose/SKILL.md` that this skill is invoked AFTER audit + goal approval.
 
 ## Out of Scope
 
