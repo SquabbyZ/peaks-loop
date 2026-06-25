@@ -7,6 +7,10 @@ description: Source control, sync, and change-control skill for Peaks. Use when 
 
 Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
 
+## Slice planning first step
+
+The first step in slice planning (before commit-boundary derivation below) is to invoke `peaks-slice-decompose` to produce a v2 topology. The decomposition envelope is the input to every later SC step (impact, retention, boundary). See [peaks-slice-decompose/SKILL.md](../peaks-slice-decompose/SKILL.md).
+
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
 The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/change/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.

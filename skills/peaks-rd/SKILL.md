@@ -201,6 +201,8 @@ When project identification or scanning produces reports, matrices, maps, plans,
 
 Before RD work stops, finishes, blocks, or hands off to another role, emit a short resumable capsule: mode, scope, coverage status, validated decisions, current slice, artifact paths, blockers, and next action. Link to scan reports, matrices, plans, and task graphs instead of restating them.
 
+The handoff artifact carries **mandatory YAML frontmatter** (`requestId`, `scope`, `files`, `decisions[]`, `risks[]`, `nextActions[]`, `gateEvidence`, `schemaVersion`) so peaks-qa can mechanically cross-check. See `references/writing-handoff-frontmatter.md` for the field schema and validation.
+
 → see `references/compact-handoff.md`.
 
 ## External references
@@ -266,6 +268,8 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/mock-data-placement.md` | Framework-to-mock-directory mapping + rules. |
 | `references/openspec-cli.md` | OpenSpec CLI recipes. |
 | `references/parallel-review-fanout.md` | 4-way parallel review fan-out. |
+| `references/reading-v2-slice-results.md` | Read peaks-slice-decompose v2 envelope + per-pass dispatch. |
+| `references/writing-handoff-frontmatter.md` | Required frontmatter fields for RD → QA handoff. |
 | `references/rd-context-governance.md` | G7 + G8.6 + G9 RD sub-agent protocol. |
 | `references/rd-gstack-integration.md` | GStack → Peaks mapping + dry-run cadence. |
 | `references/rd-runbook.md` | Default 9-step runbook (steps #0–#8). |
