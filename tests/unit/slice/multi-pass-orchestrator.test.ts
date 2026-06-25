@@ -4,14 +4,17 @@
  * Behavior under test (10 cases from the spec):
  *   1. granularity: 'service'  → single Pass 1 only.
  *   2. granularity: 'file'     → single Pass 2 only (file-only mode).
- *   3. granularity: 'both'     → Pass 1 + Pass 2 in parallel.
+ *   3. granularity: 'both'     → Pass 1 + Pass 2 in parallel; merge fires
+ *      unconditionally when passes.length > 1 (even without llmRunner).
  *   4. granularity: 'auto'     → uses shouldSubdivide per parent.
  *   5. shouldSubdivide returns 'tie-break' → Pass 2 still runs.
  *   6. Cross-pass edges fire when opts.llmRunner is provided.
- *   7. No opts.llmRunner + 'auto' granularity → empty crossPassEdges, no crash.
+ *   7. No opts.llmRunner + 'auto' granularity → merge STILL runs (static
+ *      detection only); llmArbitrations stays empty.
  *   8. resetArbitratorBudget called at the top of each invocation.
  *   9. Output shape conforms to DecompositionResultV2.
- *  (10. Surgical: skipped — relies on next CC's review of git diff.)
+ *  10. PassResult.internalEdges is populated from v1 dependencyDAG.edges.
+ *  (11. Surgical: skipped — relies on next CC's review of git diff.)
  *
  * Mocking strategy:
  *   - decomposeSlices is fully mocked per test to control return values.
@@ -213,9 +216,13 @@ describe('MultiPassOrchestrator.decompose', () => {
     expect(result.passes[1]!.granularity).toBe('file');
     expect(result.passes[2]!.passNumber).toBe(2);
     expect(result.passes[2]!.granularity).toBe('file');
-    // No llmRunner → merge is NOT called.
-    expect(vi.mocked(merge)).not.toHaveBeenCalled();
+    // No llmRunner but static detection is still on, so merge IS called
+    // (W6 T9 fix #1: dropped the `if (opts.llmRunner)` guard). With no static
+    // matches in the mocked fixture the result is still empty crossPassEdges
+    // and empty llmArbitrations, but the orchestrator no longer skips merge.
+    expect(vi.mocked(merge)).toHaveBeenCalledTimes(1);
     expect(result.crossPassEdges).toEqual([]);
+    expect(result.llmArbitrations).toEqual([]);
   });
 
   // -------------------------------------------------------------------------
@@ -318,7 +325,16 @@ describe('MultiPassOrchestrator.decompose', () => {
           arbitratedBy: 'live:abc'
         }
       ],
-      llmCalls: [{ callId: 'live:abc', tokens: { input: 1, output: 1 } }]
+      llmCalls: [
+        {
+          callId: 'live:abc',
+          promptHash: 'a'.repeat(64),
+          input: 'mock prompt',
+          output: '{"depends":true,"reason":"shared"}',
+          confidence: 'medium',
+          tokens: { input: 1, output: 1 }
+        }
+      ]
     });
 
     const llmRunner: LlmRunner = { call: vi.fn() };
@@ -346,9 +362,9 @@ describe('MultiPassOrchestrator.decompose', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 7. No opts.llmRunner + 'auto' granularity → empty crossPassEdges, no crash
+  // 7. No opts.llmRunner + 'auto' granularity → merge IS called (static-only)
   // -------------------------------------------------------------------------
-  it("no llmRunner + auto granularity yields empty crossPassEdges and llmArbitrations without crashing", async () => {
+  it("no llmRunner + auto granularity: static-only crossPassEdges populated, llmArbitrations empty", async () => {
     vi.mocked(decomposeSlices)
       .mockResolvedValueOnce(
         makeDecompositionResult([
@@ -365,12 +381,40 @@ describe('MultiPassOrchestrator.decompose', () => {
         ])
       );
 
+    // Mock merger to return a single statically-detected edge (no llmRunner
+    // means no llmCalls ever surface, but crossPassEdges can be non-empty
+    // when static detection finds matches).
+    vi.mocked(merge).mockResolvedValue({
+      edges: [
+        {
+          fromPass: 1,
+          toPass: 2,
+          fromSliceId: 'S1',
+          toSliceId: 'S1.1',
+          kind: 'type-shares',
+          confidence: 'structural',
+          evidence: 'import type { X } from "..."',
+          arbitratedBy: null
+        }
+      ],
+      llmCalls: []
+    });
+
     const result = await decompose('rid-7', '# prd', '/tmp', {
       granularity: 'auto'
     });
 
-    expect(vi.mocked(merge)).not.toHaveBeenCalled();
-    expect(result.crossPassEdges).toEqual([]);
+    // W6 T9 fix #1: merge IS called even without llmRunner.
+    expect(vi.mocked(merge)).toHaveBeenCalledTimes(1);
+    const mergeCall = vi.mocked(merge).mock.calls[0]!;
+    expect(mergeCall[0]).toHaveLength(2);
+    // No llmRunner in the merger opts (fix #1: conditional spread).
+    expect(mergeCall[1]).toMatchObject({ projectRoot: '/tmp' });
+    expect((mergeCall[1] as { llmRunner?: unknown }).llmRunner).toBeUndefined();
+
+    // Static edge is propagated; llmArbitrations stays empty.
+    expect(result.crossPassEdges).toHaveLength(1);
+    expect(result.crossPassEdges[0]!.kind).toBe('type-shares');
     expect(result.llmArbitrations).toEqual([]);
     expect(result.partial).toBe(false);
   });
@@ -417,5 +461,63 @@ describe('MultiPassOrchestrator.decompose', () => {
     expect(result.llmArbitrations).toBeDefined();
     expect(result.codegraph).toBeDefined();
     expect(result.understandAnything).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // 10. PassResult.internalEdges is populated from v1 dependencyDAG.edges
+  // -------------------------------------------------------------------------
+  it('populates internalEdges from v1 dependencyDAG.edges', async () => {
+    const edgesV1 = [
+      {
+        from: 'file:src/a.ts',
+        to: 'file:src/b.ts',
+        kind: 'imports' as const,
+        weight: 10,
+        evidence: "import { b } from './b'",
+        isSemantic: false,
+        confidence: 'structural' as const
+      },
+      {
+        from: 'file:src/a.ts',
+        to: 'file:src/c.ts',
+        kind: 'calls' as const,
+        weight: 8,
+        evidence: 'a calls c()',
+        isSemantic: false,
+        confidence: 'structural' as const
+      },
+      {
+        from: 'file:src/c.ts',
+        to: 'file:src/d.ts',
+        kind: 'flow_step' as const,
+        weight: 0.05,
+        evidence: 'flow step',
+        isSemantic: true,
+        confidence: 'semantic' as const
+      }
+    ];
+    vi.mocked(decomposeSlices).mockResolvedValue({
+      ...makeDecompositionResult([
+        makeWu({ id: 'S1', files: ['src/a.ts'] })
+      ]),
+      dependencyDAG: { edges: edgesV1 }
+    });
+
+    const result = await decompose('rid-10', '# prd', '/tmp', {
+      granularity: 'service'
+    });
+
+    expect(result.passes[0]!.internalEdges).toHaveLength(3);
+    expect(result.passes[0]!.internalEdges[0]).toMatchObject({
+      from: 'file:src/a.ts',
+      to: 'file:src/b.ts',
+      kind: 'imports',
+      weight: 10,
+      evidence: "import { b } from './b'",
+      confidence: 'structural'
+    });
+    // Semantic edge maps to confidence: 'semantic'.
+    expect(result.passes[0]!.internalEdges[2]!.confidence).toBe('semantic');
+    expect(result.passes[0]!.internalEdges[2]!.kind).toBe('flow_step');
   });
 });

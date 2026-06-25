@@ -29,10 +29,12 @@
  *     2. Filter Pass 2 `result.workUnits` post-hoc so each Pass 2 result
  *        only contains files inside the parent slice's file scope.
  *
- * Cross-pass edges are produced by `merge` ONLY when `opts.llmRunner` is
- * provided. The merger handles both static detection (type-shares, fixture-
- * shares, import-re-export) and the LLM fallback path. Without an llmRunner
- * the orchestrator returns empty `crossPassEdges` and `llmArbitrations`.
+ * Cross-pass edges are produced by `merge` whenever there are ≥2 passes.
+ * The merger handles both static detection (type-shares, fixture-shares,
+ * import-re-export — runs UNCONDITIONALLY) and the LLM fallback path (only
+ * when `opts.llmRunner` is provided). Without an llmRunner the orchestrator
+ * still gets statically-detected cross-pass edges; only `llmArbitrations`
+ * stays empty.
  *
  * @see ./slice-decompose-service.ts  — the 6-stage algorithm (reused as-is)
  * @see ./granularity-decider.ts      — subdivide decision
@@ -45,6 +47,7 @@ import type { LlmRunner } from '../audit/audit-goal-service.js';
 import type {
   CodegraphEnvelope,
   DecomposeOptions,
+  DependencyEdge,
   UnderstandAnythingEnvelope,
   WorkUnit
 } from './slice-decompose-types.js';
@@ -55,11 +58,13 @@ import { merge } from './cross-pass-edge-merger.js';
 import type {
   CrossPassEdge,
   DecompositionResultV2,
+  InternalEdge,
   LlmArbitration,
   PassResult,
   SliceGranularity,
   SliceV2
 } from './slice-topology-types.js';
+import type { LlmCallTrace } from './cross-pass-edge-merger.js';
 
 export type Granularity = 'service' | 'file' | 'both' | 'auto';
 
@@ -77,7 +82,9 @@ export interface MultiPassOptions extends DecomposeOptions {
  * 2. Run Pass 1 (service-level) if granularity includes 'service'.
  * 3. Run Pass 2 (file-level) — for every qualifying parent in 'both'/'auto',
  *    or once on the full scope in 'file'-only mode.
- * 4. Compute cross-pass edges via `merge` if `opts.llmRunner` is provided.
+ * 4. Compute cross-pass edges via `merge` whenever there are ≥2 passes
+ *    (static detection runs unconditionally; LLM fallback only when an
+ *    llmRunner is supplied).
  * 5. Return a `DecompositionResultV2` with `partial: false`.
  */
 export async function decompose(
@@ -108,7 +115,7 @@ export async function decompose(
       slices: result1.workUnits.map((wu) =>
         workUnitToSliceV2(wu, 'service')
       ),
-      internalEdges: []
+      internalEdges: v1EdgesToV2(result1.dependencyDAG.edges)
     });
     codegraph = result1.codegraph;
     understandAnything = result1.understandAnything;
@@ -144,7 +151,7 @@ export async function decompose(
             passNumber: 2,
             granularity: 'file',
             slices: pass2Slices,
-            internalEdges: []
+            internalEdges: v1EdgesToV2(result.dependencyDAG.edges)
           };
           return pass2;
         })
@@ -161,7 +168,7 @@ export async function decompose(
         passNumber: 2,
         granularity: 'file',
         slices,
-        internalEdges: []
+        internalEdges: v1EdgesToV2(result.dependencyDAG.edges)
       });
       codegraph = result.codegraph;
       understandAnything = result.understandAnything;
@@ -170,13 +177,13 @@ export async function decompose(
 
   let crossPassEdges: readonly CrossPassEdge[] = [];
   let llmArbitrations: readonly LlmArbitration[] = [];
-  if (opts.llmRunner) {
+  if (passes.length > 1) {
     const mergeResult = await merge(passes, {
       projectRoot,
-      llmRunner: opts.llmRunner
+      ...(opts.llmRunner ? { llmRunner: opts.llmRunner } : {})
     });
     crossPassEdges = mergeResult.edges;
-    llmArbitrations = llmCallsToArbitrations(mergeResult.llmCalls);
+    llmArbitrations = mergeResult.llmCalls.map(toLlmArbitration);
   }
 
   return {
@@ -233,26 +240,39 @@ function filterWorkUnitsByScope(
 }
 
 /**
- * Map `MergeResult.llmCalls` (a thin trace) to the v2 `LlmArbitration[]` shape.
- * The merger doesn't surface `promptHash`/`input`/`output`/`confidence` — we
- * fill them with safe defaults (`''` strings, `'low'` confidence) so the v2
- * envelope is fully populated. Tokens coalesce a possible `null` to a zeroed
- * pair to satisfy the non-nullable `LlmArbitration.tokens` contract.
+ * Map a v1 `DependencyEdge[]` (from the 6-stage algorithm's `dependencyDAG`)
+ * to v2 `InternalEdge[]`. The two kinds unions are identical
+ * (`'imports' | 'calls' | 'depends_on' | 'contains_flow' | 'flow_step'`), so
+ * `kind` is a direct pass-through. `confidence` collapses `isSemantic`
+ * (`true` → `'semantic'`, `false` → `'structural'`) to match the v2
+ * `EdgeConfidence` union.
  */
-function llmCallsToArbitrations(
-  llmCalls: readonly {
-    readonly callId: string;
-    readonly tokens: { readonly input: number; readonly output: number } | null;
-  }[]
-): LlmArbitration[] {
-  return llmCalls.map((c) => ({
-    callId: c.callId,
-    promptHash: '',
-    input: '',
-    output: '',
-    confidence: 'low' as const,
-    tokens: c.tokens ?? { input: 0, output: 0 }
+function v1EdgesToV2(v1Edges: readonly DependencyEdge[]): InternalEdge[] {
+  return v1Edges.map((e) => ({
+    from: e.from,
+    to: e.to,
+    kind: e.kind,
+    weight: e.weight,
+    evidence: e.evidence,
+    confidence: e.isSemantic ? 'semantic' : 'structural'
   }));
+}
+
+/**
+ * Pure shape pass-through from `MergeResult.llmCalls` to v2 `LlmArbitration`.
+ * The merger now populates `promptHash`/`input`/`output`/`confidence` itself;
+ * we just coalesce a possible `null` `tokens` to a zeroed pair to satisfy
+ * the non-nullable `LlmArbitration.tokens` contract.
+ */
+function toLlmArbitration(c: LlmCallTrace): LlmArbitration {
+  return {
+    callId: c.callId,
+    promptHash: c.promptHash,
+    input: c.input,
+    output: c.output,
+    confidence: c.confidence,
+    tokens: c.tokens ?? { input: 0, output: 0 }
+  };
 }
 
 function zeroCodegraph(): CodegraphEnvelope {

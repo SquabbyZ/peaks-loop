@@ -24,10 +24,12 @@
  */
 
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 import type {
   CrossPassEdge,
+  LlmConfidence,
   PassNumber,
   PassResult,
 } from './slice-topology-types.js';
@@ -40,10 +42,7 @@ import type { LlmRunner } from '../audit/audit-goal-service.js';
 
 export interface MergeResult {
   readonly edges: readonly CrossPassEdge[];
-  readonly llmCalls: readonly {
-    readonly callId: string;
-    readonly tokens: { readonly input: number; readonly output: number } | null;
-  }[];
+  readonly llmCalls: readonly LlmCallTrace[];
 }
 
 export interface MergeOptions {
@@ -57,9 +56,17 @@ export interface MergeOptions {
 // Internal types
 // ---------------------------------------------------------------------------
 
-/** Subset of `LlmArbitration` we track here — the edge stores only `callId`. */
-interface LlmCallTrace {
+/**
+ * Full LLM-call trace captured by `runLlmFallback` for every arbitrator call.
+ * Mirrors v2 `LlmArbitration` minus the non-null `tokens` contract; the
+ * orchestrator coalesces a possible `null` `tokens` to a zeroed pair.
+ */
+export interface LlmCallTrace {
   readonly callId: string;
+  readonly promptHash: string;
+  readonly input: string;
+  readonly output: string;
+  readonly confidence: LlmConfidence;
   readonly tokens: { readonly input: number; readonly output: number } | null;
 }
 
@@ -238,6 +245,7 @@ async function runLlmFallback(
     `Does upper slice "${upperSliceId}" depend on lower slice "${lowerSlice.id}"? ` +
     `Reply with JSON of the shape {"depends": boolean, "reason": string}.`;
 
+  const promptHash = createHash('sha256').update(prompt).digest('hex');
   const result = await arbitrate(prompt, {
     cacheDir,
     maxCallsPerInvocation,
@@ -245,7 +253,20 @@ async function runLlmFallback(
     llmRunner,
   });
 
-  llmCalls.push({ callId: result.callId, tokens: result.tokens });
+  const isFailurePath =
+    result.callId === 'budget-exhausted' ||
+    result.callId === 'timeout' ||
+    result.callId === 'error';
+  const confidence: LlmConfidence = isFailurePath ? 'low' : 'medium';
+
+  llmCalls.push({
+    callId: result.callId,
+    promptHash,
+    input: prompt,
+    output: result.output ?? '',
+    confidence,
+    tokens: result.tokens
+  });
 
   if (result.output === null) {
     return;

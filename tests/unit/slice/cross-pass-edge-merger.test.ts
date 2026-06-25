@@ -35,6 +35,7 @@ import {
   vi,
 } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -367,6 +368,173 @@ describe('CrossPassEdgeMerger.merge', () => {
     const edge = result.edges[0]!;
     expect(edge.fromPass).toBe(1);
     expect(edge.toPass).toBe(2);
+  });
+
+  // -------------------------------------------------------------------------
+  // 10. LlmCallTrace enrichment — live LLM success (W6 T9 fix #3)
+  // -------------------------------------------------------------------------
+  it('populates promptHash/input/output/confidence on llmCalls when LLM fallback fires', async () => {
+    const unrelatedFile = join(lowerDir, 'unrelated-enrich.ts');
+    writeFile(unrelatedFile, 'export const lonely = 1;\n');
+    const emptyUpperFile = join(upperDir, 'empty-enrich.ts');
+    writeFile(emptyUpperFile, 'export const nothing = 0;\n');
+
+    const upper = makePass(1, [
+      makeSlice({ id: 'S1', files: [emptyUpperFile] })
+    ]);
+    const lower = makePass(2, [
+      makeSlice({ id: 'S2', files: [unrelatedFile] })
+    ]);
+
+    const llmRunner: LlmRunner = {
+      call: vi.fn(async () => ({
+        output: '{"depends": true, "reason": "shared schema"}',
+        tokens: { input: 11, output: 7 }
+      }))
+    };
+
+    const cacheDir = makeTempDir('llm-enrich-cache-');
+
+    const result = await merge([upper, lower], {
+      projectRoot: projectDir,
+      cacheDir,
+      llmRunner
+    });
+
+    try {
+      expect(result.llmCalls).toHaveLength(1);
+      const trace = result.llmCalls[0]!;
+      expect(trace.callId).toMatch(/^live:/);
+      // promptHash: 64-char sha256 hex of the prompt string.
+      expect(trace.promptHash).toMatch(/^[0-9a-f]{64}$/);
+      // input: the actual prompt text sent to arbitrate.
+      expect(trace.input).toContain('"S1"');
+      expect(trace.input).toContain('"S2"');
+      // output: the LLM response.
+      expect(trace.output).toBe('{"depends": true, "reason": "shared schema"}');
+      // confidence: live success → 'medium'.
+      expect(trace.confidence).toBe('medium');
+      // tokens: matches the runner.
+      expect(trace.tokens).toEqual({ input: 11, output: 7 });
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. LlmCallTrace enrichment — cache hit (medium confidence, promptHash matches)
+  // -------------------------------------------------------------------------
+  it('marks cache-hit llmCalls with confidence=medium and matches the live promptHash', async () => {
+    const unrelatedFile = join(lowerDir, 'unrelated-cache.ts');
+    writeFile(unrelatedFile, 'export const lonely = 1;\n');
+    const emptyUpperFile = join(upperDir, 'empty-cache.ts');
+    writeFile(emptyUpperFile, 'export const nothing = 0;\n');
+
+    const upper = makePass(1, [
+      makeSlice({ id: 'S1', files: [emptyUpperFile] })
+    ]);
+    const lower = makePass(2, [
+      makeSlice({ id: 'S2', files: [unrelatedFile] })
+    ]);
+
+    const llmRunner: LlmRunner = {
+      call: vi.fn(async () => ({
+        output: '{"depends": true, "reason": "cached"}',
+        tokens: { input: 4, output: 3 }
+      }))
+    };
+
+    const cacheDir = makeTempDir('llm-cachehit-');
+
+    // First call: warms the cache via the live runner.
+    const first = await merge([upper, lower], {
+      projectRoot: projectDir,
+      cacheDir,
+      llmRunner
+    });
+    expect(first.llmCalls).toHaveLength(1);
+    expect(first.llmCalls[0]!.callId).toMatch(/^live:/);
+    const warmPromptHash = first.llmCalls[0]!.promptHash;
+
+    // Second call: cache hit. Build a fresh merge that reuses the same
+    // upper/lower ids and same cache dir so the prompt is identical.
+    const second = await merge([upper, lower], {
+      projectRoot: projectDir,
+      cacheDir,
+      llmRunner
+    });
+
+    try {
+      expect(second.llmCalls).toHaveLength(1);
+      const cacheTrace = second.llmCalls[0]!;
+      expect(cacheTrace.callId.startsWith('cache:')).toBe(true);
+      // promptHash must match the warm run's hash exactly.
+      expect(cacheTrace.promptHash).toBe(warmPromptHash);
+      // Recompute independently to double-check the merger.
+      const expectedHash = createHash('sha256')
+        .update(cacheTrace.input)
+        .digest('hex');
+      expect(cacheTrace.promptHash).toBe(expectedHash);
+      expect(cacheTrace.confidence).toBe('medium');
+      expect(cacheTrace.output).toBe('{"depends": true, "reason": "cached"}');
+      // Cache hits carry no tokens (per llm-arbitrator.ts).
+      expect(cacheTrace.tokens).toBeNull();
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 12. LlmCallTrace enrichment — failure path (low confidence, empty output)
+  //
+  // The merger's outer budget gate (`llmCalls.length < maxLlm`) is aligned
+  // with the arbitrator's inner budget, so a 'budget-exhausted' callId is
+  // hard to surface via the merger's public API. The merger does, however,
+  // catch runner errors and surface them as `callId: 'error'` (low
+  // confidence, empty output). That exercises the same failure-path branch
+  // in `runLlmFallback` as 'budget-exhausted' / 'timeout' would.
+  // -------------------------------------------------------------------------
+  it("marks failure-path llmCalls with confidence=low and empty output", async () => {
+    const unrelatedFile = join(lowerDir, 'unrelated-fail.ts');
+    writeFile(unrelatedFile, 'export const lonely = 1;\n');
+    const emptyUpperFile = join(upperDir, 'empty-fail.ts');
+    writeFile(emptyUpperFile, 'export const nothing = 0;\n');
+
+    const upper = makePass(1, [
+      makeSlice({ id: 'S1', files: [emptyUpperFile] })
+    ]);
+    const lower = makePass(2, [
+      makeSlice({ id: 'S2', files: [unrelatedFile] })
+    ]);
+
+    const llmRunner: LlmRunner = {
+      call: vi.fn(async () => {
+        throw new Error('upstream 503');
+      })
+    };
+
+    const cacheDir = makeTempDir('llm-fail-');
+
+    const result = await merge([upper, lower], {
+      projectRoot: projectDir,
+      cacheDir,
+      llmRunner
+    });
+
+    try {
+      expect(result.llmCalls).toHaveLength(1);
+      const trace = result.llmCalls[0]!;
+      expect(trace.callId).toBe('error');
+      expect(trace.confidence).toBe('low');
+      expect(trace.output).toBe('');
+      expect(trace.tokens).toBeNull();
+      // promptHash and input are still populated even on failure.
+      expect(trace.promptHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(trace.input).toContain('"S1"');
+      expect(trace.input).toContain('"S2"');
+    } finally {
+      rmSync(cacheDir, { recursive: true, force: true });
+    }
   });
 });
 
