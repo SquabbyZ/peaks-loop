@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-24T05:59:00.491Z
+> Last updated: 2026-06-25T17:17:58.364Z
 
 ## Project: peaks-cli
 
@@ -47,10 +47,12 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (20 sessions, showing last 15)
+## Timeline (22 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-06-25 | `2026-06-25-session-139b84` | Untitled | > **Released**: 2026-06-26 |
+| 2026-06-25 | `2026-06-25-session-fe94e7` | Untitled | **Author:** peaks-solo (orchestrator) | **Session:** `2026-06-25-sessi |
 | 2026-06-24 | `2026-06-24-session-514c27` | Untitled | 四项变更合并为一个 refactor slice。共同目标：在 **wall-time 持平**、**token 总量持平**（允许 -5% |
 | 2026-06-23 | `2026-06-23-session-dc4cbc` | Untitled | peaks-solo |
 | 2026-06-23 | `2026-06-23-session-8d14dd` | Untitled | peaks-solo |
@@ -64,7 +66,5 @@
 | 2026-06-13 | `2026-06-13-session-2ecd34` | RD: 修 2.0.3 hook node -e 包装 bugfix | > RD-side draft of QA acceptance cases. The peaks-qa skill will run |
 | 2026-06-12 | `2026-06-12-session-dbc275` | Untitled | **in-scope files (RD may modify):** |
 | 2026-06-11 | `2026-06-11-session-35ee92` | Untitled | > peaks-qa performance review (Gate A4). |
-| 2026-06-11 | `2026-06-11-session-edbe91` | Untitled | | # | Bucket | Affected files (est. tests) | Root cause | |
-| 2026-06-11 | `2026-06-11-session-f0312d` | Slice #4 L2.1 P0 red-lines + audit 框架 | 1. **Solo-code-ban** — pre-implementation gate that refuses `git commi |
 
 <!-- peaks-managed:session-history-end -->
