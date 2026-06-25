@@ -57,7 +57,7 @@ The 10% human / 90% LLM model requires a structured **audit + goal** step betwee
 | Goal approval | Human | One-shot acceptance check |
 | Slice decomposition | LLM (autonomous) | This change's algorithm |
 | RD / QA / verify | LLM (autonomous) | Implementation and verification |
-| Final acceptance | Human | Review final delivery |
+| Final business review | Human | 4-dim business outcome review (see §"Final Review Primitive") |
 
 Audit + goal is the **last gate where the human's understanding of the need is canonicalized**. After goal approval, all subsequent work is the LLM's responsibility.
 
@@ -125,6 +125,104 @@ The audit must be **good enough that the human accepts the goal on first review*
 Owned by `peaks-solo` (the orchestrator). Invoked immediately after the human expresses the need, BEFORE any PRD / RD / QA work begins. The `peaks-audit` skill (new in this change) documents the audit algorithm and 6 dimensions.
 
 The `peaks-slice-decompose` skill explicitly states it is invoked AFTER audit + goal approval.
+
+## Final Review Primitive (4-dim business review gate)
+
+The 3rd human touchpoint is NOT an approve/reject button — it is a **structured 4-dim business review**. The LLM prepares evidence for each dimension; the human does the business judgment.
+
+### Why this is a primitive (not just a CLI flag)
+
+The 4-dim review has:
+- Structured evidence requirements per dimension
+- LLM-side preparation that must happen before the human touches it
+- A specific output shape that downstream audit / learning can consume
+- A skill that documents HOW to prepare evidence and WHAT to look for
+
+This deserves its own primitive, parallel to `Audit + Goal`.
+
+### Data Model
+
+```ts
+interface DimensionEvidence {
+  readonly dimension: 'functional-completeness' | 'problem-resolution' | 'no-new-bugs' | 'existing-functionality-intact';
+  readonly verdict: 'pass' | 'fail' | 'inconclusive';
+  readonly summary: string;                  // 1-2 sentence finding
+  readonly evidence: readonly EvidenceItem[];
+  readonly confidence: 'high' | 'medium' | 'low';
+}
+
+interface EvidenceItem {
+  readonly kind: 'test-result' | 'test-coverage' | 'manual-spot-check' | 'pre-post-diff' | 'regression-suite' | 'ac-mapping';
+  readonly description: string;
+  readonly artifact?: string;                // path to file or test output
+  readonly link?: string;                    // URL or commit hash
+}
+
+interface FinalReviewOutput {
+  readonly rid: string;
+  readonly generatedAt: string;              // ISO-8601
+  readonly dimensions: readonly DimensionEvidence[]; // Exactly 4 dimensions
+  /** LLM-rendered summary: "All 4 dimensions pass / N fail / M inconclusive" */
+  readonly overallSummary: string;
+  /** True iff all 4 dimensions have verdict === 'pass'. */
+  readonly allPass: boolean;
+  /** If !allPass, list of dimension names that need human attention. */
+  readonly needsAttention: readonly string[];
+}
+```
+
+### 4 review dimensions (mandatory — LLM must produce all 4)
+
+1. **Functional completeness** (`functional-completeness`): Does the feature work? Map each acceptance criterion from the approved goal to a passing test result. If any AC lacks a passing test, this dimension fails.
+2. **Problem resolution** (`problem-resolution`): Was the original problem fixed? Provide a specific test or demonstration that directly exercises the original problem case. Generic "tests pass" is insufficient — must point at the original need.
+3. **No new bugs introduced** (`no-new-bugs`): Did the work introduce regressions? Run the pre-existing regression test suite and report results. Include manual spot-check evidence for high-risk areas (e.g., common user flows).
+4. **Existing functionality intact** (`existing-functionality-intact`): Did the work preserve existing behavior? Provide a pre/post baseline comparison (e.g., git diff of test outputs, behavior diff of CLI commands).
+
+### Algorithm
+
+```ts
+async function prepareFinalReview(rid: string, llmRunner: LlmRunner): Promise<FinalReviewOutput>;
+```
+
+1. Read the approved goal from `.peaks/_runtime/<sid>/audit-goal/<rid>.json` (set by Audit + Goal approval).
+2. For each of the 4 dimensions, gather evidence:
+   - Functional completeness: map goal.successCriteria → test results
+   - Problem resolution: find or write a targeted test for the original problem
+   - No new bugs: run regression suite, count pass/fail
+   - Existing functionality: pre/post diff of relevant commands / outputs
+3. Build `DimensionEvidence[]` (one per dimension).
+4. Compute `allPass` and `needsAttention`.
+5. Write to `.peaks/_runtime/<sid>/final-review/<rid>.json`.
+
+### Human's role at touchpoint #3
+
+The human reads the `FinalReviewOutput` and judges:
+- Are the verdicts correct?
+- Is the evidence sufficient?
+- Are there qualitative concerns the LLM didn't capture?
+
+The human can:
+- Accept all (final acceptance).
+- Mark specific dimensions as failed with feedback (LLM iterates).
+- Add a qualitative concern that becomes a new acceptance criterion for the next iteration.
+
+### Where Final Review lives
+
+Owned by `peaks-solo` (orchestrator). Invoked after LLM completes all autonomous work (RD, QA, verification). The `peaks-final-review` skill (NEW in v1) documents the 4 dimensions and how to interpret evidence.
+
+### Critical distinction: business review vs code review
+
+| Concern | Owner |
+|---|---|
+| Code quality (CR) | LLM (RD's CR sub-agent) |
+| Security (code-level) | LLM (Security sub-agent) |
+| Performance (benchmarks) | LLM (Perf sub-agent) |
+| Functional completeness | LLM prepares evidence, human judges |
+| Problem resolution | LLM prepares evidence, human judges |
+| No new bugs | LLM runs regression suite, human judges |
+| Existing functionality intact | LLM provides diff, human judges |
+
+The 90% LLM does code-level reviews. The 10% human does business-outcome reviews. Different layers.
 
 ## Skill Layer (LLM-facing operation manual)
 

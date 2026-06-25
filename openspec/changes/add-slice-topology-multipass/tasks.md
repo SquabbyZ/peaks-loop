@@ -102,7 +102,38 @@ The audit + goal step is the bridge between human need expression and autonomous
 - [ ] Update `peaks-slice-decompose/SKILL.md` (in the v1 Skill layer work) to include an explicit precondition note: "This skill is invoked AFTER audit + goal approval. If you have not received an approved goal, do NOT invoke this skill — return to peaks-solo."
 - [ ] Integration test: end-to-end peaks-solo flow with audit + goal approval gates slice-decompose invocation correctly.
 
-## 10. Documentation + standards
+## 10. Final Review primitive (4-dim business review)
+
+Touchpoint #3 is NOT approve/reject — it is a structured 4-dim business review. LLM prepares evidence, human judges.
+
+### 10.1 Final Review types + service
+
+- [ ] Add `src/services/final-review/final-review-types.ts` with `DimensionEvidence`, `EvidenceItem`, `FinalReviewOutput` types.
+- [ ] Add `src/services/final-review/final-review-service.ts` with `prepareFinalReview(rid, llmRunner)` function.
+- [ ] Validation: throw `IncompleteFinalReviewError` if any of the 4 dimensions is missing.
+- [ ] Read approved goal from `.peaks/_runtime/<sid>/audit-goal/<rid>.json` to map successCriteria → functional completeness.
+- [ ] Write `FinalReviewOutput` to `.peaks/_runtime/<sid>/final-review/<rid>.json`.
+- [ ] Unit tests: all 4 dimensions present, missing-dimension failure, all-pass verdict, mixed-pass verdict.
+
+### 10.2 New skill: peaks-final-review
+
+- [ ] Create `skills/peaks-final-review/SKILL.md` (50-80 lines, the entry point).
+- [ ] Document the 4 dimensions with examples of pass/fail evidence per dimension.
+- [ ] Document the human's role at touchpoint #3 (judgment on evidence, not on code).
+- [ ] Document the distinction: code review = LLM; business review = human.
+- [ ] Skill tests: SKILL.md loads, all referenced files exist, no broken cross-references.
+
+### 10.3 Integration with peaks-solo
+
+- [ ] Update `peaks-solo/SKILL.md` end-of-workflow Step (NEW):
+  - After LLM signals all autonomous work complete (RD done, QA done, security done, perf done), invoke `peaks-final-review`.
+  - Display the 4-dim evidence summary to the human.
+  - Wait for human judgment (accept all / mark specific dims failed with feedback / add qualitative concern).
+  - If accept all → final delivery.
+  - If any dimension failed → loop back to LLM with feedback (stays within LLM's 90% authority).
+- [ ] Integration test: peaks-solo flow with Final Review correctly accepts or loops back based on human input.
+
+## 11. Documentation + standards
 
 - [ ] Update `docs/superpowers/specs/` index (if any) to reference this change.
 - [ ] Update `.peaks/standards/` slice-decompose reference (if any) to document v2 schema.

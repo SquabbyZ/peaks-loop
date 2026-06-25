@@ -21,7 +21,15 @@ This change is part of peaks-cli's broader shift to a **10% human / 90% LLM** mo
 
 1. **Need expression** — Human states the problem or need in natural language.
 2. **Goal approval** — After LLM autonomously summarizes + audits + proposes a goal, human does a one-shot acceptance check.
-3. **Final acceptance** — After LLM completes all work autonomously, human reviews and accepts (or requests revision within the LLM's authority).
+3. **Final business review** — After LLM completes all work autonomously, human reviews **business outcomes** (not code) across 4 structured dimensions:
+   - **Functional completeness** — Does the feature work as intended? All acceptance criteria met?
+   - **Problem resolution** — Was the original problem actually fixed? (Specific to the need, not generic.)
+   - **No new bugs introduced** — Did the work break anything that wasn't broken before? (Regression check.)
+   - **Existing functionality intact** — Did the work preserve existing behavior? (Pre/post baseline comparison.)
+   
+   The LLM prepares structured evidence for each dimension; the human does the business judgment and either accepts or sends back with feedback.
+
+**Critical**: touchpoint #3 is **business-outcome review**, NOT code review. Code review (CR / Security / Perf) is the LLM's responsibility (one of the 90%). The human reviews outcomes, not code.
 
 ### LLM's responsibility (the 90%)
 
