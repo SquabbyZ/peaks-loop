@@ -4,6 +4,21 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
+const mockedRunDoctor = vi.hoisted(() => vi.fn().mockResolvedValue({
+  checks: [
+    {
+      id: 'cli-program-test-stub',
+      ok: true,
+      message: 'synthetic doctor report (cli-program.core test hermeticity)'
+    }
+  ],
+  summary: { ok: true, passed: 1, failed: 0 }
+}));
+
+vi.mock('../../src/services/doctor/doctor-service.js', () => ({
+  runDoctor: mockedRunDoctor
+}));
+
 describe('createProgram', () => {
 
   beforeEach(() => {
