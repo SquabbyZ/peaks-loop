@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peaks-cli.dev/schemas/decomposition-v2.json",
+  "title": "Peaks Decomposition Result v2 (multi-pass)",
+  "description": "v2 multi-pass slice decomposition output. Emitted by `peaks-slice-decompose` and the new `MultiPassOrchestrator`. Discriminated by `schemaVersion: 'v2'`. v1 files (no schemaVersion) remain readable via SchemaRouter.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "rid",
+    "generatedAt",
+    "passes",
+    "crossPassEdges",
+    "llmArbitrations",
+    "codegraph",
+    "understandAnything",
+    "partial"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "v2"
+    },
+    "rid": {
+      "type": "string",
+      "description": "Request id; e.g. \"008-2026-06-25\"."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC; e.g. \"2026-06-25T12:00:00.000Z\"."
+    },
+    "passes": {
+      "type": "array",
+      "description": "One entry per decomposition pass (Pass 1 = service, Pass 2 = file, Pass 3 = sub-file reserved).",
+      "items": { "$ref": "#/$defs/PassResult" }
+    },
+    "crossPassEdges": {
+      "type": "array",
+      "description": "Edges connecting slices in different passes. Static (type-shares, fixture-shares, import-re-export) and LLM-arbitrated.",
+      "items": { "$ref": "#/$defs/CrossPassEdge" }
+    },
+    "llmArbitrations": {
+      "type": "array",
+      "description": "Trace of every LLM call made during decomposition. Capped at 2 calls per peaks slice decompose invocation per the global LLM 兜底 budget.",
+      "items": { "$ref": "#/$defs/LlmArbitration" }
+    },
+    "codegraph": { "$ref": "#/$defs/CodegraphEnvelope" },
+    "understandAnything": { "$ref": "#/$defs/UnderstandAnythingEnvelope" },
+    "partial": {
+      "type": "boolean",
+      "description": "True iff any pass failed to complete and the result is a partial decomposition."
+    }
+  },
+  "$defs": {
+    "PassConfig": {
+      "type": "object",
+      "description": "Configuration for a single decomposition pass. Currently informational; the orchestrator picks pass configs.",
+      "required": ["passNumber", "granularity"],
+      "properties": {
+        "passNumber": { "type": "integer", "enum": [1, 2, 3] },
+        "granularity": { "type": "string", "enum": ["service", "file", "sub-file"] },
+        "scopeFilter": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional list of files (or semantic anchors) to scope this pass to."
+        }
+      }
+    },
+    "SliceV2": {
+      "type": "object",
+      "description": "A single v2 slice, scoped to one pass. Pass 2/3 slices have a non-null parentSliceId; Pass 1 slices have parentSliceId: null.",
+      "required": ["id", "label", "granularity", "files", "loc", "parentSliceId", "semanticAnchor"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable id within this pass (e.g. \"S1\" for Pass 1, \"S1.3\" for Pass 2 child of S1)."
+        },
+        "label": { "type": "string" },
+        "granularity": { "type": "string", "enum": ["service", "file", "sub-file"] },
+        "files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "loc": { "type": "integer", "minimum": 0 },
+        "parentSliceId": {
+          "type": ["string", "null"],
+          "description": "Parent slice id from the previous pass, or null for Pass 1."
+        },
+        "semanticAnchor": {
+          "type": "string",
+          "description": "Domain anchor; \"domain:<name>\" if understand-anything indexed, else \"file:<path>\"."
+        }
+      }
+    },
+    "InternalEdge": {
+      "type": "object",
+      "description": "Edge connecting two slices within the same pass.",
+      "required": ["from", "to", "kind", "weight", "evidence", "confidence"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string", "enum": ["imports", "calls", "depends_on", "contains_flow", "flow_step"] },
+        "weight": { "type": "number", "description": "Edge weight for downstream min-cut / dispatch-ordering heuristics." },
+        "evidence": { "type": "string" },
+        "confidence": { "type": "string", "enum": ["structural", "semantic"] }
+      }
+    },
+    "CrossPassEdge": {
+      "type": "object",
+      "description": "Edge connecting a slice in one pass to a slice in another pass. Static (type-shares, fixture-shares, import-re-export) or LLM-arbitrated.",
+      "required": ["fromPass", "toPass", "fromSliceId", "toSliceId", "kind", "confidence", "evidence", "arbitratedBy"],
+      "properties": {
+        "fromPass": { "type": "integer", "enum": [1, 2, 3] },
+        "toPass": { "type": "integer", "enum": [1, 2, 3] },
+        "fromSliceId": { "type": "string" },
+        "toSliceId": { "type": "string" },
+        "kind": { "type": "string", "enum": ["type-shares", "fixture-shares", "import-re-export", "llm-arbitrated"] },
+        "confidence": {
+          "type": "string",
+          "enum": ["structural", "semantic", "llm"],
+          "description": "`llm` is only valid for `kind: 'llm-arbitrated'`."
+        },
+        "evidence": { "type": "string", "description": "Human-readable evidence: the import line, shared fixture id, etc." },
+        "arbitratedBy": {
+          "type": ["string", "null"],
+          "description": "The LlmArbitration.callId that produced this edge, or null for static edges."
+        }
+      }
+    },
+    "LlmArbitration": {
+      "type": "object",
+      "description": "Record of one LLM call made during decomposition.",
+      "required": ["callId", "promptHash", "input", "output", "confidence", "tokens"],
+      "properties": {
+        "callId": { "type": "string" },
+        "promptHash": { "type": "string", "description": "sha256 hex of the prompt (used for content-hash cache lookup)." },
+        "input": { "type": "string" },
+        "output": { "type": "string" },
+        "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+        "tokens": {
+          "type": "object",
+          "required": ["input", "output"],
+          "properties": {
+            "input": { "type": "integer", "minimum": 0 },
+            "output": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "PassResult": {
+      "type": "object",
+      "description": "The slices + internal edges produced by one decomposition pass.",
+      "required": ["passNumber", "granularity", "slices", "internalEdges"],
+      "properties": {
+        "passNumber": { "type": "integer", "enum": [1, 2, 3] },
+        "granularity": { "type": "string", "enum": ["service", "file", "sub-file"] },
+        "slices": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SliceV2" }
+        },
+        "internalEdges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/InternalEdge" }
+        }
+      }
+    },
+    "CodegraphEnvelope": {
+      "type": "object",
+      "description": "Local project-analysis evidence envelope. Untrusted supporting evidence, never authoritative for QA verdict.",
+      "required": ["nodes", "edges", "dbMB", "freshness", "affectedCrossFile", "note"],
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "edges": { "type": "integer", "minimum": 0 },
+        "dbMB": { "type": "number", "minimum": 0 },
+        "freshness": { "type": "string", "description": "Git commit SHA at which the codegraph index was built, or 'unindexed'." },
+        "affectedCrossFile": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "UnderstandAnythingEnvelope": {
+      "type": "object",
+      "description": "Understand-anything knowledge-graph envelope. `available: false` means semantic-only downstream behaviour is disabled.",
+      "required": ["kgNodes", "kgEdges", "available", "fallback", "note"],
+      "properties": {
+        "kgNodes": { "type": "integer", "minimum": 0 },
+        "kgEdges": { "type": "integer", "minimum": 0 },
+        "available": { "type": "boolean" },
+        "fallback": { "type": "string", "enum": ["semantic", "structural-only"] },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}
