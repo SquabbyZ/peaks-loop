@@ -1,11 +1,20 @@
+import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test } from 'vitest';
 
 const packagePath = resolve('package.json');
 const binPath = resolve('bin', 'peaks.js');
 const tsconfigPath = resolve('tsconfig.json');
 const versionPath = resolve('src', 'shared', 'version.ts');
+
+beforeAll(() => {
+  // Slice 2026-06-26 W8-b: keep `src/shared/version.ts` in lockstep with
+  // `package.json#version` so the assertion below is deterministic without
+  // requiring `pnpm build` (which would otherwise be the only thing that
+  // invokes `scripts/sync-version.mjs`).
+  execFileSync(process.execPath, [resolve(__dirname, '..', '..', 'scripts', 'sync-version.mjs')], { stdio: 'ignore' });
+});
 
 describe('package publishing configuration', () => {
   test('publishes the CLI bin and its compiled entrypoint', async () => {
