@@ -54,7 +54,7 @@ vi.mock('../../../../src/services/slice/slice-pick-service.js', () => ({
 import { decomposeSlices } from '../../../../src/services/slice/slice-decompose-service.js';
 import { decompose as multiPassDecompose } from '../../../../src/services/slice/multi-pass-orchestrator.js';
 import { pickSlicesInteractive } from '../../../../src/services/slice/slice-pick-service.js';
-import { registerSliceCommands } from '../../../../src/cli/commands/slice-commands.js';
+import { registerSliceCommands, parsePickedFile } from '../../../../src/cli/commands/slice-commands.js';
 
 let workdir: string;
 let stdout: string[];
@@ -510,5 +510,197 @@ describe('peaks slice pick v1/v2 dual-read', () => {
 
     // Exit code set so shells / CI can detect failure.
     expect(process.exitCode).toBe(1);
+  });
+});
+
+/**
+ * Unit tests for the W6 PickedFileRouter (`parsePickedFile`) extracted from
+ * `peaks slice plan`. The previous code used a raw `JSON.parse(...)` + unchecked
+ * `as { ... }` cast at slice-commands.ts:264, which let malformed envelopes
+ * surface as opaque runtime errors. The new helper validates the envelope
+ * shape and throws a CLI-friendly Error whose message always starts with
+ * "picked envelope at" so the slice.plan catch can route the failure to
+ * `PICKED_ENVELOPE_INVALID` instead of the generic `SLICE_PLAN_FAILED`.
+ *
+ * Two tiers of tests:
+ *   1. Direct unit tests of `parsePickedFile` against staged fixtures.
+ *   2. CLI integration tests that invoke `peaks slice plan <rid>` and assert
+ *      the envelope code is `PICKED_ENVELOPE_INVALID` (malformed) or
+ *      `ok: true` (valid).
+ */
+describe('parsePickedFile (W6 PickedFileRouter)', () => {
+  let pickedRoot: string;
+
+  beforeEach(() => {
+    pickedRoot = mkdtempSync(join(tmpdir(), 'peaks-picked-router-'));
+  });
+
+  afterEach(() => {
+    rmSync(pickedRoot, { recursive: true, force: true });
+  });
+
+  function writePickedJson(name: string, body: string | object): string {
+    const path = join(pickedRoot, name);
+    writeFileSync(path, typeof body === 'string' ? body : JSON.stringify(body), 'utf8');
+    return path;
+  }
+
+  it('parses a valid envelope and returns the matched object', () => {
+    const path = writePickedJson('ok.json', {
+      rid: 'rid-1',
+      picked: [
+        { rid: 'S1', files: ['src/a.ts', 'src/b.ts'], label: 'Slice 1' },
+        { rid: 'S2', files: ['src/c.ts'], label: 'Slice 2' }
+      ]
+    });
+    const result = parsePickedFile(path);
+    expect(result.rid).toBe('rid-1');
+    expect(result.picked).toHaveLength(2);
+    expect(result.picked[0]?.rid).toBe('S1');
+    expect(result.picked[0]?.files).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(result.picked[0]?.label).toBe('Slice 1');
+    expect(result.picked[1]?.rid).toBe('S2');
+  });
+
+  it('throws when the envelope is missing the top-level rid field', () => {
+    const path = writePickedJson('no-rid.json', {
+      picked: [{ rid: 'S1', files: ['a.ts'], label: 'L' }]
+    });
+    expect(() => parsePickedFile(path)).Throw(/missing required string field 'rid'/);
+  });
+
+  it('throws when the envelope is missing the picked array', () => {
+    const path = writePickedJson('no-picked.json', { rid: 'rid-1' });
+    expect(() => parsePickedFile(path)).Throw(/missing required array field 'picked'/);
+  });
+
+  it('throws when picked is not an array', () => {
+    const path = writePickedJson('picked-not-array.json', {
+      rid: 'rid-1',
+      picked: 'not-an-array'
+    });
+    expect(() => parsePickedFile(path)).Throw(/missing required array field 'picked'/);
+  });
+
+  it('throws when picked[i].files is empty', () => {
+    const path = writePickedJson('empty-files.json', {
+      rid: 'rid-1',
+      picked: [{ rid: 'S1', files: [], label: 'L' }]
+    });
+    expect(() => parsePickedFile(path)).Throw(
+      /missing or has empty required array field 'files'/
+    );
+  });
+
+  it('throws when picked[i].files contains a non-string entry', () => {
+    const path = writePickedJson('files-mixed.json', {
+      rid: 'rid-1',
+      picked: [{ rid: 'S1', files: ['a.ts', 42], label: 'L' }]
+    });
+    expect(() => parsePickedFile(path)).Throw(/must contain only strings/);
+  });
+
+  it('throws a JSON-parse-friendly error when the file is not valid JSON', () => {
+    const path = writePickedJson('not-json.json', 'not-json{');
+    expect(() => parsePickedFile(path)).Throw(/is not valid JSON/);
+  });
+
+  it('throws when the envelope is not a JSON object (e.g. a bare string)', () => {
+    const path = writePickedJson('just-string.json', JSON.stringify('just a string'));
+    expect(() => parsePickedFile(path)).Throw(/must be a JSON object/);
+  });
+});
+
+/**
+ * CLI integration tests for `peaks slice plan` after W6 PickedFileRouter.
+ * Verifies the catch block in the slice.plan action routes malformed
+ * envelopes to `PICKED_ENVELOPE_INVALID` and valid envelopes to a success
+ * envelope with the planned entries.
+ */
+describe('peaks slice plan PickedFileRouter (CLI integration)', () => {
+  it('returns PICKED_ENVELOPE_INVALID code and exit 1 for a malformed envelope', async () => {
+    const decompDir = join(workdir, '.peaks', 'sc', 'slice-decomposition');
+    mkdirSync(decompDir, { recursive: true });
+    // Write a malformed -picked.json: missing the top-level `picked` array.
+    // CLI looks for `<rid>-picked.json` (with the suffix).
+    writeFileSync(
+      join(decompDir, 'rid-bad-pick-picked.json'),
+      JSON.stringify({ rid: 'rid-bad-pick' }),
+      'utf8'
+    );
+
+    const program = new Command();
+    registerSliceCommands(program, {
+      stdout: (t) => stdout.push(t),
+      stderr: (t) => stderr.push(t)
+    });
+
+    await program.parseAsync([
+      'node', 'peaks', 'slice', 'plan', 'rid-bad-pick',
+      '--project', workdir,
+      '--json'
+    ]);
+
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      code?: string;
+      message?: string;
+      nextActions?: string[];
+    };
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('PICKED_ENVELOPE_INVALID');
+    expect(envelope.message).toContain('picked envelope at');
+    // Targeted nextActions hint naming the expected schema shape.
+    const hint = (envelope.nextActions ?? []).join('\n');
+    expect(hint).toMatch(/picked\.json envelope matches the schema/);
+
+    // Exit code set so shells / CI can detect failure.
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('returns ok:true and the planned entries for a valid envelope', async () => {
+    const decompDir = join(workdir, '.peaks', 'sc', 'slice-decomposition');
+    mkdirSync(decompDir, { recursive: true });
+    writeFileSync(
+      join(decompDir, 'rid-good-pick-picked.json'),
+      JSON.stringify({
+        rid: 'rid-good-pick',
+        picked: [
+          { rid: 'S1', files: ['src/a.ts'], label: 'Slice 1' },
+          { rid: 'S2', files: ['src/b.ts', 'src/c.ts'], label: 'Slice 2' }
+        ]
+      }),
+      'utf8'
+    );
+
+    const program = new Command();
+    registerSliceCommands(program, {
+      stdout: (t) => stdout.push(t),
+      stderr: (t) => stderr.push(t)
+    });
+
+    await program.parseAsync([
+      'node', 'peaks', 'slice', 'plan', 'rid-good-pick',
+      '--project', workdir,
+      '--json'
+    ]);
+
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      data?: {
+        parentRid: string;
+        plan: Array<{ newRid: string; type: string; files: string[]; label: string; dependsOn: string[] }>;
+        apply: boolean;
+      };
+    };
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data?.parentRid).toBe('rid-good-pick');
+    expect(envelope.data?.plan).toHaveLength(2);
+    expect(envelope.data?.plan[0]?.newRid).toBe('rid-good-pick-1-S1');
+    expect(envelope.data?.plan[0]?.files).toEqual(['src/a.ts']);
+    expect(envelope.data?.plan[0]?.label).toBe('Slice 1');
+    expect(envelope.data?.plan[0]?.dependsOn).toEqual([]);
+    expect(envelope.data?.plan[1]?.dependsOn).toEqual(['S1']);
+    expect(envelope.data?.apply).toBe(false);
   });
 });
