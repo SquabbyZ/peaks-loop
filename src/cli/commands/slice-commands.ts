@@ -6,6 +6,8 @@ import { sliceCheck } from '../../services/slice/slice-check-service.js';
 import { decomposeSlices } from '../../services/slice/slice-decompose-service.js';
 import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchmark-service.js';
 import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
+import { decompose as multiPassDecompose } from '../../services/slice/multi-pass-orchestrator.js';
+import { writeResult as writeSchemaResult } from '../../services/slice/schema-router.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
@@ -79,10 +81,63 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--refresh', 're-run `peaks codegraph index` before reading', false)
       .option('--benchmark', 'record per-run metrics and attach to the result envelope (2.1.1 algorithm optimization comparison)', false)
-  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; json?: boolean }) => {
+      .option('--granularity <value>', 'service | file | both | auto. Default "both" keeps the v1 6-stage path; service / file / auto enable v2 multi-pass decomposition (peaks-cli 2.9+) and emit a DecompositionResultV2 envelope via SchemaRouter', 'both')
+  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; granularity?: string; json?: boolean }) => {
+    // Validate --granularity BEFORE any I/O so invalid values fail fast with a
+    // nextActions hint listing the four allowed strings.
+    const granularity = options.granularity ?? 'both';
+    if (
+      granularity !== 'service' &&
+      granularity !== 'file' &&
+      granularity !== 'both' &&
+      granularity !== 'auto'
+    ) {
+      printResult(
+        io,
+        fail(
+          'slice.decompose',
+          'SLICE_DECOMPOSE_FAILED',
+          `Invalid --granularity '${options.granularity}'.`,
+          { rid, projectRoot: options.project },
+          [
+            `--granularity accepts one of: service, file, both, auto`,
+            `Default (omit the flag or pass "both") keeps the existing v1 path.`,
+            `Non-default values (service / file / auto) enable v2 multi-pass decomposition (peaks-cli 2.9+).`
+          ]
+        ),
+        options.json ?? false
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const prdMarkdown = readPrdBody(rid, projectRoot);
+      // Non-default granularity takes the v2 path; default ("both") keeps v1.
+      if (granularity !== 'both') {
+        const v2Result = await multiPassDecompose(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {}),
+          granularity
+        });
+        const outDir = join(projectRoot, '.peaks', 'sc', 'slice-decomposition');
+        if (!existsSync(outDir)) {
+          mkdirSync(outDir, { recursive: true });
+        }
+        const outPath = join(outDir, `${rid}.json`);
+        writeSchemaResult(outPath, v2Result);
+        const nextActions: string[] = [
+          `Decomposition (v2) written to ${outPath}`,
+          `peaks slice pick/plan: v2 schemas require SchemaRouter-aware consumers (peaks-cli 2.9+).`
+        ];
+        printResult(
+          io,
+          ok('slice.decompose', { ...v2Result, outputPath: outPath }, [], nextActions),
+          options.json ?? false
+        );
+        return;
+      }
+
       let result: DecompositionResult;
       let benchmark: { totalMs: number; codegraphQueries: number; p50ConfidenceDistribution: { low: number; mid: number; high: number }; inputApproxBytes: { prd: number }; outputJsonBytes: number; capturedAt: string } | null = null;
       if (options.benchmark === true) {
