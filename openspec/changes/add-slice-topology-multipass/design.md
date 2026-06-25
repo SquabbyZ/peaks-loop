@@ -44,6 +44,58 @@ Enable `peaks slice decompose` to produce hierarchical multi-pass slice topology
 
 Each Pass internally calls `decomposeSlices()` from `src/services/slice/slice-decompose-service.ts` (UNCHANGED), passing a pass-specific `granularity` option. The existing 6-stage algorithm is the inner loop; the orchestrator only adds recursion and cross-pass joining.
 
+## Skill Layer (LLM-facing operation manual)
+
+In peaks-cli's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
+
+### New skill: `peaks-slice-decompose`
+
+A focused skill that documents how to invoke `peaks slice decompose` with the new `--granularity` flag and how to interpret the v2 result. Top-level skill (not a reference under `peaks-sc`) because:
+
+- `peaks-sc` is "slice coordinator" — coordinates multi-step slice planning across PRD/RD/QA. `peaks-slice-decompose` is one specific step (the actual decomposition algorithm). Different concerns.
+- peaks-cli convention: each role/feature ships as a top-level skill (peaks-prd, peaks-qa, peaks-rd, peaks-ui, peaks-companion, peaks-doctor, peaks-ide are all top-level). A new feature warrants a new skill.
+- LLM discoverability: the skill name matches the LLM's likely intent ("decompose this PRD into slices").
+
+Layout:
+
+```
+skills/peaks-slice-decompose/
+├── SKILL.md                                          ← entry, 50-80 lines
+└── references/
+    ├── v2-schema.md                                  ← DecompositionResultV2 field-by-field reference
+    ├── granularity-decision.md                       ← when to use service|file|both|auto (decision tree)
+    └── cross-pass-edge-interpretation.md             ← how downstream agents read crossPassEdges for dispatch ordering
+```
+
+`SKILL.md` MUST cover:
+
+- **Trigger conditions**: when the LLM should invoke this skill (PRD ready, slice plan needed, no existing decomposition in `.peaks/sc/slice-decomposition/<rid>.json`).
+- **Granularity options**: the 4 values (`service`, `file`, `both`, `auto`) with their semantics and default (`both`).
+- **Output shape**: high-level v2 JSON structure (passes[], crossPassEdges, llmArbitrations) without dumping every field.
+- **Reading the result**: `SchemaRouter.readResult(<path>)` is the canonical reader; raw JSON parsing is forbidden.
+- **Cross-references**: when this skill hands off to peaks-rd (for sub-agent dispatch) and peaks-qa (for verification).
+
+### Updated skills (additive, no breaking changes to existing SKILL.md content)
+
+| Skill | Reference to add | What it tells the LLM |
+|---|---|---|
+| `peaks-solo/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` in the "slice planning" section | When Solo orchestrates a multi-slice task, dispatch to `peaks-slice-decompose` first |
+| `peaks-rd/SKILL.md` | New `references/reading-v2-slice-results.md` | How RD reads the v2 JSON and plans sub-agent dispatch per pass |
+| `peaks-qa/SKILL.md` | New `references/cross-pass-edge-verification.md` | How QA verifies that a multi-pass plan was executed with the right cross-pass ordering |
+| `peaks-prd/SKILL.md` | New `references/prd-for-multi-pass.md` | How PRD authors write acceptance criteria that yield clean slice boundaries |
+| `peaks-sc/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` | Slice coordinator's first step is the decomposition skill |
+
+### Skill vs CLI: who owns what
+
+| Concern | Owner | Rationale |
+|---|---|---|
+| Algorithm logic (multi-pass, cross-pass merger, LLM 兜底) | CLI (TypeScript modules) | Deterministic, testable, fast |
+| Schema (v2 JSON shape, breaking changes) | CLI (emits) + Skill (documents) | Schema is CLI-emitted, but LLM needs the skill to know the shape |
+| When to invoke | Skill (LLM judgment) | Algorithmic heuristics live in skill decision trees, not CLI |
+| How to interpret output | Skill (LLM guidance) | Field semantics + cross-pass edge ordering rules |
+| Cache key + budget for LLM 兜底 | CLI (LLMArbitrator) | Mechanical, deterministic |
+| When to invoke LLM 兜底 vs static analysis | CLI (CrossPassEdgeMerger) | Algorithmic decision, not LLM judgment |
+
 ## Data Model
 
 ### Public types (new file `src/services/slice/slice-topology-types.ts`)

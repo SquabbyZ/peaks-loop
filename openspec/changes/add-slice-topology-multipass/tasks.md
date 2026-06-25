@@ -53,7 +53,27 @@
 - [ ] Update `peaks slice pick` and `peaks slice plan` to use `SchemaRouter.readResult()` (additive change).
 - [ ] CLI tests: each granularity option produces expected pass count.
 
-## 8. Documentation + standards
+## 8. Skill layer (LLM-facing operation manuals)
+
+The CLI exposes atomic primitives; skills are how the LLM knows when to invoke which primitive and how to interpret output. Both ship together.
+
+### 8.1 New skill: `peaks-slice-decompose`
+
+- [ ] Create `skills/peaks-slice-decompose/SKILL.md` (50-80 lines, the entry point).
+- [ ] Create `skills/peaks-slice-decompose/references/v2-schema.md` (DecompositionResultV2 field-by-field reference).
+- [ ] Create `skills/peaks-slice-decompose/references/granularity-decision.md` (decision tree for `--granularity`).
+- [ ] Create `skills/peaks-slice-decompose/references/cross-pass-edge-interpretation.md` (downstream agent dispatch rules).
+- [ ] Skill tests: SKILL.md loads without markdown parse errors; all referenced files exist; no broken cross-references.
+
+### 8.2 Updated skills (additive references only — no breaking changes to existing content)
+
+- [ ] Update `peaks-solo/SKILL.md`: add reference link to `peaks-slice-decompose/SKILL.md` in the slice planning section.
+- [ ] Update `peaks-rd/SKILL.md`: add `references/reading-v2-slice-results.md` (~80 LoC) explaining how to consume the v2 JSON via SchemaRouter.
+- [ ] Update `peaks-qa/SKILL.md`: add `references/cross-pass-edge-verification.md` (~80 LoC) explaining cross-pass edge verification.
+- [ ] Update `peaks-prd/SKILL.md`: add `references/prd-for-multi-pass.md` (~80 LoC) explaining how to write ACs that yield clean slice boundaries.
+- [ ] Update `peaks-sc/SKILL.md`: add reference link to `peaks-slice-decompose/SKILL.md` as the first step in slice planning.
+
+## 9. Documentation + standards
 
 - [ ] Update `docs/superpowers/specs/` index (if any) to reference this change.
 - [ ] Update `.peaks/standards/` slice-decompose reference (if any) to document v2 schema.
