@@ -29,6 +29,7 @@ import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
 import { registerAuditCommands } from './commands/audit-commands.js';
+import { registerFinalReviewCommands } from './commands/final-review-commands.js';
 import { registerClassifyCommands } from './commands/classify-classify-commands.js';
 import { registerContextCommands } from './commands/context-commands.js';
 import { registerContractCommands } from './commands/contract-commands.js';
@@ -218,6 +219,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerWorkflowPlanCommands(program, io);
  // Slice L2.1: peaks audit * — red-line audit framework.
  registerAuditCommands(program, io);
+ // Slice 2026-06-25-slice-topology-multipass (Fix M2): peaks prepare-final-review CLI wrapper.
+ registerFinalReviewCommands(program, io);
  // Slice #2: peaks classify * — L1a task classification + L1b per-level gate sets.
  registerClassifyCommands(program, io);
  // Slice #3: peaks context * — L1c context 4-layer loader.
