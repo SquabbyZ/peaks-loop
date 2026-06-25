@@ -47,8 +47,13 @@ vi.mock('../../../../src/services/slice/slice-benchmark-service.js', () => ({
   decomposeSlicesWithBenchmark: vi.fn()
 }));
 
+vi.mock('../../../../src/services/slice/slice-pick-service.js', () => ({
+  pickSlicesInteractive: vi.fn()
+}));
+
 import { decomposeSlices } from '../../../../src/services/slice/slice-decompose-service.js';
 import { decompose as multiPassDecompose } from '../../../../src/services/slice/multi-pass-orchestrator.js';
+import { pickSlicesInteractive } from '../../../../src/services/slice/slice-pick-service.js';
 import { registerSliceCommands } from '../../../../src/cli/commands/slice-commands.js';
 
 let workdir: string;
@@ -68,6 +73,7 @@ beforeEach(() => {
   stderr = [];
   vi.mocked(decomposeSlices).mockReset();
   vi.mocked(multiPassDecompose).mockReset();
+  vi.mocked(pickSlicesInteractive).mockReset();
 });
 
 afterEach(() => {
@@ -308,5 +314,201 @@ describe('peaks slice decompose --granularity', () => {
     expect(
       envelope.nextActions?.some((a) => /SchemaRouter-aware consumers/.test(a))
     ).toBe(false);
+  });
+});
+
+/**
+ * Unit tests for `peaks slice pick` v1/v2 dual-read via SchemaRouter (W3 T11).
+ *
+ * Two cases under test:
+ *   a. v1 file (no `schemaVersion` field) loads cleanly through
+ *      `SchemaRouter.readResult` and `pickSlicesInteractive` runs to completion.
+ *   b. v2 file (`schemaVersion: 'v2'`) is rejected with a clear migration
+ *      hint pointing the user at `peaks slice decompose <rid>` without
+ *      `--granularity`.
+ *
+ * Mocking strategy:
+ *   - `pickSlicesInteractive` is stubbed via `vi.mock` so the pick action
+ *     does not try to spawn fzf or write the -picked.json envelope.
+ *   - The on-disk decomposition file is staged manually for each case.
+ */
+describe('peaks slice pick v1/v2 dual-read', () => {
+  it('reads a v1 decomposition file successfully via SchemaRouter', async () => {
+    const v1Envelope = {
+      rid: 'rid-pick-v1',
+      generatedAt: '2026-06-25T00:00:00.000Z',
+      codegraph: {
+        nodes: 0,
+        edges: 0,
+        dbMB: 0,
+        freshness: 'unindexed',
+        affectedCrossFile: false,
+        note: 'mock'
+      },
+      understandAnything: {
+        kgNodes: 0,
+        kgEdges: 0,
+        available: false,
+        fallback: 'structural-only',
+        note: 'mock'
+      },
+      workUnits: [],
+      dependencyDAG: { edges: [] },
+      sccAnalysis: {
+        sccCount: 1,
+        trivialSCCs: [],
+        nonTrivialSCCs: [],
+        condensationEdges: 0
+      },
+      criticalPath: {
+        nodes: [],
+        edges: [],
+        totalLoc: 0,
+        totalDeltaLoc: 0,
+        rationale: ''
+      },
+      minCutResult: { algorithm: 'stoer-wagner', cutEdges: [], partitions: [] },
+      parallelBatches: [
+        {
+          batch: 1,
+          dependsOn: [],
+          slices: [
+            {
+              rid: 'S1',
+              label: 'svc-1',
+              files: ['src/a.ts'],
+              estimate: {
+                complexitySum: 1,
+                testCount: 0,
+                locSum: 10,
+                minutesP50: 5,
+                minutesP90: 10,
+                confidence: 'medium',
+                rationale: 'mock'
+              },
+              semanticAnchor: 'file:src/a.ts'
+            }
+          ],
+          parallelizableWithinBatch: true
+        }
+      ]
+    };
+    const decompDir = join(workdir, '.peaks', 'sc', 'slice-decomposition');
+    mkdirSync(decompDir, { recursive: true });
+    writeFileSync(
+      join(decompDir, 'rid-pick-v1.json'),
+      JSON.stringify(v1Envelope),
+      'utf8'
+    );
+    vi.mocked(pickSlicesInteractive).mockResolvedValue({
+      picked: [
+        {
+          rid: 'S1',
+          label: 'svc-1',
+          files: ['src/a.ts'],
+          estimate: {
+            complexitySum: 1,
+            testCount: 0,
+            locSum: 10,
+            minutesP50: 5,
+            minutesP90: 10,
+            confidence: 'medium',
+            rationale: 'mock'
+          },
+          semanticAnchor: 'file:src/a.ts'
+        }
+      ],
+      outputPath: join(decompDir, 'rid-pick-v1-picked.json'),
+      fzfVersion: '0.55.0 (mock)'
+    });
+
+    const program = new Command();
+    registerSliceCommands(program, {
+      stdout: (t) => stdout.push(t),
+      stderr: (t) => stderr.push(t)
+    });
+
+    await program.parseAsync([
+      'node', 'peaks', 'slice', 'pick', 'rid-pick-v1',
+      '--project', workdir,
+      '--json'
+    ]);
+
+    // v1 path: SchemaRouter narrowed to DecompositionResult, pick ran.
+    expect(pickSlicesInteractive).toHaveBeenCalledTimes(1);
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      data?: { picked: Array<{ rid: string }> };
+      nextActions?: string[];
+    };
+    expect(envelope.ok).toBe(true);
+    expect(envelope.data?.picked.map((s) => s.rid)).toEqual(['S1']);
+    // Migration hint must NOT surface on the v1 success path.
+    expect(
+      envelope.nextActions?.some((a) => /v2 envelope/.test(a))
+    ).toBe(false);
+  });
+
+  it('rejects a v2 decomposition file with a clear migration hint', async () => {
+    const v2Envelope = {
+      schemaVersion: 'v2',
+      rid: 'rid-pick-v2',
+      generatedAt: '2026-06-25T00:00:00.000Z',
+      passes: [],
+      crossPassEdges: [],
+      llmArbitrations: [],
+      codegraph: {
+        nodes: 0,
+        edges: 0,
+        dbMB: 0,
+        freshness: 'unindexed',
+        affectedCrossFile: false,
+        note: 'mock'
+      },
+      understandAnything: {
+        kgNodes: 0,
+        kgEdges: 0,
+        available: false,
+        fallback: 'structural-only',
+        note: 'mock'
+      },
+      partial: false
+    };
+    const decompDir = join(workdir, '.peaks', 'sc', 'slice-decomposition');
+    mkdirSync(decompDir, { recursive: true });
+    writeFileSync(
+      join(decompDir, 'rid-pick-v2.json'),
+      JSON.stringify(v2Envelope),
+      'utf8'
+    );
+
+    const program = new Command();
+    registerSliceCommands(program, {
+      stdout: (t) => stdout.push(t),
+      stderr: (t) => stderr.push(t)
+    });
+
+    await program.parseAsync([
+      'node', 'peaks', 'slice', 'pick', 'rid-pick-v2',
+      '--project', workdir,
+      '--json'
+    ]);
+
+    // v2 path: pick service MUST NOT be invoked.
+    expect(pickSlicesInteractive).not.toHaveBeenCalled();
+
+    // Error envelope surfaces both the v2 marker AND the migration hint.
+    const envelope = JSON.parse(stdout.join('')) as {
+      ok: boolean;
+      code?: string;
+      message?: string;
+    };
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('SLICE_PICK_FAILED');
+    expect(envelope.message).toContain('v2 envelope');
+    expect(envelope.message).toContain('without --granularity');
+
+    // Exit code set so shells / CI can detect failure.
+    expect(process.exitCode).toBe(1);
   });
 });

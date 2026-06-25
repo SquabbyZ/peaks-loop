@@ -7,7 +7,7 @@ import { decomposeSlices } from '../../services/slice/slice-decompose-service.js
 import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchmark-service.js';
 import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
 import { decompose as multiPassDecompose } from '../../services/slice/multi-pass-orchestrator.js';
-import { writeResult as writeSchemaResult } from '../../services/slice/schema-router.js';
+import { readResult as readDecompositionResult, writeResult as writeSchemaResult } from '../../services/slice/schema-router.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
@@ -210,7 +210,16 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
             `Run \`peaks slice decompose ${rid}\` first.`
         );
       }
-      const decomposition = JSON.parse(readFileSync(decompPath, 'utf8')) as DecompositionResult;
+      const parsed = readDecompositionResult(decompPath);
+      if ('schemaVersion' in parsed) {
+        throw new Error(
+          `decomposition at ${decompPath} is a v2 envelope (schemaVersion: 'v2'). ` +
+          `peaks slice pick supports v1 only in peaks-cli 2.9.0. ` +
+          `Re-run \`peaks slice decompose ${rid}\` without --granularity to get a v1 file, ` +
+          `or upgrade peaks-cli when v2 pick lands.`
+        );
+      }
+      const decomposition = parsed;
       const result = await pickSlicesInteractive(rid, decomposition, projectRoot, {
         ...(options.preview !== undefined ? { preview: options.preview } : {}),
         ...(options.fzfBin ? { fzfBin: options.fzfBin } : {})
