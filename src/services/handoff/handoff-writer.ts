@@ -32,7 +32,7 @@ export function writeHandoff(
   frontmatter: HandoffFrontmatter,
   body: string
 ): void {
-  const yamlStr = stringifyYaml(frontmatter as Record<string, unknown>).trimEnd();
+  const yamlStr = stringifyYaml(frontmatter as unknown as Record<string, unknown>).trimEnd();
   const content = `${FRONTMATTER_OPEN}${yamlStr}${FRONTMATTER_CLOSE}${body}`;
   writeFileSync(filePath, content, 'utf8');
 }
