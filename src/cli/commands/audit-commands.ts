@@ -35,6 +35,29 @@ type StaticAuditOptions = {
   rid?: string;
 };
 
+type AuditGoalOptions = {
+  project: string;
+  need: string;
+  llmProvider?: string;
+  json?: boolean;
+};
+
+/** Whitelist of supported `--llm-provider` values for `peaks audit goal`. */
+const SUPPORTED_LLM_PROVIDERS = ['stub'] as const;
+type SupportedLlmProvider = (typeof SUPPORTED_LLM_PROVIDERS)[number];
+
+function isSupportedLlmProvider(value: string): value is SupportedLlmProvider {
+  return (SUPPORTED_LLM_PROVIDERS as readonly string[]).includes(value);
+}
+
+export interface AuditGoalData {
+  readonly status: 'scaffold-only';
+  readonly serviceWired: true;
+  readonly providerBinding: 'pending-follow-up-slice';
+  readonly need: string;
+  readonly projectRoot: string;
+}
+
 function validateProjectRoot(projectArg: string): { ok: true; projectRoot: string } | { ok: false; code: string; message: string } {
   const projectRoot = resolve(projectArg);
   if (!existsSync(projectRoot)) {
@@ -232,6 +255,72 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
     }
   });
+
+  // Fix M1 (W5) — `peaks audit goal` CLI wrapper around `auditGoal()`.
+  // The service is correctly implemented but is NOT yet wired to a real
+  // LLM provider; this CLI exposes the route with a `stub` provider that
+  // returns a scaffold envelope. A follow-up slice will bind a real
+  // provider. Until then, non-stub providers fail loudly with
+  // `LLM_PROVIDER_NOT_IMPLEMENTED` so callers cannot silently no-op.
+  addJsonOption(
+    audit
+      .command('goal')
+      .description('Audit a human need across 6 dimensions and propose a goal (peaks-audit primitive)')
+      .requiredOption('--project <path>', 'target project root')
+      .requiredOption('--need <text>', 'the human need to audit (becomes input.need for auditGoal())')
+      .option('--llm-provider <name>', 'LLM provider name (default: stub)', 'stub')
+  ).action(async (options: AuditGoalOptions) => {
+    const validation = validateProjectRoot(options.project);
+    if (!validation.ok) {
+      printResult(
+        io,
+        fail<AuditGoalData>('audit.goal', validation.code, validation.message, emptyAuditGoalData(options.need, options.project), ['Verify the project path exists and is a directory']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const provider = options.llmProvider ?? 'stub';
+    if (!isSupportedLlmProvider(provider)) {
+      printResult(
+        io,
+        fail<AuditGoalData>(
+          'audit.goal',
+          'LLM_PROVIDER_NOT_IMPLEMENTED',
+          `LLM provider "${provider}" is not implemented. Supported providers: ${SUPPORTED_LLM_PROVIDERS.join(', ')}.`,
+          emptyAuditGoalData(options.need, validation.projectRoot),
+          [
+            'Re-run with `--llm-provider stub` (default) to exercise the wired route.',
+            'Real provider binding is tracked as a follow-up slice; see peaks-audit skill notes.'
+          ]
+        ),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    // Stub provider: surface a structured "scaffold ready" envelope so the
+    // CLI route is wired and a CI test can verify it without a real LLM.
+    const data: AuditGoalData = {
+      status: 'scaffold-only',
+      serviceWired: true,
+      providerBinding: 'pending-follow-up-slice',
+      need: options.need,
+      projectRoot: validation.projectRoot,
+    };
+    const envelope: ResultEnvelope<AuditGoalData> = ok(
+      'audit.goal',
+      data,
+      [],
+      [
+        'auditGoal() service is wired and reachable. The stub provider returns a scaffold envelope so CI can verify the route without a real LLM.',
+        'A follow-up slice will bind a real LLM provider; until then, non-stub providers fail loudly with `LLM_PROVIDER_NOT_IMPLEMENTED`.'
+      ]
+    );
+    printResult(io, envelope, options.json);
+  });
 }
 
 function emptyStaticAuditData(): StaticAuditData {
@@ -243,5 +332,15 @@ function emptyStaticAuditData(): StaticAuditData {
       reason: 'flag-disabled',
       findings: [],
     },
+  };
+}
+
+function emptyAuditGoalData(need: string, projectRoot: string): AuditGoalData {
+  return {
+    status: 'scaffold-only',
+    serviceWired: true,
+    providerBinding: 'pending-follow-up-slice',
+    need,
+    projectRoot,
   };
 }
