@@ -89,6 +89,8 @@ When this skill is running in the main Claude session (not as a sub-agent), befo
 
 Every QA invocation — feature, bug, refactor, clarification — must write **three separate files** (test cases + test report + request artifact) under `.peaks/_runtime/<session-id>/qa/` (canonical placeholder: `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md`; runtime path is `.peaks/_runtime/<session-id>/qa/...`). Do not merge them into one. Each serves a different reader.
 
+The QA test plan is **derived from the RD handoff's YAML frontmatter** (`decisions[]`, `risks[]`, `files[]`, `gateEvidence`). Read frontmatter mechanically before reading body prose; cross-check decisions ↔ tests and risks ↔ security tests. See `references/reading-handoff-frontmatter.md` for the 5 mechanical checks.
+
 External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
 
 → see `references/artifact-per-request.md` for the 3-file contract and the do-not-execute upstream guard.
@@ -217,6 +219,7 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/qa-refactor-role.md` | QA refactor role. |
 | `references/qa-runbook.md` | Default 10-step QA runbook. |
 | `references/qa-security-test-plan.md` | Slice 025 project-level security test plan. |
+| `references/reading-handoff-frontmatter.md` | Mechanical cross-checks for RD handoff frontmatter (decisions↔tests, risks↔security, files↔diff). |
 | `references/qa-perf-test-plan.md` | Slice 025 project-level perf baseline. |
 | `references/qa-skill-presence.md` | QA skill presence (main loop only). |
 | `references/qa-standards-preflight.md` | Standards preflight dry-run contract. |

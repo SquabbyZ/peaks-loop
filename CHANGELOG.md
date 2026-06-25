@@ -7,6 +7,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.10.0] — 2026-06-26 — Slice topology multi-pass + 10/90 paradigm
+
+**MINOR bump from 2.9.0** (slice `add-slice-topology-multipass`, 63 commits ahead of `develop`, 8 waves W1-W8-b, plan at `docs/superpowers/plans/2026-06-25-slice-topology-multipass.md`).
+
+Implements the 10/90 paradigm foundation: 10% human / 90% LLM autonomous workflow with structured multi-pass slice decomposition, audit gates, and final-review gates. v2 schema is breaking vs v1; v1 remains readable via `SchemaRouter`.
+
+### Features
+
+- **Multi-pass slice decomposition** (`peaks slice decompose --granularity=service|file|both|auto`, slice W2/W3): produces a v2 hierarchical topology (`DecompositionResultV2` with `passes[].slices[]` and `granularity` / `parentSliceId` fields) that supports peaks-solo fan-out RD. v1 envelopes continue to read via `SchemaRouter` (`src/services/slice/schema-router.ts`).
+- **LLMArbitrator** (W2 T5): content-hash SHA-256 cache (`<cacheDir>/<hash>.json`), budget cap (`resetArbitratorBudget()`), live/cache/failure-path callId routing.
+- **GranularityDecider** (W2 T6): stop-condition + tie-break for file-vs-service subdivision.
+- **CrossPassEdgeMerger** (W2 T7): static detection (type-shares / fixture-shares / re-exports / import-binding) + LLM fallback; static detection runs UNCONDITIONALLY (W6 fix #1) so it works without an `llmRunner`.
+- **MultiPassOrchestrator** (W2 T9): reuses existing 6-stage algorithm; populates `internalEdges` from v1 `dependencyDAG.edges` (W6 fix #2); emits enriched `LlmArbitration` shape with `promptHash/input/output/confidence` (W6 fix #3).
+- **peaks audit goal CLI** (W5 M1): `peaks audit goal <rid>` wraps `auditGoalService` for human-readable goal inspection.
+- **peaks prepare-final-review CLI** (W5 M2): `peaks prepare-final-review <rid>` wraps `finalReviewService` for 4-dim evidence prep.
+- **peaks slice plan PickedFileRouter** (W6 CC-β): `parsePickedFile()` helper replaces raw `JSON.parse(...)` for `-picked.json` envelope; new `PICKED_ENVELOPE_INVALID` error code on validation failure.
+- **3 new skills** (W4): `peaks-slice-decompose` (v2 schema references), `peaks-audit` (6-dim reference), `peaks-final-review` (4-dim reference).
+- **5 existing skill updates** (W7 CC-α):
+  - `peaks-solo` — new Step 0.6 (Audit + Goal gate) and Step N+1 (Final Review gate) between Step 0.5 and Step 0.7.
+  - `peaks-rd` — new references: `reading-v2-slice-results.md` (SchemaRouter dual-read), `writing-handoff-frontmatter.md` (frontmatter fields + canonical path).
+  - `peaks-qa` — new reference: `reading-handoff-frontmatter.md` (cross-check `decisions[]` vs `tests/`, `risks[]` vs `tests/unit/security/`).
+  - `peaks-prd` — new reference: `prd-for-multi-pass.md` (AC tagging `[pass-1]` / `[pass-2]`).
+  - `peaks-sc` — first step in slice planning references `peaks-slice-decompose`.
+
+### Bugfixes — W6 flaw repair pass (4 of 5 W1-W4 flaws)
+
+- **#1 cross-pass edges gated on `opts.llmRunner`** (W2 deviation #4) — dropped the guard; static detection now fires unconditionally when `passes.length > 1`.
+- **#2 internal edges defaulted to `[]`** (W2 concern #3) — populated from `decomposeSlices().dependencyDAG.edges` at all 3 `PassResult` constructions; `EdgeKind === InternalEdgeKind` identity mapping; `isSemantic: boolean → confidence: 'semantic' | 'structural'`.
+- **#3 LlmArbitration shape gap** (W2 deviation #5) — enriched `LlmCallTrace` with `promptHash/input/output/confidence`; captured in `runLlmFallback` (medium for cache/live, low for failure).
+- **#4 raw `JSON.parse` for `-picked.json`** (W3 silent-failure) — extracted `parsePickedFile()` helper (lines 359-419 of `src/cli/commands/slice-commands.ts`) with schema validation; split catch into `PICKED_ENVELOPE_INVALID` (envelope) vs `SLICE_PLAN_FAILED` (other).
+
+### Tests
+
+- 3974 passed / 0 failed / 17 skipped at release time (354 test files, ~80s smoke / ~310s full).
+- New: 3 e2e integration tests in `tests/integration/slice-topology-e2e.test.ts` (multi-pass, service-only, file-only against real `src/services/config/`); 10 picked-envelope validation tests in `tests/unit/cli/commands/slice-commands.test.ts`; 4 LlmArbitration shape tests + 1 internalEdges test in `tests/unit/slice/multi-pass-orchestrator.test.ts` and `cross-pass-edge-merger.test.ts`.
+- **3 mutation probes pass** (W7 T21, `.peaks/memory/2026-06-25-mutation-probes-w7-t21.md`): Probe A (comment-out type-shares), Probe B (`>` → `>=` in `shouldSubdivide`), Probe C (cache short-circuit disabled) — all 3 mutations cause the corresponding test to fail, then revert to green.
+
+### Bugfixes — W8 / W8-b stabilization (slice `add-slice-topology-multipass`, post-W7 follow-up)
+
+- **W8 CC-α** (commit `56a9d9e`): stabilize 3 pre-existing flaky tests — `tests/unit/cli-program.workflow.test.ts` per-file timeout raised from vitest default 5000ms → 10000ms (`vi.setConfig({ testTimeout: 10000 })`); `tests/unit/dispatch-cli-latency-benchmark.test.ts` 250ms → 300ms threshold (median + min) with description + inline-comment updates for Karpathy #3 honesty.
+- **W8-b CC-α** (commits `e17f868` + `30f9b51`): fix 3 newly-surfaced state-bound pre-existing failures — `tests/unit/package.test.ts` `beforeAll` runs `scripts/sync-version.mjs` so the version-source assertion is deterministic without `pnpm build`; `tests/unit/cli-program.core.test.ts` + `tests/unit/project-commands.test.ts` use `vi.hoisted` + `vi.mock` to isolate from real-project filesystem state (synthetic passing doctor report + `vi.importActual` passthrough with default `doctorReport`/`runbookHealth` injection); `src/shared/version.ts` synced to `2.10.0` (W7-solo T22 missed this; W8-b surfaced it via the `beforeAll` sync-version run).
+- Net effect: full suite `3974 / 0 failed / 17 skipped` (was `3974 / 3 failed / 17 skipped` after W7 due to the 3 state-bound failures, and 3974 / 0 / 17 was timing-flaky due to the 3 W8 targets).
+
+### Risks / gaps carried forward
+
+- **peaks slice pick only supports v1 envelopes** (W3 T11) — explicitly documented in W4 T12 SKILL.md. v2-pick is a future-slice candidate.
+- **No CLI for `peaks audit-goal` discovered via auto-audit** (W4 T13) — `auditGoal()` is a service consumed by `final-review-service`, `slice/llm-arbitrator`, `slice/multi-pass-orchestrator` via direct import. CLI registration is a future-slice candidate.
+
+---
+
 ## [2.9.0] — 2026-06-25 — Path canonicalization + fan-out mandatory + test-tool-detection
 
 **MINOR bump from 2.8.4** (supersedes the unpublished 2.9.1 / 2.9.2 intermediate work; those entries below are kept as historical context only).

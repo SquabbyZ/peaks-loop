@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://peaks-cli.dev/schemas/decomposition-v1.json",
+  "title": "Peaks Decomposition Result v1",
+  "description": "v1 (legacy) slice decomposition output. Discriminated by the absence of a `schemaVersion` field. v1 files remain readable via `SchemaRouter.readResult`; new code should write v2 instead.",
+  "type": "object",
+  "required": [
+    "rid",
+    "generatedAt",
+    "codegraph",
+    "understandAnything",
+    "workUnits",
+    "dependencyDAG",
+    "sccAnalysis",
+    "criticalPath",
+    "minCutResult",
+    "parallelBatches"
+  ],
+  "properties": {
+    "rid": {
+      "type": "string",
+      "description": "Request id; e.g. \"008-2026-06-25\"."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC; e.g. \"2026-06-13T12:00:00.000Z\"."
+    },
+    "codegraph": {
+      "type": "object",
+      "required": ["nodes", "edges", "dbMB", "freshness", "affectedCrossFile", "note"],
+      "properties": {
+        "nodes": { "type": "integer", "minimum": 0 },
+        "edges": { "type": "integer", "minimum": 0 },
+        "dbMB": { "type": "number", "minimum": 0 },
+        "freshness": { "type": "string", "description": "Git commit SHA at which the codegraph index was built, or 'unindexed'." },
+        "affectedCrossFile": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "understandAnything": {
+      "type": "object",
+      "required": ["kgNodes", "kgEdges", "available", "fallback", "note"],
+      "properties": {
+        "kgNodes": { "type": "integer", "minimum": 0 },
+        "kgEdges": { "type": "integer", "minimum": 0 },
+        "available": { "type": "boolean" },
+        "fallback": { "type": "string", "enum": ["semantic", "structural-only"] },
+        "note": { "type": "string" }
+      }
+    },
+    "workUnits": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/WorkUnit" }
+    },
+    "dependencyDAG": {
+      "type": "object",
+      "required": ["edges"],
+      "properties": {
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DependencyEdge" }
+        }
+      }
+    },
+    "sccAnalysis": { "$ref": "#/$defs/SccAnalysis" },
+    "criticalPath": { "$ref": "#/$defs/CriticalPath" },
+    "minCutResult": { "$ref": "#/$defs/MinCutResult" },
+    "parallelBatches": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ParallelBatch" }
+    },
+    "pickHint": {
+      "type": "string",
+      "description": "Free-form operator hint; e.g. \"split into multiple pick sessions\" when N > 10."
+    }
+  },
+  "$defs": {
+    "WorkUnit": {
+      "type": "object",
+      "required": ["id", "label", "files", "loc", "testsAdded", "filePath", "candidates"],
+      "properties": {
+        "id": { "type": "string", "description": "Stable id within the decomposition; usually \"W1\"..\"Wn\"." },
+        "label": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "loc": { "type": "integer", "minimum": 0 },
+        "testsAdded": { "type": "integer", "minimum": 0 },
+        "deltaLoc": { "type": "integer", "minimum": 0 },
+        "filePath": { "type": "string" },
+        "candidates": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "DependencyEdge": {
+      "type": "object",
+      "required": ["from", "to", "kind", "weight", "evidence", "isSemantic", "confidence"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string", "enum": ["imports", "depends_on", "calls", "contains_flow", "flow_step"] },
+        "weight": { "type": "number" },
+        "evidence": { "type": "string" },
+        "isSemantic": { "type": "boolean" },
+        "confidence": { "type": "string", "enum": ["semantic", "structural"] }
+      }
+    },
+    "SccAnalysis": {
+      "type": "object",
+      "required": ["sccCount", "trivialSCCs", "nonTrivialSCCs", "condensationEdges"],
+      "properties": {
+        "sccCount": { "type": "integer", "minimum": 0 },
+        "trivialSCCs": { "type": "array", "items": { "type": "string" } },
+        "nonTrivialSCCs": { "type": "array", "items": { "type": "string" } },
+        "condensationEdges": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "CriticalPath": {
+      "type": "object",
+      "required": ["nodes", "edges", "totalLoc", "totalDeltaLoc", "rationale"],
+      "properties": {
+        "nodes": { "type": "array", "items": { "type": "string" } },
+        "edges": { "type": "array", "items": { "type": "string" } },
+        "totalLoc": { "type": "integer", "minimum": 0 },
+        "totalDeltaLoc": { "type": "integer", "minimum": 0 },
+        "rationale": { "type": "string" }
+      }
+    },
+    "MinCutResult": {
+      "type": "object",
+      "required": ["algorithm", "cutEdges", "partitions"],
+      "properties": {
+        "algorithm": { "type": "string" },
+        "cutEdges": { "type": "array", "items": { "$ref": "#/$defs/MinCutEdge" } },
+        "partitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "nodes"],
+            "properties": {
+              "name": { "type": "string" },
+              "nodes": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    "MinCutEdge": {
+      "type": "object",
+      "required": ["from", "to", "kind", "weight", "isSemantic", "confidence"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string", "enum": ["imports", "depends_on", "calls", "contains_flow", "flow_step"] },
+        "weight": { "type": "number" },
+        "isSemantic": { "type": "boolean" },
+        "confidence": { "type": "string", "enum": ["semantic", "structural"] }
+      }
+    },
+    "ParallelBatch": {
+      "type": "object",
+      "required": ["batch", "dependsOn", "slices", "parallelizableWithinBatch"],
+      "properties": {
+        "batch": { "type": "integer", "minimum": 0 },
+        "dependsOn": { "type": "array", "items": { "type": "integer" } },
+        "slices": { "type": "array", "items": { "$ref": "#/$defs/SliceCandidate" } },
+        "parallelizableWithinBatch": { "type": "boolean" }
+      }
+    },
+    "SliceCandidate": {
+      "type": "object",
+      "required": ["rid", "label", "files", "estimate", "semanticAnchor"],
+      "properties": {
+        "rid": { "type": "string" },
+        "label": { "type": "string" },
+        "files": { "type": "array", "items": { "type": "string" } },
+        "testsAdded": { "type": "array", "items": { "type": "string" } },
+        "estimate": { "$ref": "#/$defs/WorkEstimate" },
+        "semanticAnchor": { "type": "string" }
+      }
+    },
+    "WorkEstimate": {
+      "type": "object",
+      "required": ["complexitySum", "testCount", "locSum", "minutesP50", "minutesP90", "confidence", "rationale"],
+      "properties": {
+        "complexitySum": { "type": "number", "minimum": 0 },
+        "testCount": { "type": "integer", "minimum": 0 },
+        "locSum": { "type": "integer", "minimum": 0 },
+        "minutesP50": { "type": "number", "minimum": 0 },
+        "minutesP90": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+        "rationale": { "type": "string" }
+      }
+    }
+  }
+}

@@ -4,6 +4,12 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
+// W8-CC-α: raise per-file default test timeout from 5000ms → 10000ms.
+// The longest workflow tests (swarm / economy dispatch) spawn real CLI
+// sub-processes that occasionally exceed 5s on Windows under load.
+// 10s gives enough headroom for slow CI without masking real hangs.
+vi.setConfig({ testTimeout: 10000 });
+
 describe('createProgram workflow commands', () => {
 
   beforeEach(() => {

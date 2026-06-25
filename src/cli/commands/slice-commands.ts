@@ -6,6 +6,8 @@ import { sliceCheck } from '../../services/slice/slice-check-service.js';
 import { decomposeSlices } from '../../services/slice/slice-decompose-service.js';
 import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchmark-service.js';
 import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
+import { decompose as multiPassDecompose } from '../../services/slice/multi-pass-orchestrator.js';
+import { readResult as readDecompositionResult, writeResult as writeSchemaResult } from '../../services/slice/schema-router.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
@@ -79,10 +81,63 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--refresh', 're-run `peaks codegraph index` before reading', false)
       .option('--benchmark', 'record per-run metrics and attach to the result envelope (2.1.1 algorithm optimization comparison)', false)
-  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; json?: boolean }) => {
+      .option('--granularity <value>', 'service | file | both | auto. Default "both" keeps the v1 6-stage path; service / file / auto enable v2 multi-pass decomposition (peaks-cli 2.9+) and emit a DecompositionResultV2 envelope via SchemaRouter', 'both')
+  ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; granularity?: string; json?: boolean }) => {
+    // Validate --granularity BEFORE any I/O so invalid values fail fast with a
+    // nextActions hint listing the four allowed strings.
+    const granularity = options.granularity ?? 'both';
+    if (
+      granularity !== 'service' &&
+      granularity !== 'file' &&
+      granularity !== 'both' &&
+      granularity !== 'auto'
+    ) {
+      printResult(
+        io,
+        fail(
+          'slice.decompose',
+          'SLICE_DECOMPOSE_FAILED',
+          `Invalid --granularity '${options.granularity}'.`,
+          { rid, projectRoot: options.project },
+          [
+            `--granularity accepts one of: service, file, both, auto`,
+            `Default (omit the flag or pass "both") keeps the existing v1 path.`,
+            `Non-default values (service / file / auto) enable v2 multi-pass decomposition (peaks-cli 2.9+).`
+          ]
+        ),
+        options.json ?? false
+      );
+      process.exitCode = 1;
+      return;
+    }
+
     try {
       const projectRoot = resolveCanonicalProjectRoot(options.project);
       const prdMarkdown = readPrdBody(rid, projectRoot);
+      // Non-default granularity takes the v2 path; default ("both") keeps v1.
+      if (granularity !== 'both') {
+        const v2Result = await multiPassDecompose(rid, prdMarkdown, projectRoot, {
+          ...(options.refresh ? { refresh: true } : {}),
+          granularity
+        });
+        const outDir = join(projectRoot, '.peaks', 'sc', 'slice-decomposition');
+        if (!existsSync(outDir)) {
+          mkdirSync(outDir, { recursive: true });
+        }
+        const outPath = join(outDir, `${rid}.json`);
+        writeSchemaResult(outPath, v2Result);
+        const nextActions: string[] = [
+          `Decomposition (v2) written to ${outPath}`,
+          `peaks slice pick/plan: v2 schemas require SchemaRouter-aware consumers (peaks-cli 2.9+).`
+        ];
+        printResult(
+          io,
+          ok('slice.decompose', { ...v2Result, outputPath: outPath }, [], nextActions),
+          options.json ?? false
+        );
+        return;
+      }
+
       let result: DecompositionResult;
       let benchmark: { totalMs: number; codegraphQueries: number; p50ConfidenceDistribution: { low: number; mid: number; high: number }; inputApproxBytes: { prd: number }; outputJsonBytes: number; capturedAt: string } | null = null;
       if (options.benchmark === true) {
@@ -155,7 +210,16 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
             `Run \`peaks slice decompose ${rid}\` first.`
         );
       }
-      const decomposition = JSON.parse(readFileSync(decompPath, 'utf8')) as DecompositionResult;
+      const parsed = readDecompositionResult(decompPath);
+      if ('schemaVersion' in parsed) {
+        throw new Error(
+          `decomposition at ${decompPath} is a v2 envelope (schemaVersion: 'v2'). ` +
+          `peaks slice pick supports v1 only in peaks-cli 2.9.0. ` +
+          `Re-run \`peaks slice decompose ${rid}\` without --granularity to get a v1 file, ` +
+          `or upgrade peaks-cli when v2 pick lands.`
+        );
+      }
+      const decomposition = parsed;
       const result = await pickSlicesInteractive(rid, decomposition, projectRoot, {
         ...(options.preview !== undefined ? { preview: options.preview } : {}),
         ...(options.fzfBin ? { fzfBin: options.fzfBin } : {})
@@ -188,16 +252,16 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--apply', 'actually call peaks request init (default: dry-run only)', false)
   ).action(async (rid: string, options: { project: string; apply?: boolean; json?: boolean }) => {
+    const projectRoot = resolveCanonicalProjectRoot(options.project);
+    const pickedPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}-picked.json`);
     try {
-      const projectRoot = resolveCanonicalProjectRoot(options.project);
-      const pickedPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}-picked.json`);
       if (!existsSync(pickedPath)) {
         throw new Error(
           `picked file not found at ${pickedPath}. ` +
             `Run \`peaks slice pick ${rid}\` first, or manually craft the file.`
         );
       }
-      const picked = JSON.parse(readFileSync(pickedPath, 'utf8')) as { rid: string; picked: Array<{ rid: string; files: readonly string[]; label: string }> };
+      const picked = parsePickedFile(pickedPath);
       const plan = picked.picked.map((slice, idx) => ({
         newRid: `${rid}-${idx + 1}-${slice.rid}`,
         type: 'feat' as const,
@@ -214,7 +278,21 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       ];
       printResult(io, ok('slice.plan', { parentRid: rid, plan, apply: options.apply ?? false }, [], nextActions), options.json ?? false);
     } catch (error) {
-      printResult(io, fail('slice.plan', 'SLICE_PLAN_FAILED', getErrorMessage(error), { rid, projectRoot: options.project }, ['Verify the picked file exists, the rid is correct, and peaks request init is available']), options.json ?? false);
+      const msg = getErrorMessage(error);
+      const isEnvelopeError = msg.startsWith('picked envelope at');
+      printResult(
+        io,
+        fail(
+          'slice.plan',
+          isEnvelopeError ? 'PICKED_ENVELOPE_INVALID' : 'SLICE_PLAN_FAILED',
+          msg,
+          { rid, projectRoot: options.project, pickedPath },
+          isEnvelopeError
+            ? ['Verify the -picked.json envelope matches the schema: { rid: string, picked: Array<{ rid, files: string[], label }> }']
+            : ['Verify the picked file exists, the rid is correct, and peaks request init is available']
+        ),
+        options.json ?? false
+      );
       process.exitCode = 1;
     }
   });
@@ -290,4 +368,69 @@ function writeBenchmarkArtifact(rid: string, benchmark: unknown, projectRoot: st
   const outPath = join(dir, `${rid}.benchmark.json`);
   writeFileSync(outPath, JSON.stringify(benchmark, null, 2), 'utf8');
   return outPath;
+}
+
+// ---------- picked envelope router (W6 fix) ----------
+
+interface PickedEnvelope {
+  readonly rid: string;
+  readonly picked: readonly {
+    readonly rid: string;
+    readonly files: readonly string[];
+    readonly label: string;
+  }[];
+}
+
+/**
+ * Validate a -picked.json envelope. Throws a CLI-friendly Error on any
+ * shape violation; the catch in the slice.plan action converts it to
+ * a fail() envelope with `code: 'PICKED_ENVELOPE_INVALID'`.
+ *
+ * Schema:
+ *   { rid: string; picked: Array<{ rid, files: string[], label }> }
+ *
+ * Rejects: missing rid, missing/invalid picked array, picked[i] missing
+ * rid / files / label, picked[i].files empty.
+ */
+export function parsePickedFile(pickedPath: string): PickedEnvelope {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(pickedPath, 'utf8'));
+  } catch (err) {
+    // JSON.parse errors are always Error-shaped (SyntaxError extends Error),
+    // so the cast is safe; we only need `.message`.
+    throw new Error(
+      `picked envelope at ${pickedPath} is not valid JSON: ${(err as Error).message}`
+    );
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error(`picked envelope at ${pickedPath} must be a JSON object, got ${typeof raw}`);
+  }
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.rid !== 'string' || obj.rid.length === 0) {
+    throw new Error(`picked envelope at ${pickedPath} is missing required string field 'rid'`);
+  }
+  if (!Array.isArray(obj.picked)) {
+    throw new Error(`picked envelope at ${pickedPath} is missing required array field 'picked'`);
+  }
+  const picked = obj.picked.map((item, idx) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`picked[${idx}] must be an object, got ${typeof item}`);
+    }
+    const it = item as Record<string, unknown>;
+    if (typeof it.rid !== 'string' || it.rid.length === 0) {
+      throw new Error(`picked[${idx}] is missing required string field 'rid'`);
+    }
+    if (!Array.isArray(it.files) || it.files.length === 0) {
+      throw new Error(`picked[${idx}] is missing or has empty required array field 'files'`);
+    }
+    if (!it.files.every((f) => typeof f === 'string')) {
+      throw new Error(`picked[${idx}].files must contain only strings`);
+    }
+    if (typeof it.label !== 'string' || it.label.length === 0) {
+      throw new Error(`picked[${idx}] is missing required string field 'label'`);
+    }
+    return { rid: it.rid, files: it.files as readonly string[], label: it.label };
+  });
+  return { rid: obj.rid, picked };
 }

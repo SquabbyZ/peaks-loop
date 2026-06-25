@@ -3,6 +3,32 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { getMockedHomeDir, parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
+const mockedLoadProjectDashboard = vi.hoisted(() =>
+  vi.fn(async (options: Parameters<typeof import('../../src/services/dashboard/project-dashboard-service.js').loadProjectDashboard>[0]) => {
+    // Default: delegate to the real impl with an injected synthetic doctor +
+    // runbookHealth so the test does not depend on real filesystem probes
+    // (capability:codegraph, build:dist-version-matches-source, etc.).
+    const realModule = await vi.importActual<typeof import('../../src/services/dashboard/project-dashboard-service.js')>(
+      '../../src/services/dashboard/project-dashboard-service.js'
+    );
+    return realModule.loadProjectDashboard({
+      ...options,
+      doctorReport: options.doctorReport ?? { ok: true, passed: 1, failed: 0 },
+      runbookHealth: options.runbookHealth ?? {
+        ok: true,
+        required: 0,
+        healthy: 0,
+        missingRunbook: [],
+        applyNoteFailed: []
+      }
+    });
+  })
+);
+
+vi.mock('../../src/services/dashboard/project-dashboard-service.js', () => ({
+  loadProjectDashboard: mockedLoadProjectDashboard
+}));
+
 const homeDir = getMockedHomeDir();
 
 async function makeProject(name: string): Promise<string> {
@@ -59,8 +85,7 @@ describe('peaks project dashboard command', () => {
   });
 
   test('returns PROJECT_DASHBOARD_FAILED when the service throws', async () => {
-    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
-    const spy = vi.spyOn(module, 'loadProjectDashboard').mockRejectedValueOnce(new Error('synthetic dashboard failure'));
+    vi.mocked(mockedLoadProjectDashboard).mockRejectedValueOnce(new Error('synthetic dashboard failure'));
 
     const project = await makeProject('project-dashboard-failure');
     const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
@@ -69,11 +94,10 @@ describe('peaks project dashboard command', () => {
     expect(output.ok).toBe(false);
     expect(output.code).toBe('PROJECT_DASHBOARD_FAILED');
     expect(result.exitCode).toBe(1);
-    spy.mockRestore();
+    vi.mocked(mockedLoadProjectDashboard).mockReset();
   });
 
   test('reports PROJECT_DASHBOARD_RUNBOOK_UNHEALTHY when skill runbook health fails', async () => {
-    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
     const fakeDashboard = {
       generatedAt: '2026-05-24T00:00:00.000Z',
       projectRoot: '/tmp/fake',
@@ -90,8 +114,8 @@ describe('peaks project dashboard command', () => {
         applyNoteFailed: ['peaks-txt']
       },
       capabilities: { count: 0, sample: [] }
-    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
-    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+    };
+    vi.mocked(mockedLoadProjectDashboard).mockResolvedValueOnce(fakeDashboard as never);
 
     const project = await makeProject('project-dashboard-runbook-unhealthy');
     const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
@@ -103,11 +127,10 @@ describe('peaks project dashboard command', () => {
     expect(output.code).toBe('PROJECT_DASHBOARD_RUNBOOK_UNHEALTHY');
     expect(output.data.runbookHealth.applyNoteFailed).toEqual(['peaks-txt']);
     expect(result.exitCode).toBe(1);
-    spy.mockRestore();
+    vi.mocked(mockedLoadProjectDashboard).mockReset();
   });
 
   test('reports PROJECT_DASHBOARD_DOCTOR_STRICT_FAIL when --strict is set and doctor fails but runbook health is ok', async () => {
-    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
     const fakeDashboard = {
       generatedAt: '2026-05-24T00:00:00.000Z',
       projectRoot: '/tmp/fake',
@@ -127,8 +150,8 @@ describe('peaks project dashboard command', () => {
       },
       capabilities: { count: 0, sample: [] },
       skillPresence: { active: false, fresh: true }
-    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
-    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+    };
+    vi.mocked(mockedLoadProjectDashboard).mockResolvedValueOnce(fakeDashboard as never);
 
     const project = await makeProject('project-dashboard-doctor-strict-fail');
     const result = await runCommand(['project', 'dashboard', '--project', project, '--strict', '--json']);
@@ -138,11 +161,10 @@ describe('peaks project dashboard command', () => {
     expect(output.code).toBe('PROJECT_DASHBOARD_DOCTOR_STRICT_FAIL');
     expect(output.data.doctor).toEqual({ ok: false, passed: 5, failed: 2 });
     expect(result.exitCode).toBe(1);
-    spy.mockRestore();
+    vi.mocked(mockedLoadProjectDashboard).mockReset();
   });
 
   test('default workspace-only policy tolerates a failing doctor (G1)', async () => {
-    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
     const fakeDashboard = {
       generatedAt: '2026-05-24T00:00:00.000Z',
       projectRoot: '/tmp/fake',
@@ -156,8 +178,8 @@ describe('peaks project dashboard command', () => {
       runbookHealth: { ok: true, required: 7, healthy: 7, missingRunbook: [], applyNoteFailed: [] },
       capabilities: { count: 0, sample: [] },
       skillPresence: { active: false, fresh: true }
-    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
-    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+    };
+    vi.mocked(mockedLoadProjectDashboard).mockResolvedValueOnce(fakeDashboard as never);
 
     const project = await makeProject('project-dashboard-workspace-only');
     const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
@@ -166,11 +188,10 @@ describe('peaks project dashboard command', () => {
     expect(output.ok).toBe(true);
     expect(output.data.okPolicy).toBe('workspace-only');
     expect(result.exitCode ?? 0).toBe(0);
-    spy.mockRestore();
+    vi.mocked(mockedLoadProjectDashboard).mockReset();
   });
 
   test('reports PROJECT_DASHBOARD_STALE_SKILL_PRESENCE when active skill presence is stale', async () => {
-    const module = await import('../../src/services/dashboard/project-dashboard-service.js');
     const staleSetAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
     const fakeDashboard = {
       generatedAt: '2026-05-24T00:00:00.000Z',
@@ -189,8 +210,8 @@ describe('peaks project dashboard command', () => {
       },
       capabilities: { count: 0, sample: [] },
       skillPresence: { active: true, fresh: false, skill: 'peaks-rd', setAt: staleSetAt }
-    } as unknown as Awaited<ReturnType<typeof module.loadProjectDashboard>>;
-    const spy = vi.spyOn(module, 'loadProjectDashboard').mockResolvedValueOnce(fakeDashboard);
+    };
+    vi.mocked(mockedLoadProjectDashboard).mockResolvedValueOnce(fakeDashboard as never);
 
     const project = await makeProject('project-dashboard-stale-presence');
     const result = await runCommand(['project', 'dashboard', '--project', project, '--json']);
@@ -203,6 +224,6 @@ describe('peaks project dashboard command', () => {
     expect(output.data.skillPresence.skill).toBe('peaks-rd');
     expect(output.data.skillPresence.fresh).toBe(false);
     expect(result.exitCode).toBe(1);
-    spy.mockRestore();
+    vi.mocked(mockedLoadProjectDashboard).mockReset();
   });
 });
