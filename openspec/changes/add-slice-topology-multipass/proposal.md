@@ -26,7 +26,7 @@ This change is part of peaks-cli's broader shift to a **10% human / 90% LLM** mo
    - **Problem resolution** — Was the original problem actually fixed? (Specific to the need, not generic.)
    - **No new bugs introduced** — Did the work break anything that wasn't broken before? (Regression check.)
    - **Existing functionality intact** — Did the work preserve existing behavior? (Pre/post baseline comparison.)
-   
+
    The LLM prepares structured evidence for each dimension; the human does the business judgment and either accepts or sends back with feedback.
 
 **Critical**: touchpoint #3 is **business-outcome review**, NOT code review. Code review (CR / Security / Perf) is the LLM's responsibility (one of the 90%). The human reviews outcomes, not code.
