@@ -252,16 +252,16 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--apply', 'actually call peaks request init (default: dry-run only)', false)
   ).action(async (rid: string, options: { project: string; apply?: boolean; json?: boolean }) => {
+    const projectRoot = resolveCanonicalProjectRoot(options.project);
+    const pickedPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}-picked.json`);
     try {
-      const projectRoot = resolveCanonicalProjectRoot(options.project);
-      const pickedPath = join(projectRoot, '.peaks', 'sc', 'slice-decomposition', `${rid}-picked.json`);
       if (!existsSync(pickedPath)) {
         throw new Error(
           `picked file not found at ${pickedPath}. ` +
             `Run \`peaks slice pick ${rid}\` first, or manually craft the file.`
         );
       }
-      const picked = JSON.parse(readFileSync(pickedPath, 'utf8')) as { rid: string; picked: Array<{ rid: string; files: readonly string[]; label: string }> };
+      const picked = parsePickedFile(pickedPath);
       const plan = picked.picked.map((slice, idx) => ({
         newRid: `${rid}-${idx + 1}-${slice.rid}`,
         type: 'feat' as const,
@@ -278,7 +278,21 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       ];
       printResult(io, ok('slice.plan', { parentRid: rid, plan, apply: options.apply ?? false }, [], nextActions), options.json ?? false);
     } catch (error) {
-      printResult(io, fail('slice.plan', 'SLICE_PLAN_FAILED', getErrorMessage(error), { rid, projectRoot: options.project }, ['Verify the picked file exists, the rid is correct, and peaks request init is available']), options.json ?? false);
+      const msg = getErrorMessage(error);
+      const isEnvelopeError = msg.startsWith('picked envelope at');
+      printResult(
+        io,
+        fail(
+          'slice.plan',
+          isEnvelopeError ? 'PICKED_ENVELOPE_INVALID' : 'SLICE_PLAN_FAILED',
+          msg,
+          { rid, projectRoot: options.project, pickedPath },
+          isEnvelopeError
+            ? ['Verify the -picked.json envelope matches the schema: { rid: string, picked: Array<{ rid, files: string[], label }> }']
+            : ['Verify the picked file exists, the rid is correct, and peaks request init is available']
+        ),
+        options.json ?? false
+      );
       process.exitCode = 1;
     }
   });
@@ -354,4 +368,69 @@ function writeBenchmarkArtifact(rid: string, benchmark: unknown, projectRoot: st
   const outPath = join(dir, `${rid}.benchmark.json`);
   writeFileSync(outPath, JSON.stringify(benchmark, null, 2), 'utf8');
   return outPath;
+}
+
+// ---------- picked envelope router (W6 fix) ----------
+
+interface PickedEnvelope {
+  readonly rid: string;
+  readonly picked: readonly {
+    readonly rid: string;
+    readonly files: readonly string[];
+    readonly label: string;
+  }[];
+}
+
+/**
+ * Validate a -picked.json envelope. Throws a CLI-friendly Error on any
+ * shape violation; the catch in the slice.plan action converts it to
+ * a fail() envelope with `code: 'PICKED_ENVELOPE_INVALID'`.
+ *
+ * Schema:
+ *   { rid: string; picked: Array<{ rid, files: string[], label }> }
+ *
+ * Rejects: missing rid, missing/invalid picked array, picked[i] missing
+ * rid / files / label, picked[i].files empty.
+ */
+export function parsePickedFile(pickedPath: string): PickedEnvelope {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(pickedPath, 'utf8'));
+  } catch (err) {
+    // JSON.parse errors are always Error-shaped (SyntaxError extends Error),
+    // so the cast is safe; we only need `.message`.
+    throw new Error(
+      `picked envelope at ${pickedPath} is not valid JSON: ${(err as Error).message}`
+    );
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error(`picked envelope at ${pickedPath} must be a JSON object, got ${typeof raw}`);
+  }
+  const obj = raw as Record<string, unknown>;
+  if (typeof obj.rid !== 'string' || obj.rid.length === 0) {
+    throw new Error(`picked envelope at ${pickedPath} is missing required string field 'rid'`);
+  }
+  if (!Array.isArray(obj.picked)) {
+    throw new Error(`picked envelope at ${pickedPath} is missing required array field 'picked'`);
+  }
+  const picked = obj.picked.map((item, idx) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(`picked[${idx}] must be an object, got ${typeof item}`);
+    }
+    const it = item as Record<string, unknown>;
+    if (typeof it.rid !== 'string' || it.rid.length === 0) {
+      throw new Error(`picked[${idx}] is missing required string field 'rid'`);
+    }
+    if (!Array.isArray(it.files) || it.files.length === 0) {
+      throw new Error(`picked[${idx}] is missing or has empty required array field 'files'`);
+    }
+    if (!it.files.every((f) => typeof f === 'string')) {
+      throw new Error(`picked[${idx}].files must contain only strings`);
+    }
+    if (typeof it.label !== 'string' || it.label.length === 0) {
+      throw new Error(`picked[${idx}] is missing required string field 'label'`);
+    }
+    return { rid: it.rid, files: it.files as readonly string[], label: it.label };
+  });
+  return { rid: obj.rid, picked };
 }
