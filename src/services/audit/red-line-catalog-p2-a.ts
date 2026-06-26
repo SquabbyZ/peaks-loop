@@ -202,13 +202,9 @@ const OPENSPEC_PROPOSAL_HAS_SPEC_CHANGES: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts',
 };
 
-const TECH_DOC_PRESENCE_PRE_RD: RedLineCatalogEntry = {
-  id: 'rl-tech-doc-presence-pre-rd-001',
-  rule: 'Workflow: rd/tech-doc.md has Red-line scope + Implementation evidence',
-  markers: ['MANDATORY'],
-  phrases: ['red-line scope', 'implementation evidence', '## red-line scope', '## implementation evidence'],
-  enforcerRef: 'src/services/audit/enforcers/lint-workflow-shape.ts',
-};
+// (Removed in v2.11.0 Group A: TECH_DOC_PRESENCE_PRE_RD catalog entry —
+// the enforcer function it pointed to (lintTechDocPresenceShape in
+// lint-workflow-shape.ts) was removed in the same slice.)
 
 const PEAKS_DOCTOR_SKILL_ACKNOWLEDGED: RedLineCatalogEntry = {
   id: 'rl-peaks-doctor-skill-acknowledged-001',
@@ -267,7 +263,7 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   REF_NO_RELATIVE_ARCHIVE_PATHS,
   OPENSPEC_PROPOSAL_HAS_AC_BULLETS,
   OPENSPEC_PROPOSAL_HAS_SPEC_CHANGES,
-  TECH_DOC_PRESENCE_PRE_RD,
+  // (Removed in v2.11.0 Group A: TECH_DOC_PRESENCE_PRE_RD)
   PEAKS_DOCTOR_SKILL_ACKNOWLEDGED,
   CATALOG_TOTAL_LE_45,
   CATALOG_PROSE_ONLY_RATIO,

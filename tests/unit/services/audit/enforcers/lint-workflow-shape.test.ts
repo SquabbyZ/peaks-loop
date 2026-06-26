@@ -1,15 +1,17 @@
 /**
  * Unit tests for P2-a Theme F — workflow-bound shape enforcers.
  *
- * Four enforcers scan openspec/changes/STAR/proposal.md for canonical
- * shape (acceptance bullets, spec reference), .peaks/_runtime/STAR/rd/tech-doc.md
- * for required sections, and skill bodies for `peaks doctor` mention.
+ * Three enforcers scan openspec/changes/STAR/proposal.md for canonical
+ * shape (acceptance bullets, spec reference) and skill bodies for
+ * `peaks doctor` mention.
+ *
+ * (v2.11.0 Group A: `lintTechDocPresenceShape` removed — tech-doc.md is
+ * replaced by the immutable peaks-prd handoff.)
  */
 import { describe, it, expect } from 'vitest';
 import {
   lintOpenSpecAcceptanceBullets,
   lintOpenSpecSpecReference,
-  lintTechDocPresenceShape,
   lintPeaksDoctorAcknowledged,
 } from '../../../../../src/services/audit/enforcers/lint-workflow-shape.js';
 import type { SkillFile } from '../../../../../src/services/audit/enforcers/lint-style.js';
@@ -37,12 +39,6 @@ describe('lint-workflow-shape — Theme F', () => {
   it('passes the proposal spec-reference check on the current proposals', () => {
     const projectRoot = process.cwd();
     const hits = lintOpenSpecSpecReference(projectRoot);
-    expect(Array.isArray(hits)).toBe(true);
-  });
-
-  it('passes the tech-doc-presence check (or returns empty when no tech-doc.md exists)', () => {
-    const projectRoot = process.cwd();
-    const hits = lintTechDocPresenceShape(projectRoot);
     expect(Array.isArray(hits)).toBe(true);
   });
 

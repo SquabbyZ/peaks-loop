@@ -490,7 +490,8 @@ describe('peaks request transition command', () => {
     expect(output.code).toBe('PREREQUISITES_MISSING');
     expect(result.exitCode).toBe(1);
     const paths = output.data.missing.map((entry) => entry.path);
-    expect(paths).toContain('rd/tech-doc.md');
+    // (v2.11.0 Group A: rd/tech-doc.md removed from FEATURE_TABLE rd:qa-handoff prereqs.
+    // The new gate is peaks-prd's prd/handoff.md, which Group B will introduce.)
     expect(paths).toContain('rd/code-review.md');
     expect(paths).toContain('rd/security-review.md');
   });

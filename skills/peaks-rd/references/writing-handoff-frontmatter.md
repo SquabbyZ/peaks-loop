@@ -4,7 +4,9 @@ Every RD handoff artifact carries a **YAML frontmatter block** so peaks-qa (and 
 
 ## Path
 
-`.peaks/_runtime/change/<changeId>/rd/<requestId>.md` — the canonical RD handoff path. Filename uses the change-id slug embedded by the writer (`peaks request init --apply` handles this).
+`.peaks/_runtime/<sessionId>/prd/handoff.md` — the canonical immutable PRD handoff path (v2.11.0+). The handoff is written by peaks-prd, sha256-hashed in frontmatter, and verified by every downstream sub-agent against the dispatched hash before reading.
+
+> **v2.11.0 change (Group A):** the per-session `rd/tech-doc.md` is removed; the immutable peaks-prd handoff replaces it as the slice's source-of-truth architecture document.
 
 ## Required frontmatter fields
 
@@ -17,6 +19,8 @@ scope:
 files:
   - src/services/slice/schema-router.ts
   - src/services/audit/audit-goal-service.ts
+handoffPath: .peaks/_runtime/<sessionId>/prd/handoff.md
+handoffHash: sha256:<64 hex chars>
 decisions:
   - id: D1
     summary: "Route v1/v2 envelopes via SchemaRouter instead of branching in prompts"
@@ -29,12 +33,12 @@ nextActions:
   - "peaks-qa reads this handoff and runs the regression matrix"
   - "If Gate C passes, transition to txt handoff"
 gateEvidence:
-  projectScan: .peaks/_runtime/change/<changeId>/rd/project-scan.md
-  techDoc: .peaks/_runtime/change/<changeId>/rd/tech-doc.md
-  codeReview: .peaks/_runtime/change/<changeId>/rd/code-review.md
-  securityReview: .peaks/_runtime/change/<changeId>/rd/security-review.md
-  perfBaseline: .peaks/_runtime/change/<changeId>/rd/perf-baseline.md
-schemaVersion: '1.0'
+  projectScan: .peaks/_runtime/<sessionId>/rd/project-scan.md
+  prdHandoff: .peaks/_runtime/<sessionId>/prd/handoff.md
+  codeReview: .peaks/_runtime/<sessionId>/rd/code-review.md
+  securityReview: .peaks/_runtime/<sessionId>/rd/security-review.md
+  perfBaseline: .peaks/_runtime/<sessionId>/rd/perf-baseline.md
+schemaVersion: '2.0'
 ---
 ```
 
@@ -42,11 +46,14 @@ schemaVersion: '1.0'
 
 - `requestId` — kebab-case; matches the PRD `requestId`.
 - `scope` / `files` — absolute repo-relative paths (`src/...`). Sorted alphabetically.
+- `handoffPath` + `handoffHash` — the immutable PRD handoff location and its sha256 hash. Sub-agents MUST verify `handoffHash` matches the file's actual sha256 before reading; mismatch → return `blocked`.
 - `decisions[]` — every decision an LLM made that an implementer could question. `id` is local; `summary` is one line; `rationale` is ≤ 2 sentences.
 - `risks[]` — same shape; `mitigation` is required. A risk without a mitigation is a red line (gate blocked).
 - `nextActions[]` — verb-first; what peaks-qa should do next, in order.
 - `gateEvidence` — paths to the gate files peaks-qa will validate. Missing keys → Gate C failure.
-- `schemaVersion: '1.0'` — pinned; bump only when the field set changes.
+- `schemaVersion: '2.0'` — pinned (bumped from `'1.0'` in v2.11.0); bump only when the field set changes.
+
+> **v2.11.0 Group A change:** the validation tests at `tests/unit/artifacts/handoff-frontmatter-shape.test.ts` now assert `schemaVersion === '2.0'`. Files still carrying `'1.0'` will fail validation until upgraded.
 
 ## Validation
 

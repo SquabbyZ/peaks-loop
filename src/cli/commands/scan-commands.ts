@@ -361,8 +361,10 @@ export function registerScanCommands(program: Command, io: ProgramIO): void {
       if (report.counts.cli === 0 && report.counts.service === 0) {
         nextActions.push('No CLI subcommands or service exports found — verify --include-dirs points at the right paths.');
       } else {
-        nextActions.push('Paste the `--format md` output under `## API surface inventory` in .peaks/_runtime/<sid>/rd/tech-doc.md.');
-        nextActions.push('Use the inventory to fill the tech-doc "Existing API / Component Inventory" section (karpathy §1 — reuse before create).');
+        // (v2.11.0 Group A: rd/tech-doc.md removed; the immutable peaks-prd
+        // handoff at prd/handoff.md is the new home for the inventory section.)
+        nextActions.push('Paste the `--format md` output under `## API surface inventory` in .peaks/_runtime/<sid>/prd/handoff.md.');
+        nextActions.push('Use the inventory to fill the handoff "Existing API / Component Inventory" section (karpathy §1 — reuse before create).');
       }
       if (options.format === 'json' && !options.json) {
         // Raw JSON without the ok/data/code envelope.

@@ -97,14 +97,16 @@ For each slice in this request:
 
 | File | Scope | Reader | Required content |
 |---|---|---|---|
-| `.peaks/_runtime/<sessionId>/rd/tech-doc.md` | per-session — the whole RD plan for the session, all slices | Solo, future LLM, the human scrolling the session | Architecture, slice graph, mock strategy, cross-cutting decisions. **Not** the place for per-slice implementation evidence. |
+| `.peaks/_runtime/<sessionId>/prd/handoff.md` | per-slice — immutable peaks-prd source of truth (v2.11.0+) | RD, QA, all sub-agents | Goals, non-goals, acceptance criteria, architecture, slice graph, mock strategy, cross-cutting decisions. sha256-hashed in frontmatter; sub-agents verify the hash before reading. |
 | `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` | per-slice — one request, one planning artifact | QA, SC, the lint gate | Red-line scope, in-scope / out-of-scope, unit-test requirements, **Implementation evidence** (file list, `pnpm test` output, git diff excerpts), MCP usage, handoff, status. **This is the file the lint gate checks for placeholders.** |
 | `.peaks/_runtime/<sessionId>/rd/code-review.md` | per-session — the engineering review | QA, the human reviewer | Code review findings + fixes. |
 | `.peaks/_runtime/<sessionId>/rd/security-review.md` | per-session — the security review | QA | Security review findings + fixes. |
 
-**Failure mode the lint gate catches**: the LLM writes the actual implementation content into `rd/tech-doc.md` and leaves `rd/requests/<rid>.md` as the default template (with placeholder sections like "Implementation evidence: 留待 RD 实施阶段补充" and "MCP usage: N/A"). The lint gate then fails the slice with 6+ lint errors on the `<rid>.md` template even though the actual content lives in `tech-doc.md`.
+> **v2.11.0 change (Group A):** `rd/tech-doc.md` is removed. The per-slice source of truth moves to the immutable peaks-prd handoff (`prd/handoff.md`); the per-slice planning record is `rd/requests/<rid>.md`. The "per-session" content category is no longer RD's responsibility — it lives upstream in the PRD handoff.
+
+**Failure mode the lint gate catches**: the LLM writes the actual implementation content into a side file and leaves `rd/requests/<rid>.md` as the default template (with placeholder sections like "Implementation evidence: 留待 RD 实施阶段补充" and "MCP usage: N/A"). The lint gate then fails the slice with 6+ lint errors on the `<rid>.md` template even though the actual content lives elsewhere.
 
 **Rule**:
 - **Per-slice content** (red-line scope, in-scope / out-of-scope, the implementation evidence list, the unit-test assertions, the handoff) → **belongs in `rd/requests/<rid>.md`**.
-- **Per-session content** (the architecture overview, the slice roadmap, the cross-cutting concerns, the mock strategy for the whole session) → **belongs in `rd/tech-doc.md`**.
-- When in doubt: copy the per-slice content into the `<rid>.md` artifact's "Implementation evidence" section after writing it to `tech-doc.md`. The two files can carry overlapping context; the gate only enforces that `<rid>.md` is not empty placeholders.
+- **Source-of-truth architecture content** (goals, non-goals, ACs, slice graph, mock strategy, cross-cutting decisions) → **belongs in `prd/handoff.md`** (immutable, sha256-hashed).
+- When in doubt: copy the per-slice content into the `<rid>.md` artifact's "Implementation evidence" section after writing it to the handoff. The two files can carry overlapping context; the gate only enforces that `<rid>.md` is not empty placeholders.

@@ -50,21 +50,14 @@ async function writeArtifact(project: string, changeId: string, relativePath: st
 }
 
 describe('transitionRequestArtifact — prerequisite enforcement', () => {
-  test('rd→implemented is blocked without tech-doc.md', async () => {
+  // (v2.11.0 Group A: rd/tech-doc.md is removed as a prerequisite. The
+  // rd:implemented transition now has no artifact gate — the immutable
+  // peaks-prd handoff (Group B) will introduce the new gate at
+  // prd/handoff.md. The two legacy tests below are replaced by a single
+  // assertion that rd:implemented passes without any prereq artifact.)
+  test('rd→implemented passes with no prerequisite artifact (v2.11.0: tech-doc gate removed)', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID);
-    await expect(
-      transitionRequestArtifact({
-        role: 'rd', requestId: REQUEST_ID, projectRoot: project,
-        newState: 'implemented', clock: () => TS
-      })
-    ).rejects.toBeInstanceOf(PrerequisitesNotSatisfiedError);
-  });
-
-  test('rd→implemented passes when tech-doc.md exists', async () => {
-    const project = await makeProject();
-    await seedRd(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: REQUEST_ID, projectRoot: project,
       newState: 'implemented', clock: () => TS
@@ -229,7 +222,9 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     const body = await readFile(result?.path ?? '', 'utf8');
     expect(body).toContain('docs-only change');
     expect(body).toContain('bypassed prerequisites');
-    expect(body).toContain('rd/tech-doc.md');
+    // (v2.11.0 Group A: rd/tech-doc.md no longer a prereq; bypass now only
+    // mentions the still-required evidence files.)
+    expect(body).toContain('rd/code-review.md');
   });
 
   test('transitions with no prerequisites stay unaffected (prd→confirmed-by-user)', async () => {

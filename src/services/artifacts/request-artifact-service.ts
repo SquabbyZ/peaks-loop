@@ -667,56 +667,10 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
     throw new PrerequisitesNotSatisfiedError(options.role, options.newState, existing.sessionId, prerequisiteResult.missing);
   }
 
-  // L2.1 P0 red line #4: tech-doc-presence. The rd → spec-locked transition
-  // is refused if `rd/tech-doc.md` is missing or empty. This is a machine-
-  // enforced gate that backs the "MANDATORY tech-doc before spec-locked"
-  // prose in the redesign spec §5.4.
-  if (options.role === 'rd' && options.newState === 'spec-locked' && options.allowIncomplete !== true) {
-    const { checkTechDocPresence, TECH_DOC_MISSING_CODE, TECH_DOC_MISSING_MESSAGE } = await import(
-      '../audit/enforcers/tech-doc-presence.js'
-    );
-    const techDoc = checkTechDocPresence({
-      projectRoot: options.projectRoot,
-      sessionId: existing.sessionId,
-    });
-    if (!techDoc.exists || techDoc.isEmpty) {
-      throw new PrerequisitesNotSatisfiedError(
-        options.role,
-        options.newState,
-        existing.sessionId,
-        [{ path: techDoc.path, description: `${TECH_DOC_MISSING_CODE}: ${TECH_DOC_MISSING_MESSAGE}` }],
-      );
-    }
-  }
-
-  // L2.2 Slice 2/6 karpathy-enforcement: tech-doc mandatory sections. The
-  // rd → spec-locked transition is refused if the tech-doc.md is missing
-  // any of the 3 mandatory section titles (Existing API / Simplicity
-  // self-check / Reuse & Consolidate plan). This enforces
-  // karpathy-guidelines §1 Think Before Coding and §2 Simplicity First at
-  // the gate level, so RD cannot jump into implementation without first
-  // enumerating reusable API surface, self-checking for over-engineering,
-  // or declaring a reuse / consolidate plan.
-  if (options.role === 'rd' && options.newState === 'spec-locked' && options.allowIncomplete !== true) {
-    const { checkTechDocMandatorySections, buildMandatorySectionsErrorMessage, TECH_DOC_MANDATORY_SECTIONS_CODE } = await import(
-      '../audit/enforcers/tech-doc-mandatory-sections.js'
-    );
-    const sectionsResult = checkTechDocMandatorySections({
-      projectRoot: options.projectRoot,
-      sessionId: existing.sessionId,
-    });
-    if (sectionsResult.missing.length > 0) {
-      throw new PrerequisitesNotSatisfiedError(
-        options.role,
-        options.newState,
-        existing.sessionId,
-        [{
-          path: sectionsResult.path,
-          description: `${TECH_DOC_MANDATORY_SECTIONS_CODE}: ${buildMandatorySectionsErrorMessage(sectionsResult.missing)}`,
-        }],
-      );
-    }
-  }
+  // (Removed in v2.11.0 Group A: the tech-doc-presence + tech-doc-mandatory-
+  // sections gates. The rd → spec-locked transition now relies on the
+  // immutable peaks-prd handoff (sha256-frontmatter) for the same intent;
+  // see PRD for `v2-11-rd-techdoc-removal-and-runtime-friction` AC-3/AC-4.)
 
   // Type sanity check for PRD handoff
   if (options.typeSanityCheck !== undefined && options.role === 'prd' && options.newState === 'handed-off') {

@@ -42,7 +42,7 @@ describe('red-lines-service.runRedLinesAudit', () => {
     // Stub the enforcer file so the catalog match is backed.
     mkdirSync(join(projectRoot, 'src/services/audit/enforcers'), { recursive: true });
     writeFileSync(join(projectRoot, 'src/services/audit/enforcers/sub-agent-sid.ts'), '// stub');
-    writeFileSync(join(projectRoot, 'src/services/audit/enforcers/tech-doc-presence.ts'), '// stub');
+    // (Removed in v2.11.0 Group A: tech-doc-presence.ts stub — the enforcer was deleted.)
     writeFileSync(join(projectRoot, 'src/services/audit/enforcers/mock-placement.ts'), '// stub');
 
     const result = runRedLinesAudit({ projectRoot });

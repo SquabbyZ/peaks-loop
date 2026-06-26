@@ -48,7 +48,9 @@ What the sub-agent **MUST** still do, from this skill's contract:
 2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role ui` if UI is in the swarm plan).
 3. Standards preflight (dry-run only; Solo owns the apply step).
 4. Project-scan read; create `rd/project-scan.md` only if Solo flagged it missing in the dispatch prompt.
-5. Write the planning artefact: `rd/tech-doc.md` (feature/refactor) or `rd/bug-analysis.md` (bugfix). If `--type` is `config|docs|chore`, **no planning artefact is required** — return immediately with `{"role":"rd-planning","status":"skipped","reason":"type=<type>"}`.
+5. Write the planning artefact: `rd/requests/<rid>.md` (feature/refactor, per the `artifact-per-request.md` contract) or `rd/bug-analysis.md` (bugfix). If `--type` is `config|docs|chore`, **no planning artefact is required** — return immediately with `{"role":"rd-planning","status":"skipped","reason":"type=<type>"}`.
+
+   > **v2.11.0 change (Group A):** `rd/tech-doc.md` is removed. The per-slice planning record is the per-request artefact at `rd/requests/<rid>.md`; the slice's source-of-truth architecture is the immutable peaks-prd handoff at `prd/handoff.md` (verify handoff hash = `<dispatched value>` before reading).
 6. Return only a compact JSON envelope — Solo will run the convergence gate (`ls` checks):
 
 ```json
@@ -56,7 +58,7 @@ What the sub-agent **MUST** still do, from this skill's contract:
   "role": "rd-planning",
   "rid": "<rid>",
   "status": "ok" | "blocked" | "skipped",
-  "artefacts": [".peaks/_runtime/<sessionId>/rd/tech-doc.md"],
+  "artefacts": [".peaks/_runtime/<sessionId>/rd/requests/<rid>.md"],
   "warnings": [],
   "blockedReason": null
 }
@@ -70,7 +72,7 @@ What the sub-agent **MUST** still do, from this skill's contract:
 - Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}` and let Solo handle the user message.
 - Do NOT modify code (the Swarm phase is planning only; code edits happen in the RD implementation phase, which is a separate sub-agent or inline run after Gate B).
 
-After returning, Solo re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/tech-doc.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
+After returning, Solo re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
 
 ## Test Tool Detection (mandatory)
 

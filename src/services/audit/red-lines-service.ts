@@ -21,7 +21,7 @@ import { scanSkillsTree } from './scanners/skills-tree-scanner.js';
 import { scanRulesTree } from './scanners/rules-tree-scanner.js';
 import { scanOpenSpecTree } from './scanners/openspec-scanner.js';
 import { findInvalidSubAgentSids, findInvalidRuntimeSids } from './enforcers/sub-agent-sid.js';
-import { checkTechDocPresence } from './enforcers/tech-doc-presence.js';
+// (Removed in v2.11.0 Group A: `checkTechDocPresence` from tech-doc-presence.ts)
 import { findStubMarkers } from './enforcers/prototype-fidelity.js';
 import { checkDesignDraftConfirmation } from './enforcers/design-draft-confirm.js';
 import { checkPreRdScan } from './enforcers/pre-rd-scan.js';
@@ -51,7 +51,7 @@ import {
 import {
   lintOpenSpecAcceptanceBullets,
   lintOpenSpecSpecReference,
-  lintTechDocPresenceShape,
+  // (Removed in v2.11.0 Group A: `lintTechDocPresenceShape`)
   lintPeaksDoctorAcknowledged,
 } from './enforcers/lint-workflow-shape.js';
 import {
@@ -222,37 +222,13 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     }
   }
 
-  // 2. tech-doc-presence — check the current session's tech-doc.md.
-  //    The sessionId comes from the canonical session binding file
-  //    (.peaks/_runtime/session.json) when present.
+  // 2. (Removed in v2.11.0 Group A: tech-doc-presence enforcer — the
+  //    immutable peaks-prd handoff replaces rd/tech-doc.md.)
+
+  // The session.json binding is shared by sections 3 (pre-rd-scan) and
+  // P2-a Theme C (status header) below; lifted out of the removed
+  // tech-doc block so both consumers can read it.
   const sessionJsonPath = `${input.projectRoot}/.peaks/_runtime/session.json`;
-  if (existsSync(sessionJsonPath)) {
-    try {
-      const sessionData = JSON.parse(require('node:fs').readFileSync(sessionJsonPath, 'utf8')) as { peakSessionId?: string };
-      if (typeof sessionData.peakSessionId === 'string' && sessionData.peakSessionId.length > 0) {
-        const techDoc = checkTechDocPresence({ projectRoot: input.projectRoot, sessionId: sessionData.peakSessionId });
-        if (!techDoc.exists) {
-          enforcerFindings.push({
-            enforcerId: 'rl-tech-doc-presence-001',
-            rule: 'Tech-Doc Presence',
-            severity: 'fail',
-            file: techDoc.path,
-            detail: 'tech-doc.md missing (rd → spec-locked transition will refuse)',
-          });
-        } else if (techDoc.isEmpty) {
-          enforcerFindings.push({
-            enforcerId: 'rl-tech-doc-presence-001',
-            rule: 'Tech-Doc Presence',
-            severity: 'fail',
-            file: techDoc.path,
-            detail: 'tech-doc.md is 0 bytes',
-          });
-        }
-      }
-    } catch {
-      // skip malformed session.json
-    }
-  }
 
   // 3. pre-rd-scan — check whether project-scan.md and standards-preflight.json exist
   //    for the current session.
@@ -485,12 +461,12 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     // skip — audit-regression enforcers are best-effort
   }
 
-  // P2-a Theme F (project-level): openspec proposals + tech-doc shape.
+  // P2-a Theme F (project-level): openspec proposals.
   try {
     const openspecHits = [
       ...lintOpenSpecAcceptanceBullets(input.projectRoot),
       ...lintOpenSpecSpecReference(input.projectRoot),
-      ...lintTechDocPresenceShape(input.projectRoot),
+      // (Removed in v2.11.0 Group A: lintTechDocPresenceShape)
     ];
     for (const hit of openspecHits) {
       enforcerFindings.push({

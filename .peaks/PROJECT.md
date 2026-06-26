@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-25T17:17:58.364Z
+> Last updated: 2026-06-26T03:07:54.284Z
 
 ## Project: peaks-cli
 
@@ -47,10 +47,11 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (22 sessions, showing last 15)
+## Timeline (23 sessions, showing last 15)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-06-26 | `2026-06-26-session-a28d69` | Untitled | N/A — this slice is peaks-cli CLI internal. No user-visible frontend c |
 | 2026-06-25 | `2026-06-25-session-139b84` | Untitled | > **Released**: 2026-06-26 |
 | 2026-06-25 | `2026-06-25-session-fe94e7` | Untitled | **Author:** peaks-solo (orchestrator) | **Session:** `2026-06-25-sessi |
 | 2026-06-24 | `2026-06-24-session-514c27` | Untitled | 四项变更合并为一个 refactor slice。共同目标：在 **wall-time 持平**、**token 总量持平**（允许 -5% |
@@ -65,6 +66,5 @@
 | 2026-06-13 | `2026-06-14-session-b51782` | Untitled | - |
 | 2026-06-13 | `2026-06-13-session-2ecd34` | RD: 修 2.0.3 hook node -e 包装 bugfix | > RD-side draft of QA acceptance cases. The peaks-qa skill will run |
 | 2026-06-12 | `2026-06-12-session-dbc275` | Untitled | **in-scope files (RD may modify):** |
-| 2026-06-11 | `2026-06-11-session-35ee92` | Untitled | > peaks-qa performance review (Gate A4). |
 
 <!-- peaks-managed:session-history-end -->

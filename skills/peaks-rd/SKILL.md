@@ -113,7 +113,7 @@ Before every code or mock change, RD must write and then enforce a red-line scop
 
 **BLOCKING — Do not hand off to QA without this file.** Every RD invocation that touches code MUST produce a tech-doc artifact at `.peaks/_runtime/<sessionId>/rd/tech-doc.md`. If this file is missing at QA handoff, the handoff is invalid.
 
-→ see `references/mandatory-tech-doc.md` for the minimum sections (architecture / component / data flow / CSS / API / dependencies) + CSS framework change rules.
+> **v2.11.0 Group A:** the per-session `rd/tech-doc.md` is removed. The per-slice source of truth is now the immutable peaks-prd handoff at `.peaks/_runtime/<sessionId>/prd/handoff.md` (sha256-hashed); the per-slice planning record is `rd/requests/<rid>.md`. See `references/artifact-per-request.md` for the canonical RD artefact contract.
 
 ## Mandatory perf-baseline output (RD-side perf gate)
 
@@ -263,7 +263,6 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/frontend-project-generation.md` | React + Vite + shadcn/ui default. |
 | `references/library-version-awareness.md` | Breaking-change gate + freshness check. |
 | `references/mandatory-perf-baseline.md` | RD-side perf baseline + `peaks perf baseline` workflow. |
-| `references/mandatory-tech-doc.md` | RD tech-doc minimum sections + CSS rules. |
 | `references/matt-pocock-integration.md` | Matt Pocock skills as references. |
 | `references/mock-data-placement.md` | Framework-to-mock-directory mapping + rules. |
 | `references/openspec-cli.md` | OpenSpec CLI recipes. |

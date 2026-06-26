@@ -56,11 +56,12 @@ type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;
 type PrerequisiteTable = Partial<Record<TransitionKey, ReadonlyArray<ArtifactPrerequisite>>>;
 
 // Shared prerequisite fragments
-const TECH_DOC: ArtifactPrerequisite = {
-  relativePath: 'rd/tech-doc.md',
-  description: 'RD technical design doc (architecture, files changed, data flow)',
-  mustContain: ['## Red-line scope', '## Implementation evidence']
-};
+// (Removed in v2.11.0 Group A: TECH_DOC prerequisite. The per-session
+// rd/tech-doc.md is replaced by the immutable peaks-prd handoff at
+// prd/handoff.md. Group B will introduce a PRD_HANDOFF prerequisite
+// once the handoff service lands. For Group A scope, `rd:implemented`
+// and `rd:qa-handoff` rely on the evidence files (code-review,
+// security-review, perf-baseline, karpathy-review, unit tests) only.)
 const BUG_ANALYSIS: ArtifactPrerequisite = {
   relativePath: 'rd/bug-analysis.md',
   description: 'Bug root-cause analysis (reproduction, affected paths, fix approach, regression test plan)',
@@ -151,8 +152,8 @@ const QA_INITIATED: ArtifactPrerequisite = {
 
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
-  'rd:implemented': [TECH_DOC],
-  'rd:qa-handoff': [TECH_DOC, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
+  'rd:implemented': [],
+  'rd:qa-handoff': [CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
 };

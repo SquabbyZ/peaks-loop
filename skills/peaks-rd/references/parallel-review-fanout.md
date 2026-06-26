@@ -27,14 +27,14 @@ Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/te
 
 **Sub-agent 1 — code-reviewer (always runs for feature / refactor / bugfix):**
 - Read the git diff for this slice (`git diff main...HEAD` or equivalent).
-- Read `.peaks/_runtime/<sessionId>/rd/tech-doc.md` for slice intent.
+- Read `.peaks/_runtime/<sessionId>/prd/handoff.md` for slice intent (v2.11.0: the immutable peaks-prd handoff replaces `rd/tech-doc.md`). Verify the handoff hash matches the dispatched value before proceeding.
 - Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
 - Output: `.peaks/_runtime/<sessionId>/rd/code-review.md` with sections: Summary, Findings, Required Fixes, Recommended, Verdict.
 - Required for Gate B3.
 
 **Sub-agent 2 — security-reviewer (always runs for feature / refactor / bugfix):**
 - Read the git diff and the file list.
-- Read `.peaks/_runtime/<sessionId>/rd/tech-doc.md` for the slice's threat model.
+- Read `.peaks/_runtime/<sessionId>/prd/handoff.md` for the slice's threat model (v2.11.0: handoff replaces `rd/tech-doc.md`). Verify the handoff hash matches the dispatched value before proceeding.
 - Inspect for: hardcoded secrets, unsanitized input, path traversal, SQL injection, XSS, missing auth, dependency changes, external API surface, command injection via Bash guards.
 - Output: `.peaks/_runtime/<sessionId>/rd/security-review.md` with the same shape.
 - Required for Gate B4.

@@ -58,18 +58,6 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     enforcerRef: 'src/services/audit/enforcers/sub-agent-sid.ts',
   },
   {
-    id: 'rl-tech-doc-presence-001',
-    rule: 'Tech-Doc Presence',
-    markers: ['MANDATORY', 'BLOCKING'],
-    phrases: [
-      'tech-doc',
-      'tech doc',
-      'spec-locked',
-      'rd/tech-doc.md',
-    ],
-    enforcerRef: 'src/services/audit/enforcers/tech-doc-presence.ts',
-  },
-  {
     id: 'rl-mock-placement-001',
     rule: 'Mock Data Placement',
     markers: ['MUST NOT', 'MANDATORY'],
@@ -181,8 +169,8 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
  * tracked separately.
  */
 export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([
-  // L2.1 carries-over: tech-doc-presence + mock-placement (request-transition / slice-check integrations deferred)
-  'rl-tech-doc-presence-001',
+  // L2.1 carries-over: mock-placement (request-transition / slice-check integrations deferred)
+  // (tech-doc-presence removed in v2.11.0 Group A)
   'rl-mock-placement-001',
   // L2.2 P1: 4 source-only enforcers (login-gate is integrated; the other 4 are deferred)
   'rl-resume-detection-001',

@@ -26,14 +26,15 @@ is preserved; the 5th is appended at the same parallel stage.
   QA reviewer executes them in Gate D). Do NOT write to `tests/`; the
   writer's only write target is `qa/test-cases/<rid>.md`.
 - **Sub-agent 5 — karpathy-reviewer** (Slice 5/6 — hard gate) inspects
-  the diff + tech-doc against the 4 Karpathy-guidelines and writes
-  `rd/karpathy-review.md`. The file MUST contain a `## Karpathy-Gate`
-  header and at least one of the 4 guideline section markers; the
-  transition CLI gate reads those markers and refuses `rd:qa-handoff`
-  when the file is missing or the markers are absent. The sub-agent
-  returns a JSON envelope `{ passed, violations, gateAction }` (see
-  contract below). Do NOT modify code; the writer's only write target
-  is `rd/karpathy-review.md`.
+  the diff + handoff against the 4 Karpathy-guidelines and writes
+  `rd/karpathy-review.md` (v2.11.0: the immutable peaks-prd handoff
+  at `prd/handoff.md` replaces `rd/tech-doc.md`). The file MUST
+  contain a `## Karpathy-Gate` header and at least one of the 4
+  guideline section markers; the transition CLI gate reads those
+  markers and refuses `rd:qa-handoff` when the file is missing or
+  the markers are absent. The sub-agent returns a JSON envelope
+  `{ passed, violations, gateAction }` (see contract below). Do NOT
+  modify code; the writer's only write target is `rd/karpathy-review.md`.
 
 ## Hard prohibitions on all 4 sub-agents (single block)
 
@@ -78,7 +79,9 @@ are NOT degradeable — their failure blocks qa-handoff. The
 - The verbatim 4-section Karpathy-guidelines block (injected by
   `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context").
 - The current slice's diff (changed files + their content).
-- The current slice's `rd/tech-doc.md` (architecture summary).
+- The current slice's `.peaks/_runtime/<sessionId>/prd/handoff.md`
+  (v2.11.0: architecture summary — the immutable peaks-prd handoff
+  replaces `rd/tech-doc.md`).
 - The current slice's PRD body (acceptance criteria).
 
 **Outputs** (compact JSON envelope returned to the parent RD loop):
@@ -134,14 +137,19 @@ The transition CLI gate reads `mustContain: ['## Karpathy-Gate',
 
 ## Gate C evidence (RD-side, type-specific)
 
-| Request type | Required RD evidence (under `.peaks/_runtime/change/<changeId>/`) |
+| Request type | Required RD evidence (under `.peaks/_runtime/<sessionId>/`) |
 |---|---|
-| feature / refactor | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
+| feature / refactor | `prd/handoff.md` (immutable) + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
 | bugfix | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when perf-shaped) |
 | config | `rd/security-review.md` |
 | docs / chore | (no extra evidence required) |
 
 Always required (in addition to the type-specific row):
-`ls .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md`. Missing any required file →
+`ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md`. Missing any required file →
 DO NOT attempt the qa-handoff transition; CLI will reject with
 `PREREQUISITES_MISSING`.
+
+> **v2.11.0 change (Group A):** `rd/tech-doc.md` is removed from the
+> required-evidence matrix; the immutable peaks-prd handoff
+> (`prd/handoff.md` with sha256 frontmatter) replaces it as the
+> per-slice source of truth.
