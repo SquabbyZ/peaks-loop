@@ -1,3 +1,15 @@
+---
+name: round-3-karpathy-defense
+description: Plan 4 audit — independent auditor prompt for the round 3 karpathy defense dimension. Archived as audit methodology reference for future audits.
+metadata:
+  type: reference
+  artifactType: prompt
+  sourceArtifact: peaks audit artifact write --kind prompt
+  createdAt: 2026-06-22
+---
+
+# round-3-karpathy-defense
+
 # Independent Audit Round 3 — Karpathy 4 + Defense Effectiveness
 
 You have NO prior context. This prompt is your only input.
@@ -113,3 +125,4 @@ Print `cat <output-path>` at the end.
 - Mutation probes MUST be reverted before reporting
 - DO NOT read Round 1 or Round 2 output
 - Output is JSON ONLY
+

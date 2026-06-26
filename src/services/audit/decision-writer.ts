@@ -250,3 +250,12 @@ export function writeAuditDecision(audit: RedLineAudit, options: AuditDecisionOp
     indexSynced: index !== null
   };
 }
+
+// ---------------------------------------------------------------------------
+// Back-compat re-export — Slice 2026-06-26-audit-artifact-writer-generalization.
+//
+// `writeAuditDecision` is preserved above (no caller signature change).
+// New callers should use `writeDecision` from `artifact-writer.ts` directly.
+// ---------------------------------------------------------------------------
+
+export { writeDecision } from './artifact-writer.js';

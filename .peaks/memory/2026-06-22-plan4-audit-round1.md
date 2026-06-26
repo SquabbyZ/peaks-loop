@@ -1,3 +1,28 @@
+---
+name: 2026-06-22-plan4-audit-round1
+description: Plan 4 audit — mutation probe replay (P-1/P-2/P-3 verification + 12 Plan 4 mutations + 5 new mutations). Source: round-1 mutation probe output, not spec-compliance round 1.
+metadata:
+  type: project
+  artifactType: machine-output
+  sourceArtifact: peaks audit artifact write --kind machine-output
+  createdAt: 2026-06-22
+---
+
+# 2026-06-22-plan4-audit-round1
+
+Plan 4 audit — mutation probe replay (P-1/P-2/P-3 verification + 12 Plan 4 mutations + 5 new mutations). Source: round-1 mutation probe output, not spec-compliance round 1.
+
+## Summary
+
+| Field | Value |
+| --- | --- |
+| Artifact kind | machine-output |
+| JSON bytes | 3124 |
+| Captured at | 2026-06-22 |
+
+## Raw JSON
+
+```json
 {
   "p1_p2_p3_verification": {
     "p1": {"mutated": true, "tests_failed": 2, "expected_failure": true, "verdict": "PASS"},
@@ -34,3 +59,4 @@
   "tsc_clean": true,
   "full_suite": "3715/3715 pass + 141 skipped + 0 failed"
 }
+```

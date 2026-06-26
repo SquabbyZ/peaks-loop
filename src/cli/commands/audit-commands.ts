@@ -8,7 +8,7 @@
  * file that owns the registration.
  */
 
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Command } from 'commander';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
@@ -18,6 +18,14 @@ import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
 import type { AuditDecisionRecord } from '../../services/audit/decision-writer.js';
 import { writeAuditDecision } from '../../services/audit/decision-writer.js';
+import {
+  writeDecision,
+  writeMachineOutput,
+  writeNarrative,
+  writePrompt,
+  type ArtifactKind,
+  type ArtifactWriteRecord,
+} from '../../services/audit/artifact-writer.js';
 
 type RedLinesOptions = {
   project: string;
@@ -41,6 +49,28 @@ type AuditGoalOptions = {
   llmProvider?: string;
   json?: boolean;
 };
+
+type ArtifactWriteOptions = {
+  project: string;
+  kind: string;
+  input: string;
+  description?: string;
+  name?: string;
+  rid?: string;
+  dryRun?: boolean;
+  json?: boolean;
+};
+
+const SUPPORTED_ARTIFACT_KINDS: readonly ArtifactKind[] = [
+  'decision',
+  'prompt',
+  'machine-output',
+  'narrative',
+];
+
+function isSupportedArtifactKind(value: string): value is ArtifactKind {
+  return (SUPPORTED_ARTIFACT_KINDS as readonly string[]).includes(value as ArtifactKind);
+}
 
 /** Whitelist of supported `--llm-provider` values for `peaks audit goal`. */
 const SUPPORTED_LLM_PROVIDERS = ['stub'] as const;
@@ -320,6 +350,211 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       ]
     );
     printResult(io, envelope, options.json);
+  });
+
+  // ---------------------------------------------------------------------------
+  // peaks audit artifact write — Slice 2026-06-26-audit-artifact-writer-generalization
+  //
+  // First-class CLI surface for the 4 audit artifact types. Replaces the
+  // 2026-06-22 "hand `git add` into .peaks/memory/" anti-pattern that left
+  // 4 orphan files. Each kind routes to exactly one writer in
+  // artifact-writer.ts; the writer enforces canonical frontmatter, so the
+  // memory-shape guard never fires for new writes.
+  // ---------------------------------------------------------------------------
+
+  const artifact = audit
+    .command('artifact')
+    .description('Manage audit artifacts (decision / prompt / machine-output / narrative) under .peaks/memory/');
+
+  addJsonOption(
+    artifact
+      .command('write')
+      .description('Persist a single audit artifact to .peaks/memory/ via the artifact-writer (canonical frontmatter)')
+      .requiredOption('--project <path>', 'target project root')
+      .requiredOption(
+        '--kind <kind>',
+        `artifact kind (${SUPPORTED_ARTIFACT_KINDS.join(' | ')})`,
+      )
+      .requiredOption('--input <path>', 'path to source file (markdown for prompt/narrative; JSON for machine-output)')
+      .option('--name <name>', 'display name (H1 in body); defaults to file basename')
+      .option('--description <text>', 'description field for frontmatter; defaults to a generic placeholder')
+      .option('--rid <id>', 'optional request id to disambiguate multiple writes on the same day')
+      .option('--dry-run', 'render the markdown but do not write to disk', false),
+  ).action((options: ArtifactWriteOptions) => {
+    const validation = validateProjectRoot(options.project);
+    if (!validation.ok) {
+      printResult(
+        io,
+        fail<ArtifactWriteRecord>(
+          'audit.artifact.write',
+          validation.code,
+          validation.message,
+          {
+            kind: 'narrative',
+            slug: '',
+            title: '',
+            date: '',
+            filePath: '',
+            memoryDir: '',
+            indexPath: '',
+            indexSynced: false,
+          },
+          ['Verify the project path exists and is a directory'],
+        ),
+        options.json,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    if (!isSupportedArtifactKind(options.kind)) {
+      printResult(
+        io,
+        fail<ArtifactWriteRecord>(
+          'audit.artifact.write',
+          'INVALID_KIND',
+          `Unknown --kind "${options.kind}". Supported: ${SUPPORTED_ARTIFACT_KINDS.join(', ')}.`,
+          {
+            kind: 'narrative',
+            slug: '',
+            title: '',
+            date: '',
+            filePath: '',
+            memoryDir: '',
+            indexPath: '',
+            indexSynced: false,
+          },
+          [
+            `Re-run with --kind <one of ${SUPPORTED_ARTIFACT_KINDS.join(' | ')}>`,
+            'See .peaks/memory/audit-artifact-convention.md for the 4 artifact types.',
+          ],
+        ),
+        options.json,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const inputAbs = resolve(options.input);
+    if (!existsSync(inputAbs)) {
+      printResult(
+        io,
+        fail<ArtifactWriteRecord>(
+          'audit.artifact.write',
+          'INPUT_NOT_FOUND',
+          `--input file not found: ${options.input}`,
+          {
+            kind: options.kind,
+            slug: '',
+            title: '',
+            date: '',
+            filePath: '',
+            memoryDir: '',
+            indexPath: '',
+            indexSynced: false,
+          },
+          ['Verify the --input path is correct (relative paths resolve against cwd)'],
+        ),
+        options.json,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const baseName = options.name ?? options.input.split(/[\\/]/).pop() ?? 'untitled';
+    const description =
+      options.description ??
+      `Audit artifact (${options.kind}) archived via peaks audit artifact write on ${new Date().toISOString().slice(0, 10)}.`;
+    const writeOpts = {
+      projectRoot: validation.projectRoot,
+      dryRun: options.dryRun === true,
+      ...(options.rid ? { rid: options.rid } : {}),
+    };
+
+    let record: ArtifactWriteRecord;
+    try {
+      switch (options.kind) {
+        case 'prompt': {
+          const body = readFileSync(inputAbs, 'utf8');
+          record = writePrompt({ name: baseName, description, body }, writeOpts);
+          break;
+        }
+        case 'machine-output': {
+          const json = readFileSync(inputAbs, 'utf8');
+          record = writeMachineOutput({ name: baseName, description, json }, writeOpts);
+          break;
+        }
+        case 'narrative': {
+          const body = readFileSync(inputAbs, 'utf8');
+          record = writeNarrative({ name: baseName, description, body }, writeOpts);
+          break;
+        }
+        case 'decision': {
+          // --kind decision requires JSON of `RedLineAudit` shape; for now
+          // surface a clear error so callers don't silently write junk.
+          printResult(
+            io,
+            fail<ArtifactWriteRecord>(
+              'audit.artifact.write',
+              'KIND_DECISION_USE_STATIC_RECORD',
+              `--kind decision should use 'peaks audit static --record' which writes a RedLineAudit snapshot. 'peaks audit artifact write --kind decision' is reserved for future direct-snapshot writes (not implemented yet).`,
+              {
+                kind: 'decision',
+                slug: '',
+                title: '',
+                date: '',
+                filePath: '',
+                memoryDir: '',
+                indexPath: '',
+                indexSynced: false,
+              },
+              ["Re-run with 'peaks audit static --record --project <root>' for RedLineAudit snapshots."],
+            ),
+            options.json,
+          );
+          process.exitCode = 1;
+          return;
+        }
+        default: {
+          // Unreachable: isSupportedArtifactKind already filtered.
+          throw new Error(`unreachable: kind=${options.kind}`);
+        }
+      }
+    } catch (err) {
+      printResult(
+        io,
+        fail<ArtifactWriteRecord>(
+          'audit.artifact.write',
+          'WRITE_FAILED',
+          getErrorMessage(err),
+          {
+            kind: options.kind,
+            slug: '',
+            title: '',
+            date: '',
+            filePath: '',
+            memoryDir: '',
+            indexPath: '',
+            indexSynced: false,
+          },
+          ['Inspect the error message; for --kind machine-output ensure --input is valid JSON'],
+        ),
+        options.json,
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    printResult(
+      io,
+      ok<ArtifactWriteRecord>('audit.artifact.write', record, [], [
+        `Artifact written via ${record.kind} writer.`,
+        record.indexSynced
+          ? 'Memory index regenerated; entry will appear in `peaks project memories` on next read.'
+          : 'Memory index NOT regenerated; run `peaks project memories --project <root>` to refresh.',
+      ]),
+      options.json,
+    );
   });
 }
 

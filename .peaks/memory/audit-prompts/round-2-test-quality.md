@@ -1,3 +1,15 @@
+---
+name: round-2-test-quality
+description: Plan 4 audit — independent auditor prompt for the round 2 test quality dimension. Archived as audit methodology reference for future audits.
+metadata:
+  type: reference
+  artifactType: prompt
+  sourceArtifact: peaks audit artifact write --kind prompt
+  createdAt: 2026-06-22
+---
+
+# round-2-test-quality
+
 # Independent Audit Round 2 — Test Quality Dimension
 
 You have NO prior context. This prompt is your only input.
@@ -73,3 +85,4 @@ Print `cat <output-path>` at the end.
 - DO NOT read Round 1 output or any prior round artifacts
 - DO NOT skip questions; mark LOW if uncertain
 - Output is JSON ONLY
+

@@ -153,6 +153,10 @@ const START_MARKER = '<!-- peaks-memory:start -->';
 const END_MARKER = '<!-- peaks-memory:end -->';
 const VALID_MEMORY_KINDS = new Set<ProjectMemoryKind>(['project', 'rule', 'decision', 'reference', 'feedback', 'convention', 'module', 'lesson']);
 
+/** Exported for guard tests + tooling that needs to enumerate the valid
+ *  set without duplicating the literal. Single source of truth. */
+export const VALID_PROJECT_MEMORY_KINDS: readonly ProjectMemoryKind[] = Array.from(VALID_MEMORY_KINDS);
+
 // Length bounds for index entry descriptions. The numbers were chosen when
 // summarizeMemoryBody was first introduced; locking them in as named
 // constants is a doc-as-code move so the truncation rule is no longer

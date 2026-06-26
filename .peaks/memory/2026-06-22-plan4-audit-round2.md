@@ -1,3 +1,28 @@
+---
+name: 2026-06-22-plan4-audit-round2
+description: Plan 4 audit — Round 2 test design quality dimension (16 boundary probes + R2-W1..W5 weaknesses + B+ score).
+metadata:
+  type: project
+  artifactType: machine-output
+  sourceArtifact: peaks audit artifact write --kind machine-output
+  createdAt: 2026-06-22
+---
+
+# 2026-06-22-plan4-audit-round2
+
+Plan 4 audit — Round 2 test design quality dimension (16 boundary probes + R2-W1..W5 weaknesses + B+ score).
+
+## Summary
+
+| Field | Value |
+| --- | --- |
+| Artifact kind | machine-output |
+| JSON bytes | 11578 |
+| Captured at | 2026-06-22 |
+
+## Raw JSON
+
+```json
 {
   "audit_round": 2,
   "audit_dimension": "test_design_quality",
@@ -117,3 +142,4 @@
   "boundary_probes_run": "16/16 pass (probe file deleted after audit)",
   "recommendation": "Fix R2-W2 (HIGH — gate bypass) and R2-W5 (HIGH — round 1 mutation escaped because of this) before declaring Plan 4 closed. R2-W1, R2-W3, R2-W4 are MEDIUM/LOW and can ship to Plan 5."
 }
+```
