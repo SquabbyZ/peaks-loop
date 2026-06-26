@@ -13,7 +13,14 @@ is preserved; the 5th is appended at the same parallel stage.
 > **Karpathy pointer (Slice 1/6):** Each of the 4 sub-agents below operates under the 4 Karpathy guidelines. The canonical reference is `andrej-karpathy-skills:karpathy-guidelines` (full text) and `peaks-rd/SKILL.md` §"Karpathy enforcement". The dispatch primitive also injects the verbatim context block from `rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" into every sub-agent prompt. Sub-agents MUST NOT silently drop the block.
 
 - **Sub-agent 1 — code-reviewer** runs `code-review` against the diff and
-  writes `rd/code-review.md`.
+  writes `rd/code-review.md`. **v2.11.0 Tier 7 (Group D):** the dispatch goes
+  through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`):
+  `Agent({ subagent_type: 'everything-claude-code:code-review', ... })` returns
+  `{ passed, violations[], gateAction }`; `adaptEccEnvelopeToRdCodeReview`
+  renders it to the canonical markdown. On any non-ready `detectEcc` state
+  (plugin-missing / agent-missing / dispatch-failed / envelope-malformed) the
+  parent RD loop falls back to inline review; the `code-review-ecc-degraded-to-inline`
+  TXT note records the fallback.
 - **Sub-agent 2 — security-reviewer** runs `security-review` against the
   changed surface and writes `rd/security-review.md`.
 - **Sub-agent 3 — perf-baseline-reviewer** measures the perf surface

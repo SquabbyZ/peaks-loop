@@ -31,6 +31,7 @@ Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/te
 - Inspect for: correctness, type safety, error handling, mutation patterns, file-size, naming, dead code, regressions, contract drift.
 - Output: `.peaks/_runtime/<sessionId>/rd/code-review.md` with sections: Summary, Findings, Required Fixes, Recommended, Verdict.
 - Required for Gate B3.
+- **v2.11.0 Tier 7 (Group D):** the code-reviewer dispatch goes through the **ECC bridge** (`src/services/code-review/ecc-bridge.ts`). The parent RD loop invokes the Agent tool with `subagent_type: "everything-claude-code:code-review"` and receives a structured envelope `{ passed, violations[], gateAction }`. The bridge adapter (`adaptEccEnvelopeToRdCodeReview`) renders that envelope into the canonical `rd/code-review.md` markdown shape that Gate B3 reads (`mustContain: ['## Findings', 'CRITICAL']`). The pre-Tier-7 5-state detect (`detectEcc`: ready / plugin-missing / agent-missing / dispatch-failed / envelope-malformed) soft-fails to inline review on any non-ready state — TXT note `code-review-ecc-degraded-to-inline`. Same soft-fail philosophy as `ocr-service.ts` and `detectOcr`.
 
 **Sub-agent 2 — security-reviewer (always runs for feature / refactor / bugfix):**
 - Read the git diff and the file list.
@@ -73,6 +74,7 @@ Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/te
 
 **Degradation when a sub-agent fails or returns blocked:**
 - code-review sub-agent fails: fall back to inline RD code review. TXT handoff note: `code-review-subagent-degraded-to-inline`.
+- code-review sub-agent runs the ECC bridge but ECC is unavailable (plugin-missing / agent-missing / dispatch-failed / envelope-malformed per `detectEcc`): fall back to inline RD code review. TXT handoff note: `code-review-ecc-degraded-to-inline`.
 - security-review sub-agent fails: same fallback. TXT note: `security-review-subagent-degraded-to-inline`.
 - perf-baseline sub-agent fails: same fallback. TXT note: `perf-baseline-subagent-degraded-to-inline`.
 - qa-test-cases sub-agent fails: fall back to inline QA test-case drafting at the start of QA's main loop. TXT note: `qa-test-cases-subagent-degraded-to-inline-qa-draft`.
