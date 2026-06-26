@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -12,6 +12,32 @@ beforeEach(() => {
 
 afterEach(() => {
   if (existsSync(root)) rmSync(root, { recursive: true, force: true });
+  // Test isolation fix (slice 2026-06-26-unknown-sid-fallback-fix
+  // follow-up): the dispatch path writes to
+  //   .peaks/_sub_agents/<sid>/dispatch-<rid>-*.json
+  //   .peaks/_runtime/<sid>/metrics/slices.jsonl
+  // under the real cwd (peaks-cli itself) when tests use
+  // --session-id <fixture-sid> (e.g. 'sid-3', 'sid-h', 'sid-r').
+  // Without this cleanup, the next `doctor` test run sees the
+  // fixture sids as `L3:l3-orphan-sessions` violations and 5
+  // tests in `tests/unit/doctor.test.ts` fail with
+  // `expected false to be true`. This is a test-side hygiene
+  // fix, not a production fix — production writes go through
+  // the canonical sid resolver (commit df1a246).
+  const cwd = process.cwd();
+  for (const sub of ['_sub_agents', '_runtime']) {
+    const parent = join(cwd, '.peaks', sub);
+    if (!existsSync(parent)) continue;
+    for (const name of readdirSync(parent)) {
+      // Bare sids: sid-3, sid-h, sid-r, sid-perf, unknown-sid.
+      // Anything matching the production bare-sid pattern is a
+      // test fixture leaking into the real workspace; remove it
+      // so subsequent test runs start from a clean state.
+      if (/^(sid-[a-z0-9]+|unknown-sid)$/.test(name)) {
+        rmSync(join(parent, name), { recursive: true, force: true });
+      }
+    }
+  }
 });
 
 describe('peaks sub-agent dispatch (G2 / AC-7..AC-10)', () => {
