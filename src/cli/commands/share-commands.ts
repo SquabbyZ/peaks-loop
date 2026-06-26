@@ -19,6 +19,7 @@ import {
   SHARED_CHANNEL_SOFT_VALUE_WARN
 } from '../../services/context/shared-channel.js';
 import { writeLogEntry } from '../../services/log/logger.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {
   AwaitOptions,
   ShareOptions,
@@ -41,7 +42,7 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
       .requiredOption('--value <json>', 'JSON object value (≤ 1KB soft warn, ≥ 64KB rejected)')
       .option('--from <role>', 'sub-agent role string; defaults to dispatch record role if available')
       .option('--request-id <rid>', 'request id (default: "unknown-rid")')
-      .option('--session-id <sid>', 'session id (default: "unknown-sid")')
+      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action((options: ShareOptions) => {
     const asJson = options.json === true;
@@ -69,7 +70,11 @@ export function registerShareCommand(parent: Command, io: ProgramIO): void {
 
     try {
       const projectRoot = options.project ?? process.cwd();
-      const sid = options.sessionId ?? 'unknown-sid';
+      // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
+      const sid = options.sessionId
+        ?? process.env.PEAKS_SESSION_ID
+        ?? getCurrentSessionId(projectRoot)
+        ?? 'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const from = options.from ?? 'unknown-role';
 
@@ -172,7 +177,7 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
       .option('--since <iso>', 'only return entries written after this ISO8601 timestamp')
       .option('--key <pattern>', 'glob pattern, e.g. "rd.*" or "*.completed"')
       .option('--request-id <rid>', 'request id (default: "unknown-rid")')
-      .option('--session-id <sid>', 'session id (default: "unknown-sid")')
+      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
       .option('--project <path>', 'target project root (defaults to cwd)')
   ).action((options: SharedReadOptions) => {
     const asJson = options.json === true;
@@ -185,7 +190,11 @@ export function registerSharedReadCommand(parent: Command, io: ProgramIO): void 
     }
     try {
       const projectRoot = options.project ?? process.cwd();
-      const sid = options.sessionId ?? 'unknown-sid';
+      // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
+      const sid = options.sessionId
+        ?? process.env.PEAKS_SESSION_ID
+        ?? getCurrentSessionId(projectRoot)
+        ?? 'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const channel = readSharedChannel({
         projectRoot,
@@ -237,7 +246,7 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       .requiredOption('--batch <batchId>', 'batchId from a dispatch envelope')
       .option('--timeout <ms>', 'optional cap on how long the join waits (ms; default 60000, max 120000)')
       .option('--project <path>', 'target project root (defaults to cwd)')
-      .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
+      .option('--session-id <sid>', 'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
   ).action(async (options: AwaitOptions) => {
     const asJson = options.json === true;
     if (!options.batch) {
@@ -260,7 +269,11 @@ export function registerAwaitCommand(parent: Command, io: ProgramIO): void {
       timeoutMs = n;
     }
     const projectRoot = options.project ?? process.cwd();
-    const sid = options.sessionId ?? 'unknown-sid';
+    // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
+    const sid = options.sessionId
+      ?? process.env.PEAKS_SESSION_ID
+      ?? getCurrentSessionId(projectRoot)
+      ?? 'unknown-sid';
     // Lazy-import IDE modules so `peaks sub-agent share` and
     // `peaks sub-agent shared-read` (the high-frequency G8.4 path) do not
     // pay for adapter resolution at module-load time. Slice

@@ -28,6 +28,7 @@ import {
   writeContract,
   type WriteContractInput
 } from '../../services/dispatch/contract-store.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 
 const INPUT_LIMIT_BYTES = 256 * 1024;
 
@@ -82,7 +83,7 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
         'runner (re-execution) is detected as a content change.'
       )
       .option('--project <path>', 'target project root (defaults to cwd)')
-      .option('--session-id <sid>', 'session id (defaults to "unknown-sid")')
+      .option('--session-id <sid>', 'session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
       .requiredOption('--slice-id <id>', 'slice id; must be non-empty; used as the contract filename basename')
       .option('--exports <list>', 'comma-separated public export names (e.g. "validateDag,topologicalLevels")')
       .option('--types <list>', 'comma-separated public type names (e.g. "SliceDag,SliceNode")')
@@ -92,7 +93,11 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
   ).action((options: ContractWriteOptions) => {
     const asJson = options.json === true;
     const projectRoot = options.project ?? process.cwd();
-    const sid = options.sessionId ?? 'unknown-sid';
+    // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
+    const sid = options.sessionId
+      ?? process.env.PEAKS_SESSION_ID
+      ?? getCurrentSessionId(projectRoot)
+      ?? 'unknown-sid';
     const sliceId = options.sliceId;
 
     if (sliceId === undefined || sliceId.length === 0) {

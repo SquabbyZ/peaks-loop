@@ -33,6 +33,7 @@ import {
 import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { writeInitialDispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../services/context/artifact-meta.js';
 import { assertSafeArtifactPath } from '../../services/context/dispatch-context-guard.js';
 import { compressPrompt, type HeadroomResult } from '../../services/context/headroom-client.js';
@@ -74,7 +75,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       .option('--prompt <text>', 'the prompt to send to the sub-agent (required unless --from-dag is provided)')
       .option('--prompt-length <bytes>', 'DOGFOOD ONLY: synthesize a prompt of this size (overrides --prompt content for size only; content is "x" repeated)')
       .option('--request-id <rid>', 'the same <rid> used by peaks request init')
-      .option('--session-id <sid>', 'override active session id (default: peaks session info --active)')
+      .option('--session-id <sid>', 'override active session id (default: resolve from .peaks/_runtime/session.json; falls back to PEAKS_SESSION_ID env var; final fallback "unknown-sid")')
       .option('--project <path>', 'target project root (defaults to cwd)')
       .option('--batch-id <uuid>', 'batch id for the dispatch (default: auto-generated UUID)')
       .option('--write-artifact <path>', 'G7: register an artifact file at <path>; CLI computes sha256 + size + writes ArtifactMeta to the dispatch record')
@@ -145,7 +146,17 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
     try {
       const projectRoot = options.project ?? process.cwd();
-      const sid = options.sessionId ?? 'unknown-sid';
+      // Slice 2026-06-26-unknown-sid-fallback-fix: when --session-id is not
+      // passed, auto-resolve the active peaks session id from
+      // `.peaks/_runtime/session.json` (or PEAKS_SESSION_ID env var) so
+      // dispatch records land in `.peaks/_sub_agents/<real-sid>/` instead
+      // of the `unknown-sid` fallback. The unknown-sid branch is preserved
+      // as the last-resort so callers without a bound session (e.g. an
+      // ad-hoc dispatch in a fresh tree) still get a deterministic path.
+      const sid = options.sessionId
+        ?? process.env.PEAKS_SESSION_ID
+        ?? getCurrentSessionId(projectRoot)
+        ?? 'unknown-sid';
       const rid = options.requestId ?? 'unknown-rid';
       const batchId = options.batchId ?? randomUUID();
 

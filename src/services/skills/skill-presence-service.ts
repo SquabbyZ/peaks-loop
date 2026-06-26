@@ -123,7 +123,18 @@ function readSkillPresenceBackCompat(projectRootOverride?: string): { presence: 
   }
 }
 
-function getCurrentSessionId(projectRootOverride?: string): string | null {
+/**
+ * Resolve the active peaks session id from
+ * `.peaks/_runtime/session.json` (legacy: `.peaks/.session.json`).
+ * Returns `null` when no session is bound.
+ *
+ * Public export: callers like `peaks sub-agent dispatch` use this
+ * to auto-resolve `--session-id` when the LLM driver forgets to
+ * pass the flag, so dispatch records land in the right
+ * `.peaks/_sub_agents/<sid>/` tree instead of an `unknown-sid`
+ * fallback (slice 2026-06-26-unknown-sid-fallback-fix).
+ */
+export function getCurrentSessionId(projectRootOverride?: string): string | null {
   const projectRoot = resolveProjectRoot(projectRootOverride);
   const sessionPath = resolve(projectRoot, SESSION_FILE);
   const legacyPath = resolve(projectRoot, SESSION_FILE_LEGACY);

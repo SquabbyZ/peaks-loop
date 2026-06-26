@@ -32,6 +32,7 @@ import { printResult } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import type { SubAgentToolCall } from '../../services/dispatch/sub-agent-dispatcher.js';
 import type { SliceDag } from '../../services/dispatch/slice-dag.js';
 import type { SliceContract } from '../../services/dispatch/contract-store.js';
@@ -55,7 +56,12 @@ export async function runDispatchFromDag(
 ): Promise<void> {
   if (!options.fromDag) return;
   const projectRoot = options.project ?? process.cwd();
-  const sid = options.sessionId ?? 'unknown-sid';
+  // Slice 2026-06-26-unknown-sid-fallback-fix: see dispatch-commands.ts.
+  // Auto-resolve sid from .peaks/_runtime/session.json before falling back.
+  const sid = options.sessionId
+    ?? process.env.PEAKS_SESSION_ID
+    ?? getCurrentSessionId(projectRoot)
+    ?? 'unknown-sid';
   const rid = options.requestId ?? 'unknown-rid';
   const batchId = options.batchId ?? randomUUID();
 
