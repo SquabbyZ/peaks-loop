@@ -22,6 +22,12 @@ import { Command } from 'commander';
 import { searchMemory, loadMemoryIndex } from '../../services/memory/memory-search-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
+import {
+  evaluateMainSessionThreshold,
+  pickMainSessionTrigger,
+  formatMainSessionTriggerLogLine,
+  detectIdeFromEnv
+} from '../../services/context/main-session-monitor.js';
 
 export type ContextLayer = 'L0' | 'L1' | 'L2' | 'L3';
 
@@ -193,4 +199,100 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
       process.exitCode = 1;
     }
   });
+
+  addJsonOption(
+    context
+      .command('status')
+      .description('v2.11.0 D6: report main-session threshold tier for a given prompt size (no trigger dispatched). Useful for `--json` probes before invoking `peaks context check --auto-trigger`.')
+      .requiredOption('--prompt-size <bytes>', 'estimated prompt size in bytes')
+      .option('--capacity <bytes>', 'override the 256K default capacity (test seam)', '262144')
+  ).action(
+    (opts: { promptSize: string; capacity?: string; json?: boolean }) => {
+      try {
+        const promptSize = Number(opts.promptSize);
+        const capacity = opts.capacity !== undefined ? Number(opts.capacity) : undefined;
+        if (!Number.isFinite(promptSize) || promptSize < 0) {
+          printResult(
+            io,
+            fail('context.status', 'INVALID_PROMPT_SIZE', `prompt-size must be a non-negative number (got "${opts.promptSize}")`, { provided: opts.promptSize }, ['Pass --prompt-size <bytes>']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const evaluation = evaluateMainSessionThreshold(promptSize, capacity);
+        printResult(
+          io,
+          ok('context.status', { ...evaluation, ide: detectIdeFromEnv() }, [...evaluation.warnings], [
+            `Main-session tier=${evaluation.tier} (${(evaluation.ratio * 100).toFixed(0)}%)`
+          ]),
+          opts.json
+        );
+      } catch (err) {
+        printResult(
+          io,
+          fail('context.status', 'CONTEXT_STATUS_FAILED', getErrorMessage(err), null, ['Verify --prompt-size is a non-negative number']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  addJsonOption(
+    context
+      .command('check')
+      .description('v2.11.0 D6: threshold check + IDE-aware trigger dispatch. With --auto-trigger, returns the trigger path the LLM should follow; without, returns a dry-run recommendation. The LLM is responsible for actually invoking the trigger (slash command, self-compress, or escalation).')
+      .requiredOption('--prompt-size <bytes>', 'estimated prompt size in bytes')
+      .option('--capacity <bytes>', 'override the 256K default capacity (test seam)', '262144')
+      .option('--in-flight-batch', 'a sub-agent batch is in flight (defer trigger per D6.e)', false)
+      .option('--auto-trigger', 'return the trigger path the LLM should follow', false)
+  ).action(
+    (opts: { promptSize: string; capacity?: string; inFlightBatch?: boolean; autoTrigger?: boolean; json?: boolean }) => {
+      try {
+        const promptSize = Number(opts.promptSize);
+        const capacity = opts.capacity !== undefined ? Number(opts.capacity) : undefined;
+        if (!Number.isFinite(promptSize) || promptSize < 0) {
+          printResult(
+            io,
+            fail('context.check', 'INVALID_PROMPT_SIZE', `prompt-size must be a non-negative number (got "${opts.promptSize}")`, { provided: opts.promptSize }, ['Pass --prompt-size <bytes>']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const trigger = pickMainSessionTrigger({
+          promptSize,
+          capacityBytes: capacity,
+          inFlightBatch: opts.inFlightBatch === true ? { hasInFlightBatch: true, sharedChannelEntries: 1 } : undefined
+        });
+        const logLine = formatMainSessionTriggerLogLine(trigger, 'main');
+        const payload = {
+          ...trigger,
+          autoTrigger: opts.autoTrigger === true,
+          logLine
+        };
+        printResult(
+          io,
+          ok('context.check', payload, [], [
+            trigger.kind === 'compact'
+              ? `Tier reached → trigger ${trigger.path} on ${trigger.ide} (code=${trigger.code})`
+              : trigger.kind === 'defer'
+                ? `Deferred: ${trigger.reason}`
+                : trigger.kind === 'soft-warn'
+                  ? `Soft warning at ${(trigger.ratio * 100).toFixed(0)}% (no trigger yet)`
+                  : 'Below threshold; no trigger'
+          ]),
+          opts.json
+        );
+      } catch (err) {
+        printResult(
+          io,
+          fail('context.check', 'CONTEXT_CHECK_FAILED', getErrorMessage(err), null, ['Verify --prompt-size is a non-negative number']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
 }

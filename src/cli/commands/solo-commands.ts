@@ -10,9 +10,28 @@
  *
  * No new service layer — the orchestrator is the in-file `runSoloFast`
  * function. Hooks are injected so tests can mock at the boundary.
+ *
+ * v2.11.0 Group F (Tier 9) — D5 / D7 additions:
+ *   - `peaks solo should-pause --step <step> --mode <mode>` (D5)
+ *   - `peaks solo post-compact-detect --project <path>` (D7)
  */
 
 import type { Command } from 'commander';
+
+import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
+import { fail, ok } from '../../shared/result.js';
+import {
+  GATED_STEPS,
+  isHardFloorCategory,
+  isSoloMode,
+  shouldPauseAtGate,
+  formatAutoProceedLogLine
+} from '../../services/solo/mode-gate.js';
+import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import {
+  detectPostCompactResume,
+  formatPostCompactResumeLogLine
+} from '../../services/solo/post-compact-detector.js';
 
 export type SoloStepKind = 'memory' | 'preflight' | 'rd' | 'qa' | 'emit';
 export interface SoloStep {
@@ -133,7 +152,7 @@ export async function runSoloFast(opts: {
  * CLI command is a thin surface that builds the plan and emits a JSON
  * envelope for downstream tooling.
  */
-export function registerSoloCommands(program: Command): void {
+export function registerSoloCommands(program: Command, io: ProgramIO): void {
   const solo = program
     .command('solo')
     .description('peaks-solo LLM-side workflow planner (slice 2 fast mode)');
@@ -157,4 +176,145 @@ export function registerSoloCommands(program: Command): void {
         }
       }
     });
+
+  addJsonOption(
+    solo
+      .command('should-pause')
+      .description(
+        'v2.11.0 D5: ask the mode-gate whether the LLM should pause for an AskUserQuestion at a given step. ' +
+          'full-auto / swarm auto-proceed (recommended = chosen); assisted / strict pause. ' +
+          'The 3 hard-floor categories always pause regardless of mode.'
+      )
+      .requiredOption('--step <step>', `one of: ${GATED_STEPS.join(', ')}`)
+      .requiredOption('--mode <mode>', 'one of: full-auto, assisted, swarm, strict')
+      .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment)')
+      .option('--recommended <option>', 'recommended option label to log when auto-proceeding', 'recommended-option')
+  ).action(
+    (opts: {
+      step: string;
+      mode: string;
+      hardFloor?: string;
+      recommended?: string;
+      json?: boolean;
+    }) => {
+      try {
+        if (!isSoloMode(opts.mode)) {
+          printResult(
+            io,
+            fail('solo.should-pause', 'INVALID_MODE', `mode must be one of full-auto, assisted, swarm, strict (got "${opts.mode}")`, { provided: opts.mode }, ['Pass --mode full-auto | assisted | swarm | strict']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        if (!(GATED_STEPS as readonly string[]).includes(opts.step)) {
+          printResult(
+            io,
+            fail('solo.should-pause', 'INVALID_STEP', `step must be one of the 14 GATED_STEPS (got "${opts.step}")`, { provided: opts.step, allowed: [...GATED_STEPS] }, ['Pass --step <one of the 14 GATED_STEPS>']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const hardFloor = opts.hardFloor;
+        if (hardFloor !== undefined && !isHardFloorCategory(hardFloor)) {
+          printResult(
+            io,
+            fail('solo.should-pause', 'INVALID_HARD_FLOOR', `hard-floor must be one of: irreversible-external-side-effect | authentication-credential | multi-day-investment (got "${hardFloor}")`, { provided: hardFloor }, ['Omit --hard-floor or pass a valid category']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const step = opts.step as typeof GATED_STEPS[number];
+        const decision = shouldPauseAtGate({
+          mode: opts.mode,
+          step,
+          hardFloorCategory: hardFloor
+        });
+        const logLine = formatAutoProceedLogLine({
+          mode: opts.mode,
+          step,
+          recommendedOption: opts.recommended ?? 'recommended-option',
+          hardFloorCategory: hardFloor
+        });
+        printResult(
+          io,
+          ok('solo.should-pause', { ...decision, logLine }, [], [
+            decision.shouldPause
+              ? `Mode ${opts.mode} + step ${opts.step} → PAUSE for AskUserQuestion`
+              : `Mode ${opts.mode} + step ${opts.step} → AUTO-PROCEED with recommended option`
+          ]),
+          opts.json
+        );
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.should-pause', 'SHOULD_PAUSE_FAILED', getErrorMessage(err), null, ['Re-run with --json for envelope shape']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  addJsonOption(
+    solo
+      .command('post-compact-detect')
+      .description(
+        'v2.11.0 D7: detect whether the current invocation is a same-day post-compact resume. ' +
+          'Auto-resumes (no AskUserQuestion) when the most-recent checkpoint is from today, has a mode field, ' +
+          'and the active skill is peaks-solo. Falls through to the normal Step 0.7 flow otherwise.'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <sid>', 'override session id (default: read from active presence)')
+      .option('--active-skill <skill>', 'override active skill (test seam; default: read from presence)')
+  ).action(
+    async (opts: { project: string; sessionId?: string; activeSkill?: string; json?: boolean }) => {
+      try {
+        const sessionId = opts.sessionId ?? readActiveSid(opts.project);
+        if (sessionId === null) {
+          printResult(
+            io,
+            fail('solo.post-compact-detect', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-solo`', null, ['Re-run with --session-id <sid>']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const probe = await detectPostCompactResume({
+          sessionId,
+          projectRoot: opts.project,
+          activeSkill: opts.activeSkill
+        });
+        const logLine = formatPostCompactResumeLogLine(probe);
+        printResult(
+          io,
+          ok('solo.post-compact-detect', { ...probe, logLine }, [...probe.warnings], [
+            probe.shouldAutoResume
+              ? `Post-compact match → auto-resume mode=${probe.mode ?? '?'} checkpoint=${probe.checkpointPath ?? '?'}`
+              : `No auto-resume: ${probe.reason}`
+          ]),
+          opts.json
+        );
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.post-compact-detect', 'POST_COMPACT_DETECT_FAILED', getErrorMessage(err), null, ['Verify the project path and try again']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+}
+
+function readActiveSid(projectRoot: string): string | null {
+  try {
+    const presence = getSkillPresence(projectRoot);
+    if (presence === null || presence === undefined) return null;
+    return presence.sessionId ?? null;
+  } catch {
+    return null;
+  }
 }

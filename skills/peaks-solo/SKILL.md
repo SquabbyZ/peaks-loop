@@ -96,6 +96,20 @@ After all autonomous LLM work (RD, QA, security, perf) completes, invoke peaks-f
 
 → see `references/final-review-gate.md` for the full Step N+1 contract.
 
+### Peaks-Cli Step N+2: Main-session context monitor (v2.11.0 D6)
+
+After every 4th tool call (lower-frequency complement to Step N's 20-tool-call periodic checkpoint), probe main-session context pressure via `peaks context check --prompt-size <bytes> --auto-trigger --json`. Threshold table (matches G9, distinct scope — see `.peaks/memory/2026-06-26-v2-11-main-session-context-monitor.md`):
+
+| Threshold | Behavior |
+|---|---|
+| 50% (soft warn) | Emit warning; suggest a manual `peaks session checkpoint` |
+| 75% (user red line) | `peaks context check` returns the trigger path: claude-code → `/compact` slash command; trae/opencode → write `context-compress-N.md` and continue |
+| 90% (emergency) | Same as 75% but with `code: "PROMPT_EMERGENCY"` and priority routing |
+
+The 75%/90% triggers DO NOT auto-execute — they return the trigger path; the LLM-side caller decides whether to fire (Karpathy §4: human-in-the-loop on irreversible ops). The CLI surface is `peaks context status --prompt-size <bytes>` (read-only probe) and `peaks context check --prompt-size <bytes> [--auto-trigger] [--in-flight-batch]` (with the trigger dispatched). Source of truth: `src/services/context/main-session-monitor.ts` + extension of `src/services/context/threshold.ts`. Companion to Step N (which is the soft signal); D6 is the hard signal.
+
+Do NOT auto-compact mid-tool-call-batch: pass `--in-flight-batch` to defer until the batch converges (D6.e).
+
 ### Peaks-Cli Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
 Run `peaks workspace init` + `peaks skill presence:set peaks-solo` BEFORE any analysis, role handoff, or mode-selection question. Even "分析下这个项目" / "看一下代码" / one-line questions anchor first.
@@ -110,7 +124,9 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-solo` BEFORE any an
 
 ### Peaks-Cli Step 0.7: Detect unfinished work and offer resume (BLOCKING on first invocation per session)
 
-After Step 0 anchored the workspace, run the resume-detection probe (one `find` + one `grep` + classification table). Surface resume options via `AskUserQuestion` if a slice is in flight. Never silently auto-resume.
+After Step 0 anchored the workspace, run the resume-detection probe (one `find` + one `grep` + classification table). Surface resume options via `AskUserQuestion` if a slice is in flight.
+
+**v2.11.0 D7 post-compact auto-resume override (BLOCKING):** if the user just `/compact`ed the Claude Code context window, run `peaks solo post-compact-detect --project <repo> --json` BEFORE the normal Step 0.7 flow. If the detector returns `shouldAutoResume: true`, skip the AskUserQuestion entirely (D7.b override of "never silently auto-resume") and auto-resume — the user already approved pre-compact; asking again is friction with no upside. Emit the one-line log entry to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md` and continue. Source: `.peaks/memory/2026-06-26-v2-11-post-compact-resume.md` + `src/services/solo/post-compact-detector.ts`. The override applies to all 4 modes (full-auto / assisted / swarm / strict) — the only AskUserQuestion site in peaks-solo where this is true. Cross-day / cross-machine resume is NOT in scope for D7 (D7.g); use the existing `peaks session resume --from <path>` for that.
 
 → see `references/resume-detection.md` for the full detection algorithm + classification table.
 

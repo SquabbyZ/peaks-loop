@@ -252,7 +252,9 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // (multi-terminal Playwright MCP lifecycle).
  registerPlaywrightCommands(program, io);
  // Slice 2 (peaks-solo fast mode): `peaks solo plan [--fast] <change-id>`
- registerSoloCommands(program);
+ // v2.11.0 Group F (D5 + D7): also registers `peaks solo should-pause` and
+ // `peaks solo post-compact-detect` for runtime-friction probes.
+ registerSoloCommands(program, io);
  // Plan 2 / Task 6: `peaks mut run|mutants|asserts|report` — mutation
  // testing + assertion validity scan (spec §4.2 / §7). The
  // production Stryker invoker is wired here; tests use the
