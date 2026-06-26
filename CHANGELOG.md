@@ -20,7 +20,7 @@ Implements the "metering is value" + "10/90 paradigm" alignment: peaks-prd produ
 - **Tier 5+6 (Group C — `9fea8eb`)** — peaks-txt sediment step (`appendBusinessConcept`, idempotent on (concept, sourceRid), 7 tests); peaks-qa trim (removed `qa/security-findings.md` + `qa/performance-findings.md` from Gate D prerequisites).
 - **Tier 7 (Group D — `cd427f6`)** — ECC code-review bridge (`src/services/code-review/ecc-bridge.ts`): envelope validator `isEccEnvelope` + `adaptEccEnvelopeToRdCodeReview` + 5-state `detectEcc` + `runEccCodeReview` aggregator; 17 tests.
 - **Tier 8 (Group E — this CC)** — migration codemod `peaks migrate v2-10-to-v2-11` (deprecates historical `rd/tech-doc.md` files with a YAML banner frontmatter; text-only, idempotent).
-- **Tier 9 (Group F — pending)** — D5 self-decision (`src/services/solo/mode-gate.ts`); D6 context monitor (`src/services/context/main-session-monitor.ts`); D7 post-compact resume (`src/services/solo/post-compact-detector.ts`); SKILL.md 14-row patch + new Step N+2.
+- **Tier 9 (Group F — commit `9e3ef49`)** — D5 self-decision (`src/services/solo/mode-gate.ts` + `peaks solo should-pause`); D6 context monitor (`src/services/context/main-session-monitor.ts` + `peaks context check`); D7 post-compact resume (`src/services/solo/post-compact-detector.ts` + `peaks solo post-compact-detect`); SKILL.md new Step N+2 + Step 0.7 D7 branch. +111 tests.
 
 ### Migration
 
