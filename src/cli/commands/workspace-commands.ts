@@ -22,6 +22,7 @@ import { registerWorkspaceCleanCommand } from './workspace/clean-command.js';
 import { registerWorkspaceArchiveCommand } from './workspace/archive-command.js';
 import { registerWorkspaceConsolidateCommand } from './workspace/consolidate-command.js';
 import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';
+import { registerMigrateV2ToV11Command } from './migrate-v2-10-to-v2-11-command.js';
 
 // Re-export for back-compat with tests that import from
 // `cli/commands/workspace-commands.js`. The init sub-command's
@@ -50,4 +51,10 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   // filesystem-cleanup helper — the functional behavior is already
   // correct without it.
   registerMigrate1_4_1Command(workspace, io);
+
+  // v2.11.0 Group E (Tier 8): 2.10.0 → 2.11.0 migration helper. Tags
+  // every pre-2.11.0 session's `rd/tech-doc.md` with a YAML deprecation
+  // banner pointing to the new peaks-prd handoff. Text-only — no file
+  // moves. Idempotent.
+  registerMigrateV2ToV11Command(workspace, io);
 }

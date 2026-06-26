@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.11.0] — 2026-06-26 — Remove rd/tech-doc.md + immutable peaks-prd handoff + ECC code-review + runtime friction
+
+**MINOR bump from 2.10.0** (slice `v2-11-rm-rd-techdoc-immutable-handoff`, 6 multi-CC groups A-F, plan at `.peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md`).
+
+Implements the "metering is value" + "10/90 paradigm" alignment: peaks-prd produces a single immutable handoff that all downstream consumers share; peaks-rd's parallel audit fan-out (now 5-way with ECC code-review + karpathy-reviewer hard gate) owns security/perf review; peaks-qa is trimmed to business-test-only; peaks-txt sediments business knowledge; peaks-solo removes runtime friction (auto-proceed, context monitor, post-compact resume).
+
+### Features
+
+- **Tier 1+2 (Group A — `2be2842`)** — remove `rd/tech-doc.md` enforcers; replace with immutable peaks-prd handoff references (`skills/peaks-rd/references/parallel-review-fanout.md`, `rd-fanout-contracts.md`, `rd-sub-agent-dispatch.md`, `writing-handoff-frontmatter.md`, `artifact-per-request.md`; `src/services/audit/enforcers/lint-workflow-shape.ts`, `red-line-catalog.ts`, `red-lines-service.ts`; `src/services/artifacts/artifact-prerequisites.ts`, `request-artifact-service.ts`).
+- **Tier 3+4 (Group B — `3f832f0`)** — `peaks prd handoff init|verify|show` (sha256-locked frontmatter, schemaVersion: 2); `peaks project knowledge` CLI; `.peaks/project-scan/{project-scan.md, business-knowledge.md}` bootstrap; peaks-prd SKILL.md Step 0.8 + Step 5.5.
+- **Tier 5+6 (Group C — `9fea8eb`)** — peaks-txt sediment step (`appendBusinessConcept`, idempotent on (concept, sourceRid), 7 tests); peaks-qa trim (removed `qa/security-findings.md` + `qa/performance-findings.md` from Gate D prerequisites).
+- **Tier 7 (Group D — `cd427f6`)** — ECC code-review bridge (`src/services/code-review/ecc-bridge.ts`): envelope validator `isEccEnvelope` + `adaptEccEnvelopeToRdCodeReview` + 5-state `detectEcc` + `runEccCodeReview` aggregator; 17 tests.
+- **Tier 8 (Group E — this CC)** — migration codemod `peaks migrate v2-10-to-v2-11` (deprecates historical `rd/tech-doc.md` files with a YAML banner frontmatter; text-only, idempotent).
+- **Tier 9 (Group F — pending)** — D5 self-decision (`src/services/solo/mode-gate.ts`); D6 context monitor (`src/services/context/main-session-monitor.ts`); D7 post-compact resume (`src/services/solo/post-compact-detector.ts`); SKILL.md 14-row patch + new Step N+2.
+
+### Migration
+
+- `peaks migrate v2-10-to-v2-11 --project <repo>` (default dry-run; pass `--apply` to write) — tags all pre-v2.11.0 `rd/tech-doc.md` files with `deprecated: historical` banner pointing to the new peaks-prd handoff as the source of truth. Idempotent. See `.peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md` for the design rationale.
+- Historical `qa/security-findings.md` / `qa/performance-findings.md` files are NOT auto-migrated (they are no longer required by Gate D, but pre-v2.11.0 sessions still produced them — leave in place).
+
+### Tests
+
+- 33 new tests (Group B): handoff-service (11) + project-scan-reader (13) + prd-handoff-command (9)
+- 7 new tests (Group C): sediment service (7) — on the 3987 baseline
+- 17 new tests (Group D): ecc-bridge (17) — on the 3987 baseline
+- (Group F counts pending — estimated 100+ tests for mode-gate + main-session-monitor + post-compact-detector)
+
+### Risks / gaps carried forward
+
+- **ECC envelope validation** assumes the `everything-claude-code` plugin is installed and exposes a `code-review` agent with the `{ passed, violations[], gateAction }` shape. If the plugin is absent, peaks-rd falls back to inline review (5-state detector + `code-review-ecc-degraded-to-inline` TXT note).
+- **D5 hard-floor categories** (irreversible external side effects / auth-credential / multi-day investment) still pause for AskUserQuestion regardless of mode.
+- **D7 post-compact resume** requires re-invoking `/peaks-solo` in fresh context (Option A — no SessionStart hook in v2.11.0; Option B deferred).
+- **Migration scope** is text-only — historical `rd/tech-doc.md` files coexist with the new `prd/handoff.md`; prune is a future slice.
+
+---
+
 ## [2.10.0] — 2026-06-26 — Slice topology multi-pass + 10/90 paradigm
 
 **MINOR bump from 2.9.0** (slice `add-slice-topology-multipass`, 63 commits ahead of `develop`, 8 waves W1-W8-b, plan at `docs/superpowers/plans/2026-06-25-slice-topology-multipass.md`).
