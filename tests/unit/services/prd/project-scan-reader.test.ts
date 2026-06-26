@@ -108,23 +108,18 @@ describe('project-scan-reader — happy parse', () => {
     expect(scan!.karpathySelfCheck.thinkBefore).toBe('red-line scope');
   });
 
-  it('readBusinessKnowledge parses a complete business-knowledge.md', async () => {
+  it('readBusinessKnowledge parses concepts from the markdown table in the body', async () => {
     writeBusinessKnowledge(
+      'schemaVersion: 1',
       [
-        'schemaVersion: 1',
-        'concepts:',
-        '  - concept: D1',
-        '    definition: Immutable sha256-locked handoff.',
-        '    sourceRid: 001-v2-11',
-        '    decidedAt: "2026-06-26T03:05:30Z"',
-        '    evidence: .peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md',
-        '  - concept: D2',
-        '    definition: Half-white-box merged audit output.',
-        '    sourceRid: 001-v2-11',
-        '    decidedAt: "2026-06-26T03:05:30Z"',
-        '    evidence: .peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md'
-      ].join('\n'),
-      '# Business Knowledge — peaks-cli v2.11.0 baseline\n'
+        '',
+        '# Business Knowledge',
+        '',
+        '| Concept | Definition | Source | Decided | Evidence |',
+        '|---|---|---|---|---|',
+        '| D1 | Immutable sha256-locked handoff. | 001-v2-11 | 2026-06-26T03:05:30Z | .peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md |',
+        '| D2 | Half-white-box merged audit output. | 001-v2-11 | 2026-06-26T03:05:30Z | .peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md |'
+      ].join('\n')
     );
     const knowledge = await readBusinessKnowledge(root);
     expect(knowledge).not.toBeNull();
@@ -132,7 +127,16 @@ describe('project-scan-reader — happy parse', () => {
     expect(knowledge!.concepts).toHaveLength(2);
     expect(knowledge!.concepts[0]!.concept).toBe('D1');
     expect(knowledge!.concepts[0]!.definition).toBe('Immutable sha256-locked handoff.');
+    expect(knowledge!.concepts[0]!.sourceRid).toBe('001-v2-11');
     expect(knowledge!.concepts[1]!.concept).toBe('D2');
+  });
+
+  it('readBusinessKnowledge returns empty concepts array when the table is absent', async () => {
+    writeBusinessKnowledge('schemaVersion: 1', '# Business Knowledge\n\nNo table here yet.\n');
+    const knowledge = await readBusinessKnowledge(root);
+    expect(knowledge).not.toBeNull();
+    expect(knowledge!.schemaVersion).toBe(1);
+    expect(knowledge!.concepts).toEqual([]);
   });
 
   it('readProjectScanRaw returns the raw markdown (frontmatter + body) verbatim', async () => {
@@ -170,8 +174,8 @@ describe('project-scan-reader — malformed input throws', () => {
     await expect(readProjectScan(root)).rejects.toThrow(/shape/);
   });
 
-  it('throws when business-knowledge shape is invalid (concepts missing)', async () => {
-    writeBusinessKnowledge('schemaVersion: 1');
+  it('throws when business-knowledge frontmatter shape is invalid (schemaVersion != 1)', async () => {
+    writeBusinessKnowledge('schemaVersion: 2', '');
     await expect(readBusinessKnowledge(root)).rejects.toThrow(/shape/);
   });
 });

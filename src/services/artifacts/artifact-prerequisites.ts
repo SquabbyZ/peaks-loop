@@ -150,12 +150,19 @@ const QA_INITIATED: ArtifactPrerequisite = {
   description: 'QA skill must be invoked before RD handoff (run peaks request init --role qa)'
 };
 
+// v2.11.0 D1/D4 trim (Group C Tier 6): peaks-qa no longer requires
+// qa/security-findings.md or qa/performance-findings.md at qa:verdict-issued.
+// Those are owned by peaks-rd's audit fan-out (rd/security-review.md and
+// rd/perf-baseline.md). QA references them by path from the test-report body
+// (see qa-transition-gates.md Gates A3/A4). SECURITY_FINDINGS /
+// PERFORMANCE_FINDINGS constants are kept for back-compat and a 1-minor-
+// release deprecation window but are NOT in any qa:verdict-issued table.
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [],
   'rd:qa-handoff': [CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
-  'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS, PERFORMANCE_FINDINGS]
+  'qa:verdict-issued': [TEST_CASES, TEST_REPORT]
 };
 
 // Bugfix: lighter planning artifact (bug-analysis instead of tech-doc), still requires code review + security review + regression test.
@@ -163,12 +170,13 @@ const FEATURE_TABLE: PrerequisiteTable = {
 // perf regression). For non-perf bugfixes, RD writes the perf-baseline stub
 // with "N/A — no perf surface" — Gate B9 still passes (mustContainAny hit),
 // and the stub tells QA Gate A4 to skip the perf diff.
+// v2.11.0 D1/D4: SECURITY_FINDINGS dropped from qa:verdict-issued (peaks-rd owns it).
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],
   'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
   'qa:running': [TEST_CASES],
-  'qa:verdict-issued': [TEST_CASES, TEST_REPORT, SECURITY_FINDINGS]
+  'qa:verdict-issued': [TEST_CASES, TEST_REPORT]
 };
 
 // Refactor: same as feature; refactor hard gates (coverage ≥ 95%) are enforced separately in peaks-rd SKILL.
@@ -181,10 +189,11 @@ const MINIMAL_TABLE: PrerequisiteTable = {
 };
 
 // Config: security review is the only mandatory check (config changes can break auth, CORS, CSP, secrets handling).
+// v2.11.0 D1/D4: SECURITY_FINDINGS dropped from qa:verdict-issued (peaks-rd owns security evidence).
 const CONFIG_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:qa-handoff': [SECURITY_REVIEW],
-  'qa:verdict-issued': [SECURITY_FINDINGS]
+  'qa:verdict-issued': [TEST_REPORT]
 };
 
 const PREREQUISITES_BY_TYPE: Record<RequestType, PrerequisiteTable> = {

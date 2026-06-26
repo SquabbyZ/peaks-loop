@@ -86,14 +86,14 @@ describe('request types — bugfix gates', () => {
     expect(paths).not.toContain('rd/bug-analysis.md');
   });
 
-  test('bugfix qa:verdict-issued does NOT require performance-findings.md', async () => {
+  test('bugfix qa:verdict-issued requires only test-cases + test-reports (v2.11.0 D1/D4)', async () => {
     const project = await makeProject();
     const requestId = '2026-05-25-bug';
     await seed(project, 'qa', requestId, 'bugfix');
     await writeArtifact(project, requestId, 'qa/test-cases/2026-05-25-bug.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, requestId, 'qa/test-reports/2026-05-25-bug.md', '# report\n\n## Test execution\n\n- pass');
-    await writeArtifact(project, requestId, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
-    // performance-findings.md intentionally absent
+    // Note (v2.11.0 D1/D4): qa/security-findings.md and qa/performance-findings.md
+    // are no longer required at qa:verdict-issued (even for bugfix).
     const result = await transitionRequestArtifact({
       role: 'qa', requestId, projectRoot: project,
       newState: 'verdict-issued', clock: () => TS
@@ -145,7 +145,7 @@ describe('request types — config has minimal gates', () => {
     expect(caught?.missing.map((m) => m.path)).toEqual(['rd/security-review.md']);
   });
 
-  test('config qa:verdict-issued requires only security-findings.md', async () => {
+  test('config qa:verdict-issued requires only test-report.md (v2.11.0 D1/D4: security findings now rd-side)', async () => {
     const project = await makeProject();
     const requestId = '2026-05-25-cfg';
     await seed(project, 'qa', requestId, 'config');
@@ -158,7 +158,9 @@ describe('request types — config has minimal gates', () => {
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
     }
-    expect(caught?.missing.map((m) => m.path)).toEqual(['qa/security-findings.md']);
+    // v2.11.0 D1/D4: qa/security-findings.md is no longer required at qa:verdict-issued.
+    // Security evidence lives under rd/security-review.md (peaks-rd's audit fan-out).
+    expect(caught?.missing.map((m) => m.path)).toEqual(['qa/test-reports/2026-05-25-cfg.md']);
   });
 });
 

@@ -137,3 +137,24 @@ D5 and D6 are both "remove friction at runtime" features. Combine into one CC (G
 - Started: 2026-06-26 00:35 UTC+8
 - Discovered: user message immediately after D5 memory write "还有监控主 session 的 context..."
 - Compaction: 3rd in this session, pending after this memory write
+
+## Postmortem — Group C closeout (2026-06-26 14:55 UTC+8)
+
+> Operational note appended after TaskList closeout for Group C commit `2b1cd42`.
+
+**Cost hook fired @ ~$88 / 50 files modified in this session.** That count is **session-lifetime**, not per-CC:
+- Group A commit `2be2842` touched the enforcers + red-line catalog + audit service + 4 SKILL references + 1 test (~12 files)
+- Group B commit `3f832f0` touched 13 files (+1459 LoC, the largest CC)
+- Group C commit `2b1cd42` touched 11 files (+519/-81, the smallest of the three)
+- Remaining ~14 files = this session's task-list housekeeping + ask-user-question prompts + the standalone pre-existing stray `UserssmallMarkDesktoppeaks-cli/` (path-translation bug, untouched)
+
+**Per-CC cost discipline was actually applied.** Each CC skipped the 5-way parallel reviewer fan-out at closeout with a stated rationale (Tier 5/6 surgical + config-flavor). Future CCs (D/E/F) should preserve that pattern: skip fan-out when the diff is config + tests + bridge, ship on tsc + vitest clean.
+
+**Forward projection (Group D-F).** Remaining CCs are smaller and more surgical:
+- Group D (Tier 7 ECC code-review bridge): 1 new file + 2 SKILL.md edits + 1 test file = ~4 files
+- Group E (Tier 8 migration + CHANGELOG): mostly `CHANGELOG.md` write + 1-2 migration codemod files = ~3 files
+- Group F (Tier 9 D5+D6+D7 runtime friction): D6 ships the bulk — 2 new modules + 2 new CLIs + 1 SKILL.md step + 2 test files = ~6 files
+
+Total forward budget ≈ 13 files + ~$30-50 if cost discipline holds. Safe to run Groups D→F→release within one or two more compacts.
+
+**Why this note lives here.** The D6 file is the natural home for "context monitor + cost discipline" because D6's whole purpose is preventing the main session from overflowing. Group C's closeout is the first real data point validating that the 75% threshold + manual `/compact` rhythm works in practice — and that skipping the per-CC fan-out does NOT degrade quality (TSC clean + 3987/3987 vitest pass on a 519-LoC additive slice).

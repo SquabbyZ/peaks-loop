@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { parse as parseYaml } from 'yaml';
 
 import type {
+  BusinessConcept,
   BusinessKnowledge,
   ProjectScan,
 } from './project-scan-types.js';
@@ -102,7 +103,7 @@ function parseProjectScanContent(content: string): ProjectScan {
 }
 
 function parseBusinessKnowledgeContent(content: string): BusinessKnowledge {
-  const { frontmatter } = splitFrontmatter(content);
+  const { frontmatter, body } = splitFrontmatter(content);
   let parsed: unknown;
   try {
     parsed = parseYaml(frontmatter);
@@ -112,10 +113,40 @@ function parseBusinessKnowledgeContent(content: string): BusinessKnowledge {
       `business-knowledge: frontmatter YAML parse failed: ${message}`
     );
   }
-  if (!isBusinessKnowledge(parsed)) {
+  if (!isBusinessKnowledgeFrontmatter(parsed)) {
     throw new Error('business-knowledge: frontmatter shape validation failed');
   }
-  return parsed;
+  // Concepts live in the markdown TABLE in the body (not in the frontmatter
+  // YAML). The bootstrap template writes the table for human readability; the
+  // sediment step (Group C, Tier 5) appends new rows to the same table.
+  const concepts = parseConceptsFromMarkdownTable(body);
+  return { schemaVersion: 1, concepts };
+}
+
+/** Parse the markdown table rows under `# Business Knowledge` (or any H1).
+ *  Each row MUST have 5 cells: Concept | Definition | Source | Decided | Evidence.
+ *  Throws on rows that don't match the shape (we never silently drop a row). */
+function parseConceptsFromMarkdownTable(body: string): readonly BusinessConcept[] {
+  const lines = body.split(/\r?\n/);
+  const tableLines = lines.filter((line) => /^\s*\|/.test(line));
+  if (tableLines.length < 2) {
+    // No table at all (fresh file). Return empty; sediment writer will append.
+    return [];
+  }
+  // First row = header, second row = separator (---|---|---). Skip both.
+  const dataRows = tableLines.slice(2);
+  const concepts: BusinessConcept[] = [];
+  for (const row of dataRows) {
+    const cells = row
+      .split('|')
+      .map((cell) => cell.trim())
+      .filter((cell, idx, arr) => !(idx === 0 && cell === '') && !(idx === arr.length - 1 && cell === ''));
+    if (cells.length < 5) continue;
+    const [concept, definition, sourceRid, decidedAt, evidence] = cells;
+    if (!concept || !definition || !sourceRid || !decidedAt || !evidence) continue;
+    concepts.push({ concept, definition, sourceRid, decidedAt, evidence });
+  }
+  return concepts;
 }
 
 function splitFrontmatter(content: string): { frontmatter: string; body: string } {
@@ -142,8 +173,10 @@ function isProjectScan(value: unknown): value is ProjectScan {
   );
 }
 
-function isBusinessKnowledge(value: unknown): value is BusinessKnowledge {
+function isBusinessKnowledgeFrontmatter(value: unknown): boolean {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
-  return v.schemaVersion === 1 && Array.isArray(v.concepts);
+  // Frontmatter only carries `schemaVersion: 1`; concepts live in the
+  // markdown table in the body (see parseConceptsFromMarkdownTable).
+  return v.schemaVersion === 1;
 }

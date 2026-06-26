@@ -174,33 +174,15 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(missingPaths).toContain('rd/perf-baseline.md');
   });
 
-  test('qa→verdict-issued is blocked without security-findings.md and performance-findings.md', async () => {
-    const project = await makeProject();
-    await seedQa(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases');
-    await writeArtifact(project, REQUEST_ID, 'qa/test-reports/2026-05-25-feat.md', '# report');
-    let caught: PrerequisitesNotSatisfiedError | null = null;
-    try {
-      await transitionRequestArtifact({
-        role: 'qa', requestId: REQUEST_ID, projectRoot: project,
-        newState: 'verdict-issued', clock: () => TS
-      });
-    } catch (error) {
-      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
-    }
-    expect(caught).not.toBeNull();
-    const missingPaths = (caught?.missing ?? []).map((entry) => entry.path);
-    expect(missingPaths).toContain('qa/security-findings.md');
-    expect(missingPaths).toContain('qa/performance-findings.md');
-  });
-
-  test('qa→verdict-issued passes when every gated file exists', async () => {
+  test('qa→verdict-issued passes with only test-cases + test-reports (v2.11.0 D1/D4: peaks-rd owns security + perf evidence)', async () => {
     const project = await makeProject();
     await seedQa(project, REQUEST_ID);
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/test-reports/2026-05-25-feat.md', '# report\n\n## Test execution\n\n- pass');
-    await writeArtifact(project, REQUEST_ID, 'qa/security-findings.md', '# security\n\n## Findings\n\n- none');
-    await writeArtifact(project, REQUEST_ID, 'qa/performance-findings.md', '# perf\n\n## Baseline\n\n- 100ms');
+    // Note (v2.11.0 D1/D4): qa/security-findings.md and qa/performance-findings.md
+    // are no longer required at qa:verdict-issued. peaks-rd's audit fan-out owns
+    // the security + perf evidence (rd/security-review.md + rd/perf-baseline.md);
+    // QA cites them by reference from the test-report body.
     const result = await transitionRequestArtifact({
       role: 'qa', requestId: REQUEST_ID, projectRoot: project,
       newState: 'verdict-issued', clock: () => TS

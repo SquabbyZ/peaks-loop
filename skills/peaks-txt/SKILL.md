@@ -171,6 +171,36 @@ TXT depends on artifacts from other roles. When `peaks request list` returns emp
 3. **Artifact paths found but files deleted/moved** — verify with `ls <path>` before linking. If missing, mark `(path broken)` instead of linking dead paths.
 4. Never block TXT completion on missing upstream artifacts. TXT records what exists, not what should exist.
 
+## Business-knowledge sediment step (v2.11.0 D3 — Group C Tier 5)
+
+When a session surfaces a **stable business concept** — an architectural decision, a locked design choice, an approved naming convention, a hard rule adopted during the slice — peaks-txt sediments it into `.peaks/project-scan/business-knowledge.md` so peaks-prd's next brainstorm sees it.
+
+The on-disk format mirrors the bootstrap template: a YAML frontmatter carrying `schemaVersion: 1` plus a markdown table whose rows are `BusinessConcept` tuples (concept, definition, sourceRid, decidedAt, evidence).
+
+**Trigger:** stable concept surfaced during the slice, before clearing skill presence.
+
+**CLI / service path:**
+
+```bash
+# Programmatic path (used by peaks-txt directly):
+#   import { appendBusinessConcept } from './services/prd/project-scan-sediment.js';
+#   await appendBusinessConcept({ projectRoot, concept });
+# Idempotent on (concept, sourceRid). Same tuple → skip. New sourceRid → append.
+```
+
+**Idempotency contract:**
+
+| Input | Result |
+|---|---|
+| Same `(concept, sourceRid)` tuple | skip (no write) |
+| Same `concept`, different `sourceRid` | append (re-definition from new source) |
+| New concept | append |
+| File absent | create with concept as first row |
+
+**What to sediment:** D-row architectural decisions, hard rules, naming conventions, scope boundaries, slice-specific lessons that future peaks-prd sessions need. Do NOT sediment: secrets, transient debug notes, session-specific context, anything in `.peaks/_runtime/<sid>/txt/`.
+
+**Schema reference:** `src/services/prd/project-scan-types.ts` (BusinessKnowledge + BusinessConcept).
+
 ## Default runbook
 
 Use this sequence when TXT compresses an in-flight workflow into a portable, compaction-safe capsule. TXT never edits code; it only consumes other roles' artifacts and CLI reports.
