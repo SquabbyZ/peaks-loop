@@ -14,6 +14,7 @@ import { registerPreferencesCommands } from './commands/preferences-commands.js'
 // dispatch + heartbeat, slice #009 + #010). Sub-agent progress is
 // surfaced via `peaks sub-agent dispatch|heartbeat|share`.
 import { registerProjectCommands } from './commands/project-commands.js';
+import { registerPrdCommands } from './commands/prd-commands.js';
 import { registerRequestCommands } from './commands/request-commands.js';
 import { registerRetrospectiveCommands } from './commands/retrospective-commands.js';
 import { registerScanCommands } from './commands/scan-commands.js';
@@ -199,6 +200,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerPerfCommands(program, io);
  registerPreferencesCommands(program);
  registerProjectCommands(program, io);
+ registerPrdCommands(program, io);
  registerRequestCommands(program, io);
  registerRetrospectiveCommands(program, io);
  registerScanCommands(program, io);

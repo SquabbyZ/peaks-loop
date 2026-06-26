@@ -82,7 +82,7 @@ Then display: `Peaks-Cli Skill: peaks-prd | Peaks-Cli Gate: startup | Next: <one
 
 ## Mandatory per-request artifact
 
-Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state.
+Every PRD invocation — feature, bug, refactor, clarification — must write a durable artifact at `.peaks/_runtime/<session-id>/prd/requests/<request-id>.md`. The artifact is the canonical trace; the chat transcript is not. Handoff to RD/UI/QA is blocked while the artifact is missing or in `draft` state. After user confirmation, the **immutable handoff** is written separately at `.peaks/_runtime/<sid>/prd/handoff.md` (Step 5.5 below) — sha256-locked, schemaVersion: 2 — and is the source of truth for RD, QA, and the 4 audit sub-agents (code-reviewer / security-reviewer / karpathy-reviewer / qa-test-cases-writer).
 
 Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the user assigned) so PRD/UI/RD/QA/SC can cross-link the same request.
 
@@ -97,6 +97,24 @@ Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the use
 7. **User confirmation record** — date, method (explicit confirm / auto-confirm), scope confirmed
 
 Concrete template and rules: `references/artifact-per-request.md`.
+
+## Project-scan gate (v2.11.0 D3 — read before brainstorm)
+
+Before clarifying goals or running brainstorm, PRD MUST read the project's scan + business-knowledge to avoid re-litigating prior decisions:
+
+```bash
+peaks project knowledge --project <repo> --json
+# also: read .peaks/project-scan/project-scan.md (tech-stack snapshot)
+```
+
+If `.peaks/project-scan/` is absent for the target repo → FIRST-RUN BOOTSTRAP: write the two template files (see "Bootstrap" subheading below) and log `first-run bootstrap` so peaks-txt sediment step (Group C) does not duplicate. If present → consume for tech-stack / library-version awareness + business-knowledge lookup. The first-run bootstrap is NOT a write-out-of-band violation of the workspace hard ban — `.peaks/project-scan/` is git-tracked and lives next to `.peaks/PROJECT.md`.
+
+### Bootstrap templates (run once per new repo)
+
+- `.peaks/project-scan/project-scan.md` — frontmatter `schemaVersion: 1`, fields `capturedAt / techStack / libraryVersions / architecture / karpathySelfCheck`. Tech-stack snapshot pulled from `package.json` + `tsconfig.json` at write time. **Do not include secrets.**
+- `.peaks/project-scan/business-knowledge.md` — frontmatter `schemaVersion: 1`, body is a markdown table of `Concept / Definition / Source / Decided / Evidence`. Seed initial concepts from prior `.peaks/memory/*.md` decisions; peaks-txt sediment step (Group C) appends new concepts idempotently by `concept + sourceRid`.
+
+The schema lives in `src/services/prd/project-scan-types.ts` (`ProjectScan` / `BusinessKnowledge`); the CLI reader is `src/services/prd/project-scan-reader.ts` (returns `null` on ENOENT, throws on other IO errors).
 
 ## Default runbook
 
@@ -127,6 +145,19 @@ peaks codegraph status  --project <repo>                   # local index status
 
 # 5. write goals / non-goals / acceptance into the artifact body, then hand off
 peaks request show <request-id> --role prd --project <repo> --json
+
+# 5.5 — write the immutable handoff (sha256-locked; BLOCKING before RD/QA handoff)
+# Reads the PRD request artifact body, computes sha256, writes a v2.11.0 handoff
+# at .peaks/_runtime/<sid>/prd/handoff.md that downstream RD + QA + 4 audit
+# sub-agents consume as the authoritative source of truth. Dry-run by default
+# (omit --apply) so the operator can review before commit.
+peaks prd handoff init \
+  --rid <request-id> --sid <session-id> --change-id <change-id> \
+  --body "@.peaks/_runtime/<session-id>/prd/requests/<request-id>.md" \
+  --goals <G-ids> --ac <AC-ids> --preserve <P-ids> \
+  [--project <repo>] [--apply]
+peaks prd handoff verify --path .peaks/_runtime/<session-id>/prd/handoff.md
+
 peaks skill presence:clear --project <repo>                      # handoff complete, remove presence indicator
 ```
 

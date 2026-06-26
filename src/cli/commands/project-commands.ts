@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { loadProjectDashboard } from '../../services/dashboard/project-dashboard-service.js';
 import { generateProjectContext, readProjectContext } from '../../services/memory/project-context-service.js';
 import { extractSessionMemories, readMemoryIndex, readProjectMemories, readProjectMemoryBody } from '../../services/memory/project-memory-service.js';
+import { readBusinessKnowledge } from '../../services/prd/project-scan-reader.js';
 import { applyStalePolicy, DEFAULT_STALE_DAYS } from '../../shared/stale-policy.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { fail, ok } from '../../shared/result.js';
@@ -278,6 +279,49 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
       }), options.json);
     } catch (error) {
       printResult(io, fail('project.memories:show', 'PROJECT_MEMORY_SHOW_FAILED', getErrorMessage(error), { name, projectRoot: options.project }, ['Check the project path and .peaks/memory directory']), options.json);
+      process.exitCode = 1;
+    }
+  });
+
+  // --- Read business-knowledge sediment (v2.11.0 Group B — D3) ---
+  addJsonOption(
+    project
+      .command('knowledge')
+      .description('Read .peaks/project-scan/business-knowledge.md (the schema-sedimented concept table). LLM-consumable; use --filter for a concept substring.')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--filter <glob>', 'substring filter on the concept name (case-insensitive)')
+  ).action(async (options: { project: string; filter?: string; json?: boolean }) => {
+    try {
+      const knowledge = await readBusinessKnowledge(options.project);
+      if (knowledge === null) {
+        printResult(
+          io,
+          ok('project.knowledge', { exists: false, projectRoot: options.project, path: `${options.project}/.peaks/project-scan/business-knowledge.md` }),
+          options.json
+        );
+        return;
+      }
+      const concepts = options.filter
+        ? knowledge.concepts.filter((c) => c.concept.toLowerCase().includes(options.filter!.toLowerCase()))
+        : knowledge.concepts;
+      printResult(
+        io,
+        ok('project.knowledge', {
+          exists: true,
+          schemaVersion: knowledge.schemaVersion,
+          total: knowledge.concepts.length,
+          matched: concepts.length,
+          filter: options.filter ?? null,
+          concepts
+        }),
+        options.json
+      );
+    } catch (error) {
+      printResult(
+        io,
+        fail('project.knowledge', 'PROJECT_KNOWLEDGE_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks/project-scan directory']),
+        options.json
+      );
       process.exitCode = 1;
     }
   });
