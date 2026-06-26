@@ -1,6 +1,7 @@
 import { join, dirname, basename } from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
 import { pathExists } from '../../shared/fs.js';
+import { emitObservabilityEvent } from '../observability/observability-service.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
 
 export type RequestType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'config' | 'chore';
@@ -357,7 +358,43 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
       }
     }
   }
-  return { ok: missing.length === 0, missing };
+  const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing };
+  emitPrereqTransitionEvent({
+    projectRoot: options.projectRoot,
+    sessionId: options.sessionId ?? '',
+    role: options.role,
+    newState: options.newState,
+    requestId: options.requestId,
+    result
+  });
+  return result;
+}
+
+// Slice C of v2.11.1 — observability hook #7/7. Fire-and-forget per
+// PRD Q4. The synchronous emit never throws and never blocks the
+// prereq check return value.
+function emitPrereqTransitionEvent(opts: {
+  projectRoot: string;
+  sessionId: string;
+  role: RequestArtifactRole;
+  newState: RequestArtifactState;
+  requestId: string;
+  result: PrerequisiteCheckResult;
+}): void {
+  if (opts.sessionId === undefined) return;
+  emitObservabilityEvent({
+    schemaVersion: 1,
+    ts: new Date().toISOString(),
+    sessionId: opts.sessionId,
+    category: 'slice-transition',
+    sliceRid: opts.requestId,
+    detail: {
+      artifactRole: opts.role,
+      to: opts.newState,
+      prereqOk: opts.result.ok,
+      missingCount: opts.result.missing.length
+    }
+  }, { projectRoot: opts.projectRoot });
 }
 
 /**

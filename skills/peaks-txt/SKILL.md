@@ -85,6 +85,10 @@ When used alone or when a workflow needs portable artifacts that must survive se
 - **Stable for memory:** yes | no
 ```
 
+## Observability summary (v2.11.1, AC-10)
+
+When emitting the handoff capsule, append a one-line observability summary pulled from `peaks observability status --json`. Format: `observability: slices=N success=N fail=N repair-cycle-peak=N fanout-cost=N` (omit zero-count metrics). When no metrics exist, output `observability: no events yet`. This is read-only — TXT does not write observability data. The line is collapsed into the handoff capsule by the LLM at compose time; no separate CLI command required.
+
 ## GStack integration
 
 Use gstack as a concrete context and reflection workflow reference for the `Reflect` stage:

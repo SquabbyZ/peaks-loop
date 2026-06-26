@@ -22,6 +22,9 @@ import { Command } from 'commander';
 import { searchMemory, loadMemoryIndex } from '../../services/memory/memory-search-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
+import { emitObservabilityEvent } from '../../services/observability/observability-service.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
+import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import {
   evaluateMainSessionThreshold,
   pickMainSessionTrigger,
@@ -266,6 +269,25 @@ export function registerContextCommands(program: Command, io: ProgramIO): void {
           capacityBytes: capacity,
           inFlightBatch: opts.inFlightBatch === true ? { hasInFlightBatch: true, sharedChannelEntries: 1 } : undefined
         });
+        // Slice C of v2.11.1 — observability hook #5/7. Fire-and-forget
+        // per PRD Q4. The synchronous emit never throws.
+        const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+        const sid = getSessionIdCanonical(projectRoot) ?? '';
+        if (sid.length > 0) {
+          emitObservabilityEvent({
+            schemaVersion: 1,
+            ts: new Date().toISOString(),
+            sessionId: sid,
+            category: 'context-trigger',
+            detail: {
+              kind: trigger.kind,
+              promptSize,
+              ...(trigger.kind === 'soft-warn' || trigger.kind === 'compact'
+                ? { ratio: trigger.ratio }
+                : {})
+            }
+          }, { projectRoot });
+        }
         const logLine = formatMainSessionTriggerLogLine(trigger, 'main');
         const payload = {
           ...trigger,

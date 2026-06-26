@@ -45,6 +45,7 @@ import { registerTestCommands } from './commands/test-commands.js';
 import { registerPlaywrightCommands } from './commands/playwright-commands.js';
 import { registerSoloCommands } from './commands/solo-commands.js';
 import { registerMutCommands } from './commands/mut-commands.js';
+import { registerObservabilityCommands } from './commands/observability-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -261,6 +262,11 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // `createMutCommands({ invokeStryker })` factory directly with a
  // mock to keep @stryker-mutator/core out of the unit-test path.
  registerMutCommands(program, io);
+
+  // Slice B of v2.11.1: `peaks observability status|slices|fanout|repair-cycles`
+  // (read-only queries over the JSONL metrics emitted from the
+  // peaks request transition hook in Slice A).
+  registerObservabilityCommands(program, io);
 
  return program;
 }

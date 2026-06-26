@@ -25,6 +25,11 @@ import {
   SubAgentNotSupportedError,
   type SubAgentToolCall
 } from '../../services/dispatch/sub-agent-dispatcher.js';
+import {
+  emitObservabilityEvent,
+  OBSERVABILITY_SUBAGENT_ROLES,
+  type ObservabilitySubagentRole
+} from '../../services/observability/observability-service.js';
 import { noteDispatched, BATCH_LIMIT } from '../../services/dispatch/batch-counter.js';
 import { writeInitialDispatchRecord } from '../../services/dispatch/dispatch-record-writer.js';
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
@@ -203,6 +208,29 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let toolCall: SubAgentToolCall;
       try {
         toolCall = adapter.subAgentDispatcher.buildToolCall({ role, prompt: effectivePrompt, requestId: rid, sessionId: sid });
+        // Slice C of v2.11.1 — observability hook #2/7. Fire-and-forget
+        // per PRD Q4 (full-auto must never fail-loud). The
+        // synchronous emit returns {written:false} on disk-full; we
+        // deliberately swallow the result so dispatch contract is
+        // unchanged. role is only included when it matches the schema's
+        // known sub-agent role set; otherwise it's omitted (non-standard
+        // roles like 'qa-business' would otherwise drop the event
+        // through schema rejection).
+        const KNOWN_ROLES: ReadonlySet<string> = new Set(OBSERVABILITY_SUBAGENT_ROLES);
+        const knownRole: ObservabilitySubagentRole | null = KNOWN_ROLES.has(role) ? role as ObservabilitySubagentRole : null;
+        emitObservabilityEvent({
+          schemaVersion: 1,
+          ts: new Date().toISOString(),
+          sessionId: sid,
+          category: 'dispatch',
+          ...(knownRole !== null ? { role: knownRole } : {}),
+          detail: {
+            requestId: rid,
+            ide: adapter.subAgentDispatcher.label,
+            promptBytes: effectivePrompt.length,
+            headroomCompressed
+          }
+        }, { projectRoot });
       } catch (error: unknown) {
         if (error instanceof SubAgentNotSupportedError) {
           printResult(io, fail('sub-agent.dispatch', 'IDE_NOT_SUPPORTED', error.message, { role, toolCall: null, dispatchRecordPath: null } as never, [

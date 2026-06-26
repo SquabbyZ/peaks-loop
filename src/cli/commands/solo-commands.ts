@@ -20,6 +20,8 @@ import type { Command } from 'commander';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
+import { emitObservabilityEvent } from '../../services/observability/observability-service.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
 import {
   GATED_STEPS,
   isHardFloorCategory,
@@ -232,6 +234,27 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
           step,
           hardFloorCategory: hardFloor
         });
+        // Slice C of v2.11.1 — observability hook #4/7. Fire-and-forget
+        // per PRD Q4 (full-auto must never fail-loud). projectRoot
+        // resolution mirrors observability-commands.ts (findProjectRoot
+        // → cwd fallback).
+        const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+        const sid = readActiveSid(projectRoot) ?? '';
+        if (sid.length > 0) {
+          emitObservabilityEvent({
+            schemaVersion: 1,
+            ts: new Date().toISOString(),
+            sessionId: sid,
+            category: 'mode-gate',
+            detail: {
+              mode: opts.mode,
+              step,
+              shouldPause: decision.shouldPause,
+              reason: decision.reason,
+              ...(decision.hardFloorCategory !== undefined ? { hardFloorCategory: decision.hardFloorCategory } : {})
+            }
+          }, { projectRoot });
+        }
         const logLine = formatAutoProceedLogLine({
           mode: opts.mode,
           step,

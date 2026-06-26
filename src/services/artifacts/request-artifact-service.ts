@@ -10,6 +10,7 @@ import { lintRequestArtifact } from './artifact-lint-service.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
 import { requireUserConfirmation } from '../mode/mode-enforcement.js';
 import { scanFileSize } from '../scan/file-size-scan.js';
+import { emitObservabilityEvent } from '../observability/observability-service.js';
 
 export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestType };
 
@@ -720,6 +721,25 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   const reasonForNote = combinedReason.length > 0 ? combinedReason : undefined;
   const { updated, previousState } = updateStatusBlock(existing.content, options.newState, timestamp, reasonForNote);
   await writeFile(existing.path, updated, 'utf8');
+
+  // Slice v2.11.1 — observability hook #1/7. Fire-and-forget emit per
+  // PRD Q4 (full-auto must never fail-loud on observability). The
+  // synchronous `emitObservabilityEvent` returns `{written: false}` on
+  // any error path; we deliberately ignore the result so the
+  // transition contract remains unchanged.
+  emitObservabilityEvent({
+    schemaVersion: 1,
+    ts: timestamp,
+    sessionId: existing.sessionId,
+    category: 'slice-transition',
+    sliceRid: options.requestId,
+    detail: {
+      from: previousState,
+      to: options.newState,
+      artifactRole: options.role,
+      reason: reasonForNote
+    }
+  }, { projectRoot: options.projectRoot });
 
   const result: TransitionRequestArtifactResult = {
     role: options.role,

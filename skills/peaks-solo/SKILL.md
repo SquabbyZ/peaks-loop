@@ -19,7 +19,7 @@ Never create `.peaks/_runtime/<change-id>/` or `.peaks/_runtime/<YYYY-MM-DD-*>/`
 
 > **Read once per Solo invocation; the 4 Karpathy guidelines are mandatory context for every sub-agent Solo dispatches.**
 
-Every sub-agent Solo dispatches (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Solo's responsibility: when constructing the dispatch prompt, append the verbatim context block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" (the block is the canonical injection source shared across all RD-spawned sub-agents). Solo MUST NOT silently drop the block. The full guidelines text lives at `andrej-karpathy-skills:karpathy-guidelines` (skill id). Summary of the 4: **#1 Think Before Coding** (surface assumptions, name tradeoffs), **#2 Simplicity First** (minimum code, no speculative features, 800-line file cap, `peaks scan file-size` gate), **#3 Surgical Changes** (touch only what the request requires, clean up only your own orphans), **#4 Goal-Driven Execution** (verifiable ACs, plan + verify checkpoints). Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-injection.test.ts`. The canonical skill id is `andrej-karpathy-skills:karpathy-guidelines`.
+Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Append the verbatim block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" to the dispatch prompt; never silently drop it. Canonical skill id: `andrej-karpathy-skills:karpathy-guidelines`. Summary: **#1 Think Before Coding** (surface assumptions, name tradeoffs), **#2 Simplicity First** (min code, no speculative features, 800-line file cap), **#3 Surgical Changes** (touch only what the request requires), **#4 Goal-Driven Execution** (verifiable ACs, plan + verify checkpoints).
 
 # Peaks-Cli Solo
 
@@ -76,7 +76,7 @@ When a NEW conversation opens on a session whose `lastActivity` is from today AN
 
 ### Peaks-Cli Step N: Periodic checkpoint (auto-fire, no user action)
 
-Proactive defense against context overflow. CLI: `peaks session checkpoint [--reason <r>] [--session-id <sessionId>] [--project <path>] [--current-plan <text>] [--open-questions <list>] [--recent-decisions <list>] [--recent-artifact-paths <list>] [--git-status <text>] [--skills-active <list>] [--todo-state <list>] [--json]`. LLM: fire `--reason periodic` every 20 tool calls (slice 2026-06-24-efficiency-4p-bundle / G1 — hard-coded, no `~` approximation), `--reason artifact-written` after each PRD/RD/QA/TXT artifact, `--reason context-fill` when context feels full, `--reason user-pause` on "save" / "pause", `--reason user-close` before any session-end handoff. CLI is idempotent and self-pruning (max 10 retained by mtime). The 20-call cadence is locked in this SKILL.md **and** in `references/periodic-checkpoint.md` — both files must agree or the guard at `tests/unit/solo/checkpoint-periodic-frequency.test.ts` fails. See `references/periodic-checkpoint.md`.
+Proactive defense vs context overflow. CLI: `peaks session checkpoint [--reason <r>] [--session-id <sessionId>] [--project <p>] [--current-plan <text>] [--open-questions <list>] [--recent-decisions <list>] [--recent-artifact-paths <list>] [--git-status <text>] [--skills-active <list>] [--todo-state <list>] [--json]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write, `--reason context-fill` when full, `--reason user-pause` on save, `--reason user-close` before handoff. 20-call cadence locked here + `references/periodic-checkpoint.md` (otherwise `tests/unit/solo/checkpoint-periodic-frequency.test.ts` fails).
 
 ### Peaks-Cli Step 0.5: OpenSpec first-run opt-in (conditional)
 
@@ -98,17 +98,7 @@ After all autonomous LLM work (RD, QA, security, perf) completes, invoke peaks-f
 
 ### Peaks-Cli Step N+2: Main-session context monitor (v2.11.0 D6)
 
-After every 4th tool call (lower-frequency complement to Step N's 20-tool-call periodic checkpoint), probe main-session context pressure via `peaks context check --prompt-size <bytes> --auto-trigger --json`. Threshold table (matches G9, distinct scope — see `.peaks/memory/2026-06-26-v2-11-main-session-context-monitor.md`):
-
-| Threshold | Behavior |
-|---|---|
-| 50% (soft warn) | Emit warning; suggest a manual `peaks session checkpoint` |
-| 75% (user red line) | `peaks context check` returns the trigger path: claude-code → `/compact` slash command; trae/opencode → write `context-compress-N.md` and continue |
-| 90% (emergency) | Same as 75% but with `code: "PROMPT_EMERGENCY"` and priority routing |
-
-The 75%/90% triggers DO NOT auto-execute — they return the trigger path; the LLM-side caller decides whether to fire (Karpathy §4: human-in-the-loop on irreversible ops). The CLI surface is `peaks context status --prompt-size <bytes>` (read-only probe) and `peaks context check --prompt-size <bytes> [--auto-trigger] [--in-flight-batch]` (with the trigger dispatched). Source of truth: `src/services/context/main-session-monitor.ts` + extension of `src/services/context/threshold.ts`. Companion to Step N (which is the soft signal); D6 is the hard signal.
-
-Do NOT auto-compact mid-tool-call-batch: pass `--in-flight-batch` to defer until the batch converges (D6.e).
+After every 4th tool call (complement to Step N), probe via `peaks context check --prompt-size <bytes> --auto-trigger --json`. Thresholds: 50% soft warn / 75% user red line (return trigger path, do NOT auto-execute — Karpathy §4) / 90% emergency. Use `--in-flight-batch` to defer until batch converges (D6.e). Companion to Step N (soft signal); D6 is the hard signal.
 
 ### Peaks-Cli Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
@@ -124,9 +114,9 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-solo` BEFORE any an
 
 ### Peaks-Cli Step 0.7: Detect unfinished work and offer resume (BLOCKING on first invocation per session)
 
-After Step 0 anchored the workspace, run the resume-detection probe (one `find` + one `grep` + classification table). Surface resume options via `AskUserQuestion` if a slice is in flight.
+After Step 0, run the resume-detection probe; surface via `AskUserQuestion` if a slice is in flight.
 
-**v2.11.0 D7 post-compact auto-resume override (BLOCKING):** if the user just `/compact`ed the Claude Code context window, run `peaks solo post-compact-detect --project <repo> --json` BEFORE the normal Step 0.7 flow. If the detector returns `shouldAutoResume: true`, skip the AskUserQuestion entirely (D7.b override of "never silently auto-resume") and auto-resume — the user already approved pre-compact; asking again is friction with no upside. Emit the one-line log entry to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md` and continue. Source: `.peaks/memory/2026-06-26-v2-11-post-compact-resume.md` + `src/services/solo/post-compact-detector.ts`. The override applies to all 4 modes (full-auto / assisted / swarm / strict) — the only AskUserQuestion site in peaks-solo where this is true. Cross-day / cross-machine resume is NOT in scope for D7 (D7.g); use the existing `peaks session resume --from <path>` for that.
+**v2.11.0 D7 override:** if the user just `/compact`ed, run `peaks solo post-compact-detect --project <repo> --json` FIRST. If `shouldAutoResume: true`, skip the AskUserQuestion (D7.b — pre-compact approval carries forward). Log to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md`. Applies to all 4 modes; cross-day / cross-machine resume NOT in scope (D7.g).
 
 → see `references/resume-detection.md` for the full detection algorithm + classification table.
 
@@ -265,13 +255,13 @@ Layer 3.5 context-governance push for sub-agent dispatch. Main LLM reducer sees 
 
 ## Sub-agent cross-batch signal — G8.4 share / shared-read / await (slice 2026-06-23-audit-3rd)
 
-Three CLI primitives complement `dispatch` and let sibling sub-agents (within the same batch) coordinate without peer-to-peer messaging (pseudo-swarm property 3). All three are LLM-invoked from peaks-rd / peaks-qa / peaks-ui / peaks-txt skills; the LLM-side runner executes the returned tool calls.
+Three CLI primitives let sibling sub-agents coordinate within a batch without peer-to-peer messaging. LLM-invoked from peaks-rd / peaks-qa / peaks-ui / peaks-txt skills.
 
-- **`peaks sub-agent share --batch <batchId> --key <role>.<event> --value <jsonObject> [--from <role>]`** — write one entry to the per-batch shared channel (≤ 1KB soft warn, ≥ 64KB hard reject). Dispatcher-mediated; last-write-wins per key.
-- **`peaks sub-agent shared-read --batch <batchId> [--since <iso>] [--key <glob>]`** — read sibling entries (glob `*` supported, e.g. `rd.*`).
-- **`peaks sub-agent await --batch <batchId> [--timeout <ms>]`** — block until the batch finishes (or `--timeout`); claude-code 1.2 MVP only; other IDEs fall back to LLM-side await (1.3).
+- **`peaks sub-agent share --batch <id> --key <role>.<event> --value <json> [--from <role>]`** — write to per-batch channel (≤ 1KB warn, ≥ 64KB reject). Last-write-wins.
+- **`peaks sub-agent shared-read --batch <id> [--since <iso>] [--key <glob>]`** — read sibling entries (glob `*`).
+- **`peaks sub-agent await --batch <id> [--timeout <ms>]`** — block until batch finishes (claude-code 1.2 MVP; other IDEs LLM-side await).
 
-Batch lifecycle contract: the LLM receives a `batchId` from the `dispatch` envelope. Sub-agents `share` events; the parent LLM `shared-read`s between dispatch levels (slice-dag) or before `await`. The channel file is gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
+Channel file gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
 
 ## References
 
@@ -279,36 +269,36 @@ Index of every `references/` file. Read on demand.
 
 | File | Coverage |
 |---|---|
-| `references/dag-orchestrator.md` | DAG-aware sub-agent dispatch (2.7.0 slice-dag-dispatcher MVP). |
+| `references/dag-orchestrator.md` | DAG-aware sub-agent dispatch. |
 | `references/a2a-artifact-mapping.md` | A2A artifact-path mapping. |
-| `references/anchoring-and-session-info.md` | Step 0 anchor + session-conflict resolution. |
+| `references/anchoring-and-session-info.md` | Step 0 + session-conflict. |
 | `references/artifact-contracts.md` | Sub-agent handoff contracts. |
 | `references/boundaries.md` | Solo's do / don't list. |
-| `references/browser-workflow.md` | Browser workflow (Playwright MCP, sanitization). |
-| `references/codegraph-orchestration.md` | Codegraph role handoff context. |
-| `references/command-migration.md` | Legacy command migration map. |
-| `references/completion-handoff.md` | Completion handoff + no auto-exit. |
-| `references/context-governance.md` | G7-G9 sub-agent rules + thresholds. |
+| `references/browser-workflow.md` | Browser workflow (Playwright MCP). |
+| `references/codegraph-orchestration.md` | Codegraph role handoff. |
+| `references/command-migration.md` | Legacy command migration. |
+| `references/completion-handoff.md` | Completion handoff. |
+| `references/context-governance.md` | G7-G9 sub-agent thresholds. |
 | `references/external-references.md` | 3rd-party inventory + lifecycle. |
-| `references/external-skill-invocation.md` | External skill invocation rules. |
+| `references/external-skill-invocation.md` | External skill invocation. |
 | `references/existing-system-extraction.md` | Legacy project extraction. |
-| `references/frontend-only-mode.md` | Frontend-only mode + mocks + pre-flight. |
+| `references/frontend-only-mode.md` | Frontend-only mode + mocks. |
 | `references/gstack-integration.md` | GStack → Peaks mapping. |
-| `references/headroom-integration.md` | Headroom-ai compression modes. |
+| `references/headroom-integration.md` | Headroom-ai compression. |
 | `references/local-artifact-workspace.md` | Workspace tree + root-prohibition. |
 | `references/micro-cycle.md` | RD micro-cycle + repair loop. |
-| `references/mode-selection.md` | Step 1 mode + `--mode` mapping. |
-| `references/openspec-workflow.md` | Step 0.5 OpenSpec opt-in + lifecycle. |
-| `references/playwright-mcp-multi-terminal.md` | Multi-terminal Playwright MCP (start/ls/stop, port walk, conflict). |
-| `references/project-memory-loading.md` | Step 2.3 durable memories. |
-| `references/project-scan-checklist.md` | Pre-RD scan + artifact template. |
-| `references/quality-gate-cheatsheet.md` | 5 CLI commands vs silent skips. |
+| `references/mode-selection.md` | Step 1 mode + `--mode`. |
+| `references/openspec-workflow.md` | Step 0.5 OpenSpec. |
+| `references/playwright-mcp-multi-terminal.md` | Multi-terminal Playwright MCP. |
+| `references/project-memory-loading.md` | Step 2.3 memories. |
+| `references/project-scan-checklist.md` | Pre-RD scan + template. |
+| `references/quality-gate-cheatsheet.md` | 5 CLI commands. |
 | `references/refactor-mode.md` | Refactor mode + red lines. |
-| `references/resume-detection.md` | Step 0.7 unfinished-work detection. |
+| `references/resume-detection.md` | Step 0.7 unfinished-work. |
 | `references/runbook.md` | End-to-end CLI sequence. |
 | `references/skill-presence-and-title.md` | Step 2 + Step 2.5. |
-| `references/standards-preflight.md` | Standards preflight + analysis branch. |
-| `references/sub-agent-dispatch.md` | IDE-agnostic dispatch (NOT Skill). |
-| `references/swarm-dispatch-contract.md` | Swarm fan-out: gate + shape. |
+| `references/standards-preflight.md` | Standards preflight. |
+| `references/sub-agent-dispatch.md` | IDE-agnostic dispatch. |
+| `references/swarm-dispatch-contract.md` | Swarm fan-out gate + shape. |
 | `references/workflow-gates-and-types.md` | Type classification + 7 gates. |
 | `references/workflow.md` | Workflow flow + transitions. |

@@ -12,6 +12,7 @@
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, sep } from 'node:path';
+import { emitObservabilityEvent } from '../observability/observability-service.js';
 
 const CHECKPOINTS_DIR = 'checkpoints';
 const CHECKPOINT_FILENAME_EXT = '.json';
@@ -158,6 +159,22 @@ export function writeCheckpoint(
   const filename = `${isoTimestamp(now)}${CHECKPOINT_FILENAME_EXT}`;
   const path = join(dir, filename);
   writeFileSync(path, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
+
+  // Slice C of v2.11.1 — observability hook #3/7. Fire-and-forget
+  // per PRD Q4. The synchronous emit never throws.
+  emitObservabilityEvent({
+    schemaVersion: 1,
+    ts: snapshot.createdAt,
+    sessionId: snapshot.sessionId,
+    category: 'checkpoint',
+    detail: {
+      reason: snapshot.reason,
+      checkpointPath: toPosix(path),
+      currentPlanLength: snapshot.currentPlan.length,
+      openQuestionsCount: snapshot.openQuestions.length,
+      recentDecisionsCount: snapshot.recentDecisions.length
+    }
+  }, { projectRoot });
 
   const pruned = pruneOldest(dir);
   const totalRetained = listCheckpoints(dir).length;

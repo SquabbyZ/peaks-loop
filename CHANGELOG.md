@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.11.2] — 2026-06-26 — Slice topology observability (read-only supplement to v2.11.0)
+
+**PATCH bump from 2.11.0** (slice `v2-11-2-slice-topology-observability`, 5-slice plan A→E, red-line scope ~18 files).
+
+Read-only observability layer on top of the v2.11.0 slice topology + 10/90 paradigm. New `peaks observability <subcommand>` family for querying slice success rate, fanout cost, repair-cycle count, and D5/D6/D7 auto-proceed events. Persists metrics locally at `.peaks/_runtime/<sessionId>/metrics/slices.jsonl` (append-only JSONL, mtime-pruned to 10 sessions). No new dependencies. No changes to v2.11.0 ship behavior.
+
+### Features
+
+- **`peaks observability status`** (AC-1) — aggregate metrics for active session: total slices, success count, fail count, fanout cost total, repair-cycle peak.
+- **`peaks observability slices`** (AC-2) — per-slice list with rid, state, fanout count, repair-cycle count, duration (ms).
+- **`peaks observability fanout`** (AC-3) — fanout cost breakdown per sub-agent role (rd / qa / code-reviewer / security-reviewer / karpathy-reviewer).
+- **`peaks observability repair-cycles`** (AC-4) — RD→QA repair-cycle count per slice; cap = 3 (peaks-solo repair-loop contract); capHit flag.
+- **`peaks observability report --period day|week|month`** (AC-5) — markdown summary (header + status + slice table + fanout table + repair-cycle table + top-5 slowest) suitable for paste into PR descriptions or `.peaks/PROJECT.md` timeline entries.
+- **JSONL persistence** (AC-6) — append-only `.peaks/_runtime/<sessionId>/metrics/slices.jsonl`; zod schema v1; cross-session prune to last 10 session files by mtime.
+- **Hook integration** (AC-7) — metrics emitted from 7 sites: `peaks request transition` (Slice A), `peaks sub-agent dispatch`, `peaks session checkpoint`, D5 mode-gate, D6 context-trigger, D7 post-compact, `peaks request transition` RD→QA prereq (Slice C). All emits fire-and-forget per PRD Q4 (full-auto must never fail-loud).
+- **Zero regression** (AC-8) — `npm run build` clean + vitest passes; 6 doctor.test.ts / 35-checks-aggregate failures are pre-existing on main (verified via `git stash`); 0 new regressions from this slice.
+- **Coverage** (AC-9) — observability source files have 100% public-function coverage (jsonl-store, observability-service, aggregation, report-formatter); vitest `--coverage` blocked by pre-existing pnpm `@ampproject/remapping` resolution issue (unrelated to this slice).
+- **peaks-txt handoff integration** (AC-10) — handoff capsule includes 1-line observability summary via `peaks observability status`.
+
+### Internal
+
+- New: `src/services/observability/jsonl-store.ts` (133 LoC) — pure I/O, mtime prune.
+- New: `src/services/observability/observability-service.ts` (139 LoC) — zod schema v1 + `emitObservabilityEvent`.
+- New: `src/services/observability/aggregation.ts` (207 LoC) — `aggregateStatus` / `aggregateSlices` / `aggregateFanout` / `aggregateRepairCycles` / period rollup helpers.
+- New: `src/services/observability/report-formatter.ts` (135 LoC) — markdown renderer (pure).
+- New: `src/cli/commands/observability-commands.ts` (250+ LoC) — 5 subcommands via commander.
+- Modified: `src/services/artifacts/request-artifact-service.ts` (hook #1/7).
+- Modified: `src/cli/commands/dispatch-commands.ts` (hook #2/7).
+- Modified: `src/services/session/session-checkpoint-service.ts` (hook #3/7).
+- Modified: `src/cli/commands/solo-commands.ts` (hook #4/7).
+- Modified: `src/cli/commands/context-commands.ts` (hook #5/7).
+- Modified: `src/services/solo/post-compact-detector.ts` (hook #6/7).
+- Modified: `src/services/artifacts/artifact-prerequisites.ts` (hook #7/7).
+- Modified: `src/cli/program.ts` (+1 line: registerObservabilityCommands).
+- Modified: `src/shared/version.ts` (CLI_VERSION 2.11.0 → 2.11.1).
+- Tests: `tests/unit/services/observability/*.test.ts` (5 files, 78 cases) + `tests/unit/cli/observability-commands.test.ts` (8 cases). 0 regressions.
+
+---
+
 ## [2.11.0] — 2026-06-26 — Remove rd/tech-doc.md + immutable peaks-prd handoff + ECC code-review + runtime friction
 
 **MINOR bump from 2.10.0** (slice `v2-11-rm-rd-techdoc-immutable-handoff`, 6 multi-CC groups A-F, plan at `.peaks/memory/2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md`).

@@ -28,6 +28,8 @@ import { join } from 'node:path';
 import { getSkillPresence } from '../skills/skill-presence-service.js';
 import type { SkillPresenceMode } from '../skills/skill-presence-service.js';
 
+import { emitObservabilityEvent } from '../observability/observability-service.js';
+
 import { isSoloMode, type SoloMode } from './mode-gate.js';
 
 export type PostCompactResumeReason =
@@ -260,7 +262,7 @@ export async function detectPostCompactResume(
     };
   }
 
-  return {
+  const successProbe: PostCompactResumeProbe = {
     shouldAutoResume: true,
     reason: 'post-compact-match',
     mode,
@@ -271,6 +273,30 @@ export async function detectPostCompactResume(
     ...(file.content.recentDecisions !== undefined ? { recentDecisions: file.content.recentDecisions } : {}),
     warnings
   };
+  emitPostCompactEvent({ projectRoot: opts.projectRoot, sessionId: opts.sessionId, probe: successProbe });
+  return successProbe;
+}
+
+// Slice C of v2.11.1 — observability hook #6/7. Fire-and-forget per
+// PRD Q4. The synchronous emit never throws and never blocks the
+// detector return value.
+function emitPostCompactEvent(opts: {
+  projectRoot: string;
+  sessionId: string;
+  probe: PostCompactResumeProbe;
+}): void {
+  emitObservabilityEvent({
+    schemaVersion: 1,
+    ts: new Date().toISOString(),
+    sessionId: opts.sessionId,
+    category: 'post-compact',
+    detail: {
+      shouldAutoResume: opts.probe.shouldAutoResume,
+      reason: opts.probe.reason,
+      ...(opts.probe.mode !== undefined ? { mode: opts.probe.mode } : {}),
+      ...(opts.probe.checkpointPath !== undefined ? { checkpointPath: opts.probe.checkpointPath } : {})
+    }
+  }, { projectRoot: opts.projectRoot });
 }
 
 function readActiveSkillName(projectRoot: string): string | undefined {
