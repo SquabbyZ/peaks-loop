@@ -136,6 +136,46 @@ that IDE without further orchestrator changes.
    surface the current ratio + verdict inline so the user always
    sees "context: 67% (ok)" in their statusline.
 
+## Limitation discovered during in-session dogfood
+
+The v2.13.0-alpha.1 shell-exec pathway spawns the IDE's compact
+command via `child_process.spawn` — this fires a **separate** child
+process. It does NOT compact the **current** LLM runner session.
+
+Concrete example: when `peaks solo auto-compact` runs in a Claude
+Code session at 100% context-fill, the dispatcher's
+`shell-exec('claude --compact')` spawns a new `claude` process in
+the shell. The original Claude Code runner that invoked
+`auto-compact` is unaffected — its own context window stays at 100%
+until that runner's own compact logic kicks in (Claude Code's own
+auto-compact, or a user-issued `/compact` slash command).
+
+This means:
+
+- **Peaks-solo mode**: the LLM in the runner reads
+  `auto-decisions.md` on the next turn and self-issues `/compact`.
+  Net effect: zero-human-intervention. ✓
+- **Ad-hoc Claude Code runner**: peaks-cli can detect + checkpoint
+  + dispatch, but the runner's own context stays at 100% until the
+  user (or Claude Code's own auto-compact) triggers compact. peaks-cli
+  cannot externally compact a session it doesn't own.
+
+### Future slice (out of v2.13.0-alpha.1 scope)
+
+To close the ad-hoc-runner gap, register a **PreToolUse hook** via
+`peaks hooks install` that:
+
+1. Reads the current ratio via `CLAUDE_CONTEXT_USAGE_PERCENT`.
+2. When ratio ≥ 0.95, REJECTS the next Bash tool call and writes a
+   one-line hint to stderr: `peaks: ratio=98%; please run /compact`.
+3. The next user turn sees the hint and issues `/compact` manually.
+
+This hook-based pathway is the `ide-native` slot already reserved in
+`IdeCompactProfile.compactPathway = 'ide-native'`. A future slice
+fills the dispatcher's `ide-native` branch with the hook-write
+implementation, completing the loop for ad-hoc Claude Code runners
+without changing the public API.
+
 ## Why 0.85 / 0.95 specifically
 
 - 0.85 leaves 10 percentage points of headroom (~25K tokens on a
