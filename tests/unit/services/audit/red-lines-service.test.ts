@@ -47,7 +47,11 @@ describe('red-lines-service.runRedLinesAudit', () => {
 
     const result = runRedLinesAudit({ projectRoot });
     expect(result.audit.totalRedLines).toBeGreaterThanOrEqual(3);
-    expect(result.audit.cliBacked + result.audit.partial + result.audit.proseOnly).toBe(result.audit.totalRedLines);
+    // v2.12.1 catalog governance: tallies include `informational` for
+    // discovered prose-only entries (no catalog match). The invariant
+    // is now `cliBacked + partial + proseOnly + informational === total`.
+    const informational = result.audit.audit.filter((e) => e.informational).length;
+    expect(result.audit.cliBacked + result.audit.partial + result.audit.proseOnly + informational).toBe(result.audit.totalRedLines);
   });
 
   it('produces a warning when sub-agent-sid enforcer finds an invalid sid', () => {
@@ -58,7 +62,7 @@ describe('red-lines-service.runRedLinesAudit', () => {
     expect(sidWarning?.message).toContain('invalid sub-agent sid');
   });
 
-  it('tally: cliBacked + partial + proseOnly === totalRedLines', () => {
+  it('tally: cliBacked + partial + proseOnly + informational === totalRedLines (v2.12.1)', () => {
     mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
     writeFileSync(
       join(projectRoot, 'skills/peaks-solo/SKILL.md'),
@@ -68,6 +72,27 @@ describe('red-lines-service.runRedLinesAudit', () => {
     writeFileSync(join(projectRoot, 'src/services/audit/enforcers/solo-code-ban.ts'), '// stub');
 
     const result = runRedLinesAudit({ projectRoot });
-    expect(result.audit.cliBacked + result.audit.partial + result.audit.proseOnly).toBe(result.audit.totalRedLines);
+    const informational = result.audit.audit.filter((e) => e.informational).length;
+    expect(result.audit.cliBacked + result.audit.partial + result.audit.proseOnly + informational).toBe(result.audit.totalRedLines);
+  });
+
+  it('v2.12.1 catalog governance: discovered entries are informational and excluded from proseOnly ratio', () => {
+    // Write a SKILL.md with a MANDATORY phrase that has no catalog match.
+    // Pre-v2.12.1: this entry counted as prose-only (inflating the ratio).
+    // v2.12.1: it's `informational: true` so the tally excludes it from
+    // `proseOnly`. The total still includes it.
+    mkdirSync(join(projectRoot, 'skills/peaks-zzz-test'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, 'skills/peaks-zzz-test/SKILL.md'),
+      '# peaks-zzz-test\n\nSome MANDATORY phrase that does not match any catalog entry at all.\n',
+    );
+
+    const result = runRedLinesAudit({ projectRoot });
+    const discovered = result.audit.audit.filter((e) => e.id.startsWith('rl-discovered-'));
+    expect(discovered.length).toBeGreaterThan(0);
+    for (const e of discovered) {
+      expect(e.backing).toBe('prose-only');
+      expect(e.informational).toBe(true);
+    }
   });
 });

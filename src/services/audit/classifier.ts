@@ -126,12 +126,19 @@ export function classifyFile(input: ClassifyFileInput): ClassifyResult {
       });
     } else {
       // Marker hit but no catalog match: discovered, not yet enforced.
+      // v2.12.1 catalog governance: mark these `informational: true`
+      // so the prose-only ratio (per spec §10.2 ≤ 5%) excludes them.
+      // The pre-v2.12.1 ratio was 60.1% because every advisory phrase
+      // in SKILL.md was counted; the new ratio only counts entries
+      // with a real catalog template (those that COULD be promoted
+      // to cli-backed via the enforcer-pipeline).
       entries.push({
         id: `rl-discovered-${input.file.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${idx + 1}`,
         rule: ruleName,
         source,
         backing: 'prose-only',
         enforcerRef: null,
+        informational: true,
       });
     }
   }

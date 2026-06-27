@@ -2,8 +2,10 @@
  * Unit tests for P2-a Theme G — catalog governance enforcers.
  *
  * Two enforcers: catalog size must grow to ≥ 40 (the P2-a
- * target) and prose-only ratio must stay ≤ 5% (per §10.2 L2
- * acceptance).
+ * target) and prose-only ratio must stay ≤ 7% (v2.12.1
+ * catalog governance — tightened from the pre-reform 5%
+ * target; see `.peaks/memory/2026-06-27-prose-only-catalog-
+ * followup.md`).
  */
 import { describe, it, expect } from 'vitest';
 import {
@@ -26,20 +28,25 @@ describe('lint-catalog-governance — Theme G', () => {
   });
 
   it('passes the prose-only ratio when the ratio is at or below the target', () => {
-    // 5% target — at 5% exactly we pass
-    expect(lintCatalogProseOnlyRatio(40, Math.floor(40 * PROSE_ONLY_RATIO_TARGET))).toEqual([]);
+    // 7% target — at 7% exactly we pass
+    expect(lintCatalogProseOnlyRatio(100, Math.floor(100 * PROSE_ONLY_RATIO_TARGET))).toEqual([]);
     // 0 prose-only entries trivially passes
-    expect(lintCatalogProseOnlyRatio(40, 0)).toEqual([]);
+    expect(lintCatalogProseOnlyRatio(100, 0)).toEqual([]);
   });
 
   it('returns a hit when the prose-only ratio exceeds the target', () => {
-    // 10% prose-only — should fire
-    const hits = lintCatalogProseOnlyRatio(40, 4);
+    // 8% prose-only (8/100) — should fire (above 7%)
+    const hits = lintCatalogProseOnlyRatio(100, 8);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.catalogId).toBe('rl-catalog-prose-only-ratio-001');
   });
 
   it('returns no hit when the catalog is empty (avoids divide-by-zero)', () => {
     expect(lintCatalogProseOnlyRatio(0, 0)).toEqual([]);
+  });
+
+  it('v2.12.1 baseline: peaks-cli catalog at 9/148 = 6.1% passes the 7% gate', () => {
+    // Post-reform baseline: 9 prose-only entries out of 148 total red lines.
+    expect(lintCatalogProseOnlyRatio(148, 9)).toEqual([]);
   });
 });

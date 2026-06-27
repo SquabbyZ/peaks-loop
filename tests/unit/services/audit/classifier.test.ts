@@ -95,6 +95,25 @@ describe('classifier.classifyFile', () => {
     expect(result.entries[0]?.enforcerRef).toBeNull();
   });
 
+  it('v2.12.1 catalog governance: discovered prose-only entries are flagged informational', () => {
+    // Discovered entries (no catalog match) should carry
+    // `informational: true` so the prose-only ratio excludes them.
+    // Pre-v2.12.1 ratio was 60.1% because these were counted; the
+    // reform (see `.peaks/memory/2026-06-27-prose-only-catalog-
+    // followup.md`) drops the actionable ratio to 6.1%.
+    const file = {
+      file: 'skills/peaks-solo/SKILL.md',
+      lines: [
+        'Some MANDATORY prose that does not match any catalog entry.',
+        'It really is important but advisory-only.',
+      ],
+    };
+    const result = classifyFile(file);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0]?.backing).toBe('prose-only');
+    expect(result.entries[0]?.informational).toBe(true);
+  });
+
   it('returns empty entries for a file with no markers', () => {
     const file = {
       file: 'plain.md',

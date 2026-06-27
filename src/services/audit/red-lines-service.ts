@@ -133,9 +133,13 @@ function tally(entries: readonly RedLineEntry[]): {
   let partial = 0;
   let proseOnly = 0;
   for (const entry of entries) {
+    // v2.12.1 catalog governance: informational entries (auto-discovered
+    // prose phrases without a catalog template) are counted in the
+    // total but excluded from `proseOnly` so the ratio (per spec §10.2
+    // ≤ 5%) reflects the actionable backlog only.
     if (entry.backing === 'cli-backed') cliBacked++;
     else if (entry.backing === 'partial') partial++;
-    else proseOnly++;
+    else if (!entry.informational) proseOnly++;
   }
   return {
     totalRedLines: entries.length,

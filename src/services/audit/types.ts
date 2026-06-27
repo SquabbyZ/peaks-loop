@@ -33,6 +33,23 @@ export interface RedLineEntry {
   readonly backing: RedLineBacking;
   /** Relative path to the enforcement file, or null when prose-only. */
   readonly enforcerRef: string | null;
+  /**
+   * v2.12.1 catalog governance: `true` for entries that are
+   * advisory / educational / "discovered-but-not-yet-enforced" and
+   * therefore should NOT count toward the prose-only ratio (per spec
+   * §10.2 L2 acceptance ≤ 5%). Defaults to `false`; the classifier
+   * sets it to `true` for auto-discovered prose-only entries (those
+   * without a catalog match, since they have no enforcer template
+   * to promote to). Callers that want strict accounting can still
+   * read `backing === 'prose-only'` and filter manually.
+   *
+   * Why: the pre-v2.12.1 catalog treated every MANDATORY/BLOCKING
+   * phrase in SKILL.md as a "red line", which produced a 60.1%
+   * prose-only ratio (89/148) for what is mostly LLM behavior
+   * guidance, not machine-enforceable rules. See
+   * `.peaks/memory/2026-06-27-prose-only-catalog-followup.md`.
+   */
+  readonly informational?: boolean;
 }
 
 export interface RedLineAudit {
