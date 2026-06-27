@@ -223,3 +223,94 @@ When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite R
 **Repair cycle cap**: After 3 repair cycles without a passing QA verdict, emit a blocked TXT handoff regardless of remaining issues. Do not loop indefinitely. If a specific issue cannot be resolved within 3 cycles, mark it as a known blocker in the TXT handoff and proceed to the SC phase.
 
 In full-auto mode, treat the RD↔QA repair loop as a built-in controller objective: loop through RD→QA until all acceptance items pass (max 3 cycles). Do not exit the loop on a non-passing QA verdict unless the TXT handoff marks the workflow as blocked.
+
+---
+
+## Verdict reasoning (v2.13.1)
+
+> v2.13.1 Group A: the 6-step cycle above stays unchanged. This new
+> section adds the **依据** (evidence/justification) layer for when the
+> runbook triggers an RD re-run. The aggregator
+> (`src/services/verdict/verdict-aggregator.ts`) is the source of
+> `reasons`; this section tells the runbook how to print them and how
+> to decide between `return-to-rd` (repair loop) vs `block` (blocked
+> TXT handoff).
+
+### When the runbook prints reasons
+
+Trigger an aggregator call **before** re-running RD. The reasons
+array is the payload that gets persisted into the rd transition note
+so the artifact history shows *why* a re-run was triggered, not just
+*that* it was. Print format (compatible with `peaks log --json`):
+
+```
+re-run reason: { source, signal, severity, file, line, hint }
+```
+
+#### Example: multi-signal failure (mock output)
+
+```json
+[
+  {
+    "source": "security-audit",
+    "signal": "block",
+    "severity": "CRITICAL",
+    "file": "src/auth/login.ts",
+    "line": 42,
+    "hint": "plaintext password compare"
+  },
+  {
+    "source": "peaks-mut",
+    "signal": "block",
+    "kind": "mutationKillRateMin",
+    "actual": 0.62,
+    "threshold": 0.8,
+    "hint": "kill rate 0.620 < 0.800"
+  },
+  {
+    "source": "peaks-qa",
+    "signal": "return-to-rd",
+    "reportPath": ".peaks/_runtime/sid/qa/test-reports/rid.md"
+  }
+]
+```
+
+Aggregated verdict (top-level precedence `block > return-to-rd > warn > pass`):
+
+```json
+{ "verdict": "block", "reasons": [...] }
+```
+
+### Decision table: `return-to-rd` vs `block`
+
+| Aggregator verdict | Runbook action | Why |
+|---|---|---|
+| `pass` | Stop — accept the slice. | All signals green; no repair needed. |
+| `warn` | Re-run RD (repair loop) once. | Soft signal; RD can address the warnings without escalation. |
+| `return-to-rd` | Re-run RD (repair loop) up to cap. | QA found a recoverable failing acceptance item; stay in the loop. |
+| `block` | Emit blocked TXT handoff. | Hard gate (security / perf CRITICAL / karpathy block / mut `passed:false` / qa `blocked`) — do NOT re-run RD; mark as known blocker per the repair-cycle cap rule above. |
+
+The `block` row is what **does NOT** consume a repair cycle. The 3-cycle
+cap counts only `return-to-rd` and `warn` re-runs; a `block` exits the
+loop immediately and writes a blocked TXT handoff with the aggregator's
+reasons array preserved verbatim.
+
+### Runbook integration
+
+When the peaks-solo main loop sees `qa verdict != pass` or any audit
+prereq missing, the runbook now does:
+
+1. Call `aggregateVerdict({ security, perf, karpathy, mut, qa })` with
+   whatever envelopes are available (missing envelopes → omit the key;
+   the aggregator treats undefined as "not run").
+2. Sort the `reasons` array by severity (`CRITICAL` first, then
+   `HIGH`, then threshold delta for mut).
+3. Print the sorted reasons using the format above. The print must
+   happen **before** `peaks request transition --role rd --state
+   spec-locked` so the user can see what triggered the re-run.
+4. Apply the decision table to pick `return-to-rd` (loop) vs `block`
+   (TXT handoff).
+
+The aggregator is a pure function — no I/O, no clock. v2.13.1 wires
+the print step into the runbook; v2.14 will surface the aggregator
+result via a `peaks verdict aggregate --rid <id>` CLI subcommand.

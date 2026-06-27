@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.1] — 2026-06-27 — Verdict reasoning layer (multi-signal convergence for peaks-solo)
+
+**PATCH bump from 2.13.0** (slice `2026-06-27-verdict-aggregator`, red-line scope 3 source files + 4 new test files + 2 updated test files).
+
+peaks-solo previously received 5 heterogeneous signals (security-audit, perf-audit, karpathy-reviewer, peaks-mut, peaks-qa) but had no convergence layer. The v2.12.0 audit-output schema documented 4 aggregation rules (`.peaks/project-scan/audit-output-schema.md:66-78`) but they were never implemented; the `mut-report.json` was consumed by peaks-qa internally with `loadMutReport() === null → gate=skipped` (soft consumption), and `micro-cycle.md` had no verdict-reasoning surface. v2.13.1 fills the gap without unifying envelope schemas (deferred to v2.14) and without changing any verdict string.
+
+### Features
+
+- **`aggregateVerdict()` service** (AC-2) — new `src/services/verdict/verdict-aggregator.ts` (223 lines, < 250 cap). Pure function (no I/O, no clock, no fs). Accepts 5 envelope inputs (`security` / `perf` / `karpathy` / `mut` / `qa`) and returns `{ verdict, reasons[] }`. Hard precedence: `block > return-to-rd > warn > pass`. Implements all 4 audit-output-schema rules: verdict precedence, CRITICAL count accumulation, `(file, line, hint)` dedup via `Set<string>` keyed on `${source}|${file}|${line}|${hint}`, handoff hash consistency (handled upstream by audit skills). All-empty input → `verdict: 'pass'` 退化 (no spurious block on missing signals). 13 test cases (8 AC-2 behaviors A-H + 5 precedence/regression cases).
+- **`MUT_REPORT` prerequisite** (AC-1) — `mut-report.json` now blocks `peaks request transition --role rd --state qa-handoff` for `feat` / `bugfix` / `refactor` (REFACTOR inherits via FEATURE_TABLE reference) when missing or `passed: false`. `config` / `docs` / `chore` remain exempt. `mustContainAny: ['"passed": true', '"passed":true']` admits `passed:true` and rejects `passed:false`. `peaks-qa` internal `loadMutReport() === null → gate=skipped` path is preserved (back-compat). 4-case test pins all 4 paths.
+- **`## Verdict reasoning` section in `micro-cycle.md`** (AC-3) — the 6-step RD↔QA repair loop now has a verdict-reasoning section that (a) shows a re-run output JSON example with `re-run reason: { source, signal, severity, file, line, hint }` payload, (b) provides a 4-row decision table mapping verdict → repair-loop action (`return-to-rd` → re-run RD, `block` → blocked TXT, `warn` → re-run with reasons, `pass` → exit loop), (c) gives a 4-step runbook integration. The 6-step cycle body is byte-stable (only the new section is added). 4-case test pins the section existence + 3 behavior cases.
+
+### Internal
+
+- `src/services/verdict/verdict-aggregator.ts` (NEW, 223 lines) — pure `aggregateVerdict()` + locally-defined `KarpathyEnvelope` / `MutEnvelope` / `QaEnvelope` types (surgeon scope; v2.14 will move them to shared if a unification pass lands).
+- `src/services/artifacts/artifact-prerequisites.ts` — added `MUT_REPORT` constant (32 lines) + wired into `FEATURE_TABLE['rd:qa-handoff']` (line 276) and `BUGFIX_TABLE['rd:qa-handoff']` (line 303); `REFACTOR_TABLE` inherits via reference (line 312); `MINIMAL_TABLE` / `CONFIG_TABLE` exempt.
+- `skills/peaks-solo/references/micro-cycle.md` — added `## Verdict reasoning (v2.13.1)` section (91 lines) after the unchanged repair-cycle cap rule.
+- `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` (NEW, 4 cases).
+- `tests/unit/services/verdict/verdict-aggregator.test.ts` (NEW, 13 cases).
+- `tests/unit/skills/solo/micro-cycle-verdict-reasoning.test.ts` (NEW, 4 cases).
+- `tests/unit/artifact-prerequisites.test.ts` (UPDATED, +25 lines) — seeded `mut-report.json` in 3 pass-path tests; added to negative-path missing-list.
+- `tests/unit/artifact-prerequisites-typed.test.ts` (UPDATED, +20 lines) — same across bugfix + feature + refactor.
+
+### Decision records
+
+- NEW `.peaks/memory/2026-06-27-v2-13-1-verdict-aggregator.md` — ship state (90/90 tests pass, tsc 0 errors, 5 AC all green).
+
+### Multi-CC commit boundaries
+
+| Commit tag | Scope |
+|---|---|
+| v2.13.1 | MUT_REPORT prereq + `aggregateVerdict()` service + `## Verdict reasoning` section + 4 new test files + 2 updated test files + CHANGELOG + version bump + ship-state memory |
+
+### Verified (peaks solo dogfood on this session)
+
+- AC-1 (MUT_REPORT prereq): `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` → 4/4 pass; `tests/unit/artifact-prerequisites.test.ts` → 9/9 pass; `tests/unit/artifact-prerequisites-typed.test.ts` → 19/19 pass.
+- AC-2 (verdict-aggregator): `tests/unit/services/verdict/verdict-aggregator.test.ts` → 13/13 pass; 8 AC-2 behaviors (A all-pass, B security-block, C mut-block, D qa-return-to-rd, E mixed-warn, F all-empty, G precedence block-dominant, H CRITICAL accumulation) all asserted.
+- AC-3 (micro-cycle reasoning): `tests/unit/skills/solo/micro-cycle-verdict-reasoning.test.ts` → 4/4 pass; 6-step cycle body byte-stable.
+- AC-4 (零回归): `tests/unit/parallel-fan-out.test.ts` → 18/18 pass (v2.12.0 stability pin); `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` → 11/11 pass; `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` → 12/12 pass.
+- Total: 8 test files, **90/90** tests pass, duration 1.27s.
+- `./node_modules/.bin/tsc --noEmit` → 0 errors.
+
+### Out-of-scope (NOT changed)
+
+- v2.12.0 audit envelope schemas (`SecurityAuditEnvelope`, `PerfAuditEnvelope`) — preserved
+- `peaks-qa` verdict protocol (`pass | return-to-rd | blocked`) — preserved
+- `peaks-final-review` 4-dim interface (functional-completeness / problem-resolution / no-new-bugs / existing-functionality-intact) — preserved
+- `peaks-rd` SKILL.md main body — preserved
+- Envelope schema unification — deferred to v2.14
+- Weighted scoring / RFC voting — explicitly out of scope
+- CLI subcommand for `aggregateVerdict()` (only consumed by unit tests + micro-cycle reference in v2.13.1) — deferred to v2.14
+
+### Known limitations (carry-forward to v2.14)
+
+- **No CLI surface for `aggregateVerdict()`** — the aggregator is consumed by unit tests and referenced in `micro-cycle.md` as the re-run reason payload source, but no CLI subcommand exposes it directly. v2.14 should add `peaks verdict aggregate --from-rid <rid>` that reads all 5 envelope artifacts and prints the aggregated verdict + reasons.
+- **Envelope schema heterogeneity persists** — the 5 envelopes still have 3 distinct shapes (`{verdict, violations, summary}` for security/perf, `{passed, violations, gateAction}` for karpathy, `{verdict}` for qa, `{passed, killRate, weakRate, violations}` for mut). v2.13.1 ships precedence aggregation; v2.14 should add a `services/verdict/envelopes.ts` shared module with discriminated-union type and parser funcs.
+- **`prd/handoff.md` is not auto-regenerated by v2.13.1** — the AUDIT_REQUIRES_HANDOFF prereq still requires an existing handoff capsule; v2.13.1 does not change this. v2.14 should consider making peaks-prd write the handoff on every `prd:handed-off` transition.
+
+---
+
 ## [2.13.0] — 2026-06-27 — Zero-human-intervention auto-compact (peaks-cli drives context compression on any AI CLI)
 
 **MINOR bump from 2.12.0** (slice `v2-13-0-auto-compact-protocol`, 5-sub-task plan AC-1..AC-5, red-line scope ~6 source files + 2 IDE adapter fields).

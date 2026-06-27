@@ -90,6 +90,7 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(missingPaths).toContain('audit/security.md');
     expect(missingPaths).toContain('audit/perf.md');
     expect(missingPaths).toContain('prd/handoff.md');
+    expect(missingPaths).toContain('mut/mut-report.json');
     expect(missingPaths).toContain('qa/test-cases/2026-05-25-feat.md');
     expect(missingPaths).toContain('qa/.initiated');
     // v2.11.x legacy paths must NOT be in the missing list — the new
@@ -131,6 +132,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
+    // v2.13.1 Group A: MUT_REPORT added to FEATURE_TABLE rd:qa-handoff.
+    // Seed a valid peaks-mut report so the new prereq passes.
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'mut/mut-report.json',
+      JSON.stringify({ schemaVersion: 1, passed: true, killRate: 0.9, weakRate: 0.01, violations: [] })
+    );
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: REQUEST_ID, projectRoot: project,
       newState: 'qa-handoff', clock: () => TS
@@ -165,6 +174,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
+    // v2.13.1 Group A: MUT_REPORT — N/A perf surface still requires a
+    // passing mut report (mutation testing is independent of perf).
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'mut/mut-report.json',
+      JSON.stringify({ schemaVersion: 1, passed: true, killRate: 0.9, weakRate: 0.01, violations: [] })
+    );
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: REQUEST_ID, projectRoot: project,
       newState: 'qa-handoff', clock: () => TS
@@ -235,6 +252,14 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
+    // v2.13.1 Group A: MUT_REPORT — same gate applied to the legacy
+    // rd/perf-baseline.md back-compat path.
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'mut/mut-report.json',
+      JSON.stringify({ schemaVersion: 1, passed: true, killRate: 0.9, weakRate: 0.01, violations: [] })
+    );
     const result = await transitionRequestArtifact({
       role: 'rd', requestId: REQUEST_ID, projectRoot: project,
       newState: 'qa-handoff', clock: () => TS

@@ -86,6 +86,8 @@ describe('request types — bugfix gates', () => {
     expect(paths).toContain('audit/security.md');
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
+    // v2.13.1 Group A: MUT_REPORT also required on the bugfix fan-out.
+    expect(paths).toContain('mut/mut-report.json');
     expect(paths).toContain('qa/test-cases/2026-05-25-bug.md');
     expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/bug-analysis.md');
@@ -259,6 +261,8 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     expect(paths).toContain('audit/security.md');
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
+    // v2.13.1 Group A: MUT_REPORT added to FEATURE_TABLE rd:qa-handoff.
+    expect(paths).toContain('mut/mut-report.json');
     expect(paths).toContain('qa/test-cases/2026-06-27-feat-audit.md');
     expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/security-review.md');
@@ -289,6 +293,13 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     );
     await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-newpath.md', '# cases\n\n## Test cases\n\ntest("x")');
     await writeArtifact(project, requestId, 'qa/.initiated', '');
+    // v2.13.1 Group A: MUT_REPORT added to FEATURE_TABLE rd:qa-handoff.
+    await writeArtifact(
+      project,
+      requestId,
+      'mut/mut-report.json',
+      JSON.stringify({ schemaVersion: 1, passed: true, killRate: 0.9, weakRate: 0.01, violations: [] })
+    );
 
     const result = await transitionRequestArtifact({
       role: 'rd', requestId, projectRoot: project,
@@ -321,6 +332,13 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     );
     await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-legacy.md', '# cases\n\n## Test cases\n\ntest("x")');
     await writeArtifact(project, requestId, 'qa/.initiated', '');
+    // v2.13.1 Group A: MUT_REPORT — applies even on the legacy path.
+    await writeArtifact(
+      project,
+      requestId,
+      'mut/mut-report.json',
+      JSON.stringify({ schemaVersion: 1, passed: true, killRate: 0.9, weakRate: 0.01, violations: [] })
+    );
 
     const result = await transitionRequestArtifact({
       role: 'rd', requestId, projectRoot: project,
@@ -432,5 +450,7 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     expect(paths).toContain('audit/security.md');
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
+    // v2.13.1 Group A: REFACTOR_TABLE inherits MUT_REPORT from FEATURE_TABLE.
+    expect(paths).toContain('mut/mut-report.json');
   });
 });

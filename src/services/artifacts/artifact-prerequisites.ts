@@ -133,6 +133,29 @@ const AUDIT_PERF: ArtifactPrerequisite = {
   // config / docs).
   mustContainAny: ['## Baseline', '## Results', 'N/A — no perf surface']
 };
+// v2.13.1 Group A — MUT prereq (Plan 2 ships `mut-report.json` to
+// `.peaks/_runtime/<sid>/mut/mut-report.json`; v2.13.1 wires it into
+// the rd:qa-handoff gate for fanout-trigger types). The body must carry
+// the `"passed": true` marker so the gate rejects failed mutation
+// runs. We pin on the substring `"passed":` so that both JSON and
+// pretty-printed JSON (with whitespace variations) are caught — the
+// downstream stricter check happens in `verdict-aggregator.ts`. The
+// PRD's preserved-behavior clause says `loadMutReport() === null`
+// stays `skipped` on the qa side, which means this prereq is the
+// rd-side CLI hard gate (blocks `rd → qa-handoff`), while qa-side
+// consumption remains soft.
+const MUT_REPORT: ArtifactPrerequisite = {
+  relativePath: 'mut/mut-report.json',
+  description:
+    'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: required at rd:qa-handoff for feature / bugfix / refactor slices. The body must carry `"passed": true`; failed runs (low kill rate or weak assertion rate) are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
+  // Substring check on the JSON property name only — strictness (kill
+  // rate ≥ 0.8 etc.) is enforced downstream by verdict-aggregator +
+  // peaks-mut's evaluateThresholds. We require both the property name
+  // and a literal `true` value to keep the gate as tight as possible
+  // without depending on JSON parsing in the prereq resolver.
+  mustContainAny: ['"passed": true', '"passed":true']
+};
+
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
 // immutable handoff capsule at `prd/handoff.md`) exists before any
 // audit skill is allowed to consume it. The peaks-security-audit
@@ -236,6 +259,11 @@ const QA_INITIATED: ArtifactPrerequisite = {
 // both the new path (`audit/security.md`) and the legacy path
 // (`rd/security-review.md`) satisfy the gate. The audit skills require
 // `prd/handoff.md` (`AUDIT_REQUIRES_HANDOFF`).
+//
+// v2.13.1 Group A: add `MUT_REPORT` (peaks-mut Plan 2 output). The
+// gate is the rd-side CLI hard block; CONFIG / DOCS / CHORE retain the
+// legacy "no acceptance surface" exemption via MINIMAL_TABLE /
+// CONFIG_TABLE.
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [],
@@ -245,6 +273,7 @@ const FEATURE_TABLE: PrerequisiteTable = {
     AUDIT_SECURITY,
     AUDIT_PERF,
     KARPATHY_REVIEW,
+    MUT_REPORT,
     UNIT_TESTS,
     QA_INITIATED
   ],
@@ -260,6 +289,8 @@ const FEATURE_TABLE: PrerequisiteTable = {
 // v2.11.0 D1/D4: SECURITY_FINDINGS dropped from qa:verdict-issued (peaks-rd owns it).
 // v2.12.0 Group B Tier 5: security-review + perf-baseline → AUDIT_SECURITY +
 // AUDIT_PERF (with legacy shims for 1-minor-release back-compat).
+// v2.13.1 Group A: add MUT_REPORT (same rd-side hard block rationale as
+// FEATURE_TABLE).
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],
@@ -269,6 +300,7 @@ const BUGFIX_TABLE: PrerequisiteTable = {
     AUDIT_REQUIRES_HANDOFF,
     AUDIT_SECURITY,
     AUDIT_PERF,
+    MUT_REPORT,
     UNIT_TESTS,
     QA_INITIATED
   ],

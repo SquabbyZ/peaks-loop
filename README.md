@@ -87,7 +87,7 @@ cd /path/to/your-project && claude
 > peaks-solo 帮我给登录页加 OAuth 回调
 ```
 
-完了。第一次跑 peaks 会自动建 `.peaks/` 工作区 + 扫一次项目原型 + 把任务分给对的技能（PRD → 工程切片 → UI → QA → 变更控制 → 知识压缩），中间产物全部落盘。**日常使用 1 个技能（`peaks-solo`）覆盖 ≥ 90% 的需求**。
+完了。第一次跑 peaks 会自动建 `.peaks/` 工作区 + 扫一次项目原型 + 把任务分给对的技能（PRD → 工程切片 → UI → QA → 变更控制 → 知识压缩），中间产物全部落盘。**日常使用 1 个技能（`peaks-solo`）覆盖 ≥ 90% 的需求**。v2.13.1 起 5 套异质信号（security-audit / perf-audit / karpathy / mut / qa）会按 `block > return-to-rd > warn > pass` precedence 汇聚成单一 verdict，repair-loop 触发时打印 `re-run reason: { source, signal, file, line, hint }` 作为再决策依据。
 
 ## 🧠 peaks-context — 上下文构建模块 (v3.0)
 
