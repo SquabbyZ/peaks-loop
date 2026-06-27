@@ -49,6 +49,20 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     gateEnforce: true,
     statusline: true,
   },
+  // v2.13.0 AC-1 + AC-3 MVP: Claude Code is the first IDE to fill
+  // the `compact` profile. Future adapters (trae / codex / cursor /
+  // qoder / tongyi-lingma / hermes / openclaw) follow the same
+  // shape — peaks-cli reads the env-var and dispatches the
+  // command via `IdeAdapter.compact`, with zero hard-coded IDE
+  // names anywhere in the orchestrator. If your IDE exposes a
+  // context-percent env-var and a slash-style compact command,
+  // register `compact` here and the auto-compact protocol activates.
+  compact: {
+    envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
+    compactCommand: 'claude --compact',
+    compactPathway: 'shell-exec',
+    postCompactDetectCommand: 'peaks context now --json'
+  },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror
   // the hardcoded paths in `src/services/standards/project-standards-service.ts`

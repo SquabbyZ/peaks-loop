@@ -34,6 +34,7 @@ import {
   detectPostCompactResume,
   formatPostCompactResumeLogLine
 } from '../../services/solo/post-compact-detector.js';
+import { runAutoCompact } from '../../services/solo/auto-compact-orchestrator.js';
 
 export type SoloStepKind = 'memory' | 'preflight' | 'rd' | 'qa' | 'emit';
 export interface SoloStep {
@@ -324,6 +325,129 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         printResult(
           io,
           fail('solo.post-compact-detect', 'POST_COMPACT_DETECT_FAILED', getErrorMessage(err), null, ['Verify the project path and try again']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  addJsonOption(
+    solo
+      .command('auto-compact')
+      .description(
+        'v2.13.0 AC-4: zero-human-intervention auto-compact. Probes current ' +
+          'context-fill % via the active IDE adapter; ≥ 0.85 writes a pre-compact ' +
+          'checkpoint + convergence plan + auto-decisions log; ≥ 0.95 forces ' +
+          'synchronous IDE-side compact. The LLM / runner keeps working with ' +
+          'context < 95% without human intervention. pair with `peaks context ' +
+          'now` (AC-1) which feeds the ratio into this command.'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <sid>', 'override session id (default: read from active presence)')
+      .option('--in-flight-batch', 'defer if a sub-agent batch is in flight (D6.e)')
+      .option('--force', 'force compact at any ratio (test seam)')
+      .option('--bypass-red-line', 'skip the 95% red-line gate (test seam; never true in production)')
+  ).action(
+    async (opts: {
+      project: string;
+      sessionId?: string;
+      inFlightBatch?: boolean;
+      force?: boolean;
+      bypassRedLine?: boolean;
+      json?: boolean;
+    }) => {
+      try {
+        const result = await runAutoCompact({
+          projectRoot: opts.project,
+          sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? undefined,
+          inFlightBatch: opts.inFlightBatch === true
+            ? { hasInFlightBatch: true }
+            : undefined,
+          force: opts.force === true,
+          bypassRedLine: opts.bypassRedLine === true
+        });
+        const code = result.code;
+        const exitOk = result.ok || code === 'AUTO_COMPACT_SKIP' || code === 'AUTO_COMPACT_WAIT';
+        // Adapt AutoCompactResult → ResultEnvelope so printResult's
+        // generic accepts it. The orchestrator envelope carries
+        // `data` on success-path and `nextActions` on the error
+        // path; surface both directly to the user.
+        const data = 'data' in result ? result.data : null;
+        const nextActions = 'nextActions' in result ? result.nextActions : [];
+        const envelope = result.ok
+          ? ok(`solo.auto-compact`, data ?? {}, [], [result.message, ...nextActions])
+          : fail(`solo.auto-compact`, code, result.message, data, [...nextActions]);
+        printResult(io, envelope, opts.json);
+        if (!exitOk) process.exitCode = 1;
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.auto-compact', 'AUTO_COMPACT_FAILED', getErrorMessage(err), null, [
+            'Verify the project path + session id and try again'
+          ]),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  addJsonOption(
+    solo
+      .command('context-now')
+      .description(
+        'v2.13.0 AC-1: read the active IDE adapter\'s context-fill % ' +
+          'without requiring the LLM to pass --prompt-size <bytes> manually. ' +
+          'Adapter-driven (no hard-coded IDE names): Claude Code is the MVP ' +
+          'implementation; trae / codex / cursor / qoder / tongyi-lingma / ' +
+          'hermes / openclaw register their own env-var via IdeAdapter.compact.'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <sid>', 'override session id (default: read from active presence)')
+  ).action(
+    async (opts: { project: string; sessionId?: string; json?: boolean }) => {
+      try {
+        const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        const probe = readContextPercent({
+          projectRoot: opts.project,
+          sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? 'unknown',
+          env: process.env
+        });
+        const ratioPct = (probe.ratio * 100).toFixed(1);
+        const verdict =
+          probe.ratio >= 0.95 ? 'red-line'
+            : probe.ratio >= 0.85 ? 'pre-compact'
+            : probe.ratio >= 0.5 ? 'soft-warn'
+            : 'ok';
+        printResult(
+          io,
+          ok('solo.context-now', {
+            ratio: probe.ratio,
+            ratioPct: `${ratioPct}%`,
+            verdict,
+            source: probe.source,
+            ide: probe.ide,
+            capacityBytes: probe.capacityBytes,
+            rawBytes: probe.rawBytes ?? null,
+            capturedAt: probe.capturedAt
+          }, [], [
+            verdict === 'red-line'
+              ? `RED LINE: ≥ 95%. Run \`peaks solo auto-compact\` immediately (next sub-agent dispatch will be blocked).`
+              : verdict === 'pre-compact'
+                ? `Pre-compact zone (85–95%). Run \`peaks solo auto-compact\` to converge now.`
+                : verdict === 'soft-warn'
+                  ? `Soft warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
+                  : `Below 50%. No action required.`
+          ]),
+          true
+        );
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.context-now', 'CONTEXT_NOW_FAILED', getErrorMessage(err), null, [
+            'Verify the project path and try again'
+          ]),
           opts.json
         );
         process.exitCode = 1;
