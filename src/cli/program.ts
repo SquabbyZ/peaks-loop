@@ -39,6 +39,8 @@ import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
+import { registerSecurityAuditCommands } from './commands/security-audit-commands.js';
+import { registerPerfAuditCommands } from './commands/perf-audit-commands.js';
 import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
@@ -242,6 +244,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerUpgradeCommands(program, io);
  // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).
  registerCodeReviewCommands(program, io);
+ // Slice v2.12.0 Group A Tier 2: `peaks security-audit` (independent security audit skill driver).
+ registerSecurityAuditCommands(program, io);
+ // Slice v2.12.0 Group A Tier 3: `peaks perf-audit` (independent perf audit skill driver).
+ registerPerfAuditCommands(program, io);
  // Slice 2026-06-16-cli-logging (G4): `peaks log tail` / `peaks log ls`.
  registerLogCommands(program, io);
  // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.

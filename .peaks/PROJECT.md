@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-26T09:28:06.911Z
+> Last updated: 2026-06-27T07:41:35.893Z
 
 ## Project: peaks-cli
 
@@ -47,24 +47,13 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (23 sessions, showing last 15)
+## Timeline (4 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-06-26 | `2026-06-26-session-a28d69` | Untitled | N/A — this slice is peaks-cli CLI internal. No user-visible frontend c |
-| 2026-06-25 | `2026-06-25-session-139b84` | Untitled | > **Released**: 2026-06-26 |
-| 2026-06-25 | `2026-06-25-session-fe94e7` | Untitled | **Author:** peaks-solo (orchestrator) | **Session:** `2026-06-25-sessi |
-| 2026-06-24 | `2026-06-24-session-514c27` | Untitled | 四项变更合并为一个 refactor slice。共同目标：在 **wall-time 持平**、**token 总量持平**（允许 -5% |
-| 2026-06-23 | `2026-06-23-session-dc4cbc` | Untitled | peaks-solo |
-| 2026-06-23 | `2026-06-23-session-8d14dd` | Untitled | peaks-solo |
-| 2026-06-23 | `2026-06-23-session-fbee82` | Untitled | peaks-solo |
-| 2026-06-22 | `2026-06-22-session-14216e` | Untitled | peaks-solo |
-| 2026-06-22 | `2026-06-22-session-1f8ba1` | Untitled | peaks-solo |
-| 2026-06-21 | `2026-06-21-session-6fefac` | Untitled | 把下面整块(从 ```markdown 起，到 ``` 止)整段贴到 Mac 上 peaks-cli 目录新开的 Claude Code |
-| 2026-06-18 | `2026-06-18-session-b78501` | Untitled | peaks-solo |
-| 2026-06-13 | `2026-06-14-session-edc6bb` | Untitled | peaks-solo |
-| 2026-06-13 | `2026-06-14-session-b51782` | Untitled | - |
-| 2026-06-13 | `2026-06-13-session-2ecd34` | RD: 修 2.0.3 hook node -e 包装 bugfix | > RD-side draft of QA acceptance cases. The peaks-qa skill will run |
-| 2026-06-12 | `2026-06-12-session-dbc275` | Untitled | **in-scope files (RD may modify):** |
+| 2026-06-27 | `2026-06-27-session-b483e6` | v2.12-independent-security-perf-audit | requestId: v2-12-independent-security-perf-audit |
+| 2026-06-27 | `2026-06-27-session-1512ac` | Untitled | N/A — this is a CLI-only feature. |
+| ? | `2026-06-11-session-edbe91` | Untitled | - |
+| ? | `2026-06-06-session-5b1095` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
