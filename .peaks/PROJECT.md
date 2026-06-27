@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-27T07:41:35.893Z
+> Last updated: 2026-06-27T08:19:42.168Z
 
 ## Project: peaks-cli
 

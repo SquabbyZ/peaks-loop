@@ -64,7 +64,7 @@ describe('request types — bugfix gates', () => {
     expect(caught?.missing.map((m) => m.path)).toEqual(['rd/bug-analysis.md']);
   });
 
-  test('bugfix→qa-handoff requires bug-analysis + code-review + security-review + unit-tests + qa-initiated', async () => {
+  test('bugfix→qa-handoff requires bug-analysis + code-review + audit-security + audit-perf + prd-handoff + unit-tests + qa-initiated (v2.12.0 Group B Tier 5)', async () => {
     const project = await makeProject();
     const requestId = '2026-05-25-bug';
     await seed(project, 'rd', requestId, 'bugfix');
@@ -80,10 +80,17 @@ describe('request types — bugfix gates', () => {
     }
     const paths = caught?.missing.map((m) => m.path) ?? [];
     expect(paths).toContain('rd/code-review.md');
-    expect(paths).toContain('rd/security-review.md');
+    // v2.12.0 Group B Tier 5: the v2.11.x security-review slot is
+    // replaced by the new AUDIT_SECURITY / AUDIT_PERF prereqs and
+    // the AUDIT_REQUIRES_HANDOFF gate (prd/handoff.md).
+    expect(paths).toContain('audit/security.md');
+    expect(paths).toContain('audit/perf.md');
+    expect(paths).toContain('prd/handoff.md');
     expect(paths).toContain('qa/test-cases/2026-05-25-bug.md');
     expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/bug-analysis.md');
+    expect(paths).not.toContain('rd/security-review.md');
+    expect(paths).not.toContain('rd/perf-baseline.md');
   });
 
   test('bugfix qa:verdict-issued requires only test-cases + test-reports (v2.11.0 D1/D4)', async () => {
@@ -228,5 +235,202 @@ describe('request types — artifact persistence and default', () => {
       newState: 'qa-handoff', clock: () => TS
     });
     expect(result?.requestType).toBe('docs');
+  });
+});
+
+// v2.12.0 Group B Tier 5 — AUDIT_SECURITY / AUDIT_PERF / AUDIT_REQUIRES_HANDOFF
+// gates + 1-minor-release back-compat via legacyRelativePath.
+describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
+  test('feature rd:qa-handoff reports audit/* + prd/handoff.md as missing when absent', async () => {
+    const project = await makeProject();
+    const requestId = '2026-06-27-feat-audit';
+    await seed(project, 'rd', requestId, 'feature');
+    let caught: PrerequisitesNotSatisfiedError | null = null;
+    try {
+      await transitionRequestArtifact({
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
+      });
+    } catch (error) {
+      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
+    }
+    const paths = caught?.missing.map((m) => m.path) ?? [];
+    expect(paths).toContain('rd/code-review.md');
+    expect(paths).toContain('audit/security.md');
+    expect(paths).toContain('audit/perf.md');
+    expect(paths).toContain('prd/handoff.md');
+    expect(paths).toContain('qa/test-cases/2026-06-27-feat-audit.md');
+    expect(paths).toContain('qa/.initiated');
+    expect(paths).not.toContain('rd/security-review.md');
+    expect(paths).not.toContain('rd/perf-baseline.md');
+  });
+
+  test('feature rd:qa-handoff PASSES with audit/security.md + audit/perf.md + prd/handoff.md (new canonical paths)', async () => {
+    const project = await makeProject();
+    const requestId = '2026-06-27-feat-newpath';
+    await seed(project, 'rd', requestId, 'feature');
+    // New canonical paths (peaks-security-audit / peaks-perf-audit outputs).
+    await writeArtifact(project, requestId, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
+    await writeArtifact(project, requestId, 'audit/perf.md', '# Perf audit\n\n## Baseline\n\n- N/A');
+    // PRD handoff must exist with schemaVersion: 2 + sha256: marker (AC-2.4 / AC-3.4).
+    await writeArtifact(
+      project,
+      requestId,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n\n## Goals\n\n- ...'
+    );
+    // CODE_REVIEW + KARPATHY_REVIEW + UNIT_TESTS + QA_INITIATED also required.
+    await writeArtifact(project, requestId, 'rd/code-review.md', '# CR\n\n## Findings\n\nCRITICAL none');
+    await writeArtifact(
+      project,
+      requestId,
+      'rd/karpathy-review.md',
+      '## Karpathy-Gate\n\n### Think Before Coding\n\n- ...\n\n### Simplicity First\n\n- ...\n\n### Surgical Changes\n\n- ...\n\n### Goal-Driven Execution\n\n- ...'
+    );
+    await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-newpath.md', '# cases\n\n## Test cases\n\ntest("x")');
+    await writeArtifact(project, requestId, 'qa/.initiated', '');
+
+    const result = await transitionRequestArtifact({
+      role: 'rd', requestId, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
+    });
+    expect(result?.state).toBe('qa-handoff');
+    expect(result?.requestType).toBe('feature');
+  });
+
+  test('feature rd:qa-handoff PASSES with legacy rd/security-review.md + rd/perf-baseline.md (1-minor-release back-compat)', async () => {
+    const project = await makeProject();
+    const requestId = '2026-06-27-feat-legacy';
+    await seed(project, 'rd', requestId, 'feature');
+    // Legacy v2.11.x paths (still on disk from older slices).
+    await writeArtifact(project, requestId, 'rd/security-review.md', '# Security\n\n## Findings\n\n- none');
+    await writeArtifact(project, requestId, 'rd/perf-baseline.md', '# Perf\n\n## Results\n\n- N/A');
+    // PRD handoff still required (AUDIT_REQUIRES_HANDOFF).
+    await writeArtifact(
+      project,
+      requestId,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n\n## Goals\n\n- ...'
+    );
+    await writeArtifact(project, requestId, 'rd/code-review.md', '# CR\n\n## Findings\n\nCRITICAL none');
+    await writeArtifact(
+      project,
+      requestId,
+      'rd/karpathy-review.md',
+      '## Karpathy-Gate\n\n### Think Before Coding\n\n- ...\n\n### Simplicity First\n\n- ...\n\n### Surgical Changes\n\n- ...\n\n### Goal-Driven Execution\n\n- ...'
+    );
+    await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-legacy.md', '# cases\n\n## Test cases\n\ntest("x")');
+    await writeArtifact(project, requestId, 'qa/.initiated', '');
+
+    const result = await transitionRequestArtifact({
+      role: 'rd', requestId, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
+    });
+    expect(result?.state).toBe('qa-handoff');
+  });
+
+  test('AUDIT_REQUIRES_HANDOFF blocks rd:qa-handoff when prd/handoff.md missing', async () => {
+    const project = await makeProject();
+    const requestId = '2026-06-27-feat-nohandoff';
+    await seed(project, 'rd', requestId, 'feature');
+    // Audit files exist but PRD handoff is missing — gate must fail.
+    await writeArtifact(project, requestId, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
+    await writeArtifact(project, requestId, 'audit/perf.md', '# Perf audit\n\n## Baseline\n\n- N/A');
+    await writeArtifact(project, requestId, 'rd/code-review.md', '# CR\n\n## Findings\n\nCRITICAL none');
+    await writeArtifact(
+      project,
+      requestId,
+      'rd/karpathy-review.md',
+      '## Karpathy-Gate\n\n### Think Before Coding\n\n- ...\n\n### Simplicity First\n\n- ...\n\n### Surgical Changes\n\n- ...\n\n### Goal-Driven Execution\n\n- ...'
+    );
+    await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-nohandoff.md', '# cases\n\n## Test cases\n\ntest("x")');
+    await writeArtifact(project, requestId, 'qa/.initiated', '');
+
+    let caught: PrerequisitesNotSatisfiedError | null = null;
+    try {
+      await transitionRequestArtifact({
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
+      });
+    } catch (error) {
+      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
+    }
+    expect(caught?.missing.map((m) => m.path)).toContain('prd/handoff.md');
+  });
+
+  test('AUDIT_REQUIRES_HANDOFF rejects a legacy handoff lacking schemaVersion: 2 + sha256:', async () => {
+    const project = await makeProject();
+    const requestId = '2026-06-27-feat-legacyhandoff';
+    await seed(project, 'rd', requestId, 'feature');
+    await writeArtifact(project, requestId, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
+    await writeArtifact(project, requestId, 'audit/perf.md', '# Perf audit\n\n## Baseline\n\n- N/A');
+    // Legacy handoff (schemaVersion: 1, no sha256 marker) — must be rejected
+    // so the audit skills never read an envelope they cannot parse.
+    await writeArtifact(project, requestId, 'prd/handoff.md', '# Handoff\n\nschemaVersion: 1\n');
+    await writeArtifact(project, requestId, 'rd/code-review.md', '# CR\n\n## Findings\n\nCRITICAL none');
+    await writeArtifact(
+      project,
+      requestId,
+      'rd/karpathy-review.md',
+      '## Karpathy-Gate\n\n### Think Before Coding\n\n- ...\n\n### Simplicity First\n\n- ...\n\n### Surgical Changes\n\n- ...\n\n### Goal-Driven Execution\n\n- ...'
+    );
+    await writeArtifact(project, requestId, 'qa/test-cases/2026-06-27-feat-legacyhandoff.md', '# cases\n\n## Test cases\n\ntest("x")');
+    await writeArtifact(project, requestId, 'qa/.initiated', '');
+
+    let caught: PrerequisitesNotSatisfiedError | null = null;
+    try {
+      await transitionRequestArtifact({
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
+      });
+    } catch (error) {
+      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
+    }
+    // The handoff gate failed (mustContain markers missing). The
+    // description tells the user which markers are absent.
+    expect(caught?.missing.map((m) => m.path)).toContain('prd/handoff.md');
+  });
+
+  test('config rd:qa-handoff keeps the v2.11.x security-review-only gate (no audit/PRD-handoff required)', async () => {
+    // Config slices may run before the PRD handoff chain exists
+    // (small CONFIG-only commits), so CONFIG_TABLE still references
+    // SECURITY_REVIEW only — NOT AUDIT_REQUIRES_HANDOFF / AUDIT_SECURITY /
+    // AUDIT_PERF. Pin that the config gate did not silently inherit
+    // the new audit prereqs.
+    const project = await makeProject();
+    const requestId = '2026-06-27-cfg-audit-isolation';
+    await seed(project, 'rd', requestId, 'config');
+    let caught: PrerequisitesNotSatisfiedError | null = null;
+    try {
+      await transitionRequestArtifact({
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
+      });
+    } catch (error) {
+      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
+    }
+    const paths = caught?.missing.map((m) => m.path) ?? [];
+    expect(paths).toEqual(['rd/security-review.md']);
+  });
+
+  test('refactor inherits the same audit + handoff gates as feature', async () => {
+    // Refactor shares FEATURE_TABLE by reference; pin that the audit
+    // gates flow through.
+    const project = await makeProject();
+    const requestId = '2026-06-27-refactor-audit';
+    await seed(project, 'rd', requestId, 'refactor');
+    let caught: PrerequisitesNotSatisfiedError | null = null;
+    try {
+      await transitionRequestArtifact({
+        role: 'rd', requestId, projectRoot: project,
+        newState: 'qa-handoff', clock: () => TS
+      });
+    } catch (error) {
+      if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
+    }
+    const paths = caught?.missing.map((m) => m.path) ?? [];
+    expect(paths).toContain('audit/security.md');
+    expect(paths).toContain('audit/perf.md');
+    expect(paths).toContain('prd/handoff.md');
   });
 });

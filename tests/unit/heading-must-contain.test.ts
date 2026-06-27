@@ -1,15 +1,21 @@
 /**
  * Slice 2.6.1.F — headingMustContain field
+ * Slice v2.12.0 Group B Tier 5 — audit/{security,perf}.md + prd/handoff.md prereqs.
  *
  * Verifies the L3 LOW mitigation: when a prereq declares
  * `headingMustContain`, the file must have each entry as an actual
  * markdown heading (`#`–`###` line prefix), not just as prose.
  *
- * Strategy: stand up the full `rd:qa-handoff` chain (tech-doc,
- * code-review, security-review, perf-baseline, karpathy-review,
+ * Strategy: stand up the full `rd:qa-handoff` chain (code-review,
+ * audit/security, audit/perf, prd/handoff, karpathy-review,
  * qa/test-cases, qa/.initiated) and vary only the karpathy-review.md
- * body. The first 6 files are minimal stubs that satisfy their own
+ * body. The other files are minimal stubs that satisfy their own
  * `mustContain` checks; the karpathy file is the unit under test.
+ *
+ * v2.12.0 Group B Tier 5: the v2.11.x rd/security-review.md +
+ * rd/perf-baseline.md slots are replaced by audit/security.md +
+ * audit/perf.md (new peaks-security-audit / peaks-perf-audit
+ * outputs). The PRD handoff is required via AUDIT_REQUIRES_HANDOFF.
  *
  * AC-1 4 guideline headings + Karpathy-Gate header -> pass
  * AC-2 4 markers as prose (no heading prefix) -> fail
@@ -37,6 +43,8 @@ async function setupFullChain(karpathyBody: string): Promise<{
   const root = await mkdtemp(join(tmpdir(), 'hmc-'));
   const sessionRoot = join(root, '.peaks', '_runtime', SESSION);
   await mkdir(join(sessionRoot, 'rd'), { recursive: true });
+  await mkdir(join(sessionRoot, 'audit'), { recursive: true });
+  await mkdir(join(sessionRoot, 'prd'), { recursive: true });
   await mkdir(join(sessionRoot, 'qa'), { recursive: true });
   await mkdir(join(sessionRoot, 'qa', 'test-cases'), { recursive: true });
 
@@ -50,22 +58,28 @@ async function setupFullChain(karpathyBody: string): Promise<{
     clock: () => '2026-06-18T08:00:00.000Z'
   });
 
-  // The 6 prereqs that rd:qa-handoff expects, each with minimal mustContain content.
-  await writeFile(
-    join(sessionRoot, 'rd/tech-doc.md'),
-    '# Tech doc\n\n## Red-line scope\n- a\n\n## Implementation evidence\n- b\n'
-  );
+  // The 6 prereqs that rd:qa-handoff expects (v2.12.0 Group B Tier 5):
+  // code-review, audit/security (new peaks-security-audit output),
+  // audit/perf (new peaks-perf-audit output), prd/handoff
+  // (AUDIT_REQUIRES_HANDOFF), karpathy-review, qa/test-cases,
+  // qa/.initiated.
   await writeFile(
     join(sessionRoot, 'rd/code-review.md'),
     '# CR\n\n## Findings\n- none\n\nCRITICAL: 0\n'
   );
   await writeFile(
-    join(sessionRoot, 'rd/security-review.md'),
-    '# SR\n\n## Findings\n- none\n'
+    join(sessionRoot, 'audit/security.md'),
+    '# Security audit\n\n## Verdict\n\n- pass\n'
   );
   await writeFile(
-    join(sessionRoot, 'rd/perf-baseline.md'),
-    '# Perf baseline\n\n## Results\n\n| metric | baseline | target |\n|---|---|---|\n| x | 1 | <2 |\n'
+    join(sessionRoot, 'audit/perf.md'),
+    '# Perf audit\n\n## Baseline\n\n| metric | baseline | target |\n|---|---|---|\n| x | 1 | <2 |\n'
+  );
+  // PRD handoff must carry schemaVersion: 2 + sha256: marker so the
+  // AUDIT_REQUIRES_HANDOFF gate accepts it.
+  await writeFile(
+    join(sessionRoot, 'prd/handoff.md'),
+    '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n\n## Goals\n\n- ...\n'
   );
   await writeFile(join(sessionRoot, 'rd/karpathy-review.md'), karpathyBody);
   await writeFile(

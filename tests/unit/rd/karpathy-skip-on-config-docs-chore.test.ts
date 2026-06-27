@@ -1,22 +1,26 @@
 /**
- * Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3)
+ * Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy
+ * Slice v2.12.0 Group B (Tier 4) — collapse 5-way → 3-way fanout.
  *
- * Locks the karpathy-reviewer skip policy:
+ * Locks the karpathy-reviewer skip policy (unchanged since G4):
  *
  *   (a) `config` → karpathy reviewer not dispatched (fanout skipped)
  *   (b) `docs`   → karpathy reviewer not dispatched
  *   (c) `chore`  → karpathy reviewer not dispatched
- *   (d) `feat`   → karpathy reviewer IS dispatched (in the 5-way fanout)
- *   (e) `bugfix` → karpathy reviewer IS dispatched (in the 5-way fanout)
- *   (f) `refactor` → karpathy reviewer IS dispatched (in the 5-way fanout)
+ *   (d) `feat`   → karpathy reviewer IS dispatched (in the 3-way fanout)
+ *   (e) `bugfix` → karpathy reviewer IS dispatched (in the 3-way fanout)
+ *   (f) `refactor` → karpathy reviewer IS dispatched (in the 3-way fanout)
  *
- * Plus supporting invariants:
+ * Plus supporting invariants (slice v2.12.0 Tier 4):
  *   - reviewerListFor is the canonical decision table
  *   - karpathy slot index returns -1 for skip types
- *   - RD_FANOUT_REVIEWERS enumerates all 5 reviewer roles
+ *   - RD_FANOUT_REVIEWERS enumerates exactly the **3** reviewer roles
+ *     (was 5 in v2.11.x; security-reviewer + perf-baseline-reviewer
+ *     moved to independent audit skills)
  *   - the karpathy-reviewer prompt text is unchanged (AC-4.5)
  *   - dispatch record count for config/docs/chore = 0
  *     (no karpathy record under .peaks/_sub_agents/<sid>/)
+ *   - the fanout-trigger types return a 3-element list (was 5)
  *
  * Coverage target: new code branch ≥ 90%.
  */
@@ -79,8 +83,12 @@ describe('AC-4.2 karpathy-reviewer is dispatched for feat/bugfix/refactor', () =
     const list = reviewerListFor('feat');
     expect(list).toContain('karpathy-reviewer');
     expect(list).toContain('code-reviewer');
-    expect(list).toContain('security-reviewer');
     expect(list).toContain('qa-test-cases-writer');
+    // v2.12.0 Tier 4: security-reviewer / perf-baseline-reviewer
+    // moved to independent audit skills (peaks-security-audit /
+    // peaks-perf-audit) and are no longer in the RD fanout.
+    expect(list).not.toContain('security-reviewer');
+    expect(list).not.toContain('perf-baseline-reviewer');
   });
 
   // (e)
@@ -99,11 +107,9 @@ describe('AC-4.2 karpathy-reviewer is dispatched for feat/bugfix/refactor', () =
 });
 
 describe('AC-4 supporting invariants', () => {
-  test('RD_FANOUT_REVIEWERS enumerates exactly the 5 reviewer roles', () => {
+  test('RD_FANOUT_REVIEWERS enumerates exactly the 3 reviewer roles (v2.12.0 collapse)', () => {
     expect(RD_FANOUT_REVIEWERS).toEqual([
       'code-reviewer',
-      'security-reviewer',
-      'perf-baseline-reviewer',
       'qa-test-cases-writer',
       'karpathy-reviewer',
     ]);
@@ -123,18 +129,20 @@ describe('AC-4 supporting invariants', () => {
 
   test('dispatch record count for config/docs/chore = 0 (no karpathy file)', () => {
     // AC-4.4: when the type does not trigger the fanout, no dispatch
-    // record is written for any of the 5 reviewers (including
+    // record is written for any of the 3 reviewers (including
     // karpathy). The decision table is exhaustive: empty list ⇒ zero
     // dispatch records.
     const skipTypes: RdReviewRequestType[] = ['config', 'docs', 'chore'];
     for (const t of skipTypes) {
       expect(reviewerListFor(t).length).toBe(0);
     }
-    // For non-skip types, the count is at least 4 (bugfix drops
-    // perf-baseline conditionally; feat/refactor are 5).
-    expect(reviewerListFor('feat').length).toBe(5);
-    expect(reviewerListFor('refactor').length).toBe(5);
-    expect(reviewerListFor('bugfix').length).toBe(5);
+    // v2.12.0 Tier 4: feat/bugfix/refactor all return the 3-element
+    // fanout. (Previously bugfix dropped perf-baseline-reviewer
+    // conditionally; that conditional is gone now that the slot
+    // moved to peaks-perf-audit.)
+    expect(reviewerListFor('feat').length).toBe(3);
+    expect(reviewerListFor('refactor').length).toBe(3);
+    expect(reviewerListFor('bugfix').length).toBe(3);
   });
 
   // AC-4.5: karpathy reviewer prompt text is unchanged (4 guidelines

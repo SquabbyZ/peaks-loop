@@ -66,11 +66,15 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(result?.bypassedPrerequisites).toBeUndefined();
   });
 
-  test('rd→qa-handoff is blocked when code-review.md, security-review.md, or perf-baseline.md is missing', async () => {
+  test('rd→qa-handoff is blocked when code-review.md, audit/security.md, audit/perf.md, or prd/handoff.md is missing (v2.12.0 Tier 5)', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
-    // code-review.md, security-review.md, perf-baseline.md, unit-tests, and qa-initiated intentionally missing
+    // v2.12.0 Tier 5: the v2.11.x rd/{security-review,perf-baseline}.md
+    // slots are replaced by audit/security.md + audit/perf.md (the new
+    // peaks-security-audit / peaks-perf-audit outputs). The
+    // AUDIT_REQUIRES_HANDOFF gate also requires prd/handoff.md.
+    // code-review, audit/*, prd/handoff, unit-tests, and qa-initiated
+    // intentionally missing.
     let caught: PrerequisitesNotSatisfiedError | null = null;
     try {
       await transitionRequestArtifact({
@@ -83,19 +87,24 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(caught).not.toBeNull();
     const missingPaths = (caught?.missing ?? []).map((entry) => entry.path);
     expect(missingPaths).toContain('rd/code-review.md');
-    expect(missingPaths).toContain('rd/security-review.md');
-    expect(missingPaths).toContain('rd/perf-baseline.md');
+    expect(missingPaths).toContain('audit/security.md');
+    expect(missingPaths).toContain('audit/perf.md');
+    expect(missingPaths).toContain('prd/handoff.md');
     expect(missingPaths).toContain('qa/test-cases/2026-05-25-feat.md');
     expect(missingPaths).toContain('qa/.initiated');
-    expect(missingPaths).not.toContain('rd/tech-doc.md');
+    // v2.11.x legacy paths must NOT be in the missing list — the new
+    // AUDIT_SECURITY / AUDIT_PERF entries own the gate.
+    expect(missingPaths).not.toContain('rd/security-review.md');
+    expect(missingPaths).not.toContain('rd/perf-baseline.md');
   });
 
-  test('rd→qa-handoff passes when perf-baseline.md carries a Results table (Gate B9)', async () => {
+  test('rd→qa-handoff passes when audit/perf.md carries a Baseline table (Gate B9′)', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    // v2.12.0 Tier 5: peaks-security-audit output → audit/security.md
+    // (## Verdict header).
+    await writeArtifact(project, REQUEST_ID, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
     // karpathy-review is now a blocking prereq for rd:qa-handoff
     // (per L2.2 Slice 2/6 karpathy-enforcement). Include it.
     await writeArtifact(
@@ -104,12 +113,21 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
       'rd/karpathy-review.md',
       '# Karpathy review\n\n## Karpathy-Gate\n\n### Think Before Coding\n\n- done\n\n### Simplicity First\n\n- done\n\n### Surgical Changes\n\n- done\n\n### Goal-Driven Execution\n\n- done\n'
     );
-    // perf-baseline with a real Results table
+    // v2.12.0 Tier 5: peaks-perf-audit output → audit/perf.md with the
+    // Baseline header (Gate B9′ — replaces the v2.11.x Results table).
     await writeArtifact(
       project,
       REQUEST_ID,
-      'rd/perf-baseline.md',
-      '# Perf baseline\n\n## Results\n\n| metric | baseline | target |\n|---|---|---|\n| render-time | 120ms | <200ms |\n'
+      'audit/perf.md',
+      '# Perf audit\n\n## Baseline\n\n| metric | baseline | target |\n|---|---|---|\n| render-time | 120ms | <200ms |\n'
+    );
+    // PRD handoff required by AUDIT_REQUIRES_HANDOFF (must carry
+    // schemaVersion: 2 + sha256: markers so the audit skills can read it).
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n\n## Goals\n\n- ...'
     );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
@@ -121,25 +139,29 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(result?.bypassedPrerequisites).toBeUndefined();
   });
 
-  test('rd→qa-handoff passes when perf-baseline.md carries the N/A — no perf surface marker (escape hatch)', async () => {
+  test('rd→qa-handoff passes when audit/perf.md carries the N/A — no perf surface marker (escape hatch)', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
-    // karpathy-review is now a blocking prereq for rd:qa-handoff.
+    await writeArtifact(project, REQUEST_ID, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
     await writeArtifact(
       project,
       REQUEST_ID,
       'rd/karpathy-review.md',
       '# Karpathy review\n\n## Karpathy-Gate\n\n### Think Before Coding\n\n- done\n\n### Simplicity First\n\n- done\n\n### Surgical Changes\n\n- done\n\n### Goal-Driven Execution\n\n- done\n'
     );
-    // perf-baseline with the N/A escape hatch (no Results table)
+    // Perf audit with the N/A escape hatch (no Baseline table).
     await writeArtifact(
       project,
       REQUEST_ID,
-      'rd/perf-baseline.md',
-      '# Perf baseline\n\n## Notes\n\nN/A — no perf surface (this is a pure data-migration slice).\n'
+      'audit/perf.md',
+      '# Perf audit\n\n## Notes\n\nN/A — no perf surface (this is a pure data-migration slice).\n'
+    );
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n'
     );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
@@ -150,14 +172,19 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(result?.state).toBe('qa-handoff');
   });
 
-  test('rd→qa-handoff is blocked when perf-baseline.md exists but has neither Results table nor N/A marker', async () => {
+  test('rd→qa-handoff is blocked when audit/perf.md exists but has neither Baseline nor N/A marker', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID);
-    await writeArtifact(project, REQUEST_ID, 'rd/tech-doc.md', '# Tech doc\n\n## Red-line scope\n\n- ...\n\n## Implementation evidence\n\n- ...');
     await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
-    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
-    // perf-baseline stub WITHOUT a Results table and WITHOUT the N/A marker
-    await writeArtifact(project, REQUEST_ID, 'rd/perf-baseline.md', '# Perf baseline\n\nWIP\n');
+    await writeArtifact(project, REQUEST_ID, 'audit/security.md', '# Security audit\n\n## Verdict\n\n- pass');
+    // Audit perf stub WITHOUT a Baseline header and WITHOUT the N/A marker.
+    await writeArtifact(project, REQUEST_ID, 'audit/perf.md', '# Perf audit\n\nWIP\n');
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n'
+    );
     await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
     await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
     let caught: PrerequisitesNotSatisfiedError | null = null;
@@ -171,7 +198,48 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     }
     expect(caught).not.toBeNull();
     const missingPaths = (caught?.missing ?? []).map((entry) => entry.path);
-    expect(missingPaths).toContain('rd/perf-baseline.md');
+    // The audit/perf.md gate fires because its body has neither the
+    // "## Baseline" header nor the "N/A — no perf surface" marker.
+    // The path reported is the canonical primary path
+    // (audit/perf.md), not the legacy fallback (rd/perf-baseline.md).
+    expect(missingPaths).toContain('audit/perf.md');
+  });
+
+  test('rd→qa-handoff passes via legacy rd/perf-baseline.md 1-minor-release back-compat (Tier 5)', async () => {
+    // A slice from v2.11.x that still has rd/perf-baseline.md on disk
+    // must continue to satisfy the gate during the v2.12.0 1-minor-
+    // release back-compat window. AUDIT_PERF.legacyRelativePath carries
+    // the legacy path through.
+    const project = await makeProject();
+    await seedRd(project, REQUEST_ID);
+    await writeArtifact(project, REQUEST_ID, 'rd/code-review.md', '# CR\n\n## Findings\n\n- none\n\nCRITICAL: 0');
+    await writeArtifact(project, REQUEST_ID, 'rd/security-review.md', '# SR\n\n## Findings\n\n- none');
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'rd/karpathy-review.md',
+      '# Karpathy review\n\n## Karpathy-Gate\n\n### Think Before Coding\n\n- done\n\n### Simplicity First\n\n- done\n\n### Surgical Changes\n\n- done\n\n### Goal-Driven Execution\n\n- done\n'
+    );
+    // Legacy path: rd/perf-baseline.md with Results table.
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'rd/perf-baseline.md',
+      '# Perf baseline\n\n## Results\n\n| metric | baseline | target |\n|---|---|---|\n| render-time | 120ms | <200ms |\n'
+    );
+    await writeArtifact(
+      project,
+      REQUEST_ID,
+      'prd/handoff.md',
+      '# Handoff\n\nschemaVersion: 2\nsha256: a1b2c3\n'
+    );
+    await writeArtifact(project, REQUEST_ID, 'qa/test-cases/2026-05-25-feat.md', '# cases\n\n## Test cases\n\ntest("example")');
+    await writeArtifact(project, REQUEST_ID, 'qa/.initiated', '');
+    const result = await transitionRequestArtifact({
+      role: 'rd', requestId: REQUEST_ID, projectRoot: project,
+      newState: 'qa-handoff', clock: () => TS
+    });
+    expect(result?.state).toBe('qa-handoff');
   });
 
   test('qa→verdict-issued passes with only test-cases + test-reports (v2.11.0 D1/D4: peaks-rd owns security + perf evidence)', async () => {

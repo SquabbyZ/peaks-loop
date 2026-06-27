@@ -46,6 +46,19 @@ export type ArtifactPrerequisite = {
    * Independent of `mustContain` / `mustContainAny`.
    */
   headingMustContain?: ReadonlyArray<string>;
+  /**
+   * Slice v2.12.0 Group B Tier 5: optional legacy path that satisfies
+   * the same gate. When `relativePath` does not resolve on disk, the
+   * resolver tries this fallback path before reporting the prereq as
+   * missing. Use this for 1-minor-release back-compat windows where
+   * an old artifact location is still accepted alongside the new one.
+   * v2.13.0 should remove all `legacyRelativePath` entries.
+   *
+   * Body checks (`mustContain` / `mustContainAny` /
+   * `headingMustContain`) apply to whichever path resolved — the
+   * gate does not distinguish which path served the file.
+   */
+  legacyRelativePath?: string;
 };
 
 export type PrerequisiteCheckResult = {
@@ -87,6 +100,62 @@ const PERF_BASELINE: ArtifactPrerequisite = {
   // Either a real Results table is present, OR the explicit no-perf-surface
   // stub marker. Both paths satisfy Gate B9; absence of both is BLOCKED.
   mustContainAny: ['## Results', 'N/A — no perf surface']
+};
+// v2.12.0 Group B Tier 5 — audit outputs from the new independent
+// skills (`peaks-security-audit` / `peaks-perf-audit`). These replace
+// the v2.11.x rd/{security-review,perf-baseline}.md slots for the
+// fanout-trigger types (feat / bugfix / refactor). The audit skills
+// are dispatched as pre-RD audit runs that consume the public PRD
+// handoff (`prd/handoff.md`) — see `AUDIT_REQUIRES_HANDOFF` below.
+//
+// Back-compat: the canonical location is `audit/security.md` (and
+// `audit/perf.md`); the legacy `rd/security-review.md` (and
+// `rd/perf-baseline.md`) path is also accepted via `legacyRelativePath`
+// for the 1-minor-release window. v2.13.0 hard-deletes the legacy paths.
+const AUDIT_SECURITY: ArtifactPrerequisite = {
+  relativePath: 'audit/security.md',
+  legacyRelativePath: 'rd/security-review.md',
+  description:
+    'Independent security audit output (peaks-security-audit skill, v2.12.0+). Replaces the v2.11.x rd/security-review.md slot for fanout-trigger request types. The legacy path is accepted during the 1-minor-release back-compat window via legacyRelativePath.',
+  // New canonical path writes a "## Verdict" header on the audit
+  // envelope. The legacy rd/security-review.md writes a "## Findings"
+  // header. Both pass the gate.
+  mustContainAny: ['## Verdict', '## Findings']
+};
+const AUDIT_PERF: ArtifactPrerequisite = {
+  relativePath: 'audit/perf.md',
+  legacyRelativePath: 'rd/perf-baseline.md',
+  description:
+    'Independent perf audit output (peaks-perf-audit skill, v2.12.0+). Replaces the v2.11.x rd/perf-baseline.md slot for fanout-trigger request types. The legacy path is accepted during the 1-minor-release back-compat window via legacyRelativePath.',
+  // New schema writes "## Baseline" header; the legacy schema writes
+  // "## Results". Both pass the gate, as does the explicit
+  // no-perf-surface stub (slices whose surface is purely logic /
+  // config / docs).
+  mustContainAny: ['## Baseline', '## Results', 'N/A — no perf surface']
+};
+// v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
+// immutable handoff capsule at `prd/handoff.md`) exists before any
+// audit skill is allowed to consume it. The peaks-security-audit
+// and peaks-perf-audit CLI commands read frontmatter from
+// `prd/handoff.md` (AC-2.4 / AC-3.4); if the handoff is missing the
+// audit skill aborts — and so should the prereq gate when those
+// audits are required at rd:qa-handoff.
+//
+// This gate is co-listed with AUDIT_SECURITY / AUDIT_PERF at
+// `rd:qa-handoff` for FEATURE / BUGFIX / REFACTOR. CONFIG retains
+// the old form (no PRD handoff chain — config slices may run before
+// PRD handoff exists for small CONFIG-only commits).
+const AUDIT_REQUIRES_HANDOFF: ArtifactPrerequisite = {
+  relativePath: 'prd/handoff.md',
+  description:
+    'PRD handoff capsule (v2.12.0+) — peaks-security-audit / peaks-perf-audit both read frontmatter from this file. Must exist before audit prereqs are evaluated at rd:qa-handoff.',
+  // Empty `mustContain` is fine — file existence is the contract.
+  // The peaks-prd handoff service writes frontmatter with
+  // `schemaVersion: 2` and a sha256 fingerprint; we pin a
+  // substring check on `schemaVersion: 2` to fail loudly if a
+  // legacy handoff (schemaVersion: 1) slips in. This protects
+  // the audit skills from reading an envelope they cannot parse.
+  mustContain: ['schemaVersion: 2', 'sha256:']
 };
 // Karpathy-Gate (Slice 5/6 — karpathy-enforcement 5-way fanout).
 // Hard gate: rd/karpathy-review.md MUST exist with the 4 guideline section
@@ -158,10 +227,27 @@ const QA_INITIATED: ArtifactPrerequisite = {
 // (see qa-transition-gates.md Gates A3/A4). SECURITY_FINDINGS /
 // PERFORMANCE_FINDINGS constants are kept for back-compat and a 1-minor-
 // release deprecation window but are NOT in any qa:verdict-issued table.
+//
+// v2.12.0 Group B Tier 5: at rd:qa-handoff, the v2.11.x security-review +
+// perf-baseline slots are replaced by `AUDIT_SECURITY` + `AUDIT_PERF` (the
+// new audit-skill outputs). The legacy `AUDIT_SECURITY_LEGACY` /
+// `AUDIT_PERF_LEGACY` shims are kept in the same list so the 1-minor-
+// release back-compat window still accepts the v2.11.x on-disk layout;
+// both the new path (`audit/security.md`) and the legacy path
+// (`rd/security-review.md`) satisfy the gate. The audit skills require
+// `prd/handoff.md` (`AUDIT_REQUIRES_HANDOFF`).
 const FEATURE_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [],
-  'rd:qa-handoff': [CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, KARPATHY_REVIEW, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [
+    CODE_REVIEW,
+    AUDIT_REQUIRES_HANDOFF,
+    AUDIT_SECURITY,
+    AUDIT_PERF,
+    KARPATHY_REVIEW,
+    UNIT_TESTS,
+    QA_INITIATED
+  ],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT]
 };
@@ -172,10 +258,20 @@ const FEATURE_TABLE: PrerequisiteTable = {
 // with "N/A — no perf surface" — Gate B9 still passes (mustContainAny hit),
 // and the stub tells QA Gate A4 to skip the perf diff.
 // v2.11.0 D1/D4: SECURITY_FINDINGS dropped from qa:verdict-issued (peaks-rd owns it).
+// v2.12.0 Group B Tier 5: security-review + perf-baseline → AUDIT_SECURITY +
+// AUDIT_PERF (with legacy shims for 1-minor-release back-compat).
 const BUGFIX_TABLE: PrerequisiteTable = {
   'prd:handed-off': [PRD_CONTENT],
   'rd:implemented': [BUG_ANALYSIS],
-  'rd:qa-handoff': [BUG_ANALYSIS, CODE_REVIEW, SECURITY_REVIEW, PERF_BASELINE, UNIT_TESTS, QA_INITIATED],
+  'rd:qa-handoff': [
+    BUG_ANALYSIS,
+    CODE_REVIEW,
+    AUDIT_REQUIRES_HANDOFF,
+    AUDIT_SECURITY,
+    AUDIT_PERF,
+    UNIT_TESTS,
+    QA_INITIATED
+  ],
   'qa:running': [TEST_CASES],
   'qa:verdict-issued': [TEST_CASES, TEST_REPORT]
 };
@@ -408,6 +504,13 @@ function emitPrereqTransitionEvent(opts: {
  * Tolerates the numbered filename prefix that `request init` writes
  * (e.g. `001-<rid>.md`) at every tier. Returns the matched absolute
  * path, or null when nothing matches.
+ *
+ * v2.12.0 Group B Tier 5: if `prerequisite.legacyRelativePath` is set
+ * and neither primary session-root tier resolved, the resolver tries
+ * the legacy relative path at BOTH session roots before declaring the
+ * prereq missing. This is the 1-minor-release back-compat mechanism
+ * for artifacts that moved location (e.g. `rd/security-review.md` →
+ * `audit/security.md`).
  */
 async function resolvePrerequisiteAbsolutePathWithFallback(
   canonicalSessionRoot: string | null,
@@ -416,10 +519,25 @@ async function resolvePrerequisiteAbsolutePathWithFallback(
   requestId: string
 ): Promise<string | null> {
   const roots: Array<string | null> = [canonicalSessionRoot, legacySessionRoot];
+  // First pass: try the primary relativePath at every root.
   for (const root of roots) {
     if (root === null) continue;
     const found = await resolvePrerequisiteAbsolutePath(root, prerequisite, requestId);
     if (found !== null) return found;
+  }
+  // Second pass: if a legacyRelativePath is declared, try it at every
+  // root. Only the relativePath is swapped — the same numbered-prefix
+  // tolerance applies via the shared resolver.
+  if (prerequisite.legacyRelativePath !== undefined) {
+    const legacyPrereq: ArtifactPrerequisite = {
+      ...prerequisite,
+      relativePath: prerequisite.legacyRelativePath
+    };
+    for (const root of roots) {
+      if (root === null) continue;
+      const found = await resolvePrerequisiteAbsolutePath(root, legacyPrereq, requestId);
+      if (found !== null) return found;
+    }
   }
   return null;
 }
