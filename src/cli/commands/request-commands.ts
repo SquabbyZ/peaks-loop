@@ -484,6 +484,34 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
+      // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
+      // Only fires when the handoff is missing; existing handoffs are not overwritten.
+      if (role === 'prd' && newState === 'handed-off' && options.sessionId !== undefined) {
+        const { autoRegenPrdHandoff } = await import('../../services/prd/handoff-auto-regen.js');
+        const regen = await autoRegenPrdHandoff({
+          projectRoot: options.project,
+          sessionId: options.sessionId,
+          requestId,
+          changeId: result.changeId,
+          role: 'prd'
+        });
+        if (regen.status === 'created') {
+          // Stitch into the result envelope
+          printResult(
+            io,
+            ok('request.transition', { ...result, handoffAutoRegen: { status: 'created', path: regen.path, sha256: regen.sha256 } }),
+            options.json
+          );
+          return;
+        }
+        if (regen.status === 'skipped-exists') {
+          printResult(io, ok('request.transition', { ...result, handoffAutoRegen: { status: 'skipped-exists', path: regen.path } }), options.json);
+          return;
+        }
+        // status === 'failed' — surface a warning but don't block the transition
+        printResult(io, ok('request.transition', { ...result, handoffAutoRegen: { status: 'failed', reason: regen.reason } }, [`prd handoff auto-regen failed: ${regen.reason}`]), options.json);
+        return;
+      }
       printResult(io, ok('request.transition', result), options.json);
     } catch (error) {
       if (error instanceof InvalidArgumentError) {

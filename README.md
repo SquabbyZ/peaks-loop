@@ -87,7 +87,7 @@ cd /path/to/your-project && claude
 > peaks-solo 帮我给登录页加 OAuth 回调
 ```
 
-完了。第一次跑 peaks 会自动建 `.peaks/` 工作区 + 扫一次项目原型 + 把任务分给对的技能（PRD → 工程切片 → UI → QA → 变更控制 → 知识压缩），中间产物全部落盘。**日常使用 1 个技能（`peaks-solo`）覆盖 ≥ 90% 的需求**。v2.13.1 起 5 套异质信号（security-audit / perf-audit / karpathy / mut / qa）会按 `block > return-to-rd > warn > pass` precedence 汇聚成单一 verdict，repair-loop 触发时打印 `re-run reason: { source, signal, file, line, hint }` 作为再决策依据。
+完了。第一次跑 peaks 会自动建 `.peaks/` 工作区 + 扫一次项目原型 + 把任务分给对的技能（PRD → 工程切片 → UI → QA → 变更控制 → 知识压缩），中间产物全部落盘。**日常使用 1 个技能（`peaks-solo`）覆盖 ≥ 90% 的需求**。v2.13.1 起 5 套异质信号（security-audit / perf-audit / karpathy / mut / qa）会按 `block > return-to-rd > warn > pass` precedence 汇聚成单一 verdict，repair-loop 触发时打印 `re-run reason: { source, signal, file, line, hint }` 作为再决策依据。v2.13.2 起 `peaks verdict aggregate --from-rid <rid>` 把这套汇聚逻辑直接暴露为 CLI 子命令，并修复了 v2.13.1 跨 source dedup bug（之前 security + perf 报同处问题会被记为 2 条 reason，现在合并为 1 条且 sources 字段列出所有 source）。
 
 ## 🧠 peaks-context — 上下文构建模块 (v3.0)
 

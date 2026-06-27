@@ -64,6 +64,14 @@ export type ArtifactPrerequisite = {
 export type PrerequisiteCheckResult = {
   ok: boolean;
   missing: Array<{ path: string; description: string }>;
+  /**
+   * v2.13.2 AC-5 — soft-block warnings. Each entry is a prereq
+   * path that is currently missing but is in a 1-minor-release
+   * back-compat window. The transition gate does not throw on
+   * `missing`-only (so legacy callers keep working) but surfaces the
+   * warning to the operator so they can plan the v2.14.0 hard cut.
+   */
+  warnings: Array<{ path: string; code: string; message: string }>;
 };
 
 type TransitionKey = `${RequestArtifactRole}:${RequestArtifactState}`;
@@ -144,16 +152,24 @@ const AUDIT_PERF: ArtifactPrerequisite = {
 // stays `skipped` on the qa side, which means this prereq is the
 // rd-side CLI hard gate (blocks `rd → qa-handoff`), while qa-side
 // consumption remains soft.
-const MUT_REPORT: ArtifactPrerequisite = {
+//
+// v2.13.2 AC-5 — 1-minor-release back-compat window. When
+// `backCompat: true` is set, a MISSING file downgrades to a warning
+// (`mut-report-missing-deprecated-in-v2.14.0`) instead of a hard
+// failure. The hard-fail behavior for `passed: false` is preserved
+// (the body still has to carry `"passed": true` when present).
+// v2.14.0 will remove `backCompat` and re-elevate missing → throw.
+const MUT_REPORT: ArtifactPrerequisite & { backCompat?: boolean } = {
   relativePath: 'mut/mut-report.json',
   description:
-    'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: required at rd:qa-handoff for feature / bugfix / refactor slices. The body must carry `"passed": true`; failed runs (low kill rate or weak assertion rate) are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
+    'peaks-mut mutation + weak-assertion report (Plan 2, v2.12.0+). v2.13.1: required at rd:qa-handoff for feature / bugfix / refactor slices. v2.13.2: back-compat window — missing file downgrades to a warning (1-minor-release); passed:false still throws. The body must carry `"passed": true` when present; failed runs are blocked at this gate. CONFIG / DOCS / CHORE slices retain the legacy "no acceptance surface" exemption.',
   // Substring check on the JSON property name only — strictness (kill
   // rate ≥ 0.8 etc.) is enforced downstream by verdict-aggregator +
   // peaks-mut's evaluateThresholds. We require both the property name
   // and a literal `true` value to keep the gate as tight as possible
   // without depending on JSON parsing in the prereq resolver.
-  mustContainAny: ['"passed": true', '"passed":true']
+  mustContainAny: ['"passed": true', '"passed":true'],
+  backCompat: true
 };
 
 // v2.12.0 Group B Tier 5 — gate that the peaks-prd handoff (the
@@ -412,7 +428,7 @@ async function resolvePrerequisiteAbsolutePath(
 export async function checkPrerequisites(options: CheckPrerequisitesOptions): Promise<PrerequisiteCheckResult> {
   const requirements = getPrerequisitesFor(options.role, options.newState, options.requestType);
   if (requirements.length === 0) {
-    return { ok: true, missing: [] };
+    return { ok: true, missing: [], warnings: [] };
   }
   // Slice 006 simplifies the resolution to a 2-tier fallback. The
   // per-change-id scope (`.peaks/_runtime/<changeId>/<role>/`) is gone — new
@@ -430,6 +446,7 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
     ? join(options.projectRoot, '.peaks', options.sessionId)
     : null;
   const missing: Array<{ path: string; description: string }> = [];
+  const warnings: Array<{ path: string; code: string; message: string }> = [];
   for (const prerequisite of requirements) {
     const relative = resolvePrerequisitePath(prerequisite, options.requestId);
     const absolute = await resolvePrerequisiteAbsolutePathWithFallback(
@@ -439,6 +456,18 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
       options.requestId
     );
     if (absolute === null) {
+      // v2.13.2 AC-5: back-compat window for MUT_REPORT — missing
+      // file downgrades to a warning, NOT a hard failure. v2.14.0
+      // will remove this branch and re-elevate missing → throw.
+      const backCompat = (prerequisite as { backCompat?: boolean }).backCompat === true;
+      if (backCompat) {
+        warnings.push({
+          path: relative,
+          code: 'mut-report-missing-deprecated-in-v2.14.0',
+          message: `${prerequisite.description} — file missing; soft-blocked under v2.13.2 1-minor back-compat window. v2.14.0 hard-fail.`
+        });
+        continue;
+      }
       missing.push({ path: relative, description: prerequisite.description });
       continue;
     }
@@ -486,7 +515,7 @@ export async function checkPrerequisites(options: CheckPrerequisitesOptions): Pr
       }
     }
   }
-  const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing };
+  const result: PrerequisiteCheckResult = { ok: missing.length === 0, missing, warnings };
   emitPrereqTransitionEvent({
     projectRoot: options.projectRoot,
     sessionId: options.sessionId ?? '',

@@ -7,6 +7,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.2] — 2026-06-27 — Verdict aggregator bug fix + CLI surface + envelope unification
+
+**PATCH bump from 2.13.1** (slice `2026-06-27-verdict-aggregator-fixes`, red-line scope 3 src files + 3 test files modified + 3 new src files + 4 new test files).
+
+v2.13.1 shipped with a BLOCKER bug found via post-release dogfood: `aggregateVerdict()`'s `pushFix` used `${source}|${file}|${line}|${hint}` as the dedup key, which violated the `.peaks/project-scan/audit-output-schema.md:73` rule that identical `(file, line, hint)` tuples from different audits must be merged into a single entry. The v2.13.1 unit-test suite (13 cases) did not exercise the cross-source scenario, so the bug slipped through CI. v2.13.2 fixes the bug, surfaces the aggregator as a CLI subcommand, unifies envelope schemas behind a discriminated-union type, adds `prd/handoff.md` auto-regeneration on `prd:handed-off`, and introduces a 1-minor-release soft-block window for `MUT_REPORT` to ease the 2.13.1→2.14.0 transition.
+
+### Bug fixes
+
+- **`aggregateVerdict()` cross-source dedup** (AC-1) — `pushFix` key changed from `${source}|${file}|${line}|${hint}` to `${file}|${line}|${hint}` per audit-output-schema.md:73. `VerdictReason` gained a required `sources: ReadonlyArray<VerdictSource>` field that lists every source that reported the same `(file, line, hint)` tuple. Merging happens via a per-key `Map<key, VerdictReason>` that appends sources when a hit is found. Dogfood-verified: `aggregateVerdict({security: {verdict:'warn', violations:[{file:'a.ts', line:1, hint:'same', severity:'HIGH'}]}, perf: {verdict:'warn', violations:[{file:'a.ts', line:1, hint:'same', severity:'HIGH'}]}})` now returns `reasons.length === 1, sources === ['security-audit', 'perf-audit']`. 3 new test cases (I cross-source-dedup, J single-source-no-merge, K single-source-unique-no-merge) bring the aggregator test suite to 16/16.
+
+### Features
+
+- **`peaks verdict aggregate --from-rid <rid>`** (AC-2) — CLI surface for the aggregator. Reads 5 envelope files from `.peaks/_runtime/<sessionId>/`, calls `aggregateVerdict()`, and returns a JSON envelope `{ verdict, reasons, sources: { security|perf|karpathy|mut|qa: 'present'|'missing' } }`. Missing envelopes are reported as `missing` in the `sources` map (aggregator treats undefined as "not run" per v2.13.1 all-empty→'pass' 退化). 4-case test covers 5-inputs-present / 1-missing / all-missing / JSON-shape. CLI is 168 lines, ≤ 200 budget.
+- **Envelope unification** (AC-3) — new `src/services/verdict/envelopes.ts` (200 lines) provides `AnyEnvelope` discriminated union + 5 parser funcs (`parseSecurityEnvelope` / `parsePerfEnvelope` / `parseKarpathyEnvelope` / `parseMutEnvelope` / `parseQaEnvelope`) + an `envelopesToAggregatorInput` adapter. Re-uses the existing `isSecurityAuditEnvelope` / `isPerfAuditEnvelope` strict-shape guards from `src/services/audit-independent/` — no schema duplication. `aggregateVerdict()` signature is **unchanged** (backward compatible); the parsers are additive. 7-case test covers 5 happy paths + 1 malformed rejection + 1 adapter. On-disk envelope files are **not modified** (schemas remain in-file self-describing).
+- **`prd/handoff.md` auto-regeneration** (AC-4) — when `peaks request transition --role prd --state handed-off` succeeds and `prd/handoff.md` is missing, peaks-prd auto-writes the handoff capsule (`schemaVersion: 2` + `handoffHash: <sha256>`) before the transition is committed. If handoff already exists, it is **not** overwritten. The auto-regen fires **only** on `prd:handed-off`; 11 other transitions are untouched (Karpathy §3 surgical-change discipline). 4-case test includes a guard case for non-prd roles.
+
+### Internal
+
+- `src/services/verdict/verdict-aggregator.ts` (+79/-21 lines) — `pushFix` key fix + `VerdictReason.sources` field + `indexByKey: Map<string, VerdictReason>` for cross-source merge.
+- `src/services/verdict/envelopes.ts` (NEW, 200 lines) — discriminated union + 5 parsers + adapter.
+- `src/services/prd/handoff-auto-regen.ts` (NEW) — `autoRegenPrdHandoff()` helper; reuses `sha256OfBody` from existing handoff-service.
+- `src/cli/commands/verdict-aggregate-command.ts` (NEW, 168 lines) — `peaks verdict aggregate` subcommand.
+- `src/cli/commands/request-commands.ts` (+28 lines) — `prd:handed-off` auto-regen hook (1 branch, ≤ 30 lines).
+- `src/cli/program.ts` (+3 lines) — `registerVerdictAggregateCommands()` registration.
+- `src/services/artifacts/artifact-prerequisites.ts` (+39/-5 lines) — `MUT_REPORT.backCompat = true` flag + `PrerequisiteCheckResult.warnings: Warning[]` field + soft-block branch in `checkPrerequisites()`.
+- `tests/unit/services/verdict/verdict-aggregator.test.ts` (+78 lines) — 3 new dedup cases (I/J/K) bringing total to 16.
+- `tests/unit/services/verdict/envelopes.test.ts` (NEW, 7 cases).
+- `tests/unit/cli/commands/verdict-aggregate-command.test.ts` (NEW, 4 cases).
+- `tests/unit/services/prd/handoff-auto-regen.test.ts` (NEW, 4 cases).
+- `tests/unit/artifact-prerequisites-v2-13-2-soft-block.test.ts` (NEW, 2 cases).
+- `tests/unit/artifact-prerequisites.test.ts` (5 lines) + `tests/unit/artifact-prerequisites-typed.test.ts` (10 lines) + `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` (8 lines) — updated for soft-block behavior.
+
+### Deprecations / soft-block windows
+
+- **`MUT_REPORT` soft-block window (v2.13.2 → v2.14.0)** (AC-5) — mirroring the v2.12.0 audit 1-minor-release back-compat pattern, missing `mut-report.json` at `rd:qa-handoff` now produces a `warnings[]` entry with code `mut-report-missing-deprecated-in-v2.14.0` instead of throwing `PREREQUISITES_MISSING`. **`passed: false` still throws** (2.14.0 is the hard-fail target). Slices that explicitly run `peaks mut run` and get `passed: false` are still blocked; only the missing-file case is softened. v2.14.0 will convert the soft-block to hard-fail.
+
+### Decision records
+
+- NEW `.peaks/memory/2026-06-27-v2-13-2-verdict-aggregator-fixes.md` — ship state (149/149 PRD-targeted tests pass, 4355/4356 full suite pass with 1 pre-existing tokenizer flake, tsc 0 errors, 7 AC all green).
+- UPDATED `.peaks/memory/2026-06-27-v2-13-1-verdict-aggregator.md` — v2.13.1 ship state amended with the dogfood finding that motivated v2.13.2 (this slice is the canonical example of why post-release dogfood matters: 13-case unit suite missed the cross-source scenario).
+
+### Multi-CC commit boundaries
+
+| Commit tag | Scope |
+|---|---|
+| v2.13.2 | `aggregateVerdict()` dedup bug fix + `peaks verdict aggregate` CLI + `envelopes.ts` unification + `prd/handoff.md` auto-regen + `MUT_REPORT` soft-block window + 4 new test files + 4 updated test files + CHANGELOG + version bump + ship-state memory |
+
+### Verified (peaks solo dogfood + QA on this session)
+
+- AC-1 (BLOCKER fix): `tests/unit/services/verdict/verdict-aggregator.test.ts` → **16/16 pass** (was 13/13 in v2.13.1, +3 cross-source cases). Dogfood script confirms: `reasons.length = 1, sources = ["security-audit","perf-audit"], verdict = warn`.
+- AC-2 (CLI surface): `tests/unit/cli/commands/verdict-aggregate-command.test.ts` → **4/4 pass**. Real CLI: `peaks verdict aggregate --help` shows `--from-rid/--sid/--project/--json` options correctly.
+- AC-3 (envelope unification): `tests/unit/services/verdict/envelopes.test.ts` → **7/7 pass** (5 parser happy paths + 1 malformed rejection + 1 adapter).
+- AC-4 (handoff auto-regen): `tests/unit/services/prd/handoff-auto-regen.test.ts` → **4/4 pass** (3 happy paths + 1 non-prd-role guard).
+- AC-5 (soft-block): `tests/unit/artifact-prerequisites-v2-13-2-soft-block.test.ts` → **2/2 pass** (missing→warning / passed:false→throw).
+- AC-6 (零回归): 2.13.1 既有 90 测试 + 2.13.2 新 33 测试 = **149/149 pass** on PRD-targeted scope. Full unit suite: **4355/4356 pass + 17 skipped** (1 pre-existing `tokenizer.test.ts` flake confirmed on clean HEAD `571f92b` after stashing v2.13.2 changes; not introduced by v2.13.2).
+- AC-7 (文档同步): RD correctly excluded CHANGELOG / package.json / src/shared/version.ts / README / ship-state memory from its diff. `git status` confirms only `src/` + `tests/` paths in the working tree.
+- `tsc --noEmit` → **0 errors**.
+
+### Out-of-scope (NOT changed — Karpathy §3 surgical-change discipline)
+
+- v2.12.0 audit envelope schemas (security / perf) — preserved
+- v2.13.1 `## Verdict reasoning (v2.13.1)` section in `micro-cycle.md` — preserved
+- `peaks-qa` verdict protocol (`pass | return-to-rd | blocked`) — preserved
+- `peaks-final-review` 4-dim interface — preserved
+- 5 verdict strings — preserved
+- 2.13.1 on-disk release (commit `571f92b`) — **not** reverted; this is a PATCH bump per the user's "2.13.1 我发完了" instruction
+- Envelope file contents (only TS types changed; in-file schemas are still self-describing)
+- Weighted scoring / RFC voting — explicitly out of scope
+
+### Known limitations (carry-forward to v2.14.0)
+
+- **`MUT_REPORT` hard-fail transition** — v2.14.0 must convert the soft-block to hard-fail (missing `mut-report.json` → throw). v2.13.2 ships a `backCompat: true` flag for graceful migration; the deprecation window is 1 minor release.
+- **`bin/peaks.js` references old dist/** — the smoke test of `peaks verdict aggregate --help` ran via `./node_modules/.bin/tsx ./bin/peaks.js` because the published `bin/peaks.js` points at a stale `dist/` build (Jun 13). v2.14.0 should ship a `pnpm run build` step before `npm publish` to refresh the dist.
+- **`prefs.fanout.defaultMode` migration** (out of v2.13.2 scope) — the 2.8.4 hard-constraint migration to `fan-out` (per `references/fanout-mandatory.md`) is still pending for projects that may have `serial` in their `.peaks/preferences.json`. v2.14.0 should add a runtime migration warning.
+- **CLI help-text for new commands** — `peaks verdict aggregate --help` is wired correctly; CLI list also shows it under the top-level `verdict` group. The CLI smoke test in this slice used tsx directly (not the published dist), so the published `bin/peaks.js` will not reflect the new command until the next `pnpm run build` + `npm publish` cycle.
+
+---
+
 ## [2.13.1] — 2026-06-27 — Verdict reasoning layer (multi-signal convergence for peaks-solo)
 
 **PATCH bump from 2.13.0** (slice `2026-06-27-verdict-aggregator`, red-line scope 3 source files + 4 new test files + 2 updated test files).

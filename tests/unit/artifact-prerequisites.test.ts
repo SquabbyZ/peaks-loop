@@ -90,7 +90,10 @@ describe('transitionRequestArtifact — prerequisite enforcement', () => {
     expect(missingPaths).toContain('audit/security.md');
     expect(missingPaths).toContain('audit/perf.md');
     expect(missingPaths).toContain('prd/handoff.md');
-    expect(missingPaths).toContain('mut/mut-report.json');
+    // v2.13.2 AC-5: missing MUT_REPORT softens to a warning (1-minor
+    // back-compat window). v2.13.1 had it in `missing`; v2.13.2 moves
+    // it to `warnings` (see PrerequisiteCheckResult.warnings).
+    expect(missingPaths).not.toContain('mut/mut-report.json');
     expect(missingPaths).toContain('qa/test-cases/2026-05-25-feat.md');
     expect(missingPaths).toContain('qa/.initiated');
     // v2.11.x legacy paths must NOT be in the missing list — the new

@@ -87,7 +87,7 @@ cd /path/to/your-project && claude
 > peaks-solo add OAuth callback to the login page
 ```
 
-That's it. First run bootstraps the `.peaks/` workspace, scans the project archetype, and dispatches the task to the right skills (PRD → RD → UI → QA → SC → TXT). All intermediate artifacts stay on disk. **In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.** As of v2.13.1, 5 heterogeneous signals (security-audit / perf-audit / karpathy / mut / qa) converge into a single verdict via `block > return-to-rd > warn > pass` precedence; the repair loop prints a `re-run reason: { source, signal, file, line, hint }` payload for every re-dispatch.
+That's it. First run bootstraps the `.peaks/` workspace, scans the project archetype, and dispatches the task to the right skills (PRD → RD → UI → QA → SC → TXT). All intermediate artifacts stay on disk. **In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.** As of v2.13.1, 5 heterogeneous signals (security-audit / perf-audit / karpathy / mut / qa) converge into a single verdict via `block > return-to-rd > warn > pass` precedence; the repair loop prints a `re-run reason: { source, signal, file, line, hint }` payload for every re-dispatch. As of v2.13.2, `peaks verdict aggregate --from-rid <rid>` exposes the aggregator as a CLI subcommand, and a v2.13.1 cross-source dedup bug is fixed: identical (file, line, hint) from security + perf now collapses to a single reason with both sources in a `sources[]` field.
 
 ## ⏱️ 5-minute onboarding
 

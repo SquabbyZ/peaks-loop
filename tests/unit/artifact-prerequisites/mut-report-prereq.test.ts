@@ -100,7 +100,7 @@ async function seedHappyPathExceptMut(project: string, requestId: string): Promi
 }
 
 describe('v2.13.1 MUT_REPORT prerequisite (rd-side CLI hard gate)', () => {
-  test('rd→qa-handoff is BLOCKED when mut/mut-report.json is missing (feat)', async () => {
+  test('rd→qa-handoff is SOFT-BLOCKED when mut/mut-report.json is missing (feat, v2.13.2 1-minor back-compat window)', async () => {
     const project = await makeProject();
     await seedRd(project, REQUEST_ID, 'feature');
     await seedHappyPathExceptMut(project, REQUEST_ID);
@@ -118,9 +118,9 @@ describe('v2.13.1 MUT_REPORT prerequisite (rd-side CLI hard gate)', () => {
     } catch (error) {
       if (error instanceof PrerequisitesNotSatisfiedError) caught = error;
     }
-    expect(caught).not.toBeNull();
-    const missingPaths = (caught?.missing ?? []).map((entry) => entry.path);
-    expect(missingPaths).toContain('mut/mut-report.json');
+    // v2.13.2 AC-5: missing mut-report softens to a warning, NOT a
+    // hard prerequisite failure. v2.14.0 will re-elevate missing → throw.
+    expect(caught).toBeNull();
   });
 
   test('rd→qa-handoff is BLOCKED when mut/mut-report.json exists but "passed": false (low kill rate)', async () => {

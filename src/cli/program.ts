@@ -41,6 +41,7 @@ import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
 import { registerSecurityAuditCommands } from './commands/security-audit-commands.js';
 import { registerPerfAuditCommands } from './commands/perf-audit-commands.js';
+import { registerVerdictAggregateCommands } from './commands/verdict-aggregate-command.js';
 import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
@@ -248,6 +249,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSecurityAuditCommands(program, io);
  // Slice v2.12.0 Group A Tier 3: `peaks perf-audit` (independent perf audit skill driver).
  registerPerfAuditCommands(program, io);
+ // Slice v2.13.2 AC-2: `peaks verdict aggregate` (cross-source verdict aggregator CLI surface).
+ registerVerdictAggregateCommands(program, io);
  // Slice 2026-06-16-cli-logging (G4): `peaks log tail` / `peaks log ls`.
  registerLogCommands(program, io);
  // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.

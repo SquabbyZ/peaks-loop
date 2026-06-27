@@ -75,13 +75,28 @@ export interface AggregatorInput {
 
 export type AggregatorVerdict = 'pass' | 'warn' | 'block' | 'return-to-rd';
 
+export type VerdictSource =
+  | 'security-audit'
+  | 'perf-audit'
+  | 'karpathy-reviewer'
+  | 'peaks-mut'
+  | 'peaks-qa';
+
 export interface VerdictReason {
-  readonly source:
-    | 'security-audit'
-    | 'perf-audit'
-    | 'karpathy-reviewer'
-    | 'peaks-mut'
-    | 'peaks-qa';
+  /**
+   * Primary source — kept for the single-source case. When multiple
+   * sources report the same (file,line,hint) tuple, `sources` carries
+   * the full list and `source` is the first source that triggered the
+   * reason entry (deterministic: security → perf → karpathy order).
+   */
+  readonly source: VerdictSource;
+  /**
+   * v2.13.2 — multi-source carrier. Always non-empty when the reason
+   * was deduped across sources; equals `[source]` for single-source
+   * entries. The dedup key uses (file,line,hint) only — not `source` —
+   * per `.peaks/project-scan/audit-output-schema.md:73`.
+   */
+  readonly sources: ReadonlyArray<VerdictSource>;
   readonly signal: AggregatorVerdict | 'blocked';
   readonly severity?: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW';
   readonly file?: string;
@@ -126,17 +141,48 @@ interface FixLocation {
 interface DedupState {
   readonly reasons: VerdictReason[];
   readonly seen: Set<string>;
+  /**
+   * v2.13.2 — maps dedup key → existing reason index in `reasons`.
+   * On a hit we mutate the existing reason's `sources` array to
+   * append the new source (idempotent — duplicates collapsed).
+   */
+  readonly indexByKey: Map<string, number>;
 }
 
-function pushFix(state: DedupState, reason: VerdictReason, loc: FixLocation): void {
-  const key = `${reason.source}|${loc.file}|${loc.line}|${loc.hint}`;
-  if (state.seen.has(key)) return;
-  state.seen.add(key);
-  state.reasons.push(reason);
+function pushFix(
+  state: DedupState,
+  proposed: VerdictReason,
+  loc: FixLocation
+): void {
+  // v2.13.2 BLOCKER fix: dedup key is `(file, line, hint)` only,
+  // per `.peaks/project-scan/audit-output-schema.md:73`. The previous
+  // key `${source}|${file}|${line}|${hint}` over-segmented the
+  // reasons list when two audits flagged the same line.
+  const key = `${loc.file}|${loc.line}|${loc.hint}`;
+  const existingIdx = state.indexByKey.get(key);
+  if (existingIdx === undefined) {
+    state.indexByKey.set(key, state.reasons.length);
+    state.reasons.push({
+      ...proposed,
+      sources: proposed.sources.length > 0 ? [...proposed.sources] : [proposed.source]
+    });
+    return;
+  }
+  const existing = state.reasons[existingIdx]!;
+  const mergedSources = mergeSources(existing.sources, proposed.source);
+  state.reasons[existingIdx] = { ...existing, sources: mergedSources };
+}
+
+function mergeSources(
+  existing: ReadonlyArray<VerdictSource>,
+  next: VerdictSource
+): ReadonlyArray<VerdictSource> {
+  if (existing.includes(next)) return existing;
+  return [...existing, next];
 }
 
 export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
-  const state: DedupState = { reasons: [], seen: new Set() };
+  const state: DedupState = { reasons: [], seen: new Set(), indexByKey: new Map() };
   let top: AggregatorVerdict = 'pass';
   const elevate = (candidate: AggregatorVerdict): void => {
     if (bucketOf(candidate) > bucketOf(top)) top = candidate;
@@ -149,7 +195,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'security-audit', signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        { source: 'security-audit', sources: ['security-audit'], signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }
@@ -162,7 +208,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'perf-audit', signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        { source: 'perf-audit', sources: ['perf-audit'], signal: env.verdict, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }
@@ -175,7 +221,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const v of env.violations) {
       pushFix(
         state,
-        { source: 'karpathy-reviewer', signal: env.gateAction, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
+        { source: 'karpathy-reviewer', sources: ['karpathy-reviewer'], signal: env.gateAction, severity: v.severity, file: v.file, line: v.line, hint: v.hint },
         { file: v.file, line: v.line, hint: v.hint }
       );
     }
@@ -187,6 +233,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
     for (const violation of input.mut.violations) {
       state.reasons.push({
         source: 'peaks-mut',
+        sources: ['peaks-mut'],
         signal: 'block',
         kind: violation.kind,
         actual: violation.actual,
@@ -206,6 +253,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
       elevate('block');
       state.reasons.push({
         source: 'peaks-qa',
+        sources: ['peaks-qa'],
         signal: 'blocked',
         ...(env.reportPath !== undefined ? { reportPath: env.reportPath } : {})
       });
@@ -214,6 +262,7 @@ export function aggregateVerdict(input: AggregatorInput): AggregatorResult {
       elevate('return-to-rd');
       state.reasons.push({
         source: 'peaks-qa',
+        sources: ['peaks-qa'],
         signal: 'return-to-rd',
         ...(env.reportPath !== undefined ? { reportPath: env.reportPath } : {})
       });

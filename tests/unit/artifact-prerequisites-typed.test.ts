@@ -87,7 +87,9 @@ describe('request types — bugfix gates', () => {
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
     // v2.13.1 Group A: MUT_REPORT also required on the bugfix fan-out.
-    expect(paths).toContain('mut/mut-report.json');
+    // v2.13.2 AC-5: missing MUT_REPORT softens to a warning (1-minor
+    // back-compat window). It is NOT in `missing` — it's in `warnings`.
+    expect(paths).not.toContain('mut/mut-report.json');
     expect(paths).toContain('qa/test-cases/2026-05-25-bug.md');
     expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/bug-analysis.md');
@@ -262,7 +264,8 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
     // v2.13.1 Group A: MUT_REPORT added to FEATURE_TABLE rd:qa-handoff.
-    expect(paths).toContain('mut/mut-report.json');
+    // v2.13.2 AC-5: missing MUT_REPORT softens to a warning; NOT in `missing`.
+    expect(paths).not.toContain('mut/mut-report.json');
     expect(paths).toContain('qa/test-cases/2026-06-27-feat-audit.md');
     expect(paths).toContain('qa/.initiated');
     expect(paths).not.toContain('rd/security-review.md');
@@ -451,6 +454,7 @@ describe('v2.12.0 Tier 5 — audit prereqs + back-compat', () => {
     expect(paths).toContain('audit/perf.md');
     expect(paths).toContain('prd/handoff.md');
     // v2.13.1 Group A: REFACTOR_TABLE inherits MUT_REPORT from FEATURE_TABLE.
-    expect(paths).toContain('mut/mut-report.json');
+    // v2.13.2 AC-5: missing MUT_REPORT softens to a warning; NOT in `missing`.
+    expect(paths).not.toContain('mut/mut-report.json');
   });
 });

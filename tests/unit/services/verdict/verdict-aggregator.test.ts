@@ -258,12 +258,13 @@ describe('verdict-aggregator precedence matrix', () => {
       }
     });
     expect(out.verdict).toBe('warn');
-    // Two inputs, but the (file,line,hint) tuple dedupes them.
-    expect(out.reasons).toHaveLength(2);
-    // The two surviving reasons differ by `source`, which is part of
-    // the dedup key — both are kept because the key is `${source}|...`.
-    const sources = out.reasons.map((r) => r.source).sort();
-    expect(sources).toEqual(['perf-audit', 'security-audit']);
+    // v2.13.2 BLOCKER fix: dedup key is (file,line,hint) only — both
+    // sources collapse into a single reason entry, with `sources`
+    // listing every contributing source.
+    expect(out.reasons).toHaveLength(1);
+    const r = out.reasons[0]!;
+    expect(r.source).toBe('security-audit');
+    expect(r.sources).toEqual(['security-audit', 'perf-audit']);
   });
 
   test('qa=blocked → block; reportPath flows through', () => {
@@ -292,5 +293,70 @@ describe('mut envelope failure modes', () => {
     expect(out.reasons).toHaveLength(2);
     expect(out.reasons[0]?.kind).toBe('mutationKillRateMin');
     expect(out.reasons[1]?.kind).toBe('weakAssertionRateMax');
+  });
+});
+
+// ─── v2.13.2 AC-1 BLOCKER: cross-source dedup via (file,line,hint) only ──
+
+describe('v2.13.2 cross-source dedup (AC-1)', () => {
+  test('I: security + perf report identical (file,line,hint) → 1 reason, sources = [security-audit, perf-audit]', () => {
+    const out = aggregateVerdict({
+      security: {
+        verdict: 'warn',
+        violations: [{ dimension: 'auth', severity: 'HIGH', file: 'src/auth/login.ts', line: 42, hint: 'plaintext compare' }],
+        summary: ''
+      },
+      perf: {
+        verdict: 'warn',
+        violations: [{ dimension: 'render', severity: 'HIGH', file: 'src/auth/login.ts', line: 42, hint: 'plaintext compare' }],
+        summary: ''
+      }
+    });
+    expect(out.verdict).toBe('warn');
+    expect(out.reasons).toHaveLength(1);
+    const r = out.reasons[0]!;
+    expect(r.sources).toHaveLength(2);
+    expect(r.sources).toContain('security-audit');
+    expect(r.sources).toContain('perf-audit');
+    expect(r.file).toBe('src/auth/login.ts');
+    expect(r.line).toBe(42);
+    expect(r.hint).toBe('plaintext compare');
+  });
+
+  test('J: karpathy + security share (file,line,hint) → 1 reason, sources = [security-audit, karpathy-reviewer]', () => {
+    const out = aggregateVerdict({
+      security: {
+        verdict: 'warn',
+        violations: [{ dimension: 'auth', severity: 'HIGH', file: 'src/x.ts', line: 7, hint: 'shared-hint' }],
+        summary: ''
+      },
+      karpathy: {
+        passed: false,
+        violations: [
+          { guideline: 'simplicity-first', severity: 'HIGH', file: 'src/x.ts', line: 7, hint: 'shared-hint' }
+        ],
+        gateAction: 'warn'
+      }
+    });
+    expect(out.verdict).toBe('warn');
+    expect(out.reasons).toHaveLength(1);
+    expect(out.reasons[0]!.sources).toEqual(['security-audit', 'karpathy-reviewer']);
+  });
+
+  test('K: single source repeating same (file,line,hint) → 1 reason, sources has exactly 1 entry (no duplication)', () => {
+    const out = aggregateVerdict({
+      security: {
+        verdict: 'warn',
+        violations: [
+          { dimension: 'auth', severity: 'HIGH', file: 'src/x.ts', line: 1, hint: 'h' },
+          { dimension: 'auth', severity: 'HIGH', file: 'src/x.ts', line: 1, hint: 'h' },
+          { dimension: 'auth', severity: 'HIGH', file: 'src/x.ts', line: 1, hint: 'h' }
+        ],
+        summary: ''
+      }
+    });
+    expect(out.verdict).toBe('warn');
+    expect(out.reasons).toHaveLength(1);
+    expect(out.reasons[0]!.sources).toEqual(['security-audit']);
   });
 });
