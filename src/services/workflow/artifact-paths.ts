@@ -35,6 +35,26 @@ export const PERFORMANCE_FINDINGS_LEGACY = 'performance-findings.md';
 const SECURITY_FINDINGS_BASE = 'security-findings';
 const PERFORMANCE_FINDINGS_BASE = 'performance-findings';
 
+/**
+ * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
+ * QA artifact dir is `.peaks/_runtime/change/<changeId>/qa/`. The
+ * legacy `.peaks/<changeId>/qa/` form was a pre-1.3.0 write-path bug;
+ * `peaks workspace migrate-change-scope --apply` moves misplaced dirs.
+ *
+ * During a 1-minor-release deprecation window the resolver falls back
+ * to the legacy path so un-migrated workspaces still resolve. When
+ * the fallback fires, the result is tagged `'legacy'`.
+ */
+function canonicalQaDir(projectRoot: string, changeId: string): string {
+  return join(projectRoot, '.peaks', '_runtime', 'change', changeId, QA_DIR);
+}
+function legacyQaDir(projectRoot: string, changeId: string): string {
+  return join(projectRoot, '.peaks', changeId, QA_DIR);
+}
+function legacyTopLevelQaDir(projectRoot: string, changeId: string): string {
+  return join(projectRoot, '.peaks', '_runtime', changeId, QA_DIR);
+}
+
 export interface ResolveFindingsPathResult {
   /** The resolved absolute path (suffixed preferred, legacy fallback). */
   readonly path: string;
@@ -64,24 +84,30 @@ function resolveFindingsPath(args: {
   legacyFile: string;
   suffixedFile: (rid: string) => string;
 }): ResolveFindingsPathResult {
-  const qaDir = join(args.projectRoot, '.peaks', args.changeId, QA_DIR);
+  const qaDir = canonicalQaDir(args.projectRoot, args.changeId);
   if (args.rid !== undefined) {
     const suffixedPath = join(qaDir, args.suffixedFile(args.rid));
     if (existsSync(suffixedPath)) {
       return { path: suffixedPath, form: 'suffixed', redirectedFrom: null, rid: args.rid };
     }
-    const legacyPath = join(qaDir, args.legacyFile);
-    if (existsSync(legacyPath)) {
-      // Best-effort lazy migration: rename legacy → suffixed so subsequent
-      // reads hit the preferred form. We do NOT touch the file contents;
-      // an older file may not actually be "for" this rid. The caller is
-      // expected to treat the result as 'legacy' form, not 'suffixed'.
-      return {
-        path: legacyPath,
-        form: 'legacy',
-        redirectedFrom: null,
-        rid: null
-      };
+    // Try the legacy misplaced dir (pre-1.3.0 write-path bug) and the
+    // sibling-of-`_runtime/` form. Both are migration targets for
+    // `peaks workspace migrate-change-scope`.
+    const legacyCandidates = [
+      join(legacyQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
+      join(legacyTopLevelQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
+      join(legacyQaDir(args.projectRoot, args.changeId), args.legacyFile),
+      join(legacyTopLevelQaDir(args.projectRoot, args.changeId), args.legacyFile)
+    ];
+    for (const candidate of legacyCandidates) {
+      if (existsSync(candidate)) {
+        return {
+          path: candidate,
+          form: 'legacy',
+          redirectedFrom: null,
+          rid: args.rid
+        };
+      }
     }
     // No file present; report the would-be suffixed path so the caller can
     // surface it in error messages.
@@ -145,7 +171,8 @@ export function lazyMigrateLegacyFindings(args: {
   legacyFile: string;
   suffixedFile: (rid: string) => string;
 }): { renamed: boolean; path: string } {
-  const qaDir = join(args.projectRoot, '.peaks', args.changeId, QA_DIR);
+  // Slice 2026-06-28: lazy migration operates on the canonical QA dir.
+  const qaDir = canonicalQaDir(args.projectRoot, args.changeId);
   const legacyPath = join(qaDir, args.legacyFile);
   const suffixedPath = join(qaDir, args.suffixedFile(args.rid));
   if (!existsSync(legacyPath)) {

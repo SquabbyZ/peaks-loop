@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.4] — 2026-06-28 — Solo mode gate + verify-pipeline canonical path + auto-compact main target
+
+**PATCH bump from 2.13.3** (slice `2026-06-28-solo-mode-bypass-fix`, 4 production defects reported by user in solo session 2026-06-28).
+
+The four defects all stem from the v2.13.0 two-axis convention landing debt: the canonical evidence location is `.peaks/_runtime/change/<changeId>/<role>/...` (per `change-scope-service.ts`), but v2.13.0's mode-gate, verify-pipeline, and auto-compact dispatcher all referenced the pre-1.3.0 sibling-of-`_runtime/` form. v2.13.4 also adds the user-requested economy-vs-concurrency separation (per direction 2026-06-28: "效率比省钱更重要，是在效率达到最大值的时候，再去考虑经济问题").
+
+### Bug fixes
+
+- **Step 1 AskUserQuestion is no longer auto-defaulted to `mode: full-auto`** (defect #1) — `src/services/solo/mode-gate.ts:104-196` now treats `step-1-mode-select` (and `step-0.5-openspec-opt-in`, `step-0.7-resume-detection`) as a `HARD_PAUSE_STEPS` set: even `full-auto` mode pauses for the user to pick the mode. A new `gateKind: 'mode-selection-itself' | 'mode-driven' | 'hard-floor'` discriminator lets the LLM-side runner distinguish "you paused because the user must choose" from "you paused because the user already chose assisted/strict" from "you paused because a hard-floor category always wins". Dogfood-verified: a new session no longer writes `mode: "full-auto"` to `.peaks/_runtime/active-skill.json` on the first tool call without surfacing the Step 1 AskUserQuestion. 14 new test cases in `tests/unit/solo/mode-gate-step-1-hard-pause.test.ts` cover the four-mode matrix + hard-floor precedence. The pre-existing `tests/unit/services/solo/mode-gate.test.ts` (77 cases) was also updated for the new `gateKind` field — 77/77 still pass.
+- **`peaks workflow verify-pipeline` now resolves the canonical evidence path** (defect #3) — `src/services/workflow/pipeline-verify-service.ts:216,219,260,288,295` rebuilds evidence paths as `.peaks/_runtime/change/<changeId>/<role>/...` (was `.peaks/<changeId>/<role>/...`, the SKILL.md 2.8.3 hard-ban shape). `src/services/workflow/artifact-paths.ts:67,148` gets the same fix in the security/performance findings resolver. A 1-minor-release deprecation window accepts the legacy `.peaks/<changeId>/...` and `.peaks/_runtime/<changeId>/...` forms with a `DEPRECATION_LEGACY_PATH_USED` warning so un-migrated workspaces still resolve. `PipelineVerification.usedCanonicalPath: boolean` is added to the return envelope so QA / TXT can surface the deprecation state. The CLI help-text at `src/cli/commands/workflow-commands.ts:448` is updated to cite the canonical path. 4 new test cases in `tests/unit/workflow/pipeline-verify-canonical-path.test.ts` cover canonical / legacy misplaced / top-level fallback / absent. The pre-existing `tests/unit/pipeline-verify-service.test.ts` (60 cases) was updated to write evidence at both paths so the deprecation contract is exercised end-to-end — 60/60 still pass.
+- **`auto-compact` now targets the main-session context, not a sub-agent shell** (defect #4) — `src/services/context/auto-compact-dispatcher.ts` and `src/services/solo/auto-compact-orchestrator.ts` accept a new `target: 'main' | 'sub-agent'` parameter (default `'main'`). For `target='main' + ide='claude-code'`, the dispatcher returns the `llm-self-compress` pathway and the orchestrator writes `.peaks/_runtime/<sessionId>/txt/auto-compact-pending.json` (with `pending: true, target: 'main', ratio, redLine`) so the next main-session LLM turn fires `/compact` in-band rather than spawning a detached `sh -c /compact` (which previously only compressed the sub-agent shell). For `target='sub-agent'`, the legacy shell-spawn behavior is preserved. Non-claude-code IDEs + `target='main'` return `noop` with a "main-session target unsupported" reason. 6 new test cases in `tests/unit/context/auto-compact-main-target.test.ts` cover the dispatch matrix + the orchestrator's intent-file write.
+
+### Features
+
+- **`peaks workspace migrate-change-scope --project <path> [--apply] [--json]`** — slice 2026-06-28-solo-mode-bypass-fix migration tool. Dry-run by default; `--apply` atomically renames misplaced `.peaks/_runtime/<changeId>/` (and `.peaks/<changeId>/`) entries into the canonical `.peaks/_runtime/change/<changeId>/` location, writes a `.peaks-migration.json` marker (with `from:`, `slice:`, `tool:`, `migratedAt:`) for audit. **Refusal conditions** (defense-in-depth, both pre-slice audit + new): entries that look like date-stamped session ids (`YYYY-MM-DD-session-X`) are refused to avoid destroying the session workspace (`MIGRATION_REFUSED_SESSION_ID_COLLISION`); entries whose target dir exists with non-byte-equal contents are refused to avoid clobbering (`MIGRATION_REFUSED_TARGET_NOT_EMPTY`); a hard-coded `PEAKS_TOP_LEVEL_DENY` / `RUNTIME_DENY` whitelist + `looksLikeChangeScopeId` structural check ensures `.peaks/memory`, `.peaks/standards`, `.peaks/retrospective`, `.peaks/sc`, `.peaks/sops`, `.peaks/project-scan`, `.peaks/_sub_agents` are **never** treated as misplaced change-ids. **Idempotent**: re-running on a clean workspace reports no work. Dogfood-verified: the actual misplaced `.peaks/_runtime/2026-06-27-verdict-aggregator-v2-12-debt/` (8 files) was migrated end-to-end; subsequent `peaks workflow verify-pipeline --rid 2026-06-27-verdict-aggregator-v2-12-debt --change-id 2026-06-27-verdict-aggregator-v2-12-debt --project .` reports `usedCanonicalPath: true` (was `false`) and zero `DEPRECATION_LEGACY_PATH_USED` warnings. 5 new test cases in `tests/unit/workspace/migrate-change-scope.test.ts` cover dry-run, apply, idempotency, session-id refusal, and target-not-empty refusal; a 6th case locks the `.peaks/<project-data>` whitelist contract.
+
+### Internal
+
+- `src/services/solo/mode-gate.ts` (+28/-4 lines) — `HARD_PAUSE_STEPS` set + `GateKind` union + `gateKind` field on `GateDecision`.
+- `src/services/solo/auto-compact-orchestrator.ts` (+24/-2 lines) — `target` parameter, `writeMainSessionCompactIntent` helper, surface `target` in return envelope.
+- `src/services/context/auto-compact-dispatcher.ts` (+38/-5 lines) — `CompactTarget` type, `target` parameter, reordered non-claude-code refusal, `shell-exec + main` → `llm-self-compress` rewrite.
+- `src/services/context/auto-compact-types.ts` (+6 lines) — `target?: 'main' | 'sub-agent'` on `AutoCompactResult.data`.
+- `src/services/preferences/preferences-types.ts` (+13 lines) — explicit doc-comments on `economyMode` (model selection only, NOT concurrency) and `swarmMode` (controls subgraph shape, NOT fan-out). Fan-out is governed by `fanout.defaultMode: 'fan-out'` (hard constraint per slice 2026-06-24-audit-5th-p2).
+- `src/services/workflow/pipeline-verify-service.ts` (+58/-22 lines) — canonical-path lookup + 1-minor-release deprecation fallback + `usedCanonicalPath` + `findRequestFile` strips legacy `_runtime/` scope prefix.
+- `src/services/workflow/artifact-paths.ts` (+31/-5 lines) — `canonicalQaDir` / `legacyQaDir` / `legacyTopLevelQaDir` helpers + extended legacy fallback chain in `resolveFindingsPath`.
+- `src/cli/commands/workflow-commands.ts` (+1/-1 line) — CLI help-text now cites canonical path.
+- `src/cli/commands/workspace-commands.ts` (+3 lines) — register `migrate-change-scope` sub-command.
+- `src/cli/commands/workspace/migrate-change-scope-command.ts` (NEW, 230 lines) — `migrateChangeScope()` core + `migrateOne()` per-entry handler with the deny-list + `shallowContentEqual` (1-level recursion) + 3 refusal conditions.
+- `tests/unit/workspace/banned-path-directive-guard.test.ts` (+11 lines) — added `KEEP_DESCRIPTIONS` anchor for the new help-text so the AC-2.2 banned-path-guard still passes.
+- `tests/unit/pipeline-verify-service.test.ts` (+24/-12 lines) — `writeRdEvidence` / `writeQaEvidence` now write at canonical + legacy paths; `isResolvedChangeId` updated for the bare-id contract.
+- `tests/unit/services/solo/mode-gate.test.ts` (linter-updated) — assertions for the new `gateKind` field on every `GateDecision` return.
+- 5 new test files: `tests/unit/solo/mode-gate-step-1-hard-pause.test.ts` (14 cases), `tests/unit/workflow/pipeline-verify-canonical-path.test.ts` (4 cases), `tests/unit/workflow/artifact-paths-canonical.test.ts` (4 cases), `tests/unit/context/auto-compact-main-target.test.ts` (6 cases), `tests/unit/workspace/migrate-change-scope.test.ts` (6 cases) — 34 new cases total, all pass.
+
+### Test results
+
+- `pnpm vitest run` on the 4 affected module areas (solo/workflow/context/workspace): **181/181 pass** (5 new test files + pre-existing suites).
+- Full unit suite: 4394/4418 pass (7 pre-existing failures unrelated to this slice — `doctor.test.ts` version-mismatch × 5, `tokenizer.test.ts` time-decay flake × 1, `35-checks-aggregate.test.ts` × 1).
+- `pnpm tsc --noEmit`: clean.
+
+---
+
 ## [2.13.3] — 2026-06-28 — Verdict aggregator parser fix + publish pipeline + CLI warnings
 
 **PATCH bump from 2.13.2** (slice `2026-06-27-verdict-aggregator-v2-12-debt`, red-line scope 7 source files + 3 test files modified + 3 new scripts + 1 package.json hook).

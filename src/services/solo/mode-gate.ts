@@ -80,12 +80,37 @@ export const GATED_STEPS: readonly GatedStepId[] = [
   'standards-preflight'
 ] as const;
 
+/**
+ * Slice 2026-06-28-solo-mode-bypass-fix: the kind of gate that
+ * produced this decision. The LLM-side caller (peaks-solo body) reads
+ * this to distinguish "you paused because the user must choose the
+ * mode" (`mode-selection-itself`) from "you paused because the mode
+ * you already chose is assisted/strict" (`mode-driven`) from "you
+ * paused because a hard-floor category always wins" (`hard-floor`).
+ *
+ *   - `'mode-selection-itself'` — the gate IS the mode/context
+ *     selection step itself (step-1-mode-select,
+ *     step-0.5-openspec-opt-in, step-0.7-resume-detection). Even
+ *     `full-auto` mode pauses here; otherwise the user's first turn
+ *     would auto-lock the mode without their consent.
+ *   - `'mode-driven'`           — the gate paused because the active
+ *     mode is assisted/strict (the existing default).
+ *   - `'hard-floor'`            — the gate paused because a
+ *     hard-floor category always wins (irreversible external side
+ *     effect / auth / multi-day investment).
+ */
+export type GateKind = 'mode-selection-itself' | 'mode-driven' | 'hard-floor';
+
 export interface GateDecision {
   readonly shouldPause: boolean;
   /** Human-readable rationale; surfaces in `peaks solo should-pause --json` */
   readonly reason: string;
   /** Hard-floor override applied? Surfaces in audit log when true */
   readonly hardFloorCategory?: HardFloorCategory;
+  /** Slice 2026-06-28-solo-mode-bypass-fix: kind of gate that produced
+   * this decision. Always present; defaults to `'mode-driven'` for the
+   * assisted/strict pause branch. */
+  readonly gateKind: GateKind;
 }
 
 export function isSoloMode(value: string): value is SoloMode {
@@ -119,6 +144,21 @@ export function shouldAutoProceed(mode: SoloMode): boolean {
  * stamp the override into the auto-decisions log without a second
  * switch.
  */
+
+/**
+ * Hard-pause steps: these pause regardless of mode. They are the gates
+ * whose decision *creates* or *recreates* the mode/state under which
+ * later gates run. Auto-proceeding on them would silently fix the mode
+ * without user consent (defect #1: new Solo session skipped Step 1
+ * AskUserQuestion because `full-auto` mode triggered `shouldAutoProceed`
+ * on `step-1-mode-select` itself).
+ */
+const HARD_PAUSE_STEPS: ReadonlySet<GatedStepId> = new Set<GatedStepId>([
+  'step-1-mode-select',
+  'step-0.5-openspec-opt-in',
+  'step-0.7-resume-detection'
+]);
+
 export function shouldPauseAtGate(opts: {
   mode: SoloMode;
   step: GatedStepId;
@@ -128,20 +168,35 @@ export function shouldPauseAtGate(opts: {
     return {
       shouldPause: true,
       reason: `hard-floor category "${opts.hardFloorCategory}" always pauses regardless of mode (D5.b)`,
-      hardFloorCategory: opts.hardFloorCategory
+      hardFloorCategory: opts.hardFloorCategory,
+      gateKind: 'hard-floor'
+    };
+  }
+
+  // Slice 2026-06-28-solo-mode-bypass-fix: hard-pause steps that
+  // determine the active mode or session context MUST prompt the
+  // user. Otherwise full-auto silently locks in `mode=full-auto` on
+  // the first tool call, skipping the AskUserQuestion Step 1 mandates.
+  if (HARD_PAUSE_STEPS.has(opts.step)) {
+    return {
+      shouldPause: true,
+      reason: `step=${opts.step} is a mode/context-selection step → always pause (defect #1 fix)`,
+      gateKind: 'mode-selection-itself'
     };
   }
 
   if (shouldAutoProceed(opts.mode)) {
     return {
       shouldPause: false,
-      reason: `mode=${opts.mode} → recommended = chosen; emit auto-decision log (D5.a)`
+      reason: `mode=${opts.mode} → recommended = chosen; emit auto-decision log (D5.a)`,
+      gateKind: 'mode-driven'
     };
   }
 
   return {
     shouldPause: true,
-    reason: `mode=${opts.mode} → pause for AskUserQuestion (assisted/strict default)`
+    reason: `mode=${opts.mode} → pause for AskUserQuestion (assisted/strict default)`,
+    gateKind: 'mode-driven'
   };
 }
 

@@ -137,7 +137,7 @@ peaks project dashboard --project . --json   # one-shot project view
 
 **3 solo wrappers + 7 role skills + 2 standalone audits + 1 orchestrator = 13 skills.** In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.
 
-> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-cli probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention.
+> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-cli probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention. **v2.13.4 fix**: auto-compact now targets the **main-session** context (not a sub-agent shell) by writing a `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` intent file that the main-session LLM picks up on its next turn and fires `/compact` in-band.
 
 ## 🚧 Killer feature: un-bypassable gates
 
@@ -251,6 +251,7 @@ Full list: `peaks --help`.
 - ✅ **Gate mechanism** dogfooded on real projects
 - ✅ **v2.12.0 RD fan-out collapse** (3-way: code-reviewer + qa-test-cases-writer + karpathy-reviewer) shipped 2026-06-27
 - ✅ **v2.13.0 zero-human-intervention auto-compact** (peaks-cli drives context compression on any AI CLI; context stays < 95% autonomously) shipped 2026-06-27
+- ✅ **v2.13.4 four solo bug fixes**: Step 1 AskUserQuestion no longer auto-defaults to `full-auto`; `peaks workflow verify-pipeline` resolves the canonical `.peaks/_runtime/change/<id>/` path; new `peaks workspace migrate-change-scope` CLI migrates any historical misplaced change-id dirs; auto-compact now genuinely compresses the main-session context (not a sub-agent shell)
 - 📋 Roadmap: real Trae / Codex / Cursor integration, `peaks-doc` / `peaks-i18n`, SOP template marketplace
 
 See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.

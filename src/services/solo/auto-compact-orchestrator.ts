@@ -42,6 +42,8 @@ import {
   type AutoCompactResult
 } from '../context/auto-compact-types.js';
 
+import type { CompactTarget } from '../context/auto-compact-dispatcher.js';
+
 export interface AutoCompactInput {
   /** Project root for context (default cwd). */
   readonly projectRoot: string;
@@ -61,6 +63,14 @@ export interface AutoCompactInput {
   readonly env?: NodeJS.ProcessEnv | undefined;
   /** Injectable clock for mtime checks (test seam). */
   readonly now?: Date | undefined;
+  /**
+   * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which session
+   * the compact should target. Default `'main'` — the orchestrator
+   * (peaks-solo body) runs in the main-session Claude Code window and
+   * wants to compress *its* context. Sub-agent shells pass
+   * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
+   */
+  readonly target?: CompactTarget | undefined;
 }
 
 const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
@@ -197,6 +207,40 @@ function appendAutoDecisionLog(input: {
 }
 
 /**
+ * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): write the
+ * main-session compact intent so the main-session LLM picks it up on
+ * its next turn and fires `/compact` in-band. Without this file the
+ * orchestrator's "main-session compact" request is invisible to the
+ * main Claude Code window (defeats the whole point of auto-compact
+ * for the main context).
+ *
+ * The file is gitignored under `.peaks/_runtime/<sessionId>/txt/` and
+ * is one-shot: the LLM should `mv` it to `.consumed` after firing
+ * `/compact`. A re-run will overwrite.
+ */
+function writeMainSessionCompactIntent(input: {
+  readonly projectRoot: string;
+  readonly sessionId: string;
+  readonly ratio: number;
+  readonly redLine: boolean;
+  readonly now: Date;
+}): void {
+  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'txt');
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const path = join(dir, 'auto-compact-pending.json');
+  const payload = {
+    schemaVersion: 1,
+    pending: true,
+    target: 'main',
+    requestedAt: input.now.toISOString(),
+    ratio: input.ratio,
+    redLine: input.redLine,
+    nextAction: 'next LLM turn MUST fire `/compact` then `mv .peaks/_runtime/<sid>/txt/auto-compact-pending.json .peaks/_runtime/<sid>/txt/auto-compact-pending.consumed.json`'
+  };
+  writeFileSync(path, JSON.stringify(payload, null, 2), 'utf8');
+}
+
+/**
  * Write a pre-compact checkpoint. The shape mirrors `peaks session
  * checkpoint` so D7's post-compact-detect picks it up unchanged.
  */
@@ -330,10 +374,26 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
 
   // Lazy import to keep AC-3 (IDE dispatch) pluggable; tests mock this module.
   const { dispatchIdeCompact } = await import('../context/auto-compact-dispatcher.js');
+  const target: CompactTarget = input.target ?? 'main';
+  // Slice 2026-06-28: when targeting the main session, write an
+  // intent record so the next main-session LLM turn fires `/compact`
+  // in-band. Without this record the LLM has no signal that the
+  // orchestrator asked for compact; the dispatcher alone would have
+  // been a no-op against the main Claude Code window.
+  if (target === 'main') {
+    writeMainSessionCompactIntent({
+      projectRoot: input.projectRoot,
+      sessionId,
+      ratio: probe.ratio,
+      redLine: isRedLine,
+      now
+    });
+  }
   const dispatch: CompactDispatchResult = await dispatchIdeCompact({
     projectRoot: input.projectRoot,
     sessionId,
-    env: input.env
+    env: input.env,
+    target
   });
 
   return {
@@ -343,8 +403,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       : 'AUTO_COMPACT_DISPATCH_FAILED',
     message: dispatch.ok
       ? isRedLine
-        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
-        : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway}); checkpoint at ${checkpointPath}.`
+        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
+        : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}.`
       : `Auto-compact checkpoint written but IDE dispatch failed: ${dispatch.message}`,
     data: {
       sessionId,
@@ -353,6 +413,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       checkpointPath,
       convergencePlan: plan,
       dispatch,
+      target,
       redLineGated: isRedLine
     }
   };

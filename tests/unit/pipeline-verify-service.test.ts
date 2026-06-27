@@ -53,6 +53,16 @@ function createTempProject(): { root: string; peaks: string } {
   mkdirSync(join(peaks, 'qa', 'test-reports'), { recursive: true });
   // Non-.md entry to exercise the skip branch in findRequestFile
   writeFileSync(join(peaks, 'rd', 'requests', '.gitkeep'), '', 'utf8');
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): also pre-create
+  // the canonical scope dir so tests can write evidence there (the
+  // canonical path is `.peaks/_runtime/change/<id>/<role>/...`).
+  // Tests that want to assert "complete pipeline" must place evidence
+  // here; the legacy `.peaks/_runtime/test-change-id/...` form still
+  // resolves but emits DEPRECATION_LEGACY_PATH_USED warnings.
+  const canonical = join(root, '.peaks', '_runtime', 'change', 'test-change-id');
+  mkdirSync(join(canonical, 'rd'), { recursive: true });
+  mkdirSync(join(canonical, 'qa', 'test-cases'), { recursive: true });
+  mkdirSync(join(canonical, 'qa', 'test-reports'), { recursive: true });
   return { root, peaks };
 }
 
@@ -77,15 +87,25 @@ function writeRdArtifactExact(root: string, rid: string, state: string): void {
   writeFileSync(join(dir, `${rid}.md`), content, 'utf8');
 }
 
-/** Write an RD evidence file under .peaks/_runtime/test-change-id/rd/<relativePath>. */
+/** Write an RD evidence file under BOTH the canonical `.peaks/_runtime/change/test-change-id/rd/<relativePath>`
+ *  AND the legacy `.peaks/_runtime/test-change-id/rd/<relativePath>` paths.
+ *  Slice 2026-06-28-solo-mode-bypass-fix: the canonical path is the
+ *  source of truth; the legacy path is kept so tests can still assert
+ *  deprecation handling without changing the test's intent. */
 function writeRdEvidence(peaks: string, relativePath: string, content?: string): void {
+  const canonical = join(peaks, '..', 'change', 'test-change-id', 'rd', relativePath);
+  mkdirSync(join(canonical, '..'), { recursive: true });
+  writeFileSync(canonical, content ?? `# ${relativePath}\nevidence`, 'utf8');
   const full = join(peaks, 'rd', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
-/** Write a QA evidence file under .peaks/_runtime/test-change-id/qa/<relativePath>. */
+/** Write a QA evidence file under BOTH the canonical and legacy paths. */
 function writeQaEvidence(peaks: string, relativePath: string, content?: string): void {
+  const canonical = join(peaks, '..', 'change', 'test-change-id', 'qa', relativePath);
+  mkdirSync(join(canonical, '..'), { recursive: true });
+  writeFileSync(canonical, content ?? `# ${relativePath}\nevidence`, 'utf8');
   const full = join(peaks, 'qa', relativePath);
   mkdirSync(join(full, '..'), { recursive: true });
   writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
@@ -97,10 +117,14 @@ function writeQaEvidence(peaks: string, relativePath: string, content?: string):
 // the full scope path (containing `_runtime/test-change-id`), not
 // the bare session-id name. The path separator is platform-dependent
 // (forward slash on POSIX, backslash on Windows) — use endsWith CID
-// + a contains check for the `_runtime` segment.
+// Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
+// change-id is the bare id (`test-change-id`); the legacy shape
+// `_runtime/test-change-id` is now normalised inside `findRequestFile`
+// so the path resolver builds the right canonical location. The
+// resolved changeId is the bare id, NOT a `_runtime/...` prefix.
 const CID = 'test-change-id';
 function isResolvedChangeId(value: string): boolean {
-  return value.includes('_runtime') && value.endsWith(CID);
+  return value === CID || value.endsWith(`/${CID}`) || value.endsWith(`\\${CID}`);
 }
 
 // ---------------------------------------------------------------------------

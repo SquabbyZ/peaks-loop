@@ -102,6 +102,14 @@ export type AutoCompactResult =
         readonly checkpointPath?: string;
         readonly convergencePlan?: ConvergencePlan;
         readonly dispatch?: CompactDispatchResult;
+        /**
+         * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which
+         * session the compact targeted. `'main'` (default) means the
+         * main-session Claude Code window will fire `/compact` on its
+         * next turn; `'sub-agent'` means the dispatcher shell-spawned
+         * `/compact` in a child process (legacy behaviour).
+         */
+        readonly target?: 'main' | 'sub-agent';
         readonly redLineGated?: boolean;
       };
     };

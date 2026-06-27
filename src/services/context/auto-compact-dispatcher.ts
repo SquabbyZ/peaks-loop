@@ -36,12 +36,31 @@ type CompactPathway = IdeCompactProfile['compactPathway'];
 import { detectIdeFromEnv } from './main-session-monitor.js';
 import { getAdapter } from '../ide/ide-registry.js';
 
+export type CompactTarget = 'main' | 'sub-agent';
+
 export interface DispatchIdeCompactInput {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly env?: NodeJS.ProcessEnv | undefined;
   /** Spawn timeout (ms). Default 30s — Claude Code `/compact` is sync. */
   readonly timeoutMs?: number | undefined;
+  /**
+   * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which session
+   * the compact should target. Default `'main'` — the orchestrator
+   * (peaks-solo body) runs in the main-session Claude Code window and
+   * wants to compress *its* context, not a sub-agent's. Sub-agent
+   * shells that spawn their own `peaks solo auto-compact` flow pass
+   * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
+   *
+   * Behaviour matrix (claude-code MVP):
+   *   - target='main'     → llm-self-compress (write intent; main LLM
+   *                          fires `/compact` on its next turn).
+   *   - target='sub-agent'→ shell-exec (spawn `sh -c /compact` in the
+   *                          sub-agent's own shell, preserving the
+   *                          pre-slice behaviour).
+   * Non-claude-code IDEs + target='main' return noop + warning.
+   */
+  readonly target?: CompactTarget | undefined;
 }
 
 /**
@@ -60,6 +79,27 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   // See auto-compact-reader.ts for the IdeKind→IdeId cast rationale.
   const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
   const adapter = getAdapter(ideId);
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #4): default to
+  // `'main'` so the orchestrator's auto-compact actually compresses
+  // the main-session context. The orchestrator passes `'sub-agent'`
+  // explicitly when a sub-agent shell dispatches the call.
+  const target: CompactTarget = input.target ?? 'main';
+
+  // Slice 2026-06-28: when targeting the MAIN session, refuse
+  // up-front for adapters we cannot dispatch a main-session compact
+  // against. We DO this before the `!adapter.compact` short-circuit
+  // so the test message reflects the operational cause (target vs
+  // adapter capability). Even non-claude-code adapters without a
+  // registered `compact` profile should report "main-session target
+  // unsupported" rather than the generic "no compact profile" line.
+  if (target === 'main' && ideId !== 'claude-code') {
+    return {
+      ok: false,
+      ide: ideId,
+      pathway: 'noop',
+      message: `main-session target unsupported on adapter '${ideId}'; only claude-code supports in-band main-session compact.`
+    };
+  }
 
   // Adapters that don't declare `compact` (legacy / unverified) →
   // explicit noop so the caller can distinguish "IDE doesn't support
@@ -79,6 +119,17 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   const pathway: CompactPathway = profile.compactPathway;
   switch (pathway) {
     case 'shell-exec':
+      // Slice 2026-06-28: shell-exec is only correct when the caller
+      // IS the shell whose context we want compressed. Sub-agents
+      // qualify; the main-session orchestrator does not.
+      if (target === 'main') {
+        return {
+          ok: true,
+          ide: ideId,
+          pathway: 'llm-self-compress',
+          message: `Main-session target on shell-exec adapter '${ideId}': deferring to in-band /compact (next LLM turn); writing intent record.`
+        };
+      }
       return await dispatchShellExec({
         ideId,
         command: profile.compactCommand,

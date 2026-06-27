@@ -79,7 +79,35 @@ export interface ProjectPreferences {
    * on load and writes the current value on save. Any mismatch throws PREFERENCES_SCHEMA_MISMATCH.
    */
   readonly schema_version: typeof PREFERENCES_SCHEMA_VERSION;
+  /**
+   * Slice 2026-06-28-solo-mode-bypass-fix: economyMode is a
+   * **MODEL-SELECTION** knob only — it chooses between the cheap
+   * configured provider (`getConfiguredExecutionModelId`) and the
+   * strongest planner/reviewer model (`STRONGEST_MODEL_ID`). It does
+   * NOT throttle concurrency, fan-out, or worker count. Per user
+   * direction 2026-06-28: "效率比省钱更重要，是在效率达到最大值的时
+   * 候，再去考虑经济问题" (efficiency first; economy is only considered
+   * after efficiency is maxed out).
+   *
+   * Concurrency is governed by:
+   *   - `swarmMode` (project-policy opt-out for the swarm subgraph),
+   *   - `fanout.defaultMode` (HARD constraint: `'fan-out'` per slice
+   *     2026-06-24-audit-5th-p2),
+   *   - the slice DAG leaf count (≥ 2 leaves at one topological level
+   *     forces parallel dispatch via `peaks sub-agent dispatch --from-dag`).
+   *
+   * Even with `economyMode: true` AND `swarmMode: false`, a 2-leaf DAG
+   * MUST dispatch in parallel — the `fanout-mandatory` rule is
+   * unconditional. Economy ≠ concurrency.
+   */
   readonly economyMode: boolean;
+  /**
+   * Slice 2026-06-28: swarmMode controls whether the swarm subgraph
+   * (peaks-rd/qa worker graph) is generated at all. It does NOT
+   * control fan-out. Fan-out is governed by the slice DAG + the
+   * `fanout.defaultMode` preference; swarmMode only decides the
+   * dispatch *shape* (worker graph vs flat dispatch).
+   */
   readonly swarmMode: boolean;
   readonly uaPrompt: UaPromptDecision;
   readonly agentShieldPrompt: UaPromptDecision;

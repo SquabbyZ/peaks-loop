@@ -67,16 +67,27 @@ describe('shouldAutoProceed — D5.a', () => {
 });
 
 describe('shouldPauseAtGate — 4 modes × 14 GATED_STEPS (56 cases)', () => {
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #1): hard-pause
+  // steps (mode/context selection) ALWAYS pause regardless of mode.
+  const HARD_PAUSE_STEP_SET: ReadonlySet<GatedStepId> = new Set<GatedStepId>([
+    'step-1-mode-select',
+    'step-0.5-openspec-opt-in',
+    'step-0.7-resume-detection'
+  ]);
   for (const mode of SOLO_MODES) {
     for (const step of GATED_STEPS) {
       test(`mode=${mode} step=${step} → expected pause`, () => {
         const decision = shouldPauseAtGate({ mode, step });
-        if (AUTO_MODES.includes(mode)) {
+        if (HARD_PAUSE_STEP_SET.has(step)) {
+          // Mode-selection steps always pause, regardless of mode.
+          expect(decision.shouldPause).toBe(true);
+          expect(decision.gateKind).toBe('mode-selection-itself');
+        } else if (AUTO_MODES.includes(mode)) {
           expect(decision.shouldPause).toBe(false);
-          expect(decision.reason).toContain('auto-decision');
+          expect(decision.gateKind).toBe('mode-driven');
         } else {
           expect(decision.shouldPause).toBe(true);
-          expect(decision.reason).toContain('pause');
+          expect(decision.gateKind).toBe('mode-driven');
         }
         expect(decision.hardFloorCategory).toBeUndefined();
       });
@@ -88,9 +99,10 @@ describe('shouldPauseAtGate — hard-floor always wins (D5.b)', () => {
   for (const category of HARD_FLOOR_CATEGORIES) {
     for (const mode of SOLO_MODES) {
       test(`mode=${mode} + hard-floor=${category} → ALWAYS pause`, () => {
-        const decision = shouldPauseAtGate({ mode, step: 'step-1-mode-select', hardFloorCategory: category });
+        const decision = shouldPauseAtGate({ mode, step: 'phase-2-prd-confirm', hardFloorCategory: category });
         expect(decision.shouldPause).toBe(true);
         expect(decision.hardFloorCategory).toBe(category);
+        expect(decision.gateKind).toBe('hard-floor');
         expect(decision.reason).toContain('hard-floor');
       });
     }
@@ -99,13 +111,16 @@ describe('shouldPauseAtGate — hard-floor always wins (D5.b)', () => {
 
 describe('shouldPauseAtGate — invalid hard-floor is ignored (caller should validate)', () => {
   test('unknown hard-floor string is treated as no hard-floor (mode wins)', () => {
+    // Use a non-hard-pause step so the test isolates the hard-floor
+    // path (otherwise step-1-mode-select's hard-pause would win).
     const decision = shouldPauseAtGate({
       mode: 'full-auto',
-      step: 'step-1-mode-select',
+      step: 'phase-2-prd-confirm',
       hardFloorCategory: 'unknown-category' as HardFloorCategory
     });
     expect(decision.shouldPause).toBe(false);
     expect(decision.hardFloorCategory).toBeUndefined();
+    expect(decision.gateKind).toBe('mode-driven');
   });
 });
 

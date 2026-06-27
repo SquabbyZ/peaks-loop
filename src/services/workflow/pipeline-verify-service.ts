@@ -53,6 +53,16 @@ export type PipelineVerification = {
   acceptedForm?: 'suffixed' | 'legacy' | 'none';
   /** `gateC` is the pre-computed verdict string (AC7 dogfood shape). */
   gateC?: 'pass' | 'fail';
+  /**
+   * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
+   * every evidence file resolved on the canonical path
+   * (`.peaks/_runtime/change/<changeId>/...`). `false` when at least
+   * one evidence file resolved via a legacy fallback (`.peaks/<changeId>/...`
+   * or `.peaks/_runtime/<changeId>/...`). QA / TXT surface the value
+   * so users know to migrate via
+   * `peaks workspace migrate-change-scope --project . --apply`.
+   */
+  usedCanonicalPath?: boolean;
 };
 
 function extractState(markdown: string): string {
@@ -74,7 +84,17 @@ function extractState(markdown: string): string {
 async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; changeId: string } | null> {
   const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
   if (artifact === null) return null;
-  return { path: artifact.path, content: artifact.content, changeId: artifact.changeId };
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the legacy
+  // `showRequestArtifact` returns the FULL SCOPE (`_runtime/<sid>`)
+  // as `changeId`, not just the trailing id segment. The canonical
+  // evidence lookup needs only the bare id (`.peaks/_runtime/change/<id>/`).
+  // When the scope starts with `_runtime/`, strip that prefix so the
+  // path resolver builds the right canonical location.
+  let changeId = artifact.changeId;
+  if (changeId.startsWith('_runtime/') || changeId.startsWith('_runtime\\')) {
+    changeId = changeId.replace(/^_runtime[\\/]/, '');
+  }
+  return { path: artifact.path, content: artifact.content, changeId };
 }
 
 function rdGatesForType(requestType: RequestType): PipelineGate[] {
@@ -210,20 +230,52 @@ export async function verifyPipeline(options: {
     'code-review': 'code-review.md',
     'security-review': 'security-review.md'
   };
-  // The evidence dir: prefer the on-disk changeId; fall back to the
-  // caller's hint; final fallback to the requestId (back-compat for
-  // pre-1.3.0 trees where the file lived under .peaks/_runtime/<rid>/).
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
+  // evidence location is `.peaks/_runtime/change/<changeId>/<role>/...`
+  // (per `change-scope-service.ts:32` + `getChangeScopeDirAbs`). The
+  // historical misplaced location `.peaks/<changeId>/rd/<file>` was a
+  // pre-1.3.0 write-path bug; this resolver checks canonical first
+  // and falls back to the legacy path during a 1-minor-release
+  // deprecation window so un-migrated workspaces still resolve. When
+  // the fallback fires, the gate detail / nextActions surface the
+  // `DEPRECATION_LEGACY_PATH_USED` warning.
   const rdEvidenceDir = resolvedChangeId || options.changeId || options.rid;
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): track whether
+  // every resolved evidence file landed on the canonical path. Drives
+  // the `usedCanonicalPath` envelope field. The flag stays `true` if
+  // no evidence file was resolved at all (nothing to be non-canonical
+  // about); it flips to `false` if any file resolves via legacy.
+  let anyEvidenceResolved = false;
+  let allResolvedPathsCanonical = true;
   for (const gate of rdGates.slice(1)) {
     const fileName = RD_EVIDENCE_FILE[gate.name]!;
-    const evidencePath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'rd', fileName);
-    if (existsSync(evidencePath)) {
+    const canonicalPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'rd', fileName);
+    const legacyMisplacedPath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'rd', fileName);
+    // The other legacy form some pre-1.3.0 trees used (sibling of
+    // `_runtime/`). Both are migration targets for
+    // `peaks workspace migrate-change-scope`.
+    const legacyTopLevelPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'rd', fileName);
+    let resolvedPath: string | null = null;
+    let usedLegacy = false;
+    for (const candidate of [canonicalPath, legacyMisplacedPath, legacyTopLevelPath]) {
+      if (existsSync(candidate)) {
+        resolvedPath = candidate;
+        usedLegacy = candidate !== canonicalPath;
+        break;
+      }
+    }
+    if (resolvedPath !== null) {
+      anyEvidenceResolved = true;
+      if (usedLegacy) allResolvedPathsCanonical = false;
       gate.passed = true;
-      gate.detail = evidencePath;
+      gate.detail = resolvedPath + (usedLegacy ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
+      if (usedLegacy) {
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/change/${rdEvidenceDir}/rd/`);
+      }
     } else {
-      gate.detail = `missing: ${evidencePath}`;
+      gate.detail = `missing: ${canonicalPath}`;
       violations.push(`RD evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/rd/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/change/${rdEvidenceDir}/rd/${fileName}`);
     }
   }
 
@@ -269,6 +321,8 @@ export async function verifyPipeline(options: {
       const resolver = gate.name === 'security-findings' ? resolveSecurityFindingsPath : resolvePerformanceFindingsPath;
       const resolved = resolver({ projectRoot: options.projectRoot, changeId: changeIdForResolver, rid: options.rid });
       if (existsSync(resolved.path)) {
+        anyEvidenceResolved = true;
+        if (resolved.form === 'legacy') allResolvedPathsCanonical = false;
         gate.passed = true;
         gate.detail = resolved.path;
         if (resolved.form === 'legacy') {
@@ -285,14 +339,30 @@ export async function verifyPipeline(options: {
       continue;
     }
     const fileName = QA_EVIDENCE_FILE[gate.name]!;
-    const evidencePath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'qa', fileName);
-    if (existsSync(evidencePath)) {
+    const canonicalQaPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'qa', fileName);
+    const legacyMisplacedQaPath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'qa', fileName);
+    const legacyTopLevelQaPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'qa', fileName);
+    let resolvedQaPath: string | null = null;
+    let usedLegacyQa = false;
+    for (const candidate of [canonicalQaPath, legacyMisplacedQaPath, legacyTopLevelQaPath]) {
+      if (existsSync(candidate)) {
+        resolvedQaPath = candidate;
+        usedLegacyQa = candidate !== canonicalQaPath;
+        break;
+      }
+    }
+    if (resolvedQaPath !== null) {
+      anyEvidenceResolved = true;
+      if (usedLegacyQa) allResolvedPathsCanonical = false;
       gate.passed = true;
-      gate.detail = evidencePath;
+      gate.detail = resolvedQaPath + (usedLegacyQa ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
+      if (usedLegacyQa) {
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedQaPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\``);
+      }
     } else {
-      gate.detail = `missing: ${evidencePath}`;
+      gate.detail = `missing: ${canonicalQaPath}`;
       violations.push(`QA evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/qa/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/change/${rdEvidenceDir}/qa/${fileName}`);
     }
   }
 
@@ -374,6 +444,25 @@ export async function verifyPipeline(options: {
           : 'suffixed';
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
 
+  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
+  // every gate resolved on the canonical path; `false` when at least
+  // one fell back to a legacy form. QA / TXT surface the value so the
+  // user knows to run `peaks workspace migrate-change-scope --apply`.
+  //
+  // Implementation note: use the in-loop flag `allResolvedPathsCanonical`
+  // (correctly updated by both the inline evidence loop AND the
+  // artifact-paths resolver for security/performance findings), not a
+  // string-scan over `gate.detail`. The string-scan approach misses the
+  // artifact-paths legacy branch (it does NOT inject the
+  // `DEPRECATION_LEGACY_PATH_USED` suffix into gate.detail).
+  //
+  // If NO evidence file resolved (e.g. all gates missing), the field is
+  // `true` — there is nothing non-canonical to worry about. If every
+  // resolved gate was skipped via `peaks workflow skip`, the field is
+  // `true` — the user opted out of the canonical/legacy decision.
+  const allGatesSkipped = [...rdGates, ...qaGates].every((g) => g.status === 'skipped');
+  const usedCanonicalPath = !anyEvidenceResolved || allGatesSkipped || allResolvedPathsCanonical;
+
   return {
     rid: options.rid,
     changeId: resolvedChangeId,
@@ -384,6 +473,7 @@ export async function verifyPipeline(options: {
     violations,
     nextActions,
     acceptedForm,
-    gateC
+    gateC,
+    usedCanonicalPath
   };
 }

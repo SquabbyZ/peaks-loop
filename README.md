@@ -175,7 +175,7 @@ peaks project dashboard --project . --json   # 当前项目一眼看完
 
 **3 solo 包装 + 7 角色技能 + 2 独立审计 + 1 编排器 = 13 个。日常 1 个 `peaks-solo` 覆盖 ≥ 90%。**
 
-> **v2.13.0 新增**：zero-human-intervention **auto-compact**（`peaks solo context-now` + `peaks solo auto-compact`）——peaks-cli 自己探测 context %，≥85% 主动收敛（写 checkpoint + 收敛计划 + 触发 IDE compact），≥95% 强制同步压缩红线。LLM-runner 上下文始终 < 95% 自主运行，零介入。
+> **v2.13.0 新增**：zero-human-intervention **auto-compact**（`peaks solo context-now` + `peaks solo auto-compact`）——peaks-cli 自己探测 context %，≥85% 主动收敛（写 checkpoint + 收敛计划 + 触发 IDE compact），≥95% 强制同步压缩红线。LLM-runner 上下文始终 < 95% 自主运行，零介入。**v2.13.4 修复**：`auto-compact` 现在默认压缩**主会话**上下文（不是 sub-agent shell 自己的），通过写 `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` 意图文件让主 LLM 下一轮 in-band 触发 `/compact`。
 
 ## 🚧 杀手锏：不可绕过的门禁
 
@@ -335,6 +335,7 @@ peaks gate bypass --sop <id> --phase <phase> --reason "<why>"
 - ✅ **门禁机制** 已在真实项目 dogfood
 - ✅ **v2.12.0 RD fan-out 收缩**（3 路：code-reviewer + qa-test-cases-writer + karpathy-reviewer）2026-06-27 发布
 - ✅ **v2.13.0 零介入 auto-compact**（peaks-cli 自主压缩任意 AI CLI 的上下文，runner 始终 < 95%）2026-06-27 发布
+- ✅ **v2.13.4 4 个 solo bug 修复**：Step 1 AskUserQuestion 不再被跳过、verify-pipeline 走 canonical `.peaks/_runtime/change/<id>/` 路径、`peaks workspace migrate-change-scope` 一次性迁移历史 misplaced 数据、auto-compact 真正压主会话上下文
 - 📋 路线图：Trae / Codex / Cursor 真实集成、`peaks-doc` / `peaks-i18n`、SOP 模板市场
 
 详细看 [`CHANGELOG.md`](./CHANGELOG.md) 和 [`docs/`](./docs/)。

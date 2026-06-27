@@ -85,6 +85,16 @@ const KEEP_DESCRIPTIONS: ReadonlyArray<{ file: string; anchor: string }> = [
     file: 'src/cli/commands/workspace/init-command.ts',
     anchor: 'NOT a sibling dir at .peaks/_runtime/<change-id>/',
   },
+  // workflow/verify-pipeline: document the canonical look-up location
+  // (slice 2026-06-28-solo-mode-bypass-fix defect #3). The literal
+  // `.peaks/_runtime/change/<changeId>/` is the CANONICAL shape (under
+  // `.peaks/_runtime/`), NOT the banned sibling form, but the directive
+  // pattern matches any `<...>`-bracketed path so we keep-list the
+  // description explicitly.
+  {
+    file: 'src/cli/commands/workflow-commands.ts',
+    anchor: 'Scans `.peaks/_runtime/change/<changeId>/`',
+  },
 ];
 
 /**
