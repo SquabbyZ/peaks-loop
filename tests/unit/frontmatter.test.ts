@@ -45,4 +45,21 @@ describe('parseFrontmatter', () => {
   test('throws when name is missing', () => {
     expect(() => parseFrontmatter(`---\ndescription: Demo\n---\n# Demo\n`)).toThrow('Missing required frontmatter field: name');
   });
+
+  test('flattens nested metadata keys (v2.12.0 skill-versioning contract)', () => {
+    const frontmatter = parseFrontmatter(`---\nname: demo\ndescription: Demo skill\nmetadata:\n  appliesTo: peaks-cli v2.12.0+\n  replaces: peaks-rd security-reviewer slot\n---\n# Demo\n`);
+
+    expect(frontmatter['metadata.appliesTo']).toBe('peaks-cli v2.12.0+');
+    expect(frontmatter['metadata.replaces']).toBe('peaks-rd security-reviewer slot');
+  });
+
+  test('flattens metadata lists (sources, deps) as comma-joined strings', () => {
+    const frontmatter = parseFrontmatter(`---\nname: demo\ndescription: Demo skill\nmetadata:\n  sources:\n    - handoff: foo\n    - template: bar\n---\n# Demo\n`);
+
+    expect(frontmatter['metadata.sources']).toBe('handoff: foo, template: bar');
+  });
+
+  test('still rejects genuinely malformed lines after flattening', () => {
+    expect(() => parseFrontmatter(`---\nname: demo\ndescription: Demo\nno-colon-here\n---\n`)).toThrow('Invalid frontmatter line');
+  });
 });

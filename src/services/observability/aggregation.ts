@@ -70,12 +70,16 @@ const TERMINAL_FAIL_STATES: ReadonlySet<string> = new Set(['blocked']);
 /** RD/QA repair-loop cap (matches the peaks-solo repair-loop contract). */
 export const REPAIR_CYCLE_CAP = 3;
 
+// v2.12.0 fan-out collapse: see OBSERVABILITY_SUBAGENT_ROLES for the
+// rationale on why `security-reviewer` was dropped and `peaks-security-audit`
+// + `peaks-perf-audit` were added.
 const ZERO_FANOUT: Record<ObservabilitySubagentRole, number> = {
   'rd': 0,
   'qa': 0,
   'code-reviewer': 0,
-  'security-reviewer': 0,
-  'karpathy-reviewer': 0
+  'karpathy-reviewer': 0,
+  'peaks-security-audit': 0,
+  'peaks-perf-audit': 0
 };
 
 // ----- internal helpers -----

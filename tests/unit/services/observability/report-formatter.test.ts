@@ -33,7 +33,7 @@ function baseInput(overrides: Partial<Parameters<typeof renderObservabilityRepor
     slices: [],
     fanout: {
       total: 0,
-      perRole: { 'rd': 0, 'qa': 0, 'code-reviewer': 0, 'security-reviewer': 0, 'karpathy-reviewer': 0 }
+      perRole: { 'rd': 0, 'qa': 0, 'code-reviewer': 0, 'karpathy-reviewer': 0, 'peaks-security-audit': 0, 'peaks-perf-audit': 0 }
     },
     repairCycles: { totalCycles: 0, cap: 3, capHit: false, capHitCount: 0, perSlice: [] },
     ...overrides
@@ -94,7 +94,7 @@ describe('renderObservabilityReport', () => {
   test('fanout table omits zero-count roles and shows total row', () => {
     const fanout: FanoutBreakdown = {
       total: 5,
-      perRole: { 'rd': 2, 'qa': 1, 'code-reviewer': 0, 'security-reviewer': 0, 'karpathy-reviewer': 2 }
+      perRole: { 'rd': 2, 'qa': 1, 'code-reviewer': 0, 'karpathy-reviewer': 2, 'peaks-security-audit': 0, 'peaks-perf-audit': 0 }
     };
     const md = renderObservabilityReport(baseInput({ fanout }));
     expect(md).toContain('| rd | 2 |');
@@ -144,7 +144,7 @@ describe('renderObservabilityReport', () => {
       slices: [
         { sliceRid: '001', transitions: 2, firstTs: 't1', lastTs: 't2', durationMs: 60_000, finalState: 'handed-off', fanoutCount: 0, repairCycleCount: 0, success: true }
       ],
-      fanout: { total: 1, perRole: { 'rd': 1, 'qa': 0, 'code-reviewer': 0, 'security-reviewer': 0, 'karpathy-reviewer': 0 } },
+      fanout: { total: 1, perRole: { 'rd': 1, 'qa': 0, 'code-reviewer': 0, 'karpathy-reviewer': 0, 'peaks-security-audit': 0, 'peaks-perf-audit': 0 } },
       repairCycles: { totalCycles: 1, cap: 3, capHit: false, capHitCount: 0, perSlice: [{ sliceRid: '001', cycleCount: 1 }] }
     }));
     const headerIdx = md.indexOf('# peaks observability report');

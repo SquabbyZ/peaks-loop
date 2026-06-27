@@ -1,13 +1,13 @@
 ---
 name: peaks-perf-audit
-description: Independent performance audit skill. Reads the immutable peaks-prd handoff + the project-level perf-template.md, performs a 6-dimension perf audit, and writes a structured envelope to `.peaks/_runtime/<sid>/audit/perf-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). Use when the slice introduces CPU-bound hot loops, I/O throughput changes, memory allocation patterns, concurrency model changes, bundle size deltas, or cold-start costs.
+description: Independent performance audit skill. Reads the immutable peaks-prd handoff + the project-level perf-template.md, performs a 6-dimension perf audit, and writes a structured envelope to `.peaks/_runtime/<sessionId>/audit/perf-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). Use when the slice introduces CPU-bound hot loops, I/O throughput changes, memory allocation patterns, concurrency model changes, bundle size deltas, or cold-start costs.
 metadata:
   appliesTo: peaks-cli v2.12.0+
   replaces: peaks-rd 5-way fan-out perf-baseline-reviewer slot (per AC-3.x)
   sources:
-    - handoff: .peaks/_runtime/<sid>/prd/handoff.md (sha256-locked, schemaVersion: 2)
+    - handoff: .peaks/_runtime/<sessionId>/prd/handoff.md (sha256-locked, schemaVersion: 2)
     - template: .peaks/project-scan/perf-template.md (git-tracked, schemaVersion: 1)
-    - output: .peaks/_runtime/<sid>/audit/perf-<rid>.md (frontmatter schemaVersion: 1)
+    - output: .peaks/_runtime/<sessionId>/audit/perf-<rid>.md (frontmatter schemaVersion: 1)
     - schema: .peaks/project-scan/audit-output-schema.md
 ---
 

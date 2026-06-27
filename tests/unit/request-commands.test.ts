@@ -493,7 +493,13 @@ describe('peaks request transition command', () => {
     // (v2.11.0 Group A: rd/tech-doc.md removed from FEATURE_TABLE rd:qa-handoff prereqs.
     // The new gate is peaks-prd's prd/handoff.md, which Group B will introduce.)
     expect(paths).toContain('rd/code-review.md');
-    expect(paths).toContain('rd/security-review.md');
+    // v2.12.0 fan-out collapse: security-review moved to standalone
+    // audit skill (path: audit/security.md). The legacy rd/security-review.md
+    // is accepted via AUDIT_SECURITY.mustContainAny during the 1-minor
+    // back-compat window — it shows up as a `legacyFallback` candidate,
+    // not in the missing list (the audit path is the canonical gate).
+    expect(paths).toContain('audit/security.md');
+    expect(paths).toContain('audit/perf.md');
   });
 
   test('rejects --allow-incomplete when --reason is not provided', async () => {

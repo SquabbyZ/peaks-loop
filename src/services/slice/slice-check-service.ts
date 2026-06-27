@@ -184,8 +184,20 @@ async function runUnitTests(projectRoot: string, runTests: boolean): Promise<Sli
 
 const REVIEW_FILES = [
   { name: 'code-review', path: 'rd/code-review.md', label: 'code-review' },
-  { name: 'security-review', path: 'rd/security-review.md', label: 'security-review' },
-  { name: 'perf-baseline', path: 'rd/perf-baseline.md', label: 'perf-baseline' }
+  // v2.12.0 collapse: security + perf moved to standalone audit skills.
+  // `slice check` accepts EITHER the v2.11.x legacy path OR the v2.12.0
+  // canonical audit path during the 1-minor-release back-compat window
+  // (v2.13.0 hard-deletes the legacy paths — see CHANGELOG [2.12.0]).
+  {
+    name: 'security-review',
+    paths: ['audit/security.md', 'rd/security-review.md'],
+    label: 'security-review'
+  },
+  {
+    name: 'perf-baseline',
+    paths: ['audit/perf.md', 'rd/perf-baseline.md'],
+    label: 'perf-baseline'
+  }
 ] as const;
 
 async function runReviewFanout(
@@ -222,15 +234,23 @@ async function runReviewFanout(
   const found: Array<{ name: string; path: string; bytes: number; scope: string }> = [];
   for (const review of REVIEW_FILES) {
     let hit: { abs: string; scope: string; bytes: number } | null = null;
-    for (const scope of scopes) {
-      const abs = join(projectRoot, '.peaks', scope, review.path);
-      if (existsSync(abs)) {
-        const bytes = statSync(abs).size;
-        if (bytes >= 20) {
-          hit = { abs, scope, bytes };
-          break;
+    // v2.12.0 back-compat: each entry may list multiple candidate paths.
+    // First hit (in declared order) wins; canonical paths come first so
+    // v2.12.0+ slices preferentially report the new path even when both
+    // are present during migration.
+    const candidates = 'path' in review ? [review.path] : review.paths;
+    for (const candidate of candidates) {
+      for (const scope of scopes) {
+        const abs = join(projectRoot, '.peaks', scope, candidate);
+        if (existsSync(abs)) {
+          const bytes = statSync(abs).size;
+          if (bytes >= 20) {
+            hit = { abs, scope, bytes };
+            break;
+          }
         }
       }
+      if (hit !== null) break;
     }
     if (hit === null) {
       missing.push(review.label);

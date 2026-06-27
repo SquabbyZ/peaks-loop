@@ -217,6 +217,83 @@ describe('sliceCheck', () => {
       expect(fanout?.status).toBe('skipped');
       expect(fanout?.detail).toContain('peaks-rd');
     });
+
+    test('v2.12.0 back-compat: accepts audit/security.md as canonical for security-review', async () => {
+      // Drop the legacy v2.11.x path and write the v2.12.0 canonical
+      // audit path instead. slice-check should still pass.
+      const reviewDir = join(project, '.peaks', '2026-06-05-test', 'rd');
+      const auditDir = join(project, '.peaks', '2026-06-05-test', 'audit');
+      const { rmSync, mkdirSync: mkdir } = await import('node:fs');
+      rmSync(join(reviewDir, 'security-review.md'));
+      mkdir(auditDir, { recursive: true });
+      writeFileSync(join(auditDir, 'security.md'), '# Security Audit\n\n## Verdict\n\npass\n\n## Findings\n\n- none\n');
+
+      const result = await sliceCheck({
+        projectRoot: project,
+        rid: '2026-06-05-test',
+        refreshFanout: false,
+        skipTests: true
+      });
+
+      const fanout = result.stages.find((s) => s.name === 'review-fanout');
+      expect(fanout?.status).toBe('pass');
+      expect(fanout?.detail).toContain('All 3 review artifacts present');
+      const found = (fanout?.data as any)?.found as Array<{ name: string; path: string }> | undefined;
+      const securityHit = found?.find((f) => f.name === 'security-review');
+      const segs = securityHit?.path?.split(/[\\/]/g) ?? [];
+      expect(segs).toContain('audit');
+      expect(segs).toContain('security.md');
+    });
+
+    test('v2.12.0 back-compat: accepts audit/perf.md as canonical for perf-baseline', async () => {
+      const reviewDir = join(project, '.peaks', '2026-06-05-test', 'rd');
+      const auditDir = join(project, '.peaks', '2026-06-05-test', 'audit');
+      const { rmSync, mkdirSync: mkdir } = await import('node:fs');
+      rmSync(join(reviewDir, 'perf-baseline.md'));
+      mkdir(auditDir, { recursive: true });
+      writeFileSync(join(auditDir, 'perf.md'), '# Perf Audit\n\n## Verdict\n\npass\n\n## Findings\n\n- none\n');
+
+      const result = await sliceCheck({
+        projectRoot: project,
+        rid: '2026-06-05-test',
+        refreshFanout: false,
+        skipTests: true
+      });
+
+      const fanout = result.stages.find((s) => s.name === 'review-fanout');
+      expect(fanout?.status).toBe('pass');
+      const found = (fanout?.data as any)?.found as Array<{ name: string; path: string }> | undefined;
+      const perfHit = found?.find((f) => f.name === 'perf-baseline');
+      const segs = perfHit?.path?.split(/[\\/]/g) ?? [];
+      expect(segs).toContain('audit');
+      expect(segs).toContain('perf.md');
+    });
+
+    test('canonical path wins over legacy when both present', async () => {
+      // Write BOTH paths; canonical (audit/) comes first in the
+      // candidate list, so the audit path is the recorded hit.
+      const reviewDir = join(project, '.peaks', '2026-06-05-test', 'rd');
+      const auditDir = join(project, '.peaks', '2026-06-05-test', 'audit');
+      const { mkdirSync: mkdir } = await import('node:fs');
+      mkdir(auditDir, { recursive: true });
+      writeFileSync(join(auditDir, 'security.md'), '# Security Audit\n\npass\n');
+      // legacy file already written in beforeEach; keep it.
+
+      const result = await sliceCheck({
+        projectRoot: project,
+        rid: '2026-06-05-test',
+        refreshFanout: false,
+        skipTests: true
+      });
+
+      const fanout = result.stages.find((s) => s.name === 'review-fanout');
+      expect(fanout?.status).toBe('pass');
+      const found = (fanout?.data as any)?.found as Array<{ name: string; path: string }> | undefined;
+      const securityHit = found?.find((f) => f.name === 'security-review');
+      const segs = securityHit?.path?.split(/[\\/]/g) ?? [];
+      expect(segs).toContain('audit');
+      expect(segs).toContain('security.md');
+    });
   });
 
   describe('skipTests', () => {

@@ -146,7 +146,7 @@ describe('aggregateFanout', () => {
   test('returns zeros for no dispatch events', () => {
     expect(aggregateFanout([])).toEqual({
       total: 0,
-      perRole: { 'rd': 0, 'qa': 0, 'code-reviewer': 0, 'security-reviewer': 0, 'karpathy-reviewer': 0 }
+      perRole: { 'rd': 0, 'qa': 0, 'code-reviewer': 0, 'karpathy-reviewer': 0, 'peaks-security-audit': 0, 'peaks-perf-audit': 0 }
     });
   });
 
@@ -165,7 +165,8 @@ describe('aggregateFanout', () => {
     expect(f.perRole.qa).toBe(1);
     expect(f.perRole['karpathy-reviewer']).toBe(1);
     expect(f.perRole['code-reviewer']).toBe(0);
-    expect(f.perRole['security-reviewer']).toBe(0);
+    expect(f.perRole['peaks-security-audit']).toBe(0);
+    expect(f.perRole['peaks-perf-audit']).toBe(0);
   });
 
   test('ignores dispatch events without a role field', () => {

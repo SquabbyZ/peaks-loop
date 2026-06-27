@@ -35,12 +35,20 @@ export const OBSERVABILITY_CATEGORIES = [
 ] as const;
 export type ObservabilityCategory = typeof OBSERVABILITY_CATEGORIES[number];
 
+// v2.12.0 fan-out collapse: `security-reviewer` (in-process RD slot)
+// moved out to the standalone `peaks-security-audit` skill; the matching
+// perf slot was `perf-baseline-reviewer` which is replaced by the
+// standalone `peaks-perf-audit` skill. The 1-minor-release back-compat
+// window keeps `security-reviewer` readable as a deprecated alias (see
+// the dispatcher in `src/services/rd/reviewer-dispatch-policy.ts`);
+// observability drops it because no new events carry that role tag.
 export const OBSERVABILITY_SUBAGENT_ROLES = [
   'rd',
   'qa',
   'code-reviewer',
-  'security-reviewer',
-  'karpathy-reviewer'
+  'karpathy-reviewer',
+  'peaks-security-audit',
+  'peaks-perf-audit'
 ] as const;
 export type ObservabilitySubagentRole = typeof OBSERVABILITY_SUBAGENT_ROLES[number];
 

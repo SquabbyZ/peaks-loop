@@ -242,7 +242,7 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
   addJsonOption(
     observability
       .command('fanout')
-      .description('Fanout cost breakdown by sub-agent role (rd / qa / code-reviewer / security-reviewer / karpathy-reviewer). Returns 0 per role until Slice C wires the `peaks sub-agent dispatch` hook.')
+      .description('Fanout cost breakdown by sub-agent role (rd / qa / code-reviewer / karpathy-reviewer / peaks-security-audit / peaks-perf-audit; v2.12.0 collapse — `security-reviewer` removed from the role enum). Returns 0 per role until Slice C wires the `peaks sub-agent dispatch` hook.')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--session <sessionId>', 'scope to one session (defaults to the canonical session binding)')
   ).action((options: { project?: string; session?: string; json?: boolean }) => {
