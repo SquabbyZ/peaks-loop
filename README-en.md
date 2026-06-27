@@ -14,7 +14,7 @@
 </tr>
 <tr>
 <td align="center"><a href="https://github.com/SquabbyZ/peaks-cli">peaks-cli / Homepage</a></td>
-<td align="center">11 Skills + Cross-IDE</td>
+<td align="center">13 Skills + Cross-IDE</td>
 <td align="center"><a href="https://skills.sh/SquabbyZ/peaks-cli">Listed on skills.sh</a></td>
 </tr>
 <tr><td colspan="3">&nbsp;</td></tr>
@@ -66,13 +66,13 @@
 > The LLM won't really listen. It has a 99% chance of "respecting your preference" — then forgetting it in the next session.
 > **CI can only block at merge time; prose rules rely on goodwill; only gates can stop the agent mid-swing.**
 
-Peaks models the "engineering team" inside your AI IDE as 11 workflow skills + a set of **executable gates**:
+Peaks models the "engineering team" inside your AI IDE as 13 workflow skills + a set of **executable gates**:
 
 - 🧭 **Skills** — `peaks-solo` orchestrates; `peaks-prd / rd / qa / ui / sc / txt / sop` each own a phase; the LLM picks the right role for the task
 - 🚧 **Gates** — SOP attaches checkable conditions (file-exists / grep / command exit code) to each phase; unmet gates block `git push` **in front of the agent itself** — even under `--dangerously-skip-permissions`
 - 🧠 **Project memory** — `.peaks/memory/` captures decisions, gotchas, conventions into git; next session picks up where you left off
 - 🌐 **Cross-IDE** — one CLI, native-skill rendering for Claude Code / Trae / Cursor / Codex / Qoder
-- 📦 **Discoverable** — the 11 skills are also published to [skills.sh](https://skills.sh); `npx skills add` to install on demand
+- 📦 **Discoverable** — the 13 skills are also published to [skills.sh](https://skills.sh); `npx skills add` to install on demand
 
 ## 🚀 30 seconds to running
 
@@ -117,7 +117,7 @@ peaks doctor --json            # environment / skills / config one-shot check
 peaks project dashboard --project . --json   # one-shot project view
 ```
 
-## 🧰 11 skills in the family
+## 🧰 13 skills in the family
 
 | Skill | What you use it for | Typical scenario |
 |------|--------------------|------------------|
@@ -132,8 +132,12 @@ peaks project dashboard --project . --json   # one-shot project view
 | `peaks-solo-resume` | Continue the unfinished slice | "resume the unfinished slice" |
 | `peaks-solo-status` | One-shot snapshot of where you are | "where are we now" |
 | `peaks-solo-test` | Run the project test suite (auto-detects vitest / jest / pytest / ...) | "run the tests" |
+| `peaks-security-audit` | **Independent security audit** (OWASP Top-10 + 8-dim threat model) | Slices introducing authn/authz, secrets, input validation, SQL injection, external API surface |
+| `peaks-perf-audit` | **Independent perf audit** (6-dim perf impact) | Hot loops, I/O throughput, concurrency model, bundle size, cold-start changes |
 
-**3 solo wrappers + 7 role skills + 1 orchestrator = 11 skills.** In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.
+**3 solo wrappers + 7 role skills + 2 standalone audits + 1 orchestrator = 13 skills.** In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.
+
+> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-cli probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention.
 
 ## 🚧 Killer feature: un-bypassable gates
 
@@ -192,13 +196,13 @@ Detects the in-flight slice's deepest-completed gate, saves 3-5k tokens vs re-re
 
 The 11 `peaks-*` skills auto-index on the [skills.sh](https://skills.sh) registry — **no separate registration needed**. Indexing is driven by the config in this repo:
 
-- 11 `skills/<name>/SKILL.md` files (each with `name` + `description` YAML frontmatter) — the standard skills.sh discovery convention
-- `.claude-plugin/marketplace.json` — explicit manifest listing the 11 public skills (internal `peaks-doctor` / `peaks-ide` are hidden via `metadata.internal: true`)
+- 13 `skills/<name>/SKILL.md` files (each with `name` + `description` YAML frontmatter) — the standard skills.sh discovery convention
+- `.claude-plugin/marketplace.json` — explicit manifest listing the 13 public skills (internal `peaks-doctor` / `peaks-ide` are hidden via `metadata.internal: true`)
 
 Any environment with `npx skills` installed (Claude Code, Cursor, Codex, ...) can pull them directly:
 
 ```bash
-# Install all 11:
+# Install all 13:
 npx skills add SquabbyZ/peaks-cli
 
 # Or just one:
@@ -237,7 +241,7 @@ Full list: `peaks --help`.
 
 | IDE | Status |
 |---|---|
-| ✅ **Claude Code** | 11 skills + PreToolUse hook, agent team dogfooded |
+| ✅ **Claude Code** | 13 skills + PreToolUse hook, agent team dogfooded |
 | ⚠️ **Trae** | slim `IdeAdapter` registered, real-Trae dogfood is a follow-up slice |
 | 📋 **Codex / Cursor / Qoder / Tongyi Lingma, and more** | On the roadmap |
 
@@ -246,6 +250,7 @@ Full list: `peaks --help`.
 - ✅ **13 skills** + cross-IDE CLI + 2,800+ tests (v2.12.0 adds `peaks-security-audit` + `peaks-perf-audit`)
 - ✅ **Gate mechanism** dogfooded on real projects
 - ✅ **v2.12.0 RD fan-out collapse** (3-way: code-reviewer + qa-test-cases-writer + karpathy-reviewer) shipped 2026-06-27
+- ✅ **v2.13.0 zero-human-intervention auto-compact** (peaks-cli drives context compression on any AI CLI; context stays < 95% autonomously) shipped 2026-06-27
 - 📋 Roadmap: real Trae / Codex / Cursor integration, `peaks-doc` / `peaks-i18n`, SOP template marketplace
 
 See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.

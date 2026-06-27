@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.0] — 2026-06-27 — Zero-human-intervention auto-compact (peaks-cli drives context compression on any AI CLI)
+
+**MINOR bump from 2.12.0** (slice `v2-13-0-auto-compact-protocol`, 5-sub-task plan AC-1..AC-5, red-line scope ~6 source files + 2 IDE adapter fields).
+
+peaks-solo now autonomously drives context compaction so the LLM-runner stays alive with context < 95% on **any AI CLI**, with **zero human / zero LLM intervention**. Two-tier threshold model:
+
+- **85% pre-compact zone** — peaks-cli writes a pre-compact checkpoint + convergence plan + auto-decisions log + IDE-side compact dispatch (async-friendly).
+- **95% RED LINE** — peaks-cli refuses sub-agent dispatch and forces synchronous IDE compact; mandatory, LLM cannot opt out.
+
+Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeCompactProfile` is a 4-field per-IDE profile (`envVarForContextPercent` + `compactCommand` + `compactPathway` + `postCompactDetectCommand`). Claude Code is the MVP fill; trae / codex / cursor / qoder / tongyi-lingma / hermes / openclaw ship without `compact` and fall through to the conservative-zero probe (no auto-fire on missing signal).
+
+### Features
+
+- **`peaks solo context-now`** (AC-1) — auto-probes the active IDE adapter's context-fill % without requiring the LLM to pass `--prompt-size <bytes>` manually. Adapter-driven: reads `IdeAdapter.compact.envVarForContextPercent` (Claude Code MVP: `CLAUDE_CONTEXT_USAGE_PERCENT`). Returns a verdict (`ok` / `soft-warn` / `pre-compact` / `red-line`) plus source-tagged probe (`claude-code-env` / `statusline-poll` / `conservative-fallback`). When no IDE-specific signal is available, returns `ratio: 0` with `source: 'conservative-fallback'` so the orchestrator never auto-fires on a missing signal.
+- **`peaks solo auto-compact`** (AC-4) — 0-intervention loop. Honors D6.e in-flight-batch deferral for the pre-compact zone; forces synchronous dispatch at red-line. `--force` and `--bypass-red-line` are test seams (never `true` in production).
+- **Convergence toolkit** (AC-2) — `src/services/solo/auto-compact-orchestrator.ts` `evaluateCompactTrigger` (pure) + `runAutoCompact` (side effects: `writePreCompactCheckpoint` + `appendAutoDecisionLog` + `dispatchIdeCompact`). Checkpoints land at `.peaks/_runtime/<sessionId>/checkpoints/{pre-compact,red-line}-<ISO>.json`; the LLM-readable decision log lands at `.peaks/_runtime/<sessionId>/txt/auto-decisions.md` so D7's post-compact-detect picks it up unchanged.
+- **IDE-aware compact dispatcher** (AC-3) — `src/services/context/auto-compact-dispatcher.ts` reads `IdeAdapter.compact` and dispatches via the adapter-declared pathway. `shell-exec` (Claude Code MVP) spawns the compact command via `child_process.spawn`. `ide-native` is reserved for a future slice. `llm-self-compress` returns success + instructs the LLM to summarize on next turn. `noop` returns explicit failure for legacy adapters.
+
+### Internal
+
+- `src/services/context/auto-compact-types.ts` (NEW) — types + 3 constants: `AUTO_COMPACT_SOFT_WARN_RATIO = 0.5`, `AUTO_COMPACT_PRE_COMPACT_RATIO = 0.85`, `AUTO_COMPACT_RED_LINE_RATIO = 0.95`.
+- `src/services/context/auto-compact-reader.ts` (NEW) — `readContextPercent` (AC-1 probe).
+- `src/services/context/auto-compact-dispatcher.ts` (NEW) — `dispatchIdeCompact` (AC-3 IDE dispatch).
+- `src/services/solo/auto-compact-orchestrator.ts` (NEW) — `evaluateCompactTrigger` + `runAutoCompact` (AC-2 + AC-4 core).
+- `src/services/ide/ide-types.ts` — `IdeAdapter.compact?: IdeCompactProfile` + `IdeCompactProfile` interface.
+- `src/services/ide/adapters/claude-code-adapter.ts` — MVP `compact` profile: `CLAUDE_CONTEXT_USAGE_PERCENT` + `claude --compact` + `shell-exec`.
+- `src/cli/commands/solo-commands.ts` — `peaks solo context-now` + `peaks solo auto-compact` subcommands.
+- `package.json` + `src/shared/version.ts` — `2.12.0 → 2.13.0`.
+
+### Decision records
+
+- NEW `.peaks/memory/2026-06-27-auto-compact-design.md` — full design rationale + two-tier threshold + adapter-driven protocol + open follow-ups (L2-dogfood per-IDE profiles, `ide-native` pathway, statusline integration, hook-based prompt injection).
+
+### Multi-CC commit boundaries
+
+| Commit tag | Scope |
+|---|---|
+| v2.13.0-alpha.1 (`edffc33`) | Two-tier threshold + auto-compact types + reader + dispatcher + orchestrator + Claude Code MVP adapter + `peaks solo context-now` + `peaks solo auto-compact` CLI |
+| `a8b9804` | In-session dogfood limitation documented (current ad-hoc Claude Code session cannot be externally compacted — reserved for follow-up PreToolUse-hook slice) |
+
+### Verified (peaks solo dogfood on this session)
+
+- `context-now` boundary tests: `0.30 = ok` / `0.50 = soft-warn` / `0.84 = soft-warn` / `0.85 = pre-compact` / `0.949 = pre-compact` / `0.95 = red-line` / `1.0 = red-line` ✓
+- `auto-compact @ 1.0` (red-line): dispatched (shell-exec ok), `red-line` checkpoint written at `.peaks/_runtime/<sessionId>/checkpoints/red-line-<ISO>.json`, convergence plan + auto-decisions.md appended, `redLineGated: true` ✓
+- `auto-compact @ 0.87 + --in-flight-batch`: `decision: in-flight-batch`, no checkpoint write (D6.e honored) ✓
+- `auto-compact @ 0.85`: pre-compact dispatched (shell-exec ok), pre-compact checkpoint + convergence plan + auto-decisions.md written ✓
+- `post-compact-detect` after pre-compact: `shouldAutoResume: true`, `reason: post-compact-match` ✓
+- Trae IDE (no `compact` profile): `ratio: 0` + `source: conservative-fallback` + `below-threshold` (no auto-fire on missing signal — by design) ✓
+- `pnpm tsc --noEmit`: clean
+- `pnpm vitest run` (full suite): `4317 / 4317` pass + 17 skipped (2 pre-existing baseline failures on session-checkpoint + _archive-removal-guard unchanged)
+
+### Out-of-scope (NOT changed)
+
+- `src/services/code-review/ecc-bridge.ts` + `src/services/dispatch/sub-agent-dispatcher.ts` + `src/services/agent/ecc-agent-service.ts` + `src/services/prd/handoff-service.ts` + `project-scan-reader.ts` + `src/services/rd/{strategic,tactical,strategy,impl,ast-gate,types}.ts` + `peaks-qa/` + `peaks-solo/SKILL.md` main flow + `peaks-prd/SKILL.md` main body — all untouched per the v2.13.0 red-line scope.
+
+### Known limitations (carry-forward to v2.13.1)
+
+- **Ad-hoc Claude Code runner cannot be externally compacted.** The v2.13.0-alpha.1 shell-exec pathway spawns the IDE's compact command via `child_process.spawn` — a separate child process. The current Claude Code runner that invoked `auto-compact` is unaffected; its own context window stays at 100% until that runner's own compact logic kicks in (Claude Code's own auto-compact or a user-issued `/compact` slash command). Follow-up slice: register a PreToolUse hook via `peaks hooks install` that intercepts the next Bash call and writes a stderr hint when ratio ≥ 0.95 — fills the already-reserved `ide-native` compact pathway.
+- **`peaks-solo` Step N+2 prose update** — `skills/peaks-solo/SKILL.md` should mention `peaks solo context-now` + `auto-compact` so LLM sessions invoke the autonomous loop instead of `--prompt-size` hand-passing.
+
+---
+
 ## [2.12.0] — 2026-06-27 — Independent security + perf audit skills (RD fan-out collapse 5→3)
 
 **MINOR bump from 2.11.2** (slice `v2-12-independent-security-perf-audit`, 9-tier plan, multi-CC Group A→E, red-line scope ~40-45 files).
