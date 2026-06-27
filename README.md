@@ -324,8 +324,9 @@ peaks gate bypass --sop <id> --phase <phase> --reason "<why>"
 
 ## 🏗️ 项目状态
 
-- ✅ **11 技能** + 跨 IDE CLI + 2800+ 测试
+- ✅ **13 技能** + 跨 IDE CLI + 2800+ 测试（v2.12.0 新增 `peaks-security-audit` + `peaks-perf-audit`）
 - ✅ **门禁机制** 已在真实项目 dogfood
+- ✅ **v2.12.0 RD fan-out 收缩**（3 路：code-reviewer + qa-test-cases-writer + karpathy-reviewer）2026-06-27 发布
 - 📋 路线图：Trae / Codex / Cursor 真实集成、`peaks-doc` / `peaks-i18n`、SOP 模板市场
 
 详细看 [`CHANGELOG.md`](./CHANGELOG.md) 和 [`docs/`](./docs/)。

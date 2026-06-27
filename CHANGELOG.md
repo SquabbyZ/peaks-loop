@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.12.0] — 2026-06-27 — Independent security + perf audit skills (RD fan-out collapse 5→3)
+
+**MINOR bump from 2.11.2** (slice `v2-12-independent-security-perf-audit`, 9-tier plan, multi-CC Group A→E, red-line scope ~40-45 files).
+
+peaks-rd's parallel review fan-out collapsed from **5 sub-agents** to **3 sub-agents** by moving `security-reviewer` + `perf-baseline-reviewer` out of the fan-out into two new standalone audit skills (`peaks-security-audit` + `peaks-perf-audit`). The two removed slots are exposed as `RD_DEPRECATED_REVIEWERS` for the 1-minor-release back-compat window (v2.13.0 hard-deletes the legacy paths).
+
+### Features
+
+- **`peaks-security-audit` skill** (Group A — Tier 2) — standalone security audit skill. CLI: `peaks security-audit run`. Consumes the immutable peaks-prd handoff (`prd/handoff.md`) + the project-scoped audit template `.peaks/project-scan/security-template.md`. Writes `.peaks/_runtime/<sessionId>/audit/security.md`. Returns 3-state verdict (`pass` / `mitigated` / `blocked`). 6 unit-test cases.
+- **`peaks-perf-audit` skill** (Group A — Tier 3) — standalone perf audit skill. CLI: `peaks perf-audit run`. Consumes the immutable handoff + `.peaks/project-scan/perf-template.md`. Writes `.peaks/_runtime/<sessionId>/audit/perf.md`. 6 unit-test cases.
+- **Audit template files** (Group A — Tier 1, NEW) — `.peaks/project-scan/security-template.md` (4,285 bytes) + `.peaks/project-scan/perf-template.md` (4,337 bytes) + `.peaks/project-scan/audit-output-schema.md` (4,410 bytes). Git-tracked source of truth for the audit skill output shape.
+- **RD fan-out collapse** (Group B — Tier 4) — `src/services/rd/reviewer-dispatch-policy.ts` `RD_FANOUT_REVIEWERS` is now a 3-element tuple (`code-reviewer` + `qa-test-cases-writer` + `karpathy-reviewer`). The 2 removed slots are exposed as `RD_DEPRECATED_REVIEWERS`; `isDeprecatedReviewer(name)` routes any legacy dispatch record to the new audit skill. 8 back-compat test cases.
+- **Artifact prereq migration** (Group B — Tier 5) — `src/services/artifacts/artifact-prerequisites.ts` replaces `SECURITY_REVIEW` + `PERF_BASELINE` prereqs with `AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF`. The new prereqs mechanically gate `peaks request transition --state qa-handoff` until the audit outputs are written and the handoff frontmatter (sha256 + schemaVersion: 2) is verified.
+- **peaks-txt sediment extension** (Group C — Tier 6) — `src/services/prd/project-scan-sediment.ts` adds 3 new public functions (`appendSecurityPattern` + `appendPerfPattern` + `appendAuditSchemaVariant`) wrapping a generic internal helper. Append-only inventory operations idempotent on `(value, sourceRid)`. 7 new test cases.
+- **Fan-out SKILL.md updates** (Group D — Tier 7) — `skills/peaks-rd/SKILL.md` + `skills/peaks-rd/references/parallel-review-fanout.md` + `skills/peaks-rd/references/rd-fanout-contracts.md` + NEW `skills/peaks-rd/references/v2-12-fanout-collapse.md` reflect the v2.12.0 3-way fan-out shape. SKILL.md stays under the 24K byte cap.
+
+### Back-compat window (v2.12.0 → v2.13.0)
+
+The 1-minor-release window keeps the legacy paths readable via `mustContainAny`:
+
+- Legacy `rd/security-review.md` → accepted via `AUDIT_SECURITY.mustContainAny`.
+- Legacy `rd/perf-baseline.md` → accepted via `AUDIT_PERF.mustContainAny`.
+- Legacy `RD_FANOUT_REVIEWERS`-slot dispatch records (`.peaks/_sub_agents/<sessionId>/dispatch/{security-reviewer,perf-baseline-reviewer}.json`) → routed via `isDeprecatedReviewer(name)` to the new audit skill.
+
+v2.13.0 hard-deletes the legacy paths.
+
+### Decision records
+
+- NEW `.peaks/memory/2026-06-27-v2-12-independent-security-perf-audit.md` — parent decision (v2.12.0 collapse architecture + multi-CC Group A→E split).
+- NEW `.peaks/memory/2026-06-27-v2-12-fanout-3way.md` — fan-out shape decision (3-element tuple, pinned by 8 tests across 4 files).
+- APPEND `.peaks/project-scan/business-knowledge.md` — `D2'` row (3-way fan-out) + `G1'` row (peaks-txt sediment extension).
+- APPEND `.peaks/memory/security-perf-plan-result-split.md` — "Reverse 2026-06-27" section (how the v2.12.0 collapse reverses the slice-025 plan/result split).
+
+### Internal
+
+- `src/services/rd/reviewer-dispatch-policy.ts` — `RD_FANOUT_REVIEWERS` (3-element) + `RD_DEPRECATED_REVIEWERS` (2-element back-compat) + `isDeprecatedReviewer(name)`.
+- `src/services/artifacts/artifact-prerequisites.ts` — `AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF` prereqs (with `mustContainAny` for back-compat).
+- `src/services/prd/project-scan-sediment.ts` — `appendSecurityPattern` + `appendPerfPattern` + `appendAuditSchemaVariant` + generic `appendAuditPatternInventory` helper.
+- `src/services/audit-independent/{security-audit-service,perf-audit-service}.ts` — new service layer.
+- `src/cli/commands/{security-audit-commands,perf-audit-commands}.ts` — new CLI subcommands wired into `program.ts`.
+- `package.json` + `src/shared/version.ts` — `2.11.2 → 2.12.0` version bump.
+
+### Multi-CC commit boundaries
+
+| Group | Tiers | Commit tag | Scope |
+|---|---|---|---|
+| A | 1+2+3 | v2.12.0-alpha.1 | Templates + new skills (fa082f5) |
+| B | 4+5 | v2.12.0-alpha.2 | 5→3 fanout collapse + prereq migration (6485f1c) |
+| C | 6 | v2.12.0-alpha.3 | peaks-txt sediment extension (ab2757b) |
+| D | 7 | v2.12.0-alpha.4 | fan-out SKILL.md updates (b6c4fae) |
+| E | 8+9 | v2.12.0 (release) | Decision records + migration + CHANGELOG + version bump (this commit) |
+
+### Zero regression (verified per group)
+
+Each Group A→D ran the full RD→QA loop independently. Group C final QA: 14/14 sediment tests pass + 39/39 prd service tests pass; 9 pre-existing baseline failures unchanged (doctor / _archive-removal-guard / request-commands / observability / session-checkpoint / tech-service / workflow-autonomous-resume / jsonl-store / 35-checks-aggregate — all unrelated to v2.12.0). Group D final QA: 35/35 fan-out SKILL.md contract tests pass; same 9 pre-existing baseline failures.
+
+### Out-of-scope (NOT changed)
+
+`src/services/code-review/ecc-bridge.ts` + `src/services/dispatch/sub-agent-dispatcher.ts` + `src/services/agent/ecc-agent-service.ts` + `src/services/prd/handoff-service.ts` + `project-scan-reader.ts` + `src/services/rd/{strategic,tactical,strategy,impl,ast-gate,types}.ts` + `peaks-qa/` + `peaks-solo/SKILL.md` main flow + `peaks-prd/SKILL.md` main body — all untouched per the v2.12.0 red-line scope.
+
+---
+
 ## [2.11.2] — 2026-06-26 — Slice topology observability (read-only supplement to v2.11.0)
 
 **PATCH bump from 2.11.0** (slice `v2-11-2-slice-topology-observability`, 5-slice plan A→E, red-line scope ~18 files).

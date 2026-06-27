@@ -243,8 +243,9 @@ Full list: `peaks --help`.
 
 ## 🏗️ Project status
 
-- ✅ **11 skills** + cross-IDE CLI + 2,800+ tests
+- ✅ **13 skills** + cross-IDE CLI + 2,800+ tests (v2.12.0 adds `peaks-security-audit` + `peaks-perf-audit`)
 - ✅ **Gate mechanism** dogfooded on real projects
+- ✅ **v2.12.0 RD fan-out collapse** (3-way: code-reviewer + qa-test-cases-writer + karpathy-reviewer) shipped 2026-06-27
 - 📋 Roadmap: real Trae / Codex / Cursor integration, `peaks-doc` / `peaks-i18n`, SOP template marketplace
 
 See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.

@@ -97,3 +97,63 @@ machine-enforced gates (the JSON envelope + the `--apply` opt-in).
   suite, not in production. The unit tests cover determinism +
   idempotency only; the line-count comparison is a fixture-based
   check.
+
+---
+
+## Reverse 2026-06-27 (v2.12.0 — slice 2026-06-27-v2-12)
+
+> **Status**: this section reverses the slice-025 plan/result split for
+> the security + perf audit surfaces. The 3-of-3 token win still holds,
+> but the execution surface moved out of the RD fan-out into two new
+> standalone audit skills.
+
+### What changed
+
+- The `security-reviewer` + `perf-baseline-reviewer` slots in the
+  RD fan-out (slice 002 3-way, then slice 004 + slice 5/6 = 5-way)
+  were removed from `RD_FANOUT_REVIEWERS`. The fan-out is now
+  3 sub-agents: `code-reviewer` + `qa-test-cases-writer` +
+  `karpathy-reviewer`.
+- The two removed slots became standalone skills:
+  `peaks-security-audit` (CLI: `peaks security-audit run`) and
+  `peaks-perf-audit` (CLI: `peaks perf-audit run`).
+- Both skills consume the immutable peaks-prd handoff
+  (`prd/handoff.md`) and the project-scoped audit templates under
+  `.peaks/project-scan/{security-template, perf-template,
+  audit-output-schema}.md`. Their outputs land at
+  `audit/security.md` + `audit/perf.md`.
+- The new `AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF`
+  prereqs in `src/services/artifacts/artifact-prerequisites.ts`
+  mechanically gate `peaks request transition --state qa-handoff`
+  on the audit outputs + the handoff frontmatter.
+
+### What did NOT change (from slice 025)
+
+- The plan/result split itself still applies — the audit skills
+  cache the project-level threat model + perf baseline and only emit
+  per-slice deltas. The 3-of-3 token win still holds for security +
+  perf content.
+- The CLI primitives under `peaks workflow plan *` are unchanged.
+  The new audit skills consume the same plan envelopes.
+- The legacy `resolveSecurityFindingsPath` /
+  `resolvePerformanceFindingsPath` helpers in
+  `src/services/workflow/artifact-paths.ts` remain the source of
+  truth for the 1-minor-release back-compat window.
+
+### Why the reverse
+
+The slice-025 plan/result split solved the token-waste problem (3
+identical project-level artifacts per 3-slice sequence → 1 + 3 deltas).
+v2.12.0 extends the same insight one layer up: the **sub-agent slot
+itself** conflated RD review with project-level audit. The plan/result
+split handles the per-slice artifacts; the v2.12.0 collapse handles
+the per-sub-agent dispatch surface. Together: clean separation of
+RD-internal reviews (3-way fan-out) from project-level audits
+(standalone skills with plan/result split baked in).
+
+### Cross-references
+
+- [[2026-06-27-v2-12-independent-security-perf-audit]] — parent decision
+- [[2026-06-27-v2-12-fanout-3way]] — fan-out shape decision (Tier 4)
+- `src/services/rd/reviewer-dispatch-policy.ts` — `RD_FANOUT_REVIEWERS` (3-element) + `RD_DEPRECATED_REVIEWERS` (2-element back-compat)
+- `src/services/artifacts/artifact-prerequisites.ts` — `AUDIT_SECURITY` + `AUDIT_PERF` + `AUDIT_REQUIRES_HANDOFF`
