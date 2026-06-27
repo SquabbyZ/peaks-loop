@@ -20,10 +20,10 @@ None. 0 CRITICAL / 0 HIGH / 0 MEDIUM / 0 LOW.
 The slice introduced:
 
 1. Two pure helpers: `src/shared/format-md-compact.ts`, `src/shared/stale-policy.ts`
-2. Three retrospective services: `src/services/retrospective/{retrospective-index,retrospective-show,migrate-from-md}.ts`
+2. Three retrospective services: `src/services/retrospective/{retrospective-index,retrospective-show,retrospective-search-service}.ts`
 3. CLI extensions: `src/cli/commands/retrospective-commands.ts` (new), `src/cli/commands/project-commands.ts` (modified), `src/cli/commands/request-commands.ts` (modified)
 4. Modified memory service: `src/services/memory/project-memory-service.ts` (added `readProjectMemoryBody`)
-5. One-time migration artifact: `.peaks/retrospective/index.json` + `.peaks/_archive/retrospective-2026-06-09-pre-r3.tar.gz`
+5. Live artifact: `.peaks/retrospective/index.json` (no separate archive — slice 2026-06-27-archive-feature-removal retired the legacy archive dir)
 6. Two lesson memories: `.peaks/memory/r3-*.md`
 
 ## Re-checked findings

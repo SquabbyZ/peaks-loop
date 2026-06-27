@@ -269,7 +269,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
     try {
       const entries = require('node:fs').readdirSync(peaksDir) as string[];
       for (const entry of entries) {
-        if (entry === '_archive' || entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
+        if (entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
         const designCheck = checkDesignDraftConfirmation({
           projectRoot: input.projectRoot,
           sessionId: '',

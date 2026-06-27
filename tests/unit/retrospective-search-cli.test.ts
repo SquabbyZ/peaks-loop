@@ -94,7 +94,7 @@ describe('peaks retrospective search CLI', () => {
     const parsed = JSON.parse(io.getStdout());
     expect(parsed.ok).toBe(false);
     expect(parsed.code).toBe('INDEX_MISSING');
-    expect(parsed.nextActions.some((a: string) => a.includes('peaks retrospective migrate --apply'))).toBe(true);
+    expect(parsed.nextActions.some((a: string) => a.includes('retrospective index.json'))).toBe(true);
     expect(process.exitCode).toBe(1);
     process.exitCode = 0;
   });

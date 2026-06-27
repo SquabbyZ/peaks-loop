@@ -53,12 +53,12 @@ describe('peaks workspace clean CLI', () => {
     const project = makeProject();
     try {
       touchDir(join(project, '.peaks/_runtime/2026-06-10-session-aaa111'), 100);
-      const { stdout, code } = cli(`workspace clean --runtime --older-than 1 --json`, project);
+      const { stdout, code } = cli(`workspace clean --older-than 1 --json`, project);
       expect(code).toBe(0);
       const out = JSON.parse(stdout);
       expect(out.ok).toBe(true);
-      expect(out.data[0].dryRun).toBe(true);
-      expect(out.data[0].deleted).toEqual(['2026-06-10-session-aaa111']);
+      expect(out.data.dryRun).toBe(true);
+      expect(out.data.deleted).toEqual(['2026-06-10-session-aaa111']);
     } finally {
       rmSync(project, { recursive: true, force: true });
     }
@@ -69,43 +69,26 @@ describe('peaks workspace clean CLI', () => {
     try {
       const sid = '2026-06-10-session-aaa111';
       touchDir(join(project, '.peaks/_runtime', sid), 100);
-      const { stdout, code } = cli(`workspace clean --runtime --older-than 1 --apply --json`, project);
+      const { stdout, code } = cli(`workspace clean --older-than 1 --apply --json`, project);
       expect(code).toBe(0);
       const out = JSON.parse(stdout);
-      expect(out.data[0].dryRun).toBe(false);
+      expect(out.data.dryRun).toBe(false);
       expect(existsSync(join(project, '.peaks/_runtime', sid))).toBe(false);
     } finally {
       rmSync(project, { recursive: true, force: true });
     }
   });
 
-  test('peaks workspace clean --sub-agents --invalid --apply moves bare sids to archive', () => {
+  test('peaks workspace clean --sub-agents --invalid is no longer accepted (option removed)', () => {
     const project = makeProject();
     try {
-      mkdirSync(join(project, '.peaks/_sub_agents/sid-3'), { recursive: true });
-      const { stdout, code } = cli(`workspace clean --sub-agents --invalid --apply --json`, project);
-      expect(code).toBe(0);
-      const out = JSON.parse(stdout);
-      expect(out.data[0].moved).toEqual(['sid-3']);
-      expect(existsSync(join(project, '.peaks/_sub_agents/sid-3'))).toBe(false);
-      expect(existsSync(join(project, '.peaks/_archive/invalid-sids/sid-3'))).toBe(true);
-    } finally {
-      rmSync(project, { recursive: true, force: true });
-    }
-  });
-});
-
-describe('peaks workspace archive CLI', () => {
-  test('peaks workspace archive moves _runtime/<sid>/ to _archive/<yyyy-mm>/<sid>/', () => {
-    const project = makeProject();
-    try {
-      const sid = '2026-06-10-session-aaa111';
-      mkdirSync(join(project, '.peaks/_runtime', sid, 'rd'), { recursive: true });
-      writeFileSync(join(project, '.peaks/_runtime', sid, 'rd/tech-doc.md'), '# tech', 'utf8');
-      const { code } = cli(`workspace archive --session ${sid} --apply --json`, project);
-      expect(code).toBe(0);
-      expect(existsSync(join(project, '.peaks/_runtime', sid))).toBe(false);
-      expect(existsSync(join(project, '.peaks/_archive/2026-06', sid, 'rd/tech-doc.md'))).toBe(true);
+      // The --sub-agents and --invalid flags were removed in slice
+      // 2026-06-27-archive-feature-removal. Commander should reject the
+      // unknown option with a non-zero exit. We verify the binary does
+      // not silently accept it (which would indicate a regression).
+      const { code, stderr } = cli(`workspace clean --sub-agents --invalid --apply --json`, project);
+      expect(code).not.toBe(0);
+      expect(stderr.toLowerCase()).toMatch(/unknown option|--sub-agents|--invalid/);
     } finally {
       rmSync(project, { recursive: true, force: true });
     }

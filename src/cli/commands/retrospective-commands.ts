@@ -4,7 +4,6 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { loadRetrospectiveIndex } from '../../services/retrospective/retrospective-index.js';
 import { showRetrospective } from '../../services/retrospective/retrospective-show.js';
-import { migrateRetrospectiveFromMd } from '../../services/retrospective/migrate-from-md.js';
 import { searchRetrospective, type RetrospectiveType, type RetrospectiveOutcome, type RetrospectiveEntry } from '../../services/retrospective/retrospective-search-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
 import { fail, ok } from '../../shared/result.js';
@@ -62,7 +61,7 @@ export function runRetrospectiveSearch(io: ProgramIO, options: RetrospectiveSear
     const code = (error as { code?: string }).code ?? 'RETROSPECTIVE_SEARCH_FAILED';
     const suggestions: string[] = [];
     if (code === 'INDEX_MISSING') {
-      suggestions.push('Run `peaks retrospective migrate --apply` to build the index from legacy MDs');
+      suggestions.push('Build a retrospective index.json in .peaks/retrospective/');
     }
     if (code === 'EMPTY_QUERY') {
       suggestions.push('Use `peaks retrospective index` to list all entries');
@@ -169,10 +168,10 @@ export function registerRetrospectiveCommands(program: Command, io: ProgramIO): 
       const result = showRetrospective({ projectRoot, id, format });
       if (!result.ok) {
         const suggestions: string[] = [];
-        if (result.code === 'INDEX_MISSING') suggestions.push('Run `peaks retrospective migrate --apply` to build the index');
+        if (result.code === 'INDEX_MISSING') suggestions.push('Build a retrospective index.json in .peaks/retrospective/');
         if (result.code === 'NOT_FOUND') suggestions.push('Run `peaks retrospective index --json` to see available ids');
         if (result.code === 'ARTIFACT_MISSING' || result.missingArtifacts !== undefined) {
-          suggestions.push('Re-hydrate from the legacy archive at .peaks/_archive/retrospective-2026-06-09-pre-r3.tar.gz');
+          suggestions.push('Restore the missing artifact at the path listed under missingArtifacts');
         }
         printResult(io, fail('retrospective.show', result.code, result.message, { id, projectRoot, ...(result.missingArtifacts !== undefined ? { missingArtifacts: result.missingArtifacts } : {}) }, suggestions), options.json);
         process.exitCode = 1;
@@ -199,47 +198,6 @@ export function registerRetrospectiveCommands(program: Command, io: ProgramIO): 
       );
     } catch (error) {
       printResult(io, fail('retrospective.show', 'RETROSPECTIVE_SHOW_FAILED', getErrorMessage(error), { id, projectRoot }, ['Check the project path and id']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  addJsonOption(
-    retrospective
-      .command('migrate')
-      .description('One-time migration from per-workflow .peaks/retrospective/<id>/*.md dirs to a single .peaks/retrospective/index.json + .peaks/_archive/retrospective-2026-06-09-pre-r3.tar.gz archive. Dry-run by default; --apply is destructive.')
-      .option('--project <path>', 'target project root (defaults to git root or cwd)')
-      .option('--apply', 'write the index.json + archive + delete legacy MDs (default: dry-run preview)')
-      .option('--include-failed', 'include malformed MDs as best-effort entries; default is to skip + warn')
-      .option('--expected-entries <n>', 'override the default expected entry count (88) for the no-op check', (value: string) => Number(value))
-  ).action((options: { project?: string; apply?: boolean; includeFailed?: boolean; expectedEntries?: number; json?: boolean }) => {
-    const projectRoot = options.project !== undefined
-      ? resolveCanonicalProjectRoot(options.project)
-      : (findProjectRoot(process.cwd()) ?? process.cwd());
-    try {
-      const result = migrateRetrospectiveFromMd({
-        projectRoot,
-        apply: options.apply === true,
-        includeFailed: options.includeFailed === true,
-        ...(options.expectedEntries !== undefined && Number.isFinite(options.expectedEntries) ? { expectedEntries: options.expectedEntries } : {})
-      });
-      const exitCode = result.status === 'failed' ? 1 : 0;
-      printResult(
-        io,
-        ok('retrospective.migrate', {
-          status: result.status,
-          indexPath: result.indexPath,
-          archivePath: result.archivePath,
-          totalLegacyDirs: result.totalLegacyDirs,
-          totalLegacyMds: result.totalLegacyMds,
-          parsedEntries: result.parsedEntries,
-          failedEntries: result.failedEntries,
-          archiveVerified: result.archiveVerified
-        }, result.warnings),
-        options.json
-      );
-      if (exitCode !== 0) process.exitCode = exitCode;
-    } catch (error) {
-      printResult(io, fail('retrospective.migrate', 'RETROSPECTIVE_MIGRATE_FAILED', getErrorMessage(error), { projectRoot }, ['Check the project path and .peaks/retrospective/ directory']), options.json);
       process.exitCode = 1;
     }
   });

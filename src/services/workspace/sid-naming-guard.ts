@@ -4,7 +4,10 @@
  * change id: kebab-case
  *
  * Spec §8.7 — bare forms (sid-3 / sid-h / sid-r / unknown-sid) are
- * migrated to `_archive/invalid-sids/`, NOT tolerated.
+ * blocked at write time, NOT tolerated. After slice
+ * 2026-06-27-archive-feature-removal the quarantine dir was removed;
+ * bare sids are now rejected by callers using `assertValidSessionId`
+ * instead.
  */
 
 export const SID_FORMAT_DESCRIPTION =
