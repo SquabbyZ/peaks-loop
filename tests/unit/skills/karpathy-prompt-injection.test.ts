@@ -118,13 +118,13 @@ describe('Karpathy prompt-injection (Slice 1/6 — karpathy-enforcement)', () =>
     expect(layerB.content).toContain('Define success criteria. Loop until verified');
   });
 
-  test('AC-1 Layer C: rd-fanout-contracts.md has karpathy pointer near the 4 sub-agents', () => {
+  test('AC-1 Layer C: rd-fanout-contracts.md has karpathy pointer near the 3 sub-agents (v2.12.0 collapse)', () => {
     const layerC = INJECTED_FILES.find((f) => f.layer === 'C')!;
     expect(layerC.content, 'Layer C must mention Karpathy pointer').toContain('Karpathy pointer');
-    expect(layerC.content, 'Layer C must mention all 4 sub-agents').toContain('Sub-agent 1 — code-reviewer');
-    expect(layerC.content).toContain('Sub-agent 2 — security-reviewer');
-    expect(layerC.content).toContain('Sub-agent 3 — perf-baseline-reviewer');
-    expect(layerC.content).toContain('Sub-agent 4 — qa-test-cases-writer');
+    // v2.12.0: 3-way fan-out (code-reviewer + qa-test-cases-writer + karpathy-reviewer).
+    expect(layerC.content, 'Layer C must mention code-reviewer').toContain('Sub-agent 1 — code-reviewer');
+    expect(layerC.content, 'Layer C must mention qa-test-cases-writer').toContain('Sub-agent 2 — qa-test-cases-writer');
+    expect(layerC.content, 'Layer C must mention karpathy-reviewer').toContain('Sub-agent 3 — karpathy-reviewer');
   });
 
   test('AC-1 Layer D: peaks-solo/SKILL.md has "## Karpathy guidance" referencing dispatch block', () => {

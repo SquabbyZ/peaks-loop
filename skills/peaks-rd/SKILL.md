@@ -127,18 +127,13 @@ RD cannot mark a development slice complete until all of these are true. Each ga
 
 If any gate fails, return to development for fixes or hand off as blocked. Do not describe the work as done, shippable, or ready for QA.
 
-## Parallel review fan-out (code-reviewer + security-reviewer + perf-baseline-reviewer + qa-test-cases-writer + **karpathy-reviewer** — Slice 5/6 5-way fanout)
+## Parallel review fan-out (v2.12.0 3-way fanout — code-reviewer + qa-test-cases-writer + karpathy-reviewer)
 
-**When RD reaches the end of implementation, the FIVE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially.** The five sub-agents are `code-reviewer` (code-review evidence), `security-reviewer` (security-review evidence), `perf-baseline-reviewer` (perf-baseline measurement), `qa-test-cases-writer` (qa/test-cases/<rid>.md), and `karpathy-reviewer` (rd/karpathy-review.md — the **hard Karpathy-Gate**). Feature / refactor: all five. Bugfix: code-reviewer + security-reviewer + qa-test-cases-writer + karpathy-reviewer always; perf-baseline-reviewer only when perf-shaped. Config / docs / chore: no fan-out — **and therefore no `karpathy-reviewer` sub-agent is dispatched**. B3 augmentation: ocr (user-owned LLM config at `peaksConfig.ocr.llm`) → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
+The THREE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially. Sub-agents: `code-reviewer`, `qa-test-cases-writer` (writes `qa/test-cases/<rid>.md`), `karpathy-reviewer` (the **hard Karpathy-Gate**). This is the v2.12.0 3-way fanout. Feature / refactor / bugfix: all three. Config / docs / chore: no fan-out — no `karpathy-reviewer` dispatched. OCR augmentation (B3): `peaksConfig.ocr.llm` → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
 
-> **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3)** — the canonical
-> programmatic decision table for "should karpathy-reviewer be dispatched
-> for this request type?" lives at
-> `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`,
-> `reviewerListFor`). The LLM-side runner reads this helper before firing
-> the 5-way fanout and skips the `karpathy-reviewer` slot for
-> `config | docs | chore`. The policy is pinned by
-> `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` (≥ 6 cases).
+> **v2.12.0 collapse (Group A):** the 5-way fan-out moved `security-reviewer` + `perf-baseline-reviewer` into standalone audit skills (`peaks-security-audit` + `peaks-perf-audit`). → `references/v2-12-fanout-collapse.md`.
+
+> **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy authoritative.** Decision table at `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`, `reviewerListFor`). Pinned by `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts`.
 
 ### Hard Karpathy-Gate (Slice 5/6)
 
@@ -148,14 +143,14 @@ The `karpathy-reviewer` sub-agent is a **hard gate** for `rd:qa-handoff`. Per `a
 
 The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with `PREREQUISITES_MISSING`.
 
-| Request type | Required RD evidence (under `.peaks/_runtime/change/<changeId>/`) |
+| Request type | Required RD evidence |
 |---|---|
-| feature / refactor | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` |
-| bugfix | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when perf-shaped) |
-| config | `rd/security-review.md` |
+| feature / refactor | `audit/security.md` + `audit/perf.md` + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` + `prd/handoff.md` |
+| bugfix | `audit/security.md` + `audit/perf.md` (perf-shaped only) + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` + `prd/handoff.md` |
+| config | `audit/security.md` |
 | docs / chore | (no extra evidence required) |
 
-→ see `references/rd-fanout-contracts.md` for the **5** sub-agents' contracts + hard prohibitions + aggregation + degradation.
+→ see `references/rd-fanout-contracts.md` for the **3** sub-agents' contracts + hard prohibitions + aggregation + degradation. Pre-v2.12.0 `rd/{security-review,perf-baseline}.md` paths remain readable for the 1-minor-release back-compat window.
 
 ## Refactor hard gates
 
@@ -221,7 +216,9 @@ Matt Pocock skills (`diagnose` / `triage` / `tdd` / `improve-codebase-architectu
 
 Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Cli CLI to handle runtime side effects.
 
-Do not bypass the parallel review fan-out when the slice has a code-review / security-review / perf-baseline surface — see `## Parallel review fan-out` above. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
+Do not bypass the parallel review fan-out when the slice has a code-review / qa-test-cases / karpathy-review surface — see `## Parallel review fan-out` above. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
+
+**Security / perf audit boundary (v2.12.0):** security and perf audit run as standalone audit skills (`peaks-security-audit`, `peaks-perf-audit`) whose outputs land at `audit/security.md` / `audit/perf.md`. RD does **not** dispatch `security-reviewer` or `perf-baseline-reviewer` sub-agents. See `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
@@ -266,7 +263,7 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/matt-pocock-integration.md` | Matt Pocock skills as references. |
 | `references/mock-data-placement.md` | Framework-to-mock-directory mapping + rules. |
 | `references/openspec-cli.md` | OpenSpec CLI recipes. |
-| `references/parallel-review-fanout.md` | 4-way parallel review fan-out. |
+| `references/parallel-review-fanout.md` | 3-way parallel review fan-out. |
 | `references/reading-v2-slice-results.md` | Read peaks-slice-decompose v2 envelope + per-pass dispatch. |
 | `references/writing-handoff-frontmatter.md` | Required frontmatter fields for RD → QA handoff. |
 | `references/rd-context-governance.md` | G7 + G8.6 + G9 RD sub-agent protocol. |
@@ -277,3 +274,4 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/rd-transition-gates.md` | Per-gate A-A3-B-B9 contract. |
 | `references/refactor-workflow.md` | Refactor hard gates + required artifacts. |
 | `references/skill-presence-and-title.md` | RD skill presence (main loop only). |
+| `references/v2-12-fanout-collapse.md` | v2.12.0 fan-out collapse. |

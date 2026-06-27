@@ -1,15 +1,23 @@
 /**
- * karpathy-5way-fanout test (Slice 5/6 — karpathy-enforcement).
+ * karpathy-3way-fanout test (v2.12.0 — Group A collapse).
  *
- * Guards the 5-way fanout upgrade and the hard Karpathy-Gate:
- *  - AC-1: SKILL.md 5-way fanout segment names all 5 reviewers
+ * Slice 5/6 — karpathy-enforcement pinned the original 5-way fan-out
+ * (`code-reviewer` + `security-reviewer` + `perf-baseline-reviewer` +
+ * `qa-test-cases-writer` + `karpathy-reviewer`). v2.12.0 Group A
+ * collapsed that fan-out to **3 sub-agents** by moving
+ * `security-reviewer` + `perf-baseline-reviewer` out into standalone
+ * audit skills (`peaks-security-audit` + `peaks-perf-audit`).
+ *
+ * This file preserves the karpathy-enforcement contract tests from
+ * slice 5/6 and re-pins them against the v2.12.0 3-way shape:
+ *  - AC-1: SKILL.md 3-way fanout segment names the 3 reviewers
  *  - AC-2: rd-fanout-contracts.md contains the karpathy-reviewer contract
  *  - AC-3: rd-sub-agent-dispatch.md injects the 4-section karpathy context
  *  - AC-4: CLI `request transition` requires rd/karpathy-review.md
  *  - AC-5: `peaks scan karpathy` subcommand is registered with 3 options
  *  - AC-6: karpathy-service exports 4 violation types + 4-kind scan report
- *  - AC-7: Slice 1+2+3+4 zero-regression (32 prior vitest cases pass)
- *  - AC-8: 8 new + 32 prior = 40 skill vitest cases pass
+ *  - AC-7: v2.12.0 3-way — security-reviewer + perf-baseline-reviewer
+ *          removed from the RD fan-out (RD_FANOUT_REVIEWERS = 3)
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -21,16 +29,28 @@ function read(rel: string): string {
   return readFileSync(resolve(REPO, rel), 'utf8');
 }
 
-describe('Slice 5/6 — karpathy-5way-fanout', () => {
-  it('AC-1.a peaks-rd/SKILL.md names karpathy-reviewer in the 5-way fanout section', () => {
+function extractSection(body: string, heading: string): string {
+  const start = body.indexOf(heading);
+  if (start < 0) return '';
+  const afterHeading = start + heading.length;
+  const lineEnd = body.indexOf('\n', afterHeading);
+  if (lineEnd < 0) return '';
+  const rest = body.slice(lineEnd + 1);
+  const nextHeading = rest.search(/^## /m);
+  return nextHeading < 0 ? rest : rest.slice(0, nextHeading);
+}
+
+describe('v2.12.0 — karpathy-3way-fanout (collapse from slice 5/6 5-way)', () => {
+  it('AC-1.a peaks-rd/SKILL.md names karpathy-reviewer in the 3-way fanout section', () => {
     const skill = read('skills/peaks-rd/SKILL.md');
-    expect(skill).toMatch(/5-way fanout/i);
+    expect(skill).toMatch(/3-way fanout/i);
     expect(skill).toMatch(/karpathy-reviewer/);
   });
 
-  it('AC-1.b SKILL.md lists all 5 reviewer names in the fanout section', () => {
+  it('AC-1.b SKILL.md lists the 3 reviewer names in the fanout section (v2.12.0)', () => {
     const skill = read('skills/peaks-rd/SKILL.md');
-    for (const name of ['code-reviewer', 'security-reviewer', 'perf-baseline-reviewer', 'qa-test-cases-writer', 'karpathy-reviewer']) {
+    // v2.12.0 3-way fan-out: code-reviewer + qa-test-cases-writer + karpathy-reviewer.
+    for (const name of ['code-reviewer', 'qa-test-cases-writer', 'karpathy-reviewer']) {
       expect(skill).toContain(name);
     }
   });
@@ -38,6 +58,22 @@ describe('Slice 5/6 — karpathy-5way-fanout', () => {
   it('AC-1.c SKILL.md describes karpathy-reviewer as a hard gate', () => {
     const skill = read('skills/peaks-rd/SKILL.md');
     expect(skill).toMatch(/Hard Karpathy-Gate|hard gate/i);
+  });
+
+  it('AC-1.d SKILL.md v2.12.0 collapse: security-reviewer + perf-baseline-reviewer removed from fan-out', () => {
+    const skill = read('skills/peaks-rd/SKILL.md');
+    // The fan-out section must cross-reference the standalone
+    // peaks-security-audit + peaks-perf-audit skills that replaced
+    // the removed sub-agent slots.
+    const fanoutSection = extractSection(skill, '## Parallel review fan-out');
+    expect(fanoutSection, 'fan-out section should exist').not.toBe('');
+    expect(fanoutSection).toContain('peaks-security-audit');
+    expect(fanoutSection).toContain('peaks-perf-audit');
+    // The fan-out section must not enumerate the removed sub-agents
+    // as fan-out sub-agents (Sub-agent N — <name> tag pattern).
+    const subAgentTags = fanoutSection.match(/\*\*Sub-agent \d+ —[^*]+\*\*/g) ?? [];
+    expect(subAgentTags.join(' ')).not.toMatch(/security-reviewer/);
+    expect(subAgentTags.join(' ')).not.toMatch(/perf-baseline-reviewer/);
   });
 
   it('AC-2.a rd-fanout-contracts.md contains a karpathy-reviewer contract section', () => {
@@ -127,5 +163,27 @@ describe('Slice 5/6 — karpathy-5way-fanout', () => {
     const svc = read('src/services/scan/karpathy-service.ts');
     expect(svc).toMatch(/export async function scanKarpathy/);
     expect(svc).toMatch(/export function formatKarpathyMarkdown/);
+  });
+
+  it('AC-7.a reviewer-dispatch-policy.ts RD_FANOUT_REVIEWERS = 3 (v2.12.0 collapse)', () => {
+    const policy = read('src/services/rd/reviewer-dispatch-policy.ts');
+    // The 3-element fan-out (v2.12.0) replaces the 5-element one (v2.11.x).
+    expect(policy).toMatch(
+      /export const RD_FANOUT_REVIEWERS\s*=\s*\[[\s\S]*?'code-reviewer'[\s\S]*?'qa-test-cases-writer'[\s\S]*?'karpathy-reviewer'[\s\S]*?\]/,
+    );
+    // The removed reviewers MUST be exposed as RD_DEPRECATED_REVIEWERS.
+    expect(policy).toMatch(/RD_DEPRECATED_REVIEWERS/);
+    expect(policy).toContain("'security-reviewer'");
+    expect(policy).toContain("'perf-baseline-reviewer'");
+  });
+
+  it('AC-7.b parallel-review-fanout.md is the v2.12.0 3-way fan-out reference', () => {
+    const parallel = read('skills/peaks-rd/references/parallel-review-fanout.md');
+    expect(parallel).toMatch(/3 sub-agents|v2\.12\.0/);
+    // The removed sub-agents must NOT appear as live sub-agent entries.
+    const subAgentBlocks = parallel.match(/\*\*Sub-agent \d+ —[^*]+\*\*/g) ?? [];
+    expect(subAgentBlocks.length).toBe(3);
+    expect(subAgentBlocks.join(' ')).not.toMatch(/security-reviewer/);
+    expect(subAgentBlocks.join(' ')).not.toMatch(/perf-baseline-reviewer/);
   });
 });
