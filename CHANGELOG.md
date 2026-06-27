@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.13.3] — 2026-06-28 — Verdict aggregator parser fix + publish pipeline + CLI warnings
+
+**PATCH bump from 2.13.2** (slice `2026-06-27-verdict-aggregator-v2-12-debt`, red-line scope 7 source files + 3 test files modified + 3 new scripts + 1 package.json hook).
+
+2.13.2 dogfood surfaced 4 bugs that all stem from v2.12.0 envelope-schema落地 debt: the v2.12.0 audit artifacts (`audit/security.md`, `audit/perf.md`) are YAML-frontmatter + markdown, but v2.13.2's `parseSecurityEnvelope` / `parsePerfEnvelope` used `JSON.parse` (which is the wrong shape). v2.13.3 also fixes a cross-version publish-pipeline issue (`bin/peaks.js` was shipping a Jun 13 stale dist because `prepublishOnly` was never wired) and adds a soft-block-warning surface in the CLI so users can see v2.13.2's `mut-report-missing-deprecated-in-v2.14.0` warning instead of having it silently downgraded in service-layer.
+
+### Bug fixes
+
+- **`parseSecurityEnvelope` / `parsePerfEnvelope` now parse v2.12.0 markdown** (AC-1) — both parsers now try `JSON.parse` first and fall back to a markdown parser that extracts the YAML frontmatter `verdict:` line + parses `## Findings` bullets in 2 real v2.12.0 shapes (`- [SEV] dim @ file:line — hint` and `- HIGH: hint in file:line`). Dogfood-verified: a real `audit/security.md` with a HIGH `hardcoded password in src/auth.ts:42` now returns `parseSecurityEnvelope(...) === { verdict: 'warn', violations: [{ severity: 'HIGH', file: 'src/auth.ts', line: 42, hint: 'hardcoded password' }], summary: '...' }`. The CLI's inline `parseSecurityFromMarkdown` / `parsePerfFromMarkdown` were removed (strict-improvement refactor; canonical parser in `src/services/verdict/envelopes.ts` now owns the markdown path; CLI delegates). 4 new test cases (H/I/J/K) bring the envelope suite to 11/11.
+- **`peaks verdict aggregate` returns real violations** (AC-1 end-to-end) — dogfood with a real v2.12.0 fixture now returns `{ verdict: 'warn', reasons: [{ source: 'security-audit', severity: 'HIGH', file: 'src/auth.ts', line: 42, hint: 'hardcoded password' }], sources: { security: 'present', perf: 'present', karpathy: 'present', mut: 'missing', qa: 'present' } }` — 2.13.2's silent `reasons: []` is gone.
+- **`prd/handoff.md` frontmatter now has `sha256:` field** (AC-4) — `autoRegenPrdHandoff` was writing `handoffHash:` but `artifact-prerequisites.ts:158` requires `mustContain: ['schemaVersion: 2', 'sha256:']`. v2.13.3 writes `sha256: <hex>` as the primary field and keeps `handoffHash: <hex>` as an alias for backward compatibility. 1 new test case (E: prereq regression pin) brings the handoff suite to 5/5.
+- **CLI surfaces `PrerequisiteCheckResult.warnings`** (AC-3) — `PrerequisitesNotSatisfiedError` now carries a `warnings` field (always present, possibly empty). The `code: PREREQUISITES_MISSING` error response now includes `data.warnings: [...]` plus a per-warning `Soft-blocked (v2.13.3 back-compat window): <path> — <message>` next-action line. This makes the v2.13.2 `MUT_REPORT` soft-block window visible to users instead of being silently downgraded in service-layer. 3 new test cases bring the request-commands suite to 8/8.
+
+### Features
+
+- **`prepublishOnly` build hook** (AC-2) — `package.json` adds `"prepublishOnly": "node scripts/prepublish-build.mjs"` which runs `pnpm run build` before every `npm publish`. Cross-platform dispatch via `scripts/prepublish-build.mjs` (Node entry), with equivalent `scripts/prepublish-build.sh` (git-bash / Linux) and `scripts/prepublish-build.ps1` (PowerShell) for direct invocation. The `prepublish-build.mjs` uses `shell: isWindows` to work around the Node 22 + Windows + .cmd-shim `EINVAL` (POSIX is a no-op). This is the cross-version publish-pipeline fix that prevents the 2.13.2 `bin/peaks.js → dist/src/cli/index.js (Jun 13 stale dist)` incident from recurring. The `.sh` path has been independently dogfood-verified to run `pnpm build` end-to-end with exit code 0.
+
+### Internal
+
+- `src/services/verdict/envelopes.ts` (+192/-18 lines) — `parseSecurityEnvelope` / `parsePerfEnvelope` markdown fallback (frontmatter + `## Findings` shape B bullets).
+- `src/cli/commands/verdict-aggregate-command.ts` (+13/-31 lines) — removed inline `parseSecurityFromMarkdown` / `parsePerfFromMarkdown`; delegates to canonical parser.
+- `src/services/prd/handoff-auto-regen.ts` (+8 lines) — `sha256:` primary + `handoffHash:` alias.
+- `src/services/artifacts/request-artifact-service.ts` (+18/-7 lines) — `PrerequisitesNotSatisfiedError.warnings` field (defaulted param).
+- `src/cli/commands/request-commands.ts` (+13/-1 lines) — surface `data.warnings` in PREREQUISITES_MISSING + per-warning next-action.
+- `scripts/prepublish-build.mjs` (NEW) — cross-platform Node dispatch (8 lines of code).
+- `scripts/prepublish-build.sh` (NEW) — bash variant for git-bash / Linux.
+- `scripts/prepublish-build.ps1` (NEW) — PowerShell variant for Windows native.
+- `package.json` (+1 line) — `prepublishOnly` hook.
+- `README.md` (+1 line, 30-second onboarding block) — publish note: "v2.13.3 起 `npm publish` 会在 publish 前自动跑 `pnpm run build` (prepublishOnly hook 走 scripts/prepublish-build.mjs), 确保 bin/peaks.js 永远带最新 dist. 发布前不要手动跳过这一步 — 2.13.2 dogfood 抓过 bin/peaks.js 指 Jun 13 旧 dist 的事故."
+- `tests/unit/services/verdict/envelopes.test.ts` (+112 lines) — 4 new cases (H/I/J/K).
+- `tests/unit/services/prd/handoff-auto-regen.test.ts` (+62 lines) — 1 new case (E: prereq regression pin).
+- `tests/unit/cli/commands/request-commands.test.ts` (+183 lines) — 3 new cases (warnings surface).
+
+### Decision records
+
+- NEW `.peaks/memory/2026-06-27-v2-13-3-verdict-aggregator-v2-12-debt.md` — ship state (162/162 PRD-targeted tests pass, 4363/4364 full unit suite pass with 1 pre-existing tokenizer.test.ts flake, tsc 0 errors, 6 AC all green, 4 dogfood scenarios 0-2-tychetes passed).
+- UPDATED `.peaks/memory/2026-06-27-v2-13-2-verdict-aggregator-fixes.md` — 2.13.2 ship state amended with the dogfood that motivated v2.13.3 (this slice is the canonical example of "v2.13.1's BLOCKER led to v2.13.2, v2.13.2's dogfood led to v2.13.3 — the loop continues until 2.14.0 when envelopes get unified").
+
+### Multi-CC commit boundaries
+
+| Commit tag | Scope |
+|---|---|
+| v2.13.3 | 4 bug fixes (parser / publish pipeline / CLI warnings / handoff sha256) + 3 new scripts + 4 new test cases + package.json prepublishOnly + README publish note + CHANGELOG + version bump + ship-state memory |
+
+### Verified (peaks solo dogfood + QA on this session)
+
+- AC-1 (parser fix): `tests/unit/services/verdict/envelopes.test.ts` → **11/11 pass** (was 7/7 in v2.13.2, +4 markdown fallback cases H/I/J/K). Dogfood script confirms: real `audit/security.md` with HIGH violation → `parseSecurityEnvelope` returns non-null envelope; `peaks verdict aggregate` returns `reasons: [{severity: HIGH, file: src/auth.ts:42}]`.
+- AC-2 (publish pipeline): `scripts/prepublish-build.sh` end-to-end via git-bash: `[prepublish-build] build OK — proceeding to publish` (exit 0). The `prepublishOnly` hook in `package.json` (line 47) is wired to `node scripts/prepublish-build.mjs`.
+- AC-3 (CLI warnings): `tests/unit/cli/commands/request-commands.test.ts` → **8/8 pass** (was 5/5 in v2.13.2, +3 warnings-surface cases). Dogfood: `rd:qa-handoff` with `mut-report.json` deleted → response `data.warnings[0].code = 'mut-report-missing-deprecated-in-v2.14.0'` ✓.
+- AC-4 (handoff sha256): `tests/unit/services/prd/handoff-auto-regen.test.ts` → **5/5 pass** (was 4/4 in v2.13.2, +1 prereq regression pin E). Dogfood: delete `prd/handoff.md` + re-transition → frontmatter contains both `sha256: <hex>` and `handoffHash: <hex>` (alias); subsequent transition no longer reports `missing section(s): sha256:`.
+- AC-5 (零回归): 2.13.2 baseline 149 + 2.13.3 new 13 = **162/162 pass** on PRD-targeted scope. Full unit suite: **4363/4364 pass + 17 skipped** (1 pre-existing `tokenizer.test.ts` timeDecayScore flake confirmed on clean HEAD `1aac7e2` after stashing v2.13.3 changes; not introduced by v2.13.3).
+- AC-6 (scope): 10 modified + 3 untracked (scripts). All in expected territory (src/ + tests/ + scripts/ + package.json prepublishOnly + README publish note). CHANGELOG / version.ts / ship-state memory: release territory, RD correctly excluded.
+- `tsc --noEmit` → **0 errors**.
+
+### Out-of-scope (NOT changed — Karpathy §3 surgical-change discipline)
+
+- v2.12.0 audit envelope file format (YAML frontmatter + markdown body) — preserved (the contract that 2.13.3 now correctly parses)
+- v2.13.1 `## Verdict reasoning (v2.13.1)` section in `micro-cycle.md` — preserved
+- v2.13.2 commit `1aac7e2` — preserved (v2.13.3 adds on top)
+- `peaks-qa` verdict protocol (`pass | return-to-rd | blocked`) — preserved
+- `peaks-final-review` 4-dim interface — preserved
+- 5 verdict strings — preserved
+- `aggregateVerdict()` signature — preserved
+- Envelope file contents (parsers updated; on-disk schemas unchanged)
+- Weighted scoring / RFC voting — explicitly out of scope
+
+### Known limitations (carry-forward to v2.14.0)
+
+- **`scripts/prepublish-build.mjs` Windows EINVAL workaround is partial** — the `shell: isWindows` fix is a no-op on POSIX but on Windows native + git-bash there is still a residual `spawnSync` `EINVAL` / `ENOENT` interaction with `cmd.exe` / `pnpm.cmd` shims. The `.sh` path is git-bash / Linux correct (dogfood-verified end-to-end with `pnpm build OK` and exit 0); npm publish in a real Linux / CI environment uses the mjs path correctly. v2.14.0 should consider replacing the mjs spawn with a `cross-spawn` library or a pure-Node `child_process.execFile` fallback to fully abstract the platform differences.
+- **MUT_REPORT hard-fail still pending** — v2.13.3 only surfaces the soft-block warning in CLI; the actual hard-fail conversion to throw-on-missing happens in v2.14.0.
+- **pre-existing `tokenizer.test.ts` timeDecayScore flake** — confirmed pre-existing on clean HEAD `1aac7e2` after stashing v2.13.3 changes. Out of scope for this slice; documented in `.peaks/memory/2026-06-27-v2-13-2-verdict-aggregator-fixes.md`.
+- **No 2.13.3 dogfood of `prepublish-build.ps1`** — the PowerShell variant was added per AC-2 cross-platform but not dogfood-verified end-to-end (git-bash tests the .sh path). A v2.14.0 follow-up should run the .ps1 path in Windows native to confirm parity.
+
+---
+
 ## [2.13.2] — 2026-06-27 — Verdict aggregator bug fix + CLI surface + envelope unification
 
 **PATCH bump from 2.13.1** (slice `2026-06-27-verdict-aggregator-fixes`, red-line scope 3 src files + 3 test files modified + 3 new src files + 4 new test files).

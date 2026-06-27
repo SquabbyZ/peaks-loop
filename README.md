@@ -82,6 +82,9 @@ npm install -g peaks-cli
 
 # 2. 在你的项目里打开 Claude Code
 cd /path/to/your-project && claude
+```
+
+> **v2.13.3 提示**：发布新版本时 `npm publish` 会在 publish 前自动跑 `pnpm run build`（`package.json` 的 `prepublishOnly` hook 走 `scripts/prepublish-build.mjs`），确保 `bin/peaks.js` 永远带最新 dist。**发布前不要手动跳过这一步**——2.13.2 dogfood 抓过 `bin/peaks.js` 指 Jun 13 旧 dist 的事故。
 
 # 3. 让 AI 干活
 > peaks-solo 帮我给登录页加 OAuth 回调

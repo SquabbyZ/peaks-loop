@@ -1,6 +1,6 @@
 {
   "name": "peaks-cli",
-  "version": "2.13.2",
+  "version": "2.13.3",
   "description": "Cross-AI-IDE workflow-gating CLI + skill family (Claude Code shipped, Trae in progress; Codex / Cursor / Qoder / Tongyi Lingma on the roadmap).",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -44,6 +44,7 @@
   "scripts": {
     "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
     "prepack": "npm run build",
+    "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",
     "postinstall": "node ./scripts/install-skills.mjs",
     "predev": "node ./scripts/sync-version.mjs",

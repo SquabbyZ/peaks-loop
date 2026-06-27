@@ -511,7 +511,21 @@ export class PrerequisitesNotSatisfiedError extends Error {
   readonly newState: RequestArtifactState;
   readonly sessionId: string;
   readonly missing: PrerequisiteCheckResult['missing'];
-  constructor(role: RequestArtifactRole, newState: RequestArtifactState, sessionId: string, missing: PrerequisiteCheckResult['missing']) {
+  /**
+   * v2.13.3 AC-3 — soft-block warnings carried alongside the missing
+   * entries. Surfaced in the CLI error response under `data.warnings`
+   * so the operator can see which prereqs were soft-blocked under
+   * the 1-minor-release back-compat window (e.g. MUT_REPORT). Always
+   * present (possibly empty array) to keep the response shape stable.
+   */
+  readonly warnings: PrerequisiteCheckResult['warnings'];
+  constructor(
+    role: RequestArtifactRole,
+    newState: RequestArtifactState,
+    sessionId: string,
+    missing: PrerequisiteCheckResult['missing'],
+    warnings: PrerequisiteCheckResult['warnings'] = []
+  ) {
     super(
       `Cannot transition ${role} to ${newState}: ${missing.length} required artifact${missing.length === 1 ? '' : 's'} missing under .peaks/_runtime/${sessionId}/`
     );
@@ -520,6 +534,7 @@ export class PrerequisitesNotSatisfiedError extends Error {
     this.newState = newState;
     this.sessionId = sessionId;
     this.missing = missing;
+    this.warnings = warnings;
   }
 }
 
@@ -665,7 +680,13 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
   });
 
   if (!prerequisiteResult.ok && options.allowIncomplete !== true) {
-    throw new PrerequisitesNotSatisfiedError(options.role, options.newState, existing.sessionId, prerequisiteResult.missing);
+    throw new PrerequisitesNotSatisfiedError(
+      options.role,
+      options.newState,
+      existing.sessionId,
+      prerequisiteResult.missing,
+      prerequisiteResult.warnings
+    );
   }
 
   // (Removed in v2.11.0 Group A: the tech-doc-presence + tech-doc-mandatory-

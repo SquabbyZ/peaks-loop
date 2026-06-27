@@ -51,12 +51,20 @@ export async function autoRegenPrdHandoff(opts: {
   }
   const body = artifact.content;
   const sha256 = sha256OfBody(body);
+  // v2.13.3 AC-4 — align with `AUDIT_REQUIRES_HANDOFF` prereq which
+  // pins `mustContain: ['schemaVersion: 2', 'sha256:']`. The previous
+  // field name `handoffHash` made peaks-cli write a handoff that the
+  // own prereq resolver would reject with "missing section(s): sha256:".
+  // Primary field is now `sha256`; `handoffHash` is kept as a literal
+  // alias for back-compat with any consumer (UI / external scripts)
+  // that still reads the old key.
   const frontmatter = [
     '---',
     `requestId: ${opts.requestId}`,
     `sessionId: ${opts.sessionId}`,
     `changeId: ${opts.changeId}`,
     'schemaVersion: 2',
+    `sha256: ${sha256}`,
     `handoffHash: ${sha256}`,
     `writtenAt: ${new Date().toISOString()}`,
     'goals: []',

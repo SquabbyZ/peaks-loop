@@ -119,3 +119,115 @@ describe('v2.13.2 envelopes.ts (AC-3)', () => {
     expect(out.reasons[0]!.sources).toEqual(['security-audit', 'perf-audit']);
   });
 });
+
+// ─── v2.13.3 AC-1 — real v2.12.0 markdown parse ──────────────────────
+//
+// Dogfood bug #1 (2.13.2): parseSecurity/Perf only ran JSON.parse. The
+// real audit files at `.peaks/_runtime/<sid>/audit/security.md` and
+// `audit/perf.md` are YAML frontmatter + markdown body. The CLI
+// returned `verdict: warn, violations: []` because its inline parser
+// only matched shape A (`- [SEV] dim @ file:line — hint`); the
+// 2.13.2 dogfood fixture used shape B (`- HIGH: hint in file:line`).
+// These 4 cases pin the fix.
+describe('v2.13.3 envelopes.ts (AC-1) — real v2.12.0 markdown parse', () => {
+  test('H: parseSecurityEnvelope — real v2.12.0 frontmatter + shape B bullet extracts violations', () => {
+    // Copied from .peaks/_runtime/2026-06-27-session-83acf5/audit/security.md
+    // (2.13.2 dogfood fixture, rid/sid substituted for portability).
+    const md = [
+      '---',
+      'schemaVersion: 1',
+      'artifactKind: security-audit',
+      'rid: test-rid',
+      'sid: test-sid',
+      'handoffHash: deadbeef',
+      'templateVersion: 1',
+      'generatedAt: 2026-06-27T22:00:00.000Z',
+      'verdict: warn',
+      'violationsCount: 1',
+      '---',
+      '## Summary',
+      '',
+      'Test security envelope for dogfood.',
+      '',
+      '## Findings',
+      '',
+      '- HIGH: hardcoded password in src/auth.ts:42',
+      '',
+      '## Verdict',
+      '',
+      'verdict: warn',
+      'CRITICAL: 0'
+    ].join('\n');
+    const env = parseSecurityEnvelope(md);
+    expect(env).not.toBeNull();
+    expect(env?.verdict).toBe('warn');
+    expect(env?.violations).toHaveLength(1);
+    expect(env?.violations[0]?.severity).toBe('HIGH');
+    expect(env?.violations[0]?.file).toBe('src/auth.ts');
+    expect(env?.violations[0]?.line).toBe(42);
+    expect(env?.violations[0]?.hint).toContain('hardcoded password');
+    expect(env?.summary).toContain('Test security envelope');
+  });
+
+  test('I: parsePerfEnvelope — real v2.12.0 frontmatter (no violations) returns envelope with empty violations', () => {
+    const md = [
+      '---',
+      'schemaVersion: 1',
+      'artifactKind: perf-audit',
+      'rid: test-rid',
+      'sid: test-sid',
+      'handoffHash: deadbeef',
+      'templateVersion: 1',
+      'generatedAt: 2026-06-27T22:00:00.000Z',
+      'verdict: pass',
+      'violationsCount: 0',
+      '---',
+      '## Summary',
+      '',
+      'Test perf envelope for dogfood.',
+      '',
+      '## Findings',
+      '',
+      '- none',
+      '',
+      '## Verdict',
+      '',
+      'verdict: pass',
+      'CRITICAL: 0'
+    ].join('\n');
+    const env = parsePerfEnvelope(md);
+    expect(env).not.toBeNull();
+    expect(env?.verdict).toBe('pass');
+    expect(env?.violations).toEqual([]);
+  });
+
+  test('J: parseSecurityEnvelope — markdown without frontmatter returns null (not JSON, not v2.12.0)', () => {
+    const md = [
+      '## Summary',
+      '',
+      'Some findings without frontmatter.',
+      '',
+      '## Findings',
+      '',
+      '- HIGH: hardcoded password in src/auth.ts:42'
+    ].join('\n');
+    expect(parseSecurityEnvelope(md)).toBeNull();
+    expect(parsePerfEnvelope(md)).toBeNull();
+  });
+
+  test('K: parseSecurityEnvelope — JSON back-compat path still works (existing test fixtures)', () => {
+    // Pre-2.13.3 contract: a JSON string is still accepted. This pins
+    // the back-compat path so the v2.13.2 envelopes.test.ts cases
+    // (A / B / F-partial) keep passing.
+    const md = JSON.stringify({
+      verdict: 'warn',
+      violations: [{ dimension: 'auth', severity: 'HIGH', file: 'a.ts', line: 1, hint: 'h' }],
+      summary: 'one'
+    });
+    const env = parseSecurityEnvelope(md);
+    expect(env).not.toBeNull();
+    expect(env?.verdict).toBe('warn');
+    expect(env?.violations).toHaveLength(1);
+    expect(env?.violations[0]?.dimension).toBe('auth');
+  });
+});

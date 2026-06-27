@@ -61,8 +61,15 @@ export function registerVerdictAggregateCommands(program: Command, io: ProgramIO
 
     try {
       const sources = {
-        security: readAudit(projectRoot, sid, SECURITY_REL, parseSecurityFromMarkdown),
-        perf: readAudit(projectRoot, sid, PERF_REL, parsePerfFromMarkdown),
+        // v2.13.3 AC-1: use the canonical markdown-aware parser from
+        // envelopes.ts. The old inline `parseSecurityFromMarkdown`
+        // only understood shape A (`- [SEV] dim @ file:line — hint`),
+        // so real dogfood fixtures using shape B (`- HIGH: hint in file:line`)
+        // returned `verdict: warn, violations: []` — the aggregator
+        // then produced `reasons: []` and `verdict: 'pass'` even when
+        // the audit had flagged HIGH violations.
+        security: readAudit(projectRoot, sid, SECURITY_REL, parseSecurityEnvelope),
+        perf: readAudit(projectRoot, sid, PERF_REL, parsePerfEnvelope),
         karpathy: readAudit(projectRoot, sid, KARPATHY_REL, (m) => parseKarpathyEnvelope(m)),
         mut: await readMut(projectRoot, sid),
         qa: readQa(projectRoot, sid, rid)
@@ -137,32 +144,11 @@ function readQa(projectRoot: string, sid: string, rid: string): ReturnType<typeo
   return null;
 }
 
-function parseSecurityFromMarkdown(md: string): ReturnType<typeof parseSecurityEnvelope> {
-  const verdictMatch = md.match(/^verdict\s*:\s*(pass|warn|block)\s*$/m);
-  if (verdictMatch === null) return null;
-  type V = { dimension: string; severity: 'CRITICAL' | 'HIGH' | 'MED' | 'LOW'; file: string; line: number; hint: string };
-  const violations: V[] = [];
-  // Best-effort parse of the Findings section. Bullet format: - [SEV] dim @ file:line — hint
-  const section = md.split(/^##\s+Findings\s*$/m)[1] ?? '';
-  const bullets = section.split('\n').filter((l) => l.trim().startsWith('- ['));
-  for (const bullet of bullets) {
-    const m = bullet.match(/^\s*-\s*\[(CRITICAL|HIGH|MED|LOW)\]\s+(\S+)\s+@\s+([^:]+):(\d+)\s+[—-]\s+(.+)$/);
-    if (m === null) continue;
-    const [, severity, dimension, file, line, hint] = m;
-    if (severity === undefined || dimension === undefined || file === undefined || line === undefined || hint === undefined) continue;
-    violations.push({ dimension, severity: severity as V['severity'], file, line: parseInt(line, 10), hint: hint.trim() });
-  }
-  return {
-    verdict: verdictMatch[1] as 'pass' | 'warn' | 'block',
-    violations,
-    summary: ''
-  };
-}
-
-function parsePerfFromMarkdown(md: string): ReturnType<typeof parsePerfEnvelope> {
-  return parseSecurityFromMarkdown(md);
-}
-
 function parseMutJson(json: unknown): ReturnType<typeof parseMutEnvelope> {
   return parseMutEnvelope(json);
 }
+
+// v2.13.3 AC-1: removed inline `parseSecurityFromMarkdown` /
+// `parsePerfFromMarkdown` (only handled shape A). The canonical
+// `parseSecurityEnvelope` / `parsePerfEnvelope` in envelopes.ts now
+// own the markdown parse + JSON back-compat fallback.

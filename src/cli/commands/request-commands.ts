@@ -518,15 +518,27 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         throw error;
       }
       if (error instanceof PrerequisitesNotSatisfiedError) {
+        // v2.13.3 AC-3 — surface `warnings` (soft-block entries from
+        // the 1-minor-release back-compat window, e.g. MUT_REPORT) so
+        // the operator sees both the hard-blocked `missing` paths and
+        // the soft-blocked ones. `warnings` is always present (possibly
+        // empty) to keep the response shape stable.
         printResult(
           io,
           fail(
             'request.transition',
             error.code,
             error.message,
-            { role: error.role, newState: error.newState, sessionId: error.sessionId, missing: error.missing },
+            {
+              role: error.role,
+              newState: error.newState,
+              sessionId: error.sessionId,
+              missing: error.missing,
+              warnings: error.warnings
+            },
             [
               ...error.missing.map((entry) => `Produce ${entry.path}: ${entry.description}`),
+              ...error.warnings.map((w) => `Soft-blocked (v2.13.3 back-compat window): ${w.path} — ${w.message}`),
               'Once every required artifact exists, rerun this transition.',
               'For exceptional cases (docs-only / config-only change), bypass with: --allow-incomplete --reason "<justification>"'
             ]

@@ -1,10 +1,16 @@
 /**
- * v2.13.2 AC-4 — prd/handoff.md auto-regen tests (≥3 cases).
+ * v2.13.3 AC-4 — prd/handoff.md auto-regen tests.
  *
  * Pins:
- *   - missing handoff → created with sha256
+ *   - missing handoff → created with sha256-locked frontmatter
+ *     (v2.13.3: primary field is now `sha256:` to align with the
+ *     AUDIT_REQUIRES_HANDOFF prereq, with `handoffHash:` kept as
+ *     a literal alias for back-compat consumers)
  *   - existing handoff → not overwritten
- *   - sha256 round-trip verified
+ *   - sha256 round-trip verified (primary `sha256:` field)
+ *   - AUDIT_REQUIRES_HANDOFF prereq check passes on the auto-regen
+ *     output (regression pin for the dogfood "missing section(s): sha256:"
+ *     bug)
  */
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
@@ -12,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { autoRegenPrdHandoff } from '../../../../src/services/prd/handoff-auto-regen.js';
+import { checkPrerequisites } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 
 function makeProject(sid: string): string {
   const dir = mkdtempSync(join(tmpdir(), 'handoff-auto-'));
@@ -25,11 +32,11 @@ function makeProject(sid: string): string {
   return dir;
 }
 
-describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
+describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
   let project: string;
   const sid = '2026-06-27-session-test';
   const requestId = 'rid-1';
-  const changeId = 'v2-13-2-patch';
+  const changeId = 'v2-13-3-patch';
 
   beforeEach(() => {
     project = makeProject(sid);
@@ -39,7 +46,7 @@ describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
     rmSync(project, { recursive: true, force: true });
   });
 
-  test('A: missing handoff → created with sha256-locked frontmatter (schemaVersion: 2)', async () => {
+  test('A: missing handoff → created with sha256 + handoffHash alias (schemaVersion: 2)', async () => {
     const handoffPath = join(project, '.peaks', '_runtime', sid, 'prd', 'handoff.md');
     expect(existsSync(handoffPath)).toBe(false);
     const result = await autoRegenPrdHandoff({
@@ -51,7 +58,11 @@ describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
     const raw = readFileSync(handoffPath, 'utf8');
     expect(raw).toMatch(/^---/);
     expect(raw).toMatch(/schemaVersion: 2/);
-    expect(raw).toMatch(new RegExp(`handoffHash: ${result.sha256}`));
+    // v2.13.3 AC-4: primary field is `sha256:` to align with
+    // AUDIT_REQUIRES_HANDOFF mustContain. `handoffHash:` is kept as
+    // a literal alias for back-compat consumers.
+    expect(raw).toMatch(new RegExp(`^sha256: ${result.sha256}`, 'm'));
+    expect(raw).toMatch(new RegExp(`^handoffHash: ${result.sha256}`, 'm'));
     // Body is the PRD body
     expect(raw).toContain('# PRD rid-1');
     expect(raw).toContain('## Goals');
@@ -76,7 +87,7 @@ describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
     expect(after).toContain('EXISTING — should not be touched');
   });
 
-  test('C: sha256 round-trip — frontmatter hash matches the body content', async () => {
+  test('C: sha256 round-trip — frontmatter `sha256:` field matches the body content', async () => {
     const result = await autoRegenPrdHandoff({
       projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
     });
@@ -87,7 +98,8 @@ describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
     expect(match).not.toBeNull();
     const fm = match![1]!;
     const body = match![2]!;
-    const hashMatch = fm.match(/^handoffHash:\s*([a-f0-9]{64})\s*$/m);
+    // v2.13.3 AC-4: read from the primary `sha256:` field.
+    const hashMatch = fm.match(/^sha256:\s*([a-f0-9]{64})\s*$/m);
     expect(hashMatch).not.toBeNull();
     const expected = hashMatch![1]!;
     const actual = createHash('sha256').update(body, 'utf8').digest('hex');
@@ -100,5 +112,37 @@ describe('v2.13.2 prd/handoff.md auto-regen (AC-4)', () => {
       projectRoot: project, sessionId: sid, requestId, changeId, role: 'rd'
     });
     expect(result.status).toBe('failed');
+  });
+
+  test('E (v2.13.3 AC-4 new): AUDIT_REQUIRES_HANDOFF prereq passes on auto-regen output', async () => {
+    // Regression pin for dogfood bug: pre-2.13.3 the auto-regen wrote
+    // `handoffHash:` but the AUDIT_REQUIRES_HANDOFF prereq required
+    // `sha256:` — the own prereq would reject its own handoff. After
+    // the AC-4 fix, the prereq must pass when run on the auto-regen
+    // output (no `missing` entry with `sha256:` in the description).
+    const result = await autoRegenPrdHandoff({
+      projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
+    });
+    expect(result.status).toBe('created');
+    if (result.status !== 'created') return;
+    const prereq = await checkPrerequisites({
+      projectRoot: project,
+      changeId,
+      sessionId: sid,
+      role: 'rd',
+      newState: 'qa-handoff',
+      requestId,
+      requestType: 'feature'
+    });
+    // The AUDIT_REQUIRES_HANDOFF entry is at `rd:qa-handoff` for
+    // feature slices. If sha256: were missing, the prereq would have
+    // a `missing` entry whose description ends with `sha256:`.
+    const auditHandoffMissing = prereq.missing.find(
+      (m) => m.path === 'prd/handoff.md' && m.description.includes('sha256:')
+    );
+    expect(auditHandoffMissing).toBeUndefined();
+    // The handoff itself must not be reported as missing (it exists).
+    const handoffMissing = prereq.missing.find((m) => m.path === 'prd/handoff.md');
+    expect(handoffMissing).toBeUndefined();
   });
 });
