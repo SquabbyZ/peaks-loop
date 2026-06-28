@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.14.1] — 2026-06-28 — Prepublish Windows ENOENT + npm 11.x https_proxy deprecation
+
+**PATCH bump from 2.14.0** (carry-forward from v2.13.3 AC-2 partial fix + npm 11.x config rename).
+
+### Bug fixes
+- `scripts/prepublish-build.mjs` — use `execFileSync('pnpm', ['run', 'build'])` (no shell) with Windows fallback to `prepublish-build.ps1` (proven dogfood). Eliminates the v2.13.4 partial-fix `spawnSync cmd.exe ENOENT` on Node 22 + Windows native.
+- `.npmrc` (NEW, repo-local template) — documents that `https_proxy` (underscore) is NO LONGER VALID in npm 11.x; use `https-proxy` or `proxy`. User-global `~/.npmrc` may still have `https_proxy`; npm 11.x warns, npm 12 will error.
+
+### Test results
+- `tests/unit/scripts/prepublish-build.test.ts` (NEW, 6 cases) — covers execFile happy path + Windows ps1 fallback + error propagation + version validation + ENOENT regression
+- `node scripts/prepublish-build.mjs` end-to-end: `[prepublish-build] build OK` exit 0 (verified on this Windows session)
+
+### Out-of-scope
+- Do NOT modify user-global `~/.npmrc` (user-only boundary); user must run `npm config delete https_proxy` themselves if they want to silence the warning before npm 12.
+
+---
+
 All notable changes to peaks-cli are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
