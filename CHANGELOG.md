@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.14.2] — 2026-06-28 — peaks-companion dead skill removal + minimax provider migration
+
+**PATCH bump from 2.14.1** (slice `2026-06-28-tilde-peaks-p3p4`). Closes P3 + P4 from `.peaks/memory/2026-06-28-tilde-peaks-inventory.md`.
+
+### Cleanup
+- **`skills/peaks-companion/`** — REMOVED. Skill was dead: SKILL.md documented `peaks companion status/install/setup/start` but no CLI implementation existed (`src/services/companion/` not present, `peaks --help` had no companion entry). Empty `~/.peaks/companion/` directory is no longer expected to receive `cc-connect.log` writes.
+- **`tests/unit/skills/peaks-companion.test.ts`** — REMOVED (9 cases). The companion skill-count assertion (19 → 18 skills) is now verified by `tests/unit/skills/skill-count.test.ts` (already covers the meta count, not companion specifically).
+- **`.peaks/memory/peaks-companion-*.md`** — REMOVED (4 files: `cc-connect-dogfood-2026-06-15`, `qr-autoopen-2026-06-15`, `qr-inline-display-2026-06-15`, `watcher-ecs-url-config`). Historical dogfood records, no longer relevant.
+
+### Refactor
+- **`~/.peaks/providers.json`** (NEW sidecar) — MiniMax provider config migrated from deprecated `~/.peaks/config.json.providers` to canonical `~/.peaks/providers.json` per `provider-service.ts` schema. The slim `config.json` (per `config-types.ts`) no longer carries the `providers` field.
+- **MiniMax model field preserved** — `~/.peaks/providers.json.providers.minimax.model = "minimax-2.7"`; `peaks config provider minimax get/status` continue to report correctly via the back-compat fallback in `provider-service.ts`.
+
+### Test results
+- `pnpm vitest run tests/unit/doctor.test.ts` — 50/50 pass
+- `pnpm vitest run` full unit suite — `peaks-companion.test.ts` no longer runs; total cases drop from 4418 → 4409. Pre-existing failures (`doctor.test.ts` × 0, `tokenizer.test.ts` × 1, `35-checks-aggregate.test.ts` × 1) unchanged.
+
+### Out-of-scope
+- Push / tag / npm publish — full-auto mode boundary = commit only; user-only.
+- Re-implementing peaks-companion CLI — user chose delete over revive.
+- Cleaning `~/.peaks/companion/` empty dir — left in place; harmless.
+
+---
+
 ## [2.14.1] — 2026-06-28 — Prepublish Windows ENOENT + npm 11.x https_proxy deprecation
 
 **PATCH bump from 2.14.0** (carry-forward from v2.13.3 AC-2 partial fix + npm 11.x config rename).
