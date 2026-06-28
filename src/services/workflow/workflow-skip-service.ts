@@ -264,7 +264,7 @@ function resolveSkipAppliedBy(): string {
     if (trimmed.length > 0) {
       return trimmed;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // fall through
   }
   try {

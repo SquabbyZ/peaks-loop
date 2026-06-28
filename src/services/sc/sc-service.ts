@@ -146,7 +146,7 @@ function resolveCurrentChangeId(peaksPath: string): string | null {
     const raw = readFileSync(currentChangePath, 'utf-8').trim();
     if (!raw || !SLICE_ID_PATTERN.test(raw)) return null;
     return raw;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -164,7 +164,7 @@ function getCurrentCommitHash(workspaceRoot?: string): string | null {
 
   try {
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: workspaceRoot, encoding: 'utf-8' }).trim();
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -235,7 +235,7 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -263,7 +263,7 @@ function readSessionJsonBinding(projectRoot: string): string | null {
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -310,7 +310,7 @@ function findSessionOwningSlice(projectRoot: string, sliceId: string): string | 
   let topLevel: string[];
   try {
     topLevel = readdirSync(peaksRoot);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   topLevel.sort();

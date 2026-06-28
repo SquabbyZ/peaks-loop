@@ -160,7 +160,7 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
     if (!existsSync(logDir)) {
       mkdirSync(logDir, { recursive: true });
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -179,13 +179,13 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
   let line: string;
   try {
     line = JSON.stringify(redactedEntry);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
   try {
     appendFileSync(fullPath, line + '\n', { mode: 0o600 });
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -199,7 +199,7 @@ export function writeLogEntry(entry: LogEntry, opts: WriteLogOptions = {}): stri
       if ((stat.mode & 0o777) !== 0o600) {
         chmodSync(fullPath, 0o600);
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* best-effort */
     }
   }
@@ -242,7 +242,7 @@ export function readLogEntries(opts: ReadLogOptions = {}): LogEntry[] {
     if (line.length === 0) continue;
     try {
       out.push(JSON.parse(line) as LogEntry);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip malformed
     }
   }

@@ -167,7 +167,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       let headroomPrefs = DEFAULT_PREFERENCES.headroom;
       try {
         headroomPrefs = loadPreferences(projectRoot).headroom;
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // Keep default preferences; the user can re-run with explicit --headroom-mode
         // if they want to override the fallback.
       }
@@ -357,7 +357,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
             forcedAt: decision.forcedAt
           }
         });
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         /* best-effort */
       }
     } catch (error: unknown) {

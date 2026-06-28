@@ -433,7 +433,7 @@ function assertSafeSessionDir(projectRoot: string, sessionId: string): string {
 function safeRealpath(path: string): string | null {
   try {
     return realpathSync(path);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -461,7 +461,7 @@ function readStoredMemoryNames(memoryDir: string): Set<string> {
     try {
       const parsed = parseStoredMemoryFile(readFileSync(filePath, 'utf8'), filePath);
       if (parsed) names.add(parsed.name);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore unreadable files
     }
   }
@@ -522,7 +522,7 @@ function readExistingIndex(indexPath: string): MemoryIndex | null {
     const parsed = JSON.parse(raw) as MemoryIndex;
     if (parsed.version === 1) return parsed;
     return null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -572,7 +572,7 @@ export function readMemoryIndex(projectRoot: string): MemoryIndex | null {
   if (files.length > 0 && shouldRegenerateIndex(indexPath, files)) {
     try {
       generateMemoryIndexFile(normalizedRoot, memoryDir, indexPath);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // fall through to read existing
     }
   }
@@ -618,7 +618,7 @@ export function extractSessionMemories(options: ExtractSessionMemoriesOptions): 
       const relativePath = relative(projectRoot, filePath).replaceAll('\\', '/');
       const extracted = extractStableProjectMemories(content, relativePath);
       allExtracted.push(...extracted);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip unreadable files
     }
   }

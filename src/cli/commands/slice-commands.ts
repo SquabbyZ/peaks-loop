@@ -386,7 +386,7 @@ function readPrdBody(rid: string, projectRoot: string): string {
     let entries: string[];
     try {
       entries = readdirSync(dir);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       return null;
     }
     for (const entry of entries) {

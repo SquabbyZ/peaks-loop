@@ -123,7 +123,7 @@ export function listSessions(projectRoot: string): PlaywrightSession[] {
       const raw = readFileSync(join(dir, entry), 'utf8');
       const session = JSON.parse(raw) as PlaywrightSession;
       out.push(session);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip malformed session file
     }
   }
@@ -135,7 +135,7 @@ export function readSession(projectRoot: string, terminalId: string): Playwright
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PlaywrightSession;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -354,7 +354,7 @@ export function registerPlaywrightCommands(program: Command, _io: ProgramIO): vo
         if (session.pid !== undefined && session.pid !== null) {
           try {
             process.kill(session.pid, 'SIGTERM');
-          } catch {
+          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
             /* process may have already exited */
           }
         }

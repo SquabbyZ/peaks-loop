@@ -114,7 +114,7 @@ function readJsonFile(path: string | null, validateBeforeRead?: () => void, erro
   const content = readConfigFileSafely(path, errorMessage);
   try {
     return JSON.parse(content) as Partial<PeaksConfig>;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

@@ -201,7 +201,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     // Auto-update project context so future sessions have up-to-date history
     try {
       generateProjectContext(projectRoot);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // non-fatal: context update failure should not block presence clear
     }
     printResult(io, ok('skill.presence:clear', { active: false, removed, projectContextUpdated: true }), options.json);

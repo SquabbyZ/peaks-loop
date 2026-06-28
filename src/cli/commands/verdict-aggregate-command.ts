@@ -125,7 +125,7 @@ async function readMut(projectRoot: string, sid: string): Promise<ReturnType<typ
   let json: unknown;
   try {
     json = JSON.parse(raw);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return parseMutJson(json);

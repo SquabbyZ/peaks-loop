@@ -71,7 +71,7 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
     if (isStaleLock(lockPath)) {
       try {
         unlinkSync(lockPath);
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // race: another process reaped it; loop and try to acquire.
       }
       continue;
@@ -102,12 +102,12 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
   } finally {
     try {
       closeSync(fd);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // fd may already be closed by the OS on a crash; ignore.
     }
     try {
       unlinkSync(lockPath);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // Best-effort: stale .lock is harmless; the next acquirer reaps.
     }
   }

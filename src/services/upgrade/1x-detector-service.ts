@@ -58,7 +58,7 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
         signals.push(`global config at ${globalConfig} is 1.x (${raw['version']})`);
         if (configPath === null) configPath = globalConfig;
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // ignore parse error — the 1.x detection is best-effort
     }
   }
@@ -72,7 +72,7 @@ export function detect1xProjectState(cwd: string = process.cwd()): OneXState {
         if (/peaks progress/i.test(body)) {
           signals.push(`${devPref} references "peaks progress" (1.x CLI surface, removed in slice #014)`);
         }
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // ignore
       }
     }

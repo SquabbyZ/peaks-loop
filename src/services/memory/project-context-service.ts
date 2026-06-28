@@ -25,7 +25,7 @@ function projectName(projectRoot: string): string {
   try {
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
     return pkg.name ?? projectRoot.split(/[\\/]/).pop() ?? 'unknown';
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return projectRoot.split(/[\\/]/).pop() ?? 'unknown';
   }
 }
@@ -66,7 +66,7 @@ function extractOneLineSummary(sessionRoot: string): string | null {
         if (trimmed.length > 10 && trimmed.length < 200) return trimmed;
         break;
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip unreadable
     }
   }
@@ -158,7 +158,7 @@ export function readProjectContext(projectRoot: string): string | null {
   if (!existsSync(contextPath)) return null;
   try {
     return readFileSync(contextPath, 'utf8');
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

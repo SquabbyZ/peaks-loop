@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "v2-12-independent-security-perf-audit-audit-perf--yaml-frontmatter-variation",
+  "envelopeKind": "audit-perf",
+  "producer": "peaks-fixture-capture-cli",
+  "producerVersion": "2.14.0",
+  "sourceOrigin": {
+    "kind": "derived-variant",
+    "path": "C:/Users/smallMark/Desktop/peaks-cli/tests/fixtures/replay/v2-12-independent-security-perf-audit-audit-perf.md",
+    "changeId": "v2-12-independent-security-perf-audit",
+    "sessionId": "2026-06-27-session-83acf5",
+    "parentFixtureId": "v2-12-independent-security-perf-audit-audit-perf",
+    "variantCommand": "yaml-frontmatter-variation"
+  },
+  "capturedAt": "2026-06-28T02:49:31.360Z",
+  "sanitization": {
+    "passed": true,
+    "rulesApplied": [
+      "cookie-redaction",
+      "token-redaction",
+      "sso-url-redaction",
+      "personal-email-redaction",
+      "username-path-segment-redaction"
+    ],
+    "issues": []
+  },
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "680c0cd0f059199359f6beabda17aca9653b1bb1be0005cf72615fc2ec8b02e8"
+  },
+  "edgeCases": [
+    "yaml-frontmatter-variation"
+  ]
+}

@@ -386,6 +386,138 @@ describe('G8 path safety (R-2)', () => {
   });
 });
 
+/**
+ * G5 — concurrent LWW fuzz for shared-channel (slice A.3 of
+ * v2-14-0-anti-fake-green-hardening, AC-5.2).
+ *
+ * Verifies that `writeSharedEntry` (last-write-wins by key) remains
+ * lossless when ≥4 concurrent Promises target the same key in the
+ * same batch. The file-lock (`withFileLockSync`) is what protects this
+ * invariant; this fuzz pins the contract.
+ *
+ * 20× repeat (RACE_REPEAT): vitest 2.1.9 (the pinned version) does not
+ * expose a `--repeat` CLI flag (added in vitest 2.2+). To satisfy
+ * AC-5.1's "20× repeat" intent without bumping the vitest dep, every
+ * fuzz case in this file wraps its body in a 20-iteration loop. Each
+ * iteration uses a fresh `mkdtempSync` root from the outer beforeEach.
+ *
+ * Tooling: vitest built-in + Node `setImmediate` / `process.nextTick`
+ * scheduling. NO fast-check / jsfuzz per AC-5.5.
+ */
+
+/** 20× repeat constant — matches PRD AC-5.1's `--repeat=20` intent. */
+const RACE_REPEAT = 20;
+
+describe('G5 shared-channel concurrent LWW fuzz', () => {
+  it('≥4 concurrent writeSharedEntry to the same key: exactly one final value survives and it is from the launched set (20×)', async () => {
+    for (let rep = 0; rep < RACE_REPEAT; rep += 1) {
+      const key = `rd.completed-${rep}`;
+      const batch = `${BATCH}-rep-${rep}`;
+      const N = 6; // ≥4 per AC-5.2
+      // Schedule each writer on a microtask + macrotask boundary so all N
+      // tasks reach the lock acquisition interleaved. The lock
+      // (`withFileLockSync`) must serialize them so the final channel
+      // file holds exactly ONE entry for `key` (LWW) and that entry's
+      // value comes from the launched set.
+      const promises: Promise<{ v: number }>[] = [];
+      for (let i = 0; i < N; i += 1) {
+        const v = i + 1;
+        promises.push(
+          new Promise<{ v: number }>((resolveW) => {
+            process.nextTick(() => {
+              setImmediate(() => {
+                const r = writeSharedEntry({
+                  projectRoot: root,
+                  sid: SID,
+                  rid: RID,
+                  batchId: batch,
+                  key,
+                  from: 'rd',
+                  value: { v }
+                });
+                if (r.ok) {
+                  resolveW(r.entry.value as { v: number });
+                } else {
+                  throw new Error(`writeSharedEntry returned ${r.code}: ${r.message}`);
+                }
+              });
+            });
+          })
+        );
+      }
+      const values = await Promise.all(promises);
+      // Every write call returned a value — no error path was taken.
+      expect(values).toHaveLength(N);
+
+      // Re-read the channel file directly via readSharedChannel and pin
+      // the LWW invariant: exactly one entry for the key, and its value
+      // must come from the set {1..N}.
+      const ch = readSharedChannel({
+        projectRoot: root,
+        sid: SID,
+        rid: RID,
+        batchId: batch
+      });
+      expect(Object.keys(ch.entries)).toEqual([key]);
+      const finalEntry = ch.entries[key];
+      expect(finalEntry).toBeDefined();
+      const finalV = (finalEntry?.value as { v: number }).v;
+      expect(finalV).toBeGreaterThanOrEqual(1);
+      expect(finalV).toBeLessThanOrEqual(N);
+    }
+  });
+
+  it('≥4 concurrent writeSharedEntry to distinct keys: all N keys survive (no lost updates, 20×)', async () => {
+    // Distinct keys → no LWW collision, but the lock + read-modify-
+    // write sequence must still produce a channel file with all N
+    // entries. A lost-update regression would surface as fewer entries.
+    for (let rep = 0; rep < RACE_REPEAT; rep += 1) {
+      const batch = `${BATCH}-distinct-rep-${rep}`;
+      const N = 5;
+      const promises: Promise<string>[] = [];
+      for (let i = 0; i < N; i += 1) {
+        const key = `rd.k-${rep}-${i}`;
+        promises.push(
+          new Promise<string>((resolveW) => {
+            process.nextTick(() => {
+              setImmediate(() => {
+                const r = writeSharedEntry({
+                  projectRoot: root,
+                  sid: SID,
+                  rid: RID,
+                  batchId: batch,
+                  key,
+                  from: 'rd',
+                  value: { v: i }
+                });
+                if (r.ok) {
+                  resolveW(key);
+                } else {
+                  throw new Error(`writeSharedEntry returned ${r.code}: ${r.message}`);
+                }
+              });
+            });
+          })
+        );
+      }
+      const keys = await Promise.all(promises);
+      expect(keys).toHaveLength(N);
+
+      const ch = readSharedChannel({
+        projectRoot: root,
+        sid: SID,
+        rid: RID,
+        batchId: batch
+      });
+      // All N keys must be present.
+      for (const key of keys) {
+        expect(ch.entries[key]).toBeDefined();
+      }
+      expect(Object.keys(ch.entries).length).toBe(N);
+    }
+  });
+});
+
 describe('G8 compileKeyPattern', () => {
   it('* matches anything', () => {
     const m = compileKeyPattern('*');

@@ -94,7 +94,7 @@ function getSignalsFromGitDiff(projectRoot: string): ClassifySignals {
 function appendAuditEntry(projectRoot: string, entry: unknown): void {
   const auditDir = join(projectRoot, '.peaks/_runtime');
   if (!existsSync(auditDir)) {
-    try { mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ }
+    try { mkdirSync(auditDir, { recursive: true }); } catch { /* ignore */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
   const auditPath = join(auditDir, CLASSIFY_AUDIT_FILE);
   let body = '';
@@ -102,9 +102,9 @@ function appendAuditEntry(projectRoot: string, entry: unknown): void {
     if (existsSync(auditPath)) {
       body = readFileSync(auditPath, 'utf8');
     }
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   body += JSON.stringify(entry) + '\n';
-  try { writeFileSync(auditPath, body); } catch { /* best-effort */ }
+  try { writeFileSync(auditPath, body); } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
 }
 
 function isTaskLevel(value: string): value is TaskLevel {

@@ -51,7 +51,7 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       if (raw.trim().length > 0) {
         try {
           parsedStdin = JSON.parse(raw);
-        } catch {
+        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Malformed JSON — fail-open. Detect + parse on null fall back to the
           // default adapter and yield empty tool/command, which short-circuits
           // to the "not a guarded surface" early exit below.

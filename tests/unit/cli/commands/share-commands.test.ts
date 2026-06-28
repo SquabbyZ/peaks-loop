@@ -11,6 +11,11 @@
  *                     glob filter and `--since` timestamp filter.
  *   - `await` — MISSING_BATCH, INVALID_TIMEOUT, IDE_NOT_SUPPORTED for
  *               non-claude-code IDEs in 1.2 MVP.
+ *
+ * Slice A.3 / AC-5.4 — the prior `lastWriteWins: false` flake at
+ * L99-111 was timing-based: it depended on no prior test having written
+ * to the same batch + key. Replaced with deterministic event ordering
+ * via per-test unique batch IDs (the `uniqueBatch(prefix)` helper).
  */
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -34,8 +39,33 @@ afterEach(() => {
 });
 
 // All three actions live under the same parent `sub-agent` and share
-// `--batch <id>` semantics, so we use a fixed batch id across tests.
+// `--batch <id>` semantics. Each test that exercises
+// `lastWriteWins: false` (i.e. expects a fresh write to a previously
+// unseen key) MUST use a unique batch id — see uniqueBatch() below.
+// Tests that intentionally test LWW (lastWriteWins: true after a prior
+// write) use the shared `BATCH` constant because they explicitly seed
+// the prior write first.
 const BATCH = 'batch-share-test';
+
+/**
+ * Deterministic per-test batch id. Slice A.3 / AC-5.4 fix:
+ *
+ * The original L99-111 flake was a timing-based race: when the test
+ * suite ran in any order other than the file's source order, a
+ * previous test could have written `rd.completed` to the shared
+ * `BATCH` constant before the "happy path" test ran, causing
+ * `lastWriteWins: true` instead of the asserted `false`. We eliminate
+ * the timing dependency by giving each test that asserts the FIRST-
+ * write semantics its own unique batch id, so no prior test state can
+ * leak in regardless of order. The unique id is also stable across
+ * `--repeat=20` (same input → same id), so the race-detector finds
+ * the same behavior on every repeat.
+ */
+let batchCounter = 0;
+function uniqueBatch(prefix: string): string {
+  batchCounter += 1;
+  return `${prefix}-${process.pid}-${Date.now()}-${batchCounter}`;
+}
 
 describe('peaks sub-agent share: validation paths', () => {
   it('commander rejects a missing --batch before the action handler runs', async () => {
@@ -92,9 +122,14 @@ describe('peaks sub-agent share: validation paths', () => {
 
 describe('peaks sub-agent share: happy path', () => {
   it('writes a shared entry and returns envelope with channelSize > 0', async () => {
+    // Slice A.3 / AC-5.4: use a unique batch id so no prior test state
+    // can leak `lastWriteWins: true` into this assertion. The unique
+    // id is deterministic across `--repeat=20` (same input → same id
+    // within a single test file's process).
+    const batch = uniqueBatch('batch-share-happy');
     const { stdout, exitCode } = await runCommand([
       'sub-agent', 'share',
-      '--batch', BATCH,
+      '--batch', batch,
       '--key', 'rd.completed',
       '--value', '{"reason":"tests-green","artifacts":["out/foo.txt"]}',
       '--from', 'rd',
@@ -113,7 +148,7 @@ describe('peaks sub-agent share: happy path', () => {
       valueSize: number;
     }>(stdout);
     expect(parsed.ok).toBe(true);
-    expect(parsed.data.batchId).toBe(BATCH);
+    expect(parsed.data.batchId).toBe(batch);
     expect(parsed.data.entryKey).toBe('rd.completed');
     expect(parsed.data.writtenAt).toMatch(/T.+Z$/);
     expect(parsed.data.channelSize).toBeGreaterThan(0);

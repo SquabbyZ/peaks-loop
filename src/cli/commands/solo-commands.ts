@@ -461,7 +461,7 @@ function readActiveSid(projectRoot: string): string | null {
     const presence = getSkillPresence(projectRoot);
     if (presence === null || presence === undefined) return null;
     return presence.sessionId ?? null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

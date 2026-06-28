@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "v2-12-independent-security-perf-audit-prd-handoff",
+  "envelopeKind": "prd-handoff",
+  "producer": "peaks-fixture-capture-cli",
+  "producerVersion": "2.14.0",
+  "sourceOrigin": {
+    "kind": "historical-artifact",
+    "path": "C:/Users/smallMark/Desktop/peaks-cli/.peaks/_runtime/2026-06-27-session-83acf5/prd/handoff.md",
+    "changeId": "v2-12-independent-security-perf-audit",
+    "sessionId": "2026-06-27-session-83acf5",
+    "parentFixtureId": null,
+    "variantCommand": null
+  },
+  "capturedAt": "2026-06-28T02:49:28.605Z",
+  "sanitization": {
+    "passed": true,
+    "rulesApplied": [
+      "cookie-redaction",
+      "token-redaction",
+      "sso-url-redaction",
+      "personal-email-redaction",
+      "username-path-segment-redaction"
+    ],
+    "issues": [
+      {
+        "rule": "username-path-segment-redaction",
+        "match": "$1<REDACTED-user>",
+        "position": 407
+      }
+    ]
+  },
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "a3cdf92ba1ac162bcd4091c6a4d741a0bdb677a002e9ed1f82b37aa7408e8951"
+  },
+  "edgeCases": [
+    "chinese-colon"
+  ]
+}

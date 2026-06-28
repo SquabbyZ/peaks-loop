@@ -481,7 +481,7 @@ function readResumeArtifact(artifactWorkspacePath: string, changeId: string, art
     } finally {
       closeSync(fd);
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -529,7 +529,7 @@ function parseJsonObject(content: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(content);
     return isObjectRecord(parsed) ? parsed : null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

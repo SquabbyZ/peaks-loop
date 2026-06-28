@@ -240,7 +240,7 @@ function safeReadBinding(projectRoot: string): { changeId: string; source: 'syml
       const raw = readFileSync(bindingPath, 'utf-8').trim();
       if (!raw || !CHANGE_DIR_PATTERN.test(raw) || raw === '.' || raw === '..') return null;
       return { changeId: raw, source: 'file' };
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       return null;
     }
   }
@@ -410,7 +410,7 @@ export function setCurrentChangeId(
       } catch (error) {
         if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
         // Broken binding (file exists but unreadable) — replace.
-        try { unlinkSync(bindingPath); } catch { /* best effort */ }
+        try { unlinkSync(bindingPath); } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       }
     }
     // Mode 0o600: the binding file contains the change-id (a per-user
@@ -448,7 +448,7 @@ export function setCurrentChangeId(
       }
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('current-change binding points')) throw error;
-      try { unlinkSync(bindingPath); } catch { /* best effort */ }
+      try { unlinkSync(bindingPath); } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     }
   }
   const linkType = process.platform === 'win32' ? 'junction' : 'dir';

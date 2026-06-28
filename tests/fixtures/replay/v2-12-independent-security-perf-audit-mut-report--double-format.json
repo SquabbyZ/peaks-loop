@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "killRate": 0.92,
+  "weakRate": 0.02,
+  "passed": true,
+  "violations": []
+}
+
+
+## Embedded JSON
+
+```json
+{
+  "verdict": "warn",
+  "violations": [
+    {
+      "dimension": "embed",
+      "severity": "HIGH",
+      "file": "embed.ts",
+      "line": 1,
+      "hint": "embedded json"
+    }
+  ],
+  "summary": "embedded json inside markdown"
+}
+```

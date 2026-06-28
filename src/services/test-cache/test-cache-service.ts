@@ -76,7 +76,7 @@ export function readTestCache(projectRoot: string, filePath: string): TestCacheF
     const raw = readFileSync(path, 'utf8');
     const parsed = JSON.parse(raw) as TestCacheFile;
     return parsed;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -186,7 +186,7 @@ export function detectTestFramework(projectRoot: string): TestFramework | null {
   let pkg: { devDependencies?: Record<string, string>; dependencies?: Record<string, string> };
   try {
     pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as typeof pkg;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   const all: Record<string, string> = {

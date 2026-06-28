@@ -54,7 +54,7 @@ function readPackageJson(projectRoot: string): PackageJsonShape | null {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as PackageJsonShape;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

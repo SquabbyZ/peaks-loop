@@ -7,6 +7,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.14.0] — 2026-06-28 — Anti-fake-green hardening (5-line defense in depth)
+
+**MINOR bump from 2.13.4** (slice `v2-14-0-anti-fake-green-hardening`, 5 production-grade defenses against single-LLM self-dogfood blind spots).
+
+### Features
+
+- G1 fixture-replay: 32 real-shipment fixtures + `peaks fixture capture` CLI + `pnpm test:replay` CI gate
+- G2 silent-warning lint: AST-based detector catches 4 anti-patterns (empty catch / catch-return-null / Promise-reject-no-cause / console-error-no-env); `pnpm lint:silent-warning` exits 1 by default with `// TODO(g2):` grace markers; 142 baseline sites pre-marked
+- G3 prose-only ≤5%: 89 prose-only entries → 6 promoted to enforcers (prose ratio 60.1% → 0%); `pnpm audit:prose-ratio` CI gate
+- G4 third-party reviewer: `skills/peaks-reviewer/` with `~/.peaks/config.json` provider pool; 35/35 new tests; `THIRD_PARTY_REVIEW` prereq (soft-warn skipped in v2.14.0, hard-fail in v2.15.0)
+- G5 race-detector: 4 fuzz-hardened modules + fixed `share-commands.test.ts` LWW timing flake via `uniqueBatch()`; `pnpm test:race` (--repeat=20 --no-file-parallelism) in 4.7s
+
+### Test results
+
+- 4502 pass + 3 pre-existing failures (artifact-prereq x2, tokenizer x1 — NOT introduced)
+- 25/25 ACs pass; 10/10 QA gates pass
+- tsc clean; prepublish-build OK
+
+### Known limitations (NOT a guarantee — see NG5)
+
+- Self-dogfood blind spots still exist by construction (any single-LLM evaluator shares blind spots with the code author). The 5-line defense reduces the probability of undetected regressions but does not eliminate it.
+
+---
+
+## [2.14.0-alpha.1] — 2026-06-28 — Slice B G4 third-party reviewer (anti-fake-green hardening)
+
+**MINOR bump from 2.13.4** (slice `2026-06-28-session-75d5f0`, slice-b-1-g4-third-party-reviewer).
+
+Slice B of the v2.14.0 anti-fake-green hardening PRD (`v2-14-0-anti-fake-green-hardening`, R6 sub-slice plan). This slice introduces the `peaks-reviewer` skill — a third-party independent reviewer that runs **in parallel** to the existing `karpathy-reviewer`. The intent is structural: when the RD-side karpathy reviewer and the QA-side dogfood both run on the same model family, "single-LLM self-dogfood" blind spots can survive 49/49 unit-test pass + tsc clean (the v2.13.1 + v2.13.2 ship bugs were real cases). peaks-reviewer adds an out-of-band perspective from a guaranteed-distinct model family.
+
+> ⚠️ **Important honesty note (per A4.5):** peaks-reviewer is a structural mitigation, NOT a guarantee. The release notes MUST NOT claim "no more fake green". Two reviewers from different families reduce — they do not eliminate — the single-LLM blind-spot class. v2.14.0 ships the G4 mitigation in a 1-minor-release soft-warning window; hard-fail (when `reviewer.providers` is configured but `rd/third-party-review.md` is absent) lands in v2.15.0.
+
+### Features
+
+- **`skills/peaks-reviewer/SKILL.md` + `references/reviewer-prompt.md` + `references/reviewer-schema.md`** — new skill family (19 → 20 skills) with a 5-step prompt, ReviewerEnvelope shape, and the A4.4 modelFamily distinctness gate contract.
+- **`schemas/reviewer-envelope.schema.json`** — JSON Schema for the ReviewerEnvelope (reviewerId / modelId / modelFamily / passed / violations[] / gateAction / reason). Free-form LLM JSON is rejected at parse time.
+- **`peaks reviewer run --rid <rid> [--json]`** + **`peaks reviewer status [--json]`** — CLI surface. `run` returns the schema-validated envelope; `status` shows whether the reviewer is configured (providers / selection / fallback policy).
+- **`~/.peaks/config.json` `reviewer` section** — `providers[]` (≥2 entries; ollama / anthropic / openai supported), `selection` (`round-robin` | `hash(rid)` | `random`), `rdProviderName`, `requireDistinctModelFamily`, `fallbackOnError` (`skip` | `error`), `schemaPath`. Missing section → reviewer skipped (no CLI prompt, transition still passes, envelope records `skipped: no-reviewer-config`).
+- **THIRD_PARTY_REVIEW prereq** — wired into `rd:qa-handoff` for FEATURE / BUGFIX / REFACTOR slices. v2.14.0 ships with a 1-minor-release soft-warning window (`backCompat: true`); v2.15.0 will hard-fail when `reviewer.providers` is configured but the artifact is absent.
+- **CLI flag `--reviewer-model` REMOVED** — A4.1 explicitly demotes the model selection to config-file-only. Users edit `~/.peaks/config.json` and the change takes effect without any CLI intervention.
+
+### Service layer
+
+- **`src/services/reviewer/reviewer-service.ts`** — orchestrator. `runReviewer({ rid, context, state?, fetchImpl?, rng? })` returns `{ ok, envelope, nextState? }`. Stamps `modelFamily` from the actual `modelId` we called (LLM cannot lie about its family — A4.4 hard gate).
+- **`src/services/reviewer/reviewer-config.ts`** — strict loader for the `reviewer` section. <2 providers → `no-reviewer-config`. NEVER throws on missing file.
+- **`src/services/reviewer/model-family.ts`** — `deriveModelFamily(modelId)` → `claude | gpt-4o | gpt-4 | gpt-3.5 | gpt-5 | o1 | o3 | azure-openai | bedrock-llama | bedrock-mistral | llama | mistral | qwen | deepseek | gemini | unknown-<sha256-prefix>`. Pure, deterministic, total.
+- **`src/services/reviewer/selection-strategies.ts`** — `selectRoundRobin` (cycles + `initialState()` reset) / `selectHash(rid)` (stable per rid, sha256-of-rid) / `selectRandom(rid, rng)` (injected RNG for testability).
+- **`src/services/reviewer/providers/ollama.ts` / `anthropic.ts` / `openai.ts`** — pure `fetch` + manual JSON parse; NO SDK (A4 prohibition). 30s timeout, `AbortController`-backed. Missing env var → `{ ok: false, error: 'missing env <NAME>' }`.
+
+### Internal
+
+- `src/services/artifacts/artifact-prerequisites.ts` — `THIRD_PARTY_REVIEW` added to FEATURE/BUGFIX/REFACTOR rd:qa-handoff tables; mirrors the MUT_REPORT back-compat pattern (1-minor-release soft-warning; v2.15.0 hard cut).
+- `src/cli/program.ts` — registers `registerReviewerCommands`.
+- `tests/unit/reviewer/{model-family,selection-strategies,reviewer-service}.test.ts` — 35 new test cases (10 / 12 / 13 across the three files). All pass; `tsc -p tsconfig.json --noEmit` clean; 99/99 cli-program + 28/28 artifact-prereq regressions still green.
+
+### Honesty clauses preserved
+
+- The karpathy-reviewer skill (`andrej-karpathy-skills:karpathy-guidelines` + `src/services/scan/karpathy-service.ts`) is **unchanged** (NG4 — parallel reviewer, not replacement).
+- No new dependencies added — pure `fetch` + node:crypto + zod-equivalent manual schema guard.
+- The 5 existing envelope parsers (v2.13.3 territory: `audit/security.md`, `audit/perf.md`, `prd/handoff.md`, `mut-report.json`, `mutants.json`) are **byte-stable**.
+- No tests deleted or renamed; only additions.
+
+---
+
 ## [2.13.4] — 2026-06-28 — Solo mode gate + verify-pipeline canonical path + auto-compact main target
 
 **PATCH bump from 2.13.3** (slice `2026-06-28-solo-mode-bypass-fix`, 4 production defects reported by user in solo session 2026-06-28).

@@ -152,7 +152,7 @@ function defaultStatusLineInstalledProbe(): boolean {
     if (projectRoot !== null && planStatusLineInstall('project', projectRoot).alreadyInstalled) {
       return true;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* fall through to global */
   }
   try {
@@ -216,7 +216,7 @@ export function compareDistVersion(opts: {
 function safeRead(reader: () => string | null): string | null {
   try {
     return reader();
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -501,7 +501,7 @@ function readSettingsJson(path: string): unknown {
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

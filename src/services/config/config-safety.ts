@@ -152,7 +152,7 @@ function resolveProjectRootFromGit(startPath: string): string | null {
     const trimmed = stdout.trim();
     if (trimmed.length === 0) return null;
     rawRoot = resolve(trimmed);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // git not on PATH, startPath is not in a repo, or some other
     // benign failure — fall through to the heuristic.
     return null;

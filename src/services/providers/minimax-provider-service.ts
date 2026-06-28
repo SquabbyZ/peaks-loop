@@ -54,7 +54,7 @@ function getHttpsBaseUrl(value: string): URL | null {
   try {
     const url = new URL(value);
     return url.protocol === 'https:' && url.hostname === MINIMAX_API_HOST && url.username.length === 0 && url.password.length === 0 && url.search.length === 0 && url.hash.length === 0 ? url : null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

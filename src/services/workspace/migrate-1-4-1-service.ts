@@ -172,7 +172,7 @@ export function applyMigrate1_4_1(projectRoot: string): MigrationResult {
         movedCount++;
       } else if (entry.reason === 'identical-content-already-canonical') {
         // Skip the move but delete the duplicate source.
-        try { rmSync(entry.from); } catch { /* best-effort */ }
+        try { rmSync(entry.from); } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       } else if (entry.reason === 'content-mismatch') {
         // Conflict: do NOT delete the source. Mark for manual review.
         errors.push({ path: entry.from, message: `content mismatch; review manually (target ${entry.to})` });
@@ -193,7 +193,7 @@ export function applyMigrate1_4_1(projectRoot: string): MigrationResult {
         rmSync(legacyRoot, { recursive: true, force: true });
         deletedEmptyDirs.push(legacyRoot);
       }
-    } catch { /* best-effort */ }
+    } catch { /* best-effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
 
   return {

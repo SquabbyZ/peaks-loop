@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "v2-12-independent-security-perf-audit-audit-perf--chinese-colon",
+  "envelopeKind": "audit-perf",
+  "producer": "peaks-fixture-capture-cli",
+  "producerVersion": "2.14.0",
+  "sourceOrigin": {
+    "kind": "derived-variant",
+    "path": "C:/Users/smallMark/Desktop/peaks-cli/tests/fixtures/replay/v2-12-independent-security-perf-audit-audit-perf.md",
+    "changeId": "v2-12-independent-security-perf-audit",
+    "sessionId": "2026-06-27-session-83acf5",
+    "parentFixtureId": "v2-12-independent-security-perf-audit-audit-perf",
+    "variantCommand": "chinese-colon"
+  },
+  "capturedAt": "2026-06-28T02:49:30.943Z",
+  "sanitization": {
+    "passed": true,
+    "rulesApplied": [
+      "cookie-redaction",
+      "token-redaction",
+      "sso-url-redaction",
+      "personal-email-redaction",
+      "username-path-segment-redaction"
+    ],
+    "issues": []
+  },
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "d4f96df473e489556fa7887c5b2fe7581750519cc074b0096a6f367aa3c9d274"
+  },
+  "edgeCases": [
+    "chinese-colon"
+  ]
+}

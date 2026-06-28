@@ -153,7 +153,7 @@ function readSessionFile(projectRoot: string): SessionInfo | null {
       return data as SessionInfo;
     }
     return null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -186,7 +186,7 @@ function readSessionFileCanonical(projectRoot: string): SessionInfo | null {
       return data as SessionInfo;
     }
     return null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -240,7 +240,7 @@ export function rotateSessionBinding(projectRoot: string): string | null {
   if (existsSync(legacyFile)) {
     try {
       unlinkSync(legacyFile);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best-effort: a stale legacy binding is not blocking
     }
   }
@@ -289,7 +289,7 @@ function readSessionMeta(projectRoot: string, sessionId: string): SessionMeta | 
       return null;
     }
     return parsed as SessionMeta;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -400,7 +400,7 @@ function readSessionMetaCompat(peaksRoot: string, sessionId: string): SessionMet
       return null;
     }
     return parsed as SessionMeta;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

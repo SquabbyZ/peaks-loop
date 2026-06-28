@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-27T08:19:42.168Z
+> Last updated: 2026-06-28T01:07:25.860Z
 
 ## Project: peaks-cli
 
@@ -47,10 +47,14 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (4 sessions)
+## Timeline (8 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
+| 2026-06-28 | `2026-06-28-session-75d5f0` | Untitled | 为 peaks-cli v2.14.0 引入 5 类 anti-fake-green 机械化硬化，使"self-dogfood 通过"在结构 |
+| 2026-06-27 | `2026-06-28-session-100b52` | Untitled | Fix four runtime defects reported in `peaks-solo` session 2026-06-28: |
+| 2026-06-27 | `2026-06-27-session-83acf5` | Untitled | schemaVersion: 1 |
+| 2026-06-27 | `2026-06-27-session-5913d2` | Untitled | peaks-solo |
 | 2026-06-27 | `2026-06-27-session-b483e6` | v2.12-independent-security-perf-audit | requestId: v2-12-independent-security-perf-audit |
 | 2026-06-27 | `2026-06-27-session-1512ac` | Untitled | N/A — this is a CLI-only feature. |
 | ? | `2026-06-11-session-edbe91` | Untitled | - |

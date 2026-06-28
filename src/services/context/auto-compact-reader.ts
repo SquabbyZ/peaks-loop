@@ -69,7 +69,7 @@ function readClaudeStatuslinePercent(): number | null {
         return raw > 1.5 ? raw / 100 : Math.max(0, Math.min(1, raw));
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -96,7 +96,7 @@ function readClaudeTranscriptFallback(sessionId: string): { ratio: number; bytes
         return { ratio, bytes };
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;

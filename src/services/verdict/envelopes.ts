@@ -66,7 +66,7 @@ export function parseSecurityEnvelope(md: string): SecurityAuditEnvelope | null 
   try {
     const jsonValue = JSON.parse(md) as unknown;
     if (isSecurityAuditEnvelope(jsonValue)) return jsonValue;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // not JSON — fall through to markdown parse
   }
   // Path 2: real v2.12.0 markdown (YAML frontmatter + body)
@@ -79,7 +79,7 @@ export function parsePerfEnvelope(md: string): PerfAuditEnvelope | null {
   try {
     const jsonValue = JSON.parse(md) as unknown;
     if (isPerfAuditEnvelope(jsonValue)) return jsonValue;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // not JSON — fall through to markdown parse
   }
   // Path 2: real v2.12.0 markdown (YAML frontmatter + body)

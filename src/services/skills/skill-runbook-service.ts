@@ -82,7 +82,7 @@ async function loadRunbookSection(skillPath: string, body: string): Promise<stri
       if (bestRef === null || refSection.length > bestRef.length) {
         bestRef = refSection;
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // candidate not present or unreadable; try the next one
     }
   }

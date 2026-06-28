@@ -195,7 +195,7 @@ function read1xVersion(cwd: string): string | null {
   try {
     const raw = JSON.parse(readFileSync(global, 'utf8')) as Record<string, unknown>;
     if (typeof raw.version === 'string') return raw.version;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // ignore
   }
   return null;

@@ -159,7 +159,7 @@ export function resolvePeaksCliInstallerPath(): string | null {
       if (parent === cursor) break;
       cursor = parent;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // import.meta.url may be unavailable in some bundlers; fall through.
   }
 
@@ -180,7 +180,7 @@ export function resolvePeaksCliInstallerPath(): string | null {
         cursor = parent;
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // process.argv may be unavailable in some runtimes; fall through.
   }
 
@@ -208,7 +208,7 @@ export async function loadInstallerForTest(
       installBundledSkills: InstallerFn;
     };
     return mod.installBundledSkills;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

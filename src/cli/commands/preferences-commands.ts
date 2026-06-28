@@ -110,7 +110,7 @@ export function registerPreferencesCommands(program: Command): void {
         let parsed: unknown = opts.value;
         try {
           parsed = JSON.parse(opts.value);
-        } catch {
+        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Not valid JSON — keep the raw string.
         }
         const merged = savePreferences(opts.project, {

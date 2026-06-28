@@ -223,7 +223,7 @@ export function parseRerankResponse(raw: string): readonly number[] | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(candidate);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   if (!Array.isArray(parsed)) return null;

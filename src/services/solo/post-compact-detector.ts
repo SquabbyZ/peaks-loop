@@ -131,7 +131,7 @@ function safeReadCheckpoint(absPath: string): CheckpointFile | null {
     }
     const content: CheckpointContent = mutable;
     return { path: absPath, mtime: stat.mtime, content };
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -303,7 +303,7 @@ function readActiveSkillName(projectRoot: string): string | undefined {
   try {
     const presence = getSkillPresence(projectRoot);
     return presence?.skill;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return undefined;
   }
 }

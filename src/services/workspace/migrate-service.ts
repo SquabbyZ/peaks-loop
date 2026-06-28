@@ -159,7 +159,7 @@ function extractChangeId(
     try {
       validateChangeIdOrThrow(m[1]);
       return { changeId: m[1], source: 'filename-regex' };
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // fall through to H1
     }
   }
@@ -174,7 +174,7 @@ function extractChangeId(
           try {
             validateChangeIdOrThrow(cid);
             return { changeId: cid, source: 'content-h1' };
-          } catch {
+          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
             // fall through to frontmatter
           }
         }
@@ -189,7 +189,7 @@ function extractChangeId(
       try {
         validateChangeIdOrThrow(ridMatch[1]);
         return { changeId: ridMatch[1], source: 'content-frontmatter' };
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // fall through
       }
     }
@@ -198,7 +198,7 @@ function extractChangeId(
       try {
         validateChangeIdOrThrow(linkedMatch[1]);
         return { changeId: linkedMatch[1], source: 'content-frontmatter' };
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // fall through
       }
     }

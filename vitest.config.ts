@@ -29,6 +29,23 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     setupFiles: ['./tests/vitest.setup.ts'],
+    /**
+     * Slice A.3 / AC-5.1 — G5 race-detector mode is documented below.
+     *
+     * Activated by `pnpm test:race` (vitest --no-file-parallelism <4 files>).
+     * vitest 2.1.9 (the version this repo pins) does not expose a
+     * `--repeat` CLI flag (added in vitest 2.2+). To satisfy AC-5.1's
+     * "20× repeat" intent without bumping the vitest dep, each fuzz case
+     * in the 4 race-mode files internally loops the case body 20×
+     * (constant `RACE_REPEAT = 20`). This is documented in each test file.
+     *
+     * The 4 race-mode test files (per PRD v2-14-0-anti-fake-green-hardening
+     * AC-5.1):
+     *   - tests/unit/g8-shared-channel.test.ts
+     *   - tests/unit/dispatch-record-writer.test.ts
+     *   - tests/unit/services/retrospective/heartbeat.test.ts
+     *   - tests/unit/cli/commands/share-commands.test.ts
+     */
     // Run tests in a single forked process. Reasons:
     //
     // 1. tests/vitest.setup.ts stashes the project's .peaks/.session.json

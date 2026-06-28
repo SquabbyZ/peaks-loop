@@ -93,7 +93,7 @@ function readRecordOrNull(path: string): DispatchRecord | null {
     if (!isOutcome(obj.outcome) || !isDispatchStatus(obj.status)) return null;
     if (typeof obj.disposed !== 'boolean') return null;
     return obj as unknown as DispatchRecord;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -114,7 +114,7 @@ function runGarbageCollection(dir: string, nowMs: number): number {
         unlinkSync(full);
         deleted += 1;
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* skip unreadable; do not crash the archive op */
     }
   }

@@ -135,7 +135,7 @@ async function listFilesByMtime(dir: string, exts: RegExp, max: number): Promise
         try {
           const stats = await stat(full);
           collected.push({ path: full, mtimeMs: stats.mtimeMs });
-        } catch {
+        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // skip unreadable
         }
       }

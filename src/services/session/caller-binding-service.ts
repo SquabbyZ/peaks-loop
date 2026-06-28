@@ -99,7 +99,7 @@ export function getCallerBinding(projectRoot: string, callerId: string): CallerB
       return null;
     }
     return parsed;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

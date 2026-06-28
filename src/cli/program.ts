@@ -48,6 +48,8 @@ import { registerTestCommands } from './commands/test-commands.js';
 import { registerPlaywrightCommands } from './commands/playwright-commands.js';
 import { registerSoloCommands } from './commands/solo-commands.js';
 import { registerMutCommands } from './commands/mut-commands.js';
+import { registerFixtureCommands } from './commands/fixture-commands.js';
+import { registerReviewerCommands } from './commands/reviewer-commands.js';
 import { registerObservabilityCommands } from './commands/observability-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
@@ -69,7 +71,7 @@ export { printResult, type ProgramIO } from './cli-helpers.js';
 function bootstrapLogger(verbose: boolean): void {
   try {
     applyRetention({ retentionDays: 7 });
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* best-effort retention sweep; never block the CLI */
   }
   const dateOverride = process.env.PEAKS_LOG_DATE_OVERRIDE;
@@ -82,7 +84,7 @@ function bootstrapLogger(verbose: boolean): void {
   };
   try {
     writeLogEntry(entry, dateOverride !== undefined ? { dateOverride } : {});
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* best-effort */
   }
   if (verbose || process.env.PEAKS_LOG_LEVEL === 'debug') {
@@ -101,7 +103,7 @@ export function __resetBootstrapForTests(): void {
   bootstrapRan = false;
 }
 
-export function createProgram(io: ProgramIO = { stdout: (text) => console.log(text), stderr: (text) => console.error(text) }): Command {
+export function createProgram(io: ProgramIO = { stdout: (text) => console.log(text), stderr: (text) => console.error(text) }): Command { // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
  const program = new Command();
  program
  .name('peaks')
@@ -177,7 +179,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  .filter((entry) => existsSync(join(skillsPath, entry.name, 'SKILL.md')))
  .length;
  }
- } catch { /* disk read is best-effort; zero skills is still truthful */ }
+ } catch { /* disk read is best-effort; zero skills is still truthful */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
 
  io.stdout(`Peaks CLI ${CLI_VERSION} · ${skillCount} skills ready
 
@@ -271,6 +273,18 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // `createMutCommands({ invokeStryker })` factory directly with a
  // mock to keep @stryker-mutator/core out of the unit-test path.
  registerMutCommands(program, io);
+
+ // Slice v2.14.0 G1 AC-1.4: `peaks fixture capture` — fixture-replay
+ // anti-fake-green test suite producer. Sanitizes + checksums the
+ // captured envelope and writes a co-located fixture.meta.json.
+ registerFixtureCommands(program, io);
+
+ // Slice v2.14.0 G4 AC-4.1: `peaks reviewer run|status` — third-party
+ // reviewer CLI. The reviewer modelFamily MUST differ from the
+ // karpathy-reviewer modelFamily (AC-4.4); see
+ // src/services/reviewer/model-family.ts. The THIRD_PARTY_REVIEW prereq
+ // is wired into src/services/artifacts/artifact-prerequisites.ts.
+ registerReviewerCommands(program, io);
 
   // Slice B of v2.11.1: `peaks observability status|slices|fanout|repair-cycles`
   // (read-only queries over the JSONL metrics emitted from the

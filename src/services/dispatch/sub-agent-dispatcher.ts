@@ -428,7 +428,7 @@ function readDispatchOutcome(recordPath: string): { status: SubAgentBatchResult[
  if (s === 'cancelled') return { status: 'cancelled', note: null };
  if (s === 'stale') return { status: 'timeout', note: 'stale' };
  return null;
- } catch {
+ } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
  return null;
  }
 }

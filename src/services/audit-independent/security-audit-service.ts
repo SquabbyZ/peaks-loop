@@ -138,7 +138,7 @@ export function readAndVerifyHandoff(
   let raw: string;
   try {
     raw = readFileSync(handoffPath, 'utf8');
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 
@@ -176,7 +176,7 @@ export function readSecurityTemplate(projectRoot: string): string | null {
   if (!existsSync(templatePath)) return null;
   try {
     return readFileSync(templatePath, 'utf8');
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

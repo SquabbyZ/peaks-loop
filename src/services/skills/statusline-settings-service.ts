@@ -161,7 +161,7 @@ function atomicWriteJson(settingsPath: string, settings: Record<string, unknown>
   } catch (error) {
     try {
       unlinkSync(tempPath);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort cleanup
     }
     throw error;

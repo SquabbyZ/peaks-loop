@@ -110,7 +110,7 @@ export function readCatalogHistory(projectRoot: string): number | null {
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8')) as { sizeNinetyDaysAgo?: number };
     return typeof raw.sizeNinetyDaysAgo === 'number' ? raw.sizeNinetyDaysAgo : null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }

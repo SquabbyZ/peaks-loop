@@ -73,7 +73,7 @@ export function resolveActiveSkillForCaller(projectRoot: string): ActiveSkillRes
       if (typeof parsed.skill === 'string' && parsed.skill.length > 0) {
         return { skill: parsed.skill, callerId, sessionId, source: 'file' };
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip malformed file
     }
   }

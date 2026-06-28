@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "v2-12-independent-security-perf-audit-karpathy-review--multi-findings",
+  "envelopeKind": "karpathy-review",
+  "producer": "peaks-fixture-capture-cli",
+  "producerVersion": "2.14.0",
+  "sourceOrigin": {
+    "kind": "derived-variant",
+    "path": "C:/Users/smallMark/Desktop/peaks-cli/tests/fixtures/replay/v2-12-independent-security-perf-audit-karpathy-review.md",
+    "changeId": "v2-12-independent-security-perf-audit",
+    "sessionId": "2026-06-27-session-83acf5",
+    "parentFixtureId": "v2-12-independent-security-perf-audit-karpathy-review",
+    "variantCommand": "multi-findings"
+  },
+  "capturedAt": "2026-06-28T02:49:34.479Z",
+  "sanitization": {
+    "passed": true,
+    "rulesApplied": [
+      "cookie-redaction",
+      "token-redaction",
+      "sso-url-redaction",
+      "personal-email-redaction",
+      "username-path-segment-redaction"
+    ],
+    "issues": []
+  },
+  "checksum": {
+    "algorithm": "sha256",
+    "value": "8ad4a84f7fed22a14454962237060a5e7c058c010c762ed8fbc2f626b5aa18cf"
+  },
+  "edgeCases": [
+    "multi-findings"
+  ]
+}

@@ -58,7 +58,7 @@ export async function loadMutReport(sessionId: string): Promise<MutReportJson | 
   let raw: string;
   try {
     raw = await readFile(path, 'utf8');
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // ENOENT or permission denied — both treated as "not run".
     return null;
   }

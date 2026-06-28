@@ -61,7 +61,7 @@ function normalizeProxyUrl(value: string | undefined): string | undefined {
   try {
     const url = new URL(value);
     return (url.protocol === 'http:' || url.protocol === 'https:') && url.username.length === 0 && url.password.length === 0 && url.pathname === '/' && url.search.length === 0 && url.hash.length === 0 ? value : undefined;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return undefined;
   }
 }

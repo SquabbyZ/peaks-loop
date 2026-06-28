@@ -260,7 +260,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           });
         }
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip
     }
   }
@@ -289,7 +289,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
           });
         }
       }
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // skip
     }
   }
@@ -327,7 +327,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         });
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -423,12 +423,12 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
               });
             }
           }
-        } catch {
+        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // skip — P2-b enforcers are best-effort per reference file
         }
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip — P2-a enforcers are best-effort; a failure here must
     // not break the audit pipeline
   }
@@ -461,7 +461,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         detail: `line ${hit.line}: ${hit.matchedText}`,
       });
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip — audit-regression enforcers are best-effort
   }
 
@@ -481,7 +481,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         detail: `line ${hit.line}: ${hit.matchedText}`,
       });
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -509,7 +509,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         });
       }
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 
@@ -530,7 +530,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         detail: `line ${hit.line}: ${hit.matchedText}`,
       });
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     // skip
   }
 

@@ -19,7 +19,7 @@ createProgram().parseAsync(process.argv).catch((error: unknown) => {
     }
   }
 
-  console.error(JSON.stringify({
+  console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
     ok: false,
     command: 'cli',
     code: 'UNHANDLED_ERROR',

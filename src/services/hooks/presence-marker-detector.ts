@@ -63,13 +63,13 @@ function readPresenceFile(absolutePath: string): { skill: string } | null {
   let raw: string;
   try {
     raw = readFileSync(absolutePath, 'utf8');
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   if (parsed === null || typeof parsed !== 'object') return null;

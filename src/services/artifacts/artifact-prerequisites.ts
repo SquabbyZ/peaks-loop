@@ -218,6 +218,25 @@ const KARPATHY_REVIEW: ArtifactPrerequisite = {
     'Goal-Driven Execution'
   ]
 };
+// v2.14.0 G4 — third-party reviewer (peaks-reviewer skill). Parallel
+// to KARPATHY_REVIEW. The body MUST carry the literal substring
+// `third-party-review` so a stub file with an empty envelope cannot
+// pass the gate. The full envelope lives at the JSON sibling path
+// (`rd/third-party-review.json`); this MD file is the human-readable
+// companion. The body is also expected to declare a `modelFamily`
+// distinct from the karpathy-reviewer's modelFamily (AC-4.4 — the CI
+// gate diffs `rd/third-party-review.json.modelFamily` against
+// `rd/karpathy-review.md` parsed `modelFamily`); equality fails the
+// build. When `~/.peaks/config.json` lacks a `reviewer.providers`
+// section, the prereq is auto-marked `skipped: no-reviewer-config`
+// and the transition still passes (A4.3 fallbackOnError=skip).
+const THIRD_PARTY_REVIEW: ArtifactPrerequisite & { backCompat?: boolean } = {
+  relativePath: 'rd/third-party-review.md',
+  description:
+    'v2.14.0 G4 third-party reviewer (peaks-reviewer skill) — must declare a `modelFamily` distinct from the karpathy-reviewer modelFamily (AC-4.4). Skipped when `~/.peaks/config.json` lacks `reviewer.providers` (>=2 entries); the prereq then resolves to a soft warning (`no-reviewer-config`) rather than a hard failure. The JSON sibling at `rd/third-party-review.json` carries the schema-validated ReviewerEnvelope (no free-form LLM JSON). v2.14.0 ships as a soft-warning prereq (1-minor-release back-compat window); v2.15.0 will hard-fail when the file is absent AND `reviewer.providers` is configured.',
+  mustContain: ['third-party-review', 'modelFamily'],
+  backCompat: true
+};
 const TEST_CASES: ArtifactPrerequisite = {
   relativePath: 'qa/test-cases/<rid>.md',
   description: 'Generated test cases (unit / integration / UI regression)',
@@ -289,6 +308,7 @@ const FEATURE_TABLE: PrerequisiteTable = {
     AUDIT_SECURITY,
     AUDIT_PERF,
     KARPATHY_REVIEW,
+    THIRD_PARTY_REVIEW,
     MUT_REPORT,
     UNIT_TESTS,
     QA_INITIATED
@@ -316,6 +336,8 @@ const BUGFIX_TABLE: PrerequisiteTable = {
     AUDIT_REQUIRES_HANDOFF,
     AUDIT_SECURITY,
     AUDIT_PERF,
+    KARPATHY_REVIEW,
+    THIRD_PARTY_REVIEW,
     MUT_REPORT,
     UNIT_TESTS,
     QA_INITIATED
@@ -418,7 +440,7 @@ async function resolvePrerequisiteAbsolutePath(
   let entries: string[];
   try {
     entries = await readdir(dir);
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   const match = entries.find((name) => /^\d+-/.test(name) && name.endsWith(targetSuffix));

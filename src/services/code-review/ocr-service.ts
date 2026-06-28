@@ -439,7 +439,7 @@ export function runOcrReview(options: OcrReviewOptions): OcrReviewResult {
   if (r.status === 0 && r.stdout.length > 0) {
     try {
       parsed = JSON.parse(r.stdout);
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // Leave parsed=null; the caller can read raw stdout.
     }
   }

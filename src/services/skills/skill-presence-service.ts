@@ -118,7 +118,7 @@ function readSkillPresenceBackCompat(projectRootOverride?: string): { presence: 
       return null;
     }
     return { presence: parsed as SkillPresence, path: pathToRead };
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -147,7 +147,7 @@ export function getCurrentSessionId(projectRootOverride?: string): string | null
     return typeof data.sessionId === 'string' && data.sessionId.length > 0
       ? data.sessionId
       : null;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -376,7 +376,7 @@ export function getSkillPresence(projectRootOverride?: string): SkillPresence | 
     if (currentSessionId && presence.sessionId !== currentSessionId) {
       try {
         unlinkSync(presencePath);
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // best effort
       }
       return null;
@@ -394,7 +394,7 @@ export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence
     if (currentSessionId && presence.sessionId !== currentSessionId) {
       try {
         unlinkSync(presencePath);
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // best effort
       }
       return null;
@@ -417,7 +417,7 @@ export function clearSkillPresence(projectRootOverride?: string): boolean {
     try {
       unlinkSync(p);
       cleared = true;
-    } catch {
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // best effort
     }
   }

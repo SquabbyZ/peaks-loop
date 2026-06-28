@@ -739,7 +739,7 @@ export function defaultUnderstandRunner(): UnderstandRunner {
           edges: parsed.edges ?? [],
           layers: parsed.layers ?? []
         };
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         return null;
       }
     }
@@ -765,7 +765,7 @@ export function defaultImportEdgeRunner(): ImportEdgeRunner {
             const resolved = relative(projectRoot, join(projectRoot, fromDir, tsPath));
             edges.push({ from: file, to: resolved, evidence: match[0] });
           }
-        } catch {
+        } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
           // Skip unreadable files
         }
       }

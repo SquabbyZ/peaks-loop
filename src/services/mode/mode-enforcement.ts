@@ -68,7 +68,7 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
   // For assisted/strict, env var is ignored unless --force-confirm is also set
   if (process.env.PEAKS_AUTO_CONFIRM === '1') {
     if (options.forceConfirm) {
-      console.error(
+      console.error( // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
         `[WARNING] --force-confirm used in ${mode} mode. ` +
         'This bypasses user confirmation. Use with caution.'
       );
@@ -79,7 +79,7 @@ export async function requireUserConfirmation(options: ConfirmationOptions): Pro
 
   // --force-confirm without env var
   if (options.forceConfirm) {
-    console.error(
+    console.error( // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
       `[WARNING] --force-confirm used in ${mode} mode. ` +
       'This bypasses user confirmation. Use with caution.'
     );

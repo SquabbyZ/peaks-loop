@@ -283,7 +283,7 @@ export function findDeletionCandidates(
 function readDirMtime(dirPath: string): number | null {
   try {
     return statSync(dirPath).mtimeMs;
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
 }
@@ -344,7 +344,7 @@ function readActiveSkillSessionId(projectRoot: string): string | null {
     if (typeof parsed?.sessionId === 'string' && parsed.sessionId.length > 0) {
       return parsed.sessionId;
     }
-  } catch {
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     return null;
   }
   return null;
@@ -568,7 +568,7 @@ export function migrateSubAgentState(projectRoot: string): { migratedFiles: stri
       if (!existsSync(oldPath)) continue;
       if (existsSync(newPath)) {
         // New path is authoritative; remove stale old file.
-        try { rmSync(oldPath, { force: true }); } catch { /* best effort */ }
+        try { rmSync(oldPath, { force: true }); } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         continue;
       }
       try {
@@ -594,7 +594,7 @@ export function migrateSubAgentState(projectRoot: string): { migratedFiles: stri
       if (remaining.length === 0) {
         rmdirSync(oldSystemDir);
       }
-    } catch { /* best effort */ }
+    } catch { /* best effort */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
   }
   return { migratedFiles, errors };
 }
@@ -680,7 +680,7 @@ export function reconcileWorkspace(options: ReconcileOptions): ReconcileResult {
       try {
         rmSync(systemDir, { recursive: true, force: true });
         systemCleaned.push(systemDir);
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // Best-effort: a locked subdir does not block the rest of reconcile.
       }
     }

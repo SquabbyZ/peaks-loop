@@ -211,7 +211,7 @@ function detectLegacySignals(projectRoot: string, deps: Record<string, string>):
         if (/extends\s+(?:React\.)?Component\b/.test(content)) classComponentHits += 1;
         const matches = content.match(/style=\{\{/g);
         if (matches !== null) inlineStyleHits += matches.length;
-      } catch {
+      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // ignore unreadable files
       }
     }
