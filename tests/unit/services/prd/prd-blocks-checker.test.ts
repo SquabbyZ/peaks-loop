@@ -115,7 +115,7 @@ todo.
 
 ## UI 装配意图
 
-页面模式: 列表/详情/表单/抽屉。关键交互: 搜索/过滤/排序。信息密度: 紧凑。
+页面模式: 列表 / 详情 / 表单 / 抽屉 / 弹窗 / 卡片。关键交互: 搜索 / 过滤 / 排序 / 批量操作 / 拖拽。信息密度: 紧凑(数据后台)。
 `;
     writePrdArtifact(tmpDir, content);
     const report = checkPrdBlocks(tmpDir, 'test-rid');

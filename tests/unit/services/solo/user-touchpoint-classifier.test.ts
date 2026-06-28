@@ -53,14 +53,16 @@ describe('classifyAllGates / userMustReviewGates / aiAutoDecidesGates', () => {
     expect(auto.every((g) => g.fullAutoCanProceed)).toBe(true);
   });
 
-  it('all 14 gates are classified (no overlap between must-review and auto)', () => {
+  it('business-only gates are BOTH in must-review and ai-auto-decides (reviewable on business, but auto on tech)', () => {
     const must = userMustReviewGates();
     const auto = aiAutoDecidesGates();
-    // must-review includes 'always' + 'business-only'; auto = 'never'.
-    // Their union covers all 14.
     const mustSet = new Set(must.map((g) => g.step));
-    for (const a of auto) expect(mustSet.has(a.step)).toBe(false);
-    const union = new Set([...mustSet, ...auto.map((g) => g.step)]);
+    const autoSet = new Set(auto.map((g) => g.step));
+    const union = new Set([...mustSet, ...autoSet]);
     expect(union.size).toBe(14);
+    const always = classifyAllGates().filter((g) => g.userShouldReview === 'always');
+    for (const a of always) expect(autoSet.has(a.step)).toBe(false);
+    const never = classifyAllGates().filter((g) => g.userShouldReview === 'never');
+    for (const n of never) expect(mustSet.has(n.step)).toBe(false);
   });
 });
