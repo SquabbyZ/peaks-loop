@@ -26,6 +26,7 @@ import {
   GATED_STEPS,
   isHardFloorCategory,
   isSoloMode,
+  isCommitBoundaryAction,
   shouldPauseAtGate,
   formatAutoProceedLogLine
 } from '../../services/solo/mode-gate.js';
@@ -194,10 +195,11 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
       )
       .requiredOption('--step <step>', `one of: ${GATED_STEPS.join(', ')}`)
       .requiredOption('--mode <mode>', 'one of: full-auto, assisted, swarm, strict')
-      .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment)')
+      .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment | commit-boundary-side-effect)')
       .option('--recommended <option>', 'recommended option label to log when auto-proceeding', 'recommended-option')
       .option('--project <path>', 'v2.15.0 slice 002 AC-2: project root for presence:check-stale. Default: cwd. Pass only when step=step-1-mode-select.')
       .option('--ignore-stale-presence', 'v2.15.0 slice 002 AC-2: skip the stale-presence check (test seam). Default false.')
+      .option('--commit-boundary-action <id>', 'v2.15.0 slice 002 AC-4 CLI seam (slice 002 repair): when the LLM is about to run a commit-boundary action (git push / tag / npm publish / global install), pass the action id here to force the hard-floor pause. Valid: git-push | git-tag | npm-publish | npm-install-global | peaks-global-install. Default: omitted (no override).')
   ).action(
     (opts: {
       step: string;
@@ -206,6 +208,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
       recommended?: string;
       project?: string;
       ignoreStalePresence?: boolean;
+      commitBoundaryAction?: string;
       json?: boolean;
     }) => {
       try {
@@ -231,7 +234,23 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         if (hardFloor !== undefined && !isHardFloorCategory(hardFloor)) {
           printResult(
             io,
-            fail('solo.should-pause', 'INVALID_HARD_FLOOR', `hard-floor must be one of: irreversible-external-side-effect | authentication-credential | multi-day-investment (got "${hardFloor}")`, { provided: hardFloor }, ['Omit --hard-floor or pass a valid category']),
+            fail('solo.should-pause', 'INVALID_HARD_FLOOR', `hard-floor must be one of: irreversible-external-side-effect | authentication-credential | multi-day-investment | commit-boundary-side-effect (got "${hardFloor}")`, { provided: hardFloor }, ['Omit --hard-floor or pass a valid category']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        // v2.15.0 slice 002 repair (QA blocker): validate the
+        // --commit-boundary-action flag at the CLI boundary. The
+        // service-layer `shouldPauseAtGate` accepts a boolean
+        // `commitBoundaryAction: true`; this flag tells the CLI to
+        // pass it through. An unknown action id is rejected here
+        // (not silently ignored) so typos fail loud.
+        const commitBoundaryActionId = opts.commitBoundaryAction;
+        if (commitBoundaryActionId !== undefined && !isCommitBoundaryAction(commitBoundaryActionId)) {
+          printResult(
+            io,
+            fail('solo.should-pause', 'INVALID_COMMIT_BOUNDARY_ACTION', `--commit-boundary-action must be one of: git-push | git-tag | npm-publish | npm-install-global | peaks-global-install (got "${commitBoundaryActionId}")`, { provided: commitBoundaryActionId }, ['Omit --commit-boundary-action or pass a valid action id']),
             opts.json
           );
           process.exitCode = 1;
@@ -299,7 +318,15 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         const decision = shouldPauseAtGate({
           mode: opts.mode,
           step,
-          hardFloorCategory: hardFloor
+          hardFloorCategory: hardFloor,
+          // v2.15.0 slice 002 repair (QA blocker): translate the CLI
+          // --commit-boundary-action flag into the service-layer
+          // boolean. The CLI accepts the action id (e.g. "git-push")
+          // for ergonomic machine consumption; the service layer only
+          // cares that *some* commit-boundary action triggered the
+          // override. The actual action id is echoed in the JSON
+          // envelope below.
+          commitBoundaryAction: commitBoundaryActionId !== undefined
         });
         // Slice C of v2.11.1 — observability hook #4/7. Fire-and-forget
         // per PRD Q4 (full-auto must never fail-loud). projectRoot
@@ -330,9 +357,17 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         });
         printResult(
           io,
-          ok('solo.should-pause', { ...decision, logLine }, [], [
+          // v2.15.0 slice 002 repair: include the commit-boundary
+          // action id in the envelope (when provided) so the LLM-side
+          // caller can echo which boundary was checked. Null when no
+          // --commit-boundary-action flag was passed.
+          ok('solo.should-pause', {
+            ...decision,
+            logLine,
+            ...(commitBoundaryActionId !== undefined ? { commitBoundaryAction: commitBoundaryActionId } : {})
+          }, [], [
             decision.shouldPause
-              ? `Mode ${opts.mode} + step ${opts.step} → PAUSE for AskUserQuestion`
+              ? `Mode ${opts.mode} + step ${opts.step} → PAUSE for AskUserQuestion${commitBoundaryActionId !== undefined ? ` (commit-boundary: ${commitBoundaryActionId})` : ''}`
               : `Mode ${opts.mode} + step ${opts.step} → AUTO-PROCEED with recommended option`
           ]),
           opts.json

@@ -302,12 +302,19 @@ export function setSkillPresence(skill: string, mode?: string, gate?: string, pr
   const previousOuterSessionId = getPreviousOuterSessionId(projectRootOverride);
 
   const now = new Date().toISOString();
+  // v2.15.0 slice 002 repair: always write `outerSessionId` (even
+  // as `''`) when no harness env var is set. Without this, the JSON
+  // envelope omits the key entirely, which makes downstream staleness
+  // detection unreliable (consumers can't tell "no signal" from
+  // "stale-missing-key"). Presence-shape consumers should treat
+  // `outerSessionId === ''` as "no signal", matching the
+  // `getCurrentOuterSessionId()` resolution contract.
   const presence: SkillPresence = {
     skill,
     ...(validatedMode ? { mode: validatedMode } : {}),
     ...(gate ? { gate } : {}),
     ...(sessionId ? { sessionId } : {}),
-    ...(outerSessionId ? { outerSessionId } : {}),
+    outerSessionId: outerSessionId ?? '',
     setAt: now,
     lastHeartbeat: now
   };

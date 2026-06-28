@@ -252,7 +252,14 @@ describe('skill presence service', () => {
       }
     });
 
-    test('omits outerSessionId when neither PEAKS_OUTER_SESSION_ID nor CLAUDE_CODE_SESSION_ID is set', () => {
+    test('writes outerSessionId="" (empty string) when neither PEAKS_OUTER_SESSION_ID nor CLAUDE_CODE_SESSION_ID is set', () => {
+      // v2.15.0 slice 002 repair (QA blocker #3): the presence JSON
+      // MUST always include the `outerSessionId` key (even as empty
+      // string `''`) when no harness env var is set. Without the key,
+      // downstream staleness detection is unreliable because consumers
+      // can't tell "no signal" from "stale-missing-key". Empty string
+      // is the canonical "no signal" sentinel that matches the
+      // service-layer resolution contract.
       const root = createTempDir();
       const prevPeaks = process.env.PEAKS_OUTER_SESSION_ID;
       const prevClaude = process.env.CLAUDE_CODE_SESSION_ID;
@@ -263,7 +270,7 @@ describe('skill presence service', () => {
 
         const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
 
-        expect(presence.outerSessionId).toBeUndefined();
+        expect(presence.outerSessionId).toBe('');
       } finally {
         if (prevPeaks === undefined) delete process.env.PEAKS_OUTER_SESSION_ID;
         else process.env.PEAKS_OUTER_SESSION_ID = prevPeaks;

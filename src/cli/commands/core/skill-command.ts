@@ -245,11 +245,35 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
       .option('--current-outer <id>', 'override the current outer session id (test seam; default: read from PEAKS_OUTER_SESSION_ID / CLAUDE_CODE_SESSION_ID)')
   ).action((options: { project?: string; currentOuter?: string; json?: boolean }) => {
-    const result = checkStalePresence({
-      projectRootOverride: options.project,
-      currentOuter: options.currentOuter
-    });
-    printResult(io, ok('skill.presence:check-stale', result), options.json);
+    // v2.15.0 slice 002 repair: do NOT pass `currentOuter: undefined`
+    // when the user omits the flag. The service-layer branch
+    // `'currentOuter' in opts` returns true for an explicit
+    // `undefined` (the key exists on the spread object literal),
+    // which would skip the env-var fallback and pin `current =
+    // undefined` — always reading the presence as stale. Build a
+    // sparse opts object so the service can fall back to
+    // `getCurrentOuterSessionId()` (reads PEAKS_OUTER_SESSION_ID /
+    // CLAUDE_CODE_SESSION_ID).
+    const checkOpts: { projectRootOverride?: string; currentOuter?: string | undefined } =
+      options.project !== undefined ? { projectRootOverride: options.project } : {};
+    if (options.currentOuter !== undefined) {
+      checkOpts.currentOuter = options.currentOuter;
+    }
+    const result = checkStalePresence(checkOpts);
+    // Always emit `currentOuterSessionId` in the JSON envelope (even
+    // when undefined → ''), per slice 002 AC-1 contract: downstream
+    // tooling (statusline, sub-agent dispatch) reads the field by
+    // name, never by `data.currentOuterSessionId ?? ''`. JSON.stringify
+    // drops `undefined` properties, so we coerce to '' before
+    // wrapping in the envelope.
+    const data = {
+      stale: result.stale,
+      reason: result.reason,
+      presence: result.presence,
+      currentOuterSessionId: result.currentOuterSessionId ?? '',
+      recordedOuterSessionId: result.recordedOuterSessionId ?? ''
+    };
+    printResult(io, ok('skill.presence:check-stale', data), options.json);
   });
 
   addJsonOption(

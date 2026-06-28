@@ -360,3 +360,145 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
     // placeholder so vitest's `afterEach` import is real.
   });
 });
+
+/**
+ * v2.15.0 slice 002 repair (QA blocker #3, MINOR): the JSON file
+ * written by `setSkillPresence` MUST always include the
+ * `outerSessionId` key (even as empty string `''` when no harness
+ * env var is set). Without the key, downstream staleness detection
+ * is unreliable because consumers can't tell "no signal" from
+ * "stale-missing-key".
+ *
+ * 2 cases:
+ *   1. setSkillPresence with no env vars → `outerSessionId: ''` on disk
+ *   2. setSkillPresence with `CLAUDE_CODE_SESSION_ID` set →
+ *      `outerSessionId` populated to that value
+ */
+describe('setSkillPresence JSON shape — AC-1 envelope key contract (slice 002 repair)', () => {
+  test('1. no env vars → presence JSON contains outerSessionId="" key (not omitted)', () => {
+    const root = createTempDir();
+    const savedPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+    const savedClaude = process.env.CLAUDE_CODE_SESSION_ID;
+    delete process.env.PEAKS_OUTER_SESSION_ID;
+    delete process.env.CLAUDE_CODE_SESSION_ID;
+    try {
+      setSkillPresence('peaks-rd', 'full-auto', 'implement', root);
+      const raw = readFileSync(presencePath(root), 'utf8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      // The key MUST be present (defect #3 fix). It does not have to
+      // be null — empty string is the canonical "no signal" value
+      // that matches the service-layer resolution contract.
+      expect('outerSessionId' in parsed).toBe(true);
+      expect(parsed.outerSessionId).toBe('');
+    } finally {
+      if (savedPeaks !== undefined) process.env.PEAKS_OUTER_SESSION_ID = savedPeaks;
+      if (savedClaude !== undefined) process.env.CLAUDE_CODE_SESSION_ID = savedClaude;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('2. CLAUDE_CODE_SESSION_ID set → presence JSON contains the populated id', () => {
+    const root = createTempDir();
+    const savedPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+    const savedClaude = process.env.CLAUDE_CODE_SESSION_ID;
+    delete process.env.PEAKS_OUTER_SESSION_ID;
+    process.env.CLAUDE_CODE_SESSION_ID = 'outer-from-env';
+    try {
+      setSkillPresence('peaks-rd', 'full-auto', 'implement', root);
+      const raw = readFileSync(presencePath(root), 'utf8');
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      expect('outerSessionId' in parsed).toBe(true);
+      expect(parsed.outerSessionId).toBe('outer-from-env');
+    } finally {
+      if (savedPeaks !== undefined) process.env.PEAKS_OUTER_SESSION_ID = savedPeaks;
+      if (savedClaude !== undefined) process.env.CLAUDE_CODE_SESSION_ID = savedClaude;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+/**
+ * v2.15.0 slice 002 repair (QA blocker #1): the CLI's
+ * `peaks skill presence:check-stale` handler previously called
+ * `checkStalePresence({ currentOuter: options.currentOuter })`,
+ * which always passes the `currentOuter` key (as `undefined` when
+ * commander omits the flag). The service-layer guard
+ * `'currentOuter' in opts` then picked the explicit-undefined
+ * value, bypassing the env-var fallback, and the response always
+ * reported `stale: true`.
+ *
+ * The fix lives in the CLI handler (sparse opts object): the
+ * service-layer contract is intentional — `currentOuter: undefined`
+ * is the explicit "no signal" test seam, distinct from "key absent
+ * → fall back to env". This suite nails that contract so a future
+ * refactor can't accidentally invert it.
+ */
+describe('checkStalePresence — in-key contract (slice 002 repair)', () => {
+  test('sparse opts (key absent) → falls back to env-var resolution', () => {
+    // The CLI now passes a sparse opts object: the key is OMITTED
+    // entirely when the user does not provide --current-outer. This
+    // triggers the env-var fallback path.
+    const root = createTempDir();
+    const savedPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+    const savedClaude = process.env.CLAUDE_CODE_SESSION_ID;
+    delete process.env.PEAKS_OUTER_SESSION_ID;
+    process.env.CLAUDE_CODE_SESSION_ID = 'outer-ENV';
+    try {
+      writePresence(root, {
+        skill: 'peaks-solo',
+        mode: 'full-auto',
+        gate: 'startup',
+        outerSessionId: 'outer-ENV',
+        setAt: '2026-06-28T10:00:00.000Z',
+        lastHeartbeat: '2026-06-28T10:00:00.000Z'
+      });
+      // Sparse opts: `projectRootOverride` only, no `currentOuter` key.
+      const opts: { projectRootOverride?: string; currentOuter?: string } = { projectRootOverride: root };
+      const result = checkStalePresence(opts);
+      expect(result.stale).toBe(false);
+      expect(result.currentOuterSessionId).toBe('outer-ENV');
+      expect(result.recordedOuterSessionId).toBe('outer-ENV');
+    } finally {
+      if (savedPeaks !== undefined) process.env.PEAKS_OUTER_SESSION_ID = savedPeaks;
+      if (savedClaude !== undefined) process.env.CLAUDE_CODE_SESSION_ID = savedClaude;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test('explicit `currentOuter: undefined` is the "no signal" test seam (NOT env-fallback)', () => {
+    // Pre-fix CLI shape: `{ currentOuter: undefined }`. The service
+    // layer's `'currentOuter' in opts` returns true, so the env
+    // fallback is skipped. This test exists to pin the contract
+    // (intentional or not) so the CLI fix can't be silently
+    // reverted by changing the service-layer semantics instead.
+    const root = createTempDir();
+    const savedPeaks = process.env.PEAKS_OUTER_SESSION_ID;
+    const savedClaude = process.env.CLAUDE_CODE_SESSION_ID;
+    delete process.env.PEAKS_OUTER_SESSION_ID;
+    process.env.CLAUDE_CODE_SESSION_ID = 'outer-ENV';
+    try {
+      writePresence(root, {
+        skill: 'peaks-solo',
+        mode: 'full-auto',
+        gate: 'startup',
+        outerSessionId: 'outer-ENV',
+        setAt: '2026-06-28T10:00:00.000Z',
+        lastHeartbeat: '2026-06-28T10:00:00.000Z'
+      });
+      const result = checkStalePresence({
+        projectRootOverride: root,
+        currentOuter: undefined
+      });
+      // Env var is NOT consulted — explicit-undefined is the test
+      // seam for "no signal". recorded (`outer-ENV`) vs current
+      // (undefined) → stale.
+      expect(result.stale).toBe(true);
+      expect(result.currentOuterSessionId).toBeUndefined();
+      expect(result.recordedOuterSessionId).toBe('outer-ENV');
+    } finally {
+      if (savedPeaks !== undefined) process.env.PEAKS_OUTER_SESSION_ID = savedPeaks;
+      if (savedClaude !== undefined) process.env.CLAUDE_CODE_SESSION_ID = savedClaude;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

@@ -63,6 +63,24 @@ metadata:
 **Ship date**: 2026-06-28
 **Shipped by**: peaks-rd fork agent (parent session 88b27d, full-auto mode)
 
+## Slice 002 repair (post-QA blocker round)
+
+**Commit**: pending repair commit on top of `070f790`
+**Reason**: peaks-qa returned verdict = FAIL with 2 BLOCKERS (defect 1: presence:check-stale always stale=true; defect 2: solo should-pause CLI lacks commit-boundary entry). Defect 3 (MINOR: presence:set omits outerSessionId key) was folded in.
+
+| # | Defect | Fix | Files |
+|---|---|---|---|
+| 1 | `peaks skill presence:check-stale` always returned `stale: true` because the CLI passed `{ currentOuter: options.currentOuter }` (explicit-undefined) which skipped the env-var fallback (service-layer guard `'currentOuter' in opts` returns true). | Build sparse opts object in the CLI handler so the service-layer's in-key check triggers env-var resolution. Also coerce `currentOuterSessionId`/`recordedOuterSessionId` to `''` when undefined so JSON.stringify emits the key. | `src/cli/commands/core/skill-command.ts` |
+| 2 | `peaks solo should-pause` did not accept a commit-boundary action id; the service-layer `shouldPauseAtGate({ commitBoundaryAction: true })` was unreachable from the CLI. | Added `--commit-boundary-action <id>` flag (validated against `COMMIT_BOUNDARY_ACTIONS`). Action id is echoed in the envelope and the boolean is forwarded to the service. | `src/cli/commands/solo-commands.ts` |
+| 3 | `presence:set` wrote `outerSessionId` only when the env var was set; downstream staleness detection couldn't tell "no signal" from "missing key". | Always write `outerSessionId: ''` (empty string) when no env var is set. Empty string is the canonical "no signal" sentinel. | `src/services/skills/skill-presence-service.ts` |
+
+**New tests**:
+- `tests/unit/cli/commands/presence-check-stale-cli.test.ts` (NEW, 7 cases): end-to-end CLI smoke covering defect 1 + 2.
+- `tests/unit/services/skills/presence-staleness.test.ts` (extended): +2 service-layer tests for defect 3 (env unset → `''`; env set → populated id) and +2 tests pinning the in-key contract for defect 1.
+- `tests/unit/skill-presence-service.test.ts` (extended): updated the existing "omits outerSessionId when neither env is set" test to assert `''` instead of `undefined` (defect 3 contract).
+
+**Net regression delta**: -1 failure (the pre-existing skill-presence-service test that asserted the old buggy behavior now asserts the corrected contract). 3 pre-existing failures remain (tokenizer + 2 artifact-prerequisites — unrelated to this slice).
+
 ## AC status
 
 | AC | Status | Files | Tests |
