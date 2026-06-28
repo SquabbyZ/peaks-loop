@@ -39,6 +39,19 @@
 - `peaks hooks install` — slice is code-only. Hooks remain user-only.
 - Cleaning the 88b27d session's stale presence on disk — slice ships the detection + auto-clear, does NOT proactively touch the live tree.
 
+### Feature — slice DAG layered parallelism + foundation/upstreamSync/complexity 标记 (2026-06-28 follow-up)
+
+slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + 业务并行(节省 2-3 天 wall time);fork 场景 = 上游 tag 断点同步;复杂度分流 = user-attended vs overnight 排程。
+
+- **`src/services/dispatch/slice-dag.ts`** — `SliceNode` 加 3 可选字段(`foundation?: boolean` / `upstreamSync?: boolean` / `complexity?: 'trivial'|'simple'|'complex'`)。`validateDag` 加新字段合法性校验 + 防御性规则(foundation slice 不可 dependsOn 非 foundation)。`topologicalLevels` 同层内 priority 排序: foundation > upstreamSync > id asc。`serializeDag` / `hashDag` 含新字段,**老 DAG hash 稳定**。
+- **`src/services/solo/dag-orchestrator.ts`** — 新增 `runLayeredDag` 函数。同 `runDag` 语义 + 业务 slice 不等所有 foundation,只等其 `dependsOn` 子集。cancel-on-fail 保留。`runDag` 保留(向后兼容,内部走 priority-sorted levels)。
+- **`src/cli/commands/dispatch-from-dag.ts`** — 切到 `runLayeredDag`。envelope 加 `sliceMeta` 字段(per-slice foundation/upstreamSync/complexity)。
+- **2 new test files** — `tests/unit/dispatch/slice-dag-foundation.test.ts` (19 cases) + `tests/unit/solo/dag-orchestrator-layered.test.ts` (5 cases) = **24 new tests, 0 regression**。
+- **dispatch + solo tests**: 215/215 通过(单跑)。
+- **全量 vitest** 4843 cases: 4824 passed / 2 failed(并发 race,pre-existing)。
+
+**不触动:** transition gates / hard contracts / Karpathy 4 / sub-agent 协议 / 老 DAG 兼容性。
+
 ### Documentation — peaks-cli 真实定位 + 12 Gaps 沉淀 (2026-06-28 follow-up)
 
 会话期间从资深前端 + 后端半盲 + 极致工期 + 24h AI 程序员 + 存量无 UT 的真实场景,沉淀 6 个 memory 文件 + 索引 + 4 个 SKILL.md 校准注。**核心叙事:** `90% 效率 + 80% 质量` > `80% 效率 + 90% 质量`;user 在循环里 = 业务/产品审阅者不参与技术决策;主路径 = 唯一蜂群模式;prd 质量前置 = 4 必填块;QA = 业务视角 + 轻量回归 + 上线观察期。
