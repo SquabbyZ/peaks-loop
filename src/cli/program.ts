@@ -24,6 +24,7 @@ import { registerSopCommands } from './commands/sop-commands.js';
 // + `peaks feedback check-unpromoted`). See
 // `sops/feedback-promotion-sop.md`.
 import { registerFeedbackCommands } from './commands/feedback-commands.js';
+import { registerForkCommands } from './commands/fork-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -218,6 +219,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSopCommands(program, io);
  // v2.15.0 slice 002 AC-3: feedback promotion CLI.
  registerFeedbackCommands(program, io);
+ // v2.15.0 follow-up G11: fork sync CLI (status / upstream-check / sync-plan / sync / sync-verify).
+ registerForkCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
