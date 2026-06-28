@@ -29,6 +29,7 @@ import { registerImpactCommands } from './commands/impact-commands.js';
 import { registerSmokeCommands } from './commands/smoke-commands.js';
 import { registerReleaseCommands } from './commands/release-commands.js';
 import { registerPrdBlocksCommands } from './commands/prd-blocks-commands.js';
+import { registerUserTouchpointCommands } from './commands/user-touchpoint-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -233,6 +234,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerReleaseCommands(program, io);
  // v2.15.0 follow-up G3: prd 4 必填块 CLI (check-blocks).
  registerPrdBlocksCommands(program, io);
+ // v2.15.0 follow-up G4: user touchpoint CLI (gate-classify / user-touchpoints / commit-boundary-actions).
+ registerUserTouchpointCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
