@@ -85,8 +85,8 @@ export function parseFeedbackMemory(filePath: string): FeedbackMemory | null {
   let raw: string;
   try {
     raw = readFileSync(filePath, 'utf8');
-  } catch {
-    return null;
+  } catch (err) {
+    throw new Error(`failed to read feedback memory at ${filePath}: ${(err as Error).message}`, { cause: err });
   }
   const normalized = raw.replace(/\r\n/g, '\n');
   if (!normalized.startsWith('---\n')) return null;
@@ -135,8 +135,9 @@ export function parseFeedbackMemory(filePath: string): FeedbackMemory | null {
             detail: detail?.label ?? sidecar.layer
           };
         }
-      } catch {
-        // malformed sidecar — ignore
+      } catch (err) {
+        // malformed sidecar — warn but do not fail the whole parse
+        console.warn(`parseFeedbackMemory: malformed sidecar at ${sidecarPath}: ${(err as Error).message}`);
       }
     }
   }

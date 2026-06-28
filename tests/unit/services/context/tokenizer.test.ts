@@ -20,7 +20,7 @@ function makeRetriever(): DocRetrieverOutput {
   return {
     fetchedDocs: [{
       dep: 'antd', version: '5.21.0', source: 'remote-fetch',
-      fetchedAt: '2026-06-21T12:00:00Z', contentHash: 'h3',
+      fetchedAt: new Date().toISOString(), contentHash: 'h3',
       sections: [{ title: 'API', tokenEstimate: 100, excerpt: 'Form.Item' }],
       stale: false,
     }],
