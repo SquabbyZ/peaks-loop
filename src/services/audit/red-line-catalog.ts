@@ -168,20 +168,17 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
  * deferred — their request-transition / slice-check integrations are
  * tracked separately.
  */
-export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([
-  // L2.1 carries-over: mock-placement (request-transition / slice-check integrations deferred)
-  // (tech-doc-presence removed in v2.11.0 Group A)
-  'rl-mock-placement-001',
-  // L2.2 P1: 4 source-only enforcers (login-gate is integrated; the other 4 are deferred)
-  'rl-resume-detection-001',
-  'rl-resume-detection-002',
-  'rl-prototype-fidelity-001',
-  'rl-prototype-fidelity-002',
-  'rl-design-draft-confirm-001',
-  'rl-design-draft-confirm-002',
-  'rl-pre-rd-scan-001',
-  'rl-pre-rd-scan-002',
-]);
+// v2.14.0 Slice C Group G3: prose-only catalog governance reform.
+// All 8 previously-deferred enforcers are now integrated into the
+// red-lines audit pipeline (see red-lines-service.ts §3-7). The
+// backing-detector re-classifies these entries as cli-backed because
+// their enforcerRef file exists on disk. Rationale per id lives in
+// `.peaks/standards/catalog-governance/v2-14-classifications.md`.
+//
+// The 80 discovered-prose-only entries (`rl-discovered-...` ids) remain
+// in the catalog with `informational: true` and stay outside the
+// prose-only ratio (see prose-ratio-calculator.ts).
+export const DEFERRED_ENFORCERS: ReadonlySet<string> = new Set([]);
 
 /**
  * A red line's catalog id is the join key. If a discovered red line in a

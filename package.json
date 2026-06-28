@@ -51,14 +51,19 @@
     "dev": "tsx src/cli/index.ts",
     "dev:watch": "node ./scripts/watch.mjs",
     "pretest": "node ./scripts/sync-version.mjs",
-    "test": "vitest run",
+    "test": "node ./scripts/lint/silent-warning-detector.mjs && vitest run",
+    "lint:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",
+    "test:race": "vitest run --no-file-parallelism tests/unit/g8-shared-channel.test.ts tests/unit/dispatch-record-writer.test.ts tests/unit/services/retrospective/heartbeat.test.ts tests/unit/cli/commands/share-commands.test.ts",
+    "test:replay": "node scripts/fixture-capture-setup.mjs && vitest run tests/unit/replay tests/unit/fixture",
+    "fixture:capture-setup": "node scripts/fixture-capture-setup.mjs",
     "test:coverage": "vitest run --coverage",
     "test:coverage:workflow": "vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "pretest:coverage": "node ./scripts/pretest-coverage.mjs",
     "schema:generate": "node scripts/generate-context-schema.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "mut:run": "peaks mut run --project . --out mut-report.json",
-    "mut:scan": "peaks mut asserts --in mut-report.json"
+    "mut:scan": "peaks mut asserts --in mut-report.json",
+    "audit:prose-ratio": "peaks audit prose-ratio --project ."
   },
   "engines": {
     "node": ">=20.0.0"

@@ -18,6 +18,7 @@ import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
 import type { RedLineAudit } from '../../services/audit/types.js';
 import type { AuditDecisionRecord } from '../../services/audit/decision-writer.js';
 import { writeAuditDecision } from '../../services/audit/decision-writer.js';
+import { computeProseRatio, type ProseRatioResult } from '../../services/audit/prose-ratio-calculator.js';
 import {
   writeDecision,
   writeMachineOutput,
@@ -58,6 +59,12 @@ type ArtifactWriteOptions = {
   name?: string;
   rid?: string;
   dryRun?: boolean;
+  json?: boolean;
+};
+
+type ProseRatioOptions = {
+  project: string;
+  target: string;
   json?: boolean;
 };
 
@@ -280,6 +287,62 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       printResult(
         io,
         fail<StaticAuditData>('audit.static', 'SCANNER_FAILED', getErrorMessage(error), emptyStaticAuditData(), ['Inspect scanner logs and re-run with the same --project path']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // v2.14.0 Slice C Group G3: `peaks audit prose-ratio` — CI gate.
+  // Calls `peaks audit static --json` internally, parses the prose-only
+  // ratio, exits 1 if the ratio exceeds the target (default 5%).
+  // Rationale: a single CLI primitive for the CI gate; the underlying
+  // ratio lives in static-service.ts (computed via prose-ratio-calculator).
+  addJsonOption(
+    audit
+      .command('prose-ratio')
+      .description('Compute the prose-only ratio (informational entries excluded). Exits 1 if ratio > target (default 5%).')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--target <n>', 'maximum prose-only ratio (0-1, default 0.05)', '0.05')
+  ).action(async (options: ProseRatioOptions) => {
+    const validation = validateProjectRoot(options.project);
+    if (!validation.ok) {
+      printResult(
+        io,
+        fail<ProseRatioResult>('audit.prose-ratio', validation.code, validation.message, emptyProseRatioResult(), ['Verify the project path exists and is a directory']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const target = Number.parseFloat(options.target);
+    if (!Number.isFinite(target) || target < 0 || target > 1) {
+      printResult(
+        io,
+        fail<ProseRatioResult>('audit.prose-ratio', 'INVALID_TARGET', `--target must be a number between 0 and 1 (got "${options.target}")`, emptyProseRatioResult(), ['Pass --target 0.05 (default) or another number in [0, 1]']),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    try {
+      const result = runStaticAudit({ projectRoot: validation.projectRoot });
+      const ratio = computeProseRatio(result.audit.audit, { target });
+      const envelope: ResultEnvelope<ProseRatioResult> = ok('audit.prose-ratio', ratio, [], [
+        ratio.exceeds
+          ? `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% exceeds target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
+          : `Prose-only ratio ${(ratio.ratio * 100).toFixed(2)}% within target ${(ratio.target * 100).toFixed(2)}% (${ratio.proseOnly}/${ratio.totalRedLines})`
+      ]);
+      printResult(io, envelope, options.json);
+      if (ratio.exceeds) {
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      printResult(
+        io,
+        fail<ProseRatioResult>('audit.prose-ratio', 'SCANNER_FAILED', getErrorMessage(error), emptyProseRatioResult(), ['Inspect scanner logs and re-run with the same --project path']),
         options.json
       );
       process.exitCode = 1;
@@ -577,5 +640,18 @@ function emptyAuditGoalData(need: string, projectRoot: string): AuditGoalData {
     providerBinding: 'pending-follow-up-slice',
     need,
     projectRoot,
+  };
+}
+
+function emptyProseRatioResult(): ProseRatioResult {
+  return {
+    totalRedLines: 0,
+    cliBacked: 0,
+    partial: 0,
+    proseOnly: 0,
+    informational: 0,
+    ratio: 0,
+    target: 0.05,
+    exceeds: false,
   };
 }

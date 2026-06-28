@@ -16,6 +16,7 @@
 import { spawnSync } from 'node:child_process';
 import { runRedLinesAudit } from './red-lines-service.js';
 import { loadPreferences } from '../preferences/preferences-service.js';
+import { computeProseRatio, type ProseRatioResult } from './prose-ratio-calculator.js';
 import type { EnforcerFinding, RedLineAudit } from './types.js';
 
 export interface StaticAuditInput {
@@ -34,6 +35,8 @@ export interface StaticAuditResult {
   readonly audit: RedLineAudit;
   readonly agentShield: AgentShieldState;
   readonly warnings: readonly string[];
+  /** v2.14.0 Slice C: prose-only ratio with informational exclusion (per A3.1). */
+  readonly proseRatio: ProseRatioResult;
 }
 
 export interface AgentShieldState {
@@ -192,9 +195,14 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
     enforcerFindings: [...peaksResult.audit.enforcerFindings, ...state.findings],
   };
 
+  // v2.14.0 Slice C: compute prose-only ratio with informational
+  // exclusion. Surfaced in the JSON envelope so CI can gate on it.
+  const proseRatio = computeProseRatio(mergedAudit.audit);
+
   return {
     audit: mergedAudit,
     agentShield: state,
     warnings,
+    proseRatio,
   };
 }
