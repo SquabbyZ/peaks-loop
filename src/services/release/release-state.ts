@@ -133,9 +133,10 @@ export function rollbackRelease(
   if (!isValidStageTransition(from, 'rolled-back')) {
     return { error: `cannot rollback from ${from}` };
   }
-  const stageHistory = [...state.active.stageHistory, { stage: 'rolled-back', at: now.toISOString(), ...(note !== undefined ? { note } : {}) }];
+  const newEntry: { readonly stage: ReleaseStage; readonly at: string; readonly note?: string } = { stage: 'rolled-back', at: now.toISOString(), ...(note !== undefined ? { note } : {}) };
+  const stageHistory = [...state.active.stageHistory, newEntry] as readonly { readonly stage: ReleaseStage; readonly at: string; readonly note?: string }[];
   const record: ReleaseRecord = { ...state.active, currentStage: 'rolled-back', stageHistory };
-  return { state: { active: null, history: [...state.history, record] }, record };
+  return { state: { version: 1, active: null, history: [...state.history, record] }, record };
 }
 
 /** Hotfix: create a new active release on a hotfix version. */

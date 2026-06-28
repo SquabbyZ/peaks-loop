@@ -34,7 +34,7 @@ export function registerImpactCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { files: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const files = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const files: string[] = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
     if (files.length === 0) {
       printResult(io, fail('impact.scan', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
         'Pass --files with at least one file path.'
@@ -42,7 +42,7 @@ export function registerImpactCommands(program: Command, io: ProgramIO): void {
       return;
     }
     const report = runImpactScan({ changedFiles: files });
-    printResult(io, ok('impact.scan', { projectRoot, report }, [], report.warnings), opts.json ?? false);
+    printResult(io, ok('impact.scan', { projectRoot, report }, [], [...report.warnings]), opts.json ?? false);
   });
 
   addJsonOption(
@@ -57,7 +57,7 @@ export function registerImpactCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { files: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
-    const files = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+    const files: string[] = opts.files.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
     if (files.length === 0) {
       printResult(io, fail('impact.must-check', 'INVALID_INPUT', 'no files provided (--files)', { projectRoot }, [
         'Pass --files with at least one file path.'

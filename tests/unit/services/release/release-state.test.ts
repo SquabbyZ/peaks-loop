@@ -48,7 +48,7 @@ describe('isValidStageTransition', () => {
     }
   });
   it('allows rollback from any pre-done stage', () => {
-    for (const s of ['planned', 'canary-10', 'canary-50', 'promoted', 'watching']) {
+    for (const s of ['planned', 'canary-10', 'canary-50', 'promoted', 'watching'] as const) {
       expect(isValidStageTransition(s, 'rolled-back')).toBe(true);
     }
   });
@@ -88,13 +88,13 @@ describe('transitionRelease', () => {
     expect(t.state.active?.currentStage).toBe('canary-10');
   });
   it('records promotedAt when transitioning to promoted', () => {
-    let state = planRelease(EMPTY_RELEASE_STATE, 'v1.0.0', new Date('2026-06-28T10:00:00Z'));
-    if ('error' in state) throw new Error('expected ok');
-    state = transitionRelease(state.state, 'canary-10', undefined, new Date('2026-06-28T11:00:00Z'));
-    if ('error' in state) throw new Error('expected ok');
-    state = transitionRelease(state.state, 'canary-50', undefined, new Date('2026-06-28T12:00:00Z'));
-    if ('error' in state) throw new Error('expected ok');
-    const promoted = transitionRelease(state.state, 'promoted', undefined, new Date('2026-06-28T13:00:00Z'));
+    const r1 = planRelease(EMPTY_RELEASE_STATE, 'v1.0.0', new Date('2026-06-28T10:00:00Z'));
+    if ('error' in r1) throw new Error('expected ok');
+    const r2 = transitionRelease(r1.state, 'canary-10', undefined, new Date('2026-06-28T11:00:00Z'));
+    if ('error' in r2) throw new Error('expected ok');
+    const r3 = transitionRelease(r2.state, 'canary-50', undefined, new Date('2026-06-28T12:00:00Z'));
+    if ('error' in r3) throw new Error('expected ok');
+    const promoted = transitionRelease(r3.state, 'promoted', undefined, new Date('2026-06-28T13:00:00Z'));
     if ('error' in promoted) throw new Error('expected ok');
     expect(promoted.state.active?.promotedAt).toBe('2026-06-28T13:00:00.000Z');
   });

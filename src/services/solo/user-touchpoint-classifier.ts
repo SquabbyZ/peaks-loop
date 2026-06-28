@@ -35,7 +35,15 @@ export interface GateClassification {
 }
 
 /** Classification table — one row per Solo gate. */
-const CLASSIFICATION: readonly Omit<GateClassification, 'fullAutoCanProceed' | 'userShouldReview'>[] & Array<GateClassification> = [
+interface RawGate {
+  step: string;
+  kind: GateKind;
+  description: string;
+  fullAutoCanProceed: boolean;
+  userShouldReview: 'always' | 'business-only' | 'never';
+}
+
+const RAW_CLASSIFICATION: readonly RawGate[] = [
   {
     step: 'step-0.5-openspec-opt-in',
     kind: 'mode-selection',
@@ -137,22 +145,23 @@ const CLASSIFICATION: readonly Omit<GateClassification, 'fullAutoCanProceed' | '
 ];
 
 export function classifyAllGates(): readonly GateClassification[] {
-  return CLASSIFICATION.slice();
+  return RAW_CLASSIFICATION.slice() as readonly GateClassification[];
 }
 
 /** Look up a single gate's classification. Returns null when the step is not in the table. */
 export function classifyGate(step: string): GateClassification | null {
-  return CLASSIFICATION.find((g) => g.step === step) ?? null;
+  const raw = RAW_CLASSIFICATION.find((g) => g.step === step);
+  return raw === undefined ? null : (raw as GateClassification);
 }
 
 /** List all gates the user must review (per the 12 Gaps positioning). */
 export function userMustReviewGates(): readonly GateClassification[] {
-  return CLASSIFICATION.filter((g) => g.userShouldReview !== 'never');
+  return RAW_CLASSIFICATION.filter((g) => g.userShouldReview !== 'never') as readonly GateClassification[];
 }
 
 /** List all gates AI auto-decides in full-auto. */
 export function aiAutoDecidesGates(): readonly GateClassification[] {
-  return CLASSIFICATION.filter((g) => g.fullAutoCanProceed);
+  return RAW_CLASSIFICATION.filter((g) => g.fullAutoCanProceed) as readonly GateClassification[];
 }
 
 export const COMMIT_BOUNDARY_ACTIONS_LIST: readonly { id: string; description: string }[] = [

@@ -76,7 +76,7 @@ describe('runLayeredDag — foundation-first scheduling via dependsOn', () => {
       runSlice: makeRunner(20, rec),
       writeContractFn: noopWriter
     });
-    expect(result.completed.sort()).toEqual(['B1', 'B2', 'F1', 'F2']);
+    expect([...result.completed].sort()).toEqual(['B1', 'B2', 'F1', 'F2']);
     expect(result.failed).toEqual([]);
     // B1 must START after F1 ENDS (B1 depends on F1)
     const f1 = rec.find((r) => r.sliceId === 'F1')!;
@@ -120,7 +120,7 @@ describe('runLayeredDag — layered parallelism (business starts before all foun
       runSlice: slowRunner,
       writeContractFn: noopWriter
     });
-    expect(result.completed.sort()).toEqual(['B1', 'F1', 'F2']);
+    expect([...result.completed].sort()).toEqual(['B1', 'F1', 'F2']);
     // F1 and F2 start at roughly the same time (parallel); B1 starts after F1 ends.
     const f1 = rec.find((r) => r.sliceId === 'F1')!;
     const f2 = rec.find((r) => r.sliceId === 'F2')!;
@@ -218,7 +218,7 @@ describe('runLayeredDag — back-compat with old DAGs (no new fields)', () => {
       runSlice: makeRunner(1, []),
       writeContractFn: noopWriter
     });
-    expect(result.completed.sort()).toEqual(['a', 'b']);
+    expect([...result.completed].sort()).toEqual(['a', 'b']);
     expect(result.failed).toEqual([]);
   });
 });

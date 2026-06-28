@@ -209,7 +209,7 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
     }
     // Move to history.
     const finalRecord = result.state.active!;
-    const newState = { active: null, history: [...result.state.history, finalRecord] };
+    const newState: import('../../services/release/release-state.js').ReleaseState = { version: 1, active: null, history: [...result.state.history, finalRecord] };
     writeReleaseState(projectRoot, newState);
     printResult(io, ok('release.done', {
       projectRoot,
