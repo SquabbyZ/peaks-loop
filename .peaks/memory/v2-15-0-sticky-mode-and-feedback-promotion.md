@@ -116,3 +116,71 @@ peaks skill presence:check-stale --project . --json
 peaks feedback check-unpromoted --project . --json
 peaks solo should-pause --step step-1-mode-select --mode full-auto --json
 ```
+
+---
+
+# v2.15.0 ship complete (2026-06-28)
+
+## Ship chain
+
+| Stage | Commit | By |
+|---|---|---|
+| PRD | `a1c9e73` | peaks-solo orchestrator |
+| RD initial | `070f790` | peaks-rd fork agent |
+| QA verdict 1 | (envelope: qa-final) | peaks-qa fork agent — **FAIL, 2 blockers** |
+| RD repair | `db860e4` | peaks-rd fork agent — fixed CLI smoke + defect 3 |
+| QA re-verify | (envelope: qa-reverify) | peaks-qa fork agent — **PASS, ship** |
+| Push | `a1c9e73..db860e4` → origin | peaks-solo orchestrator |
+| Tag | `v2.15.0` → origin | peaks-solo orchestrator |
+| `npm publish` peaks-cli@2.15.0 | (npm registry) | user-only (peaks1992 OTP) |
+| `npm install -g .` global refresh | (npm global) | user-only |
+| `~/.peaks/config.json.version` | auto-bumped to `2.15.0` | doctor governance |
+
+## QA blocker ledger
+
+| Blocker | File | Root cause | Fix |
+|---|---|---|---|
+| 1 | `src/cli/commands/core/skill-command.ts` | `presence:check-stale` always returns `stale: true` because commander spread `currentOuter: undefined` (key present) bypassed service-layer env-var fallback | sparse opts object at CLI boundary; preserve test seam `currentOuter: undefined = no signal` |
+| 2 | `src/cli/commands/solo-commands.ts` | `solo should-pause` only accepts 14 GATED_STEPS; service-layer commit-boundary hard-floor unreachable from CLI | add `--commit-boundary-action <id>` flag (5 actions: git-push/git-tag/npm-publish/npm-install-global/peaks-global-install) |
+| 3 minor | `src/services/skills/skill-presence-service.ts` | `presence:set` writes JSON without `outerSessionId` key when env unset | always write key (empty-string sentinel when no harness env var) |
+
+Net regression: **-1** (fixed an additional pre-existing test that asserted the old buggy `undefined` behavior in `skill-presence-service.test.ts`).
+
+## Post-publish verification
+
+```bash
+$ peaks --version
+2.15.0
+
+$ npm view peaks-cli version
+2.15.0
+
+$ cat ~/.peaks/config.json | grep version
+  "version": "2.15.0",
+```
+
+## User-given rules now machine-enforced
+
+| Rule | Enforcement |
+|---|---|
+| New session must ask mode | `peaks skill presence:check-stale` + `peaks solo should-pause --step step-1-mode-select` → AskUserQuestion when stale |
+| `full-auto boundary = commit only` | mode-gate `commit-boundary-side-effect` hard-floor category + `peaks solo should-pause --commit-boundary-action <id>` (5 actions, all 4 modes override to pause) |
+| Feedback → peaks-cli capability | `peaks feedback promote` CLI + `peaks feedback check-unpromoted` + Gate H in `peaks workflow verify-pipeline` (13 unpromoted memories flagged at first run) |
+
+## Why this slice is significant
+
+It is the **first slice that closes the feedback governance gap** identified in session 75d5f0 (the "memory is advisory, hook/gate is mandatory" insight). Previously, user-given rules written to `.peaks/memory/*.md` were only LLM-readable; the LLM was expected to "remember and comply" without any enforcement layer. After v2.15.0:
+
+- Feedback → promotion is a CLI primitive, not a hint.
+- Promotion marker (HTML comment + sidecar JSON) is verified by Gate H.
+- promote-flow writes a peer-review envelope to `.peaks/_runtime/<sid>/rd/feedback-promote-*.md`.
+- Auto-block unpromoted feedback from passing verify-pipeline.
+
+The 13 unpromoted memories from prior sessions (including `2026-06-28-full-auto-boundary.md` itself, until it gets promoted by the next session) are now visible debt, not silent drift.
+
+## Related
+
+- [[2026-06-28-full-auto-boundary]] — feedback that motivated slice 002 (now enforced via AC-4 hard-floor)
+- [[2026-06-28-session-75d5f0-compaction-1]] — P3/P4 closed in v2.14.2; P5 (feedback governance) closed in v2.15.0
+- PRD: `.peaks/_runtime/change/v2-15-0-sticky-mode-and-feedback-promotion/prd/requests/002-sticky-mode-and-feedback-promotion.md`
+- QA envelopes: `.peaks/_runtime/change/v2-15-0-sticky-mode-and-feedback-promotion/qa/qa-final-2026-06-28-session-88b27d.md` + `qa-reverify-2026-06-28-session-88b27d.md`
