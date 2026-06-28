@@ -39,6 +39,25 @@
 - `peaks hooks install` — slice is code-only. Hooks remain user-only.
 - Cleaning the 88b27d session's stale presence on disk — slice ships the detection + auto-clear, does NOT proactively touch the live tree.
 
+### Documentation — peaks-cli 真实定位 + 12 Gaps 沉淀 (2026-06-28 follow-up)
+
+会话期间从资深前端 + 后端半盲 + 极致工期 + 24h AI 程序员 + 存量无 UT 的真实场景,沉淀 6 个 memory 文件 + 索引 + 4 个 SKILL.md 校准注。**核心叙事:** `90% 效率 + 80% 质量` > `80% 效率 + 90% 质量`;user 在循环里 = 业务/产品审阅者不参与技术决策;主路径 = 唯一蜂群模式;prd 质量前置 = 4 必填块;QA = 业务视角 + 轻量回归 + 上线观察期。
+
+- **6 new memory files** — `.peaks/memory/peaks-cli-{24h-ai-programmer-positioning, user-role-and-tech-decision, prd-template-design, slice-review-and-qa-perspective, fork-sync-and-layered-parallel, fast-iteration-quality-loop}.md` (warm.project index 18 → 24)
+- **4 SKILL.md 校准注** — peaks-solo / peaks-prd / peaks-rd / peaks-qa 各加精简 anchor(均通过 25KB cap,只引用 memory 不重复内容)
+- **不触动** transition gates / hard contracts / Karpathy 4 / 模式枚举 / mode-gate.ts / sub-agent 协议
+
+### Fix — 2 pre-existing bugs (2026-06-28 follow-up)
+
+- `src/services/feedback/feedback-promotion-service.ts:88` — `catch` 改 `throw with cause`(silent-warning-detector 报 catch-return-null,让 caller 区分 IO 失败)
+- `src/services/feedback/feedback-promotion-service.ts:138` — `catch {}` 改 `console.warn`(silent-warning-detector 报 empty-catch,malformed sidecar 不再静默)
+- `tests/unit/services/context/tokenizer.test.ts:23` — `fetchedAt` 硬编码 `2026-06-21` 距今 7 天触发 `timeDecayScore 0.886 < 0.9` 期望,改 `new Date().toISOString()` 符合"fresh fetch"测试意图
+
+**测试结果:**
+- silent-warning-detector: 2 violations → 0
+- `tests/unit/services/context/`: 49/50 → 50/50
+- 全量 vitest 4819 tests:3 failed → 2 failed(剩下 2 个是并发 race condition,单跑 context 50/50 全过,pre-existing)
+
 ---
 
 ## [2.14.2] — 2026-06-28 — peaks-companion dead skill removal + minimax provider migration
