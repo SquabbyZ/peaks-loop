@@ -43,6 +43,7 @@ function seedAllExceptMut(project: string): void {
   writeFileSync(join(project, '.peaks', '_runtime', SID, 'audit', 'perf.md'), '## Baseline\nN/A — no perf surface\n');
   writeFileSync(join(project, '.peaks', '_runtime', SID, 'prd', 'handoff.md'), '---\nschemaVersion: 2\nsha256: a\n---\n# handoff\n');
   writeFileSync(join(project, '.peaks', '_runtime', SID, 'rd', 'karpathy-review.md'), '## Karpathy-Gate\n### Think Before Coding\n### Simplicity First\n### Surgical Changes\n### Goal-Driven Execution\n');
+  writeFileSync(join(project, '.peaks', '_runtime', SID, 'rd', 'third-party-review.md'), '## third-party-review\nmodelFamily: gpt-4o\nFindings: pass\n');
   writeFileSync(join(project, '.peaks', '_runtime', SID, 'qa', 'test-cases', `${REQUEST_ID}.md`), '## Test cases\ntest("x")\n');
   writeFileSync(join(project, '.peaks', '_runtime', SID, 'qa', '.initiated'), '');
 }
@@ -95,8 +96,10 @@ describe('v2.13.2 MUT_REPORT soft-block (AC-5)', () => {
     });
     expect(result.ok).toBe(false);
     expect(result.missing.map((m) => m.path)).toContain('mut/mut-report.json');
-    // Note: result.warnings is empty in this case — backCompat only
-    // covers the MISSING case, not the failed case.
-    expect(result.warnings).toEqual([]);
+    // v2.15.0+ may emit additional soft warnings (e.g. third-party-review);
+    // we only assert that the MUT_REPORT warning is NOT in the list (backCompat
+    // only softens the MISSING case, not the failed case).
+    const mutWarnings = result.warnings.filter((w) => w.path === 'mut/mut-report.json');
+    expect(mutWarnings).toEqual([]);
   });
 });

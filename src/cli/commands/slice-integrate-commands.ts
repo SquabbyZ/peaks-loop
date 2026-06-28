@@ -26,8 +26,9 @@ function loadContractsForSlices(projectRoot: string, sessionId: string, sliceIds
     try {
       const raw = readFileSync(file, 'utf8');
       result.push(JSON.parse(raw) as SliceContract);
-    } catch {
-      // skip malformed contracts
+    } catch (err) {
+      // skip malformed contracts but warn (silent-warning-detector)
+      console.warn(`loadContractsForSlices: skipping malformed contract at ${file}: ${(err as Error).message}`);
     }
   }
   return result;

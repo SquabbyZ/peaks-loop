@@ -71,7 +71,8 @@ export function readQaReview(projectRoot: string, sessionId: string, requestId: 
   if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as QaBusinessReview;
-  } catch {
+  } catch (err) {
+    console.warn(`readQaReview: failed to read or parse ${path}: ${(err as Error).message}`);
     return null;
   }
 }

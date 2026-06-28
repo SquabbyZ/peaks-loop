@@ -43,7 +43,8 @@ export function estimateFileComplexity(file: string): FileComplexity | null {
   let content: string;
   try {
     content = readFileSync(file, 'utf8');
-  } catch {
+  } catch (err) {
+    console.warn(`estimateFileComplexity: failed to read ${file}: ${(err as Error).message}`);
     return null;
   }
   const lines = content.split('\n').length;

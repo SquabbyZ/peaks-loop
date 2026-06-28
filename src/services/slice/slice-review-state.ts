@@ -78,7 +78,8 @@ export function readSliceReview(projectRoot: string, sessionId: string, sliceId:
   try {
     const raw = readFileSync(path, 'utf8');
     return JSON.parse(raw) as SliceReview;
-  } catch {
+  } catch (err) {
+    console.warn(`readSliceReview: failed to read or parse ${path}: ${(err as Error).message}`);
     return null;
   }
 }
