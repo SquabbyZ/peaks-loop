@@ -25,6 +25,7 @@ import { registerSopCommands } from './commands/sop-commands.js';
 // `sops/feedback-promotion-sop.md`.
 import { registerFeedbackCommands } from './commands/feedback-commands.js';
 import { registerForkCommands } from './commands/fork-commands.js';
+import { registerImpactCommands } from './commands/impact-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -221,6 +222,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerFeedbackCommands(program, io);
  // v2.15.0 follow-up G11: fork sync CLI (status / upstream-check / sync-plan / sync / sync-verify).
  registerForkCommands(program, io);
+ // v2.15.0 follow-up G13: impact scan CLI (scan / must-check).
+ registerImpactCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
