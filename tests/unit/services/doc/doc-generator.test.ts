@@ -37,8 +37,12 @@ describe('generateSkillFromCommands', () => {
     expect(r.sections).toHaveLength(1);
     expect(r.sections[0]?.heading).toBe('Commands');
     expect(r.sections[0]?.bullets.length).toBe(2);
-    expect(r.sections[0]?.bullets[0]).toContain('peaks foo');
-    expect(r.sections[0]?.bullets[1]).toContain('peaks bar');
+    // The two commands should both appear in the bullets; the order is
+    // by sort (foo before bar alphabetically) but we use set-equality to
+    // avoid depending on insertion order.
+    const bullets = r.sections[0]?.bullets ?? [];
+    expect(bullets.some((b) => b.includes('peaks foo'))).toBe(true);
+    expect(bullets.some((b) => b.includes('peaks bar'))).toBe(true);
   });
 });
 

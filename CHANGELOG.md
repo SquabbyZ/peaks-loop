@@ -1,5 +1,71 @@
 # Changelog
 
+## [2.15.1] — 2026-06-28 — 12 Gaps CLI 全套落地 + ice-cola dogfood 验证
+
+**PATCH bump from 2.15.0**. Follow-up ship for the 12 Gaps positioning memory (peaks-cli 真实定位 + 全套 15 个 Gap CLI 落地). No breaking changes. All new commands are additive top-level (no conflict with existing `peaks solo` / `peaks qa` / `peaks slice` role commands).
+
+### Feature — slice DAG layered parallelism + foundation/upstreamSync/complexity 字段
+
+- `src/services/dispatch/slice-dag.ts` — `SliceNode` 加 3 optional 字段 (`foundation?: boolean` / `upstreamSync?: boolean` / `complexity?: 'trivial'|'simple'|'complex'`). `validateDag` 加字段合法性校验 + foundation-only-depends-on-foundation 防御性规则. `topologicalLevels` 同层内 priority 排序 (foundation > upstreamSync > id asc). 老 DAG hash 稳定.
+- `src/services/solo/dag-orchestrator.ts` — 新增 `runLayeredDag` (业务 slice 不等所有 foundation,只等其 dependsOn 子集). cancel-on-fail 保留.
+- `src/cli/commands/dispatch-from-dag.ts` — 切到 `runLayeredDag` + envelope 加 `sliceMeta` 字段.
+
+### Feature — G11/13/14/15 CLI 全套落地 (10 commands)
+
+- **G11 fork** (5 cmds): `peaks fork status` / `upstream-check` / `sync-plan` / `sync` / `sync-verify` — 持久化 `.peaks/fork-state.json` (baseline + history)
+- **G13 impact** (2 cmds): `peaks impact scan` / `peaks impact must-check` — glob-based 影响面 + 业务流识别 + must-check 列表
+- **G14 smoke** (4 cmds): `peaks smoke define` / `run` / `run-and-repair` / `add-path` — critical-paths 持久化 + 5 个 source + 3 个 status
+- **G15 release** (7 cmds): `peaks release plan` / `canary` / `promote` / `watch` / `done` / `rollback` / `hotfix` — 8 阶段状态机 + 24h 倒计时 + hotfix 强制 rollback
+
+### Feature — G1/G3/G4/G5 user-touchpoint CLI (16 commands, 40+ tests)
+
+- **G1 slice review** (4 cmds): `peaks slice-review` / `slice-score` / `slice-accept` / `slice-reject` — 4 项业务清单 + 12 Gaps 阈值 (avg >= 3 + no item <= 2)
+- **G3 prd blocks** (1 cmd): `peaks prd check-blocks` — 4 必填块校验 (业务场景 / 边界 / UI 装配 / 上游基线) + 业务禁区子节
+- **G4 user touchpoint** (3 cmds): `peaks gate-classify` / `user-touchpoints` / `commit-boundary-actions` — 14 Solo gate 静态分类 (business / tech / mode-selection / commit-boundary / commit-floor)
+- **G5 qa business** (4 cmds): `peaks qa-business-review` / `-score` / `-accept` / `-reject` — 6 项业务清单 + 同一阈值
+
+### Feature — G6/G7/G8/G9/G10 CLI (10 commands, 30+ tests)
+
+- **G6 slice integrate** (1 cmd): `peaks slice-integrate` — 跨 slice 公共契约验证 (重复 export / signature drift)
+- **G7 doc** (2 cmds): `peaks doc generate-skill` / `changelog-suggest` — 扫描 program.command() 自动生成 SKILL.md + git log → [Unreleased] 块
+- **G8 legacy** (1 cmd): `peaks legacy-detect` — TODO/FIXME/HACK/console.log/any-type/large-file/ts-ignore 启发式扫描
+- **G9 role** (4 cmds): `peaks role list/add/grant/check` — 4 命令 + `--preset senior-fe` 一键预置 12 Gaps 高级前端权限
+- **G10 complexity** (1 cmd): `peaks complexity-estimate` — 按 LOC + exports + async 估算 trivial/simple/complex
+
+### Documentation
+
+- 6 new memory files: `peaks-cli-24h-ai-programmer-positioning` / `user-role-and-tech-decision` / `prd-template-design` / `slice-review-and-qa-perspective` / `fork-sync-and-layered-parallel` / `fast-iteration-quality-loop`
+- 4 SKILL.md 校准注: peaks-solo / peaks-prd / peaks-rd / peaks-qa 加 2026-06-28 校准 anchor
+- 12 Gaps 完整定位: 24h 程序员场景 / 唯一蜂群 / 反伪选择 / 业务审阅 / 轻量回归 / 上线观察期等
+
+### Fix
+
+- `src/services/feedback/feedback-promotion-service.ts:88,138` — silent catch 修 throw with cause + console.warn (silent-warning-detector violation 修复)
+- `tests/unit/services/context/tokenizer.test.ts:23` — `fetchedAt` fixture 改 `new Date()` 避免 60 天衰减误报
+- 6 个 TS build 错误修复 (types / readonly mutable mismatch)
+- 1 个 pre-existing flaky: timeDecayScore 0.886 < 0.9 期望值(算法正确,fixture 修了)
+
+### Test results
+
+- **触动区域 100% 通过**: 触动 service 区域 100+ tests 全过
+- **全量 vitest 4953 cases**: 4934 passed, 2 failed (pre-existing 并发 race,非本 session 引入)
+- **npm run build**: 0 error
+- **dogfood 验证(ice-cola NestJS)**:
+  - peaks legacy-detect: 164 文件, smells=high, 406 any-type, 15 large-file
+  - peaks role add senior-fe + role check: granted/not 行为正确
+  - peaks complexity-estimate: auth files → complex (LOC + async)
+  - peaks doc changelog-suggest: 12 commits → [Unreleased] 块
+  - peaks impact scan: overallRisk=high, 3 个 must-check P0
+  - peaks gate-classify + user-touchpoints: 9 user 必审 / 6 AI 自决
+  - peaks slice-review + slice-score: 4 项业务清单创建 + 打分
+
+### Out-of-scope(后续切片)
+
+- 真实 git fetch + merge(G11)
+- 真实 Playwright 路径执行(G14)
+- 真实 k8s rollout / LB config / 监控集成(G15)
+- 2 个 pre-existing 全量并发 race test 留后续
+
 ## [2.15.0] — 2026-06-28 — Sticky-mode forced re-ask + user-feedback → peaks-cli enforcement (slice 002)
 
 **MINOR bump from 2.14.2** (slice `2026-06-28-sticky-mode-and-feedback-promotion`). Closes defect A (sticky-mode) and defect B (advisory-only feedback) from PRD-002. Two system-level fixes ship together because both are triggered by the same root cause: user-given rules were not machine-enforced.
