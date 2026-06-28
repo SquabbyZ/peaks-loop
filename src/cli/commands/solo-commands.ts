@@ -29,7 +29,7 @@ import {
   shouldPauseAtGate,
   formatAutoProceedLogLine
 } from '../../services/solo/mode-gate.js';
-import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
+import { getSkillPresence, checkStalePresence } from '../../services/skills/skill-presence-service.js';
 import {
   detectPostCompactResume,
   formatPostCompactResumeLogLine
@@ -186,18 +186,26 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
       .description(
         'v2.11.0 D5: ask the mode-gate whether the LLM should pause for an AskUserQuestion at a given step. ' +
           'full-auto / swarm auto-proceed (recommended = chosen); assisted / strict pause. ' +
-          'The 3 hard-floor categories always pause regardless of mode.'
+          'The 3 hard-floor categories always pause regardless of mode. ' +
+          'v2.15.0 slice 002 AC-2: when --step step-1-mode-select AND the recorded skill presence is stale ' +
+          '(outer-session-mismatch / no-presence), the gate returns shouldPause: true with reason "stale-presence" ' +
+          'even if the user passed --mode full-auto. The re-ask is mandatory — sticky-mode from a previous ' +
+          'session is NOT authoritative.'
       )
       .requiredOption('--step <step>', `one of: ${GATED_STEPS.join(', ')}`)
       .requiredOption('--mode <mode>', 'one of: full-auto, assisted, swarm, strict')
       .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment)')
       .option('--recommended <option>', 'recommended option label to log when auto-proceeding', 'recommended-option')
+      .option('--project <path>', 'v2.15.0 slice 002 AC-2: project root for presence:check-stale. Default: cwd. Pass only when step=step-1-mode-select.')
+      .option('--ignore-stale-presence', 'v2.15.0 slice 002 AC-2: skip the stale-presence check (test seam). Default false.')
   ).action(
     (opts: {
       step: string;
       mode: string;
       hardFloor?: string;
       recommended?: string;
+      project?: string;
+      ignoreStalePresence?: boolean;
       json?: boolean;
     }) => {
       try {
@@ -230,6 +238,64 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
           return;
         }
         const step = opts.step as typeof GATED_STEPS[number];
+
+        // Slice 002 (v2.15.0) AC-2: when the caller is asking about
+        // Step 1 AND the recorded presence is stale, OVERRIDE the
+        // gate decision to PAUSE with reason='stale-presence'. The
+        // hard-pause on step-1-mode-select (defect #1 fix from
+        // 2026-06-28-solo-mode-bypass-fix) is already in effect, so
+        // this only adds the structured `stale` reason + an
+        // envelope-level `stalePresence` field so downstream tooling
+        // (statusline, sub-agent dispatch) can act on it.
+        let stalePresence: ReturnType<typeof checkStalePresence> | null = null;
+        if (opts.step === 'step-1-mode-select' && opts.ignoreStalePresence !== true) {
+          const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+          stalePresence = checkStalePresence({ projectRootOverride: projectRoot });
+        }
+        if (stalePresence !== null && stalePresence.stale) {
+          // Build the envelope manually so we can attach the extra
+          // structured fields (stalePresence, logLine) and emit a
+          // dedicated observability event tagged with reason='stale-presence'.
+          const sid = readActiveSid(opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd()) ?? '';
+          if (sid.length > 0) {
+            emitObservabilityEvent({
+              schemaVersion: 1,
+              ts: new Date().toISOString(),
+              sessionId: sid,
+              category: 'mode-gate',
+              detail: {
+                mode: opts.mode,
+                step,
+                shouldPause: true,
+                reason: 'stale-presence',
+                staleReason: stalePresence.reason,
+                recordedOuterSessionId: stalePresence.recordedOuterSessionId,
+                currentOuterSessionId: stalePresence.currentOuterSessionId
+              }
+            }, { projectRoot: opts.project ?? process.cwd() });
+          }
+          printResult(
+            io,
+            ok('solo.should-pause', {
+              shouldPause: true,
+              reason: `stale-presence — re-ask Step 1 (${stalePresence.reason}; recorded outer session id does not match current)`,
+              gateKind: 'mode-selection-itself',
+              logLine: `auto-pause (${opts.mode}, stale-presence:${stalePresence.reason}): ${step} → re-ask`,
+              stalePresence: {
+                stale: true,
+                reason: stalePresence.reason,
+                recordedOuterSessionId: stalePresence.recordedOuterSessionId,
+                currentOuterSessionId: stalePresence.currentOuterSessionId
+              }
+            }, [], [
+              `Recorded outer session id "${stalePresence.recordedOuterSessionId ?? '?'}" does not match current outer session id "${stalePresence.currentOuterSessionId ?? '?'}".`,
+              `peaks-solo Step 1 must AskUserQuestion to confirm the mode for THIS session (slice 002 AC-2).`
+            ]),
+            opts.json
+          );
+          return;
+        }
+
         const decision = shouldPauseAtGate({
           mode: opts.mode,
           step,

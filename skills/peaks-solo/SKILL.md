@@ -128,9 +128,9 @@ Per the "one-key completion" tenet, peaks-cli 2.0 detects 1.x consumers and prom
 
 ### Peaks-Cli Step 1: Mode selection
 
-When the user did not name a profile (`full-auto` / `assisted` / `swarm` / `strict`), use `AskUserQuestion` with `Full auto (Recommended)` as the first option. Map the choice to `--mode` value.
+Use `AskUserQuestion` with `Full auto (Recommended)` as the first option when EITHER the user did not name a profile OR the recorded skill presence is stale (v2.15.0 slice 002 AC-2: run `peaks skill presence:check-stale --project <path> --json` first; `stale: true` ⇒ re-ask. `peaks solo should-pause --step step-1-mode-select` returns `reason: 'stale-presence'` in this case).
 
-→ see `references/mode-selection.md` + `references/fast-mode.md` (slice 2 hot-fix mode).
+→ see `references/mode-selection.md`, `references/fast-mode.md`, `references/mode-selection-with-stale-presence.md`.
 
 ### Peaks-Cli Step 2: Re-set skill presence with the chosen mode
 

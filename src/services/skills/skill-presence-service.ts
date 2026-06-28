@@ -385,6 +385,180 @@ export function getSkillPresence(projectRootOverride?: string): SkillPresence | 
   return presence;
 }
 
+/**
+ * Slice 002 (v2.15.0) — presence staleness detection (AC-1).
+ *
+ * Compare the *outer* session id stamped onto the current presence
+ * marker against the *current* outer session id (from
+ * `PEAKS_OUTER_SESSION_ID` / `CLAUDE_CODE_SESSION_ID`).
+ *
+ * Stale reasons (in priority order):
+ *
+ *   - `'outer-session-mismatch'` — the presence was stamped by a
+ *     different outer (Claude / harness) session than the one that
+ *     is now driving peaks. Most common cause: the LLM closed the
+ *     previous Claude session, the next session boots and finds a
+ *     presence leftover from the old one. peaks-solo Step 1 must
+ *     AskUserQuestion to confirm the user wants the old mode.
+ *
+ *   - `'no-presence'`            — there is no presence file on disk.
+ *     Not strictly "stale", but callers (peaks-solo Step 1, `peaks
+ *     solo should-pause --step step-1-mode-select`) want to treat
+ *     this case as "no opinion yet — must ask". Surfaced as
+ *     `stale: true` with reason `'no-presence'` so the ask path is
+ *     uniform.
+ *
+ *   - `null`                     — the presence exists AND its outer
+ *     session id matches the current outer session id. Not stale.
+ *     Caller may safely reuse the recorded mode.
+ *
+ * Pure read-only: never deletes the presence file (the rotation
+ * auto-clear path is a separate concern; see
+ * `clearStalePresenceOnRotation`). Test seam: `--current-outer` lets
+ * tests inject a deterministic current outer id without touching env
+ * vars.
+ */
+export type StaleReason = 'outer-session-mismatch' | 'no-presence';
+
+export type StalenessCheck = {
+  stale: boolean;
+  reason: StaleReason | null;
+  /** What was on disk; null when no presence was found. */
+  presence: SkillPresence | null;
+  /** Current outer session id (env-driven). Undefined when no signal. */
+  currentOuterSessionId: string | undefined;
+  /** Outer session id recorded on the presence marker. Undefined when no signal. */
+  recordedOuterSessionId: string | undefined;
+};
+
+export function checkStalePresence(opts?: {
+  projectRootOverride?: string | undefined;
+  /**
+   * Override the *current* outer session id. Test seam only.
+   *   - `undefined` (omitted): read from `PEAKS_OUTER_SESSION_ID` /
+   *     `CLAUDE_CODE_SESSION_ID` env vars.
+   *   - explicit `string`: use the value verbatim (empty string means
+   *     "no signal", same as a missing env var).
+   */
+  currentOuter?: string | undefined;
+}): StalenessCheck {
+  const result = readSkillPresenceBackCompat(opts?.projectRootOverride);
+  // `opts?.currentOuter === undefined` is the omitted-key case. A
+  // falsy string `''` is an explicit "no signal" (used by tests to
+  // simulate a CLI run with no harness env vars).
+  const current = opts && 'currentOuter' in opts
+    ? opts.currentOuter
+    : getCurrentOuterSessionId();
+  if (result === null) {
+    return {
+      stale: true,
+      reason: 'no-presence',
+      presence: null,
+      currentOuterSessionId: current,
+      recordedOuterSessionId: undefined
+    };
+  }
+  const recorded = result.presence.outerSessionId;
+  // Suppress false-positives when NEITHER side recorded an outer
+  // session id (legacy project, no harness signal). Two unknowns
+  // are not a swap — they are "no signal available yet".
+  const hasSignal = (recorded !== undefined && recorded.length > 0)
+    || (current !== undefined && current.length > 0);
+  if (!hasSignal) {
+    return {
+      stale: false,
+      reason: null,
+      presence: result.presence,
+      currentOuterSessionId: current,
+      recordedOuterSessionId: recorded
+    };
+  }
+  if (recorded === current) {
+    return {
+      stale: false,
+      reason: null,
+      presence: result.presence,
+      currentOuterSessionId: current,
+      recordedOuterSessionId: recorded
+    };
+  }
+  return {
+    stale: true,
+    reason: 'outer-session-mismatch',
+    presence: result.presence,
+    currentOuterSessionId: current,
+    recordedOuterSessionId: recorded
+  };
+}
+
+/**
+ * Slice 002 (v2.15.0) — auto-clear stale presence on session
+ * rotation (AC-1).
+ *
+ * Called from `peaks workspace init` immediately after a successful
+ * `outer-session-mismatch` rotation. When the previous session's
+ * presence is still on disk under the OLD outer session id,
+ * clearing it prevents peaks-solo Step 1 from picking up a stale
+ * `mode` field that the user never explicitly chose.
+ *
+ * Only clears when:
+ *   - the recorded outer session id does NOT match the current outer
+ *     session id (i.e. the presence IS stale), AND
+ *   - the recorded outer session id matches the just-rotated-out
+ *     session id (i.e. we're clearing exactly the old binding, not a
+ *     user-explicitly-set mode from another live outer session).
+ *
+ * Returns `{ cleared, reason }` so callers can surface the outcome
+ * in the JSON envelope and audit log. Pure: no env-var reads, all
+ * inputs are passed explicitly so the call site (init command) can
+ * decide what the "rotated-out" id was.
+ */
+export function clearStalePresenceOnRotation(opts: {
+  projectRootOverride?: string;
+  currentOuterSessionId: string | undefined;
+  rotatedOutSessionId: string | null;
+}): { cleared: boolean; reason: string | null; recordedOuter?: string } {
+  const result = readSkillPresenceBackCompat(opts.projectRootOverride);
+  if (result === null) {
+    return { cleared: false, reason: 'no-presence' };
+  }
+  const recorded = result.presence.outerSessionId;
+  const current = opts.currentOuterSessionId;
+  // If the recorded outer id matches the new (current) outer id,
+  // this presence is NOT stale — the user just reconnected from
+  // the same outer session after rotation. Leave it alone.
+  if (recorded === current && recorded !== undefined) {
+    return {
+      cleared: false,
+      reason: 'not-stale',
+      ...(recorded !== undefined ? { recordedOuter: recorded } : {})
+    };
+  }
+  // If we have a recorded outer id AND it does NOT match the
+  // rotated-out session id, the user explicitly set this presence
+  // from a DIFFERENT outer session that is still live. Do NOT clear
+  // — would destroy user intent.
+  if (
+    opts.rotatedOutSessionId !== null &&
+    recorded !== undefined &&
+    recorded !== opts.rotatedOutSessionId
+  ) {
+    return {
+      cleared: false,
+      reason: 'recorded-by-different-outer',
+      recordedOuter: recorded
+    };
+  }
+  // Stale by outer-mismatch (either recorded === undefined and
+  // current is set, or recorded !== current). Clear it.
+  const cleared = clearSkillPresence(opts.projectRootOverride);
+  return {
+    cleared,
+    reason: cleared ? 'outer-session-mismatch' : 'clear-failed',
+    ...(recorded !== undefined ? { recordedOuter: recorded } : {})
+  };
+}
+
 export function touchSkillHeartbeat(projectRootOverride?: string): SkillPresence | null {
   const result = readSkillPresenceBackCompat(projectRootOverride);
   if (result === null) return null;

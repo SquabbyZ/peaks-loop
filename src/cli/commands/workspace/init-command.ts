@@ -24,6 +24,7 @@ import { LegacyChangeIdBindingError } from '../../../shared/change-id.js';
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
+import { clearStalePresenceOnRotation } from '../../../services/skills/skill-presence-service.js';
 import { fail, ok } from '../../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 import {
@@ -260,6 +261,34 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             `New binding is "${sessionId}". The previous session dir is preserved at .peaks/_runtime/${rotation.previousSessionId}/. ` +
             `Re-run with --no-rotate-on-outer-mismatch to suppress this rotation.`
         );
+        // Slice 002 (v2.15.0) AC-1: a presence marker stamped by the
+        // OLD outer session is now stale (defect A from the PRD).
+        // peaks-solo Step 1 would otherwise pick up the old `mode`
+        // field and silently lock the new session into a mode the
+        // user never explicitly chose. Clear it here so Step 1's
+        // presence:check-stale reports `reason: 'no-presence'` and
+        // the re-ask fires.
+        const presenceClearOutcome = clearStalePresenceOnRotation({
+          projectRootOverride: projectRoot,
+          currentOuterSessionId: process.env.PEAKS_OUTER_SESSION_ID
+            ?? process.env.CLAUDE_CODE_SESSION_ID,
+          rotatedOutSessionId: rotation.previousSessionId
+        });
+        if (presenceClearOutcome.cleared) {
+          nextActions.push(
+            `Auto-cleared stale skill presence (recorded outer id "${presenceClearOutcome.recordedOuter ?? '?'}" did not match the new outer session). ` +
+              'peaks-solo Step 1 will now AskUserQuestion to confirm the mode.'
+          );
+        } else if (presenceClearOutcome.reason === 'recorded-by-different-outer') {
+          nextActions.push(
+            `Kept skill presence: it was recorded by a different live outer session (id "${presenceClearOutcome.recordedOuter ?? '?'}"). ` +
+              'The new outer session will not auto-clear it.'
+          );
+        } else if (presenceClearOutcome.reason === 'not-stale') {
+          nextActions.push(
+            'Kept skill presence: it was re-stamped by the new outer session during the rotation window (not stale).'
+          );
+        }
       }
       if (report.created.length === 0) {
         nextActions.push('Workspace already initialized — proceed to project scan.');

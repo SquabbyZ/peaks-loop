@@ -1,5 +1,46 @@
 # Changelog
 
+## [2.15.0] — 2026-06-28 — Sticky-mode forced re-ask + user-feedback → peaks-cli enforcement (slice 002)
+
+**MINOR bump from 2.14.2** (slice `2026-06-28-sticky-mode-and-feedback-promotion`). Closes defect A (sticky-mode) and defect B (advisory-only feedback) from PRD-002. Two system-level fixes ship together because both are triggered by the same root cause: user-given rules were not machine-enforced.
+
+### Feature — Sticky-mode forced re-ask (defect A fix)
+
+- **`peaks skill presence:check-stale --project <path> --json`** (NEW) — Detects whether the recorded skill presence's `outerSessionId` matches the current outer (Claude / harness) session id. Returns `{ stale: boolean, reason: "outer-session-mismatch" | "no-presence" | null }`. Pure read-only; does NOT clear the presence.
+- **`peaks skill presence --check-stale`** (NEW flag, default false for back-compat) — Pair the standard presence read with the staleness check in a single CLI call. Statusline + sub-agent dispatch consume this.
+- **`peaks workspace init`** (MODIFIED) — When an outer-session-mismatch rotation fires, the CLI now calls `clearStalePresenceOnRotation` to clear the stale presence. Two guards prevent accidental destruction of user-explicit mode choices:
+  - **Reconnect guard** — recorded outer id matches the NEW outer id → do NOT clear (reconnect).
+  - **Live-different-outer guard** — recorded outer id belongs to a different LIVE outer session → do NOT clear (would destroy another user's mode).
+- **`peaks solo should-pause --step step-1-mode-select`** (MODIFIED) — Now consults `presence:check-stale` automatically. When the presence is stale, returns `shouldPause: true, reason: 'stale-presence — re-ask Step 1'`. The hard-pause on Step 1 itself is preserved (defect #1 from slice 2026-06-28-solo-mode-bypass-fix).
+- **`skills/peaks-solo/SKILL.md` Step 1** (MODIFIED) — Wording changed from "if user did not name a profile, AskUserQuestion" to "if user did not name a profile OR presence is stale, AskUserQuestion". Cross-references the new `references/mode-selection-with-stale-presence.md`.
+- **`skills/peaks-solo/references/mode-selection-with-stale-presence.md`** (NEW) — Detection protocol + worked example (88b27d defect) + ACL.
+- **`src/services/skills/skill-presence-service.ts`** — New exports: `checkStalePresence`, `clearStalePresenceOnRotation`, types `StalenessCheck`, `StaleReason`.
+
+### Feature — User-feedback → peaks-cli enforcement (defect B fix)
+
+- **`sops/feedback-promotion-sop.md`** (NEW) — SOP that requires every feedback memory (`.peaks/memory/<name>.md` with `metadata.type === 'feedback'`) to be promoted to at least one enforcement layer: A (peaks-sop gate), B (peaks-hooks PreToolUse), or C (mode-gate hardFloorCategory). When a rule spans multiple layers, promote to ALL of them.
+- **`peaks feedback promote <memory-file> [--layer A|B|C] [--dry-run]`** (NEW) — Reads the feedback memory, generates a code stub for the chosen layer, writes the promotion marker (HTML comment + `.promotion.json` sidecar), and writes the envelope at `.peaks/_runtime/<sid>/rd/feedback-promote-<name>.json`.
+- **`peaks feedback check-unpromoted --project <path> [--strict]`** (NEW) — Scans `.peaks/memory/*.md` for feedback memories without a promotion marker. Default: dry-run (exit 0, just warn). `--strict`: fail with exit code 1 (used by Gate H).
+- **`peaks workflow verify-pipeline` Gate H "feedback-promotion"** (NEW) — Runs `feedback check-unpromoted --strict`. Failures block `complete: true` and surface as `gateH: 'fail'` in the verification envelope.
+- **`src/services/feedback/feedback-promotion-service.ts`** (NEW) — Parses feedback memories, detects promotion markers (comment OR sidecar), generates layer stubs, writes the promotion envelope.
+
+### Feature — Commit-boundary hard-floor (full-auto boundary = commit only)
+
+- **`src/services/solo/mode-gate.ts`** — New `HardFloorCategory` value: `'commit-boundary-side-effect'`. New `CommitBoundaryActionId` union with 5 actions: `git-push`, `git-tag`, `npm-publish`, `npm-install-global`, `peaks-global-install`. New function `detectCommitBoundaryAction(command)` matches the patterns. New `shouldPauseAtGate({ commitBoundaryAction: true })` flag — when true, ALWAYS pauses regardless of mode (overrides full-auto / swarm auto-proceed).
+- **Per the user-given rule** `.peaks/memory/2026-06-28-full-auto-boundary.md`: "full-auto 只做到 commit 就是，push 不用". The commit-boundary hard-floor is the machine enforcement of that advisory rule.
+
+### Test results
+- 4 new test files: `presence-staleness.test.ts` (12), `stale-presence-detection.test.ts` (9), `feedback-promotion.test.ts` (18), `commit-boundary-hard-floor.test.ts` (247). Total new cases: **286**.
+- Existing solo tests (mode-gate × 81, post-compact × 11) pass unchanged.
+- Full unit suite baseline 4394 → 4680 passing (286 added). 0 new failures; pre-existing 7 unrelated failures unchanged.
+
+### Out-of-scope
+- Push / tag / npm publish — full-auto boundary = commit only; the commit-boundary hard-floor now BLOCKS these in full-auto (was advisory). User must explicitly confirm via AskUserQuestion to proceed.
+- `peaks hooks install` — slice is code-only. Hooks remain user-only.
+- Cleaning the 88b27d session's stale presence on disk — slice ships the detection + auto-clear, does NOT proactively touch the live tree.
+
+---
+
 ## [2.14.2] — 2026-06-28 — peaks-companion dead skill removal + minimax provider migration
 
 **PATCH bump from 2.14.1** (slice `2026-06-28-tilde-peaks-p3p4`). Closes P3 + P4 from `.peaks/memory/2026-06-28-tilde-peaks-inventory.md`.

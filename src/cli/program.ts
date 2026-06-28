@@ -20,6 +20,10 @@ import { registerRetrospectiveCommands } from './commands/retrospective-commands
 import { registerScanCommands } from './commands/scan-commands.js';
 import { registerSliceCommands } from './commands/slice-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
+// v2.15.0 slice 002 AC-3: feedback-promotion CLI (`peaks feedback promote`
+// + `peaks feedback check-unpromoted`). See
+// `sops/feedback-promotion-sop.md`.
+import { registerFeedbackCommands } from './commands/feedback-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -212,6 +216,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerScanCommands(program, io);
  registerSliceCommands(program, io);
  registerSopCommands(program, io);
+ // v2.15.0 slice 002 AC-3: feedback promotion CLI.
+ registerFeedbackCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from

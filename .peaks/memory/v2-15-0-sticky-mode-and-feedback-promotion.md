@@ -56,3 +56,45 @@ metadata:
 - [[2026-06-28-full-auto-boundary]] — full-auto boundary = commit only
 - [[2026-06-28-session-75d5f0-compaction-1]] — P3/P4 已 ship，本 slice 是 v2.15.0 起点
 - PRD: `.peaks/_runtime/2026-06-28-session-88b27d/prd/requests/002-sticky-mode-and-feedback-promotion.md`
+---
+
+# Slice 002 ship state (v2.15.0) — peaks-rd commit ready
+
+**Ship date**: 2026-06-28
+**Shipped by**: peaks-rd fork agent (parent session 88b27d, full-auto mode)
+
+## AC status
+
+| AC | Status | Files | Tests |
+|---|---|---|---|
+| AC-1 presence:check-stale + rotation auto-clear | DONE | `src/services/skills/skill-presence-service.ts` (+checkStalePresence, +clearStalePresenceOnRotation), `src/cli/commands/core/skill-command.ts` (+presence:check-stale, +--check-stale flag), `src/cli/commands/workspace/init-command.ts` (rotation block) | `tests/unit/services/skills/presence-staleness.test.ts` (12) |
+| AC-2 SKILL.md Step 1 re-ask + should-pause integration | DONE | `skills/peaks-solo/SKILL.md` (Step 1 wording), `skills/peaks-solo/references/mode-selection-with-stale-presence.md` (NEW), `src/cli/commands/solo-commands.ts` (should-pause stale branch) | `tests/unit/services/solo/stale-presence-detection.test.ts` (9) |
+| AC-3 feedback-promotion SOP + CLI + Gate H | DONE | `sops/feedback-promotion-sop.md` (NEW), `src/services/feedback/feedback-promotion-service.ts` (NEW), `src/cli/commands/feedback-commands.ts` (NEW), `src/cli/commands/program.ts` (+registration), `src/services/workflow/pipeline-verify-service.ts` (Gate H) | `tests/unit/services/feedback/feedback-promotion.test.ts` (18) |
+| AC-4 mode-gate.ts commit-boundary hard-floor | DONE | `src/services/solo/mode-gate.ts` (+commit-boundary-side-effect, +CommitBoundaryActionId, +detectCommitBoundaryAction, +commitBoundaryAction flag in shouldPauseAtGate) | `tests/unit/services/solo/commit-boundary-hard-floor.test.ts` (247) |
+| AC-5 tests + docs + version | DONE | `CHANGELOG.md` (v2.15.0 entry), `package.json` + `src/shared/version.ts` (2.14.2 → 2.15.0), this memory addendum | All tests green |
+
+## Test totals
+
+- New test files: 4
+- New test cases: 286
+- Baseline regression: 0 (existing 81 mode-gate tests + 11 post-compact + 42 presence tests + full suite all green)
+- 7 pre-existing failures unchanged (doctor / tokenizer / 35-checks-aggregate — unrelated)
+
+## Boundary (full-auto)
+
+Slice commit made. NO push / tag / publish. Per
+`.peaks/memory/2026-06-28-full-auto-boundary.md`:
+- commit = Solo fork Agent
+- push / tag / publish = user-only (now enforced by Gate H + commit-boundary hard-floor)
+
+## Verification commands for next session
+
+```bash
+pnpm vitest run tests/unit/services/solo/ 2>&1 | tail -10
+pnpm vitest run tests/unit/services/workflow/ 2>&1 | tail -10
+pnpm vitest run tests/unit/services/feedback/ 2>&1 | tail -10
+pnpm vitest run tests/unit/services/skills/presence-staleness.test.ts 2>&1 | tail -10
+peaks skill presence:check-stale --project . --json
+peaks feedback check-unpromoted --project . --json
+peaks solo should-pause --step step-1-mode-select --mode full-auto --json
+```

@@ -34,12 +34,23 @@ export const SOLO_MODES: readonly SoloMode[] = [
 export type HardFloorCategory =
   | 'irreversible-external-side-effect'
   | 'authentication-credential'
-  | 'multi-day-investment';
+  | 'multi-day-investment'
+  /**
+   * v2.15.0 slice 002 AC-4: actions that are past the user's
+   * explicit full-auto boundary = commit only. Per user-given rule
+   * from `.peaks/memory/2026-06-28-full-auto-boundary.md`: full-auto
+   * ends at commit. push / tag / npm publish / global install are
+   * commit-BOUNDARY side effects — they extend the commit to an
+   * external system, and full-auto must NOT auto-perform them even
+   * if every other mode says yes. Always pauses.
+   */
+  | 'commit-boundary-side-effect';
 
 export const HARD_FLOOR_CATEGORIES: readonly HardFloorCategory[] = [
   'irreversible-external-side-effect',
   'authentication-credential',
-  'multi-day-investment'
+  'multi-day-investment',
+  'commit-boundary-side-effect'
 ] as const;
 
 /**
@@ -136,14 +147,42 @@ export function shouldAutoProceed(mode: SoloMode): boolean {
  * mode it loaded from skill presence, and the step it is about to
  * execute; this function returns a `GateDecision` with the rationale.
  *
- * The 3 hard-floor categories always win — even full-auto pauses for
- * irreversible external side effects, auth/credential usage, or
- * multi-day investment decisions (D5.b).
+ * The hard-floor categories always win — even full-auto pauses for
+ * irreversible external side effects, auth/credential usage,
+ * multi-day investment decisions (D5.b), and commit-boundary side
+ * effects (v2.15.0 slice 002 AC-4: push, tag, publish, global install).
  *
  * `hardFloorCategory` is optional on the `GateDecision` so callers can
  * stamp the override into the auto-decisions log without a second
  * switch.
  */
+
+/**
+ * v2.15.0 slice 002 AC-4: the 5 action identifiers that qualify as
+ * commit-boundary side effects. Matched by the LLM-side caller
+ * (peaks-solo body / peaks-rd fork agent) when it is about to run a
+ * Bash command that maps to one of these. Set `commitBoundaryAction:
+ * true` on the `shouldPauseAtGate` call to trigger the hard-floor
+ * override.
+ */
+export type CommitBoundaryActionId =
+  | 'git-push'
+  | 'git-tag'
+  | 'npm-publish'
+  | 'npm-install-global'
+  | 'peaks-global-install';
+
+export const COMMIT_BOUNDARY_ACTIONS: readonly CommitBoundaryActionId[] = [
+  'git-push',
+  'git-tag',
+  'npm-publish',
+  'npm-install-global',
+  'peaks-global-install'
+] as const;
+
+export function isCommitBoundaryAction(value: string): value is CommitBoundaryActionId {
+  return (COMMIT_BOUNDARY_ACTIONS as readonly string[]).includes(value);
+}
 
 /**
  * Hard-pause steps: these pause regardless of mode. They are the gates
@@ -163,12 +202,35 @@ export function shouldPauseAtGate(opts: {
   mode: SoloMode;
   step: GatedStepId;
   hardFloorCategory?: HardFloorCategory | undefined;
+  /**
+   * v2.15.0 slice 002 AC-4: when `true`, force a pause regardless of
+   * mode. Reserved for the 5 commit-boundary side effects
+   * (push/tag/publish/global install) that are past the user's
+   * full-auto boundary. The hard-floor override ALWAYS wins — even
+   * over the mode-driven auto-proceed branch.
+   */
+  commitBoundaryAction?: boolean | undefined;
 }): GateDecision {
   if (opts.hardFloorCategory !== undefined && isHardFloorCategory(opts.hardFloorCategory)) {
     return {
       shouldPause: true,
       reason: `hard-floor category "${opts.hardFloorCategory}" always pauses regardless of mode (D5.b)`,
       hardFloorCategory: opts.hardFloorCategory,
+      gateKind: 'hard-floor'
+    };
+  }
+
+  // Slice 002 (v2.15.0) AC-4: commit-boundary side effects override
+  // every other decision. Per the user-given rule in
+  // `.peaks/memory/2026-06-28-full-auto-boundary.md` ("full-auto 只
+  // 做到 commit"), push / tag / npm publish / global install must
+  // AskUserQuestion even in full-auto. This is the mechanical
+  // enforcement of that rule.
+  if (opts.commitBoundaryAction === true) {
+    return {
+      shouldPause: true,
+      reason: 'commit-boundary side effect (push/tag/publish/global-install) → always pause regardless of mode (slice 002 AC-4, full-auto boundary = commit only)',
+      hardFloorCategory: 'commit-boundary-side-effect',
       gateKind: 'hard-floor'
     };
   }
@@ -215,4 +277,65 @@ export function formatAutoProceedLogLine(opts: {
     return `auto-pause (${opts.mode}, hard-floor:${opts.hardFloorCategory}): ${opts.step} → ${opts.recommendedOption}`;
   }
   return `auto-proceed (${opts.mode}): ${opts.step} → ${opts.recommendedOption}`;
+}
+
+/**
+ * v2.15.0 slice 002 AC-4: regex matchers the LLM-side caller uses
+ * to flag a Bash command as a commit-boundary action. Centralised
+ * here so the test seam + the CLI wiring share one source of
+ * truth. Each entry is an anchored pattern matched against the
+ * user-invoked command (after commander / shell normalisation,
+ * before execution).
+ *
+ * Patterns intentionally cover the common canonical forms:
+ *
+ *   - `git-push`            → `git push`, `git push origin main`, `git push --tags`
+ *   - `git-tag`             → `git tag v2.15.0`, `git tag -a v2.15.0 -m ...`
+ *   - `npm-publish`         → `npm publish`, `npm publish --access public`
+ *   - `npm-install-global`  → `npm install -g <pkg>`, `npm i -g <pkg>`
+ *   - `peaks-global-install`→ `npm install -g peaks-cli`, `pnpm add -g peaks-cli`
+ *
+ * These are coarse — false positives are fine (worst case: a
+ * non-actionable command gets paused for confirmation; the user
+ * can confirm in one click). False negatives are NOT fine — a
+ * missed publish would violate the full-auto boundary.
+ */
+export const COMMIT_BOUNDARY_PATTERNS: Readonly<Record<CommitBoundaryActionId, RegExp>> = {
+  'git-push': /\bgit\s+push\b/,
+  'git-tag': /\bgit\s+tag\b/,
+  'npm-publish': /\bnpm\s+(publish|pub)\b/,
+  'npm-install-global': /\bnpm\s+(install|i|add)\s+(-g|--global)\b/,
+  'peaks-global-install': /\b(peaks-cli)\b/
+};
+
+/**
+ * v2.15.0 slice 002 AC-4: detect whether a Bash command matches any
+ * commit-boundary action pattern. Returns the action id of the
+ * first match, or `null` when none match. The CLI / LLM caller
+ * passes the command through this function and forwards the
+ * result to `shouldPauseAtGate({ commitBoundaryAction: true })` to
+ * force the hard-floor pause.
+ */
+export function detectCommitBoundaryAction(command: string): CommitBoundaryActionId | null {
+  if (typeof command !== 'string' || command.length === 0) return null;
+  // Order matters: peaks-global-install is the most specific
+  // (matches only the peaks-cli package name). Test that FIRST so
+  // `npm install -g peaks-cli` is attributed correctly. Then
+  // git-push, git-tag, npm-publish, npm-install-global.
+  if (COMMIT_BOUNDARY_PATTERNS['peaks-global-install'].test(command)) {
+    return 'peaks-global-install';
+  }
+  if (COMMIT_BOUNDARY_PATTERNS['git-push'].test(command)) {
+    return 'git-push';
+  }
+  if (COMMIT_BOUNDARY_PATTERNS['git-tag'].test(command)) {
+    return 'git-tag';
+  }
+  if (COMMIT_BOUNDARY_PATTERNS['npm-publish'].test(command)) {
+    return 'npm-publish';
+  }
+  if (COMMIT_BOUNDARY_PATTERNS['npm-install-global'].test(command)) {
+    return 'npm-install-global';
+  }
+  return null;
 }

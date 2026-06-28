@@ -5,6 +5,7 @@ import { isRequestType } from '../artifacts/artifact-prerequisites.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { resolveSecurityFindingsPath, resolvePerformanceFindingsPath } from './artifact-paths.js';
 import { readSkipState } from './workflow-state-store.js';
+import { listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';
 
 export type PipelineGate = {
   name: string;
@@ -45,6 +46,17 @@ export type PipelineVerification = {
     state: string;
     gates: PipelineGate[];
   };
+  /**
+   * Slice 002 (v2.15.0) AC-3: Gate H "feedback-promotion". Always
+   * present (single-element array). Evaluates whether every
+   * `metadata.type === 'feedback'` memory in `.peaks/memory/`
+   * carries a promotion marker (comment OR sidecar). Failures
+   * block the `complete` verdict via the `gateH` field below; the
+   * pipeline only completes when every gate in this array passes.
+   */
+  feedbackPhase?: {
+    gates: PipelineGate[];
+  };
   violations: string[];
   nextActions: string[];
   /** Form of the security/performance findings artifacts Gate C accepted
@@ -53,6 +65,12 @@ export type PipelineVerification = {
   acceptedForm?: 'suffixed' | 'legacy' | 'none';
   /** `gateC` is the pre-computed verdict string (AC7 dogfood shape). */
   gateC?: 'pass' | 'fail';
+  /**
+   * Slice 002 (v2.15.0) AC-3: Gate H verdict string. `'pass'` when
+   * all feedback memories are promoted; `'fail'` when at least one
+   * unpromoted feedback memory was found.
+   */
+  gateH?: 'pass' | 'fail';
   /**
    * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
    * every evidence file resolved on the canonical path
@@ -421,9 +439,49 @@ export async function verifyPipeline(options: {
     }
   }
 
+  // Slice 002 (v2.15.0) AC-3 — Gate H "feedback-promotion". Scans
+  // `.peaks/memory/*.md` for `metadata.type === 'feedback'` entries
+  // without a promotion marker (HTML comment or `.promotion.json`
+  // sidecar). When any unpromoted feedback is found, the gate fails
+  // and the pipeline does not complete until the user promotes via
+  // `peaks feedback promote <memory-file> --layer <A|B|C>`.
+  //
+  // The scan is intentionally non-throwing — a missing or unreadable
+  // memory dir is treated as "no feedback found, gate passes" so
+  // empty projects / pre-feedback-epoch projects don't false-positive.
+  const feedbackGates: PipelineGate[] = [
+    {
+      name: 'feedback-promotion',
+      description: 'Every feedback memory is promoted to at least one enforcement layer (sop / hooks / hard-floor)',
+      passed: false,
+      detail: ''
+    }
+  ];
+  let unpromotedFeedbackCount = 0;
+  try {
+    const unpromoted = listUnpromotedFeedback({ projectRoot: options.projectRoot });
+    unpromotedFeedbackCount = unpromoted.length;
+    if (unpromoted.length === 0) {
+      feedbackGates[0]!.passed = true;
+      feedbackGates[0]!.detail = `0 unpromoted feedback memories in .peaks/memory/`;
+    } else {
+      feedbackGates[0]!.detail = `${unpromoted.length} unpromoted feedback memor${unpromoted.length === 1 ? 'y' : 'ies'}: ${unpromoted.map((u) => u.name).join(', ')}`;
+      violations.push(`Gate H feedback-promotion FAILED: ${unpromoted.length} feedback memor${unpromoted.length === 1 ? 'y is' : 'ies are'} not yet promoted to an enforcement layer (${unpromoted.map((u) => u.name).join(', ')}). Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each. See sops/feedback-promotion-sop.md.`);
+      nextActions.push(`Run \`peaks feedback promote <memory-file> --layer <A|B|C>\` for each unpromoted feedback memory to satisfy Gate H.`);
+    }
+  } catch {
+    // listUnpromotedFeedback swallows IO errors internally; the
+    // outer catch is a belt-and-braces guard for unexpected
+    // failures (e.g. permission denied). Treat as "no feedback" —
+    // fail-open on gate infrastructure rather than blocking ship.
+    feedbackGates[0]!.passed = true;
+    feedbackGates[0]!.detail = 'feedback-promotion scan skipped (memory dir unreadable; treating as no feedback)';
+  }
+  const allFeedbackGatesPassed = feedbackGates.every((g) => g.passed);
+
   const allRdGatesPassed = rdGates.every((g) => g.passed);
   const allQaGatesPassed = qaGates.every((g) => g.passed);
-  const complete = rdInvoked && qaInvoked && allRdGatesPassed && allQaGatesPassed
+  const complete = rdInvoked && qaInvoked && allRdGatesPassed && allQaGatesPassed && allFeedbackGatesPassed
     && RD_QA_HANDOFF_STATES.has(rdState) && QA_COMPLETE_STATES.has(qaState);
 
   // Slice 025 — derive the `acceptedForm` and `gateC` verdict. The form is
@@ -443,6 +501,7 @@ export async function verifyPipeline(options: {
           ? 'legacy'
           : 'suffixed';
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
+  const gateH: 'pass' | 'fail' = allFeedbackGatesPassed ? 'pass' : 'fail';
 
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
   // every gate resolved on the canonical path; `false` when at least
@@ -470,10 +529,12 @@ export async function verifyPipeline(options: {
     complete,
     rdPhase: { invoked: rdInvoked, state: rdState, gates: rdGates },
     qaPhase: { invoked: qaInvoked, state: qaState, gates: qaGates },
+    feedbackPhase: { gates: feedbackGates },
     violations,
     nextActions,
     acceptedForm,
     gateC,
+    gateH,
     usedCanonicalPath
   };
 }

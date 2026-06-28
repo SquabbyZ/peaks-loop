@@ -3,7 +3,7 @@ import { runDoctor } from '../../../services/doctor/doctor-service.js';
 import { listSkills } from '../../../services/skills/skill-registry.js';
 import { runSkillSync, SYNC_PLATFORMS } from '../../../services/skills/sync-service.js';
 import { inspectSkillRunbook } from '../../../services/skills/skill-runbook-service.js';
-import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat } from '../../../services/skills/skill-presence-service.js';
+import { setSkillPresence, clearSkillPresence, getSkillPresence, isSkillPresenceMode, touchSkillHeartbeat, checkStalePresence } from '../../../services/skills/skill-presence-service.js';
 import { detectPresenceMarker } from '../../../services/hooks/presence-marker-detector.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { generateProjectContext } from '../../../services/memory/project-context-service.js';
@@ -135,11 +135,34 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('presence')
-      .description('Show the currently active Peaks skill')
-  ).action((options: { json?: boolean }) => {
-    const presence = getSkillPresence();
+      .description('Show the currently active Peaks skill (alias: presence:get)')
+      .option('--check-stale', 'slice 002 (v2.15.0): also report whether the recorded outer session id still matches the current one. Default false (back-compat).')
+      .option('--project <path>', 'project root (default: cwd)')
+  ).action((options: { json?: boolean; checkStale?: boolean; project?: string }) => {
+    const presence = getSkillPresence(options.project);
     if (presence === null) {
       printResult(io, ok('skill.presence', { active: false }), options.json);
+      return;
+    }
+    if (options.checkStale === true) {
+      // Slice 002 (v2.15.0) AC-1: pair the read with a staleness
+      // check so callers (peaks-solo Step 1, statusline) get both
+      // pieces of info from a single CLI invocation. The presence
+      // is returned UNCHANGED — `--check-stale` is a read-only flag,
+      // not a clear.
+      const staleness = checkStalePresence({ projectRootOverride: options.project });
+      printResult(
+        io,
+        ok('skill.presence', {
+          active: true,
+          ...presence,
+          stale: staleness.stale,
+          staleReason: staleness.reason,
+          currentOuterSessionId: staleness.currentOuterSessionId,
+          recordedOuterSessionId: staleness.recordedOuterSessionId
+        }),
+        options.json
+      );
       return;
     }
     printResult(io, ok('skill.presence', { active: true, ...presence }), options.json);
@@ -205,6 +228,28 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       // non-fatal: context update failure should not block presence clear
     }
     printResult(io, ok('skill.presence:clear', { active: false, removed, projectContextUpdated: true }), options.json);
+  });
+
+  // Slice 002 (v2.15.0) — AC-1: presence staleness detector.
+  // peaks-solo Step 1 (and `peaks solo should-pause --step
+  // step-1-mode-select`) calls this to decide whether the recorded
+  // `mode` field can be trusted or whether the LLM must AskUserQuestion.
+  addJsonOption(
+    skill
+      .command('presence:check-stale')
+      .description(
+        'Slice 002 (v2.15.0) AC-1: report whether the recorded presence outer session id still matches the current outer session id. ' +
+          'Returns { stale: boolean, reason: "outer-session-mismatch" | "no-presence" | null }. ' +
+          'Pure read-only — does NOT clear the presence (use `peaks skill presence:clear` for that).'
+      )
+      .option('--project <path>', 'project root (default: cwd)')
+      .option('--current-outer <id>', 'override the current outer session id (test seam; default: read from PEAKS_OUTER_SESSION_ID / CLAUDE_CODE_SESSION_ID)')
+  ).action((options: { project?: string; currentOuter?: string; json?: boolean }) => {
+    const result = checkStalePresence({
+      projectRootOverride: options.project,
+      currentOuter: options.currentOuter
+    });
+    printResult(io, ok('skill.presence:check-stale', result), options.json);
   });
 
   addJsonOption(
