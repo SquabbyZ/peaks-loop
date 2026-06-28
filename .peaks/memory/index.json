@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-26T14:38:05.164Z",
+  "updatedAt": "2026-06-28T00:00:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -449,6 +449,54 @@
   },
   "warm": {
     "project": [
+      {
+        "name": "peaks-cli-24h-ai-programmer-positioning",
+        "kind": "project",
+        "description": "peaks-cli 24h AI 程序员定位 — 全栈 AI Coding 工具,24h 程序员场景,效率第一(90%效率+80%质量>80%效率+90%质量),full-auto + 唯一蜂群 + 退化兜底。6 个硬约束 + 关键叙事 + 反例(避免误读为通用 AI 工具/前端代码工具/质量优先/user 是流程编排者)。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-24h-ai-programmer-positioning.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
+      {
+        "name": "peaks-cli-user-role-and-tech-decision",
+        "kind": "project",
+        "description": "peaks-cli user 真实画像 = 业务+产品+前端资深 + 后端半盲,user 审 = 业务/产品/UI 装配不审技术,技术决策全部反伪选择(AI 拍板)。14 个 Solo gate 重分类 + UI 是开源装配不是原创设计 + UI 选型决策树(React/shadcn/Tailwind/Prisma/Casbin 等)。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-user-role-and-tech-decision.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
+      {
+        "name": "peaks-cli-prd-template-design",
+        "kind": "project",
+        "description": "peaks-prd 模板设计 — 4 个必填块:业务场景(目标用户/业务流程/性能/现有系统/业务禁区)/边界 case/UI 装配意图(页面模式+关键交互+信息密度,不画 ASCII)/上游基线(适用 fork)。质量杠杆前置到 prd 阶段,执行层不堆质量。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-prd-template-design.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
+      {
+        "name": "peaks-cli-slice-review-and-qa-perspective",
+        "kind": "project",
+        "description": "peaks-cli slice 必介入 + QA 验证 = 业务/产品/UI 装配视角不审技术。Slice review 4-5 项业务清单 + QA 业务视角 6 项 + QA 双层验证(技术层 AI 自决 + 业务层 user 审) + 上游同步 slice QA 扩展 5 项。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-slice-review-and-qa-perspective.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
+      {
+        "name": "peaks-cli-fork-sync-and-layered-parallel",
+        "kind": "project",
+        "description": "peaks-cli 双轨演进 + 分层并行 — 上游 tag 断点同步(独立排期窗口不在业务版本预算)+ 大需求基础先行/业务并行(业务不等基础全部完成基于基础子集立即启动)。Hermes TOB 化场景示例(节省 2-3 天)+ fan-out 算法修订。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-fork-sync-and-layered-parallel.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
+      {
+        "name": "peaks-cli-fast-iteration-quality-loop",
+        "kind": "project",
+        "description": "peaks-cli 快速迭代闭环 — G13 存量影响面扫描(改 A 前预警)+ G14 轻量回归(无 UT 兜底下 5-10 分钟跑 10 条关键路径)+ G15 上线观察期(灰度+监控+反馈+紧急修复+回灌,小时级)。发现速度>修复速度>预防速度。",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\peaks-cli-fast-iteration-quality-loop.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-06-28"
+      },
       {
         "name": "2026-06-22-plan4-audit",
         "kind": "project",
