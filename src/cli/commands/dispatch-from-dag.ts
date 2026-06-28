@@ -78,8 +78,8 @@ export async function runDispatchFromDag(
     import('../../services/solo/dag-orchestrator.js') as Promise<DagOrchestratorModule>,
     import('../../services/dispatch/contract-store.js') as Promise<ContractStoreModule>
   ]);
-  const { validateDag, topologicalLevels } = sliceDagMod;
-  const { runDag } = dagOrchestratorMod;
+  const { validateDag, topologicalLevels, isSliceComplexity } = sliceDagMod;
+  const { runLayeredDag } = dagOrchestratorMod;
   const { listContracts, hashContract } = contractStoreMod;
 
   let dag: SliceDag;
@@ -212,14 +212,15 @@ export async function runDispatchFromDag(
     };
   };
 
-  // runDag IS in the path: it validates the DAG, iterates all
-  // topological levels, runs the join barrier after each level, and
-  // triggers cancel-on-fail rollback if any leaf returns `failed` (or
-  // `cancelled`, once 1.3 lands). The CLI envelope below filters
-  // `emittedToolCalls` / `emittedSliceIds` to the first level — see the
-  // `firstLevelIds` filter inside `cliRunner`.
+  // runLayeredDag IS in the path: validates the DAG, iterates all
+  // topological levels (foundation/upstreamSync slices prioritized within
+  // each level by `topologicalLevels`), runs the join barrier after
+  // each level, and triggers cancel-on-fail rollback if any leaf
+  // returns `failed` (or `cancelled`, once 1.3 lands). The CLI
+  // envelope below filters `emittedToolCalls` / `emittedSliceIds` to
+  // the first level — see the `firstLevelIds` filter inside `cliRunner`.
   try {
-    await runDag(dag, {
+    await runLayeredDag(dag, {
       projectRoot,
       sessionId: sid,
       existingContracts,
@@ -227,11 +228,12 @@ export async function runDispatchFromDag(
       writeContractFn: noopWriter
     });
   } catch (err) {
-    // runDag throws DagPlanError for plan-level failures (e.g. cycle
-    // slipping past validateDag). Surface it as INVALID_DAG so the
-    // CLI envelope has a clear failure code, not a generic DISPATCH_ERROR.
-    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `runDag failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
-      'runDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
+    // runLayeredDag throws DagPlanError for plan-level failures (e.g.
+    // cycle slipping past validateDag). Surface it as INVALID_DAG so
+    // the CLI envelope has a clear failure code, not a generic
+    // DISPATCH_ERROR.
+    printResult(io, fail('sub-agent.dispatch', 'INVALID_DAG', `runLayeredDag failed for ${options.fromDag}: ${(err as Error).message}`, { role, toolCall: null, dispatchRecordPath: null } as never, [
+      'runLayeredDag threw DagPlanError; the DAG passed validateDag() but failed at topologicalLevels or contractStore dispatch.',
       'Inspect the DAG file and re-run.'
     ]), asJson);
     process.exitCode = 1;
@@ -250,12 +252,25 @@ export async function runDispatchFromDag(
     firstLevel: emittedSliceIds,
     toolCalls: emittedToolCalls,
     existingContractCount: existingContracts.length,
+    // v2.15.0 follow-up — G12/G11/G2: per-slice metadata (foundation /
+    // upstreamSync / complexity) for downstream scheduling decisions.
+    sliceMeta: emittedSliceIds.map((id) => {
+      const node = dag.nodes.find((n) => n.id === id);
+      return {
+        id,
+        foundation: node?.foundation === true,
+        upstreamSync: node?.upstreamSync === true,
+        complexity: node?.complexity !== undefined && isSliceComplexity(node.complexity)
+          ? node.complexity
+          : null
+      };
+    }),
     nextActions: [
       'Execute each toolCall in your IDE; on completion, write the slice contract to .peaks/_runtime/<sid>/dispatch/contracts/<slice-id>.json.',
       'Re-invoke `peaks sub-agent dispatch --from-dag <file>` with the same batch-id to advance to the next level once all current-level slices have written contracts.'
     ]
   }, [], [
-    'MVP (1.2) plans the first level via runDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
+    'MVP (1.2) plans the first level via runLayeredDag orchestrator (cancel-on-fail path active); the LLM drives subsequent levels by re-invoking this command after contract writes.',
     existingContracts.length > 0
       ? `Injected ${existingContracts.length} upstream contract(s) into downstream-level prompts via formatContractInjection.`
       : 'No upstream contracts found; first-level prompts have empty ancestor blocks.'

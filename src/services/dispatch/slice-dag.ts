@@ -26,6 +26,23 @@
  */
 import { createHash } from 'node:crypto';
 
+/**
+ * Slice complexity tier (v2.15.0 follow-up, G2 in 12 Gaps).
+ * Used by Solo to schedule complex slices during user-attended hours
+ * and trivial / simple slices overnight.
+ */
+export type SliceComplexity = 'trivial' | 'simple' | 'complex';
+
+export const SLICE_COMPLEXITIES: readonly SliceComplexity[] = [
+  'trivial',
+  'simple',
+  'complex'
+] as const;
+
+export function isSliceComplexity(value: string): value is SliceComplexity {
+  return (SLICE_COMPLEXITIES as readonly string[]).includes(value);
+}
+
 export interface SliceNode {
   readonly id: string;
   readonly role: string;
@@ -33,6 +50,24 @@ export interface SliceNode {
   readonly label?: string;
   /** Optional prompt override; dispatch falls back to a default placeholder. */
   readonly prompt?: string;
+  /**
+   * v2.15.0 follow-up — G12: foundation slice. Foundation slices run before
+   * business slices in the layered DAG. Business slices do NOT wait for
+   * ALL foundation slices — they wait only for the foundation subset
+   * they declare as `dependsOn`. Optional; default false.
+   */
+  readonly foundation?: boolean;
+  /**
+   * v2.15.0 follow-up — G11: upstream sync slice. Marks a slice that
+   * syncs an upstream fork (e.g. hermes) to a new tag. UpstreamSync
+   * slices take priority within their topological level. Optional.
+   */
+  readonly upstreamSync?: boolean;
+  /**
+   * v2.15.0 follow-up — G2: complexity tier. Drives Solo's scheduling
+   * (complex = user-attended, simple/trivial = overnight). Optional.
+   */
+  readonly complexity?: SliceComplexity;
 }
 
 export interface DependsOn {
@@ -103,6 +138,36 @@ export function validateDag(dag: SliceDag): void {
       throw new InvalidSliceDagError(`self-loop not allowed: ${e.from}`);
     }
   }
+
+  // v2.15.0 follow-up — G12: validate optional new fields ONLY when present
+  // (老 DAG 不强制要求新字段,保持向后兼容).
+  for (const n of dag.nodes) {
+    if (n.foundation !== undefined && typeof n.foundation !== 'boolean') {
+      throw new InvalidSliceDagError(`node ${n.id} foundation must be boolean when present`);
+    }
+    if (n.upstreamSync !== undefined && typeof n.upstreamSync !== 'boolean') {
+      throw new InvalidSliceDagError(`node ${n.id} upstreamSync must be boolean when present`);
+    }
+    if (n.complexity !== undefined && !isSliceComplexity(n.complexity)) {
+      throw new InvalidSliceDagError(
+        `node ${n.id} complexity must be one of ${SLICE_COMPLEXITIES.join('|')} when present`
+      );
+    }
+  }
+
+  // v2.15.0 follow-up — G12 defensive rule: foundation slice can only
+  // depend on another foundation slice. Business depending on foundation
+  // is the main use case; foundation depending on business is a smell.
+  const foundationSet = new Set(
+    dag.nodes.filter((n) => n.foundation === true).map((n) => n.id)
+  );
+  for (const e of dag.edges) {
+    if (foundationSet.has(e.to) && !foundationSet.has(e.from)) {
+      throw new InvalidSliceDagError(
+        `foundation slice ${e.to} cannot depend on non-foundation slice ${e.from}`
+      );
+    }
+  }
 }
 
 /**
@@ -116,6 +181,13 @@ export function topologicalLevels(dag: SliceDag): readonly (readonly string[])[]
   validateDag(dag);
   const indeg = new Map<string, number>();
   const adj = new Map<string, string[]>();
+  // v2.15.0 follow-up — G12: priority sets for foundation / upstreamSync.
+  const foundationSet = new Set(
+    dag.nodes.filter((n) => n.foundation === true).map((n) => n.id)
+  );
+  const upstreamSyncSet = new Set(
+    dag.nodes.filter((n) => n.upstreamSync === true).map((n) => n.id)
+  );
   for (const n of dag.nodes) {
     indeg.set(n.id, 0);
     adj.set(n.id, []);
@@ -131,9 +203,17 @@ export function topologicalLevels(dag: SliceDag): readonly (readonly string[])[]
   const consumed = new Set<string>();
 
   while (frontier.length > 0) {
-    // Stable order: sort by id for deterministic frontier (so the same DAG
-    // yields the same level assignment every call).
-    const sortedFrontier = [...frontier].sort();
+    // v2.15.0 follow-up — G12: sort frontier by (foundation desc,
+    // upstreamSync desc, id asc). Stable across calls.
+    const sortedFrontier = [...frontier].sort((a, b) => {
+      const aF = foundationSet.has(a) ? 1 : 0;
+      const bF = foundationSet.has(b) ? 1 : 0;
+      if (aF !== bF) return bF - aF;
+      const aU = upstreamSyncSet.has(a) ? 1 : 0;
+      const bU = upstreamSyncSet.has(b) ? 1 : 0;
+      if (aU !== bU) return bU - aU;
+      return a < b ? -1 : a > b ? 1 : 0;
+    });
     levels.push(sortedFrontier);
     const next: string[] = [];
     for (const id of sortedFrontier) {
@@ -196,7 +276,12 @@ export function serializeDag(dag: SliceDag): string {
       id: n.id,
       role: n.role,
       ...(n.label !== undefined ? { label: n.label } : {}),
-      ...(n.prompt !== undefined ? { prompt: n.prompt } : {})
+      ...(n.prompt !== undefined ? { prompt: n.prompt } : {}),
+      // v2.15.0 follow-up — G12: include new fields in serialization
+      // (only when present, preserving hash stability for old DAGs).
+      ...(n.foundation !== undefined ? { foundation: n.foundation } : {}),
+      ...(n.upstreamSync !== undefined ? { upstreamSync: n.upstreamSync } : {}),
+      ...(n.complexity !== undefined ? { complexity: n.complexity } : {})
     }));
   const edges = [...dag.edges]
     .sort((a, b) => {
