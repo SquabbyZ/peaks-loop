@@ -30,18 +30,15 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO): void {
-  // Use the existing `qa` top-level command if it exists; else register.
-  let qa: Command | undefined = program.commands.find((c) => c.name() === 'qa');
-  if (qa === undefined) {
-    qa = program
-      .command('qa')
-      .description('v2.15.0 follow-up G5: QA business-perspective review commands.');
-  }
+  // G5 commands registered as TOP-LEVEL commands prefixed with `qa-business-`
+  // to avoid colliding with the existing `peaks qa` role commands
+  // (registered by qa-commands.ts, used for qa subcommands on qa artifacts).
+  // See similar approach in user-touchpoint-commands.ts.
 
   // 1. business-review
   addJsonOption(
-    qa
-      .command('business-review <request-id>')
+    program
+      .command('qa-business-review <request-id>')
       .description(
         'Show the 6-item business checklist for a request (the 12 Gaps ' +
           'QA perspective). If no review exists, a new one is created ' +
@@ -79,8 +76,8 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
 
   // 2. business-score
   addJsonOption(
-    qa
-      .command('business-score <request-id>')
+    program
+      .command('qa-business-score <request-id>')
       .description(
         'Record a single business item score (1-5). Threshold: avg >= 3 ' +
           'AND no item <= 2 → accepted; otherwise rejected.'
@@ -126,8 +123,8 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
 
   // 3. business-accept
   addJsonOption(
-    qa
-      .command('business-accept <request-id>')
+    program
+      .command('qa-business-accept <request-id>')
       .description('Mark the QA business review as accepted (derived decision must be "accepted").')
       .option('--session-id <sid>', 'session id')
       .option('--project <path>', 'project root')
@@ -155,8 +152,8 @@ export function registerQaBusinessReviewCommands(program: Command, io: ProgramIO
 
   // 4. business-reject
   addJsonOption(
-    qa
-      .command('business-reject <request-id>')
+    program
+      .command('qa-business-reject <request-id>')
       .description('Mark the QA business review as rejected with a reason. Back to RD repair-loop.')
       .requiredOption('--reason <text>', 'rejection reason (required)')
       .option('--session-id <sid>', 'session id')

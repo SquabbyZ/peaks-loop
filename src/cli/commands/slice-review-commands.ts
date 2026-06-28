@@ -37,18 +37,15 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerSliceReviewCommands(program: Command, io: ProgramIO): void {
-  // Use the existing `slice` top-level command if it exists; else register.
-  let slice: Command | undefined = program.commands.find((c) => c.name() === 'slice');
-  if (slice === undefined) {
-    slice = program
-      .command('slice')
-      .description('v2.15.0 follow-up G1: slice-level user-touchpoint commands (business review, accept, reject).');
-  }
+  // G1 commands registered as TOP-LEVEL commands prefixed with `slice-review-`
+  // to avoid colliding with the existing `peaks slice` commands
+  // (registered by slice-commands.ts). Same approach as user-touchpoint
+  // and qa-business-review commands.
 
   // 1. review
   addJsonOption(
-    slice
-      .command('review <slice-id>')
+    program
+      .command('slice-review <slice-id>')
       .description(
         'Show the 4-5 business review items for a slice (template; user scores 1-5). ' +
           'If no review exists for the slice, a new one is created (pending state). ' +
@@ -85,8 +82,8 @@ export function registerSliceReviewCommands(program: Command, io: ProgramIO): vo
 
   // 2. score
   addJsonOption(
-    slice
-      .command('score <slice-id>')
+    program
+      .command('slice-score <slice-id>')
       .description(
         'Record a single item score (1-5). 1 = P0 fail, 2-3 = needs work, 4-5 = OK. ' +
           'The 12 Gaps threshold: avg >= 3 AND no item <= 2 → accepted; otherwise rejected.'
@@ -132,8 +129,8 @@ export function registerSliceReviewCommands(program: Command, io: ProgramIO): vo
 
   // 3. accept
   addJsonOption(
-    slice
-      .command('accept <slice-id>')
+    program
+      .command('slice-accept <slice-id>')
       .description(
         'Mark the slice as accepted (user-approved). All 4-5 items must be ' +
           'scored; the derived decision must be "accepted" (avg >= 3 AND ' +
@@ -171,8 +168,8 @@ export function registerSliceReviewCommands(program: Command, io: ProgramIO): vo
 
   // 4. reject
   addJsonOption(
-    slice
-      .command('reject <slice-id>')
+    program
+      .command('slice-reject <slice-id>')
       .description(
         'Mark the slice as rejected with a reason. The slice goes back to ' +
           'peaks-rd repair-loop. The reason is persisted for the audit trail.'

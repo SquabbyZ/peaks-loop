@@ -25,25 +25,22 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerUserTouchpointCommands(program: Command, io: ProgramIO): void {
-  // Sub-tree under the existing `solo` command.
-  // We do NOT register a new top-level `peaks solo` registration here —
-  // `peaks-solo/SKILL.md` references are read-only and not yet wired to
-  // a CLI. This file ships the data + a small sub-command surface.
-  let solo: Command | undefined = program.commands.find((c) => c.name() === 'solo');
-
-  // If `peaks solo` doesn't exist yet, register a placeholder.
-  if (solo === undefined) {
-    solo = program
-      .command('solo')
-      .description('v2.15.0 follow-up G4: Solo user-touchpoint commands (gates that need user attention).');
-  }
+  // G4 commands are registered as TOP-LEVEL commands (not sub-commands
+  // of `peaks solo`) because `peaks solo` is a SKILL (consumed by the
+  // LLM in SKILL.md), not a CLI command. Top-level names: gate-classify /
+  // user-touchpoints / commit-boundary-actions.
+  //
+  // We do NOT create a new `peaks solo` CLI command here because that
+  // would conflict with the peaks-solo skill presence tracking (see
+  // `src/services/skills/skill-presence-service.ts`).
 
   addJsonOption(
-    solo
+    program
       .command('gate-classify')
       .description(
-        'Classify a single Solo gate by its decision kind: business / tech / ' +
-          'mode-selection / commit-boundary / commit-floor. Returns null when the step is unknown.'
+        'v2.15.0 follow-up G4: classify a single Solo gate by its decision kind: ' +
+          'business / tech / mode-selection / commit-boundary / commit-floor. ' +
+          'Returns null when the step is unknown.'
       )
       .requiredOption('--step <step-id>', 'step id (e.g. step-1-mode-select, phase-2-prd-confirm)')
   ).action((opts: { step: string; json?: boolean }) => {
@@ -65,7 +62,7 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   });
 
   addJsonOption(
-    solo
+    program
       .command('user-touchpoints')
       .description(
         'List all Solo gates the user must review. The 12 Gaps positioning ' +
@@ -89,7 +86,7 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   });
 
   addJsonOption(
-    solo
+    program
       .command('commit-boundary-actions')
       .description(
         'List the 5 commit-boundary hard-floor actions. These are the ' +

@@ -1,11 +1,17 @@
 /**
- * v2.15.0 follow-up — G3: prd 4 必填块 CLI.
+ * v2.15.0 follow-up — G3: prd 4 必填块 CLI (sub-command under existing `peaks prd`).
  *
  *   - `peaks prd check-blocks <request-id>` — validate the prd artifact
  *     contains the 4 mandatory sections (业务场景 / 边界 case /
  *     UI 装配意图 / 上游基线). Complements `peaks request lint`
  *     (which checks placeholders) by checking the design quality
  *     lock-down at the prd stage.
+ *
+ * NOTE: lives under existing `peaks prd` (registered by
+ * `prd-commands.ts`). This file does NOT create a new top-level
+ * `peaks prd` — that would collide with the existing prd-commands
+ * registration and break `peaks request transition --role prd` due
+ * to Commander routing conflicts.
  */
 
 import type { Command } from 'commander';
@@ -15,12 +21,20 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerPrdBlocksCommands(program: Command, io: ProgramIO): void {
-  const prd = program
-    .command('prd')
-    .description('v2.15.0 follow-up G3: PRD design-quality gates. (Note: this is a sub-command; full PRD commands live under `peaks request --role prd`.)');
+  // Find existing `prd` top-level command (registered by prd-commands.ts).
+  // Do NOT create a new one — that collides with the existing prd role
+  // command and breaks `peaks request transition --role prd`.
+  const prd = program.commands.find((c) => c.name() === 'prd');
+  if (prd === undefined) {
+    // Fallback: create if missing. Should never trigger in normal startup.
+    program
+      .command('prd')
+      .description('v2.15.0 follow-up G3: PRD design-quality gates.');
+  }
+  const target = prd ?? program.commands.find((c) => c.name() === 'prd')!;
 
   addJsonOption(
-    prd
+    target
       .command('check-blocks <request-id>')
       .description(
         'Validate the prd artifact body contains the 4 mandatory sections: ' +
