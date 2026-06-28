@@ -28,6 +28,7 @@ import { registerForkCommands } from './commands/fork-commands.js';
 import { registerImpactCommands } from './commands/impact-commands.js';
 import { registerSmokeCommands } from './commands/smoke-commands.js';
 import { registerReleaseCommands } from './commands/release-commands.js';
+import { registerPrdBlocksCommands } from './commands/prd-blocks-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -230,6 +231,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSmokeCommands(program, io);
  // v2.15.0 follow-up G15: release / hotfix CLI (plan / canary / promote / watch / done / rollback / hotfix).
  registerReleaseCommands(program, io);
+ // v2.15.0 follow-up G3: prd 4 必填块 CLI (check-blocks).
+ registerPrdBlocksCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
