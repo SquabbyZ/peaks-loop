@@ -198,7 +198,7 @@ The contract for the 6-type classification table, the 11-step workflow order, an
 
 > **Slice 5:** when the slice DAG has ≥ 2 leaves at one topological level, dispatch via `peaks sub-agent dispatch --from-dag <dag-file>` (wall-time ≈ max, not sum).
 
-Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). No N serial `peaks sub-agent dispatch <role>` calls.
+Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). No N serial `peaks sub-agent dispatch <role>` calls `--prompt`.
 
 > **2026-06-28 校准:** 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。assisted/strict 在 24h 场景下是反模式。详见 `.peaks/memory/peaks-cli-24h-ai-programmer-positioning.md`。
 

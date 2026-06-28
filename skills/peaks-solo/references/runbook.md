@@ -12,6 +12,12 @@
 
 The end-to-end CLI sequence for the `full-auto` profile. `assisted` and `strict` profiles pause at `[CONFIRM]` markers below. `full-auto` and `swarm` auto-proceed through all gates. See Transition Gates for artifact verification at each stage.
 
+Canonical single-shot sub-agent dispatch (the `--prompt` flag is required):
+
+```bash
+peaks sub-agent dispatch <role> --prompt "<body>" --request-id <rid> --batch-id <uuid> --json
+```
+
 ```bash
 # 0. Peaks-Cli Snapshot + 0.5 Peaks-Cli Workspace + 0.6 Peaks-Cli Project scan + 0.7 Peaks-Cli Existing-system extraction
 peaks doctor --json

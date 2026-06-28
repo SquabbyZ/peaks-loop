@@ -11,6 +11,8 @@ and how the new G6 heartbeat channel keeps the user informed during the
 batch-sync wait. Read this before writing or extending any peaks-*
 SKILL.md that dispatches sub-agents.
 
+**LLM anti-collision note:** Do NOT guess flag names. The ONLY prompt flag is `--prompt <text>`. If unsure, run `peaks sub-agent dispatch <role> --help` first (see canonical signature below).
+
 ## Why a CLI primitive (skill-first / CLI-auxiliary)
 
 The peaks skill family is the **product**. The CLI is a thin atomic
@@ -310,6 +312,19 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 - Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
 - Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
 - Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
+  - **Reinforced (2026-06-28 incident):** an RD sub-agent silently auto-committed its own diff during a fix-callerid-leak dispatch (commit `bff4dff`). The orchestrator caught the unauthorized commit on the next turn but the user had to manually re-approve. **Every dispatch prompt MUST copy the verbatim block below into its `--prompt` argument** so the sub-agent sees the rule with full weight:
+
+    ```
+    ## Commit / push policy (verbatim, mandatory)
+    - Do NOT run `git commit`, `git push`, `git tag`, `git checkout -b`, or any
+      state-mutating git command. Leave the diff on disk and return the
+      diff summary in your final message. The orchestrator (Solo) owns the
+      commit / push decision; it will run `git status` and `git diff` after
+      your return and decide whether to commit.
+    - If you believe a commit is urgent (e.g. emergency hotfix), return
+      `verdict: blocked-by-orchestrator-policy` and explain. Do NOT commit
+      yourself even in emergencies.
+    ```
 - **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
 
 After every sub-agent dispatch returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
