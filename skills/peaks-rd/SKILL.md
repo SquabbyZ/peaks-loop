@@ -133,6 +133,8 @@ The THREE review activities run in parallel via `peaks sub-agent dispatch <role>
 
 > **v2.12.0 collapse (Group A):** the 5-way fan-out moved `security-reviewer` + `perf-baseline-reviewer` into standalone audit skills (`peaks-security-audit` + `peaks-perf-audit`). → `references/v2-12-fanout-collapse.md`.
 
+> **v2.15.0+:** 技术决策 AI 据 prd 业务场景块自决,user 不参与;存量项目无 UT,改 A 前跑 `peaks impact scan`(G13);fork 场景 tech-doc 列上游基线+业务 patch 集(G11)。详见 `.peaks/memory/peaks-cli-user-role-and-tech-decision.md`。
+
 > **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy authoritative.** Decision table at `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`, `reviewerListFor`). Pinned by `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts`.
 
 ### Hard Karpathy-Gate (Slice 5/6)

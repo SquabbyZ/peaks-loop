@@ -98,6 +98,17 @@ Use `<request-id>` of the form `YYYY-MM-DD-<kebab-slug>` (or whatever id the use
 
 Concrete template and rules: `references/artifact-per-request.md`.
 
+## v2.15.0+ 校准:4 个必填块(2026-06-28)
+
+PRD 模板在原 7 段基础上,增加 4 个**质量前置必填块**(user 写,AI 据此做技术决策):
+
+1. **业务场景**(目标用户 / 业务流程 / 性能 / 数据量级 / 跟现有系统关系 / 业务禁区)
+2. **边界 case 清单**(异常输入 / 错误提示用户语言 / 空加载失败状态 / 多角色越权 / 数据迁移兼容)
+3. **UI 装配意图**(页面模式 / 关键交互 / 信息密度;**不画 ASCII 视觉**,视觉由选定的开源组件库自动决定)
+4. **上游基线**(fork 场景必填:当前 fork 基于哪个 tag / 偏离度 / 业务 patch 集)
+
+**反伪选择原则:** user 不参与技术决策(库/框架/语言/性能/安全/架构),只写业务/产品意图。AI 据业务场景块选库选架构。详见 `.peaks/memory/peaks-cli-prd-template-design.md`。
+
 ## Project-scan gate (v2.11.0 D3 — read before brainstorm)
 
 Before clarifying goals or running brainstorm, PRD MUST read the project's scan + business-knowledge to avoid re-litigating prior decisions:
@@ -241,6 +252,8 @@ Summarize business context only when it changes implementation priority, scope, 
 ## Frontend PRD extraction path
 
 When the user explicitly says the target is a frontend project, transform the product document into frontend implementation inputs before RD starts:
+
+> **v2.15.0+ 校准:** UI 视觉 = 开源组件库装配(shadcn / Radix / antd / mui),不是原创设计。prd 不画 ASCII 视觉,只描述"页面模式 + 关键交互 + 信息密度"。AI 据此选组件库 + 装配。详见 `.peaks/memory/peaks-cli-prd-template-design.md`。
 
 1. identify target pages, routes, components, forms, tables, modals, empty/loading/error states, permissions, data dependencies, edge cases, and affected user flows;
 2. separate frontend-only work from API/backend联调 assumptions;

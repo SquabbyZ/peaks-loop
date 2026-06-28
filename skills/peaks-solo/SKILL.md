@@ -25,6 +25,10 @@ Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peak
 
 Peaks-Cli Solo is the orchestration facade for the Peaks-Cli short skill family. Use it to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
+## 产品定位(2026-06-28 校准)
+
+> peaks-cli 真实定位 = 24h AI 程序员编排器;user 角色 = 业务/产品审阅者,不参与技术决策。详见 `.peaks/memory/peaks-cli-24h-ai-programmer-positioning.md`。
+
 ## Skill-first architecture note (read once, internalise)
 
 This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** — invoked by the skill prompt only when a primitive is the right tool (atomic side effect, machine-enforced gate, structured JSON for a downstream decision, or backstop the LLM cannot skip). Behaviour only an LLM in a skill prompt would use lives **here in the SKILL.md**, not as a new CLI command.
@@ -87,6 +91,8 @@ Run when `openspec/` is absent and `.peaks/.peaks-openspec-opt-in.json` is missi
 ### Peaks-Cli Step 0.6: Audit + Goal (NEW)
 
 After human expresses need, invoke peaks-audit to summarize + multi-dim audit + propose goal. Display audit + goal to human for one-shot approval. Store approved goal at `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. **All subsequent autonomous work requires an approved goal.**
+
+> **v2.15.0+ 校准:** 业务 goal 与技术 goal 必须分离,user 不被推到技术决策位。详见 `.peaks/memory/peaks-cli-user-role-and-tech-decision.md`。
 
 → see `references/audit-goal-gate.md` for the full Step 0.6 contract.
 
@@ -194,6 +200,8 @@ The contract for the 6-type classification table, the 11-step workflow order, an
 
 Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). No N serial `peaks sub-agent dispatch <role>` calls.
 
+> **2026-06-28 校准:** 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。assisted/strict 在 24h 场景下是反模式。详见 `.peaks/memory/peaks-cli-24h-ai-programmer-positioning.md`。
+
 ### Hard constraint: fan-out is mandatory (slice 2026-06-24-audit-5th-p2)
 
 > **No serial opt-out.** `preferences.fanout.defaultMode = 'serial'`
@@ -201,6 +209,10 @@ Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-ag
 > `references/fanout-mandatory.md` for the rationale + migration contract.
 
 → see `references/swarm-dispatch-contract.md` for the canonical gate logic + degradation tables, `references/sub-agent-dispatch.md` for the dispatch mechanism (NOT `Skill` tool), and `references/fanout-mandatory.md` for the hard-constraint rationale + migration contract.
+
+## Slice 调度:分层并行 + 上游同步(2026-06-28 校准)
+
+> 分层并行(G12,基础先行/业务并行)+ 上游同步(G11,tag 断点/独立排期窗口)见 `.peaks/memory/peaks-cli-fork-sync-and-layered-parallel.md`。
 
 ## Peaks-Cli Mandatory RD QA repair loop (AUTO-PROCEED)
 

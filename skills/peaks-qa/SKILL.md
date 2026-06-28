@@ -52,6 +52,8 @@ The canonical scope dir for this request is provided as `envelope.data.scopeDir`
 
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Solo already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.
 
+> **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
+
 → see `references/qa-sub-agent-dispatch.md` for the full contract + hard prohibitions.
 
 ## Plan/Result split (slice 025)
@@ -63,6 +65,8 @@ Project-level security + perf plans live at `.peaks/_runtime/<sessionId>/qa/secu
 ## QA fan-out (业务 only — v2.11.0 D1)
 
 When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out only the **business verification** sub-agent: `qa-business`. Security and performance review are **NOT** peaks-qa's responsibility in v2.11.0 — they are owned by peaks-rd's 4-way audit fan-out (code-review + security-review + perf-baseline + karpathy-review) and the rd-side evidence files (`rd/security-review.md`, `rd/perf-baseline.md`). peaks-qa reads those files by reference; it does NOT re-do them.
+
+> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `rd/security-review.md` + `rd/perf-baseline.md`。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
 
 If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`. Subdivision must stay ≤ 2 levels deep (RL-4).
 
@@ -138,6 +142,8 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 **Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
 
+> **v2.15.0+ 校准:** 业务验证层(user 必审) = 4-5 项业务/产品清单。技术验证层(AI 自决) = 覆盖率 / P99 / 安全扫描 / 自动化。两层解耦:技术不过 → AI 内部重跑;业务不过 → user 反馈修。user **不看**技术指标。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md` G5。
+
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 
 ## Mandatory test-report output
@@ -151,6 +157,8 @@ Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<ses
 QA cannot pass a change until the report contains evidence for every applicable gate. The 9 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 8 library version regressions, 9 validation report, 10 acceptance coverage) are mapped to Peaks-Cli Gates A/A2/B/C/D/E/F. **v2.11.0 D1/D4 trim:** Gates A3 (security) and A4 (performance) are no longer peaks-qa's responsibility — security review and performance baseline live under peaks-rd's audit fan-out (rd/security-review.md + rd/perf-baseline.md) and are cited by reference from the test report.
 
 If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
+
+> **v2.15.0+ 校准:** 存量项目无 UT 兜底,QA 验证必须有"轻量回归"(G14):5-10 分钟跑 10 条关键路径(关键路径来源:prd 业务场景块 / 老板强调的流程 / 历史事故 / G13 影响面扫描),**不跑完整 E2E 1-2 小时**。上线后必须走"观察期"(G15):灰度 → 监控 → 反馈聚合 → 紧急修复 → 修复回灌关键路径(防下次再犯)。详见 `.peaks/memory/peaks-cli-fast-iteration-quality-loop.md`。
 
 ## Local intermediate artifacts
 
