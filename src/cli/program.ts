@@ -32,6 +32,11 @@ import { registerPrdBlocksCommands } from './commands/prd-blocks-commands.js';
 import { registerUserTouchpointCommands } from './commands/user-touchpoint-commands.js';
 import { registerSliceReviewCommands } from './commands/slice-review-commands.js';
 import { registerQaBusinessReviewCommands } from './commands/qa-business-review-commands.js';
+import { registerSliceIntegrateCommands } from './commands/slice-integrate-commands.js';
+import { registerDocCommands } from './commands/doc-commands.js';
+import { registerLegacyCommands } from './commands/legacy-commands.js';
+import { registerRoleCommands } from './commands/role-commands.js';
+import { registerComplexityCommands } from './commands/complexity-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
 import { registerGateCommands } from './commands/gate-commands.js';
@@ -242,6 +247,16 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSliceReviewCommands(program, io);
  // v2.15.0 follow-up G5: QA business review CLI (business-review / score / accept / reject).
  registerQaBusinessReviewCommands(program, io);
+ // v2.15.0 follow-up G6: slice cross-integration verifier (slice-integrate).
+ registerSliceIntegrateCommands(program, io);
+ // v2.15.0 follow-up G7: doc auto-generation (generate-skill / changelog-suggest).
+ registerDocCommands(program, io);
+ // v2.15.0 follow-up G8: legacy code smell detector (legacy-detect).
+ registerLegacyCommands(program, io);
+ // v2.15.0 follow-up G9: lightweight role registry (role list/add/grant/check).
+ registerRoleCommands(program, io);
+ // v2.15.0 follow-up G10: complexity estimator (complexity-estimate).
+ registerComplexityCommands(program, io);
  registerSubAgentCommands(program, io);
   registerContractCommands(program, io);
  // Slice #010 G9.5: register the hook-only internal atom. Hidden from
