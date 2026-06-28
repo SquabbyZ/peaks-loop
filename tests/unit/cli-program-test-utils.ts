@@ -43,6 +43,16 @@ vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
 
 const DEFAULT_CLI_CONFIG = { version: '0.1.0', currentWorkspace: null, workspaces: [], language: 'en', model: 'sonnet', tokens: {}, providers: { minimax: { model: 'minimax-2.7' } } };
 
+// Caller-id source env vars fed by host shell into vitest workers. Must be cleared
+// before runCommand so resolveCallerId (src/services/session/resolve-caller-id.ts,
+// invoked at src/cli/commands/request-commands.ts:222-257) does not pick up a
+// host value that fails the D1 regex and surface as CALLER_ID_INVALID (exit 65).
+const CALLER_ID_ENV_KEYS = [
+  'CLAUDE_CODE_SESSION_ID',
+  'PEAKS_CALLER_ID',
+  'PEAKS_OUTER_SESSION_ID'
+] as const;
+
 import { createProgram } from '../../src/cli/program.js';
 
 export function getMockedHomeDir(): string {
@@ -81,7 +91,17 @@ export async function runCommand(args: string[], env: Record<string, string> = {
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   const harness = createHarness();
-  const envKeys = new Set([...Object.keys(env), 'MINIMAX_API_KEY']);
+  const envKeys = new Set([...Object.keys(env), 'MINIMAX_API_KEY', ...CALLER_ID_ENV_KEYS]);
+  // Plan A2: synthesize a regex-valid default callerId so tests don't depend
+  // on host shell injection. D4 reject tests pass CLAUDE_CODE_SESSION_ID: ''
+  // to force D2 — the hasOwnProperty guard keeps our default from interfering.
+  if (
+    !Object.prototype.hasOwnProperty.call(env, 'PEAKS_CALLER_ID') &&
+    !Object.prototype.hasOwnProperty.call(env, 'CLAUDE_CODE_SESSION_ID')
+  ) {
+    env['PEAKS_CALLER_ID'] = `vitest-${process.pid}-${Date.now().toString(36)}`;
+    envKeys.add('PEAKS_CALLER_ID');
+  }
   const previousEnv = new Map(Array.from(envKeys, (key) => [key, process.env[key]]));
   for (const key of envKeys) {
     if (Object.prototype.hasOwnProperty.call(env, key)) {
