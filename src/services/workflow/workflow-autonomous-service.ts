@@ -1,14 +1,22 @@
-import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve } from 'node:path';
-import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared/change-id.js';
+import { join } from 'node:path';
+import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
-import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
 import { createCapabilityMapPlan } from '../recommendations/capability-map-service.js';
 import type { CapabilityAvailabilityStatus, CapabilityItemType } from '../recommendations/recommendation-types.js';
 import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
 import { createWorkflowRouterPlan, type SoloMode, type WorkflowMode, type WorkflowRouterPlan } from './workflow-router-service.js';
+
+// Re-export the resume validation surface so external callers (CLI,
+// tests) keep importing from this module unchanged. The helpers
+// (`getResumeRequiredArtifacts`, `getResumeArtifactsStatus`,
+// `createResumePlan`) live in the sibling
+// `workflow-autonomous-resume-helpers.ts` module — see v2.18.3
+// file-split for the rationale. Function signatures and behaviour
+// are unchanged (verbatim move).
+import { getResumeRequiredArtifacts, getResumeArtifactsStatus, createResumePlan } from './workflow-autonomous-resume-helpers.js';
+export { getResumeRequiredArtifacts, getResumeArtifactsStatus, createResumePlan } from './workflow-autonomous-resume-helpers.js';
 
 export type CapabilitySurface = 'skill' | 'mcp' | 'plugin' | 'expert';
 export type CapabilityPurpose =
@@ -164,8 +172,6 @@ const RESUME_ARTIFACTS_MISSING_NEXT_ACTIONS = Object.freeze([
 const RESUME_ARTIFACTS_INVALID_NEXT_ACTIONS = Object.freeze([
   'Refresh autonomous resume artifacts with matching change ids, valid JSON state, and passed validation evidence before autonomous resume.'
 ]);
-
-const MAX_RESUME_ARTIFACT_BYTES = 256_000;
 
 function normalizeGoal(goal: string): string {
   const normalized = goal.trim();
@@ -372,320 +378,6 @@ function createGoalCommand(goalPackage: AutonomousGoalPackage): AutonomousGoalCo
     command: `/goal ${goalPackage.doneCondition}`,
     durable: false,
     reason: 'Claude Code /goal can help continue across turns in the current session, but Peaks artifacts remain the durable state.'
-  };
-}
-
-function getResumeRequiredArtifacts(changeId: string): string[] {
-  return [
-    buildArtifactRelativePath(changeId, 'prd', 'autonomous-goal-package.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'autonomous-rd-plan.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'resume-instructions.md')
-  ];
-}
-
-type ResumeArtifactsStatus = 'ready' | 'missing' | 'invalid';
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isInsidePath(childPath: string, parentPath: string): boolean {
-  const relativePath = relative(parentPath, childPath);
-  return relativePath === '' || (!relativePath.startsWith('..') && !isAbsolute(relativePath));
-}
-
-function readFully(fd: number, size: number): string | null {
-  const buffer = Buffer.alloc(size);
-  let offset = 0;
-  while (offset < size) {
-    const bytesRead = readSync(fd, buffer, offset, size - offset, offset);
-    if (bytesRead === 0) {
-      return null;
-    }
-    offset += bytesRead;
-  }
-  return buffer.toString('utf8');
-}
-
-function stripChangeScopePrefix(artifact: string, changeId: string): string {
-  // Slice 2026-06-23-audit-5th-p1: `buildArtifactRelativePath` returns
-  // `.peaks/_runtime/change/<changeId>/<role>/...`. `readResumeArtifact`
-  // now expects just the role-relative sub-path (e.g.
-  // `rd/swarm/checkpoints/checkpoint-1.json`) because the change-id
-  // scope root is computed by `getChangeScopeDirAbs`. This helper
-  // strips the well-known prefix. Falls back to the input string when
-  // the prefix is not present (e.g. a caller passed a bare
-  // sub-path directly), keeping `readResumeArtifact` tolerant of both
-  // shapes.
-  const normalized = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
-  const prefix = `.peaks/_runtime/change/${changeId}/`;
-  if (normalized.startsWith(prefix)) {
-    return normalized.slice(prefix.length);
-  }
-  return normalized;
-}
-
-function readResumeArtifact(artifactWorkspacePath: string, changeId: string, artifact: string): string | null {
-  // Slice 2026-06-23-audit-5th-p1: the on-disk home for change-id
-  // content is the canonical scope dir under
-  // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
-  // The previous read path `.peaks/_runtime/<changeId>/` was a SKILL.md 2.8.3
-  // hard-ban violation (sibling of `.peaks/_runtime/`). The
-  // relative-path argument is still useful for the role/swarm drill
-  // (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) — we use it
-  // strictly to identify the sub-root, not to derive a new top-level
-  // dir.
-  const changeScopeRoot = getChangeScopeDirAbs(artifactWorkspacePath, changeId);
-  const normalizedArtifact = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
-  const artifactPath = resolve(changeScopeRoot, normalizedArtifact);
-  try {
-    const artifactWorkspaceRealPath = realpathSync(artifactWorkspacePath);
-    const artifactStat = lstatSync(artifactPath);
-    if (artifactStat.isSymbolicLink() || !artifactStat.isFile() || artifactStat.size > MAX_RESUME_ARTIFACT_BYTES) {
-      return null;
-    }
-
-    const sessionRootPath = changeScopeRoot;
-    const roleRootPath = resolve(sessionRootPath, normalizedArtifact.split('/')[0] ?? '');
-    if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(roleRootPath).isSymbolicLink()) {
-      return null;
-    }
-
-    const roleSegment = normalizedArtifact.split('/')[0] ?? '';
-    let allowedRootRealPath: string;
-    if (roleSegment === 'rd') {
-      const swarmRootPath = resolve(roleRootPath, 'swarm');
-      if (lstatSync(swarmRootPath).isSymbolicLink()) {
-        return null;
-      }
-      allowedRootRealPath = realpathSync(swarmRootPath);
-    } else {
-      allowedRootRealPath = realpathSync(roleRootPath);
-    }
-
-    const artifactRealPath = realpathSync(artifactPath);
-    if (!isInsidePath(allowedRootRealPath, artifactWorkspaceRealPath) || !isInsidePath(artifactRealPath, allowedRootRealPath)) {
-      return null;
-    }
-
-    const fd = openSync(artifactPath, 'r');
-    try {
-      const openedStat = fstatSync(fd);
-      const currentStat = statSync(artifactPath);
-      if (!openedStat.isFile() || openedStat.size > MAX_RESUME_ARTIFACT_BYTES || openedStat.dev !== artifactStat.dev || openedStat.ino !== artifactStat.ino || openedStat.dev !== currentStat.dev || openedStat.ino !== currentStat.ino) {
-        return null;
-      }
-      return readFully(fd, openedStat.size);
-    } finally {
-      closeSync(fd);
-    }
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
-}
-
-type ResumeArtifactType = 'goal-package' | 'rd-plan' | 'checkpoint' | 'validation-report' | 'resume-instructions';
-
-function getExpectedResumeArtifactType(artifact: string): ResumeArtifactType {
-  if (artifact.endsWith('/autonomous-goal-package.json')) return 'goal-package';
-  if (artifact.endsWith('/autonomous-rd-plan.json')) return 'rd-plan';
-  if (artifact.endsWith('/checkpoint-1.json')) return 'checkpoint';
-  if (artifact.endsWith('/validation-report.md')) return 'validation-report';
-  return 'resume-instructions';
-}
-
-function hasStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string' && item.trim().length > 0);
-}
-
-function hasValidGoalPackageJson(parsed: Record<string, unknown>, goal: string): boolean {
-  return parsed.goal === goal
-    && typeof parsed.doneCondition === 'string'
-    && parsed.doneCondition.trim().length > 0
-    && typeof parsed.resumeCondition === 'string'
-    && parsed.resumeCondition.trim().length > 0
-    && hasStringArray(parsed.acceptanceCriteria);
-}
-
-function hasValidRdPlanJson(parsed: Record<string, unknown>): boolean {
-  return parsed.workerQueueStatus === 'ready'
-    && typeof parsed.taskCount === 'number'
-    && Number.isInteger(parsed.taskCount)
-    && parsed.taskCount > 0
-    && parsed.reducerRequired === true;
-}
-
-function hasValidCheckpointJson(parsed: Record<string, unknown>): boolean {
-  return parsed.checkpointId === 'checkpoint-1'
-    && typeof parsed.createdAt === 'string'
-    && parsed.createdAt.trim().length > 0
-    && isObjectRecord(parsed.workerQueueState)
-    && hasStringArray(parsed.validationRefs);
-}
-
-function parseJsonObject(content: string): Record<string, unknown> | null {
-  try {
-    const parsed: unknown = JSON.parse(content);
-    return isObjectRecord(parsed) ? parsed : null;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
-}
-
-function hasValidJsonMetadata(content: string, changeId: string, artifactType: string, goal: string): boolean {
-  const parsed = parseJsonObject(content);
-  if (parsed === null || parsed.changeId !== changeId || parsed.artifactType !== artifactType || parsed.status !== 'ready') {
-    return false;
-  }
-
-  if (artifactType === 'goal-package') return hasValidGoalPackageJson(parsed, goal);
-  if (artifactType === 'rd-plan') return hasValidRdPlanJson(parsed);
-  return artifactType === 'checkpoint' && hasValidCheckpointJson(parsed);
-}
-
-function parseFrontMatter(content: string): Record<string, string> | null {
-  const lines = content.split(/\r?\n/);
-  if (lines[0] !== '---') {
-    return null;
-  }
-
-  const closingDelimiterIndex = lines.slice(1).findIndex((line) => line === '---');
-  if (closingDelimiterIndex === -1) {
-    return null;
-  }
-
-  const metadata = new Map<string, string>();
-  for (const line of lines.slice(1, closingDelimiterIndex + 1)) {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex === -1) {
-      return null;
-    }
-
-    metadata.set(line.slice(0, separatorIndex).trim(), line.slice(separatorIndex + 1).trim());
-  }
-
-  return Object.fromEntries(metadata);
-}
-
-function getMarkdownBody(content: string): string {
-  const lines = content.split(/\r?\n/);
-  const closingDelimiterIndex = lines.slice(1).findIndex((line) => line === '---');
-  return closingDelimiterIndex === -1 ? '' : lines.slice(closingDelimiterIndex + 2).join('\n');
-}
-
-function hasValidationReportBody(body: string): boolean {
-  return body.includes('Validation summary:')
-    && body.includes('Checks:')
-    && body.includes('Result: passed')
-    && body.includes('Evidence refs:');
-}
-
-function hasResumeInstructionsBody(body: string): boolean {
-  return body.includes('Resume steps:')
-    && body.includes('Preconditions:')
-    && body.includes('Blocked actions:')
-    && body.includes('Next actions:');
-}
-
-function extractMarkdownListSection(body: string, heading: string): string[] {
-  const lines = body.split(/\r?\n/);
-  const startIndex = lines.findIndex((line) => line.trim() === heading);
-  if (startIndex === -1) {
-    return [];
-  }
-
-  const sectionLines = lines.slice(startIndex + 1);
-  const nextHeadingIndex = sectionLines.findIndex((line) => /^[A-Z][A-Za-z ]+:$/.test(line.trim()));
-  const sectionEndIndex = nextHeadingIndex + 1 || sectionLines.length;
-  return sectionLines.slice(0, sectionEndIndex)
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- '))
-    .map((line) => line.slice(2).trim())
-    .filter((line) => line.length > 0);
-}
-
-function getCheckpointValidationRefs(checkpointContent: string): string[] {
-  const parsed = parseJsonObject(checkpointContent);
-  return parsed && hasStringArray(parsed.validationRefs) ? parsed.validationRefs : [];
-}
-
-function isSafeEvidenceRef(ref: string): boolean {
-  return ref.toLowerCase() !== 'validation-report.md' && /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/.test(ref) && !ref.includes('..');
-}
-
-function evidenceRefsExist(artifactWorkspacePath: string, changeId: string, refs: readonly string[]): boolean {
-  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, changeId, `rd/swarm/evidence/${ref}`) !== null);
-}
-
-function hasMatchingEvidenceRefs(artifactWorkspacePath: string, changeId: string, validationReportContent: string, checkpointContent: string): boolean {
-  const expectedRefs = getCheckpointValidationRefs(checkpointContent);
-  const actualRefs = extractMarkdownListSection(getMarkdownBody(validationReportContent), 'Evidence refs:');
-  return expectedRefs.length > 0
-    && expectedRefs.length === actualRefs.length
-    && expectedRefs.every((expectedRef, index) => expectedRef === actualRefs[index])
-    && evidenceRefsExist(artifactWorkspacePath, changeId, expectedRefs);
-}
-
-function hasValidMarkdownMetadata(content: string, changeId: string, artifactType: string): boolean {
-  const metadata = parseFrontMatter(content);
-  if (metadata === null || metadata.changeId !== changeId || metadata.artifactType !== artifactType || metadata.status !== 'passed') {
-    return false;
-  }
-
-  const body = getMarkdownBody(content);
-  return artifactType === 'validation-report' ? hasValidationReportBody(body) : hasResumeInstructionsBody(body);
-}
-
-function isValidResumeArtifact(artifact: string, content: string, changeId: string, goal: string): boolean {
-  if (!content.trim()) {
-    return false;
-  }
-
-  const artifactType = getExpectedResumeArtifactType(artifact);
-  return artifact.endsWith('.json')
-    ? hasValidJsonMetadata(content, changeId, artifactType, goal)
-    : hasValidMarkdownMetadata(content, changeId, artifactType);
-}
-
-function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifacts: readonly string[], changeId: string, goal: string): ResumeArtifactsStatus {
-  let hasInvalidArtifact = false;
-  const artifactContents = new Map<string, string>();
-  for (const artifact of requiredArtifacts) {
-    // Slice 2026-06-23-audit-5th-p1: pass the explicit changeId so
-    // `readResumeArtifact` can route through `getChangeScopeDirAbs`
-    // rather than guessing from path segments.
-    const content = readResumeArtifact(artifactWorkspacePath, changeId, stripChangeScopePrefix(artifact, changeId));
-    if (content === null) {
-      return 'missing';
-    }
-
-    artifactContents.set(artifact, content);
-    if (!isValidResumeArtifact(artifact, content, changeId, goal)) {
-      hasInvalidArtifact = true;
-    }
-  }
-
-  const checkpointContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'));
-  const validationReportContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'));
-  if (!checkpointContent || !validationReportContent || !hasMatchingEvidenceRefs(artifactWorkspacePath, changeId, validationReportContent, checkpointContent)) {
-    hasInvalidArtifact = true;
-  }
-
-  return hasInvalidArtifact ? 'invalid' : 'ready';
-}
-
-function createResumePlan(changeId: string, ready: boolean): AutonomousResumePlan {
-  const requiredArtifacts = getResumeRequiredArtifacts(changeId);
-
-  return {
-    status: ready ? 'ready' : 'preview',
-    checkpoints: ['goal-package-created', 'capabilities-planned', 'rd-swarm-planned', 'validation-evidence-required'],
-    requiredArtifacts,
-    resumeInstructions: ready
-      ? 'Before continuing, verify checkpoint artifacts, pending worker queue state, and validation evidence requirements.'
-      : 'Resolve blocked planning reasons before relying on autonomous resume state.'
   };
 }
 
