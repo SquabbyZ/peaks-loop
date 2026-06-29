@@ -157,8 +157,21 @@ describe('Karpathy prompt-injection (Slice 1/6 — karpathy-enforcement)', () =>
       resolve(REPO_ROOT, 'src/services/artifacts/request-artifact-service.ts'),
       'utf8'
     );
-    expect(requestArtifact).toContain('consider reusing existing components / existing API data');
-    expect(requestArtifact).toContain('karpathy-guidelines §2 Simplicity First');
+    // v2.18.3 file-split: the `FileSizeViolationError` class lives in the
+    // sibling `request-artifact-state-helpers.ts` module (verbatim move).
+    // The karpathy-guidelines message is the public-surface anchor the
+    // AC-2 test was protecting; it must appear in EITHER the original
+    // module (via the re-export shim's transitive reference) OR the
+    // sibling — both are part of the public surface.
+    const requestArtifactHelpers = readFileSync(
+      resolve(REPO_ROOT, 'src/services/artifacts/request-artifact-state-helpers.ts'),
+      'utf8'
+    );
+    const requestArtifactHasMessage = requestArtifact.includes('consider reusing existing components / existing API data')
+      && requestArtifact.includes('karpathy-guidelines §2 Simplicity First');
+    const requestArtifactHelpersHasMessage = requestArtifactHelpers.includes('consider reusing existing components / existing API data')
+      && requestArtifactHelpers.includes('karpathy-guidelines §2 Simplicity First');
+    expect(requestArtifactHasMessage || requestArtifactHelpersHasMessage).toBe(true);
   });
 
   test('AC-5 no bare <sid> placeholder introduced in injected layers (naming convention preserved)', () => {
