@@ -176,6 +176,13 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
     if (entry.name.startsWith('.')) continue; // skip dotfiles (e.g. .index.json)
     const parsed = parseFeedbackMemory(join(memoryDir, entry.name));
     if (parsed === null) continue;
+    // v2.18.4 fix: skip closed feedback memories (frontmatter `closedAt: <iso>`).
+    // Closed memories declare their own "Do not re-introduce this memory as a
+    // live blocker" in the body; counting them as unpromoted would (a) force
+    // operators to promote or delete a deliberately archived record and (b)
+    // contradict the memory's own lifecycle. Verify-pipeline Gate H now
+    // honours the closed state and reports `0 unpromoted` for closed records.
+    if (isClosedMemory(join(memoryDir, entry.name))) continue;
     if (parsed.promotion === null) {
       out.push({
         name: parsed.name,
@@ -185,6 +192,39 @@ export function listUnpromotedFeedback(opts: { projectRoot: string }): Unpromote
     }
   }
   return out;
+}
+
+/**
+ * v2.18.4 helper: detect a closed feedback memory by reading the raw
+ * frontmatter and checking for a non-empty `closedAt:` field. The check
+ * is intentionally narrow (top-level `closedAt:` only, not `metadata.closedAt`)
+ * because that is the documented convention — memories archived in the
+ * `[[review-memories-extract-and-memory-index]]` family all use top-level.
+ *
+ * Returns `true` when the file is unreadable or has no frontmatter (the
+ * conservative answer; such files fall through to the normal unpromoted scan).
+ */
+function isClosedMemory(filePath: string): boolean {
+  if (!existsSync(filePath)) return false;
+  let raw: string;
+  try {
+    raw = readFileSync(filePath, 'utf8');
+  } catch {
+    return false;
+  }
+  const normalized = raw.replace(/\r\n/g, '\n');
+  if (!normalized.startsWith('---\n')) return false;
+  const endIndex = normalized.indexOf('\n---\n', 4);
+  if (endIndex < 0) return false;
+  const frontmatter = normalized.slice(4, endIndex);
+  for (const rawLine of frontmatter.split('\n')) {
+    const line = rawLine.trim();
+    if (line.startsWith('closedAt:')) {
+      const value = line.slice('closedAt:'.length).trim();
+      if (value.length > 0 && value !== '""' && value !== "''") return true;
+    }
+  }
+  return false;
 }
 
 /**

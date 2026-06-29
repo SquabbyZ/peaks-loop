@@ -169,6 +169,50 @@ describe('listUnpromotedFeedback — AC-3', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  // v2.18.4 — feedback-promotion-service honours `closedAt:` and skips
+  // archived memories from the unpromoted list. Closed memories declare
+  // their own "Do not re-introduce this memory as a live blocker"; counting
+  // them as unpromoted would force operators to either promote or delete a
+  // deliberately archived record.
+  test('skips feedback memories with a non-empty `closedAt:` frontmatter field', () => {
+    const root = createTempDir();
+    try {
+      // 1. Open (unpromoted) — should be reported.
+      writeMemory(root, 'open-orphan', feedbackMemory('open-orphan', 'live rule body'));
+      // 2. Open + already promoted — should be skipped.
+      writeMemory(root, 'open-promoted', `<!-- peaks-feedback-promoted: layer=A -->\n\n${feedbackMemory('open-promoted', 'live rule body').split('\n---\n').pop()}`);
+      // 3. Closed + unpromoted — should be SKIPPED (the new behaviour).
+      const closedBody = 'archived rule body';
+      writeMemory(
+        root,
+        'archived-orphan',
+        `---\nname: archived-orphan\ndescription: archived memory\nmetadata:\n  type: feedback\n  closedAt: 2026-06-02T00:00:00.000Z\n  closedBy: e611daf\n---\n${closedBody}`
+      );
+      // 4. Closed + already promoted — should be SKIPPED (closed wins).
+      writeMemory(
+        root,
+        'archived-promoted',
+        `---\nname: archived-promoted\ndescription: archived memory, but already promoted\nmetadata:\n  type: feedback\n  closedAt: 2026-06-02T00:00:00.000Z\n---\n<!-- peaks-feedback-promoted: layer=B -->\narchived but promoted`
+      );
+      // 5. `closedAt: ""` (empty value) — must NOT be treated as closed.
+      writeMemory(
+        root,
+        'empty-closed',
+        `---\nname: empty-closed\ndescription: feedback memory with empty closedAt\nmetadata:\n  type: feedback\n  closedAt: ""\n---\nbody`
+      );
+
+      const result = listUnpromotedFeedback({ projectRoot: root });
+      const names = result.map((r) => r.name);
+      expect(names).toContain('open-orphan');
+      expect(names).toContain('empty-closed');
+      expect(names).not.toContain('open-promoted');
+      expect(names).not.toContain('archived-orphan');
+      expect(names).not.toContain('archived-promoted');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('promoteFeedback — AC-3', () => {
