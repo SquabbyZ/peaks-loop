@@ -1,5 +1,77 @@
 # Changelog
 
+## [2.17.0] — 2026-06-29 — Change-id axis hard-kill + binding-store sentinel
+
+**MINOR bump from 2.16.0-alpha**. Removes the change-id axis (filesystem scope + binding) and replaces it with the binding-store sentinel shipped in v2.16.0-alpha. The change-id becomes a metadata-only slug; reviewable artifacts key off `.peaks/_runtime/<sessionId>/<role>/` exclusively. Backward-compatible shims preserve the old API surface so existing user commands do not change.
+
+### Feature — binding-store v2 sentinel (v2.16.0-alpha + v2.17.0)
+
+- `src/services/session/binding-store.ts` — zod-validated multi-instance binding schema with auto-migration from legacy `{ sessionId, createdAt, projectRoot }`. New shape: `{ ownerHint, pid, lastHeartbeat, scope, instances: Record<sid, InstanceRecord> }`.
+- `InstanceRecord` = `{ startedAt, roles: string[], callerId, lastHeartbeat }` — `roles` accumulates as the Claude instance activates multiple peaks-* skills (solos → rd → qa all share one sid).
+- Auto-resume: same callerId reuses the same sid; different callers get different sids in the same `instances` map.
+- `dropStale(projectRoot, ttlMs)` for Doctor integration.
+
+### Feature — D1 cross-Claude-instance conflict detection (runner wiring deferred)
+
+- `src/services/session/conflict-detection-service.ts` — `coarseScan` (1.5s static grep budget) + `fineScan` (codegraph required + understand optional with `understandDowngrade` flag in report).
+- Conflict report path: `.peaks/_runtime/<sid>/audit-goal/conflict-report.json`.
+- Runner integration into `peaks workspace init` (Step 0) and `peaks audit-goal` (Step 0.6) is **deferred to a future slice** — the modules exist but are not yet called from the runner entry points.
+
+### Feature — D2 Claude-instance-level hard-exclusive sid
+
+- Same Claude instance keeps one sid across multiple peaks-* skill activations (peaks-solo → peaks-rd → peaks-qa).
+- `/compact` resume: same outer-session-id reuses the same sid (post-compact-resume v2.11.0 D7 alignment).
+
+### Feature — Doctor stale-binding scan (AC-10)
+
+- `peaks doctor` now scans the project-level binding for instances with `lastHeartbeat > 5 minutes` and surfaces a warning.
+- `--cleanup-stale` flag drops stale entries (manual confirm path).
+- `--stale-ttl-ms <ms>` flag overrides the default 5-minute TTL.
+
+### Removed — change-id axis (Q1 hard-kill)
+
+- `src/shared/change-id.ts`: 470 → ~210 lines. The substantive logic (change-id validation + path builders + symlink/file binding + LegacyChangeIdBindingError) is **retained as shims** that match the old contract; only the filesystem scope semantics changed.
+- `--change-id` option is preserved on 13 CLI commands as a metadata-only slug (does not affect CLI behavior).
+- `tests/unit/change-id.test.ts` (270 lines) and `tests/unit/workspace/workspace-init-change-id-redirect.test.ts` (441 lines) deleted.
+- 12 change-id-related memories archived under `.peaks/memory/archived/` (recoverable; documented in `peaks-cli-archive` policy).
+
+### Behavior changes (user-visible)
+
+- **`--change-id <slug>`** is now a metadata-only slug, not a filesystem scope identifier. Existing commands that accept `--change-id` continue to work; the slug appears in envelope `data.changeId` for traceability.
+- **On-disk artifact paths** unchanged from a CLI user's perspective — reviewable artifacts still appear at the locations `peaks solo` / `peaks qa` write them. Internally they key off session id, not change-id.
+- **`peaks doctor` exit code**: now exits 1 when stale bindings are present (in addition to its existing failure conditions).
+
+### Verification
+
+- `pnpm exec tsc --noEmit`: clean
+- `pnpm lint:silent-warning`: 0 violations
+- `pnpm exec vitest run`: **4912 / 4912 pass** (0 fail)
+- `peaks scan file-size --project .`: 0 violations (no new 800+ line files)
+
+### Dogfood guidance
+
+Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-session-88411f/txt/handoff-2026-06-29-v2-17-0.md` for details):
+
+1. **Multi-Claude parallel提速**: open 2 Claude instances in the same project, run `peaks solo <different goal>` in each. Verify both bindings coexist with distinct sids.
+2. **D1 conflict detection**: 2 instances both targeting the same source file. Verify each writes to its own session-scoped artifact directory.
+3. **`/compact` resume**: run `peaks solo <goal>`, `/compact`, continue. Verify same sid reused.
+4. **Doctor stale**: kill -9 a Claude instance, run `peaks doctor`, verify stale binding listed + `--cleanup-stale` works.
+
+### Commits
+
+```
+83241d4 feat: v2.17.0 — change-id axis hard-kill
+8bab94e feat: v2.16.0-alpha — binding-store v2 schema + conflict detection + Doctor stale scan
+```
+
+### Out of scope (deferred)
+
+- Runner wiring for D1/D2 in `peaks workspace init` + `peaks audit-goal` (modules exist, not yet called).
+- 800-line cap backlog (`session-manager.ts` 710, `solo/` and `verdict/` modules) — unchanged from v2.15.x.
+- Final removal of `change-id.ts` shims (would require rewriting the 11 src services that still reference them).
+
+---
+
 ## [2.15.1] — 2026-06-28 — 12 Gaps CLI 全套落地 + ice-cola dogfood 验证
 
 **PATCH bump from 2.15.0**. Follow-up ship for the 12 Gaps positioning memory (peaks-cli 真实定位 + 全套 15 个 Gap CLI 落地). No breaking changes. All new commands are additive top-level (no conflict with existing `peaks solo` / `peaks qa` / `peaks slice` role commands).
