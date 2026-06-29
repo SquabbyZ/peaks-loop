@@ -15,7 +15,7 @@
  * the prd stage (the principle: 质量杠杆前置到 prd).
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export interface PrdBlockFinding {
@@ -68,7 +68,6 @@ export function findPrdArtifact(projectRoot: string, requestId: string): string 
   // Fall back to a glob-like search through .peaks/_runtime/*/prd/requests/.
   const runtimeRoot = join(projectRoot, '.peaks', '_runtime');
   if (!existsSync(runtimeRoot)) return null;
-  const { readdirSync, statSync } = require('node:fs') as typeof import('node:fs');
   for (const sessionOrChange of readdirSync(runtimeRoot)) {
     for (const sub of ['prd/requests', 'change']) {
       const dir = join(runtimeRoot, sessionOrChange, sub, requestId);

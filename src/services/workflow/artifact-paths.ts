@@ -8,11 +8,12 @@
  * source of truth for the canonical and legacy paths and the lazy
  * migration that bridges the 1-minor-release back-compat window.
  *
- * The QA artifacts live under the change-id dir (`.peaks/_runtime/<changeId>/qa/`),
- * which is the same dir Gate C has historically looked at. The
- * `<sessionId>` argument is accepted for symmetry with the
- * plan/result services (which DO use `.peaks/_runtime/<sessionId>/qa/`)
- * but is unused here.
+ * v2.17.0 hard-kill: the canonical QA artifact dir is the SESSION
+ * axis `.peaks/_runtime/<sessionId>/qa/`. The pre-v2.17.0 change axis
+ * `.peaks/_runtime/change/<changeId>/qa/` is kept as a back-compat
+ * fallback for un-migrated workspaces — when consumed, the resolver
+ * tags the form `'legacy'` so Gate C can surface the deprecation
+ * warning. Same for the legacy misplaced `.peaks/<changeId>/qa/` form.
  */
 import { existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
@@ -36,23 +37,29 @@ const SECURITY_FINDINGS_BASE = 'security-findings';
 const PERFORMANCE_FINDINGS_BASE = 'performance-findings';
 
 /**
- * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
- * QA artifact dir is `.peaks/_runtime/change/<changeId>/qa/`. The
- * legacy `.peaks/<changeId>/qa/` form was a pre-1.3.0 write-path bug;
+ * v2.17.0 — canonical QA dir is the session axis
+ * `.peaks/_runtime/<sessionId>/qa/`. The pre-v2.17.0 change axis
+ * `.peaks/_runtime/change/<changeId>/qa/` is kept as a back-compat
+ * fallback for un-migrated workspaces. The legacy misplaced
+ * `.peaks/<changeId>/qa/` form was a pre-1.3.0 write-path bug;
  * `peaks workspace migrate-change-scope --apply` moves misplaced dirs.
  *
  * During a 1-minor-release deprecation window the resolver falls back
- * to the legacy path so un-migrated workspaces still resolve. When
- * the fallback fires, the result is tagged `'legacy'`.
+ * to the legacy paths so un-migrated workspaces still resolve. When
+ * a fallback fires, the result is tagged `'legacy'`.
  */
 function canonicalQaDir(projectRoot: string, changeId: string): string {
+  // v2.17.0 canonical: session axis. The `<changeId>` arg is treated
+  // as the on-disk session dir name (it equals the sessionId under
+  // the session-axis layout). Under v2.16.0 layouts the same string
+  // was the change-id dir name.
+  return join(projectRoot, '.peaks', '_runtime', changeId, QA_DIR);
+}
+function legacyChangeAxisQaDir(projectRoot: string, changeId: string): string {
   return join(projectRoot, '.peaks', '_runtime', 'change', changeId, QA_DIR);
 }
-function legacyQaDir(projectRoot: string, changeId: string): string {
+function legacyMisplacedQaDir(projectRoot: string, changeId: string): string {
   return join(projectRoot, '.peaks', changeId, QA_DIR);
-}
-function legacyTopLevelQaDir(projectRoot: string, changeId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', changeId, QA_DIR);
 }
 
 export interface ResolveFindingsPathResult {
@@ -90,14 +97,15 @@ function resolveFindingsPath(args: {
     if (existsSync(suffixedPath)) {
       return { path: suffixedPath, form: 'suffixed', redirectedFrom: null, rid: args.rid };
     }
-    // Try the legacy misplaced dir (pre-1.3.0 write-path bug) and the
-    // sibling-of-`_runtime/` form. Both are migration targets for
+    // Try the v2.16.0 change-axis dir, the pre-1.3.0 misplaced
+    // `.peaks/<id>/qa/` form, and the sibling-of-`_runtime/` form.
+    // All three are migration targets for
     // `peaks workspace migrate-change-scope`.
     const legacyCandidates = [
-      join(legacyQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
-      join(legacyTopLevelQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
-      join(legacyQaDir(args.projectRoot, args.changeId), args.legacyFile),
-      join(legacyTopLevelQaDir(args.projectRoot, args.changeId), args.legacyFile)
+      join(legacyChangeAxisQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
+      join(legacyMisplacedQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
+      join(legacyChangeAxisQaDir(args.projectRoot, args.changeId), args.legacyFile),
+      join(legacyMisplacedQaDir(args.projectRoot, args.changeId), args.legacyFile)
     ];
     for (const candidate of legacyCandidates) {
       if (existsSync(candidate)) {
