@@ -179,7 +179,13 @@ function safeReadBinding(projectRoot: string): { changeId: string; source: 'syml
       const raw = readFileSync(bindingPath, 'utf-8').trim();
       if (!raw || !_CHANGE_DIR_PATTERN.test(raw) || raw === '.' || raw === '..') return null;
       return { changeId: raw, source: 'file' };
-    } catch {
+    } catch (err) {
+      // Surface the read failure to stderr (matches the binding-store.ts:107
+      // hardening pattern) so silent-warning-detector does not flag this
+      // branch as silent error-swallowing. `null` is still the legitimate
+      // "could not read binding" return — the caller treats it identically
+      // to "no binding exists".
+      process.stderr.write(`[change-id] safeReadBinding failed: ${(err as Error).message}\n`);
       return null;
     }
   }

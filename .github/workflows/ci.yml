@@ -42,3 +42,44 @@ jobs:
         env:
           # Suppress per-platform timing flake; tests stub Date where needed.
           TZ: UTC
+
+  binding-store-multi-process:
+    # Slice v2.18.0 REDO — two-Claude-windows CI integration test.
+    # Exercises the binding-store P0 fix across 2 truly distinct child
+    # Node processes; gated to ubuntu-latest because Windows / macOS
+    # ACL / job-object semantics add non-determinism to the pid-suffix
+    # surface. Adding this as a separate job keeps the main matrix
+    # small (windows-latest x 2 node versions x 2 OSes = 4 cells).
+    name: binding-store multi-process integration (ubuntu-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: npx tsc --noEmit --pretty false
+
+      - name: Build
+        run: npm run build
+
+      - name: Test binding-store multi-process
+        # The driver at scripts/fixtures/ci-binding-driver.mjs imports
+        # the built dist/src/services/session/binding-store.js; the
+        # `npm run build` step above populates `dist/`.
+        run: PEAKS_FORCE_INTEGRATION=1 npx vitest run tests/integration/binding-store/multi-process.test.ts --reporter=default
+        env:
+          TZ: UTC
+          CI: 'true'
+          RUNNER_OS: Linux
