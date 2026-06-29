@@ -1,11 +1,20 @@
 /**
- * Slice 2026-06-28-solo-mode-bypass-fix (defect #3).
+ * v2.18.1 — artifact-paths path-axis update.
  *
  * Pins the contract that `resolveSecurityFindingsPath` /
- * `resolvePerformanceFindingsPath` resolve the canonical
- * `.peaks/_runtime/change/<changeId>/qa/` path and fall back to the
- * legacy misplaced forms (`/peaks/<changeId>/qa/`,
- * `/peaks/_runtime/<changeId>/qa/`) during the deprecation window.
+ * `resolvePerformanceFindingsPath` resolve the v2.17.0 canonical
+ * session-axis path `.peaks/_runtime/<sessionId>/qa/` and fall back
+ * to the legacy forms:
+ *   - `.peaks/_runtime/change/<changeId>/qa/` (v2.16.0/v2.17.0-era)
+ *   - `.peaks/<changeId>/qa/` (pre-1.3.0 misplaced)
+ * during the 1-minor-release deprecation window. When a fallback
+ * fires, the form is tagged `'legacy'` so Gate C can surface the
+ * `DEPRECATION_LEGACY_PATH_USED` warning.
+ *
+ * The pre-v2.18.1 canonical path
+ * `.peaks/_runtime/change/<changeId>/qa/` is now itself a legacy
+ * fallback (v2.17.0 hard-killed the change-id axis as filesystem
+ * scope; it survives only as a back-compat read target).
  */
 
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -30,19 +39,19 @@ afterEach(() => {
   rmSync(projectRoot, { recursive: true, force: true });
 });
 
-describe('artifact-paths — slice 2026-06-28-solo-mode-bypass-fix', () => {
-  it('resolves canonical suffixed security-findings', () => {
-    const changeId = 'canonical-sec';
-    const dir = join(projectRoot, '.peaks', '_runtime', 'change', changeId, 'qa');
+describe('artifact-paths — v2.18.1 session-axis update', () => {
+  it('resolves canonical suffixed security-findings under session axis', () => {
+    const sessionId = 'canonical-sec';
+    const dir = join(projectRoot, '.peaks', '_runtime', sessionId, 'qa');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')), '# sec');
 
-    const result = resolveSecurityFindingsPath({ projectRoot, changeId, rid: '001-test' });
+    const result = resolveSecurityFindingsPath({ projectRoot, changeId: sessionId, rid: '001-test' });
     expect(result.path).toBe(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')));
     expect(result.form).toBe('suffixed');
   });
 
-  it('falls back to legacy misplaced path', () => {
+  it('falls back to legacy misplaced .peaks/<id>/qa/ form', () => {
     const changeId = 'legacy-misplaced-sec';
     const dir = join(projectRoot, '.peaks', changeId, 'qa');
     mkdirSync(dir, { recursive: true });
@@ -53,9 +62,9 @@ describe('artifact-paths — slice 2026-06-28-solo-mode-bypass-fix', () => {
     expect(result.path).toBe(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')));
   });
 
-  it('falls back to legacy top-level .peaks/_runtime/<id>/qa/ form', () => {
-    const changeId = 'legacy-top-sec';
-    const dir = join(projectRoot, '.peaks', '_runtime', changeId, 'qa');
+  it('falls back to v2.16.0 change-axis .peaks/_runtime/change/<id>/qa/ form', () => {
+    const changeId = 'change-axis-sec';
+    const dir = join(projectRoot, '.peaks', '_runtime', 'change', changeId, 'qa');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, PERFORMANCE_FINDINGS_SUFFIXED('001-test')), '# perf');
 
@@ -64,11 +73,11 @@ describe('artifact-paths — slice 2026-06-28-solo-mode-bypass-fix', () => {
     expect(result.path).toBe(join(dir, PERFORMANCE_FINDINGS_SUFFIXED('001-test')));
   });
 
-  it('reports would-be canonical path when nothing on disk', () => {
+  it('reports would-be canonical (session-axis) path when nothing on disk', () => {
     const changeId = 'absent-perf';
     const result = resolvePerformanceFindingsPath({ projectRoot, changeId, rid: '001-test' });
     expect(result.path).toBe(
-      join(projectRoot, '.peaks', '_runtime', 'change', changeId, 'qa', PERFORMANCE_FINDINGS_SUFFIXED('001-test'))
+      join(projectRoot, '.peaks', '_runtime', changeId, 'qa', PERFORMANCE_FINDINGS_SUFFIXED('001-test'))
     );
     expect(result.form).toBe('suffixed');
   });

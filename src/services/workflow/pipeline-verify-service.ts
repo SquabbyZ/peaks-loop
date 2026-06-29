@@ -5,6 +5,7 @@ import { isRequestType } from '../artifacts/artifact-prerequisites.js';
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 import { resolveSecurityFindingsPath, resolvePerformanceFindingsPath } from './artifact-paths.js';
 import { readSkipState } from './workflow-state-store.js';
+import { getSessionIdCanonical } from '../session/session-manager.js';
 import { listUnpromotedFeedback } from '../feedback/feedback-promotion-service.js';
 
 export type PipelineGate = {
@@ -248,16 +249,21 @@ export async function verifyPipeline(options: {
     'code-review': 'code-review.md',
     'security-review': 'security-review.md'
   };
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
-  // evidence location is `.peaks/_runtime/change/<changeId>/<role>/...`
-  // (per `change-scope-service.ts:32` + `getChangeScopeDirAbs`). The
-  // historical misplaced location `.peaks/<changeId>/rd/<file>` was a
-  // pre-1.3.0 write-path bug; this resolver checks canonical first
-  // and falls back to the legacy path during a 1-minor-release
-  // deprecation window so un-migrated workspaces still resolve. When
-  // the fallback fires, the gate detail / nextActions surface the
-  // `DEPRECATION_LEGACY_PATH_USED` warning.
-  const rdEvidenceDir = resolvedChangeId || options.changeId || options.rid;
+  // Slice v2.17.0 hard-kill — change-id axis removed as filesystem
+  // scope. The canonical evidence location is now the session axis
+  // `.peaks/_runtime/<sessionId>/<role>/...` (where `<sessionId>` is
+  // the on-disk dir the request artifact lives in; for back-compat
+  // with the legacy `_runtime/<changeId>/` and `.peaks/<changeId>/`
+  // layouts we also probe those). When the legacy fallback fires, the
+  // gate detail / nextActions surface the `DEPRECATION_LEGACY_PATH_USED`
+  // warning so QA / TXT can nudge users to migrate via
+  // `peaks workspace migrate-change-scope --apply`.
+  // v2.18.1 bug #5 fix: same session-axis fallback as the QA resolver
+  // below. When `resolvedChangeId` is empty (no RD/QA artifact on disk
+  // yet), the canonical session id from the binding-store is the
+  // preferred filesystem scope; falling through to `options.rid` would
+  // make every missing-evidence path look like a per-rid scope dir.
+  const rdEvidenceDir = resolvedChangeId || options.changeId || getSessionIdCanonical(options.projectRoot) || options.rid;
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): track whether
   // every resolved evidence file landed on the canonical path. Drives
   // the `usedCanonicalPath` envelope field. The flag stays `true` if
@@ -267,15 +273,18 @@ export async function verifyPipeline(options: {
   let allResolvedPathsCanonical = true;
   for (const gate of rdGates.slice(1)) {
     const fileName = RD_EVIDENCE_FILE[gate.name]!;
-    const canonicalPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'rd', fileName);
+    // v2.17.0 canonical: session axis — `<sessionId>` is the on-disk
+    // dir the request artifact was found in (matches the layout used
+    // by `request-artifact-service.ts` for new artifacts).
+    const canonicalPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'rd', fileName);
     const legacyMisplacedPath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'rd', fileName);
-    // The other legacy form some pre-1.3.0 trees used (sibling of
-    // `_runtime/`). Both are migration targets for
-    // `peaks workspace migrate-change-scope`.
-    const legacyTopLevelPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'rd', fileName);
+    // Pre-v2.17.0 change-axis form: `.peaks/_runtime/change/<id>/rd/<file>`
+    // — the v2.16.0 / v2.17.0-era canonical that v2.17.0 hard-killed.
+    // Kept as a back-compat fallback for un-migrated workspaces.
+    const legacyChangeAxisPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'rd', fileName);
     let resolvedPath: string | null = null;
     let usedLegacy = false;
-    for (const candidate of [canonicalPath, legacyMisplacedPath, legacyTopLevelPath]) {
+    for (const candidate of [canonicalPath, legacyMisplacedPath, legacyChangeAxisPath]) {
       if (existsSync(candidate)) {
         resolvedPath = candidate;
         usedLegacy = candidate !== canonicalPath;
@@ -288,12 +297,12 @@ export async function verifyPipeline(options: {
       gate.passed = true;
       gate.detail = resolvedPath + (usedLegacy ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
       if (usedLegacy) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/change/${rdEvidenceDir}/rd/`);
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/${rdEvidenceDir}/rd/`);
       }
     } else {
       gate.detail = `missing: ${canonicalPath}`;
       violations.push(`RD evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/_runtime/change/${rdEvidenceDir}/rd/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/rd/${fileName}`);
     }
   }
 
@@ -327,7 +336,14 @@ export async function verifyPipeline(options: {
   // 1-minor-release back-compat window. The path resolver
   // (artifact-paths.ts) decides which form to consume; we pass the
   // resolved change-id and the rid.
-  const changeIdForResolver = resolvedChangeId || rdEvidenceDir;
+  // v2.18.1 bug #5 fix: when no RD/QA artifact is on disk yet (resolvedChangeId
+  // is empty), fall back to the current session id from the binding-store
+  // instead of `rdEvidenceDir` (= the rid). The session axis
+  // `.peaks/_runtime/<sessionId>/qa/...` is the canonical v2.17.0 home; the
+  // legacy `_runtime/change/<changeId>/qa/...` probe should only fire for
+  // pre-v2.17.0 workspaces, not as a default for new requests. The slug in
+  // the `changeId` envelope field is preserved below for traceability.
+  const changeIdForResolver = resolvedChangeId || getSessionIdCanonical(options.projectRoot) || rdEvidenceDir;
   const QA_EVIDENCE_FILE: Record<string, string> = {
     'test-cases': `test-cases/${options.rid}.md`,
     'test-report': `test-reports/${options.rid}.md`,
@@ -357,12 +373,14 @@ export async function verifyPipeline(options: {
       continue;
     }
     const fileName = QA_EVIDENCE_FILE[gate.name]!;
-    const canonicalQaPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'qa', fileName);
+    // v2.17.0 canonical: session axis — `<sessionId>/qa/<file>`.
+    const canonicalQaPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'qa', fileName);
     const legacyMisplacedQaPath = join(options.projectRoot, '.peaks', rdEvidenceDir, 'qa', fileName);
-    const legacyTopLevelQaPath = join(options.projectRoot, '.peaks', '_runtime', rdEvidenceDir, 'qa', fileName);
+    // Pre-v2.17.0 change-axis form: kept as back-compat fallback.
+    const legacyChangeAxisQaPath = join(options.projectRoot, '.peaks', '_runtime', 'change', rdEvidenceDir, 'qa', fileName);
     let resolvedQaPath: string | null = null;
     let usedLegacyQa = false;
-    for (const candidate of [canonicalQaPath, legacyMisplacedQaPath, legacyTopLevelQaPath]) {
+    for (const candidate of [canonicalQaPath, legacyMisplacedQaPath, legacyChangeAxisQaPath]) {
       if (existsSync(candidate)) {
         resolvedQaPath = candidate;
         usedLegacyQa = candidate !== canonicalQaPath;
@@ -375,12 +393,12 @@ export async function verifyPipeline(options: {
       gate.passed = true;
       gate.detail = resolvedQaPath + (usedLegacyQa ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
       if (usedLegacyQa) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedQaPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\``);
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedQaPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/${rdEvidenceDir}/qa/`);
       }
     } else {
       gate.detail = `missing: ${canonicalQaPath}`;
       violations.push(`QA evidence missing: ${gate.description} (${fileName})`);
-      nextActions.push(`Create .peaks/_runtime/change/${rdEvidenceDir}/qa/${fileName}`);
+      nextActions.push(`Create .peaks/_runtime/${rdEvidenceDir}/qa/${fileName}`);
     }
   }
 

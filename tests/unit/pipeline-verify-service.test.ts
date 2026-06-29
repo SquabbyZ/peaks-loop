@@ -44,8 +44,8 @@ import { verifyPipeline } from '../../src/services/workflow/pipeline-verify-serv
 
 function createTempProject(): { root: string; peaks: string } {
   const root = mkdtempSync(join(tmpdir(), 'peaks-pipeline-verify-'));
-  // Mimic the new layout: change-id-as-session-id lives under
-  // `.peaks/_runtime/<sid>/<role>/requests/`.
+  // v2.17.0 canonical session-axis layout: request artifacts and
+  // evidence live under `.peaks/_runtime/<sessionId>/<role>/...`.
   const peaks = join(root, '.peaks', '_runtime', 'test-change-id');
   mkdirSync(join(peaks, 'rd', 'requests'), { recursive: true });
   mkdirSync(join(peaks, 'qa', 'requests'), { recursive: true });
@@ -53,16 +53,17 @@ function createTempProject(): { root: string; peaks: string } {
   mkdirSync(join(peaks, 'qa', 'test-reports'), { recursive: true });
   // Non-.md entry to exercise the skip branch in findRequestFile
   writeFileSync(join(peaks, 'rd', 'requests', '.gitkeep'), '', 'utf8');
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): also pre-create
-  // the canonical scope dir so tests can write evidence there (the
-  // canonical path is `.peaks/_runtime/change/<id>/<role>/...`).
-  // Tests that want to assert "complete pipeline" must place evidence
-  // here; the legacy `.peaks/_runtime/test-change-id/...` form still
-  // resolves but emits DEPRECATION_LEGACY_PATH_USED warnings.
-  const canonical = join(root, '.peaks', '_runtime', 'change', 'test-change-id');
-  mkdirSync(join(canonical, 'rd'), { recursive: true });
-  mkdirSync(join(canonical, 'qa', 'test-cases'), { recursive: true });
-  mkdirSync(join(canonical, 'qa', 'test-reports'), { recursive: true });
+  // v2.18.1: the legacy change-axis dir (pre-v2.17.0 canonical) is
+  // no longer the canonical scope. It is kept here as a back-compat
+  // fallback target for tests that explicitly write evidence under
+  // the change-axis form to assert DEPRECATION_LEGACY_PATH_USED
+  // handling. The `writeRdEvidence` / `writeQaEvidence` helpers
+  // still dual-write under both the session-axis (canonical) and
+  // the change-axis (legacy) forms.
+  const legacyChangeAxis = join(root, '.peaks', '_runtime', 'change', 'test-change-id');
+  mkdirSync(join(legacyChangeAxis, 'rd'), { recursive: true });
+  mkdirSync(join(legacyChangeAxis, 'qa', 'test-cases'), { recursive: true });
+  mkdirSync(join(legacyChangeAxis, 'qa', 'test-reports'), { recursive: true });
   return { root, peaks };
 }
 
@@ -87,28 +88,30 @@ function writeRdArtifactExact(root: string, rid: string, state: string): void {
   writeFileSync(join(dir, `${rid}.md`), content, 'utf8');
 }
 
-/** Write an RD evidence file under BOTH the canonical `.peaks/_runtime/change/test-change-id/rd/<relativePath>`
- *  AND the legacy `.peaks/_runtime/test-change-id/rd/<relativePath>` paths.
- *  Slice 2026-06-28-solo-mode-bypass-fix: the canonical path is the
- *  source of truth; the legacy path is kept so tests can still assert
- *  deprecation handling without changing the test's intent. */
+/** Write an RD evidence file under BOTH the v2.17.0 canonical session-axis
+ *  `.peaks/_runtime/test-change-id/rd/<relativePath>` AND the legacy
+ *  `.peaks/_runtime/change/test-change-id/rd/<relativePath>` paths.
+ *  v2.18.1 path-axis update: the session-axis path is now canonical;
+ *  the change-axis path is a back-compat fallback that emits the
+ *  `DEPRECATION_LEGACY_PATH_USED` warning. */
 function writeRdEvidence(peaks: string, relativePath: string, content?: string): void {
-  const canonical = join(peaks, '..', 'change', 'test-change-id', 'rd', relativePath);
+  const legacyChangeAxis = join(peaks, '..', 'change', 'test-change-id', 'rd', relativePath);
+  mkdirSync(join(legacyChangeAxis, '..'), { recursive: true });
+  writeFileSync(legacyChangeAxis, content ?? `# ${relativePath}\nevidence`, 'utf8');
+  const canonical = join(peaks, 'rd', relativePath);
   mkdirSync(join(canonical, '..'), { recursive: true });
   writeFileSync(canonical, content ?? `# ${relativePath}\nevidence`, 'utf8');
-  const full = join(peaks, 'rd', relativePath);
-  mkdirSync(join(full, '..'), { recursive: true });
-  writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
-/** Write a QA evidence file under BOTH the canonical and legacy paths. */
+/** Write a QA evidence file under BOTH the canonical session-axis and
+ *  the legacy change-axis paths. */
 function writeQaEvidence(peaks: string, relativePath: string, content?: string): void {
-  const canonical = join(peaks, '..', 'change', 'test-change-id', 'qa', relativePath);
+  const legacyChangeAxis = join(peaks, '..', 'change', 'test-change-id', 'qa', relativePath);
+  mkdirSync(join(legacyChangeAxis, '..'), { recursive: true });
+  writeFileSync(legacyChangeAxis, content ?? `# ${relativePath}\nevidence`, 'utf8');
+  const canonical = join(peaks, 'qa', relativePath);
   mkdirSync(join(canonical, '..'), { recursive: true });
   writeFileSync(canonical, content ?? `# ${relativePath}\nevidence`, 'utf8');
-  const full = join(peaks, 'qa', relativePath);
-  mkdirSync(join(full, '..'), { recursive: true });
-  writeFileSync(full, content ?? `# ${relativePath}\nevidence`, 'utf8');
 }
 
 // Plan 1 followup hotfix (5cd4c87) made the on-disk scope path the
@@ -716,199 +719,10 @@ describe('verifyPipeline', () => {
   });
 
   // ==================================================================
-  // Request type gate variations
+  // Request type gate variations — extracted to
+  // `pipeline-verify-request-type-gates.test.ts` in v2.18.1 to keep
+  // this file below the Karpathy 800-line cap.
   // ==================================================================
-
-  describe('request type gate variations', () => {
-    test('feature has all RD and QA gates', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-f',
-        changeId: CID,
-        requestType: 'feature',
-      });
-
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual([
-        'rd-request-exists',
-        'tech-doc',
-        'code-review',
-        'security-review',
-      ]);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual([
-        'qa-request-exists',
-        'test-cases',
-        'test-report',
-        'security-findings',
-        'performance-findings',
-      ]);
-    });
-
-    test('bugfix has bug-analysis instead of tech-doc and excludes performance-findings', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-b',
-        changeId: CID,
-        requestType: 'bugfix',
-      });
-
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual([
-        'rd-request-exists',
-        'bug-analysis',
-        'code-review',
-        'security-review',
-      ]);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual([
-        'qa-request-exists',
-        'test-cases',
-        'test-report',
-        'security-findings',
-      ]);
-      expect(r.qaPhase.gates.map((g) => g.name)).not.toContain('performance-findings');
-    });
-
-    test('refactor has same gates as feature', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-r',
-        changeId: CID,
-        requestType: 'refactor',
-      });
-
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual([
-        'rd-request-exists',
-        'tech-doc',
-        'code-review',
-        'security-review',
-      ]);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual([
-        'qa-request-exists',
-        'test-cases',
-        'test-report',
-        'security-findings',
-        'performance-findings',
-      ]);
-    });
-
-    test('docs has only request artifact gates (minimal)', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-d',
-        changeId: CID,
-        requestType: 'docs',
-      });
-
-      expect(r.rdPhase.gates.length).toBe(1);
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual(['rd-request-exists']);
-      expect(r.qaPhase.gates.length).toBe(1);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual(['qa-request-exists']);
-    });
-
-    test('chore has only request artifact gates (minimal)', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-c',
-        changeId: CID,
-        requestType: 'chore',
-      });
-
-      expect(r.rdPhase.gates.length).toBe(1);
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual(['rd-request-exists']);
-      expect(r.qaPhase.gates.length).toBe(1);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual(['qa-request-exists']);
-    });
-
-    test('config has security-review and security-findings only', async () => {
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'gates-cfg',
-        changeId: CID,
-        requestType: 'config',
-      });
-
-      expect(r.rdPhase.gates.map((g) => g.name)).toEqual([
-        'rd-request-exists',
-        'security-review',
-      ]);
-      expect(r.qaPhase.gates.map((g) => g.name)).toEqual([
-        'qa-request-exists',
-        'security-findings',
-      ]);
-    });
-
-    test('complete bugfix pipeline verifies bug-analysis evidence', async () => {
-      writeRdArtifact(temp.root, 'bug-fix', 'qa-handoff');
-      writeQaArtifact(temp.root, 'bug-fix', 'verdict-issued');
-      writeRdEvidence(temp.peaks, 'bug-analysis.md');
-      writeRdEvidence(temp.peaks, 'code-review.md');
-      writeRdEvidence(temp.peaks, 'security-review.md');
-      writeQaEvidence(temp.peaks, 'test-cases/bug-fix.md');
-      writeQaEvidence(temp.peaks, 'test-reports/bug-fix.md');
-      writeQaEvidence(temp.peaks, 'security-findings.md');
-
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'bug-fix',
-        changeId: CID,
-        requestType: 'bugfix',
-      });
-
-      expect(r.complete).toBe(true);
-      expect(r.rdPhase.gates.some((g) => g.name === 'bug-analysis')).toBe(true);
-      expect(r.rdPhase.gates.some((g) => g.name === 'tech-doc')).toBe(false);
-      expect(r.qaPhase.gates.some((g) => g.name === 'performance-findings')).toBe(false);
-    });
-
-    test('complete docs pipeline needs only request artifacts with correct states', async () => {
-      writeRdArtifact(temp.root, 'docs-only', 'qa-handoff');
-      writeQaArtifact(temp.root, 'docs-only', 'verdict-issued');
-
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'docs-only',
-        changeId: CID,
-        requestType: 'docs',
-      });
-
-      expect(r.complete).toBe(true);
-      expect(r.violations.length).toBe(0);
-    });
-
-    test('complete chore pipeline needs only request artifacts with correct states', async () => {
-      writeRdArtifact(temp.root, 'chore-only', 'qa-handoff');
-      writeQaArtifact(temp.root, 'chore-only', 'verdict-issued');
-
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'chore-only',
-        changeId: CID,
-        requestType: 'chore',
-      });
-
-      expect(r.complete).toBe(true);
-      expect(r.rdPhase.gates.length).toBe(1);
-      expect(r.qaPhase.gates.length).toBe(1);
-    });
-
-    test('complete config pipeline needs only security evidence', async () => {
-      writeRdArtifact(temp.root, 'config-only', 'qa-handoff');
-      writeQaArtifact(temp.root, 'config-only', 'verdict-issued');
-      writeRdEvidence(temp.peaks, 'security-review.md');
-      writeQaEvidence(temp.peaks, 'security-findings.md');
-
-      const r = await verifyPipeline({
-        projectRoot: temp.root,
-        rid: 'config-only',
-        changeId: CID,
-        requestType: 'config',
-      });
-
-      expect(r.complete).toBe(true);
-      expect(r.rdPhase.gates.some((g) => g.name === 'security-review')).toBe(true);
-      expect(r.rdPhase.gates.some((g) => g.name === 'tech-doc')).toBe(false);
-      expect(r.qaPhase.gates.some((g) => g.name === 'security-findings')).toBe(true);
-      expect(r.qaPhase.gates.some((g) => g.name === 'test-cases')).toBe(false);
-    });
-  });
 
   // ==================================================================
   // File finding patterns

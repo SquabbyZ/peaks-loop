@@ -188,3 +188,123 @@ describe('checkPrdBlocks — artifact not found', () => {
     expect(b1.issues.some((i) => i.includes('artifact not found'))).toBe(true);
   });
 });
+
+// =================================================================
+// v2.18.1 PATCH (bug #6) — `peaks prd check-blocks` `ReferenceError:
+// require is not defined` regression guard.
+//
+// Root cause: `findPrdArtifact` used `require('node:fs')` mid-file in
+// the ESM runtime (package.json `type: module`). When the runtime
+// branch was reached (no first-candidate match), Node threw
+// `ReferenceError: require is not defined` at the CLI level instead
+// of returning null.
+//
+// Acceptance criteria:
+//   - `checkPrdBlocks` runs to completion in ESM (no throw).
+//   - `findPrdArtifact` returns null (not throw) when no artifact
+//     exists under either the first candidate OR any session-dir
+//     fallback.
+//   - The runtime scan path no longer references `require`.
+// =================================================================
+
+describe('checkPrdBlocks — v2.18.1 bug #6 (require is not defined)', () => {
+  it('AC #6.1 — well-formed PRD handoff passes all 4 mandatory blocks', () => {
+    const content = `# PRD v2.18.1
+
+## 业务场景
+
+目标用户: 企业 IT 管理员 + 普通员工 + 第三方开发者。
+业务流程: 用户注册 → 邀请 → 角色分配 → 资源访问。
+性能预期: 100 并发用户、50 RPS 列表查询。
+业务禁区: 越权访问、数据跨租户泄漏、PII 明文导出。
+
+## 边界 case
+
+无权限访问 / 越权 / 跨租户 / 数据迁移兼容 / 错误提示 / 空加载失败状态。多角色 / 多租户 / 越权场景。数据迁移兼容。空字符串 / 极端输入。
+
+## UI 装配意图
+
+页面模式: 列表 / 详情 / 表单 / 抽屉 / 弹窗 / 卡片。
+关键交互: 搜索 / 过滤 / 排序 / 批量操作 / 拖拽。
+信息密度: 紧凑(数据后台)。
+`;
+    writePrdArtifact(tmpDir, content);
+    const report = checkPrdBlocks(tmpDir, 'test-rid');
+    expect(report.ok).toBe(true);
+    expect(report.findings).toHaveLength(4);
+    for (const finding of report.findings) {
+      expect(finding.issues).toEqual([]);
+    }
+    // JSON envelope shape AC: every required block present.
+    const blocks: Record<string, string> = {};
+    for (const f of report.findings) blocks[f.name] = f.issues.length === 0 ? 'pass' : 'fail';
+    expect(blocks['业务场景']).toBe('pass');
+    expect(blocks['边界 case']).toBe('pass');
+    expect(blocks['UI 装配意图']).toBe('pass');
+  });
+
+  it('AC #6.2 — missing 业务场景 block fails with a clear, actionable issue (no ReferenceError)', () => {
+    const content = `# PRD v2.18.1
+
+## 边界 case
+
+无权限 / 越权 / 跨租户 / 极端输入 / 空字符串 / 错误处理 / 加载失败 / 数据迁移兼容 / 异常输入。
+
+## UI 装配意图
+
+页面模式: 列表 / 详情 / 表单 / 抽屉 / 弹窗 / 卡片。
+关键交互: 搜索 / 过滤 / 排序 / 批量操作 / 拖拽。
+信息密度: 紧凑(数据后台)。
+`;
+    writePrdArtifact(tmpDir, content);
+    // The fix must let this call return a structured report instead of
+    // throwing ReferenceError at the ESM module level.
+    const report = checkPrdBlocks(tmpDir, 'test-rid');
+    expect(report.ok).toBe(false);
+    const b1 = report.findings[0]!;
+    expect(b1.name).toBe('业务场景');
+    expect(b1.present).toBe(false);
+    expect(b1.issues.some((i) => i.includes('Missing required block'))).toBe(true);
+    expect(b1.issues.some((i) => i.includes('业务场景'))).toBe(true);
+  });
+
+  it('AC #6.3 — JSON envelope shape for the pass case contains { ok, blocks }', () => {
+    const content = `# PRD v2.18.1
+
+## 业务场景
+
+目标用户: 企业 IT 管理员 + 普通员工。
+业务流程: 注册 → 邀请 → 角色分配。
+性能预期: 100 并发。
+业务禁区: 越权访问 / 数据跨租户泄漏。
+
+## 边界 case
+
+无权限 / 越权 / 跨租户 / 极端输入 / 空字符串 / 错误处理 / 加载失败 / 数据迁移兼容 / 异常输入。
+
+## UI 装配意图
+
+页面模式: 列表 / 详情 / 表单 / 抽屉 / 弹窗 / 卡片。
+关键交互: 搜索 / 过滤 / 排序 / 批量操作。
+信息密度: 紧凑。
+`;
+    writePrdArtifact(tmpDir, content);
+    const report = checkPrdBlocks(tmpDir, 'test-rid');
+    const envelope = { ok: report.ok, blocks: Object.fromEntries(report.findings.map((f) => [f.name, f.issues.length === 0 ? 'pass' : 'fail'])) };
+    expect(envelope.ok).toBe(true);
+    expect(envelope.blocks['业务场景']).toBe('pass');
+    expect(envelope.blocks['边界 case']).toBe('pass');
+    expect(envelope.blocks['UI 装配意图']).toBe('pass');
+  });
+
+  it('AC #6.4 — findPrdArtifact returns null (no throw) when only session-axis dir exists with no matching artifact', () => {
+    // Pre-create a session-axis dir but with no matching artifact. The
+    // runtime scan path (the one that previously used `require('node:fs')`)
+    // must execute without throwing ReferenceError in ESM.
+    const sessionDir = join(tmpDir, '.peaks', '_runtime', '2026-06-29-session-9cac8e');
+    mkdirSync(join(sessionDir, 'prd', 'requests'), { recursive: true });
+    // No matching rid.md in the session dir.
+    expect(() => findPrdArtifact(tmpDir, 'no-such-rid')).not.toThrow();
+    expect(findPrdArtifact(tmpDir, 'no-such-rid')).toBeNull();
+  });
+});
