@@ -4,6 +4,7 @@ description: Unit-test coverage must come from meaningful tests, not coverage pa
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 When a coverage gate fails on a new file, do NOT reflexively add tests just to cover the missing line or branch. The 100% target exists to prove behavior is exercised, not as a score to game.
 
 **Why:** The user explicitly called this out after seeing slices with tests like "defaults the clock to wall clock when omitted", "wraps non-Error rejections in an Error", "uses default global path" — they add line count but rarely catch a regression a real-feature test wouldn't already catch.

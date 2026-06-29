@@ -1,0 +1,10 @@
+{
+  "name": "coverage-red-line",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/coverage-red-line.md"
+  ],
+  "promotedAt": "2026-06-29T11:10:43.818Z",
+  "promotedBy": "peaks-rd fork agent"
+}

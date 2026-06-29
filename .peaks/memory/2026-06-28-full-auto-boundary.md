@@ -4,6 +4,7 @@ description: 2026-06-28 session 用户明确划定 full-auto mode 的边界 — 
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=C -->
 
 # full-auto mode 的实际边界（2026-06-28 用户明确划定）
 

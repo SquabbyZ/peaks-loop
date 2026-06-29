@@ -4,6 +4,7 @@ description: Peaks-related changes should stay limited to the current project di
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=B -->
 Peaks 相关的实际改动必须局限于当前项目目录内，除非用户明确授权修改全局位置。
 
 **Why:** 用户明确要求"所有 peaks 相关的改动局限于当前目录下"，避免 postinstall、skills、配置等流程触碰 `~/.claude` 或 `~/.peaks` 这类全局状态。

@@ -4,6 +4,7 @@ description: For this project, future iterations should modify main directly ins
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 For future iterations in this project, do not create worktrees by default; modify directly on the main branch.
 
 **Why:** The user explicitly prefers direct main-branch edits for subsequent iterations.

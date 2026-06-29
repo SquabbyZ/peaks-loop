@@ -4,6 +4,7 @@ description: Integrate gstack deeply into skills/ content and require repeated p
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 The skills under this project's `skills/` directory should deeply integrate and reference gstack (https://github.com/garrytan/gstack) rather than treating it as a superficial mention. The `skills/peaks-rd` skill specifically should require repeated dry-runs while producing code.
 
 **Why:** The user clarified that the intended scope is the project skill files themselves, and that peaks-rd must repeatedly dry-run during code-producing work.

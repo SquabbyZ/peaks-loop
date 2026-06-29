@@ -1,5 +1,67 @@
 # Changelog
 
+## [2.18.4] — 2026-06-29 — peaks-solo first-run step gates: hard-pause 1.x→2.0 upgrade + make `--mode` optional on Step 1
+
+**PATCH bump from 2.18.3**. Resolves the user-reported "新项目第一次使用 peaks-solo 时初始化完不按流程走、开发效果差、再开 session 后才正常" defect. Two surgical fixes to the first-run Solo gates (3 source files, 1 new test file, 2 test-regression updates; no schema change, no new dependencies, no public API change).
+
+### Bugfix — `step-0.55-1x-upgrade` always pauses, even in `full-auto` (P0)
+
+The 1.x → 2.0 upgrade is an irreversible external side effect (rewrites `~/.peaks/config.json` + the on-disk cache schema). Pre-fix, `peaks solo should-pause --step step-0.55-1x-upgrade --mode full-auto` returned `shouldPause: false` because the step was declared in `GATED_STEPS` but missing from the `HARD_PAUSE_STEPS` `Set` that already covered `step-0.5-openspec-opt-in` and `step-0.7-resume-detection`. In `full-auto` mode, the `shouldAutoProceed` branch silently auto-proceeded the upgrade without user consent. The result: 1.x → 2.0 downgrade (or stale 1.x standards/config residue) on the very first Solo run of a fresh project. Post-fix, the step pauses with `gateKind: 'mode-selection-itself'` and the LLM-side caller presents an `AskUserQuestion` to the user.
+
+- **Modified (2):** `src/services/solo/mode-gate.ts` (added 1 entry to `HARD_PAUSE_STEPS`), `src/services/solo/user-touchpoint-classifier.ts` (reclassified the row from `tech/business-only` with `fullAutoCanProceed: true` to `commit-floor/always` with `fullAutoCanProceed: false`).
+- **User-observed symptom (now fixed):** "首次启动后开发效果差" — caused by 1.x standards/config residue silently surviving `full-auto` and contaminating subsequent RD/QA artifact contracts.
+
+### Bugfix — `--mode` is optional on `peaks solo should-pause` (P1, Step 1 chicken-and-egg)
+
+`peaks solo should-pause --step step-1-mode-select` (no `--mode` flag) failed pre-fix with `error: required option --mode <mode> not specified`. Step 1's SEMANTIC is "ask the user what mode to use" — requiring `--mode` to ask mode is a chicken-and-egg. Post-fix, `--mode` is `.option()` (not `.requiredOption()`); the action handler resolves `const mode = opts.mode ?? 'full-auto'` once at the top. All 5 downstream `opts.mode` references inside the same action body now use the local `mode` const. Existing `--mode <x>` callers are unaffected (backward-compatible). The service-layer `shouldPauseAtGate` still requires a resolved mode — defaulting is at the CLI boundary, which is the correct layer for ergonomics.
+
+- **Modified (1):** `src/cli/commands/solo-commands.ts` (option() + `mode` const + 5 reference rewrites inside the same action handler).
+- **User-observed symptom (now fixed):** "再开 session 后才正常" — the first session's failed Step 1 caused the LLM-side caller to fall back to a sticky default mode; the second session's retry landed in the "right" mode by accident.
+
+### Test surface
+
+- **Created (1):** `tests/unit/services/solo/first-run-step-gates.test.ts` — 20 vitest cases (4 modes × `step-0.55-1x-upgrade` pause guard; default-mode vs explicit-mode Step 1; AC-3 backward-compat byte-equality; 8 regression guards on the other 2 hard-pause steps; cross-check that non-hard-pause steps still auto-proceed).
+- **Modified (2, regression-data extension):** `tests/unit/services/solo/mode-gate.test.ts` (added `step-0.55-1x-upgrade` to the local `HARD_PAUSE_STEP_SET` test fixture), `tests/unit/services/solo/stale-presence-detection.test.ts` (added the new step to the case-#5 non-Step-1 filter — these existing tests encoded the BUG behavior, so leaving them stale would have caused a false-positive green).
+- **Updated (1):** `package.json` + `src/shared/version.ts` (2.18.3 → 2.18.4).
+
+### Why this is the simplest fix
+
+- 1-line addition to `HARD_PAUSE_STEPS` + 5-line row replacement in the classifier + 5-line command-arg change with 5 mechanical reference rewrites = 3 source edits. No new abstractions, no new env vars, no new schemas, no CLI surface change beyond the `--mode` defaulting.
+- 800-line file cap respected: largest modified file is `solo-commands.ts` (well below the 800 cap).
+- Karpathy #3 surgical: 6 files touched, all justified (3 source + 1 new test + 2 test-regression updates because the existing tests encoded the BUG behavior).
+
+### Verification (QA cycle 1, verdict pass)
+
+- AC-1: `peaks solo should-pause --step step-0.55-1x-upgrade --mode full-auto` → `ok: true, shouldPause: true, gateKind: "mode-selection-itself"` ✅
+- AC-2: `peaks solo should-pause --step step-1-mode-select` (no `--mode`) → `ok: true, shouldPause: true` (no "required option" error) ✅
+- AC-3: `peaks solo should-pause --step step-1-mode-select --mode full-auto` → byte-identical to AC-2 ✅
+- Cross-mode 4×2 matrix (full-auto / assisted / strict / swarm × step-0.55 / step-1): 8/8 pause ✅
+- `peaks-solo` first-run sequence (skill presence:check-stale + upgrade --detect-1x + 4 should-pause steps): 6/6 clean ✅
+- vitest 527/527 passed (27 files, 0 failed, 22.61s wallclock)
+- 5-way fanout audit: code-reviewer PASS / karpathy-reviewer PASS (4 guidelines) / security-reviewer PASS / perf-baseline-reviewer PASS / qa-test-cases-writer PASS (21 TCs)
+- QA verdict: `pass` (`verdict-2026-06-29-fix-first-run-step-gates.md`)
+
+### Files
+
+- 3 source modifications
+- 1 new test file
+- 2 test-regression updates
+- 1 version bump (this release)
+
+### Dispatch / artifacts
+
+- Request id: `2026-06-29-fix-first-run-step-gates`
+- RD artifact: `.peaks/_runtime/2026-06-29-session-9cac8e/rd/requests/001-2026-06-29-fix-first-run-step-gates.md`
+- Bug analysis: `.peaks/_runtime/2026-06-29-session-9cac8e/rd/bug-analysis.md`
+- Code review: `.peaks/_runtime/2026-06-29-session-9cac8e/rd/code-review.md`
+- Karpathy review: `.peaks/_runtime/2026-06-29-session-9cac8e/rd/karpathy-review.md`
+- Security audit: `.peaks/_runtime/2026-06-29-session-9cac8e/audit/security.md`
+- Perf audit: `.peaks/_runtime/2026-06-29-session-9cac8e/audit/perf.md`
+- QA test plan: `.peaks/_runtime/2026-06-29-session-9cac8e/qa/test-cases/2026-06-29-fix-first-run-step-gates.md`
+- QA verdict: `.peaks/_runtime/2026-06-29-session-9cac8e/qa/verdict-2026-06-29-fix-first-run-step-gates.md`
+
+---
+
 ## [2.18.2] — 2026-06-29 — `peaks doctor --rebuild-binding` + `peaks binding status` CLI (2 follow-up enhancements)
 
 > **⚠️ Non-strict-SemVer.** This PATCH bump (2.18.1 → 2.18.2) lands 2 user-facing CLI additions under a PATCH version per the user convention: `peaks doctor --rebuild-binding` (new flag) and `peaks binding status` (new command). Strict SemVer would have called for a MINOR bump. The convention is documented in `CLAUDE.md` and matches the v2.18.1 PATCH precedent.

@@ -4,6 +4,7 @@ description: Real-world dogfood of the 公众号发文 SOP (PRD 005 v2) on 2026-
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 On 2026-06-02 I dogfooded a real wechat-style publishing SOP (`wechat-post-publish`, phases `draft → review → publish`, gates `no-todo` + `no-tktk` using `grep absent:true`) end-to-end against the peaks-cli repo's own `posts/2026-06-02-prd005-v2-dogfood.md` artifact. The four PRD 005 v2 UX fixes all worked as advertised:
 
 - G4 grep absent: a draft with the literal word "T-O-D-O" gets blocked at `review → publish` with the reason `pattern "TODO" must be absent but was found in "..."`. Clean.

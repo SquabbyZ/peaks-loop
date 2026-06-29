@@ -4,6 +4,7 @@ description: Peaks skills should visibly announce active skill workflows and nex
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 When the user uses Peaks skills from `skills/` in any project, the response should look clearly different from normal Claude Code output. It should prominently tell the user which Peaks skill is active and what workflow/gates come next.
 
 **Why:** The user wants a visible UX distinction when invoking these skills in other projects, especially for swarm development and economy-mode workflows.

@@ -4,6 +4,7 @@ description: 2.8.2 release day — cc-connect removal finally shipped to npm. Au
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # 2.8.2 publish day — 2026-06-22
 

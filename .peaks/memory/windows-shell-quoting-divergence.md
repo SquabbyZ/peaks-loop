@@ -4,6 +4,7 @@ description: On Windows, Git Bash (MSYS) and PowerShell have different command-l
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 On Windows, when testing `cmd //c "start \"title\" command"` or similar nested-quote patterns, the test outcome depends on which shell interprets the outer command:
 - **Git Bash (MSYS)** — applies MSYS path-conversion and quoting rules; `\\\"` becomes `\"`; MSYS may strip or convert quotes; a test that works in Git Bash can fail differently than the same command from PowerShell or from Node's `child_process.spawn`.

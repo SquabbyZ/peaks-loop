@@ -1,0 +1,10 @@
+{
+  "name": "active-skill-cli-routing",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/active-skill-cli-routing.md"
+  ],
+  "promotedAt": "2026-06-29T11:10:43.113Z",
+  "promotedBy": "peaks-rd fork agent"
+}

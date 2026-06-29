@@ -4,6 +4,7 @@ description: LLM reads active-skill via `peaks skill presence --json`, not by Re
 metadata:
   type: feedback
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # Active-skill reads go through the CLI
 
