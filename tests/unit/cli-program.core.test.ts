@@ -558,22 +558,22 @@ describe('createProgram', () => {
   });
 
   test('rejects invalid tech workflow and swarm inputs', async () => {
-    const techPlanResult = await runCommand(['tech', 'plan', '--change-id', 'bad/id', '--goal', 'Refactor checkout API', '--json']);
+    // v2.17.0: change-id axis removed; `--change-id bad/id` no longer
+    // rejects on the change-id. Test the goal-validation path instead:
+    // empty `--goal ''` is the closest equivalent.
+    const techPlanResult = await runCommand(['tech', 'plan', '--change-id', 'bad/id', '--goal', '', '--json']);
     expect(parseJsonOutput(techPlanResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
 
-    const techStatusResult = await runCommand(['tech', 'status', '--change-id', 'bad/id', '--json']);
-    expect(parseJsonOutput(techStatusResult.stdout).code).toBe('INVALID_CHANGE_ID');
-
-    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'bad/id', '--goal', 'Refactor checkout API', '--json']);
+    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'bad/id', '--goal', '', '--json']);
     expect(parseJsonOutput(routeResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
 
-    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--change-id', 'bad/id', '--goal', 'Refactor checkout API', '--json']);
+    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--change-id', 'bad/id', '--goal', '', '--json']);
     expect(parseJsonOutput(autonomousResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
 
     const swarmDryRunResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--change-id', 'checkout-refactor', '--goal', 'Fix checkout retry typo', '--no-dry-run', '--json']);
     expect(parseJsonOutput(swarmDryRunResult.stdout).code).toBe('UNSUPPORTED_NON_DRY_RUN');
 
-    const swarmInvalidResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--change-id', 'bad/id', '--goal', 'Fix checkout retry typo', '--json']);
+    const swarmInvalidResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--change-id', 'bad/id', '--goal', '', '--json']);
     expect(parseJsonOutput(swarmInvalidResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
   });
 

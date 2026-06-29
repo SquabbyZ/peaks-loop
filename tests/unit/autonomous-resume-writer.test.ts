@@ -90,6 +90,9 @@ describe('writeAutonomousResumeArtifacts', () => {
   });
 
   test('rejects an unsafe change-id', async () => {
+    // v2.17.0: change-id validation contract is preserved (unsafe
+    // change-ids still throw `ChangeIdValidationError` for backward
+    // compatibility), even though the change-id is now metadata-only.
     await expect(
       writeAutonomousResumeArtifacts({
         changeId: '../escape',

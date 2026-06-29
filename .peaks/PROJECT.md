@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-06-29T01:46:15.448Z
+> Last updated: 2026-06-29T02:35:22.426Z
 
 ## Project: peaks-cli
 
@@ -51,7 +51,7 @@
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-06-29 | `2026-06-29-session-88411f` | v2.16.0-change-id-axis-removal | | # | 场景 | user 痛点 | peaks-cli 解法 | |
+| 2026-06-29 | `2026-06-29-session-88411f` | v2.16.0-change-id-axis-removal | requestId: 001-2026-06-29-v2-16-0-change-id-axis-removal |
 | 2026-06-28 | `2026-06-28-session-caa62d` | Untitled | peaks-solo |
 | 2026-06-28 | `2026-06-28-session-b84af6` | Untitled | **Mode**: full-auto |
 | 2026-06-28 | `2026-06-28-session-2ecbba` | Untitled | N/A — 本切片是 Node.js 内部 CLI 库,不涉及前端 |

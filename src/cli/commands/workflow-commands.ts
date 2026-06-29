@@ -8,7 +8,6 @@ import { createRecommendationPlan } from '../../services/recommendations/recomme
 import { createRefactorDryRun, type RefactorMode } from '../../services/refactor/refactor-service.js';
 import { getWorkspaceConfigForPath, readConfig } from '../../services/config/config-service.js';
 import type { WorkspaceConfig } from '../../services/config/config-types.js';
-import { validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { getEconomyAwareExecutionModelId } from '../../services/config/model-routing.js';
 import { getLocalArtifactPath } from '../../services/artifacts/workspace-service.js';
 import { getSessionId } from '../../services/session/session-manager.js';
@@ -136,8 +135,10 @@ function parseMaxWorkers(io: ProgramIO, command: string, value: string, asJson?:
   return maxWorkers;
 }
 
-function validatePlanningInput(changeId: string, goal: string): void {
-  validateChangeIdOrThrow(changeId);
+function validatePlanningInput(goal: string): void {
+  // v2.17.0: change-id axis removed. The planning input is now keyed
+  // by the session id (already bound via `peaks workspace init`),
+  // not by a user-supplied change-id. Only the goal is validated.
   if (!goal.trim()) {
     throw new Error('Goal must be non-empty');
   }
@@ -169,7 +170,7 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
   }
 
   try {
-    validatePlanningInput(options.changeId, options.goal);
+    validatePlanningInput(options.goal);
     const workspaceContext = getCurrentWorkspaceContext();
     const plan = createTechPlan({
       changeId: options.changeId,
@@ -214,7 +215,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
   if (soloMode === null) return;
 
   try {
-    validatePlanningInput(options.changeId, options.goal);
+    validatePlanningInput(options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createWorkflowRouterPlan({
       changeId: options.changeId,
@@ -252,7 +253,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
   if (soloMode === null) return;
 
   try {
-    validatePlanningInput(options.changeId, options.goal);
+    validatePlanningInput(options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createAutonomousWorkflowPlan({
       changeId: options.changeId,
@@ -287,7 +288,7 @@ async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<v
   if (maxWorkers === null) return;
 
   try {
-    validatePlanningInput(options.changeId, options.goal);
+    validatePlanningInput(options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const config = readConfig();
     // Plan 1 / Task 9 — pre-build peaks-context before peaks-rd runs.
