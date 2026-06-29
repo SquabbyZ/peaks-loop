@@ -18,8 +18,8 @@
  * with the zod schema and either re-migrate or rebuild empty.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { copyFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, openSync, closeSync, constants as fsConstants } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 
@@ -58,6 +58,36 @@ function getCurrentOuterSessionId(): string {
   const claude = process.env.CLAUDE_CODE_SESSION_ID;
   if (typeof claude === 'string' && claude.length > 0) return claude;
   return 'unknown';
+}
+
+/**
+ * Build the *real* caller identity for the current process.
+ *
+ * v2.18.0 P0 fix: `getCurrentOuterSessionId()` alone is not a
+ * process-unique signal — two Claude Code windows on the same
+ * host share the same `CLAUDE_CODE_SESSION_ID` (it is bound to
+ * the IDE / app session, not the window), and a CI runner with
+ * both env vars unset returns the literal `'unknown'` sentinel
+ * for every process. Suffixing with `process.pid` makes the
+ * callerId process-unique without changing the surface (no new
+ * env var, no new schema field), preserving the AC-5 hard rule
+ * that "one Claude instance keeps one sid across multiple
+ * peaks-* skill activations" — a single process keeps a constant
+ * pid across the whole run, including `/compact`.
+ *
+ * The `#` separator is safe here: `InstanceRecord.callerId` uses
+ * `z.string().min(1)` (no regex), and the v2.16.0 binding schema
+ * has no path-embedding constraint on callerId (unlike the
+ * platform D1 `CALLER_ID_REGEX` which only applies to the CLI
+ * surface in `caller-id-types.ts`).
+ *
+ * The resulting string is stored on `InstanceRecord.callerId`
+ * AND on `Binding.ownerHint` (advisory metadata; kept for
+ * back-compat reads of the v2.16.0 schema).
+ */
+function getCurrentCallerId(): string {
+  const envSignal = getCurrentOuterSessionId();
+  return `${envSignal}#${process.pid}`;
 }
 
 function nowIso(): string {
@@ -133,7 +163,7 @@ export function readBinding(projectRoot: string): Binding | null {
     // their createdAt predates the binding sentinel concept entirely.
     const migratedAt = nowIso();
     const binding: Binding = {
-      ownerHint: getCurrentOuterSessionId(),
+      ownerHint: getCurrentCallerId(),
       pid: process.pid,
       lastHeartbeat: migratedAt,
       scope: legacyShape.projectRoot,
@@ -141,7 +171,7 @@ export function readBinding(projectRoot: string): Binding | null {
         [legacyShape.sessionId]: {
           startedAt: legacyShape.createdAt,
           roles: [],
-          callerId: getCurrentOuterSessionId(),
+          callerId: getCurrentCallerId(),
           lastHeartbeat: migratedAt
         }
       }
@@ -188,7 +218,12 @@ export function registerInstance(
   opts: { callerId: string; roles?: string[]; existingSid?: string }
 ): { binding: Binding; sid: string } {
   const existing = readBinding(projectRoot);
-  const callerId = opts.callerId.length > 0 ? opts.callerId : 'unknown';
+  // v2.18.0 P0 fix: an empty callerId now defaults to the
+  // process-unique `getCurrentCallerId()` (env signal + pid),
+  // NOT the bare `'unknown'` sentinel. This prevents two
+  // no-callerId callers from sharing a sid via the sentinel
+  // collision that v2.17.0 had.
+  const callerId = opts.callerId.length > 0 ? opts.callerId : getCurrentCallerId();
   const roles = opts.roles ?? [];
   const now = nowIso();
 
@@ -364,4 +399,163 @@ function generateSid(): string {
   const dd = String(now.getUTCDate()).padStart(2, '0');
   const rand = Math.random().toString(36).slice(2, 8);
   return `${yyyy}-${mm}-${dd}-session-${rand}`;
+}
+
+// ---------------------------------------------------------------------------
+// v2.18.2 — legacy v2.16.0 / v2.17.0 callerId migration
+//
+// The v2.18.0 P0 fix introduced `${envSignal}#${process.pid}` as the
+// canonical callerId shape. Pre-v2.18.0 binding files stored callerIds
+// WITHOUT the pid suffix (raw env signal, or the bare `'unknown'`
+// sentinel). On read, `BindingSchema.safeParse` accepts the legacy
+// shape (`callerId: z.string().min(1)` is permissive), so legacy
+// bindings are still loadable — but `findSidByCaller` will not match
+// the new pid-suffixed lookups, and `registerInstance` auto-resume will
+// create a duplicate instance for the same Claude process.
+//
+// `rebuildBindingFromLegacy` rewrites the on-disk binding in-place so
+// every existing instance gets the pid suffix. It is invoked explicitly
+// by `peaks doctor --rebuild-binding` (slice 2026-06-29-v2-18-2
+// PATCH scope, follow-up issue #1) rather than on-read, to keep the
+// read path side-effect-free and to make the migration user-observable.
+//
+// The pid used for the suffix is the binding's stored `pid` field (the
+// pid of the process that originally registered the instance), NOT
+// `process.pid` — preserving the original instance identity across the
+// rewrite. Instances with `callerId = 'unknown'` (CI fallback, no
+// identity to preserve) are skipped and reported in `errors` so a
+// future slice can decide what to do with them.
+// ---------------------------------------------------------------------------
+
+export type RebuildResult = {
+  rewritten: number;
+  preserved: number;
+  errors: string[];
+  /** True when no legacy entries were present and the file is unchanged. */
+  noop: boolean;
+};
+
+function acquireRebuildLock(projectRoot: string): { fd: number; path: string } | null {
+  const lockPath = join(projectRoot, '.peaks', '_runtime', '.rebuild-binding.lock');
+  const dir = dirname(lockPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  try {
+    // O_EXCL (`wx` in Node): atomic create-or-fail. If the lock file
+    // already exists, another `rebuildBindingFromLegacy` invocation
+    // holds it. The holder is expected to release it via
+    // `closeSync` + `unlinkSync` (see `releaseRebuildLock`).
+    const fd = openSync(lockPath, fsConstants.O_WRONLY | fsConstants.O_CREAT | fsConstants.O_EXCL);
+    return { fd, path: lockPath };
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'EEXIST') return null;
+    throw err;
+  }
+}
+
+function releaseRebuildLock(lock: { fd: number; path: string } | null): void {
+  if (lock === null) return;
+  try {
+    closeSync(lock.fd);
+  } catch (err) {
+    // best-effort close; surface to stderr so silent-warning-detector
+    // does not flag the empty-catch. The next acquireRebuildLock will
+    // still detect the stale lock via EEXIST and treat it as held,
+    // which is the safer default.
+    process.stderr.write(`[binding-store] close rebuild lock ${lock.path} failed: ${String(err)}\n`);
+  }
+  try {
+    // unlinkSync is best-effort; a stale lock will be detected by
+    // existsSync on the next acquire and treated as a held lock
+    // (returning null), which is the safer default.
+    unlinkSync(lock.path);
+  } catch (err) {
+    process.stderr.write(`[binding-store] unlink rebuild lock ${lock.path} failed: ${String(err)}\n`);
+  }
+}
+
+export function rebuildBindingFromLegacy(projectRoot: string): RebuildResult {
+  const lock = acquireRebuildLock(projectRoot);
+  if (lock === null) {
+    return {
+      rewritten: 0,
+      preserved: 0,
+      errors: ['another peaks doctor --rebuild-binding is in progress (lock held)'],
+      noop: true
+    };
+  }
+  try {
+    const binding = readBinding(projectRoot);
+    if (binding === null) {
+      // No binding to rebuild — idempotent no-op.
+      return { rewritten: 0, preserved: 0, errors: [], noop: true };
+    }
+
+    const errors: string[] = [];
+    let rewritten = 0;
+    let preserved = 0;
+    const nextInstances: Record<string, InstanceRecord> = {};
+
+    for (const [sid, inst] of Object.entries(binding.instances)) {
+      if (inst.callerId.includes('#')) {
+        // Already in the v2.18.0+ shape — keep as-is.
+        nextInstances[sid] = inst;
+        preserved += 1;
+        continue;
+      }
+      if (inst.callerId === 'unknown') {
+        // No identity to preserve — keep the instance as-is and
+        // report. Re-encoding `unknown#${pid}` would be a
+        // misleading claim about process-uniqueness (any two no-env
+        // processes share the `unknown` signal). Counts as
+        // `preserved` because the entry is unchanged on disk.
+        nextInstances[sid] = inst;
+        preserved += 1;
+        errors.push(`sid ${sid}: callerId="unknown" has no pid suffix source — skipped`);
+        continue;
+      }
+      nextInstances[sid] = { ...inst, callerId: `${inst.callerId}#${binding.pid}` };
+      rewritten += 1;
+    }
+
+    if (rewritten === 0) {
+      return { rewritten: 0, preserved, errors, noop: true };
+    }
+
+    const next: Binding = {
+      ...binding,
+      // Refresh ownerHint to the canonical v2.18.0+ shape so the
+      // advisory metadata is consistent with the rewritten instances.
+      ownerHint: binding.ownerHint.includes('#')
+        ? binding.ownerHint
+        : `${binding.ownerHint}#${binding.pid}`,
+      lastHeartbeat: nowIso(),
+      instances: nextInstances
+    };
+
+    // Atomic write: temp + rename, so a crash mid-write cannot leave
+    // a partial binding on disk.
+    const canonical = getCanonicalPath(projectRoot);
+    const dir = dirname(canonical);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const tmpPath = `${canonical}.tmp.${process.pid}`;
+    const validated = BindingSchema.parse(next);
+    writeFileSync(tmpPath, JSON.stringify(validated, null, 2), 'utf8');
+    try {
+      renameSync(tmpPath, canonical);
+    } catch (renameErr) {
+      // Clean up the tmp file and surface the rename error.
+      try {
+        unlinkSync(tmpPath);
+      } catch (cleanupErr) {
+        process.stderr.write(`[binding-store] cleanup tmp ${tmpPath} after rename failure failed: ${String(cleanupErr)}\n`);
+      }
+      throw renameErr;
+    }
+    return { rewritten, preserved, errors, noop: false };
+  } finally {
+    releaseRebuildLock(lock);
+  }
 }
