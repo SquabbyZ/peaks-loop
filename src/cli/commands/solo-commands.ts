@@ -194,7 +194,15 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
           'session is NOT authoritative.'
       )
       .requiredOption('--step <step>', `one of: ${GATED_STEPS.join(', ')}`)
-      .requiredOption('--mode <mode>', 'one of: full-auto, assisted, swarm, strict')
+      // v2.18.4 slice 002-fix-first-run-step-gates (Bug 2):
+      // `--mode` is now OPTIONAL. Step 1's SEMANTIC is "ask the user
+      // what mode to use" — requiring --mode to ask mode is a
+      // chicken-and-egg. When --mode is omitted, default to
+      // 'full-auto' so the gate can still evaluate; the gate's hard-
+      // pause on `step-1-mode-select` (mode-selection-itself) will
+      // pause regardless, and the LLM-side caller can present
+      // AskUserQuestion without first knowing the mode.
+      .option('--mode <mode>', 'one of: full-auto, assisted, swarm, strict. Defaults to full-auto when omitted (Step 1 chicken-and-egg fix).')
       .option('--hard-floor <category>', 'optional hard-floor override (irreversible-external-side-effect | authentication-credential | multi-day-investment | commit-boundary-side-effect)')
       .option('--recommended <option>', 'recommended option label to log when auto-proceeding', 'recommended-option')
       .option('--project <path>', 'v2.15.0 slice 002 AC-2: project root for presence:check-stale. Default: cwd. Pass only when step=step-1-mode-select.')
@@ -212,10 +220,16 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
       json?: boolean;
     }) => {
       try {
-        if (!isSoloMode(opts.mode)) {
+        // v2.18.4 slice 002-fix-first-run-step-gates (Bug 2):
+        // --mode is optional. Default to 'full-auto' when omitted
+        // so step-1-mode-select can run without forcing the caller
+        // to know the mode up front. The gate's hard-pause on
+        // step-1-mode-select will still pause regardless.
+        const mode = opts.mode ?? 'full-auto';
+        if (!isSoloMode(mode)) {
           printResult(
             io,
-            fail('solo.should-pause', 'INVALID_MODE', `mode must be one of full-auto, assisted, swarm, strict (got "${opts.mode}")`, { provided: opts.mode }, ['Pass --mode full-auto | assisted | swarm | strict']),
+            fail('solo.should-pause', 'INVALID_MODE', `mode must be one of full-auto, assisted, swarm, strict (got "${mode}")`, { provided: mode }, ['Pass --mode full-auto | assisted | swarm | strict']),
             opts.json
           );
           process.exitCode = 1;
@@ -283,7 +297,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
               sessionId: sid,
               category: 'mode-gate',
               detail: {
-                mode: opts.mode,
+                mode: mode,
                 step,
                 shouldPause: true,
                 reason: 'stale-presence',
@@ -299,7 +313,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
               shouldPause: true,
               reason: `stale-presence — re-ask Step 1 (${stalePresence.reason}; recorded outer session id does not match current)`,
               gateKind: 'mode-selection-itself',
-              logLine: `auto-pause (${opts.mode}, stale-presence:${stalePresence.reason}): ${step} → re-ask`,
+              logLine: `auto-pause (${mode}, stale-presence:${stalePresence.reason}): ${step} → re-ask`,
               stalePresence: {
                 stale: true,
                 reason: stalePresence.reason,
@@ -316,7 +330,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         }
 
         const decision = shouldPauseAtGate({
-          mode: opts.mode,
+          mode: mode,
           step,
           hardFloorCategory: hardFloor,
           // v2.15.0 slice 002 repair (QA blocker): translate the CLI
@@ -341,7 +355,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
             sessionId: sid,
             category: 'mode-gate',
             detail: {
-              mode: opts.mode,
+              mode: mode,
               step,
               shouldPause: decision.shouldPause,
               reason: decision.reason,
@@ -350,7 +364,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
           }, { projectRoot });
         }
         const logLine = formatAutoProceedLogLine({
-          mode: opts.mode,
+          mode: mode,
           step,
           recommendedOption: opts.recommended ?? 'recommended-option',
           hardFloorCategory: hardFloor
@@ -367,8 +381,8 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
             ...(commitBoundaryActionId !== undefined ? { commitBoundaryAction: commitBoundaryActionId } : {})
           }, [], [
             decision.shouldPause
-              ? `Mode ${opts.mode} + step ${opts.step} → PAUSE for AskUserQuestion${commitBoundaryActionId !== undefined ? ` (commit-boundary: ${commitBoundaryActionId})` : ''}`
-              : `Mode ${opts.mode} + step ${opts.step} → AUTO-PROCEED with recommended option`
+              ? `Mode ${mode} + step ${opts.step} → PAUSE for AskUserQuestion${commitBoundaryActionId !== undefined ? ` (commit-boundary: ${commitBoundaryActionId})` : ''}`
+              : `Mode ${mode} + step ${opts.step} → AUTO-PROCEED with recommended option`
           ]),
           opts.json
         );

@@ -191,11 +191,19 @@ export function isCommitBoundaryAction(value: string): value is CommitBoundaryAc
  * without user consent (defect #1: new Solo session skipped Step 1
  * AskUserQuestion because `full-auto` mode triggered `shouldAutoProceed`
  * on `step-1-mode-select` itself).
+ *
+ * v2.18.4 slice 002-fix-first-run-step-gates: added
+ * `step-0.55-1x-upgrade`. The 1.x → 2.0 upgrade is an irreversible
+ * external side effect (migration rewrites config files and the
+ * on-disk cache shape) — it must always pause, even in full-auto.
+ * Without this, `full-auto` mode auto-proceeds and silently
+ * downgrades a 1.x install to 2.0 without user consent.
  */
 const HARD_PAUSE_STEPS: ReadonlySet<GatedStepId> = new Set<GatedStepId>([
   'step-1-mode-select',
   'step-0.5-openspec-opt-in',
-  'step-0.7-resume-detection'
+  'step-0.7-resume-detection',
+  'step-0.55-1x-upgrade'
 ]);
 
 export function shouldPauseAtGate(opts: {

@@ -67,10 +67,10 @@ const RAW_CLASSIFICATION: readonly RawGate[] = [
   },
   {
     step: 'step-0.55-1x-upgrade',
-    kind: 'tech',
-    description: '1.x → 2.0 升级检测。技术迁移决策,AI 在 full-auto 默认跳过 / opt-in。',
-    fullAutoCanProceed: true,
-    userShouldReview: 'business-only'
+    kind: 'commit-floor',
+    description: '1.x → 2.0 升级检测。不可逆外部副作用(改写 config + cache schema),所有 mode 都必须 AskUserQuestion。full-auto 也暂停。',
+    fullAutoCanProceed: false,
+    userShouldReview: 'always'
   },
   {
     step: 'step-0.75-checkpoint-resume',

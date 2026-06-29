@@ -180,12 +180,14 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
       // presence does NOT inject a stale-presence reason here. The
       // CLI integration only branches on step-1-mode-select.
       // Use only full-auto + non-mode-selection steps (excluding
-      // the hard-pause steps step-0.5-openspec-opt-in and
-      // step-0.7-resume-detection which always pause).
+      // the hard-pause steps step-0.5-openspec-opt-in,
+      // step-0.7-resume-detection and step-0.55-1x-upgrade which
+      // always pause).
       const nonStep1 = GATED_STEPS.filter(
         (s) => s !== 'step-1-mode-select'
           && s !== 'step-0.5-openspec-opt-in'
           && s !== 'step-0.7-resume-detection'
+          && s !== 'step-0.55-1x-upgrade'
       );
       for (const step of nonStep1) {
         const decision = shouldPauseAtGate({ mode: 'full-auto', step });

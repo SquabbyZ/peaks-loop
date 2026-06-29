@@ -69,10 +69,15 @@ describe('shouldAutoProceed — D5.a', () => {
 describe('shouldPauseAtGate — 4 modes × 14 GATED_STEPS (56 cases)', () => {
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #1): hard-pause
   // steps (mode/context selection) ALWAYS pause regardless of mode.
+  // v2.18.4 slice 002-fix-first-run-step-gates: added
+  // `step-0.55-1x-upgrade` to the hard-pause set (1.x → 2.0
+  // upgrade is an irreversible external side effect and must always
+  // pause, even in full-auto).
   const HARD_PAUSE_STEP_SET: ReadonlySet<GatedStepId> = new Set<GatedStepId>([
     'step-1-mode-select',
     'step-0.5-openspec-opt-in',
-    'step-0.7-resume-detection'
+    'step-0.7-resume-detection',
+    'step-0.55-1x-upgrade'
   ]);
   for (const mode of SOLO_MODES) {
     for (const step of GATED_STEPS) {
