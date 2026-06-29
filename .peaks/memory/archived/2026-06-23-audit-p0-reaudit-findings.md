@@ -1,4 +1,7 @@
 # 2026-06-23 audit-p0 re-audit findings (handoff after compact)
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 
 > **Context.** This is a handoff note for a future session. The user manually
 > compacted after the peaks-solo audit + fix cycle. Pick this up by reading

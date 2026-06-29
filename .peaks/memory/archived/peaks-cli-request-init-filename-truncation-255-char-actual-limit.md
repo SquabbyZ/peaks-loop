@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: peaks-cli-request-init-filename-truncation-255-char-actual-limit
 description: peaks request init artefact filename slug is silently truncated to 248 chars; the actual code cap is `MAX_FILENAME_SLUG_LENGTH = 248` in src/shared/incrementing-number.ts:50, NOT 57 as the old memory claimed
 metadata:

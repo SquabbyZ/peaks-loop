@@ -1,4 +1,7 @@
 **Plan 3a ship state (Windows session, 2026-06-22, mid-compact):**
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 
 **Commits landed (in order):**
 - `785c935` — docs(plan): Plan 3a document

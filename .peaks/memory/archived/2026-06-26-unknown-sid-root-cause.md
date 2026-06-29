@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: 2026-06-26-unknown-sid-root-cause
 description: Root-cause diagnosis of `.peaks/_sub_agents/unknown-sid/` and `.peaks/_runtime/{sid-3,sid-h,sid-r,unknown-sid}/` orphan session dirs that drove the long-standing 5 `doctor.test.ts` carry-forward failures. Records the production-side bug, the test-side bug, and the 3-layer fix that eliminated both.
 metadata:

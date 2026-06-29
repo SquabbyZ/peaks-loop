@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: 2026-06-22-top-level-change-id-cleanup
 description: .peaks/_runtime/<YYYY-MM-DD-*>/ top-level dirs forbidden in 2.8.0+; 2.8.0-era orphan cleaned up + 4-layer defense (gitignore + vitest 8 cases + source-code redirect + CLI help-text guard).
 metadata:

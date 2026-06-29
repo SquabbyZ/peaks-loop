@@ -1,4 +1,7 @@
 # 2026-06-23 3度审计 findings (post-fix 71bf964)
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 
 > **Context.** Third audit pass on commit `71bf964 refactor(sub-agent):
 > address 2 HIGH + 4 MEDIUM + 2 LOW re-audit findings`. Brings 6 fresh

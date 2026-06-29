@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: v2-11-0-window-orphan-path-stripping-bug
 description: Investigated UserssmallMarkDesktoppeaks-cli orphan directory; root cause not pinpointed but candidate sources narrowed + no regression since 2026-06-26 12:55
 metadata:

@@ -46,7 +46,7 @@ import { VALID_PROJECT_MEMORY_KINDS } from '../../../src/services/memory/project
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const MEMORY_DIR = join(REPO_ROOT, '.peaks', 'memory');
-const ALLOWED_TOP_LEVEL_SUBDIRS = new Set(['audit-decisions', 'audit-prompts']);
+const ALLOWED_TOP_LEVEL_SUBDIRS = new Set(['audit-decisions', 'audit-prompts', 'archived']);
 
 interface ScanResult {
   /** HARD: top-level `.json` files other than `index.json`. */
@@ -196,7 +196,7 @@ describe('memory-shape guard — HARD checks (slice 2026-06-26-audit-artifact-wr
     expect(result.forbiddenTopLevelJson).toEqual([]);
   });
 
-  test('AC-5: top-level subdirs are limited to audit-decisions/ and audit-prompts/', () => {
+  test('AC-5: top-level subdirs are limited to audit-decisions/, audit-prompts/, archived/', () => {
     const result = scanShape(MEMORY_DIR);
     expect(result.forbiddenTopLevelSubdirs).toEqual([]);
   });

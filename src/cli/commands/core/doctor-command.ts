@@ -1,5 +1,7 @@
 import type { Command } from 'commander';
 import { runDoctor } from '../../../services/doctor/doctor-service.js';
+import { readBinding, dropStale } from '../../../services/session/binding-store.js';
+import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import { fail, ok } from '../../../shared/result.js';
 
@@ -16,6 +18,28 @@ export type DoctorLogsSection = {
   retentionDays: number;
   level: string;
 };
+
+// Slice v2.16.0 AC-10: stale binding TTL is 5 minutes by default. The
+// threshold is exposed as a CLI flag so users can tune it for
+// long-running sessions.
+const STALE_TTL_MS = 5 * 60 * 1000;
+
+// Slice v2.16.0 AC-10: identify stale instances (lastHeartbeat > 5min)
+// in the project-level binding. Used by `peaks doctor` and surfaced as
+// a warning in the report. Returns the stale entry descriptors.
+function listStaleInstances(projectRoot: string, ttlMs: number = STALE_TTL_MS): Array<{ sid: string; callerId: string; lastHeartbeat: string }> {
+  const binding = readBinding(projectRoot);
+  if (!binding) return [];
+  const cutoff = Date.now() - ttlMs;
+  const stale: Array<{ sid: string; callerId: string; lastHeartbeat: string }> = [];
+  for (const [sid, inst] of Object.entries(binding.instances)) {
+    const t = Date.parse(inst.lastHeartbeat);
+    if (Number.isFinite(t) && t < cutoff) {
+      stale.push({ sid, callerId: inst.callerId, lastHeartbeat: inst.lastHeartbeat });
+    }
+  }
+  return stale;
+}
 
 // Slice 2026-06-16-cli-logging (AC6) — `peaks doctor --log` section.
 //
@@ -62,18 +86,48 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       .command('doctor')
       .description('Run repository doctor checks')
       .option('--log', 'include a "logs" section in the doctor output (slice 2026-06-16-cli-logging, AC6)')
-  ).action(async (options: { json?: boolean; log?: boolean }) => {
+      .option('--cleanup-stale', 'drop stale instance entries from the project-level binding (v2.16.0 AC-10)')
+      .option('--stale-ttl-ms <ms>', 'stale-binding TTL in milliseconds (default 300000 = 5 minutes, v2.16.0 AC-10)')
+  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string }) => {
     const report = await runDoctor();
     let logsSection: DoctorLogsSection | null = null;
     if (options.log === true) {
       logsSection = await buildDoctorLogsSection();
     }
+
+    // v2.16.0 AC-10: scan binding for stale instances.
+    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
+    const ttl = options.staleTtlMs !== undefined ? Number(options.staleTtlMs) : STALE_TTL_MS;
+    const staleInstances = listStaleInstances(projectRoot, ttl);
+    let droppedStale: string[] = [];
+    if (options.cleanupStale === true) {
+      const { dropped } = dropStale(projectRoot, ttl);
+      droppedStale = dropped;
+    }
+    const staleBindingSection = {
+      ttlMs: ttl,
+      staleCount: staleInstances.length,
+      staleInstances,
+      droppedCount: droppedStale.length,
+      droppedSids: droppedStale
+    };
+
     const data = logsSection === null
-      ? report
-      : { ...report, logs: logsSection };
-    const result = report.summary.ok
+      ? { ...report, staleBinding: staleBindingSection }
+      : { ...report, logs: logsSection, staleBinding: staleBindingSection };
+    const result = report.summary.ok && staleInstances.length === 0
       ? ok('doctor', data)
-      : fail('doctor', 'DOCTOR_FAILED', 'One or more doctor checks failed', data, ['Fix failed checks and rerun peaks doctor']);
+      : fail(
+          'doctor',
+          'DOCTOR_FAILED',
+          staleInstances.length > 0
+            ? `Found ${staleInstances.length} stale binding instance(s); rerun with --cleanup-stale to drop them`
+            : 'One or more doctor checks failed',
+          data,
+          staleInstances.length > 0
+            ? ['Run `peaks doctor --cleanup-stale` to drop stale entries']
+            : ['Fix failed checks and rerun peaks doctor']
+        );
     if (options.json === true) {
       printResult(io, result, true);
     } else {
@@ -90,12 +144,26 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
         io.stdout(`    retentionDays: ${logsSection.retentionDays}`);
         io.stdout(`    level:         ${logsSection.level}`);
       }
+      io.stdout('\n  stale-binding (v2.16.0 AC-10):');
+      if (staleInstances.length === 0) {
+        io.stdout('    + no stale instances');
+      } else {
+        io.stdout(`    × ${staleInstances.length} stale instance(s):`);
+        for (const s of staleInstances) {
+          io.stdout(`      - sid=${s.sid} caller=${s.callerId} lastSeen=${s.lastHeartbeat}`);
+        }
+        if (droppedStale.length > 0) {
+          io.stdout(`    cleaned up: ${droppedStale.length}`);
+        } else {
+          io.stdout('    rerun with --cleanup-stale to drop them');
+        }
+      }
       io.stdout(`\n  ${report.summary.passed} passed, ${report.summary.failed} failed`);
-      if (!report.summary.ok) {
-        io.stderr(`\nDOCTOR_FAILED: ${report.summary.failed} check(s) failed. Fix them and rerun peaks doctor.`);
+      if (!report.summary.ok || staleInstances.length > 0) {
+        io.stderr(`\nDOCTOR_FAILED: ${staleInstances.length > 0 ? 'stale binding present' : `${report.summary.failed} check(s) failed`}.`);
       }
     }
-    if (!report.summary.ok) {
+    if (!report.summary.ok || staleInstances.length > 0) {
       process.exitCode = 1;
     }
   });

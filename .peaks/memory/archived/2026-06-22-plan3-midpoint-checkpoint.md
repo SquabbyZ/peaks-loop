@@ -1,4 +1,7 @@
 # Plan 3 midpoint checkpoint (Tasks 1-4 done, 7 remaining)
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 
 **Date:** 2026-06-22
 **Branch:** main

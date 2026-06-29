@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: peaks-slice-check-axis-mismatch-false-negatives
 description: peaks slice check looks for review-fanout at change-id axis but artefacts live at session-id axis; report false negatives on review-fanout and gate-verify-pipeline stages
 metadata:

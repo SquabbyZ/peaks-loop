@@ -1,4 +1,7 @@
 ---
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 name: peaks-request-session-id-leaks-into-change-id
 description: peaks-cli CLI bug — `request init/transition --session-id X` writes envelope to `.peaks/X/...` (change-id dir) instead of `.peaks/_runtime/<sid>/...`, violating the two-axis naming convention. Discoverer: Plan 1 ship wave on 2026-06-21.
 metadata:

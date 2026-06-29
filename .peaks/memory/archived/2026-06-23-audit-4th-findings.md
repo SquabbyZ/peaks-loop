@@ -1,4 +1,7 @@
 # 2026-06-23 4 度审计 findings
+archived: 2026-06-29
+reason: v2.16.0-alpha change-id axis scope reduction
+status: archived
 
 > **Context.** 4 度审计 per the 6 fresh dimensions in
 > `2026-06-23-audit-4th-plan.md`. Prior audits covered correctness,
