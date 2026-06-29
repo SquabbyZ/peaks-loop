@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import { runDoctor } from '../../../services/doctor/doctor-service.js';
-import { readBinding, dropStale } from '../../../services/session/binding-store.js';
+import { readBinding, dropStale, rebuildBindingFromLegacy } from '../../../services/session/binding-store.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import { fail, ok } from '../../../shared/result.js';
@@ -88,7 +88,81 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       .option('--log', 'include a "logs" section in the doctor output (slice 2026-06-16-cli-logging, AC6)')
       .option('--cleanup-stale', 'drop stale instance entries from the project-level binding (v2.16.0 AC-10)')
       .option('--stale-ttl-ms <ms>', 'stale-binding TTL in milliseconds (default 300000 = 5 minutes, v2.16.0 AC-10)')
-  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string }) => {
+      // v2.18.2 PATCH scope (follow-up issue #1): rewrite legacy
+      // v2.16.0 / v2.17.0 binding files in place so every existing
+      // callerId gets the `${envSignal}#${pid}` suffix introduced in
+      // v2.18.0. Mutually exclusive with --cleanup-stale to keep the
+      // semantics unambiguous (rebuild = structural change,
+      // cleanup-stale = TTL-based prune).
+      .option('--rebuild-binding', 'rewrite legacy v2.16.0 / v2.17.0 callerId entries to the v2.18.0+ `#${pid}` format (v2.18.2, follow-up issue #1)')
+      // v2.18.2 cycle 2: --project makes the project-root-bound
+      // flags (--rebuild-binding, --cleanup-stale, stale-binding
+      // scan) addressable for non-current projects. The doctor was
+      // hardcoded to findProjectRoot(process.cwd()) which is the
+      // wrong default for users inspecting a sibling project.
+      .option('--project <path>', 'target project root (defaults to git root or cwd)')
+  ).action(async (options: { json?: boolean; log?: boolean; cleanupStale?: boolean; staleTtlMs?: string; rebuildBinding?: boolean; project?: string }) => {
+    // v2.18.2 cycle 2 (Q2 arbitration): --rebuild-binding and
+    // --cleanup-stale BOTH mutate the binding file. Running them
+    // together is ambiguous (rebuild rewrites callerIds; cleanup
+    // prunes entries). Hard-reject the combination so the user
+    // gets an actionable error instead of a silent short-circuit.
+    if (options.rebuildBinding === true && options.cleanupStale === true) {
+      const envelope = fail(
+        'doctor.rebuild-binding',
+        'CONFLICTING_FLAGS',
+        '--rebuild-binding and --cleanup-stale are mutually exclusive',
+        { rebuildBinding: true, cleanupStale: true },
+        ['Run them in separate `peaks doctor` invocations']
+      );
+      printResult(io, envelope, options.json === true);
+      process.exitCode = 1;
+      return;
+    }
+
+    // v2.18.2 cycle 2: --project override, applies to BOTH the
+    // --rebuild-binding short-circuit AND the binding-stale scan.
+    const projectRoot = options.project !== undefined
+      ? options.project
+      : (findProjectRoot(process.cwd()) ?? process.cwd());
+
+    // v2.18.2: short-circuit on --rebuild-binding so the doctor
+    // checks don't run when the user is asking for a single targeted
+    // migration. The rebuild is observable in its own right
+    // (rewritten/preserved counts) and does not benefit from running
+    // the full doctor surface first.
+    if (options.rebuildBinding === true) {
+      const result = rebuildBindingFromLegacy(projectRoot);
+      if (result.errors.length > 0) {
+        for (const err of result.errors) {
+          io.stderr(`  warning: ${err}`);
+        }
+      }
+      const data = {
+        rebuilt: !result.noop,
+        rewritten: result.rewritten,
+        preserved: result.preserved,
+        errors: result.errors,
+        projectRoot
+      };
+      const envelope = result.rewritten === 0
+        ? ok('doctor.rebuild-binding', data, [], result.noop ? ['no legacy callerId entries found — nothing to rewrite'] : [])
+        : fail(
+            'doctor.rebuild-binding',
+            result.noop ? 'BINDING_REBUILD_NOOP' : 'BINDING_REBUILD_OK',
+            result.noop
+              ? 'No legacy callerId entries to rewrite'
+              : `Rewrote ${result.rewritten} legacy callerId entry/entries (preserved ${result.preserved})`,
+            data,
+            ['Re-run `peaks binding status` to verify the rewritten entries']
+          );
+      printResult(io, envelope, options.json === true);
+      if (result.errors.length > 0 && result.rewritten === 0) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+
     const report = await runDoctor();
     let logsSection: DoctorLogsSection | null = null;
     if (options.log === true) {
@@ -96,7 +170,6 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
     }
 
     // v2.16.0 AC-10: scan binding for stale instances.
-    const projectRoot = findProjectRoot(process.cwd()) ?? process.cwd();
     const ttl = options.staleTtlMs !== undefined ? Number(options.staleTtlMs) : STALE_TTL_MS;
     const staleInstances = listStaleInstances(projectRoot, ttl);
     let droppedStale: string[] = [];

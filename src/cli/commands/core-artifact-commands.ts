@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import type { ProgramIO } from '../cli-helpers.js';
 import { registerArtifactsCommand } from './core/artifacts-command.js';
+import { registerBindingCommands } from './core/binding-commands.js';
 import { registerDoctorCommand, type DoctorLogsSection } from './core/doctor-command.js';
 import { registerMemoryCommand } from './core/memory-command.js';
 import { registerProfileCommand } from './core/profile-command.js';
@@ -29,6 +30,7 @@ export type { DoctorLogsSection, BindingSource } from './core/doctor-command.js'
  */
 export function registerCoreAndArtifactCommands(program: Command, io: ProgramIO): void {
   registerDoctorCommand(program, io);
+  registerBindingCommands(program, io);
   registerSkillCommand(program, io);
   registerSessionCommand(program, io);
   registerProfileCommand(program, io);
