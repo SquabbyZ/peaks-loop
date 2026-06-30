@@ -16,6 +16,8 @@
  * the 800-line budget.
  */
 import { Command } from 'commander';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { resolveWorkflow, planWorkflow, planWorkflowRun } from '../../services/workflow/workflow-loader.js';
 import { lintWorkflowSpec, type WorkflowSpec } from '../../services/workflow/workflow-spec.js';
 import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from '../../services/loop/evaluator-dispatcher.js';
@@ -31,12 +33,20 @@ import {
   buildSpec,
   lintLoopSpec,
   lintSpecFile,
+  specPath,
+  MONOTONIC_TERMINATION,
+  DEFAULT_MAX_CYCLES,
   type LoopSpec,
   type SpecEvaluatorEntry,
   type SpecSlaEntry,
   type SpecTermination,
   type SpecTerminationStrategy
 } from '../../services/loop/spec-service.js';
+import {
+  runLoop,
+  resolveRunContext,
+  type RunDriverResult
+} from '../../services/loop/run-driver.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
@@ -168,14 +178,15 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
   addJsonOption(
     loop
       .command('eval')
-      .description('Slice B.2: invoke a native evaluator directly. The runtime calls the evaluator (no LLM scheduling) and returns a verdict envelope compatible with peaks verdict aggregate.')
+      .description('Slice B.2: invoke a native evaluator directly. The runtime calls the evaluator (no LLM scheduling) and returns a verdict envelope compatible with peaks verdict aggregate. Pass --capture-score to also persist the score row to .peaks/_runtime/<sid>/loop/<rid>/cycles/cycle-N.json (P0 closure: this is the score the run-driver reads back).')
       .argument('<rid>', 'request id (e.g. 2026-06-30-...)')
       .requiredOption('--evaluator <name>', `evaluator: ${[...VALID_EVALUATORS].join(', ')}`)
-      .option('--session <sid>', 'session id (required by --evaluator monotonic-improvement; ignored otherwise)')
+      .option('--session <sid>', 'session id (required by --evaluator monotonic-improvement; also required by --capture-score)')
       .option('--project <path>', 'project root (default: cwd)')
       .option('--scope <scope>', 'optional scope expression (forwarded to the evaluator)')
       .option('--threshold <threshold>', 'optional SLA threshold (evaluator-specific)')
-  ).action((rid: string, options: { evaluator: string; session?: string; project?: string; scope?: string; threshold?: string; json?: boolean }) => {
+      .option('--capture-score', 'persist the verdict score to .peaks/_runtime/<sid>/loop/<rid>/cycles/cycle-N.json (requires --session); adds data.score', false)
+  ).action((rid: string, options: { evaluator: string; session?: string; project?: string; scope?: string; threshold?: string; captureScore?: boolean; json?: boolean }) => {
     try {
       if (!VALID_EVALUATORS.has(options.evaluator as EvaluatorKind)) {
         printResult(io, fail('loop.eval', 'UNKNOWN_EVALUATOR', `evaluator "${options.evaluator}" is not a native evaluator (allowed: ${[...VALID_EVALUATORS].join(', ')})`, { rid }, [`Use one of: ${[...VALID_EVALUATORS].join(', ')}`]), options.json);
@@ -192,6 +203,40 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
       });
       const verdict = envelope.gateAction;
       const exitCode = envelope.gateAction === 'block' ? 1 : 0;
+      // --capture-score path: persist a single-row cycle-N.json to
+      // the run-driver's cycles dir. Mirrors the scoring convention
+      // of monotonic-guard (pass=1.0, warn=0.5, block=0.0; degraded=0.25).
+      let capture: { score: number; persistedAt: string | null } | null = null;
+      if (options.captureScore === true) {
+        if (options.session === undefined || options.session.length === 0) {
+          printResult(io, fail('loop.eval', 'CAPTURE_SCORE_NEEDS_SESSION', '--capture-score requires --session <sid>', { rid }, ['Pass --session <sid> alongside --capture-score.']), options.json);
+          process.exitCode = 1;
+          return;
+        }
+        const score = envelope.degraded ? 0.25 : (envelope.gateAction === 'pass' ? 1.0 : envelope.gateAction === 'warn' ? 0.5 : 0.0);
+        const dir = join(projectRoot, '.peaks', '_runtime', options.session, 'loop', rid, 'cycles');
+        const n = nextEvalCaptureIndex(projectRoot, options.session, rid);
+        const path = join(dir, `cycle-${n}.json`);
+        try {
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(path, JSON.stringify({
+            cycle: n,
+            rid,
+            sid: options.session,
+            persistedAt: new Date().toISOString(),
+            scores: [{
+              evaluator: envelope.kind,
+              score,
+              gateAction: envelope.gateAction,
+              degraded: envelope.degraded,
+              observedAt: new Date().toISOString()
+            }]
+          }), 'utf8');
+          capture = { score, persistedAt: path };
+        } catch {
+          capture = { score, persistedAt: null };
+        }
+      }
       printResult(io, ok('loop.eval', {
         rid,
         evaluator: envelope.kind,
@@ -200,7 +245,8 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
         violations: envelope.violations,
         summary: envelope.summary,
         wallSeconds: envelope.wallSeconds,
-        degraded: envelope.degraded
+        degraded: envelope.degraded,
+        ...(capture !== null ? { score: capture.score, capture } : {})
       }, [], envelope.degraded
         ? ['Evaluator ran in degraded mode (peaks CLI unavailable). Verify the verdict by running `peaks verdict aggregate --from-rid ' + rid + '`.',
            'Re-run on a fully-installed peaks-cli environment for a real verdict.']
@@ -318,19 +364,30 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
   addJsonOption(
     spec
       .command('bootstrap')
-      .description('Slice E.2: write a default spec.yaml for a rid at `.peaks/_runtime/<sid>/loop/<rid>/spec.yaml`.')
+      .description('Slice E.2: write a default spec.yaml for a rid at `.peaks/_runtime/<sid>/loop/<rid>/spec.yaml`. Refuses to overwrite an existing spec without --force (P1 from dogfood audit: bootstrap is destructive on re-run).')
       .argument('<rid>', 'request id')
       .requiredOption('--session <sid>', 'session id')
       .option('--project <path>', 'project root (default: cwd)')
-      .option('--strategy <strategy>', 'termination strategy (manual|max-cycles|monotonic-violation)', 'monotonic-violation')
-      .option('--max-cycles <n>', 'max-cycles (only when strategy=max-cycles)', '3')
-  ).action((rid: string, options: { session: string; project?: string; strategy: string; maxCycles: string; json?: boolean }) => {
+      .option('--strategy <strategy>', `termination strategy (manual|max-cycles|${MONOTONIC_TERMINATION})`, MONOTONIC_TERMINATION)
+      .option('--max-cycles <n>', `max-cycles (only when strategy=max-cycles; default ${DEFAULT_MAX_CYCLES})`, String(DEFAULT_MAX_CYCLES))
+      .option('--force', 'overwrite an existing spec.yaml (without --force, bootstrap refuses with SPEC_EXISTS_NEEDS_FORCE)', false)
+  ).action((rid: string, options: { session: string; project?: string; strategy: string; maxCycles: string; force?: boolean; json?: boolean }) => {
     try {
       const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      const path = specPath(projectRoot, options.session, rid);
+      // P1二次保护:spec.yaml 已存在且未带 --force → SPEC_EXISTS_NEEDS_FORCE
+      if (existsSync(path) && options.force !== true) {
+        printResult(io, fail('loop.spec.bootstrap', 'SPEC_EXISTS_NEEDS_FORCE', `spec.yaml already exists at ${path}; re-run with --force to overwrite`, { rid, sessionId: options.session, path }, [
+          `Re-run with \`peaks loop spec bootstrap ${rid} --session ${options.session} --force\` to overwrite.`,
+          `Or edit \`${path}\` directly.`
+        ]), options.json);
+        process.exitCode = 1;
+        return;
+      }
       const strategyRaw = options.strategy as SpecTerminationStrategy;
-      const strategy: SpecTerminationStrategy = (strategyRaw === 'max-cycles' || strategyRaw === 'monotonic-violation' || strategyRaw === 'manual') ? strategyRaw : 'monotonic-violation';
+      const strategy: SpecTerminationStrategy = (strategyRaw === 'max-cycles' || strategyRaw === MONOTONIC_TERMINATION || strategyRaw === 'manual') ? strategyRaw : MONOTONIC_TERMINATION;
       const termination: SpecTermination = strategy === 'max-cycles'
-        ? { strategy, maxCycles: Math.max(1, Math.floor(Number(options.maxCycles) || 3)) }
+        ? { strategy, maxCycles: Math.max(1, Math.floor(Number(options.maxCycles) || DEFAULT_MAX_CYCLES)) }
         : { strategy };
       const evaluators: SpecEvaluatorEntry[] = [
         { kind: 'karpathy', gate: 'Gate B3', scope: 'src/' },
@@ -353,16 +410,18 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
         process.exitCode = 1;
         return;
       }
-      const path = persistSpec(projectRoot, options.session, specObj);
+      const writtenPath = persistSpec(projectRoot, options.session, specObj);
       printResult(io, ok('loop.spec.bootstrap', {
         rid,
         sessionId: options.session,
         projectRoot,
-        path,
+        path: writtenPath,
         spec: specObj,
-        lint: { ok: report.ok, errors: report.errors, warnings: report.warnings }
+        lint: { ok: report.ok, errors: report.errors, warnings: report.warnings },
+        overwritten: options.force === true && existsSync(writtenPath)
       }, [], [
-        `Run \`peaks loop spec lint ${path}\` to re-validate.`
+        `Run \`peaks loop spec lint ${writtenPath}\` to re-validate.`,
+        `Then run \`peaks loop run ${rid} --session ${options.session}\` to execute the loop.`
       ]), options.json);
     } catch (error) {
       printResult(io, fail('loop.spec.bootstrap', 'LOOP_SPEC_BOOTSTRAP_FAILED', getErrorMessage(error), { rid }, ['Verify the rid, session, and strategy flag.']), options.json);
@@ -395,4 +454,134 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
       process.exitCode = 1;
     }
   });
+
+  // peaks loop run <rid> — Slice F.1 (P0 closure): the closed-loop
+  // driver that actually consumes `termination.strategy` (previously
+  // declared-and-validated but never consumed — dogfood audit #2).
+  addJsonOption(
+    loop
+      .command('run')
+      .description(`Slice F.1: drive the closed loop for <rid> per .peaks/_runtime/<sid>/loop/<rid>/spec.yaml. Consumes termination.strategy (${MONOTONIC_TERMINATION} | max-cycles | manual); aborts on MONOTONICITY_VIOLATION.`)
+      .argument('<rid>', 'request id (e.g. 2026-06-30-...)')
+      .requiredOption('--session <sid>', 'session id')
+      .option('--project <path>', 'project root (default: cwd)')
+      .option('--strategy <strategy>', `override termination.strategy (allowed: ${MONOTONIC_TERMINATION}, max-cycles, manual)`)
+      .option('--max-cycles <n>', `override termination.maxCycles (default ${DEFAULT_MAX_CYCLES})`)
+      .option('--threshold <t>', 'monotonic threshold (0..1); default 0.05')
+      .option('--no-persist', 'skip writing cycle-N.json + summary to disk')
+  ).action((rid: string, options: { session: string; project?: string; strategy?: string; maxCycles?: string; threshold?: string; persist?: boolean; json?: boolean }) => {
+    try {
+      const { projectRoot, sid, rid: r2 } = resolveRunContext({ ...(options.project !== undefined ? { project: options.project } : {}), session: options.session, rid });
+      const threshold = options.threshold !== undefined ? Number(options.threshold) : undefined;
+      if (threshold !== undefined && (!Number.isFinite(threshold) || threshold < 0 || threshold > 1)) {
+        printResult(io, fail('loop.run', 'INVALID_THRESHOLD', `threshold must be finite in [0,1] (got "${options.threshold}")`, { rid: r2 }, [`Pass --threshold 0.05 (default) or any number in [0,1].`]), options.json);
+        process.exitCode = 1;
+        return;
+      }
+      const maxCycles = options.maxCycles !== undefined ? Math.max(1, Math.floor(Number(options.maxCycles) || DEFAULT_MAX_CYCLES)) : undefined;
+      const strategyOverride = options.strategy as SpecTerminationStrategy | undefined;
+      const result: RunDriverResult = runLoop({
+        projectRoot,
+        sid,
+        rid: r2,
+        ...(threshold !== undefined ? { threshold } : {}),
+        ...(maxCycles !== undefined ? { maxCyclesOverride: maxCycles } : {}),
+        ...(strategyOverride !== undefined ? { strategyOverride } : {}),
+        persist: options.persist !== false
+      });
+      const exitCode = mapRunDriverCodeToExit(result.code);
+      const finalReportCode = result.finalReport?.code ?? null;
+      printResult(io, result.ok
+        ? ok('loop.run', {
+            rid: r2,
+            sessionId: sid,
+            projectRoot,
+            code: result.code,
+            strategy: result.strategy,
+            maxCycles: result.maxCycles,
+            cycles: result.cycles.map((c) => ({
+              cycle: c.cycle,
+              rows: c.rows,
+              persistedAt: c.persistedAt,
+              monotonicReport: c.monotonicReport
+            })),
+            finalReport: result.finalReport,
+            finalReportCode,
+            summary: result.summary
+          }, [], result.code === 'RUN_OK'
+            ? [`Loop completed ${result.summary.totalCycles} cycle(s) with ${result.summary.regressionCount} regression(s).`]
+            : [`Run driver exited with ${result.code}: ${result.message}`])
+        : fail('loop.run', result.code, result.message, {
+            rid: r2,
+            sessionId: sid,
+            projectRoot,
+            code: result.code,
+            strategy: result.strategy,
+            maxCycles: result.maxCycles,
+            cycles: result.cycles,
+            finalReport: result.finalReport,
+            finalReportCode,
+            summary: result.summary
+          }, nextActionsForCode(result.code, r2, sid, result.summary)),
+        options.json);
+      process.exitCode = exitCode;
+    } catch (error) {
+      printResult(io, fail('loop.run', 'RUN_FAILED', getErrorMessage(error), { rid }, ['Verify the rid and session binding.']), options.json);
+      process.exitCode = 1;
+    }
+  });
+}
+
+/** Test seam: pick the next cycle-N.json number for capture-score
+ *  writes. The run-driver also writes to the same dir; the next
+ *  index = max(prior)+1, or 1. */
+function nextEvalCaptureIndex(projectRoot: string, sid: string, rid: string): number {
+  const dir = join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid, 'cycles');
+  if (!existsSync(dir)) return 1;
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('node:fs') as typeof import('node:fs');
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return 1;
+  }
+  let best: number | null = null;
+  for (const entry of entries) {
+    const m = entry.match(/^cycle-(\d+)\.json$/);
+    if (m === null) continue;
+    const n = parseInt(m[1] ?? '0', 10);
+    if (best === null || n > best) best = n;
+  }
+  return (best ?? 0) + 1;
+}
+
+/** Map a run-driver code to a process exit code. */
+function mapRunDriverCodeToExit(code: string): number {
+  if (code === 'RUN_OK' || code === 'RUN_OK_REGRESSION') return 0;
+  return 1;
+}
+
+function nextActionsForCode(code: string, rid: string, sid: string, summary: { reachedMaxCycles: boolean; regressionCount: number; totalCycles: number }): string[] {
+  switch (code) {
+    case 'SPEC_NOT_FOUND':
+      return [`Create a spec with \`peaks loop spec bootstrap ${rid} --session ${sid}\`.`];
+    case 'SPEC_INVALID':
+      return [`Re-run \`peaks loop spec lint <path>\` to see the schema errors.`];
+    case 'UNKNOWN_TERMINATION_STRATEGY':
+      return [`Edit the spec.yaml and set termination.strategy to one of: ${MONOTONIC_TERMINATION}, max-cycles, manual.`];
+    case 'MONOTONICITY_VIOLATION':
+      return [
+        'Inspect the regression rows in the cycles output and the previous cycle row at .peaks/_runtime/' + sid + '/loop/' + rid + '/cycles/.',
+        'Fix the regression in the next iteration and re-run.'
+      ];
+    case 'LOCKED':
+      return ['Wait for the in-flight loop run to complete, or pick a different rid.'];
+    case 'RUN_OK_REGRESSION':
+      return ['A regression was observed; the run captured it for operator review.'];
+    case 'RUN_OK':
+      return [`Loop completed ${summary.totalCycles} cycle(s); ${summary.regressionCount} regression(s).`];
+    default:
+      return ['Inspect the run-driver output above.'];
+  }
 }

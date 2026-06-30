@@ -45,6 +45,17 @@ export interface SpecSlaEntry {
 
 export type SpecTerminationStrategy = 'max-cycles' | 'monotonic-violation' | 'manual';
 
+/** Default termination strategy — wired by `peaks loop run` so a
+ *  spec.yaml produced by `loop spec bootstrap` actually drives the
+ *  loop driver. Previously the string was declared-and-validated but
+ *  never consumed (P0 in dogfood audit). */
+export const MONOTONIC_TERMINATION: SpecTerminationStrategy = 'monotonic-violation';
+
+/** Default max-cycles value (used when the strategy is `max-cycles`
+ *  and the spec doesn't pin a value). Mirrors the slice dispatch
+ *  prompt's `termination.maxCycles` default. */
+export const DEFAULT_MAX_CYCLES = 5;
+
 export interface SpecTermination {
   readonly strategy: SpecTerminationStrategy;
   readonly maxCycles?: number;
