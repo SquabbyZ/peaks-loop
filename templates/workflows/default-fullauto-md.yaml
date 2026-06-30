@@ -1,0 +1,136 @@
+---
+schemaVersion: 1
+id: default-fullauto-md
+label: Default fullauto-md workflow (peaks-solo)
+description: |
+  Encapsulates the canonical peaks-solo step sequence (step 0 / 0.5 /
+  0.6 / 0.7 / 0.55 / 1 / 2 / N / N+1 / N+2). The runtime executes
+  phases in declaration order; LLM is the worker, not the orchestrator.
+  This file is git-tracked; project overrides live under
+  `.peaks/workflows/<id>.yaml` (per ADR 0007 v2 concern #3).
+phases:
+  - id: step-0-init
+    role: peaks-solo
+    promptTemplate: |
+      Initialize the session: bind the project via `peaks workspace init`
+      and confirm the active session id.
+    gates: [Gate A1]
+    outputContract: [sessionId, projectRoot]
+  - id: step-0-5-collect
+    role: peaks-solo
+    promptTemplate: |
+      Run `peaks context build` to assemble the 4-layer context (PRD +
+      standards + memories + gates).
+    gates: [Gate A1]
+    outputContract: [contextPath]
+    dependsOn: [step-0-init]
+  - id: step-0-6-classify
+    role: peaks-solo
+    promptTemplate: |
+      Run `peaks classify` to determine the L1 task class (rd/qa/feat/...)
+      and emit the per-level gate set.
+    gates: [Gate A1]
+    outputContract: [taskClass, gateSet]
+    dependsOn: [step-0-5-collect]
+  - id: step-0-7-scope
+    role: peaks-solo
+    promptTemplate: |
+      Decompose the request into a slice DAG (`peaks slice-decompose`)
+      and produce the parallel fan-out plan.
+    gates: [Gate A1]
+    outputContract: [sliceDag]
+    dependsOn: [step-0-6-classify]
+  - id: step-0-55-preflight
+    role: peaks-solo
+    promptTemplate: |
+      Run `peaks loop preflight` (doctor + audit) before dispatching the
+      first RD phase.
+    gates: [Gate A1]
+    outputContract: [preflightOk]
+    dependsOn: [step-0-7-scope]
+  - id: step-1-rd
+    role: peaks-rd
+    promptTemplate: |
+      Dispatch the RD worker for each slice in the DAG. Each worker
+      produces a `<rid>.md` request under `.peaks/_runtime/<sid>/rd/`.
+    gates: [Gate B1, Gate B2, Gate B3, Gate B4]
+    outputContract: [rdRequests]
+    dependsOn: [step-0-55-preflight]
+    parallelGroup: rd-fanout
+  - id: step-2-qa
+    role: peaks-qa
+    promptTemplate: |
+      Dispatch the QA worker for each RD request, producing the
+      verdict tree.
+    gates: [Gate C1, Gate C2]
+    outputContract: [qaVerdicts]
+    dependsOn: [step-1-rd]
+    parallelGroup: qa-fanout
+  - id: step-n-evaluators
+    role: peaks-loop
+    promptTemplate: |
+      Invoke the native evaluators in parallel: karpathy, code-review,
+      security-review, perf-baseline.
+    gates: [Gate B3, Gate B4, Gate D1]
+    outputContract: [evaluatorTree]
+    dependsOn: [step-2-qa]
+  - id: step-n-1-aggregate
+    role: peaks-loop
+    promptTemplate: |
+      Run `peaks verdict aggregate` to merge the 5 envelope sources into
+      a single verdict tree.
+    gates: [Gate D1]
+    outputContract: [verdict]
+    dependsOn: [step-n-evaluators]
+  - id: step-n-2-mut
+    role: peaks-loop
+    promptTemplate: |
+      Run `peaks mut report` (mutation testing) and merge into the
+      verdict tree.
+    gates: [Gate B2]
+    outputContract: [mutReport]
+    dependsOn: [step-n-1-aggregate]
+gates:
+  - id: Gate A1
+    sopId: peaks-session-binding
+    description: Session binding + workspace init present
+  - id: Gate B1
+    sopId: peaks-rd-request
+  - id: Gate B2
+    sopId: peaks-test-coverage
+  - id: Gate B3
+    sopId: peaks-code-review
+  - id: Gate B4
+    sopId: peaks-security-review
+  - id: Gate C1
+    sopId: peaks-qa-request
+  - id: Gate C2
+    sopId: peaks-qa-verdict
+  - id: Gate D1
+    sopId: peaks-verdict-aggregate
+evaluators:
+  - type: karpathy
+    gate: Gate B3
+    scope: src/
+  - type: code-review
+    gate: Gate B3
+    scope: src/
+  - type: security-review
+    gate: Gate B4
+    scope: src/
+  - type: perf-baseline
+    gate: Gate B4
+    scope: src/
+  - type: verdict-aggregate
+    gate: Gate D1
+contextSnapshot:
+  files:
+    - .peaks/PROJECT.md
+    - .peaks/standards/common/coding-style.md
+  memory:
+    - .peaks/memory/parked-peaks-workflow-primitive.md
+    - .peaks/memory/peaks-cli-24h-ai-programmer-positioning.md
+budget:
+  tokens: 80000
+  wallSeconds: 1800
+  cycles: 3

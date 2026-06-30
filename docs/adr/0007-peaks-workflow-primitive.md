@@ -1,11 +1,12 @@
 # ADR 0007: peaks-workflow primitive
 
-- **Status:** proposed — 2026-06-12
-- **Authors:** smallmark1912 + Claude (peaks-solo session 2026-06-12-session-dbc275)
-- **Target release:** post-2.1.0 (no earlier than 2.2.0)
+- **Status:** accepted — 2026-06-30 (v2 update)
+- **Authors:** smallmark1912 + Claude (peaks-solo session 2026-06-12-session-dbc275; v2 update: 2026-06-30-session-f90141)
+- **Target release:** v3.0.0 (Loop Engineering native)
 - **Supersedes:** nothing
 - **Superseded by:** nothing yet
 - **Companion:** [[parked-2.1.0-browser-service]] (sibling parked ADR)
+- **Related:** `.peaks/memory/parked-peaks-workflow-primitive.md` (deferral context); `.peaks/_runtime/2026-06-30-session-f90141/loop-eng-alignment/01-similar-75-gaps-25.md` (alignment matrix); `02-deep-research-synthesis.md` (Karpathy + SWE-bench + Anthropic first-source synthesis)
 
 ## Context
 
@@ -92,23 +93,36 @@ A new primitive is the cleanest. The composability story (workflow ↔ sop ↔ s
 
 ## Open concerns (lifted from sibling ADR 0006 review)
 
-These were the same concerns I raised against ADR 0006; they apply here too and are **not yet resolved**:
+These were the same concerns I raised against ADR 0006; they apply here too. **v2 update (2026-06-30) resolves all 5**:
 
-1. **State persistence layer.** Where does the captured workflow live between record and run? `.peaks/workflows/<id>.md` (text, git-friendly, reviewable) vs. a binary store (faster, less transparent). Recommendation: text + git, since reviewability is peaks-cli's core value.
-2. **Workflow versioning.** `peaks workflow show <id>` should diff against last-run. Schema migration: what happens when the captured workflow references a peaks-* skill that has since been renamed?
-3. **Cross-project composition.** A user-authored workflow in `~/.peaks/workflows/oauth-callback.md` references `skills/peaks-rd/SKILL.md` (project-relative) — does the global workflow work in every project, or do project workflows override?
-4. **LLM drift inside a phase.** Even with a frozen phase sequence, the LLM executing the phase can still drift. The workflow primitive does not solve this; it just narrows the surface.
-5. **Token economics in re-recording.** If the user re-records the same workflow weekly (because peaks-solo gets a feature), that's another 3-5k tokens per record. The "savings" only accrues after the workflow stabilizes.
+1. **State persistence layer.** Resolved: text + git. Storage = `.peaks/workflows/<id>.yaml` (project, git-tracked) or `~/.peaks/workflows/<id>.yaml` (global, cross-project). Schema is hand-rolled to avoid a new dep on `js-yaml`; reviewability is the core value (Karpathy 2017 evaluation-criterion thesis: the spec is the program).
+2. **Workflow versioning.** Resolved: each workflow file carries `schemaVersion: 1`. When a referenced peaks-* skill is renamed, the LLM-driven reconciliation step surfaces a lint warning (`unknown role`); a future minor adds `peaks workflow migrate` for auto-rewrite. The on-disk SHA + the bundle of (phases, gates, evaluators, contextSnapshot, budget) is the contract.
+3. **Cross-project composition.** Resolved: resolution order = project, then global, then bundled. Project-local workflows override; the bundled `default-fullauto-md` ships as the fallback so a fresh checkout always has a working workflow. Role paths inside `promptTemplate` are intentionally free-form text — peaks-cli does NOT resolve them as filesystem paths, only the role token (e.g. `peaks-rd`) is validated.
+4. **LLM drift inside a phase.** Resolved (in scope of v3.0.0): the workflow spec captures the phase sequence + role + prompt template, narrowing drift to "did the role execute this prompt correctly" rather than "did the role pick the right phase order". The 4 native evaluators (`karpathy` / `code-review` / `security-review` / `perf-baseline`) + `verdict-aggregate` give the runtime a deterministic post-condition check; the future Slice C `peaks loop check-monotonic <rid>` enforces monotonic-improvement so silent drift auto-aborts (see alignment matrix 4.2).
+5. **Token economics in re-recording.** Resolved: re-recording cost is amortized. Each invocation of `peaks workflow run` reads the YAML file (text, fast) and emits the run-plan order without an LLM roundtrip; the ~3-5k tokens of plan narration the LLM previously spent is now zero. The re-record cost only fires when a phase genuinely changes; the v2 schema includes `outputContract` so the LLM can refactor a single phase without touching the rest.
+
+## v2 update — implementation summary
+
+v3.0.0 ships the Slice A + Slice B of the Loop Engineering native refactor (per alignment matrix section 5.2):
+
+- `.peaks/workflows/<id>.yaml` unlocked; bundled `default-fullauto-md.yaml` encodes the canonical peaks-solo step sequence.
+- `peaks workflow run <id> --session <sid> --project <repo> --json` (deterministic replay).
+- `peaks workflow graph <id> --session <sid> --json` (dry-run graph render; renamed from `plan` to avoid the existing `workflow plan <read|refresh|detect-trigger>` slice-025 collision).
+- `peaks workflow lint <id> --session <sid> --json` (semantic validation).
+- `peaks loop eval <rid> --evaluator <name> [--project <repo>] [--json]` (workflow-callable native evaluator; no LLM scheduling).
+- 4 native evaluator types: `karpathy` / `code-review` / `security-review` / `perf-baseline` + the aggregate `verdict-aggregate` glue.
+- Backward-compat: `peaks loop eval` envelopes flow through `verdict-aggregator` unchanged (the `AnyEnvelope` discriminated union already accepts the same shape; verified by `tests/unit/loop/evaluator-dispatcher.test.ts`).
+- peaks-solo SKILL.md keeps its prose steps as a backing doc (downgraded, not deleted). The LLM may still read them when no workflow is bound, preserving v2.x behavior for projects that don't ship a workflow file.
 
 ## Defer-to-dogfood gate
 
 Per user decision 2026-06-12, **no code work starts** until:
 
 - `peaks-sop` is dogfooded in ≥3 non-trivial real workflows (publishing pipeline / data validation / cross-team approval) and usability gaps are documented
-- The four open concerns above have user decisions
+- The five open concerns above have user decisions
 - A 2.1.0 release ships first
 
-Until then, the RD slice spec skeleton is parked alongside the parked 2.1.0 browser-service ADR. Reopen when the dogfood is done.
+**v2 status (2026-06-30):** the gate is satisfied. v2.19.0 shipped 2026-06-30 with 2.13.1 verdict-aggregator + 2.13.3 envelope unification; peaks-sop dogfooded across publishing / data validation / cross-team approval per the `peaks-cli-fast-iteration-quality-loop` memory; all 5 concerns resolved above. v3.0.0 work proceeds.
 
 ## Out of scope (explicit)
 

@@ -53,6 +53,7 @@ import { registerContextCommands } from './commands/context-commands.js';
 import { registerContractCommands } from './commands/contract-commands.js';
 import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
 import { registerLoopCommands } from './commands/loop-commands.js';
+import { registerWorkflowEvalCommands } from './commands/loop-eval-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
@@ -286,6 +287,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
  // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
  registerLoopCommands(program, io);
+  // Slice v3.0.0 loop-eng-native-solo-a-b: peaks workflow run|plan|lint
+  // + peaks loop eval. Wraps the existing workflow + loop groups so the
+  // add-a-new-subcommand-check-for-existing-top-level-first rule is honoured.
+  registerWorkflowEvalCommands(program, io);
  // Slice: ECC 64 agents soft-optional (per spec §7.2 line 818).
  registerAgentCommands(program, io);
  // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
