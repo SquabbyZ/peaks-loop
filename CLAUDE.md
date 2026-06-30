@@ -4,6 +4,9 @@
 
 This repository uses project-local Peaks-Cli standards. Existing repository conventions override generic generated guidance.
 
+**Red rule (effective 2026-07-01, no exceptions):**
+- No commit message in this repository may contain `Co-Authored-By: Claude`, `Co-Authored-By: Anthropic`, or any equivalent AI-assistant attribution trailer. SquabbyZ (`601709253@qq.com`) is the sole author of every commit. See `.peaks/memory/redline-no-claude-co-author.md`.
+
 Peaks-Cli workflow automation:
 - peaks-rd checks these standards before RD planning or implementation work.
 - peaks-qa checks code review and security guidance before verification work.
