@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-28T00:00:00.000Z",
+  "updatedAt": "2026-06-30T00:00:00.000Z",
   "hot": {
     "feedback": [
       {
@@ -449,6 +449,14 @@
   },
   "warm": {
     "project": [
+      {
+        "description": "v2.19.0 切片完整归档 — change-id L1+L2+L3 全清,4 轮 RD 才拿到全绿,3 条值得复用的教训(sub-agent self-assessment 不可信 / 绝不 weaken assertion / global peaks vs 仓库 bin 是两套 binary)。",
+        "kind": "project",
+        "name": "2026-06-30-v2-19-0-change-id-root-removal",
+        "sourceArtifact": ".peaks/_runtime/2026-06-29-session-60737e/prd/change-id-root-removal.md",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-cli\\.peaks\\memory\\2026-06-30-v2-19-0-change-id-root-removal.md",
+        "updatedAt": "2026-06-30"
+      },
       {
         "name": "peaks-cli-24h-ai-programmer-positioning",
         "kind": "project",
