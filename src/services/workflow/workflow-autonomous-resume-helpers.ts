@@ -14,19 +14,33 @@
 
 import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
-import { buildArtifactRelativePath } from '../../shared/change-id.js';
-import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
+// Slice 2026-06-29-change-id-root-removal: `buildArtifactRelativePath`
+// was removed with the change-id axis. The artifact under each
+// resume helper now resolves the absolute path via the session-axis
+// `getSessionDir` + an explicit role-relative segment; the
+// `.peaks/_runtime/<sessionId>/<role>/...` string is no longer
+// pre-built.
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { AutonomousResumePlan } from './workflow-autonomous-service.js';
 
 const MAX_RESUME_ARTIFACT_BYTES = 256_000;
 
-export function getResumeRequiredArtifacts(changeId: string): string[] {
+// Slice 2026-06-29-change-id-root-removal: return the bare role-relative
+// sub-paths instead of `.peaks/_runtime/change/<id>/<role>/...` strings.
+// `getResumeRequiredArtifacts` was previously consumed by callers that
+// joined the descriptor with the on-disk session dir computed by
+// `getSessionDir`. The new shape is the role-relative segment
+// (`rd/swarm/checkpoints/checkpoint-1.json`); the scope dir is supplied
+// by the caller. The `sessionId` parameter is kept on the signature so
+// existing call sites compile unchanged, but it is no longer embedded
+// in the returned strings.
+export function getResumeRequiredArtifacts(_sessionId: string): string[] {
   return [
-    buildArtifactRelativePath(changeId, 'prd', 'autonomous-goal-package.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'autonomous-rd-plan.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'),
-    buildArtifactRelativePath(changeId, 'rd', 'swarm', 'resume-instructions.md')
+    'prd/autonomous-goal-package.json',
+    'rd/swarm/autonomous-rd-plan.json',
+    'rd/swarm/checkpoints/checkpoint-1.json',
+    'rd/swarm/evidence/validation-report.md',
+    'rd/swarm/resume-instructions.md'
   ];
 }
 
@@ -54,37 +68,24 @@ function readFully(fd: number, size: number): string | null {
   return buffer.toString('utf8');
 }
 
-function stripChangeScopePrefix(artifact: string, changeId: string): string {
-  // Slice 2026-06-23-audit-5th-p1: `buildArtifactRelativePath` returns
-  // `.peaks/_runtime/change/<changeId>/<role>/...`. `readResumeArtifact`
-  // now expects just the role-relative sub-path (e.g.
-  // `rd/swarm/checkpoints/checkpoint-1.json`) because the change-id
-  // scope root is computed by `getChangeScopeDirAbs`. This helper
-  // strips the well-known prefix. Falls back to the input string when
-  // the prefix is not present (e.g. a caller passed a bare
-  // sub-path directly), keeping `readResumeArtifact` tolerant of both
-  // shapes.
-  const normalized = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
-  const prefix = `.peaks/_runtime/change/${changeId}/`;
-  if (normalized.startsWith(prefix)) {
-    return normalized.slice(prefix.length);
-  }
-  return normalized;
+function normalizeRoleRelativePath(artifact: string, _sessionId: string): string {
+  // Slice 2026-06-29-change-id-root-removal: `getResumeRequiredArtifacts`
+  // returns role-relative sub-paths (e.g.
+  // `rd/swarm/checkpoints/checkpoint-1.json`). The helper normalises
+  // the path separators and strips any leading `/`; the `sessionId`
+  // argument is preserved on the signature for backward call-site
+  // compatibility but is no longer embedded in the path.
+  return artifact.replace(/\\/g, '/').replace(/^\/+/, '');
 }
 
-function readResumeArtifact(artifactWorkspacePath: string, changeId: string, artifact: string): string | null {
-  // Slice 2026-06-23-audit-5th-p1: the on-disk home for change-id
-  // content is the canonical scope dir under
-  // `.peaks/_runtime/change/<changeId>/` (see `getChangeScopeDirAbs`).
-  // The previous read path `.peaks/_runtime/<changeId>/` was a SKILL.md 2.8.3
-  // hard-ban violation (sibling of `.peaks/_runtime/`). The
-  // relative-path argument is still useful for the role/swarm drill
-  // (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) — we use it
-  // strictly to identify the sub-root, not to derive a new top-level
-  // dir.
-  const changeScopeRoot = getChangeScopeDirAbs(artifactWorkspacePath, changeId);
+function readResumeArtifact(artifactWorkspacePath: string, sessionId: string, artifact: string): string | null {
+  // Slice 2026-06-29-change-id-root-removal: on-disk home now lives under
+  // the session-axis `getSessionDir(root, sessionId)`. The role/swarm
+  // sub-path (e.g. `rd/swarm/checkpoints/checkpoint-1.json`) is
+  // strictly a sub-root drill, not a top-level dir derivation.
+  const sessionScopeRoot = getSessionDir(artifactWorkspacePath, sessionId);
   const normalizedArtifact = artifact.replace(/\\/g, '/').replace(/^\/+/, '');
-  const artifactPath = resolve(changeScopeRoot, normalizedArtifact);
+  const artifactPath = resolve(sessionScopeRoot, normalizedArtifact);
   try {
     const artifactWorkspaceRealPath = realpathSync(artifactWorkspacePath);
     const artifactStat = lstatSync(artifactPath);
@@ -92,7 +93,7 @@ function readResumeArtifact(artifactWorkspacePath: string, changeId: string, art
       return null;
     }
 
-    const sessionRootPath = changeScopeRoot;
+    const sessionRootPath = sessionScopeRoot;
     const roleRootPath = resolve(sessionRootPath, normalizedArtifact.split('/')[0] ?? '');
     if (lstatSync(sessionRootPath).isSymbolicLink() || lstatSync(roleRootPath).isSymbolicLink()) {
       return null;
@@ -179,9 +180,9 @@ function parseJsonObject(content: string): Record<string, unknown> | null {
   }
 }
 
-function hasValidJsonMetadata(content: string, changeId: string, artifactType: string, goal: string): boolean {
+function hasValidJsonMetadata(content: string, sessionId: string, artifactType: string, goal: string): boolean {
   const parsed = parseJsonObject(content);
-  if (parsed === null || parsed.changeId !== changeId || parsed.artifactType !== artifactType || parsed.status !== 'ready') {
+  if (parsed === null || parsed.sessionId !== sessionId || parsed.artifactType !== artifactType || parsed.status !== 'ready') {
     return false;
   }
 
@@ -260,22 +261,22 @@ function isSafeEvidenceRef(ref: string): boolean {
   return ref.toLowerCase() !== 'validation-report.md' && /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/.test(ref) && !ref.includes('..');
 }
 
-function evidenceRefsExist(artifactWorkspacePath: string, changeId: string, refs: readonly string[]): boolean {
-  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, changeId, `rd/swarm/evidence/${ref}`) !== null);
+function evidenceRefsExist(artifactWorkspacePath: string, sessionId: string, refs: readonly string[]): boolean {
+  return refs.every((ref) => isSafeEvidenceRef(ref) && readResumeArtifact(artifactWorkspacePath, sessionId, `rd/swarm/evidence/${ref}`) !== null);
 }
 
-function hasMatchingEvidenceRefs(artifactWorkspacePath: string, changeId: string, validationReportContent: string, checkpointContent: string): boolean {
+function hasMatchingEvidenceRefs(artifactWorkspacePath: string, sessionId: string, validationReportContent: string, checkpointContent: string): boolean {
   const expectedRefs = getCheckpointValidationRefs(checkpointContent);
   const actualRefs = extractMarkdownListSection(getMarkdownBody(validationReportContent), 'Evidence refs:');
   return expectedRefs.length > 0
     && expectedRefs.length === actualRefs.length
     && expectedRefs.every((expectedRef, index) => expectedRef === actualRefs[index])
-    && evidenceRefsExist(artifactWorkspacePath, changeId, expectedRefs);
+    && evidenceRefsExist(artifactWorkspacePath, sessionId, expectedRefs);
 }
 
-function hasValidMarkdownMetadata(content: string, changeId: string, artifactType: string): boolean {
+function hasValidMarkdownMetadata(content: string, sessionId: string, artifactType: string): boolean {
   const metadata = parseFrontMatter(content);
-  if (metadata === null || metadata.changeId !== changeId || metadata.artifactType !== artifactType || metadata.status !== 'passed') {
+  if (metadata === null || metadata.sessionId !== sessionId || metadata.artifactType !== artifactType || metadata.status !== 'passed') {
     return false;
   }
 
@@ -283,46 +284,48 @@ function hasValidMarkdownMetadata(content: string, changeId: string, artifactTyp
   return artifactType === 'validation-report' ? hasValidationReportBody(body) : hasResumeInstructionsBody(body);
 }
 
-function isValidResumeArtifact(artifact: string, content: string, changeId: string, goal: string): boolean {
+function isValidResumeArtifact(artifact: string, content: string, sessionId: string, goal: string): boolean {
   if (!content.trim()) {
     return false;
   }
 
   const artifactType = getExpectedResumeArtifactType(artifact);
   return artifact.endsWith('.json')
-    ? hasValidJsonMetadata(content, changeId, artifactType, goal)
-    : hasValidMarkdownMetadata(content, changeId, artifactType);
+    ? hasValidJsonMetadata(content, sessionId, artifactType, goal)
+    : hasValidMarkdownMetadata(content, sessionId, artifactType);
 }
 
-function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifacts: readonly string[], changeId: string, goal: string): ResumeArtifactsStatus {
+function getResumeArtifactsStatus(artifactWorkspacePath: string, requiredArtifacts: readonly string[], sessionId: string, goal: string): ResumeArtifactsStatus {
   let hasInvalidArtifact = false;
   const artifactContents = new Map<string, string>();
   for (const artifact of requiredArtifacts) {
-    // Slice 2026-06-23-audit-5th-p1: pass the explicit changeId so
-    // `readResumeArtifact` can route through `getChangeScopeDirAbs`
-    // rather than guessing from path segments.
-    const content = readResumeArtifact(artifactWorkspacePath, changeId, stripChangeScopePrefix(artifact, changeId));
+    // Slice 2026-06-29-change-id-root-removal: pass the explicit
+    // sessionId so `readResumeArtifact` can route through `getSessionDir`
+    // rather than guessing from path segments. The prefix-strip is now
+    // a simple `/` + backslash normaliser since descriptors are
+    // role-relative.
+    const content = readResumeArtifact(artifactWorkspacePath, sessionId, normalizeRoleRelativePath(artifact, sessionId));
     if (content === null) {
       return 'missing';
     }
 
     artifactContents.set(artifact, content);
-    if (!isValidResumeArtifact(artifact, content, changeId, goal)) {
+    if (!isValidResumeArtifact(artifact, content, sessionId, goal)) {
       hasInvalidArtifact = true;
     }
   }
 
-  const checkpointContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'));
-  const validationReportContent = artifactContents.get(buildArtifactRelativePath(changeId, 'rd', 'swarm', 'evidence', 'validation-report.md'));
-  if (!checkpointContent || !validationReportContent || !hasMatchingEvidenceRefs(artifactWorkspacePath, changeId, validationReportContent, checkpointContent)) {
+  const checkpointContent = artifactContents.get('rd/swarm/checkpoints/checkpoint-1.json');
+  const validationReportContent = artifactContents.get('rd/swarm/evidence/validation-report.md');
+  if (!checkpointContent || !validationReportContent || !hasMatchingEvidenceRefs(artifactWorkspacePath, sessionId, validationReportContent, checkpointContent)) {
     hasInvalidArtifact = true;
   }
 
   return hasInvalidArtifact ? 'invalid' : 'ready';
 }
 
-export function createResumePlan(changeId: string, ready: boolean): AutonomousResumePlan {
-  const requiredArtifacts = getResumeRequiredArtifacts(changeId);
+export function createResumePlan(sessionId: string, ready: boolean): AutonomousResumePlan {
+  const requiredArtifacts = getResumeRequiredArtifacts(sessionId);
 
   return {
     status: ready ? 'ready' : 'preview',

@@ -86,7 +86,6 @@ export const ENVELOPE_FILE_EXTENSION: Record<EnvelopeKind, 'md' | 'json'> = {
 export interface HistoricalCaptureInput {
   readonly mode: 'historical';
   readonly sessionId: string;
-  readonly changeId: string | null;
   readonly envelopeKind: EnvelopeKind;
   readonly fixtureId: string;
   readonly outDir: string;
@@ -152,7 +151,6 @@ export interface FixtureMeta {
   readonly sourceOrigin: {
     readonly kind: 'historical-artifact' | 'derived-variant';
     readonly path: string;
-    readonly changeId: string | null;
     readonly sessionId: string | null;
     readonly parentFixtureId: string | null;
     readonly variantCommand: string | null;
@@ -198,7 +196,6 @@ export function captureHistoricalFixture(input: HistoricalCaptureInput): Capture
     sourceOrigin: {
       kind: 'historical-artifact',
       path: sourcePathPosix,
-      changeId: input.changeId,
       sessionId: input.sessionId,
       parentFixtureId: null,
       variantCommand: null
@@ -232,7 +229,6 @@ export function captureDerivedVariant(input: DerivedVariantInput): CapturedFixtu
     sourceOrigin: {
       kind: 'derived-variant',
       path: parentPath.split(sep).join('/'),
-      changeId: parentMeta?.sourceOrigin.changeId ?? null,
       sessionId: parentMeta?.sourceOrigin.sessionId ?? null,
       parentFixtureId: parentMeta?.fixtureId ?? null,
       variantCommand: input.variant

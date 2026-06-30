@@ -20,7 +20,14 @@ import {
   ConflictingSessionError,
   LegacyChangeIdSiblingError
 } from '../../../services/workspace/workspace-service.js';
-import { LegacyChangeIdBindingError } from '../../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `LegacyChangeIdBindingError`
+// was removed with the change-id axis. The legacy symlink-detection
+// branch below no longer fires — the binding file at
+// `.peaks/_runtime/current-change` is no longer written by init
+// either. The sibling-dir guard (`LegacyChangeIdSiblingError`) is
+// preserved because the 2.8.3 hard-ban still applies to date-stamped
+// session-id-shaped directories at the `.peaks/_runtime/` sibling
+// level.
 import { ensureSessionWithRotation } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { applyHookInstall, readHookStatus } from '../../../services/skills/hooks-settings-service.js';
@@ -62,19 +69,6 @@ export type WorkspaceInitOptions = {
    * installed but the hooks have been removed out from under us).
    */
   installHooks?: 'ask' | 'auto' | 'skip';
-  /**
-   * Optional change-id to bind as the active unit of work (slice 2026-06-05-
-   * change-id-as-unit-of-work, redirected in 2.8.3). When set, the workspace
-   * writes the binding as a plain text file at
-   * `.peaks/_runtime/current-change` (NOT a symlink, NOT a sibling dir).
-   * The change-id is a logical identifier embedded in reviewable-artifact
-   * filenames (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`)
-   * — RD/QA/PRD writers create the `.peaks/_runtime/<changeId>/<role>/` dir lazily.
-   * Top-level `.peaks/_runtime/<changeId>/` siblings are FORBIDDEN (slice
-   * 2026-06-22-top-level-change-id-cleanup); the CLI surfaces
-   * `LegacyChangeIdSiblingError` if a 2.8.0-era orphan is found.
-   */
-  changeId?: string;
   /**
    * Slice 2.0.1-bug3-fact-forcing-bypass: opt out of writing the
    * consumer-project `.claude/settings.local.json` file. Default
@@ -138,23 +132,13 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
   addJsonOption(
     workspace
       .command('init')
-      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). When --change-id is given, writes the binding as a plain text file at .peaks/_runtime/current-change (NOT a sibling dir at .peaks/_runtime/<change-id>/ — slice 2.8.3 top-level change-id ban). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
+      .description('Create the .peaks/_runtime/<session-id>/ directory with ONLY the session.json metadata file (slice 006: role subdirs prd/ui/rd/qa/sc/txt and the system/ subdir are created lazily by writers, not pre-created at init). Pass --session-id to use a specific id, or omit it to auto-generate one (and adopt an existing binding if present). On the first call for a project, also handles the one-time "install peaks hooks" decision (sticky-marker stored in .peaks/.peaks-init-hooks-decision.json).')
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <id>', 'optional session id in YYYY-MM-DD-<kebab-slug> format. When omitted, the CLI is the single source of truth: an existing binding is reused, otherwise a fresh id is auto-generated.')
       .option('--allow-session-rebind', 'overwrite an existing session binding when the requested session id differs from the project current one', false)
       .option(
         '--no-rotate-on-outer-mismatch',
         'suppress the auto-rotation of the project session binding when the outer (Claude / harness) session id has changed. Default rotates on mismatch.'
-      )
-      .option(
-        '--change-id <id>',
-        'bind the change-id for reviewable artifacts. Writes the binding to .peaks/_runtime/current-change as a plain text file (NOT a top-level .peaks/_runtime/<change-id>/ sibling dir — that path is FORBIDDEN as of peaks-cli 2.8.3). Reviewable artifact paths embed the change-id as a filename slug inside .peaks/_runtime/<sessionId>/<role>/requests/, e.g. .peaks/_runtime/<sid>/rd/requests/002-<change-id>.md. When omitted, the change-id binding is left unchanged. If a 2.8.0-era legacy sibling dir .peaks/_runtime/<change-id>/ already exists at top level, the init aborts with LegacyChangeIdSiblingError and a 4-step migration message.',
-        (value: string) => {
-          if (value.length === 0) {
-            throw new Error('--change-id must not be empty');
-          }
-          return value;
-        }
       )
       .option(
         '--install-hooks <mode>',
@@ -235,7 +219,6 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         projectRoot,
         sessionId,
         allowSessionRebind: options.allowSessionRebind === true,
-        ...(options.changeId !== undefined ? { changeId: options.changeId } : {}),
         // Commander translates `--no-claude-hooks` into
         // `options.claudeHooks = false`. The default (no flag) leaves
         // `options.claudeHooks` undefined, which is not equal to
@@ -471,41 +454,22 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         printResult(
           io,
           fail('workspace.init', error.code, error.message, {
-            changeId: error.changeId,
+            sessionId: error.sessionId,
             legacyPath: error.legacyPath
           }, [
             `Inspect ${error.legacyPath} for any user-authored content you want to keep.`,
             `Move any desired files into .peaks/_runtime/<sessionId>/<role>/ (gitignored), then delete ${error.legacyPath}.`,
-            `Re-run \`peaks workspace init --project <path> --change-id ${error.changeId}\` to bind the change-id.`
+            `Re-run \`peaks workspace init --project <path>\` to bind a fresh session.`
           ]),
           options.json
         );
         process.exitCode = 1;
         return;
       }
-      if (error instanceof LegacyChangeIdBindingError) {
-        // Slice 2.8.4: a 2.8.0-era symlink at `.peaks/_runtime/current-change`
-        // was found. We refuse to silently replace it (the prior code would
-        // have unlinked the symlink + written a plain file, destroying the
-        // user's binding intent with no envelope signal). Surface the 3-step
-        // migration recipe so the user can confirm the symlink is safe to
-        // drop before re-running init.
-        printResult(
-          io,
-          fail('workspace.init', error.code, error.message, {
-            bindingPath: error.bindingPath,
-            symlinkTarget: error.symlinkTarget,
-            changeId: error.changeId
-          }, [
-            `Inspect ${error.bindingPath} to confirm the symlink is no longer needed${error.symlinkTarget !== null ? ` (target: ${error.symlinkTarget})` : ''}.`,
-            `Unlink ${error.bindingPath} manually (e.g. \`rm ${error.bindingPath}\`).`,
-            `Re-run \`peaks workspace init --project <path> --change-id ${error.changeId}\` to write the file-form binding.`
-          ]),
-          options.json
-        );
-        process.exitCode = 1;
-        return;
-      }
+      // Slice 2026-06-29-change-id-root-removal: the
+      // `LegacyChangeIdBindingError` catch branch is gone — the change-id
+      // binding file at `.peaks/_runtime/current-change` is no longer
+      // written by init, so there is no legacy binding to detect.
       printResult(
         io,
         fail('workspace.init', 'WORKSPACE_INIT_FAILED', getErrorMessage(error), { projectRoot: options.project, sessionId: options.sessionId }, ['Verify the project path exists and is writable']),

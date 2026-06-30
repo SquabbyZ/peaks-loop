@@ -1,10 +1,12 @@
-import { validateChangeIdOrThrow } from '../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+// was removed with the change-id axis. The change-id is now
+// metadata-only and is not validated by a structural pattern.
 import { redactSensitiveErrorMessage } from '../../shared/result.js';
 import type { MiniMaxProviderConfig } from '../config/config-types.js';
 import { runMiniMaxPrompt, type MiniMaxProviderSmokeResult } from './minimax-provider-service.js';
 
 export type MiniMaxWorkerRequest = {
-  changeId: string;
+  sessionId: string;
   goal: string;
   codingTask: string;
   unitTestTask: string;
@@ -66,16 +68,17 @@ export async function runMiniMaxWorker(
   request: MiniMaxWorkerRequest,
   fetchImpl: typeof fetch = fetch
 ): Promise<MiniMaxWorkerResult> {
-  const changeId = normalizeTask(request.changeId, 'changeId', MAX_SHORT_FIELD_LENGTH);
-  validateChangeIdOrThrow(changeId);
+  const sessionId = normalizeTask(request.sessionId, 'sessionId', MAX_SHORT_FIELD_LENGTH);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
   const goal = normalizeTask(request.goal, 'goal', MAX_TASK_FIELD_LENGTH);
   const codingTask = normalizeTask(request.codingTask, 'codingTask', MAX_TASK_FIELD_LENGTH);
   const unitTestTask = normalizeTask(request.unitTestTask, 'unitTestTask', MAX_TASK_FIELD_LENGTH);
   const model = request.model?.trim() || 'MiniMax-M2.7';
-  assertSafeExternalPromptInput([changeId, goal, codingTask, unitTestTask, model]);
+  assertSafeExternalPromptInput([sessionId, goal, codingTask, unitTestTask, model]);
   const prompt = [
     'You are a controlled coding and unit-test execution worker.',
-    `Change id: ${changeId}`,
+    `Change id: ${sessionId}`,
     `Goal: ${goal}`,
     `Coding task: ${codingTask}`,
     `Unit test task: ${unitTestTask}`,
@@ -97,7 +100,7 @@ export async function runMiniMaxWorker(
   const reviewHandoff = {
     model: 'claude-opus-4-7' as const,
     prompt: [
-      `Review this MiniMax worker result for change ${changeId}.`,
+      `Review this MiniMax worker result for change ${sessionId}.`,
       `Goal: ${goal}`,
       `Coding task: ${codingTask}`,
       `Unit test task: ${unitTestTask}`,

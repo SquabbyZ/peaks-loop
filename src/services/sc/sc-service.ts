@@ -1,12 +1,13 @@
 import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { basename, join, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { isInsidePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfigForPath } from '../config/config-service.js';
 import { getArtifactRemoteRepo, getArtifactWorkspaceStatus, getLocalArtifactPath } from '../artifacts/workspace-service.js';
+import { getSessionId } from '../session/session-manager.js';
 
 export type ChangeImpact = {
-  changeId: string;
+  sessionId: string;
   sourceArtifacts: string[];
   affectedModules: string[];
   affectedFiles: string[];
@@ -40,7 +41,7 @@ export type ArtifactRetentionReport = {
 };
 
 export type ChangeTraceabilityStatus = {
-  changeId: string | null;
+  sessionId: string | null;
   hasArtifactRepo: boolean;
   artifactSyncStatus: 'synced' | 'pending' | 'out-of-sync' | 'unknown';
   localArtifactPath: string;
@@ -130,27 +131,6 @@ function getPeaksPath(workspaceRoot: string): string {
   return resolve(workspaceRoot, '.peaks');
 }
 
-function resolveCurrentChangeId(peaksPath: string): string | null {
-  const currentChangePath = resolve(peaksPath, 'current-change');
-  if (!existsSync(currentChangePath)) return null;
-
-  try {
-    const stat = lstatSync(currentChangePath);
-    if (stat.isSymbolicLink()) {
-      const targetPath = realpathSync(currentChangePath);
-      if (!isInsidePath(targetPath, realpathSync(peaksPath))) return null;
-      const targetId = basename(targetPath);
-      return SLICE_ID_PATTERN.test(targetId) ? targetId : null;
-    }
-
-    const raw = readFileSync(currentChangePath, 'utf-8').trim();
-    if (!raw || !SLICE_ID_PATTERN.test(raw)) return null;
-    return raw;
-  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-    return null;
-  }
-}
-
 function getArtifactRepoUrl(artifactRepo: { provider: 'github' | 'gitlab'; owner: string; name: string } | undefined): string | null {
   if (!artifactRepo) return null;
   if (artifactRepo.provider === 'github') {
@@ -175,22 +155,33 @@ function mapSyncState(syncStatus: 'synced' | 'pending' | 'out-of-sync' | 'unknow
   return 'failed';
 }
 
-function getCurrentArtifactDir(artifactWorkspacePath: string): { peaksPath: string; changeId: string | null; changeDir: string } {
+function getCurrentArtifactDir(artifactWorkspacePath: string): { peaksPath: string; sessionId: string | null; changeDir: string } {
   const peaksPath = getPeaksPath(artifactWorkspacePath);
-  const changeId = resolveCurrentChangeId(peaksPath);
-  const effectiveChangeId = changeId ?? 'unknown-session';
+  // Slice 2026-06-29-change-id-root-removal: the `.peaks/_runtime/current-change`
+  // binding file is gone. Resolve the active change-id from the workspace
+  // session binding instead. When no session is bound, fall back to
+  // `unknown-session` (matches the previous behaviour for an unbound workspace).
+  // The on-disk change dir lives under the canonical
+  // `.peaks/_runtime/<sid>/` layer (single-axis layout).
+  const sessionId = getSessionId(artifactWorkspacePath);
+  const effectiveChangeId = sessionId ?? 'unknown-session';
   return {
     peaksPath,
-    changeId,
-    changeDir: resolve(peaksPath, effectiveChangeId)
+    sessionId,
+    changeDir: resolve(peaksPath, '_runtime', effectiveChangeId)
   };
 }
 
-function getRetentionChangeDir(artifactWorkspacePath: string, sliceId: string): { peaksPath: string; changeId: string; changeDir: string } {
+function getRetentionChangeDir(artifactWorkspacePath: string, sliceId: string): { peaksPath: string; sessionId: string; changeDir: string } {
+  // Slice 2026-06-29-change-id-root-removal: retention slice dirs
+  // remain under the legacy `.peaks/<sliceId>/` shape (they're shipped
+  // / frozen artifacts, not session-scoped workspace state). Only the
+  // ACTIVE session-dir resolution uses `_runtime/` — retention slices
+  // are a different lifecycle.
   const peaksPath = getPeaksPath(artifactWorkspacePath);
   return {
     peaksPath,
-    changeId: sliceId,
+    sessionId: sliceId,
     changeDir: resolve(peaksPath, sliceId)
   };
 }
@@ -421,7 +412,7 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
 
   if (!workspace) {
     return {
-      changeId: null,
+      sessionId: null,
       hasArtifactRepo: false,
       artifactSyncStatus: 'unknown',
       localArtifactPath: '.peaks-artifacts',
@@ -435,7 +426,7 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
   }
 
   const artifactWorkspacePath = getLocalArtifactPath(workspace);
-  const { peaksPath, changeId, changeDir } = getCurrentArtifactDir(artifactWorkspacePath);
+  const { peaksPath, sessionId, changeDir } = getCurrentArtifactDir(artifactWorkspacePath);
   const artifactRepo = getArtifactRemoteRepo(workspace);
   const hasArtifactRepo = Boolean(artifactRepo);
   const changesRoot = peaksPath;
@@ -443,21 +434,24 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
     const artifactPath = resolve(changeDir, ...artifact.path);
     return {
       name: artifact.name,
-      path: resolve(peaksPath, changeId ?? '<session-id>', ...artifact.path),
+      // Slice 2026-06-29-change-id-root-removal: the reported path
+      // matches the canonical single-axis layout
+      // `.peaks/_runtime/<sid>/...`.
+      path: resolve(peaksPath, '_runtime', sessionId ?? '<session-id>', ...artifact.path),
       exists: isRetainedArtifactFile(artifactPath, artifactWorkspacePath, changesRoot, changeDir)
     };
   });
 
   const nextActions: string[] = [];
-  if (!changeId) {
-    nextActions.push('Set the current change in .peaks/current-change');
+  if (!sessionId) {
+    nextActions.push('Run `peaks workspace init` to bind a session for this workspace');
   }
   if (hasArtifactRepo && artifactStatus.syncStatus === 'pending') {
     nextActions.push(`Run peaks artifacts sync --workspace ${workspace.workspaceId} --dry-run`);
   }
 
   return {
-    changeId,
+    sessionId,
     hasArtifactRepo,
     artifactSyncStatus: artifactStatus.syncStatus,
     localArtifactPath: getLocalArtifactPath(workspace),
@@ -467,7 +461,7 @@ export function getChangeTraceabilityStatus(): ChangeTraceabilityStatus {
 }
 
 export function createChangeImpact(options: {
-  changeId: string;
+  sessionId: string;
   sourceArtifacts?: string[];
   affectedModules?: string[];
   affectedFiles?: string[];
@@ -476,7 +470,7 @@ export function createChangeImpact(options: {
   const artifactRepo = workspace ? getArtifactRemoteRepo(workspace) : null;
 
   return {
-    changeId: options.changeId,
+    sessionId: options.sessionId,
     sourceArtifacts: options.sourceArtifacts ?? [],
     affectedModules: options.affectedModules ?? [],
     affectedFiles: options.affectedFiles ?? [],

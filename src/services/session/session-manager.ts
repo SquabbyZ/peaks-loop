@@ -126,12 +126,11 @@ function getSessionFilePath(projectRoot: string): string {
  * Returns null if no session file exists or if it's invalid.
  *
  * Strict equality on `data.projectRoot === projectRoot` is
- * preserved here on purpose: many other modules (notably
- * `shared/change-id.ts` via `buildArtifactRelativePath`)
- * depend on the strict-equality semantics to test the
- * "no session bound" code path. Changing the read semantics
- * here would cascade into ~30 test failures in those
- * modules — out of scope for the progress rebind fix.
+ * preserved here on purpose: many other modules depend on
+ * the strict-equality semantics to test the "no session bound"
+ * code path. Changing the read semantics here would cascade
+ * into many test failures — out of scope for the progress
+ * rebind fix.
  *
  * The progress subcommands (which are the surface that
  * actually breaks on the rebind bug) use

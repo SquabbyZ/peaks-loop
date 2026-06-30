@@ -266,7 +266,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
   }
 
   // 4. design-draft-confirm — check the current change-id's design-draft.md.
-  //    The change-id is the .peaks/_runtime/<changeId>/ui/design-draft.md path.
+  //    The change-id is the .peaks/_runtime/<sessionId>/ui/design-draft.md path.
   //    For the audit, we look for any .peaks/*/ui/design-draft.md.
   const peaksDir = `${input.projectRoot}/.peaks`;
   if (existsSync(peaksDir)) {
@@ -276,8 +276,7 @@ export function runRedLinesAudit(input: RedLinesServiceInput): RedLinesServiceRe
         if (entry === '_runtime' || entry === '_sub_agents' || entry.startsWith('.')) continue;
         const designCheck = checkDesignDraftConfirmation({
           projectRoot: input.projectRoot,
-          sessionId: '',
-          changeId: entry,
+          sessionId: entry,
         });
         if (designCheck.draftExists && !designCheck.confirmed) {
           enforcerFindings.push({

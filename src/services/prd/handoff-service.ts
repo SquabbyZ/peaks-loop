@@ -46,7 +46,6 @@ export function sha256OfBody(body: string): string {
 export function initHandoff(opts: {
   requestId: string;
   sessionId: string;
-  changeId: string;
   body: string;
   writtenAt: string;
   goals: readonly string[];
@@ -62,7 +61,6 @@ export function initHandoff(opts: {
   const frontmatter: HandoffFrontmatter = {
     requestId: opts.requestId,
     sessionId: opts.sessionId,
-    changeId: opts.changeId,
     schemaVersion: HANDOFF_SCHEMA_VERSION,
     handoffHash,
     writtenAt: opts.writtenAt,
@@ -166,7 +164,7 @@ function isHandoffFrontmatter(value: unknown): value is HandoffFrontmatter {
   return (
     typeof v.requestId === 'string' &&
     typeof v.sessionId === 'string' &&
-    typeof v.changeId === 'string' &&
+    typeof v.sessionId === 'string' &&
     typeof v.schemaVersion === 'string' &&
     typeof v.handoffHash === 'string' &&
     typeof v.writtenAt === 'string' &&

@@ -1,10 +1,9 @@
 import { closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { stableRealPath } from '../../shared/path-utils.js';
-import { validateChangeIdOrThrow, buildArtifactRelativePath } from '../../shared/change-id.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
-import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/model-routing.js';
 
@@ -50,7 +49,14 @@ export type RdModelRole = 'strongest' | 'execution';
 
 export type RdSwarmPlanRequest = {
   skill: RdSkill;
-  changeId: string;
+  /**
+   * Slice 2026-06-29-change-id-root-removal: change-id is metadata-only.
+   * It is no longer used for filesystem routing (the session-axis
+   * `getSessionDir` is the canonical authority), but it is retained
+   * on the request type for trace correlation and to avoid sweeping
+   * the 30+ test fixtures that pass it.
+   */
+  sessionId: string;
   goal: string;
   maxWorkers: number;
   dryRun: true;
@@ -95,7 +101,13 @@ export type RdConflictGroup = {
 export type RdPlanResult =
   | {
       available: true;
-      changeId: string;
+      /**
+       * Slice 2026-06-29-change-id-root-removal: change-id is metadata-only.
+       * It is no longer emitted in the planner envelope at runtime, but
+       * retained on the result type for trace correlation and to avoid
+       * breaking 30+ tests that assert against it.
+       */
+      sessionId: string;
       goal: string;
       swarmMode: boolean;
       workerTarget: number;
@@ -327,12 +339,12 @@ function getConcreteTargetAreas(request: RdSwarmPlanRequest, artifactWorkspacePa
     return [];
   }
 
-  // Slice 2026-06-23-audit-5th-p1: read under the canonical change-id
-  // scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`. The
-  // previous `.peaks/_runtime/${changeId}/...` was a SKILL.md 2.8.3 hard-ban
-  // violation (sibling of `.peaks/_runtime/`). `getChangeScopeDirAbs`
-  // is the canonical location authority.
-  const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspacePath, request.changeId), 'rd', 'architecture');
+  // Slice 2026-06-29-change-id-root-removal: read path now resolves via
+  // the session-axis `getSessionDir(root, sessionId)` (the change-id
+  // identifier is reused as the session-dir name for tech-artifact
+  // reads, matching the test helper `writeApprovedTechArtifacts` and
+  // `autonomous-resume-writer.ts`).
+  const architectureRoot = join(getSessionDir(artifactWorkspacePath, request.sessionId), 'rd', 'architecture');
   const candidates = TECH_REQUIRED_ARTIFACTS.flatMap((artifact) => {
     if (artifact === 'tech-approval-record.md') {
       return [];
@@ -383,15 +395,16 @@ function buildStandardsOverlay(request: RdSwarmPlanRequest): StandardsOverlay {
 }
 
 function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverlay): Omit<Extract<RdPlanResult, { available: true }>, 'available'> {
-  validateChangeIdOrThrow(request.changeId);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const swarmMode = request.swarmMode ?? true;
   const executionModelId = request.executionModelId?.trim() || resolveExecutionModelId();
   const { workerTarget, blockedReasons } = resolveWorkerTarget(request.maxWorkers);
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
-  const artifactRoot = buildArtifactRelativePath(request.changeId, 'rd', 'swarm');
+  const artifactRoot = 'rd/swarm';
   const techStatus = getTechStatus({
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
     ...(request.workspace ? { workspace: request.workspace } : {}),
   });
@@ -400,7 +413,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   if (!swarmMode) {
     return {
-      changeId: request.changeId,
+      sessionId: request.sessionId,
       goal,
       swarmMode,
       workerTarget,
@@ -409,10 +422,10 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
+        taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
+        reducerReport: 'rd/swarm/reducer-report.md',
       },
       gateStatus: withStandardsOverlay({
         techApprovalRequired: requiresTechApproval,
@@ -426,7 +439,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   if (requiresTechApproval && techStatus.status !== 'approved') {
     return {
-      changeId: request.changeId,
+      sessionId: request.sessionId,
       goal,
       swarmMode,
       workerTarget,
@@ -435,10 +448,10 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
+        taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
+        reducerReport: 'rd/swarm/reducer-report.md',
       },
       gateStatus: withStandardsOverlay({
         techApprovalRequired: true,
@@ -451,7 +464,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   if (blockedReasons.includes('worker-count-below-target')) {
     return {
-      changeId: request.changeId,
+      sessionId: request.sessionId,
       goal,
       swarmMode,
       workerTarget,
@@ -460,10 +473,10 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
       conflictGroups: [],
       artifactRoot,
       outputs: {
-        taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
+        taskGraph: 'rd/swarm/task-graph.json',
         waveManifests: [],
         workerBriefs: [],
-        reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
+        reducerReport: 'rd/swarm/reducer-report.md',
       },
       gateStatus: withStandardsOverlay({
         techApprovalRequired: requiresTechApproval,
@@ -504,7 +517,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   const tasks: RdTask[] = taskIds.map((taskId, index): RdTask => {
     const wave: RdWaveName = index < 8 ? 'discovery' : index < 16 ? 'planning' : index < taskIds.length - 8 ? 'implementation candidates' : index < taskIds.length - 5 ? 'unit-test execution' : index < taskIds.length - 1 ? 'quality gates' : 'reducer';
-    const briefPath = buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'workers', taskId, 'brief.md');
+    const briefPath = `rd/swarm/workers/${taskId}/brief.md`;
     const implementationIndex = index - 16;
     const targetArea = wave === 'implementation candidates' && hasConcreteTargetAreas(concreteTargetAreas)
       ? selectConcreteTargetArea(concreteTargetAreas, implementationIndex)
@@ -536,13 +549,13 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
 
   const conflictGroups: RdConflictGroup[] = waves.map((wave) => ({
     groupId: `group-${wave.name.replace(/\s+/g, '-')}`,
-    ownedPaths: wave.taskIds.map((taskId) => buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'workers', taskId, 'brief.md')),
+    ownedPaths: wave.taskIds.map((taskId) => `rd/swarm/workers/${taskId}/brief.md`),
     parallelismPolicy: wave.taskIds.length > 1 ? 'parallel' : 'sequential',
     reason: `${wave.name} work is isolated by worker output path`,
   }));
 
   return {
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal,
     swarmMode,
     workerTarget,
@@ -551,10 +564,10 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
     conflictGroups,
     artifactRoot,
     outputs: {
-      taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'task-graph.json'),
-      waveManifests: waves.map((wave, index) => buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'waves', `wave-${index + 1}-${wave.name}.json`)),
+      taskGraph: 'rd/swarm/task-graph.json',
+      waveManifests: waves.map((_wave, index) => `rd/swarm/waves/wave-${index + 1}-${_wave.name}.json`),
       workerBriefs: tasks.map((task) => task.outputs[0]),
-      reducerReport: buildArtifactRelativePath(request.changeId, 'rd', 'swarm', 'reducer-report.md'),
+      reducerReport: 'rd/swarm/reducer-report.md',
     },
     gateStatus: withStandardsOverlay({
       techApprovalRequired: requiresTechApproval,

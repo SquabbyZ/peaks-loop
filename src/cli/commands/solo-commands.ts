@@ -47,20 +47,20 @@ export interface SoloStep {
 }
 
 export interface SoloPlan {
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly steps: readonly SoloStep[];
 }
 
 export interface SoloHooks {
-  readonly memory: (ctx: { changeId: string }) => Promise<unknown>;
-  readonly preflight: (ctx: { changeId: string }) => Promise<unknown>;
-  readonly rd: (ctx: { changeId: string }) => Promise<unknown>;
-  readonly qa: (ctx: { changeId: string; repairLoop: boolean }) => Promise<unknown>;
-  readonly emit: (ctx: { changeId: string }) => Promise<unknown>;
+  readonly memory: (ctx: { sessionId: string }) => Promise<unknown>;
+  readonly preflight: (ctx: { sessionId: string }) => Promise<unknown>;
+  readonly rd: (ctx: { sessionId: string }) => Promise<unknown>;
+  readonly qa: (ctx: { sessionId: string; repairLoop: boolean }) => Promise<unknown>;
+  readonly emit: (ctx: { sessionId: string }) => Promise<unknown>;
 }
 
 export interface SoloRunResult {
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly ok: boolean;
   readonly steps: readonly SoloStep[];
   readonly skipped: readonly string[];
@@ -87,7 +87,7 @@ const STEP_KIND: Record<SoloStep['id'], SoloStepKind> = {
  * Build a SoloPlan. `fast=true` marks memory + preflight as skipped and
  * disables the QA repair loop. Step order is fixed; emit-txt always last.
  */
-export function buildSoloPlan(opts: { changeId: string; fast: boolean }): SoloPlan {
+export function buildSoloPlan(opts: { sessionId: string; fast: boolean }): SoloPlan {
   const steps: SoloStep[] = STEP_ORDER.map((id) => {
     const isSkippable = id === 'load-memory' || id === 'standards-preflight';
     const step: SoloStep = {
@@ -101,7 +101,7 @@ export function buildSoloPlan(opts: { changeId: string; fast: boolean }): SoloPl
     return step;
   });
 
-  return { changeId: opts.changeId, steps };
+  return { sessionId: opts.sessionId, steps };
 }
 
 /**
@@ -109,13 +109,13 @@ export function buildSoloPlan(opts: { changeId: string; fast: boolean }): SoloPl
  * always invoked last. Returns timing + skipped ids for KPI measurement.
  */
 export async function runSoloFast(opts: {
-  changeId: string;
+  sessionId: string;
   plan: SoloPlan;
   hooks: SoloHooks;
 }): Promise<SoloRunResult> {
   const start = Date.now();
   const skipped: string[] = [];
-  const { changeId, plan, hooks } = opts;
+  const { sessionId, plan, hooks } = opts;
 
   for (const step of plan.steps) {
     if (step.skipped) {
@@ -124,25 +124,25 @@ export async function runSoloFast(opts: {
     }
     switch (step.id) {
       case 'load-memory':
-        await hooks.memory({ changeId });
+        await hooks.memory({ sessionId });
         break;
       case 'standards-preflight':
-        await hooks.preflight({ changeId });
+        await hooks.preflight({ sessionId });
         break;
       case 'rd-cycle':
-        await hooks.rd({ changeId });
+        await hooks.rd({ sessionId });
         break;
       case 'qa-cycle':
-        await hooks.qa({ changeId, repairLoop: step.repairLoop === true });
+        await hooks.qa({ sessionId, repairLoop: step.repairLoop === true });
         break;
       case 'emit-txt':
-        await hooks.emit({ changeId });
+        await hooks.emit({ sessionId });
         break;
     }
   }
 
   return {
-    changeId,
+    sessionId,
     ok: true,
     steps: plan.steps,
     skipped,
@@ -167,12 +167,12 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
     .argument('<change-id>', 'change id to plan against')
     .option('--fast', 'fast mode: skip memory full-load, standards preflight, and QA repair loop', false)
     .option('--json', 'emit JSON envelope')
-    .action((changeId: string, opts: { fast?: boolean; json?: boolean }) => {
-      const plan = buildSoloPlan({ changeId, fast: opts.fast === true });
+    .action((sessionId: string, opts: { fast?: boolean; json?: boolean }) => {
+      const plan = buildSoloPlan({ sessionId, fast: opts.fast === true });
       if (opts.json === true) {
         process.stdout.write(JSON.stringify({ ok: true, data: plan }) + '\n');
       } else {
-        process.stdout.write(`change-id: ${plan.changeId}\n`);
+        process.stdout.write(`change-id: ${plan.sessionId}\n`);
         for (const step of plan.steps) {
           const flag = step.skipped ? 'SKIP' : 'RUN ';
           const repair = step.id === 'qa-cycle' ? ` repair=${step.repairLoop === true ? 'on' : 'off'}` : '';

@@ -34,7 +34,7 @@ export type PipelineGate = {
 
 export type PipelineVerification = {
   rid: string;
-  changeId: string;
+  sessionId: string;
   requestType: RequestType;
   complete: boolean;
   rdPhase: {
@@ -75,11 +75,17 @@ export type PipelineVerification = {
   /**
    * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
    * every evidence file resolved on the canonical path
-   * (`.peaks/_runtime/change/<changeId>/...`). `false` when at least
-   * one evidence file resolved via a legacy fallback (`.peaks/<changeId>/...`
-   * or `.peaks/_runtime/<changeId>/...`). QA / TXT surface the value
-   * so users know to migrate via
-   * `peaks workspace migrate-change-scope --project . --apply`.
+   * (`.peaks/_runtime/change/<sessionId>/...`). `false` when at least
+   * one evidence file resolved via a legacy fallback (`.peaks/<sessionId>/...`
+   * or `.peaks/_runtime/<sessionId>/...`). QA / TXT surface the value
+   * so users know to move misplaced evidence into the canonical
+   * location.
+   *
+   * Slice 2026-06-29-change-id-root-removal: the legacy
+   * `peaks workspace migrate-change-scope` migration tool is gone;
+   * users must now move misplaced content into the canonical
+   * `.peaks/_runtime/change/<sessionId>/<role>/` dir manually (or via
+   * `peaks workspace migrate`).
    */
   usedCanonicalPath?: boolean;
 };
@@ -94,26 +100,26 @@ function extractState(markdown: string): string {
 
 /**
  * As of slice 2026-06-05-change-id-as-unit-of-work, the file's durable
- * scope is the change-id (the `.peaks/_runtime/<changeId>/` dir the file lives
+ * scope is the change-id (the `.peaks/_runtime/<sessionId>/` dir the file lives
  * in), NOT the session-id. We resolve the on-disk location via
  * `showRequestArtifact` (which scans all top-level dirs and returns the
  * actual dir the file was found in) instead of assuming
  * `.peaks/_runtime/<sessionId>/<role>/requests/`.
  */
-async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; changeId: string } | null> {
+async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; sessionId: string } | null> {
   const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
   if (artifact === null) return null;
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the legacy
   // `showRequestArtifact` returns the FULL SCOPE (`_runtime/<sid>`)
-  // as `changeId`, not just the trailing id segment. The canonical
+  // as `sessionId`, not just the trailing id segment. The canonical
   // evidence lookup needs only the bare id (`.peaks/_runtime/change/<id>/`).
   // When the scope starts with `_runtime/`, strip that prefix so the
   // path resolver builds the right canonical location.
-  let changeId = artifact.changeId;
-  if (changeId.startsWith('_runtime/') || changeId.startsWith('_runtime\\')) {
-    changeId = changeId.replace(/^_runtime[\\/]/, '');
+  let sessionId = artifact.sessionId;
+  if (sessionId.startsWith('_runtime/') || sessionId.startsWith('_runtime\\')) {
+    sessionId = sessionId.replace(/^_runtime[\\/]/, '');
   }
-  return { path: artifact.path, content: artifact.content, changeId };
+  return { path: artifact.path, content: artifact.content, sessionId };
 }
 
 function rdGatesForType(requestType: RequestType): PipelineGate[] {
@@ -162,22 +168,11 @@ const QA_COMPLETE_STATES = new Set(['verdict-issued']);
 export async function verifyPipeline(options: {
   projectRoot: string;
   rid: string;
-  /** Optional explicit change-id; when omitted, the RD/QA on-disk location
+  /** Optional explicit session-id; when omitted, the RD/QA on-disk location
    * is resolved via showRequestArtifact (which scans all top-level dirs and
-   * returns the actual change-id the file lives in). */
-  changeId?: string;
-  requestType?: string;
-  /**
-   * Slice 2026-06-13-peaks-workflow-skip: the session id under which
-   * `peaks workflow skip` may have written a state file. When set,
-   * `verifyPipeline` reads `.peaks/_runtime/<sessionId>/workflow-state/<rid>.json`
-   * and marks matching gates as `status: 'skipped'` (bypassed). When
-   * omitted, no skip state is consulted (preserves the legacy v0
-   * behavior). The change-id hint and the on-disk resolved change-id
-   * are NOT used for the state-file lookup — only the explicit
-   * `sessionId` parameter is.
-   */
+   * returns the actual session-id the file lives in). */
   sessionId?: string;
+  requestType?: string;
 }): Promise<PipelineVerification> {
   const requestType = isRequestType(options.requestType ?? '') ? options.requestType as RequestType : 'feature';
   const violations: string[] = [];
@@ -225,9 +220,9 @@ export async function verifyPipeline(options: {
   let rdInvoked = false;
   let rdState = 'missing';
   // The resolved change-id is the on-disk location the file actually
-  // lives in. The caller's `options.changeId` is a hint used for
+  // lives in. The caller's `options.sessionId` is a hint used for
   // path construction (nextActions strings), NOT for the resolved
-  // changeId field — the on-disk location is the source of truth.
+  // sessionId field — the on-disk location is the source of truth.
   let resolvedChangeId = '';
 
   if (rdFile) {
@@ -235,7 +230,7 @@ export async function verifyPipeline(options: {
     rdState = extractState(rdFile.content);
     rdGates[0]!.passed = true;
     rdGates[0]!.detail = `found at ${rdFile.path}`;
-    resolvedChangeId = rdFile.changeId;
+    resolvedChangeId = rdFile.sessionId;
   } else {
     violations.push('RD phase skipped: peaks-rd was never invoked for this request (no RD request artifact found)');
     nextActions.push('Invoke Skill(skill="peaks-rd") with the request-id, then run unit tests + code review + security review');
@@ -253,7 +248,7 @@ export async function verifyPipeline(options: {
   // scope. The canonical evidence location is now the session axis
   // `.peaks/_runtime/<sessionId>/<role>/...` (where `<sessionId>` is
   // the on-disk dir the request artifact lives in; for back-compat
-  // with the legacy `_runtime/<changeId>/` and `.peaks/<changeId>/`
+  // with the legacy `_runtime/<sessionId>/` and `.peaks/<sessionId>/`
   // layouts we also probe those). When the legacy fallback fires, the
   // gate detail / nextActions surface the `DEPRECATION_LEGACY_PATH_USED`
   // warning so QA / TXT can nudge users to migrate via
@@ -263,7 +258,7 @@ export async function verifyPipeline(options: {
   // yet), the canonical session id from the binding-store is the
   // preferred filesystem scope; falling through to `options.rid` would
   // make every missing-evidence path look like a per-rid scope dir.
-  const rdEvidenceDir = resolvedChangeId || options.changeId || getSessionIdCanonical(options.projectRoot) || options.rid;
+  const rdEvidenceDir = resolvedChangeId || options.sessionId || getSessionIdCanonical(options.projectRoot) || options.rid;
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): track whether
   // every resolved evidence file landed on the canonical path. Drives
   // the `usedCanonicalPath` envelope field. The flag stays `true` if
@@ -297,7 +292,7 @@ export async function verifyPipeline(options: {
       gate.passed = true;
       gate.detail = resolvedPath + (usedLegacy ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
       if (usedLegacy) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/${rdEvidenceDir}/rd/`);
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedPath} — move the file into .peaks/_runtime/${rdEvidenceDir}/rd/ (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`);
       }
     } else {
       gate.detail = `missing: ${canonicalPath}`;
@@ -323,7 +318,7 @@ export async function verifyPipeline(options: {
     qaState = extractState(qaFile.content);
     qaGates[0]!.passed = true;
     qaGates[0]!.detail = `found at ${qaFile.path}`;
-    resolvedChangeId = qaFile.changeId || resolvedChangeId;
+    resolvedChangeId = qaFile.sessionId || resolvedChangeId;
   } else {
     violations.push('QA phase skipped: peaks-qa was never invoked for this request (no QA request artifact found)');
     nextActions.push('Invoke Skill(skill="peaks-qa") with the request-id for functional/performance/security testing');
@@ -340,9 +335,9 @@ export async function verifyPipeline(options: {
   // is empty), fall back to the current session id from the binding-store
   // instead of `rdEvidenceDir` (= the rid). The session axis
   // `.peaks/_runtime/<sessionId>/qa/...` is the canonical v2.17.0 home; the
-  // legacy `_runtime/change/<changeId>/qa/...` probe should only fire for
+  // legacy `_runtime/change/<sessionId>/qa/...` probe should only fire for
   // pre-v2.17.0 workspaces, not as a default for new requests. The slug in
-  // the `changeId` envelope field is preserved below for traceability.
+  // the `sessionId` envelope field is preserved below for traceability.
   const changeIdForResolver = resolvedChangeId || getSessionIdCanonical(options.projectRoot) || rdEvidenceDir;
   const QA_EVIDENCE_FILE: Record<string, string> = {
     'test-cases': `test-cases/${options.rid}.md`,
@@ -353,7 +348,7 @@ export async function verifyPipeline(options: {
   for (const gate of qaGates.slice(1)) {
     if (gate.name === 'security-findings' || gate.name === 'performance-findings') {
       const resolver = gate.name === 'security-findings' ? resolveSecurityFindingsPath : resolvePerformanceFindingsPath;
-      const resolved = resolver({ projectRoot: options.projectRoot, changeId: changeIdForResolver, rid: options.rid });
+      const resolved = resolver({ projectRoot: options.projectRoot, sessionId: changeIdForResolver, rid: options.rid });
       if (existsSync(resolved.path)) {
         anyEvidenceResolved = true;
         if (resolved.form === 'legacy') allResolvedPathsCanonical = false;
@@ -393,7 +388,7 @@ export async function verifyPipeline(options: {
       gate.passed = true;
       gate.detail = resolvedQaPath + (usedLegacyQa ? ' [DEPRECATION_LEGACY_PATH_USED]' : '');
       if (usedLegacyQa) {
-        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedQaPath} — re-run \`peaks workspace migrate-change-scope --project . --apply\` to move into .peaks/_runtime/${rdEvidenceDir}/qa/`);
+        violations.push(`DEPRECATION_LEGACY_PATH_USED: ${resolvedQaPath} — move the file into .peaks/_runtime/${rdEvidenceDir}/qa/ (the canonical location) so subsequent runs resolve on the canonical path. The legacy \`peaks workspace migrate-change-scope\` helper was removed in v2.19.0; use \`peaks workspace migrate\` to relocate misplaced content.`);
       }
     } else {
       gate.detail = `missing: ${canonicalQaPath}`;
@@ -524,7 +519,10 @@ export async function verifyPipeline(options: {
   // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
   // every gate resolved on the canonical path; `false` when at least
   // one fell back to a legacy form. QA / TXT surface the value so the
-  // user knows to run `peaks workspace migrate-change-scope --apply`.
+  // user knows the legacy content must be moved into the canonical
+  // location (the legacy `peaks workspace migrate-change-scope` helper
+  // was removed in v2.19.0; use `peaks workspace migrate` to relocate
+  // misplaced content).
   //
   // Implementation note: use the in-loop flag `allResolvedPathsCanonical`
   // (correctly updated by both the inline evidence loop AND the
@@ -542,7 +540,7 @@ export async function verifyPipeline(options: {
 
   return {
     rid: options.rid,
-    changeId: resolvedChangeId,
+    sessionId: resolvedChangeId,
     requestType,
     complete,
     rdPhase: { invoked: rdInvoked, state: rdState, gates: rdGates },

@@ -490,9 +490,8 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         const { autoRegenPrdHandoff } = await import('../../services/prd/handoff-auto-regen.js');
         const regen = await autoRegenPrdHandoff({
           projectRoot: options.project,
-          sessionId: options.sessionId,
+          sessionId: result.sessionId,
           requestId,
-          changeId: result.changeId,
           role: 'prd'
         });
         if (regen.status === 'created') {

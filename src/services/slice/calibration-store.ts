@@ -6,7 +6,7 @@
  *   formula: minutesP50 = 0.25 * locSum + 0.5 * testCount + 0.1 * complexitySum
  *            minutesP90 = minutesP50 * 1.6
  *
- * v1.1 (next): read `.peaks/_runtime/<changeId>/qa/cycle-time.json` history; if
+ * v1.1 (next): read `.peaks/_runtime/<sessionId>/qa/cycle-time.json` history; if
  *   sample size >= 5 for a complexity bucket, switch to percentile-based
  *   estimate with confidence 'high'.
  *

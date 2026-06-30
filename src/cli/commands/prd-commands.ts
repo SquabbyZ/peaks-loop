@@ -23,7 +23,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 type HandoffInitOptions = {
   rid: string;
   sid: string;
-  changeId: string;
+  sessionId: string;
   body: string;
   goals?: string;
   ac?: string;
@@ -75,7 +75,6 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       .description('Initialize an immutable handoff: sha256(body) → frontmatter → write to .peaks/_runtime/<sid>/prd/handoff.md')
       .requiredOption('--rid <request-id>', 'request id (e.g. 001-v2-11-cc-group-b)')
       .requiredOption('--sid <session-id>', 'session id (e.g. 2026-06-26-session-a28d69)')
-      .requiredOption('--change-id <change-id>', 'change-id (e.g. v2-11-rd-techdoc-removal-and-runtime-friction)')
       .requiredOption('--body <body>', 'handoff body markdown, or @<file> to read from disk')
       .option('--goals <ids>', 'comma-separated goal ids (e.g. G1,G2,G3)')
       .option('--ac <ids>', 'comma-separated acceptance-criteria ids (e.g. AC-1,AC-2)')
@@ -90,7 +89,6 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
       const handoff = initHandoff({
         requestId: options.rid,
         sessionId: options.sid,
-        changeId: options.changeId,
         body,
         writtenAt,
         goals: splitCsv(options.goals),
@@ -102,7 +100,6 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
           dryRun: true,
           requestId: handoff.frontmatter.requestId,
           sessionId: handoff.frontmatter.sessionId,
-          changeId: handoff.frontmatter.changeId,
           schemaVersion: handoff.frontmatter.schemaVersion,
           handoffHash: handoff.frontmatter.handoffHash,
           handoffPath: handoff.frontmatter.handoffPath,
@@ -119,8 +116,7 @@ export function registerPrdCommands(program: Command, io: ProgramIO): void {
         path: written.path,
         hash: written.hash,
         requestId: handoff.frontmatter.requestId,
-        sessionId: handoff.frontmatter.sessionId,
-        changeId: handoff.frontmatter.changeId
+        sessionId: handoff.frontmatter.sessionId
       }), options.json);
     } catch (error) {
       printResult(

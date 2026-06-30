@@ -200,11 +200,9 @@ export async function ensureSession(projectRoot: string): Promise<string> {
   // `peaks request init --project <abs-path>` would auto-generate a
   // new session and create an orphan dir.
   //
-  // The strict-equality read is preserved for other modules
-  // (notably `shared/change-id.ts` via `buildArtifactRelativePath`)
-  // that depend on the "no session bound" code path — switching the
-  // default would cascade into ~30 test failures in those modules.
-  // The canonical-fallback is opt-in for `ensureSession` only.
+  // The strict-equality read is preserved for modules that depend on
+  // the "no session bound" code path. The canonical-fallback is opt-in
+  // for `ensureSession` only.
   const canonical = getSessionIdCanonical(projectRoot);
   if (canonical !== null) {
     return canonical;

@@ -3,7 +3,9 @@ import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/mod
 import { getLocalArtifactPath } from '../artifacts/workspace-service.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
 import { createTechPlan, getTechStatus, type TechPlanResult, type TechStatus } from '../tech/tech-service.js';
-import { validateChangeIdOrThrow } from '../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+// was removed with the change-id axis. Path-safety helpers now live
+// at `shared/path-safety.ts` if this module ever needs them.
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 
 export type WorkflowMode = 'solo' | 'team';
@@ -15,7 +17,7 @@ export type WorkflowStepStage = 'product-direction' | 'design-direction' | 'tech
 export type WorkflowStepOwner = 'peaks-solo' | 'peaks-rd' | 'peaks-tech' | 'human';
 
 export type WorkflowRouterRequest = {
-  changeId: string;
+  sessionId: string;
   goal: string;
   mode: WorkflowMode;
   soloMode?: SoloMode;
@@ -72,7 +74,7 @@ export type WorkflowModeStatus = {
 };
 
 export type WorkflowRouterPlan = {
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly goal: string;
   readonly mode: WorkflowMode;
   readonly soloMode?: SoloMode;
@@ -274,7 +276,8 @@ function getSoloMode(mode: WorkflowMode, soloMode: SoloMode | undefined): SoloMo
 export function createWorkflowRouterPlan(request: WorkflowRouterRequest): WorkflowRouterPlan {
   assertSupportedMode(request.mode);
   assertSoloModeAllowed(request.mode, request.soloMode);
-  validateChangeIdOrThrow(request.changeId);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;
   // Slice 2.0.1-bug1 round 3: project policy defaults. The slim 2.0.1 DEFAULT_CONFIG
@@ -300,9 +303,9 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
     ...(request.workspace ? { workspace: request.workspace } : {})
   };
-  const techStatus = getTechStatus({ changeId: request.changeId, ...sharedWorkspaceOptions });
-  const techPlan = createTechPlan({ changeId: request.changeId, goal, swarm: swarmMode, dryRun: true, ...sharedWorkspaceOptions });
-  const rdPlan = createRdSwarmPlan({ skill: 'rd', changeId: request.changeId, goal, maxWorkers, swarmMode, executionModelId, dryRun: true, ...sharedWorkspaceOptions });
+  const techStatus = getTechStatus({ sessionId: request.sessionId, ...sharedWorkspaceOptions });
+  const techPlan = createTechPlan({ sessionId: request.sessionId, goal, swarm: swarmMode, dryRun: true, ...sharedWorkspaceOptions });
+  const rdPlan = createRdSwarmPlan({ skill: 'rd', sessionId: request.sessionId, goal, maxWorkers, swarmMode, executionModelId, dryRun: true, ...sharedWorkspaceOptions });
   const steps = soloMode ? createSoloStepsForMode(soloMode, executionModelId) : createTeamSteps(executionModelId);
   const blockedReasons = uniqueStrings([
     ...techStatus.blockedReasons,
@@ -314,7 +317,7 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
     : uniqueStrings([...techStatus.nextActions, ...getTechPlanNextActions(techPlan), ...rdPlan.nextActions]);
 
   return {
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal,
     mode: request.mode,
     ...(soloMode ? { soloMode } : {}),

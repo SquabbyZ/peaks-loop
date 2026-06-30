@@ -1,11 +1,11 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { validateChangeIdOrThrow } from '../../shared/change-id.js';
-import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 import { pathExists } from '../../shared/fs.js';
+import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export type AutonomousResumeWriteRequest = {
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly goal: string;
   readonly artifactWorkspacePath: string;
   readonly apply?: boolean;
@@ -34,14 +34,14 @@ function normalizeGoal(goal: string): string {
   return trimmed;
 }
 
-function renderGoalPackage(changeId: string, goal: string): string {
+function renderGoalPackage(sessionId: string, goal: string): string {
   return `${JSON.stringify({
-    changeId,
+    sessionId,
     artifactType: 'goal-package',
     status: 'ready',
     goal,
-    doneCondition: `Autonomous plan for ${changeId} is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
-    resumeCondition: `Resume ${changeId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
+    doneCondition: `Autonomous plan for ${sessionId} is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
+    resumeCondition: `Resume ${sessionId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
     acceptanceCriteria: [
       'A resumable autonomous RD plan exists with checkpoints, worker queue, and validation evidence requirements.',
       'Curated capabilities from docs/accessRepo.md and docs/mcpServer.md are considered before custom implementation.',
@@ -51,9 +51,9 @@ function renderGoalPackage(changeId: string, goal: string): string {
   }, null, 2)}\n`;
 }
 
-function renderRdPlan(changeId: string): string {
+function renderRdPlan(sessionId: string): string {
   return `${JSON.stringify({
-    changeId,
+    sessionId,
     artifactType: 'rd-plan',
     status: 'ready',
     workerQueueStatus: 'ready',
@@ -62,9 +62,9 @@ function renderRdPlan(changeId: string): string {
   }, null, 2)}\n`;
 }
 
-function renderCheckpoint(changeId: string, createdAt: string): string {
+function renderCheckpoint(sessionId: string, createdAt: string): string {
   return `${JSON.stringify({
-    changeId,
+    sessionId,
     artifactType: 'checkpoint',
     status: 'ready',
     checkpointId: 'checkpoint-1',
@@ -74,16 +74,16 @@ function renderCheckpoint(changeId: string, createdAt: string): string {
   }, null, 2)}\n`;
 }
 
-function renderValidationReport(changeId: string): string {
+function renderValidationReport(sessionId: string): string {
   return `---
-changeId: ${changeId}
+sessionId: ${sessionId}
 artifactType: validation-report
 status: passed
 ---
 
 Validation summary:
 
-- Resume artifact scaffold generated for ${changeId}.
+- Resume artifact scaffold generated for ${sessionId}.
 
 Checks:
 
@@ -97,16 +97,16 @@ Evidence refs:
 `;
 }
 
-function renderUnitTestsEvidence(changeId: string): string {
-  return `# unit-tests evidence for ${changeId}
+function renderUnitTestsEvidence(sessionId: string): string {
+  return `# unit-tests evidence for ${sessionId}
 
 Replace this stub with the real test command, output, and coverage delta. The autonomous resume validator only requires this file to exist and be a safe markdown name listed in checkpoint-1.json validationRefs.
 `;
 }
 
-function renderResumeInstructions(changeId: string): string {
+function renderResumeInstructions(sessionId: string): string {
   return `---
-changeId: ${changeId}
+sessionId: ${sessionId}
 artifactType: resume-instructions
 status: passed
 ---
@@ -120,7 +120,7 @@ Resume steps:
 
 Preconditions:
 
-- Artifact workspace is local and matches changeId ${changeId}.
+- Artifact workspace is local and matches sessionId ${sessionId}.
 - No destructive --apply has run without explicit authorization.
 
 Blocked actions:
@@ -129,55 +129,59 @@ Blocked actions:
 
 Next actions:
 
-- Run peaks workflow autonomous --change-id ${changeId} --goal "<goal>" --json to recompute the plan.
+- Run peaks workflow autonomous --change-id ${sessionId} --goal "<goal>" --json to recompute the plan.
 - Compare blockedReasons; resolve before reattempting resume.
 `;
 }
 
-function buildFiles(changeId: string, goal: string, createdAt: string, artifactWorkspacePath: string): AutonomousResumeArtifactFile[] {
-  // Slice 2026-06-23-audit-5th-p1: route every reviewable artifact under
-  // the canonical change-id scope dir at
-  // `.peaks/_runtime/change/<changeId>/...` (see
-  // `getChangeScopeDirAbs` in `services/artifacts/change-scope-service.ts`).
-  // The old `.peaks/_runtime/${changeId}/...` shape was a SKILL.md 2.8.3 hard-ban
-  // violation — change-id content must NEVER appear as a sibling of
-  // `.peaks/_runtime/`. The `.peaks/_runtime/` gitignore rule covers
-  // the new path; reviewable-vs-ephemeral split is preserved.
-  const scopeRoot = getChangeScopeDirAbs(artifactWorkspacePath, changeId);
+function buildFiles(sessionId: string, goal: string, createdAt: string, artifactWorkspacePath: string): AutonomousResumeArtifactFile[] {
+  // Slice 2026-06-29-change-id-root-removal: route every reviewable
+  // artifact under the session-axis dir at `.peaks/_runtime/<sid>/...`
+  // via `getSessionDir`. The change-id identifier is reused as the
+  // session-dir name (per-execution scope). The gitignore rule on
+  // `.peaks/_runtime/` covers the path; the reviewable-vs-ephemeral
+  // split is preserved.
+  const scopeRoot = getSessionDir(artifactWorkspacePath, sessionId);
   return [
     {
       path: join(scopeRoot, 'prd', 'autonomous-goal-package.json'),
-      content: renderGoalPackage(changeId, goal)
+      content: renderGoalPackage(sessionId, goal)
     },
     {
       path: join(scopeRoot, 'rd', 'swarm', 'autonomous-rd-plan.json'),
-      content: renderRdPlan(changeId)
+      content: renderRdPlan(sessionId)
     },
     {
       path: join(scopeRoot, 'rd', 'swarm', 'checkpoints', 'checkpoint-1.json'),
-      content: renderCheckpoint(changeId, createdAt)
+      content: renderCheckpoint(sessionId, createdAt)
     },
     {
       path: join(scopeRoot, 'rd', 'swarm', 'evidence', 'unit-tests.md'),
-      content: renderUnitTestsEvidence(changeId)
+      content: renderUnitTestsEvidence(sessionId)
     },
     {
       path: join(scopeRoot, 'rd', 'swarm', 'evidence', 'validation-report.md'),
-      content: renderValidationReport(changeId)
+      content: renderValidationReport(sessionId)
     },
     {
       path: join(scopeRoot, 'rd', 'swarm', 'resume-instructions.md'),
-      content: renderResumeInstructions(changeId)
+      content: renderResumeInstructions(sessionId)
     }
   ];
 }
 
 export async function writeAutonomousResumeArtifacts(request: AutonomousResumeWriteRequest): Promise<AutonomousResumeWriteResult> {
-  validateChangeIdOrThrow(request.changeId);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // structural validation for the session id is a path-safety check
+  // (no path-traversal / no absolute path) so unsafe ids never escape
+  // the canonical `.peaks/_runtime/<sid>/` scope.
+  if (isUnsafePathInput(request.sessionId)) {
+    throw new Error(`Refusing to write: session id '${request.sessionId}' is unsafe (path-traversal, absolute, or otherwise malformed).`);
+  }
   const goal = normalizeGoal(request.goal);
   const clock = request.clock ?? defaultClock;
   const createdAt = clock();
-  const files = buildFiles(request.changeId, goal, createdAt, request.artifactWorkspacePath);
+  const files = buildFiles(request.sessionId, goal, createdAt, request.artifactWorkspacePath);
 
   if (request.apply !== true) {
     return { applied: false, files };

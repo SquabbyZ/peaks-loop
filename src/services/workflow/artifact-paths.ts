@@ -10,10 +10,10 @@
  *
  * v2.17.0 hard-kill: the canonical QA artifact dir is the SESSION
  * axis `.peaks/_runtime/<sessionId>/qa/`. The pre-v2.17.0 change axis
- * `.peaks/_runtime/change/<changeId>/qa/` is kept as a back-compat
+ * `.peaks/_runtime/change/<sessionId>/qa/` is kept as a back-compat
  * fallback for un-migrated workspaces — when consumed, the resolver
  * tags the form `'legacy'` so Gate C can surface the deprecation
- * warning. Same for the legacy misplaced `.peaks/<changeId>/qa/` form.
+ * warning. Same for the legacy misplaced `.peaks/<sessionId>/qa/` form.
  */
 import { existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,27 +39,31 @@ const PERFORMANCE_FINDINGS_BASE = 'performance-findings';
 /**
  * v2.17.0 — canonical QA dir is the session axis
  * `.peaks/_runtime/<sessionId>/qa/`. The pre-v2.17.0 change axis
- * `.peaks/_runtime/change/<changeId>/qa/` is kept as a back-compat
+ * `.peaks/_runtime/change/<sessionId>/qa/` is kept as a back-compat
  * fallback for un-migrated workspaces. The legacy misplaced
- * `.peaks/<changeId>/qa/` form was a pre-1.3.0 write-path bug;
- * `peaks workspace migrate-change-scope --apply` moves misplaced dirs.
+ * `.peaks/<sessionId>/qa/` form was a pre-1.3.0 write-path bug.
+ *
+ * Slice 2026-06-29-change-id-root-removal: the legacy
+ * `peaks workspace migrate-change-scope` migration tool is gone;
+ * operators must move misplaced dirs into the canonical location
+ * by hand (or via `peaks workspace migrate`).
  *
  * During a 1-minor-release deprecation window the resolver falls back
  * to the legacy paths so un-migrated workspaces still resolve. When
  * a fallback fires, the result is tagged `'legacy'`.
  */
-function canonicalQaDir(projectRoot: string, changeId: string): string {
-  // v2.17.0 canonical: session axis. The `<changeId>` arg is treated
+function canonicalQaDir(projectRoot: string, sessionId: string): string {
+  // v2.17.0 canonical: session axis. The `<sessionId>` arg is treated
   // as the on-disk session dir name (it equals the sessionId under
   // the session-axis layout). Under v2.16.0 layouts the same string
   // was the change-id dir name.
-  return join(projectRoot, '.peaks', '_runtime', changeId, QA_DIR);
+  return join(projectRoot, '.peaks', '_runtime', sessionId, QA_DIR);
 }
-function legacyChangeAxisQaDir(projectRoot: string, changeId: string): string {
-  return join(projectRoot, '.peaks', '_runtime', 'change', changeId, QA_DIR);
+function legacyChangeAxisQaDir(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, '.peaks', '_runtime', 'change', sessionId, QA_DIR);
 }
-function legacyMisplacedQaDir(projectRoot: string, changeId: string): string {
-  return join(projectRoot, '.peaks', changeId, QA_DIR);
+function legacyMisplacedQaDir(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, '.peaks', sessionId, QA_DIR);
 }
 
 export interface ResolveFindingsPathResult {
@@ -85,13 +89,13 @@ export interface ResolveFindingsPathResult {
  */
 function resolveFindingsPath(args: {
   projectRoot: string;
-  changeId: string;
+  sessionId: string;
   rid?: string;
   base: 'security-findings' | 'performance-findings';
   legacyFile: string;
   suffixedFile: (rid: string) => string;
 }): ResolveFindingsPathResult {
-  const qaDir = canonicalQaDir(args.projectRoot, args.changeId);
+  const qaDir = canonicalQaDir(args.projectRoot, args.sessionId);
   if (args.rid !== undefined) {
     const suffixedPath = join(qaDir, args.suffixedFile(args.rid));
     if (existsSync(suffixedPath)) {
@@ -99,13 +103,14 @@ function resolveFindingsPath(args: {
     }
     // Try the v2.16.0 change-axis dir, the pre-1.3.0 misplaced
     // `.peaks/<id>/qa/` form, and the sibling-of-`_runtime/` form.
-    // All three are migration targets for
-    // `peaks workspace migrate-change-scope`.
+    // All three are migration targets handled in v2.19.0+ by
+    // manual relocation into the canonical location (the legacy
+    // `peaks workspace migrate-change-scope` CLI was removed).
     const legacyCandidates = [
-      join(legacyChangeAxisQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
-      join(legacyMisplacedQaDir(args.projectRoot, args.changeId), args.suffixedFile(args.rid)),
-      join(legacyChangeAxisQaDir(args.projectRoot, args.changeId), args.legacyFile),
-      join(legacyMisplacedQaDir(args.projectRoot, args.changeId), args.legacyFile)
+      join(legacyChangeAxisQaDir(args.projectRoot, args.sessionId), args.suffixedFile(args.rid)),
+      join(legacyMisplacedQaDir(args.projectRoot, args.sessionId), args.suffixedFile(args.rid)),
+      join(legacyChangeAxisQaDir(args.projectRoot, args.sessionId), args.legacyFile),
+      join(legacyMisplacedQaDir(args.projectRoot, args.sessionId), args.legacyFile)
     ];
     for (const candidate of legacyCandidates) {
       if (existsSync(candidate)) {
@@ -140,10 +145,10 @@ function resolveFindingsPath(args: {
  * log a warning. When `rid` is undefined, the legacy form is the
  * canonical target.
  */
-export function resolveSecurityFindingsPath(args: { projectRoot: string; changeId: string; rid?: string }): ResolveFindingsPathResult {
+export function resolveSecurityFindingsPath(args: { projectRoot: string; sessionId: string; rid?: string }): ResolveFindingsPathResult {
   return resolveFindingsPath({
     projectRoot: args.projectRoot,
-    changeId: args.changeId,
+    sessionId: args.sessionId,
     ...(args.rid !== undefined ? { rid: args.rid } : {}),
     base: SECURITY_FINDINGS_BASE,
     legacyFile: SECURITY_FINDINGS_LEGACY,
@@ -152,10 +157,10 @@ export function resolveSecurityFindingsPath(args: { projectRoot: string; changeI
 }
 
 /** Resolve the performance-findings artifact path (mirror of `resolveSecurityFindingsPath`). */
-export function resolvePerformanceFindingsPath(args: { projectRoot: string; changeId: string; rid?: string }): ResolveFindingsPathResult {
+export function resolvePerformanceFindingsPath(args: { projectRoot: string; sessionId: string; rid?: string }): ResolveFindingsPathResult {
   return resolveFindingsPath({
     projectRoot: args.projectRoot,
-    changeId: args.changeId,
+    sessionId: args.sessionId,
     ...(args.rid !== undefined ? { rid: args.rid } : {}),
     base: PERFORMANCE_FINDINGS_BASE,
     legacyFile: PERFORMANCE_FINDINGS_LEGACY,
@@ -173,14 +178,14 @@ export function resolvePerformanceFindingsPath(args: { projectRoot: string; chan
  */
 export function lazyMigrateLegacyFindings(args: {
   projectRoot: string;
-  changeId: string;
+  sessionId: string;
   rid: string;
   base: 'security-findings' | 'performance-findings';
   legacyFile: string;
   suffixedFile: (rid: string) => string;
 }): { renamed: boolean; path: string } {
   // Slice 2026-06-28: lazy migration operates on the canonical QA dir.
-  const qaDir = canonicalQaDir(args.projectRoot, args.changeId);
+  const qaDir = canonicalQaDir(args.projectRoot, args.sessionId);
   const legacyPath = join(qaDir, args.legacyFile);
   const suffixedPath = join(qaDir, args.suffixedFile(args.rid));
   if (!existsSync(legacyPath)) {

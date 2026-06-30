@@ -19,7 +19,12 @@ import { registerWorkspaceInitCommand } from './workspace/init-command.js';
 import { registerWorkspaceReconcileCommand } from './workspace/reconcile-command.js';
 import { registerWorkspaceMigrateCommand } from './workspace/migrate-command.js';
 import { registerWorkspaceCleanCommand } from './workspace/clean-command.js';
-import { registerMigrateChangeScopeCommand } from './workspace/migrate-change-scope-command.js';
+// Slice 2026-06-29-change-id-root-removal: `registerMigrateChangeScopeCommand`
+// was removed with the change-id axis. The CLI tool
+// `peaks workspace migrate-change-scope` and its source file
+// `src/cli/commands/workspace/migrate-change-scope-command.ts` are
+// deleted; their on-disk target `.peaks/_runtime/change/<id>/` was
+// already hard-killed in v2.17.0.
 import { registerMigrate1_4_1Command } from './migrate-1-4-1-command.js';
 import { registerMigrateV2ToV11Command } from './migrate-v2-10-to-v2-11-command.js';
 
@@ -42,11 +47,6 @@ export function registerWorkspaceCommands(program: Command, io: ProgramIO): void
   registerWorkspaceReconcileCommand(workspace, io);
   registerWorkspaceMigrateCommand(workspace, io);
   registerWorkspaceCleanCommand(workspace, io);
-
-  // Slice 2026-06-28-solo-mode-bypass-fix: migrate misplaced
-  // change-id dirs from the pre-1.3.0 form to the canonical
-  // `.peaks/_runtime/change/<changeId>/` location.
-  registerMigrateChangeScopeCommand(workspace, io);
 
   // R004: slice 0.5 → 1.4.1 migration helper (legacy `.peaks/_runtime/<sid>/<role>/`
   // → `.peaks/_runtime/<sid>/<role>/`). Idempotent; purely a UX /

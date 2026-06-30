@@ -149,10 +149,14 @@ export async function getAcceptanceCoverage(options: AcceptanceCoverageOptions):
   }
   // As of slice 2026-06-05-change-id-as-unit-of-work, test-cases live
   // under the same change-id dir as the PRD itself (the on-disk scope),
-  // not under the body's `- session:` line. The `prdArtifact.changeId`
-  // is the dir the PRD was found in.
-  const changeId = prdArtifact.changeId;
-  const testCasesPath = join(options.projectRoot, '.peaks', changeId, 'qa', 'test-cases', `${options.requestId}.md`);
+  // not under the body's `- session:` line. Slice
+  // 2026-06-29-change-id-root-removal stripped the legacy
+  // `.peaks/_runtime/change/<id>/` indirection — test-cases now live
+  // under the canonical session dir `.peaks/_runtime/<sid>/qa/test-cases/`.
+  // `prdArtifact.sessionId` is the bare session id (the dir the PRD was
+  // found in), so we route through `_runtime/` here.
+  const sessionId = prdArtifact.sessionId;
+  const testCasesPath = join(options.projectRoot, '.peaks', '_runtime', sessionId, 'qa', 'test-cases', `${options.requestId}.md`);
   if (!(await pathExists(testCasesPath))) {
     return { kind: 'test-cases-not-found', expectedPath: testCasesPath };
   }

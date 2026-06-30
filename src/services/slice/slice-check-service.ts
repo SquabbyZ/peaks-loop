@@ -2,7 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory, pathExists } from '../../shared/fs.js';
-import { getCurrentChangeId } from '../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
+// removed with the change-id axis. Slice check resolves the rid from
+// `options.rid` only; the binding file at `.peaks/_runtime/current-change`
+// is no longer read. Path-safety helpers now live at
+// `shared/path-safety.ts` if this module ever needs them.
 import { verifyPipeline } from '../workflow/pipeline-verify-service.js';
 import { findMockViolations } from '../audit/enforcers/mock-placement.js';
 import { runRedLinesAudit } from '../audit/red-lines-service.js';
@@ -275,15 +279,15 @@ async function runReviewFanout(
 async function runGateVerifyPipeline(
   projectRoot: string,
   rid: string,
-  changeId: string
+  sessionId: string
 ): Promise<SliceCheckStage> {
   const start = Date.now();
   try {
-    const result = await verifyPipeline({ projectRoot, rid, changeId });
+    const result = await verifyPipeline({ projectRoot, rid, sessionId });
     const duration = Date.now() - start;
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
       status: result.complete ? 'pass' : 'fail',
       durationMs: duration,
       detail: result.complete
@@ -301,7 +305,7 @@ async function runGateVerifyPipeline(
   } catch (error: any) {
     return {
       name: 'gate-verify-pipeline',
-      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<changeId>/)',
+      description: 'peaks workflow verify-pipeline (RD/QA gate checks against .peaks/_runtime/change/<sessionId>/)',
       status: 'fail',
       durationMs: Date.now() - start,
       detail: error?.message ?? 'verify-pipeline threw',
@@ -316,17 +320,13 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
     throw new Error(`.peaks/ not found at ${options.projectRoot}. Run peaks workspace init first.`);
   }
 
-  // Resolve rid: explicit > current-change binding > null
-  let rid = options.rid;
-  if (rid === undefined) {
-    const bound = getCurrentChangeId(options.projectRoot);
-    if (bound !== null) {
-      rid = bound;
-    }
+  // Slice 2026-06-29-change-id-root-removal: resolve rid from the
+  // explicit `--rid` option only. The `current-change` binding file is
+  // gone; the CLI is the single source of truth for the rid.
+  if (options.rid === undefined) {
+    throw new Error('No --rid supplied. Pass --rid <id> on the CLI to identify which slice to check.');
   }
-  if (rid === undefined) {
-    throw new Error('No --rid and no current-change binding. Pass --rid <id> or run peaks workspace init --change-id <id> first.');
-  }
+  const rid = options.rid;
 
   const totalStart = Date.now();
   const stages: SliceCheckStage[] = [];

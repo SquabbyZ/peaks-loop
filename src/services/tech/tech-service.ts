@@ -1,17 +1,16 @@
 import { closeSync, existsSync, fstatSync, lstatSync, openSync, readSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { isInsidePath, stableRealPath } from '../../shared/path-utils.js';
-import { buildArtifactRelativePath, validateChangeIdOrThrow } from '../../shared/change-id.js';
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
 import { hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
-import { getChangeScopeDirAbs } from '../artifacts/change-scope-service.js';
+import { getSessionDir } from '../session/getSessionDir.js';
 
 export type TechWaveName = 'scan' | 'document' | 'review' | 'reducer';
 export type TechStatusValue = 'unavailable' | 'missing' | 'blocked' | 'approved';
 
 export type TechPlanRequest = {
-  changeId: string;
+  sessionId: string;
   goal: string;
   swarm: boolean;
   dryRun: true;
@@ -38,7 +37,7 @@ export type TechTask = {
 
 export type TechPlanGraph = {
   available: true;
-  changeId: string;
+  sessionId: string;
   goal: string;
   swarm: boolean;
   dryRun: true;
@@ -66,7 +65,7 @@ export type TechPlanPreview = {
 export type TechPlanResult = TechPlanGraph | TechPlanPreview;
 
 export type TechStatus = {
-  changeId: string;
+  sessionId: string;
   status: TechStatusValue;
   artifactRoot: string;
   requiredArtifacts: string[];
@@ -107,21 +106,23 @@ function assertNonEmptyGoal(goal: string): void {
   }
 }
 
-function architectureRoot(changeId: string): string {
-  // Descriptive string used in `TechPlanResult.artifactRoot` and as a
-  // brief `inputs` entry. The actual on-disk location is the canonical
-  // change-id scope dir — see `getChangeScopeDirAbs(workspace, changeId)`
-  // for the absolute path and `getTechStatus` for the reader.
-  return buildArtifactRelativePath(changeId, 'rd', 'architecture');
+function architectureRoot(_sessionId: string): string {
+  // Slice 2026-06-29-change-id-root-removal: descriptor is now the bare
+  // role-relative sub-path `<role>/architecture` (no `.peaks/_runtime/...`
+  // prefix). The on-disk location is resolved by `architectureRootAbs`
+  // via `getSessionDir`. Callers that previously split this string on
+  // the change-id segment need to use the descriptor as-is and resolve
+  // the absolute path via `architectureRootAbs` / `getSessionDir`.
+  return 'rd/architecture';
 }
 
-function architectureRootAbs(artifactWorkspacePath: string, changeId: string): string {
-  // Slice 2026-06-23-audit-5th-p1: read path lives under the canonical
-  // change-id scope dir `.peaks/_runtime/change/<changeId>/rd/architecture/`,
-  // matching the test helper `writeApprovedTechArtifacts` and
-  // `autonomous-resume-writer.ts`. The previous `.peaks/_runtime/${changeId}/...`
-  // shape was a SKILL.md 2.8.3 hard-ban violation.
-  return join(getChangeScopeDirAbs(artifactWorkspacePath, changeId), 'rd', 'architecture');
+function architectureRootAbs(artifactWorkspacePath: string, sessionId: string): string {
+  // Slice 2026-06-29-change-id-root-removal: on-disk path now resolves
+  // via the session-axis `getSessionDir(root, sessionId)` (the change-id
+  // identifier is reused as the session-dir name for tech-artifact
+  // reads, matching the test helper `writeApprovedTechArtifacts` and
+  // `autonomous-resume-writer.ts`).
+  return join(getSessionDir(artifactWorkspacePath, sessionId), 'rd', 'architecture');
 }
 
 function hasPlannerArtifactWorkspace(artifactWorkspacePath: string, workspace?: WorkspaceConfig): boolean {
@@ -203,8 +204,11 @@ function isValidArtifactFile(rootPath: string, artifact: string): boolean {
   }
 }
 
-function waveManifestPath(changeId: string, index: number, wave: TechWaveName): string {
-  return buildArtifactRelativePath(changeId, 'rd', 'architecture', 'waves', `wave-${index + 1}-${wave}.json`);
+function waveManifestPath(_sessionId: string, index: number, wave: TechWaveName): string {
+  // Slice 2026-06-29-change-id-root-removal: descriptor is now
+  // `rd/architecture/waves/<file>`. The scope root is supplied by the
+  // caller via `getSessionDir`.
+  return `rd/architecture/waves/wave-${index + 1}-${wave}.json`;
 }
 
 function taskPurpose(taskId: string, goal: string): string {
@@ -212,7 +216,8 @@ function taskPurpose(taskId: string, goal: string): string {
 }
 
 function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'available'> {
-  validateChangeIdOrThrow(request.changeId);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
   assertNonEmptyGoal(request.goal);
 
   const [scanWave, documentWave, reviewWave] = TECH_WAVE_TASKS;
@@ -228,13 +233,13 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
         : wave.name === 'review'
           ? [...documentTaskIds]
           : [...reviewTaskIds];
-    const briefPath = buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'workers', taskId, 'brief.md');
+    const briefPath = `rd/architecture/workers/${taskId}/brief.md`;
     return {
       taskId,
       wave: wave.name,
       workerKind: taskId,
       purpose: taskPurpose(taskId, request.goal),
-      inputs: [request.goal, architectureRoot(request.changeId)],
+      inputs: [request.goal, architectureRoot(request.sessionId)],
       outputs: [briefPath],
       dependsOn,
       conflictGroup: `tech-${wave.name}`,
@@ -243,18 +248,18 @@ function createTechGraph(request: TechPlanRequest): Omit<TechPlanGraph, 'availab
   }));
 
   return {
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal: request.goal,
     swarm: request.swarm,
     dryRun: true,
-    artifactRoot: architectureRoot(request.changeId),
+    artifactRoot: architectureRoot(request.sessionId),
     waves,
     tasks,
     outputs: {
-      taskGraph: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-task-graph.json'),
-      waveManifests: waves.map((wave, index) => waveManifestPath(request.changeId, index, wave.name)),
-      reviewChecklist: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-review-checklist.md'),
-      approvalTemplate: buildArtifactRelativePath(request.changeId, 'rd', 'architecture', 'tech-approval-record.template.md'),
+      taskGraph: 'rd/architecture/tech-task-graph.json',
+      waveManifests: waves.map((wave, index) => waveManifestPath(request.sessionId, index, wave.name)),
+      reviewChecklist: 'rd/architecture/tech-review-checklist.md',
+      approvalTemplate: 'rd/architecture/tech-approval-record.template.md',
     },
     blockedReasons: [],
     nextActions: [],
@@ -280,13 +285,14 @@ export function createTechPlan(request: TechPlanRequest): TechPlanResult {
   };
 }
 
-export function getTechStatus(options: { changeId: string; artifactWorkspacePath?: string; workspace?: WorkspaceConfig }): TechStatus {
-  validateChangeIdOrThrow(options.changeId);
-  const artifactRoot = architectureRoot(options.changeId);
+export function getTechStatus(options: { sessionId: string; artifactWorkspacePath?: string; workspace?: WorkspaceConfig }): TechStatus {
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
+  const artifactRoot = architectureRoot(options.sessionId);
 
   if (!options.artifactWorkspacePath) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'unavailable',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -299,7 +305,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
 
   if (!hasPlannerArtifactWorkspace(options.artifactWorkspacePath, options.workspace)) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'unavailable',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -310,11 +316,11 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
     };
   }
 
-  const rootPath = architectureRootAbs(options.artifactWorkspacePath, options.changeId);
-  const approvalRecord = buildArtifactRelativePath(options.changeId, 'rd', 'architecture', 'tech-approval-record.md');
+  const rootPath = architectureRootAbs(options.artifactWorkspacePath, options.sessionId);
+  const approvalRecord = 'rd/architecture/tech-approval-record.md';
   if (isEscapedArchitectureRoot(rootPath, options.artifactWorkspacePath)) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'blocked',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -329,7 +335,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
 
   if (missingArtifacts.length === 1 && missingArtifacts[0] === 'tech-approval-record.md') {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'blocked',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -342,7 +348,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
 
   if (missingArtifacts.length > 0) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: missingArtifacts.length === TECH_REQUIRED_ARTIFACTS.length ? 'missing' : 'blocked',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -357,7 +363,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
   const approvalContent = readTechArtifactFile(rootPath, 'tech-approval-record.md');
   if (approvalContent === null) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'blocked',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -370,7 +376,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
 
   if (!approvalContent.split(/\r?\n/).some((line) => line.trim() === 'status: approved')) {
     return {
-      changeId: options.changeId,
+      sessionId: options.sessionId,
       status: 'blocked',
       artifactRoot,
       requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],
@@ -382,7 +388,7 @@ export function getTechStatus(options: { changeId: string; artifactWorkspacePath
   }
 
   return {
-    changeId: options.changeId,
+    sessionId: options.sessionId,
     status: 'approved',
     artifactRoot,
     requiredArtifacts: [...TECH_REQUIRED_ARTIFACTS],

@@ -1,5 +1,7 @@
 import { join } from 'node:path';
-import { validateChangeIdOrThrow } from '../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+// was removed with the change-id axis. Path-safety helpers now live
+// at `shared/path-safety.ts` if this module ever needs them.
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
 import { createCapabilityMapPlan } from '../recommendations/capability-map-service.js';
@@ -71,7 +73,7 @@ export type CapabilityCandidate = {
 export type AutonomousWorkflowRequest = {
   readonly mode: WorkflowMode;
   readonly soloMode?: SoloMode;
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly goal: string;
   readonly maxWorkers?: number;
   readonly dryRun: true;
@@ -85,7 +87,7 @@ export type AutonomousWorkflowRequest = {
 };
 
 export type AutonomousGoalPackage = {
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly goal: string;
   readonly nonGoals: readonly string[];
   readonly preservedBehavior: readonly string[];
@@ -137,7 +139,7 @@ export type AutonomousMvpPackage = {
 export type AutonomousWorkflowPlan = {
   readonly available: boolean;
   readonly behavior: 'preview' | 'ready';
-  readonly changeId: string;
+  readonly sessionId: string;
   readonly goal: string;
   readonly mode: WorkflowMode;
   readonly dryRun: true;
@@ -189,9 +191,9 @@ function hasArtifactWorkspace(request: AutonomousWorkflowRequest, artifactWorksp
   return !!request.workspace && !!artifactWorkspacePath && hasValidArtifactWorkspace(request.workspace, artifactWorkspacePath);
 }
 
-function createGoalPackage(changeId: string, goal: string): AutonomousGoalPackage {
+function createGoalPackage(sessionId: string, goal: string): AutonomousGoalPackage {
   return {
-    changeId,
+    sessionId,
     goal,
     nonGoals: [
       'Change product behavior without explicit approval.',
@@ -209,8 +211,8 @@ function createGoalPackage(changeId: string, goal: string): AutonomousGoalPackag
       'Resume after compact verifies checkpoints and evidence before continuing.',
       'All execution remains dry-run until explicitly approved.'
     ],
-    doneCondition: `The ${changeId} autonomous plan is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
-    resumeCondition: `Resume ${changeId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
+    doneCondition: `The ${sessionId} autonomous plan is complete when all acceptance criteria pass, the worker queue is empty or blocked with next actions, and validation evidence is recorded.`,
+    resumeCondition: `Resume ${sessionId} only after checkpoint artifacts, worker queue state, and validation evidence requirements have been verified.`,
     riskNotes: [
       'Claude Code /goal is session-scoped and cannot be the only durable state source.',
       'External capabilities may require installation, credentials, network access, or settings changes.',
@@ -386,7 +388,8 @@ function uniqueStrings(values: readonly string[]): string[] {
 }
 
 export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest): AutonomousWorkflowPlan {
-  validateChangeIdOrThrow(request.changeId);
+  // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
+  // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
   const maxWorkers = request.maxWorkers ?? 40;
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
@@ -395,12 +398,12 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
     ...(request.workspace ? { workspace: request.workspace } : {})
   };
-  const goalPackage = createGoalPackage(request.changeId, goal);
+  const goalPackage = createGoalPackage(request.sessionId, goal);
   const available = hasArtifactWorkspace(request, artifactWorkspacePath);
   const routePlan = createWorkflowRouterPlan({
     mode: request.mode,
     ...(request.soloMode !== undefined ? { soloMode: request.soloMode } : {}),
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal,
     maxWorkers,
     dryRun: true,
@@ -409,7 +412,7 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
   });
   const rdPlan = createRdSwarmPlan({
     skill: 'rd',
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal,
     maxWorkers,
     dryRun: true,
@@ -417,9 +420,9 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
     executionModelId: routePlan.modeStatus.executionModelId,
     ...sharedWorkspaceOptions
   });
-  const requiredArtifacts = getResumeRequiredArtifacts(request.changeId);
+  const requiredArtifacts = getResumeRequiredArtifacts(request.sessionId);
   const resumeArtifactsStatus = available && artifactWorkspacePath
-    ? getResumeArtifactsStatus(artifactWorkspacePath, requiredArtifacts, request.changeId, goal)
+    ? getResumeArtifactsStatus(artifactWorkspacePath, requiredArtifacts, request.sessionId, goal)
     : 'missing';
   const blockedReasons = uniqueStrings([
     ...routePlan.blockedReasons,
@@ -435,7 +438,7 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
   return {
     available: ready,
     behavior: ready ? 'ready' : 'preview',
-    changeId: request.changeId,
+    sessionId: request.sessionId,
     goal,
     mode: request.mode,
     dryRun: true,
@@ -450,7 +453,7 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
     routePlan,
     modelAssignments: routePlan.modelAssignments,
     rdPlan,
-    resumePlan: createResumePlan(request.changeId, ready),
+    resumePlan: createResumePlan(request.sessionId, ready),
     mvpPackage,
     constraints: [...AUTONOMOUS_CONSTRAINTS],
     blockedReasons,

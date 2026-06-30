@@ -25,8 +25,16 @@ function registerSCStatusCommands(sc: Command, io: ProgramIO): void {
 }
 
 function registerSCArtifactCommands(sc: Command, io: ProgramIO): void {
-  addJsonOption(sc.command('impact').description('Generate change impact artifact').requiredOption('--change-id <id>', 'change identifier').option('--module <module>', 'affected module', multipleOption).option('--file <file>', 'affected file', multipleOption)).action((options: { changeId: string; module?: string[]; file?: string[]; json?: boolean }) => {
-    const impactOptions: { changeId: string; sourceArtifacts?: string[]; affectedModules?: string[]; affectedFiles?: string[] } = { changeId: options.changeId, ...(options.module ? { affectedModules: options.module } : {}), ...(options.file ? { affectedFiles: options.file } : {}) };
+  // Slice 2026-06-29-change-id-root-removal: `--change-id` is no
+  // longer accepted on `peaks sc impact`. The CLI surfaces a
+  // per-`(module, file)` impact report without a top-level
+  // change-id binding.
+  addJsonOption(sc.command('impact').description('Generate change impact artifact').option('--module <module>', 'affected module', multipleOption).option('--file <file>', 'affected file', multipleOption)).action((options: { module?: string[]; file?: string[]; json?: boolean }) => {
+    const impactOptions: { sessionId: string; sourceArtifacts?: string[]; affectedModules?: string[]; affectedFiles?: string[] } = {
+      sessionId: '',
+      ...(options.module ? { affectedModules: options.module } : {}),
+      ...(options.file ? { affectedFiles: options.file } : {})
+    };
     printResult(io, ok('sc.impact', createChangeImpact(impactOptions)), options.json);
   });
 

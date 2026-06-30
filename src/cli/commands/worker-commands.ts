@@ -5,7 +5,7 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, redactSensitiveErrorMessage, summarizeMiniMaxWorkerResult, type ProgramIO } from '../cli-helpers.js';
 
 interface MiniMaxWorkerOptions {
-  changeId: string;
+  sessionId: string;
   goal: string;
   codingTask: string;
   unitTestTask: string;
@@ -18,7 +18,7 @@ function addMiniMaxWorkerOptions(command: Command): Command {
   return addJsonOption(
     command
       .description('Run a single MiniMax coding and unit-test execution worker')
-      .requiredOption('--change-id <id>', 'change identifier')
+      .requiredOption('--session-id <id>', 'session identifier (the single-axis workspace binding after the change-id root removal)')
       .requiredOption('--goal <goal>', 'execution goal')
       .requiredOption('--coding-task <task>', 'coding execution task')
       .requiredOption('--unit-test-task <task>', 'unit-test execution task')
@@ -34,18 +34,18 @@ async function runMiniMaxWorkerCommand(io: ProgramIO, options: MiniMaxWorkerOpti
     return;
   }
 
-  const changeId = options.changeId.trim();
+  const sessionId = options.sessionId.trim();
   const goal = options.goal.trim();
   const codingTask = options.codingTask.trim();
   const unitTestTask = options.unitTestTask.trim();
-  if (!changeId || !goal || !codingTask || !unitTestTask) {
-    printResult(io, fail('worker.minimax', 'INVALID_WORKER_INPUT', 'Worker inputs must be non-empty', {}, ['Provide non-empty values for --change-id, --goal, --coding-task, and --unit-test-task']), options.json);
+  if (!sessionId || !goal || !codingTask || !unitTestTask) {
+    printResult(io, fail('worker.minimax', 'INVALID_WORKER_INPUT', 'Worker inputs must be non-empty', {}, ['Provide non-empty values for --session-id, --goal, --coding-task, and --unit-test-task']), options.json);
     process.exitCode = 1;
     return;
   }
 
   try {
-    const result = await runMiniMaxWorker(getMiniMaxProviderConfig(), { changeId, goal, codingTask, unitTestTask, model: options.model });
+    const result = await runMiniMaxWorker(getMiniMaxProviderConfig(), { sessionId, goal, codingTask, unitTestTask, model: options.model });
     const safeResult = summarizeMiniMaxWorkerResult(result);
     if (!result.provider.configured) {
       printResult(io, fail('worker.minimax', 'MINIMAX_PROVIDER_NOT_CONFIGURED', 'MiniMax provider requires baseUrl and apiKey in user config', safeResult, ['Run peaks config provider minimax set --base-url <url> and either MINIMAX_API_KEY']), options.json);

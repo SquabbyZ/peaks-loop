@@ -15,7 +15,7 @@
  *
  * Path convention: the file lands at
  * `.peaks/_runtime/<sessionId>/prd/handoff.md` (gitignored session
- * artifact; the binding to `<changeId>` lives in
+ * artifact; the binding to `<sessionId>` lives in
  * `.peaks/_runtime/current-change`). NEVER write under
  * `.peaks/_runtime/<change-id>/...` directly (slice 2.8.3 hard ban).
  */
@@ -34,7 +34,6 @@ export type HandoffSchemaVersion = '2';
 export interface HandoffFrontmatter {
   readonly requestId: string;
   readonly sessionId: string;
-  readonly changeId: string;
   readonly schemaVersion: HandoffSchemaVersion;
   /** Lowercase hex sha256 of the body content. Recomputed by
    *  `verifyHandoff`; mismatch means tampering → refuse to read. */

@@ -4,7 +4,7 @@
  * `loadMutReport` is the read-side counterpart of `buildMutReport`
  * (which is the write-side). Both share the canonical path:
  * `.peaks/_runtime/<sessionId>/mut/mut-report.json` (per hotfix 81f00ce
- * one-axis envelope — no `.peaks/_runtime/<changeId>/` fallback).
+ * one-axis envelope — no `.peaks/_runtime/<sessionId>/` fallback).
  *
  * Design contract (per spec lines 1292-1341):
  *   - Missing file      → `null` (gate is skipped, NOT failed)

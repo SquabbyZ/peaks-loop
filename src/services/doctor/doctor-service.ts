@@ -966,12 +966,11 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   //
   // Round 2 (slice 2026-06-24-doctor-1xdetector-residual): the reducer
   // must skip canonical system subdirs that intentionally live under
-  // `.peaks/_runtime/` (e.g. `change/` — used by
-  // `change-scope-service` / `request-artifact-service` /
-  // `workflow-autonomous-service` to route per-change-id reviewable
-  // artifacts). Excluding these from the orphan scan is a reducer-
-  // level narrowing of which entries are subject to the check; it
-  // does NOT change the pass/fail rule for actual session ids.
+  // `.peaks/_runtime/` — used by `request-artifact-service` /
+  // `workflow-autonomous-service` to route reviewable artifacts under
+  // session-axis dirs. Excluding these from the orphan scan is a
+  // reducer-level narrowing of which entries are subject to the check;
+  // it does NOT change the pass/fail rule for actual session ids.
   const RUNTIME_SYSTEM_SUBDIRS: ReadonlySet<string> = new Set(['change']);
   const l3ProjectRoot = options.l3ProjectRoot ?? findProjectRoot(process.cwd()) ?? process.cwd();
   try {

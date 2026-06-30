@@ -24,7 +24,6 @@ const CONFIRMATION_MARKERS: readonly RegExp[] = [
 export interface DesignDraftConfirmInput {
   readonly projectRoot: string;
   readonly sessionId: string;
-  readonly changeId: string;
 }
 
 export interface DesignDraftConfirmResult {
@@ -36,13 +35,13 @@ export interface DesignDraftConfirmResult {
 
 export function checkDesignDraftConfirmation(input: DesignDraftConfirmInput): DesignDraftConfirmResult {
   // Back-compat read: 2.8.0-era `peaks workspace init` wrote design drafts
-  // at `.peaks/_runtime/<changeId>/ui/design-draft.md`. The 2.8.3+ canonical path
-  // is `.peaks/_runtime/change/<changeId>/ui/design-draft.md`, but the
+  // at `.peaks/_runtime/<sessionId>/ui/design-draft.md`. The 2.8.3+ canonical path
+  // is `.peaks/_runtime/change/<sessionId>/ui/design-draft.md`, but the
   // audit gate must continue to read the legacy sibling dir if it exists.
-  // Design drafts live at .peaks/_runtime/<changeId>/ui/design-draft.md (UI role) or
-  // .peaks/_runtime/<changeId>/prd/requests/<rid>.md (PRD). For L2.2 the canonical
+  // Design drafts live at .peaks/_runtime/<sessionId>/ui/design-draft.md (UI role) or
+  // .peaks/_runtime/<sessionId>/prd/requests/<rid>.md (PRD). For L2.2 the canonical
   // location is the UI design-draft.
-  const draftPath = join(input.projectRoot, '.peaks', input.changeId, 'ui/design-draft.md');
+  const draftPath = join(input.projectRoot, '.peaks', input.sessionId, 'ui/design-draft.md');
   const draftExists = existsSync(draftPath);
   if (!draftExists) {
     return {

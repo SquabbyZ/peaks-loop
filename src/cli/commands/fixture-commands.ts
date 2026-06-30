@@ -43,7 +43,6 @@ import { fail, ok } from '../../shared/result.js';
 type CaptureOptions = {
   fromRid?: string;
   sid?: string;
-  changeId?: string;
   envelope?: string;
   variantFrom?: string;
   variant?: string;
@@ -71,7 +70,6 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
       .description('Capture a real envelope artifact as a replay fixture. Sanitizes secrets, computes SHA-256, writes fixture.meta.json.')
       .option('--from-rid <rid>', 'historical rid to capture (requires --sid + --envelope)')
       .option('--sid <sid>', 'session id under .peaks/_runtime/<sid>/', 'default')
-      .option('--change-id <id>', 'change-id recorded in fixture.meta.json sourceOrigin')
       .option('--envelope <kind>', `envelope kind: ${ENVELOPE_KINDS.join(' | ')}`)
       .option('--variant-from <path>', 'parent fixture path (derived-variant mode)')
       .option('--variant <edge-case>', `edge case: ${EDGE_CASE_VARIANTS.join(' | ')}`)
@@ -151,7 +149,6 @@ export function registerFixtureCommands(program: Command, io: ProgramIO): void {
       const captured = captureHistoricalFixture({
         mode: 'historical',
         sessionId: options.sid ?? 'default',
-        changeId: options.changeId ?? null,
         envelopeKind: options.envelope,
         fixtureId,
         outDir: out,

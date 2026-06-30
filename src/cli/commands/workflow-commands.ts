@@ -63,7 +63,8 @@ interface WorkspaceContext {
 }
 
 interface TechPlanOptions {
-  changeId: string;
+  // Slice 2026-06-29-change-id-root-removal: `sessionId` is no longer
+  // a CLI option; the planner derives scope from the active session.
   goal: string;
   swarm?: boolean;
   dryRun?: boolean;
@@ -71,13 +72,11 @@ interface TechPlanOptions {
 }
 
 interface TechStatusOptions {
-  changeId: string;
   json?: boolean;
 }
 
 interface WorkflowRouteOptions {
   mode: string;
-  changeId: string;
   goal: string;
   soloMode?: string;
   maxWorkers: string;
@@ -87,7 +86,6 @@ interface WorkflowRouteOptions {
 
 interface SwarmPlanOptions {
   skill?: string;
-  changeId: string;
   goal: string;
   maxWorkers: string;
   dryRun?: boolean;
@@ -97,7 +95,6 @@ interface SwarmPlanOptions {
 }
 
 interface AutonomousResumeInitOptions {
-  changeId: string;
   goal: string;
   project: string;
   apply?: boolean;
@@ -172,8 +169,12 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
   try {
     validatePlanningInput(options.goal);
     const workspaceContext = getCurrentWorkspaceContext();
+    // Slice 2026-06-29-change-id-root-removal: the change-id axis is
+    // gone. The planner derives scope from the active session; the
+    // legacy `sessionId` field is passed as empty string for back-compat
+    // with the existing service signature.
     const plan = createTechPlan({
-      changeId: options.changeId,
+      sessionId: '',
       goal: options.goal,
       swarm: options.swarm ?? false,
       dryRun: true,
@@ -181,7 +182,7 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
     });
     printResult(io, ok('tech.plan', plan), options.json);
   } catch (error) {
-    printResult(io, fail('tech.plan', 'INVALID_CHANGE_ID_OR_GOAL', getErrorMessage(error), {}, ['Use a safe change id and a non-empty goal']), options.json);
+    printResult(io, fail('tech.plan', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
     process.exitCode = 1;
   }
 }
@@ -189,9 +190,9 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
 function runTechStatus(io: ProgramIO, options: TechStatusOptions): void {
   try {
     const workspaceContext = getCurrentWorkspaceContext();
-    printResult(io, ok('tech.status', getTechStatus({ changeId: options.changeId, ...workspaceContext })), options.json);
+    printResult(io, ok('tech.status', getTechStatus({ sessionId: '', ...workspaceContext })), options.json);
   } catch (error) {
-    printResult(io, fail('tech.status', 'INVALID_CHANGE_ID', getErrorMessage(error), {}, ['Use a safe change id']), options.json);
+    printResult(io, fail('tech.status', 'TECH_STATUS_FAILED', getErrorMessage(error), {}, ['Verify the project setup']), options.json);
     process.exitCode = 1;
   }
 }
@@ -218,7 +219,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
     validatePlanningInput(options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createWorkflowRouterPlan({
-      changeId: options.changeId,
+      sessionId: '',
       goal: options.goal,
       mode: options.mode,
       ...(soloMode ? { soloMode } : {}),
@@ -229,7 +230,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
     });
     printResult(io, ok('workflow.route', plan), options.json);
   } catch (error) {
-    printResult(io, fail('workflow.route', 'INVALID_CHANGE_ID_OR_GOAL', getErrorMessage(error), {}, ['Use a safe change id and a non-empty goal']), options.json);
+    printResult(io, fail('workflow.route', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
     process.exitCode = 1;
   }
 }
@@ -256,7 +257,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
     validatePlanningInput(options.goal);
     const workspaceContext = getWorkflowWorkspaceContext();
     const plan = createAutonomousWorkflowPlan({
-      changeId: options.changeId,
+      sessionId: '',
       goal: options.goal,
       mode: options.mode,
       ...(soloMode ? { soloMode } : {}),
@@ -267,7 +268,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
     });
     printResult(io, ok('workflow.autonomous', plan), options.json);
   } catch (error) {
-    printResult(io, fail('workflow.autonomous', 'INVALID_CHANGE_ID_OR_GOAL', getErrorMessage(error), {}, ['Use a safe change id and a non-empty goal']), options.json);
+    printResult(io, fail('workflow.autonomous', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
     process.exitCode = 1;
   }
 }
@@ -297,7 +298,7 @@ async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<v
     await ensureContextForRd(options.goal, projectRoot, sid);
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: options.changeId,
+      sessionId: '',
       goal: options.goal,
       maxWorkers,
       dryRun: true,
@@ -314,7 +315,7 @@ async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<v
     }
     printResult(io, ok('swarm.plan', plan), options.json);
   } catch (error) {
-    printResult(io, fail('swarm.plan', 'INVALID_CHANGE_ID_OR_GOAL', getErrorMessage(error), {}, ['Use a safe change id and a non-empty goal']), options.json);
+    printResult(io, fail('swarm.plan', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
     process.exitCode = 1;
   }
 }
@@ -324,8 +325,13 @@ async function runAutonomousResumeInit(io: ProgramIO, options: AutonomousResumeI
     if (!options.project || !options.project.trim()) {
       throw new Error('Project path must be non-empty');
     }
+    // Slice 2026-06-29-change-id-root-removal: the change-id axis is
+    // gone. The CLI surfaces a deterministic placeholder
+    // (`session-default`) when the user does not pass a change-id, so
+    // the on-disk session-dir join via `getSessionDir` succeeds (the
+    // writer still requires a safe non-empty string).
     const result = await writeAutonomousResumeArtifacts({
-      changeId: options.changeId,
+      sessionId: 'session-default',
       goal: options.goal,
       artifactWorkspacePath: options.project,
       apply: options.apply === true
@@ -335,11 +341,11 @@ async function runAutonomousResumeInit(io: ProgramIO, options: AutonomousResumeI
       files: result.files.map((file) => file.path)
     };
     const nextActions = result.applied
-      ? ['Run peaks workflow autonomous --change-id ' + options.changeId + ' --goal "<goal>" --json to verify resumePlan.status']
+      ? ['Run peaks workflow autonomous --goal "<goal>" --json to verify resumePlan.status']
       : ['Re-run with --apply to write the resume scaffold to disk'];
     printResult(io, ok('autonomous-resume.init', data, [], nextActions), options.json);
   } catch (error) {
-    printResult(io, fail('autonomous-resume.init', 'AUTONOMOUS_RESUME_INIT_FAILED', getErrorMessage(error), {}, ['Use a safe change id, a non-empty goal, and a writable project path']), options.json);
+    printResult(io, fail('autonomous-resume.init', 'AUTONOMOUS_RESUME_INIT_FAILED', getErrorMessage(error), {}, ['Use a non-empty goal and a writable project path']), options.json);
     process.exitCode = 1;
   }
 }
@@ -348,7 +354,6 @@ function addTechPlanOptions(command: Command): Command {
   return addJsonOption(
     command
       .description('Generate a technical dry-run graph')
-      .requiredOption('--change-id <id>', 'change identifier')
       .requiredOption('--goal <goal>', 'planning goal')
       .option('--swarm', 'opt into swarm-oriented planning')
       .option('--dry-run', 'preview without writing files', true)
@@ -357,7 +362,7 @@ function addTechPlanOptions(command: Command): Command {
 }
 
 function addTechStatusOptions(command: Command): Command {
-  return addJsonOption(command.description('Inspect technical approval status').requiredOption('--change-id <id>', 'change identifier'));
+  return addJsonOption(command.description('Inspect technical approval status'));
 }
 
 function addWorkflowRouteOptions(command: Command, description: string): Command {
@@ -365,7 +370,6 @@ function addWorkflowRouteOptions(command: Command, description: string): Command
     command
       .description(description)
       .requiredOption('--mode <mode>', 'workflow mode: solo or team')
-      .requiredOption('--change-id <id>', 'change identifier')
       .requiredOption('--goal <goal>', 'planning goal')
       .option('--solo-mode <mode>', 'solo mode: full-auto, guided, or rnd')
       .option('--max-workers <count>', 'maximum worker count', '40')
@@ -377,7 +381,6 @@ function addWorkflowRouteOptions(command: Command, description: string): Command
 function addSwarmPlanOptions(command: Command, includeSkill: boolean): Command {
   const configured = command
     .description('Plan an RD swarm dry-run graph')
-    .requiredOption('--change-id <id>', 'change identifier')
     .requiredOption('--goal <goal>', 'planning goal')
     .option('--max-workers <count>', 'maximum worker count', '40')
     .option('--dry-run', 'preview without writing files', true)
@@ -394,8 +397,7 @@ function addSwarmPlanOptions(command: Command, includeSkill: boolean): Command {
 function addAutonomousResumeInitOptions(command: Command): Command {
   return addJsonOption(
     command
-      .description('Write the autonomous resume artifact scaffold for a change-id')
-      .requiredOption('--change-id <id>', 'change identifier')
+      .description('Write the autonomous resume artifact scaffold for the active change-id')
       .requiredOption('--goal <goal>', 'planning goal')
       .requiredOption('--project <path>', 'artifact workspace path to write under')
       .option('--apply', 'write the artifacts to disk (default is dry-run preview)')
@@ -449,15 +451,13 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
       .description('Verify the complete rd→qa pipeline was followed for a request. Scans the v2.17.0 canonical session-axis layout (artifacts under _runtime per-session) and falls back to the legacy v2.16.0 change-axis forms during the 1-minor-release deprecation window.')
       .requiredOption('--rid <rid>', 'request identifier')
       .requiredOption('--project <path>', 'project root path')
-      .option('--change-id <id>', 'change-id hint (when omitted, the on-disk change-id is resolved from the RD/QA artifact itself)')
       .option('--type <type>', 'request type: feature, bugfix, refactor, docs, config, chore', 'feature')
       .option('--session-id <sid>', 'slice 2026-06-13-peaks-workflow-skip: session id under which to read the skip-state file. When omitted, no skip-state is consulted (legacy behavior).')
-  ).action(async (options: { rid: string; project: string; changeId?: string; type?: string; sessionId?: string; json?: boolean }) => {
+  ).action(async (options: { rid: string; project: string; type?: string; sessionId?: string; json?: boolean }) => {
     try {
       const result = await verifyPipeline({
         projectRoot: options.project,
         rid: options.rid,
-        ...(options.changeId ? { changeId: options.changeId } : {}),
         ...(options.type ? { requestType: options.type } : {}),
         ...(options.sessionId ? { sessionId: options.sessionId } : {})
       });
@@ -467,7 +467,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
         : fail('workflow.verify-pipeline', 'PIPELINE_INCOMPLETE', `${result.violations.length} violation(s): ${result.violations.join('; ')}`, result, result.nextActions), options.json);
       process.exitCode = exitOk;
     } catch (error) {
-      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), { acceptedForm: 'none', gateC: 'fail' }, ['Check that --project and --rid are correct; --change-id is optional (resolved from the artifact otherwise)']), options.json);
+      printResult(io, fail('workflow.verify-pipeline', 'VERIFY_FAILED', getErrorMessage(error), { acceptedForm: 'none', gateC: 'fail' }, ['Check that --project and --rid are correct.']), options.json);
       process.exitCode = 1;
     }
   });

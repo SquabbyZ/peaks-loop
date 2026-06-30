@@ -30,7 +30,6 @@ export async function autoRegenPrdHandoff(opts: {
   readonly projectRoot: string;
   readonly sessionId: string;
   readonly requestId: string;
-  readonly changeId: string;
   readonly role: RequestArtifactRole;
 }): Promise<HandoffAutoRegenResult> {
   if (opts.role !== 'prd') {
@@ -62,7 +61,7 @@ export async function autoRegenPrdHandoff(opts: {
     '---',
     `requestId: ${opts.requestId}`,
     `sessionId: ${opts.sessionId}`,
-    `changeId: ${opts.changeId}`,
+    `sessionId: ${opts.sessionId}`,
     'schemaVersion: 2',
     `sha256: ${sha256}`,
     `handoffHash: ${sha256}`,
