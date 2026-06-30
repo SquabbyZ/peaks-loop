@@ -29,18 +29,18 @@ describe('log/log-commands-service', () => {
       expect(files).toEqual([]);
     });
 
-    it('returns all peaks-cli-*.log files sorted by date desc', () => {
+    it('returns all peaks-loop-*.log files sorted by date desc', () => {
       const dir = join(tempHome, '.peaks', 'logs');
       mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, 'peaks-cli-2026-06-13.log'), '');
-      writeFileSync(join(dir, 'peaks-cli-2026-06-15.log'), '');
-      writeFileSync(join(dir, 'peaks-cli-2026-06-14.log'), '');
+      writeFileSync(join(dir, 'peaks-loop-2026-06-13.log'), '');
+      writeFileSync(join(dir, 'peaks-loop-2026-06-15.log'), '');
+      writeFileSync(join(dir, 'peaks-loop-2026-06-14.log'), '');
       writeFileSync(join(dir, 'other-file.txt'), '');
       const files = listLogFiles();
       expect(files.length).toBe(3);
-      expect(files[0]).toBe('peaks-cli-2026-06-15.log');
-      expect(files[1]).toBe('peaks-cli-2026-06-14.log');
-      expect(files[2]).toBe('peaks-cli-2026-06-13.log');
+      expect(files[0]).toBe('peaks-loop-2026-06-15.log');
+      expect(files[1]).toBe('peaks-loop-2026-06-14.log');
+      expect(files[2]).toBe('peaks-loop-2026-06-13.log');
     });
   });
 
@@ -58,7 +58,7 @@ describe('log/log-commands-service', () => {
       const yyyy = now.getUTCFullYear();
       const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
       const dd = String(now.getUTCDate()).padStart(2, '0');
-      const file = join(dir, `peaks-cli-${yyyy}-${mm}-${dd}.log`);
+      const file = join(dir, `peaks-loop-${yyyy}-${mm}-${dd}.log`);
       const lines: string[] = [];
       for (let i = 0; i < 10; i++) {
         lines.push(JSON.stringify({ ts: `2026-06-15T10:0${i}:00.000Z`, level: 'info', command: 'main', msg: `m${i}` }));
@@ -78,7 +78,7 @@ describe('log/log-commands-service', () => {
       const yyyy = now.getUTCFullYear();
       const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
       const dd = String(now.getUTCDate()).padStart(2, '0');
-      const file = join(dir, `peaks-cli-${yyyy}-${mm}-${dd}.log`);
+      const file = join(dir, `peaks-loop-${yyyy}-${mm}-${dd}.log`);
       const lines: string[] = [];
       for (let i = 0; i < 100; i++) {
         lines.push(JSON.stringify({ ts: `2026-06-15T10:00:${String(i).padStart(2, '0')}.000Z`, level: 'info', command: 'main', msg: `m${i}` }));

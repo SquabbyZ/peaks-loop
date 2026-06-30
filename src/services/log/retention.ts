@@ -1,10 +1,10 @@
 /**
- * 7-day log rotation for peaks-cli.
+ * 7-day log rotation for peaks-loop.
  *
  * Slice 2026-06-16-cli-logging (G2). Cheapest possible rotation:
  * daily files are named by UTC date, so a "new day" automatically
  * means a new file. The retention sweep runs at the start of every
- * peaks-cli invocation and removes any `peaks-cli-*.log` whose
+ * peaks-loop invocation and removes any `peaks-loop-*.log` whose
  * UTC date is more than `retentionDays` days behind today.
  *
  * No external dep — `fs.readdirSync` + `statSync.mtimeMs` (or, for
@@ -18,7 +18,7 @@ import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveLogDir } from './logger.js';
 
-const LOG_FILE_NAME_PATTERN = /^peaks-cli-(\d{4}-\d{2}-\d{2})\.log$/;
+const LOG_FILE_NAME_PATTERN = /^peaks-loop-(\d{4}-\d{2}-\d{2})\.log$/;
 
 function dayDiffUtc(nowUtcMidnightMs: number, fileDateUtcMs: number): number {
   const dayMs = 24 * 60 * 60 * 1000;
@@ -39,7 +39,7 @@ export type ApplyRetentionOptions = {
 };
 
 /**
- * Delete any `peaks-cli-YYYY-MM-DD.log` file in the log dir whose
+ * Delete any `peaks-loop-YYYY-MM-DD.log` file in the log dir whose
  * UTC date is more than `retentionDays` days older than today.
  * Returns the absolute paths of the deleted files (for tests +
  * observability).

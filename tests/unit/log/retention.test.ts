@@ -35,15 +35,15 @@ describe('log/retention', () => {
     // days old) is the last survivor.
     for (let i = 0; i < 9; i++) {
       const date = new Date(now - i * day).toISOString().slice(0, 10);
-      const file = join(dir, `peaks-cli-${date}.log`);
+      const file = join(dir, `peaks-loop-${date}.log`);
       writeFileSync(file, 'log line\n');
     }
-    expect(readdirSync(dir).filter((n) => n.startsWith('peaks-cli-')).length).toBe(9);
+    expect(readdirSync(dir).filter((n) => n.startsWith('peaks-loop-')).length).toBe(9);
 
     const removed = applyRetention({ retentionDays: 7, nowMs: now });
     expect(removed.length).toBe(1);
 
-    const remaining = readdirSync(dir).filter((n) => n.startsWith('peaks-cli-'));
+    const remaining = readdirSync(dir).filter((n) => n.startsWith('peaks-loop-'));
     expect(remaining.length).toBe(8);
   });
 
@@ -54,7 +54,7 @@ describe('log/retention', () => {
     const day = 24 * 60 * 60 * 1000;
     for (let i = 0; i < 3; i++) {
       const date = new Date(now - i * day).toISOString().slice(0, 10);
-      writeFileSync(join(dir, `peaks-cli-${date}.log`), 'log line\n');
+      writeFileSync(join(dir, `peaks-loop-${date}.log`), 'log line\n');
     }
     const removed = applyRetention({ retentionDays: 7, nowMs: now });
     expect(removed.length).toBe(0);

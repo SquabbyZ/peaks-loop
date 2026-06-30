@@ -2,7 +2,7 @@
 
 # ⛰️ Peaks
 
-<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&duration=3000&pause=800&color=6366F1&center=true&vCenter=true&multiline=true&width=720&height=110&lines=peaks-cli%3A%20cross-AI-IDE%20engineering%20gates%20%26%20orchestration;11%20%E2%9A%99%EF%B8%8F%20workflow%20skills%20%2B%20%E2%9A%96%EF%B8%8F%20executable%20gates;%E2%9C%89%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20gates%20%2B%20audit%20%2B%20cross-IDE%20adaptation" alt="peaks-cli tagline typing animation" />
+<img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=700&size=22&duration=3000&pause=800&color=6366F1&center=true&vCenter=true&multiline=true&width=720&height=110&lines=peaks-loop%3A%20cross-AI-IDE%20engineering%20gates%20%26%20orchestration;11%20%E2%9A%99%EF%B8%8F%20workflow%20skills%20%2B%20%E2%9A%96%EF%B8%8F%20executable%20gates;%E2%9C%89%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20%E2%9A%96%EF%B8%8F%20%E2%9C%89%EF%B8%8F%20%E2%9A%91%EF%B8%8F%20gates%20%2B%20audit%20%2B%20cross-IDE%20adaptation" alt="peaks-loop tagline typing animation" />
 
 **English** | [简体中文](./README.md)
 
@@ -13,9 +13,9 @@
 <td align="center" width="180"><b>📚 SKILLS.SH</b></td>
 </tr>
 <tr>
-<td align="center"><a href="https://github.com/SquabbyZ/peaks-cli">peaks-cli / Homepage</a></td>
+<td align="center"><a href="https://github.com/SquabbyZ/peaks-loop">peaks-loop / Homepage</a></td>
 <td align="center">13 Skills + Cross-IDE</td>
-<td align="center"><a href="https://skills.sh/SquabbyZ/peaks-cli">Listed on skills.sh</a></td>
+<td align="center"><a href="https://skills.sh/SquabbyZ/peaks-loop">Listed on skills.sh</a></td>
 </tr>
 <tr><td colspan="3">&nbsp;</td></tr>
 <tr>
@@ -24,8 +24,8 @@
 <td align="center" width="180"><b>📄 LICENSE</b></td>
 </tr>
 <tr>
-<td align="center"><a href="https://github.com/SquabbyZ/peaks-cli/stargazers"><img src="https://img.shields.io/github/stars/SquabbyZ/peaks-cli?style=for-the-badge&logo=github&logoColor=white" alt="stars" /></a></td>
-<td align="center"><a href="https://www.npmjs.com/package/peaks-cli"><img src="https://img.shields.io/npm/v/peaks-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="npm version" /></a></td>
+<td align="center"><a href="https://github.com/SquabbyZ/peaks-loop/stargazers"><img src="https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&logoColor=white" alt="stars" /></a></td>
+<td align="center"><a href="https://www.npmjs.com/package/peaks-loop"><img src="https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="npm version" /></a></td>
 <td align="center"><a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=for-the-badge" alt="license" /></a></td>
 </tr>
 <tr><td colspan="3">&nbsp;</td></tr>
@@ -37,7 +37,7 @@
 <tr>
 <td align="center"><b>2,800+</b></td>
 <td align="center"><b>TypeScript</b></td>
-<td align="center"><a href="https://www.npmjs.com/package/peaks-cli"><img src="https://img.shields.io/npm/dm/peaks-cli?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="downloads" /></a></td>
+<td align="center"><a href="https://www.npmjs.com/package/peaks-loop"><img src="https://img.shields.io/npm/dm/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=CB3837" alt="downloads" /></a></td>
 </tr>
 <tr><td colspan="3">&nbsp;</td></tr>
 <tr>
@@ -48,11 +48,11 @@
 <tr>
 <td align="center"><a href="./README.md">简体中文</a></td>
 <td align="center"><a href="#-30-seconds-to-running">30s to running →</a></td>
-<td align="center"><img src="https://komarev.com/ghpvc/?username=SquabbyZ&repo=peaks-cli&label=views&color=blue&style=for-the-badge" alt="visitors" /></td>
+<td align="center"><img src="https://komarev.com/ghpvc/?username=SquabbyZ&repo=peaks-loop&label=views&color=blue&style=for-the-badge" alt="visitors" /></td>
 </tr>
 </table>
 
-<img src="https://github-readme-streak-stats.herokuapp.com?user=SquabbyZ&repo=peaks-cli&theme=radical&hide_border=true&date_format=j%20M%5B%20Y%5D" alt="GitHub Streak Stats" />
+<img src="https://github-readme-streak-stats.herokuapp.com?user=SquabbyZ&repo=peaks-loop&theme=radical&hide_border=true&date_format=j%20M%5B%20Y%5D" alt="GitHub Streak Stats" />
 
 [Install](#-30-seconds-to-running) · [5-min onboarding](#-5-minute-onboarding) · [Skill family](#-11-skills-in-the-family) · [Killer feature: un-bypassable gates](#-killer-feature-un-bypassable-gates)
 
@@ -78,7 +78,7 @@ Peaks models the "engineering team" inside your AI IDE as 13 workflow skills + a
 
 ```bash
 # 1. Install the CLI
-npm install -g peaks-cli
+npm install -g peaks-loop
 
 # 2. Open Claude Code in your project
 cd /path/to/your-project && claude
@@ -137,7 +137,7 @@ peaks project dashboard --project . --json   # one-shot project view
 
 **3 solo wrappers + 7 role skills + 2 standalone audits + 1 orchestrator = 13 skills.** In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.
 
-> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-cli probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention. **v2.13.4 fix**: auto-compact now targets the **main-session** context (not a sub-agent shell) by writing a `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` intent file that the main-session LLM picks up on its next turn and fires `/compact` in-band.
+> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-loop probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention. **v2.13.4 fix**: auto-compact now targets the **main-session** context (not a sub-agent shell) by writing a `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` intent file that the main-session LLM picks up on its next turn and fires `/compact` in-band.
 
 ## 🚧 Killer feature: un-bypassable gates
 
@@ -203,15 +203,15 @@ Any environment with `npx skills` installed (Claude Code, Cursor, Codex, ...) ca
 
 ```bash
 # Install all 13:
-npx skills add SquabbyZ/peaks-cli
+npx skills add SquabbyZ/peaks-loop
 
 # Or just one:
-npx skills add SquabbyZ/peaks-cli --skill peaks-solo
-npx skills add SquabbyZ/peaks-cli --skill peaks-rd
-npx skills add SquabbyZ/peaks-cli --skill peaks-sop
+npx skills add SquabbyZ/peaks-loop --skill peaks-solo
+npx skills add SquabbyZ/peaks-loop --skill peaks-rd
+npx skills add SquabbyZ/peaks-loop --skill peaks-sop
 ```
 
-Browse [skills.sh/SquabbyZ/peaks-cli](https://skills.sh/SquabbyZ/peaks-cli) for the full catalog. The skills shipped here and the skills shipped via `npm install -g peaks-cli` are the same artifact — both paths deliver the same content.
+Browse [skills.sh/SquabbyZ/peaks-loop](https://skills.sh/SquabbyZ/peaks-loop) for the full catalog. The skills shipped here and the skills shipped via `npm install -g peaks-loop` are the same artifact — both paths deliver the same content.
 
 ## 🛠️ How it works: skills first, CLI as gates
 
@@ -250,7 +250,7 @@ Full list: `peaks --help`.
 - ✅ **13 skills** + cross-IDE CLI + 2,800+ tests (v2.12.0 adds `peaks-security-audit` + `peaks-perf-audit`)
 - ✅ **Gate mechanism** dogfooded on real projects
 - ✅ **v2.12.0 RD fan-out collapse** (3-way: code-reviewer + qa-test-cases-writer + karpathy-reviewer) shipped 2026-06-27
-- ✅ **v2.13.0 zero-human-intervention auto-compact** (peaks-cli drives context compression on any AI CLI; context stays < 95% autonomously) shipped 2026-06-27
+- ✅ **v2.13.0 zero-human-intervention auto-compact** (peaks-loop drives context compression on any AI CLI; context stays < 95% autonomously) shipped 2026-06-27
 - ✅ **v2.13.4 four solo bug fixes**: Step 1 AskUserQuestion no longer auto-defaults to `full-auto`; `peaks workflow verify-pipeline` resolves the canonical `.peaks/_runtime/<sessionId>/<role>/` path; misplaced change-id dirs are tolerated by `peaks workspace init`'s `LegacyChangeIdSiblingError` guard; auto-compact now genuinely compresses the main-session context (not a sub-agent shell)
 - 📋 Roadmap: real Trae / Codex / Cursor integration, `peaks-doc` / `peaks-i18n`, SOP template marketplace
 
@@ -262,7 +262,7 @@ See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.
 
 ## 💬 Join the WeChat community
 
-Got usage questions, feature requests, or want to chat with the team and other peaks-cli users? Scan to join the **Peaks-Cli** WeChat group:
+Got usage questions, feature requests, or want to chat with the team and other peaks-loop users? Scan to join the **Peaks-Cli** WeChat group:
 
 <div align="center">
   <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Cli WeChat group QR code" width="240" />
@@ -276,6 +276,6 @@ Got usage questions, feature requests, or want to chat with the team and other p
 
 **Find it useful?**
 
-⭐ [Star peaks-cli on GitHub](https://github.com/SquabbyZ/peaks-cli) · 🔍 [Browse on skills.sh](https://skills.sh/SquabbyZ/peaks-cli)
+⭐ [Star peaks-loop on GitHub](https://github.com/SquabbyZ/peaks-loop) · 🔍 [Browse on skills.sh](https://skills.sh/SquabbyZ/peaks-loop)
 
 </div>

@@ -15,7 +15,7 @@ import { readdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildLogFileName, readLogEntries, resolveLogDir, type LogEntry } from './logger.js';
 
-const LOG_FILE_NAME_PATTERN = /^peaks-cli-\d{4}-\d{2}-\d{2}\.log$/;
+const LOG_FILE_NAME_PATTERN = /^peaks-loop-\d{4}-\d{2}-\d{2}\.log$/;
 
 /**
  * Return all `peaks-cli-*.log` files in the log dir, sorted by

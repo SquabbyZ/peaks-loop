@@ -71,7 +71,7 @@ export function buildLogFileName(date: Date): string {
   const yyyy = date.getUTCFullYear().toString().padStart(4, '0');
   const mm = (date.getUTCMonth() + 1).toString().padStart(2, '0');
   const dd = date.getUTCDate().toString().padStart(2, '0');
-  return `peaks-cli-${yyyy}-${mm}-${dd}.log`;
+  return `peaks-loop-${yyyy}-${mm}-${dd}.log`;
 }
 
 /**

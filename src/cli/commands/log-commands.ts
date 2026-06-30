@@ -64,7 +64,7 @@ export function registerLogCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     log
       .command('ls')
-      .description('List peaks-cli-*.log files in ~/.peaks/logs/ (newest first).')
+      .description('List peaks-loop-*.log files in ~/.peaks/logs/ (newest first).')
   ).action((options: { json?: boolean }) => {
     const files = listLogFiles();
     printResult(

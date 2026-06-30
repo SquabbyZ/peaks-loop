@@ -31,7 +31,7 @@ describe('log/logger', () => {
   describe('buildLogFileName', () => {
     it('builds a UTC date-stamped file name', () => {
       const date = new Date('2026-06-15T03:00:00.000Z');
-      expect(buildLogFileName(date)).toBe('peaks-cli-2026-06-15.log');
+      expect(buildLogFileName(date)).toBe('peaks-loop-2026-06-15.log');
     });
   });
 
@@ -49,11 +49,11 @@ describe('log/logger', () => {
         ts: '2026-06-15T10:00:00.000Z',
         level: 'info',
         command: 'main',
-        msg: 'peaks-cli start',
+        msg: 'peaks-loop start',
         version: '2.2.2'
       }, { now: () => new Date('2026-06-15T10:00:00.000Z') });
 
-      const todayFile = join(logDir, 'peaks-cli-2026-06-15.log');
+      const todayFile = join(logDir, 'peaks-loop-2026-06-15.log');
       expect(existsSync(todayFile)).toBe(true);
       const body = readFileSync(todayFile, 'utf8');
       const lines = body.trim().split('\n');
@@ -61,7 +61,7 @@ describe('log/logger', () => {
       const parsed = JSON.parse(lines[0]!);
       expect(parsed.level).toBe('info');
       expect(parsed.command).toBe('main');
-      expect(parsed.msg).toBe('peaks-cli start');
+      expect(parsed.msg).toBe('peaks-loop start');
       expect(parsed.version).toBe('2.2.2');
       expect(parsed.ts).toBe('2026-06-15T10:00:00.000Z');
     });
@@ -70,7 +70,7 @@ describe('log/logger', () => {
       writeLogEntry({ ts: '2026-06-15T10:00:00.000Z', level: 'info', command: 'main', msg: 'one' }, { now: () => new Date('2026-06-15T10:00:00.000Z') });
       writeLogEntry({ ts: '2026-06-15T10:00:01.000Z', level: 'info', command: 'main', msg: 'two' }, { now: () => new Date('2026-06-15T10:00:01.000Z') });
       const logDir = resolveLogDir();
-      const body = readFileSync(join(logDir, 'peaks-cli-2026-06-15.log'), 'utf8');
+      const body = readFileSync(join(logDir, 'peaks-loop-2026-06-15.log'), 'utf8');
       const lines = body.trim().split('\n');
       expect(lines.length).toBe(2);
       expect(JSON.parse(lines[0]!).msg).toBe('one');
@@ -87,7 +87,7 @@ describe('log/logger', () => {
       }, { now: () => new Date('2026-06-15T10:00:00.000Z') });
 
       const logDir = resolveLogDir();
-      const body = readFileSync(join(logDir, 'peaks-cli-2026-06-15.log'), 'utf8');
+      const body = readFileSync(join(logDir, 'peaks-loop-2026-06-15.log'), 'utf8');
       expect(body).not.toContain('abc.def.ghi');
       expect(body).not.toContain('ghp_1234567890abcdefghij');
       expect(body).not.toContain('hunter2hunter2');
@@ -99,7 +99,7 @@ describe('log/logger', () => {
       if (process.platform === 'win32') return;
       writeLogEntry({ ts: '2026-06-15T10:00:00.000Z', level: 'info', command: 'main', msg: 'm' }, { now: () => new Date('2026-06-15T10:00:00.000Z') });
       const logDir = resolveLogDir();
-      const file = join(logDir, 'peaks-cli-2026-06-15.log');
+      const file = join(logDir, 'peaks-loop-2026-06-15.log');
       const stat = statSync(file);
       // Mask to permission bits
       const mode = stat.mode & 0o777;
@@ -125,7 +125,7 @@ describe('log/logger', () => {
     it('skips malformed lines', () => {
       const logDir = resolveLogDir();
       mkdirSync(logDir, { recursive: true });
-      const file = join(logDir, 'peaks-cli-2026-06-15.log');
+      const file = join(logDir, 'peaks-loop-2026-06-15.log');
       writeFileSync(file, JSON.stringify({ ts: '2026-06-15T10:00:00.000Z', level: 'info', command: 'main', msg: 'good' }) + '\nthis is not json\n');
       const entries = readLogEntries({ now: () => new Date('2026-06-15T10:00:01.000Z') });
       expect(entries.length).toBe(1);

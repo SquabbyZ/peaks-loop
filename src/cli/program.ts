@@ -77,9 +77,9 @@ export { printResult, type ProgramIO } from './cli-helpers.js';
 
 /**
  * Slice 2026-06-16-cli-logging (G1, G2, G3, G7). One structured
- * `peaks-cli start` entry per CLI invocation, plus a 7-day
+ * `peaks-loop start` entry per CLI invocation, plus a 7-day
  * retention sweep. Wired into the global program so EVERY
- * peaks-cli command — even a bare `peaks` quickstart — writes
+ * peaks-loop command — even a bare `peaks` quickstart — writes
  * a log line.
  *
  * The logger NEVER writes to stdout; it touches only the log
@@ -97,7 +97,7 @@ function bootstrapLogger(verbose: boolean): void {
     ts: new Date().toISOString(),
     level: 'info' as const,
     command: 'main',
-    msg: 'peaks-cli start',
+    msg: 'peaks-loop start',
     version: CLI_VERSION
   };
   try {
@@ -125,7 +125,7 @@ export function createProgram(io: ProgramIO = { stdout: (text) => console.log(te
  const program = new Command();
  program
  .name('peaks')
- .description(`Peaks CLI ${CLI_VERSION} — workflow-gating CLI + skill family for Claude Code
+ .description(`Peaks Loop ${CLI_VERSION} — loop engineering CLI: workflow primitive / loop guards / evaluators / slice orchestration
 
 Run peaks (no arguments) for a quickstart. You likely want one of:
  peaks doctor check your environment
@@ -166,7 +166,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
    // Slice 2026-06-16-cli-logging (repair cycle 2): gate the bootstrap on
    // the same `bootstrapRan` guard the version action uses, so a single
    // process that invokes the program twice (vitest, programmatic) does
-   // not emit duplicate `peaks-cli start` JSONL entries.
+   // not emit duplicate `peaks-loop start` JSONL entries.
    if (!bootstrapRan) {
      bootstrapLogger(opts.verbose === true);
      bootstrapRan = true;
@@ -175,7 +175,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  .action(() => {
  const opts = program.opts<{ V?: boolean; version?: boolean; verbose?: boolean }>();
  if (opts.V || opts.version) {
- // AC1: write the peaks-cli start log line BEFORE printing the
+ // AC1: write the peaks-loop start log line BEFORE printing the
  // version, so even a bare `--version` invocation creates the log
  // file. `bootstrapRan` dedupes when `preAction` already ran.
  if (!bootstrapRan) {
@@ -199,9 +199,9 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  }
  } catch { /* disk read is best-effort; zero skills is still truthful */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
 
- io.stdout(`Peaks CLI ${CLI_VERSION} · ${skillCount} skills ready
+ io.stdout(`Peaks Loop ${CLI_VERSION} · ${skillCount} skills ready
 
- Peaks is a workflow-gating CLI + skill family for Claude Code.
+ Peaks is a loop-engineering CLI + skill family for Claude Code.
  It turns "don't skip steps" into hard enforcement — gates that block
  advancement in-conversation, un-bypassably.
 

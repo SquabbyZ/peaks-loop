@@ -1,7 +1,7 @@
 {
-  "name": "peaks-cli",
-  "version": "2.19.0",
-  "description": "Cross-AI-IDE workflow-gating CLI + skill family (Claude Code shipped, Trae in progress; Codex / Cursor / Qoder / Tongyi Lingma on the roadmap).",
+  "name": "peaks-loop",
+  "version": "3.0.0",
+  "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "license": "MIT",
   "type": "module",

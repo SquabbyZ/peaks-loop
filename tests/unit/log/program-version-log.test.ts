@@ -69,14 +69,14 @@ describe('peaks --version log bootstrap (AC1 regression)', () => {
     const logDir = join(tempHome, '.peaks', 'logs');
     expect(existsSync(logDir)).toBe(true);
 
-    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-cli-') && name.endsWith('.log'));
+    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-loop-') && name.endsWith('.log'));
     expect(files.length).toBe(1);
     const todayFile = join(logDir, files[0]!);
     const body = readFileSync(todayFile, 'utf8');
     const lines = body.trim().split('\n').filter((line) => line.length > 0);
     expect(lines.length).toBe(1);
     const parsed = JSON.parse(lines[0]!) as { msg: string; level: string; command: string };
-    expect(parsed.msg).toBe('peaks-cli start');
+    expect(parsed.msg).toBe('peaks-loop start');
     expect(parsed.level).toBe('info');
     expect(parsed.command).toBe('main');
   });
@@ -96,7 +96,7 @@ describe('peaks --version log bootstrap (AC1 regression)', () => {
 
     const logDir = join(tempHome, '.peaks', 'logs');
     expect(existsSync(logDir)).toBe(true);
-    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-cli-') && name.endsWith('.log'));
+    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-loop-') && name.endsWith('.log'));
     expect(files.length).toBe(1);
   });
 
@@ -128,13 +128,13 @@ describe('peaks --version log bootstrap (AC1 regression)', () => {
 
     const logDir = join(tempHome, '.peaks', 'logs');
     expect(existsSync(logDir)).toBe(true);
-    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-cli-') && name.endsWith('.log'));
+    const files = readdirSync(logDir).filter((name) => name.startsWith('peaks-loop-') && name.endsWith('.log'));
     expect(files.length).toBe(1);
     const body = readFileSync(join(logDir, files[0]!), 'utf8');
     const lines = body.trim().split('\n').filter((line) => line.length > 0);
     const startLines = lines.filter((line) => {
       try {
-        return (JSON.parse(line) as { msg?: string }).msg === 'peaks-cli start';
+        return (JSON.parse(line) as { msg?: string }).msg === 'peaks-loop start';
       } catch {
         return false;
       }
