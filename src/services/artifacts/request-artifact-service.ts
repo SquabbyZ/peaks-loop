@@ -4,7 +4,11 @@ import { dirname, join } from 'node:path';
 import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
-import { getCurrentChangeId } from '../../shared/change-id.js';
+// Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was
+// removed with the change-id axis. The change-id binding file is
+// gone; request-artifact callers pass `options.sessionId` explicitly
+// or accept the requestId as the default. Path-safety helpers now
+// live at `shared/path-safety.ts` if this module ever needs them.
 import { getNextNumber, buildNumberedFilename } from '../../shared/incrementing-number.js';
 import { lintRequestArtifact } from './artifact-lint-service.js';
 import { checkTypeSanity } from '../scan/type-sanity-service.js';
@@ -26,7 +30,7 @@ export { VALID_REQUEST_TYPES, DEFAULT_REQUEST_TYPE, isRequestType, type RequestT
 import type { RequestArtifactRole } from './artifact-templates.js';
 import { renderTemplate } from './artifact-templates.js';
 export type { RequestArtifactRole } from './artifact-templates.js';
-export { formatHandoffPath, formatCommitBoundaryPath, formatSkillUsageLessonsPath, formatChangeScopePath } from './artifact-templates.js';
+export { formatHandoffPath, formatCommitBoundaryPath, formatSkillUsageLessonsPath } from './artifact-templates.js';
 
 export type CreateRequestArtifactOptions = {
   role: RequestArtifactRole;
@@ -34,13 +38,12 @@ export type CreateRequestArtifactOptions = {
   projectRoot: string;
   sessionId?: string;
   /**
-   * Optional explicit change-id. When set, the artifact file lands at
-   * `.peaks/_runtime/<changeId>/<role>/requests/...` regardless of any
-   * `current-change` binding. When unset, falls back to the binding, then
-   * to the requestId. The CLI's `--session-id <scope>` flag uses this to
-   * preserve the legacy "session-id as scope dir name" behavior.
+   * Optional explicit session-id scope. When set, the artifact file lands at
+   * `.peaks/_runtime/<sessionId>/<role>/requests/...`. When unset, falls back
+   * to the binding, then to the requestId. The CLI's `--session-id <scope>`
+   * flag uses this to preserve the legacy "session-id as scope dir name"
+   * behavior.
    */
-  changeId?: string;
   apply?: boolean;
   requestType?: RequestType;
   clock?: () => string;
@@ -70,15 +73,12 @@ export type CreateRequestArtifactResult = {
    */
   callerId?: string;
   /**
-   * Slice 2026-06-23-request-init-change-scope-leak. The canonical
-   * change-id scope dir under `.peaks/_runtime/change/<changeId>/`.
-   * Pre-created on `--apply` (idempotent) so the sub-agent prompt
-   * always has a single, well-known place to write reviewable
-   * artifacts — never the forbidden top-level `.peaks/_runtime/<id>/`. In
-   * dry-run mode this is the would-be path (the dir is NOT created).
-   * Absolute path.
+   * Slice 2026-06-23-request-init-change-scope-leak. The session-axis
+   * dir resolved under `.peaks/_runtime/<sid>/`. Always populated so
+   * the sub-agent prompt can report a stable, canonical scope
+   * location to the writer.
    */
-  scopeDir?: string;
+  scopeDir: string;
 };
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -120,12 +120,12 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   // in the artifact body's frontmatter (under `- change-id:`) for
   // human navigation; it is no longer a filesystem path key.
   const sessionId = options.sessionId ?? await ensureSession(options.projectRoot);
-  const boundChangeId = getCurrentChangeId(options.projectRoot);
-  // Resolution order for the change-id (file body metadata):
-  //   1. Explicit `options.changeId` (CLI `--change-id`).
-  //   2. `current-change` binding (live developer working context).
-  //   3. The requestId itself (every request is its own scope by default).
-  const changeId = options.changeId ?? boundChangeId ?? options.requestId;
+  // Slice 2026-06-29-change-id-root-removal: the `current-change`
+  // binding file is gone. Resolution order for the change-id (file
+  // body metadata) is now:
+  //   1. Explicit `options.sessionId` (CLI `--change-id`).
+  //   2. The requestId itself (every request is its own scope by default).
+  const sessionSlug = options.sessionId ?? options.requestId;
 
   // Slice 008 (F21 fix): fail fast when the resolved session id
   // looks like a real session id (matches the date+session prefix)
@@ -173,15 +173,13 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
   const filename = buildNumberedFilename(number, options.requestId);
   const path = join(requestsDir, filename);
 
-  const content = renderTemplate(options.role, options.requestId, changeId, sessionId, timestamp, requestType);
+  const content = renderTemplate(options.role, options.requestId, sessionId, sessionSlug, timestamp, requestType);
 
   if (options.apply !== true) {
-    // Slice 2026-06-23-request-init-change-scope-leak. Even in dry-run
-    // we surface the canonical scopeDir so the user (and the LLM
-    // sub-agent prompt downstream) knows exactly where the dir WOULD
-    // be created on `--apply`. We do NOT touch the filesystem here.
-    const { ensureChangeScopeDir } = await import('./change-scope-service.js');
-    const scopeResult = ensureChangeScopeDir(options.projectRoot, changeId, { dryRun: true });
+    // Slice 2026-06-29-change-id-root-removal: scopeDir is the
+    // session-axis dir (`.peaks/_runtime/<sid>/`). Pre-resolved here
+    // so dry-run output reports the canonical scope location.
+    const scopeDir = join(options.projectRoot, '.peaks', '_runtime', sessionId);
     return {
       role: options.role,
       requestId: options.requestId,
@@ -189,27 +187,15 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
       path,
       content,
       applied: false,
-      scopeDir: scopeResult.path,
+      scopeDir,
       ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
     };
   }
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, content, 'utf8');
 
-  // Slice 2026-06-23-request-init-change-scope-leak. Pre-create the
-  // canonical change-id scope dir so the sub-agent prompt always has
-  // a well-known place to write reviewable artifacts — never the
-  // forbidden top-level `.peaks/_runtime/<id>/`. Idempotent: re-running with
-  // the same change-id is a no-op. The dir lives under
-  // `.peaks/_runtime/change/<changeId>/` so it is covered by the
-  // existing `.peaks/_runtime/` gitignore rule.
-  const { ensureChangeScopeDir } = await import('./change-scope-service.js');
-  const scopeResult = ensureChangeScopeDir(options.projectRoot, changeId);
-
   // Create QA initiated marker so rd:qa-handoff gate can verify QA was invoked.
-  // Slice 006: the marker lives under the SESSION dir (canonical post-F3
-  // home), not the change-id dir. The gate's prereq scan finds it at
-  // `.peaks/_runtime/<sid>/qa/.initiated`.
+  // The marker lives under the SESSION dir (canonical post-F3 home).
   if (options.role === 'qa') {
     const qaDir = join(options.projectRoot, '.peaks', '_runtime', sessionId, 'qa');
     const initiatedPath = join(qaDir, '.initiated');
@@ -226,7 +212,7 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
     path,
     content,
     applied: true,
-    scopeDir: scopeResult.path,
+    scopeDir: join(options.projectRoot, '.peaks', '_runtime', sessionId),
     ...(options.callerId !== undefined ? { callerId: options.callerId } : {})
   };
 }
@@ -234,20 +220,19 @@ export async function createRequestArtifact(options: CreateRequestArtifactOption
 export type RequestArtifactSummary = {
   role: RequestArtifactRole;
   /**
-   * Durable scope of the artifact: the top-level `.peaks/_runtime/<changeId>/`
+   * Durable scope of the artifact: the top-level `.peaks/_runtime/<sessionId>/`
    * directory the file lives in. As of slice 2026-06-05-change-id-as-unit-of-work,
    * the prerequisite gate resolves paths under this dir (not the body
    * `- session:` line), so the file body and the on-disk path agree.
    */
-  changeId: string;
+  sessionId: string;
   /**
    * Session binding (which developer's local session wrote the file).
-   * Read from the file body's `- session:` line. Falls back to `changeId`
+   * Read from the file body's `- session:` line. Falls back to `sessionId`
    * when the body is missing the line. For back-compat with legacy
-   * session-id dirs, this may equal the dir name; for new change-id
-   * dirs, it is the metadata session that produced the file.
+   * session-id dirs, this may equal the dir name.
    */
-  sessionId: string;
+  writerSessionId?: string;
   requestId: string;
   path: string;
   state: string;
@@ -312,28 +297,34 @@ function extractMetadata(markdown: string): { state: string; requestType: Reques
 
 async function readSummary(
   projectRoot: string,
-  changeId: string,
+  sessionId: string,
   role: RequestArtifactRole,
   fileName: string
 ): Promise<RequestArtifactSummary> {
-  const path = join(projectRoot, '.peaks', changeId, role, 'requests', fileName);
+  const path = join(projectRoot, '.peaks', sessionId, role, 'requests', fileName);
   const body = await readFile(path, 'utf8');
   const { state, createdAt, requestType, sessionId: bodySessionId } = extractMetadata(body);
   // Strip numbered prefix (e.g., "001-requestId.md" -> "requestId")
   // Only strip 3-digit zero-padded prefixes (our incrementing number format)
   const requestId = fileName.replace(/^0\d{2}-/, '').replace(/\.md$/, '');
-  // `changeId` is the durable scope (the directory the file lives in).
-  // `sessionId` is metadata (the session that wrote the file, parsed from
-  // the `- session:` body line). They may differ when a request is read
-  // across sessions (back-compat) or after a session re-bind.
+  // The `sessionId` parameter is the *scope* path fragment
+  // (`_runtime/<sid>`); consumers expect the bare session id. Strip
+  // the `_runtime/` prefix when recording the summary so downstream
+  // calls (observability emit, prereq check, lint gate) see just the
+  // session id. Pre-2.19.0 the field carried the scope verbatim, which
+  // caused the observability metrics file to land at
+  // `.peaks/_runtime/_runtime/<sid>/...` instead of the canonical
+  // `.peaks/_runtime/<sid>/metrics/...`. `writerSessionId` falls back
+  // to the parsed body session line (or the bare sid) — same intent.
+  const bareSessionId = sessionId.replace(/^_runtime[\\/]/, '');
   const summary: RequestArtifactSummary = {
     role,
-    changeId,
-    sessionId: bodySessionId ?? changeId,
+    sessionId: bareSessionId,
     requestId,
     path,
     state,
-    requestType
+    requestType,
+    writerSessionId: bodySessionId ?? bareSessionId
   };
   if (createdAt !== undefined) {
     summary.createdAt = createdAt;
@@ -542,12 +533,6 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   const prerequisiteResult = await checkPrerequisites({
     projectRoot: options.projectRoot,
-    changeId: existing.changeId,
-    // F3 repair cycle 1: pass the session binding so the gate can fall
-    // back to `.peaks/_runtime/<sid>/<role>/` (and the legacy
-    // `.peaks/_runtime/<sid>/<role>/`) for prerequisite artifacts that still
-    // live under the session dir rather than the change-id dir. This
-    // mirrors the F1/F2 back-compat pattern.
     sessionId: existing.sessionId,
     role: options.role,
     newState: options.newState,
@@ -640,7 +625,6 @@ export async function transitionRequestArtifact(options: TransitionRequestArtifa
 
   const result: TransitionRequestArtifactResult = {
     role: options.role,
-    changeId: existing.changeId,
     sessionId: existing.sessionId,
     requestId: options.requestId,
     path: existing.path,

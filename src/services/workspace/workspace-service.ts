@@ -3,7 +3,56 @@ import { existsSync, lstatSync, readdirSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
 import { isDirectory } from '../../shared/fs.js';
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
-import { setCurrentChangeId, validateChangeIdOrThrow } from '../../shared/change-id.js';
+
+/**
+ * Slice 2026-06-29-change-id-root-removal: list the immediate children of
+ * `.peaks/` so the legacy sibling-dir guard can enumerate date-stamped
+ * residue dirs without re-implementing `readdirSync` inline. Returns
+ * `[]` when the `.peaks/` dir does not exist (legitimate first-run
+ * outcome).
+ */
+function listPeaksRuntimeSiblings(projectRoot: string): string[] {
+  const peaksDir = join(projectRoot, '.peaks');
+  if (!existsSync(peaksDir)) return [];
+  try {
+    return readdirSync(peaksDir);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Slice 2026-06-29-change-id-root-removal: list the immediate children of
+ * `.peaks/_runtime/` so the legacy sibling-dir guard can enumerate
+ * date-stamped residue dirs at the runtime layer. Returns `[]` when
+ * the `.peaks/_runtime/` dir does not exist.
+ */
+function listRuntimeSiblings(projectRoot: string): string[] {
+  const runtimeDir = join(projectRoot, '.peaks', '_runtime');
+  if (!existsSync(runtimeDir)) return [];
+  try {
+    return readdirSync(runtimeDir);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Slice 2026-06-29-change-id-root-removal: returns `true` when the
+ * basename matches the auto-generated session-id shape
+ * `YYYY-MM-DD-<slug>` (the v2.8.3 hard-ban target). Bare dates
+ * (`YYYY-MM-DD`) are NOT auto-generated and are kept as plain dates.
+ */
+function isDateStampedSiblingId(name: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}-/.test(name)) return false;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(name)) return false;
+  return true;
+}
+// Slice 2026-06-29-change-id-root-removal: `setCurrentChangeId` and
+// `validateChangeIdOrThrow` were removed with the change-id axis. Init
+// preserves the legacy-sibling-dir guard via inline `lstatSync`; the
+// path-safety helpers moved to `shared/path-safety.ts` but this module
+// does not currently use them.
 import {
   detectMissingProjectStandards,
   type MissingProjectStandardsDiagnostic
@@ -24,20 +73,6 @@ export type WorkspaceInitOptions = {
    * — the CLI surfaces this as `--allow-session-rebind`.
    */
   allowSessionRebind?: boolean;
-  /**
-   * Optional change-id to bind as the active unit of work. When set
-   * (slice 2.8.3+), `peaks workspace init` writes the binding as a
-   * plain text file at `.peaks/_runtime/current-change` (NOT a
-   * symlink). The change-id is a logical identifier embedded in the
-   * reviewable-artifact filename (e.g.
-   * `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`), not a
-   * filesystem directory. A 2.8.0-era legacy sibling dir
-   * `.peaks/_runtime/<changeId>/` at top level is FORBIDDEN and triggers
-   * `LegacyChangeIdSiblingError` so the user can migrate before the
-   * init proceeds. The session id remains the binding for ephemeral
-   * state (live sub-agent progress, spawn records).
-   */
-  changeId?: string;
   /**
    * Slice 2.0.1-bug3-fact-forcing-bypass: opt out of writing the
    * consumer-project `.claude/settings.local.json` file. Default
@@ -71,8 +106,6 @@ export type WorkspaceInitReport = {
   alreadyExisted: string[];
   bound: boolean;
   previousSessionId: string | null;
-  changeId: string | null;
-  changeIdAction: 'bound' | 'preserved' | 'none';
   /**
    * Slice 2.0.1-bug3-fact-forcing-bypass: what the consumer-project
    * `.claude/settings.local.json` materialization did this call.
@@ -137,10 +170,10 @@ const AUTO_SESSION_PATTERN = /^\d{4}-\d{2}-\d{2}-session-[a-f0-9]{6}$/;
 
 /**
  * Slice C10 (2026-06-24-legacy-change-id-sibling): the relative path
- * patterns under `.peaks/_runtime/<changeId>/` that the lazy WRITER (peaks-qa,
+ * patterns under `.peaks/_runtime/<sessionId>/` that the lazy WRITER (peaks-qa,
  * peaks-rd, peaks-prd, peaks-txt, peaks-sc) creates via
  * `mkdir(parent, { recursive: true })` immediately before a write. When
- * a sibling `.peaks/_runtime/<changeId>/` exists on disk AND every entry below
+ * a sibling `.peaks/_runtime/<sessionId>/` exists on disk AND every entry below
  * it matches one of these patterns (AND no entry is a symlink), the
  * dir is treated as legitimate writer output and `initWorkspace`
  * re-init is tolerant — the binding is rewritten without throwing.
@@ -181,12 +214,12 @@ export class ConflictingSessionError extends Error {
 
 /**
  * Thrown when `peaks workspace init --change-id <id>` is invoked but a
- * 2.8.0-era legacy sibling directory `.peaks/_runtime/<changeId>/` already exists
+ * 2.8.0-era legacy sibling directory `.peaks/_runtime/<sessionId>/` already exists
  * at top level. Under the 2.8.0+ two-axis convention, change-id is a
  * logical identifier in the SESSION axis — NOT a top-level sibling dir.
  *
  * The caller is expected to:
- *   1. Inspect `.peaks/_runtime/<changeId>/` to see if it contains user-authored
+ *   1. Inspect `.peaks/_runtime/<sessionId>/` to see if it contains user-authored
  *      content worth preserving.
  *   2. Migrate or delete the sibling dir.
  *   3. Re-run `peaks workspace init --change-id <id>`.
@@ -194,16 +227,16 @@ export class ConflictingSessionError extends Error {
 export class LegacyChangeIdSiblingError extends Error {
   readonly code = 'LEGACY_CHANGE_ID_SIBLING';
   constructor(
-    readonly changeId: string,
+    readonly sessionId: string,
     readonly legacyPath: string
   ) {
     super(
       `peaks-cli 2.8.3+ forbids the legacy sibling dir ${legacyPath}. ` +
-      `Under the two-axis convention, change-id "${changeId}" must live in the SESSION axis ` +
+      `Under the two-axis convention, change-id "${sessionId}" must live in the SESSION axis ` +
       `(.peaks/_runtime/<sessionId>/), not as a top-level sibling of .peaks/_runtime/. ` +
       `Migration: (1) inspect ${legacyPath} for user-authored content; ` +
       `(2) move any desired files into .peaks/_runtime/<sessionId>/<role>/; ` +
-      `(3) delete ${legacyPath}; (4) re-run 'peaks workspace init --change-id ${changeId}'.`
+      `(3) delete ${legacyPath}; (4) re-run 'peaks workspace init --change-id ${sessionId}'.`
     );
     this.name = 'LegacyChangeIdSiblingError';
   }
@@ -253,7 +286,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     is given. Slice 2.8.3+ redirects the binding to
   //     `.peaks/_runtime/current-change` as a plain text file (see
   //     `LegacyChangeIdSiblingError` for the migration guard). Reviewable
-  //     artifacts still land under `.peaks/_runtime/<changeId>/<role>/`, but
+  //     artifacts still land under `.peaks/_runtime/<sessionId>/<role>/`, but
   //     that dir is created lazily by the WRITER, not by init. Init only
   //     writes the binding.
   //
@@ -283,87 +316,44 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   //     init and refreshed on every subsequent init. Idempotent.
   setSessionMeta(options.projectRoot, options.sessionId, {});
 
-  // 2. If a change-id is given, bind it to the SESSION axis (NOT a
-  //    top-level sibling dir). Slice 2026-06-22-top-level-change-id-cleanup:
-  //    the 2.8.0-era `.peaks/_runtime/<changeId>/` sibling layout is FORBIDDEN under
-  //    the 2.8.0+ two-axis convention. The change-id is a logical
-  //    identifier — RD/QA artifact paths embed it in the filename
-  //    (e.g. `.peaks/_runtime/<sid>/rd/requests/002-<changeId>.md`).
-  //    The binding itself lives at `.peaks/_runtime/current-change` as
-  //    a plain text file (NOT a symlink to a sibling dir).
+  // 2. Slice 2026-06-29-change-id-root-removal: the change-id axis is
+  //    gone. The session id IS the binding — there is no separate
+  //    `.peaks/_runtime/current-change` file. The v2.8.3 hard-ban on
+  //    `.peaks/<YYYY-MM-DD-*>/` siblings still fires via the inline
+  //    `lstatSync` block below, scoped to legacy residue
+  //    directories (NOT the canonical session dir, which lives at
+  //    `.peaks/_runtime/<sid>/`).
   //
-  //    2a. Pre-flight guard: if a 2.8.0-era legacy sibling
-  //    `.peaks/_runtime/<changeId>/` already exists at top level, refuse with
-  //    a clear migration message. We do NOT auto-migrate because the
-  //    legacy sibling dir may contain user-authored content the user
-  //    needs to inspect before deletion.
-  let resolvedChangeId: string | null = null;
-  let changeIdAction: 'bound' | 'preserved' | 'none' = 'none';
-  if (options.changeId !== undefined && options.changeId.length > 0) {
-    resolvedChangeId = options.changeId;
-    // Slice 2026-06-23-audit-followup: validate the change-id BEFORE
-    // any path join / existsSync probe. The prior code joined the
-    // unvalidated value and probed the filesystem, leaving a tiny
-    // info-leak window (existsSync could reveal whether an arbitrary
-    // path exists). `setCurrentChangeId` also calls validate internally
-    // but the early guard here removes the unvalidated probe.
-    validateChangeIdOrThrow(resolvedChangeId);
-    const legacySiblingDir = join(options.projectRoot, '.peaks', resolvedChangeId);
-    // Slice 2026-06-23-audit-followup: use lstatSync instead of
-    // existsSync so we can distinguish path types (file vs dir vs
-    // symlink vs broken symlink) instead of conflating them all into
-    // one error. The guard still fires for all non-existent paths
-    // because lstatSync throws ENOENT in that case (caught below).
-    let legacyStat: Stats | null = null;
+  //    Pre-flight guard: refuse to silently walk into a date-stamped
+  //    sibling dir at the `.peaks/` top level. `lstatSync`
+  //    distinguishes file/dir/symlink/broken-symlink. ENOENT (path
+  //    absent) is the legitimate outcome. The guard fires ONLY on
+  //    date-stamped sibling dirs at `.peaks/<date-stamped>/` —
+  //    NOT on the canonical session dir at `.peaks/_runtime/<sid>/`,
+  //    which is a legitimate in-flight or completed session.
+  for (const entry of listPeaksRuntimeSiblings(options.projectRoot)) {
+    if (entry === '_runtime') continue; // canonical session dir layer
+    if (!isDateStampedSiblingId(entry)) continue;
+    const legacySiblingDir = join(options.projectRoot, '.peaks', entry);
+    let legacyStat: Stats;
     try {
       legacyStat = lstatSync(legacySiblingDir);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        // EACCES, EPERM, ELOOP, etc. — surface as a typed error so
-        // the CLI catch block can emit a specific message.
-        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
-      }
-      legacyStat = null;
+    } catch {
+      // ENOENT or transient — accept.
+      continue;
     }
-    if (legacyStat !== null) {
-      // Slice C10 (2026-06-24-legacy-change-id-sibling): the legacy
-      // sibling dir at `.peaks/_runtime/<changeId>/` is no longer an automatic
-      // violation. When the SAME session previously ran the writer
-      // (peaks-qa, peaks-rd, ...) it may have lazily created the
-      // sibling dir via `mkdir(..., { recursive: true })` before
-      // writing a screenshot or artifact. On re-init we MUST tolerate
-      // that content (preserving the on-disk artifact material) and
-      // only throw `LegacyChangeIdSiblingError` when the dir contains
-      // entries that are NOT writer-shaped — i.e. user-authored residue
-      // from a 2.8.0-era install that needs the migration message.
-      //
-      // The check is a whole-dir heuristic: every leaf path under the
-      // sibling must match one of `WRITER_ALLOWED_RELATIVE_PATTERNS`,
-      // AND no entry may be a symlink. One mismatched entry ⇒ reject.
-      // This avoids silent acceptance of mixed user-content + writer-
-      // content dirs and defeats symlink-attack evasion (where a
-      // symlinked `.png` would otherwise bypass the pattern check).
-      if (legacyStat.isSymbolicLink()) {
-        // A symlink AT the legacy sibling path itself is unambiguous
-        // evasion — even if the target is writer-shaped, refuse.
-        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
-      }
-      const shapeOk = isWriterCreatedSiblingShape(legacySiblingDir);
-      if (!shapeOk) {
-        throw new LegacyChangeIdSiblingError(resolvedChangeId, legacySiblingDir);
-      }
-      // Writer-shaped content: silently tolerate. The binding gets
-      // refreshed (setCurrentChangeId is idempotent) and the dir is
-      // preserved on disk — no auto-cleanup.
+    if (!legacyStat.isDirectory()) continue;
+    if (legacyStat.isSymbolicLink()) {
+      // A symlink AT a date-stamped sibling path is unambiguous
+      // evasion — even if the target is writer-shaped, refuse.
+      throw new LegacyChangeIdSiblingError(entry, legacySiblingDir);
     }
-    // 3. Bind the change-id to the session axis as a plain text file
-    //    at `.peaks/_runtime/current-change`. NO sibling directory
-    //    is created at `.peaks/_runtime/<changeId>/`.
-    setCurrentChangeId(options.projectRoot, resolvedChangeId, { form: 'file' });
-    changeIdAction = 'bound';
-  } else if (options.changeId !== undefined && options.changeId.length === 0) {
-    // Empty string — same as undefined; treat as no change-id.
-    changeIdAction = 'none';
+    const shapeOk = isWriterCreatedSiblingShape(legacySiblingDir);
+    if (!shapeOk) {
+      throw new LegacyChangeIdSiblingError(entry, legacySiblingDir);
+    }
+    // Writer-shaped content: silently tolerate. No binding file is
+    // written (the change-id binding store is gone).
   }
 
   // 4. Bind this session as the project's current one.
@@ -444,8 +434,6 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     alreadyExisted,
     bound,
     previousSessionId,
-    changeId: resolvedChangeId,
-    changeIdAction,
     claudeSettings: await materializeClaudeSettingsLocal(options.projectRoot, options.noClaudeHooks === true),
     standardsMissing,
     ...(standardsApplied !== undefined ? { standardsApplied } : {})
@@ -465,7 +453,7 @@ export { materializeClaudeSettingsLocal } from './workspace-claude-settings-mate
 
 /**
  * Slice C10 (2026-06-24-legacy-change-id-sibling): whole-dir shape check
- * for the legacy sibling `.peaks/_runtime/<changeId>/`. Returns `true` ONLY when
+ * for the legacy sibling `.peaks/_runtime/<sessionId>/`. Returns `true` ONLY when
  * every leaf path under the sibling matches one of
  * `WRITER_ALLOWED_RELATIVE_PATTERNS` AND no entry is a symlink (anywhere
  * in the tree).
@@ -482,7 +470,7 @@ export { materializeClaudeSettingsLocal } from './workspace-claude-settings-mate
  *
  * Symlink rejection (Karpathy #3 — surgical): any symlinked entry — at
  * the root or nested — returns `false` immediately. A symlinked
- * `.peaks/_runtime/<changeId>/qa/foo.png` could otherwise bypass the file-extension
+ * `.peaks/_runtime/<sessionId>/qa/foo.png` could otherwise bypass the file-extension
  * check by resolving to user content outside the project.
  *
  * Implementation note: the helper is synchronous and uses `lstatSync`
@@ -523,8 +511,17 @@ export function isWriterCreatedSiblingShape(siblingDir: string): boolean {
         return false;
       }
       if (entries.length === 0) {
-        // Empty subdir under the sibling is fine — writer creates parent
-        // dirs lazily and may leave a placeholder behind. Skip.
+        if (node.depth === 0) {
+          // The top-level sibling dir is empty — no writer output.
+          // Reject: an empty `.peaks/<YYYY-MM-DD-*>/` dir is the most
+          // common legacy residue shape (the user mkdir'd it then
+          // forgot). The writer never creates an empty top-level
+          // dir; it always writes at least one file.
+          return false;
+        }
+        // Nested empty subdir under the sibling is fine — writer
+        // creates parent dirs lazily and may leave a placeholder
+        // behind. Skip.
         continue;
       }
       for (const entry of entries) {

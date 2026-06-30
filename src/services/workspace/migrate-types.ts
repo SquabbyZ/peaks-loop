@@ -26,8 +26,8 @@ export type MigrateFilePlan = {
   to: string;
   /** The session dir this file came from. */
   sessionId: string;
-  /** The change-id the file is being routed to. */
-  changeId: string;
+  /** The session-id the file is being routed to (target dir under `.peaks/retrospective/<target-session-id>/<role>/`). */
+  targetSessionId: string;
   /** The role inferred from the file's path (rd/qa/prd/ui/sc). */
   role: 'prd' | 'ui' | 'rd' | 'qa' | 'sc' | 'system' | 'unknown';
   /** Path of the file relative to the session dir, e.g. `rd/tech-doc.md`. */

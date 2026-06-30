@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { isDirectory, pathExists } from '../../shared/fs.js';
-import { isPathInsideArtifactRoot, validateChangeIdOrThrow } from '../../shared/change-id.js';
+import { isPathInsideArtifactRoot } from '../../shared/path-safety.js';
 import type {
   MigrateFilePlan,
   MigrateOptions,
@@ -142,7 +142,7 @@ async function collectFilesRecursive(
 }
 
 interface ExtractedChangeId {
-  changeId: string;
+  sessionId: string;
   source: Exclude<MigrateFilePlan['source'], 'cross-cutting' | null>;
 }
 
@@ -152,16 +152,18 @@ function extractChangeId(
   content: string | null,
   fallbackChangeId: string | null
 ): ExtractedChangeId | null {
+  // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+  // was removed with the change-id axis. The structural regex check
+  // it ran against the matched identifier is no longer enforced at
+  // this site — callers accept any identifier shape that the tier-1
+  // regex / tier-2 H1 match / tier-3 frontmatter match produces. The
+  // request-artifact content validation in `request-artifact-service`
+  // still applies its own `REQUEST_ID_PATTERN` for *new* request files.
   // Tier 1: filename regex
   const baseName = fileName;
   const m = FILENAME_CHANGE_ID_RE.exec(baseName);
   if (m && m[1] && m[1].length > 0) {
-    try {
-      validateChangeIdOrThrow(m[1]);
-      return { changeId: m[1], source: 'filename-regex' };
-    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-      // fall through to H1
-    }
+    return { sessionId: m[1], source: 'filename-regex' };
   }
 
   // Tier 2: content H1
@@ -171,12 +173,7 @@ function extractChangeId(
       if (test(h1Match)) {
         const cid = extract(h1Match);
         if (cid !== null) {
-          try {
-            validateChangeIdOrThrow(cid);
-            return { changeId: cid, source: 'content-h1' };
-          } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-            // fall through to frontmatter
-          }
+          return { sessionId: cid, source: 'content-h1' };
         }
       }
     }
@@ -186,27 +183,17 @@ function extractChangeId(
   if (content !== null) {
     const ridMatch = FRONTMATTER_RID_RE.exec(content);
     if (ridMatch && ridMatch[1]) {
-      try {
-        validateChangeIdOrThrow(ridMatch[1]);
-        return { changeId: ridMatch[1], source: 'content-frontmatter' };
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // fall through
-      }
+      return { sessionId: ridMatch[1], source: 'content-frontmatter' };
     }
     const linkedMatch = FRONTMATTER_LINKED_RE.exec(content);
     if (linkedMatch && linkedMatch[1]) {
-      try {
-        validateChangeIdOrThrow(linkedMatch[1]);
-        return { changeId: linkedMatch[1], source: 'content-frontmatter' };
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // fall through
-      }
+      return { sessionId: linkedMatch[1], source: 'content-frontmatter' };
     }
   }
 
   // Tier 4: per-session fallback (most recent change-id from rd/requests/)
   if (fallbackChangeId !== null) {
-    return { changeId: fallbackChangeId, source: 'session-fallback' };
+    return { sessionId: fallbackChangeId, source: 'session-fallback' };
   }
 
   return null;
@@ -228,7 +215,7 @@ async function deriveFallbackChangeId(sessionPath: string): Promise<string | nul
   for (const fileName of requestFiles) {
     const content = await readFile(join(requestsPath, fileName), 'utf8').catch(() => null);
     const extracted = extractChangeId(fileName, content, null);
-    if (extracted !== null) return extracted.changeId;
+    if (extracted !== null) return extracted.sessionId;
   }
   return null;
 }
@@ -276,7 +263,7 @@ async function planSession(
         from: f.absPath,
         to: f.absPath, // no move
         sessionId,
-        changeId: '',
+        targetSessionId: '',
         role: f.role,
         relativePath: f.relativePath,
         source: null,
@@ -290,7 +277,7 @@ async function planSession(
       // Cross-cutting files (rd/project-scan.md, rd/perf-baseline.md) belong
       // at the TOP level of `.peaks/` (e.g. `.peaks/project-scan/rd/project-scan.md`).
       // They are single artifacts that span every slice, not tied to any
-      // change-id. Move them to their dedicated top-level dir as part of the
+      // session-id. Move them to their dedicated top-level dir as part of the
       // same migration pass.
       const crossCuttingDir = deriveCrossCuttingDirName(f.relativePath);
       const to = join(peaksRoot, crossCuttingDir, f.relativePath);
@@ -299,7 +286,7 @@ async function planSession(
         from: f.absPath,
         to,
         sessionId,
-        changeId: crossCuttingDir, // the top-level dir name acts as the change-id
+        targetSessionId: crossCuttingDir, // the top-level dir name acts as the target session-id
         role: f.role,
         relativePath: f.relativePath,
         source: 'cross-cutting'
@@ -312,7 +299,7 @@ async function planSession(
         from: f.absPath,
         to: f.absPath,
         sessionId,
-        changeId: '',
+        targetSessionId: '',
         role: 'system',
         relativePath: f.relativePath,
         source: null,
@@ -327,7 +314,7 @@ async function planSession(
         from: f.absPath,
         to: f.absPath,
         sessionId,
-        changeId: '',
+        targetSessionId: '',
         role: 'unknown',
         relativePath: f.relativePath,
         source: null,
@@ -343,7 +330,7 @@ async function planSession(
         from: f.absPath,
         to: f.absPath,
         sessionId,
-        changeId: '',
+        targetSessionId: '',
         role: f.role,
         relativePath: f.relativePath,
         source: null,
@@ -354,12 +341,12 @@ async function planSession(
     }
 
     empty = false;
-    const to = join(peaksRoot, 'retrospective', extracted.changeId, f.relativePath);
+    const to = join(peaksRoot, 'retrospective', extracted.sessionId, f.relativePath);
     plans.push({
       from: f.absPath,
       to,
       sessionId,
-      changeId: extracted.changeId,
+      targetSessionId: extracted.sessionId,
       role: f.role,
       relativePath: f.relativePath,
       source: extracted.source
