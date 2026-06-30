@@ -41,7 +41,7 @@ export interface ResolvedWorkflow {
 }
 
 /** Built-in default workflows shipped with peaks-cli (git-tracked). */
-const BUNDLED_WORKFLOWS = new Set<string>(['default-fullauto-md']);
+const BUNDLED_WORKFLOWS = new Set<string>(['default-fullauto-md', 'loop-with-quality-md']);
 
 /** Try the project → global → bundled fallback chain and parse + lint. */
 export function resolveWorkflow(projectRoot: string, id: string): ResolvedWorkflow {

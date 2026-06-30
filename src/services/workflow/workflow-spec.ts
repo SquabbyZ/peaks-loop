@@ -51,13 +51,23 @@ export interface WorkflowGate {
   readonly description?: string;
 }
 
-/** Native evaluator types — the 4 reviewer fan-out members + verdict aggregator. */
+/** Native evaluator types — the 4 reviewer fan-out members + verdict aggregator
+ *  + Slice C monotonic-improvement guard + Slice D G13/G14/G15 quality-loop
+ *  primitives. Sketch-grade: the 3 quality-loop evaluators shell out to
+ *  existing `peaks impact scan`, `peaks smoke run`, and
+ *  `peaks release canary` CLI surfaces. The authoritative score
+ *  conversion for the monotonic guard lives in
+ *  `src/services/loop/monotonic-guard.ts`. */
 export type EvaluatorKind =
-  | 'karpathy'        // 4 Karpathy guidelines review
-  | 'code-review'     // peaks-rd code-reviewer
-  | 'security-review' // peaks-security-audit
-  | 'perf-baseline'   // peaks-perf-audit
-  | 'verdict-aggregate'; // cross-source verdict merge
+  | 'karpathy'              // 4 Karpathy guidelines review
+  | 'code-review'           // peaks-rd code-reviewer
+  | 'security-review'       // peaks-security-audit
+  | 'perf-baseline'         // peaks-perf-audit
+  | 'verdict-aggregate'     // cross-source verdict merge
+  | 'monotonic-improvement' // Slice C: per-evaluator monotonic score check
+  | 'impact-scan'           // Slice D / G13: peaks impact scan
+  | 'smoke-run'             // Slice D / G14: peaks smoke run
+  | 'canary-watch';         // Slice D / G15: peaks release canary
 
 /** Evaluator binding — runtime calls `peaks loop eval` directly, no LLM scheduling. */
 export interface WorkflowEvaluator {
@@ -122,7 +132,11 @@ const VALID_EVALUATORS: ReadonlySet<EvaluatorKind> = new Set<EvaluatorKind>([
   'code-review',
   'security-review',
   'perf-baseline',
-  'verdict-aggregate'
+  'verdict-aggregate',
+  'monotonic-improvement',
+  'impact-scan',
+  'smoke-run',
+  'canary-watch'
 ]);
 
 const ID_PATTERN = /^[a-z][a-z0-9-]*$/;

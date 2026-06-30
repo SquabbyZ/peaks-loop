@@ -1,13 +1,17 @@
 ---
 schemaVersion: 1
-id: default-fullauto-md
-label: Default fullauto-md workflow (peaks-solo)
+id: loop-with-quality-md
+label: Default fullauto-md + G13/G14/G15 quality loop (peaks-solo production)
 description: |
   Encapsulates the canonical peaks-solo step sequence (step 0 / 0.5 /
-  0.6 / 0.7 / 0.55 / 1 / 2 / N / N+1 / N+2). The runtime executes
-  phases in declaration order; LLM is the worker, not the orchestrator.
-  This file is git-tracked; project overrides live under
-  `.peaks/workflows/<id>.yaml` (per ADR 0007 v2 concern #3).
+  0.6 / 0.7 / 0.55 / 1 / 2 / N / N+1 / N+2) AND the Slice D G13/G14/G15
+  quality loop (impact-scan → smoke-run → canary-watch). The runtime
+  executes phases in declaration order; LLM is the worker, not the
+  orchestrator. Identical step-0..N contract to default-fullauto-md,
+  with two extra phases appended post-N for production fast-iteration
+  closure: g13-impact, g14-smoke, g15-canary. This file is git-tracked;
+  project overrides live under `.peaks/workflows/loop-with-quality-md.yaml`
+  (per ADR 0007 v2 concern #3).
 phases:
   - id: step-0-init
     role: peaks-solo
@@ -90,6 +94,34 @@ phases:
     gates: [Gate B2]
     outputContract: [mutReport]
     dependsOn: [step-n-1-aggregate]
+  - id: g13-impact
+    role: peaks-loop
+    promptTemplate: |
+      G13 pre-RD: run `peaks impact scan --files <changed-files>` and
+      `peaks impact must-check` to surface the impact report and
+      must-check list. Forward the scope (changed-files) onto the
+      evaluator.
+    gates: [Gate A1]
+    outputContract: [impactReport, mustCheck]
+    dependsOn: [step-n-2-mut]
+  - id: g14-smoke
+    role: peaks-loop
+    promptTemplate: |
+      G14: run `peaks smoke run --project .` to record a smoke
+      regression run. Combine with `peaks smoke add-path` for
+      regression paths surfaced by G13.
+    gates: [Gate B2]
+    outputContract: [smokeRun]
+    dependsOn: [g13-impact]
+  - id: g15-canary
+    role: peaks-loop
+    promptTemplate: |
+      G15: run `peaks release canary --version <v>` for staged rollout,
+      then `peaks release watch --duration 24h` and `peaks release
+      promote` once the canary window is clean.
+    gates: [Gate D1]
+    outputContract: [canaryState, watchReport]
+    dependsOn: [g14-smoke]
 gates:
   - id: Gate A1
     sopId: peaks-session-binding
@@ -126,14 +158,23 @@ evaluators:
   - type: monotonic-improvement
     gate: Gate D1
     threshold: "0.05"
+  - type: impact-scan
+    gate: Gate A1
+    scope: src/cli/program.ts
+  - type: smoke-run
+    gate: Gate B2
+  - type: canary-watch
+    gate: Gate D1
+    scope: v3.0.0-canary
 contextSnapshot:
   files:
     - .peaks/PROJECT.md
     - .peaks/standards/common/coding-style.md
   memory:
     - .peaks/memory/parked-peaks-workflow-primitive.md
+    - .peaks/memory/peaks-cli-fast-iteration-quality-loop.md
     - .peaks/memory/peaks-cli-24h-ai-programmer-positioning.md
 budget:
-  tokens: 80000
-  wallSeconds: 1800
-  cycles: 3
+  tokens: 120000
+  wallSeconds: 3600
+  cycles: 4

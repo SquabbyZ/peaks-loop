@@ -18,6 +18,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { EvaluatorKind } from '../workflow/workflow-spec.js';
+import { runMonotonicCheck } from './monotonic-runner.js';
 
 /** Standard evaluator verdict envelope — matches the union members
  *  consumed by `envelopesToAggregatorInput`. */
@@ -46,6 +47,10 @@ export interface EvaluatorVerdictEnvelope {
 export interface DispatchOptions {
   readonly projectRoot: string;
   readonly rid: string;
+  /** Session id — required by `monotonic-improvement` so the guard
+   *  can read the prior cycle from the slice dir. Other evaluators
+   *  ignore it. */
+  readonly sessionId?: string;
   readonly scope?: string;
   readonly threshold?: string;
   /** Override the peaks binary path (default: `node bin/peaks.js` from cwd). */
@@ -69,6 +74,14 @@ export function dispatchEvaluator(
       return dispatchPerfBaseline(options, started);
     case 'verdict-aggregate':
       return dispatchVerdictAggregate(options, started);
+    case 'monotonic-improvement':
+      return dispatchMonotonicImprovement(options, started);
+    case 'impact-scan':
+      return dispatchImpactScan(options, started);
+    case 'smoke-run':
+      return dispatchSmokeRun(options, started);
+    case 'canary-watch':
+      return dispatchCanaryWatch(options, started);
     default: {
       // Exhaustiveness guard.
       const exhaustive: never = kind;
@@ -164,6 +177,185 @@ function dispatchVerdictAggregate(opts: DispatchOptions, started: number): Evalu
   ];
   const { stdout, exitCode } = execPeaks(args, opts.projectRoot, opts.peaksBin);
   return parseVerdictAggregateEnvelope(stdout, exitCode, started);
+}
+
+function dispatchImpactScan(opts: DispatchOptions, started: number): EvaluatorVerdictEnvelope {
+  // `peaks impact scan --files <list>` requires a comma-separated file
+  // list. From the loop dispatcher we forward `scope` (which is the
+  // evaluator scope expression) as the file list when present; when
+  // absent we degrade to a warn envelope (sketch-grade acceptance).
+  const files = opts.scope && opts.scope.length > 0 ? opts.scope : '';
+  if (files.length === 0) {
+    const wall = (Date.now() - started) / 1000;
+    return {
+      kind: 'impact-scan',
+      passed: false,
+      gateAction: 'warn',
+      violations: [{
+        severity: 'MED',
+        file: '<loop>',
+        line: 0,
+        hint: 'impact-scan dispatcher requires scope (a comma-separated file list); set the evaluator scope on the workflow yaml'
+      }],
+      summary: 'impact-scan: missing scope/files',
+      wallSeconds: wall,
+      degraded: true
+    };
+  }
+  const args = ['impact', 'scan', '--files', files, '--project', opts.projectRoot, '--json'];
+  const { stdout, exitCode } = execPeaks(args, opts.projectRoot, opts.peaksBin);
+  return parseGenericEnvelope(stdout, exitCode, started, 'impact-scan', 'impact-scan: ');
+}
+
+function dispatchSmokeRun(opts: DispatchOptions, started: number): EvaluatorVerdictEnvelope {
+  // `peaks smoke run` is a no-op recorder (returns a dry summary by
+  // default). Pure sketch-grade surface.
+  const args = ['smoke', 'run', '--project', opts.projectRoot, '--json'];
+  const { stdout, exitCode } = execPeaks(args, opts.projectRoot, opts.peaksBin);
+  return parseGenericEnvelope(stdout, exitCode, started, 'smoke-run', 'smoke-run: ');
+}
+
+function dispatchCanaryWatch(opts: DispatchOptions, started: number): EvaluatorVerdictEnvelope {
+  // `peaks release canary --version <v>` requires a version label. We
+  // forward `scope` when supplied (interpreted as the canary version),
+  // otherwise degrade to a warn envelope (sketch-grade acceptance).
+  const version = opts.scope && opts.scope.length > 0 ? opts.scope : '';
+  if (version.length === 0) {
+    const wall = (Date.now() - started) / 1000;
+    return {
+      kind: 'canary-watch',
+      passed: false,
+      gateAction: 'warn',
+      violations: [{
+        severity: 'MED',
+        file: '<loop>',
+        line: 0,
+        hint: 'canary-watch dispatcher requires scope (the canary version label); set the evaluator scope on the workflow yaml'
+      }],
+      summary: 'canary-watch: missing version',
+      wallSeconds: wall,
+      degraded: true
+    };
+  }
+  const args = ['release', 'canary', '--version', version, '--project', opts.projectRoot, '--json'];
+  const { stdout, exitCode } = execPeaks(args, opts.projectRoot, opts.peaksBin);
+  return parseGenericEnvelope(stdout, exitCode, started, 'canary-watch', 'canary-watch: ');
+}
+
+/** Generic envelope parser for the 3 G13/G14/G15 sketch-grade evaluators
+ *  — they share shape (data.ok + data.count + data.summary). */
+function parseGenericEnvelope(
+  stdout: string,
+  exitCode: number,
+  started: number,
+  kind: 'impact-scan' | 'smoke-run' | 'canary-watch',
+  summaryPrefix: string
+): EvaluatorVerdictEnvelope {
+  const wall = (Date.now() - started) / 1000;
+  const parsed = safeJson(stdout);
+  if (parsed === null) {
+    return {
+      kind,
+      passed: exitCode === 0,
+      gateAction: exitCode === 0 ? 'pass' : 'warn',
+      violations: [],
+      summary: stdout.slice(0, 200),
+      wallSeconds: wall,
+      degraded: true
+    };
+  }
+  const obj = parsed as Record<string, unknown>;
+  const data = (obj['data'] ?? obj) as Record<string, unknown>;
+  return {
+    kind,
+    passed: exitCode === 0,
+    gateAction: exitCode === 0 ? 'pass' : 'warn',
+    violations: [],
+    summary: typeof data['summary'] === 'string' ? summaryPrefix + data['summary'] : summaryPrefix + (exitCode === 0 ? 'ok' : 'failed'),
+    wallSeconds: wall,
+    degraded: false
+  };
+}
+
+function dispatchMonotonicImprovement(opts: DispatchOptions, started: number): EvaluatorVerdictEnvelope {
+  // The monotonic guard is intra-process logic — we do not need to
+  // shell out to the peaks CLI for the score walk itself. The CLI
+  // shapes (`peaks loop check-monotonic`, `peaks loop eval
+  // --evaluator monotonic-improvement`) both converge here.
+  const sid = opts.sessionId;
+  if (sid === undefined || sid.length === 0) {
+    return {
+      kind: 'monotonic-improvement',
+      passed: false,
+      gateAction: 'warn',
+      violations: [{
+        severity: 'MED',
+        file: '<loop>',
+        line: 0,
+        hint: 'monotonic-improvement dispatcher requires sessionId; pass --session <sid> or call peaks loop check-monotonic directly'
+      }],
+      summary: 'monotonic-improvement: missing sessionId',
+      wallSeconds: 0,
+      degraded: true
+    };
+  }
+  const thresholdNum = opts.threshold !== undefined ? Number(opts.threshold) : undefined;
+  if (thresholdNum !== undefined && !Number.isFinite(thresholdNum)) {
+    return {
+      kind: 'monotonic-improvement',
+      passed: false,
+      gateAction: 'warn',
+      violations: [{
+        severity: 'MED',
+        file: '<loop>',
+        line: 0,
+        hint: `invalid threshold "${opts.threshold}" — must be a finite number in [0,1]`
+      }],
+      summary: 'monotonic-improvement: invalid threshold',
+      wallSeconds: 0,
+      degraded: true
+    };
+  }
+  try {
+    const result = runMonotonicCheck({
+      projectRoot: opts.projectRoot,
+      sid,
+      rid: opts.rid,
+      ...(thresholdNum !== undefined ? { threshold: thresholdNum } : {})
+    });
+    const wall = (Date.now() - started) / 1000;
+    const violations = result.report.regressions.map((r) => ({
+      severity: 'HIGH' as const,
+      file: '<loop>',
+      line: 0,
+      hint: `${r.evaluator} regressed ${r.previousScore.toFixed(4)}→${r.currentScore.toFixed(4)} (Δ=${r.delta.toFixed(4)})`
+    }));
+    return {
+      kind: 'monotonic-improvement',
+      passed: !result.report.monotonicityViolation,
+      gateAction: result.report.monotonicityViolation ? 'block' : result.report.status === 'skip' ? 'warn' : 'pass',
+      violations,
+      summary: result.report.reason,
+      wallSeconds: wall,
+      degraded: false
+    };
+  } catch (error) {
+    const wall = (Date.now() - started) / 1000;
+    return {
+      kind: 'monotonic-improvement',
+      passed: false,
+      gateAction: 'warn',
+      violations: [{
+        severity: 'MED',
+        file: '<loop>',
+        line: 0,
+        hint: `runMonotonicCheck threw: ${error instanceof Error ? error.message : String(error)}`
+      }],
+      summary: 'monotonic-improvement: dispatcher error',
+      wallSeconds: wall,
+      degraded: true
+    };
+  }
 }
 
 // ─── envelope parsers (pure, never throw) ──────────────────────────────
