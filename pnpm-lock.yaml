@@ -30,6 +30,9 @@ importers:
         specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
+      '@jridgewell/trace-mapping':
+        specifier: ^0.3.31
+        version: 0.3.31
       '@stryker-mutator/core':
         specifier: ^8.7.1
         version: 8.7.1
