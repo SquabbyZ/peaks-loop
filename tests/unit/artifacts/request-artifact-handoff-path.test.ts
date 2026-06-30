@@ -4,7 +4,7 @@
  * Hard ban (effective 2.8.3, no exceptions): NEVER create
  * `.peaks/_runtime/<change-id>/` or `.peaks/_runtime/<YYYY-MM-DD-*>/` at the top level
  * of `.peaks/`. All change-id / session-id reviewable artifacts must
- * live under `.peaks/_runtime/change/<changeId>/<role>/...`.
+ * live under `.peaks/_runtime/change/<sessionId>/<role>/...`.
  *
  * This test pins down the canonical handoff-path shape emitted by
  * the 5 render functions in `request-artifact-service.ts` so a
@@ -17,7 +17,6 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 import {
-  formatChangeScopePath,
   formatCommitBoundaryPath,
   formatHandoffPath,
   formatSkillUsageLessonsPath,
@@ -29,51 +28,45 @@ const SERVICE_ABS = new URL(`../../../${SERVICE_PATH}`, import.meta.url).pathnam
 
 const FAKE_REQUEST_ID = '2026-06-24-fake-rid';
 const FAKE_CHANGE_ID = '2026-06-24-fake-change';
-const FAKE_SESSION_ID = '2026-06-24-fake-session';
-const FAKE_TIMESTAMP = '2026-06-24T00:00:00.000Z';
+const FAKE_SESSION_ID = '2026-06-24-fake-session';const FAKE_TIMESTAMP = '2026-06-24T00:00:00.000Z';
 
-// The banned string pattern: any literal `.peaks/_runtime/${changeId}/` template
+// The banned string pattern: any literal `.peaks/_runtime/${sessionId}/` template
 // fragment. We assert BOTH that the rendered output contains zero
 // matches AND that the source file's template literals contain zero
 // matches.
-const BANNED_TOP_LEVEL_REGEX = /\.peaks\/\$\{changeId\}\//g;
-const BANNED_AT_ALL_REGEX = /\.peaks\/\$\{changeId\}/g;
+const BANNED_TOP_LEVEL_REGEX = /\.peaks\/\$\{sessionId\}\//g;
+const BANNED_AT_ALL_REGEX = /\.peaks\/\$\{sessionId\}/g;
 
 // Canonical handoff-path prefix (post-2.8.3 + slice 2026-06-24):
-// `.peaks/_runtime/change/<changeId>/<role>/requests/<rid>.md`.
-const CANONICAL_HANDOFF_PREFIX = '.peaks/_runtime/change/';
+// `.peaks/_runtime/change/<sessionId>/<role>/requests/<rid>.md`.
+const CANONICAL_HANDOFF_PREFIX = '.peaks/_runtime/';
 
 describe('handoff path helpers — canonical shape', () => {
   it('formatHandoffPath returns the canonical per-role request path', () => {
-    expect(formatHandoffPath(FAKE_CHANGE_ID, 'rd', FAKE_REQUEST_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/rd/requests/${FAKE_REQUEST_ID}.md`);
-    expect(formatHandoffPath(FAKE_CHANGE_ID, 'qa', FAKE_REQUEST_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/qa/requests/${FAKE_REQUEST_ID}.md`);
-    expect(formatHandoffPath(FAKE_CHANGE_ID, 'ui', FAKE_REQUEST_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/ui/requests/${FAKE_REQUEST_ID}.md`);
-    expect(formatHandoffPath(FAKE_CHANGE_ID, 'prd', FAKE_REQUEST_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/prd/requests/${FAKE_REQUEST_ID}.md`);
+    expect(formatHandoffPath(FAKE_SESSION_ID, 'rd', FAKE_REQUEST_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/rd/requests/${FAKE_REQUEST_ID}.md`);
+    expect(formatHandoffPath(FAKE_SESSION_ID, 'qa', FAKE_REQUEST_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/qa/requests/${FAKE_REQUEST_ID}.md`);
+    expect(formatHandoffPath(FAKE_SESSION_ID, 'ui', FAKE_REQUEST_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/ui/requests/${FAKE_REQUEST_ID}.md`);
+    expect(formatHandoffPath(FAKE_SESSION_ID, 'prd', FAKE_REQUEST_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/prd/requests/${FAKE_REQUEST_ID}.md`);
   });
 
   it('formatCommitBoundaryPath returns the canonical SC commit-boundary path', () => {
-    expect(formatCommitBoundaryPath(FAKE_CHANGE_ID, FAKE_REQUEST_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/sc/commit-boundaries/${FAKE_REQUEST_ID}.md`);
+    expect(formatCommitBoundaryPath(FAKE_SESSION_ID, FAKE_REQUEST_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/sc/commit-boundaries/${FAKE_REQUEST_ID}.md`);
   });
 
   it('formatSkillUsageLessonsPath returns the canonical txt lessons path', () => {
-    expect(formatSkillUsageLessonsPath(FAKE_CHANGE_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/txt/skill-usage-lessons.md`);
-  });
-
-  it('formatChangeScopePath returns the canonical change-scope dir (with trailing slash)', () => {
-    expect(formatChangeScopePath(FAKE_CHANGE_ID))
-      .toBe(`.peaks/_runtime/change/${FAKE_CHANGE_ID}/`);
+    expect(formatSkillUsageLessonsPath(FAKE_SESSION_ID))
+      .toBe(`.peaks/_runtime/${FAKE_SESSION_ID}/txt/skill-usage-lessons.md`);
   });
 });
 
 /**
  * Each render function's output must contain ZERO references to the
- * banned top-level path `.peaks/_runtime/${changeId}/` (the templated form)
+ * banned top-level path `.peaks/_runtime/${sessionId}/` (the templated form)
  * AND every Handoff/linked-* path it emits must start with the
  * canonical prefix `.peaks/_runtime/change/`.
  *
@@ -102,14 +95,13 @@ describe('render templates — banned top-level handoff paths are eliminated', (
   const ROLES = ['prd', 'ui', 'rd', 'qa', 'sc'] as const;
 
   for (const role of ROLES) {
-    it(`rendered ${role} template contains zero banned .peaks/_runtime/${'${changeId}'}/ references`, async () => {
+    it(`rendered ${role} template contains zero banned .peaks/_runtime/${'${sessionId}'}/ references`, async () => {
       const mod = await import('../../../src/services/artifacts/request-artifact-service.js');
       const result = await mod.createRequestArtifact({
         role,
         requestId: FAKE_REQUEST_ID,
         projectRoot: '.', // not used (dry-run)
-        sessionId: FAKE_SESSION_ID,
-        changeId: FAKE_CHANGE_ID,
+        sessionId: FAKE_CHANGE_ID,
         clock: () => FAKE_TIMESTAMP,
         // apply: omitted (default = dry-run preview)
       });
@@ -118,7 +110,7 @@ describe('render templates — banned top-level handoff paths are eliminated', (
       const bannedAny = result.content.match(BANNED_AT_ALL_REGEX) ?? [];
 
       expect(bannedTopLevel, `rendered ${role} template still contains banned top-level path: ${bannedTopLevel.join(', ')}`).toEqual([]);
-      expect(bannedAny, `rendered ${role} template still contains templated changeId path: ${bannedAny.join(', ')}`).toEqual([]);
+      expect(bannedAny, `rendered ${role} template still contains templated sessionId path: ${bannedAny.join(', ')}`).toEqual([]);
     });
 
     it(`rendered ${role} template Handoff/linked-* paths all start with canonical prefix`, async () => {
@@ -127,8 +119,7 @@ describe('render templates — banned top-level handoff paths are eliminated', (
         role,
         requestId: FAKE_REQUEST_ID,
         projectRoot: '.',
-        sessionId: FAKE_SESSION_ID,
-        changeId: FAKE_CHANGE_ID,
+        sessionId: FAKE_CHANGE_ID,
         clock: () => FAKE_TIMESTAMP,
       });
 
@@ -155,12 +146,12 @@ describe('render templates — banned top-level handoff paths are eliminated', (
 });
 
 describe('source file — banned template literals are eliminated', () => {
-  it('the service source file contains zero `.peaks/_runtime/${changeId}/` template strings', async () => {
+  it('the service source file contains zero `.peaks/_runtime/${sessionId}/` template strings', async () => {
     const source = await readFile(SERVICE_ABS, 'utf8');
     const matches = source.match(BANNED_TOP_LEVEL_REGEX) ?? [];
     expect(
       matches,
-      `request-artifact-service.ts still contains banned template literal .peaks/_runtime/${'${changeId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
+      `request-artifact-service.ts still contains banned template literal .peaks/_runtime/${'${sessionId}'}/ (${matches.length} occurrence(s)): ${matches.join(' | ')}`,
     ).toEqual([]);
   });
 });

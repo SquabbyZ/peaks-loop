@@ -16,7 +16,7 @@ describe('runMiniMaxWorker', () => {
     const result = await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update the checkout state handling',
         unitTestTask: 'Add focused unit tests for the checkout state handling'
@@ -49,7 +49,7 @@ describe('runMiniMaxWorker', () => {
     const result = await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update checkout state handling',
         unitTestTask: 'Add focused unit tests for checkout state handling'
@@ -72,7 +72,7 @@ describe('runMiniMaxWorker', () => {
     await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update checkout state handling',
         unitTestTask: 'Add focused unit tests for checkout state handling',
@@ -86,26 +86,25 @@ describe('runMiniMaxWorker', () => {
   });
 
   test('rejects empty, unsafe, or oversized worker fields', async () => {
+    // Slice 2026-06-29-change-id-root-removal: the third case
+    // (`bad/id` ⇒ `Invalid change-id`) was testing the
+    // `validateChangeIdOrThrow` shim that was removed with the
+    // change-id axis. The change-id structural validator is gone; the
+    // empty + length gates remain.
     const fetchImpl = vi.fn<typeof fetch>();
 
     await expect(runMiniMaxWorker({ baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' }, {
-      changeId: ' ',
+      sessionId: ' ',
       goal: 'Refactor checkout flow',
       codingTask: 'Update checkout state handling',
       unitTestTask: 'Add focused unit tests'
-    }, fetchImpl)).rejects.toThrow('changeId must be non-empty');
+    }, fetchImpl)).rejects.toThrow('sessionId must be non-empty');
     await expect(runMiniMaxWorker({ baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' }, {
-      changeId: 'a'.repeat(129),
+      sessionId: 'a'.repeat(129),
       goal: 'Refactor checkout flow',
       codingTask: 'Update checkout state handling',
       unitTestTask: 'Add focused unit tests'
-    }, fetchImpl)).rejects.toThrow('changeId must be 128 characters or less');
-    await expect(runMiniMaxWorker({ baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' }, {
-      changeId: 'bad/id',
-      goal: 'Refactor checkout flow',
-      codingTask: 'Update checkout state handling',
-      unitTestTask: 'Add focused unit tests'
-    }, fetchImpl)).rejects.toThrow('Invalid change-id');
+    }, fetchImpl)).rejects.toThrow('sessionId must be 128 characters or less');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -122,7 +121,7 @@ describe('runMiniMaxWorker', () => {
 
     for (const codingTask of sensitiveInputs) {
       await expect(runMiniMaxWorker({ baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' }, {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask,
         unitTestTask: 'Add focused unit tests'
@@ -135,7 +134,7 @@ describe('runMiniMaxWorker', () => {
     const fetchImpl = vi.fn<typeof fetch>();
 
     await expect(runMiniMaxWorker({ baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' }, {
-      changeId: 'checkout-refactor',
+      sessionId: 'checkout-refactor',
       goal: 'Refactor checkout flow',
       codingTask: 'Update checkout state handling',
       unitTestTask: 'Add focused unit tests',
@@ -150,7 +149,7 @@ describe('runMiniMaxWorker', () => {
     const result = await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update checkout state handling',
         unitTestTask: 'Add focused unit tests'
@@ -168,7 +167,7 @@ describe('runMiniMaxWorker', () => {
     const result = await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update checkout state handling',
         unitTestTask: 'Add focused unit tests'
@@ -185,7 +184,7 @@ describe('runMiniMaxWorker', () => {
     const result = await runMiniMaxWorker(
       { baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 'secret-key' },
       {
-        changeId: 'checkout-refactor',
+        sessionId: 'checkout-refactor',
         goal: 'Refactor checkout flow',
         codingTask: 'Update the checkout state handling',
         unitTestTask: 'Add focused unit tests for the checkout state handling'

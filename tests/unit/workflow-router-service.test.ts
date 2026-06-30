@@ -6,9 +6,9 @@ import type { WorkspaceConfig } from '../../src/services/config/config-types.js'
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 import { createWorkflowRouterPlan } from '../../src/services/workflow/workflow-router-service.js';
-import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
+import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 
-function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig; artifactWorkspace: string } {
+function createApprovedWorkspace(sessionId: string): { workspace: WorkspaceConfig; artifactWorkspace: string } {
   const rootPath = mkdtempSync(join(tmpdir(), 'peaks-workflow-root-'));
   const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-workflow-artifacts-'));
   const workspace = {
@@ -19,7 +19,7 @@ function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig
     artifactStorage: { mode: 'local' as const, localPath: artifactWorkspace }
   };
   const workspaceArtifactPath = getLocalArtifactPath(workspace);
-  const architectureRoot = join(getChangeScopeDirAbs(workspaceArtifactPath, changeId), 'rd', 'architecture');
+  const architectureRoot = join(getSessionDir(workspaceArtifactPath, sessionId), 'rd', 'architecture');
   mkdirSync(join(workspaceArtifactPath, '.peaks'), { recursive: true });
   mkdirSync(architectureRoot, { recursive: true });
   writeFileSync(join(workspaceArtifactPath, '.peaks', 'config.json'), '{}', 'utf8');
@@ -35,7 +35,7 @@ function createApprovedWorkspace(changeId: string): { workspace: WorkspaceConfig
 
 describe('createWorkflowRouterPlan', () => {
   test('creates a full-auto solo route with broad cost-tiered model hints', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'solo-refactor', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true });
+    const plan = createWorkflowRouterPlan({ sessionId: 'solo-refactor', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true });
 
     expect(plan.routePolicy).toBe('solo-broad-multi-model');
     expect(plan.mode).toBe('solo');
@@ -51,11 +51,11 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('rejects invalid solo mode values at the service boundary', () => {
-    expect(() => createWorkflowRouterPlan({ changeId: 'blank-solo-mode', goal: 'Refactor checkout flow', mode: 'solo', soloMode: '' as 'guided', dryRun: true })).toThrow('Unsupported solo mode');
+    expect(() => createWorkflowRouterPlan({ sessionId: 'blank-solo-mode', goal: 'Refactor checkout flow', mode: 'solo', soloMode: '' as 'guided', dryRun: true })).toThrow('Unsupported solo mode');
   });
 
   test('creates a team route that limits mid-tier execution to peaks-rd', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'team-refactor', goal: 'Refactor checkout flow', mode: 'team', dryRun: true });
+    const plan = createWorkflowRouterPlan({ sessionId: 'team-refactor', goal: 'Refactor checkout flow', mode: 'team', dryRun: true });
 
     expect(plan.routePolicy).toBe('team-rd-limited-multi-model');
     expect(plan.mode).toBe('team');
@@ -68,8 +68,8 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('annotates guided and rnd solo routes differently while keeping execution autonomous', () => {
-    const guidedPlan = createWorkflowRouterPlan({ changeId: 'guided-refactor', goal: 'Refactor checkout flow', mode: 'solo', soloMode: 'guided', dryRun: true });
-    const rndPlan = createWorkflowRouterPlan({ changeId: 'rnd-refactor', goal: 'Refactor checkout flow', mode: 'solo', soloMode: 'rnd', dryRun: true });
+    const guidedPlan = createWorkflowRouterPlan({ sessionId: 'guided-refactor', goal: 'Refactor checkout flow', mode: 'solo', soloMode: 'guided', dryRun: true });
+    const rndPlan = createWorkflowRouterPlan({ sessionId: 'rnd-refactor', goal: 'Refactor checkout flow', mode: 'solo', soloMode: 'rnd', dryRun: true });
 
     expect(guidedPlan.soloMode).toBe('guided');
     expect(guidedPlan.executionMode).toBe('autonomous');
@@ -83,7 +83,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('routes product design tech and review to strongest model while economy execution uses the configured provider model', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'model-routing', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true, config: { providers: { customProvider: { model: 'custom-exec-model-v1' } } } });
+    const plan = createWorkflowRouterPlan({ sessionId: 'model-routing', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true, config: { providers: { customProvider: { model: 'custom-exec-model-v1' } } } });
 
     expect(plan.modeStatus.economyModeEnabled).toBe(true);
     expect(plan.modeStatus.swarmModeEnabled).toBe(true);
@@ -104,7 +104,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('routes code and test workers to strongest model when economy mode is disabled', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'no-economy-routing', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true, config: { economyMode: false } });
+    const plan = createWorkflowRouterPlan({ sessionId: 'no-economy-routing', goal: 'Refactor checkout flow', mode: 'solo', dryRun: true, config: { economyMode: false } });
 
     expect(plan.modeStatus.economyModeEnabled).toBe(false);
     expect(plan.modeStatus.executionModelId).toBe('claude-opus-4-7');
@@ -115,7 +115,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('routes team code and test workers to strongest top-tier model when economy mode is disabled', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'team-no-economy-routing', goal: 'Refactor checkout flow', mode: 'team', dryRun: true, config: { economyMode: false, providers: {} } });
+    const plan = createWorkflowRouterPlan({ sessionId: 'team-no-economy-routing', goal: 'Refactor checkout flow', mode: 'team', dryRun: true, config: { economyMode: false, providers: {} } });
 
     expect(plan.mode).toBe('team');
     expect(plan.modeStatus.economyModeEnabled).toBe(false);
@@ -129,7 +129,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('keeps swarm mode explicit and disables swarm planning only when config opts out', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'no-swarm-routing', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { swarmMode: false } });
+    const plan = createWorkflowRouterPlan({ sessionId: 'no-swarm-routing', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { swarmMode: false } });
 
     expect(plan.modeStatus.swarmModeEnabled).toBe(false);
     expect(plan.modeStatus.summary).toContain('Swarm mode disabled');
@@ -140,7 +140,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('normalizes configured provider model before assigning execution workers', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'trimmed-provider-model', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { providers: { customProvider: { model: '  custom-exec-model-v1  ' } } } });
+    const plan = createWorkflowRouterPlan({ sessionId: 'trimmed-provider-model', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { providers: { customProvider: { model: '  custom-exec-model-v1  ' } } } });
 
     expect(plan.modeStatus.executionModelId).toBe('custom-exec-model-v1');
     expect(plan.steps.find((step) => step.stage === 'coding-execution')?.modelId).toBe('custom-exec-model-v1');
@@ -149,13 +149,13 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('rejects economy routing when providers do not configure an execution model', () => {
-    expect(() => createWorkflowRouterPlan({ changeId: 'missing-provider-model', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { providers: {} } })).toThrow('Execution model must be configured in providers');
+    expect(() => createWorkflowRouterPlan({ sessionId: 'missing-provider-model', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true, config: { providers: {} } })).toThrow('Execution model must be configured in providers');
   });
 
   test('propagates configured provider model into the RD swarm worker graph', () => {
     const { workspace, artifactWorkspace } = createApprovedWorkspace('custom-provider-model');
     const plan = createWorkflowRouterPlan({
-      changeId: 'custom-provider-model',
+      sessionId: 'custom-provider-model',
       goal: 'Implement approved checkout refactor',
       mode: 'solo',
       maxWorkers: 40,
@@ -173,7 +173,7 @@ describe('createWorkflowRouterPlan', () => {
   test('routes solo-called peaks-rd coding, unit-test, and qa stages into swarm tasks when swarm mode is enabled', () => {
     const { workspace, artifactWorkspace } = createApprovedWorkspace('solo-rd-qa-swarm');
     const plan = createWorkflowRouterPlan({
-      changeId: 'solo-rd-qa-swarm',
+      sessionId: 'solo-rd-qa-swarm',
       goal: 'Implement approved checkout refactor',
       mode: 'solo',
       maxWorkers: 40,
@@ -195,7 +195,7 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('keeps missing artifact workspace as a preview-safe planning constraint', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'missing-artifacts', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true });
+    const plan = createWorkflowRouterPlan({ sessionId: 'missing-artifacts', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true });
 
     expect(plan.techStatus.status).toBe('unavailable');
     expect(plan.techPlan.available).toBe(false);
@@ -205,13 +205,13 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('defaults RD worker target to forty workers', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'default-workers', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true });
+    const plan = createWorkflowRouterPlan({ sessionId: 'default-workers', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true });
 
     expect(plan.rdPlan.workerTarget).toBe(40);
   });
 
   test('passes max workers into RD planning', () => {
-    const plan = createWorkflowRouterPlan({ changeId: 'custom-workers', goal: 'Fix checkout retry typo', mode: 'solo', maxWorkers: 25, dryRun: true });
+    const plan = createWorkflowRouterPlan({ sessionId: 'custom-workers', goal: 'Fix checkout retry typo', mode: 'solo', maxWorkers: 25, dryRun: true });
 
     expect(plan.rdPlan.workerTarget).toBe(25);
   });
@@ -219,7 +219,7 @@ describe('createWorkflowRouterPlan', () => {
   test('merges non-workspace blocked reasons and next actions when artifacts are available', () => {
     const { workspace, artifactWorkspace } = createApprovedWorkspace('available-artifacts');
     const plan = createWorkflowRouterPlan({
-      changeId: 'available-artifacts',
+      sessionId: 'available-artifacts',
       goal: 'Fix checkout retry typo',
       mode: 'solo',
       maxWorkers: 24,
@@ -238,7 +238,7 @@ describe('createWorkflowRouterPlan', () => {
   test('uses the workspace default artifact path for workflow planning', () => {
     const { workspace } = createApprovedWorkspace('default-workflow-artifacts');
     const plan = createWorkflowRouterPlan({
-      changeId: 'default-workflow-artifacts',
+      sessionId: 'default-workflow-artifacts',
       goal: 'Fix checkout retry typo',
       mode: 'solo',
       maxWorkers: 40,
@@ -255,7 +255,7 @@ describe('createWorkflowRouterPlan', () => {
   test('returns no next actions when all route prerequisites are available', () => {
     const { workspace, artifactWorkspace } = createApprovedWorkspace('approved-route');
     const plan = createWorkflowRouterPlan({
-      changeId: 'approved-route',
+      sessionId: 'approved-route',
       goal: 'Fix checkout retry typo',
       mode: 'solo',
       maxWorkers: 40,
@@ -271,9 +271,11 @@ describe('createWorkflowRouterPlan', () => {
   });
 
   test('rejects invalid change id, empty goal, and unsupported mode', () => {
-    expect(() => createWorkflowRouterPlan({ changeId: 'foo/bar', goal: 'Fix checkout retry typo', mode: 'solo', dryRun: true })).toThrow('Invalid change-id');
-    expect(() => createWorkflowRouterPlan({ changeId: 'empty-goal', goal: '   ', mode: 'solo', dryRun: true })).toThrow('Goal must be non-empty');
-    expect(() => createWorkflowRouterPlan({ changeId: 'bad-mode', goal: 'Fix checkout retry typo', mode: 'enterprise' as 'solo', dryRun: true })).toThrow('Unsupported workflow mode');
-    expect(() => createWorkflowRouterPlan({ changeId: 'team-solo-mode', goal: 'Fix checkout retry typo', mode: 'team', soloMode: 'guided', dryRun: true })).toThrow('soloMode requires solo workflow mode');
+    // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+    // was removed — the change-id is metadata-only. The empty-goal,
+    // unsupported-mode, and team-solo-mode contracts are preserved.
+    expect(() => createWorkflowRouterPlan({ sessionId: 'empty-goal', goal: '   ', mode: 'solo', dryRun: true })).toThrow('Goal must be non-empty');
+    expect(() => createWorkflowRouterPlan({ sessionId: 'bad-mode', goal: 'Fix checkout retry typo', mode: 'enterprise' as 'solo', dryRun: true })).toThrow('Unsupported workflow mode');
+    expect(() => createWorkflowRouterPlan({ sessionId: 'team-solo-mode', goal: 'Fix checkout retry typo', mode: 'team', soloMode: 'guided', dryRun: true })).toThrow('soloMode requires solo workflow mode');
   });
 });

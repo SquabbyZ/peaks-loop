@@ -9,7 +9,7 @@ describe('createProgram', () => {
   });
 
   test('worker minimax rejects blank inputs before calling the worker', async () => {
-    const result = await runCommand(['worker', 'minimax', '--confirm', '--change-id', ' ', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const result = await runCommand(['worker', 'minimax', '--confirm', '--session-id', ' ', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -261,7 +261,7 @@ describe('createProgram', () => {
   });
 
   test('worker minimax requires explicit confirmation', async () => {
-    const result = await runCommand(['worker', 'minimax', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const result = await runCommand(['worker', 'minimax', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -271,7 +271,7 @@ describe('createProgram', () => {
   });
 
   test('minimax-worker top-level command requires explicit confirmation', async () => {
-    const result = await runCommand(['minimax-worker', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const result = await runCommand(['minimax-worker', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -307,7 +307,7 @@ describe('createProgram', () => {
       }
     });
 
-    const result = await runCommand(['worker', 'minimax', '--confirm', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const result = await runCommand(['worker', 'minimax', '--confirm', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const output = parseJsonOutput<{ reviewHandoff: { prompt: string } }>(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -342,7 +342,7 @@ describe('createProgram', () => {
       }
     });
 
-    const result = await runCommand(['worker', 'minimax', '--confirm', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const result = await runCommand(['worker', 'minimax', '--confirm', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const output = parseJsonOutput<{ reviewHandoff: { model: string; prompt: string } }>(result.stdout);
 
     expect(output.ok).toBe(true);
@@ -350,7 +350,7 @@ describe('createProgram', () => {
     expect(output.data.reviewHandoff.model).toBe('claude-opus-4-7');
     expect(output.data.reviewHandoff.prompt).toBe('[redacted]');
     expect(getMinimaxWorkerRun()).toHaveBeenCalledWith(expect.any(Object), {
-      changeId: 'checkout-refactor',
+      sessionId: 'checkout-refactor',
       goal: 'Refactor checkout flow',
       codingTask: 'Update checkout state handling',
       unitTestTask: 'Add focused unit tests',
@@ -375,12 +375,12 @@ describe('createProgram', () => {
       reviewHandoff: { model: 'claude-opus-4-7', prompt: 'Review handoff' },
       constraints: { allowShell: false, allowFileWrites: false }
     });
-    const failedResult = await runCommand(['worker', 'minimax', '--confirm', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const failedResult = await runCommand(['worker', 'minimax', '--confirm', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     expect(parseJsonOutput(failedResult.stdout).code).toBe('MINIMAX_WORKER_FAILED');
     expect(failedResult.exitCode).toBe(1);
 
     getMinimaxWorkerRun().mockRejectedValueOnce(new Error('network down with secret'));
-    const thrownResult = await runCommand(['worker', 'minimax', '--confirm', '--change-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
+    const thrownResult = await runCommand(['worker', 'minimax', '--confirm', '--session-id', 'checkout-refactor', '--goal', 'Refactor checkout flow', '--coding-task', 'Update checkout state handling', '--unit-test-task', 'Add focused unit tests', '--json']);
     const thrownOutput = (parseJsonOutput(thrownResult.stdout) as ReturnType<typeof parseJsonOutput> & { message: string });
     expect(thrownOutput.code).toBe('MINIMAX_WORKER_FAILED');
     expect(thrownOutput.message).toContain('network down with [redacted]');

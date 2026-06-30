@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { checkDesignDraftConfirmation } from '../../../../../src/services/audit/enforcers/design-draft-confirm.js';
 
 let projectRoot: string;
-const changeId = 'v2-14-0-test';
+const sessionId = 'v2-14-0-test';
 
 beforeEach(() => {
   projectRoot = mkdtempSync(join(tmpdir(), 'design-draft-'));
@@ -28,49 +28,49 @@ function ensureDir(relPath: string): void {
 
 describe('checkDesignDraftConfirmation', () => {
   it('case 1: draft does not exist → draftExists=false, confirmed=false', () => {
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.draftExists).toBe(false);
     expect(r.confirmed).toBe(false);
     // Use posix-aware check: replace backslashes for cross-platform portability
     const normalized = r.draftPath.split(/[\\/]/).join('/');
-    expect(normalized).toContain(`${changeId}/ui/design-draft.md`);
+    expect(normalized).toContain(`${sessionId}/ui/design-draft.md`);
   });
 
   it('case 2: draft exists but no confirmed marker → confirmed=false', () => {
-    ensureDir(`.peaks/${changeId}/ui`);
-    writeFileSync(join(projectRoot, `.peaks/${changeId}/ui/design-draft.md`), '# Design\n\nNo confirmation marker here.');
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    ensureDir(`.peaks/${sessionId}/ui`);
+    writeFileSync(join(projectRoot, `.peaks/${sessionId}/ui/design-draft.md`), '# Design\n\nNo confirmation marker here.');
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.draftExists).toBe(true);
     expect(r.confirmed).toBe(false);
   });
 
   it('case 3: draft with `confirmed: true` marker → confirmed=true', () => {
-    ensureDir(`.peaks/${changeId}/ui`);
-    writeFileSync(join(projectRoot, `.peaks/${changeId}/ui/design-draft.md`), 'confirmed: true');
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    ensureDir(`.peaks/${sessionId}/ui`);
+    writeFileSync(join(projectRoot, `.peaks/${sessionId}/ui/design-draft.md`), 'confirmed: true');
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.draftExists).toBe(true);
     expect(r.confirmed).toBe(true);
   });
 
   it('case 4: draft with `status: confirmed-by-user` marker → confirmed=true', () => {
-    ensureDir(`.peaks/${changeId}/ui`);
-    writeFileSync(join(projectRoot, `.peaks/${changeId}/ui/design-draft.md`), '---\nstatus: confirmed-by-user\n---');
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    ensureDir(`.peaks/${sessionId}/ui`);
+    writeFileSync(join(projectRoot, `.peaks/${sessionId}/ui/design-draft.md`), '---\nstatus: confirmed-by-user\n---');
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.confirmed).toBe(true);
   });
 
   it('case 5: draft with `# confirmed` H1 → confirmed=true', () => {
-    ensureDir(`.peaks/${changeId}/ui`);
-    writeFileSync(join(projectRoot, `.peaks/${changeId}/ui/design-draft.md`), '# Confirmed\n\nbody');
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    ensureDir(`.peaks/${sessionId}/ui`);
+    writeFileSync(join(projectRoot, `.peaks/${sessionId}/ui/design-draft.md`), '# Confirmed\n\nbody');
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.confirmed).toBe(true);
   });
 
   it('case 6: confirmationPath equals draftPath on existing draft', () => {
-    ensureDir(`.peaks/${changeId}/ui`);
-    const draftPath = join(projectRoot, `.peaks/${changeId}/ui/design-draft.md`);
+    ensureDir(`.peaks/${sessionId}/ui`);
+    const draftPath = join(projectRoot, `.peaks/${sessionId}/ui/design-draft.md`);
     writeFileSync(draftPath, 'confirmed: true');
-    const r = checkDesignDraftConfirmation({ projectRoot, sessionId: '', changeId });
+    const r = checkDesignDraftConfirmation({ projectRoot, sessionId });
     expect(r.confirmationPath).toBe(draftPath);
   });
 });

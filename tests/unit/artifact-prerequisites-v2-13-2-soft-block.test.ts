@@ -65,7 +65,6 @@ describe('v2.13.2 MUT_REPORT soft-block (AC-5)', () => {
     // Deliberately omit mut/mut-report.json.
     const result = await checkPrerequisites({
       projectRoot: project,
-      changeId: CHANGE_ID,
       sessionId: SID,
       role: 'rd',
       newState: 'qa-handoff',
@@ -87,7 +86,6 @@ describe('v2.13.2 MUT_REPORT soft-block (AC-5)', () => {
     );
     const result = await checkPrerequisites({
       projectRoot: project,
-      changeId: CHANGE_ID,
       sessionId: SID,
       role: 'rd',
       newState: 'qa-handoff',

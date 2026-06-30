@@ -93,8 +93,11 @@ function getTestArtifactRoot(workspace: WorkspaceConfig): string {
   return join(dirname(workspace.rootPath), `${basename(workspace.rootPath)}.peaks-artifacts`);
 }
 
-function prepareChangeDir(workspace: WorkspaceConfig, changeId: string): string {
-  const changeDir = join(getTestArtifactRoot(workspace), '.peaks', changeId);
+function prepareChangeDir(workspace: WorkspaceConfig, sessionId: string): string {
+  // Slice 2026-06-29-change-id-root-removal: the canonical on-disk
+  // root for SC artifacts is `.peaks/_runtime/<sessionId>/`. The
+  // legacy `.peaks/<sessionId>/` (top-level sibling dir) is gone.
+  const changeDir = join(getTestArtifactRoot(workspace), '.peaks', '_runtime', sessionId);
   mkdirSync(join(changeDir, 'prd'), { recursive: true });
   mkdirSync(join(changeDir, 'rd'), { recursive: true });
   mkdirSync(join(changeDir, 'qa'), { recursive: true });
@@ -117,7 +120,7 @@ describe('peaks-sc service', () => {
 
     const status = getChangeTraceabilityStatus();
 
-    expect(status.changeId).toBeNull();
+    expect(status.sessionId).toBeNull();
     expect(status.hasArtifactRepo).toBe(false);
     expect(status.artifactSyncStatus).toBe('unknown');
     expect(status.localArtifactPath).toBe('.peaks-artifacts');
@@ -128,7 +131,7 @@ describe('peaks-sc service', () => {
   test('reports change impact defaults when no workspace is configured', () => {
     currentWorkspace = null;
 
-    const impact = createChangeImpact({ changeId: 'change-1' });
+    const impact = createChangeImpact({ sessionId: 'change-1' });
 
     expect(impact.syncPointers.artifactRepo).toBeNull();
     expect(impact.syncPointers.localPath).toBe('.peaks-artifacts');
@@ -158,99 +161,111 @@ describe('peaks-sc service', () => {
     expect(help.join('\n')).toContain('peaks sc boundary');
   });
 
-  test('describes current change and required artifacts when current-change file exists', () => {
+  test('describes current session and required artifacts when session binding exists', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
-    const changeDir = prepareChangeDir(workspace, '2026-05-15-test-change');
-    writeFileSync(join(getTestArtifactRoot(workspace), '.peaks', 'current-change'), '2026-05-15-test-change', 'utf-8');
+    const sid = '2026-05-15-test-change';
+    const changeDir = prepareChangeDir(workspace, sid);
+    // Slice 2026-06-29-change-id-root-removal: the binding file moved
+    // from `.peaks/current-change` (legacy change-id root) to the
+    // canonical `.peaks/_runtime/session.json`. Write the new shape.
+    const artifactRoot = getTestArtifactRoot(workspace);
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(
+      join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId: sid, projectRoot: artifactRoot, createdAt: new Date().toISOString() }),
+      'utf-8'
+    );
     writeFileSync(join(changeDir, 'sc', 'change-impact.json'), '{}', 'utf-8');
     writeFileSync(join(changeDir, 'sc', 'retention-boundary.md'), 'boundary', 'utf-8');
     writeFileSync(join(changeDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
 
     const status = getChangeTraceabilityStatus();
 
-    expect(status.changeId).toBe('2026-05-15-test-change');
+    expect(status.sessionId).toBe(sid);
     expect(status.requiredArtifacts.every((artifact) => artifact.exists)).toBe(true);
     expect(status.nextActions).toContain(`Run peaks artifacts sync --workspace ${workspace.workspaceId} --dry-run`);
   });
 
-  test('describes current change when current-change is missing and artifact repo is configured', () => {
+  test('describes current session when session binding is missing and artifact repo is configured', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const status = getChangeTraceabilityStatus();
 
-    expect(status.changeId).toBeNull();
+    expect(status.sessionId).toBeNull();
     expect(status.hasArtifactRepo).toBe(true);
-    expect(status.nextActions[0]).toBe('Set the current change in .peaks/current-change');
+    // Slice 2026-06-29-change-id-root-removal: next-action hint now
+    // points operators at `peaks workspace init` (the canonical
+    // binding writer) instead of the deleted `.peaks/current-change`
+    // file.
+    expect(status.nextActions[0]).toMatch(/peaks workspace init/);
     expect(status.requiredArtifacts[0]?.path).toContain('<session-id>');
   });
 
-  test('resolves current change from directory link target', () => {
+  test('resolves current session from the .peaks/_runtime/session.json binding', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const artifactRoot = getTestArtifactRoot(workspace);
-    const peaksPath = join(artifactRoot, '.peaks');
-    const changeId = '2026-05-15-symlink-change';
+    const sessionId = '2026-05-15-symlink-change';
 
-    const changeDir = join(artifactRoot, '.peaks', changeId);
-    mkdirSync(peaksPath, { recursive: true });
-    mkdirSync(changeDir, { recursive: true });
-    mkdirSync(join(changeDir, 'prd'), { recursive: true });
-    mkdirSync(join(changeDir, 'rd'), { recursive: true });
-    mkdirSync(join(changeDir, 'qa'), { recursive: true });
-    mkdirSync(join(changeDir, 'sc'), { recursive: true });
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(
+      join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId, projectRoot: artifactRoot, createdAt: new Date().toISOString() }),
+      'utf-8'
+    );
 
-    createDirectoryLinkSync(changeDir, join(peaksPath, 'current-change'));
-
-    expect(getChangeTraceabilityStatus().changeId).toBe(changeId);
+    expect(getChangeTraceabilityStatus().sessionId).toBe(sessionId);
   });
 
-  test('returns null when current-change directory link target is removed', () => {
+  test('returns null when session.json binding is missing', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const artifactRoot = getTestArtifactRoot(workspace);
-    const peaksPath = join(artifactRoot, '.peaks');
-    const changeId = '2026-05-15-broken-change';
-    const changeDir = join(artifactRoot, '.peaks', changeId);
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
 
-    mkdirSync(peaksPath, { recursive: true });
-    mkdirSync(changeDir, { recursive: true });
-    createDirectoryLinkSync(changeDir, join(peaksPath, 'current-change'));
-    rmSync(changeDir, { recursive: true, force: true });
-
-    expect(getChangeTraceabilityStatus().changeId).toBeNull();
+    expect(getChangeTraceabilityStatus().sessionId).toBeNull();
   });
 
-  test('returns null when current-change directory link target escapes .peaks', () => {
+  test('returns null when session.json binding is malformed JSON', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const artifactRoot = getTestArtifactRoot(workspace);
-    const peaksPath = join(artifactRoot, '.peaks');
-    const outsideChangeDir = join(tmpdir(), `peaks-sc-current-outside-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(
+      join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+      '{ not valid json',
+      'utf-8'
+    );
 
-    mkdirSync(peaksPath, { recursive: true });
-    mkdirSync(outsideChangeDir, { recursive: true });
-    createDirectoryLinkSync(outsideChangeDir, join(peaksPath, 'current-change'));
-
-    expect(getChangeTraceabilityStatus().changeId).toBeNull();
+    expect(getChangeTraceabilityStatus().sessionId).toBeNull();
   });
 
-  test('returns null when current-change directory link target has an unsafe basename', () => {
+  test('returns null when session.json binding has empty or non-string sessionId', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const artifactRoot = getTestArtifactRoot(workspace);
-    const peaksPath = join(artifactRoot, '.peaks');
-    const unsafeChangeDir = join(peaksPath, 'bad change');
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
 
-    mkdirSync(peaksPath, { recursive: true });
-    mkdirSync(unsafeChangeDir, { recursive: true });
-    createDirectoryLinkSync(unsafeChangeDir, join(peaksPath, 'current-change'));
-
-    expect(getChangeTraceabilityStatus().changeId).toBeNull();
+    for (const value of ['', '   ', null, 42, { foo: 'bar' }, []]) {
+      writeFileSync(
+        join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+        JSON.stringify({ sessionId: value }),
+        'utf-8'
+      );
+      expect(getChangeTraceabilityStatus().sessionId).toBeNull();
+    }
   });
 
   test('ignores empty or unsafe current-change values', () => {
+    // Slice 2026-06-29-change-id-root-removal: the `.peaks/current-change`
+    // binding file is gone. The SC service no longer reads it; this
+    // test now asserts that even if a stale `.peaks/current-change`
+    // file exists from a pre-2.19.0 install, the SC service ignores
+    // it and resolves the session binding from the canonical
+    // `.peaks/_runtime/session.json` (or null when unbound).
     const workspace = currentWorkspace as WorkspaceConfig;
-    const peaksPath = join(getTestArtifactRoot(workspace), '.peaks');
+    const artifactRoot = getTestArtifactRoot(workspace);
+    const peaksPath = join(artifactRoot, '.peaks');
     mkdirSync(peaksPath, { recursive: true });
 
     for (const value of ['   ', '../outside', '/tmp/change', 'foo/bar', 'foo\\bar']) {
       writeFileSync(join(peaksPath, 'current-change'), value, 'utf-8');
-      expect(getChangeTraceabilityStatus().changeId).toBeNull();
+      expect(getChangeTraceabilityStatus().sessionId).toBeNull();
     }
   });
 
@@ -261,32 +276,46 @@ describe('peaks-sc service', () => {
 
     expect(status.hasArtifactRepo).toBe(false);
     expect(status.nextActions).not.toContain('Configure artifact repo: peaks config workspace add --id <id> --provider github --repo-owner <owner> --repo-name <name>');
-    expect(status.nextActions[0]).toBe('Set the current change in .peaks/current-change');
+    // Slice 2026-06-29-change-id-root-removal: the next-action hint
+    // now points operators at `peaks workspace init` (the canonical
+    // binding writer) instead of the deleted `.peaks/current-change`
+    // file.
+    expect(status.nextActions[0]).toMatch(/peaks workspace init/);
   });
 
   test('uses artifactStorage remote sync for traceability without legacy artifactRepo', () => {
     currentWorkspace = createWorkspaceWithArtifactStorage({ mode: 'local-with-remote-sync', remote: { provider: 'gitlab', owner: 'acme', name: 'storage-artifacts' } });
 
     const status = getChangeTraceabilityStatus();
-    const impact = createChangeImpact({ changeId: 'change-remote-storage' });
+    const impact = createChangeImpact({ sessionId: 'change-remote-storage' });
 
     expect(status.hasArtifactRepo).toBe(true);
-    expect(status.nextActions[0]).toBe('Set the current change in .peaks/current-change');
+    // See previous test — legacy `.peaks/current-change` hint replaced
+    // by `peaks workspace init` next action.
+    expect(status.nextActions[0]).toMatch(/peaks workspace init/);
     expect(impact.syncPointers.artifactRepo).toBe('https://gitlab.com/acme/storage-artifacts.git');
   });
 
   test('reads change traceability and retention artifacts from the artifact workspace path', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const artifactRoot = getTestArtifactRoot(workspace);
-    const changeId = '2026-05-15-artifact-workspace-change';
+    const sessionId = '2026-05-15-artifact-workspace-change';
     const retentionSliceId = 'slice-artifact-workspace';
-    const changeDir = join(artifactRoot, '.peaks', changeId);
+    // Slice 2026-06-29-change-id-root-removal: the canonical on-disk
+    // root is `.peaks/_runtime/<sid>/`. The legacy `.peaks/<sid>/`
+    // (top-level sibling) and `.peaks/current-change` binding file
+    // are gone.
+    const changeDir = join(artifactRoot, '.peaks', '_runtime', sessionId);
     const retentionDir = join(artifactRoot, '.peaks', retentionSliceId);
 
     mkdirSync(join(workspace.rootPath, '.peaks'), { recursive: true });
-    writeFileSync(join(workspace.rootPath, '.peaks', 'current-change'), 'legacy-root-change', 'utf-8');
+    mkdirSync(join(artifactRoot, '.peaks', '_runtime'), { recursive: true });
+    writeFileSync(
+      join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId, projectRoot: artifactRoot, createdAt: new Date().toISOString() }),
+      'utf-8'
+    );
     mkdirSync(join(artifactRoot, '.peaks'), { recursive: true });
-    writeFileSync(join(artifactRoot, '.peaks', 'current-change'), changeId, 'utf-8');
 
     for (const folder of ['prd', 'rd', 'qa', 'sc', 'txt']) {
       mkdirSync(join(changeDir, folder), { recursive: true });
@@ -310,7 +339,7 @@ describe('peaks-sc service', () => {
     const status = getChangeTraceabilityStatus();
     const retention = validateArtifactRetention(retentionSliceId);
 
-    expect(status.changeId).toBe(changeId);
+    expect(status.sessionId).toBe(sessionId);
     expect(status.requiredArtifacts.every((artifact) => artifact.exists)).toBe(true);
     expect(status.requiredArtifacts.every((artifact) => artifact.path.includes(`${basename(workspace.rootPath)}.peaks-artifacts`))).toBe(true);
     expect(pathsEqual(status.localArtifactPath, artifactRoot)).toBe(true);
@@ -321,8 +350,16 @@ describe('peaks-sc service', () => {
   test('validates artifact retention by checking the requested slice directory', () => {
     const workspace = currentWorkspace as WorkspaceConfig;
     const currentChangeDir = prepareChangeDir(workspace, '2026-05-15-current');
-    const requestedSliceDir = prepareChangeDir(workspace, 'slice-1');
-    writeFileSync(join(getTestArtifactRoot(workspace), '.peaks', 'current-change'), '2026-05-15-current', 'utf-8');
+    // Slice 2026-06-29-change-id-root-removal: retention slices live
+    // at `.peaks/<sliceId>/` (NOT under `_runtime/` — that's session-
+    // scoped workspace state). The retention-resolution code keeps
+    // the legacy shape so shipped slices remain addressable.
+    const artifactRoot = getTestArtifactRoot(workspace);
+    const requestedSliceDir = join(artifactRoot, '.peaks', 'slice-1');
+    mkdirSync(requestedSliceDir, { recursive: true });
+    writeFileSync(join(artifactRoot, '.peaks', '_runtime', 'session.json'),
+      JSON.stringify({ sessionId: '2026-05-15-current', projectRoot: artifactRoot, createdAt: new Date().toISOString() }),
+      'utf-8');
     writeFileSync(join(currentChangeDir, 'prd', 'refactor-goal.md'), 'prd', 'utf-8');
     writeFileSync(join(currentChangeDir, 'rd', 'slice-spec.md'), 'rd', 'utf-8');
     writeFileSync(join(currentChangeDir, 'rd', 'coverage-report.md'), 'coverage', 'utf-8');
@@ -330,6 +367,12 @@ describe('peaks-sc service', () => {
     writeFileSync(join(currentChangeDir, 'rd', 'security-review-report.md'), 'security', 'utf-8');
     writeFileSync(join(currentChangeDir, 'rd', 'post-check-dry-run.md'), 'dry-run', 'utf-8');
     writeFileSync(join(currentChangeDir, 'qa', 'validation-report.md'), 'qa', 'utf-8');
+
+    mkdirSync(join(requestedSliceDir, 'prd'), { recursive: true });
+    mkdirSync(join(requestedSliceDir, 'rd'), { recursive: true });
+    mkdirSync(join(requestedSliceDir, 'qa'), { recursive: true });
+    mkdirSync(join(requestedSliceDir, 'sc'), { recursive: true });
+    mkdirSync(join(requestedSliceDir, 'txt'), { recursive: true });
 
     const missing = validateArtifactRetention('slice-1');
     expect(missing.valid).toBe(false);
@@ -468,13 +511,13 @@ describe('peaks-sc service', () => {
   });
 
   test('populates change impact sync pointers for GitHub and GitLab repos', () => {
-    const githubImpact = createChangeImpact({ changeId: 'change-1' });
+    const githubImpact = createChangeImpact({ sessionId: 'change-1' });
     expect(githubImpact.syncPointers.artifactRepo).toBe('https://github.com/acme/artifact-repo.git');
     const workspaceRoot = (currentWorkspace as WorkspaceConfig).rootPath;
     expect(pathsEqual(githubImpact.syncPointers.localPath, join(dirname(workspaceRoot), `${basename(workspaceRoot)}.peaks-artifacts`))).toBe(true);
 
     currentWorkspace = createWorkspace({ provider: 'gitlab', owner: 'acme', name: 'artifact-repo' });
-    const gitlabImpact = createChangeImpact({ changeId: 'change-2' });
+    const gitlabImpact = createChangeImpact({ sessionId: 'change-2' });
     expect(gitlabImpact.syncPointers.artifactRepo).toBe('https://gitlab.com/acme/artifact-repo.git');
   });
 

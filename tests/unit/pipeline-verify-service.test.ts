@@ -30,7 +30,7 @@ import { verifyPipeline } from '../../src/services/workflow/pipeline-verify-serv
 // As of slice 2026-06-05-change-id-as-unit-of-work, the on-disk scope of
 // reviewable content is the change-id (the top-level dir under .peaks/),
 // not the session-id. Tests write under a stable test-change-id dir
-// (mimicking the new layout) and pass `changeId: 'test-change-id'`
+// (mimicking the new layout) and pass `sessionId: 'test-change-id'`
 // explicitly to verifyPipeline so the resolved change-id is deterministic.
 //
 // Plan 1 followup hotfix (5cd4c87) made the on-disk root ONE-axis:
@@ -115,8 +115,8 @@ function writeQaEvidence(peaks: string, relativePath: string, content?: string):
 }
 
 // Plan 1 followup hotfix (5cd4c87) made the on-disk scope path the
-// source of truth for resolved changeId. Files live under
-// `.peaks/_runtime/test-change-id/...`, so the resolved changeId is
+// source of truth for resolved sessionId. Files live under
+// `.peaks/_runtime/test-change-id/...`, so the resolved sessionId is
 // the full scope path (containing `_runtime/test-change-id`), not
 // the bare session-id name. The path separator is platform-dependent
 // (forward slash on POSIX, backslash on Windows) — use endsWith CID
@@ -124,7 +124,7 @@ function writeQaEvidence(peaks: string, relativePath: string, content?: string):
 // change-id is the bare id (`test-change-id`); the legacy shape
 // `_runtime/test-change-id` is now normalised inside `findRequestFile`
 // so the path resolver builds the right canonical location. The
-// resolved changeId is the bare id, NOT a `_runtime/...` prefix.
+// resolved sessionId is the bare id, NOT a `_runtime/...` prefix.
 const CID = 'test-change-id';
 function isResolvedChangeId(value: string): boolean {
   return value === CID || value.endsWith(`/${CID}`) || value.endsWith(`\\${CID}`);
@@ -160,7 +160,7 @@ describe('verifyPipeline', () => {
         const r = await verifyPipeline({
           projectRoot: temp.root,
           rid: 'no-invoke',
-          changeId: CID,
+          sessionId: CID,
           requestType: rt,
         });
         expect(r.requestType).toBe(rt);
@@ -171,7 +171,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'garbage',
       });
       expect(r.requestType).toBe('feature');
@@ -181,7 +181,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        changeId: CID,
+        sessionId: CID,
       });
       expect(r.requestType).toBe('feature');
     });
@@ -190,7 +190,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        changeId: CID,
+        sessionId: CID,
         requestType: '',
       });
       expect(r.requestType).toBe('feature');
@@ -206,7 +206,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -223,7 +223,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-prefix',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -239,7 +239,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'exact-rd',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -254,7 +254,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-state',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -268,7 +268,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h1',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -281,7 +281,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h2',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -294,7 +294,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-h3',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -307,7 +307,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-draft',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -324,7 +324,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-prog',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -347,7 +347,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-all',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -362,7 +362,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-none',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -381,7 +381,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ev-part',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -409,7 +409,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-qa',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -426,7 +426,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ok',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -442,7 +442,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-running',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -459,7 +459,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-draft',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -476,9 +476,9 @@ describe('verifyPipeline', () => {
     test('detects all QA evidence files present for feature type', async () => {
       writeQaArtifact(temp.root, 'qa-ev-all', 'verdict-issued');
       // QA evidence gates (test-cases/test-report) read from
-      // `.peaks/_runtime/<changeId>/qa/` using the resolved changeId. Without
+      // `.peaks/_runtime/<sessionId>/qa/` using the resolved sessionId. Without
       // an RD request file in the same scope, the resolver falls
-      // back to the caller-provided changeId (`test-change-id`),
+      // back to the caller-provided sessionId (`test-change-id`),
       // i.e. the bare path. Write the per-rid evidence under both
       // the _runtime scope and the bare change-id scope so the gate
       // finds it on both layouts.
@@ -496,7 +496,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ev-all',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -511,7 +511,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-ev-none',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -545,7 +545,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'complete',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -566,7 +566,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-rd-ev',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -584,7 +584,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-qa-ev',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -605,7 +605,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-rd-state',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -627,7 +627,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'inc-qa-state',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -644,7 +644,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-qa-at-all',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -655,7 +655,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-invoke',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -680,7 +680,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rd-only',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -698,7 +698,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'both',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -709,7 +709,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'neither',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -735,7 +735,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'exact',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -749,7 +749,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'legacy-fmt',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -765,7 +765,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'qa-exact',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -778,7 +778,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-dir',
-        changeId: 'other-change-id', // no directories created for this change-id
+        sessionId: 'other-change-id', // no directories created for this change-id
         requestType: 'feature',
       });
 
@@ -795,7 +795,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'no-match',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -807,7 +807,7 @@ describe('verifyPipeline', () => {
   // Parameter isolation
   //
   // As of slice 2026-06-05-change-id-as-unit-of-work, the on-disk
-  // location is the source of truth: the caller passes `changeId` as a
+  // location is the source of truth: the caller passes `sessionId` as a
   // hint, but the resolver scans all top-level dirs and finds the file
   // at its actual location. The "isolates by change-id" test below
   // asserts the NEW contract: the resolved change-id equals the on-disk
@@ -815,13 +815,13 @@ describe('verifyPipeline', () => {
   // ==================================================================
 
   describe('parameter isolation', () => {
-    test('on-disk change-id wins over caller hint (resolved changeId = on-disk dir)', async () => {
+    test('on-disk change-id wins over caller hint (resolved sessionId = on-disk dir)', async () => {
       writeRdArtifact(temp.root, 'iso-rid', 'qa-handoff'); // writes to test-change-id
 
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'iso-rid',
-        changeId: 'other-change-id', // hint, but file is under test-change-id
+        sessionId: 'other-change-id', // hint, but file is under test-change-id
         requestType: 'feature',
       });
 
@@ -830,7 +830,7 @@ describe('verifyPipeline', () => {
       // (the full scope path `_runtime/test-change-id`), not the
       // caller's hint (other-change-id).
       expect(r.rdPhase.invoked).toBe(true);
-      expect(isResolvedChangeId(r.changeId)).toBe(true);
+      expect(isResolvedChangeId(r.sessionId)).toBe(true);
     });
 
     test('isolates by rid - files for one rid are not found when querying another', async () => {
@@ -839,7 +839,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'rid-b', // different rid
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -859,7 +859,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'ws',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -877,7 +877,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'multi',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -895,7 +895,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'crlf',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -930,12 +930,12 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'shape',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
       expect(r.rid).toBe('shape');
-      expect(isResolvedChangeId(r.changeId)).toBe(true);
+      expect(isResolvedChangeId(r.sessionId)).toBe(true);
       expect(r.requestType).toBe('feature');
       expect(typeof r.complete).toBe('boolean');
       expect(Array.isArray(r.violations)).toBe(true);
@@ -954,7 +954,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'gate-shape',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -989,7 +989,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'det-pass',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -1006,7 +1006,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'det-fail',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -1028,7 +1028,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-rd',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -1043,7 +1043,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-qa',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -1056,7 +1056,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-trans',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 
@@ -1072,7 +1072,7 @@ describe('verifyPipeline', () => {
       const r = await verifyPipeline({
         projectRoot: temp.root,
         rid: 'na-qa-miss',
-        changeId: CID,
+        sessionId: CID,
         requestType: 'feature',
       });
 

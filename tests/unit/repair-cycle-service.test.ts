@@ -25,7 +25,7 @@ async function makeProject(): Promise<string> {
 }
 
 // As of slice 2026-06-05-change-id-as-unit-of-work, the artifact file
-// lives at `.peaks/_runtime/<changeId>/<role>/requests/` where changeId defaults
+// lives at `.peaks/_runtime/<sessionId>/<role>/requests/` where sessionId defaults
 // to the requestId. Both getRepairCycleStatus and transitionRequestArtifact
 // resolve via showRequestArtifact which scans all top-level dirs when
 // sessionId is omitted.

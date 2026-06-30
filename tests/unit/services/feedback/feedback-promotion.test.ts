@@ -329,7 +329,7 @@ describe('verifyPipeline Gate H — AC-3 integration', () => {
       const result = await verifyPipeline({
         projectRoot: root,
         rid: '001-test',
-        changeId: 'v2-15-0-test',
+        sessionId: 'v2-15-0-test',
         requestType: 'feature'
       });
       expect(result.feedbackPhase?.gates).toHaveLength(1);
@@ -354,7 +354,7 @@ describe('verifyPipeline Gate H — AC-3 integration', () => {
       const result = await verifyPipeline({
         projectRoot: root,
         rid: '001-test',
-        changeId: 'v2-15-0-test',
+        sessionId: 'v2-15-0-test',
         requestType: 'feature'
       });
       expect(result.gateH).toBe('fail');
@@ -379,7 +379,7 @@ describe('verifyPipeline Gate H — AC-3 integration', () => {
       const result = await verifyPipeline({
         projectRoot: root,
         rid: '001-test',
-        changeId: 'v2-15-0-test',
+        sessionId: 'v2-15-0-test',
         requestType: 'feature'
       });
       expect(result.gateH).toBe('pass');

@@ -7,7 +7,7 @@ import { describe, expect, test, vi } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createRdSwarmPlan } from '../../src/services/rd/rd-service.js';
-import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
+import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 
 function createArtifactWorkspace(): string {
@@ -38,9 +38,9 @@ function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-')
 describe('createRdSwarmPlan artifact target area security', () => {
   test('ignores artifact target areas when architecture root escapes after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
+    const rdRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-approved-outside-artifact-'));
-    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
+    mkdirSync(getSessionDir(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -56,7 +56,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
       return {
         ...actual,
         getTechStatus: () => ({
-          changeId: 'checkout-refactor',
+          sessionId: 'checkout-refactor',
           status: 'approved',
           artifactRoot: '.peaks/checkout-refactor/rd/architecture',
           requiredArtifacts: [...actual.TECH_REQUIRED_ARTIFACTS],
@@ -69,7 +69,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     });
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -84,9 +84,9 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when rd root is a symbolic link after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
+    const rdRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-root-link-'));
-    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
+    mkdirSync(getSessionDir(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -102,7 +102,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
       return {
         ...actual,
         getTechStatus: () => ({
-          changeId: 'checkout-refactor',
+          sessionId: 'checkout-refactor',
           status: 'approved',
           artifactRoot: '.peaks/checkout-refactor/rd/architecture',
           requiredArtifacts: [...actual.TECH_REQUIRED_ARTIFACTS],
@@ -115,7 +115,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     });
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -130,7 +130,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact file is reported as a symbolic link after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -158,7 +158,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -173,7 +173,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact file is not a readable file after tech approval check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       if (artifact === 'frontend-tech-doc.md') {
@@ -189,7 +189,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
       return {
         ...actual,
         getTechStatus: () => ({
-          changeId: 'checkout-refactor',
+          sessionId: 'checkout-refactor',
           status: 'approved',
           artifactRoot: '.peaks/checkout-refactor/rd/architecture',
           requiredArtifacts: [...actual.TECH_REQUIRED_ARTIFACTS],
@@ -202,7 +202,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     });
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -216,7 +216,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact realpath escapes the architecture root', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -243,7 +243,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -257,7 +257,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when opened artifact identity does not match path identity', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -289,7 +289,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -303,7 +303,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when bounded artifact read exceeds the byte limit', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -329,7 +329,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -343,7 +343,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when opened artifact identity changes after read', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -380,7 +380,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -394,7 +394,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('ignores artifact target areas when artifact validation throws', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -421,7 +421,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
     }));
     try {
       const mockedRdService = await import('../../src/services/rd/rd-service.js');
-      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+      const plan = mockedRdService.createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(plan.available).toBe(true);
       if (!plan.available) return;
@@ -435,9 +435,9 @@ describe('createRdSwarmPlan artifact target area security', () => {
 
   test('blocks when architecture root escapes the artifact workspace', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
+    const rdRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-rd-outside-artifact-'));
-    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
+    mkdirSync(getSessionDir(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -447,7 +447,7 @@ describe('createRdSwarmPlan artifact target area security', () => {
       writeFileSync(join(outsideRoot, 'architecture', artifact), content, 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;

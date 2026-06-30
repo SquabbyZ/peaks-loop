@@ -36,7 +36,7 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
   let project: string;
   const sid = '2026-06-27-session-test';
   const requestId = 'rid-1';
-  const changeId = 'v2-13-3-patch';
+  const sessionId = 'v2-13-3-patch';
 
   beforeEach(() => {
     project = makeProject(sid);
@@ -50,7 +50,7 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
     const handoffPath = join(project, '.peaks', '_runtime', sid, 'prd', 'handoff.md');
     expect(existsSync(handoffPath)).toBe(false);
     const result = await autoRegenPrdHandoff({
-      projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
+      projectRoot: project, sessionId: sid, requestId, role: 'prd'
     });
     expect(result.status).toBe('created');
     if (result.status !== 'created') return;
@@ -79,7 +79,7 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
     );
     const beforeMtime = readFileSync(handoffPath, 'utf8');
     const result = await autoRegenPrdHandoff({
-      projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
+      projectRoot: project, sessionId: sid, requestId, role: 'prd'
     });
     expect(result.status).toBe('skipped-exists');
     const after = readFileSync(handoffPath, 'utf8');
@@ -89,7 +89,7 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
 
   test('C: sha256 round-trip — frontmatter `sha256:` field matches the body content', async () => {
     const result = await autoRegenPrdHandoff({
-      projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
+      projectRoot: project, sessionId: sid, requestId, role: 'prd'
     });
     expect(result.status).toBe('created');
     if (result.status !== 'created') return;
@@ -109,7 +109,7 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
 
   test('D: non-prd role returns failed (surgical guard, AC-4 only fires for prd)', async () => {
     const result = await autoRegenPrdHandoff({
-      projectRoot: project, sessionId: sid, requestId, changeId, role: 'rd'
+      projectRoot: project, sessionId: sid, requestId, role: 'rd'
     });
     expect(result.status).toBe('failed');
   });
@@ -121,13 +121,12 @@ describe('v2.13.3 prd/handoff.md auto-regen (AC-4)', () => {
     // the AC-4 fix, the prereq must pass when run on the auto-regen
     // output (no `missing` entry with `sha256:` in the description).
     const result = await autoRegenPrdHandoff({
-      projectRoot: project, sessionId: sid, requestId, changeId, role: 'prd'
+      projectRoot: project, sessionId: sid, requestId, role: 'prd'
     });
     expect(result.status).toBe('created');
     if (result.status !== 'created') return;
     const prereq = await checkPrerequisites({
       projectRoot: project,
-      changeId,
       sessionId: sid,
       role: 'rd',
       newState: 'qa-handoff',

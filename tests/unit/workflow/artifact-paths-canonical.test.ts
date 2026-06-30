@@ -5,14 +5,14 @@
  * `resolvePerformanceFindingsPath` resolve the v2.17.0 canonical
  * session-axis path `.peaks/_runtime/<sessionId>/qa/` and fall back
  * to the legacy forms:
- *   - `.peaks/_runtime/change/<changeId>/qa/` (v2.16.0/v2.17.0-era)
- *   - `.peaks/<changeId>/qa/` (pre-1.3.0 misplaced)
+ *   - `.peaks/_runtime/change/<sessionId>/qa/` (v2.16.0/v2.17.0-era)
+ *   - `.peaks/<sessionId>/qa/` (pre-1.3.0 misplaced)
  * during the 1-minor-release deprecation window. When a fallback
  * fires, the form is tagged `'legacy'` so Gate C can surface the
  * `DEPRECATION_LEGACY_PATH_USED` warning.
  *
  * The pre-v2.18.1 canonical path
- * `.peaks/_runtime/change/<changeId>/qa/` is now itself a legacy
+ * `.peaks/_runtime/change/<sessionId>/qa/` is now itself a legacy
  * fallback (v2.17.0 hard-killed the change-id axis as filesystem
  * scope; it survives only as a back-compat read target).
  */
@@ -46,38 +46,38 @@ describe('artifact-paths — v2.18.1 session-axis update', () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')), '# sec');
 
-    const result = resolveSecurityFindingsPath({ projectRoot, changeId: sessionId, rid: '001-test' });
+    const result = resolveSecurityFindingsPath({ projectRoot, sessionId: sessionId, rid: '001-test' });
     expect(result.path).toBe(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')));
     expect(result.form).toBe('suffixed');
   });
 
   it('falls back to legacy misplaced .peaks/<id>/qa/ form', () => {
-    const changeId = 'legacy-misplaced-sec';
-    const dir = join(projectRoot, '.peaks', changeId, 'qa');
+    const sessionId = 'legacy-misplaced-sec';
+    const dir = join(projectRoot, '.peaks', sessionId, 'qa');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')), '# sec');
 
-    const result = resolveSecurityFindingsPath({ projectRoot, changeId, rid: '001-test' });
+    const result = resolveSecurityFindingsPath({ projectRoot, sessionId, rid: '001-test' });
     expect(result.form).toBe('legacy');
     expect(result.path).toBe(join(dir, SECURITY_FINDINGS_SUFFIXED('001-test')));
   });
 
   it('falls back to v2.16.0 change-axis .peaks/_runtime/change/<id>/qa/ form', () => {
-    const changeId = 'change-axis-sec';
-    const dir = join(projectRoot, '.peaks', '_runtime', 'change', changeId, 'qa');
+    const sessionId = 'change-axis-sec';
+    const dir = join(projectRoot, '.peaks', '_runtime', 'change', sessionId, 'qa');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, PERFORMANCE_FINDINGS_SUFFIXED('001-test')), '# perf');
 
-    const result = resolvePerformanceFindingsPath({ projectRoot, changeId, rid: '001-test' });
+    const result = resolvePerformanceFindingsPath({ projectRoot, sessionId, rid: '001-test' });
     expect(result.form).toBe('legacy');
     expect(result.path).toBe(join(dir, PERFORMANCE_FINDINGS_SUFFIXED('001-test')));
   });
 
   it('reports would-be canonical (session-axis) path when nothing on disk', () => {
-    const changeId = 'absent-perf';
-    const result = resolvePerformanceFindingsPath({ projectRoot, changeId, rid: '001-test' });
+    const sessionId = 'absent-perf';
+    const result = resolvePerformanceFindingsPath({ projectRoot, sessionId, rid: '001-test' });
     expect(result.path).toBe(
-      join(projectRoot, '.peaks', '_runtime', changeId, 'qa', PERFORMANCE_FINDINGS_SUFFIXED('001-test'))
+      join(projectRoot, '.peaks', '_runtime', sessionId, 'qa', PERFORMANCE_FINDINGS_SUFFIXED('001-test'))
     );
     expect(result.form).toBe('suffixed');
   });

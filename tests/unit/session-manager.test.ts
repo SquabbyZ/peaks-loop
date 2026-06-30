@@ -136,7 +136,7 @@ describe('session-manager', () => {
     // where `getSessionId` returns null and a downstream
     // `ensureSession` overwrites the binding with a fresh
     // session — only matters for the progress surface. Other
-    // modules (e.g. `shared/change-id.ts`) keep using the
+    // modules (e.g. session-manager readers) keep using the
     // strict-equality variant because their "no binding"
     // fallback path is part of their contract.
     // ───────────────────────────────────────────────────────────
@@ -260,8 +260,8 @@ describe('session-manager', () => {
       // The sub-agent passes the absolute realpath (the canonical
       // form). The strict-equality read returns null for this case
       // (it is intentionally preserved for the "no binding" code
-      // path in shared/change-id.ts), so `ensureSession` must fall
-      // through to the canonical-fallback read.
+      // path in session-manager consumers), so `ensureSession` must
+      // fall through to the canonical-fallback read.
       const resolved = await ensureSession(testProjectRoot);
       expect(resolved).toBe(existingSid);
     });

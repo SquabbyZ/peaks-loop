@@ -38,7 +38,7 @@ describe('lint-style — Theme A section structure', () => {
 Read this before any browser work.
 
 ## Mandatory per-request artifact
-.peaks/_runtime/<changeId>/request/0001.md
+.peaks/_runtime/<sessionId>/request/0001.md
 
 ## Default runbook
 See references/runbook.md

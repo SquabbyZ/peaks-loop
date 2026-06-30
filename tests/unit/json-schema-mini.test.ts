@@ -18,11 +18,11 @@ describe('validateAgainstSchema — primitives and required keys', () => {
   test('reports a missing required key with the property path', () => {
     const schema = {
       type: 'object',
-      required: ['changeId', 'why'],
-      properties: { changeId: { type: 'string' }, why: { type: 'string' } }
+      required: ['sessionId', 'why'],
+      properties: { sessionId: { type: 'string' }, why: { type: 'string' } }
     };
 
-    const result = validateAgainstSchema({ changeId: 'x' }, schema);
+    const result = validateAgainstSchema({ sessionId: 'x' }, schema);
 
     expect(result.valid).toBe(false);
     expect(result.errors.some((err) => err.path === '/' && err.message.includes('why'))).toBe(true);
@@ -170,9 +170,9 @@ describe('validateAgainstSchema — enum / pattern / oneOf', () => {
 describe('validateAgainstSchema — openspec-render-request shape', () => {
   const renderRequestSchema = {
     type: 'object',
-    required: ['changeId', 'why', 'whatChanges', 'acceptanceCriteria'],
+    required: ['sessionId', 'why', 'whatChanges', 'acceptanceCriteria'],
     properties: {
-      changeId: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$' },
+      sessionId: { type: 'string', pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$' },
       why: { type: 'string' },
       whatChanges: { type: 'array', items: { type: 'string', minLength: 1 } },
       acceptanceCriteria: { type: 'array', items: { type: 'string', minLength: 1 } },
@@ -194,7 +194,7 @@ describe('validateAgainstSchema — openspec-render-request shape', () => {
   test('accepts a well-formed render request', () => {
     const result = validateAgainstSchema(
       {
-        changeId: 'add-foo',
+        sessionId: 'add-foo',
         why: 'reason',
         whatChanges: ['change a'],
         acceptanceCriteria: ['accept a'],
@@ -206,19 +206,19 @@ describe('validateAgainstSchema — openspec-render-request shape', () => {
     expect(result.valid).toBe(true);
   });
 
-  test('rejects a request with path-traversal changeId', () => {
+  test('rejects a request with path-traversal sessionId', () => {
     const result = validateAgainstSchema(
-      { changeId: '../escape', why: 'r', whatChanges: ['x'], acceptanceCriteria: ['a'] },
+      { sessionId: '../escape', why: 'r', whatChanges: ['x'], acceptanceCriteria: ['a'] },
       renderRequestSchema
     );
 
     expect(result.valid).toBe(false);
-    expect(result.errors.some((err) => err.path === '/changeId')).toBe(true);
+    expect(result.errors.some((err) => err.path === '/sessionId')).toBe(true);
   });
 
   test('rejects a request with a non-array whatChanges', () => {
     const result = validateAgainstSchema(
-      { changeId: 'ok', why: 'r', whatChanges: 'oops', acceptanceCriteria: ['a'] },
+      { sessionId: 'ok', why: 'r', whatChanges: 'oops', acceptanceCriteria: ['a'] },
       renderRequestSchema
     );
 
@@ -228,7 +228,7 @@ describe('validateAgainstSchema — openspec-render-request shape', () => {
 
   test('rejects a request with an empty bullet in acceptanceCriteria', () => {
     const result = validateAgainstSchema(
-      { changeId: 'ok', why: 'r', whatChanges: ['x'], acceptanceCriteria: ['', 'good'] },
+      { sessionId: 'ok', why: 'r', whatChanges: ['x'], acceptanceCriteria: ['', 'good'] },
       renderRequestSchema
     );
 
@@ -239,7 +239,7 @@ describe('validateAgainstSchema — openspec-render-request shape', () => {
   test('rejects a task without a heading', () => {
     const result = validateAgainstSchema(
       {
-        changeId: 'ok',
+        sessionId: 'ok',
         why: 'r',
         whatChanges: ['x'],
         acceptanceCriteria: ['a'],

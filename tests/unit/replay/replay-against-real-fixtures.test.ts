@@ -53,7 +53,6 @@ const FixtureMetaSchema = z.object({
   sourceOrigin: z.object({
     kind: z.enum(['historical-artifact', 'derived-variant']),
     path: z.string(),
-    changeId: z.string().nullable(),
     sessionId: z.string().nullable(),
     parentFixtureId: z.string().nullable(),
     variantCommand: z.string().nullable()

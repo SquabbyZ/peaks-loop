@@ -63,9 +63,6 @@ describe('initWorkspace', () => {
     const sessionRoot = join(project, '.peaks', '_runtime', '2026-05-25-feature');
     const entries = await readdir(sessionRoot);
     expect(entries.sort()).toEqual(['session.json']);
-    // Without --change-id, the change-id dir is NOT created.
-    expect(report.changeId).toBeNull();
-    expect(report.changeIdAction).toBe('none');
     // No `system/` subdir is pre-created (slice 006 deletes the F3 system/ subdir).
     const { existsSync } = await import('node:fs');
     expect(existsSync(join(sessionRoot, 'system'))).toBe(false);
@@ -144,13 +141,17 @@ describe('initWorkspace', () => {
 
   test('leftover empty session dir does not block rebind (no error)', async () => {
     const project = await makeProject();
-    // Simulate: a .peaks/_runtime/<Y>/ exists but is empty (true leftover, e.g. previous
-    // run crashed before mkdir -p the sub-directories). Pre-seed .session.json
-    // by hand pointing at that leftover, then call init with X.
+    // Simulate: a `.peaks/_runtime/<Y>/` exists but is empty (true
+    // leftover, e.g. previous run crashed before mkdir -p the
+    // sub-directories). Pre-seed the session.json binding file by
+    // hand pointing at that leftover, then call init with X.
+    // Slice 2026-06-29-change-id-root-removal: the binding file moved
+    // from `.peaks/.session.json` to `.peaks/_runtime/session.json`.
     const leftover = '2026-05-25-orphan-zzz';
-    await mkdir(join(project, '.peaks', leftover), { recursive: true });
+    await mkdir(join(project, '.peaks', '_runtime'), { recursive: true });
+    await mkdir(join(project, '.peaks', '_runtime', leftover), { recursive: true });
     await writeFile(
-      join(project, '.peaks', '.session.json'),
+      join(project, '.peaks', '_runtime', 'session.json'),
       JSON.stringify({ sessionId: leftover, projectRoot: project, createdAt: '2026-05-25T00:00:00.000Z' }),
       'utf8'
     );
@@ -186,7 +187,7 @@ describe('initWorkspace', () => {
     // The LLM never has to mkdir under skill pressure because the
     // writer does it. This test confirms the absence.
     const project = await makeProject();
-    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
     const { existsSync } = await import('node:fs');
     const screenshotsDir = join(project, '.peaks', 'my-change', 'qa', 'screenshots');
     expect(existsSync(screenshotsDir)).toBe(false);
@@ -198,35 +199,39 @@ describe('initWorkspace', () => {
     // screenshot. Once the dir exists on disk, a subsequent
     // `initWorkspace` call (e.g. on resume) must not blow it away.
     const project = await makeProject();
-    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
     // Simulate the writer path: mkdir the parent dir, then write the file.
     const { writeFile: wf, readFile: rf } = await import('node:fs/promises');
     const screenshotsDir = join(project, '.peaks', 'my-change', 'qa', 'screenshots');
     await mkdir(screenshotsDir, { recursive: true });
     await wf(join(screenshotsDir, 'pre-existing.png'), 'fake', 'utf8');
     // Re-init must not blow away the pre-existing file.
-    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'my-change' });
+    const second = await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
     const preExisting = await rf(join(screenshotsDir, 'pre-existing.png'), 'utf8');
     expect(preExisting).toBe('fake');
     // The subdir was not pre-created; it's not in the `created` list.
     expect(second.created).not.toContain('qa/screenshots');
   });
 
-  test('AC-1.3: legacy residue at .peaks/_runtime/<changeId>/ (non-writer content) still throws LegacyChangeIdSiblingError', async () => {
-    // The 2.8.3+ hard ban is preserved: if a sibling `.peaks/_runtime/<changeId>/`
-    // contains files that are NOT recognized as writer-created, init must
-    // still throw `LegacyChangeIdSiblingError` with the migration message.
-    // The user has to inspect the dir, migrate desired files, then re-run.
+  test('AC-1.3: legacy residue at .peaks/_runtime/<sessionId>/ (non-writer content) still throws LegacyChangeIdSiblingError', async () => {
+    // The 2.8.3+ hard ban is preserved: if a date-stamped sibling
+    // `.peaks/<YYYY-MM-DD-slug>/` contains files that are NOT recognized
+    // as writer-created, init must still throw
+    // `LegacyChangeIdSiblingError` with the migration message. The user
+    // has to inspect the dir, migrate desired files, then re-run.
+    // Slice 2026-06-29-change-id-root-removal: the legacy residue name
+    // is date-stamped (matches the v2.8.3 hard-ban shape), not a bare
+    // change-id slug.
     const project = await makeProject();
     // Pre-seed a 2.8.0-era legacy sibling dir with user-authored residue
     // that does NOT match any WRITER_ALLOWED_RELATIVE_PATTERNS entry.
-    const legacyDir = join(project, '.peaks', 'legacy-change');
+    const legacyDir = join(project, '.peaks', '2026-05-25-legacy-residue');
     await mkdir(legacyDir, { recursive: true });
     await writeFile(join(legacyDir, 'notes.txt'), 'user scratch', 'utf8');
     await writeFile(join(legacyDir, 'random.bin'), '\x00\x01\x02', 'utf8');
 
     await expect(
-      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'legacy-change' })
+      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' })
     ).rejects.toBeInstanceOf(LegacyChangeIdSiblingError);
   });
 
@@ -236,18 +241,18 @@ describe('initWorkspace', () => {
     // as legacy residue — even if other entries would individually match.
     // Avoids silent acceptance of mixed user-content + writer-content dirs.
     const project = await makeProject();
-    const legacyDir = join(project, '.peaks', 'mixed-change');
+    const legacyDir = join(project, '.peaks', '2026-05-25-mixed-residue');
     await mkdir(join(legacyDir, 'qa', 'screenshots'), { recursive: true });
     await writeFile(join(legacyDir, 'qa', 'screenshots', 'a.png'), 'fake', 'utf8');
     await writeFile(join(legacyDir, 'notes.txt'), 'user scratch', 'utf8');
 
     await expect(
-      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'mixed-change' })
+      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' })
     ).rejects.toBeInstanceOf(LegacyChangeIdSiblingError);
   });
 
   test('AC-1.3c: symlinks inside the sibling dir cause rejection (symlink evasion is not allowed)', async () => {
-    // A symlinked entry inside `.peaks/_runtime/<changeId>/` could defeat the
+    // A symlinked entry inside `.peaks/_runtime/<sessionId>/` could defeat the
     // content-shape heuristic. The helper `isWriterCreatedSiblingShape`
     // must explicitly reject ANY symlinked entry — even when the target
     // looks like a screenshot. The risk is that a symlinked `.png`
@@ -260,8 +265,10 @@ describe('initWorkspace', () => {
     // shape check rejects the entry still pins the intent. We test the
     // symlink-inside path directly via the exported helper to keep the
     // platform-portable invariant under test.
+    // Slice 2026-06-29-change-id-root-removal: sibling name is
+    // date-stamped to match the v2.8.3 hard-ban target.
     const project = await makeProject();
-    const legacyDir = join(project, '.peaks', 'symlinked-change');
+    const legacyDir = join(project, '.peaks', '2026-05-25-symlinked-residue');
     await mkdir(legacyDir, { recursive: true });
     // Plant a writer-shaped subdir + a symlink trying to look like a
     // screenshot. If symlink creation is denied on this platform, the
@@ -299,21 +306,24 @@ describe('initWorkspace', () => {
     }
 
     await expect(
-      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'symlinked-change' })
+      initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' })
     ).rejects.toBeInstanceOf(LegacyChangeIdSiblingError);
   });
 
   test('AC-1.4: writer-created sibling dir (only WRITER_ALLOWED patterns) is tolerated on re-init', async () => {
-    // If the sibling `.peaks/_runtime/<changeId>/` ONLY contains entries that
-    // match the writer-allowed shape (`qa/screenshots/*.{png,jpg,jpeg,...}`,
-    // `*/requests/*.md`, `*/findings/*.md`), init treats it as the lazy
-    // writer output and re-init succeeds without throwing. Surviving
-    // content is preserved (no auto-cleanup).
+    // If a date-stamped sibling `.peaks/<YYYY-MM-DD-slug>/` ONLY contains
+    // entries that match the writer-allowed shape
+    // (`qa/screenshots/*.{png,jpg,jpeg,...}`, `*/requests/*.md`,
+    // `*/findings/*.md`), init treats it as the lazy writer output and
+    // re-init succeeds without throwing. Surviving content is preserved
+    // (no auto-cleanup).
+    // Slice 2026-06-29-change-id-root-removal: sibling name is
+    // date-stamped to match the v2.8.3 hard-ban target.
     const project = await makeProject();
     // First init — no sibling dir yet.
-    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature', changeId: 'writer-change' });
-    // Simulate the writer creating typical artifacts under `.peaks/_runtime/<changeId>/`.
-    const writerDir = join(project, '.peaks', 'writer-change');
+    await initWorkspace({ projectRoot: project, sessionId: '2026-05-25-feature' });
+    // Simulate the writer creating typical artifacts under `.peaks/_runtime/<sessionId>/`.
+    const writerDir = join(project, '.peaks', '2026-05-25-writer-change');
     const qaScreens = join(writerDir, 'qa', 'screenshots');
     const qaFindings = join(writerDir, 'qa', 'findings');
     const rdReqs = join(writerDir, 'rd', 'requests');
@@ -325,10 +335,11 @@ describe('initWorkspace', () => {
     await writeFile(join(qaFindings, '001-find.md'), '# findings', 'utf8');
     await writeFile(join(rdReqs, '001-plan.md'), '# plan', 'utf8');
     // Re-init must NOT throw; the surviving content stays on disk.
+    // The sibling is silently tolerated (writer-shaped content is OK).
     const second = await initWorkspace({
       projectRoot: project,
-      sessionId: '2026-05-25-feature',
-      changeId: 'writer-change'
+      sessionId: '2026-05-25-second-feature',
+      allowSessionRebind: true
     });
     // All four writer-created files survive.
     const { readFile: rf } = await import('node:fs/promises');
@@ -337,8 +348,6 @@ describe('initWorkspace', () => {
     expect(await rf(join(qaFindings, '001-find.md'), 'utf8')).toBe('# findings');
     expect(await rf(join(rdReqs, '001-plan.md'), 'utf8')).toBe('# plan');
     // The sibling dir is reported as alreadyExisted (not newly created).
-    expect(second.changeId).toBe('writer-change');
-    expect(second.changeIdAction).toBe('bound');
   });
 });
 

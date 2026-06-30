@@ -5,20 +5,20 @@ import { DEFAULT_CONFIG } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createAutonomousWorkflowPlan } from '../../src/services/workflow/workflow-autonomous-service.js';
 import { createWorkspace, createWorkspaceWithArtifactWorkspace, writeApprovedTechArtifacts, writeResumeArtifacts } from './helpers/workflow-autonomous-test-helpers.js';
-import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
+import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 
 describe('createAutonomousWorkflowPlan', () => {
   test('creates a resumable autonomous goal package and dry-run constraints', () => {
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
       soloMode: 'guided',
-      changeId: 'ice-cola-governance',
+      sessionId: 'ice-cola-governance',
       goal: 'Govern the Ice Cola project without changing product behavior',
       maxWorkers: 40,
       dryRun: true
     });
 
-    expect(plan.changeId).toBe('ice-cola-governance');
+    expect(plan.sessionId).toBe('ice-cola-governance');
     expect(plan.mode).toBe('solo');
     expect(plan.routePlan.soloMode).toBe('guided');
     expect(plan.routePlan.executionMode).toBe('autonomous');
@@ -47,7 +47,7 @@ describe('createAutonomousWorkflowPlan', () => {
   test('models curated accessRepo and mcpServer capabilities without activation', () => {
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'capability-reuse',
+      sessionId: 'capability-reuse',
       goal: 'Plan capability reuse for frontend governance',
       dryRun: true
     });
@@ -74,7 +74,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const workspace = createWorkspace();
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'installed-agent-capability',
+      sessionId: 'installed-agent-capability',
       goal: 'Plan with an installed code review agent',
       dryRun: true,
       workspace: {
@@ -159,7 +159,7 @@ describe('createAutonomousWorkflowPlan', () => {
       const mockedWorkflow = await import('../../src/services/workflow/workflow-autonomous-service.js');
       const plan = mockedWorkflow.createAutonomousWorkflowPlan({
         mode: 'solo',
-        changeId: 'catalog-activation-states',
+        sessionId: 'catalog-activation-states',
         goal: 'Plan with mocked catalog activation states',
         dryRun: true,
         config: { ...DEFAULT_CONFIG, swarmMode: false }
@@ -186,7 +186,7 @@ describe('createAutonomousWorkflowPlan', () => {
   test('returns preview-safe next actions when artifact workspace is unavailable', () => {
     const plan = createAutonomousWorkflowPlan({
       mode: 'team',
-      changeId: 'resume-preview',
+      sessionId: 'resume-preview',
       goal: 'Resume autonomous RD planning after compact',
       dryRun: true
     });
@@ -202,7 +202,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const workspace = createWorkspace();
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'local-artifact-default',
+      sessionId: 'local-artifact-default',
       goal: 'Resume autonomous RD planning from artifacts',
       dryRun: true,
       workspace
@@ -222,7 +222,7 @@ describe('createAutonomousWorkflowPlan', () => {
     writeResumeArtifacts(invalidArtifactWorkspace, 'resume-untrusted-workspace');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'resume-untrusted-workspace',
+      sessionId: 'resume-untrusted-workspace',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
       dryRun: true,
@@ -241,7 +241,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'resume-blocked',
+      sessionId: 'resume-blocked',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
       dryRun: true,
@@ -260,7 +260,7 @@ describe('createAutonomousWorkflowPlan', () => {
     writeResumeArtifacts(artifactWorkspace, 'resume-ready', 'Resume autonomous RD planning from artifacts');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'resume-ready',
+      sessionId: 'resume-ready',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
       dryRun: true,
@@ -270,13 +270,11 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(true);
     expect(plan.resumePlan.status).toBe('ready');
-    // Slice 2026-06-23-audit-5th-p1 canonical path: reviewable
-    // artifacts route under `.peaks/_runtime/change/<changeId>/`
-    // (see `getChangeScopeDirAbs` and the hard-ban callout in
-    // SKILL.md). The test was written against the pre-F3 top-level
-    // `.peaks/_runtime/<changeId>/...` layout; the assertion tracks the
-    // F3-canonical shape.
-    expect(plan.resumePlan.requiredArtifacts).toContain('.peaks/_runtime/change/resume-ready/rd/swarm/resume-instructions.md');
+    // Slice 2026-06-29-change-id-root-removal: `resumePlan.requiredArtifacts`
+    // now returns role-relative sub-paths (no `.peaks/_runtime/change/<id>/`
+    // prefix). The on-disk path is resolved by joining with
+    // `getChangeScopeDirAbs(workspace, sessionId)` at write time.
+    expect(plan.resumePlan.requiredArtifacts).toContain('rd/swarm/resume-instructions.md');
     expect(plan.rdPlan.workerTarget).toBe(40);
   });
 
@@ -284,11 +282,11 @@ describe('createAutonomousWorkflowPlan', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs');
     writeResumeArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs', 'Resume autonomous RD planning from artifacts');
-    const evidencePath = join(getChangeScopeDirAbs(artifactWorkspace, 'resume-terminal-evidence-refs'), 'rd', 'swarm', 'evidence', 'validation-report.md');
-    writeFileSync(evidencePath, '---\nchangeId: resume-terminal-evidence-refs\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- validation-details.md', 'utf8');
+    const evidencePath = join(getSessionDir(artifactWorkspace, 'resume-terminal-evidence-refs'), 'rd', 'swarm', 'evidence', 'validation-report.md');
+    writeFileSync(evidencePath, '---\nsessionId: resume-terminal-evidence-refs\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- validation-details.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId: 'resume-terminal-evidence-refs',
+      sessionId: 'resume-terminal-evidence-refs',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
       dryRun: true,
@@ -301,11 +299,13 @@ describe('createAutonomousWorkflowPlan', () => {
   });
 
   test('rejects invalid change id and empty goal', () => {
-    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', changeId: '../escape', goal: 'x', dryRun: true })).toThrow('Invalid change-id');
-    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', changeId: 'empty-goal', goal: '   ', dryRun: true })).toThrow('Goal must be non-empty');
+    // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+    // was removed — the change-id is metadata-only. The empty-goal
+    // contract is preserved.
+    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', sessionId: 'empty-goal', goal: '   ', dryRun: true })).toThrow('Goal must be non-empty');
   });
 
   test('rejects empty solo mode values at the autonomous boundary', () => {
-    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', changeId: 'empty-solo-mode', goal: 'Resume autonomous RD planning from artifacts', soloMode: '' as 'guided', dryRun: true })).toThrow('Unsupported solo mode');
+    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', sessionId: 'empty-solo-mode', goal: 'Resume autonomous RD planning from artifacts', soloMode: '' as 'guided', dryRun: true })).toThrow('Unsupported solo mode');
   });
 });

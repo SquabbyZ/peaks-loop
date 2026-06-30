@@ -53,6 +53,6 @@ const { getChangeTraceabilityStatus } = await import('../../src/services/sc/sc-s
 
 describe('sc service filesystem failures', () => {
   test('returns null change id when current-change file cannot be read', () => {
-    expect(getChangeTraceabilityStatus().changeId).toBeNull();
+    expect(getChangeTraceabilityStatus().sessionId).toBeNull();
   });
 });

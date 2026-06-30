@@ -20,7 +20,6 @@ import { runCommand, parseJsonOutput } from '../cli-program-test-utils.js';
 
 const RID = '001-v2-11-handoff-cli-test';
 const SID = '2026-06-26-session-handoff-cli-test';
-const CID = 'v2-11-handoff-cli-test';
 
 let root: string;
 
@@ -45,7 +44,6 @@ async function bootstrapValidHandoff(): Promise<string> {
     'prd', 'handoff', 'init',
     '--rid', RID,
     '--sid', SID,
-    '--change-id', CID,
     `--body`, `@${bodyPath}`,
     '--goals', 'G1,G2',
     '--ac', 'AC-1',
@@ -100,7 +98,6 @@ describe('peaks prd handoff init — write + dry-run', () => {
     const raw = readFileSync(path, 'utf8');
     expect(raw).toContain('requestId: ' + RID);
     expect(raw).toContain('sessionId: ' + SID);
-    expect(raw).toContain('changeId: ' + CID);
     expect(raw).toContain('schemaVersion: "2"');
     expect(raw).toContain('# CLI PRD body');
   });
@@ -113,7 +110,6 @@ describe('peaks prd handoff init — write + dry-run', () => {
       'prd', 'handoff', 'init',
       '--rid', RID,
       '--sid', SID,
-      '--change-id', CID,
       `--body`, `@${bodyPath}`,
       '--project', root,
       '--json'

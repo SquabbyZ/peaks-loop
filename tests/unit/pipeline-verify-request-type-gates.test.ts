@@ -71,7 +71,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-f',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'feature',
     });
 
@@ -94,7 +94,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-b',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'bugfix',
     });
 
@@ -117,7 +117,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-r',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'refactor',
     });
 
@@ -140,7 +140,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-d',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'docs',
     });
 
@@ -154,7 +154,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-c',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'chore',
     });
 
@@ -168,7 +168,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'gates-cfg',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'config',
     });
 
@@ -201,7 +201,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'bug-fix',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'bugfix',
     });
 
@@ -218,7 +218,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'docs-only',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'docs',
     });
 
@@ -233,7 +233,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'chore-only',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'chore',
     });
 
@@ -253,7 +253,7 @@ describe('verifyPipeline — request type gate variations', () => {
     const r = await verifyPipeline({
       projectRoot: temp.root,
       rid: 'config-only',
-      changeId: CID,
+      sessionId: CID,
       requestType: 'config',
     });
 

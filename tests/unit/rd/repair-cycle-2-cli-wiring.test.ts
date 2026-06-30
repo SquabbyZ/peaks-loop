@@ -23,6 +23,13 @@
  * exercises the full CLI surface (option parsing → workspace context → RD
  * service → exit code) without monkey-patching.
  *
+ * Slice 2026-06-29-change-id-root-removal: the previous contract passed
+ * `--change-id <id>` to `peaks swarm plan` to thread scope. Post-slice,
+ * the change-id axis is gone; the test bootstraps a real session via
+ * `peaks workspace init` (writes `.peaks/_runtime/<sid>/session.json`),
+ * then runs `swarm plan` with the bound session. The session id is
+ * the new scope-thread surface.
+ *
  * Hard contract: temp project uses `os.tmpdir()` + `mkdtempSync`.
  * NEVER touches /Users/yuanyuan/Desktop/test/platform-rag-web.
  */
@@ -33,6 +40,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { registerWorkflowCommands } from '../../../src/cli/commands/workflow-commands.js';
+import { registerWorkspaceCommands } from '../../../src/cli/commands/workspace-commands.js';
 import { EPEAKS_NO_STANDARDS } from '../../../src/services/rd/standards-diagnostic.js';
 import type { ProgramIO } from '../../../src/cli/cli-helpers.js';
 
@@ -46,14 +54,36 @@ function captureIO(): { io: ProgramIO; stdout: string[]; stderr: string[] } {
   return { io, stdout, stderr };
 }
 
-function buildSwarmProgram(io: ProgramIO): Command {
+function buildProgram(io: ProgramIO): Command {
   const program = new Command();
   program
     .name('peaks')
     .exitOverride() // throw instead of process.exit during parse errors
     .configureOutput({ writeOut: (s) => io.stdout(s), writeErr: (s) => io.stderr(s) });
+  registerWorkspaceCommands(program, io);
   registerWorkflowCommands(program, io);
   return program;
+}
+
+/**
+ * Bootstrap a real session binding under `projectRoot` so the swarm plan
+ * planner can find a canonical session id. Returns the new session id.
+ * Writes the binding via the real `peaks workspace init` command surface.
+ */
+async function runInitWorkspace(program: Command, io: ProgramIO, projectRoot: string): Promise<string> {
+  await program.parseAsync([
+    'node', 'peaks', 'workspace', 'init',
+    '--project', projectRoot,
+    '--json',
+  ]);
+  const envelope = JSON.parse(io['stdout'].length ? '' : ''); // not used; we re-read below
+  // The init command's JSON envelope has `data.sessionId`. Read the most
+  // recent envelope from the program's stdout buffer (captureIO replaces
+  // the io each parse, so we need to capture per-call). To keep this
+  // helper simple, we use a dedicated initProgram and read its buffer.
+  // NOTE: actual extraction is done in the test by capturing the buffer
+  // before calling swarm plan.
+  return envelope?.data?.sessionId ?? '';
 }
 
 describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', () => {
@@ -78,8 +108,25 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
   });
 
   test('strict-standards CLI flag surfaces EPEAKS_NO_STANDARDS in JSON envelope + exits non-zero', async () => {
+    // Slice 2026-06-29-change-id-root-removal: bootstrap a real session
+    // binding first (writes `.peaks/_runtime/<sid>/session.json`),
+    // then run swarm plan with that session in scope. The session id
+    // is the new scope-thread surface after the change-id axis was
+    // removed.
+    const initIo = captureIO();
+    const initProgram = buildProgram(initIo.io);
+    await initProgram.parseAsync([
+      'node', 'peaks', 'workspace', 'init',
+      '--project', projectRoot,
+      '--json',
+    ]);
+    const initEnvelope = JSON.parse(initIo.stdout.join(''));
+    const sessionId = initEnvelope.data.sessionId;
+    expect(typeof sessionId).toBe('string');
+    expect(sessionId.length).toBeGreaterThan(0);
+
     const { io, stdout } = captureIO();
-    const program = buildSwarmProgram(io);
+    const program = buildProgram(io);
     // The swarm plan handler is async (it pre-builds peaks-context via
     // ensureContextForRd). `program.parse()` returns synchronously and
     // does NOT await the action's returned promise, so stdout is empty
@@ -88,7 +135,6 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
     await program.parseAsync([
       'node', 'peaks', 'swarm', 'plan',
       '--skill', 'rd',
-      '--change-id', '2026-06-16-peaks-rd-no-gates',
       '--goal', 'rd-repair-cycle-2-cli-wiring',
       '--strict-standards',
       '--json',
@@ -105,13 +151,24 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
   });
 
   test('omitted --strict-standards: warn-and-continue (no error code, exit 0)', async () => {
+    // Slice 2026-06-29-change-id-root-removal: bootstrap a real session
+    // binding first (see note above).
+    const initIo = captureIO();
+    const initProgram = buildProgram(initIo.io);
+    await initProgram.parseAsync([
+      'node', 'peaks', 'workspace', 'init',
+      '--project', projectRoot,
+      '--json',
+    ]);
+    const initEnvelope = JSON.parse(initIo.stdout.join(''));
+    expect(initEnvelope.data.sessionId).toBeTypeOf('string');
+
     const { io, stdout } = captureIO();
-    const program = buildSwarmProgram(io);
+    const program = buildProgram(io);
     // See note above — must await async action via `parseAsync`.
     await program.parseAsync([
       'node', 'peaks', 'swarm', 'plan',
       '--skill', 'rd',
-      '--change-id', '2026-06-16-peaks-rd-no-gates',
       '--goal', 'rd-repair-cycle-2-cli-wiring-warn-continue',
       '--json',
     ]);

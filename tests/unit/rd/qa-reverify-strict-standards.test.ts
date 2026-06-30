@@ -18,7 +18,7 @@ describe('QA cycle-2 re-verification — strict-standards end-to-end', () => {
 
   test('strict + missing standards surfaces BOTH diagnostic AND EPEAKS_NO_STANDARDS', () => {
     const plan = createRdSwarmPlan({
-      skill: 'rd', changeId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
+      skill: 'rd', sessionId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
       maxWorkers: 40, dryRun: true, projectRoot, strictStandards: true,
     });
     expect(plan.gateStatus.standardsErrorCode).toBe(EPEAKS_NO_STANDARDS);
@@ -36,7 +36,7 @@ describe('QA cycle-2 re-verification — strict-standards end-to-end', () => {
 
   test('strict=false + missing → warn-and-continue (no error code)', () => {
     const plan = createRdSwarmPlan({
-      skill: 'rd', changeId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
+      skill: 'rd', sessionId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
       maxWorkers: 40, dryRun: true, projectRoot, strictStandards: false,
     });
     expect(plan.gateStatus.standardsErrorCode).toBeUndefined();
@@ -46,7 +46,7 @@ describe('QA cycle-2 re-verification — strict-standards end-to-end', () => {
 
   test('omitted projectRoot → overlay empty (no regression)', () => {
     const plan = createRdSwarmPlan({
-      skill: 'rd', changeId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
+      skill: 'rd', sessionId: '2026-06-16-peaks-rd-no-gates', goal: 'qa cycle-2 reverify',
       maxWorkers: 40, dryRun: true,
     });
     expect(plan.gateStatus.standardsGates).toBeUndefined();

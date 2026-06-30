@@ -175,7 +175,7 @@ describe('Karpathy prompt-injection (Slice 1/6 — karpathy-enforcement)', () =>
   });
 
   test('AC-5 no bare <sid> placeholder introduced in injected layers (naming convention preserved)', () => {
-    // The two-axis convention requires <changeId> / <sessionId>, not bare <sid>.
+    // The two-axis convention requires <sessionId> / <sessionId>, not bare <sid>.
     // The canonical callout at the top of each SKILL.md already documents the
     // <sid> prohibition. Lines that contain any of these markers are EXEMPT
     // because they ARE the negative example:

@@ -13,7 +13,7 @@
  *   (a) template is a valid JSON-serialisable object
  *   (b) the template declares a PreToolUse hooks block
  *   (c) the Write|Edit|MultiEdit matcher allows paths under
- *       `.peaks/_runtime/` and `.peaks/_runtime/<changeId>/`
+ *       `.peaks/_runtime/` and `.peaks/_runtime/<sessionId>/`
  *   (d) the Bash matcher allows commands that start with `peaks ` for
  *       the documented peaks CLI subcommands
  *   (e) the rendered template is reproducible (no random ids, no
@@ -59,7 +59,7 @@ describe('claude-settings-template — pure-data structure', () => {
     expect(preToolUse.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('Write|Edit|MultiEdit matcher is present and allow-rules match .peaks/_runtime/ and .peaks/_runtime/<changeId>/', () => {
+  test('Write|Edit|MultiEdit matcher is present and allow-rules match .peaks/_runtime/ and .peaks/_runtime/<sessionId>/', () => {
     const template = buildClaudeSettingsLocalJson() as {
       hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ type: string; command: string }> }> }
     };
@@ -155,7 +155,7 @@ describe('claude-settings-template — node -e wrapper contract (slice fix-claud
     expect(writeCommand).not.toContain('process.argv[2]');
   });
 
-  test('Write hook allows `.peaks/_runtime/...` and `.peaks/_runtime/<changeId>/...` paths and denies `src/...`', () => {
+  test('Write hook allows `.peaks/_runtime/...` and `.peaks/_runtime/<sessionId>/...` paths and denies `src/...`', () => {
     const writeCommand = getHookCommand('Write|Edit|MultiEdit');
     const allowed = [
       '.peaks/_runtime/2026-06-13-session-x/session.json',

@@ -52,7 +52,6 @@ describe('handoff-service — sha256 round-trip', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body,
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: ['G1', 'G2'],
@@ -77,7 +76,6 @@ describe('handoff-service — verify mismatch', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body,
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: [],
@@ -109,7 +107,6 @@ describe('handoff-service — verify mismatch', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body: 'body\n',
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: [],
@@ -133,7 +130,6 @@ describe('handoff-service — initHandoff shape', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body: 'hello\n',
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: ['G1'],
@@ -143,7 +139,8 @@ describe('handoff-service — initHandoff shape', () => {
     expect(handoff.frontmatter.schemaVersion).toBe('2');
     expect(handoff.frontmatter.requestId).toBe(RID);
     expect(handoff.frontmatter.sessionId).toBe(SID);
-    expect(handoff.frontmatter.changeId).toBe(CID);
+    // change-id removed in 2026-06-29-change-id-root-removal slice
+    expect((handoff.frontmatter as unknown as Record<string, unknown>).changeId).toBeUndefined();
     expect(handoff.frontmatter.handoffHash).toBe(sha256OfBody('hello\n'));
     expect(handoff.frontmatter.writtenAt).toBe('2026-06-26T05:00:00.000Z');
     expect(handoff.frontmatter.goals).toEqual(['G1']);
@@ -159,7 +156,6 @@ describe('handoff-service — initHandoff shape', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body: 'x',
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: [],
@@ -175,7 +171,6 @@ describe('handoff-service — initHandoff shape', () => {
     const handoff = initHandoff({
       requestId: RID,
       sessionId: SID,
-      changeId: CID,
       body: 'x',
       writtenAt: '2026-06-26T05:00:00.000Z',
       goals: [],

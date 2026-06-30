@@ -152,7 +152,6 @@ describe('hook #7: artifact-prerequisites (RD→QA)', () => {
 
     const result = await checkPrerequisites({
       projectRoot,
-      changeId: '001-test',
       sessionId: TEST_SID,
       role: 'rd',
       newState: 'qa-handoff',
@@ -182,7 +181,6 @@ describe('hook #7: artifact-prerequisites (RD→QA)', () => {
     writeFileSync(join(qaDir, '.initiated'), '', 'utf8');
     await checkPrerequisites({
       projectRoot,
-      changeId: '002-test',
       sessionId: TEST_SID,
       role: 'rd',
       newState: 'qa-handoff',

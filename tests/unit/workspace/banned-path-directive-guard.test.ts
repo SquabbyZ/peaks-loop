@@ -87,13 +87,13 @@ const KEEP_DESCRIPTIONS: ReadonlyArray<{ file: string; anchor: string }> = [
   },
   // workflow/verify-pipeline: document the canonical look-up location
   // (slice 2026-06-28-solo-mode-bypass-fix defect #3). The literal
-  // `.peaks/_runtime/change/<changeId>/` is the CANONICAL shape (under
+  // `.peaks/_runtime/change/<sessionId>/` is the CANONICAL shape (under
   // `.peaks/_runtime/`), NOT the banned sibling form, but the directive
   // pattern matches any `<...>`-bracketed path so we keep-list the
   // description explicitly.
   {
     file: 'src/cli/commands/workflow-commands.ts',
-    anchor: 'Scans `.peaks/_runtime/change/<changeId>/`',
+    anchor: 'Scans `.peaks/_runtime/change/<sessionId>/`',
   },
 ];
 
@@ -239,7 +239,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
    * paths inside backtick / code-fence / bash-block contexts in skills/
    * as operational directives — copying them into Bash / Playwright
    * `browser_take_screenshot filename=...` / grep calls verbatim. Only
-   * prose with axis labels (`<session-id>`, `<changeId>`, etc.) and
+   * prose with axis labels (`<session-id>`, `<sessionId>`, etc.) and
    * explicit FORBIDDEN / 2.8.3 hard-ban prose is safe to leave alone.
    *
    * Scope:
@@ -247,7 +247,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
    *   - Banned: literal `.peaks/_runtime/<id>/`, `.peaks/_runtime/<sid>/`, `.peaks/_runtime/<session-id>/`
    *     inside markdown triple-backtick code fences OR inside backtick spans
    *     acting as path tokens. Bare axis labels that include `<session-id>`,
-   *     `<changeId>`, `<sessionId>`, `<sid>`, `<rid>` (rid is a request id
+   *     `<sessionId>`, `<sessionId>`, `<sid>`, `<rid>` (rid is a request id
    *     token, not a directory name) are allowed.
    *   - Allowed: prose explaining the rule, prose that says NEVER / FORBIDDEN /
    *     banned 2.8.3 (the canonical hard-ban prose stays).
@@ -256,7 +256,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
    *   - We extract every markdown triple-backtick code fence body and assert
    *     that no banned pattern appears inside.
    *   - We also extract every inline backtick span and assert the same.
-   *   - The axis-label exception (`<session-id>` / `<changeId>` / `<sid>` /
+   *   - The axis-label exception (`<session-id>` / `<sessionId>` / `<sid>` /
    *     `<sessionId>`) means the regex is precise: it only flags bare
    *     `<id>`, `<X>` (single-letter placeholder for id), and patterns that
    *     lack any axis label.
@@ -302,7 +302,7 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
 
     // The B-class regexes target paths that an LLM would copy into a
     // tool call verbatim. Allow only the proper axis labels:
-    // `<session-id>`, `<changeId>`, `<change-id>`, `<sessionId>`,
+    // `<session-id>`, `<sessionId>`, `<change-id>`, `<sessionId>`,
     // `<sid>`, plus a wildcard `<X>` placeholder (used in canonical axes
     // explanation prose like "every `.peaks/_runtime/<X>/` has an axis label")
     // and the date-prefix placeholder `<YYYY-MM-DD-*>` (the 2.8.3 hard-ban
@@ -313,12 +313,12 @@ describe('B-class banned-path directive guard (slice 2026-06-24 v2)', () => {
     // And EXCLUDES:
     //   .peaks/_runtime/<session-id>/
     //   .peaks/_runtime/<sid>/
-    //   .peaks/_runtime/<changeId>/
+    //   .peaks/_runtime/<sessionId>/
     //   .peaks/_runtime/<change-id>/
     //   .peaks/_runtime/<sessionId>/
     //   .peaks/_runtime/<X>/     (canonical "any axis" placeholder)
     //   .peaks/_runtime/<YYYY-MM-DD-*>/  (date-prefix hard-ban placeholder)
-    const BANNED_PATH = /\.peaks\/<(?!session-id>|sid>|changeId>|change-id>|sessionId>|X>|YYYY-MM-DD-\*>)([^>]+)>\//g;
+    const BANNED_PATH = /\.peaks\/<(?!session-id>|sid>|sessionId>|change-id>|sessionId>|X>|YYYY-MM-DD-\*>)([^>]+)>\//g;
 
     const violations: string[] = [];
 

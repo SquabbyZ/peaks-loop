@@ -30,7 +30,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
   test('AC1+AC4: missing standards + strict=false → overlay has skipped gates + diagnostic + no error code', () => {
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'qa functional test',
       maxWorkers: 40,
       dryRun: true,
@@ -61,7 +61,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
   test('AC2+AC3: missing standards + strict=true → overlay has skipped gates + diagnostic + EPEAKS_NO_STANDARDS error code', () => {
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'qa functional test',
       maxWorkers: 40,
       dryRun: true,
@@ -78,7 +78,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
   test('P1: omitted projectRoot → overlay is empty (preserved behavior, no regression)', () => {
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'qa functional test',
       maxWorkers: 40,
       dryRun: true,
@@ -97,7 +97,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
 
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'qa functional test',
       maxWorkers: 40,
       dryRun: true,
@@ -117,7 +117,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
   test('AC5: diagnostic includes copy-pasteable peaks standards init --project <X> --apply command', () => {
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'qa functional test',
       maxWorkers: 40,
       dryRun: true,
@@ -143,7 +143,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
     // exact regression that QA#4 caught — it must not return.
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'repair-cycle-1 regression',
       maxWorkers: 40,
       dryRun: true,
@@ -163,7 +163,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
   test('repair-1 regression: strict=false + missing → diagnostic present, error code absent (warn-and-continue)', () => {
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'repair-cycle-1 regression',
       maxWorkers: 40,
       dryRun: true,
@@ -184,7 +184,7 @@ describe('standards overlay — createRdSwarmPlan end-to-end (slice 2026-06-16-p
 
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: '2026-06-16-peaks-rd-no-gates',
+      sessionId: '2026-06-16-peaks-rd-no-gates',
       goal: 'repair-cycle-1 regression',
       maxWorkers: 40,
       dryRun: true,

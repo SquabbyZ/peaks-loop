@@ -5,8 +5,8 @@
  * the canonical v2.17.0 session-axis path
  * `.peaks/_runtime/<sessionId>/<role>/...` AND falls back to the
  * legacy change-axis paths
- * (`.peaks/<changeId>/...`, `.peaks/_runtime/<changeId>/...`,
- * and the v2.16.0-era `.peaks/_runtime/change/<changeId>/...`)
+ * (`.peaks/<sessionId>/...`, `.peaks/_runtime/<sessionId>/...`,
+ * and the v2.16.0-era `.peaks/_runtime/change/<sessionId>/...`)
  * during the 1-minor-release deprecation window. When the fallback
  * fires, the gate detail + nextActions surface a
  * `DEPRECATION_LEGACY_PATH_USED` warning so QA / TXT can nudge users
@@ -32,14 +32,14 @@ afterEach(() => {
 
 describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
   it('resolves canonical evidence under .peaks/_runtime/<sessionId>/rd/', async () => {
-    const changeId = 'canonical-rd-1';
-    const dir = join(projectRoot, '.peaks', '_runtime', changeId, 'rd');
+    const sessionId = 'canonical-rd-1';
+    const dir = join(projectRoot, '.peaks', '_runtime', sessionId, 'rd');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'tech-doc.md'), '# tech');
     writeFileSync(join(dir, 'code-review.md'), '# cr');
     writeFileSync(join(dir, 'security-review.md'), '# sr');
 
-    const result = await verifyPipeline({ projectRoot, rid: '001-canonical-rd', changeId, requestType: 'feature' });
+    const result = await verifyPipeline({ projectRoot, rid: '001-canonical-rd', sessionId, requestType: 'feature' });
     const techDoc = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'tech-doc')!;
     const cr = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'code-review')!;
     const sr = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'security-review')!;
@@ -52,12 +52,12 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
   });
 
   it('falls back to v2.16.0 change-axis path with DEPRECATION warning', async () => {
-    const changeId = 'change-axis-rd-1';
-    const dir = join(projectRoot, '.peaks', '_runtime', 'change', changeId, 'rd');
+    const sessionId = 'change-axis-rd-1';
+    const dir = join(projectRoot, '.peaks', '_runtime', 'change', sessionId, 'rd');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'tech-doc.md'), '# tech');
 
-    const result = await verifyPipeline({ projectRoot, rid: '001-change-axis', changeId, requestType: 'feature' });
+    const result = await verifyPipeline({ projectRoot, rid: '001-change-axis', sessionId, requestType: 'feature' });
     const techDoc = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'tech-doc')!;
     expect(techDoc.passed).toBe(true);
     expect(techDoc.detail).toContain('DEPRECATION_LEGACY_PATH_USED');
@@ -66,12 +66,12 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
   });
 
   it('falls back to .peaks/<id>/rd/ form with DEPRECATION warning', async () => {
-    const changeId = 'peaks-top-level-rd-1';
-    const dir = join(projectRoot, '.peaks', changeId, 'rd');
+    const sessionId = 'peaks-top-level-rd-1';
+    const dir = join(projectRoot, '.peaks', sessionId, 'rd');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'security-review.md'), '# sr');
 
-    const result = await verifyPipeline({ projectRoot, rid: '001-top-level', changeId, requestType: 'feature' });
+    const result = await verifyPipeline({ projectRoot, rid: '001-top-level', sessionId, requestType: 'feature' });
     const sr = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'security-review')!;
     expect(sr.passed).toBe(true);
     expect(sr.detail).toContain('DEPRECATION_LEGACY_PATH_USED');
@@ -79,11 +79,11 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
   });
 
   it('reports missing canonical (session axis) when no legacy exists', async () => {
-    const changeId = 'absent-rd-1';
-    const result = await verifyPipeline({ projectRoot, rid: '001-absent', changeId, requestType: 'feature' });
+    const sessionId = 'absent-rd-1';
+    const result = await verifyPipeline({ projectRoot, rid: '001-absent', sessionId, requestType: 'feature' });
     const techDoc = result.rdPhase.gates.find((g: PipelineGate) => g.name === 'tech-doc')!;
     expect(techDoc.passed).toBe(false);
-    expect(techDoc.detail).toContain(`missing: ${join(projectRoot, '.peaks', '_runtime', changeId, 'rd', 'tech-doc.md')}`);
+    expect(techDoc.detail).toContain(`missing: ${join(projectRoot, '.peaks', '_runtime', sessionId, 'rd', 'tech-doc.md')}`);
   });
 
   // ------------------------------------------------------------------
@@ -101,7 +101,6 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
 
   it('v2.18.1 AC #5.1 — RD artifact + session-axis evidence resolves complete pipeline', async () => {
     const sessionId = '2026-06-29-session-9cac8e';
-    const changeId = 'v2.18.1-change-id-slug';
     // RD request artifact at session axis (per showRequestArtifact's
     // canonical layout).
     const rdDir = join(projectRoot, '.peaks', '_runtime', sessionId, 'rd', 'requests');
@@ -127,7 +126,7 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
     const result = await verifyPipeline({
       projectRoot,
       rid: '001-ac-rid',
-      changeId,
+      sessionId,
       requestType: 'feature'
     });
 
@@ -136,16 +135,16 @@ describe('pipeline-verify-service — v2.18.1 path-axis update', () => {
     expect(result.rdPhase.invoked).toBe(true);
     expect(result.qaPhase.invoked).toBe(true);
     expect(result.usedCanonicalPath).toBe(true);
-    // Bug #5 AC: data.changeId slug appears in envelope for traceability
+    // Bug #5 AC: data.sessionId slug appears in envelope for traceability
     // (metadata only, not filesystem scope).
-    expect(result.changeId).toBeTruthy();
+    expect(result.sessionId).toBeTruthy();
   });
 
   it('v2.18.1 AC #5.2 — RID with NO artifacts returns PIPELINE_INCOMPLETE, not undefined error', async () => {
     const result = await verifyPipeline({
       projectRoot,
       rid: 'missing-everything',
-      changeId: 'no-such-change',
+      sessionId: 'no-such-change',
       requestType: 'feature'
     });
 

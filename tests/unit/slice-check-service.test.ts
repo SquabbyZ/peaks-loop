@@ -79,14 +79,9 @@ function makeProject(): string {
   writeFileSync(join(reviewDir, 'code-review.md'), '# Code Review\n\nCRITICAL: 0\n\n## Findings\n\n- none');
   writeFileSync(join(reviewDir, 'security-review.md'), '# Security Review\n\n## Findings\n\n- none');
   writeFileSync(join(reviewDir, 'perf-baseline.md'), '# Performance Baseline\n\n## Results\n\nN/A — no perf surface.\n');
-  // Set the current-change binding so the slice check resolves rid.
+  // Slice 2026-06-29-change-id-root-removal: the current-change binding
+  // is gone; create a session dir for the framework lookup instead.
   mkdirSync(join(project, '.peaks', '_runtime'), { recursive: true });
-  // Symlink current-change → retrospective/2026-06-05-test
-  // On Windows, use a 'junction' (directory hard link) which does not
-  // require developer-mode / admin. On POSIX, use a regular 'dir' symlink.
-  const { symlinkSync } = require('node:fs');
-  const linkType = process.platform === 'win32' ? 'junction' : 'dir';
-  symlinkSync(join(project, '.peaks', rid), join(project, '.peaks', '_runtime', 'current-change'), linkType);
   return project;
 }
 
@@ -370,17 +365,22 @@ describe('sliceCheck', () => {
   });
 
   describe('rid resolution', () => {
-    test('resolves rid from current-change binding when --rid not passed', async () => {
-      // The makeProject helper already sets up current-change → retrospective/2026-06-05-test
-      const result = await sliceCheck({
-        projectRoot: project,
-        refreshFanout: false,
-        skipTests: true
-      });
-      expect(result.rid).toBe('2026-06-05-test');
+    // Slice 2026-06-29-change-id-root-removal: the `current-change`
+    // binding file is gone. `sliceCheck` requires `rid` to be passed
+    // explicitly; there is no binding fallback. The two remaining
+    // cases below pin the new contract: missing → throws; explicit →
+    // used.
+    test('throws when --rid is not supplied', async () => {
+      await expect(
+        sliceCheck({
+          projectRoot: project,
+          refreshFanout: false,
+          skipTests: true
+        })
+      ).rejects.toThrow(/No --rid supplied/);
     });
 
-    test('explicit --rid overrides the binding', async () => {
+    test('uses explicit --rid when supplied', async () => {
       const result = await sliceCheck({
         projectRoot: project,
         rid: '2026-06-05-explicit',

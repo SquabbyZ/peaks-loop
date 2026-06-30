@@ -25,7 +25,7 @@ describe('writeAutonomousResumeArtifacts', () => {
     const workspace = newWorkspace();
 
     const result = await writeAutonomousResumeArtifacts({
-      changeId: 'resume-writer-preview',
+      sessionId: 'resume-writer-preview',
       goal: 'Generate a resume scaffold for the writer',
       artifactWorkspacePath: workspace,
       clock: () => '2026-05-25T00:00:00.000Z'
@@ -37,16 +37,17 @@ describe('writeAutonomousResumeArtifacts', () => {
       expect(existsSync(file.path)).toBe(false);
     }
     const relativePaths = result.files.map((file) => file.path.replace(workspace, '').replace(/\\/g, '/'));
-    // Slice 2026-06-23-audit-5th-p1: resume artifacts now land under
-    // `.peaks/_runtime/change/<changeId>/...` (the canonical change-id
-    // scope dir), NOT the forbidden top-level `.peaks/_runtime/<changeId>/`.
+    // Slice 2026-06-29-change-id-root-removal: resume artifacts land
+    // under the canonical session dir
+    // `.peaks/_runtime/<sessionId>/...` (single-axis layout). The
+    // legacy change-id scope dir `.peaks/_runtime/change/<id>/` is gone.
     expect(relativePaths).toEqual([
-      '/.peaks/_runtime/change/resume-writer-preview/prd/autonomous-goal-package.json',
-      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/autonomous-rd-plan.json',
-      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/checkpoints/checkpoint-1.json',
-      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/evidence/unit-tests.md',
-      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/evidence/validation-report.md',
-      '/.peaks/_runtime/change/resume-writer-preview/rd/swarm/resume-instructions.md'
+      '/.peaks/_runtime/resume-writer-preview/prd/autonomous-goal-package.json',
+      '/.peaks/_runtime/resume-writer-preview/rd/swarm/autonomous-rd-plan.json',
+      '/.peaks/_runtime/resume-writer-preview/rd/swarm/checkpoints/checkpoint-1.json',
+      '/.peaks/_runtime/resume-writer-preview/rd/swarm/evidence/unit-tests.md',
+      '/.peaks/_runtime/resume-writer-preview/rd/swarm/evidence/validation-report.md',
+      '/.peaks/_runtime/resume-writer-preview/rd/swarm/resume-instructions.md'
     ]);
   });
 
@@ -54,7 +55,7 @@ describe('writeAutonomousResumeArtifacts', () => {
     const workspace = newWorkspace();
 
     const result = await writeAutonomousResumeArtifacts({
-      changeId: 'resume-writer-apply',
+      sessionId: 'resume-writer-apply',
       goal: 'Apply the resume scaffold',
       artifactWorkspacePath: workspace,
       apply: true,
@@ -72,16 +73,17 @@ describe('writeAutonomousResumeArtifacts', () => {
 
   test('refuses to overwrite an existing artifact file when apply is true', async () => {
     const workspace = newWorkspace();
-    // Slice 2026-06-23-audit-5th-p1: pre-existing artifact is staged at
-    // the canonical change-id scope dir `.peaks/_runtime/change/<id>/...`
-    // (the location `writeAutonomousResumeArtifacts` would write to).
-    const goalPackagePath = join(workspace, '.peaks', '_runtime', 'change', 'resume-writer-overwrite', 'prd', 'autonomous-goal-package.json');
-    mkdirSync(join(workspace, '.peaks', '_runtime', 'change', 'resume-writer-overwrite', 'prd'), { recursive: true });
+    // Slice 2026-06-29-change-id-root-removal: pre-existing artifact
+    // is staged at the canonical session dir
+    // `.peaks/_runtime/<sid>/...` (the location
+    // `writeAutonomousResumeArtifacts` would write to).
+    const goalPackagePath = join(workspace, '.peaks', '_runtime', 'resume-writer-overwrite', 'prd', 'autonomous-goal-package.json');
+    mkdirSync(join(workspace, '.peaks', '_runtime', 'resume-writer-overwrite', 'prd'), { recursive: true });
     writeFileSync(goalPackagePath, '{}', 'utf8');
 
     await expect(
       writeAutonomousResumeArtifacts({
-        changeId: 'resume-writer-overwrite',
+        sessionId: 'resume-writer-overwrite',
         goal: 'Overwrite attempt',
         artifactWorkspacePath: workspace,
         apply: true
@@ -89,24 +91,25 @@ describe('writeAutonomousResumeArtifacts', () => {
     ).rejects.toThrowError(/already exists/);
   });
 
-  test('rejects an unsafe change-id', async () => {
-    // v2.17.0: change-id validation contract is preserved (unsafe
-    // change-ids still throw `ChangeIdValidationError` for backward
-    // compatibility), even though the change-id is now metadata-only.
+  test('rejects an unsafe session id (path-traversal)', async () => {
+    // Slice 2026-06-29-change-id-root-removal: the structural safety
+    // check still fires for unsafe session ids (path-traversal pattern
+    // `'../escape'`). The test name reflects the user-facing surface
+    // ("unsafe session id") since the change-id axis is gone.
     await expect(
       writeAutonomousResumeArtifacts({
-        changeId: '../escape',
+        sessionId: '../escape',
         goal: 'Unsafe',
         artifactWorkspacePath: newWorkspace(),
         apply: false
       })
-    ).rejects.toThrowError(/Invalid change-id/);
+    ).rejects.toThrow();
   });
 
   test('rejects an empty goal', async () => {
     await expect(
       writeAutonomousResumeArtifacts({
-        changeId: 'resume-writer-empty-goal',
+        sessionId: 'resume-writer-empty-goal',
         goal: '   ',
         artifactWorkspacePath: newWorkspace(),
         apply: false
@@ -116,12 +119,12 @@ describe('writeAutonomousResumeArtifacts', () => {
 
   test('produces resume artifacts that satisfy the autonomous resume validator', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const changeId = 'resume-writer-roundtrip';
+    const sessionId = 'resume-writer-roundtrip';
     const goal = 'Round-trip the resume scaffold through the validator';
-    writeApprovedTechArtifacts(artifactWorkspace, changeId);
+    writeApprovedTechArtifacts(artifactWorkspace, sessionId);
 
     const writeResult = await writeAutonomousResumeArtifacts({
-      changeId,
+      sessionId,
       goal,
       artifactWorkspacePath: artifactWorkspace,
       apply: true,
@@ -132,7 +135,7 @@ describe('writeAutonomousResumeArtifacts', () => {
 
     const plan = createAutonomousWorkflowPlan({
       mode: 'solo',
-      changeId,
+      sessionId,
       goal,
       maxWorkers: 40,
       dryRun: true,

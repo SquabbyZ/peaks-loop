@@ -75,7 +75,7 @@ describe('writeCheckpoint', () => {
       now: () => fakeNow,
       currentPlan: 'PRD#11 cross-date consolidation',
       openQuestions: ['R2 race condition'],
-      recentDecisions: ['use <changeId>/<sessionId> backticks'],
+      recentDecisions: ['use <sessionId>/<sessionId> backticks'],
       recentArtifactPaths: ['.peaks/_runtime/2026-06-16-session-aaf8c7/rd/...'],
       gitStatus: 'M .peaks/PROJECT.md',
       skillsActive: ['peaks-rd'],
@@ -91,7 +91,7 @@ describe('writeCheckpoint', () => {
     expect(snapshot.lastActivity).toBe('2026-06-17');
     expect(snapshot.currentPlan).toBe('PRD#11 cross-date consolidation');
     expect(snapshot.openQuestions).toEqual(['R2 race condition']);
-    expect(snapshot.recentDecisions).toEqual(['use <changeId>/<sessionId> backticks']);
+    expect(snapshot.recentDecisions).toEqual(['use <sessionId>/<sessionId> backticks']);
     expect(snapshot.recentArtifactPaths).toEqual(['.peaks/_runtime/2026-06-16-session-aaf8c7/rd/...']);
     expect(snapshot.gitStatus).toBe('M .peaks/PROJECT.md');
     expect(snapshot.skillsActive).toEqual(['peaks-rd']);

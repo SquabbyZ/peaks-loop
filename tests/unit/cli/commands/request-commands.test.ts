@@ -176,16 +176,16 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
   });
 
   // -----------------------------------------------------------------
-  // Slice 2026-06-23-request-init-change-scope-leak
+  // Slice 2026-06-29-change-id-root-removal (one-axis scope).
   //
-  // User bug report: `peaks request init --id <long-change-id> ...`
-  // caused the LLM (sub-agent) to construct `.peaks/_runtime/<id>/` at top
-  // level, violating the 2.8.3 hard ban. The CLI must pre-create
-  // the canonical scope dir under `.peaks/_runtime/change/<id>/`
-  // and surface the absolute path via `scopeDir` so the sub-agent
-  // prompt can tell the LLM exactly where to write.
+  // The pre-2.19 scope dir at `.peaks/_runtime/change/<id>/` is gone.
+  // The single on-disk axis is the session-id dir
+  // `.peaks/_runtime/<sid>/`. The CLI surfaces the canonical scope
+  // dir path via `data.scopeDir` so the sub-agent prompt can tell
+  // the LLM exactly where to write. The dry-run branch must NOT
+  // pre-create the scope dir on disk.
   // -----------------------------------------------------------------
-  it('auto-creates .peaks/_runtime/change/<id>/ when --id looks like a change-id', async () => {
+  it('surfaces the canonical .peaks/_runtime/<sid>/ scope dir on apply', async () => {
     const changeStyleId = '2026-06-23-indicator-derived-operator-formitem';
     const { stdout, exitCode } = await runInit(
       [
@@ -202,27 +202,35 @@ describe('cli/request-commands: one-axis envelope layout (Plan 1 followup hotfix
     const envelope = JSON.parse(stdout) as ResultEnvelope<{ path: string; scopeDir?: string }>;
     expect(envelope.ok).toBe(true);
 
-    // The scopeDir MUST be reported and MUST live under .peaks/_runtime/change/<id>/.
+    // The scopeDir MUST be reported and MUST live under .peaks/_runtime/<sid>/.
     expect(envelope.data.scopeDir).toBeTruthy();
     const scopeDirAbs = envelope.data.scopeDir as string;
-    expect(scopeDirAbs.endsWith(join('.peaks', '_runtime', 'change', changeStyleId))).toBe(true);
+    expect(scopeDirAbs.endsWith(join('.peaks', '_runtime', STABLE_SESSION))).toBe(true);
     expect(existsSync(scopeDirAbs)).toBe(true);
 
     // The forbidden top-level .peaks/_runtime/<id>/ MUST NOT exist.
     const forbiddenTop = join(projectRoot, '.peaks', changeStyleId);
     expect(existsSync(forbiddenTop)).toBe(false);
 
+    // The forbidden legacy change-id scope dir MUST NOT exist.
+    const forbiddenChange = join(projectRoot, '.peaks', '_runtime', 'change', changeStyleId);
+    expect(existsSync(forbiddenChange)).toBe(false);
+
     // The envelope still lives under the session dir.
     expect(envelope.data.path).toContain(join('.peaks', '_runtime', STABLE_SESSION, 'rd', 'requests'));
   });
 
-  it('does NOT create .peaks/_runtime/change/<id>/ in dry-run mode (no --apply)', async () => {
-    const changeStyleId = '2026-06-23-dryrun-scope';
+  it('does NOT create .peaks/_runtime/<sid>/ on disk in dry-run mode (no --apply)', async () => {
+    // Use a session id that has NOT been pre-created by beforeEach so
+    // the dry-run path's "would-be" location genuinely does not exist.
+    // The beforeEach pre-creates STABLE_SESSION; we must NOT use it
+    // here, otherwise the assertion is vacuous. Use a fresh sid.
+    const dryRunSid = '2026-06-23-dryrun-scope-session';
     const { stdout, exitCode } = await runInit(
       [
         '--role', 'rd',
-        '--id', changeStyleId,
-        '--session-id', STABLE_SESSION,
+        '--id', '2026-06-23-dryrun-scope',
+        '--session-id', dryRunSid,
         '--json'
       ],
       projectRoot

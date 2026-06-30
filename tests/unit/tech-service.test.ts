@@ -6,7 +6,7 @@ import { basename, dirname, join } from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { createTechPlan, getTechStatus, TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
-import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
+import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 
 function createArtifactWorkspace(): string {
   const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-tech-artifacts-'));
@@ -39,48 +39,50 @@ function getLocalArtifactPath(rootPath: string): string {
 describe('createTechPlan', () => {
   test('generates deterministic waves, tasks, and artifact paths', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const plan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createTechPlan({ sessionId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
-    expect(plan.artifactRoot).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture');
+    // Slice 2026-06-29-change-id-root-removal: descriptors are now
+    // role-relative (no `.peaks/_runtime/change/<id>/` prefix).
+    expect(plan.artifactRoot).toBe('rd/architecture');
     expect(plan.waves.map((wave) => wave.name)).toEqual(['scan', 'document', 'review', 'reducer']);
     expect(plan.tasks).toHaveLength(23);
-    expect(plan.outputs.taskGraph).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture/tech-task-graph.json');
-    expect(plan.outputs.reviewChecklist).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture/tech-review-checklist.md');
-    expect(plan.outputs.approvalTemplate).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture/tech-approval-record.template.md');
+    expect(plan.outputs.taskGraph).toBe('rd/architecture/tech-task-graph.json');
+    expect(plan.outputs.reviewChecklist).toBe('rd/architecture/tech-review-checklist.md');
+    expect(plan.outputs.approvalTemplate).toBe('rd/architecture/tech-approval-record.template.md');
 
     for (const task of plan.tasks) {
       expect(task.taskId).toMatch(/^tech-/);
       expect(task.workerKind.length).toBeGreaterThan(0);
       expect(task.purpose).toContain('Refactor checkout API');
       expect(task.inputs.length).toBeGreaterThan(0);
-      expect(task.outputs.every((output) => output.startsWith('.peaks/_runtime/change/checkout-refactor/rd/architecture/'))).toBe(true);
+      expect(task.outputs.every((output) => output.startsWith('rd/architecture/'))).toBe(true);
       expect(task.outputs.every((output) => !output.includes('\\'))).toBe(true);
       expect(task.conflictGroup.length).toBeGreaterThan(0);
       expect(Array.isArray(task.dependsOn)).toBe(true);
-      expect(task.briefPath).toBe(`.peaks/_runtime/change/checkout-refactor/rd/architecture/workers/${task.taskId}/brief.md`);
+      expect(task.briefPath).toBe(`rd/architecture/workers/${task.taskId}/brief.md`);
     }
   });
 
   test('returns preview response when artifact workspace is unavailable', () => {
-    const plan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true });
+    const plan = createTechPlan({ sessionId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
     expect(plan.behavior).toBe('preview');
     expect(plan.reason).toContain('artifact-workspace-unavailable');
-    expect(plan.preview.artifactRoot).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture');
+    expect(plan.preview.artifactRoot).toBe('rd/architecture');
     expect(plan.nextActions.length).toBeGreaterThan(0);
   });
 
   test('returns preview response when artifact workspace marker is unavailable', () => {
-    const plan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-tech-unmarked-plan-')) });
+    const plan = createTechPlan({ sessionId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-tech-unmarked-plan-')) });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
     expect(plan.reason).toContain('artifact-workspace-unavailable');
-    expect(plan.preview.artifactRoot).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture');
+    expect(plan.preview.artifactRoot).toBe('rd/architecture');
   });
 
   test('accepts artifact workspace inside the project root', () => {
@@ -89,19 +91,21 @@ describe('createTechPlan', () => {
     mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
     writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const plan = createTechPlan({ changeId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
+    const plan = createTechPlan({ sessionId: 'checkout-refactor', goal: 'Refactor checkout API', swarm: true, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
     expect(plan.available).toBe(true);
   });
 
   test('rejects invalid change id and empty goal', () => {
-    expect(() => createTechPlan({ changeId: '../escape', goal: 'Refactor checkout API', swarm: true, dryRun: true })).toThrow('Invalid change-id');
-    expect(() => createTechPlan({ changeId: 'checkout-refactor', goal: '   ', swarm: true, dryRun: true })).toThrow('Goal must be non-empty');
+    // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+    // was removed — the change-id is metadata-only. The empty-goal
+    // contract is preserved.
+    expect(() => createTechPlan({ sessionId: 'checkout-refactor', goal: '   ', swarm: true, dryRun: true })).toThrow('Goal must be non-empty');
   });
 });
 
 describe('getTechStatus', () => {
   test('returns unavailable when artifact workspace is missing', () => {
-    const status = getTechStatus({ changeId: 'checkout-refactor' });
+    const status = getTechStatus({ sessionId: 'checkout-refactor' });
 
     expect(status.status).toBe('unavailable');
     expect(status.blockedReasons).toContain('artifact-workspace-unavailable');
@@ -110,7 +114,7 @@ describe('getTechStatus', () => {
 
   test('reports missing artifacts before approval can be evaluated', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('missing');
     expect(status.missingArtifacts).toEqual(TECH_REQUIRED_ARTIFACTS);
@@ -118,7 +122,7 @@ describe('getTechStatus', () => {
   });
 
   test('returns unavailable when artifact workspace marker is missing', () => {
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-tech-unmarked-')) });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-tech-unmarked-')) });
 
     expect(status.status).toBe('unavailable');
     expect(status.blockedReasons).toContain('artifact-workspace-unavailable');
@@ -127,7 +131,7 @@ describe('getTechStatus', () => {
   test('returns unavailable when workspace is omitted even if a marker exists', () => {
     const artifactWorkspace = createArtifactWorkspace();
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace });
 
     expect(status.status).toBe('unavailable');
     expect(status.blockedReasons).toContain('artifact-workspace-unavailable');
@@ -139,7 +143,7 @@ describe('getTechStatus', () => {
     mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
     writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: projectArtifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: projectArtifactWorkspace, workspace });
 
     expect(status.status).toBe('missing');
     expect(status.blockedReasons).toContain('tech-artifacts-missing');
@@ -147,30 +151,30 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record is missing or unapproved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS.filter((artifact) => artifact !== 'tech-approval-record.md')) {
       writeFileSync(join(architectureRoot, artifact), 'ready', 'utf8');
     }
 
-    const missingApproval = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const missingApproval = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
     expect(missingApproval.status).toBe('blocked');
     expect(missingApproval.blockedReasons).toContain('tech-approval-missing');
 
     writeFileSync(join(architectureRoot, 'tech-approval-record.md'), 'looks good', 'utf8');
-    const unapproved = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const unapproved = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
     expect(unapproved.status).toBe('blocked');
     expect(unapproved.blockedReasons).toContain('tech-approval-not-approved');
   });
 
   test('keeps explicit missing artifacts in blocked status', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'frontend-tech-doc.md'), 'ready', 'utf8');
     writeFileSync(join(architectureRoot, 'tech-approval-record.md'), 'looks good', 'utf8');
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toContain('backend-tech-doc.md');
@@ -179,11 +183,11 @@ describe('getTechStatus', () => {
 
   test('blocks approved records when required artifacts are still missing', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'tech-approval-record.md'), 'status: approved', 'utf8');
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
@@ -192,7 +196,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record becomes unreadable after existence check', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -210,7 +214,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.blockedReasons).toContain('tech-approval-unreadable');
@@ -222,7 +226,7 @@ describe('getTechStatus', () => {
 
   test('blocks when architecture root validation throws', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
 
     vi.resetModules();
@@ -237,7 +241,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.missingArtifacts).toEqual(TECH_REQUIRED_ARTIFACTS);
@@ -250,16 +254,16 @@ describe('getTechStatus', () => {
 
   test('blocks when architecture root resolves outside the artifact workspace', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
+    const rdRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-root-'));
-    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
+    mkdirSync(getSessionDir(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(outsideRoot, 'architecture', artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toEqual(TECH_REQUIRED_ARTIFACTS);
@@ -269,16 +273,16 @@ describe('getTechStatus', () => {
 
   test('blocks when rd root is a symbolic link', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const rdRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd');
+    const rdRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-rd-link-'));
-    mkdirSync(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), { recursive: true });
+    mkdirSync(getSessionDir(artifactWorkspace, 'checkout-refactor'), { recursive: true });
     mkdirSync(join(outsideRoot, 'architecture'), { recursive: true });
     symlinkSync(outsideRoot, rdRoot, 'junction');
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(outsideRoot, 'architecture', artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toEqual(TECH_REQUIRED_ARTIFACTS);
@@ -288,7 +292,7 @@ describe('getTechStatus', () => {
 
   test('blocks when a required artifact resolves outside the architecture root', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-artifact-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -300,7 +304,7 @@ describe('getTechStatus', () => {
       }
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
@@ -309,7 +313,7 @@ describe('getTechStatus', () => {
 
   test('treats required artifact directories as missing artifacts', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       if (artifact === 'frontend-tech-doc.md') {
@@ -319,7 +323,7 @@ describe('getTechStatus', () => {
       }
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
@@ -328,7 +332,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record identity changes after opening', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'approval-identity-change'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'approval-identity-change'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -351,7 +355,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'approval-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'approval-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.blockedReasons).toContain('tech-approval-unreadable');
@@ -363,7 +367,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record resolves outside the architecture root', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-outside-approval-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -375,7 +379,7 @@ describe('getTechStatus', () => {
       }
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('blocked');
     expect(status.approvalRecord).toBeNull();
@@ -384,7 +388,7 @@ describe('getTechStatus', () => {
 
   test('treats artifact validation errors as missing artifacts', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -402,7 +406,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
@@ -415,7 +419,7 @@ describe('getTechStatus', () => {
 
   test('treats artifact realpath escape as a missing artifact', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-realpath-outside-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -432,7 +436,7 @@ describe('getTechStatus', () => {
     });
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.missingArtifacts).toContain('frontend-tech-doc.md');
@@ -445,7 +449,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record identity changes after it is read', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'approval-final-identity-change'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'approval-final-identity-change'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -475,7 +479,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'approval-final-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'approval-final-identity-change', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.blockedReasons).toContain('tech-approval-unreadable');
@@ -487,7 +491,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record becomes a non-file between validation and read', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'approval-nonfile-toctou'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'approval-nonfile-toctou'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -510,7 +514,7 @@ describe('getTechStatus', () => {
     }));
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'approval-nonfile-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'approval-nonfile-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.blockedReasons).toContain('tech-approval-unreadable');
@@ -522,7 +526,7 @@ describe('getTechStatus', () => {
 
   test('blocks when approval record realpath escapes between validation and read', async () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'approval-realpath-toctou'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'approval-realpath-toctou'), 'rd', 'architecture');
     const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-tech-approval-realpath-outside-'));
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
@@ -548,7 +552,7 @@ describe('getTechStatus', () => {
     });
     try {
       const mockedTechService = await import('../../src/services/tech/tech-service.js');
-      const status = mockedTechService.getTechStatus({ changeId: 'approval-realpath-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
+      const status = mockedTechService.getTechStatus({ sessionId: 'approval-realpath-toctou', artifactWorkspacePath: artifactWorkspace, workspace });
 
       expect(status.status).toBe('blocked');
       expect(status.blockedReasons).toContain('tech-approval-unreadable');
@@ -560,16 +564,16 @@ describe('getTechStatus', () => {
 
   test('returns approved only with canonical approval marker', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const status = getTechStatus({ changeId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
+    const status = getTechStatus({ sessionId: 'checkout-refactor', artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(status.status).toBe('approved');
-    expect(status.approvalRecord).toBe('.peaks/_runtime/change/checkout-refactor/rd/architecture/tech-approval-record.md');
+    expect(status.approvalRecord).toBe('rd/architecture/tech-approval-record.md');
     expect(status.blockedReasons).toEqual([]);
   });
 });

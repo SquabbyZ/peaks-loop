@@ -72,7 +72,6 @@ describe('v2.14.0 G1 fixture-capture-service (AC-1.4)', () => {
     const captured: CapturedFixture = captureHistoricalFixture({
       mode: 'historical',
       sessionId: 'test-session-001',
-      changeId: 'test-change',
       envelopeKind: 'audit-security',
       fixtureId: 'test-session-001-security-fixture',
       outDir: fixtureRoot,
@@ -98,8 +97,7 @@ describe('v2.14.0 G1 fixture-capture-service (AC-1.4)', () => {
   test('B: captureHistoricalFixture throws when source file is missing', () => {
     expect(() => captureHistoricalFixture({
       mode: 'historical',
-      sessionId: 'nonexistent-session',
-      changeId: null,
+      sessionId: 'test-session-002',
       envelopeKind: 'audit-security',
       fixtureId: 'should-not-write',
       outDir: fixtureRoot,
@@ -123,7 +121,6 @@ describe('v2.14.0 G1 fixture-capture-service (AC-1.4)', () => {
     const parent = captureHistoricalFixture({
       mode: 'historical',
       sessionId: 'test-session-001',
-      changeId: 'test-change',
       envelopeKind: 'audit-security',
       fixtureId: 'parent-audit-security',
       outDir: fixtureRoot,

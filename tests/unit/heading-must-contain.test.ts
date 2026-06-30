@@ -48,7 +48,7 @@ async function setupFullChain(karpathyBody: string): Promise<{
   await mkdir(join(sessionRoot, 'qa'), { recursive: true });
   await mkdir(join(sessionRoot, 'qa', 'test-cases'), { recursive: true });
 
-  // Stand up the request artifact so changeId-resolution works.
+  // Stand up the request artifact so sessionId-resolution works.
   await createRequestArtifact({
     role: 'rd',
     requestId: REQUEST_ID,
@@ -92,7 +92,6 @@ async function setupFullChain(karpathyBody: string): Promise<{
     role: 'rd',
     newState: 'qa-handoff',
     projectRoot: root,
-    changeId: SESSION,
     sessionId: SESSION,
     requestId: REQUEST_ID
   });

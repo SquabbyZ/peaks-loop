@@ -558,23 +558,23 @@ describe('createProgram', () => {
   });
 
   test('rejects invalid tech workflow and swarm inputs', async () => {
-    // v2.17.0: change-id axis removed; `--change-id bad/id` no longer
-    // rejects on the change-id. Test the goal-validation path instead:
-    // empty `--goal ''` is the closest equivalent.
-    const techPlanResult = await runCommand(['tech', 'plan', '--change-id', 'bad/id', '--goal', '', '--json']);
-    expect(parseJsonOutput(techPlanResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+    // Slice 2026-06-29-change-id-root-removal: the change-id axis is
+    // gone. The "invalid change-id" path no longer applies; the
+    // remaining input-validation contract is empty `--goal ''`.
+    const techPlanResult = await runCommand(['tech', 'plan', '--goal', '', '--json']);
+    expect(parseJsonOutput(techPlanResult.stdout).code).toBe('INVALID_GOAL');
 
-    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--change-id', 'bad/id', '--goal', '', '--json']);
-    expect(parseJsonOutput(routeResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '', '--json']);
+    expect(parseJsonOutput(routeResult.stdout).code).toBe('INVALID_GOAL');
 
-    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--change-id', 'bad/id', '--goal', '', '--json']);
-    expect(parseJsonOutput(autonomousResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--goal', '', '--json']);
+    expect(parseJsonOutput(autonomousResult.stdout).code).toBe('INVALID_GOAL');
 
-    const swarmDryRunResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--change-id', 'checkout-refactor', '--goal', 'Fix checkout retry typo', '--no-dry-run', '--json']);
+    const swarmDryRunResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--goal', 'Fix checkout retry typo', '--no-dry-run', '--json']);
     expect(parseJsonOutput(swarmDryRunResult.stdout).code).toBe('UNSUPPORTED_NON_DRY_RUN');
 
-    const swarmInvalidResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--change-id', 'bad/id', '--goal', '', '--json']);
-    expect(parseJsonOutput(swarmInvalidResult.stdout).code).toBe('INVALID_CHANGE_ID_OR_GOAL');
+    const swarmInvalidResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--goal', '', '--json']);
+    expect(parseJsonOutput(swarmInvalidResult.stdout).code).toBe('INVALID_GOAL');
   });
 
   test('prints sc command envelopes', async () => {
@@ -587,10 +587,10 @@ describe('createProgram', () => {
     const helpResult = await runCommand(['sc', 'help']);
     expect(helpResult.stdout.join('\n')).toContain('Change traceability workflow integration');
 
-    const plainImpactResult = await runCommand(['sc', 'impact', '--change-id', 'checkout-refactor', '--json']);
+    const plainImpactResult = await runCommand(['sc', 'impact', '--json']);
     expect(parseJsonOutput(plainImpactResult.stdout).command).toBe('sc.impact');
 
-    const impactResult = await runCommand(['sc', 'impact', '--change-id', 'checkout-refactor', '--module', 'client', '--file', 'src/app.ts', '--json']);
+    const impactResult = await runCommand(['sc', 'impact', '--module', 'client', '--file', 'src/app.ts', '--json']);
     expect(parseJsonOutput(impactResult.stdout).command).toBe('sc.impact');
 
     const plainRetentionResult = await runCommand(['sc', 'retention', '--slice-id', 'slice-1', '--json']);

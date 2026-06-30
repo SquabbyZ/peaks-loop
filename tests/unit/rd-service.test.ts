@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 import type { WorkspaceConfig } from '../../src/services/config/config-types.js';
 import { getLocalArtifactPath } from '../../src/services/artifacts/workspace-service.js';
 import { createRdSwarmPlan } from '../../src/services/rd/rd-service.js';
-import { getChangeScopeDirAbs } from '../../src/services/artifacts/change-scope-service.js';
+import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 import { TECH_REQUIRED_ARTIFACTS } from '../../src/services/tech/tech-service.js';
 
 function createWorkspaceWithArtifactWorkspace(): { workspace: WorkspaceConfig; artifactWorkspace: string } {
@@ -29,13 +29,13 @@ function createWorkspace(rootPath = mkdtempSync(join(tmpdir(), 'peaks-rd-root-')
 describe('createRdSwarmPlan', () => {
   test('generates deterministic waves, worker target, and artifact paths', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -45,8 +45,12 @@ describe('createRdSwarmPlan', () => {
     expect(plan.tasks.length).toBeGreaterThanOrEqual(25);
     expect(plan.tasks.length).toBeLessThanOrEqual(40);
     expect(plan.tasks.length).toBeLessThanOrEqual(plan.workerTarget);
-    expect(plan.outputs.taskGraph).toBe('.peaks/_runtime/change/checkout-refactor/rd/swarm/task-graph.json');
-    expect(plan.outputs.reducerReport).toBe('.peaks/_runtime/change/checkout-refactor/rd/swarm/reducer-report.md');
+    // Slice 2026-06-29-change-id-root-removal: descriptors are now
+    // role-relative (no `.peaks/_runtime/change/<id>/` prefix). The
+    // on-disk write path still routes through
+    // `getSessionDir(workspace, sessionId)` for the absolute path.
+    expect(plan.outputs.taskGraph).toBe('rd/swarm/task-graph.json');
+    expect(plan.outputs.reducerReport).toBe('rd/swarm/reducer-report.md');
 
     const conflictGroupIds = new Set(plan.conflictGroups.map((group) => group.groupId));
     for (const task of plan.tasks) {
@@ -58,7 +62,7 @@ describe('createRdSwarmPlan', () => {
       expect(task.modelRole).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'execution' : 'strongest');
       expect(task.modelId).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'minimax-2.7' : 'claude-opus-4-7');
       expect(task.inputs.length).toBeGreaterThan(0);
-      expect(task.outputs.every((output) => output.startsWith('.peaks/_runtime/change/checkout-refactor/rd/swarm/'))).toBe(true);
+      expect(task.outputs.every((output) => output.startsWith('rd/swarm/'))).toBe(true);
       expect(task.outputs.every((output) => !output.includes('\\'))).toBe(true);
       expect(conflictGroupIds.has(task.conflictGroup)).toBe(true);
       expect(task.targetArea.length).toBeGreaterThan(0);
@@ -75,13 +79,13 @@ describe('createRdSwarmPlan', () => {
 
   test('blocks RD swarm planning when tech approval is required but not approved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: pending' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     expect(plan.swarmMode).toBe(true);
@@ -94,22 +98,22 @@ describe('createRdSwarmPlan', () => {
 
   test('uses the workspace default artifact path when no explicit artifact path is provided', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'default-artifact-workspace'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'default-artifact-workspace'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'default-artifact-workspace', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'default-artifact-workspace', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, workspace });
 
     expect(plan.available).toBe(true);
-    expect(plan.outputs.taskGraph).toBe('.peaks/_runtime/change/default-artifact-workspace/rd/swarm/task-graph.json');
+    expect(plan.outputs.taskGraph).toBe('rd/swarm/task-graph.json');
     expect(plan.blockedReasons).toEqual([]);
   });
 
   test('represents coding and unit-test execution as configured-model swarm workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'configured-execution-workers'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'configured-execution-workers'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
@@ -117,7 +121,7 @@ describe('createRdSwarmPlan', () => {
 
     const plan = createRdSwarmPlan({
       skill: 'rd',
-      changeId: 'configured-execution-workers',
+      sessionId: 'configured-execution-workers',
       goal: 'Implement approved checkout refactor',
       maxWorkers: 40,
       executionModelId: 'custom-exec-model-v1',
@@ -139,7 +143,7 @@ describe('createRdSwarmPlan', () => {
 
   test('derives implementation target areas from approved tech artifacts', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -152,7 +156,7 @@ describe('createRdSwarmPlan', () => {
       writeFileSync(join(architectureRoot, artifact), content, 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -175,7 +179,7 @@ describe('createRdSwarmPlan', () => {
 
   test('ignores empty implementation target area sections', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       const content = artifact === 'tech-approval-record.md'
@@ -184,7 +188,7 @@ describe('createRdSwarmPlan', () => {
       writeFileSync(join(architectureRoot, artifact), content, 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -194,11 +198,11 @@ describe('createRdSwarmPlan', () => {
 
   test('ignores artifact target areas when tech artifacts are not approved', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     writeFileSync(join(architectureRoot, 'frontend-tech-doc.md'), 'Implementation target areas:\n- `packages/client/src/stores/authStore.ts`', 'utf8');
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -209,13 +213,13 @@ describe('createRdSwarmPlan', () => {
 
   test('keeps tasks within a wave independent for parallel execution', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -231,7 +235,7 @@ describe('createRdSwarmPlan', () => {
 
   test('blocks when worker count is below target', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 10, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 10, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -242,13 +246,13 @@ describe('createRdSwarmPlan', () => {
 
   test('does not mark the tech gate skipped when governed work has too few workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 10, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 10, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -259,13 +263,13 @@ describe('createRdSwarmPlan', () => {
 
   test('supports larger safe swarm plans up to eighty workers', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 80, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 80, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -276,7 +280,7 @@ describe('createRdSwarmPlan', () => {
 
   test('caps worker count above eighty', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 99, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 99, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.workerTarget).toBe(80);
     expect(plan.blockedReasons).toContain('worker-count-capped');
@@ -284,13 +288,13 @@ describe('createRdSwarmPlan', () => {
 
   test('returns capped approved swarm plans with next actions', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const architectureRoot = join(getChangeScopeDirAbs(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
+    const architectureRoot = join(getSessionDir(artifactWorkspace, 'checkout-refactor'), 'rd', 'architecture');
     mkdirSync(architectureRoot, { recursive: true });
     for (const artifact of TECH_REQUIRED_ARTIFACTS) {
       writeFileSync(join(architectureRoot, artifact), artifact === 'tech-approval-record.md' ? 'status: approved' : 'ready', 'utf8');
     }
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 99, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 99, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -301,7 +305,7 @@ describe('createRdSwarmPlan', () => {
 
   test('blocks when tech approval is required but missing', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Change checkout behavior', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Change checkout behavior', maxWorkers: 40, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -311,7 +315,7 @@ describe('createRdSwarmPlan', () => {
 
   test('skips tech gate for a clear bug fix path', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: artifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -320,7 +324,7 @@ describe('createRdSwarmPlan', () => {
   });
 
   test('returns preview when artifact workspace is unavailable for persistence', () => {
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -330,7 +334,7 @@ describe('createRdSwarmPlan', () => {
   });
 
   test('does not create worker waves when swarm mode is explicitly disabled', () => {
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, swarmMode: false, dryRun: true });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, swarmMode: false, dryRun: true });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -343,7 +347,7 @@ describe('createRdSwarmPlan', () => {
   });
 
   test('does not mark the tech gate skipped when swarm mode is disabled for governed goals', () => {
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, swarmMode: false, dryRun: true });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Implement approved checkout refactor', maxWorkers: 25, swarmMode: false, dryRun: true });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -355,7 +359,7 @@ describe('createRdSwarmPlan', () => {
   });
 
   test('returns preview when artifact workspace path has no marker', () => {
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-rd-unmarked-')) });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: mkdtempSync(join(tmpdir(), 'peaks-rd-unmarked-')) });
 
     expect(plan.available).toBe(false);
     if (plan.available) return;
@@ -369,7 +373,7 @@ describe('createRdSwarmPlan', () => {
     mkdirSync(join(projectArtifactWorkspace, '.peaks'), { recursive: true });
     writeFileSync(join(projectArtifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
 
-    const plan = createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
+    const plan = createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true, artifactWorkspacePath: projectArtifactWorkspace, workspace });
 
     expect(plan.available).toBe(true);
     if (!plan.available) return;
@@ -378,10 +382,12 @@ describe('createRdSwarmPlan', () => {
   });
 
   test('rejects invalid change id, invalid worker counts, unsupported skill, and empty goal', () => {
-    expect(() => createRdSwarmPlan({ skill: 'rd', changeId: 'foo/bar', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true })).toThrow('Invalid change-id');
-    expect(() => createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: Number.NaN, dryRun: true })).toThrow('max-workers must be a positive integer');
-    expect(() => createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25.5, dryRun: true })).toThrow('max-workers must be a positive integer');
-    expect(() => createRdSwarmPlan({ skill: 'qa' as 'rd', changeId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true })).toThrow('Unsupported skill');
-    expect(() => createRdSwarmPlan({ skill: 'rd', changeId: 'checkout-refactor', goal: '   ', maxWorkers: 25, dryRun: true })).toThrow('Goal must be non-empty');
+    // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
+    // was removed — the change-id is metadata-only. The worker-count,
+    // unsupported-skill, and empty-goal contracts are preserved.
+    expect(() => createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: Number.NaN, dryRun: true })).toThrow('max-workers must be a positive integer');
+    expect(() => createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25.5, dryRun: true })).toThrow('max-workers must be a positive integer');
+    expect(() => createRdSwarmPlan({ skill: 'qa' as 'rd', sessionId: 'checkout-refactor', goal: 'Fix checkout retry typo', maxWorkers: 25, dryRun: true })).toThrow('Unsupported skill');
+    expect(() => createRdSwarmPlan({ skill: 'rd', sessionId: 'checkout-refactor', goal: '   ', maxWorkers: 25, dryRun: true })).toThrow('Goal must be non-empty');
   });
 });

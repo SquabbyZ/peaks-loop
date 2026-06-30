@@ -3,15 +3,15 @@
 //
 // Why this exists
 // ---------------
-// `src/shared/change-id.ts:buildArtifactRelativePath` walks
+// `src/services/session/session-manager.ts:readSessionInfo` walks
 // `process.cwd()` to find the project root and reads `.peaks/.session.json`
 // from it. When the file exists with a session id, the helper returns
 // session-based paths like `.peaks/_runtime/<sessionId>/<role>/<numberedFilename>`
-// instead of legacy changeId-based paths like
-// `.peaks/_runtime/<changeId>/rd/architecture`. The 31 tests under
+// instead of legacy sessionId-based paths like
+// `.peaks/_runtime/<sessionId>/rd/architecture`. The 31 tests under
 // `tests/unit/{tech,rd,workflow-autonomous,autonomous-resume-writer,
 // workflow-autonomous-resume-validation,cli-program.workflow}.test.ts`
-// assert the legacy changeId-based shape; they were written assuming the
+// assert the legacy sessionId-based shape; they were written assuming the
 // dev environment has no active session binding.
 //
 // When a developer (or a `peaks-solo` orchestrator) has run
@@ -58,9 +58,9 @@ import { fileURLToPath } from 'node:url';
 
 // Pin process.cwd() to the project root regardless of how vitest was invoked.
 // vitest.config.ts sets `root` for test discovery, but production code paths
-// under test (e.g. src/shared/change-id.ts:buildArtifactRelativePath, skill
-// loaders, openspec scanners) walk process.cwd() to resolve repo-relative
-// paths. When the test runner inherits a Temp cwd from `peaks session init`
+// under test (e.g. session-manager readers, skill loaders, openspec
+// scanners) walk process.cwd() to resolve repo-relative paths. When the
+// test runner inherits a Temp cwd from `peaks session init`
 // (the orchestrator creates a workspace under AppData/Local/Temp), those
 // walkers resolve to a directory that does not contain the repo and ENOENT.
 // The peaks session init Temp side-effect itself is a design choice (see

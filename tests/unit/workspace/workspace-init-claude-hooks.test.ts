@@ -17,7 +17,7 @@
  *       owned by `peaks gate enforce` in `.claude/settings.json`.
  *   (B) `--no-claude-hooks` flag → file does NOT exist.
  *   (C) the path-matching logic in the hook command allows paths
- *       under `.peaks/_runtime/` and `.peaks/_runtime/<changeId>/` and rejects
+ *       under `.peaks/_runtime/` and `.peaks/_runtime/<sessionId>/` and rejects
  *       paths under `src/`. We exercise the matcher by extracting the
  *       inline node command and running it as a child process with
  *       the candidate path on argv[2].
@@ -115,14 +115,13 @@ describe('workspace init — consumer-project .claude/settings.local.json (slice
     expect(existsSync(settingsPath)).toBe(false);
   });
 
-  test('case C — path matcher in the Write|Edit|MultiEdit hook allows .peaks/_runtime/ and .peaks/_runtime/<changeId>/, rejects src/', async () => {
+  test('case C — path matcher in the Write|Edit|MultiEdit hook allows .peaks/_runtime/ and .peaks/_runtime/<sessionId>/, rejects src/', async () => {
     // Lay down a session + change-id dir so the workspace structure
     // matches a real consumer project.
     await initWorkspace({
       projectRoot: project,
       sessionId: '2026-06-12-session-bug3c01',
-      allowSessionRebind: false,
-      changeId: '2.0.1-bug3-fact-forcing-bypass'
+      allowSessionRebind: false
     });
 
     // Extract the inline node command from the template (the first

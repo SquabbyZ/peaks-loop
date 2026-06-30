@@ -106,7 +106,7 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'rd/requests/001-2026-01-15-foo.md');
       expect(move).toBeDefined();
-      expect(move?.changeId).toBe('2026-01-15-foo');
+      expect(move?.targetSessionId).toBe('2026-01-15-foo');
       expect(move?.source).toBe('filename-regex');
     });
 
@@ -119,7 +119,7 @@ describe('migrateWorkspace', () => {
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'rd/requests/001-fix-title.md');
-      expect(move?.changeId).toBe('fix-title');
+      expect(move?.targetSessionId).toBe('fix-title');
       expect(move?.source).toBe('filename-regex');
     });
 
@@ -134,7 +134,7 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'prd/requests/2026-02-21-default.md');
       // Tier 1 doesn't match (4-digit prefix). Tier 2 H1 extracts `2026-02-21-default`.
-      expect(move?.changeId).toBe('2026-02-21-default');
+      expect(move?.targetSessionId).toBe('2026-02-21-default');
       expect(move?.source).toBe('content-h1');
     });
 
@@ -148,7 +148,7 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'rd/tech-doc.md');
       expect(move).toBeDefined();
-      expect(move?.changeId).toBe('003-leaf-and-content-locked-callbacks');
+      expect(move?.targetSessionId).toBe('003-leaf-and-content-locked-callbacks');
       expect(move?.source).toBe('content-h1');
     });
 
@@ -161,7 +161,7 @@ describe('migrateWorkspace', () => {
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'rd/code-review.md');
-      expect(move?.changeId).toBe('009-fix-test-harness-tailwind');
+      expect(move?.targetSessionId).toBe('009-fix-test-harness-tailwind');
       expect(move?.source).toBe('content-h1');
     });
 
@@ -175,7 +175,7 @@ describe('migrateWorkspace', () => {
 
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       const move = result.wouldMove.find((f) => f.relativePath === 'qa/test-cases/orphan-rid-004.md');
-      expect(move?.changeId).toBe('004-foo');
+      expect(move?.targetSessionId).toBe('004-foo');
       expect(move?.source).toBe('content-frontmatter');
     });
 
@@ -194,12 +194,12 @@ describe('migrateWorkspace', () => {
       const result = await migrateWorkspace({ projectRoot: project, apply: false });
       // some-test.md has no tier-1/2/3 signal, so tier-4 fallback is used.
       const fallthrough = result.wouldMove.find((f) => f.relativePath === 'qa/test-cases/some-test.md');
-      expect(fallthrough?.changeId).toBe('session-005-rid');
+      expect(fallthrough?.targetSessionId).toBe('session-005-rid');
       expect(fallthrough?.source).toBe('session-fallback');
 
       // other-test.md has an explicit frontmatter rid; that wins over the session fallback.
       const explicit = result.wouldMove.find((f) => f.relativePath === 'qa/test-cases/other-test.md');
-      expect(explicit?.changeId).toBe('session-005-explicit-override');
+      expect(explicit?.targetSessionId).toBe('session-005-explicit-override');
       expect(explicit?.source).toBe('content-frontmatter');
     });
 
@@ -216,11 +216,11 @@ describe('migrateWorkspace', () => {
       const perfWithSpaceMove = result.moved.find((f) => f.relativePath === 'rd/perf baseline.md');
       const perfMove = result.moved.find((f) => f.relativePath === 'rd/perf-baseline.md');
 
-      expect(scanMove?.changeId).toBe('project-scan');
+      expect(scanMove?.targetSessionId).toBe('project-scan');
       expect(toPosix(scanMove?.to ?? '')).toContain('/.peaks/project-scan/rd/project-scan.md');
-      expect(perfMove?.changeId).toBe('perf-baseline');
+      expect(perfMove?.targetSessionId).toBe('perf-baseline');
       expect(toPosix(perfMove?.to ?? '')).toContain('/.peaks/perf-baseline/rd/perf-baseline.md');
-      expect(perfWithSpaceMove?.changeId).toBe('perf-baseline');
+      expect(perfWithSpaceMove?.targetSessionId).toBe('perf-baseline');
       expect(toPosix(perfWithSpaceMove?.to ?? '')).toContain('/.peaks/perf-baseline/rd/perf baseline.md');
 
       // Files actually moved on disk
@@ -268,7 +268,7 @@ describe('migrateWorkspace', () => {
   // ==================================================================
 
   describe('apply', () => {
-    test('git mv the file into retrospective/<changeId>/<role>/<path>', async () => {
+    test('git mv the file into retrospective/<sessionId>/<role>/<path>', async () => {
       const sid = '2026-06-09-session-iiiiiii';
       // Use a no-3-digit-prefix filename so the change-id survives verbatim.
       const sourcePath = join(project, `.peaks/_runtime/${sid}/rd/requests/session-009-move.md`);
@@ -276,7 +276,7 @@ describe('migrateWorkspace', () => {
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(1);
-      expect(result.moved[0]?.changeId).toBe('session-009-move');
+      expect(result.moved[0]?.targetSessionId).toBe('session-009-move');
       expect(toPosix(result.moved[0]?.to ?? '')).toContain('/retrospective/session-009-move/rd/requests/session-009-move.md');
 
       // File moved on disk
@@ -366,7 +366,7 @@ describe('migrateWorkspace', () => {
 
       const result = await migrateWorkspace({ projectRoot: project, apply: true });
       expect(result.moved.length).toBe(2);
-      expect(result.moved.map((m) => m.changeId)).toEqual(['slice-008-shared', 'slice-008-shared']);
+      expect(result.moved.map((m) => m.targetSessionId)).toEqual(['slice-008-shared', 'slice-008-shared']);
       expect(result.moved.every((m) => toPosix(m.to).includes('/retrospective/slice-008-shared/'))).toBe(true);
 
       // Both files under the same retrospective change-id

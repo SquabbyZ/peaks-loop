@@ -125,8 +125,22 @@ describe('Skill slim content coverage (slice 024)', () => {
           { skill: 'peaks-rd', heading: '## Default runbook' },
           { skill: 'peaks-qa', heading: '## Default runbook' }
         ];
+        // Slice 2026-06-29-change-id-root-removal: the
+        // `## Two-axis naming convention` heading was renamed to
+        // `## Single-scope-axis naming convention` when the change-id
+        // axis was removed. The pre-slim fixture still carries the old
+        // heading; the rename below maps the historical name to the
+        // new name so the AC7 coverage check stays green.
+        const RENAMED_HEADINGS: ReadonlyArray<{ old: string; new: string }> = [
+          { old: '## Two-axis naming convention', new: '## Single-scope-axis naming convention' }
+        ];
         for (const h of oldHeadings) {
-          const n = normalize(h);
+          // Apply renamed-heading translation before the coverage
+          // check so the post-rename heading matches the new SKILL.md
+          // heading instead of reporting the old name as uncovered.
+          const renamed = RENAMED_HEADINGS.find((r) => normalize(r.old) === normalize(h));
+          const effectiveH = renamed ? renamed.new : h;
+          const n = normalize(effectiveH);
           const inSkill = newSkillHeadingsNorm.includes(n);
           const inRef = refHeadings.has(n);
           if (!inSkill && !inRef) {
@@ -204,8 +218,8 @@ describe('Skill slim content coverage (slice 024)', () => {
         expect(bytes, `${fx.name} SKILL.md is ${bytes} bytes`).toBeLessThanOrEqual(25_000);
       });
 
-      test('R5: new SKILL.md preserves the "Two-axis naming convention" heading inline (pinned by slice 006 test)', () => {
-        expect(newContent, `${fx.name} must keep "Two-axis naming convention" inline`).toContain('Two-axis naming convention');
+      test('R5: new SKILL.md preserves the "Single-scope-axis naming convention" heading inline (slice 2026-06-29-change-id-root-removal renamed the heading after the change-id axis was removed)', () => {
+        expect(newContent, `${fx.name} must keep "Single-scope-axis naming convention" inline`).toContain('Single-scope-axis naming convention');
       });
 
       test('G7: new SKILL.md has a `## References` index table', () => {

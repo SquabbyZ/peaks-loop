@@ -19,7 +19,7 @@ import {
 } from '../../../src/cli/commands/solo-commands.js';
 
 const SAMPLE_PLAN: SoloPlan = {
-  changeId: '014-full-dogfood',
+  sessionId: '014-full-dogfood',
   steps: [
     { id: 'load-memory', kind: 'memory', skipped: false },
     { id: 'standards-preflight', kind: 'preflight', skipped: false },
@@ -34,7 +34,7 @@ const SAMPLE_PLAN: SoloPlan = {
  * into `runSoloFast` to drive the skip behavior.
  */
 const FAST_PLAN: SoloPlan = {
-  changeId: '014-full-dogfood',
+  sessionId: '014-full-dogfood',
   steps: [
     { id: 'load-memory', kind: 'memory', skipped: true },
     { id: 'standards-preflight', kind: 'preflight', skipped: true },
@@ -46,8 +46,8 @@ const FAST_PLAN: SoloPlan = {
 
 describe('solo-commands: buildSoloPlan', () => {
   test('default plan includes all 5 steps with memory + preflight + repair', () => {
-    const plan = buildSoloPlan({ changeId: '014-full-dogfood', fast: false });
-    expect(plan.changeId).toBe('014-full-dogfood');
+    const plan = buildSoloPlan({ sessionId: '014-full-dogfood', fast: false });
+    expect(plan.sessionId).toBe('014-full-dogfood');
     expect(plan.steps.map((s) => s.id)).toEqual([
       'load-memory',
       'standards-preflight',
@@ -62,7 +62,7 @@ describe('solo-commands: buildSoloPlan', () => {
   });
 
   test('--fast plan marks memory + preflight as skipped and qa without repairLoop', () => {
-    const plan = buildSoloPlan({ changeId: '014-full-dogfood', fast: true });
+    const plan = buildSoloPlan({ sessionId: '014-full-dogfood', fast: true });
     expect(plan.steps.find((s) => s.id === 'load-memory')?.skipped).toBe(true);
     expect(plan.steps.find((s) => s.id === 'standards-preflight')?.skipped).toBe(true);
     const qa = plan.steps.find((s) => s.id === 'qa-cycle');
@@ -75,7 +75,7 @@ describe('solo-commands: buildSoloPlan', () => {
   });
 
   test('plan preserves order and emits last', () => {
-    const plan = buildSoloPlan({ changeId: 'abc', fast: false });
+    const plan = buildSoloPlan({ sessionId: 'abc', fast: false });
     expect(plan.steps.at(-1)?.id).toBe('emit-txt');
   });
 });
@@ -101,7 +101,7 @@ describe('solo-commands: runSoloFast', () => {
 
   test('fast run skips memory + preflight and calls qa once without repair', async () => {
     const result = await runSoloFast({
-      changeId: '014-full-dogfood',
+      sessionId: '014-full-dogfood',
       plan: FAST_PLAN,
       hooks: { memory: memSpy, preflight: prefSpy, rd: rdSpy, qa: qaSpy, emit: emitSpy }
     });
@@ -120,9 +120,9 @@ describe('solo-commands: runSoloFast', () => {
   });
 
   test('non-fast run invokes all hooks including qa with repairLoop=true', async () => {
-    const nonFastPlan = buildSoloPlan({ changeId: 'abc', fast: false });
+    const nonFastPlan = buildSoloPlan({ sessionId: 'abc', fast: false });
     const result = await runSoloFast({
-      changeId: 'abc',
+      sessionId: 'abc',
       plan: nonFastPlan,
       hooks: { memory: memSpy, preflight: prefSpy, rd: rdSpy, qa: qaSpy, emit: emitSpy }
     });
@@ -145,7 +145,7 @@ describe('solo-commands: runSoloFast', () => {
       return { ok: true };
     });
     const result = await runSoloFast({
-      changeId: 'x',
+      sessionId: 'x',
       plan: FAST_PLAN,
       hooks: { memory: memSpy, preflight: prefSpy, rd: rdSpy, qa: qaSpy, emit: emitSpy }
     });
@@ -156,15 +156,15 @@ describe('solo-commands: runSoloFast', () => {
   });
 
   test('returns SoloRunResult shape with skipped ids', async () => {
-    const plan = buildSoloPlan({ changeId: 'fast-mode', fast: true });
+    const plan = buildSoloPlan({ sessionId: 'fast-mode', fast: true });
     const result: SoloRunResult = await runSoloFast({
-      changeId: 'fast-mode',
+      sessionId: 'fast-mode',
       plan,
       hooks: { memory: memSpy, preflight: prefSpy, rd: rdSpy, qa: qaSpy, emit: emitSpy }
     });
 
     expect(result).toMatchObject({
-      changeId: 'fast-mode',
+      sessionId: 'fast-mode',
       ok: true,
       steps: expect.arrayContaining([
         expect.objectContaining({ id: 'load-memory', skipped: true })
