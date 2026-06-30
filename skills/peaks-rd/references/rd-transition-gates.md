@@ -19,8 +19,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 
 **Peaks-Cli Gate A — After project-scan read (before any implementation):**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/project-scan.md
-# Expected output: .peaks/_runtime/change/<changeId>/rd/project-scan.md
+ls .peaks/_runtime/<sessionId>/rd/project-scan.md
+# Expected output: .peaks/_runtime/<sessionId>/rd/project-scan.md
 # "No such file" → STOP, create the project-scan first. Do not write code.
 ```
 
@@ -47,8 +47,8 @@ ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-revi
 
 **Peaks-Cli Gate B — Before QA handoff:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md \
-   .peaks/_runtime/change/<changeId>/rd/tech-doc.md
+ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md \
+   .peaks/_runtime/<sessionId>/rd/tech-doc.md
 # Both must exist. Missing either → BLOCKED, do not hand off to QA
 ```
 
@@ -68,16 +68,16 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -20
 
 **Peaks-Cli Gate B3 — Before QA handoff: code review evidence exists:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/code-review.md 2>&1
-# Expected: .peaks/_runtime/change/<changeId>/rd/code-review.md
+ls .peaks/_runtime/<sessionId>/rd/code-review.md 2>&1
+# Expected: .peaks/_runtime/<sessionId>/rd/code-review.md
 # "No such file" → BLOCKED. Run code review (use code-reviewer agent or equivalent),
 # record findings, fix CRITICAL/HIGH issues, then re-check.
 ```
 
 **Peaks-Cli Gate B4 — Before QA handoff: security review evidence exists:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/security-review.md 2>&1
-# Expected: .peaks/_runtime/change/<changeId>/rd/security-review.md
+ls .peaks/_runtime/<sessionId>/rd/security-review.md 2>&1
+# Expected: .peaks/_runtime/<sessionId>/rd/security-review.md
 # "No such file" → BLOCKED. Run security review (use security-reviewer agent or equivalent),
 # fix CRITICAL/HIGH issues, record findings, then re-check.
 ```
@@ -123,8 +123,8 @@ peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <session-id> 
 
 **Peaks-Cli Gate B9 — RD-side perf-baseline output present (when slice has a user-perceivable perf surface):**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/perf-baseline.md 2>&1
-# Expected: .peaks/_runtime/change/<changeId>/rd/perf-baseline.md
+ls .peaks/_runtime/<sessionId>/rd/perf-baseline.md 2>&1
+# Expected: .peaks/_runtime/<sessionId>/rd/perf-baseline.md
 # "No such file" + slice is feature / refactor / bugfix-when-perf → BLOCKED.
 #   Run the perf-baseline sub-agent from "Parallel review fan-out" below (or
 #   `peaks perf baseline --apply` inline), then fill in the Results table

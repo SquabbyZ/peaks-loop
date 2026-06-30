@@ -13,7 +13,7 @@ The first step in slice planning (before commit-boundary derivation below) is to
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/change/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<sessionId>/...` from frontmatter — the path has already been resolved by the CLI.
 
 ## Skill presence (MANDATORY first action)
 

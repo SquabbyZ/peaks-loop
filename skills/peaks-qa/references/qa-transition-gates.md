@@ -15,8 +15,8 @@ Security and performance evidence surface under `rd/security-review.md` and `rd/
 
 **Peaks-Cli Gate A — After test-case generation:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md
-# Expected: .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md
+ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md
+# Expected: .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md
 # "No such file" → STOP, generate test cases first.
 ```
 
@@ -47,16 +47,16 @@ grep -E "rd/perf-baseline\\.md|perf-baseline" .peaks/_runtime/<sessionId>/qa/tes
 
 **Peaks-Cli Gate B — After test-report write (MUST contain execution results):**
 ```bash
-ls .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
-grep -c "pass\|fail\|blocked" .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
+ls .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md
+grep -c "pass\|fail\|blocked" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md
 # Zero → the report is empty/template-only. Tests were not executed.
 ```
 
 **Peaks-Cli Gate C — Before issuing verdict:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md \
-   .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md \
-   .peaks/_runtime/change/<changeId>/qa/requests/<rid>.md
+ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md \
+   .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md \
+   .peaks/_runtime/<sessionId>/qa/requests/<rid>.md
 # All three must exist. Missing any → QA incomplete, verdict blocked.
 # Security + perf evidence live under rd/ (peaks-rd's audit fan-out);
 # QA cites them by reference from the test-report body (see Gates A3/A4).
@@ -78,9 +78,9 @@ peaks request lint <rid> --role qa --project <repo> --session-id <session-id> --
 
 **Peaks-Cli Gate D — Frontend browser evidence (BLOCKING when frontend is in scope):**
 ```bash
-ls .peaks/_runtime/change/<changeId>/qa/screenshots/*.png 2>&1
+ls .peaks/_runtime/<sessionId>/qa/screenshots/*.png 2>&1
 # Expected: one or more .png files
 # "No such file" → BLOCKED.
-grep -c "browser_console_messages\|browser_network_requests" .peaks/_runtime/change/<changeId>/qa/test-reports/<rid>.md
+grep -c "browser_console_messages\|browser_network_requests" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md
 # Expected: non-zero count
 ```

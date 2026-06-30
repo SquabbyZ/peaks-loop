@@ -3,11 +3,11 @@ name: peaks-qa
 description: QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.
 ---
 
-## Two-axis naming convention
+## Single-scope-axis naming convention
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/_runtime/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-cli change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
 
 ## peaks-context auto-build (v3.0)
 
@@ -46,7 +46,7 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all change-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<changeId>/...` from frontmatter — the path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all session-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<scope>/...` from frontmatter (where `<scope>` is a date-stamped session id, NOT a peaks-cli change-id — the change-id axis was removed in slice `2026-06-29-change-id-root-removal`). The path has already been resolved by the CLI.
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 

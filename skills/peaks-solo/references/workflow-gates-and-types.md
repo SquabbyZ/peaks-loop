@@ -54,8 +54,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` comma
 
 **Peaks-Cli Gate A — After workspace init + project scan:**
 ```bash
-ls .peaks/_runtime/change/<changeId>/rd/project-scan.md
-# Expected output: .peaks/_runtime/change/<changeId>/rd/project-scan.md
+ls .peaks/_runtime/<sessionId>/rd/project-scan.md
+# Expected output: .peaks/_runtime/<sessionId>/rd/project-scan.md
 # "No such file" → STOP, run project scan first
 # File present but missing `## Archetype` or `## Project mode` sections → INCOMPLETE, rerun scan
 # File present and complete → reuse (project-scan is a session-scoped singleton)
@@ -65,7 +65,7 @@ ls .peaks/_runtime/change/<changeId>/rd/project-scan.md
 ```bash
 # If project-scan.md `## Archetype` is greenfield → skip this gate
 # Otherwise:
-ls .peaks/_runtime/change/<changeId>/system/existing-system.md
+ls .peaks/_runtime/<sessionId>/system/existing-system.md
 # "No such file" → STOP, run existing-system extraction
 # (see references/existing-system-extraction.md)
 ```
@@ -79,20 +79,20 @@ Peaks-Cli Gate B has two sub-checks: a HARD gate (blocks progression) and an INF
 #          Missing any of these → STOP, return to the role that owns the file.
 
 # Always required (every type):
-ls .peaks/_runtime/change/<changeId>/prd/requests/<rid>.md
+ls .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
 
 # Type-specific RD planning artifact:
-#   feature / refactor → ls .peaks/_runtime/change/<changeId>/rd/tech-doc.md
-#   bugfix             → ls .peaks/_runtime/change/<changeId>/rd/bug-analysis.md
+#   feature / refactor → ls .peaks/_runtime/<sessionId>/rd/tech-doc.md
+#   bugfix             → ls .peaks/_runtime/<sessionId>/rd/bug-analysis.md
 #   config / docs / chore → (no RD planning artifact required)
 
 # QA test-cases (skipped for docs/chore):
-ls .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md
+ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md
 ```
 
 ```bash
 # B.info — NON-BLOCKING. Record degradation in TXT, then proceed.
-ls .peaks/_runtime/change/<changeId>/ui/design-draft.md 2>&1
+ls .peaks/_runtime/<sessionId>/ui/design-draft.md 2>&1
 # "No such file" + request affects user-visible UI → swarm degradation rule 1 fires:
 #   note "ui-design-missing" in TXT, RD continues with PRD visual descriptions.
 # "No such file" + pure backend / docs / chore / config → state skip reason in TXT, proceed.
@@ -102,18 +102,18 @@ ls .peaks/_runtime/change/<changeId>/ui/design-draft.md 2>&1
 
 The CLI gate (`peaks request transition --state qa-handoff`) is the authoritative check; running this `ls` first lets you produce missing files before the CLI rejects the transition.
 
-| Request type | Required RD evidence (under `.peaks/_runtime/change/<changeId>/`) |
+| Request type | Required RD evidence (under `.peaks/_runtime/<sessionId>/`) |
 |---|---|
 | `feature` / `refactor` | `rd/tech-doc.md` + `rd/code-review.md` + `rd/security-review.md` + `rd/perf-baseline.md` + `qa/test-cases/<rid>.md` (qa/test-cases pre-drafted by the 4th sub-agent in peaks-rd's parallel fan-out — slice 004) |
 | `bugfix` | `rd/bug-analysis.md` + `rd/code-review.md` + `rd/security-review.md` + `qa/test-cases/<rid>.md` (rd/perf-baseline.md only when the bug is performance-shaped) |
 | `config` | `rd/security-review.md` |
 | `docs` / `chore` | (no extra evidence required) |
 
-Always required (in addition to the type-specific row): `ls .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md`. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
+Always required (in addition to the type-specific row): `ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md`. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with PREREQUISITES_MISSING.
 
 ```bash
 # Always required
-ls .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md
+ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md
 
 # Type-specific RD evidence (must match the type recorded in the artifact body)
 #   feature / refactor → ls rd/tech-doc.md rd/code-review.md rd/security-review.md rd/perf-baseline.md qa/test-cases/<rid>.md
@@ -131,7 +131,7 @@ The CLI gate at `qa:verdict-issued` is the authoritative check; this `ls` lets y
 
 ```bash
 # Always required
-ls .peaks/_runtime/change/<changeId>/qa/requests/<rid>.md
+ls .peaks/_runtime/<sessionId>/qa/requests/<rid>.md
 
 # Type-specific QA evidence
 #   feature / refactor → ls qa/test-cases/<rid>.md qa/test-reports/<rid>.md qa/security-findings.md qa/performance-findings.md
@@ -143,7 +143,7 @@ ls .peaks/_runtime/change/<changeId>/qa/requests/<rid>.md
 
 **Peaks-Cli Gate E — Before declaring workflow complete:**
 ```bash
-find .peaks/_runtime/change/<changeId>/ -type f | sort
+find .peaks/_runtime/<sessionId>/ -type f | sort
 # Verify: files from gates A-D all appear in this list.
 # Any mandatory file missing → NOT complete. Do not emit TXT.
 # Peaks-Cli Gate G (CLAUDE.md + .claude/rules/**) must ALSO pass before TXT is emitted.

@@ -65,11 +65,11 @@ When used alone or when a workflow needs portable artifacts that must survive se
 - **Mode:** solo | assisted | swarm | strict
 - **Status:** complete | blocked | return-to-rd
 - **Artifacts:**
-  - PRD: .peaks/_runtime/change/<changeId>/prd/requests/<rid>.md
-  - UI:  .peaks/_runtime/change/<changeId>/ui/design-draft.md (or: skipped — pure backend)
-  - RD:  .peaks/_runtime/change/<changeId>/rd/requests/<rid>.md | tech-doc.md
-  - QA:  .peaks/_runtime/change/<changeId>/qa/test-cases/<rid>.md | test-reports/<rid>.md | requests/<rid>.md
-  - SC:  .peaks/_runtime/change/<changeId>/sc/change-control/<rid>.md
+  - PRD: .peaks/_runtime/<sessionId>/prd/requests/<rid>.md
+  - UI:  .peaks/_runtime/<sessionId>/ui/design-draft.md (or: skipped — pure backend)
+  - RD:  .peaks/_runtime/<sessionId>/rd/requests/<rid>.md | tech-doc.md
+  - QA:  .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md | test-reports/<rid>.md | requests/<rid>.md
+  - SC:  .peaks/_runtime/<sessionId>/sc/change-control/<rid>.md
 - **Standards delta:** CLAUDE.md: <status>; .claude/rules/: <status>
 - **Open questions:** <list or "none">
 - **Next action:** <one concrete step>
