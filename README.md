@@ -335,7 +335,7 @@ peaks gate bypass --sop <id> --phase <phase> --reason "<why>"
 - ✅ **门禁机制** 已在真实项目 dogfood
 - ✅ **v2.12.0 RD fan-out 收缩**（3 路：code-reviewer + qa-test-cases-writer + karpathy-reviewer）2026-06-27 发布
 - ✅ **v2.13.0 零介入 auto-compact**（peaks-cli 自主压缩任意 AI CLI 的上下文，runner 始终 < 95%）2026-06-27 发布
-- ✅ **v2.13.4 4 个 solo bug 修复**：Step 1 AskUserQuestion 不再被跳过、verify-pipeline 走 canonical `.peaks/_runtime/change/<id>/` 路径、`peaks workspace migrate-change-scope` 一次性迁移历史 misplaced 数据、auto-compact 真正压主会话上下文
+- ✅ **v2.13.4 4 个 solo bug 修复**：Step 1 AskUserQuestion 不再被跳过、verify-pipeline 走 canonical `.peaks/_runtime/<sessionId>/<role>/` 路径、`LegacyChangeIdSiblingError` 哨兵在 init 时容忍 misplaced 数据、auto-compact 真正压主会话上下文
 - 📋 路线图：Trae / Codex / Cursor 真实集成、`peaks-doc` / `peaks-i18n`、SOP 模板市场
 
 详细看 [`CHANGELOG.md`](./CHANGELOG.md) 和 [`docs/`](./docs/)。

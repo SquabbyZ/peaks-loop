@@ -1,0 +1,11 @@
+{
+  "name": "2026-06-28-full-auto-boundary",
+  "layer": "C",
+  "layerDetail": "mode-gate hardFloorCategory",
+  "generatedFiles": [
+    "src/services/solo/mode-gate.ts",
+    "tests/unit/services/solo/2026-06-28-full-auto-boundary-hard-floor.test.ts"
+  ],
+  "promotedAt": "2026-06-29T11:10:42.314Z",
+  "promotedBy": "peaks-rd fork agent"
+}

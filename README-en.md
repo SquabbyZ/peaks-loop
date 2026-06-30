@@ -251,7 +251,7 @@ Full list: `peaks --help`.
 - ✅ **Gate mechanism** dogfooded on real projects
 - ✅ **v2.12.0 RD fan-out collapse** (3-way: code-reviewer + qa-test-cases-writer + karpathy-reviewer) shipped 2026-06-27
 - ✅ **v2.13.0 zero-human-intervention auto-compact** (peaks-cli drives context compression on any AI CLI; context stays < 95% autonomously) shipped 2026-06-27
-- ✅ **v2.13.4 four solo bug fixes**: Step 1 AskUserQuestion no longer auto-defaults to `full-auto`; `peaks workflow verify-pipeline` resolves the canonical `.peaks/_runtime/change/<id>/` path; new `peaks workspace migrate-change-scope` CLI migrates any historical misplaced change-id dirs; auto-compact now genuinely compresses the main-session context (not a sub-agent shell)
+- ✅ **v2.13.4 four solo bug fixes**: Step 1 AskUserQuestion no longer auto-defaults to `full-auto`; `peaks workflow verify-pipeline` resolves the canonical `.peaks/_runtime/<sessionId>/<role>/` path; misplaced change-id dirs are tolerated by `peaks workspace init`'s `LegacyChangeIdSiblingError` guard; auto-compact now genuinely compresses the main-session context (not a sub-agent shell)
 - 📋 Roadmap: real Trae / Codex / Cursor integration, `peaks-doc` / `peaks-i18n`, SOP template marketplace
 
 See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.

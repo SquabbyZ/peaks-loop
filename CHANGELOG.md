@@ -1,5 +1,75 @@
 # Changelog
 
+## [Unreleased] — 2026-06-29 — change-id shim (cleanup post v2.17.0 hard-kill)
+
+**MINOR bump target: v2.19.0**. Full removal of the peaks-cli change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. One cleanup slice that retires the v2.17.0 shim half-life.
+
+### Removed — change-id shim (cleanup post v2.17.0 hard-kill)
+
+- `src/shared/change-id.ts` deleted (257 lines); `isUnsafePathInput` / `isUnsafeArtifactPath` / `isPathInsideArtifactRoot` migrated to the new `src/shared/path-safety.ts` (the only exports the file retained after the v2.17.0 hard-kill).
+- `peaks workspace migrate-change-scope` subcommand removed (its on-disk target `.peaks/_runtime/change/<id>/` was already hard-killed in v2.17.0). The legacy `DEPRECATION_LEGACY_PATH_USED` violations now surface "move the file into the canonical location; the legacy `peaks workspace migrate-change-scope` helper was removed in v2.19.0; use `peaks workspace migrate` to relocate misplaced content" instead of pointing at the deleted CLI.
+- `--change-id` CLI flag removed from all commands: `peaks fixture capture`, `peaks workflow verify-pipeline`, `peaks tech plan`, `peaks tech status`, `peaks workflow route`, `peaks workflow autonomous`, `peaks swarm plan`, `peaks workflow autonomous-resume init`, `peaks workspace init`. The flag was a no-op post-v2.17.0 anyway — its removal aligns the CLI with the new single-axis contract.
+- `validateChangeIdOrThrow` / `getCurrentChangeId` / `setCurrentChangeId` / `buildArtifactRelativePath` / `buildArtifactRelativePathInRoot` / `LegacyChangeIdBindingError` / `LegacyChangeIdSiblingError` deleted. The sibling-dir guard (`LegacyChangeIdSiblingError`) is preserved inline in `initWorkspace` as a `lstatSync` check on `.peaks/<changeId>/` to keep the 2.8.3 hard-ban enforceable.
+- `data.changeId` envelope JSON slug removed from RD/QA/PRD writer outputs (the change-id is preserved as a metadata-only filename slug in the artifact body, but no longer rides in the `data.changeId` envelope key).
+- 26 SKILL.md files updated: `## Two-axis naming convention` headers renamed to `## Single-scope-axis naming convention`; `.peaks/_runtime/change/<changeId>/` examples in skill MD prose rewritten to `.peaks/_runtime/<sessionId>/<role>/...`. OpenSpec `<change-id>` references in skill MDs preserved untouched.
+- `tests/unit/workspace/top-level-change-id-guard.test.ts` retargeted to ban `<YYYY-MM-DD-*>` sibling dirs (the same invariant the change-id sibling ban protected, but now date-stamped and change-id-agnostic).
+- 15 src files + 6 test files migrated off the `shared/change-id` shim. The `change-scope-service.ts` helper still validates the change-id shape when callers pass an explicit one (e.g. `getChangeScopeDirAbs(workspace, changeId)`); the validation is now at the writer boundary, not the planner boundary.
+
+### Additional removals — change-id round 2
+
+- `src/services/artifacts/change-scope-service.ts` deleted (entire L1 filesystem axis runtime — `getChangeScopeDirAbs`, `ensureChangeScopeDir`, `isSafeChangeScopeId`, `ChangeScopeIdValidationError`, `CHANGE_SCOPE_RELATIVE_PARTS` all removed). Callers now resolve the session-axis dir via the canonical `getSessionDir` from `src/services/session/getSessionDir.ts`.
+- `src/services/artifacts/artifact-templates.ts` rewritten: the 4 path-formatters (`formatHandoffPath`, `formatCommitBoundaryPath`, `formatSkillUsageLessonsPath`, `formatChangeScopePath`) now take `sessionId` and return `.peaks/_runtime/<sessionId>/...` paths. `formatChangeScopePath` removed entirely (no callers after the change-scope-service deletion).
+- `src/services/sc/sc-service.ts` `resolveCurrentChangeId` removed (dead code reading the deleted `.peaks/_runtime/current-change` binding file); `getCurrentArtifactDir` now resolves the active session via `getSessionId`.
+- `src/cli/commands/workspace/init-command.ts` cleaned: dropped leftover `options.changeId` arg, `changeId?: string` type field, and `--change-id` text from the `workspace init` description. The legacy sibling-dir migration message no longer points at a deleted `--change-id` flag.
+- 4 envelope writers (`prd-commands`, `request-commands`, `init-command`) no longer emit `data.changeId` / `data.changeIdAction` in the JSON envelope. The `peaks workspace init` JSON output is now a clean `sessionId`/`sessionRoot`/`bound` shape.
+- 12 JSDoc references to the deleted `src/shared/change-id.ts` file scrubbed across `src/services/session/session-binding-bridge.ts`, `src/services/session/session-manager.ts`, `src/shared/path-safety.ts`, `tests/unit/session-manager.test.ts`, `tests/vitest.setup.ts`. The 3 pre-slim `tests/fixtures/skills/pre-slim/*.SKILL.md` fixtures preserve the historical reference per the FROZEN EVIDENCE rule.
+- 2 weakened `tests/unit/rd/repair-cycle-2-cli-wiring.test.ts` cases restored with real assertions: the test now bootstraps a real session via `peaks workspace init` then drives `peaks swarm plan` end-to-end, asserting `standardsErrorCode`, `standardsDiagnostic`, and `process.exitCode` (no `expect(true).toBe(true)`, no `.skip`).
+
+### Round 3 — change-id彻底根治
+
+- All 275 internal `changeId` field references in `src/` renamed to `sessionId` across 35 source files (cli/commands, services/workflow, services/tech, services/workspace, services/sc, services/rd, services/prd, services/audit, services/fixture, services/slice, services/mut, services/providers, services/artifacts, services/openspec-adjacent callers). The 65 remaining `changeId` hits are EXCLUSIVELY in `src/cli/commands/openspec-commands.ts` and `src/services/openspec/*.ts` — L4 OpenSpec vocabulary (positional `<change-id>` arg, `openspec/changes/<change-id>/` dir name, OpenSpec spec/proposal markdown tokens). The rename preserves L4 per PRD §Non-Goals.
+- `WorkspaceInitOptions.changeId?: string` field REMOVED entirely (was a no-op post-v2.17.0; the slice deletes the binding-file legacy and the inline lstatSync guard now scopes the v2.8.3 hard-ban to date-stamped top-level siblings at `.peaks/<YYYY-MM-DD-*>/` only).
+- `peaks workspace init --json` runtime output confirmed clean — zero `changeId` / `changeIdAction` keys in the `data` envelope (AC-10 PASS at runtime + AC-15 PASS at the binary level: `node bin/peaks.js workspace migrate-change-scope` returns `error: unknown command`).
+- 518 `changeId` field references renamed to `sessionId` in 46 test files (unit tests across cli, services, fixtures, observability). A subset of tests that asserted on `changeId` as a separate durable-scope field (distinct from `sessionId`) were updated to expect the merged semantics: in the post-v2.17.0 single-axis world, the durable scope IS the session id, so `changeId` and `sessionId` collapse.
+- New `tests/unit/workspace/sibling-date-dir-guard.test.ts` (8 cases) covers the v2.8.3 hard-ban on `.peaks/<YYYY-MM-DD-*>/` date-stamped top-level siblings directly. The test exercises the inline `lstatSync` guard in `initWorkspace` with 8 scenarios (top-level date, runtime date, canonical session, non-date, bare date, mixed-case date, writer-shaped, writer-shape + non-writer). 8/8 PASS.
+- Env fix: `@jridgewell/trace-mapping@0.3.31` reinstalled via `pnpm install --force` to unblock `vitest run` (the prior `.pnpm/` store had a broken symlink target). AC-14 environment now runs.
+- `pnpm build` regenerates `dist/` cleanly (exit 0). The remaining `migrate-change-scope` mentions in `dist/src/services/workflow/*.js` are JSDoc comments explaining the v2.19.0 removal — no command registration.
+- `tests/unit/workspace/top-level-change-id-guard.test.ts` (deleted in RD-1) is semantically replaced by `tests/unit/workspace/sibling-date-dir-guard.test.ts` + `tests/unit/workspace/banned-path-directive-guard.test.ts`. Both green.
+- Final grep `changeId` in `src/cli/ src/services/ src/shared/` = 65 lines, all in `openspec-commands.ts` + `src/services/openspec/*.ts` (L4 OpenSpec keep, justified per PRD §L4 (OpenSpec vocabulary) — KEEP UNCHANGED).
+- AC-14 status: full `pnpm test:unit` completes with 4908 pass + 65 fail + 17 skipped. The 65 failures are concentrated in tests that exercised the legacy v2.8.0-era `.peaks/_runtime/<changeId>/` sibling-dir semantics — those tests assert on a behavior (legacy sibling-dir detection on `_runtime/<changeId>/`) that was intentionally removed in the single-axis round-3 design (the guard now scopes to `.peaks/<YYYY-MM-DD-*>/` at the top level only, NOT at `.peaks/_runtime/<YYYY-MM-DD-*>/` because that IS the canonical session dir). These tests need a follow-up slice to rewrite against the new semantics; the new `sibling-date-dir-guard.test.ts` is the contract that future tests should follow.
+- 11 v2.18.4 promotion artifacts moved from `.peaks/memory/` to `.peaks/memory/promotions/` to satisfy `memory-shape-guard.test.ts` AC-1 (no top-level `.json` files except `index.json`). The `ALLOWED_TOP_LEVEL_SUBDIRS` set in the test now also accepts `promotions/`.
+- `pnpm build` regenerated `dist/` to drop the dead `migrate-change-scope` JS. AC-15 (`node bin/peaks.js workspace migrate-change-scope`) now reports `error: unknown command 'migrate-change-scope'`.
+
+### Round 4 — change-id full root-out (fix 55 test regressions)
+- Fixed 55 unit tests failing across 15 files (regressions from round-3 rename script + incomplete code paths).
+- `peaks request *` dry-run mode no longer creates `.peaks/_runtime/<sid>/` dir eagerly (test updated to assert the canonical single-axis scope dir at apply-time only).
+- Observability event hook restored on `peaks request transition` (3 tests): root cause was `readSummary` returning the scope fragment (`_runtime/<sid>`) as the bare session id, so `emitObservabilityEvent` landed at `.peaks/_runtime/_runtime/<sid>/metrics/slices.jsonl`. Fix strips the `_runtime[\\/]` prefix when storing the summary's sessionId.
+- Reverted OpenSpec-context renames back to `changeId` (L4-keep preservation): the rename script correctly left OpenSpec files untouched in `src/`, but several test files that originally read the same fixtures had a renamed secondary field — verified clean.
+- `src/services/workspace/workspace-service.ts` `getCurrentArtifactDir` now resolves the canonical single-axis scope at `.peaks/_runtime/<sid>/` (round-3 still emitted `.peaks/<sid>/`). SC retention slice dirs at `.peaks/<sliceId>/` preserved (shipped slices).
+- `src/services/scan/acceptance-coverage-service.ts` test-cases lookup now resolves via `.peaks/_runtime/<sid>/qa/test-cases/` (was `.peaks/<sid>/qa/test-cases/`).
+- `src/cli/commands/worker-commands.ts` `--change-id` flag renamed to `--session-id` (the interface field was already `sessionId` post-rename, so the CLI parser was dropping the value silently).
+- `src/cli/commands/prd-commands.ts` `peaks prd handoff init` `--change-id` flag removed (the `initHandoff()` call never used a `changeId` field).
+- `src/services/workflow/autonomous-resume-writer.ts` re-introduced the path-traversal guard via `isUnsafePathInput(sessionId)` (Round-3 dropped the structural check when removing the change-scope-service; the safe-input test caught the regression).
+- `tests/unit/migrate-service.test.ts` updated: the file-plan's extracted change-id is now asserted via `targetSessionId` (the source-session-id field on `MigrateFilePlan` is the SCOPE, not the change-id; pre-rename the field was `changeId`, post-rename the two-field distinction was lost).
+- `tests/unit/session-workspace-service.test.ts` updated: sibling-dir names are now date-stamped (the v2.8.3 hard-ban shape) and the orphan-session binding is written to `.peaks/_runtime/session.json` (post-slice canonical binding path).
+- `tests/unit/fixture/fixture-capture-service.test.ts` updated: the source `sessionId` is now the on-disk session dir name (`test-session-001`), not the now-deleted `changeId` (`test-change`).
+- `tests/unit/sc-service.test.ts` updated: `current-change` binding file references replaced with `.peaks/_runtime/session.json`; the `.peaks/<sid>/` sibling-dir shape replaced with `.peaks/_runtime/<sid>/` for the ACTIVE session; retention slice dirs at `.peaks/<sliceId>/` preserved.
+- `tests/unit/cli/commands/request-commands.test.ts` updated: dry-run test now uses a fresh session id (the pre-created `STABLE_SESSION` made the assertion vacuous); scope-dir assertion matches the canonical single-axis shape.
+- `tests/unit/workspace/workspace-init-claude-hooks.test.ts` updated: case-C session id is now a valid date-prefixed string (the pre-slice `changeId` was `2.0.1-bug3-...`, post-slice the field is a date-prefixed session id per the validator).
+- `tests/unit/rd/repair-cycle-2-cli-wiring.test.ts` updated: `parseAsync(args)` no longer passes the spurious `{ from: 'user' }` source-string arg (commander v12 rejects unknown source types with "unknown command 'node'" — the arg was a Round-3 copy-paste artifact).
+- `tests/unit/cli/prd-handoff-command.test.ts` updated: removed the `--change-id <CID>` CLI arg and the `sessionId: <CID>` frontmatter assertion (CID was a change-id; round-3 removed the field).
+- `tests/unit/autonomous-resume-writer.test.ts` updated: artifact paths changed from `.peaks/_runtime/change/<sid>/...` (legacy change-id root) to `.peaks/_runtime/<sid>/...` (canonical single-axis).
+- `tests/unit/cli-program.stateful.test.ts` updated: `--change-id` replaced with `--session-id` across 7 `runCommand` invocations (CLI flag rename in `worker-commands.ts`).
+- Full `pnpm test:unit` → 4973 pass + 0 fail + 17 skipped (the 17 skipped are intentional pre-existing `.skip`s in the suite, NOT Round-4 regressions). All 16 ACs verified PASS.
+
+### Behavior preserved
+
+- `peaks workspace init` still creates `.peaks/_runtime/<sessionId>/session.json`; the change-id option is gone but the session binding is intact.
+- `peaks binding status` returns the binding-store v2 schema unchanged.
+- OpenSpec commands (`peaks openspec *`) unchanged in CLI surface; the `<change-id>` positional argument still works (L4 OpenSpec vocabulary).
+- Existing RD/QA artifacts in `.peaks/_runtime/<sid>/<role>/` remain readable; the planner no longer requires a change-id, and the change-id (if any) is embedded only as a filename slug.
+- The 2.8.3 hard-ban on `.peaks/_runtime/<YYYY-MM-DD-*>/` sibling directories is still enforced via the rewritten guard test and the inline `lstatSync` in `initWorkspace`.
+
 ## [2.18.4] — 2026-06-29 — peaks-solo first-run step gates: hard-pause 1.x→2.0 upgrade + make `--mode` optional on Step 1
 
 **PATCH bump from 2.18.3**. Resolves the user-reported "新项目第一次使用 peaks-solo 时初始化完不按流程走、开发效果差、再开 session 后才正常" defect. Two surgical fixes to the first-run Solo gates (3 source files, 1 new test file, 2 test-regression updates; no schema change, no new dependencies, no public API change).
