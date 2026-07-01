@@ -226,7 +226,7 @@ function run() {
   out.push('');
   out.push(`**Date:** ${new Date().toISOString().slice(0, 10)}  `);
   out.push(`**Corpus:** ${corpus.length} memories from .peaks/memory/*.md  `);
-  out.push(`**Queries:** ${QUERIES.length} (representative peaks-cli keywords)  `);
+  out.push(`**Queries:** ${QUERIES.length} (representative peaks-loop keywords)  `);
   out.push(`**Token heuristic:** 1 token approx 4 bytes (matches headroom-client.ts:60)  `);
   out.push(`**Headroom mode:** balanced (0.40 ratio, per headroom-client.ts:104-106)  `);
   out.push('');
@@ -262,7 +262,7 @@ function run() {
   out.push('');
   out.push('1. **No real LLM call.** The benchmark uses substring overlap as a proxy for fuzzy relevance and as a CONSERVATIVE estimate of LLM rerank quality. A real LLM would likely re-rank more aggressively on semantic queries that substring misses, so the L2 advantage may be understated.');
   out.push('2. **Headroom ratio is approximate.** The 0.40 ratio is the SDK target; real headroom output varies with prompt structure.');
-  out.push('3. **Token heuristic is 4-bytes-per-token.** This matches peaks-clis existing approximation but undercounts CJK content (Chinese text is denser per byte).');
+  out.push('3. **Token heuristic is 4-bytes-per-token.** This matches peaks-loop's existing approximation but undercounts CJK content (Chinese text is denser per byte).');
   out.push('4. **No IdeAdapter.chat() exists yet.** Z-B must add this — or route the rerank through SubAgentDispatcher with a rerank role — before Z-A results can be validated against a real LLM.');
   out.push('');
   out.push('## Pipeline Definitions');
