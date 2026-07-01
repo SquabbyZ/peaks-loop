@@ -484,6 +484,32 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         process.exitCode = 1;
         return;
       }
+      // Slice 2026-07-01-strategic-compact-cli — slice-boundary pre-compact
+      // hook. When transitioning across the RD → QA boundary (rd:qa-handoff),
+      // check the active session's context-fill ratio. If it is in the
+      // 0.85–0.95 pre-compact zone, write a checkpoint BEFORE the
+      // transition completes and attach `preCompactCheckpoint: true` to
+      // the response envelope. The LLM remains the decision-maker; this
+      // hook only surfaces the signal. The 0.95 red-line behaviour is
+      // unchanged — the existing auto-compact orchestrator continues to
+      // refuse dispatch at ratio ≥ 0.95.
+      let preCompact: import('../../shared/result.js').ResultEnvelope<unknown> | null = null;
+      if (role === 'rd' && newState === 'qa-handoff') {
+        try {
+          const { maybePreCompactCheckpoint } = await import('../../services/compact/request-transition-hook.js');
+          const hook = maybePreCompactCheckpoint({
+            projectRoot: options.project,
+            sessionId: result.sessionId,
+            transitionKey: `${role}:${newState}`
+          });
+          preCompact = hook.triggered
+            ? ok('request.transition.preCompact', hook)
+            : null;
+        } catch {
+          // The hook is best-effort; never block the transition.
+          preCompact = null;
+        }
+      }
       // v2.13.2 AC-4 — auto-regen prd/handoff.md on prd:handed-off success.
       // Only fires when the handoff is missing; existing handoffs are not overwritten.
       if (role === 'prd' && newState === 'handed-off' && options.sessionId !== undefined) {
@@ -511,7 +537,29 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
         printResult(io, ok('request.transition', { ...result, handoffAutoRegen: { status: 'failed', reason: regen.reason } }, [`prd handoff auto-regen failed: ${regen.reason}`]), options.json);
         return;
       }
-      printResult(io, ok('request.transition', result), options.json);
+      // Slice 2026-07-01-strategic-compact-cli: stitch the pre-compact
+      // checkpoint signal into the final response envelope. When the
+      // hook did not trigger (zone is not pre-compact OR the
+      // transition is not a slice boundary), preCompact is null and
+      // we emit a `preCompactCheckpoint: null` field so LLM callers
+      // can branch on it without re-deriving zone membership.
+      printResult(
+        io,
+        ok(
+          'request.transition',
+          { ...result, preCompactCheckpoint: preCompact?.data ?? null },
+          preCompact !== null
+            ? [
+                `Pre-compact checkpoint written at ratio=${
+                  typeof preCompact.data === 'object' && preCompact.data !== null && 'ratio' in preCompact.data
+                    ? String((preCompact.data as { ratio: number }).ratio)
+                    : 'unknown'
+                } (zone=pre-compact)`
+              ]
+            : []
+        ),
+        options.json
+      );
     } catch (error) {
       if (error instanceof InvalidArgumentError) {
         throw error;

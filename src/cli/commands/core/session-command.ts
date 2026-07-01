@@ -6,6 +6,14 @@ import { resolveCanonicalProjectRoot } from '../../../services/config/config-ser
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { fail, ok } from '../../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
+// Slice 2026-07-01-strategic-compact-cli fix: register the
+// `peaks session checkpoint` and `peaks session resume` subcommands
+// EAGERLY so they appear in `peaks session --help` output. The
+// previous lazy import ran AFTER commander had already produced
+// the help text, so an LLM calling `peaks <TAB>`-discovery never
+// saw them — they were effectively hidden.
+import { registerSessionCheckpointCommand } from '../session-checkpoint-command.js';
+import { registerSessionResumeCommand } from '../session-resume-command.js';
 import type { BindingSource } from './doctor-command.js';
 
 export function registerSessionCommand(program: Command, io: ProgramIO): void {
@@ -198,13 +206,15 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
 
   // Slice 011: `peaks session checkpoint` and `peaks session resume`.
   // Skill-level primitives — the LLM is the decision-maker; CLI is the muscle.
-  // Lazy-import to avoid circular resolution with the session-manager.
-  void (async () => {
-    const { registerSessionCheckpointCommand } = await import('../session-checkpoint-command.js');
-    const { registerSessionResumeCommand } = await import('../session-resume-command.js');
-    registerSessionCheckpointCommand(session, io);
-    registerSessionResumeCommand(session, io);
-  })();
+  // Slice 2026-07-01-strategic-compact-cli fix: register EAGERLY (not
+  // via `void (async () => …)`) so commander walks the subcommand
+  // tree synchronously and `peaks session --help` includes both
+  // `checkpoint` and `resume`. The previous async-IIFE registered
+  // them on a microtask tick AFTER the program-level help builder
+  // had already serialised its output, so they were hidden from
+  // `<TAB>`-discovery and the LLM never saw them.
+  registerSessionCheckpointCommand(session, io);
+  registerSessionResumeCommand(session, io);
 
   addJsonOption(
     session

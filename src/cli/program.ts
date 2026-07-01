@@ -69,6 +69,11 @@ import { registerMutCommands } from './commands/mut-commands.js';
 import { registerFixtureCommands } from './commands/fixture-commands.js';
 import { registerReviewerCommands } from './commands/reviewer-commands.js';
 import { registerObservabilityCommands } from './commands/observability-commands.js';
+// Slice 2026-07-01-strategic-compact-cli: peaks compact
+// (suggest | recommend | survival | dry-run | force) — strategic-compact
+// CLI primitives. See src/services/compact/ and
+// src/cli/commands/compact-command.ts.
+import { registerCompactCommands } from './commands/compact-command.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -340,6 +345,11 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // (read-only queries over the JSONL metrics emitted from the
   // peaks request transition hook in Slice A).
   registerObservabilityCommands(program, io);
+
+  // Slice 2026-07-01-strategic-compact-cli: `peaks compact
+  // suggest|recommend|survival|dry-run|force` — strategic-compact CLI
+  // primitives. See src/cli/commands/compact-command.ts.
+  registerCompactCommands(program, io);
 
  return program;
 }
