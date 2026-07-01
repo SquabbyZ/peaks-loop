@@ -30,6 +30,20 @@ import {
 } from './monotonic-guard.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
+/** Local discriminated result for slice-dir IO. Internal callers
+ *  coalesce `ok: false` to `null` so the public `loadPreviousCycle`
+ *  signature stays `MonotonicCycle | null` (BC — see
+ *  `monotonic-guard.test.ts:199`). */
+type LoadResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly reason: 'NOT_FOUND' | 'IO_ERROR' | 'PARSE_ERROR' };
+
+function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === 'ENOENT') return 'NOT_FOUND';
+  return 'IO_ERROR';
+}
+
 /** Set of evaluator kinds the loop walker actually scores — keeps the
  *  guard surface tight (the verdict-aggregate is the cross-source merge
  *  and not a per-cycle input). */
@@ -64,6 +78,9 @@ export interface RunMonotonicResult {
   readonly persistedAt: string | null;
   readonly rows: readonly MonotonicScoreRow[];
   readonly report: MonotonicReport;
+  /** Additive surface for non-fatal persistence warnings (e.g. mkdir
+   *  failure). Optional so existing destructures keep compiling. */
+  readonly warnings?: readonly string[];
 }
 
 /** Resolve the slice dir used by both writer + reader — keeps tests
@@ -92,12 +109,15 @@ function loadMostRecentCycleFromSubAgents(projectRoot: string, sid: string): Mon
 
 function loadMostRecentCycle(dir: string): MonotonicCycle | null {
   if (!existsSync(dir)) return null;
-  let entries: string[];
-  try {
-    entries = require('node:fs').readdirSync(dir) as string[];
-  } catch {
-    return null;
-  }
+  const readdir: LoadResult<string[]> = (() => {
+    try {
+      return { ok: true, value: require('node:fs').readdirSync(dir) as string[] };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!readdir.ok) return null;
+  const entries = readdir.value;
   let bestCycle: number | null = null;
   for (const entry of entries) {
     const m = entry.match(/^cycle-(\d+)\.json$/);
@@ -107,22 +127,27 @@ function loadMostRecentCycle(dir: string): MonotonicCycle | null {
   }
   if (bestCycle === null) return null;
   const target = join(dir, `cycle-${bestCycle}.json`);
-  let raw: string;
-  try {
-    raw = readFileSync(target, 'utf8');
-  } catch {
-    return null;
-  }
-  return parseCycle(raw, bestCycle);
+  const readFile: LoadResult<string> = (() => {
+    try {
+      return { ok: true, value: readFileSync(target, 'utf8') };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!readFile.ok) return null;
+  return parseCycle(readFile.value, bestCycle);
 }
 
 function parseCycle(raw: string, fallbackCycle: number): MonotonicCycle | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const parse: LoadResult<unknown> = (() => {
+    try {
+      return { ok: true, value: JSON.parse(raw) };
+    } catch {
+      return { ok: false, reason: 'PARSE_ERROR' };
+    }
+  })();
+  if (!parse.ok) return null;
+  const parsed = parse.value;
   if (parsed === null || typeof parsed !== 'object') return null;
   const obj = parsed as Record<string, unknown>;
   const scores = Array.isArray(obj['scores']) ? obj['scores'] : [];
@@ -190,12 +215,19 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
   const report = checkMonotonicImprovement(previousCycle, currentCycle, { threshold });
 
   let persistedAt: string | null = null;
+  const envelopeWarns: string[] = [];
   if (persist) {
     const dir = sliceDir(options.projectRoot, options.sid, options.rid);
-    try {
-      mkdirSync(dir, { recursive: true });
-    } catch {
-      // swallow — persist failure is non-fatal
+    const mkdir: LoadResult<void> = (() => {
+      try {
+        mkdirSync(dir, { recursive: true });
+        return { ok: true, value: undefined };
+      } catch (err) {
+        return { ok: false, reason: classifyFsError(err) };
+      }
+    })();
+    if (!mkdir.ok) {
+      envelopeWarns.push(`mkdir-failed: ${dir} (${mkdir.reason})`);
     }
     const path = join(dir, `cycle-${cycle}.json`);
     const payload = JSON.stringify({
@@ -205,11 +237,19 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
       persistedAt: new Date().toISOString(),
       scores: rows
     });
-    try {
-      writeFileSync(path, payload, 'utf8');
+    const writeFile: LoadResult<void> = (() => {
+      try {
+        writeFileSync(path, payload, 'utf8');
+        return { ok: true, value: undefined };
+      } catch (err) {
+        return { ok: false, reason: classifyFsError(err) };
+      }
+    })();
+    if (writeFile.ok) {
       persistedAt = path;
-    } catch {
+    } else {
       persistedAt = null;
+      envelopeWarns.push(`write-failed: ${path} (${writeFile.reason})`);
     }
   }
 
@@ -221,7 +261,8 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
     previousCycle: previousCycle === null ? null : previousCycle.cycle,
     persistedAt,
     rows,
-    report
+    report,
+    ...(envelopeWarns.length > 0 ? { warnings: envelopeWarns } : {})
   };
 }
 

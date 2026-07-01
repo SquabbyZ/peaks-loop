@@ -205,6 +205,20 @@ export function checkMonotonicImprovement(
   };
 }
 
+/** Local discriminated result for cross-session IO. Callers coalesce
+ *  `ok: false` to `null` at the boundary so the public
+ *  `loadCrossSessionSignal` signature stays `MonotonicCycle | null`
+ *  (BC — `monotonic-guard.test.ts` asserts on `null` literally). */
+type LoadResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly reason: 'NOT_FOUND' | 'IO_ERROR' | 'PARSE_ERROR' };
+
+function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === 'ENOENT') return 'NOT_FOUND';
+  return 'IO_ERROR';
+}
+
 /** Read `.peaks/_sub_agents/<sid>/shared/` cross-session signal — on
  *  any IO error, return `null` so the guard never crashes on missing
  *  cross-batch signal (per Slice C (b) case "跨 session 读
@@ -220,12 +234,15 @@ export function loadCrossSessionSignal(
   const fs = require('node:fs') as typeof import('node:fs');
   const path = require('node:path') as typeof import('node:path');
   const sharedDir = path.join(projectRoot, '.peaks', '_sub_agents', sid, 'shared');
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(sharedDir);
-  } catch {
-    return null; // missing dir or permission denied — both are no-ops.
-  }
+  const readdir: LoadResult<string[]> = (() => {
+    try {
+      return { ok: true, value: fs.readdirSync(sharedDir) };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!readdir.ok) return null; // missing dir or permission denied — both are no-ops.
+  const entries = readdir.value;
   // Pick the highest cycle number from the filenames; tolerate garbage.
   let best: number | null = null;
   for (const entry of entries) {
@@ -236,18 +253,23 @@ export function loadCrossSessionSignal(
   }
   if (best === null) return null;
   const target = path.join(sharedDir, `cycle-${best}.json`);
-  let raw: string;
-  try {
-    raw = fs.readFileSync(target, 'utf8');
-  } catch {
-    return null;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const readFile: LoadResult<string> = (() => {
+    try {
+      return { ok: true, value: fs.readFileSync(target, 'utf8') };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!readFile.ok) return null;
+  const parse: LoadResult<unknown> = (() => {
+    try {
+      return { ok: true, value: JSON.parse(readFile.value) };
+    } catch {
+      return { ok: false, reason: 'PARSE_ERROR' };
+    }
+  })();
+  if (!parse.ok) return null;
+  const parsed = parse.value;
   if (parsed === null || typeof parsed !== 'object') return null;
   const obj = parsed as Record<string, unknown>;
   const cycleNo = typeof obj['cycle'] === 'number' ? obj['cycle'] : best;

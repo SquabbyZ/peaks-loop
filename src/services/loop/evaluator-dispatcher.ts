@@ -253,7 +253,7 @@ function parseGenericEnvelope(
 ): EvaluatorVerdictEnvelope {
   const wall = (Date.now() - started) / 1000;
   const parsed = safeJson(stdout);
-  if (parsed === null) {
+  if (!parsed.ok) {
     return {
       kind,
       passed: exitCode === 0,
@@ -264,7 +264,7 @@ function parseGenericEnvelope(
       degraded: true
     };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed.value as Record<string, unknown>;
   const data = (obj['data'] ?? obj) as Record<string, unknown>;
   return {
     kind,
@@ -368,7 +368,7 @@ function gateActionFromVerdict(verdict: string): 'pass' | 'warn' | 'block' {
 function parseKarpathyEnvelope(stdout: string, exitCode: number, started: number): EvaluatorVerdictEnvelope {
   const wall = (Date.now() - started) / 1000;
   const parsed = safeJson(stdout);
-  if (parsed === null) {
+  if (!parsed.ok) {
     return {
       kind: 'karpathy',
       passed: exitCode === 0,
@@ -379,7 +379,7 @@ function parseKarpathyEnvelope(stdout: string, exitCode: number, started: number
       degraded: true
     };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed.value as Record<string, unknown>;
   const data = (obj['data'] ?? obj) as Record<string, unknown>;
   const passed = data['passed'] === true;
   const gateAction = typeof data['gateAction'] === 'string' ? gateActionFromVerdict(data['gateAction']) : (passed ? 'pass' : 'block');
@@ -404,7 +404,7 @@ function parseCodeReviewEnvelope(stdout: string, exitCode: number, started: numb
 function parseSecurityEnvelope(stdout: string, exitCode: number, started: number): EvaluatorVerdictEnvelope {
   const wall = (Date.now() - started) / 1000;
   const parsed = safeJson(stdout);
-  if (parsed === null) {
+  if (!parsed.ok) {
     return {
       kind: 'security-review',
       passed: exitCode === 0,
@@ -415,7 +415,7 @@ function parseSecurityEnvelope(stdout: string, exitCode: number, started: number
       degraded: true
     };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed.value as Record<string, unknown>;
   const data = (obj['data'] ?? obj) as Record<string, unknown>;
   const verdict = typeof data['verdict'] === 'string' ? data['verdict'] : (exitCode === 0 ? 'pass' : 'warn');
   const violationsRaw = Array.isArray(data['violations']) ? data['violations'] : [];
@@ -434,7 +434,7 @@ function parseSecurityEnvelope(stdout: string, exitCode: number, started: number
 function parsePerfEnvelope(stdout: string, exitCode: number, started: number): EvaluatorVerdictEnvelope {
   const wall = (Date.now() - started) / 1000;
   const parsed = safeJson(stdout);
-  if (parsed === null) {
+  if (!parsed.ok) {
     return {
       kind: 'perf-baseline',
       passed: exitCode === 0,
@@ -445,7 +445,7 @@ function parsePerfEnvelope(stdout: string, exitCode: number, started: number): E
       degraded: true
     };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed.value as Record<string, unknown>;
   const data = (obj['data'] ?? obj) as Record<string, unknown>;
   const verdict = typeof data['verdict'] === 'string' ? data['verdict'] : (exitCode === 0 ? 'pass' : 'warn');
   const violationsRaw = Array.isArray(data['violations']) ? data['violations'] : [];
@@ -464,7 +464,7 @@ function parsePerfEnvelope(stdout: string, exitCode: number, started: number): E
 function parseVerdictAggregateEnvelope(stdout: string, exitCode: number, started: number): EvaluatorVerdictEnvelope {
   const wall = (Date.now() - started) / 1000;
   const parsed = safeJson(stdout);
-  if (parsed === null) {
+  if (!parsed.ok) {
     return {
       kind: 'verdict-aggregate',
       passed: exitCode === 0,
@@ -475,7 +475,7 @@ function parseVerdictAggregateEnvelope(stdout: string, exitCode: number, started
       degraded: true
     };
   }
-  const obj = parsed as Record<string, unknown>;
+  const obj = parsed.value as Record<string, unknown>;
   const data = (obj['data'] ?? obj) as Record<string, unknown>;
   const verdict = typeof data['verdict'] === 'string' ? data['verdict'] : (exitCode === 0 ? 'pass' : 'block');
   const reasonsRaw = Array.isArray(data['reasons']) ? data['reasons'] : [];
@@ -523,12 +523,20 @@ function normalizeViolation(raw: unknown): EvaluatorVerdictEnvelope['violations'
   return out;
 }
 
-function safeJson(raw: string): unknown {
-  if (typeof raw !== 'string' || raw.length === 0) return null;
+/** Discriminated result for safeJson — callers can branch on `ok` instead of
+ *  guessing whether a `null` return means "no input" vs "bad JSON". */
+type LoadResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly reason: 'PARSE_ERROR' };
+
+function safeJson(raw: string): LoadResult<unknown> {
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return { ok: false, reason: 'PARSE_ERROR' };
+  }
   try {
-    return JSON.parse(raw);
+    return { ok: true, value: JSON.parse(raw) };
   } catch {
-    return null;
+    return { ok: false, reason: 'PARSE_ERROR' };
   }
 }
 

@@ -52,6 +52,19 @@ import {
 import { nextCycleIndex, sliceDir } from './monotonic-runner.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
+/** Local discriminated result for cycle-persistence IO. Internal
+ *  callers coalesce `ok: false` to `null` at the public boundary so
+ *  `persistCycleRecord` keeps its `string | null` return shape (BC). */
+type LoadResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly reason: 'NOT_FOUND' | 'IO_ERROR' | 'PARSE_ERROR' };
+
+function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === 'ENOENT') return 'NOT_FOUND';
+  return 'IO_ERROR';
+}
+
 export type RunDriverCode =
   | 'RUN_OK'
   | 'RUN_OK_REGRESSION'
@@ -150,11 +163,15 @@ function persistCycleRecord(
   rows: readonly MonotonicScoreRow[]
 ): string | null {
   const dir = cyclesDir(projectRoot, sid, rid);
-  try {
-    mkdirSync(dir, { recursive: true });
-  } catch {
-    return null;
-  }
+  const mkdir: LoadResult<void> = (() => {
+    try {
+      mkdirSync(dir, { recursive: true });
+      return { ok: true, value: undefined };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!mkdir.ok) return null;
   const path = join(dir, `cycle-${cycle}.json`);
   const payload = JSON.stringify({
     cycle,
@@ -163,12 +180,15 @@ function persistCycleRecord(
     persistedAt: new Date().toISOString(),
     scores: rows
   });
-  try {
-    writeFileSync(path, payload, 'utf8');
-    return path;
-  } catch {
-    return null;
-  }
+  const writeFile: LoadResult<void> = (() => {
+    try {
+      writeFileSync(path, payload, 'utf8');
+      return { ok: true, value: undefined };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  return writeFile.ok ? path : null;
 }
 
 /** Internal: build a CycleRecord from a (current, previous) pair. */
@@ -444,18 +464,23 @@ function parseCycleFromPath(path: string, fallbackCycle: number): MonotonicCycle
   // small and avoids leaking its internals).
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const fs = require('node:fs') as typeof import('node:fs');
-  let raw: string;
-  try {
-    raw = fs.readFileSync(path, 'utf8');
-  } catch {
-    return null;
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const readFile: LoadResult<string> = (() => {
+    try {
+      return { ok: true, value: fs.readFileSync(path, 'utf8') };
+    } catch (err) {
+      return { ok: false, reason: classifyFsError(err) };
+    }
+  })();
+  if (!readFile.ok) return null;
+  const parse: LoadResult<unknown> = (() => {
+    try {
+      return { ok: true, value: JSON.parse(readFile.value) };
+    } catch {
+      return { ok: false, reason: 'PARSE_ERROR' };
+    }
+  })();
+  if (!parse.ok) return null;
+  const parsed = parse.value;
   if (parsed === null || typeof parsed !== 'object') return null;
   const obj = parsed as Record<string, unknown>;
   const scores = Array.isArray(obj['scores']) ? obj['scores'] : [];
