@@ -2,11 +2,11 @@
 
 > Reference for `peaks-solo` Swarm phase and the role sub-agents (`peaks-ui` / `peaks-rd` planning / `peaks-qa` test-cases). Defines the **mechanism** of fan-out: how Solo launches sub-agents, what the sub-agent prompt must contain, what the sub-agent must return, and how Solo reduces the result.
 
-## Peaks-Cli Swarm parallel phase (sub-agent fan-out, default)
+## Peaks-Loop Swarm parallel phase (sub-agent fan-out, default)
 
 > **Slice 5 (2026-06-23) + slice 2026-06-23-audit-4th #F3:** the
 > previous "conditional swarm" framing is replaced by the **default
-> fan-out rule** in `skills/peaks-solo/SKILL.md` §"Peaks-Cli Default
+> fan-out rule** in `skills/peaks-solo/SKILL.md` §"Peaks-Loop Default
 > sub-agent fan-out". When the slice DAG has ≥ 2 leaves at the same
 > topological level, dispatch goes through
 > `peaks sub-agent dispatch --from-dag` (NOT one-at-a-time). The
@@ -158,7 +158,7 @@ After all sub-agent dispatch calls return and the LLM has invoked the toolCalls,
 
 ## 5. Presence restoration (single-shot)
 
-Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means `.peaks/.active-skill.json` does not move during the fan-out. Solo sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: <gate>` line) therefore reads consistently across the fan-out window.
+Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means `.peaks/.active-skill.json` does not move during the fan-out. Solo sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
 
 If a sub-agent is misbehaving and writes to `.peaks/.active-skill.json` anyway, the next Solo presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Solo should still treat the file as a single-writer resource.
 

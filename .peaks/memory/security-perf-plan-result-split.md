@@ -1,7 +1,7 @@
 # Security + Perf plan/result split (slice 025)
 
 > Source: project-local lesson, captured 2026-06-10 from slice 025.
-> Scope: applies to any peaks-cli project that uses the QA security +
+> Scope: applies to any peaks-loop project that uses the QA security +
 > perf gates. Future slices / projects that touch the same surface must
 > read this first.
 > Reading: read this before extending Gate C, the QA fan-out, or any

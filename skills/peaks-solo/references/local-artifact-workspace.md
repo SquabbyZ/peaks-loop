@@ -1,6 +1,6 @@
 # Local intermediate artifact workspace
 
-> Body of `## Peaks-Cli Local intermediate artifact workspace` plus all sub-sections (workspace initialization gate, root pollution prohibition, git and sync policy).
+> Body of `## Peaks-Loop Local intermediate artifact workspace` plus all sub-sections (workspace initialization gate, root pollution prohibition, git and sync policy).
 
 ## Workspace initialization gate
 
@@ -61,7 +61,7 @@ Files written into these directories during the workflow (not pre-created — th
 
 ## Root pollution prohibition (CRITICAL)
 
-**NEVER write Peaks-Cli intermediate artifacts to the project root directory.** Specifically prohibited at root level:
+**NEVER write Peaks-Loop intermediate artifacts to the project root directory.** Specifically prohibited at root level:
 
 - PRD snapshots, document extracts, or requirement notes (`feishu-doc-*.md`, `*-snapshot.md`, etc.)
 - RD tech docs, scan reports, slice specs, or architecture notes

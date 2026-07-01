@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "peaks-cli/schemas/reviewer-envelope.schema.json",
+  "$id": "peaks-loop/schemas/reviewer-envelope.schema.json",
   "title": "ReviewerEnvelope",
   "description": "Schema-validated JSON envelope emitted by peaks-reviewer (third-party reviewer). All LLM JSON output MUST validate against this shape; free-form LLM JSON is rejected. v2.14.0 G4 AC-4.2.",
   "type": "object",

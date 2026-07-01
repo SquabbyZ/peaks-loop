@@ -21,7 +21,7 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
     const body = await read(join('skills', 'peaks-solo', 'references', 'browser-workflow.md'));
 
     expect(body).toMatch(/Playwright MCP/);
-    // Slice #016 removed the peaks-cli MCP subsystem; the LLM now self-detects
+    // Slice #016 removed the peaks-loop MCP subsystem; the LLM now self-detects
     // via its own tool list and tells the user the install command.
     expect(body).toMatch(/tool list|your tool list|mcp__playwright__/);
     expect(body).toMatch(/claude mcp add playwright/);
@@ -66,7 +66,7 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
   test('peaks-solo external-skill-invocation reference documents Chrome DevTools MCP as optional secondary surface (slice 016)', async () => {
     const body = await read(join('skills', 'peaks-solo', 'references', 'external-skill-invocation.md'));
 
-    // Slice #016: peaks-cli no longer owns MCP install. The reference must
+    // Slice #016: peaks-loop no longer owns MCP install. The reference must
     // document the chrome-devtools MCP and direct the LLM to its tool list.
     expect(body).toMatch(/chrome[- ]?devtools/);
     expect(body).toMatch(/mcp__chrome_devtools__|mcp__chrome-devtools__/);

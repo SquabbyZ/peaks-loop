@@ -33,7 +33,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    per-criterion `ts` snippets are syntactically valid, then proceeds
 #    to step 5 (EXECUTE). Fallback: if the file is missing, QA drafts it inline.
 
-# 5. EXECUTE tests against the actual implementation — Peaks-Cli Gate A2
+# 5. EXECUTE tests against the actual implementation — Peaks-Loop Gate A2
 #    Run the project test command. Record output. Tests on paper are worthless.
 #    NOTE (v2.11.0 D1/D4): Security review + performance check are NOT run by peaks-qa.
 #    They are owned by peaks-rd's audit fan-out and surface as rd/security-review.md and
@@ -44,7 +44,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 #    MUST contain actual execution results (pass/fail counts, coverage %, findings).
 
 # 7. frontend browser validation (when frontend is in scope)
-# Slice #016: peaks-cli no longer manages MCP install/dispatch. The LLM
+# Slice #016: peaks-loop no longer manages MCP install/dispatch. The LLM
 # checks its own tool list for any Playwright MCP entry. If absent,
 # QA reports the missing tool and tells the user the install command
 # (`claude mcp add playwright -- npx @playwright/mcp@latest`).
@@ -56,7 +56,7 @@ peaks openspec validate <change-id> --project <repo> --prefer-external --json   
 
 # 8. write per-criterion acceptance results, regression matrix, security/performance findings,
 #    and the final verdict into the QA request artifact. Mark state=verdict-issued.
-#    BEFORE the transition, run the QA quality-gate CLI checks (see Peaks-Cli Gate E/F):
+#    BEFORE the transition, run the QA quality-gate CLI checks (see Peaks-Loop Gate E/F):
 peaks scan acceptance-coverage --rid <rid> --project <repo> --json
 # → ok=false → BLOCKED. Some PRD acceptance items have no linked test case.
 peaks request lint <rid> --role qa --project <repo> --json

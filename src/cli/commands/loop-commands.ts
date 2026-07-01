@@ -1,7 +1,7 @@
 /**
  * peaks loop * CLI (Slice #14) — L4 Agent Loop Integration.
  *
- * Per docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §5.4
+ * Per docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §5.4
  * Slice #14, ships 5 sub-features:
  *
  *   14.1 peaks loop distill          — extract patterns from past sessions

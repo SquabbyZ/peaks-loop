@@ -1,6 +1,6 @@
 ---
 name: 2026-06-28-session-75d5f0-familiarization
-description: 2026-06-28 new session (75d5f0) 启动时熟悉 peaks-cli 项目时沉淀的结构要点 — 版本/栈/目录骨架/skills/CLI 表面积/standards 指针/memory 体量。便于后续 session 直接复用。
+description: 2026-06-28 new session (75d5f0) 启动时熟悉 peaks-loop 项目时沉淀的结构要点 — 版本/栈/目录骨架/skills/CLI 表面积/standards 指针/memory 体量。便于后续 session 直接复用。
 metadata:
   type: project
 ---
@@ -9,7 +9,7 @@ metadata:
 
 **触发**: 用户开场白"你先熟悉下当前这个项目，我有些问题"。
 **session id**: `2026-06-28-session-75d5f0`（由 outer-session-mismatch 自动 rotate 自上一会话 `2026-06-28-session-100b52`）。
-**workspace**: `C:\Users\smallMark\Desktop\peaks-cli`，分支 main。
+**workspace**: `C:\Users\smallMark\Desktop\peaks-loop`，分支 main。
 
 ## 1. 版本与栈
 
@@ -29,7 +29,7 @@ metadata:
 ## 2. 仓库骨架
 
 ```
-peaks-cli/
+peaks-loop/
 ├── bin/peaks.js           # shim → dist/src/cli/index.js
 ├── src/
 │   ├── cli/               # program.ts + commands/ (61 个命令文件)

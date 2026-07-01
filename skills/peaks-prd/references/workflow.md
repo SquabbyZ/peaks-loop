@@ -6,7 +6,7 @@ For refactors, produce a focused product artifact package rather than a full pro
 
 When the product source is an authenticated Feishu/Lark/wiki document:
 
-1. Use Playwright MCP (the LLM checks its tool list for `mcp__playwright__*`; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code, or the IDE-native MCP install command otherwise — peaks-cli does not auto-install), not unauthenticated fetch.
+1. Use Playwright MCP (the LLM checks its tool list for `mcp__playwright__*`; if absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code, or the IDE-native MCP install command otherwise — peaks-loop does not auto-install), not unauthenticated fetch.
 2. Before navigation, verify the user-provided document URL uses `https:` and belongs to an approved Feishu/Lark tenant domain such as `*.feishu.cn`, `*.larksuite.com`, `*.larksuite.com.cn`, or a project-configured tenant. Reject `file:`, `data:`, `javascript:`, `http:`, localhost, loopback, link-local, private IP, and raw IP hosts unless the user explicitly approves a controlled local test target.
 3. Navigate with `browser_navigate` (the LLM invokes the tool from its `mcp__playwright__*` list). Playwright MCP launches a headed browser on demand. If login, CAPTCHA, SSO, or MFA appears, do not bypass authentication; the headed browser is already visible — wait for the user to complete login and explicitly confirm completion.
 4. Verify a real visible browser opened by calling `browser_take_screenshot`; the screenshot or explicit user confirmation is the visible-browser evidence.

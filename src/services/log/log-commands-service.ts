@@ -18,7 +18,7 @@ import { buildLogFileName, readLogEntries, resolveLogDir, type LogEntry } from '
 const LOG_FILE_NAME_PATTERN = /^peaks-loop-\d{4}-\d{2}-\d{2}\.log$/;
 
 /**
- * Return all `peaks-cli-*.log` files in the log dir, sorted by
+ * Return all `peaks-loop-*.log` files in the log dir, sorted by
  * date descending (newest first). Returns `[]` when the dir is
  * missing or unreadable. Non-matching entries (e.g. a stray
  * README) are filtered out.

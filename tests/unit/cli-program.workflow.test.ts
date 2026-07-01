@@ -88,7 +88,7 @@ describe('createProgram workflow commands', () => {
   });
 
   test('does not write project language config from workflow route planning', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-plan-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-language-plan-'));
     writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
@@ -104,7 +104,7 @@ describe('createProgram workflow commands', () => {
   });
 
   test('does not write project language config from nested workflow route planning', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-plan-root-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-language-plan-root-'));
     const nestedDir = join(projectRoot, 'packages', 'app');
     mkdirSync(nestedDir, { recursive: true });
     writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
@@ -128,7 +128,7 @@ describe('createProgram workflow commands', () => {
     // case (the change-id axis is gone); the test now asserts that a
     // plain workflow-route call with no validation error still does
     // not bootstrap `.peaks/config.json` from a fresh project root.
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-language-bootstrap-invalid-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-language-bootstrap-invalid-'));
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
     try {
@@ -293,7 +293,7 @@ describe('createProgram workflow commands', () => {
   });
 
   test('routes direct swarm plan execution workers to strongest model when economy mode is disabled', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-project-config-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-project-config-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ economyMode: false, swarmMode: true }), 'utf8');
 
@@ -314,7 +314,7 @@ describe('createProgram workflow commands', () => {
   });
 
   test('bypasses direct swarm plan worker graph when swarm mode is disabled', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-project-config-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-project-config-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ economyMode: true, swarmMode: false }), 'utf8');
 
@@ -380,9 +380,9 @@ describe('createProgram workflow commands', () => {
   });
 
   test('prefers the workspace matching the current repository for workflow planning', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-workspace-project-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-workspace-project-'));
     const nestedDir = join(projectRoot, 'packages', 'app');
-    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-cli-workspace-artifacts-'));
+    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-loop-workspace-artifacts-'));
     mkdirSync(nestedDir, { recursive: true });
     mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
     writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
@@ -455,9 +455,9 @@ describe('createProgram workflow commands', () => {
   });
 
   test('runs workflow planning for the current repository during workflow planning', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-auto-workspace-project-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-auto-workspace-project-'));
     const nestedDir = join(projectRoot, 'packages', 'app');
-    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-cli-auto-workspace-artifacts-'));
+    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-loop-auto-workspace-artifacts-'));
     mkdirSync(nestedDir, { recursive: true });
     mkdirSync(join(artifactWorkspace, '.peaks'), { recursive: true });
     writeFileSync(join(artifactWorkspace, '.peaks', 'config.json'), '{}', 'utf8');
@@ -495,9 +495,9 @@ describe('createProgram workflow commands', () => {
   });
 
   test('keeps workflow planning as a blocked preview when artifact marker setup is unsafe', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-unsafe-artifact-project-'));
-    const artifactRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-unsafe-artifact-root-'));
-    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-unsafe-artifact-outside-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-unsafe-artifact-project-'));
+    const artifactRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-unsafe-artifact-root-'));
+    const outsideRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-unsafe-artifact-outside-'));
     mkdirSync(join(projectRoot, 'packages', 'app'), { recursive: true });
     writeFileSync(join(projectRoot, 'package.json'), '{}', 'utf8');
     symlinkSync(outsideRoot, join(artifactRoot, '.peaks'), 'junction');

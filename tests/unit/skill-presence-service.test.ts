@@ -724,7 +724,7 @@ describe('skill presence service', () => {
         expect(step2).not.toBeNull();
         expect(step2!.skill).toBe('peaks-solo');
         // At this point, CLAUDE.md shows:
-        // "Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: ..."
+        // "Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: startup | Next: ..."
 
         // Step 3: Workflow completes — peaks skill presence:clear
         const step3 = clearSkillPresence();
@@ -734,7 +734,7 @@ describe('skill presence service', () => {
         const step4 = getSkillPresence();
         expect(step4).toBeNull();
         // At this point, CLAUDE.md shows NOTHING — user is outside peaks workflow
-        // Solo MUST display: "Peaks-Cli Solo workflow has ended..."
+        // Solo MUST display: "Peaks-Loop Solo workflow has ended..."
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });

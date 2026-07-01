@@ -31,7 +31,7 @@ For `peaks-solo refactor` runs against a repository with `openspec/`:
 3. QA exit gate — re-run `peaks openspec validate <id>` after implementation; record the result in the QA validation report.
 4. Archive — `peaks openspec archive <id> --apply` only after QA passes the exit gate and SC closes the final commit.
 
-If the consuming LLM needs an MCP server for docs lookup or research (e.g. Context7), it checks its own tool list for `mcp__<server>__*` and tells the user the install command if absent. peaks-cli is no longer in the install path; the LLM is the executor, the IDE is the dispatcher.
+If the consuming LLM needs an MCP server for docs lookup or research (e.g. Context7), it checks its own tool list for `mcp__<server>__*` and tells the user the install command if absent. peaks-loop is no longer in the install path; the LLM is the executor, the IDE is the dispatcher.
 
 ## Boundary
 
@@ -41,7 +41,7 @@ Solo must not write `openspec/changes/**` or `~/.claude/settings.json` directly.
 
 # Step 0.5 — OpenSpec first-run opt-in (conditional)
 
-> Body of `### Peaks-Cli Step 0.5`. After the workspace is anchored, before project scan, Solo checks whether
+> Body of `### Peaks-Loop Step 0.5`. After the workspace is anchored, before project scan, Solo checks whether
 the project already has an `openspec/` directory. The lifecycle
 (`render → validate → show → to-rd → validate → archive`) only applies
 when `openspec/` exists; without it, RD/QA/SC silently skip the

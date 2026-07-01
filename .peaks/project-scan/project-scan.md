@@ -19,7 +19,7 @@ libraryVersions:
   tsx: "^4.19.2"
   "@alibaba-group/open-code-review": "1.3.1 (optional peer)"
 architecture: |
-  peaks-cli is a TypeScript Node CLI for AI-coding workflow orchestration.
+  peaks-loop is a TypeScript Node CLI for AI-coding workflow orchestration.
   Architecture:
     skills/             — declarative reference docs (peaks-solo / peaks-rd / peaks-qa / peaks-prd / peaks-ui / peaks-txt / peaks-sc)
     src/services/       — typed business services (one module per concern)
@@ -38,7 +38,7 @@ karpathySelfCheck:
   thinkBefore: "Every dispatch prompt carries the 4 Karpathy guidelines verbatim (andrej-karpathy-skills:karpathy-guidelines). RD artifact names red-line scope before any code change."
 ---
 
-# Peaks-Cli Project Scan (v2.10.0 → v2.11.0 baseline)
+# Peaks-Loop Project Scan (v2.10.0 → v2.11.0 baseline)
 
 > Auto-bootstrap of `.peaks/project-scan/project-scan.md` (v2.11.0 D3). Refresh with
 > `peaks project knowledge --project .` after every major dependency bump.

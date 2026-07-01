@@ -48,7 +48,7 @@ beforeEach(() => {
   process.exitCode = undefined;
   resetCliProgramMocks();
   writeUserConfig();
-  tmpProject = mkdtempSync(join(tmpdir(), 'peaks-cli-standards-migrate-'));
+  tmpProject = mkdtempSync(join(tmpdir(), 'peaks-loop-standards-migrate-'));
 });
 
 afterEach(() => {
@@ -85,7 +85,7 @@ describe('peaks standards migrate --from-claude-rules', () => {
     const sampleFile = join(tmpProject, '.claude', 'rules', 'common', 'coding-style.md');
     expect(existsSync(sampleFile)).toBe(true);
     const body = readFileSync(sampleFile, 'utf8');
-    expect(body).toContain('Canonical peaks-cli 2.0 rules live at');
+    expect(body).toContain('Canonical peaks-loop 2.0 rules live at');
 
     // Scaffold present
     expect(existsSync(join(tmpProject, '.peaks', 'standards'))).toBe(true);
@@ -109,7 +109,7 @@ describe('peaks standards migrate --from-claude-rules', () => {
     const sampleFile = join(tmpProject, '.claude', 'rules', 'common', 'dev-preference.md');
     const body = readFileSync(sampleFile, 'utf8');
     expect(body).toContain('1.x dev-preference');
-    expect(body).not.toContain('Canonical peaks-cli 2.0 rules live at');
+    expect(body).not.toContain('Canonical peaks-loop 2.0 rules live at');
 
     // No .peaks/standards/ scaffold under dry-run
     expect(existsSync(join(tmpProject, '.peaks', 'standards'))).toBe(false);

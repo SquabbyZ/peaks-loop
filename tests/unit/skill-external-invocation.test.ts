@@ -63,13 +63,13 @@ describe('audit: MCP-server external references route through the LLM tool list 
   // Slice #016 retired the `peaks mcp *` indirection. Skill bodies now route
   // MCP install / dispatch through the LLM's own tool list (the LLM checks
   // for `mcp__<server>__*` entries) and instruct the user to run the
-  // IDE-native install command when the MCP is absent. peaks-cli is no
+  // IDE-native install command when the MCP is absent. peaks-loop is no
   // longer in the install path.
   const MCP_TOKENS = ['Chrome DevTools MCP', 'Figma Context MCP', 'Playwright MCP'];
   // Accept any of: a tool-list self-check, an install command for the
   // user, or a Claude-Code-specific install command. The pattern matches
   // prose that explicitly puts the LLM (or the user) in charge of MCP,
-  // not peaks-cli.
+  // not peaks-loop.
   const LLM_TOOL_LIST_PATTERN =
     /(tool list|claude mcp add|LLM (checks|invokes|tells)|LLM's tool list|mcp__[A-Za-z_]+__\*)/i;
   // Negative pattern: the skill must NOT bake the now-retired
@@ -110,7 +110,7 @@ describe('audit: peaks-solo documents the canonical external-skill invocation pa
     expect(body).toMatch(/Stage 3 — Side effect through Peaks CLI only/);
     // Slice #016: the peaks mcp * indirection was retired; the
     // reference doc now points MCP install / dispatch at the LLM's own
-    // tool list rather than the peaks-cli CLI.
+    // tool list rather than the peaks-loop CLI.
     expect(body).toMatch(/(tool list|mcp__[A-Za-z_]+__\*|Slice #016)/);
   });
 });

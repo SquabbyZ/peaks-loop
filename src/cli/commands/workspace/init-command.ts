@@ -307,7 +307,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       // Slice 2026-06-13-selfheal-claude-settings-template: surface
       // the self-heal outcome for the offline
       // `.peaks/.claude-settings-template.json` copy. When the offline
-      // file was refreshed (i.e. the previous peaks-cli release left
+      // file was refreshed (i.e. the previous peaks-loop release left
       // a stale version without the `node -e "..."` wrapper), the user
       // benefits from seeing that the manual-recovery anchor now
       // points at the corrected template. We surface `written` and
@@ -322,7 +322,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       if (report.claudeSettings.offlineTemplate.action === 'refreshed') {
         nextActions.push(
           `Self-healed .peaks/.claude-settings-template.json (action: refreshed) — ` +
-            'the offline recovery anchor now matches the current peaks-cli template. ' +
+            'the offline recovery anchor now matches the current peaks-loop template. ' +
             'No action required; future manual recoveries will copy the corrected wrapper.'
         );
         nextActions.push(

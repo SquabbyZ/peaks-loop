@@ -2,7 +2,7 @@
 
 ## Why
 
-The 1.x → 2.0 postinstall scaffold in `scripts/install-skills.mjs` (the 8-IDE fan-out for the Trae user fix, plus `detect1xProjectState` and `autoUpgrade1xProjectIfPresent`) was added in the previous session but ships without TDD coverage for the new detection / auto-upgrade paths. The integration test (`tests/integration/ide/install-skills-dispatch.test.ts`) only covers the 8-platform symlink dispatch, not the 1.x detection logic. Per the peaks-cli dev-preference "dogfood on every adjustment" rule, the auto-upgrade path needs an end-to-end dogfood on the current repo to prove the 1.x → 2.0 signals fire correctly when `npm i -g peaks-cli@2.0` runs in a 1.x consumer project.
+The 1.x → 2.0 postinstall scaffold in `scripts/install-skills.mjs` (the 8-IDE fan-out for the Trae user fix, plus `detect1xProjectState` and `autoUpgrade1xProjectIfPresent`) was added in the previous session but ships without TDD coverage for the new detection / auto-upgrade paths. The integration test (`tests/integration/ide/install-skills-dispatch.test.ts`) only covers the 8-platform symlink dispatch, not the 1.x detection logic. Per the peaks-loop dev-preference "dogfood on every adjustment" rule, the auto-upgrade path needs an end-to-end dogfood on the current repo to prove the 1.x → 2.0 signals fire correctly when `npm i -g peaks-loop@2.0` runs in a 1.x consumer project.
 
 ## What Changes
 

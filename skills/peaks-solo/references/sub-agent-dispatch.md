@@ -25,7 +25,7 @@ the skills compose. For sub-agent dispatch the relationship is:
 | Dispatcher 抽象 (per-IDE) | `src/services/dispatch/sub-agent-dispatcher.ts` | Encapsulates the IDE-private tool name (claude-code: `Task`, trae: UNVERIFIED placeholder) and arg shape | CLI (called by the CLI) |
 
 This is the **inverse** of the prior shape: SKILL.md used to hardcode
-`Task(subagent_type="general-purpose", ...)`, which made peaks-cli
+`Task(subagent_type="general-purpose", ...)`, which made peaks-loop
 depend on Claude Code's specific tool name. Adding a new IDE meant
 editing every SKILL.md that mentioned sub-agents. With the new shape,
 the only per-IDE thing in the dispatch chain is the dispatcher — SKILL.md
@@ -178,7 +178,7 @@ to keep the user informed during the wait.
 
 **Slice #016 retirement (G3 prompt template — MCP subsystem removed)**:
 The MCP-decouple paragraph from slice #007-007 no longer applies.
-peaks-cli no longer manages MCP install or invocation. Sub-agents
+peaks-loop no longer manages MCP install or invocation. Sub-agents
 check their own tool list for `mcp__<server>__*` entries and invoke
 the tool by name directly. The only prompt-template addition that
 remains is the tool-list self-check:
@@ -304,7 +304,7 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 | `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
 | `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
-**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Cli Gate B), and only then advances to RD implementation.
+**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.
 
 **Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 

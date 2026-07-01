@@ -77,7 +77,7 @@ export function roleHasPermission(registry: RoleRegistry, roleName: string, perm
   return role.permissions.includes(permission);
 }
 
-/** Permission categories that align with the peaks-cli 12 Gaps memory. */
+/** Permission categories that align with the peaks-loop 12 Gaps memory. */
 export const DEFAULT_PERMISSIONS: readonly string[] = [
   'prd.write',
   'prd.confirm',

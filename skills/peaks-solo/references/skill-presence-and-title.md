@@ -1,6 +1,6 @@
 # Step 2 + 2.5 — Skill presence and session title
 
-> Combined body for `### Peaks-Cli Step 2: Re-set skill presence with the chosen mode` and `### Peaks-Cli Step 2.5: Set session title`.
+> Combined body for `### Peaks-Loop Step 2: Re-set skill presence with the chosen mode` and `### Peaks-Loop Step 2.5: Set session title`.
 
 ## Step 2 — Re-set skill presence
 
@@ -16,7 +16,7 @@ On the first presence:set in a project, ensure the out-of-band status bar is ins
 peaks statusline install --project <repo>   # idempotent; skips if already installed
 ```
 
-Then display the compact status header: `Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
+Then display the compact status header: `Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: startup | Next: <one short action>`. Display this header on EVERY turn while the skill is active.
 
 Update with `peaks skill presence:set peaks-solo --project <repo> --mode <mode> --gate <gate>` when gates change. The presence file persists across the full workflow lifecycle — do NOT clear it at workflow end.
 

@@ -392,10 +392,10 @@ const IDE_DETECTION_DIRS = [
 ];
 
 /**
- * Per-IDE skill install paths. Per peaks-cli tenet
+ * Per-IDE skill install paths. Per peaks-loop tenet
  * "minimal-user-operation" (2026-06-11), the user should
  * never have to run a per-platform install command — the
- * `npm i -g peaks-cli` postinstall iterates ALL of these
+ * `npm i -g peaks-loop` postinstall iterates ALL of these
  * and symlinks the peaks-* skill family to every platform
  * the user might be on.
  *
@@ -730,8 +730,8 @@ export function installBundledOutputStyles(options = {}) {
  *
  * Mirrors `installBundledOutputStyles` but writes to
  * `~/.claude/agents/` (Claude Code's sub-agent loader directory). Each
- * agent file ships under `agents/*.md` in the peaks-cli tarball and is
- * copied on `npm i -g peaks-cli@latest` with content-hash drift detection
+ * agent file ships under `agents/*.md` in the peaks-loop tarball and is
+ * copied on `npm i -g peaks-loop@latest` with content-hash drift detection
  * via a `.peaks-managed` marker (SHA-256 of the source content).
  *
  * Drift policy (mirrors output-styles):
@@ -867,7 +867,7 @@ export function installBundledAgents(options = {}) {
  * platforms can add an `agentsDir` field to their `IDE_SKILL_INSTALL_PROFILES`
  * entry to opt in.
  *
- * Per peaks-cli tenet "minimal-user-operation" (2026-06-11): the user
+ * Per peaks-loop tenet "minimal-user-operation" (2026-06-11): the user
  * should never have to run a per-platform install command. Symlink /
  * copy failures are soft (logged to stderr, never throw) so one platform's
  * failure doesn't block the others.
@@ -918,7 +918,7 @@ export function installBundledAgentsForAllPlatforms(options = {}) {
 
 /**
  * Per-platform fan-out — iterate ALL 8 IdeIds and call
- * `installBundledSkills` for each. Per peaks-cli tenet
+ * `installBundledSkills` for each. Per peaks-loop tenet
  * "minimal-user-operation" (2026-06-11): the user should
  * never have to run a per-platform install command. The
  * 1.x postinstall only handled the auto-detected single
@@ -1065,7 +1065,7 @@ export function detect1xProjectState(cwd = process.cwd()) {
 
 /**
  * Postinstall auto-upgrade — when the user just ran
- * `npm i -g peaks-cli@2.0` and `cwd` is a 1.x peaks-cli
+ * `npm i -g peaks-loop@2.0` and `cwd` is a 1.x peaks-loop
  * project, this shells out to the installed `peaks`
  * binary to run the umbrella `peaks upgrade --to 2.0 --auto`.
  *
@@ -1140,8 +1140,8 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
     }
     const outputStylesResult = installBundledOutputStyles();
     // Slice 7/7 — bundled agents (Claude Code sub-agent prompts) ship
-    // under `agents/*.md` in the peaks-cli tarball and are auto-installed
-    // to `~/.claude/agents/` on `npm i -g peaks-cli@latest`. Drift
+    // under `agents/*.md` in the peaks-loop tarball and are auto-installed
+    // to `~/.claude/agents/` on `npm i -g peaks-loop@latest`. Drift
     // detection is content-hash + `.peaks-managed` marker (mirrors the
     // output-styles contract).
     const agentsPerPlatform = installBundledAgentsForAllPlatforms();
@@ -1174,7 +1174,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
 
     // 2.0 postinstall: auto-detect 1.x project state in cwd
     // and dispatch the upgrade umbrella. This makes the
-    // user's `npm i -g peaks-cli@2.0` truly one-key.
+    // user's `npm i -g peaks-loop@2.0` truly one-key.
     if (process.env.PEAKS_SKIP_AUTO_UPGRADE !== '1') {
       // Fire-and-forget; the upgrade is async by design so
       // the npm install output isn't blocked. We print a
@@ -1183,7 +1183,7 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(p
       autoUpgrade1xProjectIfPresent().then((result) => {
         if (result.ran) {
           process.stdout.write(
-            `\n✓ Detected 1.x peaks-cli project at ${result.projectRoot}\n` +
+            `\n✓ Detected 1.x peaks-loop project at ${result.projectRoot}\n` +
               `  → auto-upgraded to 2.0 (${result.signals?.length ?? 0} signals resolved)\n` +
               `  Run \`peaks audit red-lines --project .\` to verify.\n`
           );

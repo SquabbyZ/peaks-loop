@@ -2,7 +2,7 @@
 
 ## Why
 
-Per spec §5.4 + §9 slice #7, the peaks-cli L2 audit framework shipped
+Per spec §5.4 + §9 slice #7, the peaks-loop L2 audit framework shipped
 8-12 P0 enforcers (L2.1, commit `621a693`), 10-15 P1 enforcers
 (L2.2, commit `a80f28e`), 25-40 P2-a enforcers (L2.3, commit
 `23a4a7d` + gap fixes in `65f0755`), and 1 P2-b framework-integration
@@ -79,7 +79,7 @@ The catalog grows by 25 new P2-b entries. Themes:
 - `ref-no-bash-heredoc` — no `cat <<EOF` in inline shell snippets
   (YAGNI for the demo skill; the LLM can't safely skip a heredoc).
 - `ref-no-sudo` — no `sudo` in inline shell snippets
-  (peaks-cli is user-scope; sudo violates the dev-preference red line).
+  (peaks-loop is user-scope; sudo violates the dev-preference red line).
 - `ref-no-curl-pipe-bash` — no `curl ... | bash` (YAGNI for the
   install UX; the LLM may be tricked into running arbitrary
   remote code via this pattern).
@@ -90,7 +90,7 @@ The catalog grows by 25 new P2-b entries. Themes:
 - `ref-no-fake-prompt` — no `# fake prompt` / `$ fake` markers
   in code blocks (they signal placeholder code).
 - `ref-no-absolute-paths` — no `C:\` or `/usr/local` in code
-  blocks (the LLM should use peaks-cli primitives instead).
+  blocks (the LLM should use peaks-loop primitives instead).
 
 **Theme O — Reference permissions + numbers (2 enforcers)**
 - `ref-no-chmod-777` — no `chmod 777` in inline shell (security
@@ -129,11 +129,11 @@ if any audit-regression assertion fails.
 
 ## Spec reference (canonical)
 
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §5.4 (P2-b: 第二批 lint-style red lines in references/*.md)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §9 (slice #7 in the 14-slice plan)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §10.2 (L2 acceptance: prose-only < 10%)
 
 ## Acceptance Criteria
@@ -152,8 +152,8 @@ if any audit-regression assertion fails.
   pass — no regression. The 3 pre-existing config-migration
   test failures are baseline-broken and out of scope for P2-b.
 - A6 — The `proseOnlyRatio` computed from the catalog
-  (prose-only / total) is ≤ 10% on the peaks-cli repo.
-- A7 — Every reference file in the peaks-cli repo's
+  (prose-only / total) is ≤ 10% on the peaks-loop repo.
+- A7 — Every reference file in the peaks-loop repo's
   `skills/<name>/references/*.md` directory passes all 25
   P2-b enforcers (or has a documented exception in the
   catalog). This is the dogfood assertion: a fresh

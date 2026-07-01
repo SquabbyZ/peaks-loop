@@ -98,7 +98,7 @@ peaks-rd SKILL.md hard constraint: every slice with code-review/security-review/
 - Started: 2026-06-27 03:17 UTC+8
 - Pause reason: Context 80% reached during Tier 2 implementation. Tier 1 + Tier 2 service core done. Tier 2 SKILL/references/CLI/tests + Tier 3 mirror + 5-way fan-out + peaks-qa remain. Continue in next session via D7 post-compact resume.
 - Title: `v2.12-independent-security-perf-audit`
-- Project: peaks-cli (v2.11.2 → v2.12.0 target)
+- Project: peaks-loop (v2.11.2 → v2.12.0 target)
 - Companion memory: `2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md` (D1-D4 baseline)
 - Companion memory: `security-perf-plan-result-split.md` (slice 025 — being reversed by v2.12.0)
 

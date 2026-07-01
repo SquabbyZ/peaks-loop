@@ -4,7 +4,7 @@
  *
  * Per L1+L2+L3 redesign §5.4: "CRITICAL → proposal 草稿生成". The doctor
  * scans the project for issues; when a CRITICAL finding is surfaced,
- * peaks-cli generates a draft `openspec/changes/<id>/proposal.md` so the
+ * peaks-loop generates a draft `openspec/changes/<id>/proposal.md` so the
  * LLM doesn't have to start from scratch.
  *
  * The draft proposal is INFORMATIONAL — it requires the LLM to review +

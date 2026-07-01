@@ -1,9 +1,9 @@
 /**
- * peaks-cli 2.0 project-local preferences schema.
+ * peaks-loop 2.0 project-local preferences schema.
  * Per spec §8.4 — per-project state lives in `.peaks/preferences.json`,
  * NOT in `~/.peaks/config.json` (which is slim global).
  *
- * Spec reference: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8.4
+ * Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8.4
  */
 
 export const PREFERENCES_SCHEMA_VERSION = '2.0.0';
@@ -122,7 +122,7 @@ export interface ProjectPreferences {
    *
    * When true, `peaks audit static` spawns `npx ecc-agentshield scan --json`
    * and merges its findings into the audit report. When false (default),
-   * the audit runs peaks-cli-only and the subprocess is never spawned.
+   * the audit runs peaks-loop-only and the subprocess is never spawned.
    *
    * The preference is independent of whether ECC is installed — i.e.
    * `agentShieldEnabled: true` with ECC missing surfaces a soft

@@ -1,12 +1,12 @@
 ---
-name: peaks-cli-slice-review-and-qa-perspective
-description: peaks-cli slice 必介入 + QA 验证 = 业务/产品/UI 装配视角,不审技术;QA 分两层:技术层(AI 自决) + 业务层(user 审)
+name: peaks-loop-slice-review-and-qa-perspective
+description: peaks-loop slice 必介入 + QA 验证 = 业务/产品/UI 装配视角,不审技术;QA 分两层:技术层(AI 自决) + 业务层(user 审)
 metadata:
   type: project
   createdAt: 2026-06-28
 ---
 
-# peaks-cli slice 审阅 + QA 视角
+# peaks-loop slice 审阅 + QA 视角
 
 > 适用: 当 LLM 解释 Solo gate / slice review / QA 验收时,避免让 user 审技术。
 
@@ -122,8 +122,8 @@ QA 业务验收清单:
 
 ## 8. 关联
 
-- [[peaks-cli-24h-ai-programmer-positioning]]
-- [[peaks-cli-user-role-and-tech-decision]]
-- [[peaks-cli-prd-template-design]] — slice 审阅依据 prd 业务场景块
-- [[peaks-cli-fork-sync-and-layered-parallel]] — 上游同步 slice 的扩展
-- [[peaks-cli-fast-iteration-quality-loop]] — 轻量回归 + 上线观察期
+- [[peaks-loop-24h-ai-programmer-positioning]]
+- [[peaks-loop-user-role-and-tech-decision]]
+- [[peaks-loop-prd-template-design]] — slice 审阅依据 prd 业务场景块
+- [[peaks-loop-fork-sync-and-layered-parallel]] — 上游同步 slice 的扩展
+- [[peaks-loop-fast-iteration-quality-loop]] — 轻量回归 + 上线观察期

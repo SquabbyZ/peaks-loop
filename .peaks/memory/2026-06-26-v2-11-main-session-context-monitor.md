@@ -9,7 +9,7 @@ metadata:
 
 > Decided in session `2026-06-26-session-a28d69` immediately after D5.
 > **Status:** direction agreed; **PRD draft pending**; will merge into the same v2.11.0 slice as D1–D5.
-> **Why this matters:** the existing context governance (G7–G9, in `references/context-governance.md`) is about **sub-agent dispatch prompts**, not the **main-session LLM context window**. The user just reported: "需要监控主 session 的 context, 如果使用的是 claude code 就用 claude code 的 compact 命令, 不是 claude 就让 LLM 自己压缩". So far peaks-cli has no runtime monitor for the main session itself; D5/D6 close that gap.
+> **Why this matters:** the existing context governance (G7–G9, in `references/context-governance.md`) is about **sub-agent dispatch prompts**, not the **main-session LLM context window**. The user just reported: "需要监控主 session 的 context, 如果使用的是 claude code 就用 claude code 的 compact 命令, 不是 claude 就让 LLM 自己压缩". So far peaks-loop has no runtime monitor for the main session itself; D5/D6 close that gap.
 
 ## The pain (literal user quote)
 
@@ -23,7 +23,7 @@ Translation: peaks-solo must monitor the **main-session** context window (not ju
 
 ### D6.a — IDE detection is the load-bearing first step
 
-The peaks-solo skill runs in many IDEs (Claude Code, Trae, opencode, future adapters). The compact trigger MUST detect the host runtime BEFORE choosing the trigger path. Use the existing `peaks ide detect --json` CLI (from slice 021's IDE-adapter layer — see memory `peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer`). If `peaks ide detect` is unavailable, fall back to env vars: `CLAUDE_CODE_ENTRYPOINT` (Claude Code), `TRAE_CLI` (Trae), etc.
+The peaks-solo skill runs in many IDEs (Claude Code, Trae, opencode, future adapters). The compact trigger MUST detect the host runtime BEFORE choosing the trigger path. Use the existing `peaks ide detect --json` CLI (from slice 021's IDE-adapter layer — see memory `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer`). If `peaks ide detect` is unavailable, fall back to env vars: `CLAUDE_CODE_ENTRYPOINT` (Claude Code), `TRAE_CLI` (Trae), etc.
 
 ### D6.b — Threshold table (main-session context, distinct from G9 sub-agent threshold)
 
@@ -129,7 +129,7 @@ D5 and D6 are both "remove friction at runtime" features. Combine into one CC (G
 - [[2026-06-26-v2-11-full-auto-self-decision]] — sibling (D5). Same "remove runtime friction" philosophy. Together: D5 = "stop pausing unnecessarily"; D6 = "monitor and compact when full".
 - [[2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff]] — companion architectural change (D1-D4)
 - `references/context-governance.md` — existing G7-G9 sub-agent threshold table. D6's main-session table extends the same source-of-truth (`src/services/context/threshold.ts`).
-- `peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer` — slice 021's IDE-adapter layer is the dependency for D6.a IDE detection.
+- `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer` — slice 021's IDE-adapter layer is the dependency for D6.a IDE detection.
 
 ## Session info
 

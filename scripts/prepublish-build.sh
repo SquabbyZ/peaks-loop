@@ -20,6 +20,6 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "[prepublish-build] peaks-cli v2.13.3 — running pnpm build before publish"
+echo "[prepublish-build] peaks-loop v2.13.3 — running pnpm build before publish"
 pnpm run build
 echo "[prepublish-build] build OK — proceeding to publish"

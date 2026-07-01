@@ -4,7 +4,7 @@ import type { IdeAdapter } from '../ide-types.js';
 import { traeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
- * Trae IDE adapter —— peaks-cli 的第二个内置 IDE 适配器。
+ * Trae IDE adapter —— peaks-loop 的第二个内置 IDE 适配器。
  *
  * 不可消除的 per-IDE 字段(slice #1 锁定):
  *   - settings.dirName = '.trae'            : Trae 项目根下的配置目录

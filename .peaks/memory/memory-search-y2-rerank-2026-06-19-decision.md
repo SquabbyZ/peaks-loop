@@ -18,7 +18,7 @@ metadata:
 
 ## TL;DR
 
-Z-A spike ran the proposed L2 pipeline (fuzzy top-10 → LLM rerank → top-5 + headroom) against 9 representative peaks-cli queries on the actual 68-memory corpus. Aggregate L2-vs-L1W savings: **-48.2%** (i.e. L2 costs **48% MORE** tokens than the recall-equivalent baseline). Threshold was ≥20% savings. Verdict: **NO-GO**.
+Z-A spike ran the proposed L2 pipeline (fuzzy top-10 → LLM rerank → top-5 + headroom) against 9 representative peaks-loop queries on the actual 68-memory corpus. Aggregate L2-vs-L1W savings: **-48.2%** (i.e. L2 costs **48% MORE** tokens than the recall-equivalent baseline). Threshold was ≥20% savings. Verdict: **NO-GO**.
 
 **Action:** Do NOT proceed to Z-B. Stay on the current L1 (fuzzy + headroom) path. Defer LLM rerank integration until either (a) memory corpus grows >5x (≈350 entries) so the L1W baseline gets large enough to amortize the rerank input cost, or (b) a free / local LLM becomes available so the rerank call cost approaches zero.
 
@@ -34,8 +34,8 @@ All artifacts are within the 800-line file cap. 22/22 unit tests pass. Zero new 
 
 ## Measurement (AC-ZA-5, the gating AC)
 
-**Corpus:** 68 memories from `.peaks/memory/*.md` (peaks-cli's own project memory).
-**Queries:** 10 representative peaks-cli keywords (idempotency, sub-agent context, audit decision, headroom compression, red line rule, workspace underscore, ide adapter, gitignore peaks, rerank LLM, skill first CLI).
+**Corpus:** 68 memories from `.peaks/memory/*.md` (peaks-loop's own project memory).
+**Queries:** 10 representative peaks-loop keywords (idempotency, sub-agent context, audit decision, headroom compression, red line rule, workspace underscore, ide adapter, gitignore peaks, rerank LLM, skill first CLI).
 **Token heuristic:** 1 token ≈ 4 bytes (matches `headroom-client.ts:60`).
 **Headroom mode:** balanced (0.40 ratio, per `headroom-client.ts:104-106`).
 **Real LLM call:** None. Substring overlap is used as a conservative proxy for both fuzzy relevance and LLM rerank quality — see Caveat 1.
@@ -76,8 +76,8 @@ To break even, the L1W downstream would need to be ~1000+ tokens AND the per-cal
 
 1. **No real LLM call.** The benchmark uses substring overlap as a proxy for both fuzzy relevance and LLM rerank quality. A real LLM would likely **improve L2** by re-ranking more aggressively on semantic queries (e.g. "idempotency" which substring-misses completely). But the substring proxy is *conservative* for L2 — even with conservative proxy, L2 still loses. A real LLM wouldn't flip the verdict from NO-GO to GO; it would only narrow the gap.
 2. **Headroom ratio is approximate.** The 0.40 ratio is the SDK target; real headroom output varies with prompt structure.
-3. **Token heuristic is 4-bytes-per-token.** Matches peaks-cli's existing approximation. Undercounts CJK content (Chinese text is denser per byte), so L2's negative savings are likely understated for CJK-heavy corpora.
-4. **`Idempotency` query shows L1W=0.** No fuzzy hits at all → L2 still pays rerank cost → "infinite loss" relative to L1W. Excluded from the aggregate. In a real peaks-cli session, a query with zero fuzzy hits would also be a sign to the LLM that it has nothing to rerank — the fail-open `skipped-no-chat-fn` path already handles this.
+3. **Token heuristic is 4-bytes-per-token.** Matches peaks-loop's existing approximation. Undercounts CJK content (Chinese text is denser per byte), so L2's negative savings are likely understated for CJK-heavy corpora.
+4. **`Idempotency` query shows L1W=0.** No fuzzy hits at all → L2 still pays rerank cost → "infinite loss" relative to L1W. Excluded from the aggregate. In a real peaks-loop session, a query with zero fuzzy hits would also be a sign to the LLM that it has nothing to rerank — the fail-open `skipped-no-chat-fn` path already handles this.
 
 ## Erratum: RERANK_PROMPT_OVERHEAD_TOKENS Underestimates L2 Cost (Audit R4 Finding)
 

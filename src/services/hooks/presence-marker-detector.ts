@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
  * Background: the consumer-facing CLAUDE.md template (rendered by
  * `peaks standards init` / `peaks standards update`) instructs the LLM
  * to display a compact status header
- *   `Peaks-Cli Skill: <skill> | Peaks-Cli Gate: <gate> | Next: <one short action>`
+ *   `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`
  * on every turn while a peaks skill is active. If the LLM forgets (e.g.
  * because of context compaction or a fresh session), the user is left
  * without an at-a-glance signal that peaks is orchestrating the work.
@@ -21,14 +21,14 @@ import { resolve } from 'node:path';
  *   - `active`:      whether an active-skill marker was found on disk.
  *   - `skill?`:      the active skill name, if any.
  *   - `markerFound`: whether the latest assistant message carries the
- *                    expected `Peaks-Cli Skill:` / `Peaks-Cli Gate:`
+ *                    expected `Peaks-Loop Skill:` / `Peaks-Loop Gate:`
  *                    marker. Always `false` when `active` is `false`.
  *   - `warning?`:    a human-readable warning emitted when the marker
  *                    is missing while the presence is active.
  *
  * The function is pure: it does not write to disk, does not clear the
  * presence file, and does not depend on `process.cwd()`. The caller is
- * expected to provide the absolute project root (peaks-cli convention
+ * expected to provide the absolute project root (peaks-loop convention
  * from the standards-commands family — see dev-preference rule
  * `project-option-is-canonical-project-root-source`).
  */
@@ -36,8 +36,8 @@ import { resolve } from 'node:path';
 const PRESENCE_CANONICAL_PATH = '.peaks/_runtime/active-skill.json';
 const PRESENCE_LEGACY_PATH = '.peaks/.active-skill.json';
 
-const MARKER_PRIMARY = 'Peaks-Cli Skill:';
-const MARKER_SECONDARY = 'Peaks-Cli Gate:';
+const MARKER_PRIMARY = 'Peaks-Loop Skill:';
+const MARKER_SECONDARY = 'Peaks-Loop Gate:';
 const SKILL_NAME_RE = /"skill"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/;
 
 export type DetectPresenceMarkerInput = {

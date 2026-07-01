@@ -8,8 +8,8 @@
  * bootstrap log entry first, then prints the version and exits.
  *
  * This test asserts the contract: a `peaks --version` invocation
- * MUST create `<homedir>/.peaks/logs/peaks-cli-<UTC-date>.log`
- * containing a `peaks-cli start` JSONL entry.
+ * MUST create `<homedir>/.peaks/logs/peaks-loop-<UTC-date>.log`
+ * containing a `peaks-loop start` JSONL entry.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -105,9 +105,9 @@ describe('peaks --version log bootstrap (AC1 regression)', () => {
    * and must be set by EVERY code path that invokes `bootstrapLogger`,
    * not only the `preAction` hook. When a single `createProgram`
    * instance parses `--version` twice in the same process, the second
-   * call must NOT write a duplicate `peaks-cli start` JSONL entry.
+   * call must NOT write a duplicate `peaks-loop start` JSONL entry.
    */
-  it('writes exactly one peaks-cli start entry across two same-process --version invocations', async () => {
+  it('writes exactly one peaks-loop start entry across two same-process --version invocations', async () => {
     const previousExit = process.exitCode;
     process.exitCode = undefined;
     try {

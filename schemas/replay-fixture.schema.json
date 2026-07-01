@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://peaks-cli.dev/schemas/replay-fixture.schema.json",
+  "$id": "https://peaks-loop.dev/schemas/replay-fixture.schema.json",
   "title": "Replay Fixture Metadata",
   "description": "Meta envelope for v2.14.0 G1 fixture-replay anti-fake-green test fixtures. Records the CLI command that produced the fixture, its source origin, sanitization report, and SHA-256 checksum. Every fixture under tests/fixtures/replay/ MUST have a co-located fixture.meta.json that validates against this schema.",
   "type": "object",

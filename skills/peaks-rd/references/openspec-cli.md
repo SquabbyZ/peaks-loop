@@ -2,7 +2,7 @@
 
 Peaks RD reads OpenSpec change packs through the Peaks CLI rather than re-parsing markdown or spawning subprocesses by hand. The CLI returns the same stable envelope shape (`{ ok, command, data, warnings, nextActions }`) so RD can capture it as artifact JSON.
 
-> **Slice #016 (2026-06-09)**: this document used to live at `openspec-mcp-cli.md` and contained a section on the now-retired peaks-cli MCP install / call verbs. The MCP subsystem was retired in slice #016; the LLM's own tool list is now the source of truth for installed MCPs. The OpenSpec CLI recipes below are unchanged.
+> **Slice #016 (2026-06-09)**: this document used to live at `openspec-mcp-cli.md` and contained a section on the now-retired peaks-loop MCP install / call verbs. The MCP subsystem was retired in slice #016; the LLM's own tool list is now the source of truth for installed MCPs. The OpenSpec CLI recipes below are unchanged.
 
 ## Loading an existing OpenSpec change as RD input
 
@@ -55,7 +55,7 @@ claude mcp add context7 -- npx @upstash/context7-mcp
 # Restart the IDE after install; the runtime picks up the new server only after a fresh process.
 ```
 
-peaks-cli does not install MCPs on the user's behalf as of slice #016; the LLM is the executor and the IDE is the dispatcher. Evidence of the lookup (sanitized query + response summary) goes into the RD artifact, not full network bodies or secrets.
+peaks-loop does not install MCPs on the user's behalf as of slice #016; the LLM is the executor and the IDE is the dispatcher. Evidence of the lookup (sanitized query + response summary) goes into the RD artifact, not full network bodies or secrets.
 
 ## Boundary
 

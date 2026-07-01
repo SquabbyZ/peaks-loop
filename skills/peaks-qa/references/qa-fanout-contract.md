@@ -144,7 +144,7 @@ envelope and into the slice's `reducerReport`.
 
 - `skills/peaks-solo/references/sub-agent-dispatch.md` — orchestrator
   contract for all Dispatchers
-- `skills/peaks-solo/SKILL.md` "Peaks-Cli Swarm parallel phase" — sibling
+- `skills/peaks-solo/SKILL.md` "Peaks-Loop Swarm parallel phase" — sibling
   fan-out pattern
 - `.peaks/memory/sub-agent-resource-lifecycle-red-line.md` — G5 red line
 - `.peaks/memory/sub-agent-heartbeat-progress-red-line.md` — G6 red line

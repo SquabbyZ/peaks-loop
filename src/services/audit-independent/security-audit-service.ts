@@ -267,7 +267,7 @@ export function detectSecurityAudit(input: {
       ],
       nextActions: [
         'Verify the security-audit skill prompt matches PRD AC-2.x output shape.',
-        'If the envelope shape is intentionally different, file a bug at the peaks-cli repo.'
+        'If the envelope shape is intentionally different, file a bug at the peaks-loop repo.'
       ]
     };
   }

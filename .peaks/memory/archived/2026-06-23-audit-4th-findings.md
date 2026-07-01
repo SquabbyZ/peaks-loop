@@ -124,7 +124,7 @@ restarting. Out of scope for the 4 度 fixes; mention as
 **File:** `src/cli/commands/dispatch-commands.ts`,
 `heartbeat-commands.ts`, `share-commands.ts` (none of them import
 `logger.ts`)
-**Problem:** `program.ts:78` writes a single `peaks-cli start` line
+**Problem:** `program.ts:78` writes a single `peaks-loop start` line
 per process. The dispatch / heartbeat / share CLI actions emit
 **nothing** to the JSONL log. So `peaks log tail` shows that the
 process ran but not what it did. The `nextActions` and `code` in
@@ -352,7 +352,7 @@ A reader skimming will get the wrong model.
 
 **Fix sketch:** change the headline to "default" (matching the
 SKILL.md) and rewrite the "1. Why this exists" section's lead to
-match. Add a one-line callout in §"Peaks-Cli Swarm parallel phase"
+match. Add a one-line callout in §"Peaks-Loop Swarm parallel phase"
 that the default-mode opt-out is `fanout.defaultMode: 'serial'`
 in preferences.
 

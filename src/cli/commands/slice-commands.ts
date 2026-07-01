@@ -155,7 +155,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--refresh', 're-run `peaks codegraph index` before reading', false)
       .option('--benchmark', 'record per-run metrics and attach to the result envelope (2.1.1 algorithm optimization comparison)', false)
-      .option('--granularity <value>', 'service | file | both | auto. Default "both" keeps the v1 6-stage path; service / file / auto enable v2 multi-pass decomposition (peaks-cli 2.9+) and emit a DecompositionResultV2 envelope via SchemaRouter', 'both')
+      .option('--granularity <value>', 'service | file | both | auto. Default "both" keeps the v1 6-stage path; service / file / auto enable v2 multi-pass decomposition (peaks-loop 2.9+) and emit a DecompositionResultV2 envelope via SchemaRouter', 'both')
   ).action(async (rid: string, options: { project: string; refresh?: boolean; benchmark?: boolean; granularity?: string; json?: boolean }) => {
     // Validate --granularity BEFORE any I/O so invalid values fail fast with a
     // nextActions hint listing the four allowed strings.
@@ -176,7 +176,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
           [
             `--granularity accepts one of: service, file, both, auto`,
             `Default (omit the flag or pass "both") keeps the existing v1 path.`,
-            `Non-default values (service / file / auto) enable v2 multi-pass decomposition (peaks-cli 2.9+).`
+            `Non-default values (service / file / auto) enable v2 multi-pass decomposition (peaks-loop 2.9+).`
           ]
         ),
         options.json ?? false
@@ -202,7 +202,7 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
         writeSchemaResult(outPath, v2Result);
         const nextActions: string[] = [
           `Decomposition (v2) written to ${outPath}`,
-          `peaks slice pick/plan: v2 schemas require SchemaRouter-aware consumers (peaks-cli 2.9+).`
+          `peaks slice pick/plan: v2 schemas require SchemaRouter-aware consumers (peaks-loop 2.9+).`
         ];
         printResult(
           io,
@@ -288,9 +288,9 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       if ('schemaVersion' in parsed) {
         throw new Error(
           `decomposition at ${decompPath} is a v2 envelope (schemaVersion: 'v2'). ` +
-          `peaks slice pick supports v1 only in peaks-cli 2.9.0. ` +
+          `peaks slice pick supports v1 only in peaks-loop 2.9.0. ` +
           `Re-run \`peaks slice decompose ${rid}\` without --granularity to get a v1 file, ` +
-          `or upgrade peaks-cli when v2 pick lands.`
+          `or upgrade peaks-loop when v2 pick lands.`
         );
       }
       const decomposition = parsed;

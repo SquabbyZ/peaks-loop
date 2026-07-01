@@ -279,7 +279,7 @@ function renderClaudeMd(language: StandardsLanguage, ctx: ProjectContext): strin
     '- Read `.claude/rules/common/security.md` before touching filesystem, user input, external calls, auth, or secrets.',
     `- Read .claude/rules/${language}/coding-style.md for language-specific standards when applicable.`,
     '',
-    'Active Peaks-Cli skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Cli Skill: <skill> | Peaks-Cli Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.'
+    'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.'
   ].join('\n');
   const stack = renderProjectStackSection(ctx);
   return stack === '' ? head : `${head}\n${stack}`;

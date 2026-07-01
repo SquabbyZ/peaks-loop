@@ -99,7 +99,7 @@ export function resolveProjectRootForConfig(startPath: string): string {
 /**
  * Canonicalise a user-supplied project root path against git's view of the
  * repository root. This is the fix for the nested-directory regression
- * where peaks-cli would write `.peaks/` under a nested sub-folder
+ * where peaks-loop would write `.peaks/` under a nested sub-folder
  * (e.g. `prompt-project/prompt-project/.peaks/`) because the LLM passed
  * `$(pwd)` from inside a sub-directory of a real git repo. Without
  * canonicalisation, peaks accepted the cwd as-is, built the .peaks/

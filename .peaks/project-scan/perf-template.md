@@ -5,7 +5,7 @@ capturedAt: 2026-06-27T00:00:00.000Z
 appliesTo: peaks-perf-audit skill
 ---
 
-# Performance Audit Template (peaks-cli v2.12.0)
+# Performance Audit Template (peaks-loop v2.12.0)
 
 > **Bootstrap template** for `peaks-perf-audit` skill. Consumed by the
 > skill at audit start. Modified only by peaks-txt sediment step (append-only,

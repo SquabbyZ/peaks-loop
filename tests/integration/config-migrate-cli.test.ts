@@ -1,5 +1,5 @@
 // Slice 0.5 Task 14 — peaks config {migrate,rollback,restore} integration test
-// Spec reference: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8
+// Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8
 //
 // Spec bug fixes baked into this test (deviation report in the slice PR):
 //   #1 Entrypoint: spec wrote `dist/cli/program.js` (factory-only — no output).

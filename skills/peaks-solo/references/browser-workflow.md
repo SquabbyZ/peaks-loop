@@ -11,7 +11,7 @@ Peaks skills standardize on **Playwright MCP** as the controlled headed-browser 
 
 > **Bug history**: an earlier version of this document recommended Chrome DevTools MCP for "open a headed browser when peaks-solo gets a product document link." Dogfood testing in 2026-05 revealed the tool requires a pre-running Chrome with remote debugging enabled — it does NOT launch its own browser. Playwright MCP is the correct tool for the "open on demand" case.
 
-> **Slice #016 (2026-06-09)**: peaks-cli no longer manages MCP install / dispatch. Skill bodies instruct the LLM to (a) check its own tool list for any Playwright MCP entry, (b) invoke the tool by name if present, (c) tell the user the install command if absent. There is no peaks-cli MCP indirection layer anymore.
+> **Slice #016 (2026-06-09)**: peaks-loop no longer manages MCP install / dispatch. Skill bodies instruct the LLM to (a) check its own tool list for any Playwright MCP entry, (b) invoke the tool by name if present, (c) tell the user the install command if absent. There is no peaks-loop MCP indirection layer anymore.
 
 ## When to open the headed browser
 
@@ -29,7 +29,7 @@ The LLM runtime exposes Playwright's tools under the `mcp__playwright__*` namesp
 
 **Detect**: the LLM checks its own tool list for any `mcp__playwright__*` entry. If present, the MCP is installed; the LLM invokes the tool by name (e.g. `browser_navigate`, `browser_take_screenshot`).
 
-**Install (if absent)**: skill bodies surface the install command to the user. The user runs it themselves — peaks-cli does not hand-edit `~/.claude/settings.json`.
+**Install (if absent)**: skill bodies surface the install command to the user. The user runs it themselves — peaks-loop does not hand-edit `~/.claude/settings.json`.
 
 - Claude Code:
   ```bash

@@ -1,11 +1,11 @@
 /**
  * Auto-compact shared types (v2.13.0 AC-1..AC-4).
  *
- * Two-tier threshold model — peaks-cli is project-aware and the LLM
+ * Two-tier threshold model — peaks-loop is project-aware and the LLM
  * is the decision-maker:
  *
  *   - 50%  soft warn          — log a one-line info row; continue.
- *   - 85%  pre-compact zone   — peaks-cli prepares the convergence
+ *   - 85%  pre-compact zone   — peaks-loop prepares the convergence
  *                                toolkit (checkpoint + convergence
  *                                plan + auto-decisions log +
  *                                IDE-compact dispatcher). The LLM
@@ -14,7 +14,7 @@
  *                                toolkit is "ready to use" so the
  *                                LLM doesn't lose context to a
  *                                last-second `/compact` panic.
- *   - 95%  RED LINE           — peaks-cli refuses to dispatch any
+ *   - 95%  RED LINE           — peaks-loop refuses to dispatch any
  *                                further sub-agent and synchronously
  *                                triggers IDE-side compact. At 95%+
  *                                the context window is too tight to
@@ -25,9 +25,9 @@
  *
  * Why 0.85 / 0.95 split: the LLM uses the 0.85–0.95 zone to do
  * intelligent convergence — wait for in-flight sub-agents, finish
- * the current todo row, persist a checkpoint, then compact. peaks-cli
+ * the current todo row, persist a checkpoint, then compact. peaks-loop
  * provides the toolkit; the LLM picks the moment. At 0.95 the window
- * is gone and peaks-cli takes over synchronously to keep the runner
+ * is gone and peaks-loop takes over synchronously to keep the runner
  * alive.
  */
 
@@ -42,7 +42,7 @@ export type CompactTrigger =
   | { kind: 'soft-warn'; ratio: number; message: string }
   /** Pre-compact zone (0.85 ≤ ratio < 0.95): toolkit ready; LLM picks the moment. */
   | { kind: 'pre-compact'; ratio: number; message: string; toolkitReady: true }
-  /** Red line (ratio ≥ 0.95): peaks-cli forces synchronous compact; LLM cannot opt out. */
+  /** Red line (ratio ≥ 0.95): peaks-loop forces synchronous compact; LLM cannot opt out. */
   | { kind: 'red-line'; ratio: number; message: string };
 
 /** Caller-side info about sub-agent batches in flight (D6.e). */

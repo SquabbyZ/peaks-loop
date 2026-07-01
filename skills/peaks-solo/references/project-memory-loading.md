@@ -1,6 +1,6 @@
 # Step 2.3 — Load project memory
 
-> Body of `### Peaks-Cli Step 2.3`. Before planning any work, read the project's persistent memory — durable memories that survive across sessions:
+> Body of `### Peaks-Loop Step 2.3`. Before planning any work, read the project's persistent memory — durable memories that survive across sessions:
 
 ```bash
 peaks project memories --project <repo> --json

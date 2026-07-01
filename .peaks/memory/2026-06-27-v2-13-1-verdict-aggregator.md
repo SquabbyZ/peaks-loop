@@ -1,6 +1,6 @@
 ---
 name: v2-13-1-verdict-aggregator
-description: peaks-cli v2.13.1 ship state on 2026-06-27. Verdict reasoning layer: MUT_REPORT prereq + aggregateVerdict() service + micro-cycle reasoning section. 90/90 tests pass, tsc 0 errors, 5 AC all green. Carry-forward for v2.14 envelope unification.
+description: peaks-loop v2.13.1 ship state on 2026-06-27. Verdict reasoning layer: MUT_REPORT prereq + aggregateVerdict() service + micro-cycle reasoning section. 90/90 tests pass, tsc 0 errors, 5 AC all green. Carry-forward for v2.14 envelope unification.
 metadata:
   type: project
 ---

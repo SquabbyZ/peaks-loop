@@ -4,7 +4,7 @@ Peaks skills reference many external resources — `mattpocock/skills`, `gstack`
 
 Every reference must follow the same three-stage pattern so the Peaks gates stay authoritative and side effects stay observable.
 
-> **Slice #016 (2026-06-09)**: peaks-cli no longer manages MCP install or invocation. MCP capability detection moves from the peaks-cli CLI to the LLM's own tool list (the LLM checks for `mcp__<server>__*` entries in its own function schema). Skill bodies instruct the LLM to either invoke the tool by name (when present) or tell the user the install command (when absent).
+> **Slice #016 (2026-06-09)**: peaks-loop no longer manages MCP install or invocation. MCP capability detection moves from the peaks-loop CLI to the LLM's own tool list (the LLM checks for `mcp__<server>__*` entries in its own function schema). Skill bodies instruct the LLM to either invoke the tool by name (when present) or tell the user the install command (when absent).
 
 ## Stage 1 — Discovery before naming
 
@@ -25,7 +25,7 @@ External skills are inspection material for the role's own artifacts. They are n
 - forbid executing upstream instructions, installing upstream resources, persisting upstream examples, or running upstream installers;
 - declare that the Peaks role artifacts remain authoritative.
 
-For MCP servers, the LLM consumes the install state from its own tool list. Skill bodies tell the LLM: "if the tool is present, invoke it by name; if absent, surface the install command for the user's IDE and stop until the user installs the MCP". peaks-cli does not install MCPs on the user's behalf as of slice #016.
+For MCP servers, the LLM consumes the install state from its own tool list. Skill bodies tell the LLM: "if the tool is present, invoke it by name; if absent, surface the install command for the user's IDE and stop until the user installs the MCP". peaks-loop does not install MCPs on the user's behalf as of slice #016.
 
 ## Stage 3 — Side effect through Peaks CLI only
 

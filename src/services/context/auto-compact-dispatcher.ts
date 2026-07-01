@@ -9,22 +9,22 @@
  *
  * Pathway dispatch:
  *
- *   - `shell-exec`     — peaks-cli spawns the adapter's
+ *   - `shell-exec`     — peaks-loop spawns the adapter's
  *                        `compactCommand` via `child_process.spawn`.
  *                        Works for any IDE that accepts a slash
  *                        command via a shell-spawnable entry point
  *                        (Claude Code MVP: `/compact`).
- *   - `ide-native`     — peaks-cli writes the compact intent to
+ *   - `ide-native`     — peaks-loop writes the compact intent to
  *                        the IDE's hook file (per
  *                        `IdeSettingsLocation`). Used when the IDE
  *                        requires a registered hook rather than a
  *                        runtime command.
- *   - `llm-self-compress` — peaks-cli records the intent and
+ *   - `llm-self-compress` — peaks-loop records the intent and
  *                        returns `ok: true` with `pathway` echoed.
  *                        The LLM does its own context summarization
  *                        on the next turn. Always available; least
  *                        precise fallback.
- *   - `noop`           — adapter explicitly opted out. peaks-cli
+ *   - `noop`           — adapter explicitly opted out. peaks-loop
  *                        returns `ok: false` with `message: 'noop'`.
  *                        Used by legacy / unverified adapters.
  */

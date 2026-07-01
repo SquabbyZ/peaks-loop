@@ -6,7 +6,7 @@ metadata:
   sourceArtifact: .peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md
 ---
 
-User hard rule (2026-06-07 1:50 GMT+8): "**我觉得可以加红线当上下文达到 75% 的时候,通过 peaks-cli 的 cli 或者 hook 严格要求先压缩我感觉会更好的保证效果**". This is the **forced compression gate** red line. It is orthogonal to G1..G8; registered as G9 in slice #009 PRD. **NOT implemented in slice #009**; tracked for slice #010 follow-up.
+User hard rule (2026-06-07 1:50 GMT+8): "**我觉得可以加红线当上下文达到 75% 的时候,通过 peaks-loop 的 cli 或者 hook 严格要求先压缩我感觉会更好的保证效果**". This is the **forced compression gate** red line. It is orthogonal to G1..G8; registered as G9 in slice #009 PRD. **NOT implemented in slice #009**; tracked for slice #010 follow-up.
 
 ## Why
 

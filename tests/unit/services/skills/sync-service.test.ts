@@ -7,9 +7,9 @@
  * by the IdeId union.
  *
  * Slice 2.0.1-bug2: when run from a consumer project (not the
- * peaks-cli repo itself), the CWD does not contain
+ * peaks-loop repo itself), the CWD does not contain
  * `scripts/install-skills.mjs`. The service must:
- *   1. probe the peaks-cli install path (resolved via
+ *   1. probe the peaks-loop install path (resolved via
  *      `import.meta.url` / `process.argv[1]`),
  *   2. fall back to the consumer CWD,
  *   3. gracefully skip with a single console.warn if neither
@@ -140,7 +140,7 @@ describe('skill sync-service — Slice #12 final piece', () => {
    *
    * The test seam is `__testing` (exported from sync-service.ts):
    *   - `resolvePeaksCliInstallerPath(): string | null` — locate
-   *     the script inside the peaks-cli install root, or null.
+   *     the script inside the peaks-loop install root, or null.
    *   - `resetInstallerCache()` — clear the per-process memo so
    *     each test starts from a clean slate.
    *   - `loadInstallerForTest(path: string): installer | null` —
@@ -164,7 +164,7 @@ describe('skill sync-service — Slice #12 final piece', () => {
       __testing.resetInstallerCache();
     });
 
-    it('case A: no script in CWD, no script in peaks-cli install path → 0 installed, 0 failed, warning logged', async () => {
+    it('case A: no script in CWD, no script in peaks-loop install path → 0 installed, 0 failed, warning logged', async () => {
       const probeSpy = vi
         .spyOn(__testing.services, 'resolvePeaksCliInstallerPath')
         .mockReturnValue(null);
@@ -181,7 +181,7 @@ describe('skill sync-service — Slice #12 final piece', () => {
       expect(result.perPlatform[0]?.ok).toBe(true);
       expect(result.perPlatform[0]?.installed).toEqual([]);
       expect(result.perPlatform[0]?.skipped).toEqual([
-        'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-cli postinstall',
+        'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-loop postinstall',
       ]);
       expect(result.failedCount).toBe(0);
       expect(result.syncedCount).toBe(1);
@@ -191,18 +191,18 @@ describe('skill sync-service — Slice #12 final piece', () => {
       loadSpy.mockRestore();
     });
 
-    it('case B: script in peaks-cli install path only → installed', async () => {
+    it('case B: script in peaks-loop install path only → installed', async () => {
       const fakeInstaller = (): { installed: string[]; skipped: string[] } => ({
         installed: ['peaks-solo'],
         skipped: [],
       });
       const probeSpy = vi
         .spyOn(__testing.services, 'resolvePeaksCliInstallerPath')
-        .mockReturnValue('/fake/peaks-cli/scripts/install-skills.mjs');
+        .mockReturnValue('/fake/peaks-loop/scripts/install-skills.mjs');
       const loadSpy = vi
         .spyOn(__testing.services, 'loadInstallerForTest')
         .mockImplementation((p: string) =>
-          p === '/fake/peaks-cli/scripts/install-skills.mjs'
+          p === '/fake/peaks-loop/scripts/install-skills.mjs'
             ? Promise.resolve(fakeInstaller)
             : Promise.resolve(null)
         );

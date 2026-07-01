@@ -1,8 +1,8 @@
-# Plan 3a: peaks-cli Baseline Repair (v3.0 pre-Plan-3)
+# Plan 3a: peaks-loop Baseline Repair (v3.0 pre-Plan-3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restore the peaks-cli vitest baseline to green before dispatching Plan 3 (peaks-rd strategic/tactical split). 26 test files / 88 tests failing on `main` after Plan 2 ship. Plan 2's "80/80 PASS" report was a scoped subset, not full suite. This plan fixes all four failure categories with surgical, isolated commits per category.
+**Goal:** Restore the peaks-loop vitest baseline to green before dispatching Plan 3 (peaks-rd strategic/tactical split). 26 test files / 88 tests failing on `main` after Plan 2 ship. Plan 2's "80/80 PASS" report was a scoped subset, not full suite. This plan fixes all four failure categories with surgical, isolated commits per category.
 
 **Architecture:** Four independent sub-tasks (one per failure category), each fully reviewable. No production code changes except where a Plan 1 followup introduced a regression — those get minimal targeted fixes. Companion/* Windows-env failures get platform-skip guards (production code stays Windows-clean). Each sub-task ends with `pnpm vitest run` showing the category's expected delta.
 
@@ -47,7 +47,7 @@ Inherited from v3.0:
 - Consumes: vitest `describe` API
 - Produces: 6 test files where the entire `describe` block is skipped on Windows via `describe.skipIf(process.platform === 'win32')`
 
-**Rationale:** companion/* tests spawn `/bin/sh` and `/bin/echo` — Unix-only test fixtures. Production companion code is OS-agnostic (it's a Claude Code companion that lives in user-space); the tests use Unix shell semantics as their test harness. Skipping on Windows is correct behavior, not a workaround. CI runs on Linux (per peaks-cli default test target), so this doesn't lose coverage.
+**Rationale:** companion/* tests spawn `/bin/sh` and `/bin/echo` — Unix-only test fixtures. Production companion code is OS-agnostic (it's a Claude Code companion that lives in user-space); the tests use Unix shell semantics as their test harness. Skipping on Windows is correct behavior, not a workaround. CI runs on Linux (per peaks-loop default test target), so this doesn't lose coverage.
 
 - [ ] **Step 1: Verify all 6 files are still in their pre-fix state**
 

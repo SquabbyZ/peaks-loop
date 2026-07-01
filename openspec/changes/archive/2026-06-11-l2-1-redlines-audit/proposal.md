@@ -2,7 +2,7 @@
 
 ## Why
 
-peaks-cli's 12 SKILL.md files + .claude/rules + OpenSpec change records contain an estimated 120-150 red lines (`MANDATORY` / `BLOCKING` / `MUST NOT` / `RED LINE` markers). Per the L1+L2+L3 redesign §5.1 audit:
+peaks-loop's 12 SKILL.md files + .claude/rules + OpenSpec change records contain an estimated 120-150 red lines (`MANDATORY` / `BLOCKING` / `MUST NOT` / `RED LINE` markers). Per the L1+L2+L3 redesign §5.1 audit:
 
 - ~20% are `cli-backed` (enforced by `peaks workspace init`, `peaks skill presence:set`, `peaks request transition`, etc.)
 - ~30% are `partial` (gate exists but LLM can bypass)
@@ -12,7 +12,7 @@ The L2.1 slice ships the **audit framework** (the `peaks audit red-lines` scanne
 
 ## What Changes
 
-- **New top-level CLI** `peaks audit` (verified no existing `peaks audit` top-level per `peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md`).
+- **New top-level CLI** `peaks audit` (verified no existing `peaks audit` top-level per `peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first.md`).
 - **New subcommand** `peaks audit red-lines --project <path> --json` returns `{ ok, command, data: { totalRedLines, cliBacked, partial, proseOnly, audit: [...] }, warnings, nextActions }`.
 - **Audit framework** at `src/services/audit/` (types, catalog of 5 P0 entries, classifier, backing-detector, 3 tree scanners — `skills/`, `.claude/rules/`, `openspec/changes/`).
 - **5 P0 enforcers** (each flips one red-line from `prose-only` to `cli-backed`):
@@ -54,12 +54,12 @@ The L2.1 slice ships the **audit framework** (the `peaks audit red-lines` scanne
 - L2.3 / L2.4 P2 (25-40 red lines, ECC AgentShield integration)
 - Hook auto-installation (L2.1 ships enforcers; user opts in via existing `peaks hooks install`).
 - L2.1.1 (Tasks 5-6 hook wiring — solo-code-ban, no-root-pollution) — these are deferred follow-up commits in the same slice.
-- New top-level CLI design beyond `peaks audit` (L2.1 ships one new top-level; per `peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md` we verified no `peaks audit` top-level exists).
+- New top-level CLI design beyond `peaks audit` (L2.1 ships one new top-level; per `peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first.md` we verified no `peaks audit` top-level exists).
 
 ## Dependencies
 
 - Node 22 stdlib (`fs`, `path`).
-- Existing peaks-cli infra: `commander ^12.1.0`, `peaks-cli/result.ts`, `peaks-cli/sid-naming-guard.ts` (Slice 0.5 reuse), `peaks-cli/request-artifact-service.ts` (Task 3 integration), `peaks-cli/slice-check-service.ts` (Task 4 integration).
+- Existing peaks-loop infra: `commander ^12.1.0`, `peaks-loop/result.ts`, `peaks-loop/sid-naming-guard.ts` (Slice 0.5 reuse), `peaks-loop/request-artifact-service.ts` (Task 3 integration), `peaks-loop/slice-check-service.ts` (Task 4 integration).
 - No new npm dependencies.
 - No headroom-ai / fzf usage in this slice (audit scanner is a straight file walk).
 

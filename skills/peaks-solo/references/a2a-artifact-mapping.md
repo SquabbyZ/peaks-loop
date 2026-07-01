@@ -1,16 +1,16 @@
 # A2A artifact mapping (informational)
 
-> Reference for `peaks-solo` and any other peaks skill that produces durable artefacts in `.peaks/_runtime/<session-id>/`. Maps peaks's on-disk artefact vocabulary onto the A2A (Agent2Agent) protocol's vocabulary so a future peaks consumer (e.g. an external LLM agent or a downstream peaks-cli extension) can read peaks output without having to learn a brand-new schema. This is a **documentation mapping**, not a protocol implementation: peaks-cli does not speak A2A over HTTP, does not host an AgentCard endpoint, and does not advertise its capabilities via A2A's discovery mechanism. It only uses A2A's *concepts* as a shared naming layer.
+> Reference for `peaks-solo` and any other peaks skill that produces durable artefacts in `.peaks/_runtime/<session-id>/`. Maps peaks's on-disk artefact vocabulary onto the A2A (Agent2Agent) protocol's vocabulary so a future peaks consumer (e.g. an external LLM agent or a downstream peaks-loop extension) can read peaks output without having to learn a brand-new schema. This is a **documentation mapping**, not a protocol implementation: peaks-loop does not speak A2A over HTTP, does not host an AgentCard endpoint, and does not advertise its capabilities via A2A's discovery mechanism. It only uses A2A's *concepts* as a shared naming layer.
 
 ## 1. Why this reference exists
 
-The A2A protocol (https://a2acn.com) defines five core concepts: **AgentCard**, **Task**, **Artifact**, **Message**, and **Part**. peaks-cli's session workspace is a parallel vocabulary that grew up independently: `prd/requests/<rid>.md`, `rd/tech-doc.md`, `qa/test-cases/<rid>.md`, etc. The two vocabularies are *not* identical (A2A is HTTP-shaped, peaks is filesystem-shaped), but the A2A concepts are close enough that aligning peaks artefact names with A2A terms in this reference:
+The A2A protocol (https://a2acn.com) defines five core concepts: **AgentCard**, **Task**, **Artifact**, **Message**, and **Part**. peaks-loop's session workspace is a parallel vocabulary that grew up independently: `prd/requests/<rid>.md`, `rd/tech-doc.md`, `qa/test-cases/<rid>.md`, etc. The two vocabularies are *not* identical (A2A is HTTP-shaped, peaks is filesystem-shaped), but the A2A concepts are close enough that aligning peaks artefact names with A2A terms in this reference:
 
 - gives an external consumer a single translation table instead of two schemas to learn,
 - lets a peaks operator talk about "the artifact" or "the task" in mixed conversations without losing precision,
 - documents what peaks output is **not** (no SSE streaming, no remote AgentCard), so the limits are explicit.
 
-This is the kind of borrowing that costs zero code and earns some interoperability. It is **not** an integration: peaks-cli does not implement A2A, does not run an A2A server, and does not depend on the a2a-protocol package. Adopting A2A concepts here is the same as adopting any other shared nomenclature (UML, OpenTelemetry, etc.): it improves the conversation, nothing more.
+This is the kind of borrowing that costs zero code and earns some interoperability. It is **not** an integration: peaks-loop does not implement A2A, does not run an A2A server, and does not depend on the a2a-protocol package. Adopting A2A concepts here is the same as adopting any other shared nomenclature (UML, OpenTelemetry, etc.): it improves the conversation, nothing more.
 
 ## 2. Concept-to-path mapping
 
@@ -94,22 +94,22 @@ A consumer wanting to render a single "feature" object in A2A terms picks the `t
 
 ## 6. What peaks does NOT provide
 
-To keep the mapping honest, peaks-cli **does not** currently provide the following A2A primitives, and consumers should not expect them:
+To keep the mapping honest, peaks-loop **does not** currently provide the following A2A primitives, and consumers should not expect them:
 
-- A2A **AgentCard** served over HTTP at `/.well-known/agent-card.json`. peaks-cli is a local CLI; its "card" is the on-disk `.peaks/.active-skill.json` plus `peaks skill doctor --json`.
+- A2A **AgentCard** served over HTTP at `/.well-known/agent-card.json`. peaks-loop is a local CLI; its "card" is the on-disk `.peaks/.active-skill.json` plus `peaks skill doctor --json`.
 - A2A **streaming** responses (SSE / WebSocket). peaks commands are synchronous and return a single JSON envelope.
 - A2A **identity / auth** (OAuth, OIDC, mTLS). peaks assumes local-machine trust.
 - A2A **cross-vendor discovery**. peaks has no A2A registry entry; MCP-compatible capabilities are discovered by the LLM via its own tool list (the LLM checks for `mcp__<server>__*` entries in its own function schema) and reported back to the user. Slice #016 retired the `peaks mcp *` indirection layer.
 - A2A **Task delegation across the network**. peaks's "sub-agent" is a Claude Code `Task` tool call in the same process, not a remote A2A server.
 
-These are *deliberate* omissions. peaks-cli solves a different problem (a local workflow-gating CLI for Claude Code), and adopting A2A's networking surface would add weight without addressing peaks's actual failure modes (which are around LLM bypassing gates, not around inter-agent discovery).
+These are *deliberate* omissions. peaks-loop solves a different problem (a local workflow-gating CLI for Claude Code), and adopting A2A's networking surface would add weight without addressing peaks's actual failure modes (which are around LLM bypassing gates, not around inter-agent discovery).
 
 ## 7. When to re-evaluate
 
 Re-open this mapping in any of the following cases:
 
 - a peaks user reports a real need to share workflow state with a non-peaks agent (e.g. an Autogen / LangChain agent that wants to read a peaks handoff capsule);
-- peaks-cli ships a hosted / multi-user mode where AgentCard-style discovery becomes useful;
+- peaks-loop ships a hosted / multi-user mode where AgentCard-style discovery becomes useful;
 - the A2A protocol stabilises on a thin `Artifact` JSON schema that matches peaks's on-disk shape close enough to make translation a one-liner rather than a reference doc.
 
-Until one of those fires, this reference doc is the entire A2A surface area of peaks-cli. Adding more is over-engineering.
+Until one of those fires, this reference doc is the entire A2A surface area of peaks-loop. Adding more is over-engineering.

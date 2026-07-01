@@ -1,8 +1,8 @@
 /**
  * P2-a Theme C — output style enforcers.
  *
- * The peaks-cli dogfood rule: every skill response carries a status
- * header (`Peaks-Cli Skill: <name> | Peaks-Cli Gate: <gate> | Next:
+ * The peaks-loop dogfood rule: every skill response carries a status
+ * header (`Peaks-Loop Skill: <name> | Peaks-Loop Gate: <gate> | Next:
  * <action>`), the SKILL.md body has no greeting/closing-prompt
  * flattery, and the status header is detectable in the recent
  * session transcript (test-only fixture).
@@ -36,7 +36,7 @@ const CLOSING_PROMPTS = [
   /\b随时 (欢迎 )?(联系|提问)/i
 ];
 
-const STATUS_HEADER_PATTERN = /Peaks-Cli Skill:\s*peaks-[a-z0-9-]+\s*\|\s*Peaks-Cli Gate:\s*[A-Za-z0-9_.-]+\s*\|\s*Next:\s*\S/;
+const STATUS_HEADER_PATTERN = /Peaks-Loop Skill:\s*peaks-[a-z0-9-]+\s*\|\s*Peaks-Loop Gate:\s*[A-Za-z0-9_.-]+\s*\|\s*Next:\s*\S/;
 
 export function lintNoFluff(skill: SkillFile): readonly LintHit[] {
   const hits: LintHit[] = [];
@@ -90,10 +90,10 @@ export function lintStatusHeader(projectRoot: string, sessionId: string): readon
   if (!STATUS_HEADER_PATTERN.test(body)) {
     return [{
       catalogId: 'rl-output-style-status-header-001',
-      rule: 'Peaks-Cli status header on every response',
+      rule: 'Peaks-Loop status header on every response',
       file: logPath,
       line: 1,
-      matchedText: '(no Peaks-Cli Skill / Gate / Next header found in session.log)'
+      matchedText: '(no Peaks-Loop Skill / Gate / Next header found in session.log)'
     }];
   }
   return [];

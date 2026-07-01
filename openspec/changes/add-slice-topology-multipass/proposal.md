@@ -15,7 +15,7 @@ User is the only consumer (`confirmed 2026-06-25`), so a breaking JSON schema ch
 
 ## Product Philosophy (10% Human / 90% LLM)
 
-This change is part of peaks-cli's broader shift to a **10% human / 90% LLM** model. The human's role is supervisor, not operator.
+This change is part of peaks-loop's broader shift to a **10% human / 90% LLM** model. The human's role is supervisor, not operator.
 
 ### 3 human touchpoints (the 10%)
 
@@ -108,10 +108,10 @@ When LLM presents the goal at touchpoint #2, the human should be able to accept 
 - `peaks slice decompose --granularity=service` produces a v2 JSON with only Pass 1; passes 2 and 3 are omitted.
 - `peaks slice decompose --granularity=file` produces a v2 JSON with only Pass 2 (legacy v1-equivalent flat output, but in v2 schema shape).
 - `peaks slice decompose --granularity=auto` invokes `GranularityDecider` and LLM tie-breaker ≤ 1 call.
-- CrossPassEdgeMerger detects at least 1 type-sharing edge when run against `src/services/config/` (peaks-cli real codebase).
+- CrossPassEdgeMerger detects at least 1 type-sharing edge when run against `src/services/config/` (peaks-loop real codebase).
 - LLMArbitrator emits ≤ 2 calls per `peaks slice decompose` invocation; emits a warning when budget is exhausted.
 - SchemaRouter reads both v1 and v2 files; emits `UnknownSchemaVersionError` for unrecognised versions.
 - Existing 6-stage tests (`tests/unit/slice/slice-decompose-service.test.ts`) continue to pass without modification.
 - Each new file has ≥ 80% test coverage.
 - `pnpm test`, `pnpm typecheck`, and `pnpm test:coverage` all pass.
-- Mutation probes (3, per peaks-cli Plan 4 convention): each new module survives at least 1 mutation probe.
+- Mutation probes (3, per peaks-loop Plan 4 convention): each new module survives at least 1 mutation probe.

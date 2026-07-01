@@ -7,7 +7,7 @@
 >
 > **Created**: 2026-06-25
 > **Branch**: `feature/slice-topology-w7-t21` (from `feature/slice-topology-multipass` @ `adcac4e`)
-> **Phase**: 6, Task 21 (peaks-cli Plan 4 mutation-probe convention)
+> **Phase**: 6, Task 21 (peaks-loop Plan 4 mutation-probe convention)
 > **Verdict**: all-pass
 
 ## Summary

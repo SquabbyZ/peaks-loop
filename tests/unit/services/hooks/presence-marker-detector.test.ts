@@ -47,7 +47,7 @@ describe('presence-marker-detector', () => {
     writeCanonicalPresence(projectRoot, { skill: 'peaks-solo', mode: 'assisted' });
     const result = detectPresenceMarker({
       project: projectRoot,
-      latestAssistantMessage: 'Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: rd-discovery | Next: read PRD'
+      latestAssistantMessage: 'Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: rd-discovery | Next: read PRD'
     });
     expect(result.active).toBe(true);
     expect(result.skill).toBe('peaks-solo');
@@ -73,7 +73,7 @@ describe('presence-marker-detector', () => {
     writeLegacyPresence(projectRoot, { skill: 'peaks-qa' });
     const result = detectPresenceMarker({
       project: projectRoot,
-      latestAssistantMessage: 'Peaks-Cli Skill: peaks-qa | Peaks-Cli Gate: verify-3way | Next: tsc'
+      latestAssistantMessage: 'Peaks-Loop Skill: peaks-qa | Peaks-Loop Gate: verify-3way | Next: tsc'
     });
     expect(result.active).toBe(true);
     expect(result.skill).toBe('peaks-qa');
@@ -94,7 +94,7 @@ describe('presence-marker-detector', () => {
     const dir = join(projectRoot, '.peaks', '_runtime');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'active-skill.json'), '{ this is not valid json ', 'utf8');
-    const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: 'Peaks-Cli Skill: peaks-solo' });
+    const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: 'Peaks-Loop Skill: peaks-solo' });
     expect(result.active).toBe(false);
     expect(result.markerFound).toBe(false);
     expect(result.warning).toBeUndefined();

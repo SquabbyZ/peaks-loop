@@ -111,7 +111,7 @@ export type WorkspaceInitReport = {
    * `.claude/settings.local.json` materialization did this call.
    *   - written:        the file was freshly written
    *   - refreshed:      the file already existed and was rewritten to
-   *                     match the current peaks-cli release's template
+   *                     match the current peaks-loop release's template
    *   - already-current: the file already matched the template; no
    *                     rewrite needed
    *   - skipped:        the caller passed noClaudeHooks=true
@@ -231,7 +231,7 @@ export class LegacyChangeIdSiblingError extends Error {
     readonly legacyPath: string
   ) {
     super(
-      `peaks-cli 2.8.3+ forbids the legacy sibling dir ${legacyPath}. ` +
+      `peaks-loop 2.8.3+ forbids the legacy sibling dir ${legacyPath}. ` +
       `Under the two-axis convention, change-id "${sessionId}" must live in the SESSION axis ` +
       `(.peaks/_runtime/<sessionId>/), not as a top-level sibling of .peaks/_runtime/. ` +
       `Migration: (1) inspect ${legacyPath} for user-authored content; ` +

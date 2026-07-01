@@ -1,12 +1,12 @@
 ---
-name: peaks-cli-fork-sync-and-layered-parallel
-description: peaks-cli 双轨演进 + 分层并行 = 上游 tag 断点同步(独立排期窗口,不在业务版本预算) + 大需求基础先行/业务并行(业务不等基础全部完成,基于基础子集立即启动)
+name: peaks-loop-fork-sync-and-layered-parallel
+description: peaks-loop 双轨演进 + 分层并行 = 上游 tag 断点同步(独立排期窗口,不在业务版本预算) + 大需求基础先行/业务并行(业务不等基础全部完成,基于基础子集立即启动)
 metadata:
   type: project
   createdAt: 2026-06-28
 ---
 
-# peaks-cli 上游同步 + 分层并行
+# peaks-loop 上游同步 + 分层并行
 
 > 适用: 当 LLM 解释 fork 场景 / 大需求调度 / 基础 vs 业务切分时。
 
@@ -158,7 +158,7 @@ function runLayeredDag(dag: SliceDag) {
 
 ## 5. 关联
 
-- [[peaks-cli-24h-ai-programmer-positioning]]
-- [[peaks-cli-prd-template-design]] — 上游基线块 + slice 切分标记
-- [[peaks-cli-slice-review-and-qa-perspective]] — 上游同步 slice 的 QA 验收
-- [[peaks-cli-fast-iteration-quality-loop]] — 上线后影响面扫描
+- [[peaks-loop-24h-ai-programmer-positioning]]
+- [[peaks-loop-prd-template-design]] — 上游基线块 + slice 切分标记
+- [[peaks-loop-slice-review-and-qa-perspective]] — 上游同步 slice 的 QA 验收
+- [[peaks-loop-fast-iteration-quality-loop]] — 上线后影响面扫描

@@ -25,7 +25,7 @@
  *   3. hash(process.ppid + process.env.SSH_TTY || 'no-tty')
  *
  * The CLI does NOT bundle `playwright-mcp`; it shells out to
- * `npx playwright-mcp@latest` (G22 / NG3). peaks-cli is the lifecycle
+ * `npx playwright-mcp@latest` (G22 / NG3). peaks-loop is the lifecycle
  * orchestrator, not the install medium.
  */
 
@@ -483,5 +483,5 @@ async function mockOrPassThroughCaller(
   tool: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
-  return { tool, args, routedBy: 'peaks-cli-browser-wrapper' };
+  return { tool, args, routedBy: 'peaks-loop-browser-wrapper' };
 }

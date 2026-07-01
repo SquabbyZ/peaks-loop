@@ -45,7 +45,7 @@
 - [ ] Pass 2 internal calls run in parallel (`Promise.all` over the parent's slices).
 - [ ] Reuses `decomposeSlices` from `slice-decompose-service.ts` UNCHANGED.
 - [ ] Unit tests: single-Pass, 2-Pass, ambiguous, mocked `decomposeSlices` and `LLMArbitrator`.
-- [ ] Integration tests against `src/services/config/` and `src/services/memory/` (peaks-cli real codebase).
+- [ ] Integration tests against `src/services/config/` and `src/services/memory/` (peaks-loop real codebase).
 
 ## 7. CLI integration
 
@@ -142,7 +142,7 @@ The handoff artifact uses YAML frontmatter for structured fields + markdown body
 - [ ] Add `src/services/handoff/handoff-types.ts` with `HandoffFrontmatter`, `HandoffStatus`, `HandoffTestResult` types.
 - [ ] Add `src/services/handoff/handoff-parser.ts` with `parseHandoff(filePath): { frontmatter, body }`.
 - [ ] Add `src/services/handoff/handoff-writer.ts` with `writeHandoff(filePath, frontmatter, body)`.
-- [ ] Use existing YAML parser (peaks-cli already depends on one for `.peaks/standards/`).
+- [ ] Use existing YAML parser (peaks-loop already depends on one for `.peaks/standards/`).
 - [ ] Validation: throw `IncompleteHandoffError` if required fields missing (rid, slice_id, agent_id, schema_version, status, created_at).
 - [ ] Backward compat: legacy handoffs without frontmatter parse with `schema_version: '0'`, `status: 'unknown'`. No automatic rewrite.
 - [ ] Unit tests: parse valid handoff, parse invalid handoff (missing required fields), roundtrip (write → parse equal), legacy handoff backward compat.
@@ -166,12 +166,12 @@ The handoff artifact uses YAML frontmatter for structured fields + markdown body
 - [ ] `pnpm test:coverage` for new files: ≥ 80% statements, branches, functions, lines.
 - [ ] Mutation probe for the just-completed task passes (probe survives its targeted mutation).
 - [ ] No `console.log` in production code (lint check).
-- [ ] No file > 800 lines (per peaks-cli standard; `peaks scan file-size` gate).
+- [ ] No file > 800 lines (per peaks-loop standard; `peaks scan file-size` gate).
 
 ## Definition of Done
 
 - All 8 tasks complete with quality gates green.
 - All 3 mutation probes pass.
-- A real run of `peaks slice decompose --granularity=both --rid <real-rid>` on a current peaks-cli task produces a v2 JSON file readable by `SchemaRouter`.
+- A real run of `peaks slice decompose --granularity=both --rid <real-rid>` on a current peaks-loop task produces a v2 JSON file readable by `SchemaRouter`.
 - CHANGELOG entry merged.
 - PR opened from `feature/slice-topology-multipass` to `develop`.

@@ -1,12 +1,12 @@
 ---
-name: peaks-cli-fast-iteration-quality-loop
-description: peaks-cli 快速迭代闭环 = G13 存量影响面扫描(改 A 前预警) + G14 轻量回归(无 UT 兜底下的最低验证) + G15 上线观察期(发现-反馈-修复小时级)
+name: peaks-loop-fast-iteration-quality-loop
+description: peaks-loop 快速迭代闭环 = G13 存量影响面扫描(改 A 前预警) + G14 轻量回归(无 UT 兜底下的最低验证) + G15 上线观察期(发现-反馈-修复小时级)
 metadata:
   type: project
   createdAt: 2026-06-28
 ---
 
-# peaks-cli 快速迭代闭环
+# peaks-loop 快速迭代闭环
 
 > 适用: 当 LLM 解释存量老项目 / 无 UT 场景 / 改 A 触发 B / 2 天 1 版快速上线时。
 
@@ -32,7 +32,7 @@ metadata:
 
 - 改 A 之前,知道 A 会影响哪些 B
 - 现状(没工具): 改 A → 跑全量回归(没有)→ 上线后用户报 B → 紧急修复
-- peaks-cli 责任: 改 A 之前,**静态分析 + 业务知识**生成影响面报告,user 提前知道风险
+- peaks-loop 责任: 改 A 之前,**静态分析 + 业务知识**生成影响面报告,user 提前知道风险
 
 ### 3.2 关键能力
 
@@ -77,7 +77,7 @@ peaks impact must-check --change <slice-id> --project . --json
 
 - 没有 UT 的存量项目,必须有最低限度回归
 - 现状(没工具): 改完 → 上线 → 用户报 → 修(慢)
-- peaks-cli 责任: 提供"轻量回归"机制,**比 E2E 快,比 UT 覆盖广**
+- peaks-loop 责任: 提供"轻量回归"机制,**比 E2E 快,比 UT 覆盖广**
 
 ### 4.2 轻量 vs 完整 E2E
 
@@ -111,7 +111,7 @@ peaks smoke add-path --from-issue <id> --project . --json  # 修复后回灌
 
 - 快速上线后,必须有快速发现 + 快速修复机制
 - 现状(没工具): 上线 → 1-2 天用户报 → 修(慢)
-- peaks-cli 责任: "上线观察期"工作流,**发现-反馈-修复小时级**
+- peaks-loop 责任: "上线观察期"工作流,**发现-反馈-修复小时级**
 
 ### 5.2 3 个阶段
 
@@ -163,7 +163,7 @@ peaks smoke add-path --from-issue <issue-id> --project . --json
                  └→ 修复回灌到 G14 关键路径(防下次再犯)
 ```
 
-## 7. peaks-cli 完整职责总览
+## 7. peaks-loop 完整职责总览
 
 ```
 做对(原始 5 个 Gaps + 切片相关):
@@ -196,8 +196,8 @@ peaks smoke add-path --from-issue <issue-id> --project . --json
 
 ## 9. 关联
 
-- [[peaks-cli-24h-ai-programmer-positioning]]
-- [[peaks-cli-user-role-and-tech-decision]]
-- [[peaks-cli-prd-template-design]]
-- [[peaks-cli-slice-review-and-qa-perspective]]
-- [[peaks-cli-fork-sync-and-layered-parallel]]
+- [[peaks-loop-24h-ai-programmer-positioning]]
+- [[peaks-loop-user-role-and-tech-decision]]
+- [[peaks-loop-prd-template-design]]
+- [[peaks-loop-slice-review-and-qa-perspective]]
+- [[peaks-loop-fork-sync-and-layered-parallel]]

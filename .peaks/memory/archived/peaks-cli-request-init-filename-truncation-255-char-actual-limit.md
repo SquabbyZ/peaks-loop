@@ -2,7 +2,7 @@
 archived: 2026-06-29
 reason: v2.16.0-alpha change-id axis scope reduction
 status: archived
-name: peaks-cli-request-init-filename-truncation-255-char-actual-limit
+name: peaks-loop-request-init-filename-truncation-255-char-actual-limit
 description: peaks request init artefact filename slug is silently truncated to 248 chars; the actual code cap is `MAX_FILENAME_SLUG_LENGTH = 248` in src/shared/incrementing-number.ts:50, NOT 57 as the old memory claimed
 metadata:
   type: lesson
@@ -11,7 +11,7 @@ metadata:
 
 `peaks request init` writes the request artefact at `.peaks/_runtime/<sessionId>/<role>/requests/<NNN>-<requestId>.md` where the requestId is the slug passed via `--id`. The filename slug is silently truncated to **248 characters** in `buildNumberedFilename` (the kebab-case transform `description.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, MAX_FILENAME_SLUG_LENGTH)`). The total filename is therefore capped at 255 chars (4-char `<NNN>-` prefix + 248-char slug + 3-char `.md` suffix), which is the Windows `MAX_FILENAME_LENGTH` ceiling; if a requestId exceeds that, the OS will surface a real `ENAMETOOLONG` from `mkdir` / `writeFile`.
 
-**The old memory** at `.peaks/memory/peaks-cli-request-init-filename-truncation-57-char-limit.md` claimed the cap was 57 chars. That was wrong — it confused the slug with the file system component, and predated slice #015's 248-char cap. Slice 021 replaced the old memory with this one. The lesson is preserved, but with the correct numbers.
+**The old memory** at `.peaks/memory/peaks-loop-request-init-filename-truncation-57-char-limit.md` claimed the cap was 57 chars. That was wrong — it confused the slug with the file system component, and predated slice #015's 248-char cap. Slice 021 replaced the old memory with this one. The lesson is preserved, but with the correct numbers.
 
 **Why:** `peaks request show` (and the rest of the state machine) looks up the artefact by the full request-id. A truncated filename is a silent inconsistency: the file is on disk but unreachable by name. The state machine does not fall back to fuzzy match. The artefact is effectively orphaned — the transition CLI cannot see it, the state field is null, the workflow is stuck.
 

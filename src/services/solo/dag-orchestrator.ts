@@ -184,7 +184,7 @@ export function buildDispatchSpec(
     '',
     `[slice-dag-dispatcher MVP 1.2] execute slice "${sliceId}" (role=${node.role})${labelFragment}.`,
     '',
-    'Scope: this is the 2.7.0 MVP dogfood of peaks-cli DAG-aware dispatch. You are one leaf in a multi-slice plan; the orchestrator has already validated the DAG, built a topological order, and injected your upstream contracts above.',
+    'Scope: this is the 2.7.0 MVP dogfood of peaks-loop DAG-aware dispatch. You are one leaf in a multi-slice plan; the orchestrator has already validated the DAG, built a topological order, and injected your upstream contracts above.',
     '',
     'Handoff protocol (REQUIRED — orchestrator depends on this):',
     '  1. Execute the slice to completion.',

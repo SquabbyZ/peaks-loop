@@ -2,7 +2,7 @@
  * Slice 2026-06-24-test-tool-detection-injection.
  *
  * The Test Tool Detection block is prepended to every sub-agent prompt
- * dispatched by peaks-cli (both the single-dispatch chokepoint in
+ * dispatched by peaks-loop (both the single-dispatch chokepoint in
  * `src/cli/commands/dispatch-commands.ts` and the DAG-dispatch chokepoint
  * in `src/services/solo/dag-orchestrator.ts`). It tells the sub-agent
  * to read `package.json#scripts.test` first and use the project-local

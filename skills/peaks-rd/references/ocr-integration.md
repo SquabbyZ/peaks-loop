@@ -1,11 +1,11 @@
 # OCR (Open Code Review) integration
 
 > Soft-optional second-opinion code review for peaks-rd Gate B3.
-> Mirrors the ECC 64-agents pattern (spec §7.2): peaks-cli ships
+> Mirrors the ECC 64-agents pattern (spec §7.2): peaks-loop ships
 > `@alibaba-group/open-code-review` as an **`optionalDependency`**
 > (was promoted to `dependencies` in 2.0.1 and reverted in 2.0.3
 > because its postinstall downloads a Go binary via HTTPS and would
-> otherwise abort `npm i -g peaks-cli` in restricted/proxied
+> otherwise abort `npm i -g peaks-loop` in restricted/proxied
 > environments). The LLM endpoint config still lives under
 > `peaksConfig.ocr.llm` in the user's `~/.peaks/config.json` (single
 > source of truth, user-managed). When the user installs + configures
@@ -40,10 +40,10 @@ ships without the second opinion.
 ## Install
 
 `@alibaba-group/open-code-review` is an **`optionalDependency`** of
-peaks-cli 2.0.3+ (was a required `dependency` in 2.0.1/2.0.2; reverted
+peaks-loop 2.0.3+ (was a required `dependency` in 2.0.1/2.0.2; reverted
 because the postinstall downloads a Go binary via HTTPS, which fails in
 restricted/proxied environments and would otherwise abort
-`npm i -g peaks-cli`). peaks-cli does NOT auto-install it. To enable
+`npm i -g peaks-loop`). peaks-loop does NOT auto-install it. To enable
 the second-opinion review:
 
 ```bash
@@ -61,17 +61,17 @@ Five possible states:
 
 | state | Meaning | Recovery |
 |---|---|---|
-| `ready` | Installed + binary downloaded + peaks-cli's `peaksConfig.ocr.llm` valid | Nothing — `run-ocr` will work. |
-| `package-missing` | npm dep not installed (peaks-cli 2.0.3+ ships with ocr as an `optionalDependency`, so the common cause is the user has not installed it yet, or it was removed from node_modules) | `npm i -g @alibaba-group/open-code-review` (peaks-cli no longer auto-installs it; under pnpm also run `pnpm approve-builds @alibaba-group/open-code-review`) |
+| `ready` | Installed + binary downloaded + peaks-loop's `peaksConfig.ocr.llm` valid | Nothing — `run-ocr` will work. |
+| `package-missing` | npm dep not installed (peaks-loop 2.0.3+ ships with ocr as an `optionalDependency`, so the common cause is the user has not installed it yet, or it was removed from node_modules) | `npm i -g @alibaba-group/open-code-review` (peaks-loop no longer auto-installs it; under pnpm also run `pnpm approve-builds @alibaba-group/open-code-review`) |
 | `binary-missing` | npm dep present but Go binary did not download | `pnpm approve-builds @alibaba-group/open-code-review`, OR run `node node_modules/@alibaba-group/open-code-review/scripts/install.js`, OR manually fetch from https://github.com/alibaba/open-code-review/releases and place the binary at the path shown in `nextActions[2]`. |
 | `config-missing` | binary present but `peaksConfig.ocr.llm` is empty or partial | See "Configure" below. |
 | `detection-failed` | Unexpected error during detection | Inspect stderr; re-run probe. |
 
-## Configure (one-time, per user) — peaks-cli does NOT auto-configure
+## Configure (one-time, per user) — peaks-loop does NOT auto-configure
 
-The LLM endpoint config is **user-maintained inside peaks-cli's own
+The LLM endpoint config is **user-maintained inside peaks-loop's own
 config** at `~/.peaks/config.json` under the `ocr.llm` key. The user
-is the only party that touches their LLM token / URL / model. peaks-cli
+is the only party that touches their LLM token / URL / model. peaks-loop
 never auto-writes the config and never writes `~/.opencodereview/config.json`.
 
 ```bash
@@ -105,7 +105,7 @@ env vars** (ocr's highest-priority config path). The mapping is:
 | `authHeader` | `OCR_LLM_AUTH_HEADER` | One of `authorization` (default Bearer), `x-api-key` (for `sk-ant-*` keys), or `bearer` |
 
 The `~/.opencodereview/config.json` file the user might have set up
-for 2.0.0 is no longer consulted by peaks-cli. The user may delete it
+for 2.0.0 is no longer consulted by peaks-loop. The user may delete it
 at their discretion — the ocr subprocess ignores the file when peaks-
 cli's env vars are present (and the env-var surface is highest priority).
 
@@ -171,7 +171,7 @@ even when ocr is not ready or the subprocess fails. The envelope
 `ok` field carries the success signal; the caller (peaks-rd) is
 expected to pattern-match on `data.state` and proceed without the
 second opinion if needed. This matches the ECC 64-agents
-soft-fail policy and the peaks-cli "minimal user operation"
+soft-fail policy and the peaks-loop "minimal user operation"
 tenet — missing ocr should never block a slice.
 
 ## Security
@@ -181,12 +181,12 @@ tenet — missing ocr should never block a slice.
   tool you opt into: don't point it at a free public endpoint
   for proprietary code; use a vendor / self-hosted endpoint with
   appropriate data controls.
-- peaks-cli does NOT auto-configure ocr. Your `ocr.llm.authToken`
+- peaks-loop does NOT auto-configure ocr. Your `ocr.llm.authToken`
   is yours. Rotate as needed. The token is stored only in the
   user-layer `~/.peaks/config.json` (project layer rejects writes
   to any key matching `isSensitiveConfigPath`), and
   `peaks config get` redacts it as `***`.
-- peaks-cli's wrapper records ocr's `stdout` verbatim in the
+- peaks-loop's wrapper records ocr's `stdout` verbatim in the
   envelope (and in `code-review.md` when peaks-rd merges
   findings). Don't put secrets in your code being reviewed.
 - The `peaks code-review config-template` snippet embeds the
@@ -199,10 +199,10 @@ These are the actual failure modes the wrapper has been
 dogfooded against:
 
 1. **Network blocked from GitHub Releases** during postinstall →
-   `binary-missing`. peaks-cli still runs cleanly because ocr
+   `binary-missing`. peaks-loop still runs cleanly because ocr
    is detected as not-ready; user manually fetches the binary
    and places it at `nextActions[2]`'s path.
-2. **pnpm-installed peaks-cli** → ocr postinstall blocked by
+2. **pnpm-installed peaks-loop** → ocr postinstall blocked by
    pnpm's safe-by-default policy → `binary-missing`. Recover
    with `pnpm approve-builds @alibaba-group/open-code-review`.
 3. **No / partial LLM config** → `config-missing` with
@@ -213,17 +213,17 @@ dogfooded against:
    wrapper soft-fails (`ok: false`, `warnings[0]` includes the
    exit code, `stderr` carries ocr's own error message).
 5. **User 2.0.0 → 2.0.1 migration** — they configured
-   `~/.opencodereview/config.json` for 2.0.0; peaks-cli 2.0.1
+   `~/.opencodereview/config.json` for 2.0.0; peaks-loop 2.0.1
    no longer reads that file. They paste the same values into
-   `~/.peaks/config.json` under `ocr.llm` (peaks-cli handles the
+   `~/.peaks/config.json` under `ocr.llm` (peaks-loop handles the
    camelCase conversion in the template).
 
 ## See also
 
 - ocr upstream: https://github.com/alibaba/open-code-review
-- peaks-cli source: `src/services/code-review/ocr-service.ts`,
+- peaks-loop source: `src/services/code-review/ocr-service.ts`,
   `src/cli/commands/code-review-commands.ts`
-- peaks-cli config schema: `src/services/config/config-types.ts`
+- peaks-loop config schema: `src/services/config/config-types.ts`
   (`OcrLlmConfig`, `OcrConfig`, `PeaksConfig.ocr?`)
 - ECC 64-agents soft-optional pattern (mirrored):
   `src/services/agent/ecc-agent-service.ts`

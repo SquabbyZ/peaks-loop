@@ -3,7 +3,7 @@
  *
  * Evaluator-as-primitive dispatcher. Each of the 4 evaluator types
  * (karpathy / code-review / security-review / perf-baseline) maps to
- * an existing peaks-cli CLI surface; the dispatcher shells out to the
+ * an existing peaks-loop CLI surface; the dispatcher shells out to the
  * same binary so verdict shape stays byte-compatible with the
  * `verdict-aggregator` envelope union (`karpathy` / `security` / `perf`).
  *
@@ -40,7 +40,7 @@ export interface EvaluatorVerdictEnvelope {
   readonly wallSeconds: number;
   /** When true, the evaluator fell back to a stub because the binary was
    *  unavailable in this environment. Surfaces in the verdict envelope so
-   *  the user can rerun on a real peaks-cli install. */
+   *  the user can rerun on a real peaks-loop install. */
   readonly degraded: boolean;
 }
 

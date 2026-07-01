@@ -7,7 +7,7 @@ metadata:
 
 For any `child_process.spawn` call on Windows that goes through `cmd`, assertion-only dogfood (e.g. "does `args[5]` contain `title \"...\"`") is insufficient. The JSON envelope's `spawned` field shows the LOGICAL command line, not the one Node actually constructs. Node's `child_process.js` applies Windows-specific escaping (backslash-doubling, quote-escaping) to each arg before joining; the result can differ from the logical view in ways that break cmd's parser.
 
-**Why:** slice `2026-06-06-sub-agent-spawn-bug-and-decouple` d493006 shipped a smoke-test dogfood that asserted the logical `spawned` string. The real Node-constructed command line had `\"peaks-cli: ...\"` inside the outer `start` arg, which cmd interpreted as a drive-letter prefix BEFORE the `&&` chain — so the dialog persisted for the user. The fix in 5257dca added a real-cmdline regression test that:
+**Why:** slice `2026-06-06-sub-agent-spawn-bug-and-decouple` d493006 shipped a smoke-test dogfood that asserted the logical `spawned` string. The real Node-constructed command line had `\"peaks-loop: ...\"` inside the outer `start` arg, which cmd interpreted as a drive-letter prefix BEFORE the `&&` chain — so the dialog persisted for the user. The fix in 5257dca added a real-cmdline regression test that:
 1. Constructs the same `cmdline = ['cmd', ...args].map(quote).join(' ')` that libuv would build
 2. Walks the cmdline char-by-char with proper `\"` escape handling
 3. Asserts the `&&` chain is ALWAYS inside a quoted region

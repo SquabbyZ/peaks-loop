@@ -46,7 +46,7 @@ describe('createProgram', () => {
   });
 
   test('config set redacts sensitive values and blocks project-layer secrets', async () => {
-    const secret = 'peaks-cli-test-redacted-secret';
+    const secret = 'peaks-loop-test-redacted-secret';
     const setResult = await runCommand(['config', 'set', '--key', 'providers.minimax.apiKey', '--value', JSON.stringify(secret), '--json']);
     const setOutput = parseJsonOutput<{ value: string }>(setResult.stdout);
 
@@ -93,7 +93,7 @@ describe('createProgram', () => {
   });
 
   test('config set and get redact common sensitive key variants', async () => {
-    const secret = 'peaks-cli-sensitive-variant-secret';
+    const secret = 'peaks-loop-sensitive-variant-secret';
     const keys = ['providers.minimax.api_key', 'providers.minimax.accessKey', 'providers.minimax.privateKey', 'providers.minimax.credentials'];
 
     for (const key of keys) {
@@ -112,7 +112,7 @@ describe('createProgram', () => {
   });
 
   test('config provider minimax set get and status redact api keys', async () => {
-    const secret = 'peaks-cli-provider-test-secret';
+    const secret = 'peaks-loop-provider-test-secret';
     const baseUrl = 'https://api.minimaxi.com/anthropic';
     const keyOnlyResult = await runCommand(['config', 'provider', 'minimax', 'set', '--json'], { MINIMAX_API_KEY: secret });
     const keyOnlyOutput = parseJsonOutput<{ apiKeyConfigured: boolean }>(keyOnlyResult.stdout);
@@ -143,7 +143,7 @@ describe('createProgram', () => {
   });
 
   test('config provider minimax status and config get redact invalid persisted base URLs', async () => {
-    const secret = 'peaks-cli-invalid-provider-secret';
+    const secret = 'peaks-loop-invalid-provider-secret';
     writeUserConfig({ providers: { minimax: { baseUrl: 'https://user:pass@api.minimaxi.com/anthropic', apiKey: secret } } });
 
     const statusResult = await runCommand(['config', 'provider', 'minimax', 'status', '--json']);
@@ -187,7 +187,7 @@ describe('createProgram', () => {
   });
 
   test('config provider minimax test returns redacted smoke results', async () => {
-    const secret = 'peaks-cli-provider-smoke-secret';
+    const secret = 'peaks-loop-provider-smoke-secret';
     const baseUrl = 'https://api.minimaxi.com/anthropic';
     await runCommand(['config', 'provider', 'minimax', 'set', '--base-url', baseUrl, '--json'], { MINIMAX_API_KEY: secret });
     getMinimaxSmokeTest().mockResolvedValue({
@@ -250,14 +250,14 @@ describe('createProgram', () => {
     expect(failedResult.exitCode).toBe(1);
     expect(getMinimaxSmokeTest()).toHaveBeenLastCalledWith(expect.any(Object), { model: 'MiniMax-M2' });
 
-    getMinimaxSmokeTest().mockRejectedValueOnce(new Error('network down with peaks-cli-provider-smoke-secret'));
+    getMinimaxSmokeTest().mockRejectedValueOnce(new Error('network down with peaks-loop-provider-smoke-secret'));
     const thrownResult = await runCommand(['config', 'provider', 'minimax', 'test', '--json']);
     const thrownOutput = (parseJsonOutput(thrownResult.stdout) as ReturnType<typeof parseJsonOutput> & { message: string });
     expect(thrownOutput.ok).toBe(false);
     expect(thrownOutput.code).toBe('MINIMAX_PROVIDER_TEST_FAILED');
-    expect(thrownOutput.message).toContain('network down with peaks-cli-provider-smoke-[redacted]');
+    expect(thrownOutput.message).toContain('network down with peaks-loop-provider-smoke-[redacted]');
     expect(thrownResult.exitCode).toBe(1);
-    expect(thrownResult.stdout.join('\n')).not.toContain('peaks-cli-provider-smoke-secret');
+    expect(thrownResult.stdout.join('\n')).not.toContain('peaks-loop-provider-smoke-secret');
   });
 
   test('worker minimax requires explicit confirmation', async () => {

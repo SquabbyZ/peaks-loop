@@ -6,7 +6,7 @@
  *
  * Per L2 redesign §5.4. Mocks belong in `tests/fixtures/`, not inline.
  * Per `references/mock-data-placement.md` from peaks-rd: framework-aware
- * mock placement. peaks-cli has no UI framework, but the rule still
+ * mock placement. peaks-loop has no UI framework, but the rule still
  * applies for non-fixture files.
  */
 

@@ -47,7 +47,7 @@ describe('TRAE_ADAPTER — capabilities', () => {
     expect(TRAE_ADAPTER.capabilities.gateEnforce).toBe(true);
   });
   test('mcpInstall is removed (slice #016: MCP subsystem retired; no per-IDE capability flag needed)', () => {
-    // Slice #016: peaks-cli no longer manages MCP. The `mcpInstall` field is
+    // Slice #016: peaks-loop no longer manages MCP. The `mcpInstall` field is
     // gone from `IdeCapabilities`; this test guards the surface.
     expect((TRAE_ADAPTER.capabilities as { mcpInstall?: unknown }).mcpInstall).toBeUndefined();
   });

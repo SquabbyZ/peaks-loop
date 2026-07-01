@@ -1,4 +1,4 @@
-# Peaks-Cli RD transition verification gates
+# Peaks-Loop RD transition verification gates
 
 > Extracted from `skills/peaks-rd/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim "Transition verification gates" section that was previously inline; nothing was paraphrased, just relocated.
 
@@ -17,14 +17,14 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 >
 > The escape hatch `--allow-incomplete --reason "<text>"` still exists for one-off exceptions; the bypass is recorded in the artifact transition note.
 
-**Peaks-Cli Gate A — After project-scan read (before any implementation):**
+**Peaks-Loop Gate A — After project-scan read (before any implementation):**
 ```bash
 ls .peaks/_runtime/<sessionId>/rd/project-scan.md
 # Expected output: .peaks/_runtime/<sessionId>/rd/project-scan.md
 # "No such file" → STOP, create the project-scan first. Do not write code.
 ```
 
-**Peaks-Cli Gate A2 — Before tech-doc write: project structure verified (PATH CORRECTNESS — CRITICAL):**
+**Peaks-Loop Gate A2 — Before tech-doc write: project structure verified (PATH CORRECTNESS — CRITICAL):**
 ```bash
 # Verify EVERY file path and directory in the tech-doc exists in the actual project.
 # Do not assume paths. Do not guess directory structures. Open the files and verify.
@@ -36,7 +36,7 @@ ls <every-single-directory-path-in-tech-doc> 2>&1 | grep -c "No such file"
 # breaks the implementation, and forces the user to correct the engineer.
 ```
 
-**Peaks-Cli Gate A3 — Before implementation: project standards files exist (CLAUDE.md + .claude/rules/):**
+**Peaks-Loop Gate A3 — Before implementation: project standards files exist (CLAUDE.md + .claude/rules/):**
 ```bash
 ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-review.md .claude/rules/common/security.md 2>&1 | grep -c "No such file"
 # Expected: 0 (all four files exist)
@@ -45,14 +45,14 @@ ls CLAUDE.md .claude/rules/common/coding-style.md .claude/rules/common/code-revi
 # Without CLAUDE.md and .claude/rules/, code review and security review triggers won't fire.
 ```
 
-**Peaks-Cli Gate B — Before QA handoff:**
+**Peaks-Loop Gate B — Before QA handoff:**
 ```bash
 ls .peaks/_runtime/<sessionId>/rd/requests/<rid>.md \
    .peaks/_runtime/<sessionId>/rd/tech-doc.md
 # Both must exist. Missing either → BLOCKED, do not hand off to QA
 ```
 
-**Peaks-Cli Gate B2 — Before QA handoff: unit tests exist and pass for the changed surface:**
+**Peaks-Loop Gate B2 — Before QA handoff: unit tests exist and pass for the changed surface:**
 ```bash
 # Run the project's test command against changed files. Record the output.
 # Example (adapt to project test runner):
@@ -66,7 +66,7 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -20
 # `--run-tests` flag is the CLI opt-in.
 ```
 
-**Peaks-Cli Gate B3 — Before QA handoff: code review evidence exists:**
+**Peaks-Loop Gate B3 — Before QA handoff: code review evidence exists:**
 ```bash
 ls .peaks/_runtime/<sessionId>/rd/code-review.md 2>&1
 # Expected: .peaks/_runtime/<sessionId>/rd/code-review.md
@@ -74,7 +74,7 @@ ls .peaks/_runtime/<sessionId>/rd/code-review.md 2>&1
 # record findings, fix CRITICAL/HIGH issues, then re-check.
 ```
 
-**Peaks-Cli Gate B4 — Before QA handoff: security review evidence exists:**
+**Peaks-Loop Gate B4 — Before QA handoff: security review evidence exists:**
 ```bash
 ls .peaks/_runtime/<sessionId>/rd/security-review.md 2>&1
 # Expected: .peaks/_runtime/<sessionId>/rd/security-review.md
@@ -82,7 +82,7 @@ ls .peaks/_runtime/<sessionId>/rd/security-review.md 2>&1
 # fix CRITICAL/HIGH issues, record findings, then re-check.
 ```
 
-**Peaks-Cli Gate B5 — RD artifact body has no unfilled placeholders:**
+**Peaks-Loop Gate B5 — RD artifact body has no unfilled placeholders:**
 ```bash
 peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
@@ -90,7 +90,7 @@ peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --
 # and TBD/TODO marker with line numbers. Fill them in before attempting handoff.
 ```
 
-**Peaks-Cli Gate B6 — Declared --type matches the actual diff:**
+**Peaks-Loop Gate B6 — Declared --type matches the actual diff:**
 ```bash
 peaks scan request-type-sanity --project <repo> --type <type> --json
 # Expected: consistent=true. exit 0.
@@ -99,7 +99,7 @@ peaks scan request-type-sanity --project <repo> --type <type> --json
 # (`peaks request init` with the corrected --type) or trim the scope.
 ```
 
-**Peaks-Cli Gate B7 — Repair cycle cap (only relevant during RD↔QA repair loop):**
+**Peaks-Loop Gate B7 — Repair cycle cap (only relevant during RD↔QA repair loop):**
 ```bash
 peaks request repair-status <rid> --project <repo> --session-id <session-id> --json
 # Expected: atCap=false. exit 0.
@@ -107,7 +107,7 @@ peaks request repair-status <rid> --project <repo> --session-id <session-id> --j
 # handoff via Solo rather than entering a fourth cycle.
 ```
 
-**Peaks-Cli Gate B8 — Diff stays inside the declared red-line scope:**
+**Peaks-Loop Gate B8 — Diff stays inside the declared red-line scope:**
 ```bash
 peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
@@ -121,7 +121,7 @@ peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <session-id> 
 #   before re-running. Auto-allowed paths (test files, .peaks/, __mocks__/) never need a pattern.
 ```
 
-**Peaks-Cli Gate B9 — RD-side perf-baseline output present (when slice has a user-perceivable perf surface):**
+**Peaks-Loop Gate B9 — RD-side perf-baseline output present (when slice has a user-perceivable perf surface):**
 ```bash
 ls .peaks/_runtime/<sessionId>/rd/perf-baseline.md 2>&1
 # Expected: .peaks/_runtime/<sessionId>/rd/perf-baseline.md

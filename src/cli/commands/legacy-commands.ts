@@ -3,7 +3,7 @@
  *
  *   - `peaks legacy detect --dir <path>` — scan a directory for legacy
  *     smells (TODO/FIXME/HACK, console.log, any-type, large files, ts-ignore).
- *     Useful as a "where to start" inventory when peaks-cli is applied
+ *     Useful as a "where to start" inventory when peaks-loop is applied
  *     to a 存量老项目.
  */
 
@@ -22,7 +22,7 @@ export function registerLegacyCommands(program: Command, io: ProgramIO): void {
           'console.log, any-type, large files, ts-ignore). Returns a smell grade ' +
           '(low / medium / high) and per-kind counts. Lightweight heuristics — ' +
           'NOT a replacement for a real linter. Useful as a "where to start" ' +
-          'inventory when peaks-cli is applied to a legacy codebase.'
+          'inventory when peaks-loop is applied to a legacy codebase.'
       )
       .option('--dir <path>', 'directory to scan (default: src)', 'src')
       .option('--project <path>', 'project root (default: cwd)')

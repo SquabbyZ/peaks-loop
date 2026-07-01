@@ -1,5 +1,5 @@
 /**
- * Path-safety helpers for peaks-cli artifact paths.
+ * Path-safety helpers for peaks-loop artifact paths.
  *
  * Extracted after the v2.19.0 change-id root removal. The change-id
  * axis was eliminated entirely; the remaining helper utilities are

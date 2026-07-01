@@ -9,7 +9,7 @@ This file documents their licenses per the slice #010 R-14 mitigation:
 ### `headroom-ai` (v0.22.4, pinned)
 
 - Source: https://github.com/chopratejas/headroom
-- License: **Apache-2.0** (compatible with peaks-cli's MIT license)
+- License: **Apache-2.0** (compatible with peaks-loop's MIT license)
 - Usage: G7.7 opt-in compression channel (`peaks sub-agent dispatch --use-headroom`).
 - License check: `npm view headroom-ai license` returns `Apache-2.0`.
 - Version pinning: exact version (no `^` or `~` range) per dev-preference guidance.
@@ -17,7 +17,7 @@ This file documents their licenses per the slice #010 R-14 mitigation:
 Per Apache-2.0 §4, redistribution of headroom-ai must preserve the
 LICENSE + NOTICE files. The package's LICENSE file is included in
 `node_modules/headroom-ai/LICENSE` (the published npm tarball contains
-it). When peaks-cli is republished to npm, the LICENSE file from
+it). When peaks-loop is republished to npm, the LICENSE file from
 headroom-ai should be copied to `dist/THIRD_PARTY_LICENSES/headroom-ai.LICENSE`
 alongside the build output. This is a TODO for the next release cut
 (slice #011+); it does not block the slice #010 dogfood gate.
@@ -39,6 +39,6 @@ is the basis for the dev-preference override.
 - `pnpm audit` ran on the slice #010 install; no new high-severity
   vulnerabilities introduced by headroom-ai@0.22.4.
 - The SDK runs in-process only; no long-running daemon is invoked
-  from peaks-cli (the long-running `headroom proxy` is N-7 deferred).
+  from peaks-loop (the long-running `headroom proxy` is N-7 deferred).
 - Communication with the proxy (if used) is HTTP to a local Unix
   socket / named pipe (no network exposure).

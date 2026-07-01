@@ -47,7 +47,7 @@ metadata:
 | `skill-first-cli-auxiliary-sub-agent-dispatch.md` | **CLI 是 skill 的执行原语**，不是用户直接面对的命令——reindex / index-status 全在 skill flow 里自动触发 |
 | `slim-ideadapter-shape-is-the-contract.md` | **`IdeAdapter` 接口扩展点 = embedder**；新增方法遵守 slim shape（type-only extension，不破坏现有 5 IDE 实现） |
 | `src-services-ide-module-is-the-single-source-of-truth-for-ide-aware-behavior.md` | embedder 实现归口在 `src/services/ide/`，不在 zvec 模块里 |
-| 既有 tenet "one-key completion + minimal user operation" | zvec 走 default dep（不是 optionalDep），`npm install peaks-cli` 一键装齐；user 不感知 reindex 存在；embed 调用通过 IDE 不需额外配置 |
+| 既有 tenet "one-key completion + minimal user operation" | zvec 走 default dep（不是 optionalDep），`npm install peaks-loop` 一键装齐；user 不感知 reindex 存在；embed 调用通过 IDE 不需额外配置 |
 
 ---
 
@@ -122,7 +122,7 @@ metadata:
 
 - **AC-ZA-1**：依赖添加（**零新 dep**）
   - **不**加任何新 npm 依赖
-  - peaks-cli npm package 体积变化：**0**
+  - peaks-loop npm package 体积变化：**0**
 - **AC-ZA-2**：active IDE chat 能力验证
   - `tests/unit/memory-reranker/ide-chat-smoke.test.ts` 验证 `IdeAdapter.chat(messages)` 可用
   - 复用 `SubAgentDispatcher` 已有的 chat 通道（不引入新路径）
@@ -140,7 +140,7 @@ metadata:
   - 用 mock IDE LLM 注入测试
 - **AC-ZA-5**：**Token 测量（核心 AC，决定 GO/NO-GO）**
   - 脚本 `scripts/bench/memory-search-token-cost.ts`
-  - 输入：60 份 memory + 10 个真实 query（含 "idempotency"、"sub-agent context"、"audit decision"、"headroom compression" 等 peaks-cli 领域关键词）
+  - 输入：60 份 memory + 10 个真实 query（含 "idempotency"、"sub-agent context"、"audit decision"、"headroom compression" 等 peaks-loop 领域关键词）
   - 输出表格：每个 query 在三种链路下的 token 数
     - L1：fuzzy 现有（`searchMemory` + headroom 压缩）
     - L2：fuzzy top-10 → LLM rerank → top-5 + headroom 压缩
@@ -215,7 +215,7 @@ Z-A 在以下条件**全部满足**才进 Z-B：
 1. AC-ZA-1 到 AC-ZA-10 全绿
 2. AC-ZA-5 实测 L2 token 节省 ≥20%（保守阈值，宁可 NO-GO 也不勉强）
 3. AC-ZA-4 query 准确率主观评测 ≥L1（recall 不退化）
-4. 三平台 CI 全过（如果 peaks-cli 有 CI）
+4. 三平台 CI 全过（如果 peaks-loop 有 CI）
 5. Skill-driven flow 在 `peaks-solo` / `peaks-rd` / `peaks-qa` 三个 skill 都验证自动 rerank 触发正常
 
 **任意不满足 → NO-GO**：
@@ -248,7 +248,7 @@ Slice Z-A (LLM rerank spike)  ──┘                              ↓
 - ❌ 不在 Z-A 期间改 2800+ 现有 fuzzy test（Z-A 新增独立 test 集，不动既有）
 - ❌ 不在 Z-A 期间处理 offline-mode（用户已确认不要求）
 - ❌ 不引入新 IDE 集成代码（复用 `SubAgentDispatcher` 已有的 chat 路径）
-- ❌ 不考虑把 peaks-cli 做成 LLM provider 抽象层（Y2 用 LLM 是用，不是做 provider）
+- ❌ 不考虑把 peaks-loop 做成 LLM provider 抽象层（Y2 用 LLM 是用，不是做 provider）
 
 ---
 
@@ -258,9 +258,9 @@ Slice Z-A (LLM rerank spike)  ──┘                              ↓
 - **`sub-agent-context-minimal-occupation`**：LLM rerank 把 fuzzy top-10 噪声过滤到 top-5 高相关，直接降低 memory search 的下游 LLM token 输出
 - **`sub-agent-headroom-forced-compression-gate`**：rerank 后输出已精简，75% 阈值更难触发；不引入新 embed surface
 - **`peaks-current-directory-scope`**：缓存文件放 `.peaks/_runtime/memory-rerank-cache.json`（按 Slice 1 的 `_*/` 约定），不碰全局 `~/.peaks/`
-- **Tenet one-key completion**：零新依赖、零新配置、`npm install peaks-cli` 一键装齐
+- **Tenet one-key completion**：零新依赖、零新配置、`npm install peaks-loop` 一键装齐
 - **`peaks-current-directory-scope`**：zvec 索引放 `.peaks/_runtime/zvec/`（按 Slice 1 的 `_*/` 约定），不碰全局 `~/.peaks/`
-- **Tenet one-key completion**：`npm install peaks-cli` 一键装齐 zvec；user 不感知 reindex 命令存在
+- **Tenet one-key completion**：`npm install peaks-loop` 一键装齐 zvec；user 不感知 reindex 命令存在
 
 ---
 
@@ -270,19 +270,19 @@ Slice Z-A (LLM rerank spike)  ──┘                              ↓
   - **Cursor / Codex**：**Z-A 必实现**（底层用 OpenAI，有 `text-embedding-3-small` API）
   - **Claude Code / Trae**：**Z-A 不实现**（Claude Code 用 Anthropic API 无 embedding；Trae 待评估），adapter 字段保持 undefined → 该 IDE 下 zvec 自动降级 fuzzy（无回归）
   - 后续 IDE（如有 embedding 能力）在 Z-B 之后补
-- **OI-2**：Cursor / Codex embedder 实现路径——adapter 内部直接调 OpenAI embedding API（`text-embedding-3-small`，1536 维），复用 IDE 已有的 OpenAI 认证；不需要 cc-connect / 任何第三方桥（cc-connect 是 peaks-cli 3.0 才做的事，且可能废弃）
+- **OI-2**：Cursor / Codex embedder 实现路径——adapter 内部直接调 OpenAI embedding API（`text-embedding-3-small`，1536 维），复用 IDE 已有的 OpenAI 认证；不需要 cc-connect / 任何第三方桥（cc-connect 是 peaks-loop 3.0 才做的事，且可能废弃）
 - **OI-3**：`peaks memory search` 的输出格式是否调整？——Z-A 不动；Z-B 再考虑是否在结果里加 `score` 字段
 - **OI-4**：IdeAdapter slim shape 的 embedder 字段是 required 还是 optional？——推荐 `embedder?: IdeEmbedder`（optional，向后兼容 5 IDE 实现可逐步补）；参照 `subAgentDispatcher` 的 optional pattern
 
 ## IDE Embedder 实现策略（明确）
 
-**核心边界**：peaks-cli 2.x 只负责**Cursor / Codex 两个 adapter 的 embedder 实现**——因为这两者底层是 OpenAI（已有 `text-embedding-3-small` API）。其他 IDE adapter（Claude Code / Trae / 未来）在 2.x **不实现 embedder**，该 IDE 下 zvec 自动降级 fuzzy。
+**核心边界**：peaks-loop 2.x 只负责**Cursor / Codex 两个 adapter 的 embedder 实现**——因为这两者底层是 OpenAI（已有 `text-embedding-3-small` API）。其他 IDE adapter（Claude Code / Trae / 未来）在 2.x **不实现 embedder**，该 IDE 下 zvec 自动降级 fuzzy。
 
 **为什么这样划**：
-- "兼容 Anthropic" 不是 peaks-cli 的责任——peaks-cli 不应该去研究"怎么通过 Claude Code 调 Voyage AI 的 embedding API"这种绕路方案
+- "兼容 Anthropic" 不是 peaks-loop 的责任——peaks-loop 不应该去研究"怎么通过 Claude Code 调 Voyage AI 的 embedding API"这种绕路方案
 - 2.x 的实际用户场景：用 Claude Code 的用户本就不指望 zvec（之前没有），用 Cursor/Codex 的用户能立刻享受 zvec 精度优势
-- 真要 Claude Code / Trae 支持 zvec，是**未来 3.x** 的事——届时可能通过 peaks-cli 自研的 IDE bridge 实现（你前面提到的"3.0 自己实现"那条线）
-- 这与现有 `subAgentDispatcher` 模式一致：peaks-cli 定义 `SubAgentDispatcher` 接口；每个 IDE adapter 自带 dispatcher（Claude Code 用 `Task` tool、Trae 用 `agent` tool）；peaks-cli 不关心底层 tool name。Embedder 是同样的模式
+- 真要 Claude Code / Trae 支持 zvec，是**未来 3.x** 的事——届时可能通过 peaks-loop 自研的 IDE bridge 实现（你前面提到的"3.0 自己实现"那条线）
+- 这与现有 `subAgentDispatcher` 模式一致：peaks-loop 定义 `SubAgentDispatcher` 接口；每个 IDE adapter 自带 dispatcher（Claude Code 用 `Task` tool、Trae 用 `agent` tool）；peaks-loop 不关心底层 tool name。Embedder 是同样的模式
 
 | IDE adapter | Embedder 实现 | Z-A 范围 | 备注 |
 |---|---|---|---|

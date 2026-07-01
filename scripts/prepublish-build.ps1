@@ -10,7 +10,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
-Write-Host "[prepublish-build] peaks-cli v2.13.3 — running pnpm build before publish"
+Write-Host "[prepublish-build] peaks-loop v2.13.3 — running pnpm build before publish"
 pnpm run build
 if ($LASTEXITCODE -ne 0) { throw "build failed with exit code $LASTEXITCODE" }
 Write-Host "[prepublish-build] build OK — proceeding to publish"

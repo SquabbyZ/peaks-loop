@@ -1,13 +1,13 @@
 ---
 name: v2-14-0-anti-fake-green-hardening
-description: peaks-cli v2.14.0 ship state on 2026-06-28 — anti-fake-green hardening with 5 mechanical gates (G1 fixture-replay, G2 silent-warning lint, G3 prose-only ≤5%, G4 third-party reviewer, G5 race-detector). QA verdict pass 10/10 gates 25/25 ACs.
+description: peaks-loop v2.14.0 ship state on 2026-06-28 — anti-fake-green hardening with 5 mechanical gates (G1 fixture-replay, G2 silent-warning lint, G3 prose-only ≤5%, G4 third-party reviewer, G5 race-detector). QA verdict pass 10/10 gates 25/25 ACs.
 metadata:
   type: project
 ---
 
 **v2.14.0 ship state (Windows session, 2026-06-28):**
 - RID: 2026-06-28-anti-fake-green-hardening (session: 2026-06-28-session-75d5f0)
-- Branch: main (peaks-cli ships on main, established v3.0 pattern)
+- Branch: main (peaks-loop ships on main, established v3.0 pattern)
 - Tag: `v2.14.0` (full release — not beta)
 - Range: 4 commits ahead of origin/main from v2.13.x ship baseline
 - Working tree: 102 modified entries (79 staging + fixture/test scaffolding per diff)

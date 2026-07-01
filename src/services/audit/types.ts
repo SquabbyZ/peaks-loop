@@ -1,7 +1,7 @@
 /**
  * Red-line audit framework — types.
  *
- * Spec: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §5
+ * Spec: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §5
  * PRD:  .peaks/_runtime/2026-06-11-session-f0312d/prd/requests/001-001-l2-1-redlines-audit.md
  * OpenSpec: openspec/changes/2026-06-11-l2-1-redlines-audit/
  *

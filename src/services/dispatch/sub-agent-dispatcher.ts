@@ -15,7 +15,7 @@
  *
  * Why this exists:
  * - Prior SKILL.md hardcoded `Task(subagent_type="general-purpose", ...)`
- * which made peaks-cli depend on Claude Code's specific sub-agent
+ * which made peaks-loop depend on Claude Code's specific sub-agent
  * tool name. Adding a new IDE (Trae, future Cursor, etc.) required
  * editing every SKILL.md that mentioned sub-agent dispatch.
  * - This file (plus the per-IDE adapter wiring) collapses all

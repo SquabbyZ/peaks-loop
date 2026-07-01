@@ -5,7 +5,7 @@
  *
  * New commands (added under the existing `peaks workflow` group and the
  * existing `peaks loop` group — never as new top-level commands, per the
- * peaks-cli add-a-new-subcommand-check-for-existing-top-level-first rule):
+ * peaks-loop add-a-new-subcommand-check-for-existing-top-level-first rule):
  *
  *   peaks workflow run <id> --session <sid> --project <repo> --json
  *   peaks workflow plan <id> --session <sid> --json   (dry-run)
@@ -249,7 +249,7 @@ export function registerWorkflowEvalCommands(program: Command, io: ProgramIO): v
         ...(capture !== null ? { score: capture.score, capture } : {})
       }, [], envelope.degraded
         ? ['Evaluator ran in degraded mode (peaks CLI unavailable). Verify the verdict by running `peaks verdict aggregate --from-rid ' + rid + '`.',
-           'Re-run on a fully-installed peaks-cli environment for a real verdict.']
+           'Re-run on a fully-installed peaks-loop environment for a real verdict.']
         : [`Verifier verdict-aggregate can consume this envelope via \`peaks verdict aggregate --from-rid ${rid}\`.`]
       ), options.json);
       process.exitCode = exitCode;

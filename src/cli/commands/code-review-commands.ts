@@ -11,7 +11,7 @@
  *     current ocr install + config state (5 reasons: ready /
  *     package-missing / binary-missing / config-missing /
  *     detection-failed). Source of truth for the LLM endpoint
- *     config is `peaksConfig.ocr.llm` in the user's peaks-cli
+ *     config is `peaksConfig.ocr.llm` in the user's peaks-loop
  *     config (NOT `~/.opencodereview/config.json`).
  *   - `peaks code-review run-ocr [--from --to --commit]` — invokes
  *     `ocr review --format json` and wraps the result in a peaks
@@ -22,11 +22,11 @@
  *     so the ocr subprocess never has to read from a file the
  *     user did not set up themselves.
  *   - `peaks code-review config-template` — prints the JSON snippet
- *     the user should paste into their peaks-cli config.json. It
+ *     the user should paste into their peaks-loop config.json. It
  *     does NOT write anything. The user is in control of their
  *     LLM token / URL / model. No `peaks ocr config set`; the user
  *     either edits the JSON directly or uses `peaks config set
- *     --key ocr.llm.url --value '...'` (a peaks-cli command, not
+ *     --key ocr.llm.url --value '...'` (a peaks-loop command, not
  *     an ocr command).
  */
 import { Command } from 'commander';
@@ -56,7 +56,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
   const codeReview = program
     .command('code-review')
     .description(
-      'Code-review primitives for peaks-rd Gate B3. Wraps the soft-optional `@alibaba-group/open-code-review` (ocr) tool when it is installed + configured; peaks-rd uses the structured JSON output as a second-opinion review alongside its own LLM review. ocr is a peerDependency of peaks-cli 2.8.2+ (was briefly promoted to a hard dependency in 2.0.1/2.0.2, then demoted to optionalDependencies 2.0.3+ — peer in 2.8.2 because its postinstall downloads a Go binary via HTTPS and would otherwise slow `npm i -g peaks-cli` in restricted environments). Install manually with `npm i -g @alibaba-group/open-code-review` if you want second-opinion reviews. LLM endpoint config lives under `peaksConfig.ocr.llm` in the user config — run `peaks code-review config-template` to see the JSON snippet to paste.'
+      'Code-review primitives for peaks-rd Gate B3. Wraps the soft-optional `@alibaba-group/open-code-review` (ocr) tool when it is installed + configured; peaks-rd uses the structured JSON output as a second-opinion review alongside its own LLM review. ocr is a peerDependency of peaks-loop 2.8.2+ (was briefly promoted to a hard dependency in 2.0.1/2.0.2, then demoted to optionalDependencies 2.0.3+ — peer in 2.8.2 because its postinstall downloads a Go binary via HTTPS and would otherwise slow `npm i -g peaks-loop` in restricted environments). Install manually with `npm i -g @alibaba-group/open-code-review` if you want second-opinion reviews. LLM endpoint config lives under `peaksConfig.ocr.llm` in the user config — run `peaks code-review config-template` to see the JSON snippet to paste.'
     );
 
   addJsonOption(
@@ -101,7 +101,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     codeReview
       .command('run-ocr')
       .description(
-        'Run `ocr review --format json` and return the parsed JSON envelope. Soft-fails (exit 0, ok=false) when ocr is not ready, so peaks-rd can continue without the second-opinion review and surface the install/config nextActions to the user. The peaks-cli `peaksConfig.ocr.llm` block is injected as OCR_LLM_URL / OCR_LLM_TOKEN / ... env vars so the ocr subprocess never has to read ~/.opencodereview/config.json.'
+        'Run `ocr review --format json` and return the parsed JSON envelope. Soft-fails (exit 0, ok=false) when ocr is not ready, so peaks-rd can continue without the second-opinion review and surface the install/config nextActions to the user. The peaks-loop `peaksConfig.ocr.llm` block is injected as OCR_LLM_URL / OCR_LLM_TOKEN / ... env vars so the ocr subprocess never has to read ~/.opencodereview/config.json.'
       )
       .option('--project <path>', 'project root (default: cwd)')
       .option('--from <ref>', 'git ref to diff from (e.g. main, origin/main)')
@@ -151,7 +151,7 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
     codeReview
       .command('config-template')
       .description(
-        'Print the JSON snippet the user should paste into their peaks-cli config (`peaksConfig.ocr.llm`). This command does NOT write anything. The user is the only party that touches the LLM token / URL / model — peaks-cli never auto-configures the endpoint. Token value is shown as the placeholder "<your-api-key>"; replace it before pasting.'
+        'Print the JSON snippet the user should paste into their peaks-loop config (`peaksConfig.ocr.llm`). This command does NOT write anything. The user is the only party that touches the LLM token / URL / model — peaks-loop never auto-configures the endpoint. Token value is shown as the placeholder "<your-api-key>"; replace it before pasting.'
       )
   ).action((options: ConfigTemplateOptions) => {
     const template = getOcrConfigTemplate();
@@ -164,8 +164,8 @@ export function registerCodeReviewCommands(program: Command, io: ProgramIO): voi
       template,
       nextActions: [
         `Edit ${targetPath} and add the "ocr" block from the template above.`,
-        'OR use peaks-cli config set with one key at a time: `peaks config set --key ocr.llm.url --value \'<url>\'` etc.',
-        'The authToken field is sensitive and is stored in the user layer (`~/.peaks/config.json`); peaks-cli will not commit it.',
+        'OR use peaks-loop config set with one key at a time: `peaks config set --key ocr.llm.url --value \'<url>\'` etc.',
+        'The authToken field is sensitive and is stored in the user layer (`~/.peaks/config.json`); peaks-loop will not commit it.',
         'Re-run `peaks code-review detect-ocr --json` to verify the new state is `ready`.',
       ],
     };

@@ -4,7 +4,7 @@ import type { IdeAdapter } from '../ide-types.js';
 import { claudeCodeSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
- * Claude Code adapter —— peaks-cli 的"起源 IDE"。
+ * Claude Code adapter —— peaks-loop 的"起源 IDE"。
  *
  * 该 adapter 从原 `src/services/skills/hooks-settings-service.ts` 提取,保持
  * 字节级兼容:用户在 Claude Code 环境下跑 `peaks hooks install` 产出的
@@ -52,7 +52,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // v2.13.0 AC-1 + AC-3 MVP: Claude Code is the first IDE to fill
   // the `compact` profile. Future adapters (trae / codex / cursor /
   // qoder / tongyi-lingma / hermes / openclaw) follow the same
-  // shape — peaks-cli reads the env-var and dispatches the
+  // shape — peaks-loop reads the env-var and dispatches the
   // command via `IdeAdapter.compact`, with zero hard-coded IDE
   // names anywhere in the orchestrator. If your IDE exposes a
   // context-percent env-var and a slash-style compact command,

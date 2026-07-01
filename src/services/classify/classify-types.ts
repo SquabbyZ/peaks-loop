@@ -1,7 +1,7 @@
 /**
  * L1a task classification — types and per-level gate sets.
  *
- * Spec: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §4
+ * Spec: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §4
  *
  * Five task levels: typo / bug / feature / refactor / migration. Each
  * level has a gate set (the "配套 gate set" — L1b) that the slice

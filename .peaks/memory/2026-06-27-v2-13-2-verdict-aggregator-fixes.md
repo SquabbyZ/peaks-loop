@@ -1,6 +1,6 @@
 ---
 name: v2-13-2-verdict-aggregator-fixes
-description: peaks-cli v2.13.2 ship state on 2026-06-27. Verdict aggregator BLOCKER bug fix + CLI surface (peaks verdict aggregate) + envelope unification + prd/handoff.md auto-regen + MUT_REPORT soft-block window. 149/149 PRD-targeted tests pass, 7 AC all green. Carry-forward to v2.14.0 for hard-fail conversion.
+description: peaks-loop v2.13.2 ship state on 2026-06-27. Verdict aggregator BLOCKER bug fix + CLI surface (peaks verdict aggregate) + envelope unification + prd/handoff.md auto-regen + MUT_REPORT soft-block window. 149/149 PRD-targeted tests pass, 7 AC all green. Carry-forward to v2.14.0 for hard-fail conversion.
 metadata:
   type: project
 ---

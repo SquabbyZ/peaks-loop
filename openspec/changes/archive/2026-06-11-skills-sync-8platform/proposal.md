@@ -3,7 +3,7 @@
 ## Why
 
 Per spec §9 line 1105 (Slice #12 final piece): "`peaks skills sync`
-8 平台分发". The peaks-cli skill family (peaks-solo / peaks-rd /
+8 平台分发". The peaks-loop skill family (peaks-solo / peaks-rd /
 peaks-qa / peaks-prd / peaks-sop / peaks-sc / peaks-ui / peaks-txt /
 peaks-ide / peaks-doctor) lives in the repo at `skills/<name>/SKILL.md`.
 The IDE-adapter layer (Slice 0.7) already enumerates 8 supported
@@ -84,7 +84,7 @@ Pure wrapper over `scripts/install-skills.mjs`'s
 
 ## Spec reference (canonical)
 
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §9 line 1105 (Slice #12 final piece)
 - `src/services/ide/ide-types.ts:16-24` (the 8-platform IdeId union)
 - `scripts/install-skills.mjs:496-580` (the existing per-IDE

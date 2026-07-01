@@ -13,7 +13,7 @@ inputs.
 
 ## Data Model
 
-Reuses the existing peaks-cli patterns:
+Reuses the existing peaks-loop patterns:
 
 - `FuzzyMatchOptions` and `FuzzyMatchResult<T>` — defined in
   `src/services/fuzzy-matching/types.ts`.
@@ -24,7 +24,7 @@ Reuses the existing peaks-cli patterns:
   `src/services/retrospective/retrospective-search-service.ts`. The
   `type` and `outcome` filters are values of the existing retrospective
   enums.
-- The CLI emits the standard `peaks-cli` envelope: `{ok, command, data, warnings, ...}`.
+- The CLI emits the standard `peaks-loop` envelope: `{ok, command, data, warnings, ...}`.
 
 ## Components (per spec §Architecture)
 
@@ -113,7 +113,7 @@ For both search commands:
 - `fzf` (npm, MIT, ~50 KB, zero transitive deps).
 - `commander` (already in tree).
 - `node:fs` / `node:path` (already in tree).
-- Existing `peaks-cli` envelope, `cli-helpers`, and `loadRetrospectiveIndex`.
+- Existing `peaks-loop` envelope, `cli-helpers`, and `loadRetrospectiveIndex`.
 
 ## Migration / Compatibility
 

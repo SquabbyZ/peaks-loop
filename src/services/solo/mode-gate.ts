@@ -301,7 +301,7 @@ export function formatAutoProceedLogLine(opts: {
  *   - `git-tag`             → `git tag v2.15.0`, `git tag -a v2.15.0 -m ...`
  *   - `npm-publish`         → `npm publish`, `npm publish --access public`
  *   - `npm-install-global`  → `npm install -g <pkg>`, `npm i -g <pkg>`
- *   - `peaks-global-install`→ `npm install -g peaks-cli`, `pnpm add -g peaks-cli`
+ *   - `peaks-global-install`→ `npm install -g peaks-loop`, `pnpm add -g peaks-loop`
  *
  * These are coarse — false positives are fine (worst case: a
  * non-actionable command gets paused for confirmation; the user
@@ -313,7 +313,7 @@ export const COMMIT_BOUNDARY_PATTERNS: Readonly<Record<CommitBoundaryActionId, R
   'git-tag': /\bgit\s+tag\b/,
   'npm-publish': /\bnpm\s+(publish|pub)\b/,
   'npm-install-global': /\bnpm\s+(install|i|add)\s+(-g|--global)\b/,
-  'peaks-global-install': /\b(peaks-cli)\b/
+  'peaks-global-install': /\b(peaks-loop)\b/
 };
 
 /**
@@ -327,8 +327,8 @@ export const COMMIT_BOUNDARY_PATTERNS: Readonly<Record<CommitBoundaryActionId, R
 export function detectCommitBoundaryAction(command: string): CommitBoundaryActionId | null {
   if (typeof command !== 'string' || command.length === 0) return null;
   // Order matters: peaks-global-install is the most specific
-  // (matches only the peaks-cli package name). Test that FIRST so
-  // `npm install -g peaks-cli` is attributed correctly. Then
+  // (matches only the peaks-loop package name). Test that FIRST so
+  // `npm install -g peaks-loop` is attributed correctly. Then
   // git-push, git-tag, npm-publish, npm-install-global.
   if (COMMIT_BOUNDARY_PATTERNS['peaks-global-install'].test(command)) {
     return 'peaks-global-install';

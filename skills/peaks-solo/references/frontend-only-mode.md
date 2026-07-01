@@ -1,4 +1,4 @@
-# Peaks-Cli Frontend-only development mode
+# Peaks-Loop Frontend-only development mode
 
 > Extracted from `skills/peaks-solo/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim Frontend-only development mode section that was previously inline; nothing was paraphrased, just relocated.
 

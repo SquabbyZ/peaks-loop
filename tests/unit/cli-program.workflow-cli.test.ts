@@ -155,7 +155,7 @@ describe('createProgram workflow + loop CLI smoke (Slice A.3 + B.2)', () => {
   test(
     'peaks workflow lint fails fast when the workflow file is missing',
     async () => {
-      const tmp = mkdtempSync(join(tmpdir(), 'peaks-cli-workflow-missing-'));
+      const tmp = mkdtempSync(join(tmpdir(), 'peaks-loop-workflow-missing-'));
       try {
         const result = await runCommand([
           'workflow', 'lint',
@@ -228,7 +228,7 @@ describe('default-fullauto-md.yaml schema validity (bundled artifact)', () => {
     // Build an isolated project root with only templates/workflows/default-fullauto-md.yaml
     // inside (no .peaks/workflows/ project override, no global override). The loader must
     // still resolve the bundled default via the new templates/ path.
-    const tmp = mkdtempSync(join(tmpdir(), 'peaks-cli-workflow-templates-'));
+    const tmp = mkdtempSync(join(tmpdir(), 'peaks-loop-workflow-templates-'));
     try {
       const tplDir = join(tmp, 'templates', 'workflows');
       mkdirSync(tplDir, { recursive: true });

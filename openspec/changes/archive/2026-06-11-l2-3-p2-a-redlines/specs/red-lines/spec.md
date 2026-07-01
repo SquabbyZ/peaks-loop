@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Extend the peaks-cli red-line audit framework with 25 lint-style
+Extend the peaks-loop red-line audit framework with 25 lint-style
 enforcers (Themes A through G) and integrate the ECC AgentShield
 soft-optional layer. This is the third sub-slice of L2: P0 shipped
 in L2.1 (5 enforcers, structural gates), P1 shipped in L2.2 (10

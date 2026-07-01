@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Provide peaks-cli with a deterministic, local, zero-token fuzzy matcher
+Provide peaks-loop with a deterministic, local, zero-token fuzzy matcher
 that the LLM (and peaks skills) can invoke to retrieve top-N relevant
 entries from `.peaks/memory/index.json` and
 `.peaks/retrospective/index.json` on demand, instead of bulk-reading the

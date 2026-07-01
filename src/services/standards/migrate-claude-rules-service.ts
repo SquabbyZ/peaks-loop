@@ -2,7 +2,7 @@
  * peaks standards migrate — .claude/rules/ tree thinning.
  * Slice: 2026-06-12-standards-migrate-claude-rules.
  *
- * The 1.x peaks-cli install copied a thick .claude/rules
+ * The 1.x peaks-loop install copied a thick .claude/rules
  * tree (skill-first / CLI-auxiliary / dogfood / commit-trailer
  * rules) into consumer projects. In 2.0, the canonical rules
  * live at .peaks/standards/ and every markdown file under
@@ -46,7 +46,7 @@ export interface MigrateClaudeRulesResult {
 }
 
 const POINTER_TEXT = (canonicalPath: string): string =>
-  `# Canonical peaks-cli 2.0 rules live at: ${canonicalPath}\n# This file is a 2-line pointer. Edit the canonical file instead.\n`;
+  `# Canonical peaks-loop 2.0 rules live at: ${canonicalPath}\n# This file is a 2-line pointer. Edit the canonical file instead.\n`;
 
 function timestampSlug(): string {
   return new Date().toISOString().replace(/[:.]/g, '-');
@@ -70,13 +70,13 @@ function isAlreadyPointer(filePath: string): boolean {
   if (!existsSync(filePath)) return false;
   try {
     const body = readFileSync(filePath, 'utf8');
-    return body.includes('Canonical peaks-cli 2.0 rules live at:');
+    return body.includes('Canonical peaks-loop 2.0 rules live at:');
   } catch {
     return false;
   }
 }
 
-const CANONICAL_2_0_DEV_PREFERENCE = `# Peaks-Cli dev preference (2.0 canonical)
+const CANONICAL_2_0_DEV_PREFERENCE = `# Peaks-Loop dev preference (2.0 canonical)
 
 > Project-local preference, captured from the 1.x install + re-rendered with the 2.0 vocabulary.
 > Scope: applies to every iteration, adjustment, fix, or tweak on this project.
@@ -84,7 +84,7 @@ const CANONICAL_2_0_DEV_PREFERENCE = `# Peaks-Cli dev preference (2.0 canonical)
 
 ## Rule 1 — Skill-first, CLI-auxiliary
 
-When designing or modifying a peaks-cli feature, default to the **skill-first** design. CLI commands are **invoked by the skill prompt** when they are the right primitive: a side effect that must be atomic, a gate that must be machine-enforced, a probe that needs structured JSON, or a backstop that prevents the LLM from skipping a step. Behaviour only an LLM in a skill prompt would use lives **in the relevant skill's SKILL.md**, not as a new CLI command. See \`.claude/rules/common/dev-preference.md\` for the decision template.
+When designing or modifying a peaks-loop feature, default to the **skill-first** design. CLI commands are **invoked by the skill prompt** when they are the right primitive: a side effect that must be atomic, a gate that must be machine-enforced, a probe that needs structured JSON, or a backstop that prevents the LLM from skipping a step. Behaviour only an LLM in a skill prompt would use lives **in the relevant skill's SKILL.md**, not as a new CLI command. See \`.claude/rules/common/dev-preference.md\` for the decision template.
 
 ## Rule 2 — Dogfood on every adjustment
 

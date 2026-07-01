@@ -1,6 +1,6 @@
 ---
 name: peaks-rd
-description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Cli refactor workflows.
+description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Loop refactor workflows.
 ---
 
 ## Single-scope-axis naming convention
@@ -30,9 +30,9 @@ Cross-references: Slice 1 PRD §AC-1 / `tests/unit/skills/karpathy-prompt-inject
 
 The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all reviewable files under that path. **NEVER** construct paths like `.peaks/_runtime/<sessionId>/...` from frontmatter — the path has already been resolved by the CLI.
 
-# Peaks-Cli RD
+# Peaks-Loop RD
 
-Peaks-Cli RD owns engineering analysis, implementation planning, and refactor execution contracts.
+Peaks-Loop RD owns engineering analysis, implementation planning, and refactor execution contracts.
 
 ## Hard contracts for browser self-test (BLOCKING — read before any browser_take_screenshot / login flow)
 
@@ -95,7 +95,7 @@ After `peaks scan libraries` lands the dependency list under `## Library version
 
 ## GStack integration and code dry-runs
 
-Map gstack stages to Peaks-Cli RD risk matrices, task graphs, and slice contracts. Adapt gstack concepts into Peaks-Cli artifacts; do not invoke gstack commands as runtime deps. Dry-run before planning, after each slice, before handoff.
+Map gstack stages to Peaks-Loop RD risk matrices, task graphs, and slice contracts. Adapt gstack concepts into Peaks-Loop artifacts; do not invoke gstack commands as runtime deps. Dry-run before planning, after each slice, before handoff.
 
 → see `references/rd-gstack-integration.md` for the full integration contract.
 
@@ -107,7 +107,7 @@ Before every code or mock change, RD must write and then enforce a red-line scop
 2. name adjacent surfaces explicitly out of scope (list pages, delete/update flows, unrelated API endpoints, existing data records, auth, permissions, shared runtime config);
 3. reject any implementation that modifies, deletes, mocks, or replaces out-of-scope behavior just to make validation pass;
 4. for API/mock work, mock only the exact request path and method required by the approved slice;
-5. before handoff, run `peaks scan diff-vs-scope --rid <rid> --project <repo>` (Peaks-Cli Gate B8). The CLI auto-allows test files and `.peaks/` artifacts.
+5. before handoff, run `peaks scan diff-vs-scope --rid <rid> --project <repo>` (Peaks-Loop Gate B8). The CLI auto-allows test files and `.peaks/` artifacts.
 
 ## Mandatory tech-doc output (RD-side)
 
@@ -133,7 +133,7 @@ The THREE review activities run in parallel via `peaks sub-agent dispatch <role>
 
 > **v2.12.0 collapse (Group A):** the 5-way fan-out moved `security-reviewer` + `perf-baseline-reviewer` into standalone audit skills (`peaks-security-audit` + `peaks-perf-audit`). → `references/v2-12-fanout-collapse.md`.
 
-> **v2.15.0+:** 技术决策 AI 据 prd 业务场景块自决,user 不参与;存量项目无 UT,改 A 前跑 `peaks impact scan`(G13);fork 场景 tech-doc 列上游基线+业务 patch 集(G11)。详见 `.peaks/memory/peaks-cli-user-role-and-tech-decision.md`。
+> **v2.15.0+:** 技术决策 AI 据 prd 业务场景块自决,user 不参与;存量项目无 UT,改 A 前跑 `peaks impact scan`(G13);fork 场景 tech-doc 列上游基线+业务 patch 集(G11)。详见 `.peaks/memory/peaks-loop-user-role-and-tech-decision.md`。
 
 > **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy authoritative.** Decision table at `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`, `reviewerListFor`). Pinned by `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts`.
 
@@ -141,7 +141,7 @@ The THREE review activities run in parallel via `peaks sub-agent dispatch <role>
 
 The `karpathy-reviewer` sub-agent is a **hard gate** for `rd:qa-handoff`. Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding ("state your assumptions") + §3 Surgical Changes ("touch only what the user asked"), `peaks request transition --state qa-handoff` is BLOCKED by the CLI gate until `.peaks/_runtime/<sessionId>/rd/karpathy-review.md` exists with the `## Karpathy-Gate` header and at least one of the 4 guideline section markers. The file is enforced by the `KARPATHY_REVIEW` prerequisite in `src/services/artifacts/artifact-prerequisites.ts` (added in Slice 5). The escape hatch is `peaks request transition --allow-incomplete --confirm` (assisted mode). The companion `peaks scan karpathy` CLI is a structural scanner for the same file (`src/services/scan/karpathy-service.ts`); the semantic review is the sub-agent's job.
 
-### Peaks-Cli Gate C — type-specific RD evidence
+### Peaks-Loop Gate C — type-specific RD evidence
 
 The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with `PREREQUISITES_MISSING`.
 
@@ -170,9 +170,9 @@ For non-trivial RD changes, use OpenSpec when the project already has `openspec/
 
 Create or update `openspec/changes/<change-id>/proposal.md`, `design.md`, `tasks.md`, and `specs/**/spec.md` before implementation slices begin. If the repository uses a different existing OpenSpec layout, follow that layout and record the file paths in the RD handoff.
 
-OpenSpec artifacts are durable project specification files, not Peaks-Cli runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks-Cli artifact workspace outside the target repository.
+OpenSpec artifacts are durable project specification files, not Peaks-Loop runtime swarm artifacts. They may live in the target repository root under `openspec/changes/...`. Swarm/runtime outputs such as task graphs, worker briefs, worker reports, reducer reports, scan reports, validation evidence, and compact handoffs must remain in the configured Peaks-Loop artifact workspace outside the target repository.
 
-Peaks-Cli PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks-Cli artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
+Peaks-Loop PRD/RD/QA gates remain authoritative: OpenSpec structures the durable spec, while Peaks-Loop artifacts still carry role handoffs, coverage gates, QA evidence, swarm coordination, and execution state.
 
 → see `references/openspec-cli.md` for the CLI recipes.
 
@@ -190,7 +190,7 @@ When RD work creates a frontend application and the user has not specified a tec
 
 ## Artifact and standards output
 
-When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Cli artifact workspace (default: `.peaks/_runtime/<sessionId>/rd/`). Do not default to a git-backed artifact repository or external artifact sync. Route standards mutations through `peaks standards init/update`; do not hand-write. Do not update user-global `~/.claude/rules/**` from this workflow.
+When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Loop artifact workspace (default: `.peaks/_runtime/<sessionId>/rd/`). Do not default to a git-backed artifact repository or external artifact sync. Route standards mutations through `peaks standards init/update`; do not hand-write. Do not update user-global `~/.claude/rules/**` from this workflow.
 
 → see `references/artifact-and-standards-output.md` for the full contract.
 
@@ -206,17 +206,17 @@ The handoff artifact carries **mandatory YAML frontmatter** (`requestId`, `scope
 
 ## Codegraph project analysis
 
-Codegraph is local project-analysis evidence, scoped to red-line scope boundaries (changed files / symbols) and read via `peaks codegraph affected --project <path> <changed-files...> --json`. Peaks-Cli RD gates remain authoritative; codegraph is untrusted supporting evidence. Do not let codegraph output drive scope, design, or QA verdict decisions, and never mutate agent settings, Claude settings, or hooks from codegraph. Do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git. Codegraph context is written to `.peaks/_runtime/<sessionId>/rd/codegraph-context.md` for handoff to QA / TXT.
+Codegraph is local project-analysis evidence, scoped to red-line scope boundaries (changed files / symbols) and read via `peaks codegraph affected --project <path> <changed-files...> --json`. Peaks-Loop RD gates remain authoritative; codegraph is untrusted supporting evidence. Do not let codegraph output drive scope, design, or QA verdict decisions, and never mutate agent settings, Claude settings, or hooks from codegraph. Do not commit `.codegraph/` artifacts or persist generated `.codegraph/` databases into git. Codegraph context is written to `.peaks/_runtime/<sessionId>/rd/codegraph-context.md` for handoff to QA / TXT.
 
 ## Matt Pocock skills integration
 
-Matt Pocock skills (`diagnose` / `triage` / `tdd` / `improve-codebase-architecture` / `prototype`): engineering references only. Inspect before applying; Peaks-Cli RD gates remain authoritative. Understand Anything: `peaks understand status/show --json`. Codegraph: local analysis only, never commit `.codegraph/` artifacts. Other external resources: `peaks capabilities --source access-repo/mcp-server --json` for capability discovery.
+Matt Pocock skills (`diagnose` / `triage` / `tdd` / `improve-codebase-architecture` / `prototype`): engineering references only. Inspect before applying; Peaks-Loop RD gates remain authoritative. Understand Anything: `peaks understand status/show --json`. Codegraph: local analysis only, never commit `.codegraph/` artifacts. Other external resources: `peaks capabilities --source access-repo/mcp-server --json` for capability discovery.
 
 → see `references/external-references.md` + `references/matt-pocock-integration.md` + `references/codegraph-project-analysis.md`.
 
 ## Boundaries
 
-Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Cli CLI to handle runtime side effects.
+Do not bypass PRD/QA artifacts. Do not install hooks, agents, MCP, or settings. Ask the Peaks-Loop CLI to handle runtime side effects.
 
 Do not bypass the parallel review fan-out when the slice has a code-review / qa-test-cases / karpathy-review surface — see `## Parallel review fan-out` above. The three review activities are fan-out, not sequential; sequential re-implementation of the same logic by the main RD loop defeats the wall-clock benefit and is treated as a red-line violation.
 

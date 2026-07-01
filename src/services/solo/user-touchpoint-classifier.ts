@@ -169,5 +169,5 @@ export const COMMIT_BOUNDARY_ACTIONS_LIST: readonly { id: string; description: s
   { id: 'git-tag', description: 'git tag v2.15.0 / git tag -a ...' },
   { id: 'npm-publish', description: 'npm publish / npm pub' },
   { id: 'npm-install-global', description: 'npm install -g / npm i -g / npm add -g' },
-  { id: 'peaks-global-install', description: 'peaks-cli 全局安装 / npm install -g peaks-cli' }
+  { id: 'peaks-global-install', description: 'peaks-loop 全局安装 / npm install -g peaks-loop' }
 ];

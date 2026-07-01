@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Extend the peaks-cli red-line audit framework with 25 lint-style
+Extend the peaks-loop red-line audit framework with 25 lint-style
 enforcers focused on **references/*.md** shape, cross-references,
 loadStrategy behavior, and inline-shell hygiene. Plus an
 **audit regression stage** wired into `peaks slice check`.

@@ -20,7 +20,7 @@
 
 ## SKILL.md + reference
 
-- [ ] Add ### Peaks-Cli Step 0.55: 1.x → 2.0 detection to skills/peaks-solo/SKILL.md between Step 0.5 and Step 0.7
+- [ ] Add ### Peaks-Loop Step 0.55: 1.x → 2.0 detection to skills/peaks-solo/SKILL.md between Step 0.5 and Step 0.7
 - [ ] Create skills/peaks-solo/references/step-0-55-1x-detection.md
 - [ ] Run pnpm vitest run tests/unit/skills/skills-skill-md-naming.test.ts — confirm no regression
 

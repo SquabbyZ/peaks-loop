@@ -2,29 +2,29 @@
  * Auto-compact orchestrator (v2.13.0 AC-2 + AC-3 + AC-4).
  *
  * Closes the loop between `peaks context now` (AC-1) and the IDE's
- * native compact capability (AC-3). peaks-cli is project-aware: it
+ * native compact capability (AC-3). peaks-loop is project-aware: it
  * knows the current plan, open questions, recent decisions, in-flight
  * batches, todo state, git status, and active skills. That context is
  * strictly more valuable than what `/compact` can synthesize from raw
- * conversation history — so peaks-cli drives the entire compaction:
+ * conversation history — so peaks-loop drives the entire compaction:
  *
  *   1. Read current context % (via IDE adapter's `readContextPercent`).
- *   2. If ratio ≥ 0.95 (RED LINE): synchronous gate — peaks-cli
+ *   2. If ratio ≥ 0.95 (RED LINE): synchronous gate — peaks-loop
  *      refuses sub-agent dispatch and forces IDE compact immediately.
  *      The LLM cannot opt out (compact red line — keeps the runner
  *      alive).
- *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-cli prepares
+ *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-loop prepares
  *      the convergence toolkit (checkpoint + auto-decisions log +
  *      IDE-dispatch handle) and surfaces it to the LLM. The LLM
  *      DECIDES when to fire `peaks solo auto-compact --execute`;
- *      peaks-cli does NOT auto-fire. The toolkit is ready so the
+ *      peaks-loop does NOT auto-fire. The toolkit is ready so the
  *      LLM doesn't lose context to a last-second `/compact` panic.
  *   4. If ratio < 0.85: skip — return a one-line info row.
  *
  * Why two tiers (vs. one): the LLM uses the 0.85–0.95 zone for
  * intelligent convergence — wait for in-flight sub-agents, finish
  * the current todo row, persist a checkpoint, then compact. At 0.95
- * the window is gone; peaks-cli takes over synchronously. Net effect:
+ * the window is gone; peaks-loop takes over synchronously. Net effect:
  * the LLM-runner keeps working with context < 95% without human
  * intervention.
  */
@@ -51,7 +51,7 @@ export interface AutoCompactInput {
   readonly inFlightBatch?: InFlightBatchProbe | undefined;
   /**
    * Force execute even when ratio < threshold (test seam). In
-   * production this is always `false` — peaks-cli drives compact
+   * production this is always `false` — peaks-loop drives compact
    * autonomously at 0.85+ with zero human / zero LLM intervention.
    */
   readonly force?: boolean | undefined;
@@ -143,7 +143,7 @@ export function evaluateAutoCompactDecision(input: {
   if (input.force) {
     return { shouldCompact: true, reason: 'pre-compact', trigger };
   }
-  // Default: peaks-cli drives pre-compact autonomously.
+  // Default: peaks-loop drives pre-compact autonomously.
   return { shouldCompact: true, reason: 'pre-compact', trigger };
 }
 

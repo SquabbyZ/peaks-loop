@@ -1,28 +1,28 @@
 # Karpathy Reviewer — User Handoff (Slice 7/7 — auto-install)
 
-> **Audience**: the operator who installed `peaks-cli` and ran the 6-slice karpathy-enforcement program.
-> **Goal**: verify the `karpathy-reviewer` sub-agent prompt auto-installed to `~/.claude/agents/karpathy-reviewer.md` on `npm i -g peaks-cli@latest`, with content-hash drift detection (`.peaks-managed` marker + SHA-256).
+> **Audience**: the operator who installed `peaks-loop` and ran the 6-slice karpathy-enforcement program.
+> **Goal**: verify the `karpathy-reviewer` sub-agent prompt auto-installed to `~/.claude/agents/karpathy-reviewer.md` on `npm i -g peaks-loop@latest`, with content-hash drift detection (`.peaks-managed` marker + SHA-256).
 > **Shipped source (canonical)**: `agents/karpathy-reviewer.md`
-> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-cli 2.0 rules convention)
+> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention)
 
 ## Auto-install behavior (Slice 7/7)
 
-The Slice 6 design asked the user to `mkdir -p ~/.claude/agents && cp ...` after every `npm i -g peaks-cli@latest`. **Slice 7/7 fixes this** by extending the existing `peaks-cli` postinstall (`scripts/install-skills.mjs`) to auto-install bundled agents. The contract mirrors the existing `output-styles` install:
+The Slice 6 design asked the user to `mkdir -p ~/.claude/agents && cp ...` after every `npm i -g peaks-loop@latest`. **Slice 7/7 fixes this** by extending the existing `peaks-loop` postinstall (`scripts/install-skills.mjs`) to auto-install bundled agents. The contract mirrors the existing `output-styles` install:
 
 | Step | What happens | Where |
 |---|---|---|
-| 1. `npm i -g peaks-cli@latest` | npm runs the package's `postinstall` lifecycle hook | `package.json#postinstall` |
+| 1. `npm i -g peaks-loop@latest` | npm runs the package's `postinstall` lifecycle hook | `package.json#postinstall` |
 | 2. postinstall reads the tarball | `scripts/install-skills.mjs` runs | `scripts/install-skills.mjs` |
 | 3. `installBundledAgentsForAllPlatforms()` is called | iterates `IDE_SKILL_INSTALL_PROFILES` entries that have `agentsDir` | `scripts/install-skills.mjs:861` |
 | 4. For Claude Code (the only platform with `agentsDir` today) | reads `agents/karpathy-reviewer.md` from the package root | `scripts/install-skills.mjs:797` |
 | 5. Content-hash drift detection | checks `~/.claude/agents/karpathy-reviewer.md` + `.peaks-managed` marker | `getManagedPeaksAgentIdentity` |
 | 6. Atomic copy (or skip) | `writeFileExclusively` to the target + marker | `installBundledAgents` |
 
-**The user should never have to run a per-platform install command** (peaks-cli tenet: "minimal-user-operation").
+**The user should never have to run a per-platform install command** (peaks-loop tenet: "minimal-user-operation").
 
 ## Verify it auto-installed
 
-After `npm i -g peaks-cli@latest` (or any future upgrade), the file should already be at `~/.claude/agents/karpathy-reviewer.md`. To verify:
+After `npm i -g peaks-loop@latest` (or any future upgrade), the file should already be at `~/.claude/agents/karpathy-reviewer.md`. To verify:
 
 ```bash
 ls -la ~/.claude/agents/karpathy-reviewer.md
@@ -32,7 +32,7 @@ cat ~/.claude/agents/karpathy-reviewer.md.peaks-managed
 
 Expected output:
 - `~/.claude/agents/karpathy-reviewer.md` exists, size ≈ 15 KB, owned by your user, mode 0600
-- `~/.claude/agents/karpathy-reviewer.md.peaks-managed` exists, contains a JSON object with `kind: 'agent'`, `agentName: 'karpathy-reviewer.md'`, `sourcePath` pointing to the peaks-cli install location, and a `contentSha256` SHA-256 of the source
+- `~/.claude/agents/karpathy-reviewer.md.peaks-managed` exists, contains a JSON object with `kind: 'agent'`, `agentName: 'karpathy-reviewer.md'`, `sourcePath` pointing to the peaks-loop install location, and a `contentSha256` SHA-256 of the source
 
 The postinstall also prints a one-line confirmation:
 
@@ -44,7 +44,7 @@ Peaks agents installed across 1 platforms (1 total files)
 
 ## Drift detection (the "what happens on upgrade" question)
 
-`npm i -g peaks-cli@latest` (upgrade) re-runs the postinstall, which re-checks the content hash. Three outcomes:
+`npm i -g peaks-loop@latest` (upgrade) re-runs the postinstall, which re-checks the content hash. Three outcomes:
 
 | Scenario | Action |
 |---|---|
@@ -61,15 +61,15 @@ This mirrors the `output-styles` drift policy. The marker file (`*.peaks-managed
 To skip the agent install without skipping the skills / output-styles install:
 
 ```bash
-PEAKS_SKIP_AGENT_INSTALL=1 npm i -g peaks-cli@latest
+PEAKS_SKIP_AGENT_INSTALL=1 npm i -g peaks-loop@latest
 ```
 
-This is useful in CI / sandboxed environments where the user's `~/.claude/agents/` is not writable, or when the user wants to manage their own agent files outside peaks-cli's auto-install.
+This is useful in CI / sandboxed environments where the user's `~/.claude/agents/` is not writable, or when the user wants to manage their own agent files outside peaks-loop's auto-install.
 
 To override the target directory (parallel to `PEAKS_CLAUDE_SKILLS_DIR` for skills):
 
 ```bash
-PEAKS_CLAUDE_AGENTS_DIR=/path/to/custom/agents npm i -g peaks-cli@latest
+PEAKS_CLAUDE_AGENTS_DIR=/path/to/custom/agents npm i -g peaks-loop@latest
 ```
 
 The env var is per-IDE; the universal escape hatch is `PEAKS_SKIP_AGENT_INSTALL=1`.
@@ -81,7 +81,7 @@ After verifying the install, dispatch a real karpathy-reviewer sub-agent against
 ```bash
 peaks sub-agent dispatch karpathy-reviewer \
   --rid 2026-06-17-karpathy-5way-fanout \
-  --project /Users/yuanyuan/Desktop/peaks-cli \
+  --project /Users/yuanyuan/Desktop/peaks-loop \
   --json
 ```
 
@@ -110,7 +110,7 @@ mv rd/karpathy-review.md.tmp rd/karpathy-review.md
 
 ## What the agent does (1-paragraph summary)
 
-The `karpathy-reviewer` is a 5-way fanout sub-agent that inspects an RD slice's diff against the 4 Karpathy guidelines (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). It writes `rd/karpathy-review.md` with evidence per guideline and emits a compact JSON envelope `{passed, violations, gateAction}`. The `KARPATHY_REVIEW` prereq in `peaks-cli`'s transition gate enforces that this file is present and well-formed before `peaks request transition --state qa-handoff` can succeed — making the karpathy review a **hard gate** on every RD→QA handoff.
+The `karpathy-reviewer` is a 5-way fanout sub-agent that inspects an RD slice's diff against the 4 Karpathy guidelines (Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution). It writes `rd/karpathy-review.md` with evidence per guideline and emits a compact JSON envelope `{passed, violations, gateAction}`. The `KARPATHY_REVIEW` prereq in `peaks-loop`'s transition gate enforces that this file is present and well-formed before `peaks request transition --state qa-handoff` can succeed — making the karpathy review a **hard gate** on every RD→QA handoff.
 
 ## What the agent does NOT do
 
@@ -129,7 +129,7 @@ rm ~/.claude/agents/karpathy-reviewer.md \
    ~/.claude/agents/karpathy-reviewer.md.peaks-managed
 ```
 
-After removal, the peaks-cli CLI gate (the `KARPATHY_REVIEW` prereq) will refuse any `peaks request transition --state qa-handoff` because `rd/karpathy-review.md` will be missing. To re-enable transitions without the agent, you can use the assisted-mode escape hatch:
+After removal, the peaks-loop CLI gate (the `KARPATHY_REVIEW` prereq) will refuse any `peaks request transition --state qa-handoff` because `rd/karpathy-review.md` will be missing. To re-enable transitions without the agent, you can use the assisted-mode escape hatch:
 
 ```bash
 peaks request transition --role rd --state qa-handoff \
@@ -142,8 +142,8 @@ peaks request transition --role rd --state qa-handoff \
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `~/.claude/agents/karpathy-reviewer.md` is missing | postinstall didn't run (e.g. `PEAKS_SKIP_AGENT_INSTALL=1` was set, or the install was in `--ignore-scripts` mode) | Re-run `node $(npm root -g)/peaks-cli/scripts/install-skills.mjs` (or reinstall the package) |
-| `~/.claude/agents/karpathy-reviewer.md` exists but is old (pre-Slice 7 content) | the postinstall was never re-run after the peaks-cli upgrade | Re-run `node $(npm root -g)/peaks-cli/scripts/install-skills.mjs` to force a content-hash check + replace |
+| `~/.claude/agents/karpathy-reviewer.md` is missing | postinstall didn't run (e.g. `PEAKS_SKIP_AGENT_INSTALL=1` was set, or the install was in `--ignore-scripts` mode) | Re-run `node $(npm root -g)/peaks-loop/scripts/install-skills.mjs` (or reinstall the package) |
+| `~/.claude/agents/karpathy-reviewer.md` exists but is old (pre-Slice 7 content) | the postinstall was never re-run after the peaks-loop upgrade | Re-run `node $(npm root -g)/peaks-loop/scripts/install-skills.mjs` to force a content-hash check + replace |
 | The postinstall prints `Peaks user config was not installed: EACCES ...` | the user's `~/.claude/agents/` is owned by another user | `sudo chown -R $USER ~/.claude/agents` then re-run the postinstall |
 | `peaks sub-agent dispatch karpathy-reviewer` returns `unknown role` | the Claude Code session loaded before the file existed | Restart the Claude Code session; the agent loader scans `~/.claude/agents/` at session start |
 | `peaks request transition` returns `PREREQUISITES_MISSING` after a successful dispatch | the agent's file write failed (read-only filesystem, path collision) | Check `rd/karpathy-review.md` exists and has 4 title-case section headers; re-dispatch |
@@ -152,7 +152,7 @@ peaks request transition --role rd --state qa-handoff \
 ## Where to find the canonical source (after the install)
 
 - **Shipped source (canonical, edit here)**: `agents/karpathy-reviewer.md` — this is the file that ships in the npm tarball and is what the postinstall copies from.
-- **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-cli 2.0 rules convention).
+- **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention).
 - **Contract slot**: `skills/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer contract (Slice 5/6)" — the slot the 5-way fanout integration references.
 - **CLI gate**: `KARPATHY_REVIEW` prereq in `src/services/artifacts/artifact-prerequisites.ts` (title-case `mustContain`).
 - **Structural scanner (companion)**: `peaks scan karpathy` reads `rd/karpathy-review.md` and emits a similar markdown report.

@@ -146,7 +146,7 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
     const section = await loadRunbookSection('peaks-qa', body);
 
     expect.soft(section).toMatch(/peaks openspec validate/);
-    // Slice #016: peaks-cli no longer has `peaks mcp`; the runbook directs
+    // Slice #016: peaks-loop no longer has `peaks mcp`; the runbook directs
     // the LLM to its own tool list and the user-facing install command.
     expect.soft(section).not.toMatch(/peaks mcp (apply|plan|call|list|rollback|scan)/);
     expect.soft(section).toMatch(/claude mcp add playwright/);

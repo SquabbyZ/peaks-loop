@@ -45,7 +45,7 @@ describe('AC-1.1 SKILL.md locks periodic checkpoint at 20 tool calls', () => {
   test('SKILL.md "Step N" prose contains "20 tool calls" and does NOT contain "~20 tool calls"', () => {
     const body = readFileSync(SKILL_PATH, 'utf8');
     // Locate the "Step N" section by anchor.
-    const stepNMatch = body.match(/### Peaks-Cli Step N:[\s\S]*?(?=\n### |\n## |$)/);
+    const stepNMatch = body.match(/### Peaks-Loop Step N:[\s\S]*?(?=\n### |\n## |$)/);
     expect(stepNMatch).not.toBeNull();
     const stepN = stepNMatch![0];
     // The hard-coded cadence (no `~` approximation).

@@ -97,9 +97,9 @@ const FRONTMATTER_APPLICABLE_TASK_LEVELS: RedLineCatalogEntry = {
 /** Theme C — Output style (3 enforcers) */
 const OUTPUT_STYLE_STATUS_HEADER: RedLineCatalogEntry = {
   id: 'rl-output-style-status-header-001',
-  rule: 'Output style: Peaks-Cli status header on every response',
+  rule: 'Output style: Peaks-Loop status header on every response',
   markers: ['MANDATORY'],
-  phrases: ['peaks-cli skill:', 'peaks-cli gate:', 'peaks-cli next:', 'status header'],
+  phrases: ['peaks-loop skill:', 'peaks-loop gate:', 'peaks-loop next:', 'status header'],
   enforcerRef: 'src/services/audit/enforcers/lint-output-style.ts',
 };
 

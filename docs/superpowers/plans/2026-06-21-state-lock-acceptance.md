@@ -1178,4 +1178,4 @@ Each plan is independently shippable. Order:
 
 Total: 42 tasks across 4 plans; each bounded by 800-line slice rule; each with a load-bearing test.
 
-**Final gate**: peaks-cli v3.0 ships when all 4 plans land, cross-version isolation test passes, and `peaks workflow verify-pipeline` is green.
+**Final gate**: peaks-loop v3.0 ships when all 4 plans land, cross-version isolation test passes, and `peaks workflow verify-pipeline` is green.

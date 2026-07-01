@@ -17,7 +17,7 @@ metadata:
 
 Untracked directory at project root:
 ```
-C:\Users\smallMark\Desktop\peaks-cli\UserssmallMarkDesktoppeaks-cli\.peaks\
+C:\Users\smallMark\Desktop\peaks-loop\UserssmallMarkDesktoppeaks-cli\.peaks\
 ├── memory\
 │   └── index.json
 └── _runtime\
@@ -30,14 +30,14 @@ Created at `2026-06-26T12:55:39+08:00` — exactly 2 min 39 sec after Group A co
 
 | Step | Value |
 |---|---|
-| Original absolute path | `C:\Users\smallMark\Desktop\peaks-cli` |
+| Original absolute path | `C:\Users\smallMark\Desktop\peaks-loop` |
 | Orphan directory name | `UserssmallMarkDesktoppeaks-cli` |
 | Pattern | drive letter `C:` + backslash + colon + all `\` stripped → concatenated with `/` separator |
 
 This looks like code that did:
 ```ts
 const stripped = projectRoot.replace(/[C:\\]/g, '');
-// 'C:\\Users\\smallMark\\Desktop\\peaks-cli' → 'UserssmallMarkDesktoppeaks-cli'
+// 'C:\\Users\\smallMark\\Desktop\\peaks-loop' → 'UserssmallMarkDesktoppeaks-cli'
 const target = path.join(cwd, stripped, '.peaks', 'memory', 'index.json');
 // → cwd/UserssmallMarkDesktoppeaks-cli/.peaks/memory/index.json
 ```
@@ -52,7 +52,7 @@ const target = path.join(cwd, stripped, '.peaks', 'memory', 'index.json');
 | `src/services/memory/memory-search-service.ts:72` | `join(projectRoot, '.peaks', 'memory', 'index.json')` | Safe |
 | `src/services/memory/project-memory-service.ts:552` | `assertSafeProjectMemoryDir(normalizedRoot)` then `join(memoryDir, 'index.json')` | Safe (resolves through realpath) |
 | `src/services/skills/skill-presence-service.ts:263` | `writeFileSync(presencePath, ...)` where presencePath is joined from cwd | Safe |
-| `src/services/memory/project-context-service.ts:24` | `projectRoot.split(/[\\/]/).pop()` — returns last segment `peaks-cli` (not full strip) | Safe |
+| `src/services/memory/project-context-service.ts:24` | `projectRoot.split(/[\\/]/).pop()` — returns last segment `peaks-loop` (not full strip) | Safe |
 
 **No source code currently does the `[C:\\]` strip pattern.**
 

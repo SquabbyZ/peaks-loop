@@ -47,9 +47,9 @@ describe('parseFrontmatter', () => {
   });
 
   test('flattens nested metadata keys (v2.12.0 skill-versioning contract)', () => {
-    const frontmatter = parseFrontmatter(`---\nname: demo\ndescription: Demo skill\nmetadata:\n  appliesTo: peaks-cli v2.12.0+\n  replaces: peaks-rd security-reviewer slot\n---\n# Demo\n`);
+    const frontmatter = parseFrontmatter(`---\nname: demo\ndescription: Demo skill\nmetadata:\n  appliesTo: peaks-loop v2.12.0+\n  replaces: peaks-rd security-reviewer slot\n---\n# Demo\n`);
 
-    expect(frontmatter['metadata.appliesTo']).toBe('peaks-cli v2.12.0+');
+    expect(frontmatter['metadata.appliesTo']).toBe('peaks-loop v2.12.0+');
     expect(frontmatter['metadata.replaces']).toBe('peaks-rd security-reviewer slot');
   });
 

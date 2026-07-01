@@ -23,12 +23,12 @@ import { ok, fail } from '../../shared/result.js';
 export function registerLogCommands(program: Command, io: ProgramIO): void {
   const log = program
     .command('log')
-    .description('Inspect the peaks-cli JSONL log directory (default: ~/.peaks/logs/)');
+    .description('Inspect the peaks-loop JSONL log directory (default: ~/.peaks/logs/)');
 
   addJsonOption(
     log
       .command('tail')
-      .description('Print the last 50 lines of today\'s peaks-cli log (JSONL). Pass --lines N to change the count, --date YYYY-MM-DD to read a different day, --batch <id> to filter by batchId, --json to print a JSON envelope.')
+      .description('Print the last 50 lines of today\'s peaks-loop log (JSONL). Pass --lines N to change the count, --date YYYY-MM-DD to read a different day, --batch <id> to filter by batchId, --json to print a JSON envelope.')
       .option('--lines <n>', 'number of lines to show (default 50)', (value: string) => Number(value))
       .option('--date <YYYY-MM-DD>', 'read the log for this UTC date instead of today (PRD AC2: PEAKS_LOG_DATE_OVERRIDE)')
       // Slice 2026-06-23-audit-4th #B2: --batch filter for cross-run

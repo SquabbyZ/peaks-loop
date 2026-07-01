@@ -13,21 +13,21 @@
 
 Security and performance evidence surface under `rd/security-review.md` and `rd/perf-baseline.md` (peaks-rd's audit fan-out) and are referenced by reference from the QA test report body. The pre-v2.11.0 `qa/security-findings.md` / `qa/performance-findings.md` files are no longer required; existing ones are kept for auditability but ignored by the gate.
 
-**Peaks-Cli Gate A — After test-case generation:**
+**Peaks-Loop Gate A — After test-case generation:**
 ```bash
 ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md
 # Expected: .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md
 # "No such file" → STOP, generate test cases first.
 ```
 
-**Peaks-Cli Gate A2 — After test execution: tests actually ran (CRITICAL):**
+**Peaks-Loop Gate A2 — After test execution: tests actually ran (CRITICAL):**
 ```bash
 npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 # Expected: exit code 0, actual test output
 # "0 tests executed" or "no test files found" → BLOCKED.
 ```
 
-**Peaks-Cli Gate A3 — Security review referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
+**Peaks-Loop Gate A3 — Security review referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
 ```bash
 # peaks-qa does NOT own a qa/security-findings.md. peaks-rd's audit fan-out
 # produces rd/security-review.md; QA references it by path in the test report body.
@@ -36,7 +36,7 @@ grep -E "rd/security-review\\.md|security-review" .peaks/_runtime/<sessionId>/qa
 # Empty → BLOCKED: the test report must cite where security evidence lives.
 ```
 
-**Peaks-Cli Gate A4 — Performance baseline referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
+**Peaks-Loop Gate A4 — Performance baseline referenced (v2.11.0 D1/D4: read-only reference, NOT a separate QA file):**
 ```bash
 # peaks-qa does NOT own a qa/performance-findings.md. peaks-rd's audit fan-out
 # produces rd/perf-baseline.md; QA references it by path in the test report body.
@@ -45,14 +45,14 @@ grep -E "rd/perf-baseline\\.md|perf-baseline" .peaks/_runtime/<sessionId>/qa/tes
 # Empty → BLOCKED: the test report must cite where perf evidence lives.
 ```
 
-**Peaks-Cli Gate B — After test-report write (MUST contain execution results):**
+**Peaks-Loop Gate B — After test-report write (MUST contain execution results):**
 ```bash
 ls .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md
 grep -c "pass\|fail\|blocked" .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md
 # Zero → the report is empty/template-only. Tests were not executed.
 ```
 
-**Peaks-Cli Gate C — Before issuing verdict:**
+**Peaks-Loop Gate C — Before issuing verdict:**
 ```bash
 ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md \
    .peaks/_runtime/<sessionId>/qa/test-reports/<rid>.md \
@@ -62,7 +62,7 @@ ls .peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md \
 # QA cites them by reference from the test-report body (see Gates A3/A4).
 ```
 
-**Peaks-Cli Gate E — Acceptance coverage:**
+**Peaks-Loop Gate E — Acceptance coverage:**
 ```bash
 peaks scan acceptance-coverage --rid <rid> --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
@@ -70,13 +70,13 @@ peaks scan acceptance-coverage --rid <rid> --project <repo> --session-id <sessio
 # invalidReferences[] non-empty → BLOCKED.
 ```
 
-**Peaks-Cli Gate F — QA artifact body has no unfilled placeholders:**
+**Peaks-Loop Gate F — QA artifact body has no unfilled placeholders:**
 ```bash
 peaks request lint <rid> --role qa --project <repo> --session-id <session-id> --json
 # Expected: ok=true. exit 0.
 ```
 
-**Peaks-Cli Gate D — Frontend browser evidence (BLOCKING when frontend is in scope):**
+**Peaks-Loop Gate D — Frontend browser evidence (BLOCKING when frontend is in scope):**
 ```bash
 ls .peaks/_runtime/<sessionId>/qa/screenshots/*.png 2>&1
 # Expected: one or more .png files

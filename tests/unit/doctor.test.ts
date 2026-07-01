@@ -672,7 +672,7 @@ describe('runDoctor L3:l3-memory-health check', () => {
 describe('runDoctor integration:gateguard-peaks-conflict check', () => {
   /**
    * 2026-06-10 — the gateguard-fact-force hook is a third-party PreToolUse
-   * hook (NOT peaks-cli) that fires on Edit/Write tools and demands a
+   * hook (NOT peaks-loop) that fires on Edit/Write tools and demands a
    * 4-fact questionnaire before allowing the edit. When the LLM is in a
    * peaks-qa flow and tries to update `.peaks/_runtime/<sid>/qa/requests/*.md`
    * via the Edit/Write tool, the hook demands facts that are inapplicable

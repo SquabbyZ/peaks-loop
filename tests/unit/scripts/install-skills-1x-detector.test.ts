@@ -2,8 +2,8 @@
  * TDD coverage for the 1.x → 2.0 postinstall detector and
  * auto-upgrade. Slice: 2026-06-12-postinstall-1x-detector-tdd.
  *
- * Per the peaks-cli tenet "one-key completion" (2026-06-11):
- * `npm i -g peaks-cli@2.0` is supposed to detect a 1.x
+ * Per the peaks-loop tenet "one-key completion" (2026-06-11):
+ * `npm i -g peaks-loop@2.0` is supposed to detect a 1.x
  * consumer project in cwd and auto-dispatch
  * `peaks upgrade --to 2.0 --auto`. The two functions
  * under test:

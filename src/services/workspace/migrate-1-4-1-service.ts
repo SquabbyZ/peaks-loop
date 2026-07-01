@@ -1,7 +1,7 @@
 /**
  * `peaks workspace migrate-1-4-1` — R004.
  *
- * Cleanup command for projects upgraded from peaks-cli 1.4.1 → 1.4.2.
+ * Cleanup command for projects upgraded from peaks-loop 1.4.1 → 1.4.2.
  *
  * Slice 006 (1.4.0) moved the canonical per-session root to
  * `.peaks/_runtime/<sid>/`. Per-request artifacts (PRD, RD, QA, SC requests)

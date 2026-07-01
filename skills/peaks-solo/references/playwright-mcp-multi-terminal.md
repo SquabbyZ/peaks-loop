@@ -29,7 +29,7 @@ peaks playwright stop  [--terminal <id>] [--project <path>] [--json]
 
 `peaks playwright start` tries ports in the order `8931, 8932, 8933, ..., 8949`. The first port that is **not** bound by anything (probe uses `net.createServer().listen()`; an `EADDRINUSE` is a busy port) is used. If 8931..8949 are all busy, the command exits with `PORT_EXHAUSTED`.
 
-The CLI does NOT bundle the playwright-mcp binary. It shells out to `npx playwright-mcp@latest --port=<n> --browser=<b> --user-data-dir=<path>`. peaks-cli is the lifecycle orchestrator, not the install medium.
+The CLI does NOT bundle the playwright-mcp binary. It shells out to `npx playwright-mcp@latest --port=<n> --browser=<b> --user-data-dir=<path>`. peaks-loop is the lifecycle orchestrator, not the install medium.
 
 ## Session file layout
 

@@ -1,5 +1,5 @@
 ---
-name: peaks-cli-prd-template-design
+name: peaks-loop-prd-template-design
 description: peaks-prd 模板设计 — 4 个必填块:业务场景 / 边界 case / UI 装配意图 / 上游基线(适用 fork 场景);质量杠杆前置到 prd 阶段
 metadata:
   type: project
@@ -133,8 +133,8 @@ metadata:
 
 ## 5. 关联
 
-- [[peaks-cli-24h-ai-programmer-positioning]]
-- [[peaks-cli-user-role-and-tech-decision]] — 业务场景块是反伪选择的唯一入口
-- [[peaks-cli-slice-review-and-qa-perspective]] — slice 审阅依据 prd 业务场景块
-- [[peaks-cli-fork-sync-and-layered-parallel]] — 上游基线块的来历
-- [[peaks-cli-fast-iteration-quality-loop]] — slice 切分 + 复杂度标
+- [[peaks-loop-24h-ai-programmer-positioning]]
+- [[peaks-loop-user-role-and-tech-decision]] — 业务场景块是反伪选择的唯一入口
+- [[peaks-loop-slice-review-and-qa-perspective]] — slice 审阅依据 prd 业务场景块
+- [[peaks-loop-fork-sync-and-layered-parallel]] — 上游基线块的来历
+- [[peaks-loop-fast-iteration-quality-loop]] — slice 切分 + 复杂度标

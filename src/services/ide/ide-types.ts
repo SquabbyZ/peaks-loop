@@ -1,7 +1,7 @@
 /**
  * peaks 自有 hook 协议 + slim IDE adapter 接口。
  *
- * peaks-cli 不再适配 IDE 私有的 hook 协议;反之 peaks 定义自己的 canonical
+ * peaks-loop 不再适配 IDE 私有的 hook 协议;反之 peaks 定义自己的 canonical
  * schema,每个 IDE 只需要填 4 字符串 + 1 settings 函数,新 IDE 适配变成"填表"。
  *
  * 不可消除的 per-IDE 字段(诚实交代,见 PRD R-1..R-4):
@@ -109,9 +109,9 @@ export interface IdeAdapter {
   readonly skillInstall?: IdeSkillInstall;
   /**
    * v2.13.0 auto-compact (AC-1 + AC-3): per-IDE compact-capability
-   * descriptor. When `undefined`, peaks-cli falls back to the
+   * descriptor. When `undefined`, peaks-loop falls back to the
    * `llm-self-compress` pathway (the LLM summarizes its own context).
-   * Adapters that fill this expose a 4-stage protocol so peaks-cli
+   * Adapters that fill this expose a 4-stage protocol so peaks-loop
    * can drive compact autonomously:
    *
    *   1. `envVarForContextPercent` — env-var the IDE sets per turn
@@ -120,10 +120,10 @@ export interface IdeAdapter {
    *      accepts to trigger compact (e.g. `/compact`). Dispatched
    *      by AC-3.
    *   3. `compactPathway` — `'shell-exec' | 'ide-native' |
-   *      'llm-self-compress' | 'noop'`. `shell-exec` means peaks-cli
+   *      'llm-self-compress' | 'noop'`. `shell-exec` means peaks-loop
    *      spawns `compactCommand` via `child_process.spawn` (zero IDE
    *      hook required). `ide-native` means the IDE exposes a hook
-   *      surface peaks-cli can write to. `llm-self-compress` is the
+   *      surface peaks-loop can write to. `llm-self-compress` is the
    *      fallback when no compact capability is registered.
    *   4. `postCompactDetectCommand` (optional) — command the LLM
    *      runner can invoke after compact to confirm ratio dropped.
@@ -155,16 +155,16 @@ export interface IdeCompactProfile {
    */
   readonly compactCommand: string;
   /**
-   * `shell-exec` — peaks-cli spawns the command via child_process
+   * `shell-exec` — peaks-loop spawns the command via child_process
    *                (works for any IDE that accepts a slash command
    *                via a shell-spawnable entry point).
-   * `ide-native` — peaks-cli writes to an IDE-specific hook file;
+   * `ide-native` — peaks-loop writes to an IDE-specific hook file;
    *                used when the IDE requires a registered hook
    *                rather than a runtime command.
-   * `llm-self-compress` — peaks-cli prompts the LLM to summarize
+   * `llm-self-compress` — peaks-loop prompts the LLM to summarize
    *                its own context (no IDE integration required;
    *                least precise but always available).
-   * `noop` — peaks-cli records the intent but performs no action;
+   * `noop` — peaks-loop records the intent but performs no action;
    *          used by IDEs that explicitly opt out (e.g. legacy
    *          adapters still on the v2.11.x model).
    */

@@ -2,7 +2,7 @@
 
 ## Why
 
-The 1.x peaks-cli install copied a thick `.claude/rules/**/*.md` tree (skill-first / CLI-auxiliary / dogfood / commit-trailer rules) into consumer projects. In 2.0, the canonical rules should live in `.peaks/standards/` (project-local) — the install should write the 2.0 vocabulary there and replace `.claude/rules/**/*.md` with a 2-line pointer. The `peaks standards migrate --from-claude-rules` CLI already handles the CLAUDE.md legacy heartbeat block (in-place rewrite via `migrate-service.ts`) but has NO path for `.claude/rules/`. The umbrella `peaks upgrade --to 2.0` (Slice 1) calls `standards-migrate` as one of its 6 sub-steps; that sub-step currently no-ops on the .claude/rules/ tree. After Slice 1's TDD coverage, this is the second-largest gap in the 1.x → 2.0 closeout.
+The 1.x peaks-loop install copied a thick `.claude/rules/**/*.md` tree (skill-first / CLI-auxiliary / dogfood / commit-trailer rules) into consumer projects. In 2.0, the canonical rules should live in `.peaks/standards/` (project-local) — the install should write the 2.0 vocabulary there and replace `.claude/rules/**/*.md` with a 2-line pointer. The `peaks standards migrate --from-claude-rules` CLI already handles the CLAUDE.md legacy heartbeat block (in-place rewrite via `migrate-service.ts`) but has NO path for `.claude/rules/`. The umbrella `peaks upgrade --to 2.0` (Slice 1) calls `standards-migrate` as one of its 6 sub-steps; that sub-step currently no-ops on the .claude/rules/ tree. After Slice 1's TDD coverage, this is the second-largest gap in the 1.x → 2.0 closeout.
 
 ## What Changes
 

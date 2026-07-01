@@ -1,4 +1,4 @@
-# Project Scan: peaks-cli
+# Project Scan: peaks-loop
 **Date:** 2026-06-04
 **Session:** 2026-06-04-session-b60252
 
@@ -26,7 +26,7 @@
 
 ## Project mode
 - Frontend-only: true
-- Reason: archetype=legacy-frontend (no backend framework detected; peaks-cli itself is a CLI, not a web app, so the legacy-frontend label is the closest archetype match in the absence of dedicated CLI detection)
+- Reason: archetype=legacy-frontend (no backend framework detected; peaks-loop itself is a CLI, not a web app, so the legacy-frontend label is the closest archetype match in the absence of dedicated CLI detection)
 
 ## Build tool
 - Framework: TypeScript (no React/Vite/Next.js; this is a Node CLI built with `tsc` directly)
@@ -80,4 +80,4 @@
 - 4 supporting docs in `docs/superpowers/{plans,specs}/2026-06-03-memory-housekeeping-{minor-findings,test-coverage-close-outs}*.md` (design + plan artifacts for the two slices).
 
 ## Known minor issues (non-blocking)
-- `index.json` `sourcePath` field still contains the **Windows dev-machine absolute paths** (e.g. `C:\Users\smallMark\Desktop\peaks-cli\...`) committed by an earlier Windows run. Functionally harmless — `sourcePath` is informational and not used to open files (the read path uses `listMarkdownFiles` against the live memory dir, and `shouldRegenerateIndex` does mtime comparison, not path comparison). Worth a 5-line cleanup PR to switch `sourcePath` to a repo-relative path so cross-platform dev (Windows reviewer + Mac user) doesn't surface this as a false-positive bug.
+- `index.json` `sourcePath` field still contains the **Windows dev-machine absolute paths** (e.g. `C:\Users\smallMark\Desktop\peaks-loop\...`) committed by an earlier Windows run. Functionally harmless — `sourcePath` is informational and not used to open files (the read path uses `listMarkdownFiles` against the live memory dir, and `shouldRegenerateIndex` does mtime comparison, not path comparison). Worth a 5-line cleanup PR to switch `sourcePath` to a repo-relative path so cross-platform dev (Windows reviewer + Mac user) doesn't surface this as a false-positive bug.

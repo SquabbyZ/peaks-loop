@@ -1,6 +1,6 @@
 ---
 name: 2026-06-27-auto-compact-design
-description: v2.13.0 auto-compact protocol design — peaks-cli drives context compaction autonomously (zero human / zero LLM intervention) so the LLM-runner stays alive with context < 95% on any AI CLI.
+description: v2.13.0 auto-compact protocol design — peaks-loop drives context compaction autonomously (zero human / zero LLM intervention) so the LLM-runner stays alive with context < 95% on any AI CLI.
 metadata:
   affects: peaks-solo auto-compact, IdeAdapter.compact, context-monitor D6
   related: 2026-06-27-v2-12-fanout-3way.md, 2026-06-27-prose-only-catalog-followup.md
@@ -14,12 +14,12 @@ The v2.11.0 D6 context monitor (`peaks context check --auto-trigger`)
 returns a trigger path the LLM should follow, but does NOT auto-fire.
 That design is too cautious for sustained LLM runs: every `/compact`
 emitted by the LLM is a panic-driven decision that loses context
-that peaks-cli could have preserved (current plan, open questions,
+that peaks-loop could have preserved (current plan, open questions,
 recent decisions, todo state, recent artifact paths, in-flight
 batches).
 
-peaks-cli knows the project better than the IDE. Auto-compact moves
-the decision loop to peaks-cli: it probes the ratio, prepares a
+peaks-loop knows the project better than the IDE. Auto-compact moves
+the decision loop to peaks-loop: it probes the ratio, prepares a
 rich checkpoint, dispatches IDE-side compact, and lets the LLM
 runner keep working without human intervention.
 
@@ -28,12 +28,12 @@ runner keep working without human intervention.
 | Tier | Ratio | Action | LLM / human action |
 |---|---|---|---|
 | **soft-warn** | 50–85% | log one-line info row | none — runner continues |
-| **pre-compact** | 85–95% | peaks-cli writes pre-compact checkpoint + convergence plan + auto-decisions log + IDE-side compact dispatch | none — fully automatic |
-| **RED LINE** | ≥ 95% | peaks-cli refuses sub-agent dispatch + forces synchronous IDE compact + wait until ratio < 85% before allowing further work | none — fully automatic, mandatory |
+| **pre-compact** | 85–95% | peaks-loop writes pre-compact checkpoint + convergence plan + auto-decisions log + IDE-side compact dispatch | none — fully automatic |
+| **RED LINE** | ≥ 95% | peaks-loop refuses sub-agent dispatch + forces synchronous IDE compact + wait until ratio < 85% before allowing further work | none — fully automatic, mandatory |
 
 At 0.85 the runner has 10 percentage points of headroom to do
 intelligent convergence (wait for in-flight sub-agent, finish current
-todo row, persist checkpoint). At 0.95 the window is gone; peaks-cli
+todo row, persist checkpoint). At 0.95 the window is gone; peaks-loop
 takes over synchronously to keep the runner alive.
 
 ## Why zero human intervention
@@ -41,12 +41,12 @@ takes over synchronously to keep the runner alive.
 The user-facing requirement (v2.13.0 design directive): "the LLM-runner
 should keep working with context < 95% without human intervention."
 This overrides Karpathy §4 ("do not auto-execute") for the auto-
-compact surface specifically — peaks-cli's project-aware convergence
+compact surface specifically — peaks-loop's project-aware convergence
 strictly beats `/compact`'s blind transcript compression.
 
 The LLM is still the consumer — it reads the auto-decisions log on
 the post-compact turn and resumes. But the LLM does NOT have to
-decide when to fire compact; peaks-cli decides based on the ratio.
+decide when to fire compact; peaks-loop decides based on the ratio.
 
 ## Adapter-driven protocol (no hard-coded IDE names)
 
@@ -155,9 +155,9 @@ This means:
 - **Peaks-solo mode**: the LLM in the runner reads
   `auto-decisions.md` on the next turn and self-issues `/compact`.
   Net effect: zero-human-intervention. ✓
-- **Ad-hoc Claude Code runner**: peaks-cli can detect + checkpoint
+- **Ad-hoc Claude Code runner**: peaks-loop can detect + checkpoint
   + dispatch, but the runner's own context stays at 100% until the
-  user (or Claude Code's own auto-compact) triggers compact. peaks-cli
+  user (or Claude Code's own auto-compact) triggers compact. peaks-loop
   cannot externally compact a session it doesn't own.
 
 ### Future slice (out of v2.13.0-alpha.1 scope)
@@ -191,4 +191,4 @@ At 0.90 there's still ~25K tokens of headroom; a typical sub-agent
 dispatch + response can fit. But peak-cli can do better: it
 prefetches the convergence plan at 0.85 and lets the LLM do rich
 context work in the 0.85–0.95 zone. By 0.95 the LLM has had a full
-10% to act; if it didn't, peaks-cli forces compact.
+10% to act; if it didn't, peaks-loop forces compact.

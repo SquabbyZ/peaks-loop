@@ -44,7 +44,7 @@ metadata:
 ├── workspaces.json      73 B
 ├── companion/          空目录（P3 dead skill 的占位）
 ├── logs/               
-│   ├── peaks-cli-2026-06-28.log      ← 当前 session log
+│   ├── peaks-loop-2026-06-28.log      ← 当前 session log
 │   └── archive/2026-Q2/               ← 7 个旧 log 归档
 └── workspaces/         空目录
 ```
@@ -93,7 +93,7 @@ metadata:
 
 ## Why
 
-session 75d5f0 跑了 ~3 小时，ship 了 2 个 release + 评估 1 个 partial release，对话历史 ~14 美元。auto-compact 是 v2.13.0 的设计意图（peaks-cli 自己的 auto-compact 设计），user 说"自己 auto compact" 触发本 checkpoint。
+session 75d5f0 跑了 ~3 小时，ship 了 2 个 release + 评估 1 个 partial release，对话历史 ~14 美元。auto-compact 是 v2.13.0 的设计意图（peaks-loop 自己的 auto-compact 设计），user 说"自己 auto compact" 触发本 checkpoint。
 
 ## How to apply
 

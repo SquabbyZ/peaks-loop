@@ -90,7 +90,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 
 # 6. record red-line scope, slice contract, coverage status into the RD artifact, then implement
 
-# 6.5 BEFORE tech-doc: verify EVERY path in the tech-doc against actual project structure (Peaks-Cli Gate A2)
+# 6.5 BEFORE tech-doc: verify EVERY path in the tech-doc against actual project structure (Peaks-Loop Gate A2)
 #     ls every directory path in the tech-doc — zero "No such file" allowed
 #     This is the most common RD failure mode. Do not skip it.
 
@@ -159,21 +159,21 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     → `peaks request transition --state qa-handoff` returns `code: PREREQUISITES_MISSING`.
 #     Escape hatch (assisted mode): `--allow-incomplete --confirm`.
 
-# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Cli Gate A3)
+# 6.6 BEFORE implementation: verify CLAUDE.md + .claude/rules/ exist (Peaks-Loop Gate A3)
 #     Missing standards files → run `peaks standards init --project .` first
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
-#    Peaks-Cli Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
-#    Peaks-Cli Gate B3: code review evidence → .peaks/_runtime/<sessionId>/rd/code-review.md
-#    Peaks-Cli Gate B4: security review evidence → .peaks/_runtime/<sessionId>/rd/security-review.md
-#    Peaks-Cli Gate B5 (NEW): RD artifact body has no unfilled placeholders.
+#    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
+#    Peaks-Loop Gate B3: code review evidence → .peaks/_runtime/<sessionId>/rd/code-review.md
+#    Peaks-Loop Gate B4: security review evidence → .peaks/_runtime/<sessionId>/rd/security-review.md
+#    Peaks-Loop Gate B5 (NEW): RD artifact body has no unfilled placeholders.
 peaks request lint <rid> --role rd --project <repo> --session-id <session-id> --json
-#    Peaks-Cli Gate B6 (NEW): declared --type still matches the actual diff after implementation.
+#    Peaks-Loop Gate B6 (NEW): declared --type still matches the actual diff after implementation.
 peaks scan request-type-sanity --project <repo> --type <type> --json
-#    Peaks-Cli Gate B7 (NEW, repair cycles only): we have not exceeded the 3-cycle cap.
+#    Peaks-Loop Gate B7 (NEW, repair cycles only): we have not exceeded the 3-cycle cap.
 peaks request repair-status <rid> --project <repo> --session-id <session-id> --json
-#    Peaks-Cli Gate B8 (NEW): every changed file matches the RD red-line scope (no out-of-bounds writes).
+#    Peaks-Loop Gate B8 (NEW): every changed file matches the RD red-line scope (no out-of-bounds writes).
 peaks scan diff-vs-scope --rid <rid> --project <repo> --session-id <session-id> --json
 #    All six non-zero → BLOCKED. Fix and re-check before attempting the qa-handoff transition.
 

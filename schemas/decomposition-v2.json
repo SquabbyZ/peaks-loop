@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peaks-cli.dev/schemas/decomposition-v2.json",
+  "$id": "https://peaks-loop.dev/schemas/decomposition-v2.json",
   "title": "Peaks Decomposition Result v2 (multi-pass)",
   "description": "v2 multi-pass slice decomposition output. Emitted by `peaks-slice-decompose` and the new `MultiPassOrchestrator`. Discriminated by `schemaVersion: 'v2'`. v1 files (no schemaVersion) remain readable via SchemaRouter.",
   "type": "object",

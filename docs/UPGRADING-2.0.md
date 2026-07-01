@@ -1,6 +1,6 @@
-# Upgrading to peaks-cli 2.0
+# Upgrading to peaks-loop 2.0
 
-> **TL;DR for typical users:** `npm i -g peaks-cli@2.0` does everything
+> **TL;DR for typical users:** `npm i -g peaks-loop@2.0` does everything
 > automatically. This document is the manual fallback for when the
 > postinstall is skipped (CI with `--ignore-scripts`, environments with
 > `PEAKS_SKIP_AUTO_UPGRADE=1`, air-gapped installs, etc.).
@@ -10,7 +10,7 @@
 ## One-key path (recommended)
 
 ```bash
-npm i -g peaks-cli@2.0
+npm i -g peaks-loop@2.0
 ```
 
 In your project directory (where you previously ran 1.x), the
@@ -18,7 +18,7 @@ postinstall hook runs `peaks upgrade --to 2.0 --auto` if it detects
 a 1.x project state. You will see:
 
 ```
-✓ Detected 1.x peaks-cli project at <project-root>
+✓ Detected 1.x peaks-loop project at <project-root>
   → auto-upgraded to 2.0 (N signals resolved)
   Run `peaks audit red-lines --project .` to verify.
 ```
@@ -33,7 +33,7 @@ If the auto-upgrade was skipped or you want explicit control:
 
 ```bash
 # 1. Install 2.0 (suppress auto-upgrade if you want to inspect first)
-PEAKS_SKIP_AUTO_UPGRADE=1 npm i -g peaks-cli@2.0
+PEAKS_SKIP_AUTO_UPGRADE=1 npm i -g peaks-loop@2.0
 
 # 2. Run the umbrella explicitly
 peaks upgrade --to 2.0 --auto --project .
@@ -155,7 +155,7 @@ rm -f .peaks/preferences.json
 rm -f .peaks/memory/upgrade-2.0-*.md
 
 # 5. Pin back to a 1.x release
-npm i -g peaks-cli@1.4.2
+npm i -g peaks-loop@1.4.2
 ```
 
 ---
@@ -164,7 +164,7 @@ npm i -g peaks-cli@1.4.2
 
 ### "Artifact path must stay inside the project root" during memory-extract
 
-Fixed in 2.0.0. Update via `npm i -g peaks-cli@latest`.
+Fixed in 2.0.0. Update via `npm i -g peaks-loop@latest`.
 
 ### Detector still says `isOneX: true` after upgrade
 
@@ -189,14 +189,14 @@ binaries directly instead of going through `npx`.
 ### CI installs without postinstall
 
 ```bash
-npm i -g peaks-cli@2.0 --ignore-scripts  # skip postinstall
+npm i -g peaks-loop@2.0 --ignore-scripts  # skip postinstall
 peaks upgrade --to 2.0 --auto --project .  # run umbrella explicitly
 ```
 
 Or use the env-var opt-out:
 
 ```bash
-PEAKS_SKIP_AUTO_UPGRADE=1 npm i -g peaks-cli@2.0
+PEAKS_SKIP_AUTO_UPGRADE=1 npm i -g peaks-loop@2.0
 peaks upgrade --to 2.0 --auto --project .
 ```
 
@@ -205,7 +205,7 @@ peaks upgrade --to 2.0 --auto --project .
 ## Reference
 
 - Two paired tenets driving the 2.0 design:
-  `.peaks/memory/peaks-cli-tenet-one-key-completion.md`
+  `.peaks/memory/peaks-loop-tenet-one-key-completion.md`
 - Skill-first / CLI-auxiliary architecture:
   `.claude/rules/common/dev-preference.md`
 - Full CHANGELOG: `CHANGELOG.md`

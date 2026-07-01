@@ -3,9 +3,9 @@ name: peaks-solo-resume
 description: Resume an in-flight peaks-solo slice in the current session. Use when the user says "continue the unfinished work", "继续完成", "把刚才没做完的收尾", or invokes `/peaks-solo-resume` directly. Detects the current session's deepest completed gate (via the Step 0.7 detection script at `tests/fixtures/skill-resume-mode-detect.sh`) and surfaces a resume option via `AskUserQuestion`. Triggers on `/peaks-solo-resume`, "继续完成刚才的", "resume the unfinished slice", "把刚才没做完的收尾".
 ---
 
-# Peaks-Cli Solo Resume (wrapper)
+# Peaks-Loop Solo Resume (wrapper)
 
-Peaks-Cli Solo Resume is a thin wrapper that handles the **most common high-frequency request shape**: "I was in the middle of something, continue it." It detects the current session's deepest completed gate, surfaces a resume option, then yields to the main `peaks-solo` skill (which runs the actual workflow from the matching gate onwards).
+Peaks-Loop Solo Resume is a thin wrapper that handles the **most common high-frequency request shape**: "I was in the middle of something, continue it." It detects the current session's deepest completed gate, surfaces a resume option, then yields to the main `peaks-solo` skill (which runs the actual workflow from the matching gate onwards).
 
 **This is a transparent wrapper.** The user does not stay in this skill — once the resume option is confirmed, control hands off to `peaks-solo`. The wrapper exists only to (a) detect the in-flight slice without the LLM re-reading 3-5 artifact files, and (b) surface the resume option as a `AskUserQuestion` before the main loop skips ahead.
 

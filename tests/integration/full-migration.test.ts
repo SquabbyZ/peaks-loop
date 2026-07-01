@@ -1,5 +1,5 @@
 // Slice 0.5 Task 15 — full end-to-end migration round-trip dogfood
-// Spec reference: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8
+// Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8
 //
 // This is the FINAL slice-0.5 task. It exercises the full migration workflow
 // across every Slice-0.5 surface: config (migrate/rollback/restore), preferences

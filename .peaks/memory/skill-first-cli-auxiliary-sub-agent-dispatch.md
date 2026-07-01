@@ -10,7 +10,7 @@ Slice #009 (PRD #002) added a new `peaks sub-agent dispatch <role> --prompt <tex
 
 ## Why
 
-The dev-preference red line (top of `.claude/rules/common/dev-preference.md`) says: "skill-first / CLI-auxiliary". When designing a new peaks-cli feature, the user flow lives in the skill's `SKILL.md`; CLI commands are invoked by the skill prompt when they are the right primitive (atomic side effect, machine-enforced gate, structured JSON envelope for a downstream decision, or backstop the LLM from skipping a step).
+The dev-preference red line (top of `.claude/rules/common/dev-preference.md`) says: "skill-first / CLI-auxiliary". When designing a new peaks-loop feature, the user flow lives in the skill's `SKILL.md`; CLI commands are invoked by the skill prompt when they are the right primitive (atomic side effect, machine-enforced gate, structured JSON envelope for a downstream decision, or backstop the LLM from skipping a step).
 
 The `peaks sub-agent dispatch` CLI clears that bar on grounds 2 (structured JSON envelope: `data.toolCall = { name, args }`) and is the natural machine primitive for "give me a tool-call descriptor I can invoke in my environment". The skill text in `skills/peaks-solo/SKILL.md` (and the runbook / references) is the only place the LLM learns to call it. The CLI's `--help` text declares this explicitly:
 

@@ -199,7 +199,7 @@ describe('runUpgrade', () => {
     expect(result.upgradeRecordPath).toMatch(/upgrade-2\.0-\d{4}-\d{2}-\d{2}\.md$/);
     expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
     const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
-    expect(body).toContain('# Upgrade to peaks-cli 2.0');
+    expect(body).toContain('# Upgrade to peaks-loop 2.0');
     expect(body).toContain('| step | status | exitCode | durationMs |');
     // Each of the 6 step names appears as a table row
     for (const stepName of ALL_STEPS) {

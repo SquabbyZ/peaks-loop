@@ -1,6 +1,6 @@
 # Step 0.7 — Detect unfinished work and offer resume
 
-> Body of `### Peaks-Cli Step 0.7`. After Step 0 has anchored the workspace and presence, before Step 1 mode selection, run the resume-detection probe. If the current session has in-flight slice artifacts, the user is most likely "continuing" — surface resume options instead of starting a fresh PRD.
+> Body of `### Peaks-Loop Step 0.7`. After Step 0 has anchored the workspace and presence, before Step 1 mode selection, run the resume-detection probe. If the current session has in-flight slice artifacts, the user is most likely "continuing" — surface resume options instead of starting a fresh PRD.
 
 **Why this is a separate step** (per `feedback_peaks_solo_natural_language_primary` — a high-frequency request shape, see also the user's "继续完成刚才为完成的" pattern from session `2026-06-04-session-b60252`): the LLM was previously re-reading 3-5 artifact files to determine workflow state, wasting 3-5k tokens per resume request. This step replaces that work with a single deterministic read.
 

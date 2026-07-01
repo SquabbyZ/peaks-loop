@@ -315,7 +315,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   addJsonOption(
     skill
       .command('detect-marker-loss')
-      .description('Detect whether the latest assistant message lost the Peaks-Cli status header while a peaks skill is still active (slice 028 detection primitive).')
+      .description('Detect whether the latest assistant message lost the Peaks-Loop status header while a peaks skill is still active (slice 028 detection primitive).')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
       .option('--message <text>', 'latest assistant message text to scan (defaults to reading the most recent LLM response from the stdin pipe, or empty string when no pipe is attached)')
   ).action((options: { project?: string; message?: string; json?: boolean }) => {

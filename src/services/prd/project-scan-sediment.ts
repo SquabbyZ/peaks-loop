@@ -455,9 +455,9 @@ function splitTableRow(row: string): string[] {
 
 function renderFreshAuditPatternBody(args: AppendAuditPatternArgs): string {
   const titleByKind: Record<AppendAuditPatternArgs['templateKind'], string> = {
-    'security-audit': 'Security Audit Template (peaks-cli v2.12.0)',
-    'perf-audit': 'Performance Audit Template (peaks-cli v2.12.0)',
-    'audit-output-schema': 'Audit Output Schema (peaks-cli v2.12.0)'
+    'security-audit': 'Security Audit Template (peaks-loop v2.12.0)',
+    'perf-audit': 'Performance Audit Template (peaks-loop v2.12.0)',
+    'audit-output-schema': 'Audit Output Schema (peaks-loop v2.12.0)'
   };
   const appliesToByKind: Record<AppendAuditPatternArgs['templateKind'], string> = {
     'security-audit': 'peaks-security-audit skill',

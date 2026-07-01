@@ -30,7 +30,7 @@
  *
  * Idempotent: re-running on a migrated .gitignore is a no-op.
  *
- * Spec reference: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8.4
+ * Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8.4
  * (per-project state in .peaks/preferences.json, durable
  * memories in .peaks/memory/*.md).
  */
@@ -39,14 +39,14 @@ import { join } from 'node:path';
 
 /**
  * The 2.0 canonical ignore block. Mirrors the same paths
- * peaks-cli's own .gitignore uses; kept in lockstep manually
- * (the peaks-cli root .gitignore is the source of truth).
+ * peaks-loop's own .gitignore uses; kept in lockstep manually
+ * (the peaks-loop root .gitignore is the source of truth).
  *
  * Sentinel: every emitted line carries the marker comment so
  * the migration can detect "already-migrated" and stay
  * idempotent.
  */
-export const PEAKS_2_0_BLOCK_SENTINEL = '# peaks-cli 2.0 canonical ignore block — managed by `peaks upgrade --to 2.0`';
+export const PEAKS_2_0_BLOCK_SENTINEL = '# peaks-loop 2.0 canonical ignore block — managed by `peaks upgrade --to 2.0`';
 
 export const CANONICAL_2_0_PEAKS_BLOCK = [
   PEAKS_2_0_BLOCK_SENTINEL,

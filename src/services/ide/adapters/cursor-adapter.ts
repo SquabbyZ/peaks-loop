@@ -4,7 +4,7 @@ import type { IdeAdapter } from '../ide-types.js';
 import { cursorSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
- * Cursor IDE adapter —— peaks-cli 的第三个内置 IDE 适配器(slice #12, 2.4.0)。
+ * Cursor IDE adapter —— peaks-loop 的第三个内置 IDE 适配器(slice #12, 2.4.0)。
  *
  * 不可消除的 per-IDE 字段(slice #1 锁定,same shape as trae-adapter.ts):
  *   - settings.dirName = '.cursor'            : Cursor 项目根下的配置目录
@@ -14,7 +14,7 @@ import { cursorSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js
  *   - toolMatcher = 'Bash'              : Cursor 的 shell execution tool matcher
  *
  * Slice #12 status (2026-06-17, 2.4.0):
- *   - Adapter is the third built-in IDE in peaks-cli after Claude Code (#1) and Trae (#2).
+ *   - Adapter is the third built-in IDE in peaks-loop after Claude Code (#1) and Trae (#2).
  *   - Confirms the slice #1 + slice #2 architecture scales linearly: registering
  *     a new IDE is genuinely a one-entry fill of the slim `IdeAdapter` shape.
  *   - 2 UNVERIFIED fields: `envVar` (Cursor's `CURSOR_PROJECT_DIR` is the

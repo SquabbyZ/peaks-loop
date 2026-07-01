@@ -2,7 +2,7 @@
  * Type envelope for the `peaks workspace migrate` CLI command.
  *
  * The migrate command is the downstream-project counterpart to the
- * one-time Phase 5 migration script that ran on the peaks-cli self-host
+ * one-time Phase 5 migration script that ran on the peaks-loop self-host
  * for slice 2026-06-05-change-id-as-unit-of-work. Where
  * `peaks workspace reconcile` only handles the top-level runtime state
  * files (`.peaks/.session.json`, `.peaks/.active-skill.json`,

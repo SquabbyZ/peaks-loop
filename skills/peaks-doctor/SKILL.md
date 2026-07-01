@@ -1,13 +1,13 @@
 ---
 name: peaks-doctor
-description: Orchestrate peaks-cli's L3 doctor (peaks audit + peaks doctor + peaks openspec from-doctor) for project health. Use when the user asks for a project health check, doctor report, audit, or wants to convert doctor findings into OpenSpec change records. Coordinates the L2 audit framework + the L3.2 doctor + the L3.3 from-doctor proposal generator. Triggers on `/peaks-doctor`, "peaks doctor", "项目健康", "doctor report", "health check", "check the project", "audit my repo".
+description: Orchestrate peaks-loop's L3 doctor (peaks audit + peaks doctor + peaks openspec from-doctor) for project health. Use when the user asks for a project health check, doctor report, audit, or wants to convert doctor findings into OpenSpec change records. Coordinates the L2 audit framework + the L3.2 doctor + the L3.3 from-doctor proposal generator. Triggers on `/peaks-doctor`, "peaks doctor", "项目健康", "doctor report", "health check", "check the project", "audit my repo".
 internal: true
 ---
 ---
 
-# Peaks-Cli Doctor
+# Peaks-Loop Doctor
 
-Peaks-Cli Doctor is the orchestration facade for the L3 doctor workflow. It runs the L2 audit framework (`peaks audit red-lines`) + the L3.2 doctor checks (`peaks doctor`) + the L3.3 from-doctor proposal generator (`peaks openspec from-doctor`). Use it when the user wants a project health check, a red-line audit, or to convert doctor findings into OpenSpec change records.
+Peaks-Loop Doctor is the orchestration facade for the L3 doctor workflow. It runs the L2 audit framework (`peaks audit red-lines`) + the L3.2 doctor checks (`peaks doctor`) + the L3.3 from-doctor proposal generator (`peaks openspec from-doctor`). Use it when the user wants a project health check, a red-line audit, or to convert doctor findings into OpenSpec change records.
 
 ## Skill-first architecture note (read once, internalise)
 
@@ -15,7 +15,7 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
-**Peaks-Cli Doctor is a doctor orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
+**Peaks-Loop Doctor is a doctor orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
 
 The doctor workflow is read-only by design. It produces:
 - `peaks audit red-lines` report (121 red lines in the current repo, 6 cli-backed)

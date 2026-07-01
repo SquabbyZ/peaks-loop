@@ -8,7 +8,7 @@ Slices 1 + 2 of the 1.x → 2.0 closeout shipped: the postinstall auto-detects 1
 
 - New `src/services/upgrade/1x-detector-service.ts` (mirror of `scripts/install-skills.mjs:detect1xProjectState` but in TypeScript so the peaks-solo skill can call it). Returns `{ isOneX, signals, projectRoot, configPath }`.
 - New CLI surface: `peaks upgrade --detect-1x [--project <path>]` returns the JSON envelope. The skill reads this back to gate the AskUserQuestion.
-- New `### Peaks-Cli Step 0.55: 1.x → 2.0 detection` section in `skills/peaks-solo/SKILL.md` between Step 0.5 and Step 0.7. The step calls the new CLI, surfaces an AskUserQuestion if isOneX=true, and persists the decision to `.peaks/preferences.json` via `peaks preferences set --key autoUpgradePrompt --value <opt-in|skip|never>`.
+- New `### Peaks-Loop Step 0.55: 1.x → 2.0 detection` section in `skills/peaks-solo/SKILL.md` between Step 0.5 and Step 0.7. The step calls the new CLI, surfaces an AskUserQuestion if isOneX=true, and persists the decision to `.peaks/preferences.json` via `peaks preferences set --key autoUpgradePrompt --value <opt-in|skip|never>`.
 - New `references/step-0-55-1x-detection.md` reference file with the full detection algorithm, the AskUserQuestion options, and the persistence contract.
 - TDD test coverage for the new service in `tests/unit/services/upgrade/1x-detector-service.test.ts` — fixtures mirror the existing `tests/unit/scripts/install-skills-1x-detector.test.ts` cases (legacy global config / dev-preference / missing preferences / 1.x schema / no .peaks/_runtime/ / happy path).
 - Regression test: extend the existing peaks-solo SKILL.md naming test to ensure the new `## Step 0.55` heading follows the established pattern.
@@ -37,7 +37,7 @@ Slices 1 + 2 of the 1.x → 2.0 closeout shipped: the postinstall auto-detects 1
 
 - `pnpm vitest run tests/unit/services/upgrade/1x-detector-service.test.ts` passes with ≥6 cases.
 - `peaks upgrade --detect-1x --project . --json` returns `{ isOneX, signals, projectRoot, configPath }` matching the install-skills.mjs version's contract.
-- `skills/peaks-solo/SKILL.md` has a new `### Peaks-Cli Step 0.55` section between Step 0.5 and Step 0.7, under 50 lines, with the AskUserQuestion options matching the OpenSpec opt-in precedent.
+- `skills/peaks-solo/SKILL.md` has a new `### Peaks-Loop Step 0.55` section between Step 0.5 and Step 0.7, under 50 lines, with the AskUserQuestion options matching the OpenSpec opt-in precedent.
 - `skills/peaks-solo/references/step-0-55-1x-detection.md` exists, under 80 lines.
 - `peaks preferences set --key autoUpgradePrompt --value <opt-in|skip|never>` persists the decision to `.peaks/preferences.json`.
 - Full `pnpm vitest run` green (no regressions). `pnpm tsc --noEmit` clean. `peaks slice check` stages 1-6 all PASS.

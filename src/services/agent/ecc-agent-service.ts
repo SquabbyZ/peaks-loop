@@ -2,16 +2,16 @@
  * ECC 64 agents soft-optional integration — `peaks agent run`.
  *
  * Per spec §7.2 line 818: "64 agents — Soft Optional — 装了 L3
- * 直接调; 不装 L3 退化到 peaks-cli 自有少数核心诊断". The
+ * 直接调; 不装 L3 退化到 peaks-loop 自有少数核心诊断". The
  * canonical ECC subprocess contract is:
  *
  *   npx ecc consult "<topic>" --target claude
  *   npx ecc agent run <agent-name> --target <path> --json
  *
- * The peaks-cli `peaks agent run <name> --target <path> --json`
+ * The peaks-loop `peaks agent run <name> --target <path> --json`
  * CLI shells out to the second form. When ECC is missing OR
  * `agentShieldEnabled: false`, the audit completes with a
- * peaks-cli-only envelope.
+ * peaks-loop-only envelope.
  *
  * Mirrors `static-service.ts` (the ECC AgentShield wrapper from
  * L2.3 P2-a): same `subprocessRunner` injection point, same
@@ -150,7 +150,7 @@ export function runEccAgent(input: EccAgentServiceInput, runner: SubprocessRunne
     spawned = false;
     warnings.push(
       '`npx ecc --version` failed. Run `npx ecc --help` to install ECC, ' +
-        'then re-run `peaks agent run`. The peaks-cli native diagnostic ' +
+        'then re-run `peaks agent run`. The peaks-loop native diagnostic ' +
         'still runs via `peaks doctor scan`.'
     );
   } else {
@@ -172,7 +172,7 @@ export function runEccAgent(input: EccAgentServiceInput, runner: SubprocessRunne
       try {
         parsed = JSON.parse(subResult.stdout);
       } catch {
-        // Non-JSON output is allowed; peaks-cli surfaces the raw
+        // Non-JSON output is allowed; peaks-loop surfaces the raw
         // stdout for the human reader and treats the run as
         // ok=true (the subprocess exited 0).
         parsed = undefined;

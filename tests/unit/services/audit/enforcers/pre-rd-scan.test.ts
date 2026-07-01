@@ -1,7 +1,7 @@
 /**
  * pre-rd-scan enforcer tests — Slice C Group G3 (v2.14.0).
  * Required ≥5 cases per AC A3.3. Backed by 9 prose-only occurrences in the
- * peaks-cli catalog (rl-pre-rd-scan-001). Removing the DEFERRED_ENFORCERS
+ * peaks-loop catalog (rl-pre-rd-scan-001). Removing the DEFERRED_ENFORCERS
  * tag re-classifies these as cli-backed; this file proves the enforcer
  * itself behaves correctly so the tag-removal is well-founded.
  */

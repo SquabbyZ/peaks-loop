@@ -1,4 +1,4 @@
-// Slice #016 regression test: the peaks-cli MCP subsystem is fully removed.
+// Slice #016 regression test: the peaks-loop MCP subsystem is fully removed.
 //
 // Wraps `scripts/static-scan-mcp-removed.mjs` (a pure-JS scanner) and asserts
 // the 4 invariants the tech-doc Change1 enumerates. This is the test stage

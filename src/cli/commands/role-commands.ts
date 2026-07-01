@@ -27,7 +27,7 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 export function registerRoleCommands(program: Command, io: ProgramIO): void {
   const role = program
     .command('role')
-    .description('v2.15.0 follow-up G9: lightweight role registry (RBAC for multi-user peaks-cli teams).');
+    .description('v2.15.0 follow-up G9: lightweight role registry (RBAC for multi-user peaks-loop teams).');
 
   addJsonOption(
     role

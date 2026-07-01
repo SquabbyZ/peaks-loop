@@ -20,7 +20,7 @@ const ROOT_FILE_ALLOWLIST: ReadonlySet<string> = new Set([
   'tsconfig.*.json', 'vitest.config.ts', 'vite.config.ts', '.npmrc', '.nvmrc',
   // VCS / editor
   '.gitignore', '.gitattributes', '.editorconfig', '.gitkeep',
-  // Project-local config dirs (peaks-cli convention)
+  // Project-local config dirs (peaks-loop convention)
   'openspec', '.peaks', '.claude', '.peaksrc',
   // Source dirs (writes into them are normal)
   'src', 'tests', 'bin', 'scripts', 'schemas', 'output-styles', 'docs',

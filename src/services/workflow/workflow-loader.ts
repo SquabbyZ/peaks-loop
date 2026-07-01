@@ -40,7 +40,7 @@ export interface ResolvedWorkflow {
   readonly lint: WorkflowLintReport;
 }
 
-/** Built-in default workflows shipped with peaks-cli (git-tracked). */
+/** Built-in default workflows shipped with peaks-loop (git-tracked). */
 const BUNDLED_WORKFLOWS = new Set<string>(['default-fullauto-md', 'loop-with-quality-md']);
 
 /** Try the project → global → bundled fallback chain and parse + lint. */

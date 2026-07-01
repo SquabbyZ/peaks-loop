@@ -10,7 +10,7 @@
  *   sample size >= 5 for a complexity bucket, switch to percentile-based
  *   estimate with confidence 'high'.
  *
- * v1 rationale: peaks-cli itself has fewer than 5 completed refactor slices
+ * v1 rationale: peaks-loop itself has fewer than 5 completed refactor slices
  * (per the design doc R3), so v1 cannot be calibrated yet. v1 ships the
  * heuristic AND records every estimate to `.peaks/_runtime/<sid>/sc/
  * slice-calibration/<rid>.json` so the next slice can use the prior data.

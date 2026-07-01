@@ -75,7 +75,7 @@ v2.17.0 (`83241d4 feat: v2.17.0 — change-id axis hard-kill`) 把 change-id 当
 
 本流程 Round-2 自报 AC-10 PASS 时只测了 `node bin/peaks.js`,但 global `peaks workspace init --json` 仍含 `changeId: null`(因为 global peaks 还在用 stale dist)。**直到 publish + global install 完,才真正修好 user-facing runtime**。
 
-**应用到未来**: AC-10 之类的 runtime envelope 验证,**必须测 user 面**(即 global `peaks` 或 fresh `npm i -g peaks-cli`),不能只看仓库 `bin/peaks.js`。
+**应用到未来**: AC-10 之类的 runtime envelope 验证,**必须测 user 面**(即 global `peaks` 或 fresh `npm i -g peaks-loop`),不能只看仓库 `bin/peaks.js`。
 
 ## 6. Karpathy 标准遵守度
 
@@ -93,7 +93,7 @@ v2.17.0 (`83241d4 feat: v2.17.0 — change-id axis hard-kill`) 把 change-id 当
 ## 8. 后续可能 follow-up
 
 - `tests/unit/workspace/sibling-date-dir-guard.test.ts` 覆盖了 top-level `.peaks/<date>`,但 `.peaks/_runtime/<date>-non-session-*>`(非 `session-` 前缀的 date prefix)是否要单独 ban? 当前 inline `lstatSync` 已经 cover,但独立测试没写
-- OpenSpec L4 keep — 如果未来 peaks-cli 集成其他 OpenSpec-like 工具,要重新评估边界
+- OpenSpec L4 keep — 如果未来 peaks-loop 集成其他 OpenSpec-like 工具,要重新评估边界
 - `data.changeId` 删了之后,跨 request 串联仅靠 session-id;如果需要 multi-request 追踪,可能要重新引入 `requestGroupId` 之类的 field
 
 ## 9. 验证脚本(供未来参考)
@@ -127,4 +127,4 @@ HEAD: 4cd1895 chore(release): v2.19.0 pre-publish
 base: 5efb77a fix(feedback): v2.18.4 final
 ```
 
-下次有人问"为什么 peaks-cli 没有 change-id 这个东西了"或"为什么 SKILL.md 不讲两轴了",**直接 chain 这条 memory** + PRD + 那 6 个 commit。
+下次有人问"为什么 peaks-loop 没有 change-id 这个东西了"或"为什么 SKILL.md 不讲两轴了",**直接 chain 这条 memory** + PRD + 那 6 个 commit。

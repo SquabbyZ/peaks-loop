@@ -1,15 +1,15 @@
-# peaks-cli Logging
+# peaks-loop Logging
 
-> Slice 2026-06-16-cli-logging — User feedback: "I think we should add log output to peaks-cli so when issues occur, the user can attach logs and we can fix based on actual log content."
+> Slice 2026-06-16-cli-logging — User feedback: "I think we should add log output to peaks-loop so when issues occur, the user can attach logs and we can fix based on actual log content."
 >
 > Canonical reference for the JSONL log file format, rotation policy, secret redaction, and CLI surface. Keep this file in sync with `src/services/log/*.ts` and the `peaks log *` subcommands.
 
 ## TL;DR
 
 ```bash
-# Default-on: every peaks-cli invocation writes one JSONL line to:
-#   ~/.peaks/logs/peaks-cli-YYYY-MM-DD.log     (macOS / Linux)
-#   C:\Users\<user>\.peaks\logs\peaks-cli-YYYY-MM-DD.log    (Windows)
+# Default-on: every peaks-loop invocation writes one JSONL line to:
+#   ~/.peaks/logs/peaks-loop-YYYY-MM-DD.log     (macOS / Linux)
+#   C:\Users\<user>\.peaks\logs\peaks-loop-YYYY-MM-DD.log    (Windows)
 
 # Mirror logs to stderr (debug / --verbose):
 peaks --verbose slice check --project .
@@ -35,11 +35,11 @@ The log directory is **always** user-global, never project-local:
 
 | OS      | Path                                                |
 |---------|-----------------------------------------------------|
-| macOS   | `~/.peaks/logs/peaks-cli-YYYY-MM-DD.log`            |
-| Linux   | `~/.peaks/logs/peaks-cli-YYYY-MM-DD.log`            |
-| Windows | `C:\Users\<user>\.peaks\logs\peaks-cli-YYYY-MM-DD.log` |
+| macOS   | `~/.peaks/logs/peaks-loop-YYYY-MM-DD.log`            |
+| Linux   | `~/.peaks/logs/peaks-loop-YYYY-MM-DD.log`            |
+| Windows | `C:\Users\<user>\.peaks\logs\peaks-loop-YYYY-MM-DD.log` |
 
-The `YYYY-MM-DD` is the **UTC date** of the entry, not the local date. A user in UTC+8 at 02:00 local on 2026-06-16 will see a line written to `peaks-cli-2026-06-15.log` (the UTC date is still 2026-06-15). This is intentional (single global convention) but documented for clarity.
+The `YYYY-MM-DD` is the **UTC date** of the entry, not the local date. A user in UTC+8 at 02:00 local on 2026-06-16 will see a line written to `peaks-loop-2026-06-15.log` (the UTC date is still 2026-06-15). This is intentional (single global convention) but documented for clarity.
 
 The directory is created lazily on first write — if `~/.peaks/` is missing, the first `peaks` invocation will `mkdir -p` it. No error if the parent is missing.
 
@@ -78,7 +78,7 @@ Lines that fail to parse (e.g. crash mid-write) are skipped by `peaks log tail` 
 ## Rotation
 
 - **Daily rotation** is automatic. A new UTC date → a new file. There is no size-based rotation; if you need it, file a slice.
-- **7-day retention** is enforced on every CLI invocation. Before the bootstrap log line is written, the retention sweep reads the log dir and `unlink`s any `peaks-cli-YYYY-MM-DD.log` whose date is more than 7 days behind today (UTC). Failures are silently swallowed (a logger that takes down the CLI is worse than a logger that drops a line).
+- **7-day retention** is enforced on every CLI invocation. Before the bootstrap log line is written, the retention sweep reads the log dir and `unlink`s any `peaks-loop-YYYY-MM-DD.log` whose date is more than 7 days behind today (UTC). Failures are silently swallowed (a logger that takes down the CLI is worse than a logger that drops a line).
 - **Manual cleanup**: `rm -rf ~/.peaks/logs/` (the directory is fully user-owned; the uninstaller does not touch it).
 
 ## Levels and the verbose channel
@@ -112,13 +112,13 @@ Example:
 $ peaks log tail --lines 5
 {
   "entries": [
-    { "ts": "2026-06-15T10:00:00.000Z", "level": "info", "command": "main", "msg": "peaks-cli start", "version": "2.2.2" },
+    { "ts": "2026-06-15T10:00:00.000Z", "level": "info", "command": "main", "msg": "peaks-loop start", "version": "2.2.2" },
     { "ts": "2026-06-15T10:00:01.000Z", "level": "info", "command": "slice", "msg": "tsc ok" },
     { "ts": "2026-06-15T10:00:02.000Z", "level": "info", "command": "slice", "msg": "vitest ok" },
     { "ts": "2026-06-15T10:00:03.000Z", "level": "info", "command": "slice", "msg": "3-way merge ok" },
     { "ts": "2026-06-15T10:00:04.000Z", "level": "info", "command": "slice", "msg": "verify-pipeline ok" }
   ],
-  "file": "/Users/x/.peaks/logs/peaks-cli-2026-06-15.log",
+  "file": "/Users/x/.peaks/logs/peaks-loop-2026-06-15.log",
   "lines": 5,
   "total": 12
 }
@@ -128,7 +128,7 @@ When no log file exists for the given date, the response is `{ "file": null, "en
 
 ### `peaks log ls`
 
-Lists `peaks-cli-*.log` files in `~/.peaks/logs/`, sorted by date descending. Useful when you want to inspect a log from a previous day.
+Lists `peaks-loop-*.log` files in `~/.peaks/logs/`, sorted by date descending. Useful when you want to inspect a log from a previous day.
 
 ## `peaks doctor --log`
 
@@ -137,7 +137,7 @@ Extends the doctor output with a "logs" section:
 ```
   logs:
     logDir:        /Users/x/.peaks/logs
-    todayFile:     peaks-cli-2026-06-15.log
+    todayFile:     peaks-loop-2026-06-15.log
     sizeBytes:     4382
     retentionDays: 7
     level:         info
@@ -149,7 +149,7 @@ With `--json`, the section appears under the `data.logs` key. The flag is opt-in
 
 | AC    | Implementation                                                       |
 |-------|----------------------------------------------------------------------|
-| AC1   | `writeLogEntry` writes `peaks-cli-YYYY-MM-DD.log` on first invocation.|
+| AC1   | `writeLogEntry` writes `peaks-loop-YYYY-MM-DD.log` on first invocation.|
 | AC2   | `PEAKS_LOG_DATE_OVERRIDE` env var → `WriteLogOptions.dateOverride`.   |
 | AC3   | `applyRetention({ retentionDays: 7 })` on every CLI startup.         |
 | AC4   | `--verbose` + `PEAKS_LOG_LEVEL=debug` → stderr mirror.                |

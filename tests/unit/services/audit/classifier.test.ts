@@ -52,7 +52,7 @@ describe('classifier.classifyFile', () => {
       lines: [
         '# peaks-solo',
         '',
-        'Peaks-Cli Solo is an orchestrator, NOT an implementer.',
+        'Peaks-Loop Solo is an orchestrator, NOT an implementer.',
         'You MUST NOT write code directly here.',
         '',
       ],

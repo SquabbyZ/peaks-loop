@@ -1,6 +1,6 @@
 ---
 name: 2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff
-description: peaks-cli v2.11.0 architectural direction — remove RD tech-doc, make peaks-prd handoff immutable + shared, audit fan-out with ECC integration, project-scan bidirectional learning loop.
+description: peaks-loop v2.11.0 architectural direction — remove RD tech-doc, make peaks-prd handoff immutable + shared, audit fan-out with ECC integration, project-scan bidirectional learning loop.
 metadata:
   type: project
 ---
@@ -42,7 +42,7 @@ Flow:
 
 ### D4. ECC code-review agent integration
 
-peaks-rd's parallel audit sub-agent 1 (code-reviewer) is now an ECC bridge: invokes `everything-claude-code:code-review` via **Agent tool** (not Skill tool — IDE-portability concern), and the ECC output is shape-adapted to peaks-cli's `code-review.md` schema.
+peaks-rd's parallel audit sub-agent 1 (code-reviewer) is now an ECC bridge: invokes `everything-claude-code:code-review` via **Agent tool** (not Skill tool — IDE-portability concern), and the ECC output is shape-adapted to peaks-loop's `code-review.md` schema.
 
 - New module: `src/services/code-review/ecc-bridge.ts`
 - ECC skills/agents kept (security-bounty-hunter, security-review, security-scan, gateguard, code-review, etc.) — they are reference material consumed by peaks sub-agents, not removed
@@ -138,12 +138,12 @@ peaks-rd's parallel audit sub-agent 1 (code-reviewer) is now an ECC bridge: invo
 - [[custom-sop-and-gate-metering]] — same "metering is value" philosophy applies to immutable handoff (handoff IS the value, not the post-hoc review)
 - [[custom-sop-domain-agnostic-positioning]] — peaks-prd's structured handoff is the keystone; custom SOPs build on it
 - [[coverage-red-line]] — 95%/100% test coverage gate stays in force
-- [[main-branch-iteration]] — edit main, no worktree (per peaks-cli dev policy)
+- [[main-branch-iteration]] — edit main, no worktree (per peaks-loop dev policy)
 
 ## Session info
 
 - Session id: `2026-06-26-session-a28d69`
 - Started: 2026-06-26 00:35 UTC+8
-- Project: peaks-cli v2.10.0 → planning v2.11.0
+- Project: peaks-loop v2.10.0 → planning v2.11.0
 - Previous session: `2026-06-25-session-139b84` (released v2.10.0)
 - Compaction reason: user requested compact after this memory write, to resume post-compact with clean context

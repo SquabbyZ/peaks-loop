@@ -20,7 +20,7 @@
 
 /** Tech-stack snapshot. `language` / `packageManager` are closed
  *  unions (Karpathy §2 — no string sprawl); `runtime` / `buildTool`
- *  are free-form (peaks-cli does not constrain them). */
+ *  are free-form (peaks-loop does not constrain them). */
 export interface ProjectScanTechStack {
   readonly language: 'typescript';
   readonly packageManager: 'pnpm';

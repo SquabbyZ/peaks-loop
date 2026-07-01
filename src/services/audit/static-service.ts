@@ -7,7 +7,7 @@
  * (102 lint rules) on a soft-optional basis. When ECC is installed
  * AND `agentShieldEnabled: true`, the audit subprocess spawns the
  * ECC scanner and merges its findings; when either is missing, the
- * audit completes with peaks-cli-only findings.
+ * audit completes with peaks-loop-only findings.
  *
  * The subprocess is **observability enhancement**, not a structural
  * gate — every soft-fail path returns a well-formed audit report.
@@ -122,8 +122,8 @@ interface EccFinding {
 function runEccScan(projectRoot: string, runner: SubprocessRunner): readonly EnforcerFinding[] {
   try {
     // Per spec §7.2 line 828: the canonical ECC subprocess call uses
-    // `--target <path>`, NOT `--project`. The peaks-cli CLI flag
-    // (`peaks audit static --project <path>`) follows peaks-cli
+    // `--target <path>`, NOT `--project`. The peaks-loop CLI flag
+    // (`peaks audit static --project <path>`) follows peaks-loop
     // convention; the inner ecc-agentshield call follows the
     // upstream ECC contract.
     const result = runner.run(
@@ -179,7 +179,7 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
     // Enabled but ECC missing — soft-fail with a warning.
     warnings.push(
       'agentShieldEnabled is true but `npx ecc-agentshield --version` failed. ' +
-        'Run `npx ecc-agentshield --help` to install. Audit ran with peaks-cli findings only.'
+        'Run `npx ecc-agentshield --help` to install. Audit ran with peaks-loop findings only.'
     );
     state = { spawned: false, installed: false, reason: 'flag-enabled-but-ecc-missing', findings: [] };
   } else {
@@ -188,7 +188,7 @@ export function runStaticAudit(input: StaticAuditInput): StaticAuditResult {
     state = { spawned: true, installed: true, reason: 'enabled-and-installed', findings };
   }
 
-  // Always run the peaks-cli lint layer; merge ECC findings.
+  // Always run the peaks-loop lint layer; merge ECC findings.
   const peaksResult = runRedLinesAudit({ projectRoot: input.projectRoot });
   const mergedAudit: RedLineAudit = {
     ...peaksResult.audit,

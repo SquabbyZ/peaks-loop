@@ -1,6 +1,6 @@
 ---
 name: v2-15-0-sticky-mode-and-feedback-promotion
-description: slice 002 (v2.15.0 MINOR) PRD ship — sticky-mode 强制重问 + user-feedback → peaks-cli capability 治理回路（system-level fix，不能停在 memory）。下个 session RD fork agent 跑 AC-1~AC-5。
+description: slice 002 (v2.15.0 MINOR) PRD ship — sticky-mode 强制重问 + user-feedback → peaks-loop capability 治理回路（system-level fix，不能停在 memory）。下个 session RD fork agent 跑 AC-1~AC-5。
 metadata:
   type: project
 ---
@@ -9,12 +9,12 @@ metadata:
 
 **触发**: 2026-06-28 session 88b27d 用户两条 feedback：
 1. 新 session 没有询问 mode（sticky presence 锁死 full-auto）
-2. feedback 没进入 peaks-cli 能力（user-given rule 只写 memory，LLM 下次不强制遵守）
+2. feedback 没进入 peaks-loop 能力（user-given rule 只写 memory，LLM 下次不强制遵守）
 
 **关键决策（user-given）**：
 - 走深层 fix（加 hook / gate / SOP），不是 memory 修补
 - 走 slice 流程（PRD → RD → QA → commit），不是 inline 改
-- full-auto boundary = commit only 升格为 peaks-cli gate（hard-floor category）
+- full-auto boundary = commit only 升格为 peaks-loop gate（hard-floor category）
 
 ## PRD 位置
 
@@ -132,7 +132,7 @@ peaks solo should-pause --step step-1-mode-select --mode full-auto --json
 | QA re-verify | (envelope: qa-reverify) | peaks-qa fork agent — **PASS, ship** |
 | Push | `a1c9e73..db860e4` → origin | peaks-solo orchestrator |
 | Tag | `v2.15.0` → origin | peaks-solo orchestrator |
-| `npm publish` peaks-cli@2.15.0 | (npm registry) | user-only (peaks1992 OTP) |
+| `npm publish` peaks-loop@2.15.0 | (npm registry) | user-only (peaks1992 OTP) |
 | `npm install -g .` global refresh | (npm global) | user-only |
 | `~/.peaks/config.json.version` | auto-bumped to `2.15.0` | doctor governance |
 
@@ -152,7 +152,7 @@ Net regression: **-1** (fixed an additional pre-existing test that asserted the 
 $ peaks --version
 2.15.0
 
-$ npm view peaks-cli version
+$ npm view peaks-loop version
 2.15.0
 
 $ cat ~/.peaks/config.json | grep version
@@ -165,7 +165,7 @@ $ cat ~/.peaks/config.json | grep version
 |---|---|
 | New session must ask mode | `peaks skill presence:check-stale` + `peaks solo should-pause --step step-1-mode-select` → AskUserQuestion when stale |
 | `full-auto boundary = commit only` | mode-gate `commit-boundary-side-effect` hard-floor category + `peaks solo should-pause --commit-boundary-action <id>` (5 actions, all 4 modes override to pause) |
-| Feedback → peaks-cli capability | `peaks feedback promote` CLI + `peaks feedback check-unpromoted` + Gate H in `peaks workflow verify-pipeline` (13 unpromoted memories flagged at first run) |
+| Feedback → peaks-loop capability | `peaks feedback promote` CLI + `peaks feedback check-unpromoted` + Gate H in `peaks workflow verify-pipeline` (13 unpromoted memories flagged at first run) |
 
 ## Why this slice is significant
 

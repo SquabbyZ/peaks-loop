@@ -8,7 +8,7 @@
  * Architecture note (locked decision — see
  * `.peaks/memory/2026-06-18-peaks-zvec-spike-proposal.md` §Y2):
  *
- *   - "Active IDE LLM" is a deliberate abstraction: peaks-cli itself
+ *   - "Active IDE LLM" is a deliberate abstraction: peaks-loop itself
  *     has NO direct LLM API key. The chat call is performed by the
  *     active IDE (Claude Code / Trae / Cursor / Codex / ...) using
  *     its own authentication chain.

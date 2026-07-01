@@ -1,6 +1,6 @@
 # Project standards preflight (RD)
 
-> Body of `## Project standards preflight`. Before RD planning or implementation work in a code repository, call the Peaks-Cli CLI:
+> Body of `## Project standards preflight`. Before RD planning or implementation work in a code repository, call the Peaks-Loop CLI:
 
 - `peaks standards init --project <path> --dry-run`
 - `peaks standards update --project <path> --dry-run`

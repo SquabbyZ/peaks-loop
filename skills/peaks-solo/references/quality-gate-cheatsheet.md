@@ -1,6 +1,6 @@
 # Quality-gate commands (CLI cheat sheet)
 
-> Body of `## Peaks-Cli Quality-gate commands`. These commands harden the workflow against silent skips. Use them in the runbook at the points indicated; they all support `--json` and `--session-id`.
+> Body of `## Peaks-Loop Quality-gate commands`. These commands harden the workflow against silent skips. Use them in the runbook at the points indicated; they all support `--json` and `--session-id`.
 
 | Command | Purpose | When to run | Non-zero exit when |
 |---|---|---|---|

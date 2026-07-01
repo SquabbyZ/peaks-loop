@@ -45,7 +45,7 @@ Each had only `metrics/slices.jsonl` (1.5KB–20KB). `slices.jsonl` first line o
 {"schemaVersion":1,"ts":"2026-06-26T11:37:42.982Z","sessionId":"unknown-sid","category":"dispatch","role":"rd","detail":{"requestId":"unknown-rid","ide":"claude-code","promptBytes":724,"headroomCompressed":false}}
 ```
 
-`ts` is real wall-clock; the dispatch was from the dogfood session that was running at that time, but the project-root that the test fixture left polluted was `.peaks/` (peaks-cli itself). The 4 `sid-3/sid-h/sid-r/unknown-sid` dirs in `_runtime/` are the same **dispatch** path writing to `_runtime/<sid>/metrics/` via `emitObservabilityEvent` (slice C of v2.11.1) — the `requestId=unknown-rid` in the `slices.jsonl` confirms it's the same production fallback sid.
+`ts` is real wall-clock; the dispatch was from the dogfood session that was running at that time, but the project-root that the test fixture left polluted was `.peaks/` (peaks-loop itself). The 4 `sid-3/sid-h/sid-r/unknown-sid` dirs in `_runtime/` are the same **dispatch** path writing to `_runtime/<sid>/metrics/` via `emitObservabilityEvent` (slice C of v2.11.1) — the `requestId=unknown-rid` in the `slices.jsonl` confirms it's the same production fallback sid.
 
 ## Root cause (3 contributing layers, all needed the fix)
 
@@ -69,7 +69,7 @@ Affected sites (all 6 inline sites across 5 files):
 
 ### Layer 2 — Test isolation: `sub-agent-commands.test.ts` left orphan fixture sids in real cwd
 
-`tests/unit/sub-agent-commands.test.ts` uses bare-form fixture sids (`sid-3`, `sid-h`, `sid-r`) via `--session-id`. Two real-cwd side effects under peaks-cli itself (the test's "cwd project"):
+`tests/unit/sub-agent-commands.test.ts` uses bare-form fixture sids (`sid-3`, `sid-h`, `sid-r`) via `--session-id`. Two real-cwd side effects under peaks-loop itself (the test's "cwd project"):
 
 - `.peaks/_sub_agents/<sid>/dispatch-<rid>-*.json`
 - `.peaks/_runtime/<sid>/metrics/slices.jsonl`
@@ -132,7 +132,7 @@ Several alternatives look appealing but don't actually fix the root:
 ## Patterns / takeaways for future work
 
 - **Help text is part of the contract.** When a CLI flag's help text says "default: peaks session info --active", the implementation must actually call `peaks session info --active`. If you can't implement the promised default, change the help text. The "Lie-Then-Fix-Later" anti-pattern is the most common root cause of untyped silent fallbacks.
-- **Production paths and test fixtures share the same filesystem.** A test that uses `--session-id 'sid-3'` to assert envelope shape is implicitly writing to `.peaks/_runtime/sid-3/metrics/slices.jsonl` under the real cwd (peaks-cli itself). Tests that touch the real filesystem need the same cleanup discipline as production code. `afterEach` must clean ALL side effects, not just the explicit `mkdtempSync` dirs.
+- **Production paths and test fixtures share the same filesystem.** A test that uses `--session-id 'sid-3'` to assert envelope shape is implicitly writing to `.peaks/_runtime/sid-3/metrics/slices.jsonl` under the real cwd (peaks-loop itself). Tests that touch the real filesystem need the same cleanup discipline as production code. `afterEach` must clean ALL side effects, not just the explicit `mkdtempSync` dirs.
 - **Two-axis cleanup.** `.peaks/_sub_agents/` (sub-agent dispatch records) and `.peaks/_runtime/<sid>/` (skill-presence + observability metrics) are two separate axes that the same dispatch can write to. A cleanup tool that handles one axis is half a fix. If you ever add a third axis (e.g. `.peaks/_runtime/<sid>/artifacts/`), the cleanup tool needs a third branch.
 - **The "pre-existing carry-forward" QA verdict label is a smell.** When a slice QA verdict says "N pre-existing test failures, out of scope, fix path: <some external command>", the verdict is also a promise that the next slice will hit the same failures. If 2+ slices in a row carry the same label, the root cause is no longer "pre-existing" — it's "systemic, and the QA verdict is treating a symptom as a problem statement". This slice demonstrates the reframe: the "3 pre-existing doctor failures" label was masking two distinct bugs (production help-text lie + test isolation leak) that happened to surface through the same check.
 - **Archive, don't purge.** When historical orphan files have forensic value (e.g. they let a future reader reconstruct which slices ran when), keep them under `.peaks/_archive/invalid-sids*/` rather than `rm -rf`-ing. The 31.4MB cost is real but bounded; the audit-trail value is unbounded. Pair with a `.gitignore` entry that names the archive dir so the cost doesn't accidentally hit `git push`.

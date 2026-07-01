@@ -16,7 +16,7 @@ afterEach(() => {
   // follow-up): the dispatch path writes to
   //   .peaks/_sub_agents/<sid>/dispatch-<rid>-*.json
   //   .peaks/_runtime/<sid>/metrics/slices.jsonl
-  // under the real cwd (peaks-cli itself) when tests use
+  // under the real cwd (peaks-loop itself) when tests use
   // --session-id <fixture-sid> (e.g. 'sid-3', 'sid-h', 'sid-r').
   // Without this cleanup, the next `doctor` test run sees the
   // fixture sids as `L3:l3-orphan-sessions` violations and 5
@@ -42,7 +42,7 @@ afterEach(() => {
 
 describe('peaks sub-agent dispatch (G2 / AC-7..AC-10)', () => {
   it('returns a Task toolCall for the rd role on a real cwd project', async () => {
-    // peaks-cli itself is the "project" — has .peaks, has skills, so detectInstalledIde
+    // peaks-loop itself is the "project" — has .peaks, has skills, so detectInstalledIde
     // would normally match. We invoke the dispatch command and assert the envelope shape.
     const { stdout, exitCode } = await runCommand([
       'sub-agent', 'dispatch', 'rd',

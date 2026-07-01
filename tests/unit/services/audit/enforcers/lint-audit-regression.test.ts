@@ -43,7 +43,7 @@ describe('lint-audit-regression — Theme L', () => {
   });
 
   describe('lintNoOrphanEnforcer', () => {
-    it('reports no hits on the peaks-cli repo (all enforcerRef paths exist)', () => {
+    it('reports no hits on the peaks-loop repo (all enforcerRef paths exist)', () => {
       const projectRoot = process.cwd();
       const hits = lintNoOrphanEnforcer(projectRoot);
       // Empty because the catalog entries point to real files.

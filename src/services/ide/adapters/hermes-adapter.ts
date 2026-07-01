@@ -1,5 +1,5 @@
 /**
- * Hermes IDE adapter (Slice #0.7) — peaks-cli 的第七个内置 IDE 适配器。
+ * Hermes IDE adapter (Slice #0.7) — peaks-loop 的第七个内置 IDE 适配器。
  *
  * 不可消除的 per-IDE 字段(slice #0.7 填表):
  *   - settings.dirName = '.hermes'          : Hermes 项目根下的配置目录

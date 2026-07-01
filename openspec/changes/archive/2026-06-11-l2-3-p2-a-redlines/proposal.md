@@ -2,7 +2,7 @@
 
 ## Why
 
-Per spec §5.4 + §9 slice #6, the peaks-cli L2 audit framework shipped 8-12
+Per spec §5.4 + §9 slice #6, the peaks-loop L2 audit framework shipped 8-12
 P0 enforcers (L2.1, commit `621a693`) and 10-15 P1 enforcers (L2.2, commit
 `a80f28e`). The catalog currently has 15 entries:
 
@@ -37,7 +37,7 @@ report `prose-only` falling to < 10% (per §10.2 acceptance).
 Slice #6 also opens the ECC AgentShield integration (§5.3): when ECC is
 installed (`npx ecc-agentshield --version` succeeds), `peaks audit static`
 shells out to the 102 AgentShield rules; when not installed, the audit
-falls back to the peaks-cli lint engine with no broken behaviour.
+falls back to the peaks-loop lint engine with no broken behaviour.
 
 ## What Changes
 
@@ -73,7 +73,7 @@ enforcer file in `src/services/audit/enforcers/`:
 **Theme C — Output style (3 enforcers)**
 - `output-style-status-header` — when a skill executes, the first
   line of its response carries the canonical
-  `Peaks-Cli Skill: <name> | Peaks-Cli Gate: <gate> | Next: <action>`
+  `Peaks-Loop Skill: <name> | Peaks-Loop Gate: <gate> | Next: <action>`
   status header. The status header is detected by scanning
   recent session transcripts (test-only fixture) for the literal
   string.
@@ -105,14 +105,14 @@ enforcer file in `src/services/audit/enforcers/`:
   `references/<file>.md` link from a SKILL.md resolves to a real
   file.
 - `ref-no-broken-mkdir` — no SKILL.md or reference tells the LLM
-  to run a `mkdir -p` outside the project; only the peaks-cli
+  to run a `mkdir -p` outside the project; only the peaks-loop
   `peaks workspace init` / `peaks project mkdir` may create
   directories.
 - `ref-no-pwd-symlink-jumps` — no `cd ..` or `../..` chains
   outside the project root in any inline shell snippet. The LLM
   is pinned to `process.cwd()` and must not jump.
 - `ref-no-relative-archive-paths` — no `cp` / `mv` / `ln` to
-  absolute paths like `/tmp`; the LLM must use the peaks-cli
+  absolute paths like `/tmp`; the LLM must use the peaks-loop
   archive / clean commands instead.
 
 **Theme F — Workflow-bound shape (4 enforcers)**
@@ -158,25 +158,25 @@ enforcer file in `src/services/audit/enforcers/`:
 
 ## Spec reference (canonical)
 
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §5.3 (ECC AgentShield soft-optional)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §5.4 (sub-slice split: L2.3 P2-a targets 25-40 lint-style red
   lines)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §9 (slice #6 in the 10-slice plan)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §10.2 (L2 acceptance: P2 complete when prose-only < 10%)
 
 ## Acceptance Criteria
 
 - A1 — `peaks audit red-lines --json` reports `totalRedLines: 45+`, `cliBacked: 38+`, `proseOnly: ≤ 5` (per §10.2 L2 acceptance).
 - A2 — All 25 new P2 enforcers ship with at least one TDD unit test in `tests/unit/audit/enforcers/`.
-- A3 — `peaks audit static --json` runs without ECC installed (returns peaks-cli-only findings) AND with ECC installed (returns merged findings from both engines).
+- A3 — `peaks audit static --json` runs without ECC installed (returns peaks-loop-only findings) AND with ECC installed (returns merged findings from both engines).
 - A4 — When `agentShieldEnabled: false` (default), no external subprocess is spawned; the audit still completes.
 - A5 — The four-option UA-style install prompt fires once per session (not per call) when ECC is missing.
 - A6 — The catalog grows from 15 to ~45 entries; the `proseOnlyRatio` computed from the catalog is ≤ 5%.
 - A7 — The existing L2.1 / L2.2 / L2.4 enforcers continue to pass — no regression.
-- A8 — The `solo-code-ban` and `no-root-pollution` (L2.1 P0) tests still report 0 violations in the peaks-cli repo.
+- A8 — The `solo-code-ban` and `no-root-pollution` (L2.1 P0) tests still report 0 violations in the peaks-loop repo.
 - A9 — `pnpm vitest run` is green (2595 + 25+ new tests = 2620+ passing).
 - A10 — `pnpm typecheck` is clean.

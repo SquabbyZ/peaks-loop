@@ -1,14 +1,14 @@
-# peaks-cli 上下文构建 + 三阶段审计 整改 — Design Spec
+# peaks-loop 上下文构建 + 三阶段审计 整改 — Design Spec
 
 - **Date**: 2026-06-21
 - **Status**: Brainstorming complete, awaiting spec review
 - **Owner**: peaks-solo → peaks-rd → peaks-qa → peaks-txt
-- **Targets**: peaks-cli v2.8.0 → v3.0.0 (新增 `peaks-context` / `peaks-mut` / `peaks-state-lock`)
+- **Targets**: peaks-loop v2.8.0 → v3.0.0 (新增 `peaks-context` / `peaks-mut` / `peaks-state-lock`)
 - **Related**:
-  - 用户 PRD: `C:\Users\smallMark\Desktop\plan.md`(peaks-cli 2.0 愿景完整版)
+  - 用户 PRD: `C:\Users\smallMark\Desktop\plan.md`(peaks-loop 2.0 愿景完整版)
   - PRD Section 4.1(上下文构建模块)、4.2(三阶段强门禁)、4.9(全局状态锁)
   - PRD Section 1.1(二)(测试幻觉)、Section 7 阶段二(变异测试 + 断言有效性)
-  - 当前 peaks-cli v2.8.0,11 个 skill + CLI + 跨 IDE
+  - 当前 peaks-loop v2.8.0,11 个 skill + CLI + 跨 IDE
   - `.peaks/memory/custom-sop-and-gate-metering.md`(SOP 商业化已锁决策,本设计正交)
   - `.peaks/memory/rd-gstack-dry-run.md`(RD 子代理 dry-run 纪律,本设计继承)
 
@@ -20,7 +20,7 @@
 
 ### 1.1 三个表层痛点(用户原话)
 
-| # | 痛点原话 | PRD 对应章节 | 当前 peaks-cli 状态 |
+| # | 痛点原话 | PRD 对应章节 | 当前 peaks-loop 状态 |
 |---|---|---|---|
 | **#1** | "上下文是提示词堆砌" | PRD §4.1 上下文构建模块 | LLM 凭 SKILL.md 提示词自主读 package.json / git / memory,无版本标签,无结构化 metadata,LLM 用训练数据代替项目事实 |
 | **#2** | "没有同一目标独立上下文的审计 agent" | PRD §4.2 三阶段强门禁 + §4.9 全局状态锁 | peaks-rd → peaks-qa 串行传递上下文,共享 worldview,QA 跟着 RD 走 → 无审计独立性,无阶段隔离,无 sig 链 |
@@ -542,7 +542,7 @@ SOP gates (用户声明式 simple predicate):
 
 ### 7.6 覆盖率门槛
 
-- 单模块 ≥ 80%(继承 peaks-cli 既有标准)
+- 单模块 ≥ 80%(继承 peaks-loop 既有标准)
 - 关键承诺测试 100% pass(0 容忍)
 
 ---
@@ -574,7 +574,7 @@ SOP gates (用户声明式 simple predicate):
 |---|---|---|
 | Q1 | 是否引入 `project-context.yaml`(PRD §4.5)在本设计里? | 否,留后续 slice |
 | Q2 | peaks-context 的本地文档缓存格式? | Markdown + 索引 JSON |
-| Q3 | Stryker 配置文件如何与 peaks-cli 集成? | 复用 `stryker.conf.js`,peaks-mut 调用 |
+| Q3 | Stryker 配置文件如何与 peaks-loop 集成? | 复用 `stryker.conf.js`,peaks-mut 调用 |
 | Q4 | 跨阶段读保护是否要可禁用? | 默认开,`peaks state unlock --force` 可破 |
 | Q5 | peaks-mut 的弱断言阈值 5% / kill rate 80% 是否可配置? | 是,放 `peaks-mut.config.json` |
 | Q6 | context.json 大小上限? | 默认 100 KB,Renderer 截断 |
@@ -591,7 +591,7 @@ SOP gates (用户声明式 simple predicate):
 - PRD §4.9 全局状态锁
 - PRD §1.1(二) 测试幻觉
 - PRD §7 阶段二(变异测试 + 断言有效性)
-- 前置 spec: `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- 前置 spec: `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
 - 前置 spec: `docs/superpowers/specs/2026-06-10-fuzzy-matching-design.md`
 - 项目记忆: `.peaks/memory/custom-sop-and-gate-metering.md`(SOP 商业化)
 - 项目记忆: `.peaks/memory/rd-gstack-dry-run.md`(RD dry-run 纪律)

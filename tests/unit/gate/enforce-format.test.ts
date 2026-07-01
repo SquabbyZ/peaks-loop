@@ -1,7 +1,7 @@
 /**
  * Regression tests for PRD#2 (2026-06-16-fact-forcing-gate-format).
  *
- * Bug under test: when peaks-cli's gate-enforce path emits any output that is
+ * Bug under test: when peaks-loop's gate-enforce path emits any output that is
  * NOT the Claude Code permissionDecision JSON, Claude Code wraps it as
  *   "PreToolUse:Bash hook error / No stderr output / Error: <hint>"
  * and renders it as a fatal Bash failure.

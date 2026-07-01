@@ -2,7 +2,7 @@
  * TDD coverage for the ocr (open-code-review) integration.
  *
  * Tests cover the 5 detect states + the run wrapper + the env-var
- * injection that bridges peaks-cli's `peaksConfig.ocr.llm` to the
+ * injection that bridges peaks-loop's `peaksConfig.ocr.llm` to the
  * ocr subprocess. Uses a stub SubprocessRunner + stub launcher —
  * no real ocr binary or real ~/.opencodereview/config.json needed.
  */
@@ -147,7 +147,7 @@ describe('detectOcr', () => {
     expect(r.binaryPath).toBeNull();
     expect(r.version).toBeNull();
     expect(r.configPath).toBe(tmpConfigPath);
-    expect(r.nextActions[1]).toContain('peaks-cli 2.8.2 ships with ocr as a peer dependency');
+    expect(r.nextActions[1]).toContain('peaks-loop 2.8.2 ships with ocr as a peer dependency');
   });
 
   test('state=binary-missing when launcher exists but platform binary did not download', () => {

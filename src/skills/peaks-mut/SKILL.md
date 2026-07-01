@@ -9,7 +9,7 @@ description: Mutation testing + assertion validity scan for Peaks. Use when a wo
 
 The `.peaks/` workspace is partitioned by **two orthogonal axes**: **change-id** (reviewable artifacts at `.peaks/_runtime/<changeId>/...`) and **session-id** (ephemeral state at `.peaks/_runtime/<sessionId>/...`), with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<changeId>` / `<sessionId>` placeholders (NEVER bare `<sid>`). CLI axis mapping: change-id → `peaks request *` / `peaks scan *`; session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
 
-# Peaks-Cli Mut
+# Peaks-Loop Mut
 
 Catches **test fake-green** — the failure mode where coverage numbers look fine but tests do not actually exercise behavior (PRD §1.1(二) / §4.2 验收审计 / §7 阶段二).
 
@@ -36,7 +36,7 @@ peaks project memories --project <repo> --json
 ```
 
 This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
-Then display: `Peaks-Cli Skill: peaks-mut | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-mut | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## What peaks-mut actually does
 
@@ -161,13 +161,13 @@ peaks skill presence:clear --project <repo>
 
 You cannot declare peaks-mut complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
 
-**Peaks-Cli Gate A — After `peaks mut run`:**
+**Peaks-Loop Gate A — After `peaks mut run`:**
 ```bash
 ls .peaks/_runtime/<session-id>/mut/mut-report.json
 # Expected: a single mut-report.json file. Missing → STOP, the CLI failed.
 ```
 
-**Peaks-Cli Gate B — Before handing off to peaks-qa (MUT.sig chain is valid):**
+**Peaks-Loop Gate B — Before handing off to peaks-qa (MUT.sig chain is valid):**
 ```bash
 # The report's inputSig MUST equal the upstream TACT.sig.
 jq -r '.inputSig' .peaks/_runtime/<session-id>/mut/mut-report.json
@@ -179,7 +179,7 @@ jq -r '.sha256' .peaks/_runtime/<session-id>/mut/mut-report.json
 # Expected: 64-char hex. Mismatch → STOP, the CLI wrote garbage.
 ```
 
-**Peaks-Cli Gate C — Threshold verdict (when a human or CI checks `passed`):**
+**Peaks-Loop Gate C — Threshold verdict (when a human or CI checks `passed`):**
 ```bash
 jq -r '.thresholds.passed' .peaks/_runtime/<session-id>/mut/mut-report.json
 # Expected: `true` (pass) or `false` (fail). When false, the CLI exited with code 1.

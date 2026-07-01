@@ -7,7 +7,7 @@ metadata:
 
 # D7 — post-compact auto-resume contract
 
-> User asked: "我是想先手动 compact 之后，你再继续". Confirms: manual `/compact` (Claude Code native context compression) → fresh Claude Code context window (same peaks-cli `<sessionId>`) → peaks-solo auto-resumes from the prior checkpoint (no AskUserQuestion) → loads project memory → continues the in-flight task. The fresh LLM should NOT re-litigate mode, re-confirm resume, or re-explain the task.
+> User asked: "我是想先手动 compact 之后，你再继续". Confirms: manual `/compact` (Claude Code native context compression) → fresh Claude Code context window (same peaks-loop `<sessionId>`) → peaks-solo auto-resumes from the prior checkpoint (no AskUserQuestion) → loads project memory → continues the in-flight task. The fresh LLM should NOT re-litigate mode, re-confirm resume, or re-explain the task.
 
 ## The pain (literal user quote)
 
@@ -110,7 +110,7 @@ D7 only handles the **same-day post-compact** case. For cross-day / cross-machin
 
 - `peaks session checkpoint` (slice 011) — already exists
 - `peaks session resume --from <path>` (slice 011) — already exists
-- Cross-machine resume: tracked under [[peaks-cli-cross-machine-resume]] (planned, not v2.11.0)
+- Cross-machine resume: tracked under [[peaks-loop-cross-machine-resume]] (planned, not v2.11.0)
 
 D7 is the smallest unit of auto-resume: "I just `/compact`'d, please continue". It does not invent cross-day / cross-machine mechanics.
 
@@ -204,7 +204,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 - The peaks-solo skill still respects the "never silently auto-resume" rule for the general case
 - D7.b is the ONLY AskUserQuestion site where all modes auto-proceed, by design (user already approved pre-compact)
 - Cross-day resume is NOT in scope (D7.g) — keep `peaks session resume --from <path>` for that
-- The peaks-cli `<sessionId>` axis is preserved across `/compact` (Claude Code's outer session changes, but peaks-cli owns its own session continuity)
+- The peaks-loop `<sessionId>` axis is preserved across `/compact` (Claude Code's outer session changes, but peaks-loop owns its own session continuity)
 
 ## Open questions
 
@@ -222,8 +222,8 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 - [[2026-06-26-v2-11-main-session-context-monitor]] (D6, programmatic threshold trigger — D7 is the manual trigger sibling)
 - `references/checkpoint-resume.md` — Step 0.75 contract; D7 extends it
 - `references/resume-detection.md` — Step 0.7 detection algorithm; D7 adds a tier
-- `peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer` — slice 021 IDE-adapter layer; Option B (SessionStart hook) would depend on this
-- [[main-branch-iteration]] — peaks-cli dev policy
+- `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer` — slice 021 IDE-adapter layer; Option B (SessionStart hook) would depend on this
+- [[main-branch-iteration]] — peaks-loop dev policy
 
 ## Session info
 

@@ -97,7 +97,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
   }, 30000);
 
   test('Trae-detected project (.trae/ present) installs to all 8 platforms including ~/.trae/skills/', async () => {
-    // Per peaks-cli 2.0: Trae is a verified IDE with its own
+    // Per peaks-loop 2.0: Trae is a verified IDE with its own
     // skillInstall profile (the Trae user feedback fix from
     // 2026-06-11). The postinstall fans out to all 8 platforms
     // including the detected IDE. The 1.x-era "no skillInstall

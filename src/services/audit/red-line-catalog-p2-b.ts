@@ -148,7 +148,7 @@ const REF_NO_BASH_HEREDOC: RedLineCatalogEntry = {
 
 const REF_NO_SUDO: RedLineCatalogEntry = {
   id: 'rl-ref-no-sudo-001',
-  rule: 'Reference inline shell: no `sudo` (peaks-cli is user-scope)',
+  rule: 'Reference inline shell: no `sudo` (peaks-loop is user-scope)',
   markers: ['MUST NOT'],
   phrases: ['no sudo', 'user-scope', 'sudo command'],
   enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',
@@ -181,7 +181,7 @@ const REF_NO_FAKE_PROMPT: RedLineCatalogEntry = {
 
 const REF_NO_ABSOLUTE_PATHS: RedLineCatalogEntry = {
   id: 'rl-ref-no-absolute-paths-001',
-  rule: 'Reference code blocks: no `C:\\` or `/usr/local` (use peaks-cli primitives)',
+  rule: 'Reference code blocks: no `C:\\` or `/usr/local` (use peaks-loop primitives)',
   markers: ['MUST NOT'],
   phrases: ['absolute path', 'c:\\', '/usr/local', 'machine-specific'],
   enforcerRef: 'src/services/audit/enforcers/lint-reference-shape.ts',

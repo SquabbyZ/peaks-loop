@@ -14,7 +14,7 @@ User pain: peaks-solo re-derives the phase plan (~3-5k tokens) on every invocati
 
 **Granularity target:** 细 — sequence + prompt template + context snapshot, all baked in. Token savings come from the LLM not re-deriving these at run time.
 
-**External survey (LangGraph / Temporal / Inngest / CrewAI / Autogen / n8n):** none integrate "gates" as a first-class primitive. peaks-cli's moat is the gate-first posture; peaks-workflow wraps it rather than replacing it.
+**External survey (LangGraph / Temporal / Inngest / CrewAI / Autogen / n8n):** none integrate "gates" as a first-class primitive. peaks-loop's moat is the gate-first posture; peaks-workflow wraps it rather than replacing it.
 
 **Open concerns (5, not yet decided):**
 1. State persistence layer — text+git vs binary store.

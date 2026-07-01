@@ -1,18 +1,18 @@
 ---
-name: peaks-cli-24h-ai-programmer-positioning
-description: peaks-cli 的产品定位速记 — 全栈 AI Coding 工具,24h 程序员场景,效率第一,full-auto + 唯一蜂群 + 退化兜底
+name: peaks-loop-24h-ai-programmer-positioning
+description: peaks-loop 的产品定位速记 — 全栈 AI Coding 工具,24h 程序员场景,效率第一,full-auto + 唯一蜂群 + 退化兜底
 metadata:
   type: project
   createdAt: 2026-06-28
 ---
 
-# peaks-cli 24h AI 程序员定位
+# peaks-loop 24h AI 程序员定位
 
 > 适用: 当 LLM 在解释 Solo 编排 / 退化路径 / mode 选择时,避免误读为"通用 AI 工具"或"前端代码工具"。
 
 ## 1. 核心定位
 
-**peaks-cli = 24h 不停产的 AI 程序员编排器**,服务于"业务资深 + 技术半盲 + 极致工期 + 前后端全栈"的工程师。
+**peaks-loop = 24h 不停产的 AI 程序员编排器**,服务于"业务资深 + 技术半盲 + 极致工期 + 前后端全栈"的工程师。
 
 **真实形态:** "双轨 + 分层并行 + 快速迭代 24h AI 程序员"
 - 双轨: 业务线 + 上游同步线
@@ -75,16 +75,16 @@ user 在循环里不干什么?
 
 - × "退化串行会让 RD 看不到 UI 稿就写代码"
 - × "QA 测例缺失会让 RD 写漏 AC"
-- × "全栈中前后端分开规划是 peaks-cli 的卖点"
+- × "全栈中前后端分开规划是 peaks-loop 的卖点"
 - × "type 区分是核心模式选择"
-- × "peaks-cli 是只写前端代码的工具"
+- × "peaks-loop 是只写前端代码的工具"
 - × "质量优先于效率"
 - × "user 是流程编排者"
 
 ## 5. 关联
 
-- [[peaks-cli-user-role-and-tech-decision]] — user 角色 + 反伪选择
-- [[peaks-cli-prd-template-design]] — prd 模板设计
-- [[peaks-cli-slice-review-and-qa-perspective]] — slice 审阅 + QA 视角
-- [[peaks-cli-fork-sync-and-layered-parallel]] — 上游同步 + 分层并行
-- [[peaks-cli-fast-iteration-quality-loop]] — 快速迭代闭环
+- [[peaks-loop-user-role-and-tech-decision]] — user 角色 + 反伪选择
+- [[peaks-loop-prd-template-design]] — prd 模板设计
+- [[peaks-loop-slice-review-and-qa-perspective]] — slice 审阅 + QA 视角
+- [[peaks-loop-fork-sync-and-layered-parallel]] — 上游同步 + 分层并行
+- [[peaks-loop-fast-iteration-quality-loop]] — 快速迭代闭环

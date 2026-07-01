@@ -14,7 +14,7 @@ describe('Matt Pocock skills integration guidance', () => {
     expect(content).toContain('`to-prd`');
     expect(content).toContain('`zoom-out`');
     expect(content).toContain('`grill-with-docs`');
-    expect(content).toContain('Peaks-Cli PRD artifacts remain authoritative');
+    expect(content).toContain('Peaks-Loop PRD artifacts remain authoritative');
     expect(content).toContain('Inspect upstream skill content before applying any method');
   });
 
@@ -27,7 +27,7 @@ describe('Matt Pocock skills integration guidance', () => {
     expect(content).toContain('`tdd`');
     expect(content).toContain('`improve-codebase-architecture`');
     expect(content).toContain('`prototype`');
-    expect(content).toContain('Peaks-Cli RD gates remain authoritative');
+    expect(content).toContain('Peaks-Loop RD gates remain authoritative');
   });
 
   test('peaks-qa references QA methods while keeping validation gates authoritative', () => {

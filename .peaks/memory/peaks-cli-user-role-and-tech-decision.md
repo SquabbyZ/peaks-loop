@@ -1,16 +1,16 @@
 ---
-name: peaks-cli-user-role-and-tech-decision
-description: peaks-cli 真实 user 画像 = 业务+产品+前端资深 + 后端半盲;user 审 = 业务/产品/UI 装配,不审技术;技术决策全部反伪选择,AI 拍板
+name: peaks-loop-user-role-and-tech-decision
+description: peaks-loop 真实 user 画像 = 业务+产品+前端资深 + 后端半盲;user 审 = 业务/产品/UI 装配,不审技术;技术决策全部反伪选择,AI 拍板
 metadata:
   type: project
   createdAt: 2026-06-28
 ---
 
-# peaks-cli user 角色 + 技术决策反伪选择
+# peaks-loop user 角色 + 技术决策反伪选择
 
 > 适用: 当 LLM 解释 Solo gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。
 
-## 1. user 真实画像(peaks-cli 默认 user 模型)
+## 1. user 真实画像(peaks-loop 默认 user 模型)
 
 ```
 user 的真实画像(资深前端 + 后端半盲 + 业务资深):
@@ -19,13 +19,13 @@ user 的真实画像(资深前端 + 后端半盲 + 业务资深):
   前端技术 维度        ██████████   (资深)
   后端语言栈 维度      ████         (半盲)
   性能 / 安全 维度     ██           (不熟)
-  AI 使用 维度         ████████████ (资深 — 这是 peaks-cli 诞生的原因)
+  AI 使用 维度         ████████████ (资深 — 这是 peaks-loop 诞生的原因)
 
 → user 在 Solo 循环里**只能有效决策**前 3 个维度
 → 后 2 个维度必须 AI 拍板
 ```
 
-→ **peaks-cli 的 user 模型核心假设 = "业务 + 产品 + (擅长的)技术 资深"**,不是"全栈资深"。
+→ **peaks-loop 的 user 模型核心假设 = "业务 + 产品 + (擅长的)技术 资深"**,不是"全栈资深"。
 
 ## 2. 反伪选择机制(核心原则)
 
@@ -99,6 +99,6 @@ user 的真实画像(资深前端 + 后端半盲 + 业务资深):
 
 ## 7. 关联
 
-- [[peaks-cli-24h-ai-programmer-positioning]]
-- [[peaks-cli-prd-template-design]] — 业务场景块的设计
-- [[peaks-cli-slice-review-and-qa-perspective]] — 业务审阅 + QA 业务视角
+- [[peaks-loop-24h-ai-programmer-positioning]]
+- [[peaks-loop-prd-template-design]] — 业务场景块的设计
+- [[peaks-loop-slice-review-and-qa-perspective]] — 业务审阅 + QA 业务视角

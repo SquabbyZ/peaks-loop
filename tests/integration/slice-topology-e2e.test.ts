@@ -1,7 +1,7 @@
 /**
  * W7 CC-β — Phase 6 Task 20: e2e integration test for slice topology.
  *
- * Runs `MultiPassOrchestrator.decompose()` against the real peaks-cli config
+ * Runs `MultiPassOrchestrator.decompose()` against the real peaks-loop config
  * service (`src/services/config/`) and asserts the v2 output structure.
  * This is the smoke test for the slice-topology algorithm against a real,
  * non-fixture project — proves it works end-to-end on Windows file I/O.
@@ -107,7 +107,7 @@ const PRD_WITH_ACS = `# Refactor config-service
 `;
 
 describe('slice-topology e2e', () => {
-  it('produces v2 multi-pass output against the real peaks-cli config service', async () => {
+  it('produces v2 multi-pass output against the real peaks-loop config service', async () => {
     const codegraphRunner = buildCodegraphRunner();
     const result = await decompose(
       'e2e-slice-topology',

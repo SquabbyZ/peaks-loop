@@ -16,7 +16,7 @@
  * `.peaks/_runtime/<sid>/rd/perf-baseline.md` so QA Gate A4 has a known-good
  * reference to diff against. The CLI itself only writes the scaffold
  * and records the path; the actual measurement is a project-local
- * concern that lives in the README, not in peaks-cli.
+ * concern that lives in the README, not in peaks-loop.
  *
  * The four-grounds check (per the skill-primary-CLI-auxiliary dev
  * preference):
@@ -33,7 +33,7 @@
  *                                     NOT add a lint gate here.
  *
  * Net: CLI is justified. The destructive --apply default is dry-run,
- * matching the rest of peaks-cli's scaffolding pattern.
+ * matching the rest of peaks-loop's scaffolding pattern.
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';

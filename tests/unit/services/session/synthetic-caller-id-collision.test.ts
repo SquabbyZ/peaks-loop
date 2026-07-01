@@ -70,7 +70,7 @@ describe('R1 — 1000 synthetic ids from realistic on-disk state are unique', ()
     // even for highly similar inputs.
     const ids = new Set<string>();
     for (let i = 0; i < 1000; i++) {
-      const id = synthesiseLegacyCallerId(`/projects/legacy-tree-${i}/peaks-cli`);
+      const id = synthesiseLegacyCallerId(`/projects/legacy-tree-${i}/peaks-loop`);
       ids.add(id);
     }
     expect(ids.size).toBe(1000);

@@ -396,11 +396,11 @@ describe('project standards service', () => {
     expect(claudeMd).not.toContain('Startup sequence');
     expect(claudeMd).not.toContain('Swarm parallel phase');
     expect(claudeMd).not.toContain('Do NOT skip step');
-    expect(claudeMd).not.toContain('<!-- Peaks-Cli 心跳检测');
+    expect(claudeMd).not.toContain('<!-- Peaks-Loop 心跳检测');
 
     // Required new-shape markers
     expect(claudeMd).toContain('peaks skill presence --json');
-    expect(claudeMd).toContain('Peaks-Cli Skill: <skill>');
+    expect(claudeMd).toContain('Peaks-Loop Skill: <skill>');
 
     rmSync(projectRoot, { recursive: true, force: true });
   });

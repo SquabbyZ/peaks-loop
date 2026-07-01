@@ -1,5 +1,5 @@
 /**
- * Secret redaction for peaks-cli JSONL log lines.
+ * Secret redaction for peaks-loop JSONL log lines.
  *
  * Slice 2026-06-16-cli-logging (G6). The logger must NEVER write
  * a raw secret to disk. We redact at two levels:

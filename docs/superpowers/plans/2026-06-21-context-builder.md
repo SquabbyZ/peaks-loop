@@ -1612,8 +1612,8 @@ let workdir: string;
 let outdir: string;
 
 beforeEach(() => {
-  workdir = mkdtempSync(join(tmpdir(), 'peaks-cli-ctx-'));
-  outdir = mkdtempSync(join(tmpdir(), 'peaks-cli-ctx-out-'));
+  workdir = mkdtempSync(join(tmpdir(), 'peaks-loop-ctx-'));
+  outdir = mkdtempSync(join(tmpdir(), 'peaks-loop-ctx-out-'));
   mkdirSync(join(workdir, 'src'), { recursive: true });
   writeFileSync(join(workdir, 'src', 'A.ts'), 'export const X = 1;\n');
   writeFileSync(join(workdir, 'package.json'), JSON.stringify({

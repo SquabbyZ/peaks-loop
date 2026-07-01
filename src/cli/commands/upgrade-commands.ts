@@ -4,7 +4,7 @@
  *
  * Per the "one-key completion" + "minimal-user-operation" tenets
  * (2026-06-11), the user's typical upgrade path is
- * `npm i -g peaks-cli@2.0` (the postinstall does the upgrade).
+ * `npm i -g peaks-loop@2.0` (the postinstall does the upgrade).
  *
  * The `peaks upgrade --to 2.0` CLI is the manual fallback for
  * when the postinstall is skipped (e.g. CI uses
@@ -40,13 +40,13 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
     program
       .command('upgrade')
       .description(
-        'Upgrade a peaks-cli 1.x project to 2.0. Umbrella that orquestrates 7 sub-commands: config-migrate / standards-migrate / memory-extract / hooks-install / skill-sync / audit-verify + write-upgrade-record. Per the "one-key completion" tenet, prefer letting `npm i -g peaks-cli@2.0` postinstall run this for you. Use `--detect-1x` for a read-only probe (no file writes) that the peaks-solo skill uses to gate the 1.x → 2.0 AskUserQuestion.'
+        'Upgrade a peaks-loop 1.x project to 2.0. Umbrella that orquestrates 7 sub-commands: config-migrate / standards-migrate / memory-extract / hooks-install / skill-sync / audit-verify + write-upgrade-record. Per the "one-key completion" tenet, prefer letting `npm i -g peaks-loop@2.0` postinstall run this for you. Use `--detect-1x` for a read-only probe (no file writes) that the peaks-solo skill uses to gate the 1.x → 2.0 AskUserQuestion.'
       )
       .option('--to <version>', 'target version (only "2.0" supported)', '2.0')
       .option('--project <path>', 'project root to upgrade (default: cwd)')
       .option('--auto', 'non-interactive: accept soft-fail on any sub-step (used by the postinstall hook)')
       .option('--detect-1x', 'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-solo Step 0.55 to gate the AskUserQuestion')
-      .option('--apply-init', 'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-cli version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.')
+      .option('--apply-init', 'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-loop version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.')
   ).action(async (options: UpgradeOptions) => {
     const projectRoot = options.project ?? process.cwd();
 
@@ -84,13 +84,13 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
     // Branch 2: --apply-init (slice 4 — slice 2026-06-13-selfheal-claude-settings-template).
     //
     // The drift-driven self-heal inside initWorkspace only fires when
-    // the user invokes init. After a peaks-cli version bump, users who
+    // the user invokes init. After a peaks-loop version bump, users who
     // never re-run init are stuck with stale templates until they do.
     // This flag is the post-bump escape hatch: it triggers init for them.
     //
     // We do NOT pass --session-id (the CLI auto-generates / reuses an
     // existing binding). We do NOT pass --no-claude-hooks (the goal is to
-    // bring the project to the current peaks-cli baseline, including the
+    // bring the project to the current peaks-loop baseline, including the
     // consumer-project hook).
     if (options.applyInit === true) {
       try {
@@ -113,7 +113,7 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
         if (result.claudeSettings.offlineTemplate.action === 'refreshed') {
           nextActions.push(
             `Self-healed .peaks/.claude-settings-template.json (action: refreshed) — ` +
-              'the offline recovery anchor now matches the current peaks-cli template.'
+              'the offline recovery anchor now matches the current peaks-loop template.'
           );
           nextActions.push(
             '⚠️  If you had manually edited .peaks/.claude-settings-template.json, ' +
@@ -128,7 +128,7 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
         if (result.claudeSettings.action === 'refreshed') {
           nextActions.push(
             `Refreshed .claude/settings.local.json (action: refreshed) — ` +
-              'the consumer-project hook now matches the current peaks-cli template. ' +
+              'the consumer-project hook now matches the current peaks-loop template. ' +
               'Restart Claude Code so the hooks take effect.'
           );
         } else if (result.claudeSettings.action === 'written') {

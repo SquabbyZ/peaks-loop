@@ -3,9 +3,9 @@ name: peaks-solo-test
 description: Run the project's test suite on the current repo and report results. Use when the user says "run the tests", "跑一下 test", "跑测试", or invokes `/peaks-solo-test` directly. Runs `pnpm vitest run` (or the project's equivalent test command), captures pass/fail counts and any failures, and surfaces a compact summary. Triggers on `/peaks-solo-test`, "跑一下 test", "跑测试", "run the tests", "test now".
 ---
 
-# Peaks-Cli Solo Test (wrapper)
+# Peaks-Loop Solo Test (wrapper)
 
-Peaks-Cli Solo Test is a thin wrapper that runs the project's test suite on the current repo and reports results. It is the answer to "I just want to see if the tests pass" — no PRD, no RD, no QA, no full peaks-solo orchestration. Just `pnpm vitest run` and a compact summary.
+Peaks-Loop Solo Test is a thin wrapper that runs the project's test suite on the current repo and reports results. It is the answer to "I just want to see if the tests pass" — no PRD, no RD, no QA, no full peaks-solo orchestration. Just `pnpm vitest run` and a compact summary.
 
 **This is a transparent wrapper.** The user does not stay in this skill — the test command runs, the result is summarized, and control hands off (back to the user, or to `peaks-solo` if the user wants to act on the result).
 
@@ -18,10 +18,10 @@ peaks project memories --project <repo> --json  # load durable memory
 
 ## Step 1: Detect the project's test command
 
-The Peaks-Cli project standard is `pnpm vitest run` (per `vitest.config.ts` + `package.json` scripts). For other project types, check the package.json scripts first. If the user explicitly named a different command (e.g. "跑 `pnpm test` not vitest"), use that.
+The Peaks-Loop project standard is `pnpm vitest run` (per `vitest.config.ts` + `package.json` scripts). For other project types, check the package.json scripts first. If the user explicitly named a different command (e.g. "跑 `pnpm test` not vitest"), use that.
 
 ```bash
-# Default for peaks-cli itself + most TS projects with vitest
+# Default for peaks-loop itself + most TS projects with vitest
 pnpm vitest run
 ```
 

@@ -8,7 +8,7 @@ See the index at ./2026-06-25-slice-topology-multipass.md for navigation.
 
 ## Phase 6: Integration + Final Verification
 
-### Task 20: End-to-end integration test against peaks-cli real codebase
+### Task 20: End-to-end integration test against peaks-loop real codebase
 
 **Files:**
 - Create: `tests/integration/slice-topology-e2e.test.ts`
@@ -20,7 +20,7 @@ import { describe, it, expect } from 'vitest';
 import { decompose } from '../../../src/services/slice/multi-pass-orchestrator.js';
 
 describe('slice-topology e2e', () => {
-  it('produces v2 output for peaks-cli config service', async () => {
+  it('produces v2 output for peaks-loop config service', async () => {
     const result = await decompose(
       'e2e-test',
       'Split config-service into smaller modules',
@@ -42,7 +42,7 @@ git add tests/integration/slice-topology-e2e.test.ts
 git commit --author="SquabbyZ <601709253@qq.com>" -m "test(integration): e2e for slice topology multi-pass"
 ```
 
-### Task 21: Mutation probes (3 total, per peaks-cli Plan 4 convention)
+### Task 21: Mutation probes (3 total, per peaks-loop Plan 4 convention)
 
 **Files:**
 - Modify: existing tests to include mutation probe assertions

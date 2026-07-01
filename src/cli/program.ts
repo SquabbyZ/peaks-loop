@@ -284,7 +284,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // Slice #13: peaks swarm * — additional subcommands (pipeline /
  // dispatch / verify / loop) are added inline in workflow-commands.ts
  // alongside the existing swarm.plan. This avoids the duplicate top-level
- // command conflict (peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first).
+ // command conflict (peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first).
  // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
  registerLoopCommands(program, io);
   // Slice v3.0.0 loop-eng-native-solo-a-b: peaks workflow run|plan|lint

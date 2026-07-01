@@ -2,7 +2,7 @@
 
 ## Why
 
-LLM-driven workflows in peaks-cli currently have two specific
+LLM-driven workflows in peaks-loop currently have two specific
 token-inefficient patterns:
 
 1. **Memory recall at session start** — `.peaks/memory/index.json` holds 57+
@@ -45,7 +45,7 @@ indexes without scanning the whole file at session start.
 - `fzf` npm package (MIT, zero transitive deps, ~50 KB).
 - Existing `loadRetrospectiveIndex(projectRoot)` from
   `src/services/retrospective/retrospective-index.ts:48` (reused unchanged).
-- Existing peaks-cli result envelope, cli-helpers, and `commander` setup.
+- Existing peaks-loop result envelope, cli-helpers, and `commander` setup.
 
 ## Risks
 

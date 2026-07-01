@@ -4,7 +4,7 @@ import type { IdeAdapter } from '../ide-types.js';
 import { codexSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
 
 /**
- * Codex (OpenAI CLI IDE) adapter —— peaks-cli 的第四个内置 IDE 适配器(slice #13, 2.4.0)。
+ * Codex (OpenAI CLI IDE) adapter —— peaks-loop 的第四个内置 IDE 适配器(slice #13, 2.4.0)。
  *
  * 不可消除的 per-IDE 字段(slice #1 锁定,same shape as trae-adapter.ts / cursor-adapter.ts):
  *   - settings.dirName = '.codex'        : Codex 项目根下的配置目录
@@ -14,7 +14,7 @@ import { codexSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js'
  *   - toolMatcher = 'shell'         : Codex 的 shell command matcher
  *
  * Slice #13 status (2026-06-17, 2.4.0):
- *   - Adapter is the fourth built-in IDE in peaks-cli after Claude Code (#1),
+ *   - Adapter is the fourth built-in IDE in peaks-loop after Claude Code (#1),
  *     Trae (#2), and Cursor (#12). It further confirms the slice #1 + slice #2
  *     architecture scales linearly: registering a new IDE is a one-entry fill
  *     of the slim `IdeAdapter` shape with no dispatch-chokepoint changes.

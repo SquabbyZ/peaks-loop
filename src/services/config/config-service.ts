@@ -574,7 +574,7 @@ function toOcrConfig(value: unknown): OcrConfig {
  * `~/.peaks/config.json`. The user populates this themselves by
  * pasting the `peaks code-review config-template` output (or by
  * running `peaks config set --key ocr.llm.url --value '...'`).
- * peaks-cli never auto-writes these values.
+ * peaks-loop never auto-writes these values.
  */
 export function getOcrConfig(): OcrConfig {
   const userConfig = readUserJsonFile() ?? {};

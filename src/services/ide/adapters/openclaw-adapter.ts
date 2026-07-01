@@ -1,5 +1,5 @@
 /**
- * OpenClaw IDE adapter (Slice #0.7) — peaks-cli 的第八个内置 IDE 适配器。
+ * OpenClaw IDE adapter (Slice #0.7) — peaks-loop 的第八个内置 IDE 适配器。
  *
  * 不可消除的 per-IDE 字段(slice #0.7 填表):
  *   - settings.dirName = '.openclaw'        : OpenClaw 项目根下的配置目录

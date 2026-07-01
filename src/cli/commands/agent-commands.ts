@@ -39,7 +39,7 @@ export function registerAgentCommands(program: Command, io: ProgramIO): void {
   const agent = program
     .command('agent')
     .description(
-      'Run an ECC agent (soft-optional per spec §7.2). 64 agents are npm-installable via npx ecc; peaks-cli shells out when ECC is installed and soft-fails with a 4-option install prompt when it is not. Native peaks-cli diagnostics still run via `peaks doctor scan`.'
+      'Run an ECC agent (soft-optional per spec §7.2). 64 agents are npm-installable via npx ecc; peaks-loop shells out when ECC is installed and soft-fails with a 4-option install prompt when it is not. Native peaks-loop diagnostics still run via `peaks doctor scan`.'
     );
 
   addJsonOption(
@@ -77,9 +77,9 @@ export function registerAgentCommands(program: Command, io: ProgramIO): void {
         nextActions.push(
           'ECC not installed. Pick one of the four options below:',
           '  a) Install: run `npx ecc --help` to install, then re-run `peaks agent run`.',
-          '  b) Skip this run: use the peaks-cli native diagnostic via `peaks doctor scan`.',
+          '  b) Skip this run: use the peaks-loop native diagnostic via `peaks doctor scan`.',
           '  c) Skip forever: run `peaks preferences set agentShieldEnabled false`.',
-          '  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §7.2.'
+          '  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §7.2.'
         );
       }
       const envelope: ResultEnvelope<typeof data> = ok('agent.run', data, [...result.warnings], nextActions);
@@ -98,7 +98,7 @@ export function registerAgentCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     agent
       .command('list')
-      .description(`List the 12 canonical ECC agents (peaks-cli ships a static subset; the full 64 are ECC-discovered).`)
+      .description(`List the 12 canonical ECC agents (peaks-loop ships a static subset; the full 64 are ECC-discovered).`)
   ).action((options: AgentListOptions) => {
     const envelope = ok(
       'agent.list',

@@ -3,7 +3,7 @@
  * for the v2.8.3 hard-ban on `.peaks/<YYYY-MM-DD-*>/` and
  * `.peaks/_runtime/<YYYY-MM-DD-*>/` sibling directories.
  *
- * Background: peaks-cli 2.8.0+ uses a two-axis workspace convention:
+ * Background: peaks-loop 2.8.0+ uses a two-axis workspace convention:
  *   - session axis: `.peaks/_runtime/<sessionId>/` (gitignored, ephemeral)
  *   - change-id axis: `.peaks/<changeId>/` (tracked, reviewable)
  *

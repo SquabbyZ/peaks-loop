@@ -5,7 +5,7 @@ capturedAt: 2026-06-27T00:00:00.000Z
 appliesTo: peaks-security-audit skill
 ---
 
-# Security Audit Template (peaks-cli v2.12.0)
+# Security Audit Template (peaks-loop v2.12.0)
 
 > **Bootstrap template** for `peaks-security-audit` skill. Consumed by the
 > skill at audit start. Modified only by peaks-txt sediment step (append-only,
@@ -81,7 +81,7 @@ violationsCount: <integer>
 - `## Verdict` — block: `verdict: <pass | warn | block>` + `CRITICAL: <n>`
 
 The `## Verdict` block MUST contain the literal string `CRITICAL: <n>` even
-when the count is zero (per peaks-cli Gate B3 substring contract on the
+when the count is zero (per peaks-loop Gate B3 substring contract on the
 `CODE_REVIEW` prerequisite — the security-audit artifact follows the same
 convention).
 

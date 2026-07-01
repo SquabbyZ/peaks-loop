@@ -1,13 +1,13 @@
-# peaks-cli Fuzzy Matching — Design Spec
+# peaks-loop Fuzzy Matching — Design Spec
 
 - **Date**: 2026-06-10
 - **Status**: Approved (brainstorming §1–§4)
 - **Owner**: peaks-rd → peaks-qa
-- **Targets**: peaks-cli 1.4.x → 1.5.x
+- **Targets**: peaks-loop 1.4.x → 1.5.x
 
 ## Problem
 
-LLM-driven workflows in peaks-cli currently have two specific token-inefficient
+LLM-driven workflows in peaks-loop currently have two specific token-inefficient
 patterns:
 
 1. **Memory recall at session start**: `.peaks/memory/index.json` holds 57+
@@ -215,7 +215,7 @@ peaks memory search <query> [--kind <kind>] [--limit <n>] [--project <path>] [--
 peaks retrospective search <query> [--type <type>] [--outcome <outcome>] [--limit <n>] [--project <path>] [--json]
 ```
 
-Both commands emit the standard `peaks-cli` result envelope:
+Both commands emit the standard `peaks-loop` result envelope:
 
 ```json
 {
@@ -295,7 +295,7 @@ Same flow, with the following differences:
 | fzf matches 0 entries | `true` | — | `matches: []`, `total: 0` |
 | `> limit` matches found | `true` | — | truncated; `total` = pre-truncation count, `matches.length` = `limit` |
 
-All error codes use the existing `peaks-cli` envelope conventions from
+All error codes use the existing `peaks-loop` envelope conventions from
 `src/shared/result.ts`. Error handling lives in the loader, not the kernel.
 
 ## Testing

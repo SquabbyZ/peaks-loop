@@ -4,7 +4,7 @@
 > the project's history, tech stack, conventions, and past decisions.
 > Last updated: 2026-06-29T02:35:22.426Z
 
-## Project: peaks-cli
+## Project: peaks-loop
 
 ## Conventions
 

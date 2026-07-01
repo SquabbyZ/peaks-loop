@@ -174,7 +174,7 @@ export function executeMigration(opts: MigrationOptions & { apply: boolean }): M
   //    Per the 2.0.1 slim spec, the on-disk `~/.peaks/config.json` is
   //    `{ "version": "2.0.1", "ocr": { "llm": { ... } } }`. Legacy fields
   //    (language, model, economyMode, swarmMode, tokens, providers,
-  //    proxy) live in <project>/.peaks/preferences.json. peaks-cli writes
+  //    proxy) live in <project>/.peaks/preferences.json. peaks-loop writes
   //    the `ocr.llm.*` placeholders so the user has a discoverable spot
   //    to paste their endpoint; the placeholders are empty strings, not
   //    auto-configured values, so the post-migration file MUST contain

@@ -226,7 +226,7 @@ describe('install skills script', () => {
     const packageRoot = createPackageRoot(['peaks-rd', 'peaks-qa']);
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const staleTargetPath = join(targetRoot, 'peaks-rd');
-    const stalePeaksCliRoot = join(targetRoot, '-peaks-cli');
+    const stalePeaksCliRoot = join(targetRoot, '-peaks-loop');
     mkdirSync(stalePeaksCliRoot, { recursive: true });
     const staleTarget = join(stalePeaksCliRoot, 'skills', 'peaks-rd');
     symlinkSync(staleTarget, staleTargetPath, process.platform === 'win32' ? 'junction' : 'dir');
@@ -260,7 +260,7 @@ describe('install skills script', () => {
     const customTarget = join(targetRoot, 'somewhere-else', 'peaks-rd');
     mkdirSync(targetRoot, { recursive: true });
     symlinkSync(customTarget, targetPath, process.platform === 'win32' ? 'junction' : 'dir');
-    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'skills', 'peaks-rd')}\n`, 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-loop', 'skills', 'peaks-rd')}\n`, 'utf8');
 
     const result = installBundledSkills({ packageRoot, targetRoot });
 
@@ -526,7 +526,7 @@ describe('install skills script', () => {
     const targetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
     const targetPath = join(targetRoot, 'peaks-skill-swarm.md');
     writeFileSync(targetPath, 'custom output style', 'utf8');
-    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-cli', 'output-styles', 'peaks-skill-swarm.md')}\n`, 'utf8');
+    writeFileSync(`${targetPath}.peaks-managed`, `${join(targetRoot, 'old-peaks-loop', 'output-styles', 'peaks-skill-swarm.md')}\n`, 'utf8');
 
     const result = installBundledOutputStyles({ packageRoot, targetRoot });
 
@@ -704,7 +704,7 @@ describe('install skills script', () => {
     installBundledAgents({ packageRoot, targetRoot });
     const firstContent = readFileSync(targetPath, 'utf8');
 
-    // Upgrade the source content (simulate a new peaks-cli release).
+    // Upgrade the source content (simulate a new peaks-loop release).
     // The marker still references the old SHA, so the function
     // detects drift and SKIPS to preserve the user's local file.
     writeFileSync(sourcePath, `${firstContent}\nupgraded content`, 'utf8');

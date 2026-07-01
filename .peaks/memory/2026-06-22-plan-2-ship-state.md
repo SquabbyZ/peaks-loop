@@ -1,6 +1,6 @@
 ---
 name: plan-2-ship-state
-description: peaks-cli Plan 2 (peaks-mut, RID 2026-06-21-mutation-test-quality) ship state on 2026-06-22. 12 commits on main, 80/80 tests PASS, Opus 4.8 final review ship-with-notes. Carry-forward for Plan 3.
+description: peaks-loop Plan 2 (peaks-mut, RID 2026-06-21-mutation-test-quality) ship state on 2026-06-22. 12 commits on main, 80/80 tests PASS, Opus 4.8 final review ship-with-notes. Carry-forward for Plan 3.
 metadata:
   type: project
 ---

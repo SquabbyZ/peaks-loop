@@ -3,7 +3,7 @@
  *
  * Generalizes the original `decision-writer.ts` (which only knew how to
  * persist a `RedLineAudit` snapshot) into a polymorphic writer that
- * handles the 4 artifact types produced during a peaks-cli audit:
+ * handles the 4 artifact types produced during a peaks-loop audit:
  *
  *   1. **decision**      — `RedLineAudit` snapshot             → audit-decisions/<slug>.md
  *   2. **prompt**        — methodology input (LLM-facing text) → audit-prompts/<slug>.md

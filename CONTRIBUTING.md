@@ -1,4 +1,4 @@
-# Contributing to peaks-cli
+# Contributing to peaks-loop
 
 Thanks for your interest. This document covers the contribution
 workflow, project conventions, and quality gates. The shorter answer
@@ -8,7 +8,7 @@ for "how do I get started" lives in the README.
 
 ## Architecture: skill-first, CLI-auxiliary
 
-peaks-cli's product is a family of **skills** (SKILL.md files the LLM
+peaks-loop's product is a family of **skills** (SKILL.md files the LLM
 consumes), not a fleet of CLI commands. CLI commands earn their place
 only when at least one of these is true:
 
@@ -114,7 +114,7 @@ skills/               SKILL.md family (the primary product surface)
 scripts/              postinstall, sync-version, watch, clean-dist
 docs/                 UPGRADING-2.0.md, design notes
 openspec/changes/     in-flight proposals (archive/ for completed)
-.peaks/               peaks-cli's own workspace (dogfood, NOT shipped)
+.peaks/               peaks-loop's own workspace (dogfood, NOT shipped)
 .claude/rules/        project-local rules (extend ~/.claude/rules)
 ```
 

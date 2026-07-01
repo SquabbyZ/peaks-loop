@@ -9,13 +9,13 @@
  * is `scripts/install-skills.mjs::installBundledSkills` (dynamically
  * imported so this module does not require a build step).
  *
- * Slice 2.0.1-bug2-skill-sync-fallback: when peaks-cli is
+ * Slice 2.0.1-bug2-skill-sync-fallback: when peaks-loop is
  * installed from npm into a consumer project, that consumer's
  * CWD does not contain `scripts/install-skills.mjs`. The previous
  * hard-coded `join(process.cwd(), 'scripts', 'install-skills.mjs')`
  * therefore threw `ERR_MODULE_NOT_FOUND` in every consumer run.
  * The fix is a three-tier probe:
- *   1. peaks-cli's own install path (resolved from
+ *   1. peaks-loop's own install path (resolved from
  *      `import.meta.url` walking up to the package root, or
  *      from `process.argv[1]` for CJS-equivalent entrypoints),
  *   2. the consumer CWD (`<cwd>/scripts/install-skills.mjs`),
@@ -114,7 +114,7 @@ function noopInstaller(_opts: InstallBundledSkillsOptions): InstallResult {
   return {
     installed: [],
     skipped: [
-      'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-cli postinstall',
+      'install-skills.mjs not found in project; skill sync skipped — bundled skills are installed via peaks-loop postinstall',
     ],
   };
 }
@@ -136,10 +136,10 @@ const services: {
 };
 
 /**
- * Resolve the path of `install-skills.mjs` inside the peaks-cli
+ * Resolve the path of `install-skills.mjs` inside the peaks-loop
  * install root, walking up from `import.meta.url` until a
- * `package.json` with `"name": "peaks-cli"` is found. Returns
- * `null` when peaks-cli is not on the import path or the script
+ * `package.json` with `"name": "peaks-loop"` is found. Returns
+ * `null` when peaks-loop is not on the import path or the script
  * is absent (e.g. a partial install).
  */
 export function resolvePeaksCliInstallerPath(): string | null {
@@ -215,7 +215,7 @@ export async function loadInstallerForTest(
 
 /**
  * Resolve and load the installer, memoizing the outcome.
- * Three-tier probe (peaks-cli install path → CWD → no-op),
+ * Three-tier probe (peaks-loop install path → CWD → no-op),
  * with the "not found" outcome memoized as a sentinel so the
  * warning is logged at most once per process.
  *
@@ -233,7 +233,7 @@ async function loadInstaller(): Promise<InstallerFn> {
     return cachedInstaller;
   }
 
-  // Tier 1: peaks-cli install path.
+  // Tier 1: peaks-loop install path.
   const peaksCliScript = services.resolvePeaksCliInstallerPath();
   if (peaksCliScript !== null) {
     const installer = await services.loadInstallerForTest(peaksCliScript);
@@ -256,7 +256,7 @@ async function loadInstaller(): Promise<InstallerFn> {
   // eslint-disable-next-line no-console -- intentional user-visible signal
   console.warn(
     'peaks skill sync: install-skills.mjs not found in project; ' +
-      'skipping (bundled skills come from peaks-cli postinstall).'
+      'skipping (bundled skills come from peaks-loop postinstall).'
   );
   return noopInstaller;
 }

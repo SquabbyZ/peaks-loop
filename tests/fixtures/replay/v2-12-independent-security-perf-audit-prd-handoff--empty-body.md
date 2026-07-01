@@ -9,7 +9,7 @@ writtenAt: 2026-06-27T16:00:54.727Z
 goals: []
 acceptanceCriteria: []
 preservedBehavior: []
-handoffPath: C:/Users/<REDACTED-user>/Desktop/peaks-cli/.peaks/_runtime/2026-06-27-session-83acf5/prd/handoff.md
+handoffPath: C:/Users/<REDACTED-user>/Desktop/peaks-loop/.peaks/_runtime/2026-06-27-session-83acf5/prd/handoff.md
 ---
 
 

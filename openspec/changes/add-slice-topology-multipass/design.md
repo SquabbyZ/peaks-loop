@@ -311,7 +311,7 @@ function parseHandoff(filePath: string): { frontmatter: HandoffFrontmatter; body
 function writeHandoff(filePath: string, frontmatter: HandoffFrontmatter, body: string): void;
 ```
 
-- Parser uses a YAML library (peaks-cli already depends on one for `.peaks/standards/` configs).
+- Parser uses a YAML library (peaks-loop already depends on one for `.peaks/standards/` configs).
 - Validation: throws `IncompleteHandoffError` if any required field is missing.
 - Backward compat: legacy handoffs without frontmatter parse with `schema_version: '0'` and `status: 'unknown'`. No automatic rewrite.
 
@@ -328,14 +328,14 @@ function writeHandoff(filePath: string, frontmatter: HandoffFrontmatter, body: s
 
 ## Skill Layer (LLM-facing operation manual)
 
-In peaks-cli's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
+In peaks-loop's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
 
 ### New skill: `peaks-slice-decompose`
 
 A focused skill that documents how to invoke `peaks slice decompose` with the new `--granularity` flag and how to interpret the v2 result. Top-level skill (not a reference under `peaks-sc`) because:
 
 - `peaks-sc` is "slice coordinator" — coordinates multi-step slice planning across PRD/RD/QA. `peaks-slice-decompose` is one specific step (the actual decomposition algorithm). Different concerns.
-- peaks-cli convention: each role/feature ships as a top-level skill (peaks-prd, peaks-qa, peaks-rd, peaks-ui, peaks-companion, peaks-doctor, peaks-ide are all top-level). A new feature warrants a new skill.
+- peaks-loop convention: each role/feature ships as a top-level skill (peaks-prd, peaks-qa, peaks-rd, peaks-ui, peaks-companion, peaks-doctor, peaks-ide are all top-level). A new feature warrants a new skill.
 - LLM discoverability: the skill name matches the LLM's likely intent ("decompose this PRD into slices").
 
 Layout:
@@ -647,7 +647,7 @@ MultiPassOrchestrator.decompose(rid, prdMarkdown, projectRoot, {granularity, llm
 
 ### Integration tests
 
-- Run `MultiPassOrchestrator` end-to-end on `src/services/config/` (peaks-cli real codebase, ~14 files, has type-sharing). Assert v2 output structure.
+- Run `MultiPassOrchestrator` end-to-end on `src/services/config/` (peaks-loop real codebase, ~14 files, has type-sharing). Assert v2 output structure.
 - Run on `src/services/memory/` (3 sibling files after the recent split). Assert 2-Pass output.
 
 ### Mutation probes (3, per Plan 4)
@@ -681,7 +681,7 @@ tests/unit/slice/
 ├── llm-arbitrator.test.ts              (NEW)
 ├── schema-router.test.ts               (NEW)
 └── integration/
-    └── slice-decompose-e2e.test.ts     (NEW; runs against peaks-cli real codebase)
+    └── slice-decompose-e2e.test.ts     (NEW; runs against peaks-loop real codebase)
 
 Total new code: ~700 LoC production + ~800 LoC tests = ~1500 LoC.
 ```

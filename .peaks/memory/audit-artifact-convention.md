@@ -9,7 +9,7 @@ metadata:
   createdAt: 2026-06-26
 ---
 
-Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization). Replaces the narrow `peaks audit static --record` writer with a polymorphic 4-writer surface that covers every artifact type produced during a peaks-cli audit.
+Audit artifact writer generalization (Slice 2026-06-26-audit-artifact-writer-generalization). Replaces the narrow `peaks audit static --record` writer with a polymorphic 4-writer surface that covers every artifact type produced during a peaks-loop audit.
 
 **Why:** On 2026-06-22 the Plan 4 audit produced 4 artifact types (audit prompts, machine-output JSON, narrative report, decision verdict) but the canonical writer (`src/services/audit/decision-writer.ts`) only knew how to persist one of them (`RedLineAudit` snapshot). The author was under release pressure and `git add`-ed the other 3 types directly into `.peaks/memory/` without going through any CLI, leaving 4 orphan files and breaking the shape contract. This slice generalizes the writer so all 4 types have a first-class CLI surface; hand-`git add` into `.peaks/memory/` is no longer the path of least resistance.
 
@@ -48,7 +48,7 @@ Anything else — a `.json` at top level, a new subdirectory, an unfrontmatter'd
 
 ## How to apply
 
-1. **Adding a new artifact during a peaks-cli audit** — pick the closest kind from the 4-table above. Use the corresponding CLI flag. NEVER hand-write files into `.peaks/memory/`.
+1. **Adding a new artifact during a peaks-loop audit** — pick the closest kind from the 4-table above. Use the corresponding CLI flag. NEVER hand-write files into `.peaks/memory/`.
 2. **Reading artifacts** — `peaks project memories --kind decision | --kind reference | --kind project` filters by `metadata.type`. `peaks memory search "..."` does fuzzy match across all frontmatter fields including `artifactType`.
 3. **Migrating legacy non-conformant files** — read the file, pick the matching writer, call it with the same `slugOverride` to preserve the original filename, delete the original. See migration history in this slice's commit for the exact recipe.
 

@@ -10,7 +10,7 @@
 
 ## Context
 
-peaks-cli today has four orchestration primitives that together describe a workflow but are not bundled into one capture-able object:
+peaks-loop today has four orchestration primitives that together describe a workflow but are not bundled into one capture-able object:
 
 - **Skills** (`skills/peaks-*/SKILL.md`) — LLM role = system prompt + tool list
 - **SOPs** (`peaks-sop` + `sop.json`) — phase gates (file-exists / grep / command)
@@ -19,7 +19,7 @@ peaks-cli today has four orchestration primitives that together describe a workf
 
 To reuse a workflow, a user must re-narrate to `peaks-solo` what they want, and the LLM re-derives the phase plan each invocation (~3-5k tokens of plan narration, plus a real risk of LLM drifting the phase order or skipping a role). Token cost + drift are the user's stated pain.
 
-External survey (LangGraph / Temporal / Inngest / CrewAI / Autogen / n8n) showed: all of them cover state persistence + role routing to some degree, **none** integrate "gates" (file-exists / grep / command) as a first-class primitive. That gate-first posture is peaks-cli's moat and should not be replaced; it should be wrapped.
+External survey (LangGraph / Temporal / Inngest / CrewAI / Autogen / n8n) showed: all of them cover state persistence + role routing to some degree, **none** integrate "gates" (file-exists / grep / command) as a first-class primitive. That gate-first posture is peaks-loop's moat and should not be replaced; it should be wrapped.
 
 ## Decision (proposed)
 
@@ -97,7 +97,7 @@ These were the same concerns I raised against ADR 0006; they apply here too. **v
 
 1. **State persistence layer.** Resolved: text + git. Storage = `.peaks/workflows/<id>.yaml` (project, git-tracked) or `~/.peaks/workflows/<id>.yaml` (global, cross-project). Schema is hand-rolled to avoid a new dep on `js-yaml`; reviewability is the core value (Karpathy 2017 evaluation-criterion thesis: the spec is the program).
 2. **Workflow versioning.** Resolved: each workflow file carries `schemaVersion: 1`. When a referenced peaks-* skill is renamed, the LLM-driven reconciliation step surfaces a lint warning (`unknown role`); a future minor adds `peaks workflow migrate` for auto-rewrite. The on-disk SHA + the bundle of (phases, gates, evaluators, contextSnapshot, budget) is the contract.
-3. **Cross-project composition.** Resolved: resolution order = project, then global, then bundled. Project-local workflows override; the bundled `default-fullauto-md` ships as the fallback so a fresh checkout always has a working workflow. Role paths inside `promptTemplate` are intentionally free-form text — peaks-cli does NOT resolve them as filesystem paths, only the role token (e.g. `peaks-rd`) is validated.
+3. **Cross-project composition.** Resolved: resolution order = project, then global, then bundled. Project-local workflows override; the bundled `default-fullauto-md` ships as the fallback so a fresh checkout always has a working workflow. Role paths inside `promptTemplate` are intentionally free-form text — peaks-loop does NOT resolve them as filesystem paths, only the role token (e.g. `peaks-rd`) is validated.
 4. **LLM drift inside a phase.** Resolved (in scope of v3.0.0): the workflow spec captures the phase sequence + role + prompt template, narrowing drift to "did the role execute this prompt correctly" rather than "did the role pick the right phase order". The 4 native evaluators (`karpathy` / `code-review` / `security-review` / `perf-baseline`) + `verdict-aggregate` give the runtime a deterministic post-condition check; the future Slice C `peaks loop check-monotonic <rid>` enforces monotonic-improvement so silent drift auto-aborts (see alignment matrix 4.2).
 5. **Token economics in re-recording.** Resolved: re-recording cost is amortized. Each invocation of `peaks workflow run` reads the YAML file (text, fast) and emits the run-plan order without an LLM roundtrip; the ~3-5k tokens of plan narration the LLM previously spent is now zero. The re-record cost only fires when a phase genuinely changes; the v2 schema includes `outputContract` so the LLM can refactor a single phase without touching the rest.
 
@@ -122,7 +122,7 @@ Per user decision 2026-06-12, **no code work starts** until:
 - The five open concerns above have user decisions
 - A 2.1.0 release ships first
 
-**v2 status (2026-06-30):** the gate is satisfied. v2.19.0 shipped 2026-06-30 with 2.13.1 verdict-aggregator + 2.13.3 envelope unification; peaks-sop dogfooded across publishing / data validation / cross-team approval per the `peaks-cli-fast-iteration-quality-loop` memory; all 5 concerns resolved above. v3.0.0 work proceeds.
+**v2 status (2026-06-30):** the gate is satisfied. v2.19.0 shipped 2026-06-30 with 2.13.1 verdict-aggregator + 2.13.3 envelope unification; peaks-sop dogfooded across publishing / data validation / cross-team approval per the `peaks-loop-fast-iteration-quality-loop` memory; all 5 concerns resolved above. v3.0.0 work proceeds.
 
 ## Out of scope (explicit)
 

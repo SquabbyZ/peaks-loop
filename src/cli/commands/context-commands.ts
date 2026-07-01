@@ -1,7 +1,7 @@
 /**
  * peaks context * CLI (Slice #3 L1c) — context 4-layer loader.
  *
- * Per docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §4 L1c:
+ * Per docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §4 L1c:
  *   - L0: full read (every SKILL.md in full)
  *   - L1: summary (one paragraph per skill + the skill list)
  *   - L2: index (just names + paths)

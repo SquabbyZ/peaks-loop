@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript (strict, ESM, `.js` extension in imports) + Node 20+ `node:fs` + Commander.js + vitest (TDD).
 
-**Spec reference:** [docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8](../../specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md) + §10.4 AC + §11 Risks + §12 Open Questions.
+**Spec reference:** [docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8](../../specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md) + §10.4 AC + §11 Risks + §12 Open Questions.
 
 **Estimated effort:** 15 tasks × 30-45 min/task = 8-12 hours (matches §9 estimate of 1 day).
 
@@ -108,11 +108,11 @@ src/cli/commands/
 ```typescript
 // src/services/preferences/preferences-types.ts
 /**
- * peaks-cli 2.0 project-local preferences schema.
+ * peaks-loop 2.0 project-local preferences schema.
  * Per spec §8.4 — per-project state lives in `.peaks/preferences.json`,
  * NOT in `~/.peaks/config.json` (which is slim global).
  *
- * Spec reference: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §8.4
+ * Spec reference: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §8.4
  */
 
 export const PREFERENCES_SCHEMA_VERSION = '2.0.0';
@@ -709,7 +709,7 @@ describe('isLegacyDecisionDotfile', () => {
 
   test('rejects non-decision dotfiles', () => {
     expect(isLegacyDecisionDotfile('package.json')).toBe(false);
-    expect(isLegacyDecisionDotfile('peaks-cli.md')).toBe(false);
+    expect(isLegacyDecisionDotfile('peaks-loop.md')).toBe(false);
   });
 });
 
@@ -2680,7 +2680,7 @@ import { executeRollback, planRollback } from '../../services/config/config-roll
 import { listAvailableFields, restoreField } from '../../services/config/config-restore.js';
 
 export function registerConfigCommands(program: Command): void {
-  const cfg = program.command('config').description('Manage peaks-cli global config (~/.peaks/config.json)');
+  const cfg = program.command('config').description('Manage peaks-loop global config (~/.peaks/config.json)');
 
   cfg
     .command('migrate')

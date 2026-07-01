@@ -1,4 +1,4 @@
-# Peaks-Cli dev preference (2.0 canonical)
+# Peaks-Loop dev preference (2.0 canonical)
 
 > Project-local preference, captured from the 1.x install + re-rendered with the 2.0 vocabulary.
 > Scope: applies to every iteration, adjustment, fix, or tweak on this project.
@@ -6,7 +6,7 @@
 
 ## Rule 1 — Skill-first, CLI-auxiliary
 
-When designing or modifying a peaks-cli feature, default to the **skill-first** design. CLI commands are **invoked by the skill prompt** when they are the right primitive: a side effect that must be atomic, a gate that must be machine-enforced, a probe that needs structured JSON, or a backstop that prevents the LLM from skipping a step. Behaviour only an LLM in a skill prompt would use lives **in the relevant skill's SKILL.md**, not as a new CLI command. See `.claude/rules/common/dev-preference.md` for the decision template.
+When designing or modifying a peaks-loop feature, default to the **skill-first** design. CLI commands are **invoked by the skill prompt** when they are the right primitive: a side effect that must be atomic, a gate that must be machine-enforced, a probe that needs structured JSON, or a backstop that prevents the LLM from skipping a step. Behaviour only an LLM in a skill prompt would use lives **in the relevant skill's SKILL.md**, not as a new CLI command. See `.claude/rules/common/dev-preference.md` for the decision template.
 
 ## Rule 2 — Dogfood on every adjustment
 

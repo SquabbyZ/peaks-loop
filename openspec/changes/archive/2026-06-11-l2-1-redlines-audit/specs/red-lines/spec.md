@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Define the data model and behavior of the peaks-cli red-line audit framework + the 5 P0 enforcers shipped in L2.1.
+Define the data model and behavior of the peaks-loop red-line audit framework + the 5 P0 enforcers shipped in L2.1.
 
 ## `peaks audit red-lines`
 
@@ -31,7 +31,7 @@ Output envelope (per `r3-format-compact-defaults-by-artifact-type.md`):
           "file": "skills/peaks-solo/SKILL.md",
           "line": 42,
           "marker": "BLOCKING",
-          "context": "Peaks-Cli Solo is an orchestrator, NOT an implementer..."
+          "context": "Peaks-Loop Solo is an orchestrator, NOT an implementer..."
         },
         "backing": "cli-backed",
         "enforcerRef": "src/services/audit/enforcers/solo-code-ban.ts"

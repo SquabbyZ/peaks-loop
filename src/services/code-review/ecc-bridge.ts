@@ -6,7 +6,7 @@
  * Gate B3 already reads (`mustContain: ['## Findings', 'CRITICAL']`).
  *
  * Companion to `ocr-service.ts`: ECC is the in-skill agent option
- * (uses peaks-cli's own Agent tool surface), ocr is the external
+ * (uses peaks-loop's own Agent tool surface), ocr is the external
  * subprocess option. Both produce a second-opinion code review that
  * the parent RD loop aggregates alongside its own inline review.
  *
@@ -26,7 +26,7 @@
  *
  * ECC is shipped via the `everything-claude-code` plugin, not as a
  * separate npm package. The user installs the plugin (a one-time
- * marketplace step); peaks-cli does not write or read any LLM
+ * marketplace step); peaks-loop does not write or read any LLM
  * endpoint config for ECC. If a future ECC release needs user-
  * managed config (URL / token / model), add a `peaksConfig.ecc.*`
  * block then — not speculatively now.
@@ -337,8 +337,8 @@ export function detectEcc(input: {
         'ECC `code-review` agent returned a value that failed envelope validation (expected { passed, violations, gateAction }).'
       ],
       nextActions: [
-        'Verify the ECC plugin version is compatible with peaks-cli 2.11.0+ (this bridge).',
-        'If the envelope shape is intentionally different, file a bug at the peaks-cli repo.'
+        'Verify the ECC plugin version is compatible with peaks-loop 2.11.0+ (this bridge).',
+        'If the envelope shape is intentionally different, file a bug at the peaks-loop repo.'
       ]
     };
   }

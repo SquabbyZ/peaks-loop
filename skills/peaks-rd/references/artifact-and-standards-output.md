@@ -1,6 +1,6 @@
 # Artifact and standards output (RD)
 
-> Body of `## Artifact and standards output`. When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Cli artifact workspace. By default, use local non-git storage at `.peaks/_runtime/<sessionId>/rd/` in the target project or the Peaks-Cli CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/_runtime/<sessionId>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
+> Body of `## Artifact and standards output`. When project identification or scanning produces reports, matrices, maps, plans, or validation files, write them under the configured Peaks-Loop artifact workspace. By default, use local non-git storage at `.peaks/_runtime/<sessionId>/rd/` in the target project or the Peaks-Loop CLI-provided local workspace. If the artifact workspace is unknown, create or request `.peaks/_runtime/<sessionId>/` before writing generated outputs. Use one session directory consistently so generated outputs stay grouped.
 
 Do not default to a git-backed artifact repository, external artifact sync, or automatic commits for intermediate artifacts. Git inclusion or sync requires explicit user confirmation or an active profile that clearly authorizes it. Browser evidence must be sanitized before retention: do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 

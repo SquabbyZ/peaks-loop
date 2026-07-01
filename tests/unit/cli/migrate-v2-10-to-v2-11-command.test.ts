@@ -106,7 +106,7 @@ describe('peaks migrate v2-10-to-v2-11 — CLI contract', () => {
   });
 
   test('handles empty project (no sessions): applied=false, all counts 0', async () => {
-    const emptyDir = mkdtempSync(join(tmpdir(), 'peaks-cli-empty-'));
+    const emptyDir = mkdtempSync(join(tmpdir(), 'peaks-loop-empty-'));
     try {
       const { program, getOut } = makeProgram();
       await program.parseAsync(['node', 'peaks', 'workspace', 'migrate-v2-10-to-v2-11', '--project', emptyDir]);

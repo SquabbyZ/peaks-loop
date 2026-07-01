@@ -7,7 +7,7 @@
       "sessionId": "2026-06-06-session-517672",
       "type": "refactor",
       "title": "Sub-agent session sharing",
-      "summary": "Allows sub-agents to share session state with the parent peaks-cli run.",
+      "summary": "Allows sub-agents to share session state with the parent peaks-loop run.",
       "outcome": "shipped",
       "keyDecisions": ["Use IPC over stdin for sub-agent prompts"],
       "lessonsLearned": 1,

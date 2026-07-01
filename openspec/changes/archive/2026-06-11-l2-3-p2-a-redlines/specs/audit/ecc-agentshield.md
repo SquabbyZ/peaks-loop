@@ -2,11 +2,11 @@
 
 ## Purpose
 
-Per spec §5.3, the peaks-cli L2 audit framework integrates with
+Per spec §5.3, the peaks-loop L2 audit framework integrates with
 the ECC AgentShield ruleset (102 lint rules) on a soft-optional
 basis. When ECC is installed, the audit subprocess spawns the
 ECC scanner and merges its findings; when not installed, the
-audit completes with peaks-cli-only findings and a one-time
+audit completes with peaks-loop-only findings and a one-time
 install prompt.
 
 ## CLI contract
@@ -41,12 +41,12 @@ code, the audit treats ECC as **not installed**.
 3. For each finding in the ECC output, push a structured
    `EnforcerFinding` into the audit report with
    `enforcerId: 'ecc-agentshield:<rule-id>'`.
-4. The merged `EnforcerFinding[]` lives alongside the peaks-cli
+4. The merged `EnforcerFinding[]` lives alongside the peaks-loop
    findings in the same audit report.
 
 ### ECC not installed
 
-1. Skip the subprocess; the audit runs peaks-cli-only.
+1. Skip the subprocess; the audit runs peaks-loop-only.
 2. Emit the §5.3 four-option install prompt (a) install, b) skip,
    c) never, d) learn). The prompt fires **once per session**,
    not per call, and is gated by a session-scoped
@@ -66,9 +66,9 @@ preference for a single call.
 |---------|----------|
 | `npx ecc-agentshield` not found | Treat as not installed; emit prompt. |
 | `--version` times out (5s) | Treat as not installed; emit prompt. |
-| `scan` times out (30s) | Soft-fail with a warning; emit peaks-cli findings only. |
-| `scan` exits non-zero | Soft-fail with a warning; emit peaks-cli findings only. |
-| `scan` output is not parseable JSON | Soft-fail with a warning; emit peaks-cli findings only. |
+| `scan` times out (30s) | Soft-fail with a warning; emit peaks-loop findings only. |
+| `scan` exits non-zero | Soft-fail with a warning; emit peaks-loop findings only. |
+| `scan` output is not parseable JSON | Soft-fail with a warning; emit peaks-loop findings only. |
 
 In all soft-fail cases the audit still completes successfully
 and the report is well-formed; the ECC layer is **observability
@@ -77,7 +77,7 @@ enhancement**, not a structural gate.
 ## Acceptance behavior
 
 - A3 — `peaks audit static --json` runs without ECC installed
-  (returns peaks-cli-only findings) AND with ECC installed
+  (returns peaks-loop-only findings) AND with ECC installed
   (returns merged findings from both engines).
 - A4 — When `agentShieldEnabled: false` (default), no external
   subprocess is spawned; the audit still completes.

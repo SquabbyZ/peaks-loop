@@ -262,10 +262,10 @@ See [`CHANGELOG.md`](./CHANGELOG.md) and [`docs/`](./docs/) for details.
 
 ## 💬 Join the WeChat community
 
-Got usage questions, feature requests, or want to chat with the team and other peaks-loop users? Scan to join the **Peaks-Cli** WeChat group:
+Got usage questions, feature requests, or want to chat with the team and other peaks-loop users? Scan to join the **Peaks-Loop** WeChat group:
 
 <div align="center">
-  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Cli WeChat group QR code" width="240" />
+  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Loop WeChat group QR code" width="240" />
 </div>
 
 > When the QR code expires, feel free to open a GitHub Issue / Discussion instead.

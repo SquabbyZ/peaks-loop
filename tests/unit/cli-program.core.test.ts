@@ -101,7 +101,7 @@ describe('createProgram', () => {
   });
 
   test('prints standards init dry-run as JSON envelope', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-standards-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-standards-'));
     const result = await runCommand(['standards', 'init', '--project', projectRoot, '--language', 'typescript', '--json']);
     const output = parseJsonOutput<{ apply: boolean; language: string; skillPreflight: { appliesTo: string[] }; plannedWrites: Array<{ relativePath: string; status: string }> }>(result.stdout);
 
@@ -114,7 +114,7 @@ describe('createProgram', () => {
   });
 
   test('applies standards init with detected language when language is omitted', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-standards-apply-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-standards-apply-'));
     writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
 
     const result = await runCommand(['standards', 'init', '--project', projectRoot, '--apply', '--json']);
@@ -129,7 +129,7 @@ describe('createProgram', () => {
   });
 
   test('rejects conflicting standards init dry-run and apply flags', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-standards-conflict-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-standards-conflict-'));
     const result = await runCommand(['standards', 'init', '--project', projectRoot, '--dry-run', '--apply', '--json']);
     const output = parseJsonOutput(result.stdout);
 
@@ -216,7 +216,7 @@ describe('createProgram', () => {
   });
 
   test('uses stored config language for recommendation reports when omitted', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-project-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-project-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ language: 'zh-CN' }), 'utf8');
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
@@ -310,7 +310,7 @@ describe('createProgram', () => {
   });
 
   test('prints config set validation failures as JSON envelopes', async () => {
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-config-set-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-config-set-'));
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
       const invalidJsonResult = await runCommand(['config', 'set', '--key', 'language', '--value', '{bad', '--json']);
@@ -352,7 +352,7 @@ describe('createProgram', () => {
     // the scan / decision work; the CLI does the atomic write.
     const { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-mem-extract-cli-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-mem-extract-cli-'));
     const artifactPath = join(projectRoot, 'handoff.md');
     try {
       // Embed a stable fact block the way peaks-txt is expected to.
@@ -417,7 +417,7 @@ describe('createProgram', () => {
     // now opt-in; passing only `--apply` must succeed.
     const { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-proj-mem-extract-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-proj-mem-extract-'));
     const sessionId = '2026-06-07-session-deadbe';
     const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
     try {
@@ -477,7 +477,7 @@ describe('createProgram', () => {
     // fix is "drop the `true` default", not "delete the check".
     const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
     const { tmpdir } = await import('node:os');
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-proj-mem-both-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-proj-mem-both-'));
     const sessionId = '2026-06-07-session-feedfa';
     const sessionDir = join(projectRoot, '.peaks', '_runtime', sessionId);
     try {
@@ -504,8 +504,8 @@ describe('createProgram', () => {
     const { mkdirSync, mkdtempSync, writeFileSync } = await import('node:fs');
     const { join } = await import('node:path');
     const { tmpdir } = await import('node:os');
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-memory-project-'));
-    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-cli-memory-artifacts-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-memory-project-'));
+    const artifactWorkspace = mkdtempSync(join(tmpdir(), 'peaks-loop-memory-artifacts-'));
     mkdirSync(join(projectRoot, '.peaks', 'changes'), { recursive: true });
     const artifactPath = join(projectRoot, '.peaks', 'changes', 'rd.md');
     writeFileSync(artifactPath, [
@@ -537,7 +537,7 @@ describe('createProgram', () => {
     const { mkdirSync, mkdtempSync } = await import('node:fs');
     const { join } = await import('node:path');
     const { tmpdir } = await import('node:os');
-    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-cli-memory-fail-project-'));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-memory-fail-project-'));
     const missingArtifact = join(projectRoot, 'missing.md');
 
     const extractResult = await runCommand(['memory', 'extract', '--project', projectRoot, '--artifact', missingArtifact, '--json']);

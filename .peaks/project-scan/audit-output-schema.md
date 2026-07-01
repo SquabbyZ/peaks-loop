@@ -5,7 +5,7 @@ capturedAt: 2026-06-27T00:00:00.000Z
 appliesTo: peaks-security-audit + peaks-perf-audit
 ---
 
-# Audit Output Schema (peaks-cli v2.12.0)
+# Audit Output Schema (peaks-loop v2.12.0)
 
 > **Unified output schema** for both `peaks-security-audit` and
 > `peaks-perf-audit` skills. Lives under `.peaks/project-scan/` so it is

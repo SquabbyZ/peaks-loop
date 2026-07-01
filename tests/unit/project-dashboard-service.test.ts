@@ -285,7 +285,7 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout + G3 extensio
     expect(dashboard.runbookHealth).toHaveProperty('healthy');
 
     // G3 extension: MCP scan envelope was REMOVED in slice #016.
-    // peaks-cli no longer scans MCP servers; the LLM owns that surface now.
+    // peaks-loop no longer scans MCP servers; the LLM owns that surface now.
     expect((dashboard as { mcp?: unknown }).mcp).toBeUndefined();
 
     // G3 extension: capabilities count the skill references for status badges.

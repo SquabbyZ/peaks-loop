@@ -7,32 +7,32 @@ description: QA and verification skill for Peaks. Use when a workflow needs unit
 
 > **Read once at the top of this file; the rest of the skill is written against it.**
 
-The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-cli change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
+The `.peaks/` workspace is partitioned by a **single scope axis** (session-id, at `.peaks/_runtime/<sessionId>/...`) with a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` placeholders (NEVER bare `<sid>`). The peaks-loop change-id axis was removed in slice `2026-06-29-change-id-root-removal`; reviewable artifacts now live under `.peaks/_runtime/<sessionId>/<role>/...` only. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. CLI mapping: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Regression test `tests/unit/skills/skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` has an axis label, (c) this callout is present.
 
 ## peaks-context auto-build (v3.0)
 
 QA workflow automatically runs `peaks context build --audience peaks-qa` before the LLM is invoked. No manual setup needed.
 
-# Peaks-Cli QA
+# Peaks-Loop QA
 
-Peaks-Cli QA proves that planned changes are protected and accepted.
+Peaks-Loop QA proves that planned changes are protected and accepted.
 
 ## Pre-flight: gateguard-fact-force conflict (BLOCKING — read before any Edit/Write of a `.peaks/**` file)
 
-The `gateguard-fact-force` hook is a **third-party** PreToolUse hook (ECC_GATEGUARD, NOT peaks-cli) that fires on Edit / Write / MultiEdit and demands a 4-fact questionnaire before allowing the edit. When this skill is mid-flow and the LLM edits `.peaks/_runtime/<sessionId>/qa/requests/*.md` (or any other `.peaks/**` file) via the Edit/Write tool, the questionnaire demands facts that **do not apply to QA envelope templates**:
+The `gateguard-fact-force` hook is a **third-party** PreToolUse hook (ECC_GATEGUARD, NOT peaks-loop) that fires on Edit / Write / MultiEdit and demands a 4-fact questionnaire before allowing the edit. When this skill is mid-flow and the LLM edits `.peaks/_runtime/<sessionId>/qa/requests/*.md` (or any other `.peaks/**` file) via the Edit/Write tool, the questionnaire demands facts that **do not apply to QA envelope templates**:
 
 1. `imports/requirers` — none (QA envelopes are not imported by any code)
 2. `public functions/classes affected` — none (QA envelopes are not source code)
 3. `data files read/written` — none (QA envelopes are pure markdown reports)
 4. `user instruction verbatim` — already in the conversation context
 
-The fix must land in the gateguard repo, not peaks-cli. In the meantime:
+The fix must land in the gateguard repo, not peaks-loop. In the meantime:
 
 - **Diagnostic**: `peaks doctor --json` includes a `integration:gateguard-peaks-conflict` check (slice 026). `ok: true` means the hook is absent OR a `.peaks/**` skip pattern is configured; `ok: false` means gateguard is installed without a `.peaks/**` skip.
-- **Workaround before any Edit/Write of a `.peaks/**` file**: set `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force` in the shell, OR `ECC_GATEGUARD=off` to disable the whole gateguard system. The peaks-cli `peaks gate enforce` hook is unaffected by these env vars.
+- **Workaround before any Edit/Write of a `.peaks/**` file**: set `ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force` in the shell, OR `ECC_GATEGUARD=off` to disable the whole gateguard system. The peaks-loop `peaks gate enforce` hook is unaffected by these env vars.
 - **CLI bypass**: when the workflow's write path goes through `peaks request init --apply` or `peaks workflow plan read|refresh|detect-trigger` rather than the LLM's Edit tool, the gateguard hook does not fire.
 
-Do NOT debug peaks-cli's `peaks gate enforce` / `peaks hook handle` code when the user reports `[Fact-Forcing Gate]` — those are Bash-only by design (`src/cli/commands/hook-handle.ts:90`). The error is from gateguard, not peaks-cli.
+Do NOT debug peaks-loop's `peaks gate enforce` / `peaks hook handle` code when the user reports `[Fact-Forcing Gate]` — those are Bash-only by design (`src/cli/commands/hook-handle.ts:90`). The error is from gateguard, not peaks-loop.
 
 ## Hard contracts for browser validation (BLOCKING — read before any browser_take_screenshot / login flow)
 
@@ -46,13 +46,13 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 ## Scope directory (slice 10 — read scopeDir from envelope)
 
-The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all session-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<scope>/...` from frontmatter (where `<scope>` is a date-stamped session id, NOT a peaks-cli change-id — the change-id axis was removed in slice `2026-06-29-change-id-root-removal`). The path has already been resolved by the CLI.
+The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all session-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<scope>/...` from frontmatter (where `<scope>` is a date-stamped session id, NOT a peaks-loop change-id — the change-id axis was removed in slice `2026-06-29-change-id-root-removal`). The path has already been resolved by the CLI.
 
 ## Sub-agent dispatch (when launched by peaks-solo swarm)
 
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Solo already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.
 
-> **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
+> **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
 
 → see `references/qa-sub-agent-dispatch.md` for the full contract + hard prohibitions.
 
@@ -66,7 +66,7 @@ Project-level security + perf plans live at `.peaks/_runtime/<sessionId>/qa/secu
 
 When peaks-qa is the **main loop** (i.e. it is the active skill and is about to run its own sub-agent dispatch, rather than being a sub-agent itself), it fans out only the **business verification** sub-agent: `qa-business`. Security and performance review are **NOT** peaks-qa's responsibility in v2.11.0 — they are owned by peaks-rd's 4-way audit fan-out (code-review + security-review + perf-baseline + karpathy-review) and the rd-side evidence files (`rd/security-review.md`, `rd/perf-baseline.md`). peaks-qa reads those files by reference; it does NOT re-do them.
 
-> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `rd/security-review.md` + `rd/perf-baseline.md`。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md`。
+> **v2.15.0+ 校准:** `qa-business` 只跑业务/产品视角的 6 项验收清单(业务流程 / 需求覆盖 / 边界 case / UI 装配 / 异常态语调 / 能上线吗),**不跑技术指标**(覆盖率 / 性能 / 安全)。技术指标由 RD 4-way fan-out 自决,QA 只读 `rd/security-review.md` + `rd/perf-baseline.md`。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
 
 If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`. Subdivision must stay ≤ 2 levels deep (RL-4).
 
@@ -96,7 +96,7 @@ Every QA invocation — feature, bug, refactor, clarification — must write **t
 
 The QA test plan is **derived from the RD handoff's YAML frontmatter** (`decisions[]`, `risks[]`, `files[]`, `gateEvidence`). Read frontmatter mechanically before reading body prose; cross-check decisions ↔ tests and risks ↔ security tests. See `references/reading-handoff-frontmatter.md` for the 5 mechanical checks.
 
-External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Cli artifacts and Peaks-Cli acceptance criteria remain authoritative.
+External-skill guard: when QA references external material (mattpocock/skills, gstack, superpowers, etc.) it is reference only — do not execute upstream installer, do not persist sensitive upstream examples. Peaks-Loop artifacts and Peaks-Loop acceptance criteria remain authoritative.
 
 → see `references/artifact-per-request.md` for the 3-file contract and the do-not-execute upstream guard.
 
@@ -126,7 +126,7 @@ For refactors, QA must be involved before implementation. It defines the regress
 
 ## GStack integration
 
-Map gstack stages (`Review → Test → Ship`) to Peaks-Cli regression matrices and validation reports. Keep Peaks-Cli QA as the acceptance authority; gstack is reference only.
+Map gstack stages (`Review → Test → Ship`) to Peaks-Loop regression matrices and validation reports. Keep Peaks-Loop QA as the acceptance authority; gstack is reference only.
 
 → see `references/qa-gstack-integration.md`.
 
@@ -142,7 +142,7 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 **Pre-drafted test cases (slice 004 optimization):** when peaks-rd's 4-way parallel fan-out ran a `qa-test-cases-writer` sub-agent, the test plan is pre-drafted at `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` and shipped through the rd:qa-handoff gate. QA main loop is aware of this and treats the pre-drafted file as the canonical starting point. **Missing** the pre-drafted file (sub-agent failed, or the slice was a config/docs/chore that did not fan out) → QA drafts it inline as before, falling back to the standard generation flow.
 
-> **v2.15.0+ 校准:** 业务验证层(user 必审) = 4-5 项业务/产品清单。技术验证层(AI 自决) = 覆盖率 / P99 / 安全扫描 / 自动化。两层解耦:技术不过 → AI 内部重跑;业务不过 → user 反馈修。user **不看**技术指标。详见 `.peaks/memory/peaks-cli-slice-review-and-qa-perspective.md` G5。
+> **v2.15.0+ 校准:** 业务验证层(user 必审) = 4-5 项业务/产品清单。技术验证层(AI 自决) = 覆盖率 / P99 / 安全扫描 / 自动化。两层解耦:技术不过 → AI 内部重跑;业务不过 → user 反馈修。user **不看**技术指标。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md` G5。
 
 → see `references/test-case-generation.md` for the full format + acceptance-linkage contract.
 
@@ -154,15 +154,15 @@ Every QA invocation must produce a test-report artifact at `.peaks/_runtime/<ses
 
 ## Mandatory validation gates
 
-QA cannot pass a change until the report contains evidence for every applicable gate. The 9 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 8 library version regressions, 9 validation report, 10 acceptance coverage) are mapped to Peaks-Cli Gates A/A2/B/C/D/E/F. **v2.11.0 D1/D4 trim:** Gates A3 (security) and A4 (performance) are no longer peaks-qa's responsibility — security review and performance baseline live under peaks-rd's audit fan-out (rd/security-review.md + rd/perf-baseline.md) and are cited by reference from the test report.
+QA cannot pass a change until the report contains evidence for every applicable gate. The 9 gates (0 test-case generation, 1 test-report, 2 unit tests, 3 API validation, 4 frontend browser validation, 5 browser-error feedback loop, 8 library version regressions, 9 validation report, 10 acceptance coverage) are mapped to Peaks-Loop Gates A/A2/B/C/D/E/F. **v2.11.0 D1/D4 trim:** Gates A3 (security) and A4 (performance) are no longer peaks-qa's responsibility — security review and performance baseline live under peaks-rd's audit fan-out (rd/security-review.md + rd/perf-baseline.md) and are cited by reference from the test report.
 
 If Playwright MCP is unavailable, the LLM checks its own tool list for the Playwright MCP server entry; if absent, the LLM tells the user the install command (`claude mcp add playwright -- npx @playwright/mcp@latest` for Claude Code) and marks the gate blocked with the missing capability. Screenshots, logs, manual steps, or other tools must not substitute for the mandatory frontend browser gate. Do not silently downgrade frontend validation to API-only testing.
 
-> **v2.15.0+ 校准:** 存量项目无 UT 兜底,QA 验证必须有"轻量回归"(G14):5-10 分钟跑 10 条关键路径(关键路径来源:prd 业务场景块 / 老板强调的流程 / 历史事故 / G13 影响面扫描),**不跑完整 E2E 1-2 小时**。上线后必须走"观察期"(G15):灰度 → 监控 → 反馈聚合 → 紧急修复 → 修复回灌关键路径(防下次再犯)。详见 `.peaks/memory/peaks-cli-fast-iteration-quality-loop.md`。
+> **v2.15.0+ 校准:** 存量项目无 UT 兜底,QA 验证必须有"轻量回归"(G14):5-10 分钟跑 10 条关键路径(关键路径来源:prd 业务场景块 / 老板强调的流程 / 历史事故 / G13 影响面扫描),**不跑完整 E2E 1-2 小时**。上线后必须走"观察期"(G15):灰度 → 监控 → 反馈聚合 → 紧急修复 → 修复回灌关键路径(防下次再犯)。详见 `.peaks/memory/peaks-loop-fast-iteration-quality-loop.md`。
 
 ## Local intermediate artifacts
 
-QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/_runtime/<sessionId>/qa/` by default, or to the Peaks-Cli CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync.
+QA reports, sanitized browser evidence, logs, matrices, and validation summaries should be written to `.peaks/_runtime/<sessionId>/qa/` by default, or to the Peaks-Loop CLI-provided local artifact workspace. Do not store login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Do not default to git-backed storage or external artifact sync.
 
 → see `references/qa-local-artifacts.md`.
 
@@ -174,7 +174,7 @@ Before QA work stops, finishes, blocks, or hands off, emit a short resumable cap
 
 ## Matt Pocock skills integration
 
-When capability discovery exposes `mattpocock/skills`, use `tdd` / `triage` / `grill-with-docs` as QA references only. Inspect upstream content before applying; Peaks-Cli QA acceptance authority remains.
+When capability discovery exposes `mattpocock/skills`, use `tdd` / `triage` / `grill-with-docs` as QA references only. Inspect upstream content before applying; Peaks-Loop QA acceptance authority remains.
 
 → see `references/qa-matt-pocock-integration.md` for the full contract.
 

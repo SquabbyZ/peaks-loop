@@ -67,7 +67,7 @@ export type WorkspaceLayoutProbe = () => WorkspaceLayoutInspection;
 
 /**
  * 2026-06-10 — `gateguard-fact-force` (a third-party PreToolUse hook,
- * NOT peaks-cli) fires on Edit / Write and demands a 4-fact questionnaire
+ * NOT peaks-loop) fires on Edit / Write and demands a 4-fact questionnaire
  * before allowing the edit. When the LLM is in a peaks-qa flow and tries
  * to update `.peaks/_runtime/<sid>/qa/requests/*.md` via the Edit/Write
  * tool, the hook demands facts that are inapplicable to QA envelope
@@ -406,11 +406,11 @@ function findDestructiveApplyLines(section: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// 2026-06-10 — gateguard-fact-force integration check (NOT a peaks-cli hook).
+// 2026-06-10 — gateguard-fact-force integration check (NOT a peaks-loop hook).
 //
 // The `gateguard-fact-force` hook is a third-party PreToolUse hook that
 // fires on Edit / Write / MultiEdit and demands a 4-fact questionnaire
-// before allowing the edit. It is unrelated to peaks-cli, but when the
+// before allowing the edit. It is unrelated to peaks-loop, but when the
 // LLM is in a peaks-qa flow and edits `.peaks/_runtime/<sid>/qa/requests/
 // *.md`, the questionnaire demands facts that do not apply (no
 // importers, no public API, no data files, user instruction already
@@ -429,7 +429,7 @@ const GATEGUARD_HOOK_NEEDLES: ReadonlyArray<string> = ['gateguard', 'fact-force'
 /** Token the gateguard hook exposes for "skip these paths" — the check
  *  treats any match against `.peaks` (path or globs) as a routed
  *  configuration. We accept a few common spellings because the third-
- *  party hook's CLI surface is not part of peaks-cli's contract. */
+ *  party hook's CLI surface is not part of peaks-loop's contract. */
 const GATEGUARD_PEAKS_SKIP_NEEDLES: ReadonlyArray<string> = [
   '.peaks',
   'peaks-skip',
@@ -747,7 +747,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     checks.push({
       id: 'statusline:runtime',
       ok: true,
-      message: `peaks ${CLI_VERSION} (win32): if the statusLine shows nothing in git bash, verify \`peaks\` resolves on PATH in the shell Claude Code uses (run \`peaks -v\` there), reinstall globally with \`npm i -g peaks-cli@latest\` if the version is older than ${CLI_VERSION}, then re-run \`peaks statusline install\` and reload Claude Code`
+      message: `peaks ${CLI_VERSION} (win32): if the statusLine shows nothing in git bash, verify \`peaks\` resolves on PATH in the shell Claude Code uses (run \`peaks -v\` there), reinstall globally with \`npm i -g peaks-loop@latest\` if the version is older than ${CLI_VERSION}, then re-run \`peaks statusline install\` and reload Claude Code`
     });
   } else {
     checks.push({
@@ -908,7 +908,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
           id: 'integration:gateguard-peaks-conflict',
           ok: false,
           message:
-            `gateguard-fact-force PreToolUse hook is installed (${sources}, matcher: ${matchers}) with no .peaks/** skip pattern; every Edit/Write of a peaks-qa envelope (.peaks/_runtime/<sid>/qa/requests/*.md) will be intercepted and demand a 4-fact questionnaire that does not apply to QA templates. Workaround: set \`ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force\` for the session, OR add a paired PreToolUse entry whose matcher restricts the hook to non-.peaks paths. peaks-cli is NOT the source of this hook.`
+            `gateguard-fact-force PreToolUse hook is installed (${sources}, matcher: ${matchers}) with no .peaks/** skip pattern; every Edit/Write of a peaks-qa envelope (.peaks/_runtime/<sid>/qa/requests/*.md) will be intercepted and demand a 4-fact questionnaire that does not apply to QA templates. Workaround: set \`ECC_DISABLED_HOOKS=pre:edit-write:gateguard-fact-force\` for the session, OR add a paired PreToolUse entry whose matcher restricts the hook to non-.peaks paths. peaks-loop is NOT the source of this hook.`
         });
       }
     }

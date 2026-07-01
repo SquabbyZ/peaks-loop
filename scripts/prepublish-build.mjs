@@ -28,7 +28,7 @@ if (typeof version !== 'string' || version.length === 0) {
   throw new Error('package.json version must be a non-empty string');
 }
 
-console.log(`[prepublish-build] peaks-cli v${version} — running pnpm run build`);
+console.log(`[prepublish-build] peaks-loop v${version} — running pnpm run build`);
 
 // Primary path: execFile (no shell). This avoids the Node 22 + Windows
 // `spawnSync cmd.exe ENOENT` regression that hit v2.13.4 partial fix

@@ -6,7 +6,7 @@
  *   - `shouldPauseAtGate` × 4 modes × 5 commit-boundary actions
  *     (20 cases — all must pause)
  *   - `HARD_FLOOR_CATEGORIES` includes the new `commit-boundary-side-effect`
- *   - Edge cases: `git push --tags`, `npm install -g peaks-cli`, command
+ *   - Edge cases: `git push --tags`, `npm install -g peaks-loop`, command
  *     ordering (peaks-global-install matches before git/npm patterns)
  *   - Regression: existing 3 hard-floor categories still pause
  *
@@ -79,9 +79,9 @@ describe('detectCommitBoundaryAction — AC-4 pattern matchers', () => {
     expect(detectCommitBoundaryAction('npm add --global some-pkg')).toBe('npm-install-global');
   });
 
-  test('matches peaks-cli global install (most specific — checked first)', () => {
-    expect(detectCommitBoundaryAction('npm install -g peaks-cli')).toBe('peaks-global-install');
-    expect(detectCommitBoundaryAction('pnpm add -g peaks-cli')).toBe('peaks-global-install');
+  test('matches peaks-loop global install (most specific — checked first)', () => {
+    expect(detectCommitBoundaryAction('npm install -g peaks-loop')).toBe('peaks-global-install');
+    expect(detectCommitBoundaryAction('pnpm add -g peaks-loop')).toBe('peaks-global-install');
   });
 
   test('does NOT match non-boundary commands', () => {

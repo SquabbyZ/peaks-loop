@@ -4,7 +4,7 @@
  *
  * After this slice lands, NO source file under `src/` may write to or
  * reference `.peaks/_archive/` as a destination. The directory is
- * removed from peaks-cli: no CLI command creates it, no service path
+ * removed from peaks-loop: no CLI command creates it, no service path
  * targets it, the .gitignore entry is gone, and the PreToolUse hook
  * no longer allow-lists it.
  *

@@ -1,6 +1,6 @@
 # Consumer CLAUDE.md template cleanup (slice 028)
 
-> Source: peaks-cli project memory, captured 2026-06-10 from slice 028.
+> Source: peaks-loop project memory, captured 2026-06-10 from slice 028.
 > Scope: applies to the consumer-facing CLAUDE.md template emitted by
 > `peaks standards init` / `peaks standards update`, to the new
 > `peaks standards migrate` rewriter, and to the new
@@ -19,12 +19,12 @@ consumers:
    (the post-slice-2026-06-05 canonical home is
    `.peaks/_runtime/active-skill.json`).
 3. An `External reference: https://github.com/affaan-m/everything-claude-code`
-   line that was peaks-cli-internal, not consumer-facing.
+   line that was peaks-loop-internal, not consumer-facing.
 
 The new head section is a single 1-line sentence that routes the LLM
 through `peaks skill presence --json` and tells it to render a compact
 status header when a valid skill is active. It matches the post-slice-025
-peaks-cli repo's own `CLAUDE.md`.
+peaks-loop repo's own `CLAUDE.md`.
 
 ## The 3 locked decisions (user confirmed 2026-06-10)
 
@@ -32,7 +32,7 @@ peaks-cli repo's own `CLAUDE.md`.
    primitive that reads `.peaks/_runtime/active-skill.json` (with legacy
    fallback) and compares it against the latest assistant message. If a
    presence marker is active but the message lacks the
-   `Peaks-Cli Skill:` / `Peaks-Cli Gate:` marker, the primitive returns
+   `Peaks-Loop Skill:` / `Peaks-Loop Gate:` marker, the primitive returns
    `markerFound: false` and a `warning` string for the caller to surface.
    The implementation lives in
    `src/services/hooks/presence-marker-detector.ts` and is wired into
@@ -47,10 +47,10 @@ peaks-cli repo's own `CLAUDE.md`.
    `standards.migrate` in `core-artifact-commands.ts`.
 
 3. **Q3 = A**: the new head-section text is the 1-line sentence drafted
-   in PRD-028 §D1 (post-slice-025 peaks-cli repo style). It does NOT
+   in PRD-028 §D1 (post-slice-025 peaks-loop repo style). It does NOT
    include any of: `heartbeat:touch`, `presence:clear`, `Default runbook`,
    `Startup sequence`, `Swarm parallel phase`, `Do NOT skip step`,
-   `<!-- Peaks-Cli 心跳检测`, `everything-claude-code` (URL).
+   `<!-- Peaks-Loop 心跳检测`, `everything-claude-code` (URL).
 
 ## Consumers that already have the old text in their CLAUDE.md
 
@@ -81,21 +81,21 @@ line where the first one appears.
    → 6 passed.
 5. `pnpm vitest run tests/unit/services/hooks/presence-marker-detector.test.ts`
    → 6 passed.
-6. `peaks standards migrate --project .` (peaks-cli repo's own CLAUDE.md)
+6. `peaks standards migrate --project .` (peaks-loop repo's own CLAUDE.md)
    → `foundOldBlock: false, wouldChange: false, applied: false` with
-   `CLAUDE.md is already up to date`. Confirms the peaks-cli repo was
+   `CLAUDE.md is already up to date`. Confirms the peaks-loop repo was
    already on the post-slice-025 template.
 7. `peaks standards migrate --project <temp-fixture> --apply` on a
    fixture containing the full legacy block → `applied: true`, 27 lines
    before → 8 lines after, surrounding `# Project Notes` and
    `# Tail content` preserved. All 5 forbidden strings absent from
    the rewritten file; new `peaks skill presence --json` and
-   `Peaks-Cli Skill: <skill>` markers present.
+   `Peaks-Loop Skill: <skill>` markers present.
 8. `peaks skill detect-marker-loss --project .` → returns
    `active: true, skill: peaks-solo, markerFound: false, warning: ...`
    (no `--message` was passed; this is the correct contract: presence
    is active but the latest assistant message is empty / unmarked).
-9. `peaks skill detect-marker-loss --project . --message "Peaks-Cli Skill: peaks-solo | Peaks-Cli Gate: rd | Next: work"`
+9. `peaks skill detect-marker-loss --project . --message "Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: rd | Next: work"`
    → `active: true, skill: peaks-solo, markerFound: true, warning: undefined`.
 
 ## Why this slice exists (rule references)
@@ -103,7 +103,7 @@ line where the first one appears.
 - `peaks-current-directory-scope` — the new commands follow the
   `--project <path>` convention rather than `process.cwd()` heuristics.
 - `peaks-skill-output-style` — the new template mentions
-  `Peaks-Cli Skill: <skill> | Peaks-Cli Gate: <gate> | Next: <one short action>`
+  `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`
   in the same shape as the existing output-style header, so consumers
   do not need a new mental model.
 - `skill-first-cli-auxiliary-sub-agent-dispatch` — the new commands
@@ -123,7 +123,7 @@ line where the first one appears.
 
 - Does not delete `peaks skill heartbeat:touch` or
   `peaks skill presence:clear` — those are still CLI commands and
-  are used by `peaks-cli`'s own internal role hand-off flow
+  are used by `peaks-loop`'s own internal role hand-off flow
   (peaks-rd, peaks-qa, peaks-solo). The slice just stops emitting
   LLM instruction text about them.
 - Does not change the `sourceId: 'everything-claude-code'` in

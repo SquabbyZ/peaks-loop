@@ -3,7 +3,7 @@
  *
  * Registers the new `peaks audit` top-level command with the
  * `red-lines` (L2.1) and `static` (L2.3 P2-a) subcommands.
- * Per `peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first.md`
+ * Per `peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first.md`
  * we verified that no `peaks audit` top-level exists; this is the only
  * file that owns the registration.
  */
@@ -122,7 +122,7 @@ export interface StaticAuditData {
 export function registerAuditCommands(program: Command, io: ProgramIO): void {
   const audit = program
     .command('audit')
-    .description('Audit a project for compliance with peaks-cli red lines (P0 / P1 / P2 tiers)');
+    .description('Audit a project for compliance with peaks-loop red lines (P0 / P1 / P2 tiers)');
 
   addJsonOption(
     audit
@@ -172,13 +172,13 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
   // project-memory decision at `.peaks/memory/audit-decisions/<slug>.md`.
   // `--rid <id>` is an optional disambiguator for multiple audits on
   // the same day (slug becomes `audit-decision-<date>-<rid>`).
-  // Per `peaks-cli-when-adding-a-new-subcommand-check-for-existing-top-level-first`
+  // Per `peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first`
   // and the dev-preference red line "Default-no on new CLI commands",
   // we extend the existing command rather than register a new subcommand.
   addJsonOption(
     audit
       .command('static')
-      .description('Run the static audit (peaks-cli lint + optional ECC AgentShield subprocess). Per spec §5.3.')
+      .description('Run the static audit (peaks-loop lint + optional ECC AgentShield subprocess). Per spec §5.3.')
       .requiredOption('--project <path>', 'target project root')
       .option('--enable-agent-shield', 'force-enable ECC AgentShield subprocess for this call (overrides preference)')
       .option('--disable-agent-shield', 'force-disable ECC AgentShield subprocess for this call (overrides preference)')
@@ -257,7 +257,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
       const nextActions: string[] = [];
       // Per spec §5.3 + §7.2: when ECC is not installed, surface
       // the canonical 4-option user opt-in UX (a/b/c/d) via
-      // nextActions. The peaks-cli `peaks audit static` CLI is
+      // nextActions. The peaks-loop `peaks audit static` CLI is
       // non-interactive (JSON envelope by default), so the 4
       // options are surfaced as machine-readable action strings
       // — same pattern as understand-commands.ts `INSTALL_HINT`.
@@ -266,7 +266,7 @@ export function registerAuditCommands(program: Command, io: ProgramIO): void {
         nextActions.push('  a) Install: run `npx ecc-agentshield --help` to install, then re-run `peaks audit static`.');
         nextActions.push('  b) Skip this run: pass `--disable-agent-shield` to suppress the subprocess for this call.');
         nextActions.push('  c) Skip forever: run `peaks preferences set agentShieldEnabled false` (writes to `.peaks/preferences.json`).');
-        nextActions.push('  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §5.3 + §7.2.');
+        nextActions.push('  d) Learn more: see docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §5.3 + §7.2.');
       }
       if (result.agentShield.spawned && result.agentShield.findings.length > 0) {
         nextActions.push(`${result.agentShield.findings.length} ECC findings merged into the audit. Review with \`peaks audit static --json\`.`);

@@ -1,5 +1,5 @@
 /**
- * peaks-cli v2.13.3 — Envelope unification (AC-1: real markdown parse).
+ * peaks-loop v2.13.3 — Envelope unification (AC-1: real markdown parse).
  *
  * The 5 input envelopes feeding `aggregateVerdict()` have always been
  * heterogeneous (peaks-security-audit / peaks-perf-audit / karpathy /

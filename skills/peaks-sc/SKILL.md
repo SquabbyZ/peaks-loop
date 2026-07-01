@@ -3,9 +3,9 @@ name: peaks-sc
 description: Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.
 ---
 
-# Peaks-Cli SC
+# Peaks-Loop SC
 
-Peaks-Cli SC records how product, RD, QA, code, and artifacts move together.
+Peaks-Loop SC records how product, RD, QA, code, and artifacts move together.
 
 ## Slice planning first step
 
@@ -36,7 +36,7 @@ peaks project memories --project <repo> --json
 ```
 
 This returns durable memories from `.peaks/memory` — decisions, conventions, modules, and rules captured in past sessions. Filter with `--kind <decision|convention|module|rule|reference|project>`. (`.peaks/PROJECT.md` is a human-readable session timeline only.)
-Then display: `Peaks-Cli Skill: peaks-sc | Peaks-Cli Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-sc | Peaks-Loop Gate: startup | Next: <one short action>`. Update with `peaks skill presence:set peaks-sc --project <repo> --mode <mode> --gate <gate>` when gates change. When the role's work ends, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -65,9 +65,9 @@ Each refactor slice must leave a traceable local artifact boundary in `.peaks/_r
 
 Use gstack as a concrete source-control and release workflow reference for the `Ship → Reflect` stages:
 
-- map `/ship` and `/land-and-deploy` concepts to Peaks-Cli commit boundaries, sync state, rollback points, and artifact retention;
+- map `/ship` and `/land-and-deploy` concepts to Peaks-Loop commit boundaries, sync state, rollback points, and artifact retention;
 - map checkpoint discipline to traceable code-plus-artifact slices;
-- do not create PRs, merge, deploy, or mutate shared state unless the active Peaks-Cli workflow and user confirmation explicitly allow it.
+- do not create PRs, merge, deploy, or mutate shared state unless the active Peaks-Loop workflow and user confirmation explicitly allow it.
 
 ## Project memory backup
 
@@ -91,7 +91,7 @@ Concrete rules: `references/openspec-commit-boundaries.md`.
 
 ## Default runbook
 
-Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks-Cli CLI.
+Use this sequence when SC owns the change-control pass for a refactor or release slice. SC never edits code or tests; it only records boundary evidence through the Peaks-Loop CLI.
 
 ```bash
 # 0. Confirm SC's own runbook integrity before recording boundary evidence
@@ -145,14 +145,14 @@ The final two `--apply` calls require explicit authorization. Without it, defaul
 
 You cannot declare SC complete from memory. Each gate below is a `ls` command you **MUST run** and whose output you **MUST see** before proceeding.
 
-**Peaks-Cli Gate A — After impact + retention + validate + boundary:**
+**Peaks-Loop Gate A — After impact + retention + validate + boundary:**
 ```bash
 ls .peaks/_runtime/<sessionId>/sc/change-control/<rid>.md
 # Expected output: .peaks/_runtime/<sessionId>/sc/change-control/<rid>.md
 # "No such file" → STOP, write the change-control record first.
 ```
 
-**Peaks-Cli Gate B — Before declaring SC complete (verify commit boundary is recorded):**
+**Peaks-Loop Gate B — Before declaring SC complete (verify commit boundary is recorded):**
 ```bash
 git log --oneline -5
 # Expected: at least one recent commit whose message references the change-id or slice-id.
@@ -161,6 +161,6 @@ git log --oneline -5
 
 ## Boundaries
 
-Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks-Cli CLI artifact commands.
+Do not implement code or test logic. Do not create GitHub repositories directly from the skill body. Use the Peaks-Loop CLI artifact commands.
 
 Reference: `references/artifact-retention.md`.

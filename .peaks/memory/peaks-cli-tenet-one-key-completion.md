@@ -1,13 +1,13 @@
 ---
-name: peaks-cli-tenet-one-key-completion-and-minimal-user-operation
-description: Two paired tenets for peaks-cli design — (1) one-key completion, no second step required; (2) features can be powerful but the user-facing surface should be minimal, the LLM/CLI figures things out.
+name: peaks-loop-tenet-one-key-completion-and-minimal-user-operation
+description: Two paired tenets for peaks-loop design — (1) one-key completion, no second step required; (2) features can be powerful but the user-facing surface should be minimal, the LLM/CLI figures things out.
 metadata:
   type: rule
 ---
 
-> Source: peaks-cli repo, user-stated principle 2026-06-11 late session (smallMark).
-> Scope: applies to every peaks-cli design decision — new CLI commands, new skill surfaces, new auto-detect paths, new umbrella commands, new postinstall hooks.
-> Reading: read this before designing any user-facing surface in peaks-cli.
+> Source: peaks-loop repo, user-stated principle 2026-06-11 late session (smallMark).
+> Scope: applies to every peaks-loop design decision — new CLI commands, new skill surfaces, new auto-detect paths, new umbrella commands, new postinstall hooks.
+> Reading: read this before designing any user-facing surface in peaks-loop.
 
 ## Tenet 1 — One-key completion
 
@@ -15,9 +15,9 @@ metadata:
 > ("Things that can be done in one step should not be designed as
 > a two-step operation; the ideal goal is one-key completion.")
 
-Anti-pattern: `npm i -g peaks-cli` → then `peaks upgrade --to 2.0`
+Anti-pattern: `npm i -g peaks-loop` → then `peaks upgrade --to 2.0`
 (two steps the user has to remember).
-Pattern: `npm i -g peaks-cli@2.0` — the postinstall does the
+Pattern: `npm i -g peaks-loop@2.0` — the postinstall does the
 upgrade (1.x → 2.0 detection + auto-migrate) so the user only
 runs one command.
 
@@ -44,7 +44,7 @@ to remember and execute multi-step procedures, they will:
 A real Trae user gave product feedback in 2026-06-11: the 1.x
 postinstall did not symlink peaks-* skills to Trae's skill
 directory (it only symlinked to the auto-detected single IDE).
-The user also stated they "just run `npm i -g peaks-cli` and
+The user also stated they "just run `npm i -g peaks-loop` and
 nothing else". These two pieces of feedback crystallized the
 two tenets above.
 
@@ -60,7 +60,7 @@ two tenets above.
   the user's perspective: the commands that DO ship should
   be one-key and minimal.
 
-## How to apply (checklist for new peaks-cli features)
+## How to apply (checklist for new peaks-loop features)
 
 Before merging any new user-facing surface, verify:
 
@@ -74,7 +74,7 @@ Before merging any new user-facing surface, verify:
    default is wrong.
 4. **Auto-detect first**: does the CLI/LLM detect the project
    state, IDE, platform, and config before asking the user?
-   The user should never have to tell peaks-cli something it
+   The user should never have to tell peaks-loop something it
    could discover.
 5. **Silent on success**: when the operation succeeds, print
    the minimum (one line). When it fails, print the minimum
@@ -84,7 +84,7 @@ Before merging any new user-facing surface, verify:
 
 | Surface | Two-step anti-pattern | One-key pattern (post-2.0) |
 |--------|----------------------|---------------------------|
-| 1.x → 2.0 upgrade | `npm i -g peaks-cli` → `peaks upgrade --to 2.0` | `npm i -g peaks-cli@2.0` (postinstall auto-detects + auto-upgrades) |
+| 1.x → 2.0 upgrade | `npm i -g peaks-loop` → `peaks upgrade --to 2.0` | `npm i -g peaks-loop@2.0` (postinstall auto-detects + auto-upgrades) |
 | Trae skill symlink | (1.x bug) postinstall only symlinked to auto-detected IDE | postinstall iterates all 8 platforms (`SYNC_PLATFORMS`) |
 | 1.x → 2.0 verbose docs | user reads `UPGRADING-2.0.md` then runs 7 sub-commands | postinstall does the 7 sub-commands; user reads the doc only on failure |
 | L2 audit invocation | user runs `peaks audit red-lines` then `peaks audit static` | `peaks slice check` stage 6 invokes both + reports aggregate (one command) |
@@ -96,7 +96,7 @@ Before merging any new user-facing surface, verify:
   two new tenets are paired: the original governs the LLM's
   surface choice, the new ones govern the user's surface
   friction.
-- `peaks-cli-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md`
+- `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer.md`
   — 1.3.3 first introduced the 8-platform IDE-adapter layer;
   2.0 fixes the postinstall Trae bug that the layer could not
   paper over.

@@ -1,7 +1,7 @@
 /**
  * v2.15.0 follow-up — G8: legacy code detector.
  *
- * 12 Gaps memory: when peaks-cli is applied to a 存量老项目 (legacy
+ * 12 Gaps memory: when peaks-loop is applied to a 存量老项目 (legacy
  * codebase), it is helpful to surface a quick inventory of "what
  * smells old" so the LLM / operator knows where to focus.
  *

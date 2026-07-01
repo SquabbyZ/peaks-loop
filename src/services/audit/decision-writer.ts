@@ -21,7 +21,7 @@
  *    ephemeral state. The subdir is named for human discoverability; the
  *    memory service's recursive scan picks it up automatically.
  *
- * 3. **No new CLI subcommand.** Per `peaks-cli-when-adding-a-new-subcommand-…`
+ * 3. **No new CLI subcommand.** Per `peaks-loop-when-adding-a-new-subcommand-…`
  *    we extend the existing `peaks audit static` with a `--record` flag
  *    instead of adding `peaks audit record` (which would be a new
  *    top-level shape and conflict with the dev-preference red line

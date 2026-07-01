@@ -132,7 +132,7 @@ contextSnapshot:
     - .peaks/standards/common/coding-style.md
   memory:
     - .peaks/memory/parked-peaks-workflow-primitive.md
-    - .peaks/memory/peaks-cli-24h-ai-programmer-positioning.md
+    - .peaks/memory/peaks-loop-24h-ai-programmer-positioning.md
 budget:
   tokens: 80000
   wallSeconds: 1800

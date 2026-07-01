@@ -10,7 +10,7 @@
  *  - AC-5: shipped source file-write contract uses title-case section headers
  *    (matches the existing KARPATHY_REVIEW.mustContain gate)
  *  - AC-6: shipped source hard-prohibitions list includes the peaks-rd red line
- *  - AC-7: handoff doc describes the AUTO-install path (npm i -g peaks-cli@latest →
+ *  - AC-7: handoff doc describes the AUTO-install path (npm i -g peaks-loop@latest →
  *          postinstall copies agents/karpathy-reviewer.md to ~/.claude/agents/
  *          with content-hash drift detection, .peaks-managed marker)
  *  - AC-8: handoff doc references the canonical shipped path + CLI gate
@@ -93,11 +93,11 @@ describe('Slice 6/6 + 7/7 — karpathy-reviewer shipped source + handoff + point
     expect(shipped).toMatch(/MUST NOT call `peaks request transition`/);
   });
 
-  it('AC-7 handoff doc describes the AUTO-install path (npm i -g peaks-cli@latest → postinstall)', () => {
+  it('AC-7 handoff doc describes the AUTO-install path (npm i -g peaks-loop@latest → postinstall)', () => {
     // Slice 7 changed the install model from "user-cp" to "auto-install on
-    // npm i -g peaks-cli@latest". The handoff doc must document this and
+    // npm i -g peaks-loop@latest". The handoff doc must document this and
     // include the PEAKS_SKIP_AGENT_INSTALL=1 escape hatch.
-    expect(handoff).toMatch(/npm i -g peaks-cli@latest/);
+    expect(handoff).toMatch(/npm i -g peaks-loop@latest/);
     expect(handoff).toContain('postinstall');
     expect(handoff).toMatch(/installBundledAgents|agents\/karpathy-reviewer\.md/);
     // Drift detection: .peaks-managed marker + SHA-256
@@ -116,7 +116,7 @@ describe('Slice 6/6 + 7/7 — karpathy-reviewer shipped source + handoff + point
   });
 
   it('AC-9 project-internal pointer at skills/peaks-rd/references/karpathy-reviewer-prompt.md is a 2-line pointer', () => {
-    // peaks-cli 2.0 rules convention: a 2-line pointer file that points to
+    // peaks-loop 2.0 rules convention: a 2-line pointer file that points to
     // the canonical source. The first line is the "# Canonical ... lives at:"
     // header, the second line is the "# This file is a 2-line pointer ..." note.
     const lines = pointer.trim().split('\n');

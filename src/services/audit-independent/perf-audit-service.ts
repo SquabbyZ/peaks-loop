@@ -261,7 +261,7 @@ export function detectPerfAudit(input: {
       ],
       nextActions: [
         'Verify the perf-audit skill prompt matches PRD AC-3.x output shape.',
-        'If the envelope shape is intentionally different, file a bug at the peaks-cli repo.'
+        'If the envelope shape is intentionally different, file a bug at the peaks-loop repo.'
       ]
     };
   }

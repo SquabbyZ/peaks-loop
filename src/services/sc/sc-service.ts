@@ -83,7 +83,7 @@ const RETENTION_REQUIREMENTS = [
 ] as const;
 
 /**
- * "Modern" retention requirements for the current peaks-cli artifact
+ * "Modern" retention requirements for the current peaks-loop artifact
  * naming convention. The legacy `RETENTION_REQUIREMENTS` above assume
  * older `refactor-goal.md` / `slice-spec.md` / `coverage-report.md` /
  * `validation-report.md` / `change-impact.json` / `retention-boundary.md`
@@ -626,10 +626,10 @@ export function validateArtifactRetention(sliceId: string): {
   // If the legacy check is short (i.e. we're missing a lot of legacy-named
   // files) but the resolver landed on a real session, ALSO accept the
   // modern set. The legacy set was designed for an older workflow naming
-  // and a freshly-minted session in the current peaks-cli flow will not
+  // and a freshly-minted session in the current peaks-loop flow will not
   // have the legacy names. This keeps `peaks sc validate --slice-id <rid>`
   // returning `valid: true` for slices that completed under the current
-  // peaks-cli convention.
+  // peaks-loop convention.
   if (missingArtifacts.length > 0 && resolvedPeaksSessionDir !== null) {
     const modernMissing = modernRequirementRelativePaths(sliceId).filter((rel) => !resolvedPresent(...rel.split('/') as [string, string]));
     if (modernMissing.length === 0) {

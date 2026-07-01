@@ -1,10 +1,10 @@
 /**
- * JSONL file logger for peaks-cli.
+ * JSONL file logger for peaks-loop.
  *
  * Slice 2026-06-16-cli-logging (G1, G2, G5, G6, G7).
  *
- * Default-on file logging: every peaks-cli invocation writes a
- * structured log entry to `<homedir>/.peaks/logs/peaks-cli-YYYY-MM-DD.log`
+ * Default-on file logging: every peaks-loop invocation writes a
+ * structured log entry to `<homedir>/.peaks/logs/peaks-loop-YYYY-MM-DD.log`
  * (UTC date stamp). One JSON object per line.
  *
  * Hard contracts enforced here:

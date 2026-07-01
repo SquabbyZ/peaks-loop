@@ -11,7 +11,7 @@ const cliProgramTestState = vi.hoisted(() => {
   const { tmpdir } = require('node:os') as typeof import('node:os');
   const { join } = require('node:path') as typeof import('node:path');
   return {
-    home: mkdtempSync(join(tmpdir(), 'peaks-cli-home-')),
+    home: mkdtempSync(join(tmpdir(), 'peaks-loop-home-')),
     smokeTest: vi.fn(),
     workerRun: vi.fn()
   };

@@ -6,7 +6,7 @@
  * `.claude/settings.local.json` in the consumer project's repo root
  * the first time `peaks workspace init` runs (and on every subsequent
  * init — the file is rewritten to keep the template in sync with the
- * peaks-cli release). Pass `--no-claude-hooks` to opt out.
+ * peaks-loop release). Pass `--no-claude-hooks` to opt out.
  *
  * Sub-cases (per PRD AC):
  *   (A) default flags → `.claude/settings.local.json` exists with the
@@ -183,8 +183,8 @@ describe('claude-settings-template — settings.local.json is added to .peaks/.g
   // The spec mandates: "The .claude/settings.local.json file MUST be
   // added to .peaks/.gitignore so it doesn't pollute consumer repos."
   // We test the side-effect on the consumer project's own .peaks
-  // gitignore, not the peaks-cli repo's root .gitignore. The slice
-  // contract: a peaks-managed snippet (managed by peaks-cli) is
+  // gitignore, not the peaks-loop repo's root .gitignore. The slice
+  // contract: a peaks-managed snippet (managed by peaks-loop) is
   // appended/merged to the consumer's `.peaks/.gitignore` so the
   // local-only file does not get committed.
   let project: string;
@@ -376,7 +376,7 @@ describe('workspace init — offline template self-heal (slice 2026-06-13-selfhe
     // Slice 2026-06-13-selfheal-claude-settings-template root-cause closure:
     // the offline template copy must be gitignored so the drift-driven
     // refresh does not show up as "modified" in `git status` on every
-    // release bump. Source-of-truth is peaks-cli's own
+    // release bump. Source-of-truth is peaks-loop's own
     // `buildClaudeSettingsLocalJson()`, NOT any committed copy.
     await initWorkspace({
       projectRoot: project,
@@ -389,8 +389,8 @@ describe('workspace init — offline template self-heal (slice 2026-06-13-selfhe
     expect(gitignore).toContain('.peaks/.claude-settings-template.json');
     // The pattern must be inside the peaks-managed snippet, not a
     // user-managed entry — so it is preserved on subsequent inits.
-    expect(gitignore).toContain('# >>> peaks-cli managed snippet');
-    expect(gitignore).toContain('# <<< peaks-cli managed snippet');
+    expect(gitignore).toContain('# >>> peaks-loop managed snippet');
+    expect(gitignore).toContain('# <<< peaks-loop managed snippet');
   });
 
   test('case SH-7 — gitignore pattern persists across re-inits (idempotent)', async () => {
@@ -418,7 +418,7 @@ describe('workspace init — offline template self-heal (slice 2026-06-13-selfhe
 /**
  * Slice 2026-06-13-selfheal-claude-settings-template companion:
  * `peaks upgrade --apply-init` is the post-bump escape hatch for users
- * who never re-run init after a peaks-cli version bump. The CLI is a
+ * who never re-run init after a peaks-loop version bump. The CLI is a
  * thin wrapper over initWorkspace — the regression tests below pin
  * the args the wrapper passes (no --session-id, no --no-claude-hooks,
  * allowSessionRebind: false). The behavioral coverage for self-heal

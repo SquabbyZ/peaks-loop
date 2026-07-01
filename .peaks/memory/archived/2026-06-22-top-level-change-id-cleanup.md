@@ -23,7 +23,7 @@ audit followup commit on top of bc0423d.
 
 ## Background
 
-peaks-cli 2.8.0+ enforces a **two-axis workspace convention**:
+peaks-loop 2.8.0+ enforces a **two-axis workspace convention**:
 - **session-id axis** (gitignored, ephemeral): `.peaks/_runtime/<sessionId>/<role>/...`
 - **change-id axis** (logical identifier, not a directory): the change-id is a *string*
   carried by RD/QA artifacts (`peaks request init --change-id <id>` writes them under

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Slice #016 static scan: assert the peaks-cli MCP subsystem is fully removed.
+// Slice #016 static scan: assert the peaks-loop MCP subsystem is fully removed.
 //
 // Walks:
 //   - skills/peaks-*/*.md           (SKILL.md bodies for the 12 peaks-* skills)

@@ -10,7 +10,7 @@ See the index at ./2026-06-25-slice-topology-multipass.md for navigation.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build peaks-cli's 10% human / 90% LLM autonomous workflow foundation: multi-pass slice decomposition, audit+goal gate, final review gate, structured handoff frontmatter, and LLM-facing skill layer.
+**Goal:** Build peaks-loop's 10% human / 90% LLM autonomous workflow foundation: multi-pass slice decomposition, audit+goal gate, final review gate, structured handoff frontmatter, and LLM-facing skill layer.
 
 **Architecture:** Existing 6-stage slice decomposition algorithm (`src/services/slice/slice-decompose-service.ts`) stays UNCHANGED as the inner loop. A new `MultiPassOrchestrator` invokes it multiple times at different granularities (service → file), joined by a `CrossPassEdgeMerger`. New primitives `auditGoal()` and `prepareFinalReview()` gate autonomous LLM execution between human touchpoints. A new `peaks-slice-decompose`, `peaks-audit`, and `peaks-final-review` skill tells the LLM when/how to invoke these. Handoff artifacts gain a YAML frontmatter schema for structured fields.
 
@@ -23,11 +23,11 @@ See the index at ./2026-06-25-slice-topology-multipass.md for navigation.
 - **File size cap**: Every file ≤ 800 lines (enforced by `peaks scan file-size` gate). Split when approaching.
 - **No console.log in production code** (enforced by lint).
 - **Test coverage**: ≥ 80% per new file (statements, branches, functions, lines).
-- **Mutation probes**: 3 probes must survive their targeted mutations (per peaks-cli Plan 4 convention).
+- **Mutation probes**: 3 probes must survive their targeted mutations (per peaks-loop Plan 4 convention).
 - **Backward compat**: v1 schema (`DecompositionResult`) and legacy handoffs (no frontmatter) must remain readable via `SchemaRouter` / `parseHandoff` respectively.
 - **LLM 兜底 budget**: Max 2 LLM calls per `peaks slice decompose` and per `peaks audit-goal` and per `peaks prepare-final-review` invocation. Never throws on budget exhaustion.
 - **JSON for structured data** (types, schemas), **markdown for prose** (skills, handoff body, references). YAML frontmatter bridges both.
-- **No new mode** in `peaks-cli` CLI: everything folds into existing modes via shape-selector logic.
+- **No new mode** in `peaks-loop` CLI: everything folds into existing modes via shape-selector logic.
 
 ## File Structure
 

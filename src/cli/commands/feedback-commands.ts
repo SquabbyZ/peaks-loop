@@ -34,7 +34,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 export function registerFeedbackCommands(program: Command, io: ProgramIO): void {
   const feedback = program
     .command('feedback')
-    .description('v2.15.0 slice 002 AC-3: promote user-given feedback memories to peaks-cli enforcement layers (A: sop, B: hooks, C: hard-floor).');
+    .description('v2.15.0 slice 002 AC-3: promote user-given feedback memories to peaks-loop enforcement layers (A: sop, B: hooks, C: hard-floor).');
 
   addJsonOption(
     feedback

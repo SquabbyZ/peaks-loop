@@ -11,9 +11,9 @@ import { isAbsolute, resolve } from 'node:path';
  *   2. required the LLM to invoke `peaks skill heartbeat:touch` and
  *      `peaks skill presence:clear` on every turn;
  *   3. ended with an `External reference: https://github.com/affaan-m/...`
- *      line that was peaks-cli-internal, not consumer-facing.
+ *      line that was peaks-loop-internal, not consumer-facing.
  *
- * The replacement text matches the post-slice-025 peaks-cli repo's own
+ * The replacement text matches the post-slice-025 peaks-loop repo's own
  * `CLAUDE.md`: route the LLM through `peaks skill presence --json` and
  * render a compact status header when a valid skill is active. This
  * service is the deterministic in-place rewriter that brings existing
@@ -32,9 +32,9 @@ import { isAbsolute, resolve } from 'node:path';
  */
 
 export const NEW_TEMPLATE_TEXT =
-  'Active Peaks-Cli skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Cli Skill: <skill> | Peaks-Cli Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.';
+  'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.';
 
-const LEGACY_BLOCK_OPENER_LINE = 'Peaks-Cli 心跳检测 (heartbeat check)';
+const LEGACY_BLOCK_OPENER_LINE = 'Peaks-Loop 心跳检测 (heartbeat check)';
 const LEGACY_BLOCK_CLOSER = 'External reference: https://github.com/affaan-m/everything-claude-code';
 const LEGACY_MARKER_FALLBACK = 'Do NOT skip step 3-5. The CLI heartbeat:touch command';
 
@@ -181,7 +181,7 @@ export function migrateStandards(input: MigrateStandardsInput): MigrateStandards
         applied: false,
         before: { lines: original.split('\n').length },
         after: null,
-        nextActions: ['CLAUDE.md has no peaks-cli block; nothing to migrate']
+        nextActions: ['CLAUDE.md has no peaks-loop block; nothing to migrate']
       },
       warnings: []
     };

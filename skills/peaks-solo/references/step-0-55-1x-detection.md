@@ -1,10 +1,10 @@
 # Step 0.55 — 1.x → 2.0 detection reference
 
-> Body of `### Peaks-Cli Step 0.55`. Slice: 2026-06-12-solo-step-0-55-1x-detection.
+> Body of `### Peaks-Loop Step 0.55`. Slice: 2026-06-12-solo-step-0-55-1x-detection.
 
 ## Why this step exists
 
-The peaks-cli 1.x → 2.0 closeout ships:
+The peaks-loop 1.x → 2.0 closeout ships:
 
 1. A postinstall that auto-detects 1.x state and dispatches the upgrade (slice 1, commit `b6e34e6`).
 2. A standards-migrate path that thins `.claude/rules/**/*.md` and scaffolds `.peaks/standards/` (slice 2, commit `33dd392`).
@@ -68,7 +68,7 @@ The decision is persisted via `peaks preferences set --project <root> --key auto
 ## What is NOT in this step
 
 - The auto-upgrade execution itself: the umbrella is invoked via the AskUserQuestion's recommended option. The umbrella's behavior (6 sub-commands + write-upgrade-record) is documented in the umbrella's own help text.
-- The postinstall auto-dispatch: that's `scripts/install-skills.mjs:autoUpgrade1xProjectIfPresent`, which fires fire-and-forget on `npm i -g peaks-cli@2.0`. Step 0.55 is the user-invoked path.
+- The postinstall auto-dispatch: that's `scripts/install-skills.mjs:autoUpgrade1xProjectIfPresent`, which fires fire-and-forget on `npm i -g peaks-loop@2.0`. Step 0.55 is the user-invoked path.
 - Re-authoring the 1.x detector heuristics: the implementation is a 1:1 mirror of the canonical `.mjs` version. Drift is prevented by the parity test.
 
 ## How this integrates with the rest of the workflow

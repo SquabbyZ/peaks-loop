@@ -2,7 +2,7 @@
  * Slice 2026-06-24-handoff-path-canonicalization-v2 — defense test for
  * the B-class `.peaks/_runtime/<id>/` LLM/CLI directive ban.
  *
- * Background: peaks-cli 2.8.0+ routes change-id / session-id artifacts
+ * Background: peaks-loop 2.8.0+ routes change-id / session-id artifacts
  * under `.peaks/_runtime/<sessionId>/` (gitignored), never as siblings
  * at `.peaks/_runtime/<id>/`. After PRD1 (commit 9893d3a) shipped, a follow-up
  * audit (slice 2026-06-24 v2) found 11 B-class hits in production code

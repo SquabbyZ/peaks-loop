@@ -43,7 +43,7 @@
     {
       "name": "peaks-current-directory-scope",
       "kind": "decision",
-      "description": "peaks-cli scopes its operations to the current directory by default, not the entire filesystem.",
+      "description": "peaks-loop scopes its operations to the current directory by default, not the entire filesystem.",
       "sourcePath": "C:\\repo\\.peaks\\memory\\peaks-current-directory-scope.md",
       "sourceArtifact": null,
       "updatedAt": "2026-05-29"

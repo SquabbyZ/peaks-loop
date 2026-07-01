@@ -6,7 +6,7 @@
  * output" chrome.
  *
  * Background: `bin/peaks.js` is a thin shim that imports the compiled
- * `dist/src/cli/index.js`. When the local peaks-cli source is updated
+ * `dist/src/cli/index.js`. When the local peaks-loop source is updated
  * but `pnpm build` is not re-run (or `npm install -g .` not re-run
  * after a version bump), Claude Code's hook fires the OLD compiled
  * gate-commands code, which still uses the pre-PRD#2 path. The unit

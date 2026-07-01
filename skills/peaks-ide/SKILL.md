@@ -1,13 +1,13 @@
 ---
 name: peaks-ide
-description: Orchestrate peaks-cli's IDE-aware behavior (hooks + statusline + handle) for a user's specific IDE. Detects the current state (which IDE the user is on, what peaks has already installed), plans the install / switch / status / uninstall actions, and invokes the existing peaks CLI primitives. Triggers on `/peaks-ide`, "set up peaks for my IDE", "switch peaks to Trae", "what did peaks install", "uninstall peaks hooks". Sits between the user and `peaks hooks install` / `peaks statusline install` / `peaks hook handle` — those are the CLI primitives; this skill is the user-facing surface.
+description: Orchestrate peaks-loop's IDE-aware behavior (hooks + statusline + handle) for a user's specific IDE. Detects the current state (which IDE the user is on, what peaks has already installed), plans the install / switch / status / uninstall actions, and invokes the existing peaks CLI primitives. Triggers on `/peaks-ide`, "set up peaks for my IDE", "switch peaks to Trae", "what did peaks install", "uninstall peaks hooks". Sits between the user and `peaks hooks install` / `peaks statusline install` / `peaks hook handle` — those are the CLI primitives; this skill is the user-facing surface.
 internal: true
 ---
 ---
 
-# Peaks-Cli IDE Setup (peaks-ide)
+# Peaks-Loop IDE Setup (peaks-ide)
 
-`peaks-ide` is the **user-facing surface** for everything peaks-cli does that's IDE-aware. It does NOT introduce new CLI commands. It orchestrates the existing CLI primitives — `peaks hooks install`, `peaks statusline install`, `peaks hook handle` — based on the user's intent and the IDE the user is on.
+`peaks-ide` is the **user-facing surface** for everything peaks-loop does that's IDE-aware. It does NOT introduce new CLI commands. It orchestrates the existing CLI primitives — `peaks hooks install`, `peaks statusline install`, `peaks hook handle` — based on the user's intent and the IDE the user is on.
 
 **Why this exists (dev-preference red line):** "skill is primary, CLI is auxiliary." The behavior that only an LLM in a skill prompt would use ("detect which IDE the user is on", "plan the migration steps", "ask the user before destructive actions") lives in this SKILL.md, not in a new `peaks <cmd>`. The CLI commands stay as atomic primitives the skill composes.
 

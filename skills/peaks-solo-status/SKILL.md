@@ -3,9 +3,9 @@ name: peaks-solo-status
 description: Show the current state of the peaks-solo orchestrator in a compact summary. Use when the user says "what's the current state", "现在到哪了", "where are we", or invokes `/peaks-solo-status` directly. Reads the existing CLI primitives (`peaks skill presence`, `peaks session list`, `peaks project dashboard`, `peaks request show`) and renders a 1-screen status table. Triggers on `/peaks-solo-status`, "现在到哪了", "what is the current state", "show me the dashboard", "where are we".
 ---
 
-# Peaks-Cli Solo Status (wrapper)
+# Peaks-Loop Solo Status (wrapper)
 
-Peaks-Cli Solo Status is a thin wrapper that renders a compact status table for the current peaks-solo orchestrator state. It is the answer to "I just want to know where we are" — no PRD, no RD, no QA, no full peaks-solo orchestration. Just read the existing CLI state and render a 1-screen summary.
+Peaks-Loop Solo Status is a thin wrapper that renders a compact status table for the current peaks-solo orchestrator state. It is the answer to "I just want to know where we are" — no PRD, no RD, no QA, no full peaks-solo orchestration. Just read the existing CLI state and render a 1-screen summary.
 
 **This is a transparent wrapper.** The user does not stay in this skill — the status table is rendered, and control hands off (back to the user, or to `peaks-solo` if the user wants to act on the status).
 
@@ -54,7 +54,7 @@ Compact 1-screen format:
 === peaks-solo status ===
 Session:   2026-06-04-session-b60252
 Active:    peaks-solo (mode: full-auto, gate: qa-validation)
-Workspace: /Users/yuanyuan/.../peaks-cli/.peaks/2026-06-04-session-b60252
+Workspace: /Users/yuanyuan/.../peaks-loop/.peaks/2026-06-04-session-b60252
 
 | Role | State          | Artifact                |
 |------|----------------|-------------------------|
@@ -75,7 +75,7 @@ If the session is fresh (no in-flight slice), render a different layout:
 === peaks-solo status ===
 Session: 2026-06-04-session-b60252
 Active:  peaks-solo (mode: full-auto, gate: startup)
-Workspace: /Users/yuanyuan/.../peaks-cli/.peaks/2026-06-04-session-b60252
+Workspace: /Users/yuanyuan/.../peaks-loop/.peaks/2026-06-04-session-b60252
 
 No in-flight slice. Ready for a new request.
 Health: skill-doctor 35/35 pass

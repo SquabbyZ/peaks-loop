@@ -2,7 +2,7 @@
 name: peaks-security-audit
 description: Independent security audit skill. Reads the immutable peaks-prd handoff + the project-level security-template.md, performs an OWASP Top-10 + 8-dimension threat model audit, and writes a structured envelope to `.peaks/_runtime/<sessionId>/audit/security-<rid>.md`. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 2). Use when the slice introduces authn/authz, secrets, input validation, path/filesystem trust, SQL/NoSQL injection, XSS/content injection, dependency supply chain, or external API surface changes.
 metadata:
-  appliesTo: peaks-cli v2.12.0+
+  appliesTo: peaks-loop v2.12.0+
   replaces: peaks-rd 5-way fan-out security-reviewer slot (per AC-2.x)
   sources:
     - handoff: .peaks/_runtime/<sessionId>/prd/handoff.md (sha256-locked, schemaVersion: 2)

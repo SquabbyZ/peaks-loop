@@ -38,7 +38,7 @@ Recovery requires the user to either delete `.claude/settings.local.json` manual
 - **JSON / shell double-escape mistake.** Wrapping inner JS in `node -e "..."` requires JSON-escaping every embedded double quote as `\\"`. A single missing escape breaks the wrapper on every platform simultaneously. Mitigation: a unit test that round-trips the command through `JSON.stringify(buildClaudeSettingsLocalJson())` and asserts the resulting string is a parseable shell command on all three target OSes.
 - **Argv index drift.** The current code reads `process.argv[1]`. The docstring previously said `argv[2]`. Claude Code may invoke hooks with different argv layouts in future versions, which would silently break the matcher. Mitigation: a single-source-of-truth helper that reads the candidate string and a unit test asserting the helper picks the argv slot that contains the candidate. If Claude Code changes the argv contract, only the helper changes.
 - **External `.js` file path divergence.** The simpler alternative — write a real `.js` file and reference it via `command: node <absolute-path>` — was rejected because absolute paths differ across machines and Windows path separators (`\` vs `/`) add another escape layer. Deferred until evidence shows `node -e` is insufficient.
-- **`node` not on PATH.** The hook assumes `node` is resolvable on the user's PATH. Documented in peaks-cli README; out of scope for this change.
+- **`node` not on PATH.** The hook assumes `node` is resolvable on the user's PATH. Documented in peaks-loop README; out of scope for this change.
 
 ## Acceptance Criteria
 

@@ -25,8 +25,8 @@ import {
  * in a commit. Marked with a managed-by header so we can detect (and
  * not double-append) on subsequent inits.
  */
-const PEAKS_GITIGNORE_HEADER = '# >>> peaks-cli managed snippet (slice 2.0.1-bug3) — do not edit by hand';
-const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-cli managed snippet';
+const PEAKS_GITIGNORE_HEADER = '# >>> peaks-loop managed snippet (slice 2.0.1-bug3) — do not edit by hand';
+const PEAKS_GITIGNORE_FOOTER = '# <<< peaks-loop managed snippet';
 
 const PEAKS_GITIGNORE_SNIPPET = [
   PEAKS_GITIGNORE_HEADER,
@@ -35,10 +35,10 @@ const PEAKS_GITIGNORE_SNIPPET = [
   '.claude/settings.local.json',
   '# Offline template copy (.peaks/.claude-settings-template.json): written by',
   '# `peaks workspace init` as a manual-recovery anchor. The source-of-truth is',
-  '# peaks-cli\'s own `buildClaudeSettingsLocalJson()` — NOT this committed copy.',
+  '# peaks-loop\'s own `buildClaudeSettingsLocalJson()` — NOT this committed copy.',
   '# Gitignored so the init flow\'s drift-driven refresh does not show up as',
   '# "modified" in `git status` on every release bump. Recovery path: re-run',
-  '# `peaks workspace init` to regenerate; or copy from peaks-cli source.',
+  '# `peaks workspace init` to regenerate; or copy from peaks-loop source.',
   '.peaks/.claude-settings-template.json',
   PEAKS_GITIGNORE_FOOTER,
   ''
@@ -52,7 +52,7 @@ const PEAKS_GITIGNORE_SNIPPET = [
  *
  * The function is idempotent: re-running on an already-materialized
  * project is a no-op (the file is rewritten only when its content
- * diverges from the current peaks-cli release's template, which
+ * diverges from the current peaks-loop release's template, which
  * keeps the consumer up to date as the template evolves).
  *
  * Even when the caller passes `noClaudeHooks: true`, the function
@@ -65,7 +65,7 @@ const PEAKS_GITIGNORE_SNIPPET = [
  *
  * Slice 2026-06-13-selfheal-claude-settings-template: the offline copy
  * is now ALSO drift-checked (via `templateContentMatches`) so stale
- * on-disk copies from earlier peaks-cli releases (which lacked the
+ * on-disk copies from earlier peaks-loop releases (which lacked the
  * `node -e "..."` wrapper) get refreshed automatically on the next
  * init. The action taken on the offline copy is surfaced in
  * `claudeSettings.offlineTemplate.action`.
@@ -137,15 +137,15 @@ export async function materializeClaudeSettingsLocal(
  * source-of-truth on disk for the manual recovery flow. The file is
  * GITIGNORED (added to `.peaks/.gitignore` by
  * `upsertPeaksGitignoreSnippet`) — the source-of-truth lives in
- * peaks-cli's own `buildClaudeSettingsLocalJson()`, NOT in any
+ * peaks-loop's own `buildClaudeSettingsLocalJson()`, NOT in any
  * committed copy. Gitignoring it ensures the init flow's drift-driven
  * refresh does not show up as "modified" in `git status` on every
- * peaks-cli release bump.
+ * peaks-loop release bump.
  *
  * Recovery path for users who need to re-create their
  * `.claude/settings.local.json`: re-run `peaks workspace init`
  * (the file is regenerated); or copy the template straight from
- * peaks-cli source (`src/services/workspace/claude-settings-template.ts`).
+ * peaks-loop source (`src/services/workspace/claude-settings-template.ts`).
  *
  * Slice 2026-06-13-selfheal-claude-settings-template: drift-check via
  * `templateContentMatches` BEFORE writing. If the on-disk copy's

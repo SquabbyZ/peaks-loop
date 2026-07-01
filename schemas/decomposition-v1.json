@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://peaks-cli.dev/schemas/decomposition-v1.json",
+  "$id": "https://peaks-loop.dev/schemas/decomposition-v1.json",
   "title": "Peaks Decomposition Result v1",
   "description": "v1 (legacy) slice decomposition output. Discriminated by the absence of a `schemaVersion` field. v1 files remain readable via `SchemaRouter.readResult`; new code should write v2 instead.",
   "type": "object",

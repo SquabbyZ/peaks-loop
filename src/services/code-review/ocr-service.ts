@@ -13,9 +13,9 @@
  *   - same multi-state reason enum (clear failure-mode reporting),
  *   - same soft-fail policy (never blocks the umbrella).
  *
- * === Source of truth: peaks-cli's own config.json ===
+ * === Source of truth: peaks-loop's own config.json ===
  *
- * peaks-cli does NOT auto-configure the LLM endpoint, and it does
+ * peaks-loop does NOT auto-configure the LLM endpoint, and it does
  * NOT write `~/.opencodereview/config.json`. The user is the only
  * party that touches their LLM token / URL / model. The single
  * discoverable place they declare those values is
@@ -30,7 +30,7 @@
  *
  * When `runOcrReview` spawns the ocr subprocess it injects those
  * values as env vars. The ocr package treats env vars as the
- * highest-priority config source, so peaks-cli never has to
+ * highest-priority config source, so peaks-loop never has to
  * materialise `~/.opencodereview/config.json` itself.
  *
  * To see the JSON template to paste, run:
@@ -41,14 +41,14 @@
  * `optionalDependencies` in 2.0.3, then to `peerDependencies` in
  * 2.8.2 — the ocr postinstall downloads a Go binary via HTTPS,
  * which fails in restricted/proxied environments and would
- * otherwise slow or abort the whole `npm i -g peaks-cli` flow).
+ * otherwise slow or abort the whole `npm i -g peaks-loop` flow).
  * Peaks-cli ships with ocr *not* installed; if the user wants it,
  * they run
  *   `npm i -g @alibaba-group/open-code-review`
- * and peaks-cli's 5-state detector (below) reports whether the
+ * and peaks-loop's 5-state detector (below) reports whether the
  * binary is actually usable. pnpm-based installs additionally need
  * `pnpm approve-builds @alibaba-group/open-code-review` for the
- * binary download to run. Either way, peaks-cli never blocks on it.
+ * binary download to run. Either way, peaks-loop never blocks on it.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -60,7 +60,7 @@ import type { OcrLlmConfig } from '../config/config-types.js';
 const OCR_DETECT_TIMEOUT_MS = 5000;
 const OCR_REVIEW_TIMEOUT_MS = 180000;
 
-const OCR_INSTALL_HINT = 'Install: `npm i -g @alibaba-group/open-code-review` (peaks-cli 2.8.2 ships with ocr as a peer dependency — its postinstall downloads a Go binary via HTTPS, which fails in some restricted/proxied environments; that\'s why peaks-cli does not auto-install it). Then add your LLM endpoint to ~/.peaks/config.json — run `peaks code-review config-template` for the JSON snippet to paste. Under pnpm you also need `pnpm approve-builds @alibaba-group/open-code-review` to allow the binary download.';
+const OCR_INSTALL_HINT = 'Install: `npm i -g @alibaba-group/open-code-review` (peaks-loop 2.8.2 ships with ocr as a peer dependency — its postinstall downloads a Go binary via HTTPS, which fails in some restricted/proxied environments; that\'s why peaks-loop does not auto-install it). Then add your LLM endpoint to ~/.peaks/config.json — run `peaks code-review config-template` for the JSON snippet to paste. Under pnpm you also need `pnpm approve-builds @alibaba-group/open-code-review` to allow the binary download.';
 
 const OCR_CONFIG_TEMPLATE = JSON.stringify(
   {
@@ -91,9 +91,9 @@ export interface OcrDetectResult {
   readonly binaryPath: string | null;
   readonly version: string | null;
   /**
-   * The peaks-cli config path that holds `peaksConfig.ocr.llm`.
+   * The peaks-loop config path that holds `peaksConfig.ocr.llm`.
    * The user pastes the `peaks code-review config-template` output
-   * here. Empty string when peaks-cli has not been bootstrapped.
+   * here. Empty string when peaks-loop has not been bootstrapped.
    */
   readonly configPath: string;
   readonly configValid: boolean;
@@ -159,7 +159,7 @@ const DEFAULT_RUNNER: SubprocessRunner = {
 /**
  * Locate the ocr launcher script (`bin/ocr.js`) inside our own
  * node_modules tree. Returns null when the npm package is not
- * present (peaks-cli was installed but its dependency tree is
+ * present (peaks-loop was installed but its dependency tree is
  * corrupt, or the user removed it).
  *
  * Walks up from this file (dist/src/services/code-review/) to
@@ -180,7 +180,7 @@ export function resolveOcrLauncher(searchRoots: readonly string[]): string | nul
 
 /**
  * Resolve search roots for the ocr launcher. We look in two
- * places: (1) the peaks-cli install root (next to our own dist/),
+ * places: (1) the peaks-loop install root (next to our own dist/),
  * (2) the user's cwd.
  */
 export function defaultOcrSearchRoots(currentDirPath: string, cwd: string): readonly string[] {
@@ -196,7 +196,7 @@ export function defaultOcrSearchRoots(currentDirPath: string, cwd: string): read
  * the block is ready to drive the ocr subprocess.
  *
  * The block is independent of the OCR package's own
- * `~/.opencodereview/config.json` file. peaks-cli only ever reads
+ * `~/.opencodereview/config.json` file. peaks-loop only ever reads
  * from its own config; the env-var injection in `runOcrReview`
  * makes the legacy file irrelevant.
  */
@@ -212,7 +212,7 @@ export function getOcrLlmMissingFields(llm: OcrLlmConfig | null): readonly strin
 }
 
 /**
- * Build the env-var overlay peaks-cli injects into the ocr
+ * Build the env-var overlay peaks-loop injects into the ocr
  * subprocess. Maps `peaksConfig.ocr.llm` onto the OCR package's
  * env-var surface (its highest-priority config source).
  */
@@ -227,7 +227,7 @@ export function buildOcrEnv(llm: OcrLlmConfig): NodeJS.ProcessEnv {
 }
 
 /**
- * The JSON template the user pastes into their peaks-cli config
+ * The JSON template the user pastes into their peaks-loop config
  * (`peaksConfig.ocr.llm`). Returned as a stable string so the
  * `peaks code-review config-template` CLI command can print it
  * verbatim, and so the detector's `nextActions` payload embeds
@@ -240,7 +240,7 @@ export function getOcrConfigTemplate(): string {
 export interface OcrDetectOptions {
   readonly cwd: string;
   /**
-   * The peaks-cli config path that holds `peaksConfig.ocr.llm`.
+   * The peaks-loop config path that holds `peaksConfig.ocr.llm`.
    * Surfaced in the detect result so the user knows where to
    * paste the template.
    */
@@ -280,7 +280,7 @@ export function detectOcr(options: OcrDetectOptions): OcrDetectResult {
       missingKeys: missing,
       warnings,
       nextActions: [
-        '@alibaba-group/open-code-review is not installed in this project or peaks-cli root.',
+        '@alibaba-group/open-code-review is not installed in this project or peaks-loop root.',
         OCR_INSTALL_HINT,
       ],
     };
@@ -335,7 +335,7 @@ export function detectOcr(options: OcrDetectOptions): OcrDetectResult {
       configValid: false,
       missingKeys: missing,
       warnings: [
-        `ocr is installed but peaks-cli's ocr.llm config is incomplete: missing ${missing.join(', ')}.`,
+        `ocr is installed but peaks-loop's ocr.llm config is incomplete: missing ${missing.join(', ')}.`,
       ],
       nextActions: [
         `Paste the following into ${options.peaksConfigPath} under "ocr.llm":`,
@@ -371,7 +371,7 @@ export interface OcrReviewOptions extends OcrDetectOptions {
  * The LLM endpoint config from `peaksConfig.ocr.llm` is injected
  * as env vars (`OCR_LLM_URL` / `OCR_LLM_TOKEN` / ...), which the
  * ocr package treats as the highest-priority config source. This
- * is how peaks-cli wires the user-managed config into the ocr
+ * is how peaks-loop wires the user-managed config into the ocr
  * subprocess without ever writing `~/.opencodereview/config.json`.
  */
 export function runOcrReview(options: OcrReviewOptions): OcrReviewResult {
@@ -409,7 +409,7 @@ export function runOcrReview(options: OcrReviewOptions): OcrReviewResult {
     };
   }
 
-  // Inject the LLM endpoint config from peaks-cli's config.json
+  // Inject the LLM endpoint config from peaks-loop's config.json
   // as env vars — the ocr package's highest-priority config path.
   const env = options.peaksOcrConfig === null
     ? process.env

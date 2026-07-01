@@ -36,7 +36,7 @@ async function readStdin(): Promise<string> {
 /**
  * `peaks hook handle` —— peaks 自有 hook 协议的单一入口。
  *
- * 该命令是 peaks-cli 拥有的 hook 处理总入口。它:
+ * 该命令是 peaks-loop 拥有的 hook 处理总入口。它:
  *   1. 读 stdin
  *   2. auto-detect 来源 IDE(env / stdin shape / cwd)
  *   3. 归一化到 peaks canonical schema

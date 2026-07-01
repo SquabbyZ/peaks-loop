@@ -14,7 +14,7 @@
  * `src/services/dispatch/contract-store.ts`; it accepts the same
  * shape, splits the comma-separated `--exports` / `--types` /
  * `--signatures` flag values into arrays, and surfaces the result
- * via the standard `ok` / `fail` envelope used across peaks-cli.
+ * via the standard `ok` / `fail` envelope used across peaks-loop.
  *
  * Skill-first / CLI-auxiliary red line: users do not invoke this
  * directly. The peaks-solo / peaks-rd LLM-side runner (the

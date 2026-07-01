@@ -6,7 +6,7 @@
   "producerVersion": "2.14.0",
   "sourceOrigin": {
     "kind": "derived-variant",
-    "path": "C:/Users/smallMark/Desktop/peaks-cli/tests/fixtures/replay/v2-12-independent-security-perf-audit-mut-report.json",
+    "path": "C:/Users/smallMark/Desktop/peaks-loop/tests/fixtures/replay/v2-12-independent-security-perf-audit-mut-report.json",
     "changeId": "v2-12-independent-security-perf-audit",
     "sessionId": "2026-06-27-session-83acf5",
     "parentFixtureId": "v2-12-independent-security-perf-audit-mut-report",

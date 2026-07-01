@@ -1,7 +1,7 @@
 # Feedback-Promotion SOP (v2.15.0 slice 002, AC-3)
 
 > A user-given rule is only as durable as the layer that enforces it.
-> `.peaks/memory/<feedback>.md` is advisory (LLM-readable). The peaks-cli
+> `.peaks/memory/<feedback>.md` is advisory (LLM-readable). The peaks-loop
 > enforcement layers are mandatory (machine-enforced). This SOP closes the
 > gap by **requiring** every feedback memory to be promoted to at least one
 > enforcement layer within the slice that introduced it.

@@ -83,14 +83,14 @@ describe('project-scan-reader — happy parse', () => {
         'libraryVersions:',
         '  commander: "^12.1.0"',
         '  yaml: "^2.9.0"',
-        'architecture: peaks-cli is a TypeScript Node CLI for AI-coding workflow orchestration.',
+        'architecture: peaks-loop is a TypeScript Node CLI for AI-coding workflow orchestration.',
         'karpathySelfCheck:',
         '  simpleFirst: 800-line cap',
         '  surgicalChanges: touch only what is asked',
         '  goalDriven: ACs verify',
         '  thinkBefore: red-line scope'
       ].join('\n'),
-      '# Peaks-Cli Project Scan\n\nFree text supplement.\n'
+      '# Peaks-Loop Project Scan\n\nFree text supplement.\n'
     );
     const scan = await readProjectScan(root);
     expect(scan).not.toBeNull();
@@ -101,7 +101,7 @@ describe('project-scan-reader — happy parse', () => {
     expect(scan!.techStack.runtime).toBe('node>=20.0.0');
     expect(scan!.libraryVersions['commander']).toBe('^12.1.0');
     expect(scan!.libraryVersions['yaml']).toBe('^2.9.0');
-    expect(scan!.architecture).toContain('peaks-cli is a TypeScript');
+    expect(scan!.architecture).toContain('peaks-loop is a TypeScript');
     expect(scan!.karpathySelfCheck.simpleFirst).toBe('800-line cap');
     expect(scan!.karpathySelfCheck.surgicalChanges).toBe('touch only what is asked');
     expect(scan!.karpathySelfCheck.goalDriven).toBe('ACs verify');

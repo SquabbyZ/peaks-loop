@@ -17,7 +17,7 @@ Do not ask follow-ups. Do not modify code.
 
 ## Target
 
-Commit 208fd34 on branch main of repo at C:\Users\smallMark\Desktop\peaks-cli.
+Commit 208fd34 on branch main of repo at C:\Users\smallMark\Desktop\peaks-loop.
 
 Run `git show 208fd34` to read the diff. Files changed:
 

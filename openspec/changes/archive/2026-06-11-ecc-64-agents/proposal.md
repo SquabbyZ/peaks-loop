@@ -3,7 +3,7 @@
 ## Why
 
 Per spec §7.2 line 818: "64 agents — Soft Optional — 装了 L3
-直接调; 不装 L3 退化到 peaks-cli 自有少数核心诊断". The 64
+直接调; 不装 L3 退化到 peaks-loop 自有少数核心诊断". The 64
 ECC agents (e.g. `security-reviewer`, `code-reviewer`,
 `typescript-reviewer`, `python-reviewer`) are npm-installable
 via `[ECC](https://github.com/affaan-m/everything-claude-code)`.
@@ -17,9 +17,9 @@ npx ecc agent run <agent-name> --target <path> --json   # run
 This slice adds the `peaks agent run` CLI surface that:
 1. Shells out to `npx ecc agent run <name> --target <path> --json`
    when ECC is installed and `agentShieldEnabled` preference is true.
-2. Falls back to peaks-cli's own minimal diagnostic (no-op
+2. Falls back to peaks-loop's own minimal diagnostic (no-op
    shell, JSON envelope) when ECC is missing or disabled.
-3. The peaks-cli's own doctor service already runs ~2 native
+3. The peaks-loop's own doctor service already runs ~2 native
    diagnostic checks (Slice 11); this slice does NOT replace
    those — it ADDS the ECC layer on top.
 
@@ -75,14 +75,14 @@ AgentShield wrapper from L2.3 P2-a):
 
 ## Spec reference (canonical)
 
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §7.2 line 818 (64 agents — Soft Optional)
-- `docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md`
+- `docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md`
   §7.2 line 832 (canonical subprocess contract)
 
 ## Out of scope
 
-- The peaks-cli native diagnostic core (Slice 11 already shipped
+- The peaks-loop native diagnostic core (Slice 11 already shipped
   2 diagnostic checks at `peaks doctor scan`).
 - Auto-installation of ECC (deferred; the user can install
   manually via the 4-option prompt).

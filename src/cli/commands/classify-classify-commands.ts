@@ -174,7 +174,7 @@ export function registerClassifyCommands(program: Command, io: ProgramIO): void 
   // Downgrade is REFUSED per spec §4. Surface this as a hard fail.
   classify
     .command('downgrade')
-    .description('REFUSED per spec §4 — peaks-cli never downgrades a classification; ask the user to override explicitly')
+    .description('REFUSED per spec §4 — peaks-loop never downgrades a classification; ask the user to override explicitly')
     .requiredOption('--level <level>', 'attempted level')
     .requiredOption('--reason <text>', 'reason for the attempt (always rejected)')
     .requiredOption('--project <path>', 'target project root')

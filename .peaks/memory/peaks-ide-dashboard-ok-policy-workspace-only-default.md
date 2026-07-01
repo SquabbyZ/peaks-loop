@@ -21,7 +21,7 @@ when the doctor aggregate is not green.
 
 The peaks-ide skill is the canonical "first run" / "switch IDE" surface
 (per `.peaks/memory/peaks-ide-skill-is-the-skill-first-pattern-5-step-flow-uses-existing-cli-primitives.md`).
-A new user adopting peaks-cli's IDE hooks should not be blocked by a
+A new user adopting peaks-loop's IDE hooks should not be blocked by a
 partial-failure doctor (e.g. a single non-blocking capability probe).
 The legacy `ok: doctor aggregate` semantics was too strict for a
 "first-run" skill and would have made the peaks-ide Step 1 read

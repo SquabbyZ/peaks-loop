@@ -1,7 +1,7 @@
 # Peaks Hooks — Output Contract & Audit
 
 **Status:** canonical (slice 003-2026-06-16-hook-governance)
-**Audience:** peaks-cli maintainers, hook authors, integrators
+**Audience:** peaks-loop maintainers, hook authors, integrators
 **Source of truth:** `src/services/hooks/output.ts` (TypeScript); this doc is the human-readable mirror. When the two diverge, the code wins; open a PR to update the doc.
 
 This doc is the single source of truth for the peaks hook output contract.

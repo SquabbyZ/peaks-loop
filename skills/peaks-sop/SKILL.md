@@ -3,9 +3,9 @@ name: peaks-sop
 description: Authoring skill for user-defined SOPs (standard operating procedures) in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow — ordered phases plus gates that block advancement until conditions are met — by describing it in natural language instead of hand-writing JSON or memorizing CLI commands. DOMAIN-AGNOSTIC: not just software/release flows — equally for content publishing, compliance and approval checklists, data pipelines, onboarding, ops runbooks, or any personal repeatable procedure, wherever "don't enter the next stage until X is true" applies and X is checkable via a file, file content, or a command.
 ---
 
-# Peaks-Cli SOP Authoring
+# Peaks-Loop SOP Authoring
 
-Peaks-Cli SOP turns a natural-language workflow description into a validated, registered custom SOP, then helps the user debug it until each gate behaves as intended. The user describes the process in plain language; this skill drives the `peaks sop` CLI on their behalf — they never have to hand-write `sop.json` or remember the command sequence.
+Peaks-Loop SOP turns a natural-language workflow description into a validated, registered custom SOP, then helps the user debug it until each gate behaves as intended. The user describes the process in plain language; this skill drives the `peaks sop` CLI on their behalf — they never have to hand-write `sop.json` or remember the command sequence.
 
 **This is a general workflow-gating tool, not a developer-only tool.** A SOP is any repeatable process with ordered stages where you must not skip ahead until conditions are met. Software release is just one example; content publishing, compliance/approval checklists, data validation pipelines, employee onboarding, ops runbooks, and personal procedures are all first-class — often the more valuable use. When you interview the user, do not assume code: ask about *their* process in *their* domain.
 
@@ -48,7 +48,7 @@ peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate startup
 peaks project memories --project <repo> --json
 ```
 
-Then display: `Peaks-Cli Skill: peaks-sop | Peaks-Cli Gate: startup | Next: <one short action>`. Update gates with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when they change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
+Then display: `Peaks-Loop Skill: peaks-sop | Peaks-Loop Gate: startup | Next: <one short action>`. Update gates with `peaks skill presence:set peaks-sop --project <repo> --mode <mode> --gate <gate>` when they change. When the SOP is registered and the user is satisfied, run `peaks skill presence:clear --project <repo>`.
 
 ## Responsibilities
 
@@ -186,13 +186,13 @@ peaks skill presence:clear --project <repo>
 
 You cannot declare a SOP ready from memory. Each gate below is a command you **MUST run** and whose output you **MUST see**.
 
-**Peaks-Cli Gate A — the manifest lints clean before register:**
+**Peaks-Loop Gate A — the manifest lints clean before register:**
 ```bash
 peaks sop lint --id <sop-id> --json
 # Expected: ok:true. If ok:false, fix the findings and re-lint — do NOT register a SOP that does not lint.
 ```
 
-**Peaks-Cli Gate B — gates behave as intended before handing off:**
+**Peaks-Loop Gate B — gates behave as intended before handing off:**
 ```bash
 peaks sop check --id <sop-id> --gate <gate-id> --project <repo> --json
 # Confirm each gate returns the verdict the user expects (pass on the good state, fail/blocked otherwise).

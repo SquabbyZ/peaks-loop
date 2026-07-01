@@ -7,7 +7,7 @@
 Every Playwright screenshot tool call (the LLM invokes `browser_take_screenshot` directly when the Playwright MCP is present in its tool list) **MUST** pass `filename` (in the args object) whose absolute path is **inside** `.peaks/_runtime/<sessionId>/qa/screenshots/`. Concrete form:
 
 ```bash
-# The LLM invokes this directly; peaks-cli is no longer the dispatcher.
+# The LLM invokes this directly; peaks-loop is no longer the dispatcher.
 # (This shape remains as documentation of the args schema.)
 browser_take_screenshot \
   --args '{"filename":"/abs/path/.peaks/_runtime/<sessionId>/qa/screenshots/<state>.png"}'
@@ -15,7 +15,7 @@ browser_take_screenshot \
 
 The default behaviour of Playwright MCP when `filename` is omitted or points outside that directory is to write a screenshot to the current working directory, which leaves `.png` files scattered at the project root. **This is a workflow violation.** If a screenshot does land outside `.peaks/_runtime/<session-id>/qa/screenshots/` for any reason (e.g. an upstream tool wrote there), QA MUST move it into that directory before declaring the test report complete; do not commit project-root `.png` files. Sanitise before retention: no login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material.
 
-This rule is enforced by a Peaks-Cli preflight check inside this skill:
+This rule is enforced by a Peaks-Loop preflight check inside this skill:
 
 ```bash
 # After every browser_take_screenshot batch and before declaring the test report complete:

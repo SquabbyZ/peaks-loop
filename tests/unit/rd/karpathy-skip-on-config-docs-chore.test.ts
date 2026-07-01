@@ -43,7 +43,7 @@ import {
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
 // `skills/peaks-rd/references/karpathy-reviewer-prompt.md` is a 2-line
-// pointer file (peaks-cli 2.0 rules convention). The canonical content
+// pointer file (peaks-loop 2.0 rules convention). The canonical content
 // lives at `agents/karpathy-reviewer.md`. AC-4.5 pins the canonical
 // content is unchanged — we assert against the canonical file.
 const KARPATHY_PROMPT_PATH = join(

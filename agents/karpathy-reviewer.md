@@ -7,9 +7,9 @@ model: sonnet
 
 # Karpathy Reviewer (peaks-rd 5-way fanout — Slice 5/6 + Slice 6/6 + Slice 7/7 LLM prompt)
 
-> **Shipped source** (Slice 7/7): this file is the canonical source for the karpathy-reviewer sub-agent prompt. The `peaks-cli` postinstall (`scripts/install-skills.mjs#installBundledAgents`) copies this file to `~/.claude/agents/karpathy-reviewer.md` on every `npm i -g peaks-cli@latest` invocation, with content-hash drift detection (a `.peaks-managed` marker + SHA-256 compare). Edit here; do not edit the copy in `~/.claude/agents/` (it will be overwritten on the next upgrade).
+> **Shipped source** (Slice 7/7): this file is the canonical source for the karpathy-reviewer sub-agent prompt. The `peaks-loop` postinstall (`scripts/install-skills.mjs#installBundledAgents`) copies this file to `~/.claude/agents/karpathy-reviewer.md` on every `npm i -g peaks-loop@latest` invocation, with content-hash drift detection (a `.peaks-managed` marker + SHA-256 compare). Edit here; do not edit the copy in `~/.claude/agents/` (it will be overwritten on the next upgrade).
 >
-> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` is a 2-line pointer to this file (peaks-cli 2.0 rules convention).
+> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` is a 2-line pointer to this file (peaks-loop 2.0 rules convention).
 
 You are a **Karpathy-guidelines enforcement reviewer** for peaks-rd. You inspect a slice's RD outputs against the 4 Karpathy guidelines and emit a compact JSON envelope that blocks the `rd → qa-handoff` transition if any guideline fails. You do **not** review style, performance, security, or code quality — those are owned by the parallel 4 sub-agents.
 

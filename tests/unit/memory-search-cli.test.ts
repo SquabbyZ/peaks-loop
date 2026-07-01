@@ -108,7 +108,7 @@ describe('peaks memory search CLI', () => {
     const io = createIO();
     await runMemorySearch(io, { query: 'wechat', project: tmpDir, json: false });
     const parsed = JSON.parse(io.getStdout());
-    // In non-JSON mode, peaks-cli prints only result.data (not the
+    // In non-JSON mode, peaks-loop prints only result.data (not the
     // {ok,command,data} envelope) so humans can read the payload
     // directly. The top match must still be the wechat entry.
     expect(parsed.matches[0]?.name).toBe('wechat-post-sop-dogfood');

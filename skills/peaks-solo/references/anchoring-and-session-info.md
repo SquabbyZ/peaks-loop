@@ -1,6 +1,6 @@
 # Step 0 — Anchor the workflow
 
-> Body of `### Peaks-Cli Step 0: Anchor the workflow`. The instant Peaks-Cli Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
+> Body of `### Peaks-Loop Step 0: Anchor the workflow`. The instant Peaks-Loop Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
 
 ```bash
 # Session ID is auto-generated when omitted; the command returns it in the JSON output.
@@ -27,8 +27,8 @@ peaks skill presence:set peaks-solo --project <repo> --gate startup
 If the bypass is not in effect (e.g. `.claude/` was read-only, or the user passed `--no-claude-hooks`, or the consumer manually deleted the file), the recovery flow is:
 
 1. Re-run `peaks workspace init --project <repo> --json` **without** `--no-claude-hooks`. The next-action list will say "Materialized .claude/settings.local.json (action: written/refreshed)". Restart Claude Code so the hook takes effect.
-2. If `.claude/` cannot be written (read-only mount, container with no write access, etc.), drop the contents of `.peaks/.claude-settings-template.json` into `.claude/settings.local.json` manually. The peaks-cli init always writes the offline template copy (regardless of `--no-claude-hooks`) so the user has a known source-of-truth on disk. After copying, restart Claude Code.
+2. If `.claude/` cannot be written (read-only mount, container with no write access, etc.), drop the contents of `.peaks/.claude-settings-template.json` into `.claude/settings.local.json` manually. The peaks-loop init always writes the offline template copy (regardless of `--no-claude-hooks`) so the user has a known source-of-truth on disk. After copying, restart Claude Code.
 
-**Anti-bail-out rule for the gate:** Do NOT skip Step 0 because the gate fired. The gate is a Claude Code core feature that peaks-cli cannot modify directly; peaks-cli can only sidestep it via the hook allow-list. If the gate still blocks Step 0 after the bypass is in effect, the user has a misconfigured `.claude/settings.json` upstream — surface that as a separate `AskUserQuestion` ("Your `.claude/settings.json` is overriding the local allow-list. May peaks-cli delete the local file and regenerate it?") rather than skipping Step 0.
+**Anti-bail-out rule for the gate:** Do NOT skip Step 0 because the gate fired. The gate is a Claude Code core feature that peaks-loop cannot modify directly; peaks-loop can only sidestep it via the hook allow-list. If the gate still blocks Step 0 after the bypass is in effect, the user has a misconfigured `.claude/settings.json` upstream — surface that as a separate `AskUserQuestion` ("Your `.claude/settings.json` is overriding the local allow-list. May peaks-loop delete the local file and regenerate it?") rather than skipping Step 0.
 
 `presence:set` accepts no `--mode` here on purpose — mode is unknown until Step 1. It is re-run with the selected mode in Step 2. Setting presence early guarantees the status header/line shows `peaks-solo` from the very first turn even if the user never reaches mode selection.

@@ -135,7 +135,7 @@ function stageProjectPackageJson(version: string): void {
   packageJsonBackup = fsActual.readFileSync(REAL_PACKAGE_JSON, 'utf8');
   fsActual.writeFileSync(
     REAL_PACKAGE_JSON,
-    JSON.stringify({ name: 'peaks-cli', version }, null, 2),
+    JSON.stringify({ name: 'peaks-loop', version }, null, 2),
   );
 }
 
@@ -151,7 +151,7 @@ describe('scripts/prepublish-build.mjs (v2.14.1)', () => {
       expect.objectContaining({ stdio: 'inherit' }),
     );
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('[prepublish-build] peaks-cli v2.14.1');
+    expect(result.stdout).toContain('[prepublish-build] peaks-loop v2.14.1');
     expect(result.stdout).toContain('[prepublish-build] build OK');
     expect(result.stderr).toBe('');
   });

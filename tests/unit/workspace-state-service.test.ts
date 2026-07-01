@@ -24,7 +24,7 @@ describe('isLegacyDecisionDotfile', () => {
 
   test('rejects non-decision dotfiles', () => {
     expect(isLegacyDecisionDotfile('package.json')).toBe(false);
-    expect(isLegacyDecisionDotfile('peaks-cli.md')).toBe(false);
+    expect(isLegacyDecisionDotfile('peaks-loop.md')).toBe(false);
   });
 });
 

@@ -45,7 +45,7 @@ describe('lint-catalog-governance — Theme G', () => {
     expect(lintCatalogProseOnlyRatio(0, 0)).toEqual([]);
   });
 
-  it('v2.12.1 baseline: peaks-cli catalog at 9/148 = 6.1% passes the 7% gate', () => {
+  it('v2.12.1 baseline: peaks-loop catalog at 9/148 = 6.1% passes the 7% gate', () => {
     // Post-reform baseline: 9 prose-only entries out of 148 total red lines.
     expect(lintCatalogProseOnlyRatio(148, 9)).toEqual([]);
   });

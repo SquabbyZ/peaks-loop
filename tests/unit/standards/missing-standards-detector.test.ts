@@ -133,7 +133,7 @@ describe('detectMissingProjectStandards — slice 2026-06-16-peaks-solo-auto-sca
   });
 
   test('does not require .peaks/standards/ to exist — that pointer system is orthogonal (R3)', () => {
-    // .peaks/standards/ may exist (peaks-cli 2.0 pointer) but the detector
+    // .peaks/standards/ may exist (peaks-loop 2.0 pointer) but the detector
     // must ONLY look at .claude/rules/. Create the pointer system and verify
     // the detector still reports missing when .claude/rules/ is empty.
     mkdirSync(join(project, '.peaks', 'standards'), { recursive: true });

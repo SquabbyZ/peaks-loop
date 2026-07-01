@@ -346,10 +346,10 @@ peaks gate bypass --sop <id> --phase <phase> --reason "<why>"
 
 ## 💬 加入微信交流群
 
-遇到使用问题、功能建议、或者想和other peaks-loop users直接交流？扫码加入 **Peaks-Cli** 微信群：
+遇到使用问题、功能建议、或者想和other peaks-loop users直接交流？扫码加入 **Peaks-Loop** 微信群：
 
 <div align="center">
-  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Cli 微信群二维码" width="240" />
+  <img src="./docs/images/wechat-group-qr.png" alt="Peaks-Loop 微信群二维码" width="240" />
 </div>
 
 > 二维码图片过期后，欢迎在 GitHub Issues / Discussions 提反馈。

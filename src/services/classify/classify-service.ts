@@ -1,7 +1,7 @@
 /**
  * L1a task classification service.
  *
- * Spec: docs/superpowers/specs/2026-06-11-peaks-cli-l1-l2-l3-redesign.md §4
+ * Spec: docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §4
  *
  * Hybrid mechanism: signal-based heuristic + user override + audit log.
  *

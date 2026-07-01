@@ -2,7 +2,7 @@
  * Unit tests for P2-a Theme C — output style enforcers.
  *
  * The enforcers scan a skill body for greeting/closing-prompt
- * fluff and a session log for the canonical Peaks-Cli status
+ * fluff and a session log for the canonical Peaks-Loop status
  * header.
  */
 import { describe, it, expect } from 'vitest';

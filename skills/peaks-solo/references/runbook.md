@@ -1,10 +1,10 @@
-# Peaks-Cli Default Runbook (orchestrator, full-auto profile)
+# Peaks-Loop Default Runbook (orchestrator, full-auto profile)
 
 > **Maintenance**: The numbered workflow list in `skills/peaks-solo/SKILL.md` (steps 0-11) is the canonical phase sequence. This runbook is the executable CLI transcription. When updating, keep both in lockstep — a change to one must be reflected in the other.
 >
 > **Why this is a reference, not inline**: the runbook is a stable, copy-pasteable shell (~150 lines of bash) that does not change between skill runs. Inlining it bloats the orchestrator skill body past the 800-line cap (per `common/coding-style.md`). Extracting it here keeps SKILL.md focused on flow / decisions / contracts, while the runbook stays as the canonical place for the CLI sequence.
 >
-> **How peaks-cli tooling reads this file**:
+> **How peaks-loop tooling reads this file**:
 > - `peaks skill runbook peaks-solo` (CLI) reads the `## Default runbook` section in either SKILL.md or `references/runbook.md` (whichever has the bash code).
 > - The test in `tests/unit/skill-default-runbook.test.ts` looks for `## Default runbook` in SKILL.md first, then falls back to `references/runbook.md` here.
 
@@ -19,21 +19,21 @@ peaks sub-agent dispatch <role> --prompt "<body>" --request-id <rid> --batch-id 
 ```
 
 ```bash
-# 0. Peaks-Cli Snapshot + 0.5 Peaks-Cli Workspace + 0.6 Peaks-Cli Project scan + 0.7 Peaks-Cli Existing-system extraction
+# 0. Peaks-Loop Snapshot + 0.5 Peaks-Loop Workspace + 0.6 Peaks-Loop Project scan + 0.7 Peaks-Loop Existing-system extraction
 peaks doctor --json
 peaks project dashboard --project <repo> --json
 peaks skill runbook peaks-solo --json
 peaks workspace init --project <repo> --json
 peaks workspace reconcile --project <repo> --json
 peaks scan archetype --project <repo> --json
-# → copy archetype, frontendOnly, signals into .peaks/_runtime/<session-id>/rd/project-scan.md (Peaks-Cli Gate A)
+# → copy archetype, frontendOnly, signals into .peaks/_runtime/<session-id>/rd/project-scan.md (Peaks-Loop Gate A)
 # → copy libraries[] into .peaks/_runtime/<session-id>/rd/project-scan.md under `## Library versions`
 peaks scan libraries --project <repo> --json
 # → if archetype != greenfield AND archetype != unknown:
 peaks scan existing-system --project <repo> --json
-# → copy tokens, sources, conventions, inconsistencies into .peaks/_runtime/<session-id>/system/existing-system.md (Peaks-Cli Gate A.5)
+# → copy tokens, sources, conventions, inconsistencies into .peaks/_runtime/<session-id>/system/existing-system.md (Peaks-Loop Gate A.5)
 
-# 1. Peaks-Cli Standards preflight + apply
+# 1. Peaks-Loop Standards preflight + apply
 #    Run dry-run first to inspect deltas, then APPLY. In full-auto and swarm modes,
 #    --apply is the default — Standards files (CLAUDE.md, .claude/rules/**) live INSIDE
 #    the target project and are required for downstream skill preflight, so producing
@@ -43,9 +43,9 @@ peaks standards init   --project <repo> --dry-run --json
 # or: peaks standards update --project <repo> --dry-run --json
 peaks standards init   --project <repo> --apply --json
 # or: peaks standards update --project <repo> --apply --json
-# After apply, verify the files actually exist on disk (see Peaks-Cli Gate G).
+# After apply, verify the files actually exist on disk (see Peaks-Loop Gate G).
 
-# 2. Peaks-Cli PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
+# 2. Peaks-Loop PRD (Assisted/Strict: [CONFIRM] before confirmed-by-user)
 # Classify the request type from the PRD: feature | bugfix | refactor | docs | config | chore
 # This drives RD/QA gate strictness — see "Mandatory RD QA repair loop" for the matrix.
 peaks request init --role prd --id <rid> --project <repo> --apply --type <type> --json
@@ -59,7 +59,7 @@ peaks request lint <rid> --role prd --project <repo> --json
 peaks request transition <rid> --role prd --state confirmed-by-user --project <repo> --json
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
-# 3. Peaks-Cli Default sub-agent fan-out (slice 5 contract)
+# 3. Peaks-Loop Default sub-agent fan-out (slice 5 contract)
 #    Solo computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
 #    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then writes the slice
 #    DAG to .peaks/_runtime/<sid>/sc/slice-dag.json and launches ONE
@@ -68,7 +68,7 @@ peaks request transition <rid> --role prd --state handed-off --project <repo> --
 #    same topological level — that is the canonical "fan-out" signal. The
 #    orchestrator emits N parallel `buildToolCall` descriptors in ONE response;
 #    the LLM-side runner executes them concurrently.
-#    See "Peaks-Cli Default sub-agent fan-out" above for the default rule and
+#    See "Peaks-Loop Default sub-agent fan-out" above for the default rule and
 #    exceptions; the gate logic is single-sourced in references/swarm-dispatch-contract.md.
 #    Hard rule: do NOT call Skill(skill="peaks-rd" | "peaks-qa" | "peaks-ui") from
 #    the Swarm phase — that's the v1.x anti-pattern. And do NOT issue N sequential
@@ -107,23 +107,23 @@ ls .peaks/_runtime/<sid>/qa/test-cases/<rid>.md                # QA test-cases (
 # ui (only when in plan):
 ls .peaks/_runtime/<sid>/ui/design-draft.md 2>&1               # non-blocking (Gate B info)
 # Apply the degradation rules in the main SKILL.md if any artefact is missing.
-# → Peaks-Cli Gate B convergence check. Assisted/Strict: [CONFIRM]
+# → Peaks-Loop Gate B convergence check. Assisted/Strict: [CONFIRM]
 
-# 4. Peaks-Cli RD planning artifact (the file required by the prerequisite gate)
+# 4. Peaks-Loop RD planning artifact (the file required by the prerequisite gate)
 #    feature / refactor → write .peaks/_runtime/<id>/rd/tech-doc.md
 #    bugfix             → write .peaks/_runtime/<id>/rd/bug-analysis.md
 #    config             → no planning artifact required at this state
 #    docs / chore       → no planning artifact required
 peaks request transition <rid> --role rd --state implemented --project <repo> --json
 
-# 5. Peaks-Cli Code review + security review BEFORE qa-handoff transition.
+# 5. Peaks-Loop Code review + security review BEFORE qa-handoff transition.
 #    Produce the evidence files the CLI gate enforces:
 #      - .peaks/_runtime/<id>/rd/code-review.md     (CRITICAL/HIGH findings + fixes; required for feature/bugfix/refactor)
 #      - .peaks/_runtime/<id>/rd/security-review.md (required for feature/bugfix/refactor/config)
 #    Then transition. If --type is docs/chore the gate is empty and the transition is unguarded.
 peaks request transition <rid> --role rd --state qa-handoff --project <repo> --json
 
-# 6. Peaks-Cli QA validation (AUTO-PROCEED from RD in full-auto)
+# 6. Peaks-Loop QA validation (AUTO-PROCEED from RD in full-auto)
 #    Before each QA transition, produce the evidence files the CLI gate enforces:
 #      Before qa:running        → .peaks/_runtime/<id>/qa/test-cases/<rid>.md
 peaks request transition <rid> --role qa --state running --project <repo> --json
@@ -131,9 +131,9 @@ peaks request transition <rid> --role qa --state running --project <repo> --json
 #                                 + .peaks/_runtime/<id>/qa/security-findings.md
 #                                 + .peaks/_runtime/<id>/qa/performance-findings.md (feature/refactor only)
 peaks request transition <rid> --role qa --state verdict-issued --project <repo> --json
-# → Peaks-Cli Gate D check. Assisted/Strict: [CONFIRM]
+# → Peaks-Loop Gate D check. Assisted/Strict: [CONFIRM]
 
-# 7. Peaks-Cli RD↔QA repair loop — if verdict is return-to-rd, re-run 4 through 6 until QA passes or blocked TXT.
+# 7. Peaks-Loop RD↔QA repair loop — if verdict is return-to-rd, re-run 4 through 6 until QA passes or blocked TXT.
 #    Before invoking peaks-rd again, check the cycle count so you don't blow past the cap silently:
 peaks request repair-status <rid> --project <repo> --json
 # → atCap=true → STOP and emit a blocked TXT handoff. Do NOT enter another cycle.
@@ -143,18 +143,18 @@ peaks request repair-status <rid> --project <repo> --json
 peaks scan request-type-sanity --project <repo> --type <type> --json
 # → consistent=false → RD scope-creeped during repair; review before re-handoff.
 
-# 8. Peaks-Cli SC phase
+# 8. Peaks-Loop SC phase
 peaks sc impact --change-id <cid> --module <module> --file <path> --json
 peaks sc retention --slice-id <rid> --prd <prd> --rd <rd> --qa <qa> --json
 peaks sc validate --slice-id <rid> --json
 peaks sc boundary --slice-id <rid> --artifact <artifact> --code <file> --json
 
-# 9. Peaks-Cli OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
+# 9. Peaks-Loop OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
 peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
 peaks workspace reconcile --project <repo> --apply --older-than 7
 
-# 10. Peaks-Cli TXT handoff — invoke peaks-txt which embeds memory markers and extracts
+# 10. Peaks-Loop TXT handoff — invoke peaks-txt which embeds memory markers and extracts
 #     peaks-txt writes the handoff capsule to .peaks/_runtime/<id>/txt/handoff.md. Inside the
 #     capsule body, peaks-txt embeds <!-- peaks-memory:start --> blocks for every
 #     stable project fact surfaced this session.
@@ -180,7 +180,7 @@ peaks memory extract --project <repo> --artifact .peaks/_runtime/<id>/txt/handof
 #      --apply is REQUIRED to write .peaks/memory/; without it the command only
 #      previews. The extract regenerates index.json in the same call.
 
-# 11. Peaks-Cli Final snapshot
+# 11. Peaks-Loop Final snapshot
 peaks project dashboard --project <repo> --json
 peaks skill doctor --json
 ```

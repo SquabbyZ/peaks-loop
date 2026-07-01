@@ -1,6 +1,6 @@
 ---
 name: v2-13-3-verdict-aggregator-v2-12-debt
-description: peaks-cli v2.13.3 ship state on 2026-06-28. v2.13.2 dogfood 抓 4 bug 全修: parseSecurity/Perf 真解析 v2.12.0 markdown / prepublishOnly build step / CLI surface warnings / handoff sha256 字段对齐. 162/162 PRD-targeted tests pass, 4 dogfood 0-2-tychetes, tsc 0. Carry-forward: v2.13.0 auto-compact 在 100% context 没救活 session (deferred to v2.14.0).
+description: peaks-loop v2.13.3 ship state on 2026-06-28. v2.13.2 dogfood 抓 4 bug 全修: parseSecurity/Perf 真解析 v2.12.0 markdown / prepublishOnly build step / CLI surface warnings / handoff sha256 字段对齐. 162/162 PRD-targeted tests pass, 4 dogfood 0-2-tychetes, tsc 0. Carry-forward: v2.13.0 auto-compact 在 100% context 没救活 session (deferred to v2.14.0).
 metadata:
   type: project
 ---
@@ -39,6 +39,6 @@ metadata:
 
 4. **pre-existing tokenizer.test.ts timeDecayScore flake** — 2.13.2 memory 已记, v2.14.0 应修.
 
-**Why:** Why I should remember this: v2.13.3 是 v2.13.0 (auto-compact) / v2.13.1 (verdict reasoning) / v2.13.2 (verdict fix) / v2.13.3 (parser + pipeline) 4 切片系列的第 4 个. 整 loop 走完: 1) v2.13.1 dogfood 抓 1 bug → 2.13.2 修 + 加 4 carry-forward; 2) v2.13.2 dogfood 抓 4 bug → 2.13.3 修; 3) v2.13.3 ship 时 user 报 context 100% auto-compact 没生效 → 2.14.0 backlog. 这是 peaks-cli 第一次连续 4 个 PATCH 都被 dogfood 抓到真实问题 → 是 v2.13.0 5/5-ac-via-2.13.1→2.13.3 收敛协议的胜利, 但也说明 13-case 单测覆盖远不够 (parser 漏了真实 markdown fixture).
+**Why:** Why I should remember this: v2.13.3 是 v2.13.0 (auto-compact) / v2.13.1 (verdict reasoning) / v2.13.2 (verdict fix) / v2.13.3 (parser + pipeline) 4 切片系列的第 4 个. 整 loop 走完: 1) v2.13.1 dogfood 抓 1 bug → 2.13.2 修 + 加 4 carry-forward; 2) v2.13.2 dogfood 抓 4 bug → 2.13.3 修; 3) v2.13.3 ship 时 user 报 context 100% auto-compact 没生效 → 2.14.0 backlog. 这是 peaks-loop 第一次连续 4 个 PATCH 都被 dogfood 抓到真实问题 → 是 v2.13.0 5/5-ac-via-2.13.1→2.13.3 收敛协议的胜利, 但也说明 13-case 单测覆盖远不够 (parser 漏了真实 markdown fixture).
 
 **How to apply:** When resuming v2.14.0, read this memory + 2.13.2 memory + 2.13.1 memory. 优先做: 1) v2.13.0 auto-compact 修 (用户 2026-06-28 反馈) 2) MUT_REPORT hard-fail 转换 3) 5 envelope schema unification (any 2 个) 4) prepublish mjs Windows fix.
