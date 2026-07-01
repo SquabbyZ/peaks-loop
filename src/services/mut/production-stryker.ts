@@ -3,6 +3,7 @@
  * Note: this is a thin wrapper — actual Stryker invocation requires the
  * Stryker config in `stryker.conf.js` to live at the project root.
  */
+import { relative, isAbsolute } from 'node:path';
 import type { StrykerInvoker, StrykerRawResult } from './mut-runner.js';
 
 // Stryker 8 MutantResult is the structural shape returned by
@@ -17,30 +18,21 @@ interface StrykerMutant {
   readonly statusReason?: string;
 }
 
-// Stryker accepts PartialStrykerOptions (DeepPartial<StrykerOptions>) where
-// StrykerOptions.mutate is `string[]`. ReadonlyArray<string> from
-// StrykerInvoker.testFiles is structurally assignable to string[], so the
-// spread below is the only conversion needed — no cast at the call site.
-type StrykerOptionsSubset = { mutate: string[] };
-
 export function createProductionStrykerInvoker(): StrykerInvoker {
-  return async ({ project, testFiles }) => {
+  return async ({ project, testFiles: _testFiles }) => {
     // Lazy-load Stryker so unit tests don't need it installed.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Stryker = (await import('@stryker-mutator/core')).Stryker;
-    const options: StrykerOptionsSubset = {
-      // Project-rooted config; explicit overrides here are minimal.
-      mutate: [...testFiles],
-    };
-    // Single cast derives from Stryker's actual constructor signature.
-    // Stryker 8's MutantResult extends our local StrykerMutant structurally.
-    const stryker = new Stryker(options as ConstructorParameters<typeof Stryker>[0]);
+    // Mutation surface is owned by stryker.conf.js. testFiles is a runtime
+    // hint (consumed by the configured testRunner, not by Stryker's `mutate`
+    // field — `mutate` is source files to mutate, never test paths).
+    const stryker = new Stryker({});
     const mutants = (await stryker.runMutationTest()) as ReadonlyArray<StrykerMutant>;
     return normalize(mutants, project);
   };
 }
 
-function normalize(mutants: ReadonlyArray<StrykerMutant>, _project: string): StrykerRawResult {
+function normalize(mutants: ReadonlyArray<StrykerMutant>, project: string): StrykerRawResult {
   let mutantsKilled = 0;
   let mutantsSurvived = 0;
   let mutantsTimeout = 0;
@@ -62,7 +54,13 @@ function normalize(mutants: ReadonlyArray<StrykerMutant>, _project: string): Str
     }
   >();
   for (const m of mutants) {
-    const file = m.fileName;
+    // Stryker 8 returns absolute paths in MutantResult.fileName. Strip the
+    // project root so byFile[].file is repo-relative (e.g. "src/services/loop/...").
+    // path.relative falls back to the absolute path when input is outside
+    // project, which is the safest failure mode.
+    const file = isAbsolute(m.fileName) && m.fileName.startsWith(project)
+      ? relative(project, m.fileName)
+      : m.fileName;
     let bucket = byFile.get(file);
     if (!bucket) {
       bucket = { killed: 0, survived: 0, survivedEntries: [] };
