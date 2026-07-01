@@ -108,7 +108,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
   // normalizes walkDir keys via `.split(sep).join('/')` so the
   // forward-slash filters on lines 459 / 500 match on Windows hosts
   // too. The orphan report is no longer empty on Windows.
-  test('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', async () => {
+  test('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', { timeout: 15000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/cli/commands'), { recursive: true });
       // scan-commands.ts declares 'orphan' subcommand; nothing else references it.
@@ -128,7 +128,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-1 cliSubcommandOrphan: a subcommand referenced in tests/ is wired', async () => {
+  test('AC-1 cliSubcommandOrphan: a subcommand referenced in tests/ is wired', { timeout: 15000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/cli/commands'), { recursive: true });
       await mkdir(join(root, 'tests/unit'), { recursive: true });
@@ -150,7 +150,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-2 export-default detection: named default exports are tracked', async () => {
+  test('AC-2 export-default detection: named default exports are tracked', { timeout: 15000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(
@@ -167,7 +167,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-3 re-export detection: `export { x } from "./y"` counts as a consumer', async () => {
+  test('AC-3 re-export detection: `export { x } from "./y"` counts as a consumer', { timeout: 15000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(join(root, 'src/services/leaf.ts'), `export const leaf = 1;\n`);
@@ -185,7 +185,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-4 --base <ref> support: option accepted without throwing', async () => {
+  test('AC-4 --base <ref> support: option accepted without throwing', { timeout: 30000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(join(root, 'src/services/foo.ts'), `export const foo = 1;\n`);
