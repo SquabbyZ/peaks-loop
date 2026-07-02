@@ -30,7 +30,13 @@ const EXTERNAL_TOKENS = [
 const DISCOVERY_PATTERN = /(capability discovery|peaks capabilities)/i;
 const REFERENCE_ONLY_PATTERN = /(reference(s)? only|reference material|reference resources|reference inputs)/i;
 const NO_EXECUTE_PATTERN = /(do not execute upstream|do not run upstream installer|do not persist sensitive examples|do not install upstream resources)/i;
-const PEAKS_AUTHORITATIVE_PATTERN = /(Peaks(?:-Cli)? [\w \-/]+(remain|are) authoritative|Peaks(?:-Cli)? [\w \-/]+acceptance authority|Peaks(?:-Cli)? artifacts remain authoritative|Peaks(?:-Cli)? gates remain authoritative)/i;
+// v3.0.0+ canonical: repo renamed peaks-cli → peaks-loop (commit 87a2643).
+// PEAKS_AUTHORITATIVE_PATTERN accepts "Peaks", "Peaks-Cli" (back-compat
+// for any pre-rename doc still using the old name), and "Peaks-Loop"
+// (the canonical product name). Test asserts that any skill
+// referencing external skills explicitly notes that peaks-loop's
+// artifacts / gates / acceptance authority is authoritative.
+const PEAKS_AUTHORITATIVE_PATTERN = /(Peaks(?:-Cli|-Loop)? [\w \-/]+(remain|are) authoritative|Peaks(?:-Cli|-Loop)? [\w \-/]+acceptance authority|Peaks(?:-Cli|-Loop)? artifacts remain authoritative|Peaks(?:-Cli|-Loop)? gates remain authoritative)/i;
 
 async function readSkillBody(name: string): Promise<string> {
   return readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
