@@ -280,6 +280,36 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(section).toMatch(/peaks memory extract/);
     expect.soft(section).toMatch(/--dry-run/);
   });
+
+  test('Solo SKILL.md declares Step 11 Memory sediment as BLOCKING (slice 2026-07-03-solo-memory-sediment)', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
+
+    // Step 11 section must exist with a recognizable heading
+    expect.soft(body).toMatch(/^##\s+Peaks-Loop Step 11:?\s*Memory sediment/m);
+    // Must be marked BLOCKING
+    expect.soft(body).toMatch(/BLOCKING/);
+    // Must reference the canonical artifact-scoped CLI
+    expect.soft(body).toMatch(/peaks memory extract/);
+    // Must mention --apply (without --apply nothing lands in .peaks/memory/)
+    expect.soft(body).toMatch(/--apply/);
+    // Must NOT point LLM at the conflicting batch-scoped CLI as the Step 11 command.
+    // Explanatory mentions are OK (e.g. "not `peaks project memories:extract`"),
+    // but a code-fenced `peaks project memories:extract --session-id ...` invocation
+    // would re-introduce the LLM-confusion bug we just fixed.
+    expect.soft(body).not.toMatch(/```[\s\S]*?peaks project memories:extract[\s\S]*?```/);
+  });
+
+  test('Solo runbook references memory extract with --apply (not just --dry-run) so it actually writes .peaks/memory/', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'references', 'runbook.md'), 'utf8');
+
+    // The Step 10/11 TXT handoff + memory sediment block must include a --apply
+    // invocation; otherwise the LLM-only-dry-runs contract silently writes
+    // nothing. (slice 2026-07-03-solo-memory-sediment)
+    expect.soft(body).toMatch(/peaks memory extract[^\n]*--apply/);
+    // Also assert assisted-mode is no longer skipped
+    expect.soft(body).toMatch(/assisted/i);
+    expect.soft(body).toMatch(/BLOCKING/);
+  });
 });
 
 describe('audit: destructive --apply commands carry an authorization or dry-run note', () => {

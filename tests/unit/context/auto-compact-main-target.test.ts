@@ -1,17 +1,25 @@
 /**
- * Slice 2026-06-28-solo-mode-bypass-fix (defect #4).
+ * Slice 2026-06-28-solo-mode-bypass-fix (defect #4) +
+ * slice 2026-07-02-auto-compact-zero-pause.
  *
  * Pins the contract that `dispatchIdeCompact` honours the `target`
  * parameter:
- *   - target='main' + claude-code → defer to llm-self-compress (write
- *     intent; main LLM fires `/compact` on next turn).
+ *   - target='main' + claude-code → ide-native pathway (PreToolUse
+ *     hook install at `.claude/settings.local.json`; next Bash/Task
+ *     tool call from the runner fires `claude --compact` in-band).
  *   - target='main' + non-claude-code → noop + warning.
  *   - target='sub-agent' + claude-code → shell-spawn legacy.
  *
  * Also pins the orchestrator contract that when target='main', an
  * intent record is written under
  * `.peaks/_runtime/<sessionId>/txt/auto-compact-pending.json` so the
- * next main-session LLM turn fires `/compact` in-band.
+ * next main-session LLM turn reads the convergence plan.
+ *
+ * History: pre-2026-07-02 the main + claude-code pathway was
+ * `llm-self-compress` (a soft hint to the LLM to fire `/compact`
+ * on its next turn). The slice 2026-07-02 fix replaces that with
+ * the `ide-native` pathway so the runner compacts ITSELF instead
+ * of relying on the LLM to remember the hint.
  */
 
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -35,7 +43,7 @@ const CLAUDE_CODE_ENV = { CLAUDE_CODE_ENTRYPOINT: 'cli' } as NodeJS.ProcessEnv;
 
 describe('auto-compact target — slice 2026-06-28-solo-mode-bypass-fix', () => {
   describe('dispatchIdeCompact', () => {
-    it('main + claude-code returns llm-self-compress', async () => {
+    it('main + claude-code returns ide-native pathway', async () => {
       const result = await dispatchIdeCompact({
         projectRoot,
         sessionId: 'sess-1',
@@ -43,7 +51,7 @@ describe('auto-compact target — slice 2026-06-28-solo-mode-bypass-fix', () => 
         target: 'main'
       });
       expect(result.ok).toBe(true);
-      expect(result.pathway).toBe('llm-self-compress');
+      expect(result.pathway).toBe('ide-native');
       expect(result.ide).toBe('claude-code');
     });
 
@@ -75,7 +83,7 @@ describe('auto-compact target — slice 2026-06-28-solo-mode-bypass-fix', () => 
         sessionId: 'sess-1',
         env: CLAUDE_CODE_ENV
       });
-      expect(result.pathway).toBe('llm-self-compress');
+      expect(result.pathway).toBe('ide-native');
     });
   });
 

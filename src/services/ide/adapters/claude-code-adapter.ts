@@ -49,18 +49,30 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     gateEnforce: true,
     statusline: true,
   },
-  // v2.13.0 AC-1 + AC-3 MVP: Claude Code is the first IDE to fill
-  // the `compact` profile. Future adapters (trae / codex / cursor /
-  // qoder / tongyi-lingma / hermes / openclaw) follow the same
-  // shape — peaks-loop reads the env-var and dispatches the
-  // command via `IdeAdapter.compact`, with zero hard-coded IDE
-  // names anywhere in the orchestrator. If your IDE exposes a
-  // context-percent env-var and a slash-style compact command,
-  // register `compact` here and the auto-compact protocol activates.
+  // v2.13.0 AC-1 + AC-3 MVP, slice 2026-07-02-auto-compact-zero-pause:
+  // Claude Code is the first IDE to fill the `compact` profile.
+  // Future adapters (trae / codex / cursor / qoder / tongyi-lingma /
+  // hermes / openclaw) follow the same shape — peaks-loop reads the
+  // env-var and dispatches the command via `IdeAdapter.compact`, with
+  // zero hard-coded IDE names anywhere in the orchestrator. If your
+  // IDE exposes a context-percent env-var and a slash-style compact
+  // command, register `compact` here and the auto-compact protocol
+  // activates.
+  //
+  // Pathway = 'ide-native' (not 'shell-exec') so the dispatcher
+  // routes main-session compacts through the PreToolUse hook in
+  // `.claude/settings.local.json`. The hook fires
+  // `peaks session auto-compact-hook` on the NEXT Bash/Task tool
+  // call from the runner, which in-band spawns `claude --compact`
+  // against the CURRENT runner — not a child process (the
+  // shell-exec spawn-new-claude bug documented in
+  // `.peaks/memory/2026-06-27-auto-compact-design.md:139-152`).
+  // Sub-agent shells still get the legacy shell-exec pathway via
+  // `dispatchIdeCompact({ target: 'sub-agent' })`.
   compact: {
     envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
     compactCommand: 'claude --compact',
-    compactPathway: 'shell-exec',
+    compactPathway: 'ide-native',
     postCompactDetectCommand: 'peaks context now --json'
   },
   // Slice #011: standards profile. Claude Code reads its constitution at

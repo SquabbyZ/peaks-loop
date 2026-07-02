@@ -14,6 +14,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 // saw them — they were effectively hidden.
 import { registerSessionCheckpointCommand } from '../session-checkpoint-command.js';
 import { registerSessionResumeCommand } from '../session-resume-command.js';
+import { registerSessionAutoCompactHookCommand } from '../session-auto-compact-hook-command.js';
 import type { BindingSource } from './doctor-command.js';
 
 export function registerSessionCommand(program: Command, io: ProgramIO): void {
@@ -215,6 +216,11 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   // `<TAB>`-discovery and the LLM never saw them.
   registerSessionCheckpointCommand(session, io);
   registerSessionResumeCommand(session, io);
+  // Slice 2026-07-02-auto-compact-zero-pause: the Bash command the
+  // PreToolUse hook in `.claude/settings.local.json` fires. Keeping
+  // it eager (same fix as checkpoint + resume) so `peaks session --help`
+  // lists it for LLM `<TAB>`-discovery.
+  registerSessionAutoCompactHookCommand(session);
 
   addJsonOption(
     session

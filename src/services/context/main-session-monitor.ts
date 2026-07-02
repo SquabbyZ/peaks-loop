@@ -92,6 +92,18 @@ export function detectIdeFromEnv(env: NodeJS.ProcessEnv = process.env): IdeKind 
  * Threshold check. Pure function (no IO). `capacityBytes` is injectable
  * for tests and future per-IDE capacity overrides. Defaults to the
  * G9 256K proxy (matches G9 for cognitive continuity).
+ *
+ * @deprecated Slice 2026-07-02-auto-compact-zero-pause: the
+ * 50/75/90 tier thresholds pre-date the v2.13.0 auto-compact
+ * design. The authoritative tier table for triggering compaction
+ * now lives in `evaluateCompactTrigger` (auto-compact-orchestrator.ts)
+ * with the 0.85 pre-compact / 0.95 red-line thresholds. New
+ * callers should call `evaluateCompactTrigger(ratio)` directly.
+ * This function is retained because legacy `peaks context check
+ * --prompt-size` still emits its 4-tier envelope for callers that
+ * need the soft signal (e.g. statusline display). Migration is
+ * scheduled for v2.15.0; the @deprecated tag flips callers'
+ * eslint warnings so the migration is mechanical.
  */
 export function evaluateMainSessionThreshold(
   promptSize: number,

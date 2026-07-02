@@ -5,21 +5,17 @@ description: Full-auto orchestration facade for the Peaks-Loop skill family. Use
 
 ## Single-scope-axis naming convention (2.7.1)
 
-> **Read once at the top of this file.**
-
 The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). The change-id axis is gone as of slice `2026-06-29-change-id-root-removal` — reviewable artifacts now live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored) with the change-id optionally embedded as a filename slug. CLI surface: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched.
 
 **2.7.1:** `recordBypass` / `isBypassLimitReached` had a legacy write path that bypassed `.peaks/_runtime/` (slice 2.7.1 fix in `request-commands.ts:410`). Now writes canonical `.peaks/_runtime/<sid>/`. `getChangeArtifactRoot` removed. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
 
+## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
+
+Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Append the verbatim block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" to the dispatch prompt; never silently drop it. Canonical skill id: `andrej-karpathy-skills:karpathy-guidelines`. Summary: **#1 Think Before Coding** (surface assumptions, name tradeoffs), **#2 Simplicity First** (min code, no speculative features, 800-line file cap), **#3 Surgical Changes** (touch only what the request requires), **#4 Goal-Driven Execution** (verifiable ACs, plan + verify checkpoints).
+
 ## Hard ban (effective 2.8.3 — read every session, no exceptions)
 
 Never create `.peaks/_runtime/<YYYY-MM-DD-*>/` at the top level of `.peaks/`. The post-v2.19.0 single-scope-axis convention requires ALL reviewable artifact dirs to live under `.peaks/_runtime/<sessionId>/<role>/...` (gitignored) — never as siblings of `.peaks/_runtime/`. The `peaks workspace init` flow creates only `.peaks/_runtime/<sessionId>/session.json`; reviewable artifact files are placed under that same dir by the writer. The change-id is preserved as an optional filename slug inside `.peaks/_runtime/<sessionId>/<role>/requests/<rid>-<change-id>.md` but does NOT route filesystem writes. If you find yourself about to write a date-prefixed directory directly under `.peaks/`, STOP and reroute under `.peaks/_runtime/<sessionId>/`. The `.gitignore` rule `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` will block the write at commit time; the vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases, including CLI help-text) will fail the suite if a regression sneaks through.
-
-## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
-
-> **Read once per Solo invocation; the 4 Karpathy guidelines are mandatory context for every sub-agent Solo dispatches.**
-
-Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`) MUST receive the 4 Karpathy guidelines. Append the verbatim block from `peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context" to the dispatch prompt; never silently drop it. Canonical skill id: `andrej-karpathy-skills:karpathy-guidelines`. Summary: **#1 Think Before Coding** (surface assumptions, name tradeoffs), **#2 Simplicity First** (min code, no speculative features, 800-line file cap), **#3 Surgical Changes** (touch only what the request requires), **#4 Goal-Driven Execution** (verifiable ACs, plan + verify checkpoints).
 
 # Peaks-Loop Solo
 
@@ -31,56 +27,25 @@ Peaks-Loop Solo is the orchestration facade for the Peaks-Loop short skill famil
 
 ## Skill-first architecture note (read once, internalise)
 
-This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** — invoked by the skill prompt only when a primitive is the right tool (atomic side effect, machine-enforced gate, structured JSON for a downstream decision, or backstop the LLM cannot skip). Behaviour only an LLM in a skill prompt would use lives **here in the SKILL.md**, not as a new CLI command.
+This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** — invoked by the skill prompt only when a primitive is the right tool. Behaviour only an LLM in a skill prompt would use lives **here in the SKILL.md**.
 
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
-**Peaks-Loop Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
-
-Every code change — bugfix, feature, refactor, or config — MUST go through the full pipeline:
-
-```
-peaks-solo (orchestrate only)
-  → RD work   ← ALL code changes happen HERE
-    → Unit tests written + pass (Peaks-Loop Gate B2)
-    → Karpathy standards enforced (file-size ≤800 lines, TypeScript rules)
-    → Code review evidence (Peaks-Loop Gate B3)
-    → Security review evidence (Peaks-Loop Gate B4)
-  → QA work  ← ALL validation happens HERE
-    → Functional test execution (Peaks-Loop Gate A2)
-    → Performance check (Peaks-Loop Gate A4)
-    → Security test (Peaks-Loop Gate A3)
-    → Browser E2E (when frontend; Peaks-Loop Gate D)
-    → Verdict: pass | return-to-rd | blocked
-```
-
-**Mechanism for "RD work" / "QA work" depends on the orchestration mode:** `full-auto`/`swarm` use `peaks sub-agent dispatch <role>` (IDE-agnostic dispatch primitive); `assisted`/`strict`/inline-fallback executes inline. In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contracts. **Never bypass the role contracts regardless of which path runs.**
-
-**Violations (BLOCKING — Solo must refuse to proceed):**
-
-1. Writing implementation code directly instead of routing through the RD contract
-2. Declaring work "done" without producing QA evidence after RD
-3. Skipping unit tests ("it's a small change")
-4. Skipping code review or security review
-5. Skipping QA functional/performance/security validation
-
-**If you catch yourself about to write code in this skill, STOP. Hand off to the RD contract path immediately** (sub-agent Task in full-auto, inline execution in assisted/strict).
-
-**Before declaring workflow complete, run:** `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`
+**Peaks-Loop Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-solo → RD → QA → verdict`. `full-auto`/`swarm` use `peaks sub-agent dispatch <role>`; `assisted`/`strict`/inline-fallback executes inline. Both follow `peaks-rd` + `peaks-qa` contracts. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
 
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 
 ### Peaks-Loop Slice 011 — workspace consolidate + session checkpoint/resume
 
-`peaks workspace consolidate` is the slice-011 umbrella primitive. `peaks session checkpoint` (proactive context-overflow defense) and `peaks session resume` (cross-session continuity) are surfaced in SKILL.md as Step 0.75 and Step N headings (slice 2.5.0, sub-fix A). See `references/cross-date-session-check.md` for the umbrella. IDE-agnostic.
+`peaks workspace consolidate` is the slice-011 umbrella primitive. `peaks session checkpoint` (context-overflow defense) and `peaks session resume` surface as Step 0.75 + Step N. See `references/cross-date-session-check.md`.
 
 ### Peaks-Loop Step 0.75: Resume from checkpoint (BLOCKING on same-day re-invocation)
 
-When a NEW conversation opens on a session whose `lastActivity` is from today AND `.peaks/_runtime/<sessionId>/checkpoints/` contains at least one `*.json`, surface the most recent checkpoint. Run `peaks session info --active --json` to resolve the canonical session id, then `peaks session resume --from <path> --project <repo>` to emit a markdown "resume context" block. Prompt the user via IDE-native `AskUserQuestion` (resume / start fresh), and if "resume", prepend the emitted block to its own prompt. Honors the user choice on "fresh" — the on-disk checkpoint stays untouched. Step 0.75 is a no-op if any precondition fails (no sid, wrong day, no checkpoint). Full probe + decision tree: `references/checkpoint-resume.md`.
+When a NEW conversation opens on a session whose `lastActivity` is from today AND `.peaks/_runtime/<sessionId>/checkpoints/` contains a `*.json`, surface via `peaks session info --active --json` + `peaks session resume --from <path> --project <repo>`. Prompt via `AskUserQuestion` (resume / fresh); if "resume", prepend the block. Honors "fresh" — on-disk checkpoint stays untouched. Step 0.75 is no-op on precondition fail. See `references/checkpoint-resume.md`.
 
 ### Peaks-Loop Step N: Periodic checkpoint (auto-fire, no user action)
 
-Proactive defense vs context overflow. CLI: `peaks session checkpoint [--reason <r>] [--session-id <sessionId>] [--project <p>] [--current-plan <text>] [--open-questions <list>] [--recent-decisions <list>] [--recent-artifact-paths <list>] [--git-status <text>] [--skills-active <list>] [--todo-state <list>] [--json]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write, `--reason context-fill` when full, `--reason user-pause` on save, `--reason user-close` before handoff. 20-call cadence locked here + `references/periodic-checkpoint.md` (otherwise `tests/unit/solo/checkpoint-periodic-frequency.test.ts` fails).
+Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write, `--reason context-fill` / `user-pause` / `user-close` as appropriate. 20-call cadence locked; see `references/periodic-checkpoint.md` (otherwise `tests/unit/solo/checkpoint-periodic-frequency.test.ts` fails).
 
 ### Peaks-Loop Step 0.5: OpenSpec first-run opt-in (conditional)
 
@@ -90,21 +55,21 @@ Run when `openspec/` is absent and `.peaks/.peaks-openspec-opt-in.json` is missi
 
 ### Peaks-Loop Step 0.6: Audit + Goal (NEW)
 
-After human expresses need, invoke peaks-audit to summarize + multi-dim audit + propose goal. Display audit + goal to human for one-shot approval. Store approved goal at `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. **All subsequent autonomous work requires an approved goal.**
+Invoke peaks-audit after need expressed; store approved goal at `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. **All autonomous work requires approved goal.** (v2.15.0+ business vs tech goal separated; see `.peaks/memory/peaks-loop-user-role-and-tech-decision.md`.)
 
-> **v2.15.0+ 校准:** 业务 goal 与技术 goal 必须分离,user 不被推到技术决策位。详见 `.peaks/memory/peaks-loop-user-role-and-tech-decision.md`。
-
-→ see `references/audit-goal-gate.md` for the full Step 0.6 contract.
+→ see `references/audit-goal-gate.md`.
 
 ### Peaks-Loop Step N+1: Final Review (NEW)
 
-After all autonomous LLM work (RD, QA, security, perf) completes, invoke peaks-final-review to prepare 4-dim evidence. Display evidence to human for judgment. If all 4 dims pass → final delivery. If any fail → loop back with feedback.
+After autonomous work (RD, QA, security, perf), invoke peaks-final-review for 4-dim evidence. All 4 pass → final delivery; else loop back. See `references/final-review-gate.md`.
 
-→ see `references/final-review-gate.md` for the full Step N+1 contract.
+### Peaks-Loop Step N+2: Main-session context monitor (D6 + slice 2026-07-02)
 
-### Peaks-Loop Step N+2: Main-session context monitor (v2.11.0 D6)
+After every 4th tool call, probe via `peaks solo context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0).
 
-After every 4th tool call (complement to Step N), probe via `peaks context check --prompt-size <bytes> --auto-trigger --json`. Thresholds: 50% soft warn / 75% user red line (return trigger path, do NOT auto-execute — Karpathy §4) / 90% emergency. Use `--in-flight-batch` to defer until batch converges (D6.e). Companion to Step N (soft signal); D6 is the hard signal.
+**≥ 0.85**, LLM MUST fire `peaks solo auto-compact --execute --project <repo>` autonomously (zero-human-intervention). **≥ 0.95** red line: next Bash/Task tool call fires `peaks session auto-compact-hook` (PreToolUse), which in-band spawns `claude --compact` against the **current** runner.
+
+**Karpathy §4 exception**: compact red line keeps runner alive → zero-intervention wins. LLM does NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
@@ -170,19 +135,15 @@ Peaks-Loop Solo must NOT silently install hooks, create agents, enable MCP serve
 
 ## Peaks-Loop GStack integration
 
-Map gstack stages to Peaks-Loop role artifacts; preserve confirmation gates. Do not delegate orchestration to gstack commands. RD and QA use Playwright MCP for browser E2E.
-
-→ see `references/gstack-integration.md` and `references/browser-workflow.md`.
+Map gstack stages to Peaks-Loop role artifacts; preserve confirmation gates. → `references/gstack-integration.md` + `references/browser-workflow.md`.
 
 ## Peaks-Loop Local intermediate artifact workspace (MANDATORY)
 
-The workspace is created in Step 0 as a mandatory first action. All intermediate artifacts land under `.peaks/_runtime/<sessionId>/`. NEVER write Peaks-Loop intermediate artifacts to the project root directory.
+Step 0 creates the workspace; all intermediate artifacts land under `.peaks/_runtime/<sessionId>/`. NEVER write Peaks-Loop intermediate artifacts to the project root directory.
 
 ## Peaks-Loop Pre-RD project scan checklist (MANDATORY)
 
-Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/_runtime/<sessionId>/rd/project-scan.md`. The project-scan checklist (archetype detection, build-tool / component-library / CSS-framework / state-routing-data tables, legacy signals, artifact template) lives in the references file.
-
-→ see `references/project-scan-checklist.md` for the checklist.
+Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/_runtime/<sessionId>/rd/project-scan.md`. → `references/project-scan-checklist.md`.
 
 ## Peaks-Loop Frontend-only development mode
 
@@ -249,31 +210,59 @@ Five CLI commands harden the workflow against silent skips: `peaks request lint`
 
 After final validation, refresh project-local standards via `peaks standards init/update` (never hand-write). Use Peaks-Loop TXT for the compact handoff capsule: mode, validated decisions, artifact paths, standards deltas, open questions, next action. **Presence management is delegated to the last downstream skill** — peaks-solo does not call `peaks skill presence:clear` itself.
 
+## Peaks-Loop Step 11: Memory sediment (BLOCKING on workflow complete)
+
+> **Hard rule.** Solo MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` (the durable, LLM-authored memory store) OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. This applies to **all modes** including `assisted` and `strict` — `assisted` previously skipped Step 10 because there was no `[CONFIRM]` gate; Step 11 fixes that.
+
+### Substeps (BLOCKING)
+
+**11a — Gate A (txt/ inventory):**
+
+```bash
+find .peaks/_runtime/<sessionId>/txt/ -type f -name '*.md' | head
+```
+
+If **0 files** → STOP. Dispatch `peaks-txt` first to write `handoff.md`, then return to 11c.
+
+**11b — Gate B (memory block embed scan, skill-side only):**
+
+```bash
+grep -c 'peaks-memory:start' .peaks/_runtime/<sessionId>/txt/handoff.md || true
+```
+
+If **0 AND this session surfaced a stable project fact** (decision / convention / approved refactor / hard rule), STOP and tell peaks-txt to embed at least one `<!-- peaks-memory:start -->` block first.
+
+**11c — Canonical extract (the only CLI that writes `.peaks/memory/`):**
+
+```bash
+peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json
+```
+
+`--apply` is REQUIRED. Without it the command only previews — no files land in `.peaks/memory/`.
+
+**11d — Gate C (zero-write outcome):** If `extractedCount === 0` after 11c, fire AskUserQuestion:
+
+> "本次 solo 未沉淀任何 `.peaks/memory` 文件。可选: (a) 回去在 handoff.md 嵌入至少 1 个 `peaks-memory:start` block 后重试; (b) 显式接受 no-sediment 并记录为 lesson; (c) 取消完成。"
+
+Default option = (a). Solo MUST NOT silently accept (b) without user pick.
+
+**Why this step exists:** audit 2026-07-03 confirmed 2 consecutive sessions produced zero `.peaks/memory/` files despite completing RD + QA + handoff artifacts. Root cause: `assisted` mode silently skipped runbook Step 10 (no STOP condition). Step 11 makes the BLOCKING semantics explicit. **Why `peaks memory extract` (not `peaks project memories:extract`):** the artifact-scoped extract is the canonical command next to its capsule; the batch-scoped sibling is for non-handoff flows (out of scope). For Step 11, **always** use `peaks memory extract --apply`.
+
 ## Peaks-Loop External references and lifecycle
 
-3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7) follow Discovery → Reference → Side effect through Peaks CLI only. Before naming external skills, run `peaks capabilities` for capability discovery; treat all external skills as reference material only. Peaks-Loop artifacts and ACs remain authoritative; do not execute upstream installers; MCP servers (Playwright / Chrome DevTools / Figma) are user-installed — check the tool list for `mcp__<server>__*` entries.
-
-→ see `references/external-references.md` and `references/external-skill-invocation.md`.
+3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7) follow Discovery → Reference → Side effect through Peaks CLI only. Run `peaks capabilities` for capability discovery; treat external skills as reference material only. MCP servers (Playwright / Chrome DevTools / Figma) are user-installed — check the tool list for `mcp__<server>__*` entries. → `references/external-references.md` + `references/external-skill-invocation.md`.
 
 ## Codegraph orchestration context
 
-`peaks codegraph affected` is an optional project-analysis enhancement; treat output as untrusted supporting evidence. Solo must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings, Claude settings, or hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/_runtime/<sessionId>/rd/codegraph-context.md`; QA / TXT consume the same envelope in the role handoff.
-
-→ see `references/codegraph-orchestration.md`.
+`peaks codegraph affected` is an optional project-analysis enhancement (untrusted supporting evidence) used during role handoff. Solo must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings / Claude settings / hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/_runtime/<sessionId>/rd/codegraph-context.md`; QA / TXT consume the same envelope. → `references/codegraph-orchestration.md`.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
-Layer 3.5 context-governance push for sub-agent dispatch. Main LLM reducer sees metadata-only view (~200 chars/sub-agent); on-demand `Read` for full content. Threshold table: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject (CLI + hook double-guard). See `references/context-governance.md` for the full protocol.
+Main LLM reducer sees metadata-only view (~200 chars/sub-agent); on-demand `Read` for full content. Threshold table: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject (CLI + hook double-guard). → `references/context-governance.md`.
 
 ## Sub-agent cross-batch signal — G8.4 share / shared-read / await (slice 2026-06-23-audit-3rd)
 
-Three CLI primitives let sibling sub-agents coordinate within a batch without peer-to-peer messaging. LLM-invoked from peaks-rd / peaks-qa / peaks-ui / peaks-txt skills.
-
-- **`peaks sub-agent share --batch <id> --key <role>.<event> --value <json> [--from <role>]`** — write to per-batch channel (≤ 1KB warn, ≥ 64KB reject). Last-write-wins.
-- **`peaks sub-agent shared-read --batch <id> [--since <iso>] [--key <glob>]`** — read sibling entries (glob `*`).
-- **`peaks sub-agent await --batch <id> [--timeout <ms>]`** — block until batch finishes (claude-code 1.2 MVP; other IDEs LLM-side await).
-
-Channel file gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
+Three CLI primitives let sibling sub-agents coordinate within a batch without peer-to-peer messaging: `peaks sub-agent share / shared-read / await` (last-write-wins channel ≤ 1KB warn / ≥ 64KB reject). Channel file gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
 
 ## References
 

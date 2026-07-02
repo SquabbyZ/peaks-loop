@@ -12,7 +12,12 @@ peaks-solo does NOT itself call `peaks skill presence:clear --project <repo>` at
 
 The user can continue with follow-up requirements naturally — no need to re-invoke `/peaks-solo` to do so. The header continues to display whatever skill is active; the user can `/peaks-solo` again to re-anchor.
 
-Before ending, extract durable memories from this session:
-```bash
-peaks project memories:extract --session-id <session-id> --project <repo> --json
-```
+Before ending, extract durable memories from this session.
+
+> **Owned by runbook Step 10 (TXT handoff) + Step 11 (Memory sediment in SKILL.md).** Do not duplicate the CLI invocation here — the canonical command is:
+>
+> ```bash
+> peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json
+> ```
+>
+> `peaks project memories:extract` is a different (batch-scoped, no-artifact) CLI used in non-handoff flows. Step 11 in SKILL.md enforces the artifact-scoped path; follow that.

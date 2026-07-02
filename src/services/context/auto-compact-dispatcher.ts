@@ -136,16 +136,36 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
         timeoutMs
       });
     case 'ide-native':
-      // Future slice: write the compact intent to the IDE's hook
-      // file (per `IdeSettingsLocation`). For v2.13.0 MVP the
-      // shell-exec pathway covers Claude Code; this branch stays
-      // reserved.
-      return {
-        ok: false,
-        ide: ideId,
-        pathway: 'ide-native',
-        message: `ide-native compact pathway is reserved for a future slice; adapter '${ideId}' should declare shell-exec or llm-self-compress for now.`
-      };
+      // Slice 2026-07-02-auto-compact-zero-pause: write the auto-compact
+      // PreToolUse hook into `.claude/settings.local.json`. The hook
+      // command (`peaks session auto-compact-hook`) reads
+      // `CLAUDE_CONTEXT_USAGE_PERCENT` on every subsequent Bash/Task
+      // tool call from the runner and, at ratio ≥ 0.95, in-band spawns
+      // `claude --compact` against the CURRENT runner (not a child
+      // process — the bug documented in
+      // `.peaks/memory/2026-06-27-auto-compact-design.md:139-152`).
+      //
+      // `ide-native` is ONLY for the main-session runner. When the
+      // caller is a sub-agent shell (which has its own ephemeral
+      // context window — not the runner's), fall through to
+      // shell-exec so the sub-agent's `compactCommand` spawns a
+      // child claude process and the sub-agent's own runner doesn't
+      // get a PreToolUse hook installed in the wrong place.
+      if (target === 'sub-agent') {
+        return await dispatchShellExec({
+          ideId,
+          command: profile.compactCommand,
+          timeoutMs
+        });
+      }
+      // Lazy install: we only get here when the caller explicitly
+      // invokes `peaks solo auto-compact --execute`, so the user has
+      // already opted in. No zero-touch surprise on workspace init.
+      return await dispatchIdeNativeHook({
+        projectRoot: input.projectRoot,
+        sessionId: input.sessionId,
+        target
+      });
     case 'llm-self-compress':
       return {
         ok: true,
@@ -228,4 +248,39 @@ function dispatchShellExec(input: {
       });
     });
   });
+}
+
+/**
+ * Slice 2026-07-02-auto-compact-zero-pause: implement the
+ * `ide-native` pathway. Writes the auto-compact PreToolUse hook
+ * into `.claude/settings.local.json` (idempotent; the install
+ * service is a no-op if the hook is already present). On the next
+ * Bash/Task tool call from the runner, the hook fires
+ * `peaks session auto-compact-hook` which in-band spawns
+ * `claude --compact` against the CURRENT runner session.
+ *
+ * Returns `ok: true, pathway: 'ide-native'` regardless of install
+ * action (`installed` vs `already-installed`) — both states
+ * achieve the operational goal: the hook is wired and the next
+ * Bash call will trigger it.
+ */
+async function dispatchIdeNativeHook(input: {
+  projectRoot: string;
+  sessionId: string;
+  target: CompactTarget;
+}): Promise<CompactDispatchResult> {
+  // Lazy dynamic import — matches the existing pattern in
+  // `runAutoCompact` for `auto-compact-reader.ts` (line 311) and
+  // avoids a static cycle if future slices add cross-imports
+  // between dispatcher and hook-install.
+  const { installAutoCompactHook } = await import('../hooks/auto-compact-hook-install.js');
+  const result = installAutoCompactHook({ projectRoot: input.projectRoot });
+  return {
+    ok: true,
+    ide: 'claude-code',
+    pathway: 'ide-native',
+    message: result.action === 'installed'
+      ? `Auto-compact PreToolUse hook installed at ${result.settingsPath}. Next Bash/Task tool call will read CLAUDE_CONTEXT_USAGE_PERCENT and compact in-band at ratio ≥ 95%.`
+      : `Auto-compact PreToolUse hook already installed at ${result.settingsPath}; next Bash/Task tool call will trigger compact in-band at ratio ≥ 95%.`
+  };
 }

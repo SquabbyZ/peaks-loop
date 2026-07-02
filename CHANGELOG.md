@@ -1,5 +1,36 @@
 # Changelog
 
+## [3.0.3] — 2026-07-02 — auto-compact zero-pause (ide-native pathway)
+
+**PATCH bump from 3.0.2**. Closes the user-pause gap on long Claude Code sessions: at context ratio ≥ 0.95 the runner now compacts itself via a PreToolUse hook, no human intervention required.
+
+### Added — `ide-native` pathway + `peaks session auto-compact-hook`
+
+The v2.13.0 auto-compact design shipped `shell-exec` as the only pathway, which spawns a NEW claude child process and cannot compact the current runner. Long-task users hit a UX gap: AI CLI still stopped and asked the human to run `/compact` manually.
+
+- **New `ide-native` pathway** — `src/services/context/auto-compact-dispatcher.ts:138-155` routes main-session compacts through `installAutoCompactHook`, which writes a PreToolUse hook into `.claude/settings.local.json` (matcher `Bash|Task`, command `peaks session auto-compact-hook`).
+- **New `peaks session auto-compact-hook` CLI** — `src/cli/commands/session-auto-compact-hook-command.ts`. Reads `CLAUDE_CONTEXT_USAGE_PERCENT`; below 0.95 exits 0 silent; at ratio ≥ 0.95 spawns `claude --compact` in-band against the **current** runner (detached + unref, never blocks the runner's tool call). ENOENT-safe: if `claude` is not on PATH (e.g. user runs Claude Code as an MCP), the hook logs a stderr hint and exits 0 silent rather than crashing the runner.
+- **New `installAutoCompactHook` / `removeAutoCompactHook` service** — `src/services/hooks/auto-compact-hook-install.ts`. Idempotent: re-install returns `already-installed` and does NOT re-write the file; remove preserves other PreToolUse entries (the existing fact-forcing bypass hook on every peaks-loop consumer project survives).
+- **Lazy install** — hook is installed on first `peaks solo auto-compact` invocation, NOT on `peaks workspace init`. User has opted in by running the command; no zero-touch surprise.
+- **Claude Code adapter** — `compactPathway` changed from `shell-exec` to `ide-native` for `target='main'`. Sub-agent shells still get the legacy `shell-exec` pathway.
+
+### Fixed — Solo Step N+2 prose (was 75% / "do NOT auto-execute")
+
+- `skills/peaks-solo/SKILL.md` Step N+2 paragraph rewritten: thresholds now 0.85 pre-compact / 0.95 red-line (matches v2.13.0 auto-compact), explicit Karpathy §4 compact-red-line exception cited, `peaks solo context-now --json` is the canonical probe primitive (replaces `peaks context check --prompt-size <bytes>` hand-pass).
+- `src/services/context/main-session-monitor.ts` — `@deprecated` JSDoc on `evaluateMainSessionThreshold` cross-links to `evaluateCompactTrigger` (0.85/0.95); legacy 4-tier envelope retained for statusline callers (migration to v2.15.0).
+
+### Tests — 4 new suites + 3 modified files
+
+- `tests/unit/services/hooks/auto-compact-hook-install.test.ts` (7 cases) — install / idempotent / remove / preservation of unrelated entries.
+- `tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts` (9 cases) — `dispatchIdeCompact({ target: 'main' })` routes to `ide-native`; round-trip install / remove.
+- `tests/unit/skills/solo-step-n-plus-2-prose.test.ts` (6 cases) — pins the 0.85 / 0.95 / Karpathy §4 contract; asserts `75%` is NOT in the paragraph.
+- `tests/unit/cli/session-auto-compact-hook-command.test.ts` (3 cases) — dogfood surfacing: below-threshold silent, missing env-var silent, red-line + ENOENT exits 0 with stderr hint.
+- `tests/unit/services/context/main-session-monitor.test.ts` (+2 AC-4 cases), `tests/unit/context/auto-compact-main-target.test.ts` (pathway assertion updated) — coverage.
+
+### Dogfood verified
+
+Validated on `C:/Users/smallMark/Desktop/peaksclaw/ice-cola` (consumer project). End-to-end: install hook alongside existing fact-forcing bypass → idempotent re-run → below-threshold silent → red-line + no-claude-on-PATH exits 0 with hint → remove strips only the auto-compact matcher. No regressions in 5,139 / 5,158 vitest pass.
+
 ## [3.0.2] — 2026-07-02 — change-id shim retirement (v2.19.0) + Understand Anything hybrid context (3.0.2)
 
 **PATCH bump from 3.0.1**. Two independent slices bundled into one release:

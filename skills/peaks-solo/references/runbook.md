@@ -154,10 +154,11 @@ peaks openspec validate <cid> --project <repo> --json
 peaks openspec archive <cid> --project <repo> --apply --json
 peaks workspace reconcile --project <repo> --apply --older-than 7
 
-# 10. Peaks-Loop TXT handoff — invoke peaks-txt which embeds memory markers and extracts
+# 10. Peaks-Loop TXT handoff — invoke peaks-txt which embeds memory markers (BLOCKING)
 #     peaks-txt writes the handoff capsule to .peaks/_runtime/<id>/txt/handoff.md. Inside the
 #     capsule body, peaks-txt embeds <!-- peaks-memory:start --> blocks for every
-#     stable project fact surfaced this session.
+#     stable project fact surfaced this session. Applies to ALL modes including
+#     `assisted` (audit 2026-07-03 found `assisted` previously skipped this step).
 #
 # 10a. Skill-side scan (do this BEFORE the AskUserQuestion below):
 #      grep -n "peaks-memory:start" .peaks/_runtime/<id>/txt/handoff.md

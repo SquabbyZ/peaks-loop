@@ -137,7 +137,7 @@ peaks project dashboard --project . --json   # one-shot project view
 
 **3 solo wrappers + 7 role skills + 2 standalone audits + 1 orchestrator = 13 skills.** In daily use, 1 skill (`peaks-solo`) covers ≥ 90% of needs.
 
-> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-loop probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention. **v2.13.4 fix**: auto-compact now targets the **main-session** context (not a sub-agent shell) by writing a `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` intent file that the main-session LLM picks up on its next turn and fires `/compact` in-band.
+> **v2.13.0**: zero-human-intervention **auto-compact** (`peaks solo context-now` + `peaks solo auto-compact`) — peaks-loop probes context-fill % autonomously. ≥85% writes a pre-compact checkpoint + convergence plan + dispatches IDE compact. ≥95% forces a synchronous RED-LINE compact. The LLM-runner stays alive with context < 95% without human intervention. **v2.13.4 fix**: auto-compact now targets the **main-session** context (not a sub-agent shell). **3.0.3 new `ide-native` pathway**: installs a PreToolUse hook into `.claude/settings.local.json` (`Bash|Task` matcher → `peaks session auto-compact-hook`); the runner's next Bash/Task tool call in-band spawns `claude --compact`, no longer relying on the LLM to remember to fire `/compact`. Hook is ENOENT-safe (exits 0 + stderr hint if `claude` is not on PATH; runner is never interrupted).
 
 ## 🚧 Killer feature: un-bypassable gates
 

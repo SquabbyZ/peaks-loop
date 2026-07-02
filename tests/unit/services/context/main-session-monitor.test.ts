@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, test } from 'vitest';
+import { readFileSync } from 'node:fs';
 
 import {
   detectIdeFromEnv,
@@ -148,6 +149,34 @@ describe('detectIdeFromEnv — env var matrix', () => {
   test('no recognized env → unknown', () => {
     expect(detectIdeFromEnv({})).toBe('unknown');
     expect(detectIdeFromEnv({ PATH: '/usr/bin' })).toBe('unknown');
+  });
+});
+
+describe('evaluateMainSessionThreshold — tier mapping + @deprecated marker (AC-4)', () => {
+  test('tier mapping: 30% ok / 50% soft-warn / 75% near-limit / 80% near-limit / 95% emergency', () => {
+    expect(evaluateMainSessionThreshold(PROMPT_30_PERCENT).tier).toBe('ok');
+    expect(evaluateMainSessionThreshold(PROMPT_50_PERCENT).tier).toBe('soft-warn');
+    expect(evaluateMainSessionThreshold(PROMPT_75_PERCENT).tier).toBe('near-limit');
+    expect(evaluateMainSessionThreshold(PROMPT_80_PERCENT).tier).toBe('near-limit');
+    expect(evaluateMainSessionThreshold(PROMPT_95_PERCENT).tier).toBe('emergency');
+  });
+
+  test('@deprecated JSDoc is present on evaluateMainSessionThreshold (AC-4)', () => {
+    // Source-of-truth check via static file read — survives renaming
+    // the symbol but keeps the contract honest if a future refactor
+    // strips the marker.
+    const source = readFileSync(
+      new URL('../../../../src/services/context/main-session-monitor.ts', import.meta.url),
+      'utf8'
+    );
+    // Match the JSDoc block immediately above the function signature
+    // (`/** ... */` ending just before `export function ...`).
+    const jsdocBlock = source.match(/\/\*\*[\s\S]*?\*\/[\s\n]+export function evaluateMainSessionThreshold/);
+    expect(jsdocBlock).not.toBeNull();
+    expect(jsdocBlock![0]).toMatch(/@deprecated/);
+    expect(jsdocBlock![0]).toContain('evaluateCompactTrigger');
+    expect(jsdocBlock![0]).toContain('0.85');
+    expect(jsdocBlock![0]).toContain('0.95');
   });
 });
 

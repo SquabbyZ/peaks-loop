@@ -175,7 +175,7 @@ peaks project dashboard --project . --json   # 当前项目一眼看完
 
 **3 solo 包装 + 7 角色技能 + 2 独立审计 + 1 编排器 = 13 个。日常 1 个 `peaks-solo` 覆盖 ≥ 90%。**
 
-> **v2.13.0 新增**：zero-human-intervention **auto-compact**（`peaks solo context-now` + `peaks solo auto-compact`）——peaks-loop 自己探测 context %，≥85% 主动收敛（写 checkpoint + 收敛计划 + 触发 IDE compact），≥95% 强制同步压缩红线。LLM-runner 上下文始终 < 95% 自主运行，零介入。**v2.13.4 修复**：`auto-compact` 现在默认压缩**主会话**上下文（不是 sub-agent shell 自己的），通过写 `.peaks/_runtime/<sid>/txt/auto-compact-pending.json` 意图文件让主 LLM 下一轮 in-band 触发 `/compact`。
+> **v2.13.0 新增**：zero-human-intervention **auto-compact**（`peaks solo context-now` + `peaks solo auto-compact`）——peaks-loop 自己探测 context %，≥85% 主动收敛（写 checkpoint + 收敛计划 + 触发 IDE compact），≥95% 强制同步压缩红线。LLM-runner 上下文始终 < 95% 自主运行，零介入。**v2.13.4 修复**：`auto-compact` 现在默认压缩**主会话**上下文（不是 sub-agent shell 自己的）。**3.0.3 新增 `ide-native` 通路**：在 `.claude/settings.local.json` 装 PreToolUse hook（`Bash|Task` matcher → `peaks session auto-compact-hook`），runner 下一次 Bash/Task tool call **in-band** 触发 `claude --compact`，不再依赖 LLM 自己 fire `/compact`。Hook ENOENT-safe（claude CLI 不在 PATH 时退出 0 + stderr 提示，runner 不会被中断）。
 
 ## 🚧 杀手锏：不可绕过的门禁
 
