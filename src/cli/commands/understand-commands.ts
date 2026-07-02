@@ -1,5 +1,6 @@
 import { Command, InvalidArgumentError } from 'commander';
 import { scanUnderstandAnything, summarizeKnowledgeGraph } from '../../services/understand/understand-scan-service.js';
+import { buildUnderstandContext } from '../../services/understand/understand-hybrid-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { UaOptInPrompt } from '../../services/understand/understand-types.js';
@@ -14,6 +15,14 @@ type UnderstandShowOptions = {
   project: string;
   artifactDir?: string;
   sample?: number;
+  json?: boolean;
+};
+
+type UnderstandContextOptions = {
+  project: string;
+  artifactDir?: string;
+  sample?: number;
+  files?: string[];
   json?: boolean;
 };
 
@@ -149,6 +158,48 @@ export function registerUnderstandCommands(program: Command, io: ProgramIO): voi
       printResult(
         io,
         fail('understand.opt-in', 'UNDERSTAND_OPTIN_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path']),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  // Slice 2026-07-02-codegraph-ua-hybrid: hybrid context subcommand.
+  // Routes UA-first / codegraph-fallback / hybrid in the service layer;
+  // the CLI is a thin shell that surfaces the envelope and exit code.
+  addJsonOption(
+    understand
+      .command('context')
+      .description('Build a hybrid project-context envelope: UA knowledge graph when present, codegraph affected as fallback, or both in parallel')
+      .requiredOption('--project <path>', 'target project root')
+      .option('--artifact-dir <path>', 'override the default .understand-anything directory')
+      .option('--sample <n>', 'maximum number of sample node ids to include (default 5)', parsePositiveInteger)
+      .option('--files <file...>', 'file globs to feed `codegraph affected` (default: src/index.ts, package.json, README.md)')
+  ).action(async (options: UnderstandContextOptions) => {
+    try {
+      const ctxOptions: Parameters<typeof buildUnderstandContext>[0] = { projectRoot: options.project };
+      if (options.artifactDir !== undefined) ctxOptions.artifactDir = options.artifactDir;
+      if (options.sample !== undefined) ctxOptions.sampleSize = options.sample;
+      if (options.files !== undefined) ctxOptions.files = options.files;
+      const result = await buildUnderstandContext(ctxOptions);
+      const exitCode = result.source === 'both-missing' ? 2 : 0;
+      if (exitCode !== 0) {
+        printResult(
+          io,
+          fail('understand.context', 'UNDERSTAND_CONTEXT_NO_EVIDENCE', `No UA graph and codegraph affected produced no usable evidence`, result, [
+            INSTALL_HINT,
+            'Run `peaks codegraph index` in this project to populate the codegraph index, then retry'
+          ]),
+          options.json
+        );
+        process.exitCode = exitCode;
+        return;
+      }
+      printResult(io, ok('understand.context', result, [], result.warnings.length > 0 ? result.warnings : undefined), options.json);
+    } catch (error) {
+      printResult(
+        io,
+        fail('understand.context', 'UNDERSTAND_CONTEXT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and codegraph installation before retrying']),
         options.json
       );
       process.exitCode = 1;
