@@ -1,8 +1,12 @@
 # Changelog
 
-## [Unreleased] — 2026-06-29 — change-id shim (cleanup post v2.17.0 hard-kill)
+## [3.0.2] — 2026-07-02 — change-id shim retirement (v2.19.0) + Understand Anything hybrid context (3.0.2)
 
-**MINOR bump target: v2.19.0**. Full removal of the peaks-loop change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched. One cleanup slice that retires the v2.17.0 shim half-life.
+**PATCH bump from 3.0.1**. Two independent slices bundled into one release:
+- **v2.19.0 change-id shim retirement** — full removal of the peaks-loop change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). The change-id was a no-op post-v2.17.0 hard-kill; this slice retires the v2.17.0 shim half-life. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched.
+- **3.0.2 Understand Anything hybrid context** — new `peaks understand context` subcommand that encapsulates the UA-first / codegraph-fallback / hybrid-union routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture). Consumers no longer pick one or the other at the LLM level.
+
+The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore *not* a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
 
 ### Removed — change-id shim (cleanup post v2.17.0 hard-kill)
 
@@ -70,7 +74,38 @@
 - Existing RD/QA artifacts in `.peaks/_runtime/<sid>/<role>/` remain readable; the planner no longer requires a change-id, and the change-id (if any) is embedded only as a filename slug.
 - The 2.8.3 hard-ban on `.peaks/_runtime/<YYYY-MM-DD-*>/` sibling directories is still enforced via the rewritten guard test and the inline `lstatSync` in `initWorkspace`.
 
-## [2.18.4] — 2026-06-29 — peaks-solo first-run step gates: hard-pause 1.x→2.0 upgrade + make `--mode` optional on Step 1
+## [3.0.2] — 2026-07-02 — change-id shim retirement (v2.19.0) + Understand Anything hybrid context (3.0.2)
+
+**PATCH bump from 3.0.1**. Two independent slices bundled into one release:
+- **v2.19.0 change-id shim retirement** — full removal of the peaks-loop change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). The change-id was a no-op post-v2.17.0 hard-kill; this slice retires the v2.17.0 shim half-life. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched.
+- **3.0.2 Understand Anything hybrid context** — new `peaks understand context` subcommand that encapsulates the UA-first / codegraph-fallback / hybrid-union routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture). Consumers no longer pick one or the other at the LLM level.
+
+The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore *not* a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
+
+### Added — `peaks understand context` (3.0.2 user-facing feature)
+
+The Understand Anything (UA) Claude Code plugin and `@colbymchenry/codegraph` are both complementary project-analysis tools. UA provides a high-level knowledge graph (tours, layers, expert prompts); codegraph provides low-level affected-file analysis. Until 3.0.2, peaks-loop consumers had to choose one or the other at the LLM level — there was no service-layer enforcement of either.
+
+This slice adds a single `peaks understand context` subcommand that encapsulates the routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture — see `peaks-solo` SKILL.md). The envelope carries a `source` tag so downstream consumers can audit which evidence contributed to the context.
+
+**Source routing** (deterministic, decided in `buildUnderstandContext`):
+- `ua-only` — UA knowledge graph present, no codegraph
+- `ua-missing-fallback-codegraph` — UA absent, codegraph produced evidence
+- `ua-and-codegraph-hybrid` — both present, both contribute (parallel `Promise.all`)
+- `both-missing` — neither produced evidence, exit code 2
+
+**Added files (5):**
+- `src/services/understand/understand-hybrid-service.ts` (133L, new): `buildUnderstandContext({projectRoot, files?, sampleSize?, artifactDir?, codegraphRunner?})` uses `Promise.all` to run UA scan and codegraph affected in parallel; total wall-clock = `max(uaMs, codegraphMs)`, not sum. Failures are caught into `warnings[]` (best-effort); the main envelope is always returned so consumers can audit missing evidence.
+- `src/services/understand/hybrid-types.ts` (39L, new): `UnderstandContextResult` envelope + 4-value source enum + `CodegraphContextBlock`.
+- `src/cli/commands/understand-commands.ts` (208L, +51L net): new `peaks understand context` subcommand at base path `admin/audit-logs` (the only 3rd CLI surface in the understand module family). The subcommand accepts `--project --files --sample --artifact-dir` and emits the envelope as JSON or human-readable summary.
+- `tests/unit/understand-hybrid-service.test.ts` (110L, 4 cases): `ua-only` / `fallback` / `hybrid` / `both-missing`.
+- `tests/integration/understand-hybrid-cli.test.ts` (85L, 3 cases): end-to-end CLI both-missing / ua-only / envelope-shape-stability.
+
+**Test evidence:** 7/7 vitest (4 unit + 3 integration), `tsc --noEmit` clean.
+
+The peak-loop skill-external-invocation audit pattern (capability discovery + references only + do-not-execute + Peaks authoritative) is preserved: codegraph is consumed via the existing `executeCodegraphInvocation` (no upstream installer calls); UA installation is a text `INSTALL_HINT` only.
+
+### Removed — change-id shim (cleanup post v2.17.0 hard-kill, rolled up from v2.19.0)
 
 **PATCH bump from 2.18.3**. Resolves the user-reported "新项目第一次使用 peaks-solo 时初始化完不按流程走、开发效果差、再开 session 后才正常" defect. Two surgical fixes to the first-run Solo gates (3 source files, 1 new test file, 2 test-regression updates; no schema change, no new dependencies, no public API change).
 
