@@ -187,3 +187,18 @@ peaks skill doctor --json
 ```
 
 Repair loop details: see `## Mandatory RD QA repair loop` in SKILL.md for the full 5-step procedure and the 3-cycle cap. Append transition notes via `--reason` rather than rewriting artifacts during repair cycles.
+
+```bash
+
+# Peaks-Loop Default runbook — Job path (excerpt; full flow in references/job-loop.md)
+
+# After Step 7 (RD+QA commit) lands AND the user request was Job-shaped (Step 0.8 triggered):
+peaks job checkpoint --slice-id <rid> --state done --commit-sha $(git rev-parse HEAD)
+peaks job status --job-id <jid> --json
+peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87 gate
+# Loop control:
+#   remaining > 0  → return to Step 1 (next slice)
+#   remaining == 0 → Step 8/9/10/11 (original tail)
+#   blocked (strict) → peaks job block + STOP
+# Rotating-mode: every rotateEvery slices → Step 0.86 (peaks session rotate + resume)
+```

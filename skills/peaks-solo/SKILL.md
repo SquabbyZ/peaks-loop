@@ -97,6 +97,71 @@ Per the "one-key completion" tenet, peaks-loop 2.0 detects 1.x consumers and pro
 
 → see `references/step-0-55-1x-detection.md` for the detection algorithm + AskUserQuestion options + persistence contract.
 
+### Peaks-Loop Step 0.8 — Job 启动
+
+Trigger: the user request mentions N parallel targets (subdirectories, submodules, files), or words like "全部完成" / "until all done" / "all of them", or disavows cost/length ("不用 care 费用" / "don't worry about cost" / "一直跑").
+
+Action:
+1. Parse or auto-derive the slice list. Verbatim if user-named, else `peaks scan project-tree --slice-on <boundary>`.
+2. Choose `--main-loop-strategy`: `len(slices) ≤ 2` → `single`; `≥3` → `rotating` (hard default).
+3. Call `peaks job init --job-id <jid> --slice-list <...> --main-loop-strategy rotating --rotate-every 3`.
+4. Enter Step 1 with the Job's first slice as the active rid.
+
+Single-target requests: Step 0.8 is a no-op. Continue with the standard single-rid runbook.
+
+### Peaks-Loop Step 0.81 — per-slice 收尾
+
+After each slice's commit (Step 7 lands a commit):
+1. `peaks job checkpoint --slice-id <rid> --state done --commit-sha $(git rev-parse HEAD)`
+2. `peaks job status --job-id <jid>`
+3. Loop control: `remaining > 0` → return to Step 1; `remaining == 0` → Step 8/9/10/11; `any blocked (strict)` → Step 0.85.
+
+### Peaks-Loop Step 0.85 — slice 阻塞处理
+
+Trigger: `peaks request repair-status --rid <rid>` returns `atCap: true`, OR `peaks solo context-now` is red-line sustained ≥5 min, OR `peaks job subagent-cleanup --force` fails twice.
+
+Action: `peaks job block --slice-id <rid> --reason "<precise reason>"` then STOP. Output a TXT-style handoff describing the block + job state.
+
+### Peaks-Loop Step 0.86 — main session rotation (rotating mode only)
+
+Active when `--main-loop-strategy rotating`. Fires every `rotateEvery` slices (default 3) AND on demand via `peaks job rotate-now` if context pressure is rising faster than cadence.
+
+Sequence:
+1. `peaks session cycle-summary --job-id <jid> --summary "..." --json`
+2. (bump state) `peaks job checkpoint --slice-id <rotate-marker> --state done --commit-sha <n/a>`  ← internal marker
+3. `peaks session rotate --project <repo> --json`
+4. Next user turn starts fresh main LLM session; Solo re-anchors via `peaks session resume --job-id <jid>`.
+
+### Peaks-Loop Step 0.87 — sub-agent cleanup gate
+
+After every `peaks sub-agent dispatch --batch-id <id>` inside a Job, BEFORE the next slice checkpoint:
+1. `peaks job subagent-cleanup --job-id <jid> --batch-id <id> --force`
+2. If cleanup exits non-zero → `peaks job block --reason "sub-agent cleanup failed: <batch-id>"`. Do NOT mark slice done until cleanup is clean.
+
+### Peaks-Loop Job — Visibility prose
+
+The Job loop is foreground. Three visibility layers, all on by default:
+1. **LLM-runner transcript** — primary surface; user reads the chat to see active step.
+2. **`peaks job status --watch`** — terminal poll, ANSI bar, refresh every 3 s.
+3. **Statusline** — ambient `job: <jid> [done/total] currentSlice ETA m:s context main%. cycle`.
+
+No detached workers, no `nohup`, no `disown`. Any attempt to spawn a background job → red line violation → block.
+
+### Peaks-Loop Job — Red lines (9 hard rules)
+
+The LLM-runner MUST NOT:
+1. Enter Step 11 / write final handoff while job has remaining slices.
+2. Re-ask the user about cost / length / context.
+3. Coalesce multiple slices into one rid.
+4. Modify a committed slice (`git commit --amend` on `done`).
+5. Fake completion (CLI verifies commit-sha exists in git log).
+6. Use detached / background / daemon-mode sub-agents inside a Job.
+7. Skip `peaks job subagent-cleanup` between dispatch and slice checkpoint.
+8. Skip or postpone a scheduled `peaks session rotate`.
+9. Suppress visibility — no silencing statusline / `--watch`.
+
+Violations trigger a `peaks job block` event with the specific red-line number.
+
 ### Peaks-Loop Step 1: Mode selection
 
 Use `AskUserQuestion` with `Full auto (Recommended)` as the first option when EITHER the user did not name a profile OR the recorded skill presence is stale (v2.15.0 slice 002 AC-2: run `peaks skill presence:check-stale --project <path> --json` first; `stale: true` ⇒ re-ask. `peaks solo should-pause --step step-1-mode-select` returns `reason: 'stale-presence'` in this case).
@@ -297,6 +362,7 @@ Index of every `references/` file. Read on demand.
 | `references/refactor-mode.md` | Refactor mode + red lines. |
 | `references/resume-detection.md` | Step 0.7 unfinished-work. |
 | `references/runbook.md` | End-to-end CLI sequence. |
+| `references/job-loop.md` | Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 deep-dive. |
 | `references/skill-presence-and-title.md` | Step 2 + Step 2.5. |
 | `references/standards-preflight.md` | Standards preflight. |
 | `references/sub-agent-dispatch.md` | IDE-agnostic dispatch. |
