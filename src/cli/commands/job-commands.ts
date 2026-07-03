@@ -5,15 +5,14 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import { JobRotation } from '../../services/job/job-rotation.js';
+import { SubAgentJobWrapper } from '../../services/job/subagent-job-wrapper.js';
+import { emitJobEvent } from '../../services/job/job-event-emitter.js';
 import {
   JobInitInputSchema,
   JobCheckpointInputSchema,
   JobBlockInputSchema,
 } from '../../services/job/job-types.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
-
-// Stub for M5 — full impl lands then.
-async function subagentCleanupImpl(_jobId: string, _batchId: string) { return ok('subagent-cleanup', { note: 'subagent-cleanup lands in M5' }); }
 
 function projectRoot(opts: any): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
@@ -68,6 +67,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         mainLoopStrategy: parsed.data.mainLoopStrategy,
         rotateEvery: parsed.data.rotateEvery,
       });
+      try { emitJobEvent({ kind: 'job-started', jobId: state.jobId, total: state.slices.length, strategy: state.mainLoopStrategy }); } catch { /* best-effort */ }
       printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${parsed.data.project}/.peaks/_runtime/${state.sessionId}/job/${state.jobId}/state.json` }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'init')!);
@@ -92,6 +92,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         process.on('SIGINT', () => { clearInterval(iv); process.stdout.write('\n'); process.exit(0); });
         return;
       }
+      try { emitJobEvent({ kind: 'job-progress', jobId: opts.jobId, done: s.done, total: s.total, ...(s.currentSlice ? { currentSlice: s.currentSlice } : {}) }); } catch { /* best-effort */ }
       printResult(io, ok('status', s as unknown as Record<string, unknown>), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'status')!);
@@ -111,8 +112,20 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     });
   addJsonOption(job.commands.find(c => c.name() === 'rotate-now')!);
 
-  const subagentCleanup = job.command('subagent-cleanup').requiredOption('--job-id <jid>').requiredOption('--batch-id <bid>').option('--force').option('--project <repo>');
-  addJsonOption(subagentCleanup).action(async (opts) => { const r = await subagentCleanupImpl(opts.jobId, opts.batchId); printResult(io, r, opts); });
+  job.command('subagent-cleanup')
+    .requiredOption('--job-id <jid>')
+    .requiredOption('--batch-id <bid>')
+    .option('--force')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const wrapper = new SubAgentJobWrapper(
+        new JobStateStore(projectRoot(opts)),
+        async () => ({ batchId: opts.batchId })
+      );
+      const r = await wrapper.cleanup({ jobId: opts.jobId, batchId: opts.batchId, force: !!opts.force });
+      printResult(io, ok('subagent-cleanup', r), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'subagent-cleanup')!);
 
   // M3.2: wire the remaining 5 subcommand slots — block, checkpoint, continue, handoff, resume.
   job
