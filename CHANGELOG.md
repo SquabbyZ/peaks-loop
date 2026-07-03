@@ -1,5 +1,36 @@
 # Changelog
 
+## 3.1.0 — 2026-07-03
+
+### Added — Peaks-Loop Job
+
+- New `peaks job *` subcommand family: init / status / checkpoint / continue / resume / block / handoff / rotate-now / subagent-cleanup (9 commands).
+- New CLI flag `--main-loop-strategy single|rotating` on `job init`, with rotating-mode hard default for ≥3 slices and `rotateEvery=3` cadence.
+- New `--watch` poll mode + statusline event stub (`emitJobEvent`) for ambient progress visibility. Real statusline wire-up deferred to a follow-up slice.
+- Sub-agent wrapper `SubAgentJobWrapper` enforces `--budget-mb 512` default + cleanup gate before slice checkpoint.
+- New peaks-solo SKILL.md Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87 wrapping the existing single-rid runbook for multi-slice jobs.
+- 9 hard-red-line rules embedded in the skill prose (cost re-ask ban, slice-coalesce ban, fake-completion ban, detached-mode ban, cleanup-skip ban, rotate-skip ban, etc).
+
+### New services
+
+- `src/services/job/job-types.ts` — Zod schemas + types for SliceState, JobState, ResourceSnapshot, JobStatusSummary, plus CLI input schemas (JobInitInput, JobCheckpointInput, JobBlockInput).
+- `src/services/job/job-state-store.ts` — on-disk state store with per-job lockfile.
+- `src/services/job/job-orchestrator.ts` — state machine with strict / best-effort exit policies.
+- `src/services/job/job-rotation.ts` — main-session rotation cadence (single / rotating mode).
+- `src/services/job/subagent-job-wrapper.ts` — budget + cleanup gate.
+- `src/services/job/job-resource-snapshot.ts` — cpu / mem / disk / context collector.
+- `src/services/job/job-event-emitter.ts` — stderr-stub event emit (real statusline wire-up pending).
+
+### Migration
+
+- Existing single-rid flows are unchanged. The Job is opt-in via peaks-solo Step 0.8 detection; users who do not invoke multi-slice requests see no behavior difference.
+- The `peaks session rotate` and `peaks session cycle-summary` subcommands referenced in the spec are NOT shipped in v1; the rotation path uses constructor-injected stub callbacks. M6.5 follow-up will add the real subcommands.
+
+### Spec / plan
+
+- Design: `docs/superpowers/specs/2026-07-03-peaks-loop-job-design.md` (v3).
+- Plans: `docs/superpowers/plans/2026-07-03-peaks-job/` (M1-M7 + README).
+
 ## [3.0.3] — 2026-07-02 — auto-compact zero-pause (ide-native pathway)
 
 **PATCH bump from 3.0.2**. Closes the user-pause gap on long Claude Code sessions: at context ratio ≥ 0.95 the runner now compacts itself via a PreToolUse hook, no human intervention required.
