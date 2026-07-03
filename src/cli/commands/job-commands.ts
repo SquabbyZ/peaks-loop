@@ -29,7 +29,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--parallelism-hint <serial|llm-decides>', 'llm-decides')
     .option('--exit-policy <strict|best-effort>', 'strict')
     .option('--main-loop-strategy <single|rotating>', 'rotating')
-    .option('--rotate-every <n>', '3')
+    .option('--rotate-every <n>', 'rotate every N slices (rotating mode)', '3')
     .option('--session-id <sid>', 'session id (default: read from .peaks/_runtime/session.json; required to land in the 2.7.1 single-scope-axis layout)')
     .option('--project <repo>')
     .action(async (opts) => {
