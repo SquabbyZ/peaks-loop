@@ -2,6 +2,10 @@
 
 ## 3.1.0 — 2026-07-03
 
+### Fixed — peaks-solo external-references authority declaration
+
+- `skills/peaks-solo/SKILL.md` External-references paragraph now ends with `Peaks-Loop Solo gates and artifacts remain authoritative.` to satisfy `tests/unit/skill-external-invocation.test.ts:63` (`PEAKS_AUTHORITATIVE_PATTERN`). One-line surgical patch; no behaviour change.
+
 ### Added — Peaks-Loop Job
 
 - New `peaks job *` subcommand family: init / status / checkpoint / continue / resume / block / handoff / rotate-now / subagent-cleanup (9 commands).
