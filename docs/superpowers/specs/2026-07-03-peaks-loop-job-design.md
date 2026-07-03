@@ -252,9 +252,15 @@ export const JobStateSchema = z.object({
   lastCheckpointAt: z.string().datetime(),
   parallelismHint: z.enum(['serial', 'llm-decides']).default('llm-decides'),
   exitPolicy: z.enum(['strict', 'best-effort']).default('strict'),
-  mainLoopStrategy: z.enum(['single', 'rotating']).default('single'),
+  mainLoopStrategy: z.enum(['single', 'rotating']).default('rotating'),
   rotateEvery: z.number().int().positive().default(3),   // rotating mode only
   mainSessionCycle: z.number().int().nonnegative().default(0),  // bumps on every rotate
+  mainLoopOverride: z.object({                            // populated only if LLM overrode rotating→single
+    from: z.literal('rotating'),
+    to: z.literal('single'),
+    reason: z.string().min(10),
+    at: z.string().datetime(),
+  }).optional(),
   slices: z.array(SliceStateSchema),
 });
 
@@ -299,9 +305,9 @@ If triggered, Solo calls `peaks job init` with the parsed slice list (LLM parses
 If the request is single-target (e.g. "fix bug in app/api/users"), Step 0.8 is a no-op and the standard single-rid runbook applies.
 
 Job-init also picks `--main-loop-strategy`:
-- `len(slices) ≤ 5` → default `single`, no soft-warn.
-- `5 < len(slices) ≤ 8` → default `single` with soft-warn: "main session may run >2h; consider `--main-loop-strategy rotating`."
-- `len(slices) > 8` → default `rotating` with `--rotate-every 3`. LLM may still pick `single` if it explicitly justifies (recorded in the job-init LLM trace).
+- `len(slices) ≤ 2` → default `single`. Two slices rarely justify the kernel-reset overhead.
+- `len(slices) ≥ 3` → default `rotating` with `--rotate-every 3`. This is a hard default — the runner must never silently coast on `single` past 2 slices, because main-session decision-drift already manifests by then in practice.
+- LLM may override `rotating` → `single` only if it writes an explicit justification (recorded in the job-init LLM trace) AND the total predicted wall-time is ≤30 min. Override is logged as `mainLoopOverride: { from: 'rotating', to: 'single', reason }` in state.json.
 
 #### Step 0.81 — per-slice 收尾 (NEW)
 
@@ -549,8 +555,8 @@ The LLM-runner MUST NOT:
 | AC-8 | Strict: 1 block → whole job blocks, no auto-skip of subsequent slices | Unit |
 | AC-9 | Best-effort: 1 block → skipped + reason + continue | Unit |
 | AC-10 | Coexists with existing `peaks request / session / sub-agent fan-out` (no rid double-opening) | Regression (run existing peaks-solo runbook) |
-| AC-11 | `--main-loop-strategy rotating` resets main session every `rotateEvery` slices, post-rotate ratio < 0.50, no data loss in job state | E2E (8-slice job, ratio injection) |
-| AC-12 | `--main-loop-strategy single` for ≤5 slices: end-to-end without any rotation; auto-compact passive, no false-positive rotation | Unit + integration |
+| AC-11 | `--main-loop-strategy rotating` (default for ≥3 slices) resets main session every `rotateEvery` slices, post-rotate ratio < 0.50, no data loss in job state | E2E (8-slice job, ratio injection) |
+| AC-12 | `--main-loop-strategy single` (default for ≤2 slices) end-to-end without any rotation; LLM-initiated override from rotating→single requires justification and is rejected if total predicted wall-time >30 min | Unit + integration + override-journal audit |
 | AC-13 | Job-aware sub-agent wrapper: every dispatch in Job scope mandates `--budget-mb`; cleanup must fire before slice checkpoint; failure → job block | Unit + integration |
 | AC-14 | `peaks job status --watch` shows progressing counters every 3s; statusline event renders `job: ... ETA ...` | Manual + snapshot |
 
@@ -577,7 +583,7 @@ The LLM-runner MUST NOT:
 | 13 | `docs/superpowers/specs/2026-07-03-peaks-loop-job-design.md` | (this file) | RFC + design |
 | 14 | `.peaks/memory/peaks-loop-job-introduction.md` | TBD | Runbook sediment for future sessions |
 
-**Total ~2540 LoC + 1 spec + 1 memory** (revised up from 1700 to cover rotating-mode, subagent wrapper, resource snapshot, statusline hook).
+**Total ~2540 LoC + 1 spec + 1 memory** (revised up from 1700 to cover rotating-mode, subagent wrapper, resource snapshot, statusline hook). Note: per Q4 (2026-07-03 round 3), `mainLoopStrategy` default was tightened from "≤5 single, 6-8 single+warn, ≥9 rotating" to "≤2 single, ≥3 rotating (hard)" — this puts rotating on the hot path for the vast majority of real jobs, so M4 + M6 testing must cover rotation heavily.
 
 ### 8.2 Milestones (revised)
 
