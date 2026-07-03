@@ -94,7 +94,7 @@ export class JobOrchestrator {
 
   status(jobId: string): JobStatusSummary {
     const s = this.store.load(jobId);
-    const counts = { done: 0, failed: 0, blocked: 0, skipped: 0 } as const;
+    const counts = { done: 0, failed: 0, blocked: 0, skipped: 0 };
     for (const sl of s.slices) {
       if (sl.status === 'done') counts.done++;
       else if (sl.status === 'failed') counts.failed++;
