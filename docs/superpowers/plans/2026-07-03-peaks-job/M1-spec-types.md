@@ -291,16 +291,21 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "test(job): p
 Run: `pnpm lint:silent-warning`
 Expected: PASS, 0 warnings.
 
-- [ ] **Step 2: Run unit suite**
+- [ ] **Step 2: Run unit suite (covers M1.1 + M1.2)**
 
-Run: `pnpm vitest run tests/unit/services/job`
-Expected: PASS, all green.
+Run:
+```bash
+pnpm vitest run tests/unit/services/job tests/unit/cli/commands/job-help-snapshot.test.ts
+```
+Expected: 7 passed (M1.1) + 1 skipped (M1.2 placeholder) + 0 failed.
 
 - [ ] **Step 3: Commit (verification only if no edits)**
 
 ```bash
 git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit --allow-empty -m "chore(job): M1 lint+snapshot green (no-op)"
 ```
+
+> **Note on the original M1 plan's "smoke test" step:** that step was originally written assuming `dist/` was already built and `job-state-store.ts` was already in place. Both are M2 work; running the smoke test as a literal `node -e` shell snippet is invalid JS. Smoke test is therefore **deferred to M6 (Task 6.1)**, which runs `pnpm build` and can verify a freshly built CLI against the real `dist/` artifacts.
 
 ---
 
