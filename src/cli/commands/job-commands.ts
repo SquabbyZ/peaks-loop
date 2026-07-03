@@ -4,6 +4,7 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
+import { JobRotation } from '../../services/job/job-rotation.js';
 import {
   JobInitInputSchema,
   JobCheckpointInputSchema,
@@ -11,8 +12,7 @@ import {
 } from '../../services/job/job-types.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 
-// Stub stubs for M5/M4 — full impl in those milestones.
-async function rotateNowImpl(_jobId: string, _project: string) { return ok('rotate-now', { note: 'rotate-now lands in M4' }); }
+// Stub for M5 — full impl lands then.
 async function subagentCleanupImpl(_jobId: string, _batchId: string) { return ok('subagent-cleanup', { note: 'subagent-cleanup lands in M5' }); }
 
 function projectRoot(opts: any): string {
@@ -96,9 +96,20 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     });
   addJsonOption(job.commands.find(c => c.name() === 'status')!);
 
-  // Stubs for now — implementation lands in M5 (subagent-cleanup) and M4 (rotate-now).
-  const rotateNow = job.command('rotate-now').requiredOption('--job-id <jid>').option('--project <repo>');
-  addJsonOption(rotateNow).action(async (opts) => { const r = await rotateNowImpl(opts.jobId, projectRoot(opts)); printResult(io, r, opts); });
+  // M4.2: wire rotate-now to JobRotation (session-rotate callbacks are stubs pending M6.5 batch-fix).
+  job.command('rotate-now')
+    .requiredOption('--job-id <jid>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const store = new JobStateStore(projectRoot(opts));
+      const rotation = new JobRotation(store,
+        async (_jid) => { /* delegate to peaks session rotate — implementation wired in M6.5 batch-fix */ return { rotated: true }; },
+        async (jid) => ({ jobId: jid, cycle: 0 }),
+      );
+      const r = await rotation.rotateNow(opts.jobId);
+      printResult(io, ok('rotate-now', r as unknown as Record<string, unknown>), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'rotate-now')!);
 
   const subagentCleanup = job.command('subagent-cleanup').requiredOption('--job-id <jid>').requiredOption('--batch-id <bid>').option('--force').option('--project <repo>');
   addJsonOption(subagentCleanup).action(async (opts) => { const r = await subagentCleanupImpl(opts.jobId, opts.batchId); printResult(io, r, opts); });
