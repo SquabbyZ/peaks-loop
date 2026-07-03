@@ -42,3 +42,27 @@ Every `peaks sub-agent dispatch` inside a Job scope MUST be matched by a `peaks 
 4. `session/checkpoints/*.json` — generic session checkpoints
 
 The resume endpoint cross-checks all four before offering continuation; if any layer is stale, the user gets an AskUserQuestion (resume / restart / skip).
+
+## Visibility prose
+
+The Job loop is foreground. Three visibility layers, all on by default:
+1. **LLM-runner transcript** — primary surface; user reads the chat to see active step.
+2. **`peaks job status --watch`** — terminal poll, ANSI bar, refresh every 3 s.
+3. **Statusline** — ambient `job: <jid> [done/total] currentSlice ETA m:s context main%. cycle`.
+
+No detached workers, no `nohup`, no `disown`. Any attempt to spawn a background job → red line violation → block.
+
+## Red lines (9 hard rules)
+
+The LLM-runner MUST NOT:
+1. Enter Step 11 / write final handoff while job has remaining slices.
+2. Re-ask the user about cost / length / context.
+3. Coalesce multiple slices into one rid.
+4. Modify a committed slice (`git commit --amend` on `done`).
+5. Fake completion (CLI verifies commit-sha exists in git log).
+6. Use detached / background / daemon-mode sub-agents inside a Job.
+7. Skip `peaks job subagent-cleanup` between dispatch and slice checkpoint.
+8. Skip or postpone a scheduled `peaks session rotate`.
+9. Suppress visibility — no silencing statusline / `--watch`.
+
+Violations trigger a `peaks job block` event with the specific red-line number.
