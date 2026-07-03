@@ -10,7 +10,7 @@ import type { ResourceSnapshot } from './job-types.js';
  */
 export function collectResourceSnapshot(jobDir: string): ResourceSnapshot {
   const cpus = os.cpus();
-  const loadAvg = os.loadavg()[0] / (cpus.length || 1);
+  const loadAvg = (os.loadavg()[0] ?? 0) / (cpus.length || 1);
   const cpuPercent = Math.max(0, Math.min(100, loadAvg * 100));
 
   const totalMemMb = os.totalmem() / 1024 / 1024;
