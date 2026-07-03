@@ -192,7 +192,32 @@ Repair loop details: see `## Mandatory RD QA repair loop` in SKILL.md for the fu
 
 # Peaks-Loop Default runbook — Job path (excerpt; full flow in references/job-loop.md)
 
-# After Step 7 (RD+QA commit) lands AND the user request was Job-shaped (Step 0.8 triggered):
+# Step 0.8 (BLOCKING): LLM judges Job-shape, CLI records it.
+# This is a RECORDER, not a detector. The LLM supplies --is-job + --rationale;
+# the CLI writes .peaks/_runtime/<sid>/job-shape.json. Downstream steps call
+# `peaks solo read-job-shape` to enforce the decision exists.
+
+# (The LLM does the semantic judgement, e.g.:)
+#   "The user named N=35 parallel app/ subdirs, said 'continue until all done',
+#    and disavowed cost. isJob=true, rationale=..., suggestedJobId=app-ut-batch,
+#    suggestedStrategy=rotating, confidence=high."
+peaks solo detect-job \
+  --is-job true \
+  --rationale "35 parallel app/ subdirs + 'until all done' + '不用考虑费用'" \
+  --suggested-job-id app-ut-batch \
+  --suggested-strategy rotating \
+  --confidence high
+
+# Step 0.81-init: if Job-shaped, init BEFORE Step 1.
+DECISION=$(peaks solo read-job-shape --json)
+if [ "$(echo "$DECISION" | jq -r '.data.decision.isJob')" = "true" ]; then
+  JID=$(echo "$DECISION" | jq -r '.data.decision.suggestedJobId')
+  STRATEGY=$(echo "$DECISION" | jq -r '.data.decision.suggestedStrategy')
+  # LLM-derived slice list (not CLI-derived).
+  peaks job init --job-id "$JID" --slice-list "<LLM_DERIVED>" --main-loop-strategy "$STRATEGY" --rotate-every 3 --json
+fi
+
+# After Step 7 (RD+QA commit) lands AND Step 0.8 fired (state.json exists):
 peaks job checkpoint --slice-id <rid> --state done --commit-sha $(git rev-parse HEAD)
 peaks job status --job-id <jid> --json
 peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87 gate

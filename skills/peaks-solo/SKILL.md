@@ -97,11 +97,24 @@ Per the "one-key completion" tenet, peaks-loop 2.0 detects 1.x consumers and pro
 
 → see `references/step-0-55-1x-detection.md` for the detection algorithm + AskUserQuestion options + persistence contract.
 
-### Peaks-Loop Step 0.8 — Job 启动
+### Peaks-Loop Step 0.8 — Job 启动 (BLOCKING on LLM judgement — v3.1.1 patch)
 
-Trigger: user mentions N parallel targets, "全部完成"/"until all done", or disavows cost.
+The CLI does NOT judge whether the request is Job-shaped — that's the LLM's job. Keyword regexes are wrong here (too brittle, miss natural-language variants, shift the LLM's semantic understanding into code). The CLI is a **recorder and gate**: the LLM makes the judgement, writes it via `peaks solo detect-job`, and downstream steps refuse to proceed until the decision file exists.
 
-Action: parse slice list → choose strategy (≤2 single / ≥3 rotating) → `peaks job init --job-id <jid> --slice-list <...> --main-loop-strategy rotating --rotate-every 3` → Step 1.
+LLM judgement criteria (read once, then call the recorder):
+- N parallel targets (`app/components/*`, `app/modules/*`, `for each subdir`, "以目录为维度", "把剩下的也跑了").
+- Completion phrase implying batch continuation (`until all done`, "继续执行下个 slice", "全部添加完", "all of them").
+- Cost / length disavowal (`不用考虑费用`, "don't worry about cost", "一直跑").
+- Explicit slice count (`25 slices`, "切分成 N 段", "拆成 N 块").
+
+Action:
+1. LLM reads the user prompt and applies judgement → `isJob: boolean + rationale + suggestedJobId + suggestedStrategy + confidence`.
+2. LLM calls `peaks solo detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low> [--force]`.
+3. CLI records to `.peaks/_runtime/<sessionId>/job-shape.json`.
+4. If `isJob: true` → `peaks job init --job-id <jid> --slice-list <...> --main-loop-strategy <strategy> --rotate-every 3` (BEFORE Step 1).
+5. Downstream steps (Step 1, Step 0.81, etc.) call `read-job-shape` to refuse if missing.
+
+**Hard rule (v3.1.1 red-line #10):** LLM MUST NOT skip `peaks solo detect-job` even when the trigger is obvious from context. If the next step's `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Solo MUST record a decision before proceeding. Keyword-based "I already know it's a Job" is not a substitute.
 
 ### Peaks-Loop Step 0.81 — per-slice 收尾
 

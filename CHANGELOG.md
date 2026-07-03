@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.1.1 — 2026-07-03
+
+### Added — Step 0.8 detector-as-recorder (LLM-judged, CLI-validated)
+
+`peaks-solo` Step 0.8 is no longer prose-only: the LLM makes the Job-shape judgement, the CLI records it. The CLI is a **recorder and gate**, not a detector — no keyword regex anywhere in the service or CLI (the LLM is the source of truth). Downstream steps refuse to proceed until the decision file exists.
+
+- New service: `src/services/solo/job-shape-decision.ts` — `readJobShapeDecision` / `writeJobShapeDecision` / `validateJobShapeDecision`. Persists to `.peaks/_runtime/<sessionId>/job-shape.json`; server-side stamps `decidedAt` so the LLM cannot back-date; throws `JOB_SHAPE_NOT_DECIDED` on missing / unreadable / malformed.
+- New CLI subcommands:
+  - `peaks solo detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> [--suggested-strategy single|rotating] [--confidence high|medium|low] [--force]` — recorder. Validates `suggestedJobId` against `/^[a-z0-9][a-z0-9-]{2,40}$/`, hashes the user prompt, writes the file. Refuses overwrite without `--force`.
+  - `peaks solo read-job-shape` — downstream gate. Returns the current record or `JOB_SHAPE_NOT_DECIDED`.
+- New tests: `tests/unit/solo/job-shape-decision.test.ts` (validate happy/sad, server-stamp `decidedAt`, force semantics, missing/unreadable/malformed, round-trip, promptHash determinism), `tests/integration/solo-detect-job-command.test.ts` (CLI spawn happy / bad-flag / read-back / fresh / force), `tests/unit/solo/solo-step-08-block-guard.test.ts` (locks the SKILL.md / runbook contract: `BLOCKING on LLM judgement`, `peaks solo detect-job`, `peaks solo read-job-shape`, and runbook ordering before `# After Step 7`).
+
+### Hard red line #10 (v3.1.1)
+
+The LLM MUST NOT skip `peaks solo detect-job` even when the trigger is obvious from context. If the next step's `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Solo MUST record a decision before proceeding. Keyword-based "I already know it's a Job" is not a substitute — the LLM is the only authority for the Job-shape judgement, and the CLI is the only place that records it.
+
+### Memory
+
+Incident + rationale: `.peaks/memory/2026-07-03-v3-1-0-job-trigger-miss.md`. This release closes the gap identified in that memory file.
+
 ## 3.1.0 — 2026-07-03
 
 ### Fixed — peaks-solo external-references authority declaration
