@@ -15,6 +15,20 @@ export class JobOrchestrator {
     return this.store.init(input);
   }
 
+  /**
+   * Atomically apply a mutation to a job's state under a single-process lock.
+   *
+   * Uses the M2.1 single-process lock model (lock file checked with `existsSync`).
+   * State is loaded before lock acquisition, so `fn` receives a consistent snapshot;
+   * if `tryAcquireLock` throws because the job is already locked, `fn` is never called
+   * and the error bubbles to the caller. Concurrent `mutate` calls in the same process
+   * will collide, so callers MUST serialize externally or wrap calls in a higher-level
+   * mutex if multi-process support is added later.
+   *
+   * @param jobId - The job identifier whose state will be mutated.
+   * @param fn - Pure transform applied to the loaded state to produce the next state.
+   * @returns The new state after the mutation is persisted.
+   */
   private mutate(jobId: string, fn: (s: JobState) => JobState): JobState {
     const state = this.store.load(jobId);
     const lock = this.store.tryAcquireLock(jobId);
