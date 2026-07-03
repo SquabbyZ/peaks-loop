@@ -18,7 +18,7 @@ describe('peaks job CLI', () => {
     const names = jobCmd!.commands.map(c => c.name()).sort();
     expect(names).toEqual([
       'block', 'checkpoint', 'continue', 'handoff', 'init',
-      'resume', 'rotate-now', 'status', 'subagent-cleanup',
+      'progress', 'resume', 'rotate-now', 'status', 'subagent-cleanup',
     ]);
   });
 

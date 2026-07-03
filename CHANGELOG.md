@@ -1,5 +1,29 @@
 # Changelog
 
+## 3.1.2 — 2026-07-04
+
+### Added — Mechanical Job-mode gates (Step 0.8 enforcement)
+
+The v3.1.1 recorder-only design was bypassed twice under load (2026-07-03 35-slice incident, 2026-07-04 3018-file incident): the LLM skipped `peaks solo detect-job` and ran fake-completion narratives instead of Job mode. The v3.1.2 patch converts Step 0.8 from "LLM should call" to "LLM cannot proceed without calling" through four mechanical gates — no LLM interpretation required.
+
+- **PreToolUse hook** — `peaks workspace init` now installs a `Bash` matcher in `.claude/settings.local.json` (TEMPLATE_VERSION bumped 1.2.0 → 1.3.0) that runs `peaks solo gate-step-08 --project .` before every Bash call. Exit 0 = allow, exit 2 = block. Existing `Write|Edit|MultiEdit` matcher preserved. Re-running `peaks workspace init` is idempotent (`templateContentMatches`).
+- **`peaks solo gate-step-08`** — new service `src/services/solo/step-08-gate.ts` (~120 LOC) + CLI. Reads `.peaks/_runtime/<sessionId>/job-shape.json`. When `decision.isJob=true` AND `job/<jid>/progress.json` exists, prints `Next: slice #<done+1> of <total> (<currentSlice>)` so the LLM cannot wake up cold. When the file is missing AND the user's prompt (from `--prompt` / `last-prompt.txt`) matches the fail-closed backup regex `/(until|全部|until all done|disavow cost|不用考虑费用|all of them)/i`, exits 2 with `BLOCKED:` on stderr.
+- **Size-fear ban** — `peaks solo emit-handoff`. New service `src/services/solo/emit-handoff.ts` (~70 LOC) + CLI. Under Job mode (`isJob=true`), refuses to emit a final handoff while `remaining > 0`. Codes: `JOB_NOT_INITIALIZED` (no state.json), `JOB_REMAINING_BLOCKED` (remaining > 0), allow when `remaining === 0`, allow under `--force-under-job` override.
+- **Forced auto-compact** — extended `peaks solo context-now` with `--enforce-job-mode` (auto-enabled when `job-shape.json` says `isJob=true`). At `ratio >= 0.85` returns `action: 'auto-compact-now'` (MANDATORY, not advisory); at `ratio >= 0.95` returns `action: 'red-line'`. SKILL.md Step N+2 prose updated: "in Job mode, ≥ 0.85 is MANDATORY auto-compact."
+- **On-disk slice progress** — `peaks job checkpoint --state done` now writes `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` after updating state.json. New `peaks job progress --job-id <jid>` reader. `gate-step-08` reads the same file in its allow-job path so the LLM gets resume context BEFORE any Bash call. SKILL.md Step 0.7 updated: "if progress.json exists, read it FIRST and surface `Next: slice #N of M (<currentSlice>)`."
+
+### Tests (v3.1.2)
+
+- `tests/unit/solo/gate-step-08.test.ts` — 9 unit tests covering the 4 paths + Next: slice context injection + backup-regex sanity + prompt-source fallback.
+- `tests/unit/solo/emit-handoff.test.ts` — 10 unit tests covering the 4 paths + `--force-under-job` override + `JOB_NOT_INITIALIZED` + skipped-slices edge case + `--job-id` override.
+- `tests/integration/solo-gate-step-08-hook.test.ts` — 5 integration tests spawning `node bin/peaks.js solo gate-step-08` as a real child process (the hook protocol itself), asserting exit 0 / exit 2 + stderr BLOCKED line + JSON envelope shape.
+- Extended `tests/unit/solo/solo-step-08-block-guard.test.ts` to assert SKILL.md + runbook.md reference `peaks solo gate-step-08`, `peaks solo emit-handoff`, `peaks job progress`, and the Job-mode MANDATORY auto-compact prose.
+- Extended `tests/unit/workspace/workspace-init-claude-hooks.test.ts` case-A to assert both PreToolUse matchers (`Write|Edit|MultiEdit` AND `Bash`) are emitted with the new Bash command invoking `peaks solo gate-step-08`.
+
+### Memory
+
+Two consecutive ship-day incidents motivated this release: `2026-07-03-v3-1-0-job-trigger-miss.md` (35-slice app/ batch) + `2026-07-04-v3-1-1-second-incident-3018-files.md` (3018-file UT batch). Lesson: "a skill that says MUST without a mechanical gate is not a real gate." The hook is the difference between "the LLM is told to do X" and "the LLM cannot proceed without X having happened."
+
 ## 3.1.1 — 2026-07-03
 
 ### Added — Step 0.8 detector-as-recorder (LLM-judged, CLI-validated)

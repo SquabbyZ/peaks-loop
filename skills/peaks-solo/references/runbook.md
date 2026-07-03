@@ -219,6 +219,9 @@ fi
 
 # After Step 7 (RD+QA commit) lands AND Step 0.8 fired (state.json exists):
 peaks job checkpoint --slice-id <rid> --state done --commit-sha $(git rev-parse HEAD)
+# v3.1.2: `peaks job checkpoint --state done` ALSO writes
+# .peaks/_runtime/<sid>/job/<jid>/progress.json. Read it on resume:
+peaks job progress --job-id <jid> --json
 peaks job status --job-id <jid> --json
 peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87 gate
 # Loop control:
@@ -226,4 +229,21 @@ peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87
 #   remaining == 0 → Step 8/9/10/11 (original tail)
 #   blocked (strict) → peaks job block + STOP
 # Rotating-mode: every rotateEvery slices → Step 0.86 (peaks session rotate + resume)
+
+# v3.1.2 size-fear ban: refuse to emit a final handoff while remaining > 0.
+# The LLM cannot bypass this; --force-under-job requires explicit user approval.
+peaks solo emit-handoff --project <repo> --job-id <jid> --json
+
+# v3.1.2 forced auto-compact: when --enforce-job-mode is set OR
+# job-shape.json says isJob=true, ≥0.85 is MANDATORY auto-compact.
+# Solo MUST call this without confirmation under Job mode.
+peaks solo context-now --project <repo> --enforce-job-mode --json
+peaks session auto-compact --execute --project <repo> --json
+
+# v3.1.2 PreToolUse gate (installed by `peaks workspace init`):
+# every Bash tool call runs `peaks solo gate-step-08` automatically.
+# Exit 0 = allow (with optional Next: slice #N+1 of M line when
+# progress.json exists). Exit 2 = BLOCKED; LLM must call
+# `peaks solo detect-job` first.
+peaks solo gate-step-08 --project <repo> --json
 ```

@@ -47,6 +47,15 @@ import {
   type JobStrategy,
   type JobConfidence
 } from '../../services/solo/job-shape-decision.js';
+import {
+  evaluateStep08,
+  STEP_08_BACKUP_REGEX
+} from '../../services/solo/step-08-gate.js';
+import {
+  evaluateEmitHandoff,
+  JOB_NOT_INITIALIZED,
+  JOB_REMAINING_BLOCKED
+} from '../../services/solo/emit-handoff.js';
 
 export type SoloStepKind = 'memory' | 'preflight' | 'rd' | 'qa' | 'emit';
 export interface SoloStep {
@@ -527,44 +536,88 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
           'without requiring the LLM to pass --prompt-size <bytes> manually. ' +
           'Adapter-driven (no hard-coded IDE names): Claude Code is the MVP ' +
           'implementation; trae / codex / cursor / qoder / tongyi-lingma / ' +
-          'hermes / openclaw register their own env-var via IdeAdapter.compact.'
+          'hermes / openclaw register their own env-var via IdeAdapter.compact. ' +
+          'v3.1.2: when --enforce-job-mode is set OR job-shape.json says isJob=true, ' +
+          '≥0.85 emits action=auto-compact-now (MANDATORY, not advisory) and ' +
+          '≥0.95 emits action=red-line (forced hook fires next turn).'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
+      .option('--enforce-job-mode', 'v3.1.2: treat ≥0.85 as MANDATORY auto-compact (not advisory). Auto-enabled when job-shape.json says isJob=true.')
   ).action(
-    async (opts: { project: string; sessionId?: string; json?: boolean }) => {
+    async (opts: { project: string; sessionId?: string; enforceJobMode?: boolean; json?: boolean }) => {
       try {
         const { readContextPercent } = await import('../../services/context/auto-compact-reader.js');
+        // v3.1.2: detect Job mode from job-shape.json when --enforce-job-mode
+        // is not explicitly passed. The LLM is the source of truth for
+        // whether the request is Job-shaped; the recorded decision is.
+        let isJobMode = opts.enforceJobMode === true;
+        if (!isJobMode) {
+          try {
+            const sessionIdForDecision = opts.sessionId ?? readActiveSid(opts.project);
+            if (sessionIdForDecision !== null) {
+              const record = readJobShapeDecision(opts.project, sessionIdForDecision);
+              if (record.decision.isJob) isJobMode = true;
+            }
+          } catch (err) {
+            if (!(err instanceof JobShapeDecisionError)) throw err;
+            // missing/malformed decision file is fine — fall back to advisory.
+          }
+        }
         const probe = readContextPercent({
           projectRoot: opts.project,
           sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? 'unknown',
           env: process.env
         });
         const ratioPct = (probe.ratio * 100).toFixed(1);
+        let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
+        let next: string | null = null;
+        if (probe.ratio >= 0.95) {
+          action = isJobMode ? 'red-line' : 'red-line';
+          next = 'peaks session auto-compact-hook';
+        } else if (probe.ratio >= 0.85) {
+          if (isJobMode) {
+            action = 'auto-compact-now';
+            next = 'peaks session auto-compact --execute';
+          } else {
+            action = 'soft-warn';
+          }
+        } else if (probe.ratio >= 0.5) {
+          action = 'soft-warn';
+        }
         const verdict =
-          probe.ratio >= 0.95 ? 'red-line'
-            : probe.ratio >= 0.85 ? 'pre-compact'
-            : probe.ratio >= 0.5 ? 'soft-warn'
+          action === 'red-line' ? 'red-line'
+            : action === 'auto-compact-now' ? 'pre-compact'
+            : action === 'soft-warn' ? 'soft-warn'
             : 'ok';
+        const jobModeNotice = isJobMode
+          ? 'Job mode enforced: ≥0.85 is MANDATORY auto-compact (v3.1.2).'
+          : 'Advisory mode (single-rid): ≥0.85 is recommended, not mandatory.';
         printResult(
           io,
           ok('solo.context-now', {
             ratio: probe.ratio,
             ratioPct: `${ratioPct}%`,
             verdict,
+            action,
+            next,
+            jobMode: isJobMode,
             source: probe.source,
             ide: probe.ide,
             capacityBytes: probe.capacityBytes,
             rawBytes: probe.rawBytes ?? null,
             capturedAt: probe.capturedAt
           }, [], [
-            verdict === 'red-line'
-              ? `RED LINE: ≥ 95%. Run \`peaks solo auto-compact\` immediately (next sub-agent dispatch will be blocked).`
-              : verdict === 'pre-compact'
-                ? `Pre-compact zone (85–95%). Run \`peaks solo auto-compact\` to converge now.`
-                : verdict === 'soft-warn'
-                  ? `Soft warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
-                  : `Below 50%. No action required.`
+            action === 'red-line'
+              ? `RED LINE: ≥ 95%. Next: \`${next}\` (PreToolUse hook fires next turn).`
+              : action === 'auto-compact-now'
+                ? `Job-mode MANDATORY auto-compact. Solo MUST call \`${next}\` WITHOUT confirmation.`
+                : action === 'soft-warn'
+                  ? isJobMode
+                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
+                    : `Soft warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
+                  : `Below 50%. No action required.`,
+            jobModeNotice
           ]),
           true
         );
@@ -783,6 +836,203 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         printResult(
           io,
           fail('solo.read-job-shape', 'READ_JOB_SHAPE_FAILED', getErrorMessage(err), null, ['Verify the project path and try again']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  // v3.1.2 Step 0.8 — Mechanical PreToolUse gate.
+  // Wire-installed by `peaks workspace init` (extends the existing hook
+  // installer). Exit code is the load-bearing contract:
+  //   exit 0 → allow (with structured stdout describing the decision)
+  //   exit 2 → block (stderr contains the BLOCKED: ... reason)
+  addJsonOption(
+    solo
+      .command('gate-step-08')
+      .description(
+        'v3.1.2: PreToolUse gate for Step 0.8 — allow when job-shape.json exists; ' +
+          'fail-closed backup regex when missing. Exit 0 = allow, exit 2 = block. ' +
+          'When the decision says isJob=true AND progress.json exists, the stdout ' +
+          'also carries `Next: slice #N+1 of M (<currentSlice>)` so the LLM cannot ' +
+          'wake up cold.'
+      )
+      .requiredOption('--project <path>', 'target project root (the hook passes "." so resolveCanonicalProjectRoot promotes it to the git root)')
+      .option('--session-id <sid>', 'override session id (default: read from active presence)')
+      .option('--prompt <text>', 'explicit prompt text (default: read last-prompt.txt; stdin ignored)')
+  ).action(
+    (opts: { project: string; sessionId?: string; prompt?: string; json?: boolean }) => {
+      try {
+        const sessionId = opts.sessionId ?? readActiveSid(opts.project);
+        if (sessionId === null) {
+          // No session binding — treat as allow (single-rid mode). The
+          // LLM has not yet anchored; we have nothing to gate against.
+          const envelope = ok('solo.gate-step-08', {
+            allow: true,
+            mode: 'no-session',
+            decision: null,
+            nextSlice: null
+          }, [], [
+            'No active session id; gate passes through (single-rid mode).'
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        const evalInput: { projectRoot: string; sessionId: string; prompt?: string } = {
+          projectRoot: opts.project,
+          sessionId
+        };
+        if (opts.prompt !== undefined) evalInput.prompt = opts.prompt;
+        const result = evaluateStep08(evalInput);
+        const verdict = result.verdict;
+        if (verdict.kind === 'allow-job') {
+          const envelope = ok('solo.gate-step-08', {
+            allow: true,
+            mode: 'job',
+            decision: verdict.decision,
+            progress: verdict.progress,
+            nextSlice: result.nextSliceLine
+          }, [], result.nextSliceLine !== null ? [result.nextSliceLine] : []);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        if (verdict.kind === 'allow-single') {
+          const envelope = ok('solo.gate-step-08', {
+            allow: true,
+            mode: 'single',
+            decision: null,
+            nextSlice: null
+          }, [], [
+            'job-shape.json says isJob=false; single-rid mode (gate allows).'
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        // block-missing-decision
+        if (verdict.promptHit) {
+          // Block: backup regex hit. Exit code 2 is the load-bearing
+          // signal for the PreToolUse hook.
+          const blockMessage = 'BLOCKED: prompt looks Job-shaped but peaks solo detect-job has not been called. Run `peaks solo detect-job --is-job true ...` to record your Job-shape verdict, then retry.';
+          const envelope = fail('solo.gate-step-08', 'STEP_08_BLOCKED', blockMessage, {
+            promptSource: verdict.promptSource,
+            backupRegex: STEP_08_BACKUP_REGEX.toString()
+          }, [
+            'Run `peaks solo detect-job --is-job true --rationale <text> --suggested-job-id <slug>` to record the Job-shape verdict.',
+            'Then re-run the Bash tool call.'
+          ]);
+          io.stderr(`${blockMessage}\n`);
+          printResult(io, envelope, opts.json);
+          process.exitCode = 2;
+          return;
+        }
+        // No decision + no regex hit → allow.
+        const envelope = ok('solo.gate-step-08', {
+          allow: true,
+          mode: 'undecided-no-regex-hit',
+          decision: null,
+          nextSlice: null,
+          promptSource: verdict.promptSource
+        }, [], [
+          'No job-shape.json AND no backup-regex match on prompt → allow (most prompts are not Job-shaped).'
+        ]);
+        printResult(io, envelope, opts.json);
+        return;
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.gate-step-08', 'GATE_STEP_08_FAILED', getErrorMessage(err), null, [
+            'Verify the project path and try again'
+          ]),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    }
+  );
+
+  // v3.1.2 Step 11 / final handoff — Size-fear ban.
+  // Refuses to emit a final handoff while a Job has remaining slices.
+  addJsonOption(
+    solo
+      .command('emit-handoff')
+      .description(
+        'v3.1.2 Step 11 size-fear ban: under Job mode, refuse to emit a final ' +
+          'handoff while remaining > 0. Exit 0 = allow, exit 1 = block. Pass ' +
+          '--force-under-job to override (requires explicit user approval).'
+      )
+      .requiredOption('--project <path>', 'target project root')
+      .option('--session-id <sid>', 'override session id (default: read from active presence)')
+      .option('--job-id <jid>', 'override job id (default: read from job-shape.json decision.suggestedJobId)')
+      .option('--force-under-job', 'override the remaining>0 block (explicit user approval required)')
+  ).action(
+    (opts: { project: string; sessionId?: string; jobId?: string; forceUnderJob?: boolean; json?: boolean }) => {
+      try {
+        const sessionId = opts.sessionId ?? readActiveSid(opts.project);
+        if (sessionId === null) {
+          const envelope = ok('solo.emit-handoff', { allow: true, mode: 'no-session' }, [], [
+            'No active session id; gate passes through (single-rid mode).'
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        const evalInput: { projectRoot: string; sessionId: string; jobId?: string; forceUnderJob?: boolean } = {
+          projectRoot: opts.project,
+          sessionId
+        };
+        if (opts.jobId !== undefined) evalInput.jobId = opts.jobId;
+        if (opts.forceUnderJob === true) evalInput.forceUnderJob = true;
+        const verdict = evaluateEmitHandoff(evalInput);
+        if (verdict.kind === 'allow-not-job') {
+          const envelope = ok('solo.emit-handoff', { allow: true, mode: 'single' }, [], [
+            'job-shape.json says isJob=false (or absent); normal handoff allowed.'
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        if (verdict.kind === 'allow-done') {
+          const envelope = ok('solo.emit-handoff', { allow: true, mode: 'job-done', remaining: verdict.remaining }, [], [
+            `Job is complete (remaining=0); handoff allowed.`
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        if (verdict.kind === 'allow-force-override') {
+          const envelope = ok('solo.emit-handoff', { allow: true, mode: 'job-force-override', remaining: verdict.remaining }, [], [
+            `Job has ${verdict.remaining} remaining slices; --force-under-job override applied. Handoff allowed (explicit user approval).`
+          ]);
+          printResult(io, envelope, opts.json);
+          return;
+        }
+        if (verdict.kind === 'block-not-initialized') {
+          const envelope = fail('solo.emit-handoff', JOB_NOT_INITIALIZED,
+            `Job ${verdict.jobId} has no state.json; peaks job init was skipped.`,
+            { jobId: verdict.jobId },
+            [`Run \`peaks job init --job-id ${verdict.jobId} --slice-list <...>\` before emitting handoff.`]);
+          printResult(io, envelope, opts.json);
+          process.exitCode = 1;
+          return;
+        }
+        // block-remaining
+        const blockMessage = `BLOCKED: Job ${verdict.jobId} has ${verdict.remaining} remaining slices. Run \`peaks job status\`. Use --force-under-job only with explicit user approval.`;
+        const envelope = fail('solo.emit-handoff', JOB_REMAINING_BLOCKED,
+          blockMessage,
+          { jobId: verdict.jobId, remaining: verdict.remaining },
+          [
+            `Run \`peaks job status --job-id ${verdict.jobId}\` to see remaining slices.`,
+            'Resume Step 0.81 (per-slice checkpoint loop) and continue until remaining === 0.',
+            'Use --force-under-job only with explicit user approval (size-fear ban override).'
+          ]);
+        io.stderr(`${blockMessage}\n`);
+        printResult(io, envelope, opts.json);
+        process.exitCode = 1;
+        return;
+      } catch (err) {
+        printResult(
+          io,
+          fail('solo.emit-handoff', 'EMIT_HANDOFF_FAILED', getErrorMessage(err), null, [
+            'Verify the project path and try again'
+          ]),
           opts.json
         );
         process.exitCode = 1;

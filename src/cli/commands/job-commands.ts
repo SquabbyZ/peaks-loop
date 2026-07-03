@@ -5,6 +5,7 @@ import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
+import { writeJobProgress, readJobProgress, tryReadJobProgress } from '../../services/job/job-progress-store.js';
 import { JobRotation } from '../../services/job/job-rotation.js';
 import { SubAgentJobWrapper } from '../../services/job/subagent-job-wrapper.js';
 import { emitJobEvent } from '../../services/job/job-event-emitter.js';
@@ -179,10 +180,25 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         project: projectRoot(opts), json: opts.json,
       });
       if (!parsed.success) return printResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
-      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
+      const jobRoot = resolveJobStateRoot(opts);
+      const store = new JobStateStore(jobRoot.rootDir);
       const orch = new JobOrchestrator(store);
       if (parsed.data.state === 'done') {
         await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
+        // v3.1.2: after each --state done, mirror slice progress to
+        // .peaks/_runtime/<sessionId>/job/<jid>/progress.json so the
+        // next LLM turn (or peaks solo gate-step-08 hook) can read it.
+        const project = projectRoot(opts);
+        const sessId = jobRoot.sessionId;
+        const state = orch.status(parsed.data.jobId);
+        writeJobProgress(project, sessId, {
+          jobId: parsed.data.jobId,
+          done: state.done,
+          total: state.total,
+          currentSlice: state.currentSlice ?? `slice-${state.done + 1}`,
+          lastCommitSha: parsed.data.commitSha ?? null,
+          updatedAt: new Date().toISOString()
+        });
       } else if (parsed.data.state === 'skipped') {
         await orch.checkpointSkipped({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, reason: parsed.data.reason! });
       } else {
@@ -234,6 +250,53 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'resume')!);
+
+  // v3.1.2: read the on-disk slice progress mirror written by `peaks
+  // job checkpoint --state done`. Used by peaks solo gate-step-08 and
+  // by peaks-solo Step 0.7 (resume) to surface `Next: slice #N of M
+  // (<currentSlice>)` without re-deriving from state.json.
+  job
+    .command('progress')
+    .description(
+      'v3.1.2: read the on-disk slice progress mirror (.peaks/_runtime/<sid>/job/<jid>/progress.json). ' +
+        'Returns { jobId, done, total, currentSlice, lastCommitSha, updatedAt }.'
+    )
+    .requiredOption('--job-id <jid>')
+    .option('--project <repo>')
+    .option('--allow-missing', 'return done=0/total=0 envelope instead of failing when progress.json is absent')
+    .action(async (opts) => {
+      try {
+        const jobRoot = resolveJobStateRoot(opts);
+        const sessId = jobRoot.sessionId;
+        const project = projectRoot(opts);
+        const progress = opts.allowMissing === true
+          ? tryReadJobProgress(project, sessId, opts.jobId)
+          : readJobProgress(project, sessId, opts.jobId);
+        if (progress === null) {
+          printResult(
+            io,
+            fail('progress', 'NO_PROGRESS', `No progress.json for job ${opts.jobId} at .peaks/_runtime/${sessId}/job/${opts.jobId}/progress.json`, { jobId: opts.jobId, sessionId: sessId }, [
+              'Run `peaks job checkpoint --state done ...` at least once to seed progress.json.',
+              'Or pass --allow-missing to return a zero-progress envelope.'
+            ]),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        printResult(io, ok('progress', progress, [], [
+          `Next: slice #${progress.done + 1} of ${progress.total} (${progress.currentSlice})`
+        ]), opts.json);
+      } catch (err) {
+        printResult(
+          io,
+          fail('progress', 'PROGRESS_READ_FAILED', err instanceof Error ? err.message : String(err), { jobId: opts.jobId }, ['Verify the job id and try again']),
+          opts.json
+        );
+        process.exitCode = 1;
+      }
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'progress')!);
 
   job
     .command('handoff')

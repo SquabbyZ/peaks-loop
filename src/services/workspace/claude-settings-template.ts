@@ -52,8 +52,13 @@ export const CLAUDE_SETTINGS_LOCAL_FILENAME = '.claude/settings.local.json';
  *   1.2.0 — removed the `Bash` matcher; Edit/Write fact-forcing
  *           bypass is the only emit. Bash enforcement is owned by
  *           `peaks gate enforce` in `settings.json`.
+ *   1.3.0 — added the v3.1.2 `Bash` PreToolUse matcher that runs
+ *           `peaks solo gate-step-08 --project .` (Step 0.8 mechanical
+ *           gate). The existing Write|Edit|MultiEdit matcher is
+ *           preserved. The new matcher's exit code is the load-bearing
+ *           signal: 0 = allow, 2 = block (with stderr BLOCKED reason).
  */
-export const TEMPLATE_VERSION = '1.2.0';
+export const TEMPLATE_VERSION = '1.3.0';
 
 /**
  * Compare two serialized template strings for semantic equivalence.
@@ -231,8 +236,43 @@ export function buildClaudeSettingsLocalJson(): ClaudeSettingsLocal {
               command: buildWriteHookCommand()
             }
           ]
+        },
+        {
+          // v3.1.2 Step 0.8 — Mechanical PreToolUse gate. Runs
+          // `peaks solo gate-step-08 --project .` before every Bash
+          // tool call. Exit 0 = allow (with structured stdout
+          // describing the decision + optional `Next: slice #N+1 of
+          // M (<currentSlice>)` line when progress.json exists). Exit
+          // 2 = block (stderr contains the BLOCKED: ... reason).
+          // The existing Write|Edit|MultiEdit matcher is preserved.
+          matcher: 'Bash',
+          hooks: [
+            {
+              type: 'command',
+              command: buildBashGateStep08Command()
+            }
+          ]
         }
       ]
     }
   };
+}
+
+/**
+ * v3.1.2: build the Bash matcher command that runs `peaks solo
+ * gate-step-08`. We invoke the CLI directly (not via `node -e "..."`)
+ * because the CLI is the only legitimate source of the structured
+ * decision + Next: slice context. Exit code is the load-bearing
+ * signal — 0 = allow, 2 = block. The hook installer is idempotent:
+ * `templateContentMatches` compares the parsed matcher entries, so
+ * re-running `peaks workspace init` on a project that already has the
+ * Bash hook is a no-op (already-current).
+ */
+function buildBashGateStep08Command(): string {
+  // The hook receives the tool call on stdin. We ignore stdin and
+  // delegate entirely to `peaks solo gate-step-08`, which reads
+  // .peaks/_runtime/<sessionId>/job-shape.json and last-prompt.txt.
+  // `${CLAUDE_PROJECT_DIR}` resolves to the consumer project's root
+  // (Claude Code's standard convention).
+  return 'peaks solo gate-step-08 --project "${CLAUDE_PROJECT_DIR}"';
 }
