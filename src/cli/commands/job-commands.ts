@@ -6,6 +6,8 @@ import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import {
   JobInitInputSchema,
+  JobCheckpointInputSchema,
+  JobBlockInputSchema,
 } from '../../services/job/job-types.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 
@@ -101,23 +103,89 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
   const subagentCleanup = job.command('subagent-cleanup').requiredOption('--job-id <jid>').requiredOption('--batch-id <bid>').option('--force').option('--project <repo>');
   addJsonOption(subagentCleanup).action(async (opts) => { const r = await subagentCleanupImpl(opts.jobId, opts.batchId); printResult(io, r, opts); });
 
-  // M3.2: remaining 5 subcommand slots — block, checkpoint, continue, handoff, resume.
-  // For M3.1, register the slots so AC-1's "9 subcommand slots" expectation is met;
-  // full handlers land in M3.2.
-  const block = job.command('block').requiredOption('--job-id <jid>').option('--project <repo>');
-  addJsonOption(block).action(async (opts) => { printResult(io, ok('block', { note: 'block lands in M3.2', jobId: opts.jobId }), opts); });
+  // M3.2: wire the remaining 5 subcommand slots — block, checkpoint, continue, handoff, resume.
+  job
+    .command('checkpoint')
+    .requiredOption('--job-id <jid>')
+    .requiredOption('--slice-id <rid>')
+    .requiredOption('--state <done|failed|skipped>')
+    .option('--commit-sha <sha>')
+    .option('--reason <text>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const parsed = JobCheckpointInputSchema.safeParse({
+        jobId: opts.jobId, sliceId: opts.sliceId, state: opts.state,
+        commitSha: opts.commitSha, reason: opts.reason,
+        project: projectRoot(opts), json: opts.json,
+      });
+      if (!parsed.success) return printResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
+      const store = new JobStateStore(parsed.data.project);
+      const orch = new JobOrchestrator(store);
+      if (parsed.data.state === 'done') {
+        await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
+      } else if (parsed.data.state === 'skipped') {
+        await orch.checkpointSkipped({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, reason: parsed.data.reason! });
+      } else {
+        await orch.checkpointFailed({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, reason: parsed.data.reason! });
+      }
+      printResult(io, ok('checkpoint', { sliceId: parsed.data.sliceId, status: parsed.data.state }), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'checkpoint')!);
 
-  const checkpoint = job.command('checkpoint').requiredOption('--job-id <jid>').requiredOption('--slice-id <sid>').option('--project <repo>');
-  addJsonOption(checkpoint).action(async (opts) => { printResult(io, ok('checkpoint', { note: 'checkpoint lands in M3.2', jobId: opts.jobId }), opts); });
+  job
+    .command('block')
+    .requiredOption('--job-id <jid>')
+    .requiredOption('--slice-id <rid>')
+    .requiredOption('--reason <text>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const parsed = JobBlockInputSchema.safeParse({
+        jobId: opts.jobId, sliceId: opts.sliceId, reason: opts.reason,
+        project: projectRoot(opts), json: opts.json,
+      });
+      if (!parsed.success) return printResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
+      const store = new JobStateStore(parsed.data.project);
+      const orch = new JobOrchestrator(store);
+      await orch.blockSlice(parsed.data);
+      printResult(io, ok('block', { blocked: parsed.data.sliceId, reason: parsed.data.reason }), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'block')!);
 
-  const continueCmd = job.command('continue').requiredOption('--job-id <jid>').option('--project <repo>');
-  addJsonOption(continueCmd).action(async (opts) => { printResult(io, ok('continue', { note: 'continue lands in M3.2', jobId: opts.jobId }), opts); });
+  job
+    .command('continue')
+    .requiredOption('--job-id <jid>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const store = new JobStateStore(projectRoot(opts));
+      const orch = new JobOrchestrator(store);
+      const r = orch.continueNow(opts.jobId);
+      printResult(io, ok('continue', r as unknown as Record<string, unknown>), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'continue')!);
 
-  const handoff = job.command('handoff').requiredOption('--job-id <jid>').option('--project <repo>');
-  addJsonOption(handoff).action(async (opts) => { printResult(io, ok('handoff', { note: 'handoff lands in M3.2', jobId: opts.jobId }), opts); });
+  job
+    .command('resume')
+    .requiredOption('--job-id <jid>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const store = new JobStateStore(projectRoot(opts));
+      const orch = new JobOrchestrator(store);
+      const s = orch.status(opts.jobId);
+      printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'resume')!);
 
-  const resume = job.command('resume').requiredOption('--job-id <jid>').option('--project <repo>');
-  addJsonOption(resume).action(async (opts) => { printResult(io, ok('resume', { note: 'resume lands in M3.2', jobId: opts.jobId }), opts); });
+  job
+    .command('handoff')
+    .requiredOption('--job-id <jid>')
+    .option('--project <repo>')
+    .action(async (opts) => {
+      const store = new JobStateStore(projectRoot(opts));
+      const orch = new JobOrchestrator(store);
+      const s = orch.status(opts.jobId);
+      printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
+    });
+  addJsonOption(job.commands.find(c => c.name() === 'handoff')!);
 
   program.addCommand(job);
 }
