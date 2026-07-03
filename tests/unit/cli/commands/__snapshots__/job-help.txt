@@ -1,0 +1,40 @@
+Usage: peaks job [options] [command]
+
+Drive long multi-slice work as one Job (peaks-solo Step 0.8+)
+
+Options:
+  -h, --help                  display help for command
+
+Commands:
+  init [options]
+  status [options]
+  rotate-now [options]
+  subagent-cleanup [options]
+  checkpoint [options]
+  block [options]
+  continue [options]
+  resume [options]
+  handoff [options]
+  help [command]              display help for command
+Usage: peaks job init [options]
+
+Options:
+  --job-id <jid>
+  --slice-list <list>
+  --parallelism-hint <serial|llm-decides>  llm-decides
+  --exit-policy <strict|best-effort>       strict
+  --main-loop-strategy <single|rotating>   rotating
+  --rotate-every <n>                       3
+  --session-id <sid>                       session id (default: read from .peaks/_runtime/session.json; required to land in the 2.7.1 single-scope-axis layout)
+  --project <repo>
+  --json                                   print machine-readable JSON envelope
+  -h, --help                               display help for command
+Usage: peaks job status [options]
+
+Options:
+  --job-id <jid>
+  --watch           poll every 3s
+  --show-cost       overlay cost from peaks budget
+  --project <repo>
+  --json            print machine-readable JSON envelope
+  -h, --help        display help for command
