@@ -1,4 +1,5 @@
 // src/cli/commands/job-commands.ts
+import { join } from 'node:path';
 import { Command } from 'commander';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -17,6 +18,30 @@ import { getCurrentSessionId } from '../../services/skills/skill-presence-servic
 function projectRoot(opts: any): string {
   // Reuse the workspace root resolver from peaks CLI; for now, CWD as a safe placeholder.
   return opts.project ?? process.cwd();
+}
+
+/**
+ * Resolves the on-disk root for Job state files.
+ *
+ * Per spec §3.3 + §4.5 (2.7.1 single-scope-axis layout), Job state lives at:
+ *   `<projectRoot>/.peaks/_runtime/<sessionId>/job/<jobId>/state.json`
+ *
+ * The `JobStateStore` itself only knows its `rootDir` + `jobId` and joins them. We
+ * compute the canonical root here (per-call) so the store can stay layout-agnostic.
+ *
+ * Resolution order:
+ * 1. `--session-id` flag (explicit override)
+ * 2. `getCurrentSessionId(project)` — reads `.peaks/_runtime/session.json` per peaks-solo
+ * 3. Error (NO_ACTIVE_SESSION) — must never silently fall back to a random uuid
+ */
+function resolveJobStateRoot(opts: any): { rootDir: string; sessionId: string; projectRoot: string } {
+  const project = projectRoot(opts);
+  const sessionId = opts.sessionId ?? getCurrentSessionId(project);
+  if (!sessionId) {
+    throw new Error('NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-solo session via peaks workspace init');
+  }
+  const rootDir = join(project, '.peaks', '_runtime', sessionId, 'job');
+  return { rootDir, sessionId, projectRoot: project };
 }
 
 export function registerJobCommands(program: Command, io: ProgramIO = { stdout: (t: string) => process.stdout.write(t), stderr: (t: string) => process.stderr.write(t) }): void {
@@ -56,7 +81,8 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         json: opts.json,
       });
       if (!parsed.success) return printResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
-      const store = new JobStateStore(parsed.data.project);
+      const jobRoot = resolveJobStateRoot(opts);
+      const store = new JobStateStore(jobRoot.rootDir);
       const orch = new JobOrchestrator(store);
       const state = orch.init({
         jobId: parsed.data.jobId,
@@ -73,7 +99,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         // best-effort: event emission failures must not abort job init
         void e;
       }
-      printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${parsed.data.project}/.peaks/_runtime/${state.sessionId}/job/${state.jobId}/state.json` }), opts);
+      printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${jobRoot.rootDir}/${state.jobId}/state.json` }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'init')!);
 
@@ -84,7 +110,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--show-cost', 'overlay cost from peaks budget')
     .option('--project <repo>')
     .action(async (opts) => {
-      const store = new JobStateStore(projectRoot(opts));
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
       if (opts.watch) {
@@ -112,7 +138,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .requiredOption('--job-id <jid>')
     .option('--project <repo>')
     .action(async (opts) => {
-      const store = new JobStateStore(projectRoot(opts));
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const rotation = new JobRotation(store,
         async (_jid) => { /* delegate to peaks session rotate — implementation wired in M6.5 batch-fix */ return { rotated: true }; },
         async (jid) => ({ jobId: jid, cycle: 0 }),
@@ -129,7 +155,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--project <repo>')
     .action(async (opts) => {
       const wrapper = new SubAgentJobWrapper(
-        new JobStateStore(projectRoot(opts)),
+        new JobStateStore(resolveJobStateRoot(opts).rootDir),
         async () => ({ batchId: opts.batchId })
       );
       const r = await wrapper.cleanup({ jobId: opts.jobId, batchId: opts.batchId, force: !!opts.force });
@@ -153,7 +179,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         project: projectRoot(opts), json: opts.json,
       });
       if (!parsed.success) return printResult(io, fail('checkpoint', 'INVALID_CHECKPOINT', parsed.error.message, {}), opts);
-      const store = new JobStateStore(parsed.data.project);
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       if (parsed.data.state === 'done') {
         await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
@@ -178,7 +204,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         project: projectRoot(opts), json: opts.json,
       });
       if (!parsed.success) return printResult(io, fail('block', 'INVALID_BLOCK', parsed.error.message, {}), opts);
-      const store = new JobStateStore(parsed.data.project);
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       await orch.blockSlice(parsed.data);
       printResult(io, ok('block', { blocked: parsed.data.sliceId, reason: parsed.data.reason }), opts);
@@ -190,7 +216,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .requiredOption('--job-id <jid>')
     .option('--project <repo>')
     .action(async (opts) => {
-      const store = new JobStateStore(projectRoot(opts));
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       const r = orch.continueNow(opts.jobId);
       printResult(io, ok('continue', r as unknown as Record<string, unknown>), opts);
@@ -202,7 +228,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .requiredOption('--job-id <jid>')
     .option('--project <repo>')
     .action(async (opts) => {
-      const store = new JobStateStore(projectRoot(opts));
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
       printResult(io, ok('resume', { resumed: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
@@ -214,7 +240,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .requiredOption('--job-id <jid>')
     .option('--project <repo>')
     .action(async (opts) => {
-      const store = new JobStateStore(projectRoot(opts));
+      const store = new JobStateStore(resolveJobStateRoot(opts).rootDir);
       const orch = new JobOrchestrator(store);
       const s = orch.status(opts.jobId);
       printResult(io, ok('handoff', { handoffFor: opts.jobId, ...(s as unknown as Record<string, unknown>) }), opts);
