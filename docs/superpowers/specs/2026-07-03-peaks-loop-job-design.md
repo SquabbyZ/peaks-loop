@@ -261,6 +261,8 @@ When `--parallelism-hint llm-decides`:
 
 When `--parallelism-hint serial`, LLM still proposes the list (Step 0.8 prompt demands it) but the DAG is a linear chain. Serial is meant for debugging and explicit user request; default is `llm-decides`.
 
+**Slice-list source resolution.** If the user names the slices verbatim in their request (e.g. "app/api/users, app/api/orders, app/ui/dashboard"), use that list directly. Otherwise invoke `peaks scan project-tree --slice-on <boundary> --project <repo>` to auto-derive (e.g. slice-on directory under app/). The LLM may also amend the auto-derived list to add or remove entries based on the user's natural-language request, but every derived slice appears in state.json with provenance (auto / user-named / llm-amended).
+
 ### 4.5 Integration with existing mechanisms
 
 | Existing mechanism | Job integration |
@@ -268,7 +270,7 @@ When `--parallelism-hint serial`, LLM still proposes the list (Step 0.8 prompt d
 | `peaks request init/transition/repair-status` | Each slice reuses the full single-rid lifecycle. No changes. |
 | `peaks sub-agent dispatch` | Each slice's RD/QA swarm runs unchanged. |
 | `peaks session checkpoint/resume` | Cross-session: read both `session/checkpoints/` AND `job/<jid>/state.json`. If job state says more slices remain, prompt user: resume / restart / skip. |
-| `peaks solo auto-compact` (v2.13.0) | Per-slice. Job state unaffected. |
+| `peaks solo auto-compact` (v2.13.0) | Per-slice (may fire many times across one job). Auto-compact touches only session-side artifacts (e.g. `session/auto-decisions.md`); it never reads or writes `job/<jobId>/state.json`. Each invocation is independent — job state always reflects "has this slice committed yet", independent of context pressure. |
 | `peaks skill presence` | Unchanged. Solo remains the active skill. |
 | `peaks standards / project scan` | Run once at job init, not per-slice. |
 | `peaks budget audit` | `--show-cost` becomes a new flag on `peaks job status` (read-only, never halts). |
@@ -455,7 +457,7 @@ The LLM-runner MUST NOT:
 1. **LLM fuzzer strength** — Can fuzzer reliably detect red-line #1-#5 violations? Needs a PoC at M2.
 2. **Job state vs session state** — Both exist; need explicit boundary (session checkpoint covers **context state**, job state covers **workflow state**). Cross-references defined in 4.5 but may need refinement.
 3. **Multi-job concurrency** — M2 ships 1 job / session. M7+ adds N-job, requires resource isolation.
-4. **Cost transparency** — `--show-cost` is read-only and non-blocking. Decision deferred to M2: ship or omit in v1.
+4. **Cost transparency** — `--show-cost` is read-only and non-blocking per §2.2. M2 makes the explicit ship/omit decision for v1; default is **shipped** (the flag is a free add-on — it costs ~30 LoC and the user can ignore it).
 5. **LLM self-decide algorithm** — Heuristic in 4.4 is minimal. Iteration after M6 based on real LLM behavior.
 
 ---
