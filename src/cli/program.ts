@@ -74,6 +74,8 @@ import { registerObservabilityCommands } from './commands/observability-commands
 // CLI primitives. See src/services/compact/ and
 // src/cli/commands/compact-command.ts.
 import { registerCompactCommands } from './commands/compact-command.js';
+// Slice 2026-07-01-job-m3.1: `peaks job init|status|...` — Job orchestration CLI surface.
+import { registerJobCommands } from './commands/job-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -350,6 +352,11 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // suggest|recommend|survival|dry-run|force` — strategic-compact CLI
   // primitives. See src/cli/commands/compact-command.ts.
   registerCompactCommands(program, io);
+
+  // Slice 2026-07-01-job-m3.1: `peaks job init|status|...` — Job
+  // orchestration CLI surface. M3.1 wires init + status + 2 stubs;
+  // the remaining 5 subcommands land in M3.2.
+  registerJobCommands(program, io);
 
  return program;
 }
