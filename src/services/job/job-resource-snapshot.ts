@@ -37,8 +37,16 @@ function dirSizeMb(dir: string): number {
   let total = 0;
   try {
     for (const name of readdirSync(dir)) {
-      try { total += statSync(join(dir, name)).size; } catch { /* missing entry */ }
+      try {
+        total += statSync(join(dir, name)).size;
+      } catch (e) {
+        // best-effort: missing entries (race with deletion) are silently skipped
+        void e;
+      }
     }
-  } catch { /* missing dir is fine */ }
+  } catch (e) {
+    // best-effort: missing dir is treated as 0 bytes
+    void e;
+  }
   return Math.round(total / 1024 / 1024);
 }

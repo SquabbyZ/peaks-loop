@@ -67,7 +67,12 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         mainLoopStrategy: parsed.data.mainLoopStrategy,
         rotateEvery: parsed.data.rotateEvery,
       });
-      try { emitJobEvent({ kind: 'job-started', jobId: state.jobId, total: state.slices.length, strategy: state.mainLoopStrategy }); } catch { /* best-effort */ }
+      try {
+        emitJobEvent({ kind: 'job-started', jobId: state.jobId, total: state.slices.length, strategy: state.mainLoopStrategy });
+      } catch (e) {
+        // best-effort: event emission failures must not abort job init
+        void e;
+      }
       printResult(io, ok('init', { jobId: state.jobId, sliceCount: state.slices.length, statePath: `${parsed.data.project}/.peaks/_runtime/${state.sessionId}/job/${state.jobId}/state.json` }), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'init')!);
@@ -92,7 +97,12 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         process.on('SIGINT', () => { clearInterval(iv); process.stdout.write('\n'); process.exit(0); });
         return;
       }
-      try { emitJobEvent({ kind: 'job-progress', jobId: opts.jobId, done: s.done, total: s.total, ...(s.currentSlice ? { currentSlice: s.currentSlice } : {}) }); } catch { /* best-effort */ }
+      try {
+        emitJobEvent({ kind: 'job-progress', jobId: opts.jobId, done: s.done, total: s.total, ...(s.currentSlice ? { currentSlice: s.currentSlice } : {}) });
+      } catch (e) {
+        // best-effort: event emission failures must not abort job status
+        void e;
+      }
       printResult(io, ok('status', s as unknown as Record<string, unknown>), opts);
     });
   addJsonOption(job.commands.find(c => c.name() === 'status')!);
