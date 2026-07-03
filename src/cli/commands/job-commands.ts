@@ -1,6 +1,5 @@
 // src/cli/commands/job-commands.ts
 import { Command } from 'commander';
-import { randomUUID } from 'node:crypto';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
@@ -8,6 +7,7 @@ import { JobOrchestrator } from '../../services/job/job-orchestrator.js';
 import {
   JobInitInputSchema,
 } from '../../services/job/job-types.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 
 // Stub stubs for M5/M4 — full impl in those milestones.
 async function rotateNowImpl(_jobId: string, _project: string) { return ok('rotate-now', { note: 'rotate-now lands in M4' }); }
@@ -29,16 +29,29 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
     .option('--exit-policy <strict|best-effort>', 'strict')
     .option('--main-loop-strategy <single|rotating>', 'rotating')
     .option('--rotate-every <n>', '3')
+    .option('--session-id <sid>', 'session id (default: read from .peaks/_runtime/session.json; required to land in the 2.7.1 single-scope-axis layout)')
     .option('--project <repo>')
     .action(async (opts) => {
+      const project = projectRoot(opts);
+      // Resolve sessionId: explicit flag > canonical session binding > FAIL.
+      // Per spec §3.3, Job state lives at .peaks/_runtime/<sessionId>/job/<jobId>/state.json —
+      // a random UUID would scatter state across dirs and break resume/auto-compact.
+      let sessionId: string | null = opts.sessionId ?? getCurrentSessionId(project);
+      if (!sessionId) {
+        return printResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-solo session via peaks workspace init)', { project }, [
+          'Re-run with --session-id <sid>',
+          'Or run `peaks workspace init` to create a session first'
+        ]), opts);
+      }
       const parsed = JobInitInputSchema.safeParse({
         jobId: opts.jobId,
+        sessionId,
         sliceList: opts.sliceList.split(',').map((s: string) => s.trim()).filter(Boolean),
         parallelismHint: opts.parallelismHint,
         exitPolicy: opts.exitPolicy,
         mainLoopStrategy: opts.mainLoopStrategy,
         rotateEvery: Number(opts.rotateEvery),
-        project: projectRoot(opts),
+        project,
         json: opts.json,
       });
       if (!parsed.success) return printResult(io, fail('init', 'INVALID_INIT', parsed.error.message, {}), opts);
@@ -46,7 +59,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       const orch = new JobOrchestrator(store);
       const state = orch.init({
         jobId: parsed.data.jobId,
-        sessionId: randomUUID(),
+        sessionId: parsed.data.sessionId,
         sliceList: parsed.data.sliceList,
         parallelismHint: parsed.data.parallelismHint,
         exitPolicy: parsed.data.exitPolicy,

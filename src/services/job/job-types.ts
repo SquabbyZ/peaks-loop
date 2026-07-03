@@ -78,6 +78,7 @@ export type JobStatusSummary = z.infer<typeof JobStatusSummarySchema>;
 
 export const JobInitInputSchema = z.object({
   jobId: z.string().min(1),
+  sessionId: z.string().min(1),
   sliceList: z.array(z.string().min(1)).min(1),
   parallelismHint: z.enum(['serial', 'llm-decides']).default('llm-decides'),
   exitPolicy: z.enum(['strict', 'best-effort']).default('strict'),
