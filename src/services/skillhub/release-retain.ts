@@ -21,7 +21,10 @@ function* walk(root: string, base = root): Generator<{ abs: string; rel: string 
   for (const ent of readdirSync(base, { withFileTypes: true })) {
     const abs = join(base, ent.name);
     if (ent.isDirectory()) yield* walk(root, abs);
-    else yield { abs, rel: relative(root, abs) };
+    else {
+      const relPosix = relative(root, abs).split(/[\\/]/).join("/");
+      yield { abs, rel: relPosix };
+    }
   }
 }
 
