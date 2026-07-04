@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { join, resolve as pathResolve } from "node:path";
 
 export class SYSTEM_PATH_FORBIDDEN extends Error {
   constructor(p: string) { super(`SYSTEM_PATH_FORBIDDEN: refusing to write ${p}`); }
@@ -15,8 +15,14 @@ export const resolveSegmentDir = ({ home }: Home, name: string): string => join(
 export const resolveStateDbPath = ({ home }: Home): string => join(resolvePoolRoot({ home }), "state.db");
 export const resolveBlobsDir = ({ home }: Home): string => join(resolvePoolRoot({ home }), "blobs");
 
+/**
+ * Normalize `..` segments via `path.resolve` before splitting, so a path like
+ * `/h/foo/../.system/evil` collapses to `/h/.system/evil` and its `.system`
+ * segment is correctly identified. Also defends against Windows-style
+ * traversal patterns such as `..\\.system\\evil`.
+ */
 export function isSystemPath(p: string): boolean {
-  return p.split(/[\\/]/).some((seg) => seg === ".system");
+  return pathResolve(p).split(/[\\/]/).some((seg) => seg === ".system");
 }
 
 export function assertNotSystemPath(p: string): void {

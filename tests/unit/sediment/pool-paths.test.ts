@@ -28,4 +28,12 @@ describe("pool-paths", () => {
   it("assertNotSystemPath allows user paths", () => {
     expect(() => assertNotSystemPath("/h/.peaks/skills/bees/bee-x")).not.toThrow();
   });
+  it("assertNotSystemPath normalizes .. traversal before the segment check (regression: Important #9)", () => {
+    // A name like `foo/../.system/evil` would resolve to `/.system/evil` and
+    // must be refused even though the raw split-on-segment pattern of the
+    // original `.system` segment would otherwise be hidden behind a `foo/..`.
+    expect(() => assertNotSystemPath("/h/foo/../.system/evil")).toThrow(SYSTEM_PATH_FORBIDDEN);
+    // Symmetric Windows-style traversal must also be refused.
+    expect(() => assertNotSystemPath("..\\.system\\evil")).toThrow(SYSTEM_PATH_FORBIDDEN);
+  });
 });
