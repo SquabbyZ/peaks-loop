@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openStateDb } from "../../../src/services/skillhub/sqlite-store.js";
@@ -94,18 +95,13 @@ describe("release export/import round-trip", () => {
     const stageDir = tar + ".rebuild";
     if (existsSync(stageDir)) rmSync(stageDir, { recursive: true, force: true });
     mkdirSync(stageDir, { recursive: true });
-    const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
     const tarBin = process.platform === "win32" ? "C:\\Windows\\System32\\tar.exe" : "tar";
     execFileSync(tarBin, ["-xzf", tar, "-C", stageDir]);
     const manifestJson = JSON.parse(
-      require("node:fs").readFileSync(join(stageDir, "manifest.json"), "utf-8") as string
+      readFileSync(join(stageDir, "manifest.json"), "utf-8")
     ) as Record<string, unknown>;
-    // Strip the version field from manifestRows so the INSERT will fail
-    // (bee_manifest.release_id is NOT NULL, and we'll point it at NULL
-    // by removing all manifestRows and letting bee_release succeed then
-    // force a NOT NULL violation on the next sibling table).
-    // Strategy: corrupt changeRows.detail by making target_name null —
-    // target_name is NOT NULL on bee_change.
+    // Corrupt changeRows by setting target_name to null — bee_change.target_name
+    // is NOT NULL, so the INSERT will fail and trigger the transaction rollback.
     manifestJson.changeRows = [
       {
         change_kind: "added",
@@ -114,10 +110,9 @@ describe("release export/import round-trip", () => {
         detail: "x",
       },
     ];
-    // We need at least one row in each preceding loop to reach changeRows,
-    // and we need bee_release + bee_release_pointer to have succeeded first
+    // We need bee_release + bee_release_pointer to have succeeded first
     // so that the rollback is observable.
-    require("node:fs").writeFileSync(
+    writeFileSync(
       join(stageDir, "manifest.json"),
       JSON.stringify(manifestJson, null, 2)
     );
