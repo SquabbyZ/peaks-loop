@@ -429,6 +429,9 @@ export async function runSediment(
         try {
           const removed = gcBlobs({ db, blobsDir, dryRun });
           return { ok: true, data: { removed } };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
         } finally {
           db.close();
         }
@@ -438,17 +441,30 @@ export async function runSediment(
         if (!query) return { ok: false, error: "MISSING_ARG: search requires <query>" };
         const beesDir = resolveUserBeesDir({ home });
         const matches: Array<Record<string, unknown>> = [];
+        const warnings: string[] = [];
         if (existsSync(beesDir)) {
           const q = query.toLowerCase();
           for (const name of readdirSync(beesDir)) {
             const manifestPath = join(beesDir, name, "manifest.json");
             if (!existsSync(manifestPath)) continue;
-            const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+            let m: {
               name?: string;
               description?: string;
               source?: string;
               promotion_status?: string;
             };
+            try {
+              m = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+                name?: string;
+                description?: string;
+                source?: string;
+                promotion_status?: string;
+              };
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              warnings.push(`skipped ${name}: ${msg}`);
+              continue;
+            }
             const haystack = `${m.name ?? ""} ${m.description ?? ""}`.toLowerCase();
             if (haystack.includes(q)) {
               matches.push({
@@ -460,7 +476,7 @@ export async function runSediment(
             }
           }
         }
-        return { ok: true, data: matches };
+        return { ok: true, data: { matches, warnings } };
       }
       case "recent": {
         const sinceRaw = typeof flags.since === "string" ? flags.since : "7d";
@@ -470,15 +486,27 @@ export async function runSediment(
         const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
         const beesDir = resolveUserBeesDir({ home });
         const matches: Array<Record<string, unknown>> = [];
+        const warnings: string[] = [];
         if (existsSync(beesDir)) {
           for (const name of readdirSync(beesDir)) {
             const manifestPath = join(beesDir, name, "manifest.json");
             if (!existsSync(manifestPath)) continue;
-            const b = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+            let b: {
               name?: string;
               lastTouchedAt?: string;
               promotion_status?: string;
             };
+            try {
+              b = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+                name?: string;
+                lastTouchedAt?: string;
+                promotion_status?: string;
+              };
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              warnings.push(`skipped ${name}: ${msg}`);
+              continue;
+            }
             if (typeof b.lastTouchedAt === "string" && b.lastTouchedAt >= cutoff) {
               matches.push({
                 name: b.name,
@@ -488,7 +516,7 @@ export async function runSediment(
             }
           }
         }
-        return { ok: true, data: matches };
+        return { ok: true, data: { matches, warnings } };
       }
       case "show": {
         const name = positional[1];

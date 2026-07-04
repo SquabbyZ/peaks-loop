@@ -926,7 +926,8 @@ describe("peaks skill sediment search", () => {
     // Mixed-case query: must match the upper-case "ArXiv".
     const r = await runSediment(["search", "arxiv"], { home });
     expect(r.ok).toBe(true);
-    const matches = (r.data as Array<{ name: string }>).map((m) => m.name);
+    const data = r.data as { matches: Array<{ name: string }>; warnings: string[] };
+    const matches = data.matches.map((m) => m.name);
     expect(matches).toContain("bee-arxiv");
     expect(matches).not.toContain("bee-other");
   });
@@ -939,7 +940,8 @@ describe("peaks skill sediment search", () => {
     );
     const r = await runSediment(["search", "oncology"], { home });
     expect(r.ok).toBe(true);
-    const matches = (r.data as Array<{ name: string }>).map((m) => m.name);
+    const data = r.data as { matches: Array<{ name: string }>; warnings: string[] };
+    const matches = data.matches.map((m) => m.name);
     expect(matches).toContain("bee-oncology");
   });
 
@@ -947,6 +949,62 @@ describe("peaks skill sediment search", () => {
     const r = await runSediment(["search"], { home });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/MISSING_ARG/);
+  });
+
+  it("tolerates a corrupt manifest.json (per-bee skip + warning)", async () => {
+    // Seed a malformed manifest.json — JSON.stringify with unclosed object.
+    const badDir = join(home, ".peaks/skills/bees/bee-bad");
+    mkdirSync(badDir, { recursive: true });
+    writeFileSync(join(badDir, "manifest.json"), '{"incomplete": "object"');
+
+    // Also seed a healthy bee that should still match.
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      [
+        "add-bee",
+        "bee-good",
+        "--segment",
+        "seg-a",
+        "--description",
+        "good bee",
+        "--apply",
+      ],
+      { home }
+    );
+
+    const r = await runSediment(["search", "anything"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { matches: unknown[]; warnings: string[] };
+    expect(data.warnings.length).toBeGreaterThan(0);
+    expect(data.warnings.some((w) => w.includes("bee-bad"))).toBe(true);
+    // The healthy bee should still be searchable (matches should not crash the verb).
+    expect(data.matches.length).toBe(0); // "anything" doesn't match the good bee's description
+  });
+
+  it("still returns matches for healthy bees when a sibling is corrupt", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      [
+        "add-bee",
+        "bee-finder",
+        "--segment",
+        "seg-a",
+        "--description",
+        "unique-watermark-token",
+        "--apply",
+      ],
+      { home }
+    );
+    // Inject a corrupt sibling.
+    const badDir = join(home, ".peaks/skills/bees/bee-broken");
+    mkdirSync(badDir, { recursive: true });
+    writeFileSync(join(badDir, "manifest.json"), "{not valid json");
+
+    const r = await runSediment(["search", "unique-watermark-token"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { matches: Array<{ name: string }>; warnings: string[] };
+    expect(data.matches.some((m) => m.name === "bee-finder")).toBe(true);
+    expect(data.warnings.some((w) => w.includes("bee-broken"))).toBe(true);
   });
 });
 
@@ -974,9 +1032,8 @@ describe("peaks skill sediment recent", () => {
     // Window: 1 day (deterministic — current bee will be within, stale will not).
     const r = await runSediment(["recent", "--since", "1d"], { home });
     expect(r.ok).toBe(true);
-    const entries = (r.data as Array<{ name: string; lastTouchedAt: string }>).map(
-      (e) => e.name
-    );
+    const data = r.data as { matches: Array<{ name: string; lastTouchedAt: string }>; warnings: string[] };
+    const entries = data.matches.map((e) => e.name);
     expect(entries).toContain("bee-fresh");
     expect(entries).not.toContain("bee-stale");
   });
@@ -985,6 +1042,25 @@ describe("peaks skill sediment recent", () => {
     const r = await runSediment(["recent", "--since", "garbage"], { home });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/MISSING_ARG/);
+  });
+
+  it("tolerates a corrupt manifest.json (per-bee skip + warning)", async () => {
+    // Seed a healthy bee first so we can verify it survives the corrupt sibling.
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      ["add-bee", "bee-fresh", "--segment", "seg-a", "--description", "x", "--apply"],
+      { home }
+    );
+    // Inject a corrupt manifest.json.
+    const badDir = join(home, ".peaks/skills/bees/bee-bad");
+    mkdirSync(badDir, { recursive: true });
+    writeFileSync(join(badDir, "manifest.json"), "{not valid json");
+
+    const r = await runSediment(["recent", "--since", "1d"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { matches: Array<{ name: string }>; warnings: string[] };
+    expect(data.warnings.some((w) => w.includes("bee-bad"))).toBe(true);
+    expect(data.matches.some((m) => m.name === "bee-fresh")).toBe(true);
   });
 });
 
