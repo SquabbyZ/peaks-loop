@@ -6,10 +6,17 @@
  * tests (if added later); this file stays at the runSediment boundary.
  */
 import { describe, expect, it, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import {
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runSediment } from "../../../src/cli/commands/sediment-commands.js";
+import { runSediment, parseFlags } from "../../../src/cli/commands/sediment-commands.js";
 
 let home = "";
 beforeEach(() => {
@@ -182,11 +189,259 @@ describe("peaks skill sediment CLI — unknown verb gate", () => {
     expect(r.error).toContain("bogus");
   });
 
-  it("returns UNKNOWN_VERB for the next-batch verbs (refine-bee, dispose, export)", async () => {
-    for (const v of ["refine-bee", "dispose", "export"]) {
+  it("returns UNKNOWN_VERB for the next-batch verbs (dispose, export)", async () => {
+    for (const v of ["dispose", "export"]) {
       const r = await runSediment([v], { home });
       expect(r.ok).toBe(false);
       expect(r.error).toMatch(/UNKNOWN_VERB/);
     }
+  });
+});
+
+// --- Task 15b: parseFlags array-valued support ---
+
+describe("parseFlags — Task 15b array-valued support", () => {
+  it("collects repeated --segment values into an array", () => {
+    const { positional, flags } = parseFlags([
+      "add-bee",
+      "bee-x",
+      "--segment",
+      "seg-a",
+      "--segment",
+      "seg-b",
+      "--segment",
+      "seg-c",
+      "--apply",
+    ]);
+    expect(positional).toEqual(["add-bee", "bee-x"]);
+    expect(flags.segment).toEqual(["seg-a", "seg-b", "seg-c"]);
+    expect(flags.apply).toBe(true);
+  });
+
+  it("keeps a single --segment value as a string (not wrapped in array)", () => {
+    const { flags } = parseFlags(["add-bee", "bee-x", "--segment", "seg-a"]);
+    expect(flags.segment).toBe("seg-a");
+  });
+
+  it("treats --flag without a following non-flag value as boolean true", () => {
+    const { flags } = parseFlags(["--apply"]);
+    expect(flags.apply).toBe(true);
+  });
+
+  it("mixes repeatable and single-value flags correctly", () => {
+    const { positional, flags } = parseFlags([
+      "verb",
+      "--segment",
+      "a",
+      "--segment",
+      "b",
+      "--patch",
+      "x",
+      "--apply",
+    ]);
+    expect(positional).toEqual(["verb"]);
+    expect(flags.segment).toEqual(["a", "b"]);
+    expect(flags.patch).toBe("x");
+    expect(flags.apply).toBe(true);
+  });
+});
+
+// --- Task 15b: refine-bee / clone-bee / promote / retire ---
+
+describe("peaks skill sediment refine-bee", () => {
+  it("updates the manifest while preserving promotion_status", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(
+      ["refine-bee", "bee-x", "--patch", "tighten description", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(m.description).toContain("tighten description");
+    expect(m.promotion_status).toBe("candidate"); // preserved
+  });
+
+  it("refuses when the bee does not exist (BEE_NOT_FOUND)", async () => {
+    const r = await runSediment(
+      ["refine-bee", "missing", "--patch", "x", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/BEE_NOT_FOUND/);
+  });
+
+  it("requires --patch", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(["refine-bee", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/--patch/);
+  });
+});
+
+describe("peaks skill sediment clone-bee", () => {
+  it("creates a sibling with promotion_status reset to candidate", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    // Bump source to stable for the test
+    writeFileSync(
+      join(home, ".peaks/skills/bees/bee-x/run-state.json"),
+      JSON.stringify({ cycles: 5, lastOutcome: "success" })
+    );
+    await runSediment(["promote", "bee-x", "--apply"], { home });
+    // Now clone
+    const r = await runSediment(["clone-bee", "bee-x", "--as", "bee-y", "--apply"], {
+      home,
+    });
+    expect(r.ok).toBe(true);
+    expect(existsSync(join(home, ".peaks/skills/bees/bee-y/manifest.json"))).toBe(true);
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-y/manifest.json"), "utf-8")
+    );
+    expect(m.name).toBe("bee-y");
+    expect(m.promotion_status).toBe("candidate");
+    // Source must remain stable (unchanged).
+    const src = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(src.promotion_status).toBe("stable");
+  });
+
+  it("requires --as <new-name>", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(["clone-bee", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/--as/);
+  });
+
+  it("refuses when source bee does not exist", async () => {
+    const r = await runSediment(["clone-bee", "missing", "--as", "bee-y", "--apply"], {
+      home,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/BEE_NOT_FOUND/);
+  });
+});
+
+describe("peaks skill sediment promote", () => {
+  it("flips candidate → stable when gate passes", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    writeFileSync(
+      join(home, ".peaks/skills/bees/bee-x/run-state.json"),
+      JSON.stringify({ cycles: 5, lastOutcome: "success" })
+    );
+    const r = await runSediment(["promote", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(true);
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(m.promotion_status).toBe("stable");
+  });
+
+  it("refuses when the gate fails (insufficient cycles)", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    // No run-state.json => cycles = 0 < minCycles (1)
+    const r = await runSediment(["promote", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/PROMOTION_GATE_FAILED/);
+    // Manifest must remain candidate (no partial write).
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(m.promotion_status).toBe("candidate");
+  });
+
+  it("refuses system bees with PROMOTION_SYSTEM_REFUSED", async () => {
+    // Write a system-bee manifest directly (bypasses add-bee's source=user default).
+    const sysDir = join(home, ".peaks/skills/bees/peaks-prd");
+    mkdirSync(sysDir, { recursive: true });
+    writeFileSync(
+      join(sysDir, "manifest.json"),
+      JSON.stringify({
+        schemaVersion: "peaks.bee/1",
+        name: "peaks-prd",
+        source: "system",
+        promotion_status: "system-stable",
+        description: "d",
+        segments: [],
+        entrypoint: { preamble: "", refs: [] },
+        promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+        createdBy: "llm",
+        lastTouchedAt: "2026-07-04T12:00:00Z",
+      })
+    );
+    const r = await runSediment(["promote", "peaks-prd", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/PROMOTION_SYSTEM_REFUSED/);
+    // Manifest must not be mutated.
+    const m = JSON.parse(readFileSync(join(sysDir, "manifest.json"), "utf-8"));
+    expect(m.promotion_status).toBe("system-stable");
+  });
+});
+
+describe("peaks skill sediment retire", () => {
+  it("flips candidate → retired and records the reason", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(
+      ["retire", "bee-x", "--reason", "obsolete", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(m.promotion_status).toBe("retired");
+    expect(m.description).toContain("obsolete");
+  });
+
+  it("retires without a --reason (reason is optional)", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(["retire", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(true);
+    const m = JSON.parse(
+      readFileSync(join(home, ".peaks/skills/bees/bee-x/manifest.json"), "utf-8")
+    );
+    expect(m.promotion_status).toBe("retired");
+  });
+
+  it("refuses system bees with RETIRE_SYSTEM_REFUSED", async () => {
+    const sysDir = join(home, ".peaks/skills/bees/peaks-prd");
+    mkdirSync(sysDir, { recursive: true });
+    writeFileSync(
+      join(sysDir, "manifest.json"),
+      JSON.stringify({
+        schemaVersion: "peaks.bee/1",
+        name: "peaks-prd",
+        source: "system",
+        promotion_status: "system-stable",
+        description: "d",
+        segments: [],
+        entrypoint: { preamble: "", refs: [] },
+        promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+        createdBy: "llm",
+        lastTouchedAt: "2026-07-04T12:00:00Z",
+      })
+    );
+    const r = await runSediment(["retire", "peaks-prd", "--reason", "x", "--apply"], {
+      home,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/RETIRE_SYSTEM_REFUSED/);
+    const m = JSON.parse(readFileSync(join(sysDir, "manifest.json"), "utf-8"));
+    expect(m.promotion_status).toBe("system-stable");
+  });
+
+  it("refuses when bee does not exist", async () => {
+    const r = await runSediment(["retire", "missing", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/BEE_NOT_FOUND/);
   });
 });

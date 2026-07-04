@@ -1,34 +1,42 @@
 /**
  * `peaks skill sediment <verb>` — Sediment pool CLI primitives.
  *
- * Slice 2026-07-04-cli-15a (Task 15a of the 18-verb plan). This file
- * implements the FIRST FOUR of 18 verbs in scope:
+ * Slices 2026-07-04-cli-15a (Task 15a) and 2026-07-04-cli-15b (Task 15b)
+ * of the 18-verb plan. This file implements 8 of 18 verbs:
  *
- *   add-segment  — scaffold ~/.peaks/skills/segments/<name>/SKILL.md
- *   add-bee      — write ~/.peaks/skills/bees/<name>/manifest.json
- *   list         — read index.json via readPool
- *   rebuild-index — rewrite index.json from filesystem state
+ *   Task 15a:
+ *     add-segment   — scaffold ~/.peaks/skills/segments/<name>/SKILL.md
+ *     add-bee       — write ~/.peaks/skills/bees/<name>/manifest.json
+ *     list          — read index.json via readPool
+ *     rebuild-index — rewrite index.json from filesystem state
  *
- * Other verbs (refine-bee / clone-bee / promote / retire / dispose /
- * releases / release-show / release-diff / export / import / gc-blobs /
- * search / recent / show) return `{ ok: false, error: "UNKNOWN_VERB: …" }`
- * in Task 15a. Tasks 15b / 15c / 15d will fill them in.
+ *   Task 15b:
+ *     refine-bee    — append a NL-described patch to an existing bee manifest
+ *     clone-bee     — duplicate an existing bee to a new name, status reset
+ *     promote       — flip candidate → stable when PromotionGate passes
+ *     retire        — flip → retired, optionally record a reason
+ *
+ * Other verbs (dispose / releases / release-show / release-diff / export /
+ * import / gc-blobs / search / recent / show) return
+ * `{ ok: false, error: "UNKNOWN_VERB: …" }` until Tasks 15c / 15d fill them.
  *
  * The CLI boundary is runSediment(argv, { home }): it returns a
  * `{ ok, error?, data? }` envelope so program.ts can render the result
  * as JSON via peaks-cli's existing printResult primitive.
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Command } from "commander";
 import {
   SYSTEM_PATH_FORBIDDEN,
   assertNotSystemPath,
   resolveSegmentsDir,
+  resolveUserBeesDir,
 } from "../../services/sediment/pool-paths.js";
 import { writeBeeManifest } from "../../services/sediment/pool-write.js";
 import { readPool } from "../../services/sediment/pool-read.js";
 import { rebuildIndexFromFs } from "../../services/sediment/pool-rebuild-index.js";
+import { evaluateGate } from "../../services/sediment/promotion-gate.js";
 import type { BeeManifest } from "../../services/sediment/types.js";
 import type { ProgramIO } from "../cli-helpers.js";
 
@@ -44,15 +52,18 @@ export interface CliResult {
  *   --flag value    → flags[flag] = value (advance i by 1)
  *   --flag          → flags[flag] = true  (when next token starts with `--` or is undefined)
  *
- * This handles the brief's `--describe "d"`, `--apply` (boolean), and
- * `--segment seg-a` shapes uniformly.
+ * Repeatable flag handling (Task 15b): when the same `--key` appears
+ * consecutively (e.g. `--segment a --segment b --segment c`), values are
+ * accumulated into a `string[]`. A single occurrence stays a `string`
+ * so existing 15a call-sites that destructure `flags.segment` as string
+ * keep working. Boolean (next-token-is-a-flag) flags keep overwriting.
  */
 export function parseFlags(argv: string[]): {
   positional: string[];
-  flags: Record<string, string | boolean>;
+  flags: Record<string, string | boolean | string[]>;
 } {
   const positional: string[] = [];
-  const flags: Record<string, string | boolean> = {};
+  const flags: Record<string, string | boolean | string[]> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a.startsWith("--")) {
@@ -61,8 +72,22 @@ export function parseFlags(argv: string[]): {
       if (v === undefined || v.startsWith("--")) {
         flags[k] = true;
       } else {
-        flags[k] = v;
-        i++;
+        // Capture first value, then look ahead for `--k <value>` repeats.
+        const values: string[] = [v];
+        i += 2;
+        while (
+          i < argv.length &&
+          argv[i] === `--${k}` &&
+          i + 1 < argv.length &&
+          !argv[i + 1]!.startsWith("--")
+        ) {
+          values.push(argv[i + 1]!);
+          i += 2;
+        }
+        // Back up one — the outer for-loop will i++ past the flag, so the
+        // next iteration sees the next real token.
+        i--;
+        flags[k] = values.length === 1 ? values[0]! : values;
       }
     } else {
       positional.push(a);
@@ -107,11 +132,13 @@ export async function runSediment(
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: name" };
         // Collect --segment values; the brief uses repeatable --segment
-        // flags (one token per segment).
+        // flags (one token per segment). parseFlags now returns string[]
+        // for repeated keys, but a single occurrence remains string —
+        // normalize both shapes.
         const segList: string[] = [];
-        for (const [k, v] of Object.entries(flags)) {
-          if (k === "segment" && typeof v === "string") segList.push(v);
-        }
+        const segVal = flags.segment;
+        if (typeof segVal === "string") segList.push(segVal);
+        else if (Array.isArray(segVal)) segList.push(...segVal);
         const description =
           typeof flags.description === "string" ? flags.description : "";
         const m: BeeManifest = {
@@ -149,6 +176,93 @@ export async function runSediment(
         const idx = rebuildIndexFromFs({ home });
         return { ok: true, data: idx };
       }
+      // --- Task 15b verbs ---
+      case "refine-bee": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: refine-bee requires <name>" };
+        const patch = typeof flags.patch === "string" ? flags.patch : "";
+        if (!patch) return { ok: false, error: "MISSING_ARG: refine-bee requires --patch" };
+        const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as BeeManifest;
+        // Append patch note to description, preserving prior content. Cap at
+        // 1000 chars to avoid unbounded growth.
+        const ts = new Date().toISOString();
+        const note = `[refine ${ts}] ${patch}`;
+        m.description = (m.description + (m.description ? "\n" : "") + note).slice(0, 1000);
+        m.lastTouchedAt = ts;
+        // promotion_status is preserved (do not touch it here).
+        writeBeeManifest({ home }, m);
+        rebuildIndexFromFs({ home });
+        return { ok: true };
+      }
+      case "clone-bee": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: clone-bee requires <name>" };
+        const asName = typeof flags.as === "string" ? flags.as : "";
+        if (!asName) return { ok: false, error: "MISSING_ARG: clone-bee requires --as <new-name>" };
+        const srcPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(srcPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        const src = JSON.parse(readFileSync(srcPath, "utf-8")) as BeeManifest;
+        // Fresh id, reset promotion_status to candidate, rename. The source
+        // manifest is unchanged on disk.
+        const clone: BeeManifest = {
+          ...src,
+          name: asName,
+          promotion_status: "candidate",
+          lastTouchedAt: new Date().toISOString(),
+        };
+        writeBeeManifest({ home }, clone);
+        rebuildIndexFromFs({ home });
+        return { ok: true };
+      }
+      case "promote": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: promote requires <name>" };
+        const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as BeeManifest;
+        if (m.source === "system") return { ok: false, error: "PROMOTION_SYSTEM_REFUSED" };
+        // Evaluate the PromotionGate (Task 5). The CLI is a thin shim; the
+        // humanApproved / smokeTestPresent inputs default to "true" here
+        // because the LLM-driven peaks-maker workflow has already obtained
+        // those approvals before calling promote.
+        const gate = evaluateGate(
+          { home },
+          m,
+          { humanApproved: true, smokeTestPresent: m.promotion.requiresSmokeTest }
+        );
+        if (!gate.ok) {
+          return {
+            ok: false,
+            error: `PROMOTION_GATE_FAILED: ${gate.failedSubconditions.join(",")}`,
+          };
+        }
+        m.promotion_status = "stable";
+        m.lastTouchedAt = new Date().toISOString();
+        writeBeeManifest({ home }, m);
+        rebuildIndexFromFs({ home });
+        return { ok: true };
+      }
+      case "retire": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: retire requires <name>" };
+        const reason = typeof flags.reason === "string" ? flags.reason : "";
+        const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as BeeManifest;
+        if (m.source === "system") return { ok: false, error: "RETIRE_SYSTEM_REFUSED" };
+        m.promotion_status = "retired";
+        if (reason) {
+          const ts = new Date().toISOString();
+          const note = `[retire ${ts}] ${reason}`;
+          m.description = (m.description + (m.description ? "\n" : "") + note).slice(0, 1000);
+        }
+        m.lastTouchedAt = new Date().toISOString();
+        writeBeeManifest({ home }, m);
+        rebuildIndexFromFs({ home });
+        return { ok: true };
+      }
       default:
         return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ""}` };
     }
@@ -175,11 +289,11 @@ function getOrCreateSkillCmd(program: Command): Command {
 
 /** Register the `peaks skill sediment <verb>` subcommand group.
  *
- *  Task 15a wires 4 verbs. The subcommand accepts variadic args so
- *  caller-side code (peaks-cli action handler) can re-dispatch to
- *  `runSediment` for the actual verb routing. Subsequent tasks
- *  (15b/15c/15d) will add the remaining 14 verbs by extending the
- *  `runSediment` switch statement.
+ *  Task 15a wired 4 verbs; Task 15b adds 4 more (refine-bee / clone-bee /
+ *  promote / retire). The subcommand accepts variadic args so caller-side
+ *  code (peaks-cli action handler) can re-dispatch to `runSediment` for
+ *  the actual verb routing. Subsequent tasks (15c / 15d) will add the
+ *  remaining 10 verbs by extending the `runSediment` switch statement.
  */
 export function registerSedimentCommands(program: Command, io: ProgramIO): void {
   const skill = getOrCreateSkillCmd(program);
