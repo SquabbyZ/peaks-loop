@@ -76,6 +76,11 @@ import { registerObservabilityCommands } from './commands/observability-commands
 import { registerCompactCommands } from './commands/compact-command.js';
 // Slice 2026-07-01-job-m3.1: `peaks job init|status|...` — Job orchestration CLI surface.
 import { registerJobCommands } from './commands/job-commands.js';
+// Slice 2026-07-04-cli-15a: `peaks skill sediment <verb>` + `peaks skill adapter <verb>`
+// — Task 15a 4-verb subset (add-segment / add-bee / list / rebuild-index).
+// 15b / 15c / 15d will extend sediment-commands.ts with the remaining 14 verbs.
+import { registerSedimentCommands } from './commands/sediment-commands.js';
+import { registerAdapterCommands } from './commands/adapter-commands.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -357,6 +362,12 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // orchestration CLI surface. M3.1 wires init + status + 2 stubs;
   // the remaining 5 subcommands land in M3.2.
   registerJobCommands(program, io);
+
+  // Slice 2026-07-04-cli-15a: `peaks skill sediment <verb>` — Task 15a
+  // 4-verb subset. Dispatches to runSediment; remaining verbs land in 15b/15c/15d.
+  registerSedimentCommands(program, io);
+  // Slice 2026-07-04-cli-15a: `peaks skill adapter <verb>` — adapter list / set-active.
+  registerAdapterCommands(program, io);
 
  return program;
 }
