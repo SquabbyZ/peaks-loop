@@ -33,6 +33,7 @@ export function retainRelease({
   blobsDir,
   scratchDir,
   manifest,
+  version: explicitVersion,
   parentVersion,
   changelog,
 }: {
@@ -40,10 +41,11 @@ export function retainRelease({
   blobsDir: string;
   scratchDir: string;
   manifest: BeeManifest;
+  version?: string;
   parentVersion?: string;
   changelog?: string;
 }): number {
-  const version = "0.1.0";
+  const version = explicitVersion ?? "0.1.0";
   const tx = db.transaction(() => {
     const ins = db.prepare(
       `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog) VALUES (?, ?, 'user', ?, ?, ?, ?, ?, ?)`

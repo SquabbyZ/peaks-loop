@@ -297,7 +297,7 @@ export async function runSediment(
         mkdirSync(blobsDir, { recursive: true });
         const db = openStateDb(stateDbPath);
         try {
-          retainRelease({ db, blobsDir, scratchDir, manifest: m });
+          retainRelease({ db, blobsDir, scratchDir, manifest: m, version });
         } finally {
           db.close();
         }

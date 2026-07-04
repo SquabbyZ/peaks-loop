@@ -73,4 +73,17 @@ describe("retainRelease", () => {
       expect(existsSync(join(blobsDir, sha.slice(0, 2), sha))).toBe(true);
     }
   });
+
+  it("accepts an explicit version and persists it to bee_release + bee_release_pointer", () => {
+    const id = retainRelease({ db, blobsDir, scratchDir, manifest, version: "0.3.7" });
+    expect(id).toBeGreaterThan(0);
+    const r = db
+      .prepare("SELECT bee_name, version FROM bee_release WHERE id = ?")
+      .get(id) as { bee_name: string; version: string };
+    expect(r).toEqual({ bee_name: "bee-x", version: "0.3.7" });
+    const ptr = db
+      .prepare("SELECT bee_name, latest_version FROM bee_release_pointer WHERE bee_name = ?")
+      .get("bee-x") as { bee_name: string; latest_version: string };
+    expect(ptr).toEqual({ bee_name: "bee-x", latest_version: "0.3.7" });
+  });
 });
