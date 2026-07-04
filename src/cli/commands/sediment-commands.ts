@@ -523,7 +523,12 @@ export async function runSediment(
         if (!name) return { ok: false, error: "MISSING_ARG: show requires <name>" };
         const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
         if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
-        return { ok: true, data: JSON.parse(readFileSync(manifestPath, "utf-8")) };
+        try {
+          return { ok: true, data: JSON.parse(readFileSync(manifestPath, "utf-8")) };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, error: `MANIFEST_CORRUPT: ${msg}` };
+        }
       }
       default:
         return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ""}` };
@@ -542,6 +547,13 @@ export async function runSediment(
  *  creating it lazily when program.ts hasn't already registered
  *  the skill command (matches the pattern in
  *  src/cli/commands/workflow-plan-commands.ts:179).
+ *
+ *  Ordering note (T15a.1 future-proofing): `program.command("skill")` lazily
+ *  registers a Command with description "Manage Peaks skills". If a future
+ *  slice adds another `peaks skill <sub>` command (e.g. `peaks skill list`),
+ *  it MUST be registered BEFORE sediment/adapter commands so that the first
+ *  registration wins and the description is consistent. Today only sediment
+ *  exists, so the lazy lookup is safe.
  */
 function getOrCreateSkillCmd(program: Command): Command {
   const existing = program.commands.find((c) => c.name() === "skill");

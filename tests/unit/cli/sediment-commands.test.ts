@@ -1098,4 +1098,13 @@ describe("peaks skill sediment show", () => {
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/MISSING_ARG/);
   });
+
+  it("returns MANIFEST_CORRUPT when the manifest.json is unparseable", async () => {
+    const badDir = join(home, ".peaks/skills/bees/bee-corrupt");
+    mkdirSync(badDir, { recursive: true });
+    writeFileSync(join(badDir, "manifest.json"), "{not valid json");
+    const r = await runSediment(["show", "bee-corrupt"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MANIFEST_CORRUPT/);
+  });
 });
