@@ -79,6 +79,32 @@ describe("release export/import round-trip", () => {
     expect(existsSync(extractDir)).toBe(false);
   });
 
+  // Regression: when an explicit `asName` collides with an existing
+  // bee_release row, importRelease must throw IMPORT_NAME_COLLIDES
+  // cleanly instead of falling through to a UNIQUE-constraint
+  // mid-INSERT failure (Important #6).
+  it("throws IMPORT_NAME_COLLIDES when asName collides with an existing row", () => {
+    retainRelease({ db, blobsDir, scratchDir, manifest });
+    const tar = join(dir, "collide.tar.gz");
+    exportRelease({ db, blobsDir, beeName: "bee-x", version: "0.1.0", outPath: tar });
+    expect(existsSync(tar)).toBe(true);
+    expect(() =>
+      importRelease({ db, blobsDir, inPath: tar, asName: "bee-x" })
+    ).toThrowError(/IMPORT_NAME_COLLIDES/);
+  });
+
+  // Same contract for the case where `asName` is omitted and the
+  // payload's bee_name collides with an existing row.
+  it("throws IMPORT_NAME_COLLIDES when payload.bee_name collides (no asName)", () => {
+    retainRelease({ db, blobsDir, scratchDir, manifest });
+    const tar = join(dir, "collide-payload.tar.gz");
+    exportRelease({ db, blobsDir, beeName: "bee-x", version: "0.1.0", outPath: tar });
+    expect(existsSync(tar)).toBe(true);
+    expect(() =>
+      importRelease({ db, blobsDir, inPath: tar })
+    ).toThrowError(/IMPORT_NAME_COLLIDES/);
+  });
+
   // Regression: importRelease must run its row inserts inside a transaction.
   // We force a mid-INSERT failure by passing a bee_release row whose
   // `version` is NULL — `bee_release.version` is NOT NULL, so the INSERT

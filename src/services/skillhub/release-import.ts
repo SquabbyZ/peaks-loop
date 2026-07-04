@@ -63,8 +63,12 @@ export function importRelease({
   };
   const beeName = asName ?? payload.bee_name;
   assertNotSystemPath(beeName);
+  // Always check collision (the asName path previously skipped it and
+  // fell through to a UNIQUE-constraint mid-INSERT failure). Whether
+  // the user gave an explicit asName or relied on payload.bee_name, a
+  // pre-existing row must be reported cleanly.
   if (db.prepare("SELECT 1 FROM bee_release WHERE bee_name = ?").get(beeName)) {
-    if (!asName) throw new Error("IMPORT_NAME_COLLIDES");
+    throw new Error("IMPORT_NAME_COLLIDES");
   }
   // Copy blobs
   for (const f of payload.fileRows) {
