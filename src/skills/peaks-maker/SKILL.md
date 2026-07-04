@@ -21,4 +21,4 @@ peaks-maker is the user-facing skill that turns natural-language intent into `pe
 - Never write to `.system/` (the soft-protection guard refuses).
 - Never run `sqlite3` directly against `~/.peaks/skills/state.db` — only via the `peaks skill sediment …` surface.
 - Never auto-promote. Always ask the user in NL.
-- Never invent a CLI verb. The fixed set is `add-segment`, `add-bee`, `refine-bee`, `clone-bee`, `promote`, `retire`, `dispose`, `releases`, `release-show`, `release-diff`, `export`, `import`, `gc-blobs`, `list`, `show`, `search`, `recent`, `rebuild-index`.
+- Never invent a CLI verb. The fixed set is `add-segment`, `add-bee`, `refine-bee`, `clone-bee`, `promote`, `retire`, `dispose`, `releases`, `release-show`, `release-diff`, `export`, `import`, `gc-blobs`, `list`, `show`, `search`, `recent`, `rebuild-index`. The blessed 18 are defined in `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.2. Adding/removing verbs requires updating the spec, the plan, and the CLI surface together.
