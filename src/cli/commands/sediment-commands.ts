@@ -49,6 +49,12 @@ import { releaseDiff } from "../../services/skillhub/release-diff.js";
 import { exportRelease } from "../../services/skillhub/release-export.js";
 import { importRelease } from "../../services/skillhub/release-import.js";
 import { gcBlobs } from "../../services/skillhub/release-gc-blobs.js";
+import type {
+  BeeReleaseRow,
+  BeeManifestRow,
+  BeeSegmentRefRow,
+  BeeFileRow,
+} from "../../services/skillhub/types.js";
 
 export interface CliResult {
   ok: boolean;
@@ -399,20 +405,24 @@ export async function runSediment(
         const stateDbPath = resolveStateDbPath({ home });
         const db = openStateDb(stateDbPath);
         try {
+          // Cast the row to the typed interface from skillhub/types.ts so
+          // downstream consumers (LLM agents in peaks-maker, CLI JSON
+          // renderers) get a structural shape rather than
+          // Record<string, unknown>. Minor #12 fix.
           const row = db
             .prepare("SELECT * FROM bee_release WHERE bee_name = ? AND version = ?")
-            .get(beeName, version) as Record<string, unknown> | undefined;
+            .get(beeName, version) as BeeReleaseRow | undefined;
           if (!row) return { ok: false, error: "VERSION_NOT_FOUND" };
-          const id = row.id as number;
+          const id = row.id;
           const manifest = db
             .prepare("SELECT * FROM bee_manifest WHERE release_id = ?")
-            .get(id);
+            .get(id) as BeeManifestRow | undefined;
           const segments = db
             .prepare("SELECT * FROM bee_segment_ref WHERE release_id = ?")
-            .all(id);
+            .all(id) as BeeSegmentRefRow[];
           const files = db
             .prepare("SELECT * FROM bee_file WHERE release_id = ?")
-            .all(id);
+            .all(id) as BeeFileRow[];
           return { ok: true, data: { release: row, manifest, segments, files } };
         } finally {
           db.close();
