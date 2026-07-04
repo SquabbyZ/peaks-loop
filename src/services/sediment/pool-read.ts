@@ -42,11 +42,17 @@ export function readPool({ home }: { home: string }): IndexFile {
   const entries: IndexEntry[] = [];
   const beesDir = resolveUserBeesDir({ home });
   if (existsSync(beesDir)) {
-    for (const name of readdirSync(beesDir)) entries.push(...[readBeeDir(home, name)].filter((e): e is IndexEntry => e !== null));
+    for (const ent of readdirSync(beesDir, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      entries.push(...[readBeeDir(home, ent.name)].filter((e): e is IndexEntry => e !== null));
+    }
   }
   const segsDir = resolveSegmentsDir({ home });
   if (existsSync(segsDir)) {
-    for (const name of readdirSync(segsDir)) entries.push(...[readSegmentDir(home, name)].filter((e): e is IndexEntry => e !== null));
+    for (const ent of readdirSync(segsDir, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      entries.push(...[readSegmentDir(home, ent.name)].filter((e): e is IndexEntry => e !== null));
+    }
   }
   const idx: IndexFile = { schemaVersion: "peaks.pool/1", generatedAt: new Date().toISOString(), entries };
   writeFileSync(join(root, "index.json"), JSON.stringify(idx, null, 2) + "\n");
