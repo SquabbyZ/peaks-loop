@@ -132,8 +132,10 @@ describe("retainRelease", () => {
       )
       .all() as Array<{ release_id: number; sha256: string; blob_path: string }>;
     expect(rows.length).toBe(2);
-    expect(rows[0].sha256).toBe(rows[1].sha256);
-    const sha = rows[0].sha256;
+    const row0 = rows[0]!;
+    const row1 = rows[1]!;
+    expect(row0.sha256).toBe(row1.sha256);
+    const sha = row0.sha256;
     const blobAbs = join(blobsDir, sha.slice(0, 2), sha);
     expect(existsSync(blobAbs)).toBe(true);
     // The blob file exists exactly once (not twice). statSync gives
@@ -141,8 +143,8 @@ describe("retainRelease", () => {
     // already happened above.
     expect(statSync(blobAbs).size).toBeGreaterThan(0);
     // Both rows must point at the same blob_path entry.
-    expect(rows[0].blob_path).toBe(rows[1].blob_path);
-    expect(rows[0].blob_path).toBe(`blobs/${sha.slice(0, 2)}/${sha}`);
+    expect(row0.blob_path).toBe(row1.blob_path);
+    expect(row0.blob_path).toBe(`blobs/${sha.slice(0, 2)}/${sha}`);
   });
 
   // Regression: Important #5 — when a TEXT column overflows the 16KB
@@ -156,8 +158,9 @@ describe("retainRelease", () => {
           name: "seg-fat",
           // ~20 KB worth of inputs — well above 16KB
           inputs: Array.from({ length: 100 }, (_, i) => ({
-            type: "scalar",
-            value: `field-${i}-${"x".repeat(180)}`,
+            name: `field-${i}-${"x".repeat(180)}`,
+            type: "string",
+            required: false,
           })),
           outputs: [],
           sideEffects: [],
