@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openStateDb } from "../../../src/services/skillhub/sqlite-store.js";
@@ -93,6 +93,56 @@ describe("retainRelease", () => {
       .prepare("SELECT bee_name, latest_version FROM bee_release_pointer WHERE bee_name = ?")
       .get("bee-x") as { bee_name: string; latest_version: string };
     expect(ptr).toEqual({ bee_name: "bee-x", latest_version: "0.3.7" });
+  });
+
+  // Regression: Important #8 — content-addressed blob dedup. Two
+  // distinct bee manifests whose scratch dirs contain the same file
+  // bytes must result in exactly one copy under blobs/<aa>/<sha>,
+  // and both bee_file rows reference the same SHA.
+  it("deduplicates content-addressed blobs across distinct bee releases (regression: Important #8)", () => {
+    // Shared script whose bytes will be identical across both bees.
+    const sharedBytes = "#!/bin/sh\necho shared-content\n";
+    // Build the first bee: scratch1/...
+    const scratchA = join(dir, "scratchA");
+    mkdirSync(scratchA, { recursive: true });
+    writeFileSync(join(scratchA, "SKILL.md"), "## bee-a\n");
+    mkdirSync(join(scratchA, "scripts"), { recursive: true });
+    writeFileSync(join(scratchA, "scripts", "shared.sh"), sharedBytes, { mode: 0o755 });
+
+    // Build the second bee: scratchB/...  with the SAME shared.sh bytes.
+    const scratchB = join(dir, "scratchB");
+    mkdirSync(scratchB, { recursive: true });
+    writeFileSync(join(scratchB, "SKILL.md"), "## bee-b\n");
+    mkdirSync(join(scratchB, "scripts"), { recursive: true });
+    writeFileSync(join(scratchB, "scripts", "shared.sh"), sharedBytes, { mode: 0o755 });
+
+    const manifestA: BeeManifest = { ...manifest, name: "bee-a" };
+    const manifestB: BeeManifest = { ...manifest, name: "bee-b" };
+
+    const idA = retainRelease({ db, blobsDir, scratchDir: scratchA, manifest: manifestA, version: "0.1.0" });
+    const idB = retainRelease({ db, blobsDir, scratchDir: scratchB, manifest: manifestB, version: "0.1.0" });
+    expect(idA).toBeGreaterThan(0);
+    expect(idB).toBeGreaterThan(0);
+
+    // Both bee_file rows for scripts/shared.sh must resolve to the
+    // same SHA256.
+    const rows = db
+      .prepare(
+        "SELECT release_id, sha256, blob_path FROM bee_file WHERE path = 'scripts/shared.sh' ORDER BY release_id"
+      )
+      .all() as Array<{ release_id: number; sha256: string; blob_path: string }>;
+    expect(rows.length).toBe(2);
+    expect(rows[0].sha256).toBe(rows[1].sha256);
+    const sha = rows[0].sha256;
+    const blobAbs = join(blobsDir, sha.slice(0, 2), sha);
+    expect(existsSync(blobAbs)).toBe(true);
+    // The blob file exists exactly once (not twice). statSync gives
+    // us a single identity — fs.rmWrite won't race because the writes
+    // already happened above.
+    expect(statSync(blobAbs).size).toBeGreaterThan(0);
+    // Both rows must point at the same blob_path entry.
+    expect(rows[0].blob_path).toBe(rows[1].blob_path);
+    expect(rows[0].blob_path).toBe(`blobs/${sha.slice(0, 2)}/${sha}`);
   });
 
   // Regression: Important #5 — when a TEXT column overflows the 16KB
