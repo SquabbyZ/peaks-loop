@@ -4,12 +4,15 @@ import { join, relative } from "node:path";
 import type Database from "better-sqlite3";
 import type { BeeManifest } from "../sediment/types.js";
 
-function sha256OfFile(p: string): { sha: string; bytes: number } {
+/** Compute the sha256 hash and byte length of a single file. */
+export function sha256OfFile(p: string): { sha: string; bytes: number } {
   const buf = readFileSync(p);
   return { sha: createHash("sha256").update(buf).digest("hex"), bytes: buf.length };
 }
 
-function ensureBlob(blobsDir: string, sha: string, srcPath: string): string {
+/** Copy a file into the content-addressed blob store under `blobsDir/<aa>/<sha>`
+ *  if not already present, and return the relative blob_path used by `bee_file`. */
+export function ensureBlob(blobsDir: string, sha: string, srcPath: string): string {
   const dir = join(blobsDir, sha.slice(0, 2));
   const dest = join(dir, sha);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -17,7 +20,7 @@ function ensureBlob(blobsDir: string, sha: string, srcPath: string): string {
   return `blobs/${sha.slice(0, 2)}/${sha}`;
 }
 
-function* walk(root: string, base = root): Generator<{ abs: string; rel: string }> {
+export function* walk(root: string, base = root): Generator<{ abs: string; rel: string }> {
   for (const ent of readdirSync(base, { withFileTypes: true })) {
     const abs = join(base, ent.name);
     if (ent.isDirectory()) yield* walk(root, abs);

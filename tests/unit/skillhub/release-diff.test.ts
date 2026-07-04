@@ -4,15 +4,11 @@ import {
   rmSync,
   writeFileSync,
   mkdirSync,
-  readdirSync,
-  readFileSync,
-  existsSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
-import { createHash } from "node:crypto";
+import { join } from "node:path";
 import { openStateDb } from "../../../src/services/skillhub/sqlite-store.js";
-import { retainRelease } from "../../../src/services/skillhub/release-retain.js";
+import { retainRelease, ensureBlob, sha256OfFile, walk } from "../../../src/services/skillhub/release-retain.js";
 import { releaseDiff } from "../../../src/services/skillhub/release-diff.js";
 import type { BeeManifest } from "../../../src/services/sediment/types.js";
 
@@ -46,27 +42,6 @@ const mkManifest = (over: Partial<BeeManifest> = {}): BeeManifest => ({
   ...over,
 });
 
-function walk(root: string, base: string = root): { abs: string; rel: string }[] {
-  const out: { abs: string; rel: string }[] = [];
-  for (const ent of readdirSync(base, { withFileTypes: true })) {
-    const abs = join(base, ent.name);
-    if (ent.isDirectory()) out.push(...walk(root, abs));
-    else {
-      const relPosix = relative(root, abs).split(/[\\/]/).join("/");
-      out.push({ abs, rel: relPosix });
-    }
-  }
-  return out;
-}
-
-function ensureBlob(blobsDir: string, sha: string, srcAbs: string): string {
-  const dir = join(blobsDir, sha.slice(0, 2));
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const dest = join(dir, sha);
-  if (!existsSync(dest)) writeFileSync(dest, readFileSync(srcAbs));
-  return `blobs/${sha.slice(0, 2)}/${sha}`;
-}
-
 describe("releaseDiff", () => {
   it("reports added/removed/modified files", () => {
     // First release via retainRelease (version pinned to 0.1.0)
@@ -97,9 +72,7 @@ describe("releaseDiff", () => {
     ).run(newId);
 
     for (const f of walk(b)) {
-      const buf = readFileSync(f.abs);
-      const sha = createHash("sha256").update(buf).digest("hex");
-      const size = buf.length;
+      const { sha, bytes: size } = sha256OfFile(f.abs);
       const blobPath = ensureBlob(blobsDir, sha, f.abs);
       db.prepare(
         `INSERT INTO bee_file (release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path) VALUES (?, 'bee', 'bee-x', ?, 'other', ?, ?, ?)`
@@ -116,5 +89,21 @@ describe("releaseDiff", () => {
     expect(r.removed).toContain("scripts/fetch.sh");
     expect(r.added).toContain("scripts/parse.sh");
     expect(r.modified).toContain("SKILL.md");
+  });
+
+  it("throws VERSION_NOT_FOUND when either version is missing", () => {
+    // Only 0.1.0 exists for bee-x; querying 9.9.9 must throw.
+    const a = mkdtempSync(join(tmpdir(), "peaks-only-"));
+    mkdirSync(join(a, "scripts"), { recursive: true });
+    writeFileSync(join(a, "SKILL.md"), "v1");
+    retainRelease({ db, blobsDir, scratchDir: a, manifest: mkManifest() });
+    rmSync(a, { recursive: true, force: true });
+
+    expect(() =>
+      releaseDiff({ db, beeName: "bee-x", fromVersion: "9.9.9", toVersion: "0.1.0" })
+    ).toThrow(/VERSION_NOT_FOUND/);
+    expect(() =>
+      releaseDiff({ db, beeName: "bee-x", fromVersion: "0.1.0", toVersion: "9.9.9" })
+    ).toThrow(/VERSION_NOT_FOUND/);
   });
 });
