@@ -7,6 +7,15 @@ This repository uses project-local Peaks-Loop standards. Existing repository con
 **Red rule (effective 2026-07-01, no exceptions):**
 - No commit message in this repository may contain `Co-Authored-By: Claude`, `Co-Authored-By: Anthropic`, or any equivalent AI-assistant attribution trailer. SquabbyZ (`601709253@qq.com`) is the sole author of every commit. See `.peaks/memory/redline-no-claude-co-author.md`.
 
+**Project-level rule (effective 2026-07-04, no exceptions):**
+- **Human-NL-Choice-Only.** User participation is allowed in only two prototypes: (a) a natural-language multi-choice pick (`AskUserQuestion` etc.), or (b) a free-form natural-language description. No user-facing message, gate, error, AskUserQuestion, SKILL.md, CLI text, or comment may require the user to **type a CLI verb, hand-author JSON / SKILL.md / manifest, hand-fill a form field outside the multi-choice picker, or provide input that the LLM can read from natural language directly**. The user does **not** type `peaks <anything>` — the LLM runs CLI commands on the user's behalf. This rule is binding on every slice (current and future) of peaks-loop. See `.peaks/memory/human-nl-choice-only-tenet.md`. Changes require explicit user re-confirmation; no silent edits.
+
+**Project-level rule (effective 2026-07-04, no exceptions):**
+- **Two-Forms-Only, with desktop as UI accelerator.** The user has no client today; their **every** interaction with peaks-loop collapses to one of two forms: (a) a `AskUserQuestion` pick, or (b) free-form natural-language description. This includes — without exception — downloading a stored skill, importing a bundle, refining a bee, cloning, exporting, retaining/disposing, promoting, retraining, etc. All such actions are LLM-coordinated on the user's behalf; the LLM runs the underlying CLI; the user only ever speaks or picks. When a future desktop client exists, it is a **UI accelerator** that may expose the same actions via buttons, drag-and-drop, file pickers, etc., but the underlying rule does not change: the user never types a CLI verb or hand-authors data, even on the desktop. The desktop's shortcuts are conveniences, not a new verb surface. See `.peaks/memory/two-forms-only-rule.md`. Changes require explicit user re-confirmation; no silent edits.
+
+**Project-level rule (effective 2026-07-04):**
+- **Enhancement, not new AI CLI.** peaks-loop runs in / on top of an existing AI runtime (Claude Code, Codex, Copilot, …); it does not claim the shell prompt, does not inject a system prompt, does not invent a competing REPL, does not replace any runtime-native skill-activation entry. Peaks-Loop is a layer, not a destination. Vendor-neutrality is binding; the adapter layer is the only place vendor-specific translation lives. See `.peaks/memory/peaks-loop-is-enhancement-not-new-cli.md`.
+
 Peaks-Loop workflow automation:
 - peaks-rd checks these standards before RD planning or implementation work.
 - peaks-qa checks code review and security guidance before verification work.
