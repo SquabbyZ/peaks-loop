@@ -17,4 +17,25 @@ describe("AutoAdapter", () => {
     const picked = await a.detectAndPick();
     expect(picked.name).toBe("claude");
   });
+
+  it("throws when all adapters return detect() === false", async () => {
+    // Stub adapters whose detect() always returns false.
+    // Cast to Detectable: the AutoAdapter only ever reads .detect() and .name;
+    // the name literal type is enforced for production adapters only.
+    const stub = {
+      name: "stub-a" as const,
+      detect: async () => false,
+      resolveScratchDir: async () => "",
+      materialize: async () => "",
+      publish: async () => "",
+      activate: async () => undefined,
+      cleanup: async () => undefined,
+    };
+    const stub2 = { ...stub, name: "stub-b" as const };
+    const a = new AutoAdapter(
+      { home: "/h" },
+      [stub, stub2] as unknown as ConstructorParameters<typeof AutoAdapter>[1]
+    );
+    await expect(a.detectAndPick()).rejects.toThrow(/No adapter detected/);
+  });
 });
