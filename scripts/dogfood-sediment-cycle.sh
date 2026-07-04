@@ -10,6 +10,9 @@
 # Usage: PEAKS_HOME=/path/to/sandbox ./scripts/dogfood-sediment-cycle.sh
 # Requires the CLI to be built first: `npm run build`.
 set -euo pipefail
+# Surface the failing command + line on any non-zero exit so the
+# dogfood step is easy to diagnose in CI / local logs.
+trap 'echo "FAILED at line $LINENO: $BASH_COMMAND" >&2' ERR
 : "${PEAKS_HOME:=/tmp/peaks-dogfood}"
 : "${PEAKS_CLI:=$(pwd)/dist/cli/index.js}"
 

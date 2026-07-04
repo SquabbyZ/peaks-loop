@@ -63,7 +63,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && vitest run --coverage --coverage.include='src/services/workflow/plan-*.ts' tests/unit/services/workflow/",
     "mut:run": "peaks mut run --project . --out mut-report.json",
     "mut:scan": "peaks mut asserts --in mut-report.json",
-    "audit:prose-ratio": "peaks audit prose-ratio --project ."
+    "audit:prose-ratio": "peaks audit prose-ratio --project .",
+    "dogfood:sediment": "bash scripts/dogfood-sediment-cycle.sh"
   },
   "engines": {
     "node": ">=20.0.0"
