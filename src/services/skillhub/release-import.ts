@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type Database from "better-sqlite3";
 import { assertNotSystemPath } from "../sediment/pool-paths.js";
 import { runTar } from "./tar-runtime.js";
+import type { ExportPayload } from "./types.js";
 
 export function importRelease({
   db,
@@ -25,42 +26,13 @@ export function importRelease({
   } finally {
     if (!extractOk) rmSync(stageDir, { recursive: true, force: true });
   }
-  const payload = JSON.parse(readFileSync(join(stageDir, "manifest.json"), "utf-8")) as {
-    bee_name: string;
-    version: string;
-    manifestRows: Array<{
-      schema_version: string;
-      description: string;
-      segments_json: string;
-      entrypoint_preamble: string | null;
-      promotion: string;
-      min_cycles: number | null;
-      requires_human: number;
-      requires_smoke: number;
-      retire_on_misses: number | null;
-    }>;
-    segRows: Array<{
-      segment_name: string;
-      inputs_json: string | null;
-      outputs_json: string | null;
-      side_effects: string | null;
-    }>;
-    fileRows: Array<{
-      owner_kind: string;
-      owner_name: string;
-      path: string;
-      kind: string;
-      size_bytes: number;
-      sha256: string;
-      blob_path: string;
-    }>;
-    changeRows: Array<{
-      change_kind: string;
-      target_kind: string;
-      target_name: string;
-      detail: string | null;
-    }>;
-  };
+  // ExportPayload (defined in ./types.ts) is the structural contract
+  // shared with release-export.ts, which writes the same JSON shape
+  // into <stageDir>/manifest.json. Minor #13: replace the previous
+  // inline anonymous type so producer and consumer stay in lock-step.
+  const payload = JSON.parse(
+    readFileSync(join(stageDir, "manifest.json"), "utf-8")
+  ) as ExportPayload;
   const beeName = asName ?? payload.bee_name;
   assertNotSystemPath(beeName);
   // Always check collision (the asName path previously skipped it and
