@@ -11,7 +11,20 @@ function parseFrontmatter(md: string): { name: string; description: string; body
     const i = line.indexOf(":");
     if (i > 0) fm[line.slice(0, i).trim()] = line.slice(i + 1).trim();
   }
-  return { name: fm.name!, description: fm.description!, body: m[2]! };
+  // The non-null assertions below were unsafe: if `name:` or `description:`
+  // was absent from the frontmatter, `fm[name]` would be `undefined`, which
+  // violates the declared return type and silently leaks a malformed
+  // manifest to every consumer of `peaksMakerManifest`. Validate explicitly
+  // so a missing/empty key surfaces as a clear error at module-load time.
+  const name = fm.name;
+  const description = fm.description;
+  if (typeof name !== "string" || name.length === 0) {
+    throw new Error("peaks-maker SKILL.md is missing name or description in frontmatter");
+  }
+  if (typeof description !== "string" || description.length === 0) {
+    throw new Error("peaks-maker SKILL.md is missing name or description in frontmatter");
+  }
+  return { name, description, body: m[2]! };
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
