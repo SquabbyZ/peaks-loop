@@ -472,14 +472,26 @@ describe("peaks skill sediment dispose", () => {
     }
   });
 
-  it("destroy decision is a no-op (no state.db write)", async () => {
+  it("destroy decision removes the user-bee dir + drops it from index.json (regression: Important #4)", async () => {
     await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
     await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const beeDir = join(home, ".peaks/skills/bees/bee-x");
+    expect(existsSync(beeDir)).toBe(true);
     const r = await runSediment(
       ["dispose", "bee-x", "--decision", "destroy", "--apply"],
       { home }
     );
     expect(r.ok).toBe(true);
+    expect(r.data).toMatchObject({ userDestroyed: true });
+    // The manifest dir is actually removed.
+    expect(existsSync(beeDir)).toBe(false);
+    // The rebuilt index.json no longer mentions bee-x.
+    const idxPath = join(home, ".peaks/skills/index.json");
+    expect(existsSync(idxPath)).toBe(true);
+    const idxRaw = JSON.parse(readFileSync(idxPath, "utf-8")) as { bees?: Array<{ name: string }> };
+    const names = (idxRaw.bees ?? []).map((b) => b.name);
+    expect(names).not.toContain("bee-x");
+    // No state.db write — destroy is purely a pool-level operation.
     const stateDbPath = join(home, ".peaks/skills/state.db");
     if (existsSync(stateDbPath)) {
       const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");

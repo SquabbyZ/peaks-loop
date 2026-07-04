@@ -24,7 +24,7 @@
  * `{ ok, error?, data? }` envelope so program.ts can render the result
  * as JSON via peaks-cli's existing printResult primitive.
  */
-import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync, rmSync } from "node:fs";
 import { join, basename } from "node:path";
 import type { Command } from "commander";
 import {
@@ -34,6 +34,7 @@ import {
   resolveStateDbPath,
   resolveBlobsDir,
   resolveUserBeesDir,
+  resolveUserBeeDir,
 } from "../../services/sediment/pool-paths.js";
 import { writeBeeManifest } from "../../services/sediment/pool-write.js";
 import { readPool } from "../../services/sediment/pool-read.js";
@@ -288,9 +289,15 @@ export async function runSediment(
           if (decision === "retain") return { ok: false, error: "RETAIN_SYSTEM_REFUSED" };
           return { ok: true, data: { systemDestroyed: true } };
         }
-        // User bee destroy: no-op (scratch materialization is cleaned up by the dispatch path).
+        // User bee destroy: remove the manifest dir from the pool. The
+        // scratch materialization is cleaned up by the dispatch flow
+        // (its concern), but the pool's bees/<name>/manifest.json entry
+        // is removed here so the index reflects reality on next read.
         if (decision === "destroy") {
-          return { ok: true, data: { userDestroyed: true } };
+          const beeDir = resolveUserBeeDir({ home }, name);
+          rmSync(beeDir, { recursive: true, force: true });
+          rebuildIndexFromFs({ home });
+          return { ok: true, data: { userDestroyed: true, path: beeDir } };
         }
         // User bee retain: open state.db, call retainRelease.
         const version = typeof flags.version === "string" ? flags.version : "0.1.0";
