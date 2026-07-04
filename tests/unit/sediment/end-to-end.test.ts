@@ -2,12 +2,12 @@ import { describe, expect, it, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runSediment } from "../../../src/cli/commands/sediment-commands";
-import { openStateDb } from "../../../src/services/skillhub/sqlite-store";
-import { retainRelease } from "../../../src/services/skillhub/release-retain";
-import { releaseDiff } from "../../../src/services/skillhub/release-diff";
-import { exportRelease } from "../../../src/services/skillhub/release-export";
-import { importRelease } from "../../../src/services/skillhub/release-import";
+import { runSediment } from "../../../src/cli/commands/sediment-commands.js";
+import { openStateDb } from "../../../src/services/skillhub/sqlite-store.js";
+import { retainRelease } from "../../../src/services/skillhub/release-retain.js";
+import { releaseDiff } from "../../../src/services/skillhub/release-diff.js";
+import { exportRelease } from "../../../src/services/skillhub/release-export.js";
+import { importRelease } from "../../../src/services/skillhub/release-import.js";
 
 let home = "";
 beforeEach(() => { home = mkdtempSync(join(tmpdir(), "peaks-e2e-")); });
