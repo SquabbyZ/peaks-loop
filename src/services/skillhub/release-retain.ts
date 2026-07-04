@@ -31,6 +31,27 @@ export function* walk(root: string, base = root): Generator<{ abs: string; rel: 
   }
 }
 
+function warnOverflow(column: string, length: number): void {
+  // Soft warning, no truncation: the spec does not mandate truncation,
+  // but a stale over-16KB row would silently break downstream readers
+  // that assume <16KB. Surface it for ops review.
+  // eslint-disable-next-line no-console
+  console.warn(`[release-retain] WARN: column ${column} overflowed 16KB guard (${length} bytes) — review and consider truncation`);
+}
+
+/**
+ * Defensive 16KB check: if the value would exceed SQLite's
+ * recommended 16KB single-column limit, log a warning. Not a hard
+ * error — we let SQLite handle overflow. The columns covered are the
+ * four TEXT columns previously unchecked: bee_manifest.segments_json,
+ * bee_segment_ref.inputs_json, bee_segment_ref.outputs_json,
+ * bee_segment_ref.side_effects.
+ */
+function checkOverflow({ table, col }: { table: string; col: string }, value: string): void {
+  const len = Buffer.byteLength(value, "utf-8");
+  if (len > 16 * 1024) warnOverflow(`${table}.${col}`, len);
+}
+
 export function retainRelease({
   db,
   blobsDir,
@@ -67,13 +88,29 @@ export function retainRelease({
     db.prepare(
       `INSERT OR REPLACE INTO bee_release_pointer (bee_name, latest_version, released_at) VALUES (?, ?, ?)`
     ).run(manifest.name, version, new Date().toISOString());
+    for (const s of manifest.segments) {
+      const inputsJson = JSON.stringify(s.inputs);
+      const outputsJson = JSON.stringify(s.outputs);
+      const sideEffectsStr = s.sideEffects.join(",");
+      checkOverflow({ table: "bee_segment_ref", col: "inputs_json" }, inputsJson);
+      checkOverflow({ table: "bee_segment_ref", col: "outputs_json" }, outputsJson);
+      checkOverflow({ table: "bee_segment_ref", col: "side_effects" }, sideEffectsStr);
+      db.prepare(
+        `INSERT INTO bee_segment_ref (release_id, segment_name, inputs_json, outputs_json, side_effects) VALUES (?, ?, ?, ?, ?)`
+      ).run(id, s.name, inputsJson, outputsJson, sideEffectsStr);
+    }
+    // Also guard the manifest-level JSON column that holds the segment
+    // name list (can exceed 16KB if a bee advertises thousands of
+    // segments).
+    const segmentsJson = JSON.stringify(manifest.segments.map((s) => s.name));
+    checkOverflow({ table: "bee_manifest", col: "segments_json" }, segmentsJson);
     db.prepare(
       `INSERT INTO bee_manifest (release_id, schema_version, description, segments_json, entrypoint_preamble, promotion, min_cycles, requires_human, requires_smoke, retire_on_misses) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       manifest.schemaVersion,
       manifest.description,
-      JSON.stringify(manifest.segments.map((s) => s.name)),
+      segmentsJson,
       manifest.entrypoint.preamble,
       manifest.promotion_status,
       manifest.promotion.minCycles,
@@ -81,17 +118,6 @@ export function retainRelease({
       manifest.promotion.requiresSmokeTest ? 1 : 0,
       manifest.promotion.retireOnMissesInRow ?? null
     );
-    for (const s of manifest.segments) {
-      db.prepare(
-        `INSERT INTO bee_segment_ref (release_id, segment_name, inputs_json, outputs_json, side_effects) VALUES (?, ?, ?, ?, ?)`
-      ).run(
-        id,
-        s.name,
-        JSON.stringify(s.inputs),
-        JSON.stringify(s.outputs),
-        s.sideEffects.join(",")
-      );
-    }
     const insFile = db.prepare(
       `INSERT INTO bee_file (release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -51,12 +51,20 @@ describe("retainRelease", () => {
       .prepare("SELECT owner_kind, owner_name, path, sha256 FROM bee_file WHERE release_id = ?")
       .all(id) as Array<{ owner_kind: string; owner_name: string; path: string; sha256: string }>;
     expect(files.length).toBeGreaterThanOrEqual(2);
-    // No single TEXT column over 16KB (qualify columns: description exists in both tables)
+    // No single TEXT column over 16KB. Coverage extends across ALL
+    // TEXT columns that store user-controlled bodies: bee_release
+    // (description / changelog / user_intent_raw), bee_manifest
+    // (entrypoint_preamble / segments_json), and bee_segment_ref
+    // (inputs_json / outputs_json / side_effects).
     const colChecks: Array<{ table: string; col: string }> = [
       { table: "bee_release", col: "description" },
       { table: "bee_release", col: "changelog" },
       { table: "bee_release", col: "user_intent_raw" },
       { table: "bee_manifest", col: "entrypoint_preamble" },
+      { table: "bee_manifest", col: "segments_json" },
+      { table: "bee_segment_ref", col: "inputs_json" },
+      { table: "bee_segment_ref", col: "outputs_json" },
+      { table: "bee_segment_ref", col: "side_effects" },
     ];
     for (const { table, col } of colChecks) {
       const max = (
@@ -85,5 +93,37 @@ describe("retainRelease", () => {
       .prepare("SELECT bee_name, latest_version FROM bee_release_pointer WHERE bee_name = ?")
       .get("bee-x") as { bee_name: string; latest_version: string };
     expect(ptr).toEqual({ bee_name: "bee-x", latest_version: "0.3.7" });
+  });
+
+  // Regression: Important #5 — when a TEXT column overflows the 16KB
+  // soft-limit, retainRelease must surface a warning so ops can review.
+  it("logs a 16KB overflow warning when bee_segment_ref.inputs_json exceeds the soft-limit (regression: Important #5)", () => {
+    const oversized: BeeManifest = {
+      ...manifest,
+      name: "bee-overflow",
+      segments: [
+        {
+          name: "seg-fat",
+          // ~20 KB worth of inputs — well above 16KB
+          inputs: Array.from({ length: 100 }, (_, i) => ({
+            type: "scalar",
+            value: `field-${i}-${"x".repeat(180)}`,
+          })),
+          outputs: [],
+          sideEffects: [],
+        },
+      ],
+    };
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      retainRelease({ db, blobsDir, scratchDir, manifest: oversized });
+      const calls = warnSpy.mock.calls.flat().map((c) => String(c));
+      const matched = calls.some((c) =>
+        /bee_segment_ref\.inputs_json/.test(c) && /overflowed 16KB guard/.test(c)
+      );
+      expect(matched).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
