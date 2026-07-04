@@ -19,6 +19,11 @@ export function rebuildIndexFromFs({ home }: { home: string }): IndexFile {
   const root = resolvePoolRoot({ home });
   if (!existsSync(root)) mkdirSync(root, { recursive: true });
   const idx = readPool({ home });
+  // Trailing newline: POSIX-friendly (`cat`, `git diff`, log tailers all
+  // expect a final \n). The Minor #14 review confirmed we keep the current
+  // behavior rather than drop it — both are JSON-valid but the trailing
+  // newline matches the convention used by every other peaks-*.json file
+  // in the project (manifest.json, segment.json, etc.).
   writeFileSync(join(root, "index.json"), JSON.stringify(idx, null, 2) + "\n");
   return idx;
 }
