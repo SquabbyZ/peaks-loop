@@ -26,12 +26,44 @@ describe("readPool", () => {
     const r = readPool({ home });
     expect(r.entries.find((e) => e.name === "bee-x")).toBeTruthy();
   });
-  it("rebuilds index.json when missing", () => {
-    const r = readPool({ home });
-    expect(r.entries).toEqual([]);
-    // After readPool, index.json should exist
+  it("does NOT write index.json (Critical #2: readPool is pure read)", () => {
+    // Pre-condition: index.json does not exist (only the parent dir does).
     const idxPath = join(home, ".peaks/skills/index.json");
-    expect(existsSync(idxPath)).toBe(true);
+    expect(existsSync(idxPath)).toBe(false);
+    // Call readPool multiple times — none of them must touch index.json.
+    readPool({ home });
+    readPool({ home });
+    readPool({ home });
+    // After Critical #2, readPool is a pure read: it MUST NOT write
+    // index.json. The "rebuild" side-effect belongs to rebuildIndexFromFs.
+    expect(existsSync(idxPath)).toBe(false);
+  });
+  it("returns the same in-memory shape whether index.json exists on disk or not", () => {
+    // Seed an on-disk bee, then call readPool twice (once before any
+    // write, once after rebuildIndexFromFs materializes index.json).
+    const beeDir = join(home, ".peaks/skills/bees/bee-x");
+    mkdirSync(beeDir, { recursive: true });
+    writeFileSync(join(beeDir, "manifest.json"), JSON.stringify({
+      schemaVersion: "peaks.bee/1", name: "bee-x", source: "user", promotion_status: "candidate",
+      description: "d", segments: [], entrypoint: { preamble: "", refs: [] },
+      promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+      createdBy: "llm", lastTouchedAt: "2026-07-04T12:00:00Z",
+    }));
+    const r1 = readPool({ home });
+    expect(r1.entries.some((e) => e.name === "bee-x")).toBe(true);
+    // Now seed a second bee and re-read — readPool must still pick it up
+    // even though it didn't write index.json in between.
+    const beeDir2 = join(home, ".peaks/skills/bees/bee-y");
+    mkdirSync(beeDir2, { recursive: true });
+    writeFileSync(join(beeDir2, "manifest.json"), JSON.stringify({
+      schemaVersion: "peaks.bee/1", name: "bee-y", source: "user", promotion_status: "candidate",
+      description: "d2", segments: [], entrypoint: { preamble: "", refs: [] },
+      promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+      createdBy: "llm", lastTouchedAt: "2026-07-04T12:00:00Z",
+    }));
+    const r2 = readPool({ home });
+    expect(r2.entries.some((e) => e.name === "bee-x")).toBe(true);
+    expect(r2.entries.some((e) => e.name === "bee-y")).toBe(true);
   });
   it("ignores stray files (e.g. .DS_Store) under bees/ and segments/", () => {
     const beeDir = join(home, ".peaks/skills/bees/bee-x");

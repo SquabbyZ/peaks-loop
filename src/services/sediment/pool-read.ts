@@ -36,9 +36,21 @@ function readSegmentDir(home: string, name: string): IndexEntry | null {
   };
 }
 
+/** Pure read of the in-memory pool index (Critical #2 fix).
+ *
+ *  CONTRACT: this function is a READ-ONLY computation. It MUST NOT
+ *  write `index.json` (or any other file) as a side-effect. The
+ *  "self-heal" property of rewriting index.json when it goes stale
+ *  belongs to `rebuildIndexFromFs`, not here. List / search / recent /
+ *  add-* verbs that need to mutate the on-disk cache should call
+ *  `rebuildIndexFromFs` explicitly.
+ *
+ *  Edge case: if the pool root does not yet exist, this returns an
+ *  empty index WITHOUT creating the directory. Callers that need a
+ *  materialized root should use `rebuildIndexFromFs` or `mkdirSync`
+ *  themselves.
+ */
 export function readPool({ home }: { home: string }): IndexFile {
-  const root = resolvePoolRoot({ home });
-  if (!existsSync(root)) mkdirSync(root, { recursive: true });
   const entries: IndexEntry[] = [];
   const beesDir = resolveUserBeesDir({ home });
   if (existsSync(beesDir)) {
@@ -55,6 +67,6 @@ export function readPool({ home }: { home: string }): IndexFile {
     }
   }
   const idx: IndexFile = { schemaVersion: "peaks.pool/1", generatedAt: new Date().toISOString(), entries };
-  writeFileSync(join(root, "index.json"), JSON.stringify(idx, null, 2) + "\n");
+  // Note: NO writeFileSync here. See Critical #2 fix.
   return idx;
 }
