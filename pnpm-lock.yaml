@@ -14,6 +14,9 @@ importers:
       '@colbymchenry/codegraph':
         specifier: 0.7.10
         version: 0.7.10
+      better-sqlite3:
+        specifier: ^12.11.1
+        version: 12.11.1
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -42,6 +45,9 @@ importers:
       '@stryker-mutator/vitest-runner':
         specifier: ^8.7.1
         version: 8.7.1(@stryker-mutator/core@8.7.1)(vitest@2.1.9(@types/node@22.19.19)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3)))
+      '@types/better-sqlite3':
+        specifier: ^7.6.13
+        version: 7.6.13
       '@types/node':
         specifier: ^22.10.2
         version: 22.19.19
@@ -856,6 +862,9 @@ packages:
       '@stryker-mutator/core': ~8.7.0
       vitest: '>=0.31.2'
 
+  '@types/better-sqlite3@7.6.13':
+    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
+
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
@@ -963,6 +972,10 @@ packages:
 
   better-sqlite3@11.10.0:
     resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
+
+  better-sqlite3@12.11.1:
+    resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -2674,6 +2687,10 @@ snapshots:
       tslib: 2.7.0
       vitest: 2.1.9(@types/node@22.19.19)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))
 
+  '@types/better-sqlite3@7.6.13':
+    dependencies:
+      '@types/node': 22.19.19
+
   '@types/estree@1.0.8': {}
 
   '@types/estree@1.0.9': {}
@@ -2786,8 +2803,7 @@ snapshots:
 
   balanced-match@4.0.4: {}
 
-  base64-js@1.5.1:
-    optional: true
+  base64-js@1.5.1: {}
 
   baseline-browser-mapping@2.10.38: {}
 
@@ -2797,17 +2813,20 @@ snapshots:
       prebuild-install: 7.1.3
     optional: true
 
+  better-sqlite3@12.11.1:
+    dependencies:
+      bindings: 1.5.0
+      prebuild-install: 7.1.3
+
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
-    optional: true
 
   bl@4.1.0:
     dependencies:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   brace-expansion@2.1.0:
     dependencies:
@@ -2829,7 +2848,6 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
-    optional: true
 
   cac@6.7.14: {}
 
@@ -2859,8 +2877,7 @@ snapshots:
 
   check-error@2.1.3: {}
 
-  chownr@1.1.4:
-    optional: true
+  chownr@1.1.4: {}
 
   cli-width@4.1.0: {}
 
@@ -2899,20 +2916,17 @@ snapshots:
   decompress-response@6.0.0:
     dependencies:
       mimic-response: 3.1.0
-    optional: true
 
   deep-eql@5.0.2: {}
 
-  deep-extend@0.6.0:
-    optional: true
+  deep-extend@0.6.0: {}
 
   des.js@1.1.0:
     dependencies:
       inherits: 2.0.4
       minimalistic-assert: 1.0.1
 
-  detect-libc@2.1.2:
-    optional: true
+  detect-libc@2.1.2: {}
 
   diff-match-patch@1.0.5: {}
 
@@ -2935,7 +2949,6 @@ snapshots:
   end-of-stream@1.4.5:
     dependencies:
       once: 1.4.0
-    optional: true
 
   es-define-property@1.0.1: {}
 
@@ -3023,8 +3036,7 @@ snapshots:
       strip-final-newline: 4.0.0
       yoctocolors: 2.1.2
 
-  expand-template@2.0.3:
-    optional: true
+  expand-template@2.0.3: {}
 
   expect-type@1.3.0: {}
 
@@ -3052,8 +3064,7 @@ snapshots:
     dependencies:
       is-unicode-supported: 2.1.0
 
-  file-uri-to-path@1.0.0:
-    optional: true
+  file-uri-to-path@1.0.0: {}
 
   file-url@4.0.0: {}
 
@@ -3062,8 +3073,7 @@ snapshots:
       cross-spawn: 7.0.6
       signal-exit: 4.1.0
 
-  fs-constants@1.0.0:
-    optional: true
+  fs-constants@1.0.0: {}
 
   fsevents@2.3.3:
     optional: true
@@ -3100,8 +3110,7 @@ snapshots:
       '@sec-ant/readable-stream': 0.4.1
       is-stream: 4.0.1
 
-  github-from-package@0.0.0:
-    optional: true
+  github-from-package@0.0.0: {}
 
   glob@10.5.0:
     dependencies:
@@ -3141,13 +3150,11 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  ieee754@1.2.1:
-    optional: true
+  ieee754@1.2.1: {}
 
   inherits@2.0.4: {}
 
-  ini@1.3.8:
-    optional: true
+  ini@1.3.8: {}
 
   is-fullwidth-code-point@3.0.0: {}
 
@@ -3227,8 +3234,7 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  mimic-response@3.1.0:
-    optional: true
+  mimic-response@3.1.0: {}
 
   minimalistic-assert@1.0.1: {}
 
@@ -3240,13 +3246,11 @@ snapshots:
     dependencies:
       brace-expansion: 2.1.0
 
-  minimist@1.2.8:
-    optional: true
+  minimist@1.2.8: {}
 
   minipass@7.1.3: {}
 
-  mkdirp-classic@0.5.3:
-    optional: true
+  mkdirp-classic@0.5.3: {}
 
   ms@2.1.3: {}
 
@@ -3291,13 +3295,11 @@ snapshots:
 
   nanoid@3.3.12: {}
 
-  napi-build-utils@2.0.0:
-    optional: true
+  napi-build-utils@2.0.0: {}
 
   node-abi@3.92.0:
     dependencies:
       semver: 7.8.0
-    optional: true
 
   node-releases@2.0.48: {}
 
@@ -3313,7 +3315,6 @@ snapshots:
   once@1.4.0:
     dependencies:
       wrappy: 1.0.2
-    optional: true
 
   os-tmpdir@1.0.2: {}
 
@@ -3364,7 +3365,6 @@ snapshots:
       simple-get: 4.0.1
       tar-fs: 2.1.4
       tunnel-agent: 0.6.0
-    optional: true
 
   pretty-ms@9.3.0:
     dependencies:
@@ -3376,7 +3376,6 @@ snapshots:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
-    optional: true
 
   qs@6.15.2:
     dependencies:
@@ -3388,14 +3387,12 @@ snapshots:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
-    optional: true
 
   readable-stream@3.6.2:
     dependencies:
       inherits: 2.0.4
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
-    optional: true
 
   require-directory@2.1.1:
     optional: true
@@ -3440,8 +3437,7 @@ snapshots:
     dependencies:
       tslib: 2.7.0
 
-  safe-buffer@5.2.1:
-    optional: true
+  safe-buffer@5.2.1: {}
 
   safer-buffer@2.1.2: {}
 
@@ -3492,15 +3488,13 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-concat@1.0.1:
-    optional: true
+  simple-concat@1.0.1: {}
 
   simple-get@4.0.1:
     dependencies:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
-    optional: true
 
   sisteransi@1.0.5: {}
 
@@ -3533,7 +3527,6 @@ snapshots:
   string_decoder@1.3.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   strip-ansi@6.0.1:
     dependencies:
@@ -3545,8 +3538,7 @@ snapshots:
 
   strip-final-newline@4.0.0: {}
 
-  strip-json-comments@2.0.1:
-    optional: true
+  strip-json-comments@2.0.1: {}
 
   supports-color@7.2.0:
     dependencies:
@@ -3561,7 +3553,6 @@ snapshots:
       mkdirp-classic: 0.5.3
       pump: 3.0.4
       tar-stream: 2.2.0
-    optional: true
 
   tar-stream@2.2.0:
     dependencies:
@@ -3570,7 +3561,6 @@ snapshots:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
-    optional: true
 
   test-exclude@7.0.2:
     dependencies:
@@ -3620,7 +3610,6 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
-    optional: true
 
   tunnel@0.0.6: {}
 
@@ -3658,8 +3647,7 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
-  util-deprecate@1.0.2:
-    optional: true
+  util-deprecate@1.0.2: {}
 
   vite-node@2.1.9(@types/node@22.19.19):
     dependencies:
@@ -3754,8 +3742,7 @@ snapshots:
       string-width: 5.1.2
       strip-ansi: 7.2.0
 
-  wrappy@1.0.2:
-    optional: true
+  wrappy@1.0.2: {}
 
   y18n@5.0.8:
     optional: true
