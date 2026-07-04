@@ -44,6 +44,9 @@ export function exportRelease({
     const dest = join(stageDir, "blobs", f.sha256);
     writeFileSync(dest, readFileSync(src));
   }
-  runTar(["-czf", outPath, "-C", stageDir, "."]);
-  rmSync(stageDir, { recursive: true, force: true });
+  try {
+    runTar(["-czf", outPath, "-C", stageDir, "."]);
+  } finally {
+    rmSync(stageDir, { recursive: true, force: true });
+  }
 }
