@@ -25,6 +25,7 @@ export class ClaudeAdapter implements Adapter {
     const frontmatter = `---\nname: peaks-bee-${beeName}\ndescription: peaks-loop generated bee ${beeName} — see local SkillHub for source\n---\n\n`;
     const body = `${env.preamble}\n\n` + segments.map((s) => s.skillMd).join("\n\n");
     writeFileSync(join(dir, "SKILL.md"), frontmatter + body);
+    mkdirSync(join(dir, "scripts"), { recursive: true });
     for (const s of segments) {
       for (const sc of s.scripts) writeFileSync(join(dir, "scripts", sc.name), sc.content);
     }

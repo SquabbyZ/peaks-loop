@@ -36,6 +36,23 @@ describe("ClaudeAdapter", () => {
     expect(md).toContain("## bee-x preamble");
   });
 
+  it("materialize writes segment scripts under scripts/ (creates dir if missing)", async () => {
+    const scratch = await make().materialize(
+      "bee-x",
+      { preamble: "## bee-x preamble", refs: [] },
+      [
+        {
+          name: "seg-a",
+          skillMd: "## seg-a\n",
+          scripts: [{ name: "fetch.sh", content: "echo v1" }],
+        },
+      ],
+    );
+    const scriptPath = join(scratch, "scripts", "fetch.sh");
+    expect(existsSync(scriptPath)).toBe(true);
+    expect(readFileSync(scriptPath, "utf-8")).toBe("echo v1");
+  });
+
   it("publish is a no-op for claude (it is the runtime)", async () => {
     const scratch = await make().materialize("bee-x", { preamble: "x", refs: [] }, []);
     expect(await make().publish(scratch)).toBe(scratch);
