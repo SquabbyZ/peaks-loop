@@ -189,8 +189,8 @@ describe("peaks skill sediment CLI — unknown verb gate", () => {
     expect(r.error).toContain("bogus");
   });
 
-  it("returns UNKNOWN_VERB for verbs not yet implemented (export)", async () => {
-    const r = await runSediment(["export"], { home });
+  it("returns UNKNOWN_VERB for verbs not yet implemented (hypothetical)", async () => {
+    const r = await runSediment(["completely-unknown"], { home });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/UNKNOWN_VERB/);
   });
@@ -726,5 +726,300 @@ describe("peaks skill sediment release-diff", () => {
     const r = await runSediment(["release-diff", "bee-x"], { home });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/--from/);
+  });
+});
+
+// --- Task 15d: export / import / gc-blobs / search / recent / show ---
+
+/** Seed a bee and retain a release (returns the outPath-equivalent scratch setup). */
+async function seedRetainedBee(
+  home: string,
+  name: string,
+  version: string
+): Promise<{ sha: string }> {
+  await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+  await runSediment(
+    ["add-bee", name, "--segment", "seg-a", "--description", "test", "--apply"],
+    { home }
+  );
+  const scratchDir = join(home, `scratch-${name}`);
+  mkdirSync(scratchDir, { recursive: true });
+  writeFileSync(join(scratchDir, "SKILL.md"), `## ${name}\n`);
+  const r = await runSediment(
+    [
+      "dispose",
+      name,
+      "--decision",
+      "retain",
+      "--scratch",
+      scratchDir,
+      "--version",
+      version,
+      "--apply",
+    ],
+    { home }
+  );
+  if (!r.ok) throw new Error(`seedRetainedBee failed: ${r.error}`);
+
+  // Read the file's sha from state.db so the gc-blobs test can reference it.
+  const { openStateDb } = await import(
+    "../../../src/services/skillhub/sqlite-store.js"
+  );
+  const db = openStateDb(join(home, ".peaks/skills/state.db"));
+  try {
+    const row = db
+      .prepare(
+        "SELECT sha256 FROM bee_file WHERE owner_name = ? ORDER BY id ASC LIMIT 1"
+      )
+      .get(name) as { sha256: string } | undefined;
+    if (!row) throw new Error("no bee_file row written");
+    return { sha: row.sha256 };
+  } finally {
+    db.close();
+  }
+}
+
+describe("peaks skill sediment export", () => {
+  it("produces a tar.gz at the given path", async () => {
+    await seedRetainedBee(home, "bee-export-1", "0.1.0");
+    const outPath = join(home, "out.tar.gz");
+    const r = await runSediment(
+      ["export", "bee-export-1", "--version", "0.1.0", "--out", outPath],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    expect(existsSync(outPath)).toBe(true);
+    const data = r.data as { outPath: string };
+    expect(data.outPath).toBe(outPath);
+    // tar.gz non-empty (real bytes)
+    const stat = (await import("node:fs")).statSync(outPath);
+    expect(stat.size).toBeGreaterThan(0);
+  });
+
+  it("returns VERSION_NOT_FOUND when the version is unknown", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-export-2", "--segment", "seg-a", "--apply"], { home });
+    const r = await runSediment(
+      ["export", "bee-export-2", "--version", "9.9.9", "--out", join(home, "x.tar.gz")],
+      { home }
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/VERSION_NOT_FOUND/);
+  });
+
+  it("requires <bee-name>, --version, --out", async () => {
+    const r = await runSediment(["export"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MISSING_ARG/);
+  });
+});
+
+describe("peaks skill sediment import", () => {
+  it("brings a tar.gz back in as a new bee (--as)", async () => {
+    await seedRetainedBee(home, "bee-import-src", "0.1.0");
+    const outPath = join(home, "bundle.tar.gz");
+    const exp = await runSediment(
+      ["export", "bee-import-src", "--version", "0.1.0", "--out", outPath],
+      { home }
+    );
+    expect(exp.ok).toBe(true);
+    // Remove the source row so import with the original name would succeed —
+    // but we test the --as path which always inserts under a new name.
+    const newHome = mkdtempSync(join(tmpdir(), "peaks-import-fresh-"));
+    try {
+      // Seed a fresh home with the same shell but no prior release rows.
+      const r = await runSediment(["import", outPath, "--as", "bee-import-dst"], {
+        home: newHome,
+      });
+      expect(r.ok).toBe(true);
+      const data = r.data as { asName: string };
+      expect(data.asName).toBe("bee-import-dst");
+      // The new release row should exist in the fresh home's state.db.
+      const { openStateDb } = await import(
+        "../../../src/services/skillhub/sqlite-store.js"
+      );
+      const db = openStateDb(join(newHome, ".peaks/skills/state.db"));
+      try {
+        const rows = db
+          .prepare("SELECT bee_name, version FROM bee_release WHERE bee_name = ?")
+          .all("bee-import-dst") as Array<{ bee_name: string; version: string }>;
+        expect(rows).toEqual([{ bee_name: "bee-import-dst", version: "0.1.0" }]);
+      } finally {
+        db.close();
+      }
+    } finally {
+      rmSync(newHome, { recursive: true, force: true });
+    }
+  });
+
+  it("returns BUNDLE_NOT_FOUND when the bundle path is missing", async () => {
+    const r = await runSediment(["import", join(home, "missing.tar.gz")], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/BUNDLE_NOT_FOUND/);
+  });
+});
+
+describe("peaks skill sediment gc-blobs", () => {
+  it("--dry-run lists orphans without deleting", async () => {
+    const { sha: refSha } = await seedRetainedBee(home, "bee-gc-1", "0.1.0");
+    // Pre-create an orphan blob under a different SHA so it's not referenced.
+    const orphanSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const orphanDir = join(home, ".peaks/skills/blobs", orphanSha.slice(0, 2));
+    mkdirSync(orphanDir, { recursive: true });
+    writeFileSync(join(orphanDir, orphanSha), "orphan");
+
+    const r = await runSediment(["gc-blobs", "--dry-run"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { removed: string[] };
+    expect(data.removed).toContain(orphanSha);
+    // Orphan still on disk (dry-run did not delete).
+    expect(existsSync(join(orphanDir, orphanSha))).toBe(true);
+    // Referenced blob untouched.
+    expect(existsSync(join(home, ".peaks/skills/blobs", refSha.slice(0, 2), refSha))).toBe(
+      true
+    );
+  });
+
+  it("default (no --dry-run) actually deletes orphans", async () => {
+    const orphanSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const orphanDir = join(home, ".peaks/skills/blobs", orphanSha.slice(0, 2));
+    mkdirSync(orphanDir, { recursive: true });
+    writeFileSync(join(orphanDir, orphanSha), "orphan");
+    expect(existsSync(join(orphanDir, orphanSha))).toBe(true);
+
+    const r = await runSediment(["gc-blobs"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { removed: string[] };
+    expect(data.removed).toContain(orphanSha);
+    expect(existsSync(join(orphanDir, orphanSha))).toBe(false);
+  });
+});
+
+describe("peaks skill sediment search", () => {
+  it("returns bees whose description case-insensitively matches the query", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      [
+        "add-bee",
+        "bee-arxiv",
+        "--segment",
+        "seg-a",
+        "--description",
+        "fetches ArXiv oncology papers",
+        "--apply",
+      ],
+      { home }
+    );
+    await runSediment(
+      [
+        "add-bee",
+        "bee-other",
+        "--segment",
+        "seg-a",
+        "--description",
+        "fetches weather data",
+        "--apply",
+      ],
+      { home }
+    );
+
+    // Mixed-case query: must match the upper-case "ArXiv".
+    const r = await runSediment(["search", "arxiv"], { home });
+    expect(r.ok).toBe(true);
+    const matches = (r.data as Array<{ name: string }>).map((m) => m.name);
+    expect(matches).toContain("bee-arxiv");
+    expect(matches).not.toContain("bee-other");
+  });
+
+  it("also matches against the bee name itself", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      ["add-bee", "bee-oncology", "--segment", "seg-a", "--description", "x", "--apply"],
+      { home }
+    );
+    const r = await runSediment(["search", "oncology"], { home });
+    expect(r.ok).toBe(true);
+    const matches = (r.data as Array<{ name: string }>).map((m) => m.name);
+    expect(matches).toContain("bee-oncology");
+  });
+
+  it("requires <query>", async () => {
+    const r = await runSediment(["search"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MISSING_ARG/);
+  });
+});
+
+describe("peaks skill sediment recent", () => {
+  it("returns bees touched within the since window", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      ["add-bee", "bee-fresh", "--segment", "seg-a", "--description", "x", "--apply"],
+      { home }
+    );
+    await runSediment(
+      ["add-bee", "bee-stale", "--segment", "seg-a", "--description", "x", "--apply"],
+      { home }
+    );
+
+    // Set the stale bee's lastTouchedAt to long ago.
+    const staleManifest = join(
+      home,
+      ".peaks/skills/bees/bee-stale/manifest.json"
+    );
+    const m = JSON.parse(readFileSync(staleManifest, "utf-8"));
+    m.lastTouchedAt = "2020-01-01T00:00:00Z";
+    writeFileSync(staleManifest, JSON.stringify(m));
+
+    // Window: 1 day (deterministic — current bee will be within, stale will not).
+    const r = await runSediment(["recent", "--since", "1d"], { home });
+    expect(r.ok).toBe(true);
+    const entries = (r.data as Array<{ name: string; lastTouchedAt: string }>).map(
+      (e) => e.name
+    );
+    expect(entries).toContain("bee-fresh");
+    expect(entries).not.toContain("bee-stale");
+  });
+
+  it("requires --since Nd format", async () => {
+    const r = await runSediment(["recent", "--since", "garbage"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MISSING_ARG/);
+  });
+});
+
+describe("peaks skill sediment show", () => {
+  it("returns the full manifest for a bee", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(
+      [
+        "add-bee",
+        "bee-show",
+        "--segment",
+        "seg-a",
+        "--description",
+        "test desc",
+        "--apply",
+      ],
+      { home }
+    );
+    const r = await runSediment(["show", "bee-show"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as { name: string; description: string; source: string };
+    expect(data.name).toBe("bee-show");
+    expect(data.description).toBe("test desc");
+    expect(data.source).toBe("user");
+  });
+
+  it("returns BEE_NOT_FOUND for missing bees", async () => {
+    const r = await runSediment(["show", "bee-missing"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/BEE_NOT_FOUND/);
+  });
+
+  it("requires <name>", async () => {
+    const r = await runSediment(["show"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MISSING_ARG/);
   });
 });

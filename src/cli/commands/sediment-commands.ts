@@ -24,8 +24,8 @@
  * `{ ok, error?, data? }` envelope so program.ts can render the result
  * as JSON via peaks-cli's existing printResult primitive.
  */
-import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { writeFileSync, mkdirSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { join, basename } from "node:path";
 import type { Command } from "commander";
 import {
   SYSTEM_PATH_FORBIDDEN,
@@ -44,6 +44,9 @@ import type { ProgramIO } from "../cli-helpers.js";
 import { openStateDb } from "../../services/skillhub/sqlite-store.js";
 import { retainRelease } from "../../services/skillhub/release-retain.js";
 import { releaseDiff } from "../../services/skillhub/release-diff.js";
+import { exportRelease } from "../../services/skillhub/release-export.js";
+import { importRelease } from "../../services/skillhub/release-import.js";
+import { gcBlobs } from "../../services/skillhub/release-gc-blobs.js";
 
 export interface CliResult {
   ok: boolean;
@@ -372,6 +375,127 @@ export async function runSediment(
         } finally {
           db.close();
         }
+      }
+      // --- Task 15d verbs ---
+      case "export": {
+        const beeName = positional[1];
+        const version = typeof flags.version === "string" ? flags.version : "";
+        const outPath = typeof flags.out === "string" ? flags.out : "";
+        if (!beeName || !version || !outPath) {
+          return { ok: false, error: "MISSING_ARG: export requires <bee-name>, --version, --out" };
+        }
+        const stateDbPath = resolveStateDbPath({ home });
+        const blobsDir = resolveBlobsDir({ home });
+        const db = openStateDb(stateDbPath);
+        try {
+          exportRelease({ db, blobsDir, beeName, version, outPath });
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
+        } finally {
+          db.close();
+        }
+        return { ok: true, data: { outPath } };
+      }
+      case "import": {
+        const bundlePath = positional[1];
+        const asNameRaw = typeof flags.as === "string" ? flags.as : undefined;
+        const asName = asNameRaw && asNameRaw.length > 0 ? asNameRaw : undefined;
+        if (!bundlePath) return { ok: false, error: "MISSING_ARG: import requires <bundle-path>" };
+        if (!existsSync(bundlePath)) return { ok: false, error: "BUNDLE_NOT_FOUND" };
+        const stateDbPath = resolveStateDbPath({ home });
+        const blobsDir = resolveBlobsDir({ home });
+        mkdirSync(blobsDir, { recursive: true });
+        const db = openStateDb(stateDbPath);
+        try {
+          if (asName !== undefined) {
+            importRelease({ db, blobsDir, inPath: bundlePath, asName });
+          } else {
+            importRelease({ db, blobsDir, inPath: bundlePath });
+          }
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
+        } finally {
+          db.close();
+        }
+        return { ok: true, data: { asName: asName ?? basename(bundlePath) } };
+      }
+      case "gc-blobs": {
+        const dryRun = flags["dry-run"] === true;
+        const stateDbPath = resolveStateDbPath({ home });
+        const blobsDir = resolveBlobsDir({ home });
+        const db = openStateDb(stateDbPath);
+        try {
+          const removed = gcBlobs({ db, blobsDir, dryRun });
+          return { ok: true, data: { removed } };
+        } finally {
+          db.close();
+        }
+      }
+      case "search": {
+        const query = positional[1] ?? (typeof flags.q === "string" ? flags.q : "");
+        if (!query) return { ok: false, error: "MISSING_ARG: search requires <query>" };
+        const beesDir = resolveUserBeesDir({ home });
+        const matches: Array<Record<string, unknown>> = [];
+        if (existsSync(beesDir)) {
+          const q = query.toLowerCase();
+          for (const name of readdirSync(beesDir)) {
+            const manifestPath = join(beesDir, name, "manifest.json");
+            if (!existsSync(manifestPath)) continue;
+            const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+              name?: string;
+              description?: string;
+              source?: string;
+              promotion_status?: string;
+            };
+            const haystack = `${m.name ?? ""} ${m.description ?? ""}`.toLowerCase();
+            if (haystack.includes(q)) {
+              matches.push({
+                name: m.name,
+                description: m.description,
+                source: m.source,
+                promotion_status: m.promotion_status,
+              });
+            }
+          }
+        }
+        return { ok: true, data: matches };
+      }
+      case "recent": {
+        const sinceRaw = typeof flags.since === "string" ? flags.since : "7d";
+        const m = sinceRaw.match(/^(\d+)d$/);
+        if (!m) return { ok: false, error: "MISSING_ARG: recent requires --since Nd (e.g. 7d)" };
+        const sinceDays = parseInt(m[1]!, 10);
+        const cutoff = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+        const beesDir = resolveUserBeesDir({ home });
+        const matches: Array<Record<string, unknown>> = [];
+        if (existsSync(beesDir)) {
+          for (const name of readdirSync(beesDir)) {
+            const manifestPath = join(beesDir, name, "manifest.json");
+            if (!existsSync(manifestPath)) continue;
+            const b = JSON.parse(readFileSync(manifestPath, "utf-8")) as {
+              name?: string;
+              lastTouchedAt?: string;
+              promotion_status?: string;
+            };
+            if (typeof b.lastTouchedAt === "string" && b.lastTouchedAt >= cutoff) {
+              matches.push({
+                name: b.name,
+                lastTouchedAt: b.lastTouchedAt,
+                promotion_status: b.promotion_status,
+              });
+            }
+          }
+        }
+        return { ok: true, data: matches };
+      }
+      case "show": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: show requires <name>" };
+        const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        return { ok: true, data: JSON.parse(readFileSync(manifestPath, "utf-8")) };
       }
       default:
         return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ""}` };
