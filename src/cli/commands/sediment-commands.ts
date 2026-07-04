@@ -41,6 +41,7 @@ import { rebuildIndexFromFs } from "../../services/sediment/pool-rebuild-index.j
 import { evaluateGate } from "../../services/sediment/promotion-gate.js";
 import type { BeeManifest } from "../../services/sediment/types.js";
 import type { ProgramIO } from "../cli-helpers.js";
+import { printCliEnvelope } from "../cli-helpers.js";
 import { openStateDb } from "../../services/skillhub/sqlite-store.js";
 import { retainRelease } from "../../services/skillhub/release-retain.js";
 import { releaseDiff } from "../../services/skillhub/release-diff.js";
@@ -580,11 +581,12 @@ export function registerSedimentCommands(program: Command, io: ProgramIO): void 
       const home =
         process.env.HOME ?? process.env.USERPROFILE ?? process.cwd();
       const r = await runSediment(args, { home });
-      if (!r.ok) {
-        io.stdout(JSON.stringify({ ok: false, error: r.error }));
-        process.exitCode = 1;
-        return;
-      }
-      io.stdout(JSON.stringify({ ok: true, data: r.data ?? null }));
+      // Delegate the JSON rendering AND the process.exitCode side-effect
+      // to the shared CLI shim helper (Critical #1 fix). The library
+      // function runSediment itself never mutates process.exitCode —
+      // it just returns { ok, error? } — so non-CLI callers (vitest,
+      // programmatic dispatch) can re-use it without leaking an exit
+      // code into the host process.
+      printCliEnvelope(io, r);
     });
 }

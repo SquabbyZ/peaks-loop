@@ -45,6 +45,28 @@ export function failUnsupportedNonDryRun(io: ProgramIO, command: string, asJson?
   process.exitCode = 1;
 }
 
+/** CLI shim helper: render a `{ ok: boolean, error?, data? }` envelope
+ *  and set `process.exitCode = 1` on failure.
+ *
+ *  Library functions MUST return envelopes like `{ ok, error?, data? }`
+ *  and MUST NOT mutate `process.exitCode` themselves. The shim (the
+ *  Commander `.action()` callback in `register*Commands`) owns the
+ *  process-exit side-effect so the library can be re-used from non-CLI
+ *  contexts (vitest, programmatic dispatch, plugin loading).
+ *
+ *  Output format mirrors the existing `registerSedimentCommands` shim:
+ *  a JSON envelope on stdout (one line, parseable), nothing else.
+ */
+export interface CliEnvelope { ok: boolean; error?: string; data?: unknown }
+export function printCliEnvelope(io: ProgramIO, r: CliEnvelope): void {
+  if (r.ok) {
+    io.stdout(JSON.stringify({ ok: true, data: r.data ?? null }));
+    return;
+  }
+  io.stdout(JSON.stringify({ ok: false, error: r.error }));
+  process.exitCode = 1;
+}
+
 export function isRecommendationWorkflow(value: string): value is RecommendationWorkflow {
   return value === 'code-refactor' || value === 'product-refactor' || value === 'frontend-design';
 }

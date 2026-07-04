@@ -1108,3 +1108,40 @@ describe("peaks skill sediment show", () => {
     expect(r.error).toMatch(/MANIFEST_CORRUPT/);
   });
 });
+
+// --- Critical #1 regression: runSediment must NOT mutate process.exitCode ---
+//
+// The library function returns { ok, error? } and lets the CLI shim
+// (printCliEnvelope, src/cli/cli-helpers.ts) own the exit-code side-effect.
+// A vitest caller MUST be able to call runSediment with an error verb and
+// continue running other tests — so process.exitCode must remain equal to
+// whatever it was before the call (undefined in a fresh process, or 0/1
+// if a prior test already touched it). We don't constrain it to a
+// specific value; we constrain it to be UNCHANGED.
+
+describe("runSediment library boundary — Critical #1 contract", () => {
+  it("does NOT mutate process.exitCode on failure (library is side-effect-free w.r.t. process state)", async () => {
+    const before = process.exitCode;
+    const r = await runSediment(["bogus", "no-such-verb"], { home });
+    expect(r.ok).toBe(false);
+    expect(process.exitCode).toBe(before);
+    process.exitCode = before;
+  });
+
+  it("does NOT mutate process.exitCode on validation failure (MISSING_ARG)", async () => {
+    const before = process.exitCode;
+    const r = await runSediment(["add-segment"], { home }); // missing required <name>
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/MISSING_ARG/);
+    expect(process.exitCode).toBe(before);
+    process.exitCode = before;
+  });
+
+  it("does NOT mutate process.exitCode on successful verbs", async () => {
+    const before = process.exitCode;
+    const r = await runSediment(["list"], { home });
+    expect(r.ok).toBe(true);
+    expect(process.exitCode).toBe(before);
+    process.exitCode = before;
+  });
+});
