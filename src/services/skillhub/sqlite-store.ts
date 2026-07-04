@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { readFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,11 +9,14 @@ import { fileURLToPath } from "node:url";
  * Behavior:
  *   - Creates the parent directory if it does not exist.
  *   - Enables WAL journal mode and foreign-key enforcement.
- *   - Applies migration `001-initial.sql` (idempotent CREATE TABLE IF NOT EXISTS).
+ *   - Applies every `migrations/*.sql` file in lexicographic order.
+ *     Migrations must be idempotent (CREATE TABLE IF NOT EXISTS, etc.).
  *
  * The migrations directory lives next to this source file at build time;
  * we resolve it via `import.meta.url` so the lookup survives vitest ESM
- * (where `__dirname` is undefined).
+ * (where `__dirname` is undefined). Migration files are discovered by
+ * globbing (`*.sql`) and sorted lexicographically so future
+ * `002-…`, `003-…` additions are picked up automatically.
  */
 export function openStateDb(path: string): Database.Database {
   const parent = dirname(path);
@@ -22,8 +25,14 @@ export function openStateDb(path: string): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   const here = dirname(fileURLToPath(import.meta.url));
-  const sql = readFileSync(join(here, "migrations", "001-initial.sql"), "utf-8");
-  db.exec(sql);
+  const migrationsDir = join(here, "migrations");
+  if (existsSync(migrationsDir)) {
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
+    for (const f of files) {
+      const sql = readFileSync(join(migrationsDir, f), "utf-8");
+      db.exec(sql);
+    }
+  }
   return db;
 }
 
