@@ -31,6 +31,8 @@ import {
   SYSTEM_PATH_FORBIDDEN,
   assertNotSystemPath,
   resolveSegmentsDir,
+  resolveStateDbPath,
+  resolveBlobsDir,
   resolveUserBeesDir,
 } from "../../services/sediment/pool-paths.js";
 import { writeBeeManifest } from "../../services/sediment/pool-write.js";
@@ -39,6 +41,9 @@ import { rebuildIndexFromFs } from "../../services/sediment/pool-rebuild-index.j
 import { evaluateGate } from "../../services/sediment/promotion-gate.js";
 import type { BeeManifest } from "../../services/sediment/types.js";
 import type { ProgramIO } from "../cli-helpers.js";
+import { openStateDb } from "../../services/skillhub/sqlite-store.js";
+import { retainRelease } from "../../services/skillhub/release-retain.js";
+import { releaseDiff } from "../../services/skillhub/release-diff.js";
 
 export interface CliResult {
   ok: boolean;
@@ -262,6 +267,111 @@ export async function runSediment(
         writeBeeManifest({ home }, m);
         rebuildIndexFromFs({ home });
         return { ok: true };
+      }
+      // --- Task 15c verbs ---
+      case "dispose": {
+        const name = positional[1];
+        if (!name) return { ok: false, error: "MISSING_ARG: dispose requires <name>" };
+        const decision = typeof flags.decision === "string" ? flags.decision : "";
+        if (decision !== "destroy" && decision !== "retain") {
+          return { ok: false, error: "MISSING_ARG: dispose requires --decision destroy|retain" };
+        }
+        const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
+        if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
+        const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as BeeManifest;
+        // System bees: silently destroy; refuse retain (Task 9 contract).
+        if (m.source === "system") {
+          if (decision === "retain") return { ok: false, error: "RETAIN_SYSTEM_REFUSED" };
+          return { ok: true, data: { systemDestroyed: true } };
+        }
+        // User bee destroy: no-op (scratch materialization is cleaned up by the dispatch path).
+        if (decision === "destroy") {
+          return { ok: true, data: { userDestroyed: true } };
+        }
+        // User bee retain: open state.db, call retainRelease.
+        const version = typeof flags.version === "string" ? flags.version : "0.1.0";
+        const scratchDir = typeof flags.scratch === "string" ? flags.scratch : join(home, "scratch");
+        if (!existsSync(scratchDir)) return { ok: false, error: "SCRATCH_NOT_FOUND" };
+        const stateDbPath = resolveStateDbPath({ home });
+        const blobsDir = resolveBlobsDir({ home });
+        mkdirSync(blobsDir, { recursive: true });
+        const db = openStateDb(stateDbPath);
+        try {
+          retainRelease({ db, blobsDir, scratchDir, manifest: m });
+        } finally {
+          db.close();
+        }
+        return { ok: true, data: { retained: true, version } };
+      }
+      case "releases": {
+        const beeName = positional[1];
+        if (!beeName) return { ok: false, error: "MISSING_ARG: releases requires <bee-name>" };
+        const stateDbPath = resolveStateDbPath({ home });
+        const db = openStateDb(stateDbPath);
+        try {
+          const rows = db
+            .prepare(
+              "SELECT id, bee_name, version, source, archived_at, archived_by FROM bee_release WHERE bee_name = ? ORDER BY archived_at DESC"
+            )
+            .all(beeName) as Array<{
+              id: number;
+              bee_name: string;
+              version: string;
+              source: string;
+              archived_at: string;
+              archived_by: string;
+            }>;
+          return { ok: true, data: rows };
+        } finally {
+          db.close();
+        }
+      }
+      case "release-show": {
+        const beeName = positional[1];
+        const version = typeof flags.version === "string" ? flags.version : "";
+        if (!beeName || !version) {
+          return { ok: false, error: "MISSING_ARG: release-show requires <bee-name> and --version" };
+        }
+        const stateDbPath = resolveStateDbPath({ home });
+        const db = openStateDb(stateDbPath);
+        try {
+          const row = db
+            .prepare("SELECT * FROM bee_release WHERE bee_name = ? AND version = ?")
+            .get(beeName, version) as Record<string, unknown> | undefined;
+          if (!row) return { ok: false, error: "VERSION_NOT_FOUND" };
+          const id = row.id as number;
+          const manifest = db
+            .prepare("SELECT * FROM bee_manifest WHERE release_id = ?")
+            .get(id);
+          const segments = db
+            .prepare("SELECT * FROM bee_segment_ref WHERE release_id = ?")
+            .all(id);
+          const files = db
+            .prepare("SELECT * FROM bee_file WHERE release_id = ?")
+            .all(id);
+          return { ok: true, data: { release: row, manifest, segments, files } };
+        } finally {
+          db.close();
+        }
+      }
+      case "release-diff": {
+        const beeName = positional[1];
+        const fromVersion = typeof flags.from === "string" ? flags.from : "";
+        const toVersion = typeof flags.to === "string" ? flags.to : "";
+        if (!beeName || !fromVersion || !toVersion) {
+          return { ok: false, error: "MISSING_ARG: release-diff requires <bee-name> and --from and --to" };
+        }
+        const stateDbPath = resolveStateDbPath({ home });
+        const db = openStateDb(stateDbPath);
+        try {
+          const diff = releaseDiff({ db, beeName, fromVersion, toVersion });
+          return { ok: true, data: diff };
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          return { ok: false, error: msg };
+        } finally {
+          db.close();
+        }
       }
       default:
         return { ok: false, error: `UNKNOWN_VERB: ${verb ?? ""}` };

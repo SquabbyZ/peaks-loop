@@ -189,12 +189,10 @@ describe("peaks skill sediment CLI — unknown verb gate", () => {
     expect(r.error).toContain("bogus");
   });
 
-  it("returns UNKNOWN_VERB for the next-batch verbs (dispose, export)", async () => {
-    for (const v of ["dispose", "export"]) {
-      const r = await runSediment([v], { home });
-      expect(r.ok).toBe(false);
-      expect(r.error).toMatch(/UNKNOWN_VERB/);
-    }
+  it("returns UNKNOWN_VERB for verbs not yet implemented (export)", async () => {
+    const r = await runSediment(["export"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/UNKNOWN_VERB/);
   });
 });
 
@@ -443,5 +441,290 @@ describe("peaks skill sediment retire", () => {
     const r = await runSediment(["retire", "missing", "--apply"], { home });
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/BEE_NOT_FOUND/);
+  });
+});
+
+// --- Task 15c: dispose / releases / release-show / release-diff ---
+
+describe("peaks skill sediment dispose", () => {
+  it("retain decision writes a bee_release row to state.db", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const scratchDir = join(home, "scratch");
+    mkdirSync(scratchDir, { recursive: true });
+    writeFileSync(join(scratchDir, "SKILL.md"), "## bee-x\n");
+    const r = await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratchDir, "--version", "0.1.0", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const stateDbPath = join(home, ".peaks/skills/state.db");
+    expect(existsSync(stateDbPath)).toBe(true);
+    const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");
+    const db = openStateDb(stateDbPath);
+    try {
+      const rows = db
+        .prepare("SELECT bee_name, version FROM bee_release WHERE bee_name = ?")
+        .all("bee-x") as Array<{ bee_name: string; version: string }>;
+      expect(rows).toEqual([{ bee_name: "bee-x", version: "0.1.0" }]);
+    } finally {
+      db.close();
+    }
+  });
+
+  it("destroy decision is a no-op (no state.db write)", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(
+      ["dispose", "bee-x", "--decision", "destroy", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const stateDbPath = join(home, ".peaks/skills/state.db");
+    if (existsSync(stateDbPath)) {
+      const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");
+      const db = openStateDb(stateDbPath);
+      try {
+        const rows = db.prepare("SELECT 1 FROM bee_release").all();
+        expect(rows).toEqual([]);
+      } finally {
+        db.close();
+      }
+    }
+  });
+
+  it("system bee retain is refused with RETAIN_SYSTEM_REFUSED", async () => {
+    const sysDir = join(home, ".peaks/skills/bees/peaks-prd");
+    mkdirSync(sysDir, { recursive: true });
+    writeFileSync(
+      join(sysDir, "manifest.json"),
+      JSON.stringify({
+        schemaVersion: "peaks.bee/1",
+        name: "peaks-prd",
+        source: "system",
+        promotion_status: "system-stable",
+        description: "d",
+        segments: [],
+        entrypoint: { preamble: "", refs: [] },
+        promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+        createdBy: "llm",
+        lastTouchedAt: "2026-07-04T12:00:00Z",
+      })
+    );
+    const r = await runSediment(
+      ["dispose", "peaks-prd", "--decision", "retain", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/RETAIN_SYSTEM_REFUSED/);
+  });
+
+  it("system bee destroy is a silent no-op", async () => {
+    const sysDir = join(home, ".peaks/skills/bees/peaks-prd");
+    mkdirSync(sysDir, { recursive: true });
+    writeFileSync(
+      join(sysDir, "manifest.json"),
+      JSON.stringify({
+        schemaVersion: "peaks.bee/1",
+        name: "peaks-prd",
+        source: "system",
+        promotion_status: "system-stable",
+        description: "d",
+        segments: [],
+        entrypoint: { preamble: "", refs: [] },
+        promotion: { minCycles: 1, requiresHumanApproval: true, requiresSmokeTest: true },
+        createdBy: "llm",
+        lastTouchedAt: "2026-07-04T12:00:00Z",
+      })
+    );
+    const r = await runSediment(
+      ["dispose", "peaks-prd", "--decision", "destroy", "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const stateDbPath = join(home, ".peaks/skills/state.db");
+    if (existsSync(stateDbPath)) {
+      const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");
+      const db = openStateDb(stateDbPath);
+      try {
+        const rows = db.prepare("SELECT 1 FROM bee_release").all();
+        expect(rows).toEqual([]);
+      } finally {
+        db.close();
+      }
+    }
+  });
+
+  it("retains with default version 0.1.0 when --version not given", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const scratchDir = join(home, "scratch");
+    mkdirSync(scratchDir, { recursive: true });
+    writeFileSync(join(scratchDir, "SKILL.md"), "## bee-x\n");
+    const r = await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratchDir, "--apply"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const stateDbPath = join(home, ".peaks/skills/state.db");
+    const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");
+    const db = openStateDb(stateDbPath);
+    try {
+      const rows = db
+        .prepare("SELECT version FROM bee_release WHERE bee_name = ?")
+        .all("bee-x") as Array<{ version: string }>;
+      expect(rows.length).toBe(1);
+      expect(rows[0]?.version).toBe("0.1.0");
+    } finally {
+      db.close();
+    }
+  });
+
+  it("requires --decision", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const r = await runSediment(["dispose", "bee-x", "--apply"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/--decision/);
+  });
+});
+
+describe("peaks skill sediment releases", () => {
+  it("returns the list of versions for a bee after retaining", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const scratchDir = join(home, "scratch");
+    mkdirSync(scratchDir, { recursive: true });
+    writeFileSync(join(scratchDir, "SKILL.md"), "## bee-x\n");
+    await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratchDir, "--version", "0.1.0", "--apply"],
+      { home }
+    );
+    const r = await runSediment(["releases", "bee-x"], { home });
+    expect(r.ok).toBe(true);
+    const rows = r.data as Array<{ bee_name: string; version: string }>;
+    expect(rows.length).toBe(1);
+    expect(rows[0]?.bee_name).toBe("bee-x");
+    expect(rows[0]?.version).toBe("0.1.0");
+  });
+
+  it("returns empty array when bee has no releases", async () => {
+    const r = await runSediment(["releases", "bee-nonexistent"], { home });
+    expect(r.ok).toBe(true);
+    expect(r.data).toEqual([]);
+  });
+});
+
+describe("peaks skill sediment release-show", () => {
+  it("returns the row + manifest + segments + files for a known version", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const scratchDir = join(home, "scratch");
+    mkdirSync(scratchDir, { recursive: true });
+    writeFileSync(join(scratchDir, "SKILL.md"), "## bee-x\n");
+    await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratchDir, "--version", "0.1.0", "--apply"],
+      { home }
+    );
+    const r = await runSediment(["release-show", "bee-x", "--version", "0.1.0"], { home });
+    expect(r.ok).toBe(true);
+    const data = r.data as {
+      release: { bee_name: string; version: string };
+      manifest: unknown;
+      segments: unknown[];
+      files: unknown[];
+    };
+    expect(data.release.bee_name).toBe("bee-x");
+    expect(data.release.version).toBe("0.1.0");
+    expect(data.manifest).toBeDefined();
+    expect(Array.isArray(data.segments)).toBe(true);
+    expect(Array.isArray(data.files)).toBe(true);
+  });
+
+  it("returns VERSION_NOT_FOUND for missing version", async () => {
+    const r = await runSediment(["release-show", "bee-x", "--version", "9.9.9"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/VERSION_NOT_FOUND/);
+  });
+
+  it("requires --version", async () => {
+    const r = await runSediment(["release-show", "bee-x"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/--version/);
+  });
+});
+
+describe("peaks skill sediment release-diff", () => {
+  it("returns added/removed/modified across two releases", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+
+    // Retain 0.1.0 with one file (retainRelease hardcodes version to 0.1.0)
+    const scratch1 = join(home, "scratch1");
+    mkdirSync(scratch1, { recursive: true });
+    writeFileSync(join(scratch1, "SKILL.md"), "## bee-x v1\n");
+    await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratch1, "--version", "0.1.0", "--apply"],
+      { home }
+    );
+
+    // Insert a 0.2.0 release directly via SQL (UNIQUE(bee_name,version) blocks
+    // a second CLI retain; releaseDiff is what we're testing here).
+    const { openStateDb } = await import("../../../src/services/skillhub/sqlite-store.js");
+    const stateDbPath = join(home, ".peaks/skills/state.db");
+    const db = openStateDb(stateDbPath);
+    try {
+      const now = new Date().toISOString();
+      const info = db
+        .prepare(
+          `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog) VALUES (?, ?, 'user', ?, ?, ?, ?, ?, ?)`
+        )
+        .run("bee-x", "0.2.0", now, "llm", null, "d", "0.1.0", null);
+      const id = info.lastInsertRowid as number;
+      const sha2 = "0000000000000000000000000000000000000000000000000000000000000001";
+      const sha3 = "0000000000000000000000000000000000000000000000000000000000000002";
+      db.prepare(
+        `INSERT INTO bee_file (release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(id, "bee", "bee-x", "SKILL.md", "markdown", 100, sha2, "blobs/00/0000");
+      db.prepare(
+        `INSERT INTO bee_file (release_id, owner_kind, owner_name, path, kind, size_bytes, sha256, blob_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(id, "bee", "bee-x", "extra.md", "markdown", 50, sha3, "blobs/00/0001");
+    } finally {
+      db.close();
+    }
+
+    const r = await runSediment(
+      ["release-diff", "bee-x", "--from", "0.1.0", "--to", "0.2.0"],
+      { home }
+    );
+    expect(r.ok).toBe(true);
+    const data = r.data as { added: string[]; removed: string[]; modified: string[] };
+    expect(data.added).toContain("extra.md");
+    expect(data.modified).toContain("SKILL.md");
+    expect(data.removed).toEqual([]);
+  });
+
+  it("returns VERSION_NOT_FOUND for missing from-version", async () => {
+    await runSediment(["add-segment", "seg-a", "--describe", "d", "--apply"], { home });
+    await runSediment(["add-bee", "bee-x", "--segment", "seg-a", "--description", "d", "--apply"], { home });
+    const scratchDir = join(home, "scratch");
+    mkdirSync(scratchDir, { recursive: true });
+    writeFileSync(join(scratchDir, "SKILL.md"), "## bee-x\n");
+    await runSediment(
+      ["dispose", "bee-x", "--decision", "retain", "--scratch", scratchDir, "--version", "0.1.0", "--apply"],
+      { home }
+    );
+    const r = await runSediment(
+      ["release-diff", "bee-x", "--from", "0.1.0", "--to", "9.9.9"],
+      { home }
+    );
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/VERSION_NOT_FOUND/);
+  });
+
+  it("requires --from and --to", async () => {
+    const r = await runSediment(["release-diff", "bee-x"], { home });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/--from/);
   });
 });
