@@ -56,31 +56,89 @@ export interface CliResult {
   data?: unknown;
 }
 
+/** Typed accessor over the flag map produced by `parseFlags`.
+ *
+ * `parseFlags` internally stores every flag with at least one value as a
+ * `string[]`. A flag with no following non-flag token (e.g. `--apply`,
+ * `--dry-run`) is recorded as `true`. This helper exposes three typed
+ * accessors so call-sites don't have to re-narrow `unknown` or
+ * `string | boolean | string[]` on every read:
+ *
+ *   - `flags.list(name)`     → `string[]` (always an array; a single
+ *                              occurrence is wrapped to a 1-element
+ *                              array at parse time)
+ *   - `flags.bool(name)`     → `boolean` (presence-of flag; missing
+ *                              flag is `false`)
+ *   - `flags.maybeString(name)` → `string | undefined` (first value,
+ *                              or `undefined` if the flag was given
+ *                              as a bare boolean with no value)
+ *
+ * The dispatch layer (runSediment) was previously peppered with
+ * `typeof flags.x === "string"` / `Array.isArray(flags.x)` narrowing.
+ * With this helper the call-sites collapse to one-line reads and the
+ * raw flag map stops leaking across the runSediment boundary.
+ */
+export class ParsedFlags {
+  private readonly raw: Record<string, string[] | true>;
+  constructor(raw: Record<string, string[] | true>) {
+    this.raw = raw;
+  }
+  /** Always returns an array. Missing flag → []. Single-occurrence
+   *  flag → a 1-element array (parseFlags normalizes this). */
+  list(name: string): string[] {
+    const v = this.raw[name];
+    if (v === undefined) return [];
+    if (v === true) return [];
+    return v;
+  }
+  /** Presence-of a bare boolean flag. Missing → false. */
+  bool(name: string): boolean {
+    const v = this.raw[name];
+    if (v === undefined) return false;
+    // A flag given as `--name <value>` is also "present" (it just happens
+    // to carry values too). Existing call-sites that want `--dry-run`
+    // semantics care about presence, not whether values are attached.
+    return true;
+  }
+  /** First value of a flag, or `undefined` if the flag is absent or
+   *  was given as a bare boolean. */
+  maybeString(name: string): string | undefined {
+    const v = this.raw[name];
+    if (v === undefined) return undefined;
+    if (v === true) return undefined;
+    return v[0];
+  }
+}
+
 /** Parse an argv tail into positional args + flag map.
  *
  * Supports:
- *   --flag value    → flags[flag] = value (advance i by 1)
- *   --flag          → flags[flag] = true  (when next token starts with `--` or is undefined)
+ *   --flag value    → flags[flag] = [value, ...] (advance i by 1)
+ *   --flag          → flags[flag] = true        (when next token starts with `--` or is undefined)
+ *   --flag v1 --flag v2   → repeated `--flag` values are accumulated
+ *
+ * Internally stores all values as `string[]` (or `true` for a bare
+ * boolean flag). Use the `ParsedFlags` helper to read typed accessors.
  *
  * Repeatable flag handling (Task 15b): when the same `--key` appears
- * consecutively (e.g. `--segment a --segment b --segment c`), values are
- * accumulated into a `string[]`. A single occurrence stays a `string`
- * so existing 15a call-sites that destructure `flags.segment` as string
- * keep working. Boolean (next-token-is-a-flag) flags keep overwriting.
+ * consecutively (e.g. `--segment a --segment b --segment c`), values
+ * are accumulated into a single `string[]`. A single occurrence is
+ * normalized to a 1-element array so callers can use `.list(name)`
+ * uniformly without shape-narrowing on the call-site.
  */
 export function parseFlags(argv: string[]): {
   positional: string[];
-  flags: Record<string, string | boolean | string[]>;
+  flags: ParsedFlags;
 } {
   const positional: string[] = [];
-  const flags: Record<string, string | boolean | string[]> = {};
+  const rawFlags: Record<string, string[] | true> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a.startsWith("--")) {
       const k = a.slice(2);
       const v = argv[i + 1];
       if (v === undefined || v.startsWith("--")) {
-        flags[k] = true;
+        rawFlags[k] = true;
       } else {
         // Capture first value, then look ahead for `--k <value>` repeats.
         const values: string[] = [v];
@@ -97,13 +155,13 @@ export function parseFlags(argv: string[]): {
         // Back up one — the outer for-loop will i++ past the flag, so the
         // next iteration sees the next real token.
         i--;
-        flags[k] = values.length === 1 ? values[0]! : values;
+        rawFlags[k] = values;
       }
     } else {
       positional.push(a);
     }
   }
-  return { positional, flags };
+  return { positional, flags: new ParsedFlags(rawFlags) };
 }
 
 /** Dispatch a sediment verb argv to the matching implementation.
@@ -124,8 +182,7 @@ export async function runSediment(
       case "add-segment": {
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: name" };
-        const description =
-          typeof flags.describe === "string" ? flags.describe : "";
+        const description = flags.maybeString("describe") ?? "";
         const segDir = join(resolveSegmentsDir({ home }), name);
         // Soft-protection guard: refuse to write under any `.system` path
         // segment. Mirrors the same guard in writeBeeManifest.
@@ -142,15 +199,11 @@ export async function runSediment(
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: name" };
         // Collect --segment values; the brief uses repeatable --segment
-        // flags (one token per segment). parseFlags now returns string[]
-        // for repeated keys, but a single occurrence remains string —
-        // normalize both shapes.
-        const segList: string[] = [];
-        const segVal = flags.segment;
-        if (typeof segVal === "string") segList.push(segVal);
-        else if (Array.isArray(segVal)) segList.push(...segVal);
-        const description =
-          typeof flags.description === "string" ? flags.description : "";
+        // flags (one token per segment). parseFlags now returns a
+        // 1-element array for a single occurrence and a longer array
+        // for repeated keys, so .list() returns a uniform string[].
+        const segList = flags.list("segment");
+        const description = flags.maybeString("description") ?? "";
         const m: BeeManifest = {
           schemaVersion: "peaks.bee/1",
           name,
@@ -190,7 +243,7 @@ export async function runSediment(
       case "refine-bee": {
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: refine-bee requires <name>" };
-        const patch = typeof flags.patch === "string" ? flags.patch : "";
+        const patch = flags.maybeString("patch") ?? "";
         if (!patch) return { ok: false, error: "MISSING_ARG: refine-bee requires --patch" };
         const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
         if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
@@ -209,7 +262,7 @@ export async function runSediment(
       case "clone-bee": {
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: clone-bee requires <name>" };
-        const asName = typeof flags.as === "string" ? flags.as : "";
+        const asName = flags.maybeString("as") ?? "";
         if (!asName) return { ok: false, error: "MISSING_ARG: clone-bee requires --as <new-name>" };
         const srcPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
         if (!existsSync(srcPath)) return { ok: false, error: "BEE_NOT_FOUND" };
@@ -257,7 +310,7 @@ export async function runSediment(
       case "retire": {
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: retire requires <name>" };
-        const reason = typeof flags.reason === "string" ? flags.reason : "";
+        const reason = flags.maybeString("reason") ?? "";
         const manifestPath = join(resolveUserBeesDir({ home }), name, "manifest.json");
         if (!existsSync(manifestPath)) return { ok: false, error: "BEE_NOT_FOUND" };
         const m = JSON.parse(readFileSync(manifestPath, "utf-8")) as BeeManifest;
@@ -277,7 +330,7 @@ export async function runSediment(
       case "dispose": {
         const name = positional[1];
         if (!name) return { ok: false, error: "MISSING_ARG: dispose requires <name>" };
-        const decision = typeof flags.decision === "string" ? flags.decision : "";
+        const decision = flags.maybeString("decision") ?? "";
         if (decision !== "destroy" && decision !== "retain") {
           return { ok: false, error: "MISSING_ARG: dispose requires --decision destroy|retain" };
         }
@@ -300,8 +353,8 @@ export async function runSediment(
           return { ok: true, data: { userDestroyed: true, path: beeDir } };
         }
         // User bee retain: open state.db, call retainRelease.
-        const version = typeof flags.version === "string" ? flags.version : "0.1.0";
-        const scratchDir = typeof flags.scratch === "string" ? flags.scratch : join(home, "scratch");
+        const version = flags.maybeString("version") ?? "0.1.0";
+        const scratchDir = flags.maybeString("scratch") ?? join(home, "scratch");
         if (!existsSync(scratchDir)) return { ok: false, error: "SCRATCH_NOT_FOUND" };
         const stateDbPath = resolveStateDbPath({ home });
         const blobsDir = resolveBlobsDir({ home });
@@ -339,7 +392,7 @@ export async function runSediment(
       }
       case "release-show": {
         const beeName = positional[1];
-        const version = typeof flags.version === "string" ? flags.version : "";
+        const version = flags.maybeString("version") ?? "";
         if (!beeName || !version) {
           return { ok: false, error: "MISSING_ARG: release-show requires <bee-name> and --version" };
         }
@@ -367,8 +420,8 @@ export async function runSediment(
       }
       case "release-diff": {
         const beeName = positional[1];
-        const fromVersion = typeof flags.from === "string" ? flags.from : "";
-        const toVersion = typeof flags.to === "string" ? flags.to : "";
+        const fromVersion = flags.maybeString("from") ?? "";
+        const toVersion = flags.maybeString("to") ?? "";
         if (!beeName || !fromVersion || !toVersion) {
           return { ok: false, error: "MISSING_ARG: release-diff requires <bee-name> and --from and --to" };
         }
@@ -387,8 +440,8 @@ export async function runSediment(
       // --- Task 15d verbs ---
       case "export": {
         const beeName = positional[1];
-        const version = typeof flags.version === "string" ? flags.version : "";
-        const outPath = typeof flags.out === "string" ? flags.out : "";
+        const version = flags.maybeString("version") ?? "";
+        const outPath = flags.maybeString("out") ?? "";
         if (!beeName || !version || !outPath) {
           return { ok: false, error: "MISSING_ARG: export requires <bee-name>, --version, --out" };
         }
@@ -407,7 +460,7 @@ export async function runSediment(
       }
       case "import": {
         const bundlePath = positional[1];
-        const asNameRaw = typeof flags.as === "string" ? flags.as : undefined;
+        const asNameRaw = flags.maybeString("as");
         const asName = asNameRaw && asNameRaw.length > 0 ? asNameRaw : undefined;
         if (!bundlePath) return { ok: false, error: "MISSING_ARG: import requires <bundle-path>" };
         if (!existsSync(bundlePath)) return { ok: false, error: "BUNDLE_NOT_FOUND" };
@@ -430,7 +483,7 @@ export async function runSediment(
         return { ok: true, data: { asName: asName ?? basename(bundlePath) } };
       }
       case "gc-blobs": {
-        const dryRun = flags["dry-run"] === true;
+        const dryRun = flags.bool("dry-run");
         const stateDbPath = resolveStateDbPath({ home });
         const blobsDir = resolveBlobsDir({ home });
         const db = openStateDb(stateDbPath);
@@ -445,7 +498,7 @@ export async function runSediment(
         }
       }
       case "search": {
-        const query = positional[1] ?? (typeof flags.q === "string" ? flags.q : "");
+        const query = positional[1] ?? flags.maybeString("q") ?? "";
         if (!query) return { ok: false, error: "MISSING_ARG: search requires <query>" };
         const beesDir = resolveUserBeesDir({ home });
         const matches: Array<Record<string, unknown>> = [];
@@ -487,7 +540,7 @@ export async function runSediment(
         return { ok: true, data: { matches, warnings } };
       }
       case "recent": {
-        const sinceRaw = typeof flags.since === "string" ? flags.since : "7d";
+        const sinceRaw = flags.maybeString("since") ?? "7d";
         const m = sinceRaw.match(/^(\d+)d$/);
         if (!m) return { ok: false, error: "MISSING_ARG: recent requires --since Nd (e.g. 7d)" };
         const sinceDays = parseInt(m[1]!, 10);

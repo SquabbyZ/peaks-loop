@@ -197,6 +197,11 @@ describe("peaks skill sediment CLI — unknown verb gate", () => {
 });
 
 // --- Task 15b: parseFlags array-valued support ---
+//
+// After the Minor #11 refactor, parseFlags returns a ParsedFlags helper
+// that exposes .list(name), .bool(name), .maybeString(name). The tests
+// exercise the helper directly so the call-sites in runSediment and the
+// parser itself are exercised end-to-end.
 
 describe("parseFlags — Task 15b array-valued support", () => {
   it("collects repeated --segment values into an array", () => {
@@ -212,18 +217,23 @@ describe("parseFlags — Task 15b array-valued support", () => {
       "--apply",
     ]);
     expect(positional).toEqual(["add-bee", "bee-x"]);
-    expect(flags.segment).toEqual(["seg-a", "seg-b", "seg-c"]);
-    expect(flags.apply).toBe(true);
+    expect(flags.list("segment")).toEqual(["seg-a", "seg-b", "seg-c"]);
+    expect(flags.bool("apply")).toBe(true);
   });
 
-  it("keeps a single --segment value as a string (not wrapped in array)", () => {
+  it("returns a 1-element array for a single --segment occurrence (uniform shape)", () => {
     const { flags } = parseFlags(["add-bee", "bee-x", "--segment", "seg-a"]);
-    expect(flags.segment).toBe("seg-a");
+    // Pre-refactor this was the string "seg-a"; the helper returns a
+    // 1-element array so call-sites no longer need shape-narrowing.
+    expect(flags.list("segment")).toEqual(["seg-a"]);
+    expect(flags.maybeString("segment")).toBe("seg-a");
   });
 
   it("treats --flag without a following non-flag value as boolean true", () => {
     const { flags } = parseFlags(["--apply"]);
-    expect(flags.apply).toBe(true);
+    expect(flags.bool("apply")).toBe(true);
+    expect(flags.list("apply")).toEqual([]);
+    expect(flags.maybeString("apply")).toBeUndefined();
   });
 
   it("mixes repeatable and single-value flags correctly", () => {
@@ -238,9 +248,47 @@ describe("parseFlags — Task 15b array-valued support", () => {
       "--apply",
     ]);
     expect(positional).toEqual(["verb"]);
-    expect(flags.segment).toEqual(["a", "b"]);
-    expect(flags.patch).toBe("x");
-    expect(flags.apply).toBe(true);
+    expect(flags.list("segment")).toEqual(["a", "b"]);
+    expect(flags.maybeString("patch")).toBe("x");
+    expect(flags.bool("apply")).toBe(true);
+  });
+});
+
+// --- Minor #11: ParsedFlags helper ---
+
+describe("ParsedFlags helper — typed accessors", () => {
+  it(".list() returns [] for an absent flag", () => {
+    const { flags } = parseFlags(["verb"]);
+    expect(flags.list("missing")).toEqual([]);
+  });
+
+  it(".bool() returns false for an absent flag", () => {
+    const { flags } = parseFlags(["verb"]);
+    expect(flags.bool("missing")).toBe(false);
+  });
+
+  it(".maybeString() returns undefined for an absent flag", () => {
+    const { flags } = parseFlags(["verb"]);
+    expect(flags.maybeString("missing")).toBeUndefined();
+  });
+
+  it(".maybeString() returns undefined for a bare boolean flag (no value)", () => {
+    const { flags } = parseFlags(["--dry-run"]);
+    expect(flags.bool("dry-run")).toBe(true);
+    expect(flags.maybeString("dry-run")).toBeUndefined();
+    expect(flags.list("dry-run")).toEqual([]);
+  });
+
+  it(".list() unwraps a multi-occurrence flag uniformly", () => {
+    const { flags } = parseFlags([
+      "--key",
+      "v1",
+      "--key",
+      "v2",
+      "--key",
+      "v3",
+    ]);
+    expect(flags.list("key")).toEqual(["v1", "v2", "v3"]);
   });
 });
 
