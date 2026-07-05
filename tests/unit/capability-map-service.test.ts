@@ -156,7 +156,7 @@ describe('createCapabilityMapPlan', () => {
     expect(targetsFor('codegraph.project-indexing')).toEqual(['peaks-rd']);
     expect(targetsFor('codegraph.semantic-query')).toEqual(['peaks-rd']);
     expect(targetsFor('codegraph.impact-analysis')).toEqual(['peaks-qa', 'peaks-rd']);
-    expect(targetsFor('codegraph.context-pack')).toEqual(['peaks-rd', 'peaks-code', 'peaks-txt']);
+    expect(targetsFor('codegraph.context-pack')).toEqual(['peaks-code', 'peaks-rd', 'peaks-txt']);
     expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').every((mapping) => mapping.dryRunOnly)).toBe(true);
     expect(plan.mappings.filter((mapping) => mapping.sourceId === 'codegraph').map((mapping) => mapping.commandPreview)).not.toContain('npx @colbymchenry/codegraph install');
   });

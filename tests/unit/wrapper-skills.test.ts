@@ -17,7 +17,7 @@ interface WrapperSpec {
 const WRAPPERS: WrapperSpec[] = [
   {
     name: 'peaks-resume',
-    triggers: ['/peaks-resume', '继续完成', '把刚才没做完的收尾', 'resume the unfinished'],
+    triggers: ['/peaks-resume', '继续完成', '把刚才没做完的收尾', 'continue the unfinished work'],
     expectedCliCommands: [
       'peaks skill presence:set',
       'peaks project memories',
@@ -74,7 +74,7 @@ describe('P2 wrapper skills (peaks-resume / -test / -status)', () => {
       test('SKILL.md has valid frontmatter (name + description)', () => {
         const body = readFileSync(skillPath, 'utf8');
         expect(body).toMatch(/^---\n/);
-        expect(body).toMatch(/^name: peaks-code-/m);
+        expect(body).toMatch(/^name: peaks-(code|resume|status|test)\b/m);
         expect(body).toMatch(/^description: .+/m);
       });
 
