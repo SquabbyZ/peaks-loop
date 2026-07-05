@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fallback: raw CSS for utility classes used by scenes
+   (Tailwind compilation may or may not run depending on render path.
+   These declarations guarantee the same visual outcome either way.) */
+.bg-brand-bg { background-color: #0f172a; }
+.text-brand-bg { color: #0f172a; }
+.text-brand-fg { color: #f8fafc; }
+.text-brand-accent { color: #6366f1; }
+.bg-slate-900 { background-color: #0f172a; }
+.text-slate-50 { color: #f8fafc; }
+.text-slate-400 { color: #94a3b8; }
+.text-indigo-500 { color: #6366f1; }
+.bg-slate-800 { background-color: #1e293b; }
+.border-indigo-500 { border-color: #6366f1; }
+.font-sans { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.text-center { text-align: center; }
+.mt-2 { margin-top: 8px; }
+.mt-4 { margin-top: 16px; }
+.mt-6 { margin-top: 24px; }
+.mt-8 { margin-top: 32px; }
+.mt-10 { margin-top: 40px; }
+.mt-12 { margin-top: 48px; }
+.rounded { border-radius: 4px; }
