@@ -1,41 +1,41 @@
-# peaks-code video demo
+# peaks-loop video demo
 
-Remotion-based video demo for `peaks-code` and the 11-skill Peaks-Loop capability wall.
+Remotion-based 30-second brand walk-through for peaks-loop 4.0. Mirrors `README.md`.
 
 ## Composition
 
-- `peaks-code-demo` — 30 seconds @ 30fps (900 frames), 1920×1080
-- Scene timeline:
-  - 0-90 — **TitleScene** ("peaks-code" headline + tagline)
-  - 90-270 — **DemoScene** "添加用户登录" — 7 steps
-  - 270-450 — **DemoScene** "修复登录页 bug" — 4 steps
-  - 450-630 — **DemoScene** "重构认证模块" — 5 steps
-  - 630-810 — **SkillsWallScene** — 11 skill names fade in
-  - 810-900 — **ClosingScene** ("npx peaks-loop install" + GitHub link)
+- `peaks-loop-demo` — 30 seconds @ 30fps (900 frames), 1920×1080
+- Scene timeline (frozen in `src/Root.tsx`):
+  - 0–90    — **TitleScene** (`peaks-loop`, no ·, no emoji)
+  - 90–240  — **PhilosophyScene** — 5 hero philosophy items, bilingual
+  - 240–540 — **DemoScene × 3** — `写长任务代码` / `修 bug 当天发` / `接一个长跑的需求`
+  - 540–780 — **SedimentScene** — 3-beat `NL → MANIFEST → BEE`
+  - 780–900 — **ClosingScene** — `npm i -g peaks-loop` + repo-name vs skill-name arc
 
 ## Visual style
 
-- Background: `#0f172a` (slate-900)
-- Primary text: `#f8fafc` (slate-50)
-- Accent: `#6366f1` (indigo-500)
-- Mono font for CLI-like text, sans font for headlines
+- Background: `#0f172a` (slate-900) via `bg-brand-bg`
+- Primary text: `#f8fafc` (slate-50) via `text-brand-fg`
+- Accent: `#6366f1` (indigo-500) via `text-brand-accent`
+- Stable badge: `#22c55e` (green-500)
+- Mono font for kickers / install chip / chat bubbles; sans font for headlines
 
 ## Render
 
 ```bash
 cd examples/video-demo
 pnpm install
-npx remotion render peaks-code-demo out/peaks-code-demo.mp4
+npx remotion render peaks-loop-demo out/peaks-loop-demo.mp4
 ```
 
-If the Chromium/Puppeteer download fails on Windows, fallback to a still frame:
+Fallback (no Chromium available):
 
 ```bash
-npx remotion still peaks-code-demo out/still.png --frame=450
+npx remotion still peaks-loop-demo out/still.png --frame=120
 ```
 
 ## Preview
 
 ```bash
-npx remotion studio   # opens http://localhost:3000
+npx remotion studio   # http://localhost:3000
 ```
