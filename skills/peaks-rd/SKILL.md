@@ -1,6 +1,13 @@
 ---
 name: peaks-rd
-description: Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Loop refactor workflows.
+description: |
+  Research and development role for Peaks-Loop (LLM-only internal role; not user-invocable.
+  Triggered by peaks-code via `peaks sub-agent dispatch --role rd`.)
+  Use for engineering analysis, refactor planning, project scanning, code standards,
+  unit-test coverage gates, implementation contracts, task graphs, and RD handoffs.
+  Always use this for Peaks-Loop refactor workflows.
+visibility: internal
+---
 ---
 
 ## Single-scope-axis naming convention

@@ -1,6 +1,12 @@
 ---
 name: peaks-sc
-description: Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.
+description: |
+  Source control, sync, and change-control role for Peaks-Loop (LLM-only internal role;
+  not user-invocable. Triggered by peaks-code via `peaks sub-agent dispatch --role sc`.)
+  Use when a workflow needs change impact, artifact retention, commit boundaries,
+  GitHub artifact repository pointers, sync state, or rollback evidence.
+visibility: internal
+---
 ---
 
 # Peaks-Loop SC

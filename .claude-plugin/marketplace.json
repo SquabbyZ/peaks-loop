@@ -34,17 +34,67 @@
         "irreversible-action gates"
       ],
       "skills": [
-        "./skills/peaks-solo",
-        "./skills/peaks-solo-resume",
-        "./skills/peaks-solo-status",
-        "./skills/peaks-solo-test",
-        "./skills/peaks-prd",
-        "./skills/peaks-rd",
-        "./skills/peaks-qa",
-        "./skills/peaks-ui",
-        "./skills/peaks-sc",
-        "./skills/peaks-txt",
-        "./skills/peaks-sop"
+        {
+          "name": "peaks-solo",
+          "path": "./skills/peaks-solo",
+          "description": "Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end."
+        },
+        {
+          "name": "peaks-solo-resume",
+          "path": "./skills/peaks-solo-resume",
+          "description": "Resume an in-flight peaks-solo slice in the current session."
+        },
+        {
+          "name": "peaks-solo-status",
+          "path": "./skills/peaks-solo-status",
+          "description": "Show the current state of the peaks-solo orchestrator in a compact summary."
+        },
+        {
+          "name": "peaks-solo-test",
+          "path": "./skills/peaks-solo-test",
+          "description": "Run the project's test suite on the current repo and report results."
+        },
+        {
+          "name": "peaks-prd",
+          "path": "./skills/peaks-prd",
+          "description": "Product and requirement skill for Peaks. Use when a workflow needs PRD, refactor goals, non-goals, behavior preservation, acceptance criteria, product change proposals, or user-confirmable product artifacts.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-rd",
+          "path": "./skills/peaks-rd",
+          "description": "Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Loop refactor workflows.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-qa",
+          "path": "./skills/peaks-qa",
+          "description": "QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-ui",
+          "path": "./skills/peaks-ui",
+          "description": "UI and experience skill for Peaks. Use when a workflow touches UI/UX, interaction design, visual direction, design systems, frontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-sc",
+          "path": "./skills/peaks-sc",
+          "description": "Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-txt",
+          "path": "./skills/peaks-txt",
+          "description": "Context and knowledge skill for Peaks. Use when a workflow needs context capsules, role-specific context slices, decision records, assumptions, discarded options, staleness checks, lessons, or reusable project memory.",
+          "userInvocable": false
+        },
+        {
+          "name": "peaks-sop",
+          "path": "./skills/peaks-sop",
+          "description": "Authoring skill for user-defined SOPs in Peaks. Use when a user wants to create, edit, debug, or register their own gated workflow."
+        }
       ]
     }
   ]

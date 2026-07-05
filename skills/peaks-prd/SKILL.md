@@ -1,6 +1,12 @@
 ---
 name: peaks-prd
-description: Product and requirement skill for Peaks. Use when a workflow needs PRD, refactor goals, non-goals, behavior preservation, acceptance criteria, product change proposals, or user-confirmable product artifacts.
+description: |
+  Product and requirement role for Peaks-Loop (LLM-only internal role; not user-invocable.
+  Triggered by peaks-code via `peaks sub-agent dispatch --role prd`.)
+  Use when a workflow needs PRD, refactor goals, non-goals, behavior preservation,
+  acceptance criteria, product change proposals, or user-confirmable product artifacts.
+visibility: internal
+---
 ---
 
 # Peaks-Loop PRD

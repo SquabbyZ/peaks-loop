@@ -1,6 +1,12 @@
 ---
 name: peaks-ui
-description: UI and experience skill for Peaks. Use when a workflow touches UI/UX, interaction design, visual direction, design systems, frontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.
+description: |
+  UI and experience role for Peaks-Loop (LLM-only internal role; not user-invocable.
+  Triggered by peaks-code via `peaks sub-agent dispatch --role ui`.)
+  Use when a workflow touches UI/UX, interaction design, visual direction, design systems,
+  frontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.
+visibility: internal
+---
 ---
 
 # Peaks-Loop UI

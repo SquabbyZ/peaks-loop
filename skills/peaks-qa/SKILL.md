@@ -1,6 +1,12 @@
 ---
 name: peaks-qa
-description: QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.
+description: |
+  QA and verification role for Peaks-Loop (LLM-only internal role; not user-invocable.
+  Triggered by peaks-code via `peaks sub-agent dispatch --role qa`.)
+  Use when a workflow needs unit-test coverage evidence, regression matrices,
+  baseline reports, validation reports, acceptance checks, or refactor verification gates.
+visibility: internal
+---
 ---
 
 ## Single-scope-axis naming convention

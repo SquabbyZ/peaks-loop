@@ -1,6 +1,12 @@
 ---
 name: peaks-txt
-description: Context and knowledge skill for Peaks. Use when a workflow needs context capsules, role-specific context slices, decision records, assumptions, discarded options, staleness checks, lessons, or reusable project memory.
+description: |
+  Context and knowledge role for Peaks-Loop (LLM-only internal role; not user-invocable.
+  Triggered by peaks-code via `peaks sub-agent dispatch --role txt`.)
+  Use when a workflow needs context capsules, role-specific context slices, decision records,
+  assumptions, discarded options, staleness checks, lessons, or reusable project memory.
+visibility: internal
+---
 ---
 
 # Peaks-Loop TXT
