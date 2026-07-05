@@ -38,32 +38,52 @@ export const TitleScene: React.FC<Props> = ({ from, to }) => {
     easing: Easing.out(Easing.cubic),
   });
 
+  // Loop-engineering accent kicker
+  const kickerOpacity = interpolate(localT, [4, 20, localDuration - 15, localDuration], [0, 1, 1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   void fps;
 
   return (
     <AbsoluteFill className="bg-brand-bg flex items-center justify-center">
       <div className="flex flex-col items-center">
         <div
-          className="font-sans text-brand-fg"
+          className="font-mono text-brand-accent"
           style={{
-            fontSize: 220,
-            fontWeight: 800,
-            letterSpacing: -8,
-            opacity: titleOpacity,
-            transform: `translateY(${titleY}px)`,
+            fontSize: 36,
+            letterSpacing: 6,
+            textTransform: "uppercase",
+            opacity: kickerOpacity,
+            marginBottom: 28,
           }}
         >
-          peaks-code
+          ★ loop engineering · in production
         </div>
         <div
-          className="font-mono text-brand-accent mt-8"
+          className="font-sans text-brand-fg"
           style={{
-            fontSize: 42,
-            opacity: taglineOpacity,
-            transform: `translateY(${taglineY}px)`,
+            fontSize: 240,
+            fontWeight: 800,
+            letterSpacing: -10,
+            opacity: titleOpacity,
+            transform: `translateY(${titleY}px)`,
+            lineHeight: 1,
           }}
         >
-          end-to-end loop engineering · PRD to QA to ship
+          peaks-loop
+        </div>
+        <div
+          className="font-mono text-brand-accent mt-10"
+          style={{
+            fontSize: 40,
+            opacity: taglineOpacity,
+            transform: `translateY(${taglineY}px)`,
+            letterSpacing: 1,
+          }}
+        >
+          your AI 战术小队, 24 hours on call — one sentence, one flow
         </div>
       </div>
     </AbsoluteFill>
