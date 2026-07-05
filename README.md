@@ -7,7 +7,7 @@
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=flat-square&logo=github)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 <p align="center">
-  <video src="https://github.com/SquabbyZ/peaks-loop/releases/download/4.0.0/peaks-loop-demo.mp4" controls muted playsinline preload="metadata" width="100%" style="border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.55);"></video>
+  <video src="./examples/video-demo/preview/peaks-loop-demo.mp4" controls muted playsinline preload="metadata" width="100%" style="border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.55);"></video>
 </p>
 
 ## 它是什么

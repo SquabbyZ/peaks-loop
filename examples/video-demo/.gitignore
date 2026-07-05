@@ -4,3 +4,8 @@ out/
 *.mp4
 *.png
 !.gitkeep
+# Public preview files — referenced from ../README + README-en
+# inline <video> embeds via ./examples/video-demo/preview/*.mp4.
+# Ship these two files in git so a clone renders the video at the
+# same path GitHub renders from. Render output in ./out stays ignored.
+!preview/*.mp4

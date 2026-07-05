@@ -29,7 +29,7 @@ The READMEs embed `<video>` tags that point at:
 - `preview/peaks-loop-demo.mp4`    (zh, 4.9 MB)
 - `preview/peaks-loop-demo-en.mp4` (en, 5.0 MB)
 
-These are produced by the render command below and copied here so GitHub renders them inline.
+These are produced by the render command below and committed to git so a clone (and the GitHub rendering) sees the same path. The shell snippet under **Render** keeps `preview/` in sync after a fresh build.
 
 ## Render
 
