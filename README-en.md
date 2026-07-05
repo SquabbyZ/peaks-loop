@@ -8,24 +8,24 @@
 
 ## What it is
 
-Loop engineering, engineered.
+### Loop engineering, engineered
 
-peaks-loop is your AI tactical squad — on call 24/7.
-Summon them, they handle the work.
-Stand them down when it's done.
+### peaks-loop is your AI tactical squad — on call 24/7, summon them
 
-No skipped steps.
-No half-finished hand-offs.
-No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
-Every gate has a hard exit: audit fails = stop, QA fails = stop, any gate fails = full stop.
-You don't chase it, you don't patch it. You decide, it runs the next gate.
+It packs engineering gates, orchestration, replay into your local AI CLI. Install it, say one sentence, it runs the whole flow end-to-end and hands it back.
 
-One person built this, an engineer's taste.
-Geek ethos.
-Natural language only — no CLI surface for the user.
-Tests and gates that actually block, not decorate.
-Strict with self, lenient with users — the toolchain enforces our own code; users say whatever they want, the system catches it.
-AI fluency floor is flat — you don't need prompt-engineering chops, you don't need CLI muscle memory, you talk like a person.
+Summon them, they handle the work. Stand them down when it's done. **No skipped steps. No half-finished hand-offs.** No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
+
+**Every gate has a hard exit.** Audit fails = stop. QA fails = stop. Any gate fails = full stop. You don't chase it, you don't patch it. You decide, it runs the next gate.
+
+#### One person built this, an engineer's taste:
+
+- **Geek ethos.**
+- **Natural language only — no CLI surface for the user.**
+- **Tests and gates that actually block, not decorate.**
+- **Strict with self, lenient with users — our own code goes through our own gates; users say whatever they want, the system catches it.**
+- **AI fluency floor is flat — no prompt-engineering chops, no CLI muscle memory; you talk like a person.**
+
 Those project-level red lines live in `~/.peaks/memory/`. They aren't slogans. They are red lines the toolchain enforces.
 
 ## What's in the box
