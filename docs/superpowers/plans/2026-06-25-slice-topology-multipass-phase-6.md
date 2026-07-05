@@ -75,12 +75,12 @@ git commit --author="SquabbyZ <601709253@qq.com>" -m "test(audit): 3 mutation pr
 
 ### Added
 
-- **Multi-pass slice decomposition** (`peaks slice decompose --granularity=service|file|both|auto`): produces a v2 hierarchical topology that supports peaks-solo fan-out RD. v2 schema is breaking vs v1; v1 remains readable via SchemaRouter.
+- **Multi-pass slice decomposition** (`peaks slice decompose --granularity=service|file|both|auto`): produces a v2 hierarchical topology that supports peaks-code fan-out RD. v2 schema is breaking vs v1; v1 remains readable via SchemaRouter.
 - **Audit + Goal primitive**: 6-dim audit + goal proposal between human need expression and autonomous LLM execution.
 - **Final Review primitive**: 4-dim business review at delivery (functional completeness, problem resolution, no new bugs, existing functionality intact).
 - **Handoff frontmatter schema**: YAML frontmatter for structured fields + markdown body for prose.
 - **New skills**: `peaks-slice-decompose`, `peaks-audit`, `peaks-final-review`.
-- **Updated skills**: `peaks-solo` (audit + final review gates), `peaks-rd` (v2 reading + frontmatter writing), `peaks-qa` (frontmatter reading), `peaks-prd` (multi-pass AC), `peaks-sc` (decompose reference).
+- **Updated skills**: `peaks-code` (audit + final review gates), `peaks-rd` (v2 reading + frontmatter writing), `peaks-qa` (frontmatter reading), `peaks-prd` (multi-pass AC), `peaks-sc` (decompose reference).
 ```
 
 - [ ] **Step 2: Push feature branch to origin**

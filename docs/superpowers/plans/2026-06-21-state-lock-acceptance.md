@@ -25,7 +25,7 @@ src/services/state/
   types.ts                  # Stage enum + LockEntry + SigChain
   state-lock.ts             # CLI-level lock primitive
   sig-chain.ts              # Verify sig chain integrity
-  state-service.ts          # Public API for peaks-qa / peaks-solo
+  state-service.ts          # Public API for peaks-qa / peaks-code
   index.ts                  # barrel
 src/cli/commands/
   state-commands.ts         # peaks state <sub>

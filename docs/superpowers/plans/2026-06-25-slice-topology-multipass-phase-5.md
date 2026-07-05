@@ -8,12 +8,12 @@ See the index at ./2026-06-25-slice-topology-multipass.md for navigation.
 
 ## Phase 5: Existing Skill Updates
 
-### Task 15: peaks-solo update (Step 0.6 audit + end-of-workflow final review)
+### Task 15: peaks-code update (Step 0.6 audit + end-of-workflow final review)
 
 **Files:**
-- Modify: `skills/peaks-solo/SKILL.md`
+- Modify: `skills/peaks-code/SKILL.md`
 
-- [ ] **Step 1: Locate existing Step 0.5 / Step 0.7 in peaks-solo SKILL.md**
+- [ ] **Step 1: Locate existing Step 0.5 / Step 0.7 in peaks-code SKILL.md**
 
 - [ ] **Step 2: Add new Step 0.6 (audit) between Step 0.5 and Step 0.7**
 
@@ -34,8 +34,8 @@ After all autonomous LLM work (RD, QA, security, perf) completes, invoke peaks-f
 - [ ] **Step 5: Commit**
 
 ```bash
-git add skills/peaks-solo/SKILL.md
-git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-solo adds audit gate + final review gate"
+git add skills/peaks-code/SKILL.md
+git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-code adds audit gate + final review gate"
 ```
 
 ### Task 16: peaks-rd update (v2 slice reading + handoff frontmatter writing)

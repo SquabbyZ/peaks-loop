@@ -2,7 +2,7 @@
 
 - **Date**: 2026-06-11
 - **Status**: Brainstorming complete, awaiting spec review
-- **Owner**: peaks-rd → peaks-qa → peaks-solo (10-slice orchestration)
+- **Owner**: peaks-rd → peaks-qa → peaks-code (10-slice orchestration)
 - **Targets**: peaks-loop 1.4.x → 2.0.x
 - **Related**:
   - `docs/superpowers/specs/2026-06-10-fuzzy-matching-design.md` (前置 slice)
@@ -201,7 +201,7 @@ UA + ECC ──→ L3 三引擎编排的两个外部引擎
 
 | Skill | 当前角色 | L1+L2+L3 重设计后的整改 |
 |---|---|---|
-| **peaks-solo** | 总编排器 | 加 Step 0.6 任务分级 (L1a) + Step 0.8 task-level 路由 (L1b) |
+| **peaks-code** | 总编排器 | 加 Step 0.6 任务分级 (L1a) + Step 0.8 task-level 路由 (L1b) |
 | **peaks-rd** | RD 角色 | gate set 按 task level 走 (L1b), tech-doc/perf-baseline 是否必经按 level |
 | **peaks-qa** | QA 角色 | 同上, 性能/安全/E2E 是否必经按 level |
 | **peaks-ui** | UI 工作 | UI work 通常 ≥ feature, 简化 typo/bug 分支 |
@@ -210,7 +210,7 @@ UA + ECC ──→ L3 三引擎编排的两个外部引擎
 | **peaks-sop** | SOP 编写 | SOP 工作流通常 ≥ refactor |
 | **peaks-txt** | TXT compact handoff | handoff 按 task level 走 (typo 极简, feature 完整) |
 | **peaks-ide** | IDE adapter 管理 | 多平台 adapter 管理 (§3.4 直接落地点), 加 Hermes/OpenClaw adapter 编排 |
-| **peaks-solo-resume / -status / -test** | 工具型 sub-skill | 不直接受影响, 但要复检 references 路径 (workspace reorg 后) |
+| **peaks-resume / -status / -test** | 工具型 sub-skill | 不直接受影响, 但要复检 references 路径 (workspace reorg 后) |
 | **(待新增)** | — | **peaks-doctor**: L3 项目医生 orchestration |
 
 #### 5 个维度的 skill 整改
@@ -233,7 +233,7 @@ UA + ECC ──→ L3 三引擎编排的两个外部引擎
 4. **新增 peaks-doctor skill** (L3 项目医生 orchestration)
    - SKILL.md: orchestrate `peaks doctor scan` + `peaks doctor route` + UA 选装 UX + ECC agent 编排
    - references/: ua-integration.md / ecc-agent-orchestration.md / severity-rules.md / openspec-proposal-authoring.md
-   - 触发: peaks-solo 在 feature/refactor/migration gate 里 dispatch peaks-doctor (typo/bug 不 dispatch)
+   - 触发: peaks-code 在 feature/refactor/migration gate 里 dispatch peaks-doctor (typo/bug 不 dispatch)
 
 5. **multi-platform distribution** (skills/ 是 source of truth)
    - 现状: skills/ 复制到 `~/.claude/skills/` (Claude Code 专属位置)
@@ -260,7 +260,7 @@ UA + ECC ──→ L3 三引擎编排的两个外部引擎
 
 | Slice | 这个 slice 顺便干的 skill 整改 |
 |---|---|
-| #2 L1a+L1b | peaks-solo / peaks-rd / peaks-qa / peaks-txt 加 task-level frontmatter + 主体分支 |
+| #2 L1a+L1b | peaks-code / peaks-rd / peaks-qa / peaks-txt 加 task-level frontmatter + 主体分支 |
 | #3 L1c | 全 ~80 references 加 loadStrategy frontmatter; SKILL.md 主体精简; **memory/retrospective search 加 `--use-headroom`** |
 | #4-#7 L2.1-L2.4 | 全 12 SKILL.md 的 MANDATORY/BLOCKING 加 CLI-enforced-by 注解 |
 | #9 L3.2 项目医生 MVP | doctor scan 加 `--compress-output`, doctor route 加 `--compress-proposal-draft` |
@@ -1169,8 +1169,8 @@ peaks config rollback --to 1.x                          # 回退 (恢复 .bak)
 
 | Profile | 触发 | 适用 |
 |---|---|---|
-| `full-auto` | `peaks-solo` 启动时选 | AI 24/7 自主, 不等 confirm, 适合本场景 |
-| `swarm` | `peaks-solo` 启动时选 | 并行 sub-agent, 跟 full-auto 复合 |
+| `full-auto` | `peaks-code` 启动时选 | AI 24/7 自主, 不等 confirm, 适合本场景 |
+| `swarm` | `peaks-code` 启动时选 | 并行 sub-agent, 跟 full-auto 复合 |
 | `assisted` | 默认 | 人在环, 每个 gate 等 confirm |
 | `strict` | 高风险任务 | 严格 confirm, 不跳任何 gate |
 
@@ -1319,7 +1319,7 @@ peaks config rollback --to 1.x                          # 回退 (恢复 .bak)
 | **Skills 整改让现有 12 个 SKILL.md 同时 churn** | 高 | 整改分散到 #2/#3/#4-#7 各 slice 中触动相关部分, #12 做收尾对齐; 不一次性重写; 每个 slice 内的 skill 改动有独立 dogfood |
 | **`peaks skills sync` 把 source 同步覆盖用户本地修改** | 中 | `sync` 默认 dry-run; `--apply` 前 diff 用户本地与 source, 让用户确认; 提供 `--preserve-user-edits` flag |
 | **per-platform skill 格式差异翻译失败 (例如 Cursor 的 .cursor-plugin)** | 中 | Slice 0.7 调研 Hermes/OpenClaw 时一并调研其它非 Claude 平台的 skill 格式; 翻译失败时报错并保留 Claude-Code 格式 |
-| **peaks-doctor skill 新增后 peaks-solo 编排会变重** | 中 | peaks-doctor 仅在 feature/refactor/migration 触发 (typo/bug 不触发, L1b 控制); 让 sub-agent dispatch 替代 inline 执行 |
+| **peaks-doctor skill 新增后 peaks-code 编排会变重** | 中 | peaks-doctor 仅在 feature/refactor/migration 触发 (typo/bug 不触发, L1b 控制); 让 sub-agent dispatch 替代 inline 执行 |
 | **headroom-ai proxy 不可用让 L1c/L3 退化** | 低 | `fallback: true` 默认开, 不阻塞; warning `HEADROOM_UNAVAILABLE` 上报; preference `headroomEnabled: false` 全局关 |
 | **headroom 压缩过度导致 memory/retro 检索精度下降** | 中 | per-task-level 选模式 (bug=conservative, refactor=aggressive); 用户可在 preferences 里 override; doctor route 默认 conservative |
 | **Output Style 公约不能机器 100% 检查 (自然语言模式难穷举)** | 中 | `peaks audit output-style` 只检查可静态判定的 (空话模板 / 客套寒暄 / status header 缺失); 主观风格靠 review |
@@ -1354,7 +1354,7 @@ peaks config rollback --to 1.x                          # 回退 (恢复 .bak)
 15. **当用户在 Hermes 用 peaks-loop, 但项目里同时安装了 Claude Code 的 hooks 配置, 如何处理冲突?** (优先级: 当前活跃 IDE > 其它残留)
 16. **多平台 CI 矩阵要不要全跑 8 个?** (8 × 各 slice 测试矩阵会很大; 建议 nightly 跑全量, PR 只跑当前 IDE)
 17. **Skills 在 cursor/trae/qoder/tongyi-lingma/hermes/openclaw 等非 Claude-Code 平台的 skill format 是什么?** (Slice 0.7 调研 IDE adapter 时一并调研 skill 格式)
-18. **`peaks skills sync` 是否要在 peaks-solo Step 0 自动触发, 还是手动?** (本 spec 倾向: 手动, 避免 startup 开销; 但若用户切平台后忘了 sync 会用旧 skill)
+18. **`peaks skills sync` 是否要在 peaks-code Step 0 自动触发, 还是手动?** (本 spec 倾向: 手动, 避免 startup 开销; 但若用户切平台后忘了 sync 会用旧 skill)
 19. **peaks-doctor 是新建 SKILL.md, 还是合并到 peaks-qa 里作为 L3 sub-mode?** (本 spec 立场: 新建 SKILL.md, 因为 doctor 的工作不限于 QA 阶段)
 20. **现有 ~80 references 中, 哪些应该升级为 `loadStrategy: always`?** (Slice 3 启动时需要逐个评估; 默认 on-demand)
 21. **`peaks audit output-style` 检测规则集应该多严格?** (太严格会误报 prose 段落; 太松无效。本 spec 立场: 先实现 5-10 条最明显的模式检测, 看 false positive 比例再调)
@@ -1374,7 +1374,7 @@ peaks config rollback --to 1.x                          # 回退 (恢复 .bak)
 
 ## 13. Out of Scope (本设计明确不做)
 
-- 不重写 peaks-solo / peaks-rd / peaks-qa / peaks-txt 等现有 skill (本设计在它们之上叠加新能力, 不替代)
+- 不重写 peaks-code / peaks-rd / peaks-qa / peaks-txt 等现有 skill (本设计在它们之上叠加新能力, 不替代)
 - 不引入新的状态机替代 `peaks request transition` (沿用现有)
 - 不做 web dashboard (UA 已有, 不重复造)
 - 不做 MCP server (除非未来明确需要)

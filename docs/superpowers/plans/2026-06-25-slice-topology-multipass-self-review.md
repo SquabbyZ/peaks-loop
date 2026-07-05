@@ -51,7 +51,7 @@ No "TBD", "TODO", "implement later", or "similar to Task N" found in plan. All c
 
 ### Placeholder scan (post-implementation)
 
-No "TBD", "TODO", "implement later", or "similar to Task N" found in shipped code. All 22 plan tasks shipped. Two deviations from plan prose documented in W6 checkpoint (peaks-solo byte cap; 2 reference files not created — out of W7-CC-α scope).
+No "TBD", "TODO", "implement later", or "similar to Task N" found in shipped code. All 22 plan tasks shipped. Two deviations from plan prose documented in W6 checkpoint (peaks-code byte cap; 2 reference files not created — out of W7-CC-α scope).
 
 ### Type consistency (post-implementation)
 

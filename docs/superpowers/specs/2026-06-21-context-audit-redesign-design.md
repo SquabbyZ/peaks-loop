@@ -2,7 +2,7 @@
 
 - **Date**: 2026-06-21
 - **Status**: Brainstorming complete, awaiting spec review
-- **Owner**: peaks-solo → peaks-rd → peaks-qa → peaks-txt
+- **Owner**: peaks-code → peaks-rd → peaks-qa → peaks-txt
 - **Targets**: peaks-loop v2.8.0 → v3.0.0 (新增 `peaks-context` / `peaks-mut` / `peaks-state-lock`)
 - **Related**:
   - 用户 PRD: `C:\Users\smallMark\Desktop\plan.md`(peaks-loop 2.0 愿景完整版)
@@ -84,7 +84,7 @@
 ### 3.1 架构图
 
 ```
-                  peaks-solo (orchestrator, 不变)
+                  peaks-code (orchestrator, 不变)
                               │
                               ▼
               peaks-context (新 CLI 模块, PRD §4.1)
@@ -135,16 +135,16 @@
 | **peaks-qa** | TACT.sig + MUT.sig + context.json(测试子集) | `qa-report.json` + `ACCEPT.sig` | 只读 goal + TACT + mut | 不读战略;**仍保留** Gate A2/A3/A4/D |
 | **peaks-state-lock** | 阶段切换请求 | 锁文件 + sig 校验 | 跨 actor 协调 | 任何 actor 读到非自己阶段产物 → 报错 |
 
-### 3.3 场景走读:`peaks-solo 给登录页加 OAuth 回调`
+### 3.3 场景走读:`peaks-code 给登录页加 OAuth 回调`
 
 | Step | 触发 | 关键动作 | 用户感知 |
 |---|---|---|---|
-| 1 | 用户敲 `peaks-solo` | `peaks context build --goal "..." --audience peaks-rd` | 看不到 |
+| 1 | 用户敲 `peaks-code` | `peaks context build --goal "..." --audience peaks-rd` | 看不到 |
 | 2 | 上下文就绪 | peaks-rd/战略:读 context.json 意图区,问根因 | AskUserQuestion #1(callback URL 从哪来) |
 | 3 | STRAT.sig | peaks-rd/战术:写代码,CLI 跑 AST 硬门禁比对 oauth-client@2.4.0 API | 看不到(自动修复) |
 | 4 | TACT.sig | peaks-mut:跑 Stryker + 断言 AST | AskUserQuestion #2(假绿时不达标选项) |
 | 5 | MUT.sig | peaks-qa:跑 slice check + Gate A2/A3/A4/D + sig 链校验 | 看不到 |
-| 6 | ACCEPT.sig | peaks-solo 解锁 merge,完整 audit-trail 落盘 | 可选 AskUserQuestion #3(成本提示) |
+| 6 | ACCEPT.sig | peaks-code 解锁 merge,完整 audit-trail 落盘 | 可选 AskUserQuestion #3(成本提示) |
 
 ---
 
@@ -445,7 +445,7 @@ ACCEPTANCE        peaks-qa        → ACCEPT.sig (含 STRAT+TACT+MUT sig hash)
 
 ### 5.2 整路不变量(必须保持)
 
-1. 老用户敲 `peaks-solo X` 体感与 v2.8.0 几乎一致(仅多 1-2 个 AskUserQuestion)
+1. 老用户敲 `peaks-code X` 体感与 v2.8.0 几乎一致(仅多 1-2 个 AskUserQuestion)
 2. 任何 phase 都可独立 shippable,不破坏其他 phase
 3. peaks-context 的"跨版本隔离"测试一旦写好,**永不能挂**
 
@@ -457,7 +457,7 @@ ACCEPTANCE        peaks-qa        → ACCEPT.sig (含 STRAT+TACT+MUT sig hash)
 
 | 已有能力 | 状态 | 理由 |
 |---|---|---|
-| `peaks-solo` orchestrator | 🟢 不动 | 只调度表多 3 个 actor |
+| `peaks-code` orchestrator | 🟢 不动 | 只调度表多 3 个 actor |
 | 其他 8 个 skill(prd/sc/txt/sop/doctor/ide/companion) | 🟢 不动 | 不在改造范围 |
 | SOP 形式门禁 | 🟢 不动(正交) | SOP = 用户声明式;新 gate = CLI 内置代码式 |
 | 跨 IDE 注册 | 🟢 不动 | 新 actor 复用同一注册机制 |
@@ -557,7 +557,7 @@ SOP gates (用户声明式 simple predicate):
 | 自研 AST 解析器 | 用 TypeScript Compiler API / tree-sitter |
 | 全 5 种语言的 v1 一次发 | TS/JS v1,其他语言留接口 |
 | 把 SOP 形式门禁替换成新 gate | 正交共存,SOP 商业化不动 |
-| 改写 peaks-solo orchestrator 内部 | solo 只调度表加 actor,自身不动 |
+| 改写 peaks-code orchestrator 内部 | solo 只调度表加 actor,自身不动 |
 | 改写 8 个不动 skill | 范围控制 |
 | 引入新 CLI 配置语法 | 复用现有 `--flag` + JSON Schema 模式 |
 | 自建文档镜像 | 复用 Context7 / 本地缓存,不强求新基础设施 |

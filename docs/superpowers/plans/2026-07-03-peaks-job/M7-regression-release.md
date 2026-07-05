@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Confirm no regression in existing peaks-solo / peaks-rd / peaks-qa flows + bump version + write CHANGELOG + sediment memory. After M7, peaks-job v1.0 is releasable.
+**Goal:** Confirm no regression in existing peaks-code / peaks-rd / peaks-qa flows + bump version + write CHANGELOG + sediment memory. After M7, peaks-job v1.0 is releasable.
 
 **Architecture:** Standard peaks-loop release flow: run existing runbook in a sample project, confirm green; add `peaks-job` entry to CHANGELOG.md; version bump 3.0.x → 3.1.0; sediment `.peaks/memory/peaks-loop-job-introduction.md` for future sessions.
 
@@ -35,7 +35,7 @@ Expected: PASS, 0 warnings.
 
 ---
 
-## Task 7.2: Regression test — existing peaks-solo runbook still green
+## Task 7.2: Regression test — existing peaks-code runbook still green
 
 - [ ] **Step 1: Find an existing single-rid scenario fixture**
 
@@ -88,7 +88,7 @@ Append at the top of `CHANGELOG.md`:
 - New CLI flag `--main-loop-strategy single|rotating` on `job init`, with rotating-mode hard-default for ≥3 slices.
 - New 9th subcommand `--watch` poll mode + statusline event hook for ambient progress visibility.
 - Sub-agent wrapper enforces `--budget-mb 512` default in Job scope + cleanup gate before slice checkpoint.
-- New peaks-solo SKILL.md Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87 wrapping the existing single-rid runbook for multi-slice jobs.
+- New peaks-code SKILL.md Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87 wrapping the existing single-rid runbook for multi-slice jobs.
 - 9 hard-red-line rules embedded in SKILL.md (cost re-ask ban, slice-coalesce ban, fake-completion ban, detached-mode ban, cleanup-skip ban, rotate-skip ban, etc).
 
 ### Migration
@@ -129,7 +129,7 @@ description: peaks-loop Job v1.0 — outer-wrapper construct for long multi-slic
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-solo Step 0.8+, peaks CLI (peaks job *), .peaks/_runtime/<sid>/job/<jid>/
+  affects: peaks-code Step 0.8+, peaks CLI (peaks job *), .peaks/_runtime/<sid>/job/<jid>/
 ---
 
 # peaks-loop Job v1.0 — Introduction (2026-07-03 ship state)
@@ -196,7 +196,7 @@ All three are on by default. Suppression is a red-line violation.
 - State machine: `src/services/job/{job-types,job-state-store,job-orchestrator,job-rotation}.ts`.
 - Wrapper: `src/services/job/subagent-job-wrapper.ts`.
 - Snapshot: `src/services/job/job-resource-snapshot.ts`.
-- Skill: `skills/peaks-solo/SKILL.md` (Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87).
+- Skill: `skills/peaks-code/SKILL.md` (Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87).
 
 ## Related
 

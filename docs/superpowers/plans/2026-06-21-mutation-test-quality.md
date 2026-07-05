@@ -1248,7 +1248,7 @@ Catches **test fake-green** — the failure mode where coverage numbers look fin
 
 ## When to use
 
-peaks-solo or peaks-rd dispatches peaks-mut after peaks-rd/战术 (TACT.sig exists). The flow:
+peaks-code or peaks-rd dispatches peaks-mut after peaks-rd/战术 (TACT.sig exists). The flow:
 
 1. peaks-mut consumes `context.json --audience peaks-mut` (built by peaks-context Phase 1).
 2. Stryker mutates test-target source code; existing tests must kill the mutants.

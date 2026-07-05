@@ -2,8 +2,8 @@
 
 **Status:** Draft (post-brainstorming, pre-writing-plans)
 **Date:** 2026-07-03
-**Author:** SquabbyZ (via peaks-solo brainstorm session 2026-07-03-session-67f631)
-**Affects:** peaks-solo, peaks CLI (new `peaks job *` subcommand family), `.peaks/_runtime/<sessionId>/job/<jobId>/` artifact tree
+**Author:** SquabbyZ (via peaks-code brainstorm session 2026-07-03-session-67f631)
+**Affects:** peaks-code, peaks CLI (new `peaks job *` subcommand family), `.peaks/_runtime/<sessionId>/job/<jobId>/` artifact tree
 
 ---
 
@@ -20,13 +20,13 @@ This contradicts peaks-loop's positioning as a **24h AI programmer orchestrator*
 
 ### 1.2 Root cause (architectural, not behavioral)
 
-The current peaks-solo runbook models **one rid = one workflow** end-to-end (PRD → RD → QA → commit → TXT handoff). There is no outer loop construct. After the first rid's TXT handoff fires, the runbook signals "this skill's job is done" — the LLM obeys, regardless of how many slices remain.
+The current peaks-code runbook models **one rid = one workflow** end-to-end (PRD → RD → QA → commit → TXT handoff). There is no outer loop construct. After the first rid's TXT handoff fires, the runbook signals "this skill's job is done" — the LLM obeys, regardless of how many slices remain.
 
 The auto-compact protocol (v2.13.0) keeps a single rid's runner alive across context-overflow events, but does **not** chain rids together. The economic audit (`peaks budget audit`) reports cost but does not stop the runner. Neither mechanism matches the user's mental model of "a job with N independent slices that must all complete before the runner stops."
 
 ### 1.3 Why not just "patch the prompt"
 
-Patching the peaks-solo SKILL.md prose to say "continue until job done" leaves:
+Patching the peaks-code SKILL.md prose to say "continue until job done" leaves:
 
 - **No on-disk job state** → runner forgets progress after auto-compact, cross-day restart, or IDE reopen
 - **LLM's natural "summarize = stop" instinct** unaddressed at the architectural level
@@ -41,12 +41,12 @@ We need a first-class `Job` construct.
 
 ### 2.1 Goals
 
-- A user can express "do these N independent slices, one after another, only stop when all done (or one fails terminally)" as a single command to peaks-solo
+- A user can express "do these N independent slices, one after another, only stop when all done (or one fails terminally)" as a single command to peaks-code
 - The runner keeps working across slices **without asking the user about cost, length, or context**
 - Progress is **continuously visible to the user** — at any moment the user can see which slice is running, what ETA remains, and the latest checkpoint. Visibility modes: (a) the LLM-runner conversation turn itself is the primary progress surface; (b) `peaks job status --watch` for terminal-side polling; (c) statusline integration for ambient awareness
 - Progress survives auto-compact, cross-day session restart, IDE reopen, and accidental process kill
 - Slice failures strictly halt the whole job; user decides next action
-- Existing single-slice workflow (peaks-solo runbook Step 2-7) is unchanged — Job is purely an outer loop wrapper
+- Existing single-slice workflow (peaks-code runbook Step 2-7) is unchanged — Job is purely an outer loop wrapper
 - Existing mechanisms (auto-compact, session checkpoint, sub-agent fan-out, standards preflight) integrate without modification
 - **The main LLM session must not accumulate context past a controlled cap** — either by an outer rotating-session strategy, or by active per-slice context reset. Auto-compact alone is insufficient (it is a passive rescue, not a controlled lifecycle)
 - **Sub-agent resource isolation is enforced at dispatch time** — every dispatch MUST declare `--budget-mb`, and cleanup MUST fire on exit. No silent resource leaks across the job's lifetime
@@ -87,7 +87,7 @@ The LLM chooses at `peaks job init` time (with a default of `single` for ≤5 sl
 
 ```
                  ┌────────────────────────────────────────────────┐
-                 │  peaks-solo  (orchestrator, full-auto profile) │
+                 │  peaks-code  (orchestrator, full-auto profile) │
                  │  (User reads this transcript in real time)     │
                  └────────────────────────────────────────────────┘
                                    │
@@ -108,7 +108,7 @@ The LLM chooses at `peaks job init` time (with a default of `single` for ≤5 sl
             │                                                     │
             │   Step 1 — Pick next slice (per slice-dag order)    │
             │      ↓                                              │
-            │   Existing peaks-solo runbook (Step 2-7)            │
+            │   Existing peaks-code runbook (Step 2-7)            │
             │   = 单 rid 单 slice 全套 (PRD→RD→QA→commit)         │
             │      ↓                                              │
             │   Step 0.81 (per-slice checkpoint)                  │
@@ -148,9 +148,9 @@ The LLM chooses at `peaks job init` time (with a default of `single` for ≤5 sl
 | `src/services/job/job-orchestrator.ts` | new | 250 | State machine core + side-effect isolation |
 | `src/services/job/job-types.ts` | new | 80 | Types + zod schema |
 | `src/services/job/job-state-store.ts` | new | 80 | atlas-style fs ops + locking |
-| `skills/peaks-solo/SKILL.md` | modified | +120 | Step 0.8 / 0.81 / 0.85 + Step 1 red-line reinforcement |
-| `skills/peaks-solo/references/runbook.md` | modified | +50 | Job path CLI sequence |
-| `skills/peaks-solo/references/job-loop.md` | new | 150 | Job state machine deep-dive |
+| `skills/peaks-code/SKILL.md` | modified | +120 | Step 0.8 / 0.81 / 0.85 + Step 1 red-line reinforcement |
+| `skills/peaks-code/references/runbook.md` | modified | +50 | Job path CLI sequence |
+| `skills/peaks-code/references/job-loop.md` | new | 150 | Job state machine deep-dive |
 | `tests/unit/job/*.test.ts` | new | 600 | 5 test files (state machine / CLI / schema / integration) |
 | `tests/integration/job-e2e.test.ts` | new | 200 | Real LLM drives mini-job E2E |
 | `.peaks/memory/peaks-loop-job-introduction.md` | new | TBD | Runbook sediment for future sessions |
@@ -291,7 +291,7 @@ export type JobState = z.infer<typeof JobStateSchema>;
 export type JobStatusSummary = z.infer<typeof JobStatusSummarySchema>;
 ```
 
-### 4.3 New peaks-solo steps
+### 4.3 New peaks-code steps
 
 #### Step 0.8 — Job 启动 (NEW)
 
@@ -352,7 +352,7 @@ peaks job checkpoint --slice-id <none> --state rotate  # internal marker
 # 3. Trigger IDE-side main-session rotation
 peaks session rotate --project <repo> --json    # signals "main session ends here"
 
-# 4. Next user turn starts a fresh main LLM session; peaks-solo re-anchors,
+# 4. Next user turn starts a fresh main LLM session; peaks-code re-anchors,
 #    reads auto-decisions.md + cycle-<n>.md + job.state.json, and resumes the loop.
 peaks session resume --job-id <jid> --project <repo> --json
 ```
@@ -412,7 +412,7 @@ When `--parallelism-hint serial`, LLM still proposes the list (Step 0.8 prompt d
 
 ```
 T+0:  user request
-      "peaks-solo 给 app/ 下所有子目录补 UT,以子目录为 slice 维度,自验证后 commit,不用 care 费用"
+      "peaks-code 给 app/ 下所有子目录补 UT,以子目录为 slice 维度,自验证后 commit,不用 care 费用"
 
 T+30s: Solo Step 0 — anchor workspace, scan archetype
 T+45s: Solo Step 0.8 — multi-slice heuristic triggers
@@ -441,7 +441,7 @@ T+45m:  Loop iter 8: slice ui/dashboard
         STOP. Output: "job ut-app-2026-07-03 BLOCKED at slice ui/dashboard, awaiting user"
 
 T+50m:  user intervention — fixes props manually
-        user: "peaks-solo 续 ut-app-2026-07-03"
+        user: "peaks-code 续 ut-app-2026-07-03"
         Solo detects "续" + has unfinished-work probe → peaks job resume
         User: "已修,继续" → peaks job continue
         Re-runs slice ui/dashboard to completion
@@ -461,7 +461,7 @@ T+0..N: Solo runs job over hours
 T+N:    User closes IDE for the night
 
 T+M (next morning):
-        User opens IDE, runs /peaks-solo
+        User opens IDE, runs /peaks-code
         Solo Step 0.7 (unfinished-work probe) reads job state.json
         { done: 3, remaining: 5, currentSlice: lib/db }
         AskUserQuestion: "检测到未完成的 job ut-app-2026-07-03 (3/8 done)。
@@ -487,7 +487,7 @@ state.json unchanged; only session/auto-decisions.md is updated
 
 ### 5.4 Multiple jobs in one session (deferred — M2 supports 1 job / session)
 
-The `.peaks/_runtime/<sid>/job/<jobId>/` layout allows N job dirs to coexist. In M2, peaks-solo Step 0.8 will refuse to start a second job while one is in flight (errors out with a list of active jobs and tells user to run `peaks job continue` explicitly). Multi-job concurrent control is M7+ scope.
+The `.peaks/_runtime/<sid>/job/<jobId>/` layout allows N job dirs to coexist. In M2, peaks-code Step 0.8 will refuse to start a second job while one is in flight (errors out with a list of active jobs and tells user to run `peaks job continue` explicitly). Multi-job concurrent control is M7+ scope.
 
 ---
 
@@ -554,7 +554,7 @@ The LLM-runner MUST NOT:
 | AC-7 | 9 red lines (incl. no-detach, statusline, hard-budget, no-skip-rotate) not violated under prompt fuzzer | Fuzzer + assertion |
 | AC-8 | Strict: 1 block → whole job blocks, no auto-skip of subsequent slices | Unit |
 | AC-9 | Best-effort: 1 block → skipped + reason + continue | Unit |
-| AC-10 | Coexists with existing `peaks request / session / sub-agent fan-out` (no rid double-opening) | Regression (run existing peaks-solo runbook) |
+| AC-10 | Coexists with existing `peaks request / session / sub-agent fan-out` (no rid double-opening) | Regression (run existing peaks-code runbook) |
 | AC-11 | `--main-loop-strategy rotating` (default for ≥3 slices) resets main session every `rotateEvery` slices, post-rotate ratio < 0.50, no data loss in job state | E2E (8-slice job, ratio injection) |
 | AC-12 | `--main-loop-strategy single` (default for ≤2 slices) end-to-end without any rotation; LLM-initiated override from rotating→single requires justification and is rejected if total predicted wall-time >30 min | Unit + integration + override-journal audit |
 | AC-13 | Job-aware sub-agent wrapper: every dispatch in Job scope mandates `--budget-mb`; cleanup must fire before slice checkpoint; failure → job block | Unit + integration |
@@ -575,9 +575,9 @@ The LLM-runner MUST NOT:
 | 5 | `src/services/job/subagent-job-wrapper.ts` | 120 | Forces `--budget-mb` + cleanup in Job scope |
 | 6 | `src/services/job/job-rotation.ts` | 100 | Cycle-summary + `peaks session rotate` orchestration |
 | 7 | `src/services/job/job-resource-snapshot.ts` | 80 | cpu/mem/disk/context snapshot collector |
-| 8 | `skills/peaks-solo/SKILL.md` | +150 | Step 0.8/0.81/0.85/0.86/0.87 + Step 1 reinforcement + visibility prose |
-| 9 | `skills/peaks-solo/references/runbook.md` | +60 | Job path CLI sequence |
-| 10 | `skills/peaks-solo/references/job-loop.md` | 200 | Job state machine + rotating-mode deep-dive |
+| 8 | `skills/peaks-code/SKILL.md` | +150 | Step 0.8/0.81/0.85/0.86/0.87 + Step 1 reinforcement + visibility prose |
+| 9 | `skills/peaks-code/references/runbook.md` | +60 | Job path CLI sequence |
+| 10 | `skills/peaks-code/references/job-loop.md` | 200 | Job state machine + rotating-mode deep-dive |
 | 11 | `tests/unit/job/*.test.ts` | 800 | state machine / schema / wrapper / rotation / CLI |
 | 12 | `tests/integration/job-e2e.test.ts` | 250 | 8-slice E2E with context-explosion injection |
 | 13 | `docs/superpowers/specs/2026-07-03-peaks-loop-job-design.md` | (this file) | RFC + design |
@@ -616,7 +616,7 @@ The LLM-runner MUST NOT:
 
 ### Alt B — Pure prompt-level patch
 
-Patch peaks-solo SKILL.md to say "loop until done". Pros: minimal change. Cons: no on-disk state, no cross-day recovery, LLM "summarize = stop" instinct unaddressed.
+Patch peaks-code SKILL.md to say "loop until done". Pros: minimal change. Cons: no on-disk state, no cross-day recovery, LLM "summarize = stop" instinct unaddressed.
 
 ### Alt C — Hook-level "continue job" interceptor
 
@@ -632,5 +632,5 @@ Add a PreToolUse hook that rejects completion responses when job has remaining s
 - `.peaks/memory/peaks-cli-user-role-and-tech-decision.md` — user role + reverse-fake-choice
 - `.peaks/memory/2026-06-28-full-auto-boundary.md` — full-auto = commit-end
 - `.peaks/memory/2026-06-27-auto-compact-design.md` — context overflow protocol
-- `skills/peaks-solo/SKILL.md` — current 11-step runbook
-- `skills/peaks-solo/references/runbook.md` — current single-rid CLI sequence
+- `skills/peaks-code/SKILL.md` — current 11-step runbook
+- `skills/peaks-code/references/runbook.md` — current single-rid CLI sequence

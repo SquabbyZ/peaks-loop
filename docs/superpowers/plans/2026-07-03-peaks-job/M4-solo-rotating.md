@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Wire the Job loop into `peaks-solo` SKILL.md (Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 per spec §4.3) and land the rotating-mode implementation (`src/services/job/job-rotation.ts` + `peaks job rotate-now` real impl). After M4, an LLM-runner invoking `peaks-solo` can drive a multi-slice job end-to-end.
+**Goal:** Wire the Job loop into `peaks-code` SKILL.md (Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 per spec §4.3) and land the rotating-mode implementation (`src/services/job/job-rotation.ts` + `peaks job rotate-now` real impl). After M4, an LLM-runner invoking `peaks-code` can drive a multi-slice job end-to-end.
 
 **Architecture:** SKILL.md gets a "Job Path" subsection appended after Step 0.7. Each new step is one paragraph: when to fire, CLI to call, exit criterion. The `job-rotation.ts` module owns the `peaks session cycle-summary` + `peaks session rotate` + `peaks session resume` orchestration per spec §4.3 Step 0.86.
 
@@ -195,14 +195,14 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(job): r
 
 ---
 
-## Task 4.3: Patch `peaks-solo` SKILL.md + runbook + add references/job-loop.md
+## Task 4.3: Patch `peaks-code` SKILL.md + runbook + add references/job-loop.md
 
 **Files:**
-- Modify: `~/.claude/skills/peaks-solo/SKILL.md` (+ Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 + visibility prose + 9 red lines summary)
-- Modify: `~/.claude/skills/peaks-solo/references/runbook.md` (add Job path CLI sequence)
-- Create: `~/.claude/skills/peaks-solo/references/job-loop.md` (~200 LoC, deep-dive)
+- Modify: `~/.claude/skills/peaks-code/SKILL.md` (+ Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87 + visibility prose + 9 red lines summary)
+- Modify: `~/.claude/skills/peaks-code/references/runbook.md` (add Job path CLI sequence)
+- Create: `~/.claude/skills/peaks-code/references/job-loop.md` (~200 LoC, deep-dive)
 
-NOTE: project-local skills are in `skills/peaks-solo/SKILL.md` (per repo root); confirm the actual path before editing.
+NOTE: project-local skills are in `skills/peaks-code/SKILL.md` (per repo root); confirm the actual path before editing.
 
 - [ ] **Step 1: Locate the right SKILL.md**
 
@@ -211,7 +211,7 @@ Run:
 find . -path ./node_modules -prune -o -name "SKILL.md" -print 2>/dev/null | head -10
 ```
 
-Pick the file matching `peaks-solo` (typically `skills/peaks-solo/SKILL.md` for a dev install; `~/.claude/skills/peaks-solo/SKILL.md` for end-user install). Edit whichever is canonical per the repo's `install-skills.mjs`.
+Pick the file matching `peaks-code` (typically `skills/peaks-code/SKILL.md` for a dev install; `~/.claude/skills/peaks-code/SKILL.md` for end-user install). Edit whichever is canonical per the repo's `install-skills.mjs`.
 
 - [ ] **Step 2: Insert the new steps (single block)**
 
@@ -286,7 +286,7 @@ Violations trigger a `peaks job block` event with the specific red-line number.
 
 - [ ] **Step 3: Add runbook snippet in runbook.md**
 
-Append at the end of `~/.claude/skills/peaks-solo/references/runbook.md`:
+Append at the end of `~/.claude/skills/peaks-code/references/runbook.md`:
 
 ```bash
 # Peaks-Loop Default runbook — Job path (excerpt; full flow in references/job-loop.md)
@@ -359,8 +359,8 @@ Expected: PASS — references/job-loop.md counts as a valid location.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add skills/peaks-solo/SKILL.md skills/peaks-solo/references/runbook.md skills/peaks-solo/references/job-loop.md
-git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(job): peaks-solo SKILL.md Steps 0.8/0.81/0.85/0.86/0.87 + visibility prose + 9 red lines (M4.3)"
+git add skills/peaks-code/SKILL.md skills/peaks-code/references/runbook.md skills/peaks-code/references/job-loop.md
+git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(job): peaks-code SKILL.md Steps 0.8/0.81/0.85/0.86/0.87 + visibility prose + 9 red lines (M4.3)"
 ```
 
 ---

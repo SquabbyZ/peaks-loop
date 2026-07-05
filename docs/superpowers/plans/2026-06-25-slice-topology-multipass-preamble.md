@@ -104,7 +104,7 @@ tests/unit/handoff/
 src/cli/commands/slice-decompose.ts       (Phase 3: add --granularity flag)
 src/services/slice/slice-pick-service.ts  (Phase 3: use SchemaRouter.readResult)
 src/services/slice/slice-plan-service.ts  (Phase 3: use SchemaRouter.readResult)
-skills/peaks-solo/SKILL.md                (Phase 5: Step 0.6 audit + end-of-workflow final review)
+skills/peaks-code/SKILL.md                (Phase 5: Step 0.6 audit + end-of-workflow final review)
 skills/peaks-rd/SKILL.md                  (Phase 5: v2 slice reading + handoff frontmatter writing)
 skills/peaks-qa/SKILL.md                  (Phase 5: handoff frontmatter reading)
 skills/peaks-prd/SKILL.md                 (Phase 5: multi-pass AC reference)

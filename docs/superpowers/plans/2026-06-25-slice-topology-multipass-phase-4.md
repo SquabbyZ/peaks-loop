@@ -32,7 +32,7 @@ Invoke this skill when:
 
 ## Precondition
 
-An approved goal MUST exist. If not, return to peaks-solo to invoke peaks-audit first.
+An approved goal MUST exist. If not, return to peaks-code to invoke peaks-audit first.
 
 ## Invocation
 
@@ -93,7 +93,7 @@ Invoke immediately after human need expression, BEFORE any PRD/RD/QA work.
 
 ## Invocation
 
-Via peaks-solo Step 0.6: `peaks audit-goal --need "<natural language need>" --json`
+Via peaks-code Step 0.6: `peaks audit-goal --need "<natural language need>" --json`
 
 ## Output
 
@@ -143,7 +143,7 @@ Invoke after all autonomous LLM work (RD, QA, security, perf) is complete, BEFOR
 
 ## Invocation
 
-Via peaks-solo end-of-workflow: `peaks prepare-final-review --rid <rid> --json`
+Via peaks-code end-of-workflow: `peaks prepare-final-review --rid <rid> --json`
 
 ## Output
 

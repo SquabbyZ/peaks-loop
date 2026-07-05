@@ -106,7 +106,7 @@ function projectRoot(opts: any): string {
 }
 
 export function registerJobCommands(prog: ProgramIO): void {
-  const job = new Command('job').description('Drive long multi-slice work as one Job (peaks-solo Step 0.8+)');
+  const job = new Command('job').description('Drive long multi-slice work as one Job (peaks-code Step 0.8+)');
 
   job
     .command('init')

@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce a `Job` construct as an outer wrapper around the existing single-rid runbook so peaks-solo can drive long multi-slice work (e.g. add UT for every `app/` subdirectory) without stopping after the first slice.
+**Goal:** Introduce a `Job` construct as an outer wrapper around the existing single-rid runbook so peaks-code can drive long multi-slice work (e.g. add UT for every `app/` subdirectory) without stopping after the first slice.
 
-**Architecture:** A new `peaks job *` CLI family (9 subcommands) + new `src/services/job/*` modules (state machine + state store + subagent wrapper + rotation + resource snapshot). Wraps the existing peaks-solo runbook Step 2-7 in an outer loop (new Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87). Foreground-only, real-time visible (3-layer visibility: transcript / `--watch` / statusline). Main-session context safety via `--main-loop-strategy single|rotating` (rotating hard-default for ≥3 slices). Sub-agent resource safety via a Job-aware wrapper that mandates `--budget-mb` and a cleanup gate.
+**Architecture:** A new `peaks job *` CLI family (9 subcommands) + new `src/services/job/*` modules (state machine + state store + subagent wrapper + rotation + resource snapshot). Wraps the existing peaks-code runbook Step 2-7 in an outer loop (new Step 0.8 / 0.81 / 0.85 / 0.86 / 0.87). Foreground-only, real-time visible (3-layer visibility: transcript / `--watch` / statusline). Main-session context safety via `--main-loop-strategy single|rotating` (rotating hard-default for ≥3 slices). Sub-agent resource safety via a Job-aware wrapper that mandates `--budget-mb` and a cleanup gate.
 
 **Tech Stack:** TypeScript ≥ 5.7 strict ESM, Commander (CLI), Zod (schema), vitest, pnpm 10. No new runtime deps.
 
