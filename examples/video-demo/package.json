@@ -1,12 +1,12 @@
 {
-  "name": "peaks-code-video-demo",
+  "name": "peaks-loop-video-demo",
   "version": "1.0.0",
   "private": true,
-  "description": "Remotion video demo for peaks-code and the Peaks-Loop skill family",
+  "description": "Remotion video demo for peaks-loop and the loop-engineering sediment capability",
   "scripts": {
     "start": "remotion studio",
-    "build": "remotion render peaks-code-demo out/peaks-code-demo.mp4",
-    "still": "remotion still peaks-code-demo out/still.png --frame=450",
+    "build": "remotion render peaks-loop-demo out/peaks-loop-demo.mp4",
+    "still": "remotion still peaks-loop-demo out/still.png --frame=560",
     "upgrade": "remotion upgrade"
   },
   "dependencies": {
