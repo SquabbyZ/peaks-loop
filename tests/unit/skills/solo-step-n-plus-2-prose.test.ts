@@ -2,7 +2,7 @@
  * Slice 2026-07-02-auto-compact-zero-pause — AC-3 test.
  *
  * Pins the contract that the Solo Step N+2 paragraph in
- * `skills/peaks-solo/SKILL.md` reflects the v2.13.0 design:
+ * `skills/peaks-code/SKILL.md` reflects the v2.13.0 design:
  *
  *   - uses 0.85 / 0.95 thresholds (NOT the legacy 50/75/90)
  *   - explicitly cites the Karpathy §4 compact-red-line exception
@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SKILL_MD = readFileSync(
-  join(process.cwd(), 'skills', 'peaks-solo', 'SKILL.md'),
+  join(process.cwd(), 'skills', 'peaks-code', 'SKILL.md'),
   'utf8'
 );
 
@@ -27,11 +27,11 @@ const SKILL_MD = readFileSync(
 const STEP_N_PLUS_2_REGEX = /### Peaks-Loop Step N\+2:[\s\S]*?(?=\n### |\n## )/;
 const match = SKILL_MD.match(STEP_N_PLUS_2_REGEX);
 if (match === null) {
-  throw new Error('Could not locate Step N+2 paragraph in skills/peaks-solo/SKILL.md');
+  throw new Error('Could not locate Step N+2 paragraph in skills/peaks-code/SKILL.md');
 }
 const STEP_N_PLUS_2 = match[0];
 
-describe('skills/peaks-solo/SKILL.md — Step N+2 prose (AC-3)', () => {
+describe('skills/peaks-code/SKILL.md — Step N+2 prose (AC-3)', () => {
   it('contains the v2.13.0 0.85 pre-compact threshold', () => {
     expect(STEP_N_PLUS_2).toContain('0.85');
   });

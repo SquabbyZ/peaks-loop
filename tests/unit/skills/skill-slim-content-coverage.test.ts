@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 /**
  * AC7 content-coverage test (slice 024 — skill-slim-solo-rd-qa).
  *
- * For each of the 3 SKILL.md files (peaks-solo, peaks-rd, peaks-qa), assert that:
+ * For each of the 3 SKILL.md files (peaks-code, peaks-rd, peaks-qa), assert that:
  *   1. Every `##` / `###` heading from the pre-slim snapshot is present in
  *      either the new SKILL.md OR one of the new `references/*.md` files.
  *   2. Each old heading appears in EXACTLY one of those places (no duplicates).
@@ -23,7 +23,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const FIXTURE_DIR = resolve(REPO_ROOT, 'tests', 'fixtures', 'skills', 'pre-slim');
 
 interface SkillFixture {
-  name: 'peaks-solo' | 'peaks-rd' | 'peaks-qa';
+  name: 'peaks-code' | 'peaks-rd' | 'peaks-qa';
   oldSkillPath: string;       // fixture: pre-slim snapshot
   newSkillPath: string;       // current: post-slim
   referencesDir: string;
@@ -31,10 +31,10 @@ interface SkillFixture {
 
 const FIXTURES: SkillFixture[] = [
   {
-    name: 'peaks-solo',
+    name: 'peaks-code',
     oldSkillPath: join(FIXTURE_DIR, 'peaks-solo.SKILL.md'),
-    newSkillPath: resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md'),
-    referencesDir: resolve(REPO_ROOT, 'skills/peaks-solo/references'),
+    newSkillPath: resolve(REPO_ROOT, 'skills/peaks-code/SKILL.md'),
+    referencesDir: resolve(REPO_ROOT, 'skills/peaks-code/references'),
   },
   {
     name: 'peaks-rd',
@@ -209,7 +209,7 @@ describe('Skill slim content coverage (slice 024)', () => {
         // Bumped from 24,000 to 25,000 during the slice-2.8.4 pass
         // (PRD1 v6 — backfill after v5 sed-replace canonicalization):
         // the v5 canonicalization (`peaks-rd/SKILL.md` and
-        // `peaks-solo/SKILL.md`) inserted extra `_runtime/` characters
+        // `peaks-code/SKILL.md`) inserted extra `_runtime/` characters
         // into pre-existing `.peaks/<id>/` directives, pushing both
         // files 23-25 bytes over the 24K cap. The cap is a bloat guard,
         // not a strict contract — 25K keeps the no-runaway-bloat intent.

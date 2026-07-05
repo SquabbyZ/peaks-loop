@@ -1,7 +1,7 @@
 /**
  * v2.13.1 Group A — micro-cycle.md verdict reasoning section pins.
  *
- * Parses `skills/peaks-solo/references/micro-cycle.md` as text and
+ * Parses `skills/peaks-code/references/micro-cycle.md` as text and
  * asserts the new "## Verdict reasoning" section carries the three
  * required pieces (per AC-3):
  *
@@ -18,7 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const microCyclePath = resolve(__dirname, '..', '..', '..', '..', 'skills', 'peaks-solo', 'references', 'micro-cycle.md');
+const microCyclePath = resolve(__dirname, '..', '..', '..', '..', 'skills', 'peaks-code', 'references', 'micro-cycle.md');
 
 function extractSection(body: string, heading: string): string {
   const start = body.indexOf(heading);

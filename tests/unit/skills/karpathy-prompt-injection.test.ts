@@ -19,7 +19,7 @@ import { describe, expect, test } from 'vitest';
  *      4-guideline text block.
  *   C. peaks-rd/references/rd-fanout-contracts.md has the
  *      "Karpathy pointer" callout near the 4 sub-agents list.
- *   D. peaks-solo/SKILL.md has "## Karpathy guidance" section
+ *   D. peaks-code/SKILL.md has "## Karpathy guidance" section
  *      referencing the dispatch block.
  *
  * Cross-references:
@@ -58,8 +58,8 @@ const INJECTED_FILES: InjectedFile[] = [
   },
   {
     layer: 'D',
-    name: 'peaks-solo/SKILL.md',
-    path: resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md'),
+    name: 'peaks-code/SKILL.md',
+    path: resolve(REPO_ROOT, 'skills/peaks-code/SKILL.md'),
     content: ''
   }
 ];
@@ -127,7 +127,7 @@ describe('Karpathy prompt-injection (Slice 1/6 — karpathy-enforcement)', () =>
     expect(layerC.content, 'Layer C must mention karpathy-reviewer').toContain('Sub-agent 3 — karpathy-reviewer');
   });
 
-  test('AC-1 Layer D: peaks-solo/SKILL.md has "## Karpathy guidance" referencing dispatch block', () => {
+  test('AC-1 Layer D: peaks-code/SKILL.md has "## Karpathy guidance" referencing dispatch block', () => {
     const layerD = INJECTED_FILES.find((f) => f.layer === 'D')!;
     expect(layerD.content, 'Layer D must contain section heading').toContain('## Karpathy guidance');
     expect(layerD.content, 'Layer D must reference the dispatch block').toContain('Karpathy-guidelines context');
