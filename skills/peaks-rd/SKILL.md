@@ -24,7 +24,7 @@ RD workflow automatically runs `peaks context build --audience peaks-rd` before 
 
 > **Read once per RD invocation; RD is built around these 4 guidelines.**
 
-Every RD action (planning, implementation, sub-agent dispatch, fan-out) MUST align with the 4 Karpathy guidelines. The full text lives at `andrej-karpathy-skills:karpathy-guidelines` (reference material only — do not execute upstream / run installer / persist sensitive examples). RD sub-agents receive the full text via `references/rd-sub-agent-dispatch.md` (see "Karpathy-guidelines context"). The 4 guidelines are:
+Every RD action MUST align with the 4 Karpathy guidelines (full text at `andrej-karpathy-skills:karpathy-guidelines` — reference only, do not execute upstream). RD sub-agents receive the full text via `references/rd-sub-agent-dispatch.md`. The 4 guidelines are:
 
 1. **Think Before Coding** — surface assumptions, name tradeoffs, ask when unclear. State red-line scope in `## Red-line scope` before any code change.
 2. **Simplicity First** — minimum code that solves the problem. No speculative features, no abstractions for single-use code, no error handling for impossible scenarios. If 200 lines could be 50, rewrite it. The 800-line file cap and `peaks scan file-size` gate enforce this mechanically.

@@ -74,19 +74,26 @@ describe('claude-settings-template — pure-data structure', () => {
     expect(hook.command).toContain('.peaks/_runtime/');
   });
 
-  test('template only emits the Write|Edit|MultiEdit matcher (Bash matcher is gone as of TEMPLATE_VERSION 1.2.0)', () => {
-    // Slice 1.2.0: the Bash matcher was removed because the
-    // [Fact-Forcing Gate] is an Edit/Write concern, not a Bash one.
-    // Bash enforcement is owned by `peaks gate enforce` which
-    // `peaks hooks install` injects into `.claude/settings.json`.
+  test('template emits both matchers as of TEMPLATE_VERSION 1.3.0 (Write|Edit|MultiEdit + Bash gate-step-08)', () => {
+    // Slice 1.3.0 (v3.1.2 mechanical Job-mode gate): the Bash matcher
+    // is RE-ADDED alongside the Write|Edit|MultiEdit matcher so
+    // `peaks solo gate-step-08 --project .` runs on every Bash call
+    // (Step 0.8 mechanical gate). The Write|Edit|MultiEdit matcher
+    // remains the fact-forcing bypass. Exit 0 = allow, exit 2 = block
+    // with stderr BLOCKED reason.
     const template = buildClaudeSettingsLocalJson() as {
-      hooks: { PreToolUse: Array<{ matcher: string }> }
+      hooks: { PreToolUse: Array<{ matcher: string; hooks: Array<{ command: string }> }> }
     };
-    const bashMatcher = template.hooks.PreToolUse.find((entry) => entry.matcher === 'Bash');
-    expect(bashMatcher).toBeUndefined();
-    // Sanity: the only matcher left is the fact-forcing bypass.
-    expect(template.hooks.PreToolUse.length).toBe(1);
-    expect(template.hooks.PreToolUse[0]!.matcher).toBe('Write|Edit|MultiEdit');
+    const matchers = template.hooks.PreToolUse.map((entry) => entry.matcher);
+    expect(matchers).toEqual(['Write|Edit|MultiEdit', 'Bash']);
+    // The Bash matcher's command must invoke `peaks solo gate-step-08`
+    // (slice v3.1.2). Regression guard: a future template bump that
+    // silently drops the Bash matcher (re-introducing the v3.1.1
+    // recorder-only design) fails this assertion.
+    const bashEntry = template.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
+    expect(bashEntry, 'Bash matcher is required for v3.1.2 Step 0.8 mechanical gate').toBeDefined();
+    const bashCommand = bashEntry!.hooks[0]!.command;
+    expect(bashCommand).toMatch(/peaks solo gate-step-08/);
   });
 
   test('exposes the canonical filename constant for the caller to use', () => {

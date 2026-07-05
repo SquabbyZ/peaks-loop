@@ -48,8 +48,13 @@ describe('skills/peaks-code/SKILL.md — Step N+2 prose (AC-3)', () => {
     expect(STEP_N_PLUS_2).toContain('peaks solo context-now');
   });
 
-  it('cites peaks solo auto-compact --execute as the 0.85+ action', () => {
-    expect(STEP_N_PLUS_2).toContain('peaks solo auto-compact');
+  it('cites peaks session auto-compact --execute as the 0.85+ action', () => {
+    // Slice 2026-07-02-auto-compact-zero-pause: the auto-compact
+    // command moved from `peaks solo auto-compact` to
+    // `peaks session auto-compact` when the family was re-aligned
+    // under the `peaks session *` verb tree. The SKILL.md prose
+    // already uses the new name; this test fixture was stale.
+    expect(STEP_N_PLUS_2).toContain('peaks session auto-compact');
   });
 
   it('explicitly cites the Karpathy §4 compact-red-line exception', () => {
