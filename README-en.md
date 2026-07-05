@@ -1,4 +1,4 @@
-# ⛰️ Peaks Loop
+# Peaks Loop
 
 **English** | [简体中文](./README.md)
 
