@@ -6,66 +6,66 @@
 [![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=flat-square&logo=github)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
-给 AI 编程助手装一套工程门禁 + 编排,让它像资深工程师一样跑流程,不再每次从零猜。
-
 ## 它是什么
 
-peaks-loop 是装在 Claude Code / Codex / Copilot / 任意 AI CLI 里的一套工作流技能。它把你 24 小时的工程流程(需求 → 实现 → 审计 → 测试 → 发布)拆成 11 个 LLM 角色技能,让 AI 严格按你定的门禁走,不偷懒、不跳过、不乱猜。
+loop engineering 的工程实现。
 
-## 一句安装
+peaks-loop 就是你的 AI 战术小队,24 小时待命,随时接活。它把一套工程门禁、编排、回放都装进你本地的 AI CLI 里,装好之后,你说一句话,它替你把整套流程跑完再交还给你。
+
+召之即来,事完收队,不跳步,不半截扔给你。它不是新发明一个 AI CLI,而是架在你已有的 Claude Code / Codex / Copilot 之上,把它们都调成同一支团队,只对你这一个开发者的口味。
+
+每一步都有强退出条件:审计不通过就停,QA 没过就停,任何一道门失败 = 全流程停。你不必追着它催、也不必替它补,它跑完一道再交你拍板,拍完再走下一道。
+
+## 装了你有什么战术角色
+
+先给你上的是 `peaks-code`,主官。它是 peaks-loop 默认入口,管 PRD、RD、QA、UI、SC、TXT 这一长串工序的主调度,也是你日常跟 peaks-loop 说话时最常打交道的那个角色。
+
+它能做的:
+- 写长任务代码(端到端需求 → PRD → 实现 → QA),一道门一道门跑,坏在哪道停在哪道
+- 修 bug 当天发,改完顺手过审 + 测试,不是改完就完
+- 帮你做 / 接 / 拆长跑的需求,把一个模糊需求一路剥到能落地的实现
+
+它一句话能扛完的活,你都不必开第二个终端。它对测试覆盖率、审计门、卡点阻断一视同仁:跑不到位的活不交付,跑歪的活直接退回重跑。
+
+它既是装好就立刻能用的那个入口,也是后面要长出来的内建角色的调度口;它内部有一套连续审计、QA 闸口、review 验收,默认打开,你想关哪一道才需要单独说。
+
+其他内置 loop engineering,敬请期待。
+
+## 你也能沉淀自己的 loop engineering
+
+跑过一次还想跑,说一句话让它永久驻场。
+
+你沉淀的是 loop engineering(战术套路),不是简单的 skill(动作招式)。下次说"跑那只",整套流程自动就位。
+
+它落到你本地的一个池子里,只对你生效。命名、复用、迭代都是你说了算:跑过两遍稳定的会被抬高,跑翻车的会让你重新定。决策影响资产的,你拍板。
+
+这套机制关键不是"工具给你造了多少只 bee",而是你那几只 bee 一直在跟着你的口味长 —— 你提一句,它长一点。
+
+## 上号
 
 ```bash
 npx peaks-loop install
 ```
 
-打开你的 AI CLI,在聊天里说 **"用 peaks 帮我跑一遍"**,完事。
+装完一句话接活。
 
-想先看演示? [`examples/video-demo/`](./examples/video-demo/) 用 React + [Remotion](https://www.remotion.dev/) 制作了 30 秒的能力展示(加登录 / fix bug / refactor + 11 个技能墙)。
+顺手看一段 30 秒 walk-through:[`examples/video-demo/`](./examples/video-demo/)
 
-```bash
-cd examples/video-demo && pnpm install && npx remotion render peaks-code-demo out/peaks-code-demo.mp4
-```
+## 顺便说一句
 
-## 一个例子
+这玩意儿以前叫 `peaks-solo`,后来改 `peaks-code`,现在叫 `peaks-loop`——一只小队,要长成你机器上天天替你出力的那群战术角色。
 
-你说:**"我想加一个用户登录功能"**
+名字一直在变,事情一直没变:你说话,它替你跑完整套工程流程,坏哪道停哪道,你来拍板。
 
-peaks-loop 自己跑:
+最早版本只有一个角色,所以叫 solo。后来内建角色一只一只多起来,沉淀的 bee 也开始成池,它才真正是一支小队,改名 loop。字面每次都丢一点过去的故事,内核却没换过:你不必替它排流程,它替你排。
 
-1. **peaks-code** 接管编排 → 读你项目 → 出 PRD
-2. **peaks-prd** 出产品需求(可读出来给你确认)
-3. **peaks-rd** 出实现方案 + 跑 4 个独立审计(代码 / 安全 / 性能 / QA)
-4. **peaks-qa** 跑测试 + 回归
-5. **peaks-ui** 做界面原型(如果涉及 UI)
-6. **peaks-sc** 出 commit + PR 描述
-7. **peaks-txt** 沉淀上下文给下次复用
-
-中间任何一步不通过,自动停。**你只负责说话和拍板。**
-
-## 你能问它的命令
-
-| 你说 | 它做什么 |
-|---|---|
-| "用 peaks 帮我跑这个需求" | 走完整流程 |
-| "现在到哪了" | 查 session 状态 |
-| "继续做完刚才没做完的" | 从 checkpoint 恢复 |
-| "把今天学到的沉淀下来" | 写进项目 memory |
-
-## 跟其他 AI 编排工具有啥不同
-
-- **跑得动**:不是 prompt 模板,是真代码,有单元测试,有审计门禁
-- **跨 IDE**:Claude Code / Codex / Copilot 同一个 `peaks` CLI
-- **能复用**:跑过一次的流程,下次自动记住,不再重复猜
-
-## 想深入
-
-- 全部技能清单 → [`skills/`](./skills/)
-- 命令参考 → 跑 `peaks --help`
-- 设计文档 → [`docs/superpowers/specs/`](./docs/superpowers/specs/)
-- 协议与白皮书 → [`docs/`](./docs/)
-- 更新日志 → [`CHANGELOG.md`](./CHANGELOG.md)
-- 提问 / 反馈 → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
+今天装的还是那一套工程实现,只是旁边多了一些名字像队友的角色、几只你随时能叫起来的 bee、和一个你拍板它才走的门禁次序。你只需要把这一个仓库装好,后面每次跑新需求,都有现成的队伍等你点。
 
 ---
 
 MIT License · Made by [SquabbyZ](https://github.com/SquabbyZ)
+
+- 全部技能清单 → [`skills/`](./skills/)
+- 设计文档 → [`docs/`](./docs/)
+- 更新日志 → [`CHANGELOG.md`](./CHANGELOG.md)
+- 提问 → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
