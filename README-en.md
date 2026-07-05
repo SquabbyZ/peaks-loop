@@ -67,7 +67,7 @@ Optional 30-second walk-through: [`examples/video-demo/`](./examples/video-demo/
 
 ## One more thing
 
-This repo used to be `peaks-cli`. It's called `peaks-loop` now.
+This repo used to be [`peaks-cli`](https://github.com/SquabbyZ/peaks-cli). It's called `peaks-loop` now.
 
 Inside the box, the skills evolved from `peaks-solo` (single-role) to `peaks-code` (gate-bearing, code-domain) — both still here, both with their own lane: `peaks-solo` is the older single-task flow entry, and `peaks-code` runs the end-to-end main path.
 
