@@ -6,6 +6,10 @@
 [![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=flat-square&logo=github)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
+<p align="center">
+  <video src="https://github.com/SquabbyZ/peaks-loop/releases/download/4.0.0/peaks-loop-demo-en.mp4" controls muted playsinline preload="metadata" width="100%" style="border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.55);"></video>
+</p>
+
 ## What it is
 
 ### Loop engineering, engineered
@@ -17,6 +21,10 @@ It packs engineering gates, orchestration, replay into your local AI CLI. Instal
 Summon them, they handle the work. Stand them down when it's done. **No skipped steps. No half-finished hand-offs.** No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
 
 **Every gate has a hard exit.** Audit fails = stop. QA fails = stop. Any gate fails = full stop. You don't chase it, you don't patch it. You decide, it runs the next gate.
+
+#### Gates aren't decoration — 5,439 tests passed · 19 skipped · 0 failed
+
+Every line of code goes through our own gates. The test suite — 5,420 cases — actually blocks. Gates aren't written for users to admire; they're written for us to obey.
 
 #### One person built this, an engineer's taste:
 
@@ -70,8 +78,6 @@ npm i -g peaks-loop
 ```
 
 One sentence after install, and the squad is on the job.
-
-Optional 30-second walk-through: [`examples/video-demo/`](./examples/video-demo/)
 
 ## One more thing
 

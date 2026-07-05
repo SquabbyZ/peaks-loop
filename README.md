@@ -6,6 +6,10 @@
 [![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=flat-square&logo=github)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
+<p align="center">
+  <video src="https://github.com/SquabbyZ/peaks-loop/releases/download/4.0.0/peaks-loop-demo.mp4" controls muted playsinline preload="metadata" width="100%" style="border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.55);"></video>
+</p>
+
 ## 它是什么
 
 ### loop engineering 的工程实现
@@ -16,7 +20,11 @@
 
 召之即来,事完收队,**不跳步,不半截扔给你**。它不是新发明一个 AI CLI,而是架在你已有的 Claude Code / Codex / Copilot 之上,把它们都调成同一支团队,只对你这一个开发者的口味。
 
-**每一步都有强退出条件:**审计不通过就停,QA 没过就停,任何一道门失败 = 全流程停。你不必追着它催、也不必替它补,它跑完一道再交你拍板,拍完再走下一道。
+**每一步都有强退出条件**:审计不通过就停,QA 没过就停,任何一道门失败 = 全流程停。你不必追着它催、也不必替它补,它跑完一道再交你拍板,拍完再走下一道。
+
+#### 门禁不是装饰 —— 5439 tests passed · 19 skipped · 0 failed
+
+每一行代码都过自己的门:测试套件 5,420 个用例真挡得住事,不是装饰。门禁不是写给用户看的,是写给自己看的。
 
 #### 做这个项目的只有一个人,工程师口味:
 
@@ -60,8 +68,6 @@ npm i -g peaks-loop
 ```
 
 装完一句话接活。
-
-顺手看一段 30 秒 walk-through:[`examples/video-demo/`](./examples/video-demo/)
 
 ## 顺便说一句
 
