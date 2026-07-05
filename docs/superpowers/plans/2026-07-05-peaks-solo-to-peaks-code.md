@@ -49,12 +49,12 @@ skills/peaks-status/SKILL.md                                        (frontmatter
 skills/peaks-status/references/*                                    (self-reference)
 skills/peaks-test/SKILL.md                                          (frontmatter)
 skills/peaks-test/references/*                                      (self-reference)
-skills/peaks-prd/SKILL.md                                           (frontmatter 加 metadata.visibility: internal)
-skills/peaks-rd/SKILL.md                                            (frontmatter)
-skills/peaks-qa/SKILL.md                                            (frontmatter)
-skills/peaks-ui/SKILL.md                                            (frontmatter)
-skills/peaks-sc/SKILL.md                                            (frontmatter)
-skills/peaks-txt/SKILL.md                                           (frontmatter)
+skills/bee/peaks-prd/SKILL.md                                           (frontmatter 加 metadata.visibility: internal)
+skills/bee/peaks-rd/SKILL.md                                            (frontmatter)
+skills/bee/peaks-qa/SKILL.md                                            (frontmatter)
+skills/bee/peaks-ui/SKILL.md                                            (frontmatter)
+skills/bee/peaks-sc/SKILL.md                                            (frontmatter)
+skills/bee/peaks-txt/SKILL.md                                           (frontmatter)
 .peaks/skills/.system/bees/peaks-solo/manifest.json                 (id 字段改为 peaks-code)
 .claude-plugin/marketplace.json                                     (4 个 peaks-solo* 条目 + 6 个 role userInvocable)
 .claude/LOGGING.md                                                  (全文替换)
@@ -167,12 +167,12 @@ Expected:`Switched to a new branch 'feature/peaks-solo-to-peaks-code'`
 - Create: `src/cli/commands/skill-visibility.ts`
 - Create: `tests/unit/cli/skill-visibility.test.ts`
 - Create: `tests/unit/skills-role-visibility.test.ts`
-- Modify: `skills/peaks-prd/SKILL.md`(frontmatter)
-- Modify: `skills/peaks-rd/SKILL.md`(frontmatter)
-- Modify: `skills/peaks-qa/SKILL.md`(frontmatter)
-- Modify: `skills/peaks-ui/SKILL.md`(frontmatter)
-- Modify: `skills/peaks-sc/SKILL.md`(frontmatter)
-- Modify: `skills/peaks-txt/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-prd/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-rd/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-qa/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-ui/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-sc/SKILL.md`(frontmatter)
+- Modify: `skills/bee/peaks-txt/SKILL.md`(frontmatter)
 - Modify: `.claude-plugin/marketplace.json`(`userInvocable: false` 字段)
 
 **Interfaces:**
@@ -313,7 +313,7 @@ registerSkillVisibilityCommand(program, repoRoot);
 
 (具体 import 位置以现有 `src/cli/program.ts` 实际结构为准。)
 
-**Step 5: 改 `skills/peaks-prd/SKILL.md` frontmatter**
+**Step 5: 改 `skills/bee/peaks-prd/SKILL.md` frontmatter**
 
 ```yaml
 ---

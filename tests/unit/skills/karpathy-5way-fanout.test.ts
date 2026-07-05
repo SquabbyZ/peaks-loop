@@ -42,13 +42,13 @@ function extractSection(body: string, heading: string): string {
 
 describe('v2.12.0 — karpathy-3way-fanout (collapse from slice 5/6 5-way)', () => {
   it('AC-1.a peaks-rd/SKILL.md names karpathy-reviewer in the 3-way fanout section', () => {
-    const skill = read('skills/peaks-rd/SKILL.md');
+    const skill = read('skills/bee/peaks-rd/SKILL.md');
     expect(skill).toMatch(/3-way fanout/i);
     expect(skill).toMatch(/karpathy-reviewer/);
   });
 
   it('AC-1.b SKILL.md lists the 3 reviewer names in the fanout section (v2.12.0)', () => {
-    const skill = read('skills/peaks-rd/SKILL.md');
+    const skill = read('skills/bee/peaks-rd/SKILL.md');
     // v2.12.0 3-way fan-out: code-reviewer + qa-test-cases-writer + karpathy-reviewer.
     for (const name of ['code-reviewer', 'qa-test-cases-writer', 'karpathy-reviewer']) {
       expect(skill).toContain(name);
@@ -56,12 +56,12 @@ describe('v2.12.0 — karpathy-3way-fanout (collapse from slice 5/6 5-way)', () 
   });
 
   it('AC-1.c SKILL.md describes karpathy-reviewer as a hard gate', () => {
-    const skill = read('skills/peaks-rd/SKILL.md');
+    const skill = read('skills/bee/peaks-rd/SKILL.md');
     expect(skill).toMatch(/Hard Karpathy-Gate|hard gate/i);
   });
 
   it('AC-1.d SKILL.md v2.12.0 collapse: security-reviewer + perf-baseline-reviewer removed from fan-out', () => {
-    const skill = read('skills/peaks-rd/SKILL.md');
+    const skill = read('skills/bee/peaks-rd/SKILL.md');
     // The fan-out section must cross-reference the standalone
     // peaks-security-audit + peaks-perf-audit skills that replaced
     // the removed sub-agent slots.
@@ -77,26 +77,26 @@ describe('v2.12.0 — karpathy-3way-fanout (collapse from slice 5/6 5-way)', () 
   });
 
   it('AC-2.a rd-fanout-contracts.md contains a karpathy-reviewer contract section', () => {
-    const contracts = read('skills/peaks-rd/references/rd-fanout-contracts.md');
+    const contracts = read('skills/bee/peaks-rd/references/rd-fanout-contracts.md');
     expect(contracts).toMatch(/###\s+karpathy-reviewer/);
   });
 
   it('AC-2.b rd-fanout-contracts.md defines the 4 violation kinds', () => {
-    const contracts = read('skills/peaks-rd/references/rd-fanout-contracts.md');
+    const contracts = read('skills/bee/peaks-rd/references/rd-fanout-contracts.md');
     for (const kind of ['think-before-coding', 'simplicity-first', 'surgical-changes', 'goal-driven-execution']) {
       expect(contracts).toContain(kind);
     }
   });
 
   it('AC-2.c rd-fanout-contracts.md defines the JSON envelope shape', () => {
-    const contracts = read('skills/peaks-rd/references/rd-fanout-contracts.md');
+    const contracts = read('skills/bee/peaks-rd/references/rd-fanout-contracts.md');
     for (const key of ['passed', 'violations', 'gateAction']) {
       expect(contracts).toContain(key);
     }
   });
 
   it('AC-3 rd-sub-agent-dispatch.md injects the 4-section karpathy context block', () => {
-    const dispatch = read('skills/peaks-rd/references/rd-sub-agent-dispatch.md');
+    const dispatch = read('skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md');
     for (const heading of ['Think Before Coding', 'Simplicity First', 'Surgical Changes', 'Goal-Driven Execution']) {
       expect(dispatch).toContain(heading);
     }
@@ -178,7 +178,7 @@ describe('v2.12.0 — karpathy-3way-fanout (collapse from slice 5/6 5-way)', () 
   });
 
   it('AC-7.b parallel-review-fanout.md is the v2.12.0 3-way fan-out reference', () => {
-    const parallel = read('skills/peaks-rd/references/parallel-review-fanout.md');
+    const parallel = read('skills/bee/peaks-rd/references/parallel-review-fanout.md');
     expect(parallel).toMatch(/3 sub-agents|v2\.12\.0/);
     // The removed sub-agents must NOT appear as live sub-agent entries.
     const subAgentBlocks = parallel.match(/\*\*Sub-agent \d+ —[^*]+\*\*/g) ?? [];

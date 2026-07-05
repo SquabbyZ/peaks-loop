@@ -4,6 +4,23 @@ import { describe, expect, test } from 'vitest';
 
 const SKILLS_ROOT = join(process.cwd(), 'skills');
 
+// LLM-internal role/audit skills (bees) live under `skills/bee/` per spec
+// 2026-07-05-skills-bee-folder-demote. Helper resolves the on-disk path.
+const BEE_SKILLS = new Set([
+  'peaks-prd',
+  'peaks-rd',
+  'peaks-qa',
+  'peaks-ui',
+  'peaks-sc',
+  'peaks-txt',
+  'peaks-perf-audit',
+  'peaks-security-audit',
+  'peaks-reviewer'
+]);
+function skillDir(name: string): string {
+  return join(SKILLS_ROOT, BEE_SKILLS.has(name) ? 'bee' : '', name);
+}
+
 const ROLE_SKILLS: Array<{ name: string; minPeaksCommands: number; mustReferenceArtifact: boolean }> = [
   { name: 'peaks-prd', minPeaksCommands: 10, mustReferenceArtifact: true },
   { name: 'peaks-ui', minPeaksCommands: 6, mustReferenceArtifact: true },
@@ -57,8 +74,8 @@ async function loadRunbookSection(skillName: string, body: string): Promise<stri
   // Try multiple reference filenames: `runbook.md` (generic) and
   // `<role>-runbook.md` (role-suffixed; e.g. `rd-runbook.md` for peaks-rd).
   const refCandidates = [
-    join(SKILLS_ROOT, skillName, 'references', 'runbook.md'),
-    join(SKILLS_ROOT, skillName, 'references', `${skillName.replace(/^peaks-/, '')}-runbook.md`)
+    skillDir(skillName) + "/references/runbook.md",
+    skillDir(skillName) + "/references/" + skillName.replace(/^peaks-/, '') + "-runbook.md"
   ];
   let bestRef: string | null = null;
   for (const refPath of refCandidates) {
@@ -104,7 +121,7 @@ const ALL_RUNBOOK_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'pe
 describe('audit: role skills expose a Default runbook with peaks CLI commands', () => {
   for (const { name, minPeaksCommands, mustReferenceArtifact } of ROLE_SKILLS) {
     test(`${name} SKILL.md declares a Default runbook section`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
 
       expect(body).toMatch(/## Default runbook/);
       const section = extractRunbookSection(body);
@@ -112,7 +129,7 @@ describe('audit: role skills expose a Default runbook with peaks CLI commands', 
     });
 
     test(`${name} Default runbook lists at least ${minPeaksCommands} peaks CLI command invocations`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
       const section = await loadRunbookSection(name, body);
 
       const count = countPeaksCommandLines(section);
@@ -121,7 +138,7 @@ describe('audit: role skills expose a Default runbook with peaks CLI commands', 
 
     if (mustReferenceArtifact) {
       test(`${name} Default runbook invokes peaks request init for the per-request artifact`, async () => {
-        const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+        const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
         const section = await loadRunbookSection(name, body);
 
         const role = name.replace(/^peaks-/, '');
@@ -133,7 +150,7 @@ describe('audit: role skills expose a Default runbook with peaks CLI commands', 
 
 describe('audit: role runbooks reference cross-cutting CLI surfaces consistently', () => {
   test('RD runbook references openspec, codegraph, and standards CLI commands', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-rd', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-rd') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-rd', body);
 
     expect.soft(section).toMatch(/peaks openspec/);
@@ -142,7 +159,7 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
   });
 
   test('QA runbook references openspec validate and the playwright-mcp install command (slice 016: LLM tool-list self-check, not peaks mcp CLI)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-qa', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-qa') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-qa', body);
 
     expect.soft(section).toMatch(/peaks openspec validate/);
@@ -153,7 +170,7 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
   });
 
   test('UI runbook references the playwright-mcp install command (slice 016: LLM tool-list self-check)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-ui', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-ui') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-ui', body);
 
     expect(section).not.toMatch(/peaks mcp (apply|plan|call|list|rollback|scan)/);
@@ -161,7 +178,7 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
   });
 
   test('PRD runbook references openspec and standards preflight commands', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-prd', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-prd') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-prd', body);
 
     expect.soft(section).toMatch(/peaks openspec/);
@@ -172,7 +189,7 @@ describe('audit: role runbooks reference cross-cutting CLI surfaces consistently
 describe('audit: support skills expose a Default runbook with peaks CLI commands', () => {
   for (const { name, minPeaksCommands } of SUPPORT_SKILLS) {
     test(`${name} SKILL.md declares a Default runbook section`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
 
       expect(body).toMatch(/## Default runbook/);
       const section = extractRunbookSection(body);
@@ -180,7 +197,7 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
     });
 
     test(`${name} Default runbook lists at least ${minPeaksCommands} peaks CLI command invocations`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
       const section = await loadRunbookSection(name, body);
 
       const count = countPeaksCommandLines(section);
@@ -189,7 +206,7 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
   }
 
   test('SC runbook records change-control via peaks sc impact / retention / validate / boundary', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-sc', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-sc') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-sc', body);
 
     expect.soft(section).toMatch(/peaks sc impact/);
@@ -199,7 +216,7 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
   });
 
   test('TXT runbook composes capsules from request artifacts and project dashboard', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-txt', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-txt') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-txt', body);
 
     expect.soft(section).toMatch(/peaks request show/);
@@ -208,7 +225,7 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
   });
 
   test('SOP runbook drives the authoring loop via peaks sop init / lint / check / advance / register', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-sop', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-sop') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-sop', body);
 
     expect.soft(section).toMatch(/peaks sop init/);
@@ -222,7 +239,7 @@ describe('audit: support skills expose a Default runbook with peaks CLI commands
 describe('audit: orchestrator skills expose a Default runbook that drives the role chain', () => {
   for (const { name, minPeaksCommands } of ORCHESTRATOR_SKILLS) {
     test(`${name} SKILL.md declares a Default runbook section`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
 
       expect(body).toMatch(/## Default runbook/);
       const section = extractRunbookSection(body);
@@ -230,7 +247,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     });
 
     test(`${name} Default runbook lists at least ${minPeaksCommands} peaks CLI command invocations`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
       const section = await loadRunbookSection(name, body);
 
       const count = countPeaksCommandLines(section);
@@ -239,7 +256,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   }
 
   test('Solo runbook drives peaks request init for every role (prd, ui, rd, qa)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     for (const role of ['prd', 'ui', 'rd', 'qa']) {
@@ -248,7 +265,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references state transitions via peaks request transition', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks request transition/);
@@ -257,14 +274,14 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references peaks project dashboard for the cross-role snapshot', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     expect(section).toMatch(/peaks project dashboard/);
   });
 
   test('Solo runbook drives SC change-control evidence (impact / retention / validate / boundary)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks sc impact/);
@@ -274,7 +291,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook drives TXT memory extraction as a dry-run by default', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks memory extract/);
@@ -282,7 +299,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo SKILL.md declares Step 11 Memory sediment as BLOCKING (slice 2026-07-03-solo-memory-sediment)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
 
     // Step 11 section must exist with a recognizable heading
     expect.soft(body).toMatch(/^##\s+Peaks-Loop Step 11:?\s*Memory sediment/m);
@@ -300,7 +317,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references memory extract with --apply (not just --dry-run) so it actually writes .peaks/memory/', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'references', 'runbook.md'), 'utf8');
+    const body = await readFile(skillDir("peaks-code") + "/references/runbook.md", 'utf8');
 
     // The Step 10/11 TXT handoff + memory sediment block must include a --apply
     // invocation; otherwise the LLM-only-dry-runs contract silently writes
@@ -315,7 +332,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
 describe('audit: destructive --apply commands carry an authorization or dry-run note', () => {
   for (const name of ALL_RUNBOOK_SKILLS) {
     test(`${name} runbook gates every destructive --apply with an authorization keyword`, async () => {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readFile(skillDir(name) + "/SKILL.md", 'utf8');
       const section = await loadRunbookSection(name, body);
       const destructive = findDestructiveApplyLines(section);
 

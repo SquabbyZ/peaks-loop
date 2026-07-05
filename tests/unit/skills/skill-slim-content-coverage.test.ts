@@ -39,14 +39,14 @@ const FIXTURES: SkillFixture[] = [
   {
     name: 'peaks-rd',
     oldSkillPath: join(FIXTURE_DIR, 'peaks-rd.SKILL.md'),
-    newSkillPath: resolve(REPO_ROOT, 'skills/peaks-rd/SKILL.md'),
-    referencesDir: resolve(REPO_ROOT, 'skills/peaks-rd/references'),
+    newSkillPath: resolve(REPO_ROOT, 'skills/bee/peaks-rd/SKILL.md'),
+    referencesDir: resolve(REPO_ROOT, 'skills/bee/peaks-rd/references'),
   },
   {
     name: 'peaks-qa',
     oldSkillPath: join(FIXTURE_DIR, 'peaks-qa.SKILL.md'),
-    newSkillPath: resolve(REPO_ROOT, 'skills/peaks-qa/SKILL.md'),
-    referencesDir: resolve(REPO_ROOT, 'skills/peaks-qa/references'),
+    newSkillPath: resolve(REPO_ROOT, 'skills/bee/peaks-qa/SKILL.md'),
+    referencesDir: resolve(REPO_ROOT, 'skills/bee/peaks-qa/references'),
   },
 ];
 

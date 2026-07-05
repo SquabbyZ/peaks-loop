@@ -3,7 +3,7 @@
 > **Audience**: the operator who installed `peaks-loop` and ran the 6-slice karpathy-enforcement program.
 > **Goal**: verify the `karpathy-reviewer` sub-agent prompt auto-installed to `~/.claude/agents/karpathy-reviewer.md` on `npm i -g peaks-loop@latest`, with content-hash drift detection (`.peaks-managed` marker + SHA-256).
 > **Shipped source (canonical)**: `agents/karpathy-reviewer.md`
-> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention)
+> **Project-internal pointer**: `skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention)
 
 ## Auto-install behavior (Slice 7/7)
 
@@ -152,8 +152,8 @@ peaks request transition --role rd --state qa-handoff \
 ## Where to find the canonical source (after the install)
 
 - **Shipped source (canonical, edit here)**: `agents/karpathy-reviewer.md` — this is the file that ships in the npm tarball and is what the postinstall copies from.
-- **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention).
-- **Contract slot**: `skills/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer contract (Slice 5/6)" — the slot the 5-way fanout integration references.
+- **Project-internal pointer**: `skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md` (2-line pointer, peaks-loop 2.0 rules convention).
+- **Contract slot**: `skills/bee/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer contract (Slice 5/6)" — the slot the 5-way fanout integration references.
 - **CLI gate**: `KARPATHY_REVIEW` prereq in `src/services/artifacts/artifact-prerequisites.ts` (title-case `mustContain`).
 - **Structural scanner (companion)**: `peaks scan karpathy` reads `rd/karpathy-review.md` and emits a similar markdown report.
 

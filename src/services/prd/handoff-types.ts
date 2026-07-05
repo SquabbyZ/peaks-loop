@@ -4,7 +4,7 @@
  * The handoff is the **immutable** single source of truth that all
  * downstream consumers (peaks-rd main loop + 4 audit sub-agents +
  * peaks-qa) read. It is written by peaks-prd AFTER user confirmation
- * (per `skills/peaks-prd/SKILL.md` Step 5.5) and replaces the legacy
+ * (per `skills/bee/peaks-prd/SKILL.md` Step 5.5) and replaces the legacy
  * peaks-rd tech-doc handoff (v2.10.0 and earlier).
  *
  * Frontmatter invariant: `handoffHash` MUST equal the lowercase hex

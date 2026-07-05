@@ -14,7 +14,7 @@
  *  (c) A static scan over `skills/<skill>/references/<file>.md` flags any legacy
  *      `.peaks/_runtime/<sid>/...` artifact path that a sub-agent would write to
  *      without going through `_runtime/`. The 5th writer (slice 012) was
- *      the QA 3-way fan-out contract `skills/peaks-qa/references/qa-fanout-contract.md`,
+ *      the QA 3-way fan-out contract `skills/bee/peaks-qa/references/qa-fanout-contract.md`,
  *      which instructed sub-agents to write to `.peaks/_runtime/<sid>/qa/test-reports/<rid>.md`,
  *      `.peaks/_runtime/<sid>/qa/performance-findings.md`, and
  *      `.peaks/_runtime/<sid>/qa/security-findings.md` — all missing `_runtime/`.
@@ -76,7 +76,7 @@ const ALLOWED_LEGACY_SKILL_PATHS: ReadonlyArray<string> = [
   // browser URL parameter the headed browser writes; not a Node-side
   // join. The actual file lands at the canonical _runtime home via the
   // runtime contract. This line is the documented *target*, not a writer.
-  'skills/peaks-prd/SKILL.md',
+  'skills/bee/peaks-prd/SKILL.md',
 ];
 
 function listSrcFiles(dir: string): string[] {
@@ -274,7 +274,7 @@ describe('session-dir-canonical (slice 005)', () => {
 
 describe('session-dir-canonical (slice 012 — positive tests for the 5th writer)', () => {
   test('QA fanout contract uses canonical .peaks/_runtime/<sid>/qa/... paths', () => {
-    const contractPath = join(process.cwd(), 'skills', 'peaks-qa', 'references', 'qa-fanout-contract.md');
+    const contractPath = join(process.cwd(), 'skills', 'bee', 'peaks-qa', 'references', 'qa-fanout-contract.md');
     expect(existsSync(contractPath)).toBe(true);
     const body = readFileSync(contractPath, 'utf8');
     // The 3 sub-agent dispatch lines (qa-business, qa-perf, qa-security)

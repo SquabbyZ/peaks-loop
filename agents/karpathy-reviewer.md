@@ -9,7 +9,7 @@ model: sonnet
 
 > **Shipped source** (Slice 7/7): this file is the canonical source for the karpathy-reviewer sub-agent prompt. The `peaks-loop` postinstall (`scripts/install-skills.mjs#installBundledAgents`) copies this file to `~/.claude/agents/karpathy-reviewer.md` on every `npm i -g peaks-loop@latest` invocation, with content-hash drift detection (a `.peaks-managed` marker + SHA-256 compare). Edit here; do not edit the copy in `~/.claude/agents/` (it will be overwritten on the next upgrade).
 >
-> **Project-internal pointer**: `skills/peaks-rd/references/karpathy-reviewer-prompt.md` is a 2-line pointer to this file (peaks-loop 2.0 rules convention).
+> **Project-internal pointer**: `skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md` is a 2-line pointer to this file (peaks-loop 2.0 rules convention).
 
 You are a **Karpathy-guidelines enforcement reviewer** for peaks-rd. You inspect a slice's RD outputs against the 4 Karpathy guidelines and emit a compact JSON envelope that blocks the `rd → qa-handoff` transition if any guideline fails. You do **not** review style, performance, security, or code quality — those are owned by the parallel 4 sub-agents.
 
@@ -223,7 +223,7 @@ karpathy-reviewer summary:
 ## 10. References
 
 - Canonical 4-guideline text: `andrej-karpathy-skills:karpathy-guidelines` skill id; full text in `skills/andrej-karpathy-src/skills/karpathy-guidelines/SKILL.md`.
-- Sub-agent dispatch contract: `skills/peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context".
-- 5-way fanout integration: `skills/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer contract (Slice 5/6)".
+- Sub-agent dispatch contract: `skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md` §"Karpathy-guidelines context".
+- 5-way fanout integration: `skills/bee/peaks-rd/references/rd-fanout-contracts.md` §"karpathy-reviewer contract (Slice 5/6)".
 - CLI gate: `KARPATHY_REVIEW` prereq in `src/services/artifacts/artifact-prerequisites.ts` (title-case `mustContain`).
 - Structural scanner (companion): `peaks scan karpathy` reads `rd/karpathy-review.md` and emits a similar markdown report; the structural scanner is **not** a replacement for this reviewer — it covers regex / file-presence checks, not the semantic judgement this reviewer provides.

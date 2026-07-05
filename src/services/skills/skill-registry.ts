@@ -35,11 +35,36 @@ export async function loadSkillRegistry(baseDir = skillsDir): Promise<SkillRegis
   const failures: SkillLoadFailure[] = [];
 
   for (const directory of directories) {
+    // LLM-internal skills (bees) live under `bee/` per spec 2026-07-05.
+    // Recurse one level into `bee/`; treat each child as a separate skill.
+    if (directory === 'bee') {
+      const subEntries = await listDirectories(join(baseDir, 'bee'));
+      for (const subDir of subEntries) {
+        const skillPath = join(baseDir, 'bee', subDir, 'SKILL.md');
+        if (!(await pathExists(skillPath))) {
+          continue;
+        }
+        try {
+          const frontmatter = parseFrontmatter(await readText(skillPath));
+          // `directory` is the on-disk skill folder name; for bees that is the
+          // basename of the bee child, NOT `bee/<name>` (keeps the
+          // doctor skill-name-matches-directory invariant working).
+          skills.push({
+            name: frontmatter.name,
+            description: frontmatter.description,
+            directory: subDir,
+            skillPath
+          });
+        } catch (error) {
+          failures.push({ directory: subDir, skillPath, message: getLoadFailureMessage(error) });
+        }
+      }
+      continue;
+    }
     const skillPath = join(baseDir, directory, 'SKILL.md');
     if (!(await pathExists(skillPath))) {
       continue;
     }
-
     try {
       const frontmatter = parseFrontmatter(await readText(skillPath));
       skills.push({

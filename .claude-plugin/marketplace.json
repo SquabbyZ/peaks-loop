@@ -56,37 +56,37 @@
         },
         {
           "name": "peaks-prd",
-          "path": "./skills/peaks-prd",
+          "path": "./skills/bee/peaks-prd",
           "description": "Product and requirement skill for Peaks. Use when a workflow needs PRD, refactor goals, non-goals, behavior preservation, acceptance criteria, product change proposals, or user-confirmable product artifacts.",
           "userInvocable": false
         },
         {
           "name": "peaks-rd",
-          "path": "./skills/peaks-rd",
+          "path": "./skills/bee/peaks-rd",
           "description": "Research and development skill for Peaks. Use for engineering analysis, refactor planning, project scanning, code standards, unit-test coverage gates, implementation contracts, task graphs, and RD handoffs. Always use this for Peaks-Loop refactor workflows.",
           "userInvocable": false
         },
         {
           "name": "peaks-qa",
-          "path": "./skills/peaks-qa",
+          "path": "./skills/bee/peaks-qa",
           "description": "QA and verification skill for Peaks. Use when a workflow needs unit-test coverage evidence, regression matrices, baseline reports, validation reports, acceptance checks, or refactor verification gates.",
           "userInvocable": false
         },
         {
           "name": "peaks-ui",
-          "path": "./skills/peaks-ui",
+          "path": "./skills/bee/peaks-ui",
           "description": "UI and experience skill for Peaks. Use when a workflow touches UI/UX, interaction design, visual direction, design systems, frontend page behavior, high-fidelity HTML prototypes, or UI regression seeds.",
           "userInvocable": false
         },
         {
           "name": "peaks-sc",
-          "path": "./skills/peaks-sc",
+          "path": "./skills/bee/peaks-sc",
           "description": "Source control, sync, and change-control skill for Peaks. Use when a workflow needs change impact, artifact retention, commit boundaries, GitHub artifact repository pointers, sync state, or rollback evidence.",
           "userInvocable": false
         },
         {
           "name": "peaks-txt",
-          "path": "./skills/peaks-txt",
+          "path": "./skills/bee/peaks-txt",
           "description": "Context and knowledge skill for Peaks. Use when a workflow needs context capsules, role-specific context slices, decision records, assumptions, discarded options, staleness checks, lessons, or reusable project memory.",
           "userInvocable": false
         },

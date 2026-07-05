@@ -112,7 +112,10 @@ export function auditSkillConformance(input: SkillConformanceInput): Conformance
   const checks: ConformanceCheck[] = [];
 
   for (const skillName of SKILL_NAMES) {
-    const skillPath = join(skillsDir, skillName, 'SKILL.md');
+    // LLM-internal skills live under `skills/bee/<name>/` per spec 2026-07-05.
+    const topPath = join(skillsDir, skillName, 'SKILL.md');
+    const beePath = join(skillsDir, 'bee', skillName, 'SKILL.md');
+    const skillPath = existsSync(topPath) ? topPath : beePath;
     const fm = readSkillFrontmatter(skillPath);
 
     // 1. task-level frontmatter

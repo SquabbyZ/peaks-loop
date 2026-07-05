@@ -41,9 +41,9 @@ git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-code ad
 ### Task 16: peaks-rd update (v2 slice reading + handoff frontmatter writing)
 
 **Files:**
-- Modify: `skills/peaks-rd/SKILL.md`
-- Create: `skills/peaks-rd/references/reading-v2-slice-results.md`
-- Create: `skills/peaks-rd/references/writing-handoff-frontmatter.md`
+- Modify: `skills/bee/peaks-rd/SKILL.md`
+- Create: `skills/bee/peaks-rd/references/reading-v2-slice-results.md`
+- Create: `skills/bee/peaks-rd/references/writing-handoff-frontmatter.md`
 
 - [ ] **Step 1: Write `references/reading-v2-slice-results.md`** (how to read v2 via SchemaRouter, dispatch per pass)
 
@@ -54,15 +54,15 @@ git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-code ad
 - [ ] **Step 4: Commit**
 
 ```bash
-git add skills/peaks-rd/
+git add skills/bee/peaks-rd/
 git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-rd adds v2 reading + frontmatter writing"
 ```
 
 ### Task 17: peaks-qa update (handoff frontmatter reading)
 
 **Files:**
-- Modify: `skills/peaks-qa/SKILL.md`
-- Create: `skills/peaks-qa/references/reading-handoff-frontmatter.md`
+- Modify: `skills/bee/peaks-qa/SKILL.md`
+- Create: `skills/bee/peaks-qa/references/reading-handoff-frontmatter.md`
 
 - [ ] **Step 1: Write reference**
 
@@ -71,15 +71,15 @@ git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-rd adds
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/peaks-qa/
+git add skills/bee/peaks-qa/
 git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-qa reads handoff frontmatter"
 ```
 
 ### Task 18: peaks-prd update (multi-pass AC reference)
 
 **Files:**
-- Modify: `skills/peaks-prd/SKILL.md`
-- Create: `skills/peaks-prd/references/prd-for-multi-pass.md`
+- Modify: `skills/bee/peaks-prd/SKILL.md`
+- Create: `skills/bee/peaks-prd/references/prd-for-multi-pass.md`
 
 - [ ] **Step 1: Write reference** (how to write ACs that yield clean slice boundaries)
 
@@ -88,14 +88,14 @@ git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-qa read
 - [ ] **Step 3: Commit**
 
 ```bash
-git add skills/peaks-prd/
+git add skills/bee/peaks-prd/
 git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-prd adds multi-pass AC reference"
 ```
 
 ### Task 19: peaks-sc update (reference peaks-slice-decompose)
 
 **Files:**
-- Modify: `skills/peaks-sc/SKILL.md`
+- Modify: `skills/bee/peaks-sc/SKILL.md`
 
 - [ ] **Step 1: Add reference link to peaks-slice-decompose in peaks-sc/SKILL.md**
 
@@ -108,7 +108,7 @@ The first step in slice planning is to invoke `peaks-slice-decompose` to produce
 - [ ] **Step 2: Commit**
 
 ```bash
-git add skills/peaks-sc/SKILL.md
+git add skills/bee/peaks-sc/SKILL.md
 git commit --author="SquabbyZ <601709253@qq.com>" -m "feat(skill): peaks-sc references peaks-slice-decompose"
 ```
 

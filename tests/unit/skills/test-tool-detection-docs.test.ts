@@ -15,8 +15,8 @@ import { describe, expect, test } from 'vitest';
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
 
-const RD_REF = join(REPO_ROOT, 'skills', 'peaks-rd', 'references', 'rd-sub-agent-dispatch.md');
-const QA_REF = join(REPO_ROOT, 'skills', 'peaks-qa', 'references', 'qa-sub-agent-dispatch.md');
+const RD_REF = join(REPO_ROOT, 'skills', 'bee', 'peaks-rd', 'references', 'rd-sub-agent-dispatch.md');
+const QA_REF = join(REPO_ROOT, 'skills', 'bee', 'peaks-qa', 'references', 'qa-sub-agent-dispatch.md');
 
 const REQUIRED_LITERALS = [
   '## Test Tool Detection (mandatory)',

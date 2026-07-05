@@ -22,15 +22,15 @@ User 在 2026-07-05 rename 出版后查 `skills/` 目录,发现 19 个 skill 同
 
 | 对象 | 改动 |
 |---|---|
-| `skills/peaks-prd/` | `git mv skills/peaks-prd skills/bee/peaks-prd` |
-| `skills/peaks-rd/` | `git mv skills/peaks-rd skills/bee/peaks-rd` |
-| `skills/peaks-qa/` | `git mv skills/peaks-qa skills/bee/peaks-qa` |
-| `skills/peaks-ui/` | `git mv skills/peaks-ui skills/bee/peaks-ui` |
-| `skills/peaks-sc/` | `git mv skills/peaks-sc skills/bee/peaks-sc` |
-| `skills/peaks-txt/` | `git mv skills/peaks-txt skills/bee/peaks-txt` |
-| `skills/peaks-perf-audit/` | `git mv skills/peaks-perf-audit skills/bee/peaks-perf-audit` |
-| `skills/peaks-security-audit/` | `git mv skills/peaks-security-audit skills/bee/peaks-security-audit` |
-| `skills/peaks-reviewer/` | `git mv skills/peaks-reviewer skills/bee/peaks-reviewer` |
+| `skills/bee/peaks-prd/` | `git mv skills/peaks-prd skills/bee/peaks-prd` |
+| `skills/bee/peaks-rd/` | `git mv skills/peaks-rd skills/bee/peaks-rd` |
+| `skills/bee/peaks-qa/` | `git mv skills/peaks-qa skills/bee/peaks-qa` |
+| `skills/bee/peaks-ui/` | `git mv skills/peaks-ui skills/bee/peaks-ui` |
+| `skills/bee/peaks-sc/` | `git mv skills/peaks-sc skills/bee/peaks-sc` |
+| `skills/bee/peaks-txt/` | `git mv skills/peaks-txt skills/bee/peaks-txt` |
+| `skills/bee/peaks-perf-audit/` | `git mv skills/peaks-perf-audit skills/bee/peaks-perf-audit` |
+| `skills/bee/peaks-security-audit/` | `git mv skills/peaks-security-audit skills/bee/peaks-security-audit` |
+| `skills/bee/peaks-reviewer/` | `git mv skills/peaks-reviewer skills/bee/peaks-reviewer` |
 | `.claude-plugin/marketplace.json` | 9 个条目的 `source` 路径同步改为 `./bee/peaks-X` |
 | `peaks skill visibility` CLI | 自动通过 marketplace 重新加载 — 不需改代码 |
 | 仓库引用扫描 | `grep -rln "skills/peaks-{prd,rd,qa,ui,sc,txt,perf-audit,security-audit,reviewer}"` 全部更新路径 |

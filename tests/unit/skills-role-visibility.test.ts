@@ -20,11 +20,11 @@ describe('六个 role skill SKILL.md frontmatter 含 visibility: internal', () =
 
   for (const name of roleSkills) {
     it(`${name}/SKILL.md 含 metadata.visibility: internal`, () => {
-      const content = readFileSync(join(repoRoot, 'skills', name, 'SKILL.md'), 'utf-8');
+      const content = readFileSync(join(repoRoot, 'skills', 'bee', name, 'SKILL.md'), 'utf-8');
       expect(content).toMatch(/^visibility:\s*internal/m);
     });
     it(`${name}/SKILL.md 含 "not user-invocable"`, () => {
-      const content = readFileSync(join(repoRoot, 'skills', name, 'SKILL.md'), 'utf-8');
+      const content = readFileSync(join(repoRoot, 'skills', 'bee', name, 'SKILL.md'), 'utf-8');
       expect(content.toLowerCase()).toContain('not user-invocable');
     });
   }

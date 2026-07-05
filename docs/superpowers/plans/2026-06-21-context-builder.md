@@ -2373,8 +2373,8 @@ git commit -m "feat(context): export JSON Schema + cross-IDE consistency test"
 
 **Files:**
 - Modify: `README.md` (add a "peaks-context" section)
-- Modify: `skills/peaks-rd/SKILL.md` (note: rd now consumes context.json automatically)
-- Modify: `skills/peaks-qa/SKILL.md` (same for qa)
+- Modify: `skills/bee/peaks-rd/SKILL.md` (note: rd now consumes context.json automatically)
+- Modify: `skills/bee/peaks-qa/SKILL.md` (same for qa)
 
 - [ ] **Step 1: Add README section**
 
@@ -2395,11 +2395,11 @@ peaks context inspect context.json
 详见 [design spec §4.1](../../docs/superpowers/specs/2026-06-21-context-audit-redesign-design.md)。
 ```
 
-- [ ] **Step 2: Update `skills/peaks-rd/SKILL.md`**
+- [ ] **Step 2: Update `skills/bee/peaks-rd/SKILL.md`**
 
 Add a short note: "RD workflow automatically runs `peaks context build --audience peaks-rd` before the LLM is invoked. No manual setup needed."
 
-- [ ] **Step 3: Update `skills/peaks-qa/SKILL.md`**
+- [ ] **Step 3: Update `skills/bee/peaks-qa/SKILL.md`**
 
 Same pattern with `peaks-qa`.
 
@@ -2423,7 +2423,7 @@ Expected: PASS — tsc + vitest + 3-way + verify-pipeline all green.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add README.md skills/peaks-rd/SKILL.md skills/peaks-qa/SKILL.md
+git add README.md skills/bee/peaks-rd/SKILL.md skills/bee/peaks-qa/SKILL.md
 git commit -m "docs(context): README + RD/QA skill notes for peaks-context integration"
 ```
 

@@ -41,19 +41,19 @@ const INJECTED_FILES: InjectedFile[] = [
   {
     layer: 'A',
     name: 'peaks-rd/SKILL.md',
-    path: resolve(REPO_ROOT, 'skills/peaks-rd/SKILL.md'),
+    path: resolve(REPO_ROOT, 'skills/bee/peaks-rd/SKILL.md'),
     content: ''
   },
   {
     layer: 'B',
     name: 'peaks-rd/references/rd-sub-agent-dispatch.md',
-    path: resolve(REPO_ROOT, 'skills/peaks-rd/references/rd-sub-agent-dispatch.md'),
+    path: resolve(REPO_ROOT, 'skills/bee/peaks-rd/references/rd-sub-agent-dispatch.md'),
     content: ''
   },
   {
     layer: 'C',
     name: 'peaks-rd/references/rd-fanout-contracts.md',
-    path: resolve(REPO_ROOT, 'skills/peaks-rd/references/rd-fanout-contracts.md'),
+    path: resolve(REPO_ROOT, 'skills/bee/peaks-rd/references/rd-fanout-contracts.md'),
     content: ''
   },
   {

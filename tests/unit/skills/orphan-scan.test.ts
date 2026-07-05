@@ -14,7 +14,7 @@ import { scanOrphans } from '../../../src/services/scan/orphan-service.js';
 const REPO_ROOT = join(__dirname, '../../..');
 const SCAN_COMMANDS = join(REPO_ROOT, 'src/cli/commands/scan-commands.ts');
 const SERVICE_FILE = join(REPO_ROOT, 'src/services/scan/orphan-service.ts');
-const RUNBOOK_FILE = join(REPO_ROOT, 'skills/peaks-rd/references/rd-runbook.md');
+const RUNBOOK_FILE = join(REPO_ROOT, 'skills/bee/peaks-rd/references/rd-runbook.md');
 
 describe('peaks scan orphan (Slice 4/6 — karpathy-enforcement)', () => {
   test('AC-1: scan-commands.ts registers the orphan subcommand', () => {

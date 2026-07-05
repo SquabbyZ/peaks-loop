@@ -14,7 +14,7 @@
  *          postinstall copies agents/karpathy-reviewer.md to ~/.claude/agents/
  *          with content-hash drift detection, .peaks-managed marker)
  *  - AC-8: handoff doc references the canonical shipped path + CLI gate
- *  - AC-9: project-internal pointer at skills/peaks-rd/references/karpathy-reviewer-prompt.md
+ *  - AC-9: project-internal pointer at skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md
  *          is a 2-line pointer to the canonical shipped source
  *  - AC-10: 9 new + 86 prior = 95 skill vitest cases pass
  */
@@ -30,7 +30,7 @@ function read(rel: string): string {
 
 describe('Slice 6/6 + 7/7 — karpathy-reviewer shipped source + handoff + pointer', () => {
   const shipped = read('agents/karpathy-reviewer.md');
-  const pointer = read('skills/peaks-rd/references/karpathy-reviewer-prompt.md');
+  const pointer = read('skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md');
   const handoff = read('rd/karpathy-reviewer-agent-handoff.md');
 
   it('AC-1 shipped source at agents/karpathy-reviewer.md exists with name=karpathy-reviewer', () => {
@@ -73,7 +73,7 @@ describe('Slice 6/6 + 7/7 — karpathy-reviewer shipped source + handoff + point
     // The shipped source indents the literal headers by 4 spaces inside the
     // code-fence example block to keep the sibling-reference heading inventory
     // clean (skill-slim-content-coverage.test.ts forbids duplicate H2/H3 across
-    // skills/peaks-rd/references/*.md).
+    // skills/bee/peaks-rd/references/*.md).
     for (const header of [
       '    ## 1. Think Before Coding',
       '    ## 2. Simplicity First',
@@ -115,7 +115,7 @@ describe('Slice 6/6 + 7/7 — karpathy-reviewer shipped source + handoff + point
     expect(handoff).toContain('artifact-prerequisites.ts');
   });
 
-  it('AC-9 project-internal pointer at skills/peaks-rd/references/karpathy-reviewer-prompt.md is a 2-line pointer', () => {
+  it('AC-9 project-internal pointer at skills/bee/peaks-rd/references/karpathy-reviewer-prompt.md is a 2-line pointer', () => {
     // peaks-loop 2.0 rules convention: a 2-line pointer file that points to
     // the canonical source. The first line is the "# Canonical ... lives at:"
     // header, the second line is the "# This file is a 2-line pointer ..." note.

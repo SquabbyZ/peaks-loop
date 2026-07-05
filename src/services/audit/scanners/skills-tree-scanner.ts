@@ -53,6 +53,26 @@ export function scanSkillsTree(input: SkillsTreeScanInput): SkillsTreeScanResult
 
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+    // LLM-internal skills live under `skills/bee/<name>/` per spec 2026-07-05.
+    // Recurse one level into `bee/` to cover all 9 demoted role/audit skills.
+    if (entry.name === 'bee') {
+      let subEntries;
+      try {
+        subEntries = readdirSync(join(skillsRoot, 'bee'), { withFileTypes: true });
+      } catch (error) {
+        warnings.push({
+          file: 'skills/bee',
+          message: `readdir failed: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        continue;
+      }
+      for (const subEntry of subEntries) {
+        if (!subEntry.isDirectory() || subEntry.name.startsWith('.')) continue;
+        const skillMd = readSkillFile(input.projectRoot, join('bee', subEntry.name), 'SKILL.md');
+        lines.push(...skillMd);
+      }
+      continue;
+    }
     const skillMd = readSkillFile(input.projectRoot, entry.name, 'SKILL.md');
     lines.push(...skillMd);
   }

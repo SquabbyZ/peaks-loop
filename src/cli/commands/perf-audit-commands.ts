@@ -81,7 +81,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
   const perfAudit = program
     .command('perf-audit')
     .description(
-      'Independent performance audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level perf-template.md, then writes a structured perf-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). See skills/peaks-perf-audit/SKILL.md for the full workflow.'
+      'Independent performance audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level perf-template.md, then writes a structured perf-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). See skills/bee/peaks-perf-audit/SKILL.md for the full workflow.'
     );
 
   addJsonOption(
@@ -207,7 +207,7 @@ export function registerPerfAuditCommands(program: Command, io: ProgramIO): void
             { receivedType: typeof envelopeValue },
             [
               'Verify the peaks-perf-audit skill prompt matches the strict-shape contract.',
-              'Re-emit the envelope; see skills/peaks-perf-audit/references/audit-protocol.md.'
+              'Re-emit the envelope; see skills/bee/peaks-perf-audit/references/audit-protocol.md.'
             ]
           ),
           options.json

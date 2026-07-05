@@ -51,11 +51,11 @@ const SUBAGENT_SKILLS: ReadonlyArray<{
   name: string;
   relativePath: string;
 }> = [
-  { name: 'peaks-rd',  relativePath: 'skills/peaks-rd/SKILL.md' },
-  { name: 'peaks-prd', relativePath: 'skills/peaks-prd/SKILL.md' },
-  { name: 'peaks-qa',  relativePath: 'skills/peaks-qa/SKILL.md' },
-  { name: 'peaks-sc',  relativePath: 'skills/peaks-sc/SKILL.md' },
-  { name: 'peaks-ui',  relativePath: 'skills/peaks-ui/SKILL.md' },
+  { name: 'peaks-rd',  relativePath: 'skills/bee/peaks-rd/SKILL.md' },
+  { name: 'peaks-prd', relativePath: 'skills/bee/peaks-prd/SKILL.md' },
+  { name: 'peaks-qa',  relativePath: 'skills/bee/peaks-qa/SKILL.md' },
+  { name: 'peaks-sc',  relativePath: 'skills/bee/peaks-sc/SKILL.md' },
+  { name: 'peaks-ui',  relativePath: 'skills/bee/peaks-ui/SKILL.md' },
 ];
 
 const SOLO_PATH = 'skills/peaks-code/SKILL.md';

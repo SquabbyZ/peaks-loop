@@ -30,7 +30,7 @@ src/services/rd/
   strategy.ts                  # NEW: strategy.md writer + STRAT.sig computation
   impl.ts                      # NEW: impl.json writer + TACT.sig computation
   types.ts                     # NEW: StrategyOutput + ImplOutput + Zod schemas
-src/skills/peaks-rd/
+src/skills/bee/peaks-rd/
   SKILL.md                     # (modify) document 2 sub-stages
 tests/unit/services/rd/
   strategic-stage.test.ts
@@ -877,7 +877,7 @@ git commit -m "refactor(rd): split into strategic + tactical sub-stages (sig cha
 ## Task 8: Update peaks-rd SKILL.md
 
 **Files:**
-- Modify: `src/skills/peaks-rd/SKILL.md`
+- Modify: `src/skills/bee/peaks-rd/SKILL.md`
 
 - [ ] **Step 1: Add sub-stage documentation**
 
@@ -900,7 +900,7 @@ Karpathy guidelines remain injected in both sub-stages.
 - [ ] **Step 2: Commit**
 
 ```bash
-git add src/skills/peaks-rd/SKILL.md
+git add src/skills/bee/peaks-rd/SKILL.md
 git commit -m "docs(rd): SKILL.md notes for 2 sub-stages"
 ```
 

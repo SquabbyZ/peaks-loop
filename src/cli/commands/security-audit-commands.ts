@@ -82,7 +82,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
   const securityAudit = program
     .command('security-audit')
     .description(
-      'Independent security audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level security-template.md, then writes a structured security-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 2). See skills/peaks-security-audit/SKILL.md for the full workflow.'
+      'Independent security audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level security-template.md, then writes a structured security-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 2). See skills/bee/peaks-security-audit/SKILL.md for the full workflow.'
     );
 
   addJsonOption(
@@ -208,7 +208,7 @@ export function registerSecurityAuditCommands(program: Command, io: ProgramIO): 
             { receivedType: typeof envelopeValue },
             [
               'Verify the peaks-security-audit skill prompt matches the strict-shape contract.',
-              'Re-emit the envelope; see skills/peaks-security-audit/references/audit-protocol.md.'
+              'Re-emit the envelope; see skills/bee/peaks-security-audit/references/audit-protocol.md.'
             ]
           ),
           options.json

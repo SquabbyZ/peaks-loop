@@ -14,7 +14,7 @@
   no test case belongs to two dimensions.
 - The convention does **not** introduce a lint. Promotion is via the
   code-reviewer sub-agent prompt hint at
-  `skills/peaks-rd/references/code-reviewer-4dim-hint.md`.
+  `skills/bee/peaks-rd/references/code-reviewer-4dim-hint.md`.
 
 ## The 4 dimensions
 
@@ -82,7 +82,7 @@ dimensions are the same defect as conjoined concerns in production code.
 ## What this convention does NOT do
 
 - **No new lint.** Promotion is through the code-reviewer sub-agent
-  prompt hint (see `skills/peaks-rd/references/code-reviewer-4dim-hint.md`),
+  prompt hint (see `skills/bee/peaks-rd/references/code-reviewer-4dim-hint.md`),
   which the RD main loop appends to the code-reviewer prompt at dispatch
   time. Heavy ESLint rules are deliberately avoided — they age poorly
   and the reviewer prompt is the source of truth.

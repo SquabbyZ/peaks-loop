@@ -66,7 +66,7 @@ describe('classifier.classifyFile', () => {
 
   it('matches catalog phrases for sub-agent-sid', () => {
     const file = {
-      file: 'skills/peaks-rd/SKILL.md',
+      file: 'skills/bee/peaks-rd/SKILL.md',
       lines: [
         '# sub-agent protocol',
         '',
