@@ -44,7 +44,7 @@ peaks-loop 就是你的 AI 战术小队,24 小时待命,随时接活。它把一
 ## 上号
 
 ```bash
-npx peaks-loop install
+npm i -g peaks-loop
 ```
 
 装完一句话接活。

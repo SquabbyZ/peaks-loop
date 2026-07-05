@@ -58,7 +58,7 @@ The point is your few bees keep growing with your taste — you say one line, th
 ## Get it running
 
 ```bash
-npx peaks-loop install
+npm i -g peaks-loop
 ```
 
 One sentence after install, and the squad is on the job.
