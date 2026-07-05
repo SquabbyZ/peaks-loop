@@ -10,6 +10,7 @@
 - [peaks-loop-local-skillhub](peaks-loop-local-skillhub.md) — peaks-loop 本地 SkillHub store = 版本化的完整 skill 包;为未来线上公共 SkillHub 留 on-ramp;商业延展（2026-07-04 user note chain）。
 - [peaks-code-to-peaks-code-rename-session-directive](peaks-code-to-peaks-code-rename-session-directive.md) — 2026-07-05 user 在 rename brainstorm 末尾追加的 6 条硬约束(一次到位 / 不计成本 / 不计时间 / 禁假绿 / 禁偷懒 / 存量迁移 LLM 做),适用于所有 peaks-loop 长任务。
 - [peaks-code-consumer-project-smoke-test-ice-cola](peaks-code-consumer-project-smoke-test-ice-cola.md) — 2026-07-05 ice-cola 首次实测 peaks-code 消费项目:全绿 + 3 个冰山陷阱(dist 路径 / pnpm link 不触发 build / 全局 peaks 抢路径)。
+- [user-decision-2026-07-05-eradicate-peaks-solo](user-decision-2026-07-05-eradicate-peaks-solo.md) — 2026-07-05 user 决定"彻底去根",107 个文件 peaks-solo → peaks-code 全替换,包括 48 个 `.peaks/memory/` 历史快照——打破 rename spec AC-10 不动 history 的硬规则。
 
 ## 4.x sediment-pool — 项目元规则
 
