@@ -1,7 +1,7 @@
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { skillsDir } from '../shared/paths.js';
+import { skillsDir, repoRoot } from '../shared/paths.js';
 import { CLI_VERSION } from '../shared/version.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
@@ -81,6 +81,7 @@ import { registerJobCommands } from './commands/job-commands.js';
 // 15b / 15c / 15d will extend sediment-commands.ts with the remaining 14 verbs.
 import { registerSedimentCommands } from './commands/sediment-commands.js';
 import { registerAdapterCommands } from './commands/adapter-commands.js';
+import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
@@ -368,6 +369,13 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerSedimentCommands(program, io);
   // Slice 2026-07-04-cli-15a: `peaks skill adapter <verb>` — adapter list / set-active.
   registerAdapterCommands(program, io);
+
+  // Slice 2026-07-05-peaks-solo-to-peaks-code (Task 1): `peaks skill:visibility --list --json`
+  // — read .claude-plugin/marketplace.json and report each skill's
+  // visibility (public vs internal). Used to surface which skills are
+  // user-invocable vs LLM-only internal role skills. See
+  // src/cli/commands/skill-visibility.ts.
+  registerSkillVisibilityCommand(program, repoRoot);
 
  return program;
 }
