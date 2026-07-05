@@ -20,6 +20,14 @@ No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you 
 Every gate has a hard exit: audit fails = stop, QA fails = stop, any gate fails = full stop.
 You don't chase it, you don't patch it. You decide, it runs the next gate.
 
+One person built this, an engineer's taste.
+Geek ethos.
+Natural language only — no CLI surface for the user.
+Tests and gates that actually block, not decorate.
+Strict with self, lenient with users — the toolchain enforces our own code; users say whatever they want, the system catches it.
+AI fluency floor is flat — you don't need prompt-engineering chops, you don't need CLI muscle memory, you talk like a person.
+Those project-level red lines live in `~/.peaks/memory/`. They aren't slogans. They are red lines the toolchain enforces.
+
 ## What's in the box
 
 First tactician on the roster: `peaks-code`. The lead.
