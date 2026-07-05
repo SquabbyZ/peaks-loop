@@ -20,6 +20,12 @@ npx peaks-loop install
 
 Open your AI CLI and say **"use peaks to run this"**. Done.
 
+Want to see it first? [`examples/video-demo/`](./examples/video-demo/) renders a 30-second walkthrough using React + [Remotion](https://www.remotion.dev/) — login flow / bug fix / refactor + the 11-skill wall.
+
+```bash
+cd examples/video-demo && pnpm install && npx remotion render peaks-code-demo out/peaks-code-demo.mp4
+```
+
 ## One example
 
 You say: **"I want to add user login"**

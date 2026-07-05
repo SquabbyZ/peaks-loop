@@ -20,6 +20,12 @@ npx peaks-loop install
 
 打开你的 AI CLI,在聊天里说 **"用 peaks 帮我跑一遍"**,完事。
 
+想先看演示? [`examples/video-demo/`](./examples/video-demo/) 用 React + [Remotion](https://www.remotion.dev/) 制作了 30 秒的能力展示(加登录 / fix bug / refactor + 11 个技能墙)。
+
+```bash
+cd examples/video-demo && pnpm install && npx remotion render peaks-code-demo out/peaks-code-demo.mp4
+```
+
 ## 一个例子
 
 你说:**"我想加一个用户登录功能"**
