@@ -25,7 +25,7 @@ metadata:
 | AC | 内容 | 文件 |
 |---|---|---|
 | AC-1 | presence staleness 检测 + rotation auto-clear | new CLI `presence:check-stale` |
-| AC-2 | peaks-solo SKILL.md Step 1 强制重问 mode | SKILL.md + new reference + new test |
+| AC-2 | peaks-code SKILL.md Step 1 强制重问 mode | SKILL.md + new reference + new test |
 | AC-3 | feedback-promotion SOP + CLI `feedback promote` + `feedback check-unpromoted` | new SOP + new CLI + verify-pipeline Gate H |
 | AC-4 | mode-gate.ts 加 commit-boundary hard-floor | mode-gate.ts + new test |
 | AC-5 | test + docs + version 2.14.2 → 2.15.0 (MINOR) | CHANGELOG + version.ts + ≥ 3 test files |
@@ -36,7 +36,7 @@ metadata:
 
 ```
 1. peaks workspace init（确认 sid）
-2. peaks skill presence:set peaks-solo --mode full-auto --gate startup
+2. peaks skill presence:set peaks-code --mode full-auto --gate startup
 3. 读本 memory + PRD-002
 4. peaks-rd fork agent 跑 AC-1 → AC-2 → AC-3 → AC-4 → AC-5
 5. peaks-qa fork agent 跑 full suite + 新 test
@@ -86,7 +86,7 @@ metadata:
 | AC | Status | Files | Tests |
 |---|---|---|---|
 | AC-1 presence:check-stale + rotation auto-clear | DONE | `src/services/skills/skill-presence-service.ts` (+checkStalePresence, +clearStalePresenceOnRotation), `src/cli/commands/core/skill-command.ts` (+presence:check-stale, +--check-stale flag), `src/cli/commands/workspace/init-command.ts` (rotation block) | `tests/unit/services/skills/presence-staleness.test.ts` (12) |
-| AC-2 SKILL.md Step 1 re-ask + should-pause integration | DONE | `skills/peaks-solo/SKILL.md` (Step 1 wording), `skills/peaks-solo/references/mode-selection-with-stale-presence.md` (NEW), `src/cli/commands/solo-commands.ts` (should-pause stale branch) | `tests/unit/services/solo/stale-presence-detection.test.ts` (9) |
+| AC-2 SKILL.md Step 1 re-ask + should-pause integration | DONE | `skills/peaks-code/SKILL.md` (Step 1 wording), `skills/peaks-code/references/mode-selection-with-stale-presence.md` (NEW), `src/cli/commands/solo-commands.ts` (should-pause stale branch) | `tests/unit/services/solo/stale-presence-detection.test.ts` (9) |
 | AC-3 feedback-promotion SOP + CLI + Gate H | DONE | `sops/feedback-promotion-sop.md` (NEW), `src/services/feedback/feedback-promotion-service.ts` (NEW), `src/cli/commands/feedback-commands.ts` (NEW), `src/cli/commands/program.ts` (+registration), `src/services/workflow/pipeline-verify-service.ts` (Gate H) | `tests/unit/services/feedback/feedback-promotion.test.ts` (18) |
 | AC-4 mode-gate.ts commit-boundary hard-floor | DONE | `src/services/solo/mode-gate.ts` (+commit-boundary-side-effect, +CommitBoundaryActionId, +detectCommitBoundaryAction, +commitBoundaryAction flag in shouldPauseAtGate) | `tests/unit/services/solo/commit-boundary-hard-floor.test.ts` (247) |
 | AC-5 tests + docs + version | DONE | `CHANGELOG.md` (v2.15.0 entry), `package.json` + `src/shared/version.ts` (2.14.2 → 2.15.0), this memory addendum | All tests green |
@@ -125,13 +125,13 @@ peaks solo should-pause --step step-1-mode-select --mode full-auto --json
 
 | Stage | Commit | By |
 |---|---|---|
-| PRD | `a1c9e73` | peaks-solo orchestrator |
+| PRD | `a1c9e73` | peaks-code orchestrator |
 | RD initial | `070f790` | peaks-rd fork agent |
 | QA verdict 1 | (envelope: qa-final) | peaks-qa fork agent — **FAIL, 2 blockers** |
 | RD repair | `db860e4` | peaks-rd fork agent — fixed CLI smoke + defect 3 |
 | QA re-verify | (envelope: qa-reverify) | peaks-qa fork agent — **PASS, ship** |
-| Push | `a1c9e73..db860e4` → origin | peaks-solo orchestrator |
-| Tag | `v2.15.0` → origin | peaks-solo orchestrator |
+| Push | `a1c9e73..db860e4` → origin | peaks-code orchestrator |
+| Tag | `v2.15.0` → origin | peaks-code orchestrator |
 | `npm publish` peaks-loop@2.15.0 | (npm registry) | user-only (peaks1992 OTP) |
 | `npm install -g .` global refresh | (npm global) | user-only |
 | `~/.peaks/config.json.version` | auto-bumped to `2.15.0` | doctor governance |

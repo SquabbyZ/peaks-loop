@@ -106,7 +106,7 @@ Before merging any new user-facing surface, verify:
 Captured. **Pending action**:
 - [ ] Add the two tenets to `.claude/rules/common/dev-preference.md`
       as a new "minimal-user-operation" addendum.
-- [ ] Reference in `peaks-solo/SKILL.md` Step 0 (or as a new
+- [ ] Reference in `peaks-code/SKILL.md` Step 0 (or as a new
       step 0.5 alongside workspace init).
 - [ ] Cross-reference from `docs/UPGRADING-2.0.md` (so users
       reading the manual fallback see the design rationale).

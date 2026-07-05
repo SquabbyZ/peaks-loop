@@ -1,6 +1,6 @@
 # Skill presence (RD)
 
-> Body of `## Skill presence (MANDATORY first action — main-loop context only)`. When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-solo` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run:
+> Body of `## Skill presence (MANDATORY first action — main-loop context only)`. When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-code` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run:
 
 ```bash
 peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup

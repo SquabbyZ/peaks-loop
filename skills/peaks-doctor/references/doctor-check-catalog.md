@@ -24,7 +24,7 @@ Slice L3.2 ships 69 doctor checks. The most user-relevant ones:
 
 ## Skills
 
-- **`skill:<required-skill>`** — each required skill (peaks-ide, peaks-prd, peaks-rd, peaks-qa, peaks-sc, peaks-solo, peaks-sop, peaks-txt, peaks-ui, peaks-doctor) must be installed in the bundled skills dir
+- **`skill:<required-skill>`** — each required skill (peaks-ide, peaks-prd, peaks-rd, peaks-qa, peaks-sc, peaks-code, peaks-sop, peaks-txt, peaks-ui, peaks-doctor) must be installed in the bundled skills dir
 
 ## Doctor self
 

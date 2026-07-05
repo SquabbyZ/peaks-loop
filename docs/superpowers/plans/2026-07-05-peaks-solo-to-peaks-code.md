@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rename skill `peaks-solo` → `peaks-code`; lift `peaks-solo-resume / -status / -test` to universal primitives (`peaks-resume / -status / -test`); hide `peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt` from user-facing slash commands as LLM-internal roles. One-shot delivery in a single PR.
+**Goal:** Rename skill `peaks-code` → `peaks-code`; lift `peaks-code-resume / -status / -test` to universal primitives (`peaks-resume / -status / -test`); hide `peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt` from user-facing slash commands as LLM-internal roles. One-shot delivery in a single PR.
 
 **Architecture:**
 1. New CLI `peaks skill visibility --list` enforces 4-public + 6-internal visibility rules via marketplace.json `userInvocable` field + SKILL.md frontmatter `metadata.visibility: internal`.
-2. New CLI `peaks session migrate-skill-name --from peaks-solo --to peaks-code [--apply]` rewrites existing `.peaks/_runtime/**/*.json` `skill:` fields idempotently.
+2. New CLI `peaks session migrate-skill-name --from peaks-code --to peaks-code [--apply]` rewrites existing `.peaks/_runtime/**/*.json` `skill:` fields idempotently.
 3. Four `git mv` operations rename skill directories atomically; downstream grep-replace cascades the rename across `src/ tests/ scripts/ .claude/ .claude-plugin/ docs/`.
-4. Pool physical path `~/.peaks/skills/.system/bees/peaks-solo/` is preserved; only the manifest `id` field is rewritten (avoids re-running the 4.x 6-table migration regression suite).
+4. Pool physical path `~/.peaks/skills/.system/bees/peaks-code/` is preserved; only the manifest `id` field is rewritten (avoids re-running the 4.x 6-table migration regression suite).
 
 **Tech Stack:** TypeScript, Node.js ≥18, vitest, pnpm, peaks-cli (custom), 4.x sediment pool primitives (`peaks skill sediment`).
 
@@ -30,11 +30,11 @@
 ### 改动(git mv)
 
 ```
-skills/peaks-solo/                       → skills/peaks-code/
-skills/peaks-solo-resume/                → skills/peaks-resume/
-skills/peaks-solo-status/                → skills/peaks-status/
-skills/peaks-solo-test/                  → skills/peaks-test/
-tests/fixtures/skills/pre-slim/peaks-solo.SKILL.md  → tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
+skills/peaks-code/                       → skills/peaks-code/
+skills/peaks-code-resume/                → skills/peaks-resume/
+skills/peaks-code-status/                → skills/peaks-status/
+skills/peaks-code-test/                  → skills/peaks-test/
+tests/fixtures/skills/pre-slim/peaks-code.SKILL.md  → tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
 ```
 
 ### 改动(content)
@@ -55,8 +55,8 @@ skills/bee/peaks-qa/SKILL.md                                            (frontma
 skills/bee/peaks-ui/SKILL.md                                            (frontmatter)
 skills/bee/peaks-sc/SKILL.md                                            (frontmatter)
 skills/bee/peaks-txt/SKILL.md                                           (frontmatter)
-.peaks/skills/.system/bees/peaks-solo/manifest.json                 (id 字段改为 peaks-code)
-.claude-plugin/marketplace.json                                     (4 个 peaks-solo* 条目 + 6 个 role userInvocable)
+.peaks/skills/.system/bees/peaks-code/manifest.json                 (id 字段改为 peaks-code)
+.claude-plugin/marketplace.json                                     (4 个 peaks-code* 条目 + 6 个 role userInvocable)
 .claude/LOGGING.md                                                  (全文替换)
 src/services/profiles/profile-service.ts                           (profile id 同步)
 docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md  (§4.1.1 措辞改写)
@@ -74,7 +74,7 @@ src/services/migrate-skill-name/schema.ts               (Zod schema for --json o
 tests/unit/cli/skill-visibility.test.ts                 (6 个 case)
 tests/unit/cli/session-migrate-skill-name.test.ts       (8 个 case)
 tests/unit/skills-role-visibility.test.ts               (1+ 个 case)
-tests/fixtures/runtime/session-with-peaks-solo.json     (故意带 skill: peaks-solo 的 fixture)
+tests/fixtures/runtime/session-with-peaks-code.json     (故意带 skill: peaks-code 的 fixture)
 ```
 
 ### 不动(明示)
@@ -154,10 +154,10 @@ Expected:空白(或仅展示 spec / memory 已 commit 状态)。
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-git checkout -b feature/peaks-solo-to-peaks-code
+git checkout -b feature/peaks-code-to-peaks-code
 ```
 
-Expected:`Switched to a new branch 'feature/peaks-solo-to-peaks-code'`
+Expected:`Switched to a new branch 'feature/peaks-code-to-peaks-code'`
 
 ---
 
@@ -385,7 +385,7 @@ pnpm peaks skill:visibility --list --json 2>&1 | tail -30
 
 Expected:JSON 含 4 个 public(peaks-code / peaks-resume / peaks-status / peaks-test)+ 6 个 internal(peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt)。
 
-(注:Task 1 阶段 peaks-solo-* 还没改名,所以 6 个 internal 还没换名,public 列表暂时是 peaks-solo / peaks-solo-resume / peaks-solo-status / peaks-solo-test。Task 3 后才统一为 peaks-code / peaks-resume / peaks-status / peaks-test。)
+(注:Task 1 阶段 peaks-code-* 还没改名,所以 6 个 internal 还没换名,public 列表暂时是 peaks-code / peaks-code-resume / peaks-code-status / peaks-code-test。Task 3 后才统一为 peaks-code / peaks-resume / peaks-status / peaks-test。)
 
 **Step 15: Commit**
 
@@ -404,7 +404,7 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(cli): p
 - Create: `src/services/migrate-skill-name/schema.ts`
 - Create: `src/cli/commands/session-migrate-skill-name.ts`
 - Create: `tests/unit/cli/session-migrate-skill-name.test.ts`
-- Create: `tests/fixtures/runtime/session-with-peaks-solo.json`
+- Create: `tests/fixtures/runtime/session-with-peaks-code.json`
 
 **Interfaces:**
 - Produces: CLI `peaks session migrate-skill-name --from <old> --to <new> [--apply] [--project <repo>] [--json]`
@@ -455,11 +455,11 @@ describe('peaks session migrate-skill-name', () => {
     mkdirSync(join(sandbox, '.peaks', '_runtime'), { recursive: true });
     writeFileSync(
       join(sandbox, '.peaks', '_runtime', 'active-skill.json'),
-      JSON.stringify({ skill: 'peaks-solo', sessionId: 'test', setAt: '2026-07-05T00:00:00Z' }, null, 2),
+      JSON.stringify({ skill: 'peaks-code', sessionId: 'test', setAt: '2026-07-05T00:00:00Z' }, null, 2),
     );
     writeFileSync(
       join(sandbox, '.peaks', '_runtime', 'session.json'),
-      JSON.stringify({ skill: 'peaks-solo', sessionId: 'test' }, null, 2),
+      JSON.stringify({ skill: 'peaks-code', sessionId: 'test' }, null, 2),
     );
   });
 
@@ -468,22 +468,22 @@ describe('peaks session migrate-skill-name', () => {
   });
 
   it('dry-run 不改盘', () => {
-    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: false });
+    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: false });
     expect(result.scannedFiles).toBeGreaterThan(0);
     expect(result.modifiedFiles).toBe(0);
     const after = JSON.parse(readFileSync(join(sandbox, '.peaks', '_runtime', 'active-skill.json'), 'utf-8'));
-    expect(after.skill).toBe('peaks-solo');
+    expect(after.skill).toBe('peaks-code');
   });
 
   it('--apply 改 active-skill.json 的 skill 字段', () => {
-    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     expect(result.modifiedFiles).toBeGreaterThanOrEqual(1);
     const after = JSON.parse(readFileSync(join(sandbox, '.peaks', '_runtime', 'active-skill.json'), 'utf-8'));
     expect(after.skill).toBe('peaks-code');
   });
 
   it('--apply 改 session.json 的 skill 字段', () => {
-    migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     const after = JSON.parse(readFileSync(join(sandbox, '.peaks', '_runtime', 'session.json'), 'utf-8'));
     expect(after.skill).toBe('peaks-code');
   });
@@ -492,45 +492,45 @@ describe('peaks session migrate-skill-name', () => {
     mkdirSync(join(sandbox, '.peaks', '_runtime', 'rd'), { recursive: true });
     writeFileSync(
       join(sandbox, '.peaks', '_runtime', 'rd', 'progress.json'),
-      JSON.stringify({ skill: 'peaks-solo', slice: 1 }, null, 2),
+      JSON.stringify({ skill: 'peaks-code', slice: 1 }, null, 2),
     );
-    migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     const after = JSON.parse(readFileSync(join(sandbox, '.peaks', '_runtime', 'rd', 'progress.json'), 'utf-8'));
     expect(after.skill).toBe('peaks-code');
   });
 
   it('跳过 .peaks/memory/**', () => {
     mkdirSync(join(sandbox, '.peaks', 'memory'), { recursive: true });
-    writeFileSync(join(sandbox, '.peaks', 'memory', 'test.md'), 'this mentions peaks-solo historically');
+    writeFileSync(join(sandbox, '.peaks', 'memory', 'test.md'), 'this mentions peaks-code historically');
     const before = readFileSync(join(sandbox, '.peaks', 'memory', 'test.md'), 'utf-8');
-    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     expect(result.skipped.some((p) => p.includes('memory'))).toBe(true);
     const after = readFileSync(join(sandbox, '.peaks', 'memory', 'test.md'), 'utf-8');
     expect(after).toBe(before);
   });
 
-  it('跳过 .peaks/skills/.system/bees/peaks-solo/manifest.json', () => {
-    mkdirSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo'), { recursive: true });
+  it('跳过 .peaks/skills/.system/bees/peaks-code/manifest.json', () => {
+    mkdirSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code'), { recursive: true });
     writeFileSync(
-      join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'),
-      JSON.stringify({ id: 'peaks-solo', displayName: 'Peaks Solo' }, null, 2),
+      join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'),
+      JSON.stringify({ id: 'peaks-code', displayName: 'Peaks Solo' }, null, 2),
     );
-    const before = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'), 'utf-8');
-    migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
-    const after = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'), 'utf-8');
+    const before = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'), 'utf-8');
+    migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
+    const after = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'), 'utf-8');
     expect(after).toBe(before);
   });
 
   it('幂等: 第二次跑 --apply 返回 0 modifications', () => {
-    migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
-    const result2 = migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
+    const result2 = migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     expect(result2.modifiedFiles).toBe(0);
     expect(result2.keyValueReplacements).toBe(0);
   });
 
   it('错误路径: JSON 损坏返回清晰错误(不静默跳过)', () => {
     writeFileSync(join(sandbox, '.peaks', '_runtime', 'broken.json'), '{ broken json');
-    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
+    const result = migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.ok).toBe(false);
   });
@@ -560,7 +560,7 @@ interface MigrateOpts {
   apply: boolean;
 }
 
-const SKIP_DIRS = ['memory', 'skills/.system/bees/peaks-solo/manifest.json'];
+const SKIP_DIRS = ['memory', 'skills/.system/bees/peaks-code/manifest.json'];
 const TARGET_ROOT = '.peaks/_runtime';
 const KEY_VALUE_PATTERN = (from: string, to: string) =>
   new RegExp(`"skill"\\s*:\\s*"${from}"`, 'g');
@@ -654,7 +654,7 @@ export function registerSessionMigrateSkillName(program: Command): void {
   program
     .command('session:migrate-skill-name')
     .description('Migrate skill-name strings in .peaks/_runtime/**/*.json (idempotent)')
-    .requiredOption('--from <old>', 'Old skill name (e.g., peaks-solo)')
+    .requiredOption('--from <old>', 'Old skill name (e.g., peaks-code)')
     .requiredOption('--to <new>', 'New skill name (e.g., peaks-code)')
     .option('--apply', 'Actually write changes (default is dry-run)')
     .option('--project <path>', 'Project root (default cwd)', '.')
@@ -697,7 +697,7 @@ Expected:`Tests 8 passed (8)`。
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-pnpm peaks session:migrate-skill-name --from peaks-solo --to peaks-code --project . 2>&1
+pnpm peaks session:migrate-skill-name --from peaks-code --to peaks-code --project . 2>&1
 ```
 
 Expected:输出 `Scanned: <N>` / `Modified: <N>`(非 apply,modified 是预测值)/ `Key-value replacements: <N>` / `Errors: 0`。
@@ -715,10 +715,10 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(cli): p
 ### Task 3: `git mv` 4 skill dirs + frontmatter rename
 
 **Files:**
-- Move: `skills/peaks-solo/` → `skills/peaks-code/`
-- Move: `skills/peaks-solo-resume/` → `skills/peaks-resume/`
-- Move: `skills/peaks-solo-status/` → `skills/peaks-status/`
-- Move: `skills/peaks-solo-test/` → `skills/peaks-test/`
+- Move: `skills/peaks-code/` → `skills/peaks-code/`
+- Move: `skills/peaks-code-resume/` → `skills/peaks-resume/`
+- Move: `skills/peaks-code-status/` → `skills/peaks-status/`
+- Move: `skills/peaks-code-test/` → `skills/peaks-test/`
 - Modify: 4 个 SKILL.md(frontmatter `name:` + `description:`)
 - Modify: 4 个 `references/` 目录里的 self-reference
 - Modify: `skills/peaks-code/test-prompts.json`(trigger 字符串)
@@ -727,10 +727,10 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "feat(cli): p
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-git mv skills/peaks-solo skills/peaks-code
-git mv skills/peaks-solo-resume skills/peaks-resume
-git mv skills/peaks-solo-status skills/peaks-status
-git mv skills/peaks-solo-test skills/peaks-test
+git mv skills/peaks-code skills/peaks-code
+git mv skills/peaks-code-resume skills/peaks-resume
+git mv skills/peaks-code-status skills/peaks-status
+git mv skills/peaks-code-test skills/peaks-test
 ```
 
 Expected:每次 mv 输出 `Renaming … to …`。
@@ -739,7 +739,7 @@ Expected:每次 mv 输出 `Renaming … to …`。
 
 ```bash
 ls skills/peaks-code skills/peaks-resume skills/peaks-status skills/peaks-test 2>&1
-ls skills/peaks-solo skills/peaks-solo-resume skills/peaks-solo-status skills/peaks-solo-test 2>&1
+ls skills/peaks-code skills/peaks-code-resume skills/peaks-code-status skills/peaks-code-test 2>&1
 ```
 
 Expected:前 4 个目录存在;后 4 个 `No such file or directory`。
@@ -760,7 +760,7 @@ description: Code-domain loop engineering orchestrator for the Peaks-Loop skill 
 ```yaml
 ---
 name: peaks-resume
-description: Universal resume primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Detects the current session's deepest completed gate and surfaces a resume option via AskUserQuestion. Use when ANY bee (peaks-code, future peaks-research, future peaks-content, …) needs to recover from /compact or session interruption. Triggers on "/peaks-resume", "continue the unfinished work", "继续完成", "把刚才没做完的收尾". (Replaces peaks-solo-resume as a top-level primitive.)
+description: Universal resume primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Detects the current session's deepest completed gate and surfaces a resume option via AskUserQuestion. Use when ANY bee (peaks-code, future peaks-research, future peaks-content, …) needs to recover from /compact or session interruption. Triggers on "/peaks-resume", "continue the unfinished work", "继续完成", "把刚才没做完的收尾". (Replaces peaks-code-resume as a top-level primitive.)
 ---
 ```
 
@@ -773,29 +773,29 @@ description: Universal resume primitive for any in-flight Peaks-Loop workflow (o
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-grep -rl "peaks-solo" skills/peaks-code/references/ 2>&1
+grep -rl "peaks-code" skills/peaks-code/references/ 2>&1
 ```
 
-Expected:列出所有含 `peaks-solo` 的文件。然后:
+Expected:列出所有含 `peaks-code` 的文件。然后:
 
 ```bash
-for f in $(grep -rl "peaks-solo" skills/peaks-code/references/); do
-  sed -i 's/peaks-solo/peaks-code/g; s/peaks-solo-resume/peaks-resume/g; s/peaks-solo-status/peaks-status/g; s/peaks-solo-test/peaks-test/g' "$f"
+for f in $(grep -rl "peaks-code" skills/peaks-code/references/); do
+  sed -i 's/peaks-code/peaks-code/g; s/peaks-code-resume/peaks-resume/g; s/peaks-code-status/peaks-status/g; s/peaks-code-test/peaks-test/g' "$f"
 done
-grep -r "peaks-solo" skills/peaks-code/references/ 2>&1
+grep -r "peaks-code" skills/peaks-code/references/ 2>&1
 ```
 
 Expected:第一次 grep 列文件,第二次 grep 无输出。
 
 **Step 8: 同样替换 peaks-resume / peaks-status / peaks-test 三个目录下的 references/ self-reference**
 
-(每个目录的 self-reference 是它自己的旧名,例如 peaks-resume/references/* 里出现 `peaks-solo-resume` → 改为 `peaks-resume`。)
+(每个目录的 self-reference 是它自己的旧名,例如 peaks-resume/references/* 里出现 `peaks-code-resume` → 改为 `peaks-resume`。)
 
 **Step 9: 替换 `skills/peaks-code/test-prompts.json` trigger 字符串**
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-sed -i 's|/peaks-solo|/peaks-code|g; s|peaks-solo|peaks-code|g' skills/peaks-code/test-prompts.json
+sed -i 's|/peaks-code|/peaks-code|g; s|peaks-code|peaks-code|g' skills/peaks-code/test-prompts.json
 ```
 
 (同样 peaks-resume / peaks-status / peaks-test 的 test-prompts.json 各自替换。)
@@ -826,7 +826,7 @@ Expected:PASS(若该测试断言 `name:` 字段等于目录名,本次改名后�
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 git add skills/
-git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(skills): rename 4 skill dirs peaks-solo* → peaks-code* / peaks-{resume,status,test}"
+git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(skills): rename 4 skill dirs peaks-code* → peaks-code* / peaks-{resume,status,test}"
 ```
 
 ---
@@ -839,40 +839,40 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(ski
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg -l "peaks-solo" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ 2>&1 | sort
+rg -l "peaks-code" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ 2>&1 | sort
 ```
 
 Expected:输出去重后的文件路径列表(典型 ~80 个)。把列表保存到 `/tmp/replace-list.txt` 备查。
 
-**Step 2: 替换 `peaks-solo-resume` / `peaks-solo-status` / `peaks-solo-test` 三件套**
+**Step 2: 替换 `peaks-code-resume` / `peaks-code-status` / `peaks-code-test` 三件套**
 
-(子串优先,避免 peaks-solo 先吃掉长串。)
+(子串优先,避免 peaks-code 先吃掉长串。)
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg -l "peaks-solo-(resume|status|test)" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ | while read f; do
+rg -l "peaks-code-(resume|status|test)" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ | while read f; do
   sed -i \
-    -e 's/peaks-solo-resume/peaks-resume/g' \
-    -e 's/peaks-solo-status/peaks-status/g' \
-    -e 's/peaks-solo-test/peaks-test/g' \
+    -e 's/peaks-code-resume/peaks-resume/g' \
+    -e 's/peaks-code-status/peaks-status/g' \
+    -e 's/peaks-code-test/peaks-test/g' \
     "$f"
 done
 ```
 
-**Step 3: 替换裸 `peaks-solo`**
+**Step 3: 替换裸 `peaks-code`**
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg -l "peaks-solo" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ | while read f; do
-  sed -i 's/peaks-solo/peaks-code/g' "$f"
+rg -l "peaks-code" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ | while read f; do
+  sed -i 's/peaks-code/peaks-code/g' "$f"
 done
 ```
 
-**Step 4: 验证不再有 `peaks-solo` 命中**
+**Step 4: 验证不再有 `peaks-code` 命中**
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg "peaks-solo" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ 2>&1
+rg "peaks-code" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ 2>&1
 ```
 
 Expected:无输出(0 命中)。
@@ -886,12 +886,12 @@ git diff --stat .peaks/memory/ .git/sdd/ 2>&1
 
 Expected:空白(零改动)。
 
-**Step 6: 改 `tests/fixtures/skills/pre-slim/peaks-solo.SKILL.md` 文件名 + 内容**
+**Step 6: 改 `tests/fixtures/skills/pre-slim/peaks-code.SKILL.md` 文件名 + 内容**
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-git mv tests/fixtures/skills/pre-slim/peaks-solo.SKILL.md tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
-sed -i 's/peaks-solo/peaks-code/g; s/peaks-solo-resume/peaks-resume/g; s/peaks-solo-status/peaks-status/g; s/peaks-solo-test/peaks-test/g' tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
+git mv tests/fixtures/skills/pre-slim/peaks-code.SKILL.md tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
+sed -i 's/peaks-code/peaks-code/g; s/peaks-code-resume/peaks-resume/g; s/peaks-code-status/peaks-status/g; s/peaks-code-test/peaks-test/g' tests/fixtures/skills/pre-slim/peaks-code.SKILL.md
 ```
 
 **Step 7: 改 `src/services/profiles/profile-service.ts` profile id**
@@ -900,10 +900,10 @@ sed -i 's/peaks-solo/peaks-code/g; s/peaks-solo-resume/peaks-resume/g; s/peaks-s
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg -n "peaks-solo" src/services/profiles/profile-service.ts
+rg -n "peaks-code" src/services/profiles/profile-service.ts
 ```
 
-Expected:输出若干行,然后 sub-agent 逐处 sed 替换为 `peaks-code`。该文件在 Task 1 / Task 2 已不存在 `peaks-solo` 字面,但 profile 服务有自己的 id 注册表,需要单独改。
+Expected:输出若干行,然后 sub-agent 逐处 sed 替换为 `peaks-code`。该文件在 Task 1 / Task 2 已不存在 `peaks-code` 字面,但 profile 服务有自己的 id 注册表,需要单独改。
 
 **Step 8: 跑 vitest(确认 Task 4 改动未引入回归)**
 
@@ -919,7 +919,7 @@ Expected:pass 数 ≥ Task 0 基线 - 因 fixture 改名可能造成若干 fixtu
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 git add -A
-git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(repo): full grep-replace peaks-solo* → peaks-code* across src/ tests/ scripts/ .claude/ .claude-plugin/ docs/"
+git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(repo): full grep-replace peaks-code* → peaks-code* across src/ tests/ scripts/ .claude/ .claude-plugin/ docs/"
 ```
 
 ---
@@ -927,7 +927,7 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(rep
 ### Task 5: Pool manifest + 4.x spec/plan + CHANGELOG
 
 **Files:**
-- Modify: `.peaks/skills/.system/bees/peaks-solo/manifest.json`
+- Modify: `.peaks/skills/.system/bees/peaks-code/manifest.json`
 - Modify: `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.1.1
 - Modify: `docs/superpowers/plans/2026-07-04-peaks-4x-sediment-pool.md`
 - Modify: `CHANGELOG.md`
@@ -936,11 +936,11 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "refactor(rep
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-# 实际路径取决于 release-build 输出位置;典型是 ~/.peaks/skills/.system/bees/peaks-solo/manifest.json
+# 实际路径取决于 release-build 输出位置;典型是 ~/.peaks/skills/.system/bees/peaks-code/manifest.json
 # 仓库内 .peaks/ 由 release-build 生成,Task 6 步骤才会 rebuild
 # 此处直接改源 manifest(若存在)
-sed -i 's/"id": "peaks-solo"/"id": "peaks-code"/; s/"displayName": "Peaks Solo"/"displayName": "Peaks Code"/' \
-  .peaks/skills/.system/bees/peaks-solo/manifest.json 2>&1 || \
+sed -i 's/"id": "peaks-code"/"id": "peaks-code"/; s/"displayName": "Peaks Solo"/"displayName": "Peaks Code"/' \
+  .peaks/skills/.system/bees/peaks-code/manifest.json 2>&1 || \
   echo "manifest 不在源仓库,由 Task 6 release-build 重新生成"
 ```
 
@@ -949,27 +949,27 @@ sed -i 's/"id": "peaks-solo"/"id": "peaks-code"/; s/"displayName": "Peaks Solo"/
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 # 把 §4.1.1 整段从 "preserved as alias" 改写为 "renamed in v4.1 to peaks-code"
-# 用 Edit 工具定位 "peaks-solo as preserved alias" 这一行(精确字符串匹配)
+# 用 Edit 工具定位 "peaks-code as preserved alias" 这一行(精确字符串匹配)
 ```
 
 Edit `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`:
 
 ```diff
--### 4.1.1 peaks-solo as preserved alias (existing skill, unchanged UX)
+-### 4.1.1 peaks-code as preserved alias (existing skill, unchanged UX)
 -
--The pool introduces bees by `bee-*` name; peaks-solo's name is grandfathered. To preserve muscle memory for existing users ("type peaks-solo = start PRD/bug-analysis/coding workflow"), peaks-solo is **not split** and **not renamed**. The pool registry carries a single system-stable entry under its existing name:
-+### 4.1.1 peaks-code (renamed from peaks-solo in v4.1.0; physical path preserved)
+-The pool introduces bees by `bee-*` name; peaks-code's name is grandfathered. To preserve muscle memory for existing users ("type peaks-code = start PRD/bug-analysis/coding workflow"), peaks-code is **not split** and **not renamed**. The pool registry carries a single system-stable entry under its existing name:
++### 4.1.1 peaks-code (renamed from peaks-code in v4.1.0; physical path preserved)
 +
-+The pool introduces bees by `bee-*` name. In v4.1.0 the user-facing skill id `peaks-solo` was renamed to `peaks-code` to align with the post-4.x multi-domain positioning: peaks-code is one code-domain loop engineering orchestrator among several future orchestrators (e.g., future peaks-research, peaks-content). The physical path `~/.peaks/skills/.system/bees/peaks-solo/` is preserved for backward-compat with the 4.x 6-table storage; only the manifest `id` field changed. Three sub-skills (`peaks-solo-resume / -status / -test`) were lifted to universal primitives (`peaks-resume / -status / -test`). The pool registry now carries:
++The pool introduces bees by `bee-*` name. In v4.1.0 the user-facing skill id `peaks-code` was renamed to `peaks-code` to align with the post-4.x multi-domain positioning: peaks-code is one code-domain loop engineering orchestrator among several future orchestrators (e.g., future peaks-research, peaks-content). The physical path `~/.peaks/skills/.system/bees/peaks-code/` is preserved for backward-compat with the 4.x 6-table storage; only the manifest `id` field changed. Three sub-skills (`peaks-code-resume / -status / -test`) were lifted to universal primitives (`peaks-resume / -status / -test`). The pool registry now carries:
 ```
 
 (后续 manifest 块相应 id 改 `peaks-code`、displayName 改 `Peaks Code`。)
 
-**Step 3: 替换 4.x plan 全文里的 peaks-solo**
+**Step 3: 替换 4.x plan 全文里的 peaks-code**
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-sed -i 's/peaks-solo-resume/peaks-resume/g; s/peaks-solo-status/peaks-status/g; s/peaks-solo-test/peaks-test/g; s/peaks-solo/peaks-code/g' \
+sed -i 's/peaks-code-resume/peaks-resume/g; s/peaks-code-status/peaks-status/g; s/peaks-code-test/peaks-test/g; s/peaks-code/peaks-code/g' \
   docs/superpowers/plans/2026-07-04-peaks-4x-sediment-pool.md
 ```
 
@@ -980,10 +980,10 @@ sed -i 's/peaks-solo-resume/peaks-resume/g; s/peaks-solo-status/peaks-status/g; 
 
 ### Renamed (Breaking)
 
-- Skill `peaks-solo` → `peaks-code` (skill id, display name, description). Slash command `/peaks-solo` → `/peaks-code`. Pool physical path `~/.peaks/skills/.system/bees/peaks-solo/` preserved; manifest `id` field updated.
-- Skill `peaks-solo-resume` → `peaks-resume` (universal resume primitive, available to any bee).
-- Skill `peaks-solo-status` → `peaks-status` (universal status primitive).
-- Skill `peaks-solo-test` → `peaks-test` (universal test-runner primitive).
+- Skill `peaks-code` → `peaks-code` (skill id, display name, description). Slash command `/peaks-code` → `/peaks-code`. Pool physical path `~/.peaks/skills/.system/bees/peaks-code/` preserved; manifest `id` field updated.
+- Skill `peaks-code-resume` → `peaks-resume` (universal resume primitive, available to any bee).
+- Skill `peaks-code-status` → `peaks-status` (universal status primitive).
+- Skill `peaks-code-test` → `peaks-test` (universal test-runner primitive).
 
 ### Changed (Breaking)
 
@@ -1000,7 +1000,7 @@ sed -i 's/peaks-solo-resume/peaks-resume/g; s/peaks-solo-status/peaks-status/g; 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 pnpm vitest run 2>&1 | tail -10
-rg "peaks-solo" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ docs/superpowers/ 2>&1
+rg "peaks-code" src/ tests/ scripts/ .claude/ .claude-plugin/ docs/ docs/superpowers/ 2>&1
 ```
 
 Expected:vitest 全绿;rg 在 `docs/superpowers/specs/2026-07-04-…md` 仍可能命中 1-2 处历史叙述(本任务已改写),最终命中数为 0。
@@ -1009,8 +1009,8 @@ Expected:vitest 全绿;rg 在 `docs/superpowers/specs/2026-07-04-…md` 仍可�
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-git add .peaks/skills/.system/bees/peaks-solo/manifest.json docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md docs/superpowers/plans/2026-07-04-peaks-4x-sediment-pool.md CHANGELOG.md
-git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "docs(skills): rename peaks-solo → peaks-code in pool manifest + 4.x spec/plan + CHANGELOG"
+git add .peaks/skills/.system/bees/peaks-code/manifest.json docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md docs/superpowers/plans/2026-07-04-peaks-4x-sediment-pool.md CHANGELOG.md
+git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "docs(skills): rename peaks-code → peaks-code in pool manifest + 4.x spec/plan + CHANGELOG"
 ```
 
 ---
@@ -1025,7 +1025,7 @@ git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "docs(skills)
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-pnpm peaks session:migrate-skill-name --from peaks-solo --to peaks-code --project . --json 2>&1
+pnpm peaks session:migrate-skill-name --from peaks-code --to peaks-code --project . --json 2>&1
 ```
 
 Expected:JSON 输出含 `ok: true`,`scannedFiles: <N>`,`modifiedFiles: <N>`(预测),`errors: []`。
@@ -1035,10 +1035,10 @@ Expected:JSON 输出含 `ok: true`,`scannedFiles: <N>`,`modifiedFiles: <N>`(预�
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 mkdir -p .peaks/_runtime/test-migrate-fixture
-echo '{"skill":"peaks-solo","sessionId":"fixture"}' > .peaks/_runtime/test-migrate-fixture/session.json
-pnpm peaks session:migrate-skill-name --from peaks-solo --to peaks-code --project . --apply --json 2>&1
+echo '{"skill":"peaks-code","sessionId":"fixture"}' > .peaks/_runtime/test-migrate-fixture/session.json
+pnpm peaks session:migrate-skill-name --from peaks-code --to peaks-code --project . --apply --json 2>&1
 cat .peaks/_runtime/test-migrate-fixture/session.json
-pnpm peaks session:migrate-skill-name --from peaks-solo --to peaks-code --project . --json 2>&1
+pnpm peaks session:migrate-skill-name --from peaks-code --to peaks-code --project . --json 2>&1
 ```
 
 Expected:fixture 文件含 `"skill":"peaks-code"`;第二次跑 modifiedFiles:0(幂等)。
@@ -1047,7 +1047,7 @@ Expected:fixture 文件含 `"skill":"peaks-code"`;第二次跑 modifiedFiles:0(�
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-pnpm peaks session:migrate-skill-name --from peaks-solo --to peaks-code --project . --apply --json 2>&1
+pnpm peaks session:migrate-skill-name --from peaks-code --to peaks-code --project . --apply --json 2>&1
 ```
 
 Expected:`ok: true`,`modifiedFiles: <N>`,`keyValueReplacements: <N>`,`errors: []`。
@@ -1056,10 +1056,10 @@ Expected:`ok: true`,`modifiedFiles: <N>`,`keyValueReplacements: <N>`,`errors: []
 
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
-rg "peaks-solo" .peaks/_runtime/ 2>&1 | head -20
+rg "peaks-code" .peaks/_runtime/ 2>&1 | head -20
 ```
 
-Expected:0 命中(扣除白名单:`.peaks/skills/.system/bees/peaks-solo/manifest.json` 内 `id` 字段已改 `peaks-code`,但路径名保留)。
+Expected:0 命中(扣除白名单:`.peaks/skills/.system/bees/peaks-code/manifest.json` 内 `id` 字段已改 `peaks-code`,但路径名保留)。
 
 **Step 5: 删除 fixture**
 
@@ -1119,18 +1119,18 @@ Expected:`Release 4.1.0 tagged successfully`。
 ```bash
 cd C:/Users/smallMark/Desktop/peaks-loop
 git add -A
-git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "chore(release): v4.1.0 — peaks-solo → peaks-code + sub-skills to primitives" --allow-empty
+git -c user.name=SquabbyZ -c user.email=601709253@qq.com commit -m "chore(release): v4.1.0 — peaks-code → peaks-code + sub-skills to primitives" --allow-empty
 ```
 
 ---
 
 ## Acceptance Criteria(摘自 spec §8,任务自检清单)
 
-- [ ] **AC-1:** `rg "peaks-solo" src/ tests/ scripts/ .claude/ .claude-plugin/ skills/ docs/superpowers/` 输出为空(扣除 spec 改写后的历史叙述)。
-- [ ] **AC-2:** `rg "peaks-solo-resume|peaks-solo-status|peaks-solo-test" .`(扣除 `.peaks/memory/`、`openspec/`、`.git/sdd/`)输出为空。
+- [ ] **AC-1:** `rg "peaks-code" src/ tests/ scripts/ .claude/ .claude-plugin/ skills/ docs/superpowers/` 输出为空(扣除 spec 改写后的历史叙述)。
+- [ ] **AC-2:** `rg "peaks-code-resume|peaks-code-status|peaks-code-test" .`(扣除 `.peaks/memory/`、`openspec/`、`.git/sdd/`)输出为空。
 - [ ] **AC-3:** 四个新目录存在,四个旧目录不存在。
 - [ ] **AC-4:** 四个新 SKILL.md 的 frontmatter `name:` 字段等于 `peaks-code` / `peaks-resume` / `peaks-status` / `peaks-test`。
-- [ ] **AC-5:** `~/.peaks/skills/.system/bees/peaks-solo/manifest.json` 的 `id` 字段等于 `"peaks-code"`(物理路径不动)。
+- [ ] **AC-5:** `~/.peaks/skills/.system/bees/peaks-code/manifest.json` 的 `id` 字段等于 `"peaks-code"`(物理路径不动)。
 - [ ] **AC-6:** `pnpm vitest run` 全绿。
 - [ ] **AC-7:** `pnpm run dogfood:sediment` 全过。
 - [ ] **AC-8:** `peaks skill presence --json` 在已迁移的 session 中输出 `"skill": "peaks-code"`。

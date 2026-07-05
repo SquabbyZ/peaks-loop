@@ -59,7 +59,7 @@ But the actual implementation in 5 CLI files collapsed to:
 const sid = options.sessionId ?? 'unknown-sid';
 ```
 
-The "default resolve from active session" was never wired up. When an LLM driver (peaks-solo orchestrator or downstream agent) saw the help text, trusted the auto-resolve, and omitted `--session-id`, the dispatch landed under `.peaks/_sub_agents/unknown-sid/`.
+The "default resolve from active session" was never wired up. When an LLM driver (peaks-code orchestrator or downstream agent) saw the help text, trusted the auto-resolve, and omitted `--session-id`, the dispatch landed under `.peaks/_sub_agents/unknown-sid/`.
 
 Affected sites (all 6 inline sites across 5 files):
 - `src/cli/commands/dispatch-commands.ts:148` (warm-path single dispatch)

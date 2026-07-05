@@ -1,6 +1,6 @@
 # Sub-agent dispatch (RD)
 
-> Body of `## Sub-agent dispatch`. When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+> Body of `## Sub-agent dispatch`. When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
 ## Default `--from-dag` is mandatory (slice 2026-06-24-efficiency-4p-bundle / G2 / P0.3)
 
@@ -32,7 +32,7 @@
 > `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts` (≥ 8 cases
 > covering 1-leaf, 2-leaf, 3+-leaf, config/docs/chore type-bypass, and
 > the preferences-with-serial-default fan-out escape hatch). See also
-> `skills/peaks-solo/references/fanout-mandatory.md` for the
+> `skills/peaks-code/references/fanout-mandatory.md` for the
 > orchestrator-side rationale; the two files share the same wording by
 > design — if either changes, update the other.
 

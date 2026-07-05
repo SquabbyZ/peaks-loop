@@ -10,7 +10,7 @@ Net effect on every 2.0.3 install on Windows + macOS + Linux:
 - Every Write / Edit / MultiEdit call is rejected by the broken hook.
 - The [Fact-Forcing Gate] bypass that `peaks workspace init` is supposed to install is therefore self-defeating — the bypass breaks the gate itself, and the gate cannot be reached to fix it.
 
-Recovery requires the user to either delete `.claude/settings.local.json` manually (losing the bypass permanently) or hand-patch the `command` field (drift vs the template). This blocks any peaks-solo Step 0 / Step 2 / RD / QA flow on a clean install.
+Recovery requires the user to either delete `.claude/settings.local.json` manually (losing the bypass permanently) or hand-patch the `command` field (drift vs the template). This blocks any peaks-code Step 0 / Step 2 / RD / QA flow on a clean install.
 
 ## What Changes
 

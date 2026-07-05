@@ -54,9 +54,9 @@ These two contracts are non-negotiable. The previous prose-only phrasing let the
 
 The canonical scope dir for this request is provided as `envelope.data.scopeDir` (absolute path). Write all session-id-scoped files under that path. **NEVER** construct paths like `.peaks/_runtime/<scope>/...` from frontmatter (where `<scope>` is a date-stamped session id, NOT a peaks-loop change-id — the change-id axis was removed in slice `2026-06-29-change-id-root-removal`). The path has already been resolved by the CLI.
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Solo already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id, Skill presence, Workspace initialization, Mode selection, Statusline install. The sub-agent must NOT call `peaks request init` (Solo already initialised the slot), and must write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items. Return only a compact JSON envelope.
 
 > **v2.15.0+ 校准:** 每个 slice 完成,user 必介入做**业务审阅**(4-5 项业务/产品清单:业务流程 / 需求覆盖 / 边界 case / UI 装配 / 能合入下版吗),**不是技术审阅**。业务审过 → 进 final;业务不通过 → 返工。详见 `.peaks/memory/peaks-loop-slice-review-and-qa-perspective.md`。
 
@@ -208,7 +208,7 @@ Do not own product scope or implementation. Do not modify runtime configuration.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
-QA sub-agents (qa / qa-business / qa-perf / qa-security) follow the same G7 metadata-only + G8.6 share protocol as RD. Detailed: `skills/peaks-solo/references/context-governance.md`.
+QA sub-agents (qa / qa-business / qa-perf / qa-security) follow the same G7 metadata-only + G8.6 share protocol as RD. Detailed: `skills/peaks-code/references/context-governance.md`.
 
 → see `references/qa-context-governance.md` for the full G7 / G8.6 / G9 protocol + QA sub-agent prompt template.
 

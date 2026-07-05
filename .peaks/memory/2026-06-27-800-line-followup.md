@@ -32,7 +32,7 @@ However, the LOC scan that was triggered by the correction **did find 3 real vio
 - Context budget for 2026-06-27 already spent: 5+ slices, archive-removal completion + post-mortem.
 - Each split is itself a non-trivial slice (1067 → 3 files = ~350 LOC each; needs TDD + code review + QA per slice).
 - 3 splits × ~30-50 min/slice = 1.5-2.5 hours of focused work. Better as a dedicated session.
-- Per user direction (2026-06-27, peaks-solo AskUserQuestion): "先记录，明天再说".
+- Per user direction (2026-06-27, peaks-code AskUserQuestion): "先记录，明天再说".
 
 ### Recommended approach (when picked up)
 

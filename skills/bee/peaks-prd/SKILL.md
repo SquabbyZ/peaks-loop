@@ -229,7 +229,7 @@ Use gstack as a concrete workflow reference for the product-facing parts of `Thi
 
 ## Authenticated product document workflow
 
-When the source PRD is an authenticated web document such as Feishu/Lark, use the Playwright MCP headed-browser surface rather than unauthenticated fetch tools. Chrome DevTools MCP is a secondary surface that only connects to an already-running Chrome (`--remote-debugging-port=9222`); it does not launch a browser on its own. The canonical browser workflow lives in `peaks-solo/references/browser-workflow.md`; the rules below are the PRD-specific application.
+When the source PRD is an authenticated web document such as Feishu/Lark, use the Playwright MCP headed-browser surface rather than unauthenticated fetch tools. Chrome DevTools MCP is a secondary surface that only connects to an already-running Chrome (`--remote-debugging-port=9222`); it does not launch a browser on its own. The canonical browser workflow lives in `peaks-code/references/browser-workflow.md`; the rules below are the PRD-specific application.
 
 1. Confirm Playwright MCP is installed: check the LLM tool list for any Playwright MCP entry in the LLM tool list. If absent, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or the IDE-native install command. Do not hand-edit `.claude/settings.json`.
 2. Before navigation, verify the user-provided document URL uses `https:` and belongs to an approved Feishu/Lark tenant domain such as `*.feishu.cn`, `*.larksuite.com`, `*.larksuite.com.cn`, or a project-configured tenant. Reject `file:`, `data:`, `javascript:`, `http:`, localhost, loopback, link-local, private IP, and raw IP hosts unless the user explicitly approves a controlled local test target.

@@ -7,7 +7,7 @@ metadata:
 
 # `~/.peaks/` 盘点 + 保守档清理（2026-06-28 session 75d5f0）
 
-**触发**: 用户在 v2.14.0 anti-fake-green PRD 完成后让 peaks-solo "顺手整理下 `C:\Users\smallMark\.peaks`"。
+**触发**: 用户在 v2.14.0 anti-fake-green PRD 完成后让 peaks-code "顺手整理下 `C:\Users\smallMark\.peaks`"。
 **执行档**: 保守档（A 方案）——只删 3 项死残留，不覆盖任何运行时配置，不动 log。
 
 ## 1. 清理前 vs 清理后
@@ -85,7 +85,7 @@ metadata:
 
 ### 时间戳
 
-- **T0** (session 启动) — `peaks skill presence --json` 读 active skill marker → peaks-solo 活跃
+- **T0** (session 启动) — `peaks skill presence --json` 读 active skill marker → peaks-code 活跃
 - **T1 (11:18)** — Step 1 完成：`rm -rf ~/.peaks/workspaces/invalid-artifact/` → 6 文件删除
 - **T2 (11:19)** — Step 2 完成：`config.json.version: 2.13.0 → 2.14.0`；`pnpm vitest run tests/unit/doctor.test.ts` → **50/50 passed**
 - **T3 (11:19)** — Step 3 完成：`mv 7 logs → ~/.peaks/logs/archive/2026-Q2/`；06-28 留 root

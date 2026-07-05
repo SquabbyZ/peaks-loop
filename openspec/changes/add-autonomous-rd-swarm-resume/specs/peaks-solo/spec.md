@@ -1,4 +1,4 @@
-# Spec Delta: peaks-solo
+# Spec Delta: peaks-code
 
 ## ADDED Requirements
 

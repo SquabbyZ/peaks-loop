@@ -71,6 +71,6 @@ Missing section: reviewer is skipped (transition still passes; envelope records 
 - DO NOT silently prompt users for API keys. Missing env vars surface as `providerUnavailable` and the `fallbackOnError` policy decides skip vs throw.
 - DO NOT change the schema for the 5 existing envelope parsers (v2.13.3 territory). The ReviewerEnvelope schema is additive.
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill runs as a sub-agent dispatched by peaks-solo, the sub-agent receives the parent session id and change-id via envelope. It MUST write its output to `.peaks/_runtime/<sessionId>/rd/third-party-review.json` + `.md` and return a compact JSON envelope.
+When this skill runs as a sub-agent dispatched by peaks-code, the sub-agent receives the parent session id and change-id via envelope. It MUST write its output to `.peaks/_runtime/<sessionId>/rd/third-party-review.json` + `.md` and return a compact JSON envelope.

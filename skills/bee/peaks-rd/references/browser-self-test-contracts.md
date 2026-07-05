@@ -21,7 +21,7 @@ AskUserQuestion({
     { label: "Skip browser self-test, hand off to QA",
       description: "Mark the slice's browser self-test as deferred. Do NOT mark the slice as RD-done; transition to qa-handoff with browser-gate=blocked reason=login-required, and let QA's gate machinery surface the wall to the user again." },
     { label: "Cancel the workflow",
-      description: "Stop RD. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
+      description: "Stop RD. Emit a blocked TXT handoff so peaks-code can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
   ]
 })
 ```

@@ -14,7 +14,7 @@ metadata:
 
 # IdeAdapter resource-profile framework (slice #011)
 
-## Decision (2026-06-07, slice #011, peaks-solo full-auto)
+## Decision (2026-06-07, slice #011, peaks-code full-auto)
 
 The `IdeAdapter` shape in `src/services/ide/ide-types.ts` is extended (purely additive) with two new `readonly?` optional fields:
 
@@ -33,7 +33,7 @@ Both fields are optional. Adapters that don't declare them trigger a fallback pa
 Three cross-IDE hardcodes in peaks-loop 1.3.3 blocked Trae (and future Cursor / Codex / Qoder / Tongyi Lingma) adoption:
 
 1. `peaks standards init` wrote `CLAUDE.md` + `.claude/rules/**` regardless of the user's IDE.
-2. `peaks-solo` standards preflight read those same files.
+2. `peaks-code` standards preflight read those same files.
 3. `scripts/install-skills.mjs` (the npm `postinstall` hook) symlinked skills to `~/.claude/skills/` regardless of IDE.
 
 Trae users got the work done at paths Trae does not auto-read — the result was invisible to their IDE. The fix had to be **generic**: future adapters should be one-entry registrations on the existing `IdeAdapter` shape, not per-IDE codepath rewrites.

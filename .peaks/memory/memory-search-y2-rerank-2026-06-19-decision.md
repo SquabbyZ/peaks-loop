@@ -13,7 +13,7 @@ metadata:
 
 **Date:** 2026-06-19
 **Verdict:** ❌ **NO-GO**
-**Decision owner:** peaks-solo (inline-assisted, peaks-rd mode)
+**Decision owner:** peaks-code (inline-assisted, peaks-rd mode)
 **Locked status:** This decision **supersedes** the GO bias in the original 2026-06-18 proposal (`.peaks/memory/2026-06-18-peaks-zvec-spike-proposal.md`).
 
 ## TL;DR

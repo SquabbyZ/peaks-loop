@@ -8,7 +8,7 @@ This change makes the product direction explicit: Peaks should reuse existing ca
 
 ## What Changes
 
-- Add a product-level autonomous RD goal package for `peaks-prd` / `peaks-solo` workflows.
+- Add a product-level autonomous RD goal package for `peaks-prd` / `peaks-code` workflows.
 - Model `/goal`-style completion conditions as optional session accelerators, not as the durable Peaks orchestrator.
 - Add checkpoint, resume, worker queue, artifact evidence, and validation evidence requirements for `peaks-rd` autonomous swarm planning.
 - Add capability reuse requirements so Peaks consults known MCPs, skills, and repos before proposing custom implementation.

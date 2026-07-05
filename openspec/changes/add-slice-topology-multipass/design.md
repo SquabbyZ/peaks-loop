@@ -2,7 +2,7 @@
 
 ## Goal
 
-Enable `peaks slice decompose` to produce hierarchical multi-pass slice topology that supports peaks-solo fan-out RD. Each Pass is one invocation of the existing 6-stage algorithm at a fixed granularity; Passes are layered (service → file → optional sub-file) and joined by a cross-pass edge merger with strict LLM 兜底.
+Enable `peaks slice decompose` to produce hierarchical multi-pass slice topology that supports peaks-code fan-out RD. Each Pass is one invocation of the existing 6-stage algorithm at a fixed granularity; Passes are layered (service → file → optional sub-file) and joined by a cross-pass edge merger with strict LLM 兜底.
 
 ## Architecture
 
@@ -122,7 +122,7 @@ The audit must be **good enough that the human accepts the goal on first review*
 
 ### Where audit + goal lives
 
-Owned by `peaks-solo` (the orchestrator). Invoked immediately after the human expresses the need, BEFORE any PRD / RD / QA work begins. The `peaks-audit` skill (new in this change) documents the audit algorithm and 6 dimensions.
+Owned by `peaks-code` (the orchestrator). Invoked immediately after the human expresses the need, BEFORE any PRD / RD / QA work begins. The `peaks-audit` skill (new in this change) documents the audit algorithm and 6 dimensions.
 
 The `peaks-slice-decompose` skill explicitly states it is invoked AFTER audit + goal approval.
 
@@ -208,7 +208,7 @@ The human can:
 
 ### Where Final Review lives
 
-Owned by `peaks-solo` (orchestrator). Invoked after LLM completes all autonomous work (RD, QA, verification). The `peaks-final-review` skill (NEW in v1) documents the 4 dimensions and how to interpret evidence.
+Owned by `peaks-code` (orchestrator). Invoked after LLM completes all autonomous work (RD, QA, verification). The `peaks-final-review` skill (NEW in v1) documents the 4 dimensions and how to interpret evidence.
 
 ### Critical distinction: business review vs code review
 
@@ -328,7 +328,7 @@ function writeHandoff(filePath: string, frontmatter: HandoffFrontmatter, body: s
 
 ## Skill Layer (LLM-facing operation manual)
 
-In peaks-loop's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-solo / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
+In peaks-loop's architecture, **skills are the LLM's operation manuals for the CLI**. The CLI exposes atomic primitives; the skill tells the LLM when to invoke which primitive and how to interpret the output. This change introduces both — without the skill layer, peaks-code / peaks-rd / peaks-qa cannot discover or correctly use the new multi-pass algorithm.
 
 ### New skill: `peaks-slice-decompose`
 
@@ -361,7 +361,7 @@ skills/peaks-slice-decompose/
 
 | Skill | Reference to add | What it tells the LLM |
 |---|---|---|
-| `peaks-solo/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` in the "slice planning" section | When Solo orchestrates a multi-slice task, dispatch to `peaks-slice-decompose` first |
+| `peaks-code/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` in the "slice planning" section | When Solo orchestrates a multi-slice task, dispatch to `peaks-slice-decompose` first |
 | `peaks-rd/SKILL.md` | New `references/reading-v2-slice-results.md` | How RD reads the v2 JSON and plans sub-agent dispatch per pass |
 | `peaks-qa/SKILL.md` | New `references/cross-pass-edge-verification.md` | How QA verifies that a multi-pass plan was executed with the right cross-pass ordering |
 | `peaks-prd/SKILL.md` | New `references/prd-for-multi-pass.md` | How PRD authors write acceptance criteria that yield clean slice boundaries |

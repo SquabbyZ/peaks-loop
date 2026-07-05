@@ -22,7 +22,7 @@ The doctor workflow is read-only by design. It produces:
 - `peaks doctor` report (69 checks: 68 pass, 1 fail — L3:l3-memory-health)
 - Optional OpenSpec change records via `peaks openspec from-doctor`
 
-If a doctor finding requires a code change, the workflow hands off to `peaks-rd` (or `peaks-solo` for the full pipeline). The doctor itself does NOT modify code.
+If a doctor finding requires a code change, the workflow hands off to `peaks-rd` (or `peaks-code` for the full pipeline). The doctor itself does NOT modify code.
 
 ## Workflow (5 steps)
 

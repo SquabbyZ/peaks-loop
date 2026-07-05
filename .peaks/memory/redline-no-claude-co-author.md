@@ -36,4 +36,4 @@ If a sub-agent dispatch mistakenly outputs a `Co-Authored-By:` trailer, strip it
 ## Related
 
 - [[sub-agent-no-commit-rule]] — sub-agents never commit; solo decides
-- [[peaks-solo-sub-agent-commit-incident]] — analogous 2026-06-28 RD sub-agent auto-commit incident
+- [[peaks-code-sub-agent-commit-incident]] — analogous 2026-06-28 RD sub-agent auto-commit incident

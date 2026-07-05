@@ -47,9 +47,9 @@ For frontend / UI-affecting slices, RD's self-test uses the Playwright MCP heade
 
 → see `references/browser-self-test-contracts.md` and `references/browser-action-wrapper.md` (slice 3 thin wrapper).
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id (use parent's), Skill presence, Workspace initialization, Mode selection, Statusline install.
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run: Session id (use parent's), Skill presence, Workspace initialization, Mode selection, Statusline install.
 
 What the sub-agent MUST still do: read PRD via `peaks request show`, run standards preflight (dry-run only), write planning artefact (`rd/tech-doc.md` for feature/refactor; `rd/bug-analysis.md` for bugfix; skip for config/docs/chore), return compact JSON envelope.
 
@@ -57,7 +57,7 @@ What the sub-agent MUST still do: read PRD via `peaks request show`, run standar
 
 ## Skill presence (MANDATORY first action — main-loop context only)
 
-When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-solo` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run `peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup`. Install statusline on first run. Read durable project memory via `peaks project memories --project <repo> --json`.
+When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-code` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run `peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup`. Install statusline on first run. Read durable project memory via `peaks project memories --project <repo> --json`.
 
 → see `references/skill-presence-and-title.md` for the full contract.
 
@@ -231,7 +231,7 @@ Do not bypass the parallel review fan-out when the slice has a code-review / qa-
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
-RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-solo/references/context-governance.md` + `skills/peaks-solo/references/headroom-integration.md`.
+RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md` + `skills/peaks-code/references/headroom-integration.md`.
 
 → see `references/rd-context-governance.md` for the full G7 / G8.6 / G9 protocol + RD sub-agent prompt template.
 

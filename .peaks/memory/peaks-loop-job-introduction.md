@@ -4,7 +4,7 @@ description: peaks-loop Job v1.0 — outer-wrapper construct for long multi-slic
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-solo Step 0.8+, peaks CLI (peaks job *), .peaks/_runtime/<sid>/job/<jid>/
+  affects: peaks-code Step 0.8+, peaks CLI (peaks job *), .peaks/_runtime/<sid>/job/<jid>/
 ---
 
 # peaks-loop Job v1.0 — Introduction (2026-07-03 ship state)
@@ -78,7 +78,7 @@ All three are on by default. Suppression is a red-line violation.
 - Wrapper: `src/services/job/subagent-job-wrapper.ts`.
 - Snapshot: `src/services/job/job-resource-snapshot.ts`.
 - Event emit: `src/services/job/job-event-emitter.ts`.
-- Skill: `skills/peaks-solo/SKILL.md` (Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87).
+- Skill: `skills/peaks-code/SKILL.md` (Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87).
 
 ## Related
 

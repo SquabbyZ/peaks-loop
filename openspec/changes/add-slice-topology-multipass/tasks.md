@@ -67,7 +67,7 @@ The CLI exposes atomic primitives; skills are how the LLM knows when to invoke w
 
 ### 8.2 Updated skills (additive references only — no breaking changes to existing content)
 
-- [ ] Update `peaks-solo/SKILL.md`: add reference link to `peaks-slice-decompose/SKILL.md` in the slice planning section.
+- [ ] Update `peaks-code/SKILL.md`: add reference link to `peaks-slice-decompose/SKILL.md` in the slice planning section.
 - [ ] Update `peaks-rd/SKILL.md`: add `references/reading-v2-slice-results.md` (~80 LoC) explaining how to consume the v2 JSON via SchemaRouter.
 - [ ] Update `peaks-qa/SKILL.md`: add `references/cross-pass-edge-verification.md` (~80 LoC) explaining cross-pass edge verification.
 - [ ] Update `peaks-prd/SKILL.md`: add `references/prd-for-multi-pass.md` (~80 LoC) explaining how to write ACs that yield clean slice boundaries.
@@ -92,15 +92,15 @@ The audit + goal step is the bridge between human need expression and autonomous
 - [ ] Document the one-shot accuracy target and tactics for achieving it.
 - [ ] Skill tests: SKILL.md loads, all referenced files exist, no broken cross-references.
 
-### 9.3 Integration with peaks-solo and peaks-slice-decompose
+### 9.3 Integration with peaks-code and peaks-slice-decompose
 
-- [ ] Update `peaks-solo/SKILL.md` Step 0.6 (NEW — between Step 0.5 OpenSpec opt-in and Step 0.7 resume detection):
+- [ ] Update `peaks-code/SKILL.md` Step 0.6 (NEW — between Step 0.5 OpenSpec opt-in and Step 0.7 resume detection):
   - Invoke `peaks-audit` immediately after human need expression.
   - Display the audit + proposed goal to the human.
   - Gate the rest of the workflow on human's explicit goal approval.
   - Record the approved goal to `.peaks/_runtime/<sid>/audit-goal/<rid>.json` for downstream skills to read.
-- [ ] Update `peaks-slice-decompose/SKILL.md` (in the v1 Skill layer work) to include an explicit precondition note: "This skill is invoked AFTER audit + goal approval. If you have not received an approved goal, do NOT invoke this skill — return to peaks-solo."
-- [ ] Integration test: end-to-end peaks-solo flow with audit + goal approval gates slice-decompose invocation correctly.
+- [ ] Update `peaks-slice-decompose/SKILL.md` (in the v1 Skill layer work) to include an explicit precondition note: "This skill is invoked AFTER audit + goal approval. If you have not received an approved goal, do NOT invoke this skill — return to peaks-code."
+- [ ] Integration test: end-to-end peaks-code flow with audit + goal approval gates slice-decompose invocation correctly.
 
 ## 10. Final Review primitive (4-dim business review)
 
@@ -123,15 +123,15 @@ Touchpoint #3 is NOT approve/reject — it is a structured 4-dim business review
 - [ ] Document the distinction: code review = LLM; business review = human.
 - [ ] Skill tests: SKILL.md loads, all referenced files exist, no broken cross-references.
 
-### 10.3 Integration with peaks-solo
+### 10.3 Integration with peaks-code
 
-- [ ] Update `peaks-solo/SKILL.md` end-of-workflow Step (NEW):
+- [ ] Update `peaks-code/SKILL.md` end-of-workflow Step (NEW):
   - After LLM signals all autonomous work complete (RD done, QA done, security done, perf done), invoke `peaks-final-review`.
   - Display the 4-dim evidence summary to the human.
   - Wait for human judgment (accept all / mark specific dims failed with feedback / add qualitative concern).
   - If accept all → final delivery.
   - If any dimension failed → loop back to LLM with feedback (stays within LLM's 90% authority).
-- [ ] Integration test: peaks-solo flow with Final Review correctly accepts or loops back based on human input.
+- [ ] Integration test: peaks-code flow with Final Review correctly accepts or loops back based on human input.
 
 ## 11. Handoff frontmatter schema (Option A — JSON for structure, markdown for prose)
 

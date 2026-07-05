@@ -1,23 +1,23 @@
 ---
 schemaVersion: 1
 id: default-fullauto-md
-label: Default fullauto-md workflow (peaks-solo)
+label: Default fullauto-md workflow (peaks-code)
 description: |
-  Encapsulates the canonical peaks-solo step sequence (step 0 / 0.5 /
+  Encapsulates the canonical peaks-code step sequence (step 0 / 0.5 /
   0.6 / 0.7 / 0.55 / 1 / 2 / N / N+1 / N+2). The runtime executes
   phases in declaration order; LLM is the worker, not the orchestrator.
   This file is git-tracked; project overrides live under
   `.peaks/workflows/<id>.yaml` (per ADR 0007 v2 concern #3).
 phases:
   - id: step-0-init
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: |
       Initialize the session: bind the project via `peaks workspace init`
       and confirm the active session id.
     gates: [Gate A1]
     outputContract: [sessionId, projectRoot]
   - id: step-0-5-collect
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: |
       Run `peaks context build` to assemble the 4-layer context (PRD +
       standards + memories + gates).
@@ -25,7 +25,7 @@ phases:
     outputContract: [contextPath]
     dependsOn: [step-0-init]
   - id: step-0-6-classify
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: |
       Run `peaks classify` to determine the L1 task class (rd/qa/feat/...)
       and emit the per-level gate set.
@@ -33,7 +33,7 @@ phases:
     outputContract: [taskClass, gateSet]
     dependsOn: [step-0-5-collect]
   - id: step-0-7-scope
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: |
       Decompose the request into a slice DAG (`peaks slice-decompose`)
       and produce the parallel fan-out plan.
@@ -41,7 +41,7 @@ phases:
     outputContract: [sliceDag]
     dependsOn: [step-0-6-classify]
   - id: step-0-55-preflight
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: |
       Run `peaks loop preflight` (doctor + audit) before dispatching the
       first RD phase.

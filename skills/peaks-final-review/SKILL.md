@@ -1,6 +1,6 @@
 ---
 name: peaks-final-review
-description: Final-review skill for Peaks. Use when a workflow needs to assemble 4-dimension business-review evidence (functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact) for human acceptance at the end of an autonomous slice. Triggers on "/peaks-final-review", "prepare final review", "4-dim review", or peaks-solo end-of-workflow handoff.
+description: Final-review skill for Peaks. Use when a workflow needs to assemble 4-dimension business-review evidence (functional-completeness, problem-resolution, no-new-bugs, existing-functionality-intact) for human acceptance at the end of an autonomous slice. Triggers on "/peaks-final-review", "prepare final review", "4-dim review", or peaks-code end-of-workflow handoff.
 ---
 
 ## Single-scope-axis naming convention
@@ -66,7 +66,7 @@ If any precondition is missing, **STOP** and route back to the responsible skill
 ### Current call path (today, until a CLI wrapper is built)
 
 ```ts
-// peaks-solo end-of-workflow, peaks-txt, or any other hand-rolled caller
+// peaks-code end-of-workflow, peaks-txt, or any other hand-rolled caller
 import { prepareFinalReview } from './src/services/final-review/final-review-service.js';
 import { auditGoalLlmRunner } from './src/services/audit/llm-runner.js'; // or your provider
 
@@ -85,7 +85,7 @@ const out = await prepareFinalReview('<rid>', {
 peaks prepare-final-review --rid <rid> [--session-id <sid>] --json
 ```
 
-`--rid` is required and resolves to `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. `--json` is required for machine consumption (peaks-solo, peaks-txt, downstream CI). The wrapper will resolve `--session-id` from `.peaks/_runtime/current-change` when omitted, matching the workspace binding pattern used by `peaks request *`.
+`--rid` is required and resolves to `.peaks/_runtime/<sessionId>/audit-goal/<rid>.json`. `--json` is required for machine consumption (peaks-code, peaks-txt, downstream CI). The wrapper will resolve `--session-id` from `.peaks/_runtime/current-change` when omitted, matching the workspace binding pattern used by `peaks request *`.
 
 ## Output
 

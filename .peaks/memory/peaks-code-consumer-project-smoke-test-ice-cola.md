@@ -9,7 +9,7 @@ metadata:
 
 # peaks-code 在消费项目 ice-cola 实测 — 2026-07-05
 
-> **Why:** 2026-07-05 完成 peaks-solo → peaks-code rename 后,首次在消费项目 (`C:\Users\smallMark\Desktop\peaksclaw\ice-cola`) 做端到端 smoke 测试。本条记录实测发现的 3 个冰山一角陷阱,以免未来 sessions 重复踩。
+> **Why:** 2026-07-05 完成 peaks-code → peaks-code rename 后,首次在消费项目 (`C:\Users\smallMark\Desktop\peaksclaw\ice-cola`) 做端到端 smoke 测试。本条记录实测发现的 3 个冰山一角陷阱,以免未来 sessions 重复踩。
 
 ## 实测环境
 
@@ -28,9 +28,9 @@ $ ./node_modules/.bin/peaks skill:visibility --list --json
   + 6 internal (peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt)
 → (注意:ice-cola 没有 peaks-sop,peaks-loop 自身有 — consumer project 拿不到 peaks-loop 私有 skill,符合 spec)
 
-$ ./node_modules/.bin/peaks session migrate-skill-name --from peaks-solo --to peaks-code --project . --json
+$ ./node_modules/.bin/peaks session migrate-skill-name --from peaks-code --to peaks-code --project . --json
 → ok: true, scannedFiles: 198, modifiedFiles: 0, keyValueReplacements: 0, errors: []
-→ (ice-cola 历史 runtime 198 文件全扫,0 处需修改 — ice-cola 从未做过 rename,所以无 peaks-solo 残留需迁移)
+→ (ice-cola 历史 runtime 198 文件全扫,0 处需修改 — ice-cola 从未做过 rename,所以无 peaks-code 残留需迁移)
 
 $ ./node_modules/.bin/peaks skill presence:set peaks-code --gate startup
 → active: true, skill: "peaks-code", sessionId: 2026-07-03-session-763a70
@@ -73,6 +73,6 @@ $ ./node_modules/.bin/peaks skill presence --json
 
 ## Related designs / memory
 
-- `docs/superpowers/specs/2026-07-05-peaks-solo-to-peaks-code-rename-design.md` §3.6 (trigger 字符串同步) — 验证 consumer 端 trigger 字符串
-- `docs/superpowers/plans/2026-07-05-peaks-solo-to-peaks-code.md` Task 6 (LLM auto-migrate) — ice-cola migrate 实测确认 ok
-- [[peaks-solo-to-peaks-code-rename-session-directive]] — rename 时的 6 条硬约束,实测期间 0 违反
+- `docs/superpowers/specs/2026-07-05-peaks-code-to-peaks-code-rename-design.md` §3.6 (trigger 字符串同步) — 验证 consumer 端 trigger 字符串
+- `docs/superpowers/plans/2026-07-05-peaks-code-to-peaks-code.md` Task 6 (LLM auto-migrate) — ice-cola migrate 实测确认 ok
+- [[peaks-code-to-peaks-code-rename-session-directive]] — rename 时的 6 条硬约束,实测期间 0 违反

@@ -10,10 +10,10 @@ metadata:
 
 **Status**: DRAFT — 待用户 review（2026-06-18）
 **Locked decisions**:
-- Semantic search 策略 = **Y2**（active IDE LLM 重排序）：用 peaks-solo 已经走通的 `SubAgentDispatcher` 机制调 active IDE 的 LLM，让 LLM 对 fuzzy 候选做最后的相关性排序
+- Semantic search 策略 = **Y2**（active IDE LLM 重排序）：用 peaks-code 已经走通的 `SubAgentDispatcher` 机制调 active IDE 的 LLM，让 LLM 对 fuzzy 候选做最后的相关性排序
 - 零新 npm 依赖、零新 API key、零新 SDK；zero-config（user 不需要做任何配置）
 - 离线模式 **不是目标**——必须有 active AI IDE 提供 LLM；不 active 则降级 fuzzy（无 regression）
-- Skill-driven orchestration：`peaks-solo` Step 2.3 自动触发 re-rank，CLI 仅暴露执行原语
+- Skill-driven orchestration：`peaks-code` Step 2.3 自动触发 re-rank，CLI 仅暴露执行原语
 
 ## Motivation
 
@@ -30,7 +30,7 @@ metadata:
 | 新增 deps | `@zvec/zvec` C++ 二进制 +5MB | `@zvec/zvec` + `ai` + `@ai-sdk/openai` | **0 新 npm 依赖** |
 | 配置要求 | model API key（OpenAI 等） | OpenAI key 配置 | **零配置**（用 IDE 内置 LLM） |
 | 离线模式 | MiniLM 保证可离线 | 不保证——需 model API key | **不保证**——需 active AI IDE 提供 LLM |
-| Re-rank 触发 | 用户手动 `peaks memory reindex` | skill 自动触发 | **skill 自动触发**（`peaks-solo` Step 2.3 检测 staleness 后调 CLI 原语） |
+| Re-rank 触发 | 用户手动 `peaks memory reindex` | skill 自动触发 | **skill 自动触发**（`peaks-code` Step 2.3 检测 staleness 后调 CLI 原语） |
 | 用户可见 CLI | `peaks memory reindex`（直接面对用户） | CLI 原语只对 skill 暴露 | **CLI 原语只对 skill 暴露**（参照 `peaks sub-agent dispatch` 模式） |
 | LLM 通信路径 | 走新的 embed API | 走 OpenAI embedding API | **走 active IDE 的 chat 协议**（SubAgentDispatcher 已有的能力） |
 | 所有 IDE 兼容 | ❌ 仅 Anthropic / OpenAI 路径 | ❌ Claude Code / Trae 在 2.x 没 embedder | ✅ **所有 IDE 一视同仁**（Claude Code / Cursor / Codex / Trae 都能用各自的 LLM） |
@@ -163,17 +163,17 @@ metadata:
 
 ### Skill-Driven Orchestration（关键 AC-ZA-9）
 
-- **AC-ZA-9**：`peaks-solo/SKILL.md` Step 2.3 改造——载入项目记忆前自动调 CLI 原语（**LLM rerank 而非 reindex**）
+- **AC-ZA-9**：`peaks-code/SKILL.md` Step 2.3 改造——载入项目记忆前自动调 CLI 原语（**LLM rerank 而非 reindex**）
   - 在 SKILL.md 里写明决策逻辑（**不是**用户指令）：
     ```
     1. Run `peaks memory search "<query>"` with default fuzzy backend → get top-10 candidates
     2. If active IDE + chat available: Run `peaks memory rerank "<query>" <candidates>` → get top-5
     3. Else: degrade to fuzzy top-10 + warning (fail-open)
     ```
-  - skill 不暴露 rerank 命令给用户；用户在 chat 里说"peaks-solo 帮我查 memory 关于 X"→ skill 自动处理
+  - skill 不暴露 rerank 命令给用户；用户在 chat 里说"peaks-code 帮我查 memory 关于 X"→ skill 自动处理
   - **CLI 原语**（`peaks memory rerank`）**只对 skill 暴露**，不在 `peaks --help` 用户可见的 surface
   - 类似 `peaks sub-agent dispatch <role>` 模式——CLI 是 skill 的原语，不直接对用户
-- **AC-ZA-10**：`peaks-solo/SKILL.md` + `peaks-rd/SKILL.md` + `peaks-qa/SKILL.md` 三个最常用 skill 都加同样的 LLM rerank 逻辑
+- **AC-ZA-10**：`peaks-code/SKILL.md` + `peaks-rd/SKILL.md` + `peaks-qa/SKILL.md` 三个最常用 skill 都加同样的 LLM rerank 逻辑
   - 三个 SKILL.md 共享同一个 helper（`references/memory-rerank-helper.md`）——避免逻辑漂移
 
 ### Red-line scope（Slice Z-A）
@@ -185,7 +185,7 @@ metadata:
 - 新增 2 个 CLI 原语（**仅 skill 可见**）：`memory-rerank` / `memory-search-with-rerank`（或合并到现有 `memory search` 加 `--rerank` flag）
 - 新增 benchmark 脚本 `scripts/bench/memory-search-token-cost.ts`
 - 新增 2-3 个 spike 期间的 test 文件
-- 改 `peaks-solo/SKILL.md` Step 2.3 + 新增 `references/memory-rerank-helper.md`
+- 改 `peaks-code/SKILL.md` Step 2.3 + 新增 `references/memory-rerank-helper.md`
 - 改 `peaks-rd/SKILL.md` + `peaks-qa/SKILL.md` Step 2.3 引用 helper
 - 新增 1 份 memory（memory-search-y2-rerank-2026-06-18.md 决策记录）
 
@@ -205,9 +205,9 @@ metadata:
 | Active IDE chat 超时（5s 阈值） | AC-ZA-8 L2 降级到 fuzzy + warning；超时阈值在 AC-ZA-2 smoke test 时调优 |
 | LLM rerank 输出 parse 失败（非预期 JSON 格式） | AC-ZA-8 L3 降级到 fuzzy top-N（不调 LLM 解析失败就用 fuzzy 原始 top-10/20）+ warning |
 | LLM rerank 每次 search 调 LLM 成本高 | AC-ZA-6 缓存层（hash(query + candidates) → 24h TTL）；AC-ZA-5 实测成本 |
-| Skill-driven rerank 触发逻辑写错（频繁 rerank） | peaks-solo Step 2.3 加 staleness 检测：仅在 fuzzy top-N 与上次差异 >X 时触发 rerank |
+| Skill-driven rerank 触发逻辑写错（频繁 rerank） | peaks-code Step 2.3 加 staleness 检测：仅在 fuzzy top-N 与上次差异 >X 时触发 rerank |
 | IDE chat 协议变更（IDE 升级后接口变） | 复用 SubAgentDispatcher 已有的版本管理机制；Z-A 测试时验证 5 IDE 都兼容 |
-| Skill 暴露的 CLI 原语被用户误用 | AC-ZA-9 明确 CLI `--help` 文本声明"This command is the primitive that peaks-solo SKILL.md composes to refresh memory. Users do not invoke this directly."（参考 `peaks sub-agent dispatch` 的处理模式） |
+| Skill 暴露的 CLI 原语被用户误用 | AC-ZA-9 明确 CLI `--help` 文本声明"This command is the primitive that peaks-code SKILL.md composes to refresh memory. Users do not invoke this directly."（参考 `peaks sub-agent dispatch` 的处理模式） |
 
 ### GO/NO-GO 决策标准
 
@@ -216,7 +216,7 @@ Z-A 在以下条件**全部满足**才进 Z-B：
 2. AC-ZA-5 实测 L2 token 节省 ≥20%（保守阈值，宁可 NO-GO 也不勉强）
 3. AC-ZA-4 query 准确率主观评测 ≥L1（recall 不退化）
 4. 三平台 CI 全过（如果 peaks-loop 有 CI）
-5. Skill-driven flow 在 `peaks-solo` / `peaks-rd` / `peaks-qa` 三个 skill 都验证自动 rerank 触发正常
+5. Skill-driven flow 在 `peaks-code` / `peaks-rd` / `peaks-qa` 三个 skill 都验证自动 rerank 触发正常
 
 **任意不满足 → NO-GO**：
 - 写 memory `memory-search-y2-rerank-2026-06-18-no-go.md` 记录失败原因 + 测量数据

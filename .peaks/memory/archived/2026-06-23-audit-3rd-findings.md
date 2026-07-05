@@ -17,7 +17,7 @@ status: archived
 | 3 | Concurrency | **HIGH** | `appendHeartbeat` race vs `markCompleted` / parallel heartbeats | `src/services/dispatch/dispatch-record-writer.ts:163-194` |
 | 4 | Security | **MEDIUM** | Dispatch envelope returns full `prompt` in stdout (secret leak surface) | `src/cli/commands/dispatch-commands.ts:271` |
 | 5 | Security | **MEDIUM** | `playwright-commands.ts` does not validate `--user-data-dir` is under projectRoot | `src/cli/commands/playwright-commands.ts:170-178` |
-| 6 | Documentation | **MEDIUM** | G8.4 share / shared-read / await sub-commands undocumented in SKILL.md | `skills/peaks-solo/SKILL.md` (absent) |
+| 6 | Documentation | **MEDIUM** | G8.4 share / shared-read / await sub-commands undocumented in SKILL.md | `skills/peaks-code/SKILL.md` (absent) |
 | 7 | Performance | **LOW** | `dispatch-commands.ts` at 524/800 lines — `runDispatchFromDag` split candidate | `src/cli/commands/dispatch-commands.ts:320-525` |
 | 8 | Test isolation | **LOW** | `share-commands.test.ts` lastWriteWins test depends on millisecond timing | `tests/unit/cli/commands/share-commands.test.ts:99-111` |
 | 9 | Error propagation | **LOW** | Share/heartbeat error envelopes lack actionable nextActions | `src/cli/commands/share-commands.ts:117, 174, 260` |
@@ -131,7 +131,7 @@ browser state to arbitrary paths.
 
 ### 6. Documentation MEDIUM — G8.4 sub-commands undocumented
 
-`skills/peaks-solo/SKILL.md` mentions `dispatch` (in 2 places) and
+`skills/peaks-code/SKILL.md` mentions `dispatch` (in 2 places) and
 the `dispatch --from-dag` path, but never mentions `share` /
 `shared-read` / `await`. The LLM-side runner has no entry point in
 the SKILL.md to know these exist. The only documentation is in the

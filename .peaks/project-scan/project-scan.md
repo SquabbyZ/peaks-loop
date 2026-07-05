@@ -21,7 +21,7 @@ libraryVersions:
 architecture: |
   peaks-loop is a TypeScript Node CLI for AI-coding workflow orchestration.
   Architecture:
-    skills/             — declarative reference docs (peaks-solo / peaks-rd / peaks-qa / peaks-prd / peaks-ui / peaks-txt / peaks-sc)
+    skills/             — declarative reference docs (peaks-code / peaks-rd / peaks-qa / peaks-prd / peaks-ui / peaks-txt / peaks-sc)
     src/services/       — typed business services (one module per concern)
     src/cli/commands/   — Commander.js subcommand registration surface
     src/shared/         — cross-cutting types + helpers (result / paths / version / format)

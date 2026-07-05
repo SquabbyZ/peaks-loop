@@ -39,9 +39,9 @@ AskUserQuestion({
     { label: "I am logged in / I'll log in now",
       description: "Pause QA. The visible browser is already open; the user completes login in-place, then types 'logged in' or equivalent. QA then resumes browser_navigate + browser_snapshot from the post-login page." },
     { label: "Skip browser validation for this slice",
-      description: "Mark the affected acceptance items as unverified in the test report. Do NOT issue a pass verdict. The slice stays in qa-running with the browser gate marked blocked, reason=login-required. peaks-solo's repair loop will surface this on the next cycle." },
+      description: "Mark the affected acceptance items as unverified in the test report. Do NOT issue a pass verdict. The slice stays in qa-running with the browser gate marked blocked, reason=login-required. peaks-code's repair loop will surface this on the next cycle." },
     { label: "Cancel the workflow",
-      description: "Stop QA immediately. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not mark any acceptance items as accepted." }
+      description: "Stop QA immediately. Emit a blocked TXT handoff so peaks-code can surface the auth wall to the user. Do not mark any acceptance items as accepted." }
   ]
 })
 ```

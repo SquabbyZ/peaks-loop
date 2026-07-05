@@ -70,7 +70,7 @@ export function isSoloCodeCommit(skill: string, command: string): boolean {
 }
 ```
 
-Wired into `src/services/hooks/pre-tool-use-bash.ts` (existing). Deny message: "Solo Code-Change Red Line: peaks-* skills must go through peaks-solo / peaks-rd. Use `peaks request transition` instead."
+Wired into `src/services/hooks/pre-tool-use-bash.ts` (existing). Deny message: "Solo Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
 
 ### 2. no-root-pollution
 

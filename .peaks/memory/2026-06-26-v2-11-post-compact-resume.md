@@ -1,20 +1,20 @@
 ---
 name: 2026-06-26-v2-11-post-compact-resume
-description: v2.11.0 D7 — after manual /compact, peaks-solo MUST auto-resume (run Step 0.75, read memory, continue PRD draft) without re-asking the user to confirm resume. Companion to D5 (full-auto self-decision) and D6 (main-session context monitor).
+description: v2.11.0 D7 — after manual /compact, peaks-code MUST auto-resume (run Step 0.75, read memory, continue PRD draft) without re-asking the user to confirm resume. Companion to D5 (full-auto self-decision) and D6 (main-session context monitor).
 metadata:
   type: project
 ---
 
 # D7 — post-compact auto-resume contract
 
-> User asked: "我是想先手动 compact 之后，你再继续". Confirms: manual `/compact` (Claude Code native context compression) → fresh Claude Code context window (same peaks-loop `<sessionId>`) → peaks-solo auto-resumes from the prior checkpoint (no AskUserQuestion) → loads project memory → continues the in-flight task. The fresh LLM should NOT re-litigate mode, re-confirm resume, or re-explain the task.
+> User asked: "我是想先手动 compact 之后，你再继续". Confirms: manual `/compact` (Claude Code native context compression) → fresh Claude Code context window (same peaks-loop `<sessionId>`) → peaks-code auto-resumes from the prior checkpoint (no AskUserQuestion) → loads project memory → continues the in-flight task. The fresh LLM should NOT re-litigate mode, re-confirm resume, or re-explain the task.
 
 ## The pain (literal user quote)
 
 > "我是想先手动 compact 之后，你再继续"
 
-Translation: After the user manually triggers Claude Code's native `/compact` slash command (escaping context overflow), the next turn must seamlessly continue the peaks-solo workflow. Today the fresh-context LLM:
-- Does not know peaks-solo was in flight
+Translation: After the user manually triggers Claude Code's native `/compact` slash command (escaping context overflow), the next turn must seamlessly continue the peaks-code workflow. Today the fresh-context LLM:
+- Does not know peaks-code was in flight
 - Re-asks mode selection (Step 1)
 - Re-asks resume confirmation (Step 0.7 — "never silently auto-resume")
 - Has to re-load project memory (Step 2.3)
@@ -43,7 +43,7 @@ Post-compact auto-resume triggers when ALL of the following are true:
 | 1 | `.peaks/_runtime/<sessionId>/` is bound | Step 0 anchor succeeds | Workspace exists |
 | 2 | `.peaks/_runtime/<sessionId>/checkpoints/` has ≥1 file from today | Step 0.75 probe | User worked today |
 | 3 | Latest checkpoint has `mode` field | Last checkpoint metadata | We know which mode to restore |
-| 4 | User invokes `/peaks-solo` (not a different skill) | Skill presence detection | peaks-solo is the active skill |
+| 4 | User invokes `/peaks-code` (not a different skill) | Skill presence detection | peaks-code is the active skill |
 | 5 | Latest checkpoint was written within last 24h | mtime check | Same-day only (cross-day uses normal resume) |
 
 If any condition fails, fall through to normal Step 0.7 (which may still ask via AskUserQuestion in assisted/strict modes).
@@ -93,16 +93,16 @@ Appended to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md`. The peaks-txt S
 
 ### D7.f — Fresh-context auto-detection mechanism (two options)
 
-For post-compact auto-resume to work, the fresh-context LLM needs to know peaks-solo is in flight. Two options:
+For post-compact auto-resume to work, the fresh-context LLM needs to know peaks-code is in flight. Two options:
 
 | Option | Mechanism | When to use |
 |---|---|---|
-| **Option A (LLM-driven)** | User re-invokes `/peaks-solo` in fresh context. peaks-solo Step 0.7 detects today's checkpoint → auto-resume. | **Default for v2.11.0** — no new infrastructure |
+| **Option A (LLM-driven)** | User re-invokes `/peaks-code` in fresh context. peaks-code Step 0.7 detects today's checkpoint → auto-resume. | **Default for v2.11.0** — no new infrastructure |
 | **Option B (hook-driven)** | SessionStart hook fires `peaks session info --active --json` + injects resume context into fresh LLM's first turn. | **Deferred** — requires SessionStart hook infra; can come in a later slice |
 
-**Lean Option A for v2.11.0:** the user types `/peaks-solo` (or the skill is auto-loaded by CLAUDE.md / skills config), peaks-solo detects the in-flight session via today's checkpoint, auto-resumes. No new CLI or hooks needed.
+**Lean Option A for v2.11.0:** the user types `/peaks-code` (or the skill is auto-loaded by CLAUDE.md / skills config), peaks-code detects the in-flight session via today's checkpoint, auto-resumes. No new CLI or hooks needed.
 
-Option B would let the fresh LLM auto-continue even without typing `/peaks-solo` — but that adds infrastructure surface area (SessionStart hook, prompt injection, edge cases for non-peaks sessions). Defer until the user explicitly asks for it.
+Option B would let the fresh LLM auto-continue even without typing `/peaks-code` — but that adds infrastructure surface area (SessionStart hook, prompt injection, edge cases for non-peaks sessions). Defer until the user explicitly asks for it.
 
 ### D7.g — Cross-session scope (NOT in scope for D7)
 
@@ -201,7 +201,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 
 - The existing Step 0.75 (resume from checkpoint) is **unchanged** — D7 extends it with the auto-resume path
 - The existing Step 0.7 (resume detection) keeps its AskUserQuestion for non-post-compact cases (multi-day resume, fresh start, different skill invoked)
-- The peaks-solo skill still respects the "never silently auto-resume" rule for the general case
+- The peaks-code skill still respects the "never silently auto-resume" rule for the general case
 - D7.b is the ONLY AskUserQuestion site where all modes auto-proceed, by design (user already approved pre-compact)
 - Cross-day resume is NOT in scope (D7.g) — keep `peaks session resume --from <path>` for that
 - The peaks-loop `<sessionId>` axis is preserved across `/compact` (Claude Code's outer session changes, but peaks-loop owns its own session continuity)
@@ -209,7 +209,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 ## Open questions
 
 - Should Option B (SessionStart hook) be added in v2.11.0 or deferred? **Lean deferred** — Option A covers the user's literal request, less surface area; revisit post-v2.11.0 if user asks
-- Should post-compact auto-resume work even if the user invokes a DIFFERENT skill (not `/peaks-solo`) in fresh context? **Lean no** — the user might want a fresh perspective. Verify with user post-PRD
+- Should post-compact auto-resume work even if the user invokes a DIFFERENT skill (not `/peaks-code`) in fresh context? **Lean no** — the user might want a fresh perspective. Verify with user post-PRD
 - Should the auto-resume be opt-out via `peaks.solo.postCompactResume: false` in `.peaks/preferences.json`? **Lean yes** — default-on matches user's "你再继续" wording, opt-out for edge cases (rare LLM misfire, multi-session ambiguity)
 - Should the resume context block include the original user message (pre-compact) or just the checkpoint summary? **Lean summary only** — original messages may be sensitive / out of context. Checkpoint's `current-plan` + `open-questions` + `recent-decisions` is enough
 - What if multiple sessions have today's checkpoint (multi-session user)? Disambiguate via `lastActivity` (most recent wins); if equal, fall through to AskUserQuestion with disambiguation options. **Verify with user.**

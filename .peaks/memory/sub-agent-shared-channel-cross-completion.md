@@ -109,11 +109,11 @@ G8 adds **dispatcher-mediated shared channel** for sibling sub-agent status; it 
 
 ## How to apply
 
-For every sub-agent dispatch by peaks-solo / peaks-rd / peaks-qa:
+For every sub-agent dispatch by peaks-code / peaks-rd / peaks-qa:
 
 1. Sub-agent prompt includes the G8.6 protocol block (mandatory)
 2. SKILL.md fan-out sections reference `peaks sub-agent share` and `peaks sub-agent shared-read` CLIs
-3. Dispatcher (peaks-solo main loop) creates the SharedChannel file at batch start
+3. Dispatcher (peaks-code main loop) creates the SharedChannel file at batch start
 4. Dispatcher GCs SharedChannel at batch close (reducer complete)
 5. Reducer emit view: "shared channel entries this batch" alongside the G7 metadata view
 

@@ -61,7 +61,7 @@ In this session (2026-06-27-session-b483e6) we finished:
 ## 2026-06-27 late update — Tier 2 partial (security-audit service) ALSO done
 
 > Context hit 80% (160k/200k) during Tier 2 implementation.
-> Karpathy §1 + peaks-solo D6 emergency threshold forced a hard stop.
+> Karpathy §1 + peaks-code D6 emergency threshold forced a hard stop.
 
 ### Added in late update
 
@@ -151,7 +151,7 @@ version bump to 2.12.0.)
 
 ### Next step (next session / this session if context allows)
 
-- **Option A — run 5-way fan-out + peaks-qa** for Group A (per peaks-solo SKILL.md
+- **Option A — run 5-way fan-out + peaks-qa** for Group A (per peaks-code SKILL.md
   mandatory RD→QA loop). This is what completes the "Group A" cycle.
 - **Option B — commit Group A code only**, mark Tier 4-9 as Group B-E work in a
   follow-up slice, exit the session. (Lower-risk; user can resume Group B in

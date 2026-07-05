@@ -1,6 +1,6 @@
 # Parallel review fan-out (RD)
 
-> Body of `## Parallel review fan-out`. **When RD reaches the end of implementation, the three review activities (code review, QA test-cases draft, AND karpathy review) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm. RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 3 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+> Body of `## Parallel review fan-out`. **When RD reaches the end of implementation, the three review activities (code review, QA test-cases draft, AND karpathy review) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-code uses for the post-PRD swarm. RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 3 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
 
 **v2.12.0 collapse (Group A — Tier 1+2+3):** the previous 4-way fan-out (slice 004) plus the appended `karpathy-reviewer` (slice 5/6) totalled **5 sub-agents**. The `security-reviewer` and `perf-baseline-reviewer` slots moved out of the RD fan-out into two new standalone audit skills:
 

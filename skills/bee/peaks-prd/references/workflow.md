@@ -15,7 +15,7 @@ When the product source is an authenticated Feishu/Lark/wiki document:
 7. Do not persist login URLs, redirect URLs, cookies, request or response headers, session tokens, tokens, storage state, QR payloads, raw browser state, raw network logs, browser traces, or screenshots/logs containing PII or SSO/MFA material into artifacts; redact sensitive evidence before writing `.peaks` outputs.
 8. If access remains blocked, record only a redacted document identifier, a sanitized state category such as `login-required`, `mfa-required`, or `access-denied`, and the exact user action needed.
 
-Canonical browser workflow: `../../peaks-solo/references/browser-workflow.md`.
+Canonical browser workflow: `../../peaks-code/references/browser-workflow.md`.
 
 ## Implementation-oriented analysis
 

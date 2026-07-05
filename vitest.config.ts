@@ -12,7 +12,7 @@ const stableCoverageRoot = process.platform === 'win32'
 // to process.cwd() in a future cleanup. See PRD 2026-06-24-baseline-92-triage
 // (change-id 014-full-dogfood) for the full root-cause analysis.
 //
-// Why: `peaks session init` / peaks-solo orchestrators create a temporary
+// Why: `peaks session init` / peaks-code orchestrators create a temporary
 // workspace under the system Temp dir (e.g. C:\Users\...\AppData\Local\Temp\)
 // and the orchestrator's child processes (including vitest workers spawned
 // via npm/pnpm scripts) inherit that Temp cwd. vitest's default `root` is

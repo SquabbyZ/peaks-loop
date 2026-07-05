@@ -1,17 +1,17 @@
 ---
 name: 2026-07-03-v3-1-0-job-trigger-miss
-description: v3.1.0 first-ship incident — peaks-solo missed Job-loop trigger on real project despite matching keywords; Step 0.8 was prose-only with no detector and no BLOCKING gate
+description: v3.1.0 first-ship incident — peaks-code missed Job-loop trigger on real project despite matching keywords; Step 0.8 was prose-only with no detector and no BLOCKING gate
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-solo Step 0.8, skills/peaks-solo/SKILL.md, runbook, tests/unit/solo/, src/cli/commands/
+  affects: peaks-code Step 0.8, skills/peaks-code/SKILL.md, runbook, tests/unit/solo/, src/cli/commands/
 ---
 
 # v3.1.0 — Job-Loop Trigger Miss (real-project incident, 2026-07-03)
 
 ## What happened
 
-User invoked `/peaks-solo` on a real project with prompt:
+User invoked `/peaks-code` on a real project with prompt:
 
 > 把项目下的 app 目录下以目录为维度进行 slice 补充单元测试，补充完验证没有问题后 commit 改动，继续执行下个 slice，直到全部添加完，不用考虑费用，等全部添加好再通知我
 
@@ -20,11 +20,11 @@ This prompt hits **both** Step 0.8 trigger conditions verbatim:
 1. "继续执行下个 slice，直到全部添加完" → matches `"全部完成"` / `"until all done"` family
 2. "不用考虑费用" → matches disavow-cost branch
 
-But `peaks-solo` did NOT enter Job mode. It ran 5 slices serially as a single rid, then hit StrategicCompact at context 162k/200k (81%) and STOPPED with a final-handoff message — even though 30 of 35 slices remained.
+But `peaks-code` did NOT enter Job mode. It ran 5 slices serially as a single rid, then hit StrategicCompact at context 162k/200k (81%) and STOPPED with a final-handoff message — even though 30 of 35 slices remained.
 
 ## Root cause
 
-`skills/peaks-solo/SKILL.md` line 100-104 declares Step 0.8 as a *prose* instruction:
+`skills/peaks-code/SKILL.md` line 100-104 declares Step 0.8 as a *prose* instruction:
 
 ```
 ### Peaks-Loop Step 0.8 — Job 启动
@@ -43,7 +43,7 @@ Missing pieces that made it fail in practice:
 
 - Solo wrote a final-handoff message **while 30/35 slices remained** — violates `peaks-loop-job-introduction.md` red-line #1 ("Enter Step 11 / write final handoff while job has remaining slices").
 - Solo stopped at 81% context and asked the user to restart in a new session — violates red-line #2 ("Re-ask the user about cost / length / context").
-- No `job/<jid>/state.json` was ever created. The orchestrator state is empty; if the user re-invokes `/peaks-solo` today, the LLM-runner sees zero Job residue and may re-do work or skip the remaining 30 slices.
+- No `job/<jid>/state.json` was ever created. The orchestrator state is empty; if the user re-invokes `/peaks-code` today, the LLM-runner sees zero Job residue and may re-do work or skip the remaining 30 slices.
 - 5 slice commits are real and on `feature/v1.12.0/performence` — that part is fine; the regression is purely in the loop engineering.
 
 ## Proposed v3.1.1 patch (not yet shipped)

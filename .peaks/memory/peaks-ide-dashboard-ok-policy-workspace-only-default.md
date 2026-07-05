@@ -40,7 +40,7 @@ gate.
   (`'workspace-only' | 'strict'`). When `okPolicy === 'workspace-only'`,
   the doctor may report failures that the dashboard envelope tolerates.
 - Future skill work: do NOT change the default. If a different skill
-  (e.g. peaks-solo) needs a stricter default, scope the change to that
+  (e.g. peaks-code) needs a stricter default, scope the change to that
   skill's command — do not flip the global default.
 
 ## Cross-reference

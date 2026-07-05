@@ -19,7 +19,7 @@ This repository uses project-local Peaks-Loop standards. Existing repository con
 Peaks-Loop workflow automation:
 - peaks-rd checks these standards before RD planning or implementation work.
 - peaks-qa checks code review and security guidance before verification work.
-- peaks-solo summarizes RD and QA standards preflight before end-to-end code workflows.
+- peaks-code summarizes RD and QA standards preflight before end-to-end code workflows.
 
 Rules:
 - Read `.claude/rules/common/coding-style.md` before editing code.

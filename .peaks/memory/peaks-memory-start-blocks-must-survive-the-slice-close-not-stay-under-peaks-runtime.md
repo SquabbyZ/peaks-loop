@@ -8,5 +8,5 @@ metadata:
 
 peaks-txt's Step 11 BLOCKING contract: durable, LLM-authored memories land in `.peaks/memory/` (the canonical project-local store). The .peaks/_runtime/<sid>/txt/handoff.md file is the artifact-scoped source — `peaks memory extract --artifact <handoff.md> --apply --json` is the **only** CLI that writes the .peaks/memory/ directory. Calling it without `--apply` only previews and writes nothing. embed `<!-- peaks-memory:start -->` blocks **inside the handoff capsule body**, not as separate files. Each block pairs a stable fact with the kind header (`lesson` / `rule` / `project` / `decision` / `convention` / `reference` / `module`). Without `--apply`, the workflow is silently incomplete and the slice-close claim is unsupported.
 
-Affected skills: peaks-txt, peaks-solo (Step 11 gate enforcement).
+Affected skills: peaks-txt, peaks-code (Step 11 gate enforcement).
 Stable for memory: yes — applies to every Solo completion that should leave a trail.

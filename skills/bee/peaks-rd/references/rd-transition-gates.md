@@ -61,7 +61,7 @@ npx vitest run --changed --reporter=verbose 2>&1 | tail -20
 # Any failing test or zero tests for new code → BLOCKED. Write tests, then re-run.
 #
 # To run the FULL suite (slower; not the default for `peaks slice check`),
-# drop `--changed` or use `npx vitest run --reporter=verbose`. The peaks-solo-test
+# drop `--changed` or use `npx vitest run --reporter=verbose`. The peaks-code-test
 # skill is the user-facing wrapper for the full suite; the slice check's
 # `--run-tests` flag is the CLI opt-in.
 ```

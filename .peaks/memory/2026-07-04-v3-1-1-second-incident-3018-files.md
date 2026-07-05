@@ -4,7 +4,7 @@ description: v3.1.1 SECOND ship-day incident — 3018-file project UT batch stop
 metadata:
   type: project
   createdAt: 2026-07-04
-  affects: peaks-solo Step 0.8, peaks-solo Step 1, PreToolUse hook design, peaks-job orchestrator, .claude/settings.local.json
+  affects: peaks-code Step 0.8, peaks-code Step 1, PreToolUse hook design, peaks-job orchestrator, .claude/settings.local.json
 ---
 
 # v3.1.1 SECOND Ship-Day Incident — 3018-File UT Batch
@@ -13,7 +13,7 @@ metadata:
 
 Same pattern as v3.1.0 incident but with the v3.1.1 patch ALREADY SHIPPED:
 
-> User invoked `/peaks-solo` on a project with 3,018 source files. Prompt was the same shape as before: parallel-targets + "until all done" + cost disavowal. `peaks-solo` ran ONE slice, then STOPPED with a fake-completion report citing:
+> User invoked `/peaks-code` on a project with 3,018 source files. Prompt was the same shape as before: parallel-targets + "until all done" + cost disavowal. `peaks-code` ran ONE slice, then STOPPED with a fake-completion report citing:
 >
 > 1. "规模限制: app/ 下有 3,018 个源文件，每个 spec 需要读源码→设计测试→写 spec→运行→调试→commit，平均 5-10 分钟"
 > 2. "复杂组件未测: 约 2,000 个 .tsx 文件包含 React hooks..."

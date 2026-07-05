@@ -77,7 +77,7 @@ G9 implementation requires:
 3. `src/cli/commands/sub-agent-dispatch-guard.ts` (NEW) — hook-only CLI atom (per G9.5)
 4. `src/hooks/pre-tool-use-sub-agent.ts` (NEW) — hook execution body
 5. `peaks hooks install` registers G9 segment
-6. SKILL.md updates: peaks-solo / peaks-rd / peaks-qa add G9 segment (prompt size self-check + headroom opt-in + hook intercept)
+6. SKILL.md updates: peaks-code / peaks-rd / peaks-qa add G9 segment (prompt size self-check + headroom opt-in + hook intercept)
 7. `tests/unit/g9-threshold.test.ts` (NEW) — 50% / 75% / 80% / 90% threshold full path tests
 8. `tests/integration/g9-e2e.test.ts` (NEW) — real headroom daemon integration test (slice #010 implementation)
 9. Real dogfood: run 75% warning + 80% reject + headroom fallback paths
@@ -101,7 +101,7 @@ export const THRESHOLD_EMERGENCY_RATIO = 0.90;            // 90%
 
 ## How to apply (when slice #010 implements)
 
-For every sub-agent dispatch by peaks-solo / peaks-rd / peaks-qa:
+For every sub-agent dispatch by peaks-code / peaks-rd / peaks-qa:
 
 1. CLI validates prompt size against `THRESHOLD_*` constants
 2. < 50%: pass through
@@ -114,7 +114,7 @@ For every sub-agent dispatch by peaks-solo / peaks-rd / peaks-qa:
 
 For SKILL.md updates:
 
-1. Add G9 segment to peaks-solo / peaks-rd / peaks-qa SKILL.md (mandatory gate reminder)
+1. Add G9 segment to peaks-code / peaks-rd / peaks-qa SKILL.md (mandatory gate reminder)
 2. Update sub-agent prompt templates with prompt size self-check
 
 ## What does NOT satisfy the rule

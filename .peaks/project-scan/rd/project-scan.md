@@ -64,14 +64,14 @@
   - Coverage must come from meaningful tests, not padding (see [[coverage-red-line]])
 
 ## Skills shipped (under `skills/`)
-- peaks-solo (orchestrator), peaks-rd, peaks-qa, peaks-prd, peaks-sop, peaks-sc, peaks-txt, peaks-ui
+- peaks-code (orchestrator), peaks-rd, peaks-qa, peaks-prd, peaks-sop, peaks-sc, peaks-txt, peaks-ui
 - Skill manifest installed by `scripts/install-skills.mjs` on `postinstall`
 
 ## Recent feature history (from project memory)
 - Feature A (custom SOP authoring) SHIPPED 2026-05-29: scaffolder + `peaks sop lint` + gate registry + project-layer SOP support (Slice 2, 2026-05-30)
 - Feature B (tiered SOP metering, open-core商业层) DEFERRED 2026-05-29 — dogfood first
 - PreToolUse hook for un-bypassable gate enforcement (commit b289cd6)
-- **2026-06-02** `e611daf` — feat(memory): hot/warm index + session extract with idempotency + --dry-run/--apply parity. Closes BLOCKER 1 (idempotency) / 2 (session-id containment via `assertSafeSessionDir`) / 3 (CLI parity) + MEDIUM (index provenance: `sourcePath` + `sourceArtifact` + file-mtime `updatedAt`) + minor (dedup walkers via `listMarkdownFiles({maxDepth, skipDotfiles})`). 4 new tests. Adds 2 new commands: `peaks project memories:extract` + `peaks project memory-index`. Wired into `peaks-rd` / `peaks-qa` / `peaks-sop` / `peaks-solo` runbook handoff.
+- **2026-06-02** `e611daf` — feat(memory): hot/warm index + session extract with idempotency + --dry-run/--apply parity. Closes BLOCKER 1 (idempotency) / 2 (session-id containment via `assertSafeSessionDir`) / 3 (CLI parity) + MEDIUM (index provenance: `sourcePath` + `sourceArtifact` + file-mtime `updatedAt`) + minor (dedup walkers via `listMarkdownFiles({maxDepth, skipDotfiles})`). 4 new tests. Adds 2 new commands: `peaks project memories:extract` + `peaks project memory-index`. Wired into `peaks-rd` / `peaks-qa` / `peaks-sop` / `peaks-code` runbook handoff.
 - **2026-06-02** `d876569` — fix(memory): extract --apply is now idempotent + always regens index.json (precursor to e611daf).
 - **2026-06-03** `cc9edc4` — chore(memory): clear 2 minor findings + retire stale review memory. Extracts `MIN_BODY_SENTENCE_LENGTH=20` / `MAX_DESCRIPTION_LENGTH=120` / `ELLIPSIS_RESERVE=3` constants; adds `shouldRegenerateIndex` mtime guard (strict `>`). The review memory `review-memories-extract-and-memory-index` is now **CLOSED** in `index.json` (`closedAt: 2026-06-02, closedBy: e611daf, remainingMinorSlice: 2026-06-03-memory-housekeeping-minor-findings` which is itself closed).
 - **2026-06-03** `2171d03` — chore(memory): close 2 test-coverage gaps from slice final review. Adds 2 tests (118-char `summarizeMemoryBody` boundary + equal-mtime `shouldRegenerateIndex` strict-`>`). 38 → 40 tests in `tests/unit/project-memory-service.test.ts`.

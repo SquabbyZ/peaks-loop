@@ -128,7 +128,7 @@ The audit log is **machine-readable** (so `peaks project dashboard` can read it 
 - introduce new `peaks <cmd>` CLI commands (dev-preference red line: "Default-no on new CLI commands")
 - bypass the user's confirmation on destructive paths (Switch / Uninstall)
 - write the settings.json directly (the CLI primitives own that)
-- run other peaks skills (peaks-solo, peaks-qa, etc.) — those are separate skills with their own scopes
+- run other peaks skills (peaks-code, peaks-qa, etc.) — those are separate skills with their own scopes
 - handle multi-IDE scenarios in slice #2 (e.g. "I use Claude at work and Trae at home" — the registry is single-IDE per session; a future slice could add multi-IDE)
 
 ## Reference: the CLI primitives the skill composes

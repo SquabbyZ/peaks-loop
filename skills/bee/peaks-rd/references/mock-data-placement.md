@@ -19,7 +19,7 @@ When the project-scan in `.peaks/_runtime/<sessionId>/rd/project-scan.md` identi
 
 2. **Never inline mock data in component files**: Mock data, fixture objects, and stub responses belong in dedicated mock files. Components should receive data through their normal channels (props, API calls via services). Writing `const mockData = [...]` inside a `.tsx` file is prohibited.
 
-3. **Mock files must export TypeScript interfaces**: Every mock response type must be exported so RD implementation and QA test-cases can import the same contract. See peaks-solo's "Frontend-only development mode" for the full mock-to-real migration pattern.
+3. **Mock files must export TypeScript interfaces**: Every mock response type must be exported so RD implementation and QA test-cases can import the same contract. See peaks-code's "Frontend-only development mode" for the full mock-to-real migration pattern.
 
 4. **Every mock file must be marked**: Add `// MOCK: Replace with real API call when swagger.json is available` at the top of every mock file.
 

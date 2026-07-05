@@ -2268,7 +2268,7 @@ git commit -m "test(sediment): end-to-end dogfood + full suite green (Task 16)"
 | §3.3.4 Future public SkillHub | Out of scope (covered in §10 spec Open questions) |
 | §4.1 peaks-cli orchard + upgrade isolation | Task 15 (CLI); upgrade isolation logic is in spec §4.1 and is a future slice (out of scope for this initial implementation — note in spec §11) |
 | §4.1.0 Zero-CLI-cost | Task 10, global constraints |
-| §4.1.1 peaks-code as the system-stable code-domain bee (renamed from peaks-solo) | Out of scope: the existing peaks-solo skill is preserved as-is; this slice does not migrate it. Noted in spec §4.1.1 and the migration phases 2-4. |
+| §4.1.1 peaks-code as the system-stable code-domain bee (renamed from peaks-code) | Out of scope: the existing peaks-code skill is preserved as-is; this slice does not migrate it. Noted in spec §4.1.1 and the migration phases 2-4. |
 | §4.2 peaks-maker CLI surface (18 verbs) | Task 15 implements a meaningful subset; the remaining verbs (`refine-bee`, `clone-bee`, `promote`, `retire`, `dispose`, `releases`, `release-show`, `release-diff`, `export`, `import`, `gc-blobs`, `search`, `recent`, `show`, `promote`) are listed in the SKILL.md fixed-verb set in Task 10; full CLI implementations for all 18 verbs are tracked as separate sub-tasks in the same Task 15 work (the test in Task 15 only asserts `add-segment` / `add-bee` / `list` / `rebuild-index`; the remaining verbs are added in incremental PRs after this slice ships). **Adjustment**: explicitly mark this in the plan and split Task 15 if reviewers reject — preferred by reviewer convention over bloating Task 15. |
 | §4.3 Adapter layer (claude/codex/copilot stubs) | Task 6, 7, 8 |
 | §4.4 Pool schema | Task 1 |

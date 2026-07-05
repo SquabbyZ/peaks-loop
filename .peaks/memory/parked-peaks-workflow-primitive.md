@@ -6,7 +6,7 @@ metadata:
 ---
 paused 2026-06-12.
 
-User pain: peaks-solo re-derives the phase plan (~3-5k tokens) on every invocation, plus risk of LLM drifting the phase order. Wants to capture an agent loop / workflow once and replay it deterministically, saving tokens and improving efficiency.
+User pain: peaks-code re-derives the phase plan (~3-5k tokens) on every invocation, plus risk of LLM drifting the phase order. Wants to capture an agent loop / workflow once and replay it deterministically, saving tokens and improving efficiency.
 
 **Decision (proposed, parked before code):** new primitive `peaks-workflow` (skill) + `peaks workflow` CLI. Workflow bundles WHO (role) + HOW (CLI/runbook sequence) + WITH-WHAT (artifact contract). Pairs with `peaks-sop` for WHAT (gates). Workflows live in `.peaks/workflows/<id>.md` (project, git) or `~/.peaks/workflows/<id>.md` (global).
 

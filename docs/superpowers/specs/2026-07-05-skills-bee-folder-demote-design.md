@@ -42,7 +42,7 @@ User 在 2026-07-05 rename 出版后查 `skills/` 目录,发现 19 个 skill 同
 - **不动 `skills/{peaks-audit,peaks-doctor,peaks-final-review,peaks-ide,peaks-slice-decompose,peaks-sop}/`** —— 这 6 个是 user-facing helper(有 `/<name>` trigger)
 - **不动 skill id** —— 6 个 role skill 的 `name:` 字段不变,只改物理路径
 - **不动 frontmatter visibility 标记** —— Task 1 已加 `metadata.visibility: internal`,这次只改物理位置
-- **不动 pool 路径** —— `~/.peaks/skills/.system/bees/peaks-solo/manifest.json` 路径与本任务无关(那是 pool 运行时)
+- **不动 pool 路径** —— `~/.peaks/skills/.system/bees/peaks-code/manifest.json` 路径与本任务无关(那是 pool 运行时)
 
 ## 2. 设计(Design)
 
@@ -109,7 +109,7 @@ skills/                                          # 顶层 = user-facing 入口
 | `peaks sub-agent dispatch` 硬编码 `./skills/${role}` | 先 grep 查 CLI 源码,如有硬编码在 plan 里覆盖 |
 | test fixture hardcode `skills/peaks-{prd,rd,...}` | grep-replace + 定向 vitest |
 | `.peaks/_runtime/...` 旧会话引用旧路径 | 路径属于 session metadata,新会话自动用新路径;旧会话失效可接受 |
-| pool manifest `.peaks/skills/.system/bees/peaks-solo/` 路径 vs `skills/bee/` 路径名冲突 | 不同层次:pool 是运行时 cache,skills/bee/ 是 source repo;无冲突 |
+| pool manifest `.peaks/skills/.system/bees/peaks-code/` 路径 vs `skills/bee/` 路径名冲突 | 不同层次:pool 是运行时 cache,skills/bee/ 是 source repo;无冲突 |
 
 ## 5. 硬约束(继承 rename spec HC-1 ~ HC-8)
 
@@ -123,5 +123,5 @@ skills/                                          # 顶层 = user-facing 入口
 ---
 
 **Related designs / memory:**
-- `docs/superpowers/specs/2026-07-05-peaks-solo-to-peaks-code-rename-design.md` §1.4 (语义下沉,本 spec 把语义升级为物理)
-- `docs/superpowers/plans/2026-07-05-peaks-solo-to-peaks-code.md` Task 1 (visibility 标记)
+- `docs/superpowers/specs/2026-07-05-peaks-code-to-peaks-code-rename-design.md` §1.4 (语义下沉,本 spec 把语义升级为物理)
+- `docs/superpowers/plans/2026-07-05-peaks-code-to-peaks-code.md` Task 1 (visibility 标记)

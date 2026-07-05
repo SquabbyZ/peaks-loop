@@ -119,7 +119,7 @@ canonical list.
 - `src/services/prd/project-scan-reader.ts` + `project-scan-types.ts` — bidirectional learning loop unchanged.
 - `src/services/rd/{strategic,tactical,strategy,impl,ast-gate,types}.ts` — Plan 3 sub-stage system unchanged.
 - `peaks-qa` skill (`src/services/qa/`) — v2.11.0 already trimmed to business-test only; no additions.
-- `peaks-solo/SKILL.md` main flow — Steps 0.55/0.6/0.7/1 unchanged.
+- `peaks-code/SKILL.md` main flow — Steps 0.55/0.6/0.7/1 unchanged.
 - `peaks-prd/SKILL.md` main body — unchanged (audit skills are new consumers of the handoff, not new PRD outputs).
 
 ## Multi-CC group split (commit boundaries)

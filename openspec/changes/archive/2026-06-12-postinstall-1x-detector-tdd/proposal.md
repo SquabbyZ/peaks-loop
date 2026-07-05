@@ -14,7 +14,7 @@ The 1.x → 2.0 postinstall scaffold in `scripts/install-skills.mjs` (the 8-IDE 
 
 ## Out of Scope
 
-- Lifting `detect1xProjectState` from `.mjs` into a TypeScript service (that is Slice 3: peaks-solo Step 0.55).
+- Lifting `detect1xProjectState` from `.mjs` into a TypeScript service (that is Slice 3: peaks-code Step 0.55).
 - Thinning `.claude/rules/**/*.md` in consumer projects (that is Slice 2: standards migrate --from-claude-rules).
 - Modifying the umbrella `peaks upgrade --to 2.0` (Slice 1 only touches the postinstall side).
 - Adding new tests for `installBundledSkills` or `installBundledOutputStyles` (existing integration test already covers those paths).

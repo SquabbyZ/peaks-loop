@@ -16,7 +16,7 @@ metadata:
 **v2.13.1 footprint (5 files modified + 4 files added):**
 - `src/services/verdict/verdict-aggregator.ts` (NEW, 223 lines) — pure aggregateVerdict() + locally-defined KarpathyEnvelope / MutEnvelope / QaEnvelope types
 - `src/services/artifacts/artifact-prerequisites.ts` (+32 lines) — MUT_REPORT constant + FEATURE/BUGFIX wiring
-- `skills/peaks-solo/references/micro-cycle.md` (+91 lines) — ## Verdict reasoning (v2.13.1) section
+- `skills/peaks-code/references/micro-cycle.md` (+91 lines) — ## Verdict reasoning (v2.13.1) section
 - `tests/unit/artifact-prerequisites.test.ts` (+25 lines) — seeded mut-report.json in 3 pass-path tests
 - `tests/unit/artifact-prerequisites-typed.test.ts` (+20 lines) — same
 - `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` (NEW, 4 cases)
@@ -33,7 +33,7 @@ metadata:
 4. **Envelope heterogeneity preserved** — 5 envelopes still have 3 distinct shapes; v2.13.1 ships precedence aggregation. v2.14 should add `services/verdict/envelopes.ts` shared module with discriminated-union type and parser funcs.
 5. **MUT_REPORT prereq is one-way** — it blocks `rd → qa-handoff` but does NOT touch `peaks-qa`'s internal `loadMutReport() === null → gate=skipped` path. Backward compatibility for qa-side consumers preserved.
 6. **REFACTOR inherits via reference** — `REFACTOR_TABLE = FEATURE_TABLE` (line 312 of artifact-prerequisites.ts), so adding MUT_REPORT to FEATURE_TABLE automatically applies to REFACTOR. No duplicate wiring.
-7. **6-step micro-cycle body byte-stable** — `git diff HEAD -- skills/peaks-solo/references/micro-cycle.md` shows only the new section is added; lines 1-222 unchanged. Karpathy §3 Surgical Changes honored.
+7. **6-step micro-cycle body byte-stable** — `git diff HEAD -- skills/peaks-code/references/micro-cycle.md` shows only the new section is added; lines 1-222 unchanged. Karpathy §3 Surgical Changes honored.
 
 **Carry-forward to v2.14:**
 - **CLI surface for `aggregateVerdict()`** — add `peaks verdict aggregate --from-rid <rid>` that reads all 5 envelope artifacts and prints aggregated verdict + reasons
@@ -41,6 +41,6 @@ metadata:
 - **`prd/handoff.md` auto-regeneration** — make peaks-prd write the handoff on every `prd:handed-off` transition so AUDIT_REQUIRES_HANDOFF prereq doesn't require pre-existing handoff
 - **MUT_REPORT prereq back-compat window** — current v2.13.1 hard-blocks feat/bugfix/refactor at `rd:qa-handoff`; consider a 1-minor-release soft-block window like the v2.12.0 audit back-compat (allow missing with warning → fail on 2.14.0)
 
-**Why:** Why I should remember this: v2.13.1 is the third of three coordinated slices (v2.12.0 = audit independence, v2.13.0 = auto-compact, v2.13.1 = verdict reasoning) that together form peaks-solo's "decide + act + converge" loop. The user explicitly noted the gap: "现在有了审计独立的agent...但是没有结论或者依据应该怎么决策" — v2.13.1 fills that gap with a pure aggregator + 3-line micro-cycle reasoning surface. v2.14 is the natural follow-up for envelope unification + CLI surface.
+**Why:** Why I should remember this: v2.13.1 is the third of three coordinated slices (v2.12.0 = audit independence, v2.13.0 = auto-compact, v2.13.1 = verdict reasoning) that together form peaks-code's "decide + act + converge" loop. The user explicitly noted the gap: "现在有了审计独立的agent...但是没有结论或者依据应该怎么决策" — v2.13.1 fills that gap with a pure aggregator + 3-line micro-cycle reasoning surface. v2.14 is the natural follow-up for envelope unification + CLI surface.
 
 **How to apply:** When resuming v2.14, read this memory FIRST, then `.peaks/memory/2026-06-22-plan-2-ship-state.md` (peaks-mut context) + `.peaks/memory/2026-06-27-v2-12-fanout-3way.md` (v2.12.0 audit context) + `.peaks/project-scan/audit-output-schema.md` (the 4 aggregation rules that the v2.13.1 aggregator already implements). The 5 envelope shapes in `src/services/verdict/verdict-aggregator.ts:38-66` are the unification target list.

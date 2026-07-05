@@ -21,7 +21,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-txt --project <repo> --mode <mode> --gate startup
 ```
 
-**When invoked as a sub-agent (peaks-solo swarm):** do NOT call `peaks skill presence:set` (Solo owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
+**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Solo owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
 
 On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
 
@@ -293,7 +293,7 @@ Reference: `references/context-capsule.md`.
 
 ## Sub-agent context governance (G8 + G9 — slice #010, TXT reducer view)
 
-> peaks-txt is the TXT reducer; it sees the metadata-only view from G7 + the share entries from G8. The TXT handoff summarizes the slice at the slice-close gate. Detailed: `skills/peaks-solo/references/context-governance.md`.
+> peaks-txt is the TXT reducer; it sees the metadata-only view from G7 + the share entries from G8. The TXT handoff summarizes the slice at the slice-close gate. Detailed: `skills/peaks-code/references/context-governance.md`.
 
 ### G8 — TXT reducer sees share entries on completion
 

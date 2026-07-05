@@ -1,15 +1,15 @@
 ---
-name: peaks-solo-to-peaks-code-rename-session-directive
-description: 2026-07-05 user 在 peaks-solo → peaks-code rename brainstorm 末尾追加的硬约束,适用于所有 peaks-loop 长任务
+name: peaks-code-to-peaks-code-rename-session-directive
+description: 2026-07-05 user 在 peaks-code → peaks-code rename brainstorm 末尾追加的硬约束,适用于所有 peaks-loop 长任务
 metadata:
   type: feedback
   createdAt: 2026-07-05
-  source: brainstorm session for `docs/superpowers/specs/2026-07-05-peaks-solo-to-peaks-code-rename-design.md`
+  source: brainstorm session for `docs/superpowers/specs/2026-07-05-peaks-code-to-peaks-code-rename-design.md`
 ---
 
-# peaks-solo → peaks-code rename 时的 user 硬约束(2026-07-05)
+# peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05)
 
-> **Why:** user 在 4.x sediment release 出版后提出把 peaks-solo 更名为 peaks-code。在 brainstorm 末尾追加了三条硬约束,这三条对**所有** peaks-loop 长任务都适用,不是单次。
+> **Why:** user 在 4.x sediment release 出版后提出把 peaks-code 更名为 peaks-code。在 brainstorm 末尾追加了三条硬约束,这三条对**所有** peaks-loop 长任务都适用,不是单次。
 
 ## 三条硬约束
 
@@ -26,5 +26,5 @@ metadata:
 - **不向 user 索要 CLI 字符串 / JSON / 表项填法**——user 角色 = 业务/产品审阅者,详见 [[peaks-loop-24h-ai-programmer-positioning]]。
 
 **Related designs / memory:**
-- `docs/superpowers/specs/2026-07-05-peaks-solo-to-peaks-code-rename-design.md` §0(本条的权威出处)
+- `docs/superpowers/specs/2026-07-05-peaks-code-to-peaks-code-rename-design.md` §0(本条的权威出处)
 - [[peaks-loop-24h-ai-programmer-positioning]]

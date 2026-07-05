@@ -36,7 +36,7 @@ interface ArtifactMeta {
 
 **Main LLM view (G7.4.e)** — what the main LLM actually sees after a batch:
 ```
-[peaks-solo] batch 3/3 done in 47.3s
+[peaks-code] batch 3/3 done in 47.3s
 - rd → .peaks/_sub_agents/2026-06-06-session-5b1095/artifacts/002-rd-001.md (12KB, sha256:abc123) summary: "wrote RD tech-doc with 4 sub-roles and dispatcher interface"
 - qa-business → .../artifacts/002-qa-business-001.md (8KB, sha256:def456) summary: "wrote 12 API test cases covering happy + 3 error paths"
 - qa-perf → .../artifacts/002-qa-perf-001.md (5KB, sha256:ghi789) summary: "wrote perf baseline; p95 latency target ≤ 200ms"
@@ -68,7 +68,7 @@ interface ContextImpact {
 - Soft warning on file names that don't match `<rid>-<role>-<idx>.<ext>` pattern
 
 **SKILL.md protocol (G3 + G7.4.g / AC-42)**:
-- peaks-solo / peaks-rd / peaks-qa SKILL.md fan-out sections must say: "sub-agent 产物 size ≤ 1MB, 超出请精简或拆多个 artifact"
+- peaks-code / peaks-rd / peaks-qa SKILL.md fan-out sections must say: "sub-agent 产物 size ≤ 1MB, 超出请精简或拆多个 artifact"
 - Sub-agent prompt template: "完成后: 1) 写产物到 `.peaks/_sub_agents/<sid>/artifacts/<rid>-<role>-<idx>.<ext>`, 2) 调 `peaks sub-agent heartbeat --status done --progress 100 --summary "<1-2 句>"`
 - Main LLM reducer: "收齐 sub-agent 产物后, emit metadata-only 视图, 不灌内容; 需详情时显式 `Read <path>`"
 
@@ -84,7 +84,7 @@ Main LLM full-slice context net increase: < 10KB for 5 batches × 6 sub-agents.
 
 ## How to apply
 
-For every sub-agent dispatched by peaks-solo / peaks-rd / peaks-qa SKILL.md:
+For every sub-agent dispatched by peaks-code / peaks-rd / peaks-qa SKILL.md:
 
 1. Sub-agent writes its artifact to `.peaks/_sub_agents/<sid>/artifacts/<rid>-<role>-<idx>.<ext>` (path convention mandatory for human/audit readability)
 2. Sub-agent calls `peaks sub-agent dispatch --write-artifact <path>` (or heartbeat done with summary) to register ArtifactMeta

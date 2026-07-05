@@ -22,7 +22,7 @@ if (options.sessionId !== undefined) {
 ```
 
 **Why:** The "back-compat" comment is misleading — pre-1.3.0 the on-disk
-dir was session-keyed, but peaks-solo SKILL.md now mandates two
+dir was session-keyed, but peaks-code SKILL.md now mandates two
 orthogonal axes (change-id at `.peaks/_runtime/<changeId>/` vs session-id at
 `.peaks/_runtime/<sessionId>/`). Mirroring `--session-id` into
 `changeId` collapses them.

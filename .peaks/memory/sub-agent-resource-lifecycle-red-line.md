@@ -19,9 +19,9 @@ peaks agentTeam is a pseudo-swarm (per PRD §"Agent Team = 伪蜂群架构宣言
 ## The rule (RL-1..RL-12)
 
 **Not "more is better":**
-- **RL-1 Batch size ≤ 6** per Dispatcher per batch (empirical basis: peaks-solo swarm = 3, peaks-rd 4-way, peaks-qa 3-way; headroom to 6 for future). > 6 must split into multiple batches with explicit reducer step between.
+- **RL-1 Batch size ≤ 6** per Dispatcher per batch (empirical basis: peaks-code swarm = 3, peaks-rd 4-way, peaks-qa 3-way; headroom to 6 for future). > 6 must split into multiple batches with explicit reducer step between.
 - **RL-2 Every dispatch has input + output.** `--prompt` non-empty AND prompt internally declares the artifact path. CLI emits `code: "DISPATCH_NO_ARTIFACT_PLAN"` warning (info level, not blocking) if neither `peaks/*` path nor `write` keyword detected.
-- **RL-3 Each sub-agent must be informationally independent.** peaks-solo swarm 3-way (UI design / RD planning / QA test-cases) is justified because the three are information-orthogonal. peaks-rd 4-way same. peaks-qa 3-way (业务/性能/安全) same. Refused: 1 job split into 3 for fan-out theater.
+- **RL-3 Each sub-agent must be informationally independent.** peaks-code swarm 3-way (UI design / RD planning / QA test-cases) is justified because the three are information-orthogonal. peaks-rd 4-way same. peaks-qa 3-way (业务/性能/安全) same. Refused: 1 job split into 3 for fan-out theater.
 - **RL-4 业务可再分 ≤ 2 layers.** peaks-qa 业务细分 (`qa-business` → `qa-business-api` / `qa-business-frontend` / `qa-business-regression` etc.) is allowed but **not** 3+ levels (e.g. no `qa-business-api-user`). Beyond 2 layers, Dispatcher depth = 4+, reducer auditability collapses, prompt boundaries blur.
 
 **Must reclaim after use:**

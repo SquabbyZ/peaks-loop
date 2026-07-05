@@ -44,7 +44,7 @@ Other references to `.peaks/.active-skill.json` in `skills/peaks-*/references/*.
 
 ## Dogfood evidence (2026-06-10 micro-cycle)
 
-- `peaks skill presence --json` returns the active skill correctly: `{ active: true, skill: "peaks-solo", sessionId: "2026-06-10-session-c4a2be", ... }`
+- `peaks skill presence --json` returns the active skill correctly: `{ active: true, skill: "peaks-code", sessionId: "2026-06-10-session-c4a2be", ... }`
 - Tests: 18 + 42 + 8 + 15 = **83 tests pass** across `project-standards-service`, `skill-presence-service`, `skill-statusline-service`, `session-dir-canonical`. 1 pre-existing skip.
 - `tsc --noEmit`: **0 errors**.
 - No test asserts the old "Read `.peaks/.active-skill.json`" string, so the doc-only change did not break any test.

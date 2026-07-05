@@ -39,7 +39,7 @@ real process.
 
 If the user invoked this skill directly ("peaks-sop") without mentioning a
 specific project, assume `--project .` (current directory). If they are NOT in
-the middle of a multi-skill peaks-solo/prd/rd/qa pipeline, skip `statusline
+the middle of a multi-skill peaks-code/prd/rd/qa pipeline, skip `statusline
 install` — the status bar is for long-running orchestrations; a standalone SOP
 authoring session does not need it.
 

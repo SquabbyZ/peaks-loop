@@ -28,7 +28,7 @@ Output envelope (per `r3-format-compact-defaults-by-artifact-type.md`):
         "id": "rl-solo-code-ban-001",
         "rule": "Solo Code-Change Red Line",
         "source": {
-          "file": "skills/peaks-solo/SKILL.md",
+          "file": "skills/peaks-code/SKILL.md",
           "line": 42,
           "marker": "BLOCKING",
           "context": "Peaks-Loop Solo is an orchestrator, NOT an implementer..."
@@ -67,7 +67,7 @@ The detector's classification is **heuristic, not authoritative** — the catalo
 
 **Trigger**: PreToolUse on `Bash` matcher, when the bash command is `git commit` or `git apply` AND the active skill starts with `peaks-`.
 
-**Behavior**: deny with `permissionDecision: "deny"`, reason: "Solo Code-Change Red Line: peaks-* skills must go through peaks-solo / peaks-rd. Use `peaks request transition` instead."
+**Behavior**: deny with `permissionDecision: "deny"`, reason: "Solo Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
 
 **Fail-open**: registry / manifest read failure → warn + allow (per `gate-enforcement-hook.md` trust red line).
 

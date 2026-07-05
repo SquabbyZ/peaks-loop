@@ -16,7 +16,7 @@ The 1.x peaks-loop install copied a thick `.claude/rules/**/*.md` tree (skill-fi
 ## Out of Scope
 
 - Re-authoring the content of the 2.0 canonical rules — the 1.x rules are already correct in spirit; this slice just relocates them. A separate 'update 2.0 rule content' slice may follow.
-- The `peaks skills` family bodies (peaks-solo, peaks-rd, peaks-qa, etc.) — Slice 3 is about adding Step 0.55 to peaks-solo, not editing other skill bodies.
+- The `peaks skills` family bodies (peaks-code, peaks-rd, peaks-qa, etc.) — Slice 3 is about adding Step 0.55 to peaks-code, not editing other skill bodies.
 - The umbrella `peaks upgrade --to 2.0` — Slice 1 already shipped and committed. Slice 2 only changes the `standards-migrate` sub-step's behavior; the umbrella's CLI surface is unchanged.
 - `peaks standards migrate` for the umbrella upgrade — the umbrella auto-runs the new service after Slice 2 lands; the umbrella code itself is unchanged.
 

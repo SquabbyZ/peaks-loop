@@ -4,14 +4,14 @@ description: v3.1.1 patch — peaks solo detect-job / read-job-shape — Step 0.
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-solo Step 0.8, src/services/solo/job-shape-decision.ts, src/cli/commands/solo-commands.ts
+  affects: peaks-code Step 0.8, src/services/solo/job-shape-decision.ts, src/cli/commands/solo-commands.ts
 ---
 
 # v3.1.1 — Step 0.8 detect-job recorder (shipped)
 
 ## Why this patch exists
 
-Incident on 2026-07-03 (v3.1.0 ship day): user prompt on a real project named 35 parallel `app/*` subdirs, said "until all done", and disavowed cost. `peaks-solo` matched the trigger words but did NOT enter Job mode — it ran 5 slices serially and STOPPED at 81% context with a fake-completion handoff. Memory: [[2026-07-03-v3-1-0-job-trigger-miss]].
+Incident on 2026-07-03 (v3.1.0 ship day): user prompt on a real project named 35 parallel `app/*` subdirs, said "until all done", and disavowed cost. `peaks-code` matched the trigger words but did NOT enter Job mode — it ran 5 slices serially and STOPPED at 81% context with a fake-completion handoff. Memory: [[2026-07-03-v3-1-0-job-trigger-miss]].
 
 Root cause: Step 0.8 was prose-only with no BLOCKING gate and no detector. An LLM-runner that skimmed SKILL.md treated it as advisory.
 
@@ -42,8 +42,8 @@ So the gate is structural: the LLM cannot bypass it by simply not calling the CL
 - New: `tests/integration/solo-detect-job-command.test.ts` (6 tests)
 - New: `tests/unit/solo/solo-step-08-block-guard.test.ts` (4 tests, locks the BLOCKING-on-LLM-judgement substring + runbook ordering)
 - Modified: `src/cli/commands/solo-commands.ts` (added detect-job + read-job-shape subcommands, ~217 LOC)
-- Modified: `skills/peaks-solo/SKILL.md` (Step 0.8 marked BLOCKING on LLM judgement)
-- Modified: `skills/peaks-solo/references/runbook.md` (runbook now detects via LLM verdict, calls detect-job BEFORE job init)
+- Modified: `skills/peaks-code/SKILL.md` (Step 0.8 marked BLOCKING on LLM judgement)
+- Modified: `skills/peaks-code/references/runbook.md` (runbook now detects via LLM verdict, calls detect-job BEFORE job init)
 - Bumped: `package.json` 3.1.0 → 3.1.1; `src/shared/version.ts` regenerated
 
 ## Results

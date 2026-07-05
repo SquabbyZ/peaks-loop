@@ -164,7 +164,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
-#    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
+#    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-code-test to run the full suite standalone)
 #    Peaks-Loop Gate B3: code review evidence → .peaks/_runtime/<sessionId>/rd/code-review.md
 #    Peaks-Loop Gate B4: security review evidence → .peaks/_runtime/<sessionId>/rd/security-review.md
 #    Peaks-Loop Gate B5 (NEW): RD artifact body has no unfilled placeholders.

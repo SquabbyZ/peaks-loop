@@ -302,7 +302,7 @@ Document a 2-version deprecation policy: when `version: 2` lands,
 ## F. Documentation drift
 
 ### F1. `sub-agent-dispatch.md:52` still documents the removed `prompt` field — **HIGH**
-**File:** `skills/peaks-solo/references/sub-agent-dispatch.md:43-71`
+**File:** `skills/peaks-code/references/sub-agent-dispatch.md:43-71`
 **Problem:** The envelope example in §"Dispatch contract" shows:
 
 ```json
@@ -327,7 +327,7 @@ post-audit-3rd. Include a callout box: "audit-3rd #4 removed
 `promptSize` only."
 
 ### F2. `sub-agent-dispatch.md:58` shows `prompt: "..."` inside `toolCall.args.prompt` — **MED**
-**File:** `skills/peaks-solo/references/sub-agent-dispatch.md:58`
+**File:** `skills/peaks-code/references/sub-agent-dispatch.md:58`
 **Problem:** Inside the embedded `toolCall.args`, the doc shows
 `"prompt": "..."`. This is correct — the prompt lives inside
 `toolCall.args` (which the LLM passes to the IDE's tool). The audit
@@ -341,7 +341,7 @@ removed in 2.7.1; see audit-3rd #4)."
 **Fix sketch:** one-line callout in the envelope example.
 
 ### F3. `swarm-dispatch-contract.md` says "≥ 2 leaves → default" but the file is titled "conditional" — **MED**
-**File:** `skills/peaks-solo/references/swarm-dispatch-contract.md:1-9`
+**File:** `skills/peaks-code/references/swarm-dispatch-contract.md:1-9`
 **Problem:** The header still describes Swarm as "conditional"
 (line 9: "The Swarm phase is **conditional**, not unconditional"). But
 audit-3rd + slice 5 (default fan-out) made it the default for any
@@ -357,7 +357,7 @@ that the default-mode opt-out is `fanout.defaultMode: 'serial'`
 in preferences.
 
 ### F4. Threshold tables in `context-governance.md` are duplicated with a small drift — **LOW**
-**File:** `skills/peaks-solo/references/context-governance.md:120-128`
+**File:** `skills/peaks-code/references/context-governance.md:120-128`
 and `:182-190`
 **Problem:** The G9 threshold table is presented twice in the same
 file (once in §G9 head, once in §G9 "Body"). The in-code thresholds

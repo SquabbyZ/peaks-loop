@@ -37,7 +37,7 @@ peaks-loop/
 │   ├── shared/version.ts
 │   ├── hooks/ lib/ skills/
 ├── skills/                # 19 个 peak-* skill 家族
-│   └── peaks-solo/        # 当前活跃 skill
+│   └── peaks-code/        # 当前活跃 skill
 ├── tests/unit/            # 366 个 *.test.ts
 ├── schemas/               # JSON schema 定义
 ├── scripts/               # 同步/构建/发布/install-skills/watch
@@ -56,10 +56,10 @@ peaks-loop/
 
 ## 3. skills 家族（19 个）
 
-- **编排**：`peaks-solo`（当前活跃，gate=startup, mode=full-auto）
+- **编排**：`peaks-code`（当前活跃，gate=startup, mode=full-auto）
 - **角色**：`peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt / peaks-sop`
 - **审计与门禁**：`peaks-audit / peaks-security-audit / peaks-perf-audit / peaks-final-review / peaks-doctor / peaks-slice-decompose`
-- **辅助**：`peaks-companion / peaks-ide / peaks-solo-resume / peaks-solo-status / peaks-solo-test`
+- **辅助**：`peaks-companion / peaks-ide / peaks-code-resume / peaks-code-status / peaks-code-test`
 - 所有 SKILL.md 通过 `peaks skill presence --json` 解析当前活跃 skill（canonical-path 走 CLI，禁止直接 Read active-skill.json，详见 `active-skill-cli-routing` memory）。
 
 ## 4. src/services/ 关键子模块（36 个）

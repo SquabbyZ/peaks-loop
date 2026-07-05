@@ -15,7 +15,7 @@ metadata:
 
 ## The pain (literal user quote)
 
-> "当我是使用 peaks-solo 的 full auto 模式的时候，还是需要手动确认很多环节，正常应该是 LLM 自己根据推荐作为决策往下进行"
+> "当我是使用 peaks-code 的 full auto 模式的时候，还是需要手动确认很多环节，正常应该是 LLM 自己根据推荐作为决策往下进行"
 
 Translation: in full-auto, the LLM should treat the **recommended option as the chosen option** and continue without a confirmation round-trip. The user picked full-auto precisely to avoid the round-trips.
 

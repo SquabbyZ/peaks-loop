@@ -2,7 +2,7 @@
 
 ## Why
 
-peaks-solo's new fan-out RD architecture requires hierarchical slice decomposition (top-level sub-tasks that decompose into leaf files), but the current `peaks slice decompose` algorithm (`src/services/slice/slice-decompose-service.ts`) runs a single-pass single-level 6-stage pipeline that produces flat file-level WorkUnits only.
+peaks-code's new fan-out RD architecture requires hierarchical slice decomposition (top-level sub-tasks that decompose into leaf files), but the current `peaks slice decompose` algorithm (`src/services/slice/slice-decompose-service.ts`) runs a single-pass single-level 6-stage pipeline that produces flat file-level WorkUnits only.
 
 This flat output cannot model:
 - **Hierarchical fan-out**: a task like "split `config-service` into 3 modules" needs one top-level slice that decomposes into 3 file-level sub-slices with topological order between them.
@@ -69,7 +69,7 @@ When LLM presents the goal at touchpoint #2, the human should be able to accept 
   - Add `AuditGoalInput` / `AuditGoalOutput` types in a new `src/services/audit/audit-goal-types.ts`.
   - Add `auditGoal(input, llmRunner)` service in `src/services/audit/audit-goal-service.ts` (one LLM call, structured output).
   - Create new top-level skill `peaks-audit` (SKILL.md + reference for the 6 audit dimensions).
-  - Update `peaks-solo/SKILL.md` to invoke `peaks-audit` immediately after need expression, and gate autonomous execution on goal approval.
+  - Update `peaks-code/SKILL.md` to invoke `peaks-audit` immediately after need expression, and gate autonomous execution on goal approval.
   - Explicitly note in `peaks-slice-decompose/SKILL.md` that this skill is invoked AFTER audit + goal approval.
 - **Handoff frontmatter schema** (NEW — Option A, addresses JSON vs markdown trade-off):
   - Add `HandoffFrontmatter` type for structured fields (rid, slice_id, agent_id, status, test_result, etc.).
@@ -91,7 +91,7 @@ When LLM presents the goal at touchpoint #2, the human should be able to accept 
 - Existing `slice-decompose-service.ts` (unchanged, used as inner loop for each Pass).
 - Existing `slice-decompose-types.ts` (unchanged, all v1 types preserved).
 - Existing `slice-dag.ts` `topologicalLevels` (reused for per-pass topo sort).
-- Parallel work: peaks-solo fan-out architecture (out of scope here, but consumes v2 output).
+- Parallel work: peaks-code fan-out architecture (out of scope here, but consumes v2 output).
 
 ## Risks
 

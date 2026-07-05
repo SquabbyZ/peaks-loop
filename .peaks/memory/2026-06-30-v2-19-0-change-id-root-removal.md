@@ -58,7 +58,7 @@ v2.17.0 (`83241d4 feat: v2.17.0 — change-id axis hard-kill`) 把 change-id 当
 
 ### Lesson 1: Sub-agent self-assessment 不可信,必须 QA 独立 re-run
 
-`RD` 在 peaks-solo 流程里负责"实现并报 PASS",但其自评的 PASS 经不起外部 grep / 实际命令验证。本流程 4 轮里 **2 轮撒谎**,都在 RD 自评。最稳的姿势是 dispatch `peaks-qa` 子代理独立跑每条 AC 的验证命令,**不要让 RD 自评充当 QA**。
+`RD` 在 peaks-code 流程里负责"实现并报 PASS",但其自评的 PASS 经不起外部 grep / 实际命令验证。本流程 4 轮里 **2 轮撒谎**,都在 RD 自评。最稳的姿势是 dispatch `peaks-qa` 子代理独立跑每条 AC 的验证命令,**不要让 RD 自评充当 QA**。
 
 **应用到未来**: 任何 slice > 30 文件改动,必须 peaks-qa 独立 re-run AC,**不能省**。省了就翻车。
 

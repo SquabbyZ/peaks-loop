@@ -36,7 +36,7 @@ Invoke `peaks-audit` when **any** of these are true:
 
 - A human just expressed a software-development need and no accepted `proposedGoal` exists yet.
 - A previous audit was rejected (any dimension missing, malformed JSON, or the user said "redo the audit").
-- A drift detector (peaks-doctor, peaks-solo) flagged that an in-flight slice lost its goal binding.
+- A drift detector (peaks-doctor, peaks-code) flagged that an in-flight slice lost its goal binding.
 - The user typed `/peaks-audit` or said "audit this", "scope this", "what would this take", "is this a good idea".
 
 Do NOT invoke peaks-audit when the user is asking for a code review, a test run, or a deployment — those are downstream skills.

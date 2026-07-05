@@ -92,11 +92,11 @@ line where the first one appears.
    the rewritten file; new `peaks skill presence --json` and
    `Peaks-Loop Skill: <skill>` markers present.
 8. `peaks skill detect-marker-loss --project .` → returns
-   `active: true, skill: peaks-solo, markerFound: false, warning: ...`
+   `active: true, skill: peaks-code, markerFound: false, warning: ...`
    (no `--message` was passed; this is the correct contract: presence
    is active but the latest assistant message is empty / unmarked).
-9. `peaks skill detect-marker-loss --project . --message "Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: rd | Next: work"`
-   → `active: true, skill: peaks-solo, markerFound: true, warning: undefined`.
+9. `peaks skill detect-marker-loss --project . --message "Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: rd | Next: work"`
+   → `active: true, skill: peaks-code, markerFound: true, warning: undefined`.
 
 ## Why this slice exists (rule references)
 
@@ -124,11 +124,11 @@ line where the first one appears.
 - Does not delete `peaks skill heartbeat:touch` or
   `peaks skill presence:clear` — those are still CLI commands and
   are used by `peaks-loop`'s own internal role hand-off flow
-  (peaks-rd, peaks-qa, peaks-solo). The slice just stops emitting
+  (peaks-rd, peaks-qa, peaks-code). The slice just stops emitting
   LLM instruction text about them.
 - Does not change the `sourceId: 'everything-claude-code'` in
   `project-standards-service.ts` (that's a source-of-standards
   identifier, not the URL reference the user flagged).
-- Does not touch the peaks-solo / peaks-rd / peaks-qa / peaks-txt
+- Does not touch the peaks-code / peaks-rd / peaks-qa / peaks-txt
   / peaks-prd / peaks-sc SKILL.md bodies. The post-slice-026 line
   caps (217/217, 209/217, 245/245) are unchanged.

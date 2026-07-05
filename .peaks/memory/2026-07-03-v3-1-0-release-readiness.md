@@ -1,10 +1,10 @@
 ---
 name: 2026-07-03-v3-1-0-release-readiness
-description: v3.1.0 release-readiness check found + fixed one release-blocking drift in peaks-solo/SKILL.md before publish; pre-publish checklist pattern saved for future releases
+description: v3.1.0 release-readiness check found + fixed one release-blocking drift in peaks-code/SKILL.md before publish; pre-publish checklist pattern saved for future releases
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-solo, peaks release flow, tests/unit/skill-external-invocation.test.ts
+  affects: peaks-code, peaks release flow, tests/unit/skill-external-invocation.test.ts
 ---
 
 # v3.1.0 Release-Readiness Review (2026-07-03)
@@ -25,9 +25,9 @@ metadata:
 
 ## The drift + fix
 
-`tests/unit/skill-external-invocation.test.ts:63` audits each ENFORCED_SKILL (`peaks-prd`, `peaks-ui`, `peaks-rd`, `peaks-qa`, `peaks-sc`, `peaks-solo`, `peaks-txt`) — if the SKILL.md mentions an external token (mattpocock/skills, Context7, MCP servers, etc.), it MUST also contain a `Peaks(-Loop|-Cli)? ... (remain|are) authoritative` / `... acceptance authority` phrase.
+`tests/unit/skill-external-invocation.test.ts:63` audits each ENFORCED_SKILL (`peaks-prd`, `peaks-ui`, `peaks-rd`, `peaks-qa`, `peaks-sc`, `peaks-code`, `peaks-txt`) — if the SKILL.md mentions an external token (mattpocock/skills, Context7, MCP servers, etc.), it MUST also contain a `Peaks(-Loop|-Cli)? ... (remain|are) authoritative` / `... acceptance authority` phrase.
 
-`peaks-solo/SKILL.md` line 277 (External references paragraph) listed mattpocock/skills, Context7, MCPs, and "Do not execute upstream installer" — but had no authority-declaration phrase. The other 5 enforced skills had it.
+`peaks-code/SKILL.md` line 277 (External references paragraph) listed mattpocock/skills, Context7, MCPs, and "Do not execute upstream installer" — but had no authority-declaration phrase. The other 5 enforced skills had it.
 
 **One-line surgical fix:** append `Peaks-Loop Solo gates and artifacts remain authoritative.` to that paragraph. Re-ran the test → 16/16 pass.
 
@@ -38,7 +38,7 @@ Why the existing `The CLI is authoritative` line 174 (frontend-only mode) didn't
 - **Run vitest FULL suite before tagging.** Subset runs can miss SKILL.md audit tests. The job tests alone (~34 tests) plus workspace + runbook (~203 tests) plus skill audit (~16) plus core + cli + integration = full picture.
 - **`tests/unit/skill-external-invocation.test.ts` is a real release gate.** If it fails, fix the skill prose, do NOT weaken the regex.
 - **`PEAKS_AUTHORITATIVE_PATTERN` is strict by design.** Each ENFORCED_SKILL must satisfy it independently — no inheritance from a shared reference.
-- **`peaks-solo` is the most likely drift site** because its scope is the broadest (orchestrates 6 sub-agents and references the most external resources). M7.1 review caught a 25KB-cap violation; this caught an authority-prose gap.
+- **`peaks-code` is the most likely drift site** because its scope is the broadest (orchestrates 6 sub-agents and references the most external resources). M7.1 review caught a 25KB-cap violation; this caught an authority-prose gap.
 
 ## Tag + publish state at hand-off
 

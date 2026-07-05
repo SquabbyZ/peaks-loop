@@ -27,7 +27,7 @@ status: archived
 **Pre-flight scan conflicts (carry-forward to Plan 3):**
 - Plan 3 Task 7's "split run() into runStrategic+runTactical" — `rd-service.ts` only exports `createRdSwarmPlan`. User chose Option (a) at 2026-06-22: "保留 plan, 在 rd-service 加新 export". Implementer will add `runStrategicStage` + `runTacticalStage` as new exports, leave `createRdSwarmPlan` untouched.
 - 601 → ~750 lines still under 800-line cap.
-- peaks-solo stays the LLM orchestrator (RD sub-agent still produces rootCauseAnalysis, designRationale).
+- peaks-code stays the LLM orchestrator (RD sub-agent still produces rootCauseAnalysis, designRationale).
 
 **Branch:** main, 11 commits ahead of origin/main (NOT pushed — Plan 3a Task 5 handles push).
 

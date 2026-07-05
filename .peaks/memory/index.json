@@ -104,7 +104,7 @@
       {
         "name": "ide-adapter-resource-profile-framework",
         "kind": "decision",
-        "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-solo full-auto) The  shape...",
+        "description": "IdeAdapter resource-profile framework (slice #011) Decision (2026-06-07, slice #011, peaks-code full-auto) The  shape...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\ide-adapter-resource-profile-framework.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/rd/tech-doc-011-2026-06-07-ide-adapter-resource-profile.md",
         "updatedAt": "2026-07-01"
@@ -112,7 +112,7 @@
       {
         "name": "memory-search-y2-rerank-2026-06-19-decision",
         "kind": "decision",
-        "description": "Slice Z-A — LLM Rerank Spike Decision **Date:** 2026-06-19 **Verdict:** ❌ **NO-GO** **Decision owner:** peaks-solo (i...",
+        "description": "Slice Z-A — LLM Rerank Spike Decision **Date:** 2026-06-19 **Verdict:** ❌ **NO-GO** **Decision owner:** peaks-code (i...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\memory-search-y2-rerank-2026-06-19-decision.md",
         "sourceArtifact": "src/services/memory/llm-reranker.ts",
         "updatedAt": "2026-07-01"
@@ -208,10 +208,10 @@
         "updatedAt": "2026-07-03"
       },
       {
-        "name": "peaks-solo-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes",
+        "name": "peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes",
         "kind": "rule",
         "description": "Confirmed in practice (slice 001-skill-authoritative-sentence): even when the implementation surface is a single SKIL...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-solo-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
         "updatedAt": "2026-07-03"
       },
@@ -596,7 +596,7 @@
       {
         "name": "2026-06-28-tilde-peaks-inventory",
         "kind": "project",
-        "description": "盘点 + 保守档清理（2026-06-28 session 75d5f0） **触发**: 用户在 v2.14.0 anti-fake-green PRD 完成后让 peaks-solo \"顺手整理下 \"。 **执行档**: 保守档（...",
+        "description": "盘点 + 保守档清理（2026-06-28 session 75d5f0） **触发**: 用户在 v2.14.0 anti-fake-green PRD 完成后让 peaks-code \"顺手整理下 \"。 **执行档**: 保守档（...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-tilde-peaks-inventory.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-01"
@@ -644,7 +644,7 @@
       {
         "name": "parked-peaks-workflow-primitive",
         "kind": "project",
-        "description": "User pain: peaks-solo re-derives the phase plan (~3-5k tokens) on every invocation, plus risk of LLM drifting the pha...",
+        "description": "User pain: peaks-code re-derives the phase plan (~3-5k tokens) on every invocation, plus risk of LLM drifting the pha...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\parked-peaks-workflow-primitive.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-01"

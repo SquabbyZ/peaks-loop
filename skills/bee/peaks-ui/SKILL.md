@@ -32,9 +32,9 @@ find . -maxdepth 1 -name '*.png' 2>&1
 
 UI inherits `peaks-qa`'s hard-block contract: `AskUserQuestion` with three options (logged in / skip / cancel); no silent downgrade, no DOM-state inference.
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` from `peaks-solo`, these sections are **suspended** for the sub-agent run:
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` from `peaks-code`, these sections are **suspended** for the sub-agent run:
 
 - **Session id** — use parent's sid (`.peaks/_runtime/session.json` or `--session-id <parent-sid>`). Do NOT spawn your own session; `peaks session info --active` reads the canonical binding.
 - **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Solo owns `.peaks/.active-skill.json`. Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
@@ -223,7 +223,7 @@ Use gstack as a design-review workflow reference for the `Plan → Review → Te
 - map browser walkthrough concepts to UI regression seeds when runtime validation is approved;
 - keep accessibility, performance, and visual direction as Peaks-Loop UI acceptance inputs.
 
-For frontend work, especially full-auto mode, use the Playwright MCP to inspect the running page or prototype before accepting the UI direction. The LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if present, it invokes the tools by name directly (browser_navigate / browser_snapshot / browser_take_screenshot / browser_console_messages / browser_network_requests / browser_close) — no peaks-loop envelope. Playwright MCP launches a headed browser on demand; if the tool list is empty, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or the IDE's own MCP install path. (Chrome DevTools MCP is a secondary surface that connects to an already-running Chrome via `--remote-debugging-port=9222`; it does NOT launch a browser on its own.) If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions as UI feedback for design/RD; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-solo/references/browser-workflow.md`.
+For frontend work, especially full-auto mode, use the Playwright MCP to inspect the running page or prototype before accepting the UI direction. The LLM checks its own tool list for any Playwright MCP entry in the LLM tool list; if present, it invokes the tools by name directly (browser_navigate / browser_snapshot / browser_take_screenshot / browser_console_messages / browser_network_requests / browser_close) — no peaks-loop envelope. Playwright MCP launches a headed browser on demand; if the tool list is empty, the user installs via `claude mcp add playwright -- npx @playwright/mcp@latest` (Claude Code) or the IDE's own MCP install path. (Chrome DevTools MCP is a secondary surface that connects to an already-running Chrome via `--remote-debugging-port=9222`; it does NOT launch a browser on its own.) If login, CAPTCHA, SSO, or MFA appears, the visible browser is already open; wait for the user to complete login and explicitly confirm completion before continuing. Capture only sanitized visible regressions as UI feedback for design/RD; do not retain login URLs, cookies, headers, tokens, storage state, browser traces, or screenshots/logs containing PII or SSO/MFA material. Canonical browser workflow: `peaks-code/references/browser-workflow.md`.
 
 ## Prototype fidelity gate (MANDATORY — check BEFORE any design work)
 
@@ -350,7 +350,7 @@ Do not own backend architecture, non-UI implementation, runtime hook installatio
 
 ## Sub-agent context governance (slice #010)
 
-UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifacts are large binary-ish; the 1MB artifact size limit (G7.3) applies. Detailed: `skills/peaks-solo/references/context-governance.md`.
+UI sub-agents follow the same G7 metadata-only + G8.6 share protocol. UI artifacts are large binary-ish; the 1MB artifact size limit (G7.3) applies. Detailed: `skills/peaks-code/references/context-governance.md`.
 
 ### G7 — UI sub-agent protocol
 

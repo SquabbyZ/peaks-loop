@@ -3,7 +3,7 @@
 ## Why
 
 Per spec §9 line 1105 (Slice #12 final piece): "`peaks skills sync`
-8 平台分发". The peaks-loop skill family (peaks-solo / peaks-rd /
+8 平台分发". The peaks-loop skill family (peaks-code / peaks-rd /
 peaks-qa / peaks-prd / peaks-sop / peaks-sc / peaks-ui / peaks-txt /
 peaks-ide / peaks-doctor) lives in the repo at `skills/<name>/SKILL.md`.
 The IDE-adapter layer (Slice 0.7) already enumerates 8 supported

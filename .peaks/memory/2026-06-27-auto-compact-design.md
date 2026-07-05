@@ -2,7 +2,7 @@
 name: 2026-06-27-auto-compact-design
 description: v2.13.0 auto-compact protocol design — peaks-loop drives context compaction autonomously (zero human / zero LLM intervention) so the LLM-runner stays alive with context < 95% on any AI CLI.
 metadata:
-  affects: peaks-solo auto-compact, IdeAdapter.compact, context-monitor D6
+  affects: peaks-code auto-compact, IdeAdapter.compact, context-monitor D6
   related: 2026-06-27-v2-12-fanout-3way.md, 2026-06-27-prose-only-catalog-followup.md
 ---
 
@@ -128,7 +128,7 @@ that IDE without further orchestrator changes.
    the compact intent to the IDE's hook file (per
    `IdeSettingsLocation`) when an IDE requires registered hooks
    rather than a runtime command.
-3. **Solo Step N+2 prose update**: `skills/peaks-solo/SKILL.md`
+3. **Solo Step N+2 prose update**: `skills/peaks-code/SKILL.md`
    should mention `peaks solo context-now` + `auto-compact` so LLM
    sessions invoke the autonomous loop instead of `--prompt-size`
    hand-passing.

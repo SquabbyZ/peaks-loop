@@ -29,7 +29,7 @@ This is **not** about LLM-platform observability (R-1 / R-8 known boundary: peak
 | Layer | Who | What | Cadence |
 |---|---|---|---|
 | **Sub-agent writes** | The sub-agent while running | Calls `peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progress <pct> --note "<text>"` to append a heartbeat to the record JSON | 30s default; SKILL.md override |
-| **Dispatcher reads** | peaks-solo main loop, during batch-sync wait | In-process async poller reads `heartbeats[]` + `lastBeatAt` from all records in current batch; emits `dispatcherStatus: { batchId, total, subAgents: [{role, status, progress, lastBeatAgo}] }` to status line / stderr | 10s; offset from sub-agent 30s to avoid jitter |
+| **Dispatcher reads** | peaks-code main loop, during batch-sync wait | In-process async poller reads `heartbeats[]` + `lastBeatAt` from all records in current batch; emits `dispatcherStatus: { batchId, total, subAgents: [{role, status, progress, lastBeatAgo}] }` to status line / stderr | 10s; offset from sub-agent 30s to avoid jitter |
 | **User / CLI reads** | Anyone, anytime | `peaks sub-agent list --session-id <sid> --json` queries all sub-agent states for the sid | Manual |
 
 ## Dispatch record schema upgrade (AC-34)
@@ -79,10 +79,10 @@ peaks sub-agent heartbeat --record <dispatchRecordPath> --status <state> --progr
 Single line, 80-120 chars, status-line-friendly:
 
 ```
-[peaks-solo] swarm 3/3 running | rd-planning 45% (12s ago) | qa-test-cases 30% (5s ago) | ui-design 20% (2s ago)
-[peaks-solo] swarm 3/3 running | rd-planning 70% (8s ago) | qa-test-cases 50% (3s ago) | ui-design 30% (6s ago)
+[peaks-code] swarm 3/3 running | rd-planning 45% (12s ago) | qa-test-cases 30% (5s ago) | ui-design 20% (2s ago)
+[peaks-code] swarm 3/3 running | rd-planning 70% (8s ago) | qa-test-cases 50% (3s ago) | ui-design 30% (6s ago)
 ...
-[peaks-solo] swarm 3/3 done in 47.3s
+[peaks-code] swarm 3/3 done in 47.3s
 ```
 
 - `lastBeatAgo` rendered as `now() - lastBeatAt`
@@ -96,9 +96,9 @@ For every `peaks sub-agent dispatch` invocation, the calling SKILL.md / LLM MUST
 1. "You are sub-agent role X. While running, you MUST call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<what you're doing>"` at least every 30 seconds (or per the configured `heartbeatIntervalSec`)."
 2. "On completion, call `peaks sub-agent heartbeat --status done --progress 100 --note "completed"`. On failure, `--status failed`. Final state will be picked up by the parent Dispatcher."
 
-For peaks-solo main loop, the batch-sync wait period MUST start the in-process poller (per AC-35) and emit status lines per G6.5.
+For peaks-code main loop, the batch-sync wait period MUST start the in-process poller (per AC-35) and emit status lines per G6.5.
 
-For SKILL.md files that issue sub-agent dispatch (peaks-solo / peaks-rd / peaks-qa), the fan-out section MUST include the heartbeat instruction in the sub-agent prompt template.
+For SKILL.md files that issue sub-agent dispatch (peaks-code / peaks-rd / peaks-qa), the fan-out section MUST include the heartbeat instruction in the sub-agent prompt template.
 
 ## What does NOT satisfy the rule
 

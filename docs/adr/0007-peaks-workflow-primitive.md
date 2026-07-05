@@ -1,7 +1,7 @@
 # ADR 0007: peaks-workflow primitive
 
 - **Status:** accepted — 2026-06-30 (v2 update)
-- **Authors:** smallmark1912 + Claude (peaks-solo session 2026-06-12-session-dbc275; v2 update: 2026-06-30-session-f90141)
+- **Authors:** smallmark1912 + Claude (peaks-code session 2026-06-12-session-dbc275; v2 update: 2026-06-30-session-f90141)
 - **Target release:** v3.0.0 (Loop Engineering native)
 - **Supersedes:** nothing
 - **Superseded by:** nothing yet
@@ -14,10 +14,10 @@ peaks-loop today has four orchestration primitives that together describe a work
 
 - **Skills** (`skills/peaks-*/SKILL.md`) — LLM role = system prompt + tool list
 - **SOPs** (`peaks-sop` + `sop.json`) — phase gates (file-exists / grep / command)
-- **Runbook** (`peaks-solo/references/runbook.md`) — CLI sequence for the full-auto profile
+- **Runbook** (`peaks-code/references/runbook.md`) — CLI sequence for the full-auto profile
 - **Artifacts** (`.peaks/_runtime/<sid>/{prd,rd,qa,sc}/`) — per-slice outputs
 
-To reuse a workflow, a user must re-narrate to `peaks-solo` what they want, and the LLM re-derives the phase plan each invocation (~3-5k tokens of plan narration, plus a real risk of LLM drifting the phase order or skipping a role). Token cost + drift are the user's stated pain.
+To reuse a workflow, a user must re-narrate to `peaks-code` what they want, and the LLM re-derives the phase plan each invocation (~3-5k tokens of plan narration, plus a real risk of LLM drifting the phase order or skipping a role). Token cost + drift are the user's stated pain.
 
 External survey (LangGraph / Temporal / Inngest / CrewAI / Autogen / n8n) showed: all of them cover state persistence + role routing to some degree, **none** integrate "gates" (file-exists / grep / command) as a first-class primitive. That gate-first posture is peaks-loop's moat and should not be replaced; it should be wrapped.
 
@@ -42,7 +42,7 @@ phase = {
 ### CLI surface (proposed)
 
 ```
-peaks workflow record    # capture the current peaks-solo run as a workflow object
+peaks workflow record    # capture the current peaks-code run as a workflow object
 peaks workflow run <id>  # replay a captured workflow deterministically
 peaks workflow list      # show captured workflows (project + global)
 peaks workflow show <id> # show the captured structure + diff vs. last run
@@ -61,7 +61,7 @@ The user does **not** call `peaks workflow` directly. The LLM-mediated flow:
 ```
 user: peaks-workflow 保存这个流程
   → skill peaks-workflow invokes `peaks workflow record` internally
-  → LLM reads peaks-solo state, phase transitions, prompts, context
+  → LLM reads peaks-code state, phase transitions, prompts, context
   → emits .peaks/workflows/<id>.md
 
 user: peaks-workflow 跑一下 OAuth 流程
@@ -70,7 +70,7 @@ user: peaks-workflow 跑一下 OAuth 流程
   → drives phases by role; no re-derivation of the phase plan
 ```
 
-This matches the project-wide dev-preference rule (skill-first, CLI-auxiliary) and the existing `peaks-solo` pattern.
+This matches the project-wide dev-preference rule (skill-first, CLI-auxiliary) and the existing `peaks-code` pattern.
 
 ## Why a new primitive (not extending peaks-sop)
 
@@ -86,7 +86,7 @@ A new primitive is the cleanest. The composability story (workflow ↔ sop ↔ s
 
 | Invocation | Today | After (target) |
 |---|---|---|
-| `peaks-solo <task>` plan narration | ~3-5k tokens | 0 (workflow runs as deterministic machine flow) |
+| `peaks-code <task>` plan narration | ~3-5k tokens | 0 (workflow runs as deterministic machine flow) |
 | Per-phase role prompt construction | ~500-1k tokens | 0 (prompt template baked into workflow) |
 | Project context re-derivation | ~1-2k tokens | 0 (context snapshot baked into workflow) |
 | LLM drift risk (wrong phase order, skipped role) | Real | 0 (phase sequence is data, not LLM decision) |
@@ -105,14 +105,14 @@ These were the same concerns I raised against ADR 0006; they apply here too. **v
 
 v3.0.0 ships the Slice A + Slice B of the Loop Engineering native refactor (per alignment matrix section 5.2):
 
-- `.peaks/workflows/<id>.yaml` unlocked; bundled `default-fullauto-md.yaml` encodes the canonical peaks-solo step sequence.
+- `.peaks/workflows/<id>.yaml` unlocked; bundled `default-fullauto-md.yaml` encodes the canonical peaks-code step sequence.
 - `peaks workflow run <id> --session <sid> --project <repo> --json` (deterministic replay).
 - `peaks workflow graph <id> --session <sid> --json` (dry-run graph render; renamed from `plan` to avoid the existing `workflow plan <read|refresh|detect-trigger>` slice-025 collision).
 - `peaks workflow lint <id> --session <sid> --json` (semantic validation).
 - `peaks loop eval <rid> --evaluator <name> [--project <repo>] [--json]` (workflow-callable native evaluator; no LLM scheduling).
 - 4 native evaluator types: `karpathy` / `code-review` / `security-review` / `perf-baseline` + the aggregate `verdict-aggregate` glue.
 - Backward-compat: `peaks loop eval` envelopes flow through `verdict-aggregator` unchanged (the `AnyEnvelope` discriminated union already accepts the same shape; verified by `tests/unit/loop/evaluator-dispatcher.test.ts`).
-- peaks-solo SKILL.md keeps its prose steps as a backing doc (downgraded, not deleted). The LLM may still read them when no workflow is bound, preserving v2.x behavior for projects that don't ship a workflow file.
+- peaks-code SKILL.md keeps its prose steps as a backing doc (downgraded, not deleted). The LLM may still read them when no workflow is bound, preserving v2.x behavior for projects that don't ship a workflow file.
 
 ## Defer-to-dogfood gate
 

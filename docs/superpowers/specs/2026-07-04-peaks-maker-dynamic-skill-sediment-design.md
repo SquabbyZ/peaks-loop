@@ -2,8 +2,8 @@
 
 **Status:** Draft (post-brainstorming, pre-writing-plans)
 **Date:** 2026-07-04
-**Author:** SquabbyZ (via peaks-solo brainstorm session 2026-07-04)
-**Affects:** peaks-cli, peaks-solo, peaks-sop, all existing `peaks-*` skills, `~/.peaks/skills/`, `tests/unit/workspace/` + `tests/unit/cli/`
+**Author:** SquabbyZ (via peaks-code brainstorm session 2026-07-04)
+**Affects:** peaks-cli, peaks-code, peaks-sop, all existing `peaks-*` skills, `~/.peaks/skills/`, `tests/unit/workspace/` + `tests/unit/cli/`
 **Target version:** 4.0.0 (major; introduces the sediment pool and `peaks-maker`)
 **Pre-release milestone:** peaks-loop **3.x** current line is cut and shipped first as a bug-fix-only release (per user directive 2026-07-04: "先把当前的版本创建个 release 方便后续 bug 修复"). 3.x receives only bug-fix commits; no spec-coupled changes. 4.0.0 lands the sediment pool on top of an already-frozen 3.x baseline.
 
@@ -53,7 +53,7 @@ Per user directive 2026-07-04: 用户生成的 bee,销毁前必须用自然语�
 
 peaks-loop is built as a 24h AI programmer orchestrator, but its skill surface has two compounding limitations that block every realistic long-task use case outside software engineering:
 
-1. **Skill set is code-centric.** The 18 built-in skills (peaks-prd, peaks-rd, peaks-qa, …) all assume "project = code repo". A product manager asking "pull today's trending GitHub repos by star velocity", or a medical researcher asking "fetch today's new arxiv papers in oncology", finds no entry — peaks-solo is the only orchestrator and it is hard-coded to the coding domain.
+1. **Skill set is code-centric.** The 18 built-in skills (peaks-prd, peaks-rd, peaks-qa, …) all assume "project = code repo". A product manager asking "pull today's trending GitHub repos by star velocity", or a medical researcher asking "fetch today's new arxiv papers in oncology", finds no entry — peaks-code is the only orchestrator and it is hard-coded to the coding domain.
 2. **Skills are always-on, file-scoped, and grow the active context.** Every skill installs into the Claude Code skills directory at package time, ships with the npm package, persists for the lifetime of the install, and lands in the LLM's context every time a session starts — including scenarios where the skill is irrelevant. The user's daily practical workaround ("don't load every skill; manually re-symlink what's needed") contradicts peaks-loop's "user operates at zero CLI cost" principle.
 
 Both symptoms collapse into one root cause: **peaks-loop has no concept of a sediment pool — a place where skills accumulate over time, are available on every project on the machine, and load into the LLM only when needed, then release back to the pool on completion.**
@@ -66,7 +66,7 @@ The current peaks-cli has three boundaries that look like a skill system but are
 |---|---|
 | `skills/peaks-*/SKILL.md` shipped as npm package | No on-machine user-side sediment layer where new scenarios accumulate cross-project. |
 | `~/.peaks/` workspace | Owns SOPs, sessions, runtime artifacts — but never owns skills. |
-| `peaks-solo` orchestrator | Hard-coded to the coding domain; no "spawn a bee" notion. |
+| `peaks-code` orchestrator | Hard-coded to the coding domain; no "spawn a bee" notion. |
 
 Without a sediment pool, every new scenario (trending-repo watcher, arxiv daily digest, fork-vs-upstream PR routing, unit-test coverage to 100%, …) either (a) gets baked into the npm package as a one-off (linear growth, version-coupled, hard to retire), or (b) doesn't get built at all because no clean home exists. The user's existing frustration ("with peaks-loop, the diffy PR landed upstream, the hermes-agent PR landed on my fork — same expected outcome, different result, no sediment available") is the canonical symptom.
 
@@ -89,7 +89,7 @@ Three reasons why bolting more skills onto the npm package fails to fix the prob
 3. **Vendor-neutral contract.** The sediment pool speaks a vendor-neutral skill envelope; an adapter layer (`peaks skill adapter <claude|codex|copilot|...>`) translates the envelope into each runtime's native skill format. The user/operator is never required to choose a vendor at sediment time.
 4. **Zero-CLI-cost human sedimentation.** Per user clarification 2026-07-04: the user adds a sediment by **describing it in natural language** to the LLM ("把这次抓 arxiv 的流程沉淀下来", "I want to reuse this next time"); peaks-maker skill, always-loaded, translates the user's words and runs `peaks skill sediment add-segment …` / `add-bee …` on the user's behalf. **The user never types `peaks <anything>` directly** — the user and the LLM share one CLI surface, but the **subject** of every CLI invocation is the LLM. The new bee becomes available across every project on the machine and every supported runtime that the user activates in a session, once peaks-maker finishes the sediment. (See §4.1.0 for the canonical statement.)
 5. **LLM-claimed sediment is gated by a promotion ladder, never auto-promoted.** Anything the LLM adds lands in `candidate`; only after the promotion ladder passes (cycle ≥ 1 + smoke test present + explicit human approval OR ≥ N cycles without incident) does it become `stable`. This is the key correctness device: it lets the LLM propose freely without polluting the active bee inventory.
-6. **peaks-solo is demoted to "one bee among many, system-stable, code-domain".** It is no longer the only orchestrator. A new top-level orchestrator concept (peaks-orchard, embodied by `peaks-cli`) picks a bee based on scenario and materializes it. Solo remains the default bee for coding scenarios and continues to receive version-coupled updates via npm — but it is no longer privileged in the design.
+6. **peaks-code is demoted to "one bee among many, system-stable, code-domain".** It is no longer the only orchestrator. A new top-level orchestrator concept (peaks-orchard, embodied by `peaks-cli`) picks a bee based on scenario and materializes it. Solo remains the default bee for coding scenarios and continues to receive version-coupled updates via npm — but it is no longer privileged in the design.
 
 ### 2.2 Non-goals (out of scope for this design)
 
@@ -97,7 +97,7 @@ Three reasons why bolting more skills onto the npm package fails to fix the prob
 - Auto-healing / self-repair of `.system/`. A "soft protection" stance is chosen (CLI guard + SKILL.md Boundaries + vitest guard). Auto-restore on corruption is a separate slice.
 - HTTP-based remote sediment sharing. This design is local-only (`~/.peaks/skills/`). Multi-machine sync is a future slice.
 - A UI for browsing or editing the pool. The CLI is the only interface in this slice.
-- Replacing peaks-solo's PRD/RD/QA/TXT choreography. peaks-solo retains its internal pipeline — `peaks-maker` adds a new layer on top, not a replacement.
+- Replacing peaks-code's PRD/RD/QA/TXT choreography. peaks-code retains its internal pipeline — `peaks-maker` adds a new layer on top, not a replacement.
 
 ---
 
@@ -118,7 +118,7 @@ LLM Runtime (Claude Code / Cursor / Codex / Copilot / …)
    ~/.peaks/skills/
      .system/                                ← system-bundled, protected dir
        bees/
-         peaks-solo/                  (code-domain, preserved-as-alias, system-stable)
+         peaks-code/                  (code-domain, preserved-as-alias, system-stable)
          peaks-prd/                   (also `bee-<name>`-style aliases welcome for new entries)
          peaks-rd/                    ↓ see §4.1.1 for the alias rule
          peaks-qa/ ...
@@ -128,8 +128,8 @@ LLM Runtime (Claude Code / Cursor / Codex / Copilot / …)
          peaks-reviewer/
        skills/{peaks-sop, peaks-audit, peaks-doctor, peaks-final-review,
                peaks-ide, peaks-perf-audit, peaks-security-audit,
-               peaks-slice-decompose, peaks-solo-resume,
-               peaks-solo-status, peaks-solo-test}/
+               peaks-slice-decompose, peaks-code-resume,
+               peaks-code-status, peaks-code-test}/
      bees/                                   ← user/LLM sedimented
        bee-<name>/
      segments/                               ← reusable fragments
@@ -429,12 +429,12 @@ Concretely:
 - This is the meaning of "user operates peaks at zero CLI cost" — not that peaks hides a CLI from the user, but that the user has no cli verb to learn. The CLI is the LLM's tool, not the user's.
 - **No new facade command `peaks run <bee>` exists.** The user invokes a bee by saying "run bee-x", which the LLM acts on via the runtime's skill-activation path (scratch materialization + adapter.publish). Hence the **retired command**: `peaks run` is deleted from this spec; any later appearance of `peaks run` is a regression to flag.
 
-### 4.1.1 peaks-code as the system-stable code-domain bee (renamed from peaks-solo)
+### 4.1.1 peaks-code as the system-stable code-domain bee (renamed from peaks-code)
 
-The pool introduces bees by `bee-*` name. The code-domain orchestrator — historically shipped as `peaks-solo` — has been renamed to `peaks-code` to better reflect its scope (end-to-end code-repo workflow: PRD → RD → QA → UI → SC → TXT). The on-disk path is preserved as `~/.peaks/skills/.system/bees/peaks-solo/` (legacy alias compatibility); only the `id` and `displayName` inside `manifest.json` change:
+The pool introduces bees by `bee-*` name. The code-domain orchestrator — historically shipped as `peaks-code` — has been renamed to `peaks-code` to better reflect its scope (end-to-end code-repo workflow: PRD → RD → QA → UI → SC → TXT). The on-disk path is preserved as `~/.peaks/skills/.system/bees/peaks-code/` (legacy alias compatibility); only the `id` and `displayName` inside `manifest.json` change:
 
 ```
-~/.peaks/skills/.system/bees/peaks-solo/
+~/.peaks/skills/.system/bees/peaks-code/
    manifest.json   # { "id": "peaks-code", "displayName": "Peaks Code" }
                    # source: system, promotion_status: system-stable
                    # segments: [...code's existing sub-agents...]
@@ -442,7 +442,7 @@ The pool introduces bees by `bee-*` name. The code-domain orchestrator — histo
 
 The orchestration entry point preserves the existing `<skill name> skill presence:set peaks-code …` command path — but note: per §4.1.0, that command is **LLM-typed on the user's behalf**, not user-typed. A user who says "start a coding task" triggers the LLM to dispatch peaks-code. Nothing in the existing runbook changes at the UX layer. Discovery of new bees happens through peaks-maker (described in NL by the user) — never through a new `peaks run <bee-name>` CLI verb.
 
-Rationale: `peaks-code` is the descriptive rename that the user accepted in 2026-07-04 brainstorming (peaks-solo → peaks-code). The earlier "preserved alias" rationale no longer holds: the user opted for the rename because the new name communicates the bee's scope more accurately to humans, while the legacy directory path is retained as a stable install location to avoid breaking deployed `presence` state and SkillHub references.
+Rationale: `peaks-code` is the descriptive rename that the user accepted in 2026-07-04 brainstorming (peaks-code → peaks-code). The earlier "preserved alias" rationale no longer holds: the user opted for the rename because the new name communicates the bee's scope more accurately to humans, while the legacy directory path is retained as a stable install location to avoid breaking deployed `presence` state and SkillHub references.
 
 ### 4.2 peaks-maker (new skill, always-installed)
 
@@ -625,12 +625,12 @@ Coverage target: ≥ 95% on new files in `src/cli/sediment/`, `src/sediment/`, a
 
 The migration is the riskiest part of this slice. Four phases:
 
-1. **Phase 1 (this slice):** Ship the new pool directory, the CLI surface, the adapter for `claude`, soft-protection guard. **No existing skill moves.** peaks-solo and friends stay in `skills/peaks-*/` exactly as today.
-2. **Phase 2 (next slice):** Move the system bees (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-reviewer`, `peaks-solo`) into `~/.peaks/skills/.system/bees/`. The npm package's `skills/` directory becomes a thin bootstrap that copies these into the pool on `peaks-cli install` and upgrades.
+1. **Phase 1 (this slice):** Ship the new pool directory, the CLI surface, the adapter for `claude`, soft-protection guard. **No existing skill moves.** peaks-code and friends stay in `skills/peaks-*/` exactly as today.
+2. **Phase 2 (next slice):** Move the system bees (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`, `peaks-reviewer`, `peaks-code`) into `~/.peaks/skills/.system/bees/`. The npm package's `skills/` directory becomes a thin bootstrap that copies these into the pool on `peaks-cli install` and upgrades.
 3. **Phase 3 (next slice):** A user-LLM-visible demo end-to-end: `peaks skill sediment add-bee bee-arxiv-daily-watcher` from a fresh install. Captured in `docs/operator-manual/sediment-pool.md`.
 4. **Phase 4 (separate slice):** Wire the 7 → 18 system-bundled skills migration through `openspec/changes/<id>/` for review.
 
-We deliberately ship Phase 1 first to keep the diff small. Phases 2–4 each get their own peaks-solo orchestrated slice.
+We deliberately ship Phase 1 first to keep the diff small. Phases 2–4 each get their own peaks-code orchestrated slice.
 
 ---
 
@@ -641,7 +641,7 @@ We deliberately ship Phase 1 first to keep the diff small. Phases 2–4 each get
 3. **Never auto-promote a candidate.** `promote` is the only pathway from `candidate → stable`, and it always requires either explicit human confirmation or ≥ `minCycles` successful runs with the gate satisfied.
 4. **Never store scratch materializations outside an adapter-mapped dir.** Scratch paths live in the adapter, period.
 5. **Never invent new schema fields silently.** Any new field is a JSON Schema bump (`peaks.bee/1` → `peaks.bee/2`) and an `openspec/changes/<id>/` change proposal.
-6. **Never break the existing peaks-solo runbook.** Solo remains a `system-stable` bee, served by the same CLI it is today.
+6. **Never break the existing peaks-code runbook.** Solo remains a `system-stable` bee, served by the same CLI it is today.
 7. **Never let LLM drift dictate the orchestrator.** Orchestration is `peaks-cli`'s job; the LLM is the consumer of the orchestrator, not the other way around.
 8. **[META] Never violate the Human-NL-Choice-Only tenet (§0).** No user-facing message, gate, error, or AskUserQuestion may require the user to (a) type a CLI verb, (b) hand-author JSON / SKILL.md / manifest, (c) hand-fill a form field outside `AskUserQuestion` multi-choice, or (d) provide input that the LLM can read from natural language directly. User participation is allowed in only two prototypes: a natural-language multi-choice pick, or a free-form natural-language description. Changes to this tenet require explicit user re-confirmation (logged in §11).
 9. **`~/.peaks/skills/.state.db` is the local SkillHub store (per §3.3.1).** It contains the versioned `bee_release` rows of retained user-bee snapshots. Only `source=user` bees are archived; system-bee versions live in the npm package, not here. Peaks-loop version upgrade never rewrites `state.db`; it may `VACUUM` after destructive clean. LLM never opens `state.db` directly — only via `peaks skill sediment dispose / releases / release-show / export / import …`. Schema is forward-compatible with the future online public SkillHub (§3.3.4) so no migration is required when that ships.

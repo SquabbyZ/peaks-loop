@@ -107,7 +107,7 @@ A pre/post baseline diff shows no unintended drift in the test surface, public A
 The service contract (`src/services/final-review/final-review-service.ts:23-31` and `:88-93`):
 
 - `allPass === true` iff every dimension's `verdict === 'pass'`.
-- `needsAttention` is the list of dimension names whose verdict is `fail` or `inconclusive`. The LLM does NOT need to populate it — the service enforces presence of all 4 dimensions and the human-facing summarizer (in peaks-solo or peaks-txt) computes `needsAttention` for display.
+- `needsAttention` is the list of dimension names whose verdict is `fail` or `inconclusive`. The LLM does NOT need to populate it — the service enforces presence of all 4 dimensions and the human-facing summarizer (in peaks-code or peaks-txt) computes `needsAttention` for display.
 - An `IncompleteFinalReviewError` is thrown when JSON is malformed or any required dimension is missing. That is a **gate failure**, not a `fail` verdict — the LLM call is invalid and must be re-prompted, not surfaced to the human.
 
 ## Confidence and what it means

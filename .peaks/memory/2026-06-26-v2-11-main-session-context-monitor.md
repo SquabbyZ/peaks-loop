@@ -15,7 +15,7 @@ metadata:
 
 > "还有监控主 session 的 context，如果使用的是 claude code 就用 claude code 的 compact 命令，不是 claude 就让 LLM 自己压缩"
 
-Translation: peaks-solo must monitor the **main-session** context window (not just sub-agent prompts). When context fills, the response shape is IDE-dependent:
+Translation: peaks-code must monitor the **main-session** context window (not just sub-agent prompts). When context fills, the response shape is IDE-dependent:
 - **Claude Code** — invoke the IDE's native `/compact` slash command (or equivalent) — the runtime owns the compression
 - **Other IDEs** — the LLM itself performs the compression by summarizing prior turns (write to `.peaks/_runtime/<sid>/txt/context-compress-<N>.md`, then continue)
 
@@ -23,7 +23,7 @@ Translation: peaks-solo must monitor the **main-session** context window (not ju
 
 ### D6.a — IDE detection is the load-bearing first step
 
-The peaks-solo skill runs in many IDEs (Claude Code, Trae, opencode, future adapters). The compact trigger MUST detect the host runtime BEFORE choosing the trigger path. Use the existing `peaks ide detect --json` CLI (from slice 021's IDE-adapter layer — see memory `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer`). If `peaks ide detect` is unavailable, fall back to env vars: `CLAUDE_CODE_ENTRYPOINT` (Claude Code), `TRAE_CLI` (Trae), etc.
+The peaks-code skill runs in many IDEs (Claude Code, Trae, opencode, future adapters). The compact trigger MUST detect the host runtime BEFORE choosing the trigger path. Use the existing `peaks ide detect --json` CLI (from slice 021's IDE-adapter layer — see memory `peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer`). If `peaks ide detect` is unavailable, fall back to env vars: `CLAUDE_CODE_ENTRYPOINT` (Claude Code), `TRAE_CLI` (Trae), etc.
 
 ### D6.b — Threshold table (main-session context, distinct from G9 sub-agent threshold)
 
