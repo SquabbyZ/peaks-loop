@@ -1,0 +1,12 @@
+[
+  {
+    "id": 1,
+    "prompt": "/peaks-code https://example.feishu.cn/wiki/PRODUCT_DOC_ID 是产品文档。请根据这份产品文档，对 /Users/yuanyuan/Desktop/work/platform-rag-web 这个前端项目进行迭代开发。目前只是前端项目，没有后端 swagger.json，可以先 mock，等后面有真实 swagger.json 数据时再联调替换。允许修改目标仓代码，这是实战测试。",
+    "expected": "peaks-code 选择 full-auto/实战路径，使用本仓 skills 目录下的 peaks-prd/rd/ui/qa/sc/txt，Feishu 走 headed gstack/browse/dist/browse 可见浏览器登录 handoff，先校验 https 和批准的 Feishu/Lark tenant 域名，生成 .peaks/_runtime/<session-id>/prd|rd|qa|txt 脱敏中间产物；RD 完成实现、单测、CR、安全检查、dry-run 后必须进入 QA；前端 RD 自测和 QA 验证都必须使用 headed gstack/browse/dist/browse 有头浏览器端到端验证并确认可见浏览器；QA 完成 API/mock 验证、浏览器 E2E、报告、安全和性能检查。若 QA 报告存在失败、阻塞、缺失或未验证项，必须回到 RD 修复并再次 QA，直到 QA 全部通过或生成 blocked handoff；full-auto 可用 Claude Code goal 维持 RD fixes until QA passes all acceptance items 的控制目标；不得保留登录 URL、cookie、headers、tokens、storage state、browser traces、raw browser/network state 或 PII/SSO/MFA 截图/日志。"
+  },
+  {
+    "id": 2,
+    "prompt": "/peaks-code 对 /Users/yuanyuan/Desktop/work/platform-rag-web 做前端需求迭代，需求来自需要登录的 Feishu 产品文档；如果浏览器登录没打开或文档仍不可读，需要阻塞并告诉我具体要做什么，不要用 unauthenticated fetch，也不要绕过 SSO/MFA。",
+    "expected": "流程必须验证可见浏览器 handoff，不能降级到 fetch；登录或访问失败时生成 blocked PRD/TXT 胶囊，只记录脱敏状态和下一步，不保存登录 URL、cookie、headers、tokens、storage state、浏览器 traces，或包含 PII/SSO/MFA 内容的截图和日志。"
+  }
+]
