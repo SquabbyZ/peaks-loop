@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Renamed
+- **`peaks-solo` → `peaks-code`** — the long-running code-domain orchestrator skill (PRD/RD/QA/UI/SC/TXT pipeline) has been renamed to communicate its scope more accurately. The on-disk directory `~/.peaks/skills/.system/bees/peaks-solo/` is preserved as a stable install location; only the manifest `id` and `displayName` change (`peaks-code` / `Peaks Code`). All four sibling skills (`peaks-solo-resume` → `peaks-resume`, `peaks-solo-status` → `peaks-status`, `peaks-solo-test` → `peaks-test`) are now top-level primitives rather than child skills of `peaks-solo`. Migration: `peaks session migrate-skill-name --from peaks-solo --to peaks-code --apply`.
+
+### Changed (Breaking)
+- **`peaks skill presence:set peaks-solo` no longer recognized** — the canonical skill name is now `peaks-code`. Existing `.peaks/_runtime/*/active-skill.json` files carrying `skill: "peaks-solo"` are migrated by `peaks session migrate-skill-name`. Manual override: edit the file and replace `"skill": "peaks-solo"` with `"skill": "peaks-code"`.
+- **CLI surface unchanged** — `peaks solo`, `peaks solo --fast`, and the entire `peaks-solo` skill runbook continue to function; only the skill-identification field (`id`, `displayName`, presence `skill` value) changes. The runbook name `peaks solo` is the user-facing verb and remains as-is.
+
+### Added
+- **Manifest id field** — `.peaks/skills/.system/bees/peaks-solo/manifest.json` now carries `{ "id": "peaks-code", "displayName": "Peaks Code" }`. The `migrate-skill-name` service explicitly skips this file (test: `session-migrate-skill-name.test.ts:69` "跳过 .peaks/skills/.system/bees/peaks-solo/manifest.json") so the canonical id is only ever edited by hand or by an explicit `peaks skill sediment refine-bee` flow, never by bulk migration.
+- **Spec §4.1.1 rewrite** — `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.1.1 has been rewritten from "peaks-solo as preserved alias" to "peaks-code as the system-stable code-domain bee (renamed from peaks-solo)". The plan's spec-coverage table now references the renamed heading.
+- **Migration helper** — `peaks session migrate-skill-name --from <old> --to <new> [--apply]` is the supported path for renaming skill references in `.peaks/_runtime/`. Idempotent; skip-list includes `.peaks/memory/**` and `.peaks/skills/.system/bees/peaks-solo/manifest.json`.
+
 ## 3.1.2 — 2026-07-04
 
 ### Added — Mechanical Job-mode gates (Step 0.8 enforcement)

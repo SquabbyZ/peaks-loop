@@ -429,20 +429,20 @@ Concretely:
 - This is the meaning of "user operates peaks at zero CLI cost" — not that peaks hides a CLI from the user, but that the user has no cli verb to learn. The CLI is the LLM's tool, not the user's.
 - **No new facade command `peaks run <bee>` exists.** The user invokes a bee by saying "run bee-x", which the LLM acts on via the runtime's skill-activation path (scratch materialization + adapter.publish). Hence the **retired command**: `peaks run` is deleted from this spec; any later appearance of `peaks run` is a regression to flag.
 
-### 4.1.1 peaks-solo as preserved alias (existing skill, unchanged UX)
+### 4.1.1 peaks-code as the system-stable code-domain bee (renamed from peaks-solo)
 
-The pool introduces bees by `bee-*` name; peaks-solo's name is grandfathered. To preserve muscle memory for existing users ("type peaks-solo = start PRD/bug-analysis/coding workflow"), peaks-solo is **not split** and **not renamed**. The pool registry carries a single system-stable entry under its existing name:
+The pool introduces bees by `bee-*` name. The code-domain orchestrator — historically shipped as `peaks-solo` — has been renamed to `peaks-code` to better reflect its scope (end-to-end code-repo workflow: PRD → RD → QA → UI → SC → TXT). The on-disk path is preserved as `~/.peaks/skills/.system/bees/peaks-solo/` (legacy alias compatibility); only the `id` and `displayName` inside `manifest.json` change:
 
 ```
 ~/.peaks/skills/.system/bees/peaks-solo/
-   manifest.json   # source: system, promotion_status: system-stable
-                   # description: "code-domain orchestrator (PRD/bug/coding)"
-                   # segments: [...solo's existing sub-agents...]
+   manifest.json   # { "id": "peaks-code", "displayName": "Peaks Code" }
+                   # source: system, promotion_status: system-stable
+                   # segments: [...code's existing sub-agents...]
 ```
 
-The orchestration entry point preserves the existing `<skill name> skill presence:set peaks-solo …` command path — but note: per §4.1.0, that command is **LLM-typed on the user's behalf**, not user-typed. A user who says "start a coding task" triggers the LLM to dispatch peaks-solo. Nothing in the existing runbook changes. Discovery of new bees happens through peaks-maker (described in NL by the user) — never through a new `peaks run <bee-name>` CLI verb.
+The orchestration entry point preserves the existing `<skill name> skill presence:set peaks-code …` command path — but note: per §4.1.0, that command is **LLM-typed on the user's behalf**, not user-typed. A user who says "start a coding task" triggers the LLM to dispatch peaks-code. Nothing in the existing runbook changes at the UX layer. Discovery of new bees happens through peaks-maker (described in NL by the user) — never through a new `peaks run <bee-name>` CLI verb.
 
-Rationale: peaks-solo is the longest-running installed skill across all users; its name is cemented as the "code-domain" entry point. Renaming or splitting would force every existing user to relearn. We honor the user's explicit request: "保留 peaks-solo 这个技能".
+Rationale: `peaks-code` is the descriptive rename that the user accepted in 2026-07-04 brainstorming (peaks-solo → peaks-code). The earlier "preserved alias" rationale no longer holds: the user opted for the rename because the new name communicates the bee's scope more accurately to humans, while the legacy directory path is retained as a stable install location to avoid breaking deployed `presence` state and SkillHub references.
 
 ### 4.2 peaks-maker (new skill, always-installed)
 
