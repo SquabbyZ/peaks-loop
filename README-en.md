@@ -6,66 +6,83 @@
 [![license](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](./LICENSE)
 [![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=flat-square&logo=github)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
-Give your AI coding assistant a set of engineering gates + orchestration so it works like a senior engineer, not a guesser.
-
 ## What it is
 
-peaks-loop is a pack of workflow skills that drops into Claude Code / Codex / Copilot / any AI CLI. It splits your 24-hour engineering flow (requirements → implementation → audit → testing → release) into 11 LLM role skills, so the AI follows your gates strictly — no shortcuts, no skips, no guessing.
+Loop engineering, engineered.
 
-## One-line install
+peaks-loop is your AI tactical squad — on call 24/7.
+Summon them, they handle the work.
+Stand them down when it's done.
+
+No skipped steps.
+No half-finished hand-offs.
+No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
+Every gate has a hard exit: audit fails = stop, QA fails = stop, any gate fails = full stop.
+You don't chase it, you don't patch it. You decide, it runs the next gate.
+
+## What's in the box
+
+First tactician on the roster: `peaks-code`. The lead.
+
+It runs the long chain — PRD, RD, QA, UI, SC, TXT — and it's the role you'll talk to most.
+
+What it does:
+- Long-task development (end-to-end requirement → PRD → implementation → QA), gate by gate, stops where it breaks
+- Fix a bug and ship the same day — fix goes through review + tests, not just out the door
+- Take on, break down, or hand off a long-running requirement — from fuzzy ask to landed code
+
+One sentence from you, and a long task is done. No second terminal needed.
+Coverage, audit, hard-stop — it treats every gate the same: under the bar = not delivered, off the rail = re-run.
+
+It's the entry the moment you install, and the dispatcher for every role that grows in later.
+Audit, QA gate, review sign-off — on by default. You only speak to turn one off.
+
+More loop-engineering roles coming.
+
+## Sediment your own loop engineering
+
+When a flow has run twice, it can stay. One sentence and it's grounded into your box.
+
+What you sediment is loop-engineering — a tactical play, not just a skill spell.
+Next time you say "run that", the whole playbook slots back in.
+
+It lands in a pool on your machine, scoped to you alone.
+Name it, reuse it, iterate it — your call.
+A flow that ran clean twice gets promoted.
+A flow that broke gets sent back to you to redefine.
+When a decision touches your assets, you decide.
+
+The point isn't how many bees the tool ships.
+The point is your few bees keep growing with your taste — you say one line, they grow one notch.
+
+## Get it running
 
 ```bash
 npx peaks-loop install
 ```
 
-Open your AI CLI and say **"use peaks to run this"**. Done.
+One sentence after install, and the squad is on the job.
 
-Want to see it first? [`examples/video-demo/`](./examples/video-demo/) renders a 30-second walkthrough using React + [Remotion](https://www.remotion.dev/) — login flow / bug fix / refactor + the 11-skill wall.
+Optional 30-second walk-through: [`examples/video-demo/`](./examples/video-demo/)
 
-```bash
-cd examples/video-demo && pnpm install && npx remotion render peaks-code-demo out/peaks-code-demo.mp4
-```
+## One more thing
 
-## One example
+This used to be `peaks-solo`. Then `peaks-code`. Now `peaks-loop` — a squad you grow into the team that runs your machine day in, day out.
 
-You say: **"I want to add user login"**
+Names changed. The job didn't: you say it, it runs the whole engineering flow, stops where it breaks, you decide.
 
-peaks-loop runs by itself:
+The first version was one role, so it was called solo.
+Then built-in roles kept coming, sedimented bees started pooling up, and it became a real squad — renamed loop.
+The literal name drops a piece of its past each time. The core never moved: you don't lay out the flow, it does.
 
-1. **peaks-code** takes over → reads your project → produces PRD
-2. **peaks-prd** writes the product requirement (readable back to you for sign-off)
-3. **peaks-rd** produces the implementation + runs 4 independent audits (code / security / perf / QA)
-4. **peaks-qa** runs tests + regression
-5. **peaks-ui** produces interface prototypes (if UI is involved)
-6. **peaks-sc** writes commits + PR descriptions
-7. **peaks-txt** sediments context for future reuse
-
-Any gate failing = automatic stop. **You only talk and decide.**
-
-## What you can ask it
-
-| You say | It does |
-|---|---|
-| "use peaks to run this requirement" | full end-to-end flow |
-| "where are we" | session status |
-| "continue the unfinished work" | resume from checkpoint |
-| "sediment what we learned today" | write to project memory |
-
-## How is it different
-
-- **It actually runs**: not prompt templates, but real code with unit tests and audit gates
-- **IDE-agnostic**: same `peaks` CLI across Claude Code / Codex / Copilot
-- **Reusable**: flows you've run once are remembered next time — no re-guessing
-
-## Want to go deeper
-
-- All skills → [`skills/`](./skills/)
-- Command reference → run `peaks --help`
-- Design specs → [`docs/superpowers/specs/`](./docs/superpowers/specs/)
-- Protocol & whitepapers → [`docs/`](./docs/)
-- Changelog → [`CHANGELOG.md`](./CHANGELOG.md)
-- Questions / feedback → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
+What you install today is still the same engineering backbone, just with more teammate-shaped names beside it, a few bees you can summon any time, and a gate order you sign off on before it walks.
+Install this one repo and every new requirement after has a roster waiting for your call.
 
 ---
 
 MIT License · Made by [SquabbyZ](https://github.com/SquabbyZ)
+
+- All skills → [`skills/`](./skills/)
+- Design docs → [`docs/`](./docs/)
+- Changelog → [`CHANGELOG.md`](./CHANGELOG.md)
+- Questions → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
