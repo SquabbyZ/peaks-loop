@@ -39,7 +39,17 @@ const NO_EXECUTE_PATTERN = /(do not execute upstream|do not run upstream install
 const PEAKS_AUTHORITATIVE_PATTERN = /(Peaks(?:-Cli|-Loop)? [\w \-/]+(remain|are) authoritative|Peaks(?:-Cli|-Loop)? [\w \-/]+acceptance authority|Peaks(?:-Cli|-Loop)? artifacts remain authoritative|Peaks(?:-Cli|-Loop)? gates remain authoritative)/i;
 
 async function readSkillBody(name: string): Promise<string> {
-  return readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+  // After the v2.13.0 bee-demote (commit de0872b), the role skills
+  // (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
+  // moved under `skills/bee/<role>/` while user-facing helpers stayed
+  // at `skills/<name>/`. Try both layouts.
+  const direct = join(SKILLS_ROOT, name, 'SKILL.md');
+  const demoted = join(SKILLS_ROOT, 'bee', name, 'SKILL.md');
+  try {
+    return await readFile(direct, 'utf8');
+  } catch {
+    return await readFile(demoted, 'utf8');
+  }
 }
 
 function mentionsExternal(body: string): boolean {

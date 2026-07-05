@@ -6,23 +6,40 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SKILLS_ROOT = resolve(__dirname, '..', '..', 'skills');
 
-const rdSkill = readFileSync(join(SKILLS_ROOT, 'peaks-rd', 'SKILL.md'), 'utf8');
-const qaSkill = readFileSync(join(SKILLS_ROOT, 'peaks-qa', 'SKILL.md'), 'utf8');
-const workflowGatesRef = readFileSync(
-  join(SKILLS_ROOT, 'peaks-code', 'references', 'workflow-gates-and-types.md'),
-  'utf8',
+// After the v2.13.0 bee-demote (commit de0872b), the role skills
+// (peaks-rd, peaks-qa, peaks-prd, peaks-ui, peaks-sc, peaks-txt)
+// moved under `skills/bee/<role>/` while user-facing helpers stayed
+// at `skills/<name>/`. Tests need to read whichever layout exists.
+function readSkillFile(skillName: string, ...segments: string[]): string {
+  const direct = join(SKILLS_ROOT, skillName, ...segments);
+  const demoted = join(SKILLS_ROOT, 'bee', skillName, ...segments);
+  try {
+    return readFileSync(direct, 'utf8');
+  } catch {
+    return readFileSync(demoted, 'utf8');
+  }
+}
+
+const rdSkill = readSkillFile('peaks-rd', 'SKILL.md');
+const qaSkill = readSkillFile('peaks-qa', 'SKILL.md');
+const workflowGatesRef = readSkillFile(
+  'peaks-code',
+  'references',
+  'workflow-gates-and-types.md',
 );
 // Some long-form content (sub-agent contracts, hard prohibitions,
 // aggregation, degradation) lives in references/ files so SKILL.md
 // stays under the 20KB slim cap. Tests that pin on that content
 // read the references/ file too and concatenate.
-const rdRefBody = readFileSync(
-  join(SKILLS_ROOT, 'peaks-rd', 'references', 'rd-fanout-contracts.md'),
-  'utf8',
+const rdRefBody = readSkillFile(
+  'peaks-rd',
+  'references',
+  'rd-fanout-contracts.md',
 );
-const rdParallelRefBody = readFileSync(
-  join(SKILLS_ROOT, 'peaks-rd', 'references', 'parallel-review-fanout.md'),
-  'utf8',
+const rdParallelRefBody = readSkillFile(
+  'peaks-rd',
+  'references',
+  'parallel-review-fanout.md',
 );
 // Concatenate SKILL.md + reference so a regex match on either file
 // succeeds. This matches the production `loadRunbookSection` pattern

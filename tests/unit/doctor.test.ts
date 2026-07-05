@@ -204,8 +204,30 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
     const { join: joinPath } = await import('node:path');
     const { skillsDir, requiredSkillNames } = await import('../../src/shared/paths.js');
 
+    // After the v2.13.0 bee-demote (commit de0872b), the role skills
+    // (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
+    // moved under `skills/bee/<role>/` while user-facing helpers stayed
+    // at `skills/<name>/`. Resolve a skill path walking both layouts.
+    async function resolveSkill(suffix: string[]): Promise<string> {
+      const candidates = [
+        joinPath(skillsDir, ...suffix),
+        joinPath(skillsDir, 'bee', ...suffix),
+      ];
+      for (const candidate of candidates) {
+        try {
+          await readFile(candidate, 'utf8');
+          return candidate;
+        } catch {
+          // try the next candidate
+        }
+      }
+      // Fall back to the first candidate so callers see a clean ENOENT
+      // error pointing at the canonical location.
+      return candidates[0]!;
+    }
+
     for (const name of requiredSkillNames) {
-      const skillPath = joinPath(skillsDir, name, 'SKILL.md');
+      const skillPath = await resolveSkill([name, 'SKILL.md']);
       const body = await readFile(skillPath, 'utf8');
       // The self-check `peaks skill runbook <self> --json` may live in
       // references/runbook.md (or `<role>-runbook.md`, used by skills
@@ -214,8 +236,8 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
       let haystack = body;
       if (!haystack.includes(`peaks skill runbook ${name} --json`)) {
         const candidates = [
-          joinPath(skillsDir, name, 'references', 'runbook.md'),
-          joinPath(skillsDir, name, 'references', `${name.replace(/^peaks-/, '')}-runbook.md`)
+          await resolveSkill([name, 'references', 'runbook.md']),
+          await resolveSkill([name, 'references', `${name.replace(/^peaks-/, '')}-runbook.md`])
         ];
         for (const refPath of candidates) {
           try {

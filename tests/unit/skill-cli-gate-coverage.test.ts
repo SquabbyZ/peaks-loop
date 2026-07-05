@@ -10,6 +10,20 @@ import {
 
 const SKILLS_ROOT = join(process.cwd(), 'skills');
 
+// After the v2.13.0 bee-demote (commit de0872b), the role skills
+// (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
+// moved under `skills/bee/<role>/` while user-facing helpers stayed
+// at `skills/<name>/`. Tests need to read whichever layout exists.
+async function readSkillFile(name: string): Promise<string> {
+  const direct = join(SKILLS_ROOT, name, 'SKILL.md');
+  const demoted = join(SKILLS_ROOT, 'bee', name, 'SKILL.md');
+  try {
+    return await readFile(direct, 'utf8');
+  } catch {
+    return await readFile(demoted, 'utf8');
+  }
+}
+
 /**
  * Coverage test: keeps the SKILL ↔ CLI surface honest.
  *
@@ -25,7 +39,7 @@ describe('dogfood coverage: SKILL claims have CLI/file backing', () => {
   test('per-request artifact paths use <session-id>/<request-id>, never the shorthand', async () => {
     const skills = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa'];
     for (const name of skills) {
-      const body = await readFile(join(SKILLS_ROOT, name, 'SKILL.md'), 'utf8');
+      const body = await readSkillFile(name);
       const section = extractSection(body, '## Mandatory per-request artifact');
       expect.soft(section, `${name} should not use the <id>/<rid> shorthand inside the artifact section`).not.toMatch(
         /\.peaks\/<id>\/[a-z]+\/(requests\/<rid>|test-(cases|reports)\/<rid>|design-draft)/
@@ -34,17 +48,17 @@ describe('dogfood coverage: SKILL claims have CLI/file backing', () => {
   });
 
   test('peaks-rd keeps the Codegraph project analysis heading', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-rd', 'SKILL.md'), 'utf8');
+    const body = await readSkillFile('peaks-rd');
     expect(body).toContain('## Codegraph project analysis');
   });
 
   test('peaks-code keeps the Codegraph orchestration context heading', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const body = await readSkillFile('peaks-code');
     expect(body).toContain('## Codegraph orchestration context');
   });
 
   test('peaks-rd keeps the Matt Pocock skills integration heading', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-rd', 'SKILL.md'), 'utf8');
+    const body = await readSkillFile('peaks-rd');
     expect(body).toContain('## Matt Pocock skills integration');
   });
 

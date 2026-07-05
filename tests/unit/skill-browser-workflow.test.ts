@@ -13,7 +13,19 @@ const MIGRATION_DOC_PATHS = [
 ];
 
 async function read(relativePath: string): Promise<string> {
-  return readFile(join(process.cwd(), relativePath), 'utf8');
+  // After the v2.13.0 bee-demote (commit de0872b), the role skills
+  // (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
+  // moved under `skills/bee/<role>/` while user-facing helpers stayed
+  // at `skills/<name>/`. When asked for `skills/<role>/...`, try the
+  // bee-demoted location as a fallback.
+  const absolute = join(process.cwd(), relativePath);
+  try {
+    return await readFile(absolute, 'utf8');
+  } catch {
+    const normalized = relativePath.replace(/\\/g, '/');
+    const demoted = normalized.replace(/^skills\/(peaks-(?:prd|rd|qa|ui|sc|txt))\//, 'skills/bee/$1/');
+    return await readFile(join(process.cwd(), demoted), 'utf8');
+  }
 }
 
 describe('audit: Playwright MCP is the canonical headed-browser launch surface', () => {

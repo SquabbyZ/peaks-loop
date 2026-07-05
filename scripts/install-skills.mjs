@@ -600,14 +600,39 @@ export function installBundledSkills(options = {}) {
   mkdirSync(targetRoot, { recursive: true });
   const validateSkillsRoot = createInstallRootValidator(targetRoot, 'Peaks skills');
 
+  // After the v2.13.0 bee-demote (commit de0872b), the role skills
+  // (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
+  // moved under `skills/bee/<role>/` while user-facing helpers stayed
+  // at `skills/<name>/`. Build the install candidate list by walking
+  // top-level entries (user-facing helpers) AND `skills/bee/<role>`
+  // (demoted role skills). Each candidate is installed under its
+  // basename so the postinstall links `~/.claude/skills/peaks-rd`
+  // to `skills/bee/peaks-rd` (rather than `skills/bee`).
+  const beeRoot = join(skillsRoot, 'bee');
+  /** @type {Array<{ skillName: string, sourcePath: string }>} */
+  const candidates = [];
   for (const skillName of readdirSync(skillsRoot)) {
+    if (skillName === 'bee') continue;
     const sourcePath = join(skillsRoot, skillName);
     const skillFile = join(sourcePath, 'SKILL.md');
-    const targetPath = join(targetRoot, skillName);
-
-    if (!lstatSync(sourcePath).isDirectory() || !existsSync(skillFile)) {
-      continue;
+    if (!lstatSync(sourcePath).isDirectory() || !existsSync(skillFile)) continue;
+    candidates.push({ skillName, sourcePath });
+  }
+  if (existsSync(beeRoot) && lstatSync(beeRoot).isDirectory()) {
+    for (const skillName of readdirSync(beeRoot)) {
+      const sourcePath = join(beeRoot, skillName);
+      const skillFile = join(sourcePath, 'SKILL.md');
+      if (!lstatSync(sourcePath).isDirectory() || !existsSync(skillFile)) continue;
+      // De-dupe: a top-level helper with the same name wins (preserves
+      // the existing install contract for any helper that shares a name
+      // with a demoted role skill, e.g. legacy overlap).
+      if (candidates.some((c) => c.skillName === skillName)) continue;
+      candidates.push({ skillName, sourcePath });
     }
+  }
+
+  for (const { skillName, sourcePath } of candidates) {
+    const targetPath = join(targetRoot, skillName);
 
     const current = getPathStats(targetPath);
     if (current) {

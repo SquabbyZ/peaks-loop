@@ -3,7 +3,17 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
 function readSkill(skillName: string): string {
-  return readFileSync(join(process.cwd(), 'skills', skillName, 'SKILL.md'), 'utf8');
+  // After the v2.13.0 bee-demote (commit de0872b), the role skills
+  // (peaks-rd, peaks-qa, peaks-prd, peaks-ui, peaks-sc, peaks-txt)
+  // moved under `skills/bee/<role>/` while user-facing helpers stayed
+  // at `skills/<name>/`. Try both layouts.
+  const direct = join(process.cwd(), 'skills', skillName, 'SKILL.md');
+  const demoted = join(process.cwd(), 'skills', 'bee', skillName, 'SKILL.md');
+  try {
+    return readFileSync(direct, 'utf8');
+  } catch {
+    return readFileSync(demoted, 'utf8');
+  }
 }
 
 describe('Matt Pocock skills integration guidance', () => {
