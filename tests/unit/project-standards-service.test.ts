@@ -42,7 +42,7 @@ describe('project standards service', () => {
     ]);
     expect(plan.plannedWrites.every((write) => write.status === 'planned')).toBe(true);
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
-    expect(plan.skillPreflight.appliesTo).toEqual(['peaks-rd', 'peaks-qa', 'peaks-solo']);
+    expect(plan.skillPreflight.appliesTo).toEqual(['peaks-rd', 'peaks-qa', 'peaks-code']);
     expect(plan.plannedWrites.find((write) => write.relativePath === '.claude/rules/typescript/coding-style.md')?.content).toContain('Do not add new `any` types');
     expect(plan.skillPreflight.summary).toContain('自动 preflight');
   });

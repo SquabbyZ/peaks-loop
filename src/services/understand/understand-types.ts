@@ -37,7 +37,7 @@ export type UnderstandScanReport = {
 
 /**
  * Slice L3.1 — opt-in prompt payload. When uaPrompt === 'unset' and UA is
- * absent, the peaks-solo / peaks-ide layer surfaces this to the user via
+ * absent, the peaks-code / peaks-ide layer surfaces this to the user via
  * AskUserQuestion. The CLI does not prompt directly; it returns this
  * payload so the LLM-side UX layer can decide.
  */

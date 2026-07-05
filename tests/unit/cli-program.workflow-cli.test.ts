@@ -127,7 +127,7 @@ describe('createProgram workflow + loop CLI smoke (Slice A.3 + B.2)', () => {
       expect(output.command).toBe('workflow.graph');
       const graph = (output.data as { graph: { phases: Array<{ id: string }> } }).graph;
       expect(graph.phases.length).toBeGreaterThan(0);
-      // The bundled workflow references the canonical peaks-solo step ids.
+      // The bundled workflow references the canonical peaks-code step ids.
       expect(graph.phases.map((p) => p.id)).toContain('step-0-init');
     },
     TEST_TIMEOUT
@@ -238,12 +238,12 @@ describe('default-fullauto-md.yaml schema validity (bundled artifact)', () => {
       const stubYaml = `---
 schemaVersion: 1
 id: default-fullauto-md
-label: Default fullauto-md workflow (peaks-solo) [fixture]
+label: Default fullauto-md workflow (peaks-code) [fixture]
 description: |
   Temp-fixture bundled default for templates-move 2026-07-01 test.
 phases:
   - id: step-0-init
-    role: peaks-solo
+    role: peaks-code
     promptTemplate: initialize
     gates: [Gate A1]
     outputContract: [sessionId]

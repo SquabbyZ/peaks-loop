@@ -37,7 +37,7 @@ describe('binding-store v2.16.0', () => {
       instances: {
         '2026-06-29-session-abc123': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'caller-1',
           lastHeartbeat: new Date().toISOString()
         }
@@ -46,26 +46,26 @@ describe('binding-store v2.16.0', () => {
     writeBinding(projectRoot, binding);
     const back = readBinding(projectRoot);
     expect(back?.ownerHint).toBe('caller-1');
-    expect(back?.instances['2026-06-29-session-abc123']?.roles).toEqual(['peaks-solo']);
+    expect(back?.instances['2026-06-29-session-abc123']?.roles).toEqual(['peaks-code']);
   });
 
   test('registerInstance creates a new binding on first call', () => {
-    const { binding, sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const { binding, sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     expect(binding.instances[sid]).toBeDefined();
     expect(binding.instances[sid]?.callerId).toBe('alice');
-    expect(binding.instances[sid]?.roles).toEqual(['peaks-solo']);
+    expect(binding.instances[sid]?.roles).toEqual(['peaks-code']);
   });
 
   test('registerInstance same caller resumes existing sid', () => {
-    const first = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const first = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     const second = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-rd'] });
     expect(second.sid).toBe(first.sid);
-    expect(second.binding.instances[first.sid]?.roles).toEqual(['peaks-solo', 'peaks-rd']);
+    expect(second.binding.instances[first.sid]?.roles).toEqual(['peaks-code', 'peaks-rd']);
   });
 
   test('registerInstance different caller gets different sid', () => {
-    const alice = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
-    const bob = registerInstance(projectRoot, { callerId: 'bob', roles: ['peaks-solo'] });
+    const alice = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
+    const bob = registerInstance(projectRoot, { callerId: 'bob', roles: ['peaks-code'] });
     expect(alice.sid).not.toBe(bob.sid);
     // After bob joins, the binding has both instances.
     const merged = readBinding(projectRoot);
@@ -73,18 +73,18 @@ describe('binding-store v2.16.0', () => {
   });
 
   test('registerInstance with existingSid reuses slot (D2 /compact resume)', () => {
-    const first = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const first = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     const second = registerInstance(projectRoot, {
       callerId: 'alice',
       roles: ['peaks-rd', 'peaks-qa'],
       existingSid: first.sid
     });
     expect(second.sid).toBe(first.sid);
-    expect(second.binding.instances[first.sid]?.roles).toEqual(['peaks-solo', 'peaks-rd', 'peaks-qa']);
+    expect(second.binding.instances[first.sid]?.roles).toEqual(['peaks-code', 'peaks-rd', 'peaks-qa']);
   });
 
   test('heartbeat updates lastHeartbeat', () => {
-    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     const before = readBinding(projectRoot)!.instances[sid]?.lastHeartbeat;
     // Sleep 10ms to ensure timestamp differs.
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -95,13 +95,13 @@ describe('binding-store v2.16.0', () => {
   });
 
   test('dropInstance removes entry', () => {
-    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     const after = dropInstance(projectRoot, sid);
     expect(after).toBeNull(); // last instance → null
   });
 
   test('dropStale prunes only entries older than ttl', () => {
-    const { binding, sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const { binding, sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     // Manually rewrite lastHeartbeat to a stale timestamp.
     const stale = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const inst = binding.instances[sid];
@@ -116,7 +116,7 @@ describe('binding-store v2.16.0', () => {
   });
 
   test('findSidByCaller returns the active sid', () => {
-    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-solo'] });
+    const { sid } = registerInstance(projectRoot, { callerId: 'alice', roles: ['peaks-code'] });
     expect(findSidByCaller(projectRoot, 'alice')).toBe(sid);
     expect(findSidByCaller(projectRoot, 'nobody')).toBeNull();
   });
@@ -160,8 +160,8 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
     // Simulates two Claude Code windows on the same host. Both
     // share the same outer-session-id env value, but different
     // pids → different callerIds → different sids.
-    const a = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-solo'] });
-    const b = registerInstance(projectRoot, { callerId: 'shared-env#200', roles: ['peaks-solo'] });
+    const a = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-code'] });
+    const b = registerInstance(projectRoot, { callerId: 'shared-env#200', roles: ['peaks-code'] });
     expect(a.sid).not.toBe(b.sid);
     const merged = readBinding(projectRoot);
     expect(Object.keys(merged!.instances)).toHaveLength(2);
@@ -169,10 +169,10 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
 
   test('Case B: same callerId (same env + same pid), multiple calls → 1 sid (auto-resume)', () => {
     // Simulates the same Claude process calling registerInstance
-    // multiple times (peaks-solo → peaks-rd → peaks-qa). pid is
+    // multiple times (peaks-code → peaks-rd → peaks-qa). pid is
     // stable across the run, so callerId is stable, so the
     // auto-resume branch returns the same sid.
-    const first = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-solo'] });
+    const first = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-code'] });
     const second = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-rd'] });
     const third = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-qa'] });
     expect(first.sid).toBe(second.sid);
@@ -180,14 +180,14 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
     const merged = readBinding(projectRoot);
     expect(Object.keys(merged!.instances)).toHaveLength(1);
     // Roles accumulate across peaks-* skill activations.
-    expect(merged!.instances[first.sid]?.roles).toEqual(['peaks-solo', 'peaks-rd', 'peaks-qa']);
+    expect(merged!.instances[first.sid]?.roles).toEqual(['peaks-code', 'peaks-rd', 'peaks-qa']);
   });
 
   test('Case C: same callerId, multiple calls → findSidByCaller returns the same sid (no pid cross-talk)', () => {
     // Even when the surrounding env is identical, the pid suffix
     // baked into the callerId is the real key.
-    const a = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-solo'] });
-    const b = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-solo'] });
+    const a = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-code'] });
+    const b = registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-code'] });
     expect(a.sid).toBe(b.sid);
     // findSidByCaller with the full pid-suffixed callerId returns the same sid.
     expect(findSidByCaller(projectRoot, 'shared-env#100')).toBe(a.sid);
@@ -200,8 +200,8 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
     // CLAUDE_CODE_SESSION_ID are unset. v2.17.0's `'unknown'`
     // sentinel caused two such processes to share a sid; v2.18.0
     // appends pid so the values are process-unique.
-    const a = registerInstance(projectRoot, { callerId: 'unknown#100', roles: ['peaks-solo'] });
-    const b = registerInstance(projectRoot, { callerId: 'unknown#200', roles: ['peaks-solo'] });
+    const a = registerInstance(projectRoot, { callerId: 'unknown#100', roles: ['peaks-code'] });
+    const b = registerInstance(projectRoot, { callerId: 'unknown#200', roles: ['peaks-code'] });
     expect(a.sid).not.toBe(b.sid);
     // findSidByCaller with the matching callerId returns its own sid.
     expect(findSidByCaller(projectRoot, 'unknown#100')).toBe(a.sid);
@@ -213,8 +213,8 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
   });
 
   test('findSidByCaller across pid isolation: pid 100 cannot see pid 200 instance', () => {
-    registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-solo'] });
-    const b = registerInstance(projectRoot, { callerId: 'shared-env#200', roles: ['peaks-solo'] });
+    registerInstance(projectRoot, { callerId: 'shared-env#100', roles: ['peaks-code'] });
+    const b = registerInstance(projectRoot, { callerId: 'shared-env#200', roles: ['peaks-code'] });
     // pid 100's lookup returns pid 100's sid, NOT pid 200's.
     const lookup100 = findSidByCaller(projectRoot, 'shared-env#100');
     expect(lookup100).not.toBe(b.sid);
@@ -226,7 +226,7 @@ describe('binding-store v2.18.0 — ownerHint collision fix (P0)', () => {
     // literal `'unknown'` sentinel, which two callers (e.g. CI
     // scripts) could collide on. Now the fallback is the
     // process-unique `getCurrentCallerId()` (env + pid).
-    const a = registerInstance(projectRoot, { callerId: '', roles: ['peaks-solo'] });
+    const a = registerInstance(projectRoot, { callerId: '', roles: ['peaks-code'] });
     expect(a.binding.instances[a.sid]?.callerId).not.toBe('unknown');
     // The fallback callerId includes `process.pid` to disambiguate.
     expect(a.binding.instances[a.sid]?.callerId).toContain(`#${process.pid}`);

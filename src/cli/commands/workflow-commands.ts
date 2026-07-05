@@ -408,7 +408,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   const refactor = program.command('refactor').description('Plan a Peaks refactor run without modifying code');
   addJsonOption(
     refactor
-      .option('--solo', 'use peaks-solo orchestration mode')
+      .option('--solo', 'use peaks-code orchestration mode')
       .option('--rd', 'use peaks-rd direct mode')
       .option('--dry-run', 'print gates and required artifacts', true)
       .option('--no-dry-run', 'unsupported: do not modify code from this command')
@@ -499,7 +499,7 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
       // because we read, not write, the binding.
       const sessionId = getSessionId(options.project);
       if (sessionId === null) {
-        printResult(io, fail('workflow.skip', 'NO_ACTIVE_SESSION', `project "${options.project}" has no peaks-solo session binding; run \`peaks workspace init --project ${options.project} --json\` first`, { applied: false }, [`peaks workspace init --project ${options.project} --json`]), options.json);
+        printResult(io, fail('workflow.skip', 'NO_ACTIVE_SESSION', `project "${options.project}" has no peaks-code session binding; run \`peaks workspace init --project ${options.project} --json\` first`, { applied: false }, [`peaks workspace init --project ${options.project} --json`]), options.json);
         process.exitCode = 1;
         return;
       }

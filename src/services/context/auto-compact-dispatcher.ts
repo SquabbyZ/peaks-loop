@@ -47,7 +47,7 @@ export interface DispatchIdeCompactInput {
   /**
    * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which session
    * the compact should target. Default `'main'` — the orchestrator
-   * (peaks-solo body) runs in the main-session Claude Code window and
+   * (peaks-code body) runs in the main-session Claude Code window and
    * wants to compress *its* context, not a sub-agent's. Sub-agent
    * shells that spawn their own `peaks solo auto-compact` flow pass
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.

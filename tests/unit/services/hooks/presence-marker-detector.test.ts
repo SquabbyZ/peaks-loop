@@ -44,13 +44,13 @@ describe('presence-marker-detector', () => {
 
   // T-H2
   test('T-H2: active presence with marker in message → markerFound true, no warning', () => {
-    writeCanonicalPresence(projectRoot, { skill: 'peaks-solo', mode: 'assisted' });
+    writeCanonicalPresence(projectRoot, { skill: 'peaks-code', mode: 'assisted' });
     const result = detectPresenceMarker({
       project: projectRoot,
-      latestAssistantMessage: 'Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: rd-discovery | Next: read PRD'
+      latestAssistantMessage: 'Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: rd-discovery | Next: read PRD'
     });
     expect(result.active).toBe(true);
-    expect(result.skill).toBe('peaks-solo');
+    expect(result.skill).toBe('peaks-code');
     expect(result.markerFound).toBe(true);
     expect(result.warning).toBeUndefined();
   });
@@ -82,7 +82,7 @@ describe('presence-marker-detector', () => {
 
   // T-H5
   test('T-H5: empty latest message → markerFound false and warning present', () => {
-    writeCanonicalPresence(projectRoot, { skill: 'peaks-solo' });
+    writeCanonicalPresence(projectRoot, { skill: 'peaks-code' });
     const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: '' });
     expect(result.active).toBe(true);
     expect(result.markerFound).toBe(false);
@@ -94,7 +94,7 @@ describe('presence-marker-detector', () => {
     const dir = join(projectRoot, '.peaks', '_runtime');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'active-skill.json'), '{ this is not valid json ', 'utf8');
-    const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: 'Peaks-Loop Skill: peaks-solo' });
+    const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: 'Peaks-Loop Skill: peaks-code' });
     expect(result.active).toBe(false);
     expect(result.markerFound).toBe(false);
     expect(result.warning).toBeUndefined();

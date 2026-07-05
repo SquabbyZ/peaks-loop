@@ -66,7 +66,7 @@ export interface AutoCompactInput {
   /**
    * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which session
    * the compact should target. Default `'main'` — the orchestrator
-   * (peaks-solo body) runs in the main-session Claude Code window and
+   * (peaks-code body) runs in the main-session Claude Code window and
    * wants to compress *its* context. Sub-agent shells pass
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
    */
@@ -199,7 +199,7 @@ function appendAutoDecisionLog(input: {
     ''
   ].join('\n');
   if (!existsSync(logPath)) {
-    writeFileSync(logPath, `# peaks-solo auto-decisions log\n${row}`, 'utf8');
+    writeFileSync(logPath, `# peaks-code auto-decisions log\n${row}`, 'utf8');
     return;
   }
   const existing = readFileSync(logPath, 'utf8');
@@ -271,7 +271,7 @@ function writePreCompactCheckpoint(input: {
     recentDecisions: [] as string[],
     recentArtifactPaths: [] as string[],
     gitStatus: '',
-    skillsActive: ['peaks-solo'],
+    skillsActive: ['peaks-code'],
     todoState: [] as string[]
   };
   writeFileSync(path, JSON.stringify(content, null, 2), 'utf8');

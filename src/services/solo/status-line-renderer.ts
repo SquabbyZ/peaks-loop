@@ -1,13 +1,13 @@
 /**
- * G6.5 — status line renderer for the peaks-solo batch-sync wait period.
+ * G6.5 — status line renderer for the peaks-code batch-sync wait period.
  *
  * Single line, 80-120 chars, status-line-friendly. The shape is
  * documented in PRD §G6.5:
  *
- *   [peaks-solo] swarm 3/3 running | rd-planning 45% (12s ago) | qa-test-cases 30% (5s ago) | ui-design 20% (2s ago)
- *   [peaks-solo] swarm 3/3 running | rd-planning 70% (8s ago) | qa-test-cases 50% (3s ago) | ui-design 30% (6s ago)
+ *   [peaks-code] swarm 3/3 running | rd-planning 45% (12s ago) | qa-test-cases 30% (5s ago) | ui-design 20% (2s ago)
+ *   [peaks-code] swarm 3/3 running | rd-planning 70% (8s ago) | qa-test-cases 50% (3s ago) | ui-design 30% (6s ago)
  *   ...
- *   [peaks-solo] swarm 3/3 done in 47.3s
+ *   [peaks-code] swarm 3/3 done in 47.3s
  *
  * Pure helper; the poller calls it once per tick. No IO.
  */

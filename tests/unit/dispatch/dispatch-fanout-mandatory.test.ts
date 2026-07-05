@@ -42,8 +42,8 @@ import {
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
-const SOLO_REF = join(REPO_ROOT, 'skills', 'peaks-solo', 'references', 'sub-agent-dispatch.md');
-const SOLO_FANOUT_REF = join(REPO_ROOT, 'skills', 'peaks-solo', 'references', 'fanout-mandatory.md');
+const SOLO_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'sub-agent-dispatch.md');
+const SOLO_FANOUT_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'fanout-mandatory.md');
 const RD_REF = join(REPO_ROOT, 'skills', 'peaks-rd', 'references', 'rd-sub-agent-dispatch.md');
 
 /* -------------------------------------------------------------------------- *

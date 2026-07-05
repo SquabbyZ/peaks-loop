@@ -1,5 +1,5 @@
 /**
- * `peaks workspace init` — slice 006 + 007 + 014 + 018 + 2026-06-16-peaks-solo-auto-scaffold.
+ * `peaks workspace init` — slice 006 + 007 + 014 + 018 + 2026-06-16-peaks-code-auto-scaffold.
  *
  * Extracted from `src/cli/commands/workspace-commands.ts` (slice
  * 2026-06-16-workspace-commands-split) to keep that entry file under the
@@ -75,11 +75,11 @@ export type WorkspaceInitOptions = {
    * (commander `--no-` prefix) is `true`; pass `--no-claude-hooks` to
    * set this to `false`. The wrapper reads this as `=== false` to
    * skip the materialization. The bypass is documented in
-   * `peaks-solo/references/anchoring-and-session-info.md`.
+   * `peaks-code/references/anchoring-and-session-info.md`.
    */
   claudeHooks?: boolean;
   /**
-   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in flag to
+   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in flag to
    * auto-scaffold `.claude/rules/{common,<language>}/` when missing.
    * Default `false` — the diagnostic fires but no write happens.
    * Set to `true` (via `--init-standards`) to also run
@@ -156,7 +156,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       )
       .option(
         '--init-standards',
-        'slice 2026-06-16-peaks-solo-auto-scaffold: when the consumer project\'s .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write).'
+        'slice 2026-06-16-peaks-code-auto-scaffold: when the consumer project\'s .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write).'
       )
   ).action(async (options: WorkspaceInitOptions) => {
     try {
@@ -225,7 +225,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // `false`, so the default is "install hooks" (the bypass is
         // on). Pass `--no-claude-hooks` to opt out.
         noClaudeHooks: options.claudeHooks === false,
-        // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in
+        // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in
         // auto-apply for the missing-standards scaffold. Default false
         // — only the diagnostic is emitted. Pass --init-standards to
         // also run `executeProjectStandardsInit({ apply: true })`.
@@ -246,7 +246,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
         // Slice 002 (v2.15.0) AC-1: a presence marker stamped by the
         // OLD outer session is now stale (defect A from the PRD).
-        // peaks-solo Step 1 would otherwise pick up the old `mode`
+        // peaks-code Step 1 would otherwise pick up the old `mode`
         // field and silently lock the new session into a mode the
         // user never explicitly chose. Clear it here so Step 1's
         // presence:check-stale reports `reason: 'no-presence'` and
@@ -260,7 +260,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         if (presenceClearOutcome.cleared) {
           nextActions.push(
             `Auto-cleared stale skill presence (recorded outer id "${presenceClearOutcome.recordedOuter ?? '?'}" did not match the new outer session). ` +
-              'peaks-solo Step 1 will now AskUserQuestion to confirm the mode.'
+              'peaks-code Step 1 will now AskUserQuestion to confirm the mode.'
           );
         } else if (presenceClearOutcome.reason === 'recorded-by-different-outer') {
           nextActions.push(
@@ -361,7 +361,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
-      // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7):
+      // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7):
       //   - When the consumer project's `.claude/rules/` is missing or
       //     empty, emit the copy-pasteable diagnostic to stderr (via
       //     the JSON envelope `warnings` array) AND surface the
@@ -383,7 +383,7 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       }
       if (report.standardsApplied !== undefined) {
         nextActions.push(
-          `Auto-applied .claude/rules/${report.standardsApplied.language}/ scaffold (slice 2026-06-16-peaks-solo-auto-scaffold): ` +
+          `Auto-applied .claude/rules/${report.standardsApplied.language}/ scaffold (slice 2026-06-16-peaks-code-auto-scaffold): ` +
             `wrote ${report.standardsApplied.writtenFiles.length} file(s), ` +
             `kept ${report.standardsApplied.skippedFiles.length} existing file(s).`
         );

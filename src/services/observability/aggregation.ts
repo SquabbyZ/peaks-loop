@@ -67,7 +67,7 @@ const TERMINAL_HAPPY_STATES: ReadonlySet<string> = new Set([
 ]);
 const TERMINAL_FAIL_STATES: ReadonlySet<string> = new Set(['blocked']);
 
-/** RD/QA repair-loop cap (matches the peaks-solo repair-loop contract). */
+/** RD/QA repair-loop cap (matches the peaks-code repair-loop contract). */
 export const REPAIR_CYCLE_CAP = 3;
 
 // v2.12.0 fan-out collapse: see OBSERVABILITY_SUBAGENT_ROLES for the

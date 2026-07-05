@@ -22,14 +22,14 @@ describe('skills-tree-scanner', () => {
   });
 
   it('reads each skill SKILL.md and emits MarkdownLine entries', () => {
-    mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
-    writeFileSync(join(projectRoot, 'skills/peaks-solo/SKILL.md'), '# peaks-solo\n\nA short doc.\n');
+    mkdirSync(join(projectRoot, 'skills/peaks-code'), { recursive: true });
+    writeFileSync(join(projectRoot, 'skills/peaks-code/SKILL.md'), '# peaks-code\n\nA short doc.\n');
     mkdirSync(join(projectRoot, 'skills/peaks-rd'), { recursive: true });
     writeFileSync(join(projectRoot, 'skills/peaks-rd/SKILL.md'), '# peaks-rd\n\nAnother doc.\n');
 
     const result = scanSkillsTree({ projectRoot });
     const files = new Set(result.lines.map((l) => l.file));
-    expect(files.has('skills/peaks-solo/SKILL.md')).toBe(true);
+    expect(files.has('skills/peaks-code/SKILL.md')).toBe(true);
     expect(files.has('skills/peaks-rd/SKILL.md')).toBe(true);
     expect(result.warnings).toEqual([]);
   });
@@ -37,22 +37,22 @@ describe('skills-tree-scanner', () => {
   it('skips skill dirs without SKILL.md', () => {
     mkdirSync(join(projectRoot, 'skills/empty-dir'), { recursive: true });
     writeFileSync(join(projectRoot, 'skills/empty-dir/notes.md'), '# notes');
-    mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
-    writeFileSync(join(projectRoot, 'skills/peaks-solo/SKILL.md'), '# peaks-solo');
+    mkdirSync(join(projectRoot, 'skills/peaks-code'), { recursive: true });
+    writeFileSync(join(projectRoot, 'skills/peaks-code/SKILL.md'), '# peaks-code');
     const result = scanSkillsTree({ projectRoot });
     const files = new Set(result.lines.map((l) => l.file));
-    expect(files.has('skills/peaks-solo/SKILL.md')).toBe(true);
+    expect(files.has('skills/peaks-code/SKILL.md')).toBe(true);
     expect(files.has('skills/empty-dir/notes.md')).toBe(false);
   });
 
   it('skips hidden directories', () => {
     mkdirSync(join(projectRoot, 'skills/.hidden'), { recursive: true });
     writeFileSync(join(projectRoot, 'skills/.hidden/SKILL.md'), '# hidden');
-    mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
-    writeFileSync(join(projectRoot, 'skills/peaks-solo/SKILL.md'), '# peaks-solo');
+    mkdirSync(join(projectRoot, 'skills/peaks-code'), { recursive: true });
+    writeFileSync(join(projectRoot, 'skills/peaks-code/SKILL.md'), '# peaks-code');
     const result = scanSkillsTree({ projectRoot });
     const files = new Set(result.lines.map((l) => l.file));
     expect(files.has('skills/.hidden/SKILL.md')).toBe(false);
-    expect(files.has('skills/peaks-solo/SKILL.md')).toBe(true);
+    expect(files.has('skills/peaks-code/SKILL.md')).toBe(true);
   });
 });

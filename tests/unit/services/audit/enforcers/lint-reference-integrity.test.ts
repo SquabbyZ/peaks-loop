@@ -28,13 +28,13 @@ describe('lint-reference-integrity — Theme E', () => {
   it('passes when no references/ link is missing', () => {
     // Use the project itself as the fixture.
     const skillsRoot = 'skills';
-    const hits = lintRefPathResolves(skillsRoot, 'peaks-solo', ['runbook.md']);
+    const hits = lintRefPathResolves(skillsRoot, 'peaks-code', ['runbook.md']);
     expect(hits).toEqual([]);
   });
 
   it('reports a hit for a missing reference path', () => {
     const skillsRoot = 'skills';
-    const hits = lintRefPathResolves(skillsRoot, 'peaks-solo', ['this-reference-does-not-exist.md']);
+    const hits = lintRefPathResolves(skillsRoot, 'peaks-code', ['this-reference-does-not-exist.md']);
     expect(hits).toHaveLength(1);
     expect(hits[0]?.catalogId).toBe('rl-ref-path-resolves-001');
   });

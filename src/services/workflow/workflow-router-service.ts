@@ -14,7 +14,7 @@ export type ModelTier = 'top-tier' | 'mid-tier';
 export type ModelRole = 'strongest' | 'execution';
 export type WorkflowRoutePolicy = 'solo-broad-multi-model' | 'team-rd-limited-multi-model';
 export type WorkflowStepStage = 'product-direction' | 'design-direction' | 'tech-direction' | 'tech-review' | 'rd-planning' | 'coding-execution' | 'unit-test-execution' | 'quality-review';
-export type WorkflowStepOwner = 'peaks-solo' | 'peaks-rd' | 'peaks-tech' | 'human';
+export type WorkflowStepOwner = 'peaks-code' | 'peaks-rd' | 'peaks-tech' | 'human';
 
 export type WorkflowRouterRequest = {
   sessionId: string;
@@ -181,14 +181,14 @@ function annotateSteps(steps: WorkflowRouterStep[], soloMode: SoloMode): Workflo
 
 function createSoloSteps(executionModelId: string): WorkflowRouterStep[] {
   return [
-    step({ id: 'solo-product-direction', stage: 'product-direction', owner: 'peaks-solo', modelTier: 'top-tier', reason: 'Product direction needs strong judgment before execution work is delegated.', dependsOn: [] }, executionModelId),
-    step({ id: 'solo-design-direction', stage: 'design-direction', owner: 'peaks-solo', modelTier: 'top-tier', reason: 'Design direction uses the recommended default before cheaper implementation work.', dependsOn: ['solo-product-direction'] }, executionModelId),
+    step({ id: 'solo-product-direction', stage: 'product-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Product direction needs strong judgment before execution work is delegated.', dependsOn: [] }, executionModelId),
+    step({ id: 'solo-design-direction', stage: 'design-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Design direction uses the recommended default before cheaper implementation work.', dependsOn: ['solo-product-direction'] }, executionModelId),
     step({ id: 'solo-tech-direction', stage: 'tech-direction', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Technical boundaries and approval gates use the recommended default with high-confidence planning.', dependsOn: ['solo-design-direction'] }, executionModelId),
     step({ id: 'solo-tech-review', stage: 'tech-review', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Tech artifacts and gate decisions require strong review and a recommended default path.', dependsOn: ['solo-tech-direction'] }, executionModelId),
     step({ id: 'solo-rd-planning', stage: 'rd-planning', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'RD task decomposition and acceptance criteria use the recommended default before execution delegation.', dependsOn: ['solo-tech-review'] }, executionModelId),
     step({ id: 'solo-coding-execution', stage: 'coding-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Coding and routine refactoring must use the configured execution worker model ${executionModelId}.`, dependsOn: ['solo-rd-planning'] }, executionModelId),
     step({ id: 'solo-unit-test-execution', stage: 'unit-test-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Unit test authoring and focused test runs must use the configured execution worker model ${executionModelId}.`, dependsOn: ['solo-coding-execution'] }, executionModelId),
-    step({ id: 'solo-quality-review', stage: 'quality-review', owner: 'peaks-solo', modelTier: 'top-tier', reason: 'Reducer and final quality gates need strong synthesis and risk review.', dependsOn: ['solo-unit-test-execution'] }, executionModelId)
+    step({ id: 'solo-quality-review', stage: 'quality-review', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Reducer and final quality gates need strong synthesis and risk review.', dependsOn: ['solo-unit-test-execution'] }, executionModelId)
   ];
 }
 

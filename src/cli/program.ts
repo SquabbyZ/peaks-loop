@@ -326,7 +326,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
  // (multi-terminal Playwright MCP lifecycle).
  registerPlaywrightCommands(program, io);
- // Slice 2 (peaks-solo fast mode): `peaks solo plan [--fast] <change-id>`
+ // Slice 2 (peaks-code fast mode): `peaks solo plan [--fast] <change-id>`
  // v2.11.0 Group F (D5 + D7): also registers `peaks solo should-pause` and
  // `peaks solo post-compact-detect` for runtime-friction probes.
  registerSoloCommands(program, io);
@@ -370,7 +370,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // Slice 2026-07-04-cli-15a: `peaks skill adapter <verb>` — adapter list / set-active.
   registerAdapterCommands(program, io);
 
-  // Slice 2026-07-05-peaks-solo-to-peaks-code (Task 1): `peaks skill:visibility --list --json`
+  // Slice 2026-07-05-peaks-code-to-peaks-code (Task 1): `peaks skill:visibility --list --json`
   // — read .claude-plugin/marketplace.json and report each skill's
   // visibility (public vs internal). Used to surface which skills are
   // user-invocable vs LLM-only internal role skills. See

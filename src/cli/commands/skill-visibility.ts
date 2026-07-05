@@ -1,7 +1,7 @@
 /**
  * `peaks skill:visibility` — Skill visibility CLI surface.
  *
- * Slice: Task 1 of peaks-solo → peaks-code rename plan.
+ * Slice: Task 1 of peaks-code → peaks-code rename plan.
  *
  * Reads `.claude-plugin/marketplace.json`, resolves each skill entry's
  * visibility (public / internal) from the optional `userInvocable`

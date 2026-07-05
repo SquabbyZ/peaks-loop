@@ -31,7 +31,7 @@ The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in
 
 - Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
 - Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/_runtime/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
-- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-code`, `peaks-rd`, `peaks-qa`.
 
 # Peaks-Loop QA
 
@@ -78,9 +78,9 @@ AskUserQuestion({
     { label: "I am logged in / I'll log in now",
       description: "Pause QA. The visible browser is already open; the user completes login in-place, then types 'logged in' or equivalent. QA then resumes browser_navigate + browser_snapshot from the post-login page." },
     { label: "Skip browser validation for this slice",
-      description: "Mark the affected acceptance items as unverified in the test report. Do NOT issue a pass verdict. The slice stays in qa-running with the browser gate marked blocked, reason=login-required. peaks-solo's repair loop will surface this on the next cycle." },
+      description: "Mark the affected acceptance items as unverified in the test report. Do NOT issue a pass verdict. The slice stays in qa-running with the browser gate marked blocked, reason=login-required. peaks-code's repair loop will surface this on the next cycle." },
     { label: "Cancel the workflow",
-      description: "Stop QA immediately. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not mark any acceptance items as accepted." }
+      description: "Stop QA immediately. Emit a blocked TXT handoff so peaks-code can surface the auth wall to the user. Do not mark any acceptance items as accepted." }
   ]
 })
 ```
@@ -89,9 +89,9 @@ Do **not** infer login completion from DOM state (presence of an avatar, a user-
 
 This is the hard-block replacement for the previous "wait for the user" prose. Without an explicit decision from the user, QA does not advance past the wall.
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
 ## QA fan-out (业务 + 性能 + 安全 并发, 业务可再分)
 
@@ -121,7 +121,7 @@ All three are issued in a single message; the LLM fires all 3 returned toolCalls
 
 If the PRD or project warrants it, subdivide `qa-business` further into roles like `qa-business-api` / `qa-business-frontend` / `qa-business-regression`; each gets its own `peaks sub-agent dispatch` call. Names are convention not contract — the dispatcher accepts any non-empty string. **Subdivision must stay ≤ 2 levels deep** (RL-4): `qa-business-api` is fine, `qa-business-api-user` is not. Two levels of depth is the empirical sweet spot — past that, the reducer cannot audit the boundaries between sub-agents, and prompts start overlapping.
 
-For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-solo/references/sub-agent-dispatch.md` §G6.
+For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-code/references/sub-agent-dispatch.md` §G6.
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
@@ -358,7 +358,7 @@ ls .peaks/_runtime/<changeId>/qa/test-cases/<rid>.md
 # Example (adapt to project):
 # QA validation defaults to the CHANGED-ONLY suite (matches `peaks slice check` default as of run 017).
 # Use the full suite only when the slice is structurally significant or when the user explicitly asks
-# for it (e.g. via /peaks-solo-test or `peaks slice check --run-tests`).
+# for it (e.g. via /peaks-test or `peaks slice check --run-tests`).
 npx vitest run --changed --reporter=verbose 2>&1 | tail -30
 # Expected: exit code 0, actual test output with pass/fail counts
 # "0 tests executed" or "no test files found" → BLOCKED. Tests were written but not run.
@@ -507,7 +507,7 @@ QA must generate test cases, not merely inspect existing ones. Every QA invocati
 
 **Acceptance linkage (MANDATORY)** — every test case MUST have an `**Acceptance:**` field that references one or more acceptance items from the PRD by their position-based IDs (A1 = first bullet, A2 = second, …). The `peaks scan acceptance-coverage --rid <rid> --project <repo>` command parses both the PRD and this file, builds the coverage map, and fails the QA `verdict-issued` gate if any acceptance item has zero linked test cases. Test cases that genuinely have no acceptance owner (e.g. defense-in-depth regressions) should still include `- **Acceptance:** —` and explain in the **Evidence** field; the coverage report flags these as `unlinkedTestCases` for review without auto-blocking.
 
-**Test-case execution**: Run the project's test command and record results against each generated test case. If the project uses Jest, run `npx jest --coverage` and link the coverage report. If the project uses Vitest, run `npx vitest run --changed --coverage` by default (matches the new `peaks slice check` default as of run 017); use the full suite `npx vitest run --coverage` only when the slice warrants a deeper regression check, or when invoked via /peaks-solo-test or `peaks slice check --run-tests`. Record the coverage percentage for changed files in the test report.
+**Test-case execution**: Run the project's test command and record results against each generated test case. If the project uses Jest, run `npx jest --coverage` and link the coverage report. If the project uses Vitest, run `npx vitest run --changed --coverage` by default (matches the new `peaks slice check` default as of run 017); use the full suite `npx vitest run --coverage` only when the slice warrants a deeper regression check, or when invoked via /peaks-test or `peaks slice check --run-tests`. Record the coverage percentage for changed files in the test report.
 
 ## Mandatory test-report output
 
@@ -576,7 +576,7 @@ Use `peaks capabilities --source access-repo --json` and `peaks capabilities --s
 - Playwright MCP is the required path for controlled headed browser and E2E validation (it launches a headed browser on demand). The LLM runtime exposes the Playwright tools under its own server-and-tool namespace (the Playwright MCP); QA invokes them by name from the LLM's tool list. (peaks-loop no longer auto-installs MCPs as of slice #016; the user runs `claude mcp add playwright -- npx @playwright/mcp@latest` themselves when the tool list is empty.)
 - Chrome DevTools MCP is an optional secondary surface for CDP inspection (console, network, performance) of an already-running Chrome started with `--remote-debugging-port=9222`; it does NOT launch a browser on its own. The LLM invokes Chrome DevTools MCP tools directly when present in the tool list.
 - Agent Browser can support browser walkthroughs, but never submit forms, purchase, delete, or mutate authenticated state without explicit confirmation.
-- Canonical browser workflow (URL allow-list, login handoff, sanitization rules, tool mapping): `peaks-solo/references/browser-workflow.md`.
+- Canonical browser workflow (URL allow-list, login handoff, sanitization rules, tool mapping): `peaks-code/references/browser-workflow.md`.
 - If Playwright MCP is not installed and the user does not authorize installation, mark frontend browser validation blocked; screenshots, logs, manual steps, or other tools must not substitute for the mandatory headed browser gate.
 
 ## OpenSpec validation gate
@@ -597,7 +597,7 @@ Reference: `references/regression-gates.md`.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
-> QA sub-agents (qa / qa-business / qa-perf / qa-security) follow the same G7 metadata-only + G8.6 share protocol as RD. Detailed: `skills/peaks-solo/references/context-governance.md`.
+> QA sub-agents (qa / qa-business / qa-perf / qa-security) follow the same G7 metadata-only + G8.6 share protocol as RD. Detailed: `skills/peaks-code/references/context-governance.md`.
 
 ### G7 — QA sub-agent protocol
 

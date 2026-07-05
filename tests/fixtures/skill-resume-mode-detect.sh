@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mirror of skills/peaks-solo/SKILL.md Step 0.7 detection logic.
+# Mirror of skills/peaks-code/SKILL.md Step 0.7 detection logic.
 # Returns the "deepest completed gate" classification for a session dir.
 #
 # Usage: bash skill-resume-mode-detect.sh <sid> <peaks-root>

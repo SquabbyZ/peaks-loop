@@ -71,7 +71,7 @@ const ALLOWED_LEGACY_SKILL_PATHS: ReadonlyArray<string> = [
   // A2A artifact mapping — A2A is a documentation-only mapping convention
   // that uses the legacy layout to match the upstream A2A spec; the actual
   // peaks artifact layout is canonical and unaffected.
-  'skills/peaks-solo/references/a2a-artifact-mapping.md',
+  'skills/peaks-code/references/a2a-artifact-mapping.md',
   // PRD source-doc screenshot contract — Playwright filename= is a
   // browser URL parameter the headed browser writes; not a Node-side
   // join. The actual file lands at the canonical _runtime home via the

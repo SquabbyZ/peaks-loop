@@ -18,7 +18,7 @@ const SUPPORT_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
 ];
 
 const ORCHESTRATOR_SKILLS: Array<{ name: string; minPeaksCommands: number }> = [
-  { name: 'peaks-solo', minPeaksCommands: 20 }
+  { name: 'peaks-code', minPeaksCommands: 20 }
 ];
 
 function extractRunbookSection(body: string): string | null {
@@ -43,7 +43,7 @@ function extractRunbookSection(body: string): string | null {
 /**
  * Load the runbook section, falling back to references/runbook.md if SKILL.md
  * only has a pointer section. This supports skills that extracted their runbook
- * to a sibling reference (e.g. peaks-solo extracted its 150-line bash runbook
+ * to a sibling reference (e.g. peaks-code extracted its 150-line bash runbook
  * to references/runbook.md to keep the SKILL.md body under the 800-line cap).
  *
  * Strategy: prefer the LONGER of the two sections. A short pointer section
@@ -99,7 +99,7 @@ function findDestructiveApplyLines(section: string): string[] {
   return lines.filter((line) => DESTRUCTIVE_APPLY_PATTERNS.some((pattern) => pattern.test(line)));
 }
 
-const ALL_RUNBOOK_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo'];
+const ALL_RUNBOOK_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-code'];
 
 describe('audit: role skills expose a Default runbook with peaks CLI commands', () => {
   for (const { name, minPeaksCommands, mustReferenceArtifact } of ROLE_SKILLS) {
@@ -239,8 +239,8 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   }
 
   test('Solo runbook drives peaks request init for every role (prd, ui, rd, qa)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
-    const section = await loadRunbookSection('peaks-solo', body);
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const section = await loadRunbookSection('peaks-code', body);
 
     for (const role of ['prd', 'ui', 'rd', 'qa']) {
       expect.soft(section, `Solo runbook should invoke peaks request init --role ${role}`).toMatch(new RegExp(`peaks request init --role ${role}`));
@@ -248,8 +248,8 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references state transitions via peaks request transition', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
-    const section = await loadRunbookSection('peaks-solo', body);
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks request transition/);
     expect.soft(section).toMatch(/--state confirmed-by-user/);
@@ -257,15 +257,15 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references peaks project dashboard for the cross-role snapshot', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
-    const section = await loadRunbookSection('peaks-solo', body);
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const section = await loadRunbookSection('peaks-code', body);
 
     expect(section).toMatch(/peaks project dashboard/);
   });
 
   test('Solo runbook drives SC change-control evidence (impact / retention / validate / boundary)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
-    const section = await loadRunbookSection('peaks-solo', body);
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks sc impact/);
     expect.soft(section).toMatch(/peaks sc retention/);
@@ -274,15 +274,15 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook drives TXT memory extraction as a dry-run by default', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
-    const section = await loadRunbookSection('peaks-solo', body);
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
+    const section = await loadRunbookSection('peaks-code', body);
 
     expect.soft(section).toMatch(/peaks memory extract/);
     expect.soft(section).toMatch(/--dry-run/);
   });
 
   test('Solo SKILL.md declares Step 11 Memory sediment as BLOCKING (slice 2026-07-03-solo-memory-sediment)', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
 
     // Step 11 section must exist with a recognizable heading
     expect.soft(body).toMatch(/^##\s+Peaks-Loop Step 11:?\s*Memory sediment/m);
@@ -300,7 +300,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
   });
 
   test('Solo runbook references memory extract with --apply (not just --dry-run) so it actually writes .peaks/memory/', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'references', 'runbook.md'), 'utf8');
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'references', 'runbook.md'), 'utf8');
 
     // The Step 10/11 TXT handoff + memory sediment block must include a --apply
     // invocation; otherwise the LLM-only-dry-runs contract silently writes

@@ -22,7 +22,7 @@ export const schemasDir = resolve(repoRoot, 'schemas');
 export const templatesDir = resolve(repoRoot, 'templates');
 
 export const requiredSkillNames = [
-  'peaks-solo',
+  'peaks-code',
   'peaks-prd',
   'peaks-ui',
   'peaks-rd',

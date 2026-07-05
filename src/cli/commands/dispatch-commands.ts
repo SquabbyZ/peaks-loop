@@ -10,7 +10,7 @@
  * never touches.
  *
  * Skill-first / CLI-auxiliary red line (PB-4 / AC-19/20): this command is
- * a primitive that the peaks-solo / peaks-rd / peaks-qa SKILL.md compose.
+ * a primitive that the peaks-code / peaks-rd / peaks-qa SKILL.md compose.
  * Users do NOT invoke it directly; the --help text and dispatch
  * envelope's `nextActions` reinforce the point.
  */
@@ -63,7 +63,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         'Dry-run by design; the LLM executes the returned toolCall in its own ' +
         'environment. Flags: --write-artifact (G7), --use-headroom (G7.7), ' +
         '--force (G9 CLI 兜底). ' +
-        'See skills/peaks-solo/references/sub-agent-dispatch.md for the ' +
+        'See skills/peaks-code/references/sub-agent-dispatch.md for the ' +
         'orchestrator contract.'
       )
       .argument('<role>', 'sub-agent role (e.g. rd | qa | ui | txt | qa-business | qa-business-api)')

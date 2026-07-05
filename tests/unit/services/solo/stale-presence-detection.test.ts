@@ -1,5 +1,5 @@
 /**
- * v2.15.0 slice 002 — AC-2: stale-presence detection at peaks-solo Step 1.
+ * v2.15.0 slice 002 — AC-2: stale-presence detection at peaks-code Step 1.
  *
  * Verifies the integration between `peaks solo should-pause --step
  * step-1-mode-select` and `peaks skill presence:check-stale`. When the
@@ -78,7 +78,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -106,7 +106,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-A',
@@ -134,7 +134,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -163,7 +163,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -207,7 +207,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'assisted',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -233,7 +233,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -263,7 +263,7 @@ describe('peaks solo should-pause × presence staleness — AC-2', () => {
     // tmp dir works without leftover state.
     const root = createTempDir();
     try {
-      writePresence(root, { skill: 'peaks-solo', mode: 'full-auto' });
+      writePresence(root, { skill: 'peaks-code', mode: 'full-auto' });
       expect(existsSync(presencePath(root))).toBe(true);
     } finally {
       rmSync(root, { recursive: true, force: true });

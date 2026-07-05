@@ -21,7 +21,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate startup
 ```
 
-**When invoked as a sub-agent (peaks-solo swarm):** do NOT call `peaks skill presence:set` (Solo owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
+**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Solo owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
 
 On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
 
@@ -49,7 +49,7 @@ Both signals are combined into `MutReportJson` (version `1.0`) with MUT.sig = `s
 
 ## When to use
 
-peaks-solo or peaks-rd dispatches peaks-mut after peaks-rd/战术 (TACT.sig exists). The flow:
+peaks-code or peaks-rd dispatches peaks-mut after peaks-rd/战术 (TACT.sig exists). The flow:
 
 1. peaks-mut consumes `context.json --audience peaks-mut` (built by peaks-context Phase 1).
 2. Stryker mutates test-target source code; existing tests must kill the mutants.

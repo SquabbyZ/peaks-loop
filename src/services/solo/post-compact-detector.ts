@@ -222,7 +222,7 @@ export async function detectPostCompactResume(
   }
 
   // Active skill check (D7.a.4). Defaults to reading from skill presence.
-  const expectedActiveSkill = 'peaks-solo';
+  const expectedActiveSkill = 'peaks-code';
   const observedActiveSkill = opts.activeSkill ?? readActiveSkillName(opts.projectRoot);
   if (observedActiveSkill !== expectedActiveSkill) {
     return {
@@ -230,7 +230,7 @@ export async function detectPostCompactResume(
       reason: 'active-skill-mismatch',
       checkpointPath: file.path,
       checkpointMtime: file.mtime.toISOString(),
-      warnings: [`active skill "${observedActiveSkill ?? 'unset'}" is not peaks-solo`]
+      warnings: [`active skill "${observedActiveSkill ?? 'unset'}" is not peaks-code`]
     };
   }
 

@@ -259,7 +259,7 @@ describe('peaks-ide SKILL.md dashboard contract (slice #3 closeout + G3 extensio
     expect(dashboard.requests.byRole).toHaveProperty('sc');
 
     // SKILL.md Step 1 reads openspec.exists to decide whether to recommend
-    // the OpenSpec-first-run opt-in. (Step 0.5 in the peaks-solo skill, but
+    // the OpenSpec-first-run opt-in. (Step 0.5 in the peaks-code skill, but
     // peaks-ide inherits the same field.)
     expect(dashboard.openspec).toHaveProperty('exists');
     expect(typeof dashboard.openspec.exists).toBe('boolean');

@@ -1,7 +1,7 @@
 /**
  * G6 — in-process batch heartbeat poller.
  *
- * The Dispatcher (peaks-solo main loop) starts one poller per batch.
+ * The Dispatcher (peaks-code main loop) starts one poller per batch.
  * The poller ticks every 10 s, reads `heartbeats[]` + `lastBeatAt` from
  * each record in the batch, and emits:
  *

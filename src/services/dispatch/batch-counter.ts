@@ -3,7 +3,7 @@
  *
  * Empirical upper bound for one Dispatcher × one batch: 6 sub-agents.
  * Above 6, the LLM / human is encouraged to split into multiple
- * batches with an explicit reducer step in between. peaks-solo's
+ * batches with an explicit reducer step in between. peaks-code's
  * swarm phase dispatches 3; peaks-rd's 4-way fan-out dispatches 4;
  * peaks-qa's 3-way fan-out dispatches 3. The 6 limit leaves headroom
  * for "qa-business-api" / "qa-business-frontend" / "qa-business-regression"

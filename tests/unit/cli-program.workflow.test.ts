@@ -93,7 +93,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
       const output = parseJsonOutput(result.stdout);
 
       expect(output.ok).toBe(true);
@@ -111,7 +111,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
       const output = parseJsonOutput(result.stdout);
 
       expect(output.ok).toBe(true);
@@ -132,7 +132,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-solo 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
 
       expect(result.exitCode).not.toBe(1);
       expect(existsSync(join(projectRoot, '.peaks', 'config.json'))).toBe(false);

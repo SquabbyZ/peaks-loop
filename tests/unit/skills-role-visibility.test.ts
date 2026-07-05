@@ -1,6 +1,6 @@
 /**
  * Six role-skill SKILL.md frontmatter visibility markers — Task 1 of
- * peaks-solo → peaks-code rename plan.
+ * peaks-code → peaks-code rename plan.
  *
  * Pins two contract assertions on each role skill:
  *   1. frontmatter contains `metadata.visibility: internal`

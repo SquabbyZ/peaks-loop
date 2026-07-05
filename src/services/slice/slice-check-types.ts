@@ -2,7 +2,7 @@
  * Type envelope for the `peaks slice check` CLI command.
  *
  * `peaks slice check` is the boundary check for the RD micro-cycle
- * (see `skills/peaks-solo/references/micro-cycle.md`). It bundles the
+ * (see `skills/peaks-code/references/micro-cycle.md`). It bundles the
  * 4 self-checks that must pass at slice end before the slice is handed
  * off to peaks-qa:
  *

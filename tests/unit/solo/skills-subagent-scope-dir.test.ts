@@ -20,7 +20,7 @@
  *  2. Each sub-agent SKILL.md does NOT contain any of the forbidden
  *     path-construction patterns (regex sweep).
  *  3. The hard-ban clause (verbatim from CLAUDE.md) is preserved in
- *     `peaks-solo/SKILL.md`.
+ *     `peaks-code/SKILL.md`.
  *  4. Every updated SKILL.md stays under the 24000-byte cap.
  *  5. The peaks-rd, peaks-prd, peaks-qa, peaks-sc, peaks-ui SKILL.md
  *     files contain a directive near the "envelope.data.scopeDir"
@@ -43,7 +43,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const SKILL_BYTE_CAP = 25_000;
 
 // Sub-agent SKILL.md files that construct paths for change-id-scoped
-// artifacts. peaks-solo is intentionally excluded from the
+// artifacts. peaks-code is intentionally excluded from the
 // "envelope.data.scopeDir" assertion because solo is the orchestrator
 // (it calls peaks request init on the sub-agents' behalf); it does
 // keep the hard-ban clause verbatim.
@@ -58,7 +58,7 @@ const SUBAGENT_SKILLS: ReadonlyArray<{
   { name: 'peaks-ui',  relativePath: 'skills/peaks-ui/SKILL.md' },
 ];
 
-const SOLO_PATH = 'skills/peaks-solo/SKILL.md';
+const SOLO_PATH = 'skills/peaks-code/SKILL.md';
 
 // Forbidden path-construction patterns (slice 10).
 // A sub-agent following any of these would write a top-level
@@ -150,7 +150,7 @@ describe('sub-agent SKILL.md — read scopeDir from envelope (slice 10)', () => 
   }
 });
 
-describe('peaks-solo SKILL.md — preserves hard-ban clause (slice 10)', () => {
+describe('peaks-code SKILL.md — preserves hard-ban clause (slice 10)', () => {
   const soloAbsPath = resolve(REPO_ROOT, SOLO_PATH);
 
   test('AC-5: hard-ban clause from CLAUDE.md is preserved verbatim', async () => {
@@ -158,7 +158,7 @@ describe('peaks-solo SKILL.md — preserves hard-ban clause (slice 10)', () => {
     expect(body).toContain(HARD_BAN_CLAUSE_VERBATIM);
   });
 
-  test('AC-6: peaks-solo stays under the 24000-byte cap', async () => {
+  test('AC-6: peaks-code stays under the 24000-byte cap', async () => {
     const stats = await stat(soloAbsPath);
     expect(stats.size).toBeLessThanOrEqual(SKILL_BYTE_CAP);
   });

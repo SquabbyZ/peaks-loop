@@ -40,7 +40,7 @@ describe('rebuildBindingFromLegacy — v2.18.2 PATCH (issue #1)', () => {
       instances: {
         '2026-06-29-session-aaaaaa': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env',
           lastHeartbeat: new Date().toISOString()
         }
@@ -130,7 +130,7 @@ describe('rebuildBindingFromLegacy — v2.18.2 PATCH (issue #1)', () => {
       instances: {
         '2026-06-29-session-aaaaaa': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env',
           lastHeartbeat: new Date().toISOString()
         },
@@ -162,7 +162,7 @@ describe('rebuildBindingFromLegacy — v2.18.2 PATCH (issue #1)', () => {
       instances: {
         '2026-06-29-session-dddddd': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env',
           lastHeartbeat: new Date().toISOString()
         }
@@ -194,7 +194,7 @@ describe('rebuildBindingFromLegacy — v2.18.2 PATCH (issue #1)', () => {
       instances: {
         '2026-06-29-session-eeeeee': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env',
           lastHeartbeat: new Date().toISOString()
         }
@@ -226,7 +226,7 @@ describe('rebuildBindingFromLegacy — v2.18.2 PATCH (issue #1)', () => {
       instances: {
         '2026-06-29-session-ffffff': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env',
           lastHeartbeat: new Date().toISOString()
         }

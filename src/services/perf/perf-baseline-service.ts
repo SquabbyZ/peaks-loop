@@ -1,7 +1,7 @@
 /**
  * Performance baseline scaffolding for the RD stage.
  *
- * peaks-solo's RD stage runs before the QA stage. The user-facing pain is
+ * peaks-code's RD stage runs before the QA stage. The user-facing pain is
  * that performance tests (lighthouse / k6 / project-local benches / etc.)
  * have historically only been run at QA Gate A4 — too late in the loop,
  * because a slow regression discovered at QA triggers a return-to-rd

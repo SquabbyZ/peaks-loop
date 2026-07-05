@@ -59,10 +59,10 @@ describe('skill sync-service — Slice #12 final piece', () => {
 
     beforeEach(() => {
       projectRoot = mkdtempSync(join(tmpdir(), 'peaks-skill-sync-test-'));
-      mkdirSync(join(projectRoot, 'skills', 'peaks-solo'), { recursive: true });
+      mkdirSync(join(projectRoot, 'skills', 'peaks-code'), { recursive: true });
       writeFileSync(
-        join(projectRoot, 'skills', 'peaks-solo', 'SKILL.md'),
-        '# peaks-solo\n\ntest skill\n'
+        join(projectRoot, 'skills', 'peaks-code', 'SKILL.md'),
+        '# peaks-code\n\ntest skill\n'
       );
     });
 
@@ -193,7 +193,7 @@ describe('skill sync-service — Slice #12 final piece', () => {
 
     it('case B: script in peaks-loop install path only → installed', async () => {
       const fakeInstaller = (): { installed: string[]; skipped: string[] } => ({
-        installed: ['peaks-solo'],
+        installed: ['peaks-code'],
         skipped: [],
       });
       const probeSpy = vi
@@ -224,7 +224,7 @@ describe('skill sync-service — Slice #12 final piece', () => {
 
     it('case C: script in CWD only → installed', async () => {
       const fakeInstaller = (): { installed: string[]; skipped: string[] } => ({
-        installed: ['peaks-solo'],
+        installed: ['peaks-code'],
         skipped: [],
       });
       const probeSpy = vi

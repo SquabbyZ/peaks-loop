@@ -93,7 +93,7 @@ export const GATED_STEPS: readonly GatedStepId[] = [
 
 /**
  * Slice 2026-06-28-solo-mode-bypass-fix: the kind of gate that
- * produced this decision. The LLM-side caller (peaks-solo body) reads
+ * produced this decision. The LLM-side caller (peaks-code body) reads
  * this to distinguish "you paused because the user must choose the
  * mode" (`mode-selection-itself`) from "you paused because the mode
  * you already chose is assisted/strict" (`mode-driven`) from "you
@@ -160,7 +160,7 @@ export function shouldAutoProceed(mode: SoloMode): boolean {
 /**
  * v2.15.0 slice 002 AC-4: the 5 action identifiers that qualify as
  * commit-boundary side effects. Matched by the LLM-side caller
- * (peaks-solo body / peaks-rd fork agent) when it is about to run a
+ * (peaks-code body / peaks-rd fork agent) when it is about to run a
  * Bash command that maps to one of these. Set `commitBoundaryAction:
  * true` on the `shouldPauseAtGate` call to trigger the hard-floor
  * override.

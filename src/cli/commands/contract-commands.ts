@@ -17,7 +17,7 @@
  * via the standard `ok` / `fail` envelope used across peaks-loop.
  *
  * Skill-first / CLI-auxiliary red line: users do not invoke this
- * directly. The peaks-solo / peaks-rd LLM-side runner (the
+ * directly. The peaks-code / peaks-rd LLM-side runner (the
  * IDE-resident sub-agent that finished a slice) calls this command
  * after the slice completes.
  */
@@ -58,7 +58,7 @@ export function registerContractCommands(program: Command, io: ProgramIO): void 
     .command('contract')
     .description(
       'Slice contract store (skill-first / CLI-auxiliary). These commands ' +
-      'are primitives that peaks-solo / peaks-rd SKILL.md compose. The LLM-side ' +
+      'are primitives that peaks-code / peaks-rd SKILL.md compose. The LLM-side ' +
       'runner (the IDE-resident sub-agent that finished a slice) calls ' +
       '`peaks contract write` to persist the slice\'s public surface; the ' +
       'orchestrator picks it up on the next dispatch run via listContracts() ' +

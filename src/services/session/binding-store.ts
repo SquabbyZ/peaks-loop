@@ -208,7 +208,7 @@ export function writeBinding(projectRoot: string, binding: Binding): void {
  * This is the D2 Claude-instance-level binding primitive — a single
  * Claude instance keeps one sid across multiple peaks-* skill
  * activations; binding.instances[<sid>].roles accumulates the skill
- * names (peaks-solo → peaks-rd → peaks-qa in the same Claude run).
+ * names (peaks-code → peaks-rd → peaks-qa in the same Claude run).
  *
  * The caller is responsible for actually creating the session dir via
  * `initWorkspace` and storing per-session meta via `setSessionMeta`.

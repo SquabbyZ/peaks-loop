@@ -50,7 +50,7 @@ function extractRunbookSection(body: string): string | null {
 /**
  * Load the runbook section, falling back to `references/runbook.md` if the
  * SKILL.md only has a pointer section. This supports skills (notably
- * `peaks-solo`) that extracted their 150-line bash runbook to a sibling
+ * `peaks-code`) that extracted their 150-line bash runbook to a sibling
  * reference to keep SKILL.md under the 800-line cap. The CLI
  * `peaks skill runbook` command uses the same fallback so a human
  * reviewer sees the full runbook regardless of where it lives.
@@ -66,7 +66,7 @@ async function loadRunbookSection(skillPath: string, body: string): Promise<stri
   const inline = extractRunbookSection(body);
   const skillDir = dirname(skillPath);
   // Try multiple reference filenames. Convention: each skill may name its
-  // runbook file `runbook.md` (the generic name, used by peaks-solo), or
+  // runbook file `runbook.md` (the generic name, used by peaks-code), or
   // `<role>-runbook.md` (the role-suffixed name, used by peaks-rd → rd-runbook.md,
   // peaks-qa → qa-runbook.md, etc.). Prefer the longest extracted section.
   const refCandidates = [

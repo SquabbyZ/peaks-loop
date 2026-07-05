@@ -1,5 +1,5 @@
 /**
- * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7) — missing-standards-detector.
+ * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7) — missing-standards-detector.
  *
  * Read-side companion to the `peaks standards init` / `peaks standards update`
  * writers in `./project-standards-service.ts`. The writer KNOWS how to scaffold

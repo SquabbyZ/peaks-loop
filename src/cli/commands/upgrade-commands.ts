@@ -13,7 +13,7 @@
  * hooks-install / skill-sync / audit-verify + write-upgrade-record.
  *
  * The `--detect-1x` flag (added in slice 3) is a read-only
- * probe that the peaks-solo skill calls to gate the
+ * probe that the peaks-code skill calls to gate the
  * AskUserQuestion that prompts the 1.x → 2.0 upgrade. The
  * probe returns the JSON envelope from the
  * 1x-detector-service; it does NOT modify any files.
@@ -40,12 +40,12 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
     program
       .command('upgrade')
       .description(
-        'Upgrade a peaks-loop 1.x project to 2.0. Umbrella that orquestrates 7 sub-commands: config-migrate / standards-migrate / memory-extract / hooks-install / skill-sync / audit-verify + write-upgrade-record. Per the "one-key completion" tenet, prefer letting `npm i -g peaks-loop@2.0` postinstall run this for you. Use `--detect-1x` for a read-only probe (no file writes) that the peaks-solo skill uses to gate the 1.x → 2.0 AskUserQuestion.'
+        'Upgrade a peaks-loop 1.x project to 2.0. Umbrella that orquestrates 7 sub-commands: config-migrate / standards-migrate / memory-extract / hooks-install / skill-sync / audit-verify + write-upgrade-record. Per the "one-key completion" tenet, prefer letting `npm i -g peaks-loop@2.0` postinstall run this for you. Use `--detect-1x` for a read-only probe (no file writes) that the peaks-code skill uses to gate the 1.x → 2.0 AskUserQuestion.'
       )
       .option('--to <version>', 'target version (only "2.0" supported)', '2.0')
       .option('--project <path>', 'project root to upgrade (default: cwd)')
       .option('--auto', 'non-interactive: accept soft-fail on any sub-step (used by the postinstall hook)')
-      .option('--detect-1x', 'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-solo Step 0.55 to gate the AskUserQuestion')
+      .option('--detect-1x', 'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-code Step 0.55 to gate the AskUserQuestion')
       .option('--apply-init', 'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-loop version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.')
   ).action(async (options: UpgradeOptions) => {
     const projectRoot = options.project ?? process.cwd();
@@ -57,7 +57,7 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
         const nextActions: string[] = [];
         if (state.isOneX) {
           nextActions.push(
-            `Detected 1.x state. peaks-solo Step 0.55 should present an AskUserQuestion to invoke \`peaks upgrade --to 2.0 --auto --project ${state.projectRoot ?? projectRoot}\`.`
+            `Detected 1.x state. peaks-code Step 0.55 should present an AskUserQuestion to invoke \`peaks upgrade --to 2.0 --auto --project ${state.projectRoot ?? projectRoot}\`.`
           );
         } else {
           nextActions.push('No 1.x state detected. Proceed with the standing 2.0 layout.');

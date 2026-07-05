@@ -31,8 +31,8 @@ describe('classifier.detectMarker', () => {
 
 describe('classifier.deriveRuleName', () => {
   it('strips markers and limits to 8 words', () => {
-    expect(deriveRuleName('Solo Code-Change Red Line: peaks-solo is an orchestrator.')).toBe(
-      'solo code-change red line: peaks-solo is an orchestrator.'
+    expect(deriveRuleName('Solo Code-Change Red Line: peaks-code is an orchestrator.')).toBe(
+      'solo code-change red line: peaks-code is an orchestrator.'
     );
   });
 
@@ -48,9 +48,9 @@ describe('classifier.deriveRuleName', () => {
 describe('classifier.classifyFile', () => {
   it('classifies a file with one MANDATORY marker hit', () => {
     const file = {
-      file: 'skills/peaks-solo/SKILL.md',
+      file: 'skills/peaks-code/SKILL.md',
       lines: [
-        '# peaks-solo',
+        '# peaks-code',
         '',
         'Peaks-Loop Solo is an orchestrator, NOT an implementer.',
         'You MUST NOT write code directly here.',
@@ -61,7 +61,7 @@ describe('classifier.classifyFile', () => {
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]?.source.marker).toBe('MUST NOT');
     expect(result.entries[0]?.source.line).toBe(4);
-    expect(result.entries[0]?.source.file).toBe('skills/peaks-solo/SKILL.md');
+    expect(result.entries[0]?.source.file).toBe('skills/peaks-code/SKILL.md');
   });
 
   it('matches catalog phrases for sub-agent-sid', () => {
@@ -102,7 +102,7 @@ describe('classifier.classifyFile', () => {
     // reform (see `.peaks/memory/2026-06-27-prose-only-catalog-
     // followup.md`) drops the actionable ratio to 6.1%.
     const file = {
-      file: 'skills/peaks-solo/SKILL.md',
+      file: 'skills/peaks-code/SKILL.md',
       lines: [
         'Some MANDATORY prose that does not match any catalog entry.',
         'It really is important but advisory-only.',

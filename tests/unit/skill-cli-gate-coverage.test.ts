@@ -16,7 +16,7 @@ const SKILLS_ROOT = join(process.cwd(), 'skills');
  * Each section guards against a previously-regressed drift:
  * 1. Per-request artifact paths in SKILL.md must use the canonical
  *    `<session-id>/<request-id>` token format (not the shorthand `<id>/<rid>`).
- * 2. peaks-rd / peaks-solo must keep the codegraph section headings the
+ * 2. peaks-rd / peaks-code must keep the codegraph section headings the
  *    dogfood tests rely on.
  * 3. PRD handoff transition must have a CLI prereq gate (matches the SKILL
  *    claim "Handoff to RD/UI/QA is blocked while ... in `draft` state").
@@ -38,8 +38,8 @@ describe('dogfood coverage: SKILL claims have CLI/file backing', () => {
     expect(body).toContain('## Codegraph project analysis');
   });
 
-  test('peaks-solo keeps the Codegraph orchestration context heading', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'SKILL.md'), 'utf8');
+  test('peaks-code keeps the Codegraph orchestration context heading', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'SKILL.md'), 'utf8');
     expect(body).toContain('## Codegraph orchestration context');
   });
 

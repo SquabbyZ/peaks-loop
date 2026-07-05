@@ -29,12 +29,12 @@ import {
 // the SKILL.md / reference doc paths must stay stable.
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
-const SKILL_PATH = join(REPO_ROOT, 'skills', 'peaks-solo', 'SKILL.md');
-const REFERENCE_PATH = join(REPO_ROOT, 'skills', 'peaks-solo', 'references', 'fanout-mandatory.md');
-const OPT_OUT_PATH = join(REPO_ROOT, 'skills', 'peaks-solo', 'references', 'fanout-opt-out.md');
+const SKILL_PATH = join(REPO_ROOT, 'skills', 'peaks-code', 'SKILL.md');
+const REFERENCE_PATH = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'fanout-mandatory.md');
+const OPT_OUT_PATH = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'fanout-opt-out.md');
 const SKILL_BYTE_CAP = 24000; // tracked elsewhere (peaks scan file-size audit)
 
-describe('peaks-solo SKILL.md — fan-out is mandatory (slice 2026-06-24-audit-5th-p2)', () => {
+describe('peaks-code SKILL.md — fan-out is mandatory (slice 2026-06-24-audit-5th-p2)', () => {
   it('SKILL.md keeps the default fan-out phrase AND flips the opt-out into a hard constraint', async () => {
     const body = await readFile(SKILL_PATH, 'utf8');
     // The original slice-5 contract must remain in place.

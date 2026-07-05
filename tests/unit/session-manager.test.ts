@@ -241,7 +241,7 @@ describe('session-manager', () => {
      */
     test('ensureSession reuses the bound session when caller form differs from stored form (canonical fallback)', async () => {
       // Simulate the parent's binding: written with relative "." from
-      // inside the project dir (this is what the peaks-solo anchor
+      // inside the project dir (this is what the peaks-code anchor
       // path actually does — `cd <repo> && peaks skill presence:set`).
       const existingSid = '2026-06-06-session-shared';
       // Slice 003 lives the binding at the canonical runtime path;
@@ -407,12 +407,12 @@ describe('session-manager', () => {
       const sessionId = await ensureSession(testProjectRoot);
       setSessionTitle(testProjectRoot, sessionId, '原始标题');
 
-      setSessionMeta(testProjectRoot, sessionId, { skill: 'peaks-solo', mode: 'full-auto' });
+      setSessionMeta(testProjectRoot, sessionId, { skill: 'peaks-code', mode: 'full-auto' });
 
       const meta = getSessionMeta(testProjectRoot, sessionId);
       expect(meta).not.toBeNull();
       expect(meta!.title).toBe('原始标题');
-      expect(meta!.skill).toBe('peaks-solo');
+      expect(meta!.skill).toBe('peaks-code');
       expect(meta!.mode).toBe('full-auto');
       expect(meta!.lastActivity).toBeTruthy();
     });

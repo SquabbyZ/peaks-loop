@@ -51,9 +51,9 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
 
-        const presence = setSkillPresence('peaks-solo', 'assisted', 'doctor');
+        const presence = setSkillPresence('peaks-code', 'assisted', 'doctor');
 
-        expect(presence.skill).toBe('peaks-solo');
+        expect(presence.skill).toBe('peaks-code');
         expect(presence.mode).toBe('assisted');
         expect(presence.gate).toBe('doctor');
         expect(presence.setAt).toBeTruthy();
@@ -61,7 +61,7 @@ describe('skill presence service', () => {
         const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(filePath)).toBe(true);
         const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-        expect(raw.skill).toBe('peaks-solo');
+        expect(raw.skill).toBe('peaks-code');
         expect(raw.mode).toBe('assisted');
         expect(raw.gate).toBe('doctor');
       } finally {
@@ -121,7 +121,7 @@ describe('skill presence service', () => {
         const indexPath = join(memoryDir, 'index.json');
         expect(existsSync(memoryDir)).toBe(false);
 
-        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         expect(existsSync(memoryDir)).toBe(true);
         expect(existsSync(indexPath)).toBe(true);
@@ -183,7 +183,7 @@ describe('skill presence service', () => {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         writeSessionFile(root, '2026-05-28-session-test01');
 
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         expect(presence.sessionId).toBe('2026-05-28-session-test01');
 
@@ -201,7 +201,7 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
 
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         expect(presence.sessionId).toBeUndefined();
       } finally {
@@ -217,7 +217,7 @@ describe('skill presence service', () => {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         process.env.CLAUDE_CODE_SESSION_ID = 'claude-session-abc';
 
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup', root);
 
         expect(presence.outerSessionId).toBe('claude-session-abc');
         const raw = JSON.parse(readFileSync(join(root, '.peaks', '_runtime', 'active-skill.json'), 'utf8'));
@@ -239,7 +239,7 @@ describe('skill presence service', () => {
         process.env.PEAKS_OUTER_SESSION_ID = 'generic-outer-session';
         process.env.CLAUDE_CODE_SESSION_ID = 'claude-should-be-ignored';
 
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup', root);
 
         expect(presence.outerSessionId).toBe('generic-outer-session');
       } finally {
@@ -268,7 +268,7 @@ describe('skill presence service', () => {
         delete process.env.PEAKS_OUTER_SESSION_ID;
         delete process.env.CLAUDE_CODE_SESSION_ID;
 
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup', root);
 
         expect(presence.outerSessionId).toBe('');
       } finally {
@@ -315,7 +315,7 @@ describe('skill presence service', () => {
         // Seed a previous presence file with outerSessionId=A (the LLM
         // ran peaks in the previous outer session, then closed it).
         wfs(join(root, '.peaks', '.active-skill.json'), JSON.stringify({
-          skill: 'peaks-solo',
+          skill: 'peaks-code',
           mode: 'full-auto',
           gate: 'startup',
           sessionId: '2026-06-03-session-mock',
@@ -327,7 +327,7 @@ describe('skill presence service', () => {
         // Now the LLM is in a new outer session B. Presence should detect
         // the swap and surface the bound session's recorded outerSessionId.
         process.env.PEAKS_OUTER_SESSION_ID = 'outer-B';
-        const second = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        const second = setSkillPresence('peaks-code', 'full-auto', 'startup', root);
         expect(second.outerSessionId).toBe('outer-B');
         expect(second.outerSessionMismatch).toBeDefined();
         expect(second.outerSessionMismatch?.previous).toBe('outer-A');
@@ -367,7 +367,7 @@ describe('skill presence service', () => {
           outerSessionId: 'outer-1'
         }), 'utf8');
         wfs(join(root, '.peaks', '.active-skill.json'), JSON.stringify({
-          skill: 'peaks-solo',
+          skill: 'peaks-code',
           mode: 'full-auto',
           gate: 'startup',
           sessionId: '2026-06-03-session-mock',
@@ -377,7 +377,7 @@ describe('skill presence service', () => {
         }), 'utf8');
 
         process.env.PEAKS_OUTER_SESSION_ID = 'outer-1';
-        const second = setSkillPresence('peaks-solo', 'full-auto', 'startup', root);
+        const second = setSkillPresence('peaks-code', 'full-auto', 'startup', root);
 
         expect(second.outerSessionId).toBe('outer-1');
         expect(second.outerSessionMismatch).toBeUndefined();
@@ -480,12 +480,12 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         writeSessionFile(root, '2026-05-28-session-match');
-        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         const result = getSkillPresence();
 
         expect(result).not.toBeNull();
-        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.skill).toBe('peaks-code');
         expect(result!.mode).toBe('full-auto');
         expect(result!.sessionId).toBe('2026-05-28-session-match');
       } finally {
@@ -500,7 +500,7 @@ describe('skill presence service', () => {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         // Set up presence with session A
         writeSessionFile(root, '2026-05-28-session-old');
-        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(presencePath)).toBe(true);
@@ -527,7 +527,7 @@ describe('skill presence service', () => {
         const peaksDir = join(root, '.peaks');
         mkdirSync(peaksDir, { recursive: true });
         writeFileSync(join(peaksDir, '.active-skill.json'), JSON.stringify({
-          skill: 'peaks-solo',
+          skill: 'peaks-code',
           mode: 'assisted',
           setAt: new Date().toISOString()
         }), 'utf8');
@@ -535,7 +535,7 @@ describe('skill presence service', () => {
         const result = getSkillPresence();
 
         expect(result).not.toBeNull();
-        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.skill).toBe('peaks-code');
         expect(result!.mode).toBe('assisted');
       } finally {
         vi.restoreAllMocks();
@@ -617,7 +617,7 @@ describe('skill presence service', () => {
       const root = createTempDir();
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
-        const presence = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        const presence = setSkillPresence('peaks-code', 'full-auto', 'startup');
         const originalHeartbeat = presence.lastHeartbeat!;
 
         // Wait a tiny bit so timestamps differ
@@ -627,7 +627,7 @@ describe('skill presence service', () => {
         const updated = touchSkillHeartbeat();
 
         expect(updated).not.toBeNull();
-        expect(updated!.skill).toBe('peaks-solo');
+        expect(updated!.skill).toBe('peaks-code');
         expect(updated!.lastHeartbeat).not.toBe(originalHeartbeat);
         // Verify the file was actually updated
         const filePath = join(root, '.peaks', '_runtime', 'active-skill.json');
@@ -645,7 +645,7 @@ describe('skill presence service', () => {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
 
         // Set presence → heartbeat initialized
-        const p1 = setSkillPresence('peaks-solo');
+        const p1 = setSkillPresence('peaks-code');
         expect(p1.lastHeartbeat).toBeDefined();
 
         // Touch heartbeat → updated
@@ -669,7 +669,7 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         writeSessionFile(root, '2026-05-28-session-old');
-        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
         expect(existsSync(presencePath)).toBe(true);
@@ -692,12 +692,12 @@ describe('skill presence service', () => {
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
         writeSessionFile(root, '2026-05-28-session-match');
-        setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        setSkillPresence('peaks-code', 'full-auto', 'startup');
 
         const result = touchSkillHeartbeat();
 
         expect(result).not.toBeNull();
-        expect(result!.skill).toBe('peaks-solo');
+        expect(result!.skill).toBe('peaks-code');
         expect(result!.sessionId).toBe('2026-05-28-session-match');
         expect(result!.lastHeartbeat).toBeTruthy();
       } finally {
@@ -708,23 +708,23 @@ describe('skill presence service', () => {
   });
 
   describe('exit flow lifecycle (set → header → clear → exit message)', () => {
-    test('full peaks-solo exit lifecycle: presence set, header displayed, presence cleared, header removed', () => {
+    test('full peaks-code exit lifecycle: presence set, header displayed, presence cleared, header removed', () => {
       const root = createTempDir();
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
 
-        // Step 1: peaks-solo workflow enters — set presence
-        const step1 = setSkillPresence('peaks-solo', 'full-auto', 'startup');
-        expect(step1.skill).toBe('peaks-solo');
+        // Step 1: peaks-code workflow enters — set presence
+        const step1 = setSkillPresence('peaks-code', 'full-auto', 'startup');
+        expect(step1.skill).toBe('peaks-code');
         expect(step1.mode).toBe('full-auto');
         expect(step1.gate).toBe('startup');
 
         // Step 2: CLAUDE.md reads presence — header is displayed
         const step2 = getSkillPresence();
         expect(step2).not.toBeNull();
-        expect(step2!.skill).toBe('peaks-solo');
+        expect(step2!.skill).toBe('peaks-code');
         // At this point, CLAUDE.md shows:
-        // "Peaks-Loop Skill: peaks-solo | Peaks-Loop Gate: startup | Next: ..."
+        // "Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: startup | Next: ..."
 
         // Step 3: Workflow completes — peaks skill presence:clear
         const step3 = clearSkillPresence();
@@ -745,7 +745,7 @@ describe('skill presence service', () => {
       const root = createTempDir();
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
-        setSkillPresence('peaks-solo');
+        setSkillPresence('peaks-code');
 
         expect(clearSkillPresence()).toBe(true);
         expect(clearSkillPresence()).toBe(false); // already deleted, safe
@@ -763,7 +763,7 @@ describe('skill presence service', () => {
 
         // Session A: user selects full-auto mode
         writeSessionFile(root, '2026-05-28-session-a');
-        const p1 = setSkillPresence('peaks-solo', 'full-auto', 'startup');
+        const p1 = setSkillPresence('peaks-code', 'full-auto', 'startup');
         expect(p1.sessionId).toBe('2026-05-28-session-a');
 
         const presencePath = join(root, '.peaks', '_runtime', 'active-skill.json');
@@ -777,7 +777,7 @@ describe('skill presence service', () => {
         expect(existsSync(presencePath)).toBe(false);
 
         // Session B then sets its own presence (user re-selects mode)
-        setSkillPresence('peaks-solo', 'assisted', 'startup');
+        setSkillPresence('peaks-code', 'assisted', 'startup');
         const p3 = getSkillPresence();
         expect(p3).not.toBeNull();
         expect(p3!.mode).toBe('assisted');
@@ -809,7 +809,7 @@ describe('skill presence service', () => {
       const root = createTempDir();
       try {
         vi.spyOn(process, 'cwd').mockReturnValue(root);
-        const presence = setSkillPresence('peaks-solo', 'not-a-mode', 'startup');
+        const presence = setSkillPresence('peaks-code', 'not-a-mode', 'startup');
         expect(presence.mode).toBeUndefined();
       } finally {
         vi.restoreAllMocks();
@@ -858,7 +858,7 @@ describe('skill presence — runtime path (slice 2026-06-05-peaks-runtime-layer)
     const root = createTempDir();
     try {
       vi.spyOn(process, 'cwd').mockReturnValue(root);
-      setSkillPresence('peaks-solo', 'assisted', 'doctor');
+      setSkillPresence('peaks-code', 'assisted', 'doctor');
 
       const newPath = join(root, '.peaks', '_runtime', 'active-skill.json');
       const legacyPath = join(root, '.peaks', '.active-skill.json');
@@ -892,15 +892,15 @@ describe('skill presence — runtime path (slice 2026-06-05-peaks-runtime-layer)
     const root = createTempDir();
     try {
       vi.spyOn(process, 'cwd').mockReturnValue(root);
-      // New path: peaks-solo
-      setSkillPresence('peaks-solo', 'assisted', 'doctor');
+      // New path: peaks-code
+      setSkillPresence('peaks-code', 'assisted', 'doctor');
       // Plant a stale entry at the legacy path.
       const legacyPath = join(root, '.peaks', '.active-skill.json');
       mkdirSync(join(root, '.peaks'), { recursive: true });
       writeFileSync(legacyPath, JSON.stringify({ skill: 'peaks-rd', mode: 'inline', gate: 'startup' }, null, 2), 'utf8');
 
       const result = getSkillPresence(root);
-      expect(result?.skill).toBe('peaks-solo');
+      expect(result?.skill).toBe('peaks-code');
       expect(result?.mode).toBe('assisted');
     } finally {
       vi.restoreAllMocks();

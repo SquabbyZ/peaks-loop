@@ -36,8 +36,8 @@ describe('Codegraph skill analysis integration guidance', () => {
     expectCodegraphGuardrails(section);
   });
 
-  test('peaks-solo coordinates codegraph context without replacing role skills', () => {
-    const section = readSection(readSkill('peaks-solo'), '## Codegraph orchestration context');
+  test('peaks-code coordinates codegraph context without replacing role skills', () => {
+    const section = readSection(readSkill('peaks-code'), '## Codegraph orchestration context');
 
     expect(section).toContain('optional project-analysis enhancement');
     expect(section).toContain('role handoff');

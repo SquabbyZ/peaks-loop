@@ -2,7 +2,7 @@
  * G6 — skill-level heartbeat scheduler config.
  *
  * Slice 2026-06-07-sub-agent-dispatch-decouple (G6): the SKILL.md front
- * matter for a Dispatcher (peaks-solo / peaks-rd / peaks-qa) can opt
+ * matter for a Dispatcher (peaks-code / peaks-rd / peaks-qa) can opt
  * into a non-default heartbeat interval by including a line like:
  *
  *   heartbeatIntervalSec: 15

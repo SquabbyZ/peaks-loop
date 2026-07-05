@@ -22,8 +22,8 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       const sorted = [...skills].sort((a, b) => {
         if (a.name === 'peaks-sop') return -1;
         if (b.name === 'peaks-sop') return 1;
-        if (a.name === 'peaks-solo') return -1;
-        if (b.name === 'peaks-solo') return 1;
+        if (a.name === 'peaks-code') return -1;
+        if (b.name === 'peaks-code') return 1;
         return a.name.localeCompare(b.name);
       });
       for (const skill of sorted) {
@@ -146,7 +146,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     }
     if (options.checkStale === true) {
       // Slice 002 (v2.15.0) AC-1: pair the read with a staleness
-      // check so callers (peaks-solo Step 1, statusline) get both
+      // check so callers (peaks-code Step 1, statusline) get both
       // pieces of info from a single CLI invocation. The presence
       // is returned UNCHANGED — `--check-stale` is a read-only flag,
       // not a clear.
@@ -231,7 +231,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   });
 
   // Slice 002 (v2.15.0) — AC-1: presence staleness detector.
-  // peaks-solo Step 1 (and `peaks solo should-pause --step
+  // peaks-code Step 1 (and `peaks solo should-pause --step
   // step-1-mode-select`) calls this to decide whether the recorded
   // `mode` field can be trusted or whether the LLM must AskUserQuestion.
   addJsonOption(

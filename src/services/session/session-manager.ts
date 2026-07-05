@@ -451,7 +451,7 @@ export function getSessionId(projectRoot: string): string | null {
  * caller is operating on a user-supplied `--project` flag
  * and the binding may have been written by a CLI invocation
  * that was running from inside the project dir (the common
- * peaks-solo / peaks-sop scenario). Other modules depend
+ * peaks-code / peaks-sop scenario). Other modules depend
  * on the strict-equality semantics of `getSessionId` (the
  * "no binding" fallback path is part of their contract),
  * so this variant is opt-in.

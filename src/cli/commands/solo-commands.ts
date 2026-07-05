@@ -1,7 +1,7 @@
 /**
- * Slice 2 — `peaks solo [--fast] <change-id>` (peaks-solo fast mode).
+ * Slice 2 — `peaks solo [--fast] <change-id>` (peaks-code fast mode).
  *
- * The `peaks-solo` SKILL orchestrates an LLM-side workflow:
+ * The `peaks-code` SKILL orchestrates an LLM-side workflow:
  *   load-memory -> standards-preflight -> rd-cycle -> qa-cycle -> emit-txt
  *
  * The CLI surface here is intentionally narrow: it builds a SoloPlan and
@@ -179,7 +179,7 @@ export async function runSoloFast(opts: {
 export function registerSoloCommands(program: Command, io: ProgramIO): void {
   const solo = program
     .command('solo')
-    .description('peaks-solo LLM-side workflow planner (slice 2 fast mode)');
+    .description('peaks-code LLM-side workflow planner (slice 2 fast mode)');
 
   solo
     .command('plan')
@@ -342,7 +342,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
               }
             }, [], [
               `Recorded outer session id "${stalePresence.recordedOuterSessionId ?? '?'}" does not match current outer session id "${stalePresence.currentOuterSessionId ?? '?'}".`,
-              `peaks-solo Step 1 must AskUserQuestion to confirm the mode for THIS session (slice 002 AC-2).`
+              `peaks-code Step 1 must AskUserQuestion to confirm the mode for THIS session (slice 002 AC-2).`
             ]),
             opts.json
           );
@@ -423,7 +423,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
       .description(
         'v2.11.0 D7: detect whether the current invocation is a same-day post-compact resume. ' +
           'Auto-resumes (no AskUserQuestion) when the most-recent checkpoint is from today, has a mode field, ' +
-          'and the active skill is peaks-solo. Falls through to the normal Step 0.7 flow otherwise.'
+          'and the active skill is peaks-code. Falls through to the normal Step 0.7 flow otherwise.'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
@@ -435,7 +435,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         if (sessionId === null) {
           printResult(
             io,
-            fail('solo.post-compact-detect', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-solo`', null, ['Re-run with --session-id <sid>']),
+            fail('solo.post-compact-detect', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`', null, ['Re-run with --session-id <sid>']),
             opts.json
           );
           process.exitCode = 1;
@@ -712,7 +712,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         if (sessionId === null) {
           printResult(
             io,
-            fail('solo.detect-job', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-solo`', null, ['Re-run with --session-id <sid>']),
+            fail('solo.detect-job', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`', null, ['Re-run with --session-id <sid>']),
             opts.json
           );
           process.exitCode = 1;
@@ -800,7 +800,7 @@ export function registerSoloCommands(program: Command, io: ProgramIO): void {
         if (sessionId === null) {
           printResult(
             io,
-            fail('solo.read-job-shape', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-solo`', null, ['Re-run with --session-id <sid>']),
+            fail('solo.read-job-shape', 'NO_ACTIVE_SESSION', 'no active session id; pass --session-id or set presence via `peaks skill presence:set peaks-code`', null, ['Re-run with --session-id <sid>']),
             opts.json
           );
           process.exitCode = 1;

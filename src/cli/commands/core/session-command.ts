@@ -15,7 +15,7 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 import { registerSessionCheckpointCommand } from '../session-checkpoint-command.js';
 import { registerSessionResumeCommand } from '../session-resume-command.js';
 import { registerSessionAutoCompactHookCommand } from '../session-auto-compact-hook-command.js';
-// Slice 2 of the peaks-solo → peaks-code rename plan: register the
+// Slice 2 of the peaks-code → peaks-code rename plan: register the
 // `peaks session migrate-skill-name` subcommand eagerly alongside
 // checkpoint / resume / auto-compact-hook so it appears in
 // `peaks session --help` for LLM `<TAB>`-discovery. See
@@ -227,7 +227,7 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   // it eager (same fix as checkpoint + resume) so `peaks session --help`
   // lists it for LLM `<TAB>`-discovery.
   registerSessionAutoCompactHookCommand(session);
-  // Slice 2 of the peaks-solo → peaks-code rename plan:
+  // Slice 2 of the peaks-code → peaks-code rename plan:
   // `peaks session migrate-skill-name --from <old> --to <new>
   // [--apply] [--project <path>] [--json]`. Idempotent rewrite of
   // .peaks/_runtime/** for the rename; skipped paths recorded in

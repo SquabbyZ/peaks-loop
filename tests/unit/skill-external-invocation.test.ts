@@ -46,7 +46,7 @@ function mentionsExternal(body: string): boolean {
   return EXTERNAL_TOKENS.some((token) => body.includes(token));
 }
 
-const ENFORCED_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-solo', 'peaks-txt'];
+const ENFORCED_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-code', 'peaks-txt'];
 
 describe('audit: skill SKILL.md external invocation pattern', () => {
   for (const name of ENFORCED_SKILLS) {
@@ -101,15 +101,15 @@ describe('audit: MCP-server external references route through the LLM tool list 
   }
 });
 
-describe('audit: peaks-solo documents the canonical external-skill invocation pattern', () => {
-  test('peaks-solo/SKILL.md links to external-skill-invocation.md', async () => {
-    const body = await readSkillBody('peaks-solo');
+describe('audit: peaks-code documents the canonical external-skill invocation pattern', () => {
+  test('peaks-code/SKILL.md links to external-skill-invocation.md', async () => {
+    const body = await readSkillBody('peaks-code');
 
     expect(body).toMatch(/references\/external-skill-invocation\.md/);
   });
 
-  test('peaks-solo/references/external-skill-invocation.md exists and defines the three stages', async () => {
-    const body = await readFile(join(SKILLS_ROOT, 'peaks-solo', 'references', 'external-skill-invocation.md'), 'utf8');
+  test('peaks-code/references/external-skill-invocation.md exists and defines the three stages', async () => {
+    const body = await readFile(join(SKILLS_ROOT, 'peaks-code', 'references', 'external-skill-invocation.md'), 'utf8');
 
     expect(body).toMatch(/Stage 1 — Discovery/);
     expect(body).toMatch(/Stage 2 — Reference/);

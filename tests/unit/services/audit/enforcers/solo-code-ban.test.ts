@@ -3,13 +3,13 @@ import { isSoloCodeCommit, evaluateSoloCodeBan } from '../../../../../src/servic
 
 describe('solo-code-ban.isSoloCodeCommit', () => {
   it('denies git commit from a peaks-* skill', () => {
-    expect(isSoloCodeCommit('peaks-solo', 'git commit -m "msg"')).toBe(true);
+    expect(isSoloCodeCommit('peaks-code', 'git commit -m "msg"')).toBe(true);
     expect(isSoloCodeCommit('peaks-rd', 'git commit -am "msg"')).toBe(true);
     expect(isSoloCodeCommit('peaks-qa', 'git commit --amend')).toBe(true);
   });
 
   it('denies git apply from a peaks-* skill', () => {
-    expect(isSoloCodeCommit('peaks-solo', 'git apply patch.diff')).toBe(true);
+    expect(isSoloCodeCommit('peaks-code', 'git apply patch.diff')).toBe(true);
     expect(isSoloCodeCommit('peaks-rd', '   git apply -3 patch.diff')).toBe(true);
   });
 
@@ -20,20 +20,20 @@ describe('solo-code-ban.isSoloCodeCommit', () => {
   });
 
   it('allows non-commit/apply git commands from peaks-* skills', () => {
-    expect(isSoloCodeCommit('peaks-solo', 'git status')).toBe(false);
+    expect(isSoloCodeCommit('peaks-code', 'git status')).toBe(false);
     expect(isSoloCodeCommit('peaks-rd', 'git log --oneline -10')).toBe(false);
-    expect(isSoloCodeCommit('peaks-solo', 'git diff HEAD~1')).toBe(false);
+    expect(isSoloCodeCommit('peaks-code', 'git diff HEAD~1')).toBe(false);
   });
 
   it('allows non-git commands from peaks-* skills', () => {
-    expect(isSoloCodeCommit('peaks-solo', 'pnpm typecheck')).toBe(false);
+    expect(isSoloCodeCommit('peaks-code', 'pnpm typecheck')).toBe(false);
     expect(isSoloCodeCommit('peaks-rd', 'ls -la')).toBe(false);
   });
 });
 
 describe('solo-code-ban.evaluateSoloCodeBan', () => {
   it('returns denied=true with reason for peaks-* skill + commit', () => {
-    const result = evaluateSoloCodeBan({ skill: 'peaks-solo', command: 'git commit -m "msg"' });
+    const result = evaluateSoloCodeBan({ skill: 'peaks-code', command: 'git commit -m "msg"' });
     expect(result.denied).toBe(true);
     expect(result.reason).toContain('Solo Code-Change Red Line');
     expect(result.reason).toContain('peaks request transition');

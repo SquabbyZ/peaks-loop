@@ -31,7 +31,7 @@ The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in
 
 - Slice `2026-06-05-change-id-as-unit-of-work` (commits `48958fc` + `928eb53`) — established the change-id axis as the canonical root for reviewable artifacts (`src/shared/change-id.ts:131,335`, `src/services/scan/acceptance-coverage-service.ts:155`).
 - Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/_runtime/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
-- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-solo`, `peaks-rd`, `peaks-qa`.
+- Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-code`, `peaks-rd`, `peaks-qa`.
 
 # Peaks-Loop RD
 
@@ -58,16 +58,16 @@ AskUserQuestion({
     { label: "Skip browser self-test, hand off to QA",
       description: "Mark the slice's browser self-test as deferred. Do NOT mark the slice as RD-done; transition to qa-handoff with browser-gate=blocked reason=login-required, and let QA's gate machinery surface the wall to the user again." },
     { label: "Cancel the workflow",
-      description: "Stop RD. Emit a blocked TXT handoff so peaks-solo can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
+      description: "Stop RD. Emit a blocked TXT handoff so peaks-code can surface the auth wall to the user. Do not modify code paths that the browser gate would have covered." }
   ]
 })
 ```
 
 The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for browser validation" there); RD inherits the same rules. Without an explicit decision from the user, RD does not advance past the wall.
 
-## Sub-agent dispatch (when launched by peaks-solo swarm)
+## Sub-agent dispatch (when launched by peaks-code swarm)
 
-When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-solo`, the following sections of THIS skill are **suspended** for the sub-agent run:
+When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
 - **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-rd.json` and only that.
@@ -107,7 +107,7 @@ After returning, Solo re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/tech-
 
 ## Skill presence (MANDATORY first action — main-loop context only)
 
-When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-solo` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run:
+When this skill is running in the main Claude session (not as a sub-agent — i.e. user invoked `peaks-rd` directly, or `peaks-code` is executing the role inline in assisted/strict mode), before any analysis or tool call, immediately run:
 
 ```bash
 peaks skill presence:set peaks-rd --project <repo> --mode <mode> --gate startup
@@ -266,7 +266,7 @@ peaks codegraph affected --project <repo> <changed-files...> --json
 #     Without project rules, security review and code review triggers won't fire.
 
 # 7. AFTER implementation, BEFORE QA handoff — RUN THESE GATES:
-#    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-solo-test to run the full suite standalone)
+#    Peaks-Loop Gate B2: unit tests exist and pass for the changed surface → npx vitest run --changed (or project equivalent; the changed-only mode is the peaks slice check default as of run 017; use --run-tests for the full suite, or invoke /peaks-test to run the full suite standalone)
 #    Peaks-Loop Gate B3: code review evidence → .peaks/_runtime/<changeId>/rd/code-review.md
 #    Peaks-Loop Gate B4: security review evidence → .peaks/_runtime/<changeId>/rd/security-review.md
 #    Peaks-Loop Gate B5 (NEW): RD artifact body has no unfilled placeholders.
@@ -468,7 +468,7 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (code-review + security-review + perf-baseline + qa-test-cases)
 
-**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-solo uses for the post-PRD swarm (see `peaks-solo/SKILL.md` "Peaks-Loop Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
+**When RD reaches the end of implementation, the four review activities (code review, security review, perf baseline, AND QA test-cases draft) run in parallel via `peaks sub-agent dispatch <role>` (then executing the returned toolCall), not sequentially.** This is the same fan-out pattern peaks-code uses for the post-PRD swarm (see `peaks-code/SKILL.md` "Peaks-Loop Swarm parallel phase" L659-764). RD itself, when it is the main loop, behaves as a sub-agent orchestrator: it issues 4 `peaks sub-agent dispatch` calls in a single message and waits for all to return before aggregating findings and transitioning to `qa-handoff`.
 
 **Why 4 sub-agents (added in slice 004):** the original 3-way fan-out (code-review + security-review + perf-baseline) cut the RD→QA wall-clock by running 3 LLM writes in parallel, but `qa/test-cases/<rid>.md` was still written sequentially by QA's main loop AFTER the RD handoff landed. Drafting QA test-cases in the same fan-out means the QA main loop's first action is "execute the pre-drafted test plan + write test-report" instead of "draft a test plan from scratch + execute + write report". Wall-clock drop: ~30-40% on the RD→QA-verdict segment for `feature` / `refactor` / `bugfix` slices.
 
@@ -477,7 +477,7 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 - Bugfix slices: code-review + security-review + qa-test-cases always run; perf-baseline runs only when the bug is performance-shaped (matches the "When this applies" criteria in the perf-baseline section above).
 - Config / docs / chore slices: no fan-out (no review surface). Document N/A in the request artifact. (qa-test-cases also skipped — config / docs / chore have no acceptance surface to validate.)
 
-**The dispatch template (mirror of peaks-solo L705-717):**
+**The dispatch template (mirror of peaks-code L705-717):**
 
 ```
 peaks sub-agent dispatch <role> \
@@ -526,7 +526,7 @@ Note: sub-agents 1-3 write to `rd/<evidence-path>`, sub-agent 4 writes to `qa/te
 - Required for Gate C (RD-side qa-handoff transition, added in slice 004). When this file is present at RD's qa-handoff transition, QA's main loop can skip its own "draft test plan" step and proceed directly to "execute pre-drafted test plan + write test-report + security-findings + performance-findings + verdict".
 - Failure mode: if the PRD is missing or the acceptance criteria are too vague to enumerate, this sub-agent returns `blocked` with a `blockedReason` like `prd-missing` or `acceptance-criteria-vague`; the main RD loop then escalates via AskUserQuestion before falling back to inline QA test-case drafting.
 
-**Hard prohibitions on all 4 sub-agents (mirror of peaks-solo L729-734):**
+**Hard prohibitions on all 4 sub-agents (mirror of peaks-code L729-734):**
 - Do NOT call `Skill(skill="...")` — would re-enter RD or another skill and break the fan-out.
 - Do NOT call `peaks skill presence:set` — only the main RD loop owns presence.
 - Do NOT open interactive user prompts. If something is unclear, return `blocked` and let the main loop handle the user.
@@ -614,7 +614,7 @@ When the project-scan in `.peaks/_runtime/<changeId>/rd/project-scan.md` identif
 
 2. **Never inline mock data in component files**: Mock data, fixture objects, and stub responses belong in dedicated mock files. Components should receive data through their normal channels (props, API calls via services). Writing `const mockData = [...]` inside a `.tsx` file is prohibited.
 
-3. **Mock files must export TypeScript interfaces**: Every mock response type must be exported so RD implementation and QA test-cases can import the same contract. See peaks-solo's "Frontend-only development mode" for the full mock-to-real migration pattern.
+3. **Mock files must export TypeScript interfaces**: Every mock response type must be exported so RD implementation and QA test-cases can import the same contract. See peaks-code's "Frontend-only development mode" for the full mock-to-real migration pattern.
 
 4. **Every mock file must be marked**: Add `// MOCK: Replace with real API call when swagger.json is available` at the top of every mock file.
 
@@ -700,7 +700,7 @@ Reference: `references/refactor-workflow.md`.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
-> Slice #010 implements the G7 + G7.7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-solo/references/context-governance.md` + `skills/peaks-solo/references/headroom-integration.md`.
+> Slice #010 implements the G7 + G7.7 + G8 + G9 red lines from slice #009 closeout. RD sub-agent prompt template MUST include the G7 path convention + G8.6 share protocol. Detailed protocol: `skills/peaks-code/references/context-governance.md` + `skills/peaks-code/references/headroom-integration.md`.
 
 ### G7 — RD sub-agent protocol
 

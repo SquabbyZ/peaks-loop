@@ -9,7 +9,7 @@ const SKILLS_ROOT = resolve(__dirname, '..', '..', 'skills');
 const rdSkill = readFileSync(join(SKILLS_ROOT, 'peaks-rd', 'SKILL.md'), 'utf8');
 const qaSkill = readFileSync(join(SKILLS_ROOT, 'peaks-qa', 'SKILL.md'), 'utf8');
 const workflowGatesRef = readFileSync(
-  join(SKILLS_ROOT, 'peaks-solo', 'references', 'workflow-gates-and-types.md'),
+  join(SKILLS_ROOT, 'peaks-code', 'references', 'workflow-gates-and-types.md'),
   'utf8',
 );
 // Some long-form content (sub-agent contracts, hard prohibitions,
@@ -214,7 +214,7 @@ describe('v2.12.0 3-way parallel fan-out (collapse from slice 004 4-way + slice 
     });
   });
 
-  describe('peaks-solo/references/workflow-gates-and-types.md Gate C', () => {
+  describe('peaks-code/references/workflow-gates-and-types.md Gate C', () => {
     test('feature/refactor row (in the bash code block) includes qa/test-cases/<rid>.md', () => {
       // The Gate C content is inside a ```bash code block.
       // The row we want is the commented-out line `#   feature / refactor → ls ...`.

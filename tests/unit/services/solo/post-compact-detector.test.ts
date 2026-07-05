@@ -46,7 +46,7 @@ function writeCheckpoint(filename: string, payload: Record<string, unknown>, mti
 }
 
 describe('detectPostCompactResume — post-compact match (happy path)', () => {
-  test("today's checkpoint + mode + peaks-solo active → shouldAutoResume=true", async () => {
+  test("today's checkpoint + mode + peaks-code active → shouldAutoResume=true", async () => {
     const now = new Date('2026-06-26T12:00:00Z');
     const todayMtime = new Date('2026-06-26T08:00:00Z');
     writeCheckpoint('2026-06-26T08-00-00-000Z.json', {
@@ -59,7 +59,7 @@ describe('detectPostCompactResume — post-compact match (happy path)', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
     expect(probe.shouldAutoResume).toBe(true);
     expect(probe.reason).toBe('post-compact-match');
@@ -115,13 +115,13 @@ describe('detectPostCompactResume — mode + skill gates', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
     expect(probe.shouldAutoResume).toBe(false);
     expect(probe.reason).toBe('no-mode-field');
   });
 
-  test('active skill is not peaks-solo → active-skill-mismatch', async () => {
+  test('active skill is not peaks-code → active-skill-mismatch', async () => {
     const now = new Date('2026-06-26T12:00:00Z');
     writeCheckpoint('2026-06-26T10-00-00-000Z.json', {
       currentPlan: 'in flight',
@@ -131,7 +131,7 @@ describe('detectPostCompactResume — mode + skill gates', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-rd'  // NOT peaks-solo
+      activeSkill: 'peaks-rd'  // NOT peaks-code
     });
     expect(probe.shouldAutoResume).toBe(false);
     expect(probe.reason).toBe('active-skill-mismatch');
@@ -155,7 +155,7 @@ describe('detectPostCompactResume — disambiguation', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
     expect(probe.shouldAutoResume).toBe(false);
     expect(probe.reason).toBe('multiple-checkpoints-ambiguous');
@@ -175,7 +175,7 @@ describe('detectPostCompactResume — disambiguation', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
     expect(probe.shouldAutoResume).toBe(true);
     expect(probe.task).toBe('newer');
@@ -194,7 +194,7 @@ describe('detectPostCompactResume — presence fallback for mode', () => {
       sessionId: '2026-06-26-session-test',
       projectRoot: workDir,
       now: () => now,
-      activeSkill: 'peaks-solo',
+      activeSkill: 'peaks-code',
       presenceModeOverride: 'swarm'
     });
     expect(probe.shouldAutoResume).toBe(true);

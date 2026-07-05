@@ -21,15 +21,15 @@ describe('runDoctor', () => {
     });
 
     expect(report.summary.ok).toBe(true);
-    expect(report.checks.some((check) => check.id === 'skill:peaks-solo' && check.ok)).toBe(true);
+    expect(report.checks.some((check) => check.id === 'skill:peaks-code' && check.ok)).toBe(true);
     expect(report.checks.some((check) => check.id === 'schema:refactor-slice-spec.schema.json' && check.ok)).toBe(true);
   });
 
   test('reports invalid skills without aborting doctor checks', async () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-skills-'));
-    await mkdir(join(root, 'peaks-solo'));
+    await mkdir(join(root, 'peaks-code'));
     await mkdir(join(root, 'broken-skill'));
-    await writeFile(join(root, 'peaks-solo', 'SKILL.md'), `---\nname: peaks-solo\ndescription: Required skill\n---\n# Skill\n`);
+    await writeFile(join(root, 'peaks-code', 'SKILL.md'), `---\nname: peaks-code\ndescription: Required skill\n---\n# Skill\n`);
     await writeFile(join(root, 'broken-skill', 'SKILL.md'), `---\nname: broken-skill\n---\n# Broken\n`);
 
     const report = await runDoctor({ skillsBaseDir: root });
@@ -56,7 +56,7 @@ describe('runDoctor skill runbook completeness', () => {
   test('reports each required skill declares a Default runbook', async () => {
     const report = await runDoctor();
 
-    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo']) {
+    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-code']) {
       expect(report.checks).toContainEqual(
         expect.objectContaining({ id: `skill-runbook:${name}`, ok: true })
       );
@@ -65,7 +65,7 @@ describe('runDoctor skill runbook completeness', () => {
 
   test('flags a required skill that is missing its Default runbook section', async () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-runbook-'));
-    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+    for (const name of ['peaks-code', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
       await mkdir(join(root, name));
       const body = name === 'peaks-rd'
         ? `---\nname: ${name}\ndescription: ${name} skill\n---\n# Body without runbook\n`
@@ -86,7 +86,7 @@ describe('runDoctor skill apply-note completeness', () => {
   test('passes apply-note check for each required skill on the real repo', async () => {
     const report = await runDoctor();
 
-    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-solo']) {
+    for (const name of ['peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt', 'peaks-code']) {
       expect(report.checks).toContainEqual(
         expect.objectContaining({ id: `skill-apply-note:${name}`, ok: true })
       );
@@ -95,7 +95,7 @@ describe('runDoctor skill apply-note completeness', () => {
 
   test('flags a required skill whose runbook lists destructive --apply without an authorization note', async () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-apply-note-'));
-    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+    for (const name of ['peaks-code', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
       await mkdir(join(root, name));
       const runbookBody = name === 'peaks-txt'
         ? '```bash\npeaks memory extract --project x --artifact y --apply --json\n```'
@@ -114,7 +114,7 @@ describe('runDoctor skill apply-note completeness', () => {
 
   test('passes apply-note check when destructive --apply commands carry --dry-run guidance', async () => {
     const root = await mkdtemp(join(tmpdir(), 'peaks-doctor-apply-note-ok-'));
-    for (const name of ['peaks-solo', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
+    for (const name of ['peaks-code', 'peaks-prd', 'peaks-ui', 'peaks-rd', 'peaks-qa', 'peaks-sc', 'peaks-txt']) {
       await mkdir(join(root, name));
       const runbookBody = name === 'peaks-txt'
         ? '```bash\npeaks memory extract --project x --artifact y --dry-run --json\npeaks memory extract --project x --artifact y --apply --json\n```\n\nOnly run --apply after explicit user authorization.'
@@ -304,7 +304,7 @@ describe('runDoctor skill-presence checks', () => {
 describe('runDoctor skill-presence:workspace guard', () => {
   test('fails when a skill is active but no workspace session exists', async () => {
     const report = await runDoctor({
-      skillPresenceProbe: () => ({ skill: 'peaks-solo', mode: 'full-auto', gate: 'startup', setAt: new Date().toISOString() }),
+      skillPresenceProbe: () => ({ skill: 'peaks-code', mode: 'full-auto', gate: 'startup', setAt: new Date().toISOString() }),
       workspaceInitializedProbe: () => false
     });
     const check = report.checks.find((item) => item.id === 'skill-presence:workspace');
@@ -316,7 +316,7 @@ describe('runDoctor skill-presence:workspace guard', () => {
 
   test('passes when a skill is active and the workspace session exists', async () => {
     const report = await runDoctor({
-      skillPresenceProbe: () => ({ skill: 'peaks-solo', setAt: new Date().toISOString() }),
+      skillPresenceProbe: () => ({ skill: 'peaks-code', setAt: new Date().toISOString() }),
       workspaceInitializedProbe: () => true
     });
     const check = report.checks.find((item) => item.id === 'skill-presence:workspace');

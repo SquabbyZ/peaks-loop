@@ -5,7 +5,7 @@
  * The template is a PreToolUse hook allow-list that bypasses the
  * Claude Code [Fact-Forcing Gate] for tool calls whose paths target
  * the peaks-managed `.peaks/` workspace. Without this bypass,
- * `peaks workspace init` (Step 0 of every peaks-solo session) is
+ * `peaks workspace init` (Step 0 of every peaks-code session) is
  * unrunnable in a consumer project because the gate blocks the very
  * first Write.
  *
@@ -191,7 +191,7 @@ function wrapAsNodeOneLiner(js: string): string {
  * subcommand allow-list. It does NOT silently allow arbitrary paths
  * under `.peaks/_runtime/<sessionId>/` — only those matching the documented
  * pattern. Future slice work can broaden the allow-list if the
- * peaks-solo workflow needs more paths.
+ * peaks-code workflow needs more paths.
  */
 function buildWriteHookCommand(): string {
   // Path-matching: allow when the path contains `.peaks/_runtime/`

@@ -23,9 +23,9 @@ describe('active-skill-resolver.resolveActiveSkillForCaller', () => {
   });
 
   it('returns skill from PEAKS_ACTIVE_SKILL env var (source=env)', () => {
-    process.env.PEAKS_ACTIVE_SKILL = 'peaks-solo';
+    process.env.PEAKS_ACTIVE_SKILL = 'peaks-code';
     const result = resolveActiveSkillForCaller(projectRoot);
-    expect(result.skill).toBe('peaks-solo');
+    expect(result.skill).toBe('peaks-code');
     expect(result.source).toBe('env');
   });
 

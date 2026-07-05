@@ -3,7 +3,7 @@
  *
  * Reads the 5 envelope sources under `.peaks/_runtime/<sid>/` for a
  * given rid, runs `aggregateVerdict()`, and prints the verdict +
- * reasons JSON envelope. Used by peaks-solo / peaks-final-review to
+ * reasons JSON envelope. Used by peaks-code / peaks-final-review to
  * cross-check the slice-level verdict without booting the full
  * 5-skill fanout.
  *
@@ -40,12 +40,12 @@ const MUT_REL = 'mut/mut-report.json';
 const QA_REL = 'qa/test-reports';
 
 export function registerVerdictAggregateCommands(program: Command, io: ProgramIO): void {
-  const verdict = program.command('verdict').description('Aggregate the 5 envelope sources feeding peaks-solo verdict logic');
+  const verdict = program.command('verdict').description('Aggregate the 5 envelope sources feeding peaks-code verdict logic');
 
   addJsonOption(
     verdict
       .command('aggregate')
-      .description('Aggregate 5 envelope sources (security / perf / karpathy / mut / qa) and print the verdict + reasons JSON envelope. Used by peaks-solo and peaks-final-review.')
+      .description('Aggregate 5 envelope sources (security / perf / karpathy / mut / qa) and print the verdict + reasons JSON envelope. Used by peaks-code and peaks-final-review.')
       .requiredOption('--from-rid <rid>', 'request id, e.g. 2026-06-27-...')
       .option('--sid <sid>', 'session id, e.g. 2026-06-27-session-...; default: project default')
       .option('--project <path>', 'project root (default: cwd)')

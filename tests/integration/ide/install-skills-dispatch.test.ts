@@ -62,7 +62,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(result.code).toBe(0);
     // Default fallback path: <homedir>/.claude/skills
     const skillsRoot = join(homedir(), '.claude', 'skills');
-    // At least one of the bundled skills should be installed (peaks-solo is the
+    // At least one of the bundled skills should be installed (peaks-code is the
     // canonical one; assert non-empty result rather than pinning a name).
     expect(result.stdout).toMatch(/Peaks skills linked/);
     expect(existsSync(skillsRoot)).toBe(true);

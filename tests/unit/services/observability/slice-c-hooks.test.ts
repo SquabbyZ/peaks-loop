@@ -115,7 +115,7 @@ describe('hook #6: D7 post-compact detector', () => {
     const probe = await detectPostCompactResume({
       sessionId: TEST_SID,
       projectRoot,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
 
     expect(probe.shouldAutoResume).toBe(true);
@@ -133,7 +133,7 @@ describe('hook #6: D7 post-compact detector', () => {
     const probe = await detectPostCompactResume({
       sessionId: TEST_SID,
       projectRoot,
-      activeSkill: 'peaks-solo'
+      activeSkill: 'peaks-code'
     });
     expect(probe.shouldAutoResume).toBe(false);
     // The current Slice C scope emits only on the success path

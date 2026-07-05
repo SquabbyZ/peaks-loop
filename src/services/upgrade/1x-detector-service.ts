@@ -6,7 +6,7 @@
  *
  * The canonical implementation lives in the .mjs postinstall
  * (because the postinstall runs before any TS compile step).
- * This TS mirror exists so the peaks-solo skill can call
+ * This TS mirror exists so the peaks-code skill can call
  * `peaks upgrade --detect-1x --project <root> --json` and
  * read a structured JSON envelope to gate the
  * AskUserQuestion that prompts the 1.x → 2.0 upgrade.

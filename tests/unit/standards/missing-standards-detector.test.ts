@@ -1,8 +1,8 @@
 /**
- * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7) — missing-standards-detector tests.
+ * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7) — missing-standards-detector tests.
  *
  * The detector is the building block for the diagnostic emitted by
- * `peaks workspace init` and (downstream) peaks-solo bootstrap. It MUST
+ * `peaks workspace init` and (downstream) peaks-code bootstrap. It MUST
  *   - return `missing: true` when `.claude/rules/common/` and
  *     `.claude/rules/<language>/` are absent OR empty (no .md files),
  *   - return `missing: false` when both are populated,
@@ -25,7 +25,7 @@ function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-rd7-detector-'));
 }
 
-describe('detectMissingProjectStandards — slice 2026-06-16-peaks-solo-auto-scaffold', () => {
+describe('detectMissingProjectStandards — slice 2026-06-16-peaks-code-auto-scaffold', () => {
   let project: string;
   beforeEach(() => {
     project = makeProject();

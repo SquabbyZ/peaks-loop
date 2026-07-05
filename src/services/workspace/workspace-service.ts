@@ -82,7 +82,7 @@ export type WorkspaceInitOptions = {
    */
   noClaudeHooks?: boolean;
   /**
-   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): opt-in flag for
+   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): opt-in flag for
    * auto-applying `peaks standards init` when the consumer project's
    * `.claude/rules/` is missing or empty. Default (`false`) only emits
    * the diagnostic; set to `true` to also scaffold the rules tree via
@@ -123,7 +123,7 @@ export type WorkspaceInitReport = {
    * taken on the offline `.peaks/.claude-settings-template.json` copy.
    * The offline copy is ALWAYS written/checked (regardless of
    * noClaudeHooks) because it is the manual-recovery anchor — see
-   * `skills/peaks-solo/references/anchoring-and-session-info.md`.
+   * `skills/peaks-code/references/anchoring-and-session-info.md`.
    *   - written:        the file did not exist; it was created
    *   - refreshed:      the file existed but its parsed hooks tree
    *                     diverged from the current `buildClaudeSettingsLocalJson()`;
@@ -139,7 +139,7 @@ export type WorkspaceInitReport = {
     };
   };
   /**
-   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): structured
+   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): structured
    * diagnostic for missing or empty `.claude/rules/{common,<language>}/`.
    * Always present (the detector runs on every init); `missing: false`
    * means the project's rules tree is already populated and no action is
@@ -148,7 +148,7 @@ export type WorkspaceInitReport = {
    */
   standardsMissing: MissingProjectStandardsDiagnostic;
   /**
-   * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7): when the caller
+   * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7): when the caller
    * passed `initStandards: true` AND the detector reported `missing:
    * true`, this field lists the files written by
    * `executeProjectStandardsInit({ projectRoot, apply: true })`.
@@ -362,7 +362,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
   // that takes an explicit --session-id, so it owns the binding to .session.json.
   // Without this write, downstream commands that fall through to
   // `ensureSession()` would auto-generate a *different* id and create a second
-  // session directory — the bug that confuses the LLM in peaks-solo.
+  // session directory — the bug that confuses the LLM in peaks-code.
   //
   // Conflict rule: if .session.json already points at a different session
   // whose directory is real (has session.json inside), the caller is starting
@@ -405,7 +405,7 @@ export async function initWorkspace(options: WorkspaceInitOptions): Promise<Work
     bound = true;
   }
 
-  // Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7):
+  // Slice 2026-06-16-peaks-code-auto-scaffold (RD#7):
   //   - Always run the detector and surface the descriptor so the CLI can
   //     put it on stderr + into the JSON envelope's `data.standardsMissing`.
   //   - When `initStandards: true` AND the detector reports missing, run

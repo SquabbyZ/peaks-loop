@@ -13,7 +13,7 @@
  *   - `sub-agent-shared.ts`   — shared types, constants, helpers
  *
  * Skill-first / CLI-auxiliary red line (PB-4 / AC-19/20):
- *   These commands are primitives that the peaks-solo / peaks-rd /
+ *   These commands are primitives that the peaks-code / peaks-rd /
  *   peaks-qa SKILL.md compose. Users do NOT invoke them directly.
  */
 import type { Command } from 'commander';
@@ -36,7 +36,7 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
     .command('sub-agent')
     .description(
       'Sub-agent dispatch primitive (skill-first / CLI-auxiliary). ' +
-      'These commands are the primitives that peaks-solo / peaks-rd / ' +
+      'These commands are the primitives that peaks-code / peaks-rd / ' +
       'peaks-qa SKILL.md compose. Users do not invoke this directly.'
     );
 

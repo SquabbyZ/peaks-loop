@@ -1,5 +1,5 @@
 /**
- * Sub-agent progress file for the RD/QA sub-agents in `peaks-solo`'s
+ * Sub-agent progress file for the RD/QA sub-agents in `peaks-code`'s
  * Swarm phase. A sub-agent (or the LLM via the `peaks progress step`
  * CLI) writes a stable JSON file at
  * `.peaks/_sub_agents/<sid>/subagent-progress.json`. The dispatch +

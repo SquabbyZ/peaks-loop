@@ -30,7 +30,7 @@ export interface CallerBinding {
   createdAt: string;
   /** ISO 8601 timestamp; bumped on every `peaks <cmd>` that touches the binding. */
   lastActivityAt: string;
-  /** Last skill that touched this binding, e.g. "peaks-solo". */
+  /** Last skill that touched this binding, e.g. "peaks-code". */
   skill: string;
   /** Last mode, e.g. "full-auto". */
   mode: string;

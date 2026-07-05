@@ -2,7 +2,7 @@
  * Peaks-Loop Solo Step 0.7 — Resume-mode detector.
  *
  * Mirrors the classification table in
- * `skills/peaks-solo/SKILL.md` "Peaks-Loop Step 0.7: Detect unfinished work
+ * `skills/peaks-code/SKILL.md` "Peaks-Loop Step 0.7: Detect unfinished work
  * and offer resume". The function is a pure read of session artifacts;
  * it performs no side effects and is safe to call from hooks, scripts,
  * and skills.

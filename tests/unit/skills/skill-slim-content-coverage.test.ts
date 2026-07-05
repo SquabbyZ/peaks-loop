@@ -32,7 +32,7 @@ interface SkillFixture {
 const FIXTURES: SkillFixture[] = [
   {
     name: 'peaks-code',
-    oldSkillPath: join(FIXTURE_DIR, 'peaks-solo.SKILL.md'),
+    oldSkillPath: join(FIXTURE_DIR, 'peaks-code.SKILL.md'),
     newSkillPath: resolve(REPO_ROOT, 'skills/peaks-code/SKILL.md'),
     referencesDir: resolve(REPO_ROOT, 'skills/peaks-code/references'),
   },

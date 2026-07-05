@@ -1,5 +1,5 @@
 /**
- * Unit tests for MultiPassOrchestrator (peaks-solo/multipass W2 T9).
+ * Unit tests for MultiPassOrchestrator (peaks-code/multipass W2 T9).
  *
  * Behavior under test (10 cases from the spec):
  *   1. granularity: 'service'  → single Pass 1 only.

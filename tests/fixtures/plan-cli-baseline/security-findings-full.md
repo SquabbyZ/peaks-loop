@@ -89,4 +89,4 @@ None. The 2 advisory issues raised in `test-reports/023-...md` (AC1 size budget,
 
 ## Hand-off
 
-- to peaks-solo: security re-verification passed; ready for end-to-end workflow verification.
+- to peaks-code: security re-verification passed; ready for end-to-end workflow verification.

@@ -2,11 +2,11 @@
  * v3.1.1 + v3.1.2 Step 0.8 — block-guard test for the SKILL.md / runbook prose.
  *
  * Asserts the orchestrator (Solo) actually wrote the v3.1.1 prose:
- *   - `skills/peaks-solo/SKILL.md` contains `BLOCKING on LLM judgement`
+ *   - `skills/peaks-code/SKILL.md` contains `BLOCKING on LLM judgement`
  *     (the gate is explicit).
- *   - `skills/peaks-solo/SKILL.md` mentions `peaks solo detect-job`
+ *   - `skills/peaks-code/SKILL.md` mentions `peaks solo detect-job`
  *     (so the LLM sees the recorder instruction).
- *   - `skills/peaks-solo/references/runbook.md` references
+ *   - `skills/peaks-code/references/runbook.md` references
  *     `peaks solo detect-job` BEFORE the line `# After Step 7`
  *     (so the runbook reaches Step 0.8 before the post-Step-7 handoff).
  *
@@ -26,10 +26,10 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
-const SKILL_MD = join(process.cwd(), 'skills', 'peaks-solo', 'SKILL.md');
-const RUNBOOK_MD = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'runbook.md');
+const SKILL_MD = join(process.cwd(), 'skills', 'peaks-code', 'SKILL.md');
+const RUNBOOK_MD = join(process.cwd(), 'skills', 'peaks-code', 'references', 'runbook.md');
 
-describe('peaks-solo Step 0.8 (v3.1.1) block-guard', () => {
+describe('peaks-code Step 0.8 (v3.1.1) block-guard', () => {
   test('SKILL.md contains the BLOCKING on LLM judgement marker for Step 0.8', async () => {
     const body = await readFile(SKILL_MD, 'utf8');
     expect(body).toMatch(/BLOCKING on LLM judgement/);
@@ -57,7 +57,7 @@ describe('peaks-solo Step 0.8 (v3.1.1) block-guard', () => {
   });
 });
 
-describe('peaks-solo Step 0.8 (v3.1.2) mechanical gates — SKILL.md / runbook lock', () => {
+describe('peaks-code Step 0.8 (v3.1.2) mechanical gates — SKILL.md / runbook lock', () => {
   test('SKILL.md mentions `peaks solo gate-step-08` (PreToolUse hook)', async () => {
     const body = await readFile(SKILL_MD, 'utf8');
     expect(body, 'SKILL.md must reference peaks solo gate-step-08 (v3.1.2 PreToolUse hook)').toMatch(/peaks solo gate-step-08/);

@@ -33,7 +33,7 @@ describe('createProgram', () => {
 
     expect(output.ok).toBe(true);
     expect(output.command).toBe('skill.list');
-    expect(JSON.stringify(output.data)).toContain('peaks-solo');
+    expect(JSON.stringify(output.data)).toContain('peaks-code');
   });
 
   test('prints doctor as JSON envelope', async () => {
@@ -109,7 +109,7 @@ describe('createProgram', () => {
     expect(output.command).toBe('standards.init');
     expect(output.data.apply).toBe(false);
     expect(output.data.language).toBe('typescript');
-    expect(output.data.skillPreflight.appliesTo).toEqual(['peaks-rd', 'peaks-qa', 'peaks-solo']);
+    expect(output.data.skillPreflight.appliesTo).toEqual(['peaks-rd', 'peaks-qa', 'peaks-code']);
     expect(output.data.plannedWrites.map((write) => write.relativePath)).toContain('.claude/rules/common/security.md');
   });
 
@@ -168,13 +168,13 @@ describe('createProgram', () => {
   });
 
   test('prints skill runbook inspection as JSON envelope', async () => {
-    const result = await runCommand(['skill', 'runbook', 'peaks-solo', '--json']);
+    const result = await runCommand(['skill', 'runbook', 'peaks-code', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(true);
     expect(output.command).toBe('skill.runbook');
     expect(output.data).toMatchObject({
-      name: 'peaks-solo',
+      name: 'peaks-code',
       hasRunbook: true,
       ok: true
     });
@@ -346,7 +346,7 @@ describe('createProgram', () => {
   });
 
   test('peaks memory extract --apply persists embedded blocks and regenerates index.json', async () => {
-    // This is the CLI surface that peaks-solo / peaks-txt legitimately
+    // This is the CLI surface that peaks-code / peaks-txt legitimately
     // delegate to: destructive side effect with --apply, JSON envelope
     // the skill reads back to confirm persistence. The skill prompt does
     // the scan / decision work; the CLI does the atomic write.
@@ -368,7 +368,7 @@ describe('createProgram', () => {
         ''
       ].join('\n'), 'utf8');
 
-      // --dry-run first (the path peaks-solo / peaks-txt uses to preview).
+      // --dry-run first (the path peaks-code / peaks-txt uses to preview).
       const preview = await runCommand(['memory', 'extract', '--project', projectRoot, '--artifact', artifactPath, '--dry-run', '--json']);
       const previewOutput = parseJsonOutput<{
         ok: boolean;

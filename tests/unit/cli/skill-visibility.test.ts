@@ -1,5 +1,5 @@
 /**
- * peaks skill visibility CLI — Task 1 of peaks-solo → peaks-code rename plan.
+ * peaks skill visibility CLI — Task 1 of peaks-code → peaks-code rename plan.
  *
  * Tests the marketplace.json schema contract: 4 public skills (peaks-code /
  * peaks-resume / peaks-status / peaks-test) and 6 internal role skills
@@ -7,15 +7,15 @@
  *
  * NOTE on Task 1 timing: at Task 1 stage the solo-* names have NOT yet been
  * renamed to peaks-code / peaks-resume / peaks-status / peaks-test. Task 3
- * performs the rename. So the public-side list is currently peaks-solo /
- * peaks-solo-resume / peaks-solo-status / peaks-solo-test (4 entries), and
+ * performs the rename. So the public-side list is currently peaks-code /
+ * peaks-resume / peaks-status / peaks-test (4 entries), and
  * peaks-sop is the 11th entry which is user-invocable (counts among public).
  *
  * Per the brief Step 1 the contract is:
  *   - 6 role skills marked userInvocable: false (internal)
  *   - the rest default userInvocable (public)
  *   - the schema is JSON-parseable
- *   - peaks-sop, peaks-solo*, peaks-*-role are accounted for
+ *   - peaks-sop, peaks-code*, peaks-*-role are accounted for
  *
  * The CLI surface (`peaks skill:visibility`) is exercised via the
  * listSkillsVisibility() export; the program-level wiring is exercised by
@@ -48,16 +48,16 @@ describe('peaks skill visibility CLI', () => {
     );
   });
 
-  it('peaks-solo 默认 userInvocable (无字段)', () => {
+  it('peaks-code 默认 userInvocable (无字段)', () => {
     const skills = marketplace.plugins[0].skills;
-    const peaksSolo = skills.find((s: any) => s.name === 'peaks-solo');
+    const peaksSolo = skills.find((s: any) => s.name === 'peaks-code');
     expect(peaksSolo).toBeDefined();
     expect(peaksSolo.userInvocable).toBeUndefined();
   });
 
-  it('peaks-solo-resume/status/test 默认 userInvocable', () => {
+  it('peaks-resume/status/test 默认 userInvocable', () => {
     const skills = marketplace.plugins[0].skills;
-    for (const name of ['peaks-solo-resume', 'peaks-solo-status', 'peaks-solo-test']) {
+    for (const name of ['peaks-resume', 'peaks-status', 'peaks-test']) {
       const skill = skills.find((s: any) => s.name === name);
       expect(skill).toBeDefined();
       expect(skill.userInvocable).toBeUndefined();

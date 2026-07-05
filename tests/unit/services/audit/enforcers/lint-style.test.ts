@@ -149,12 +149,12 @@ body
 
 describe('lint-style — Theme B reference loadStrategy', () => {
   it('reports a hit when a reference does not declare loadStrategy', () => {
-    // We use the peaks-solo/references/runbook.md file, which
+    // We use the peaks-code/references/runbook.md file, which
     // intentionally does not declare a loadStrategy in the
     // upstream skill-slim convention — this is itself a real
     // P2-a finding (the enforcer is the truth).
     const refs = ['runbook.md'];
-    const root = 'skills/peaks-solo/references';
+    const root = 'skills/peaks-code/references';
     const hits = lintReferenceLoadStrategy(root, refs);
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]?.catalogId).toBe('rl-frontmatter-references-load-strategy-001');

@@ -2,7 +2,7 @@
  * Solo-code-ban enforcer — PreToolUse Bash guard.
  *
  * Per L2 redesign §5.4. Deny `git commit` or `git apply` invocations from
- * a peaks-* skill. The Solo Code-Change Red Line says peaks-solo / peaks-rd
+ * a peaks-* skill. The Solo Code-Change Red Line says peaks-code / peaks-rd
  * are orchestrators, not implementers; the actual `git commit` step must
  * go through `peaks request transition`, which itself enforces spec-locked
  * + tech-doc-presence.
@@ -25,7 +25,7 @@ export interface SoloCodeBanResult {
 }
 
 const DENY_REASON =
-  'Solo Code-Change Red Line: peaks-* skills must go through peaks-solo / peaks-rd. ' +
+  'Solo Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. ' +
   'Use `peaks request transition` instead of `git commit` / `git apply` directly.';
 
 export function isSoloCodeCommit(skill: string, command: string): boolean {

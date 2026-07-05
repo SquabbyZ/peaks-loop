@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest';
 /**
  * Regression guard for slice 2026-07-03-solo-memory-sediment.
  *
- * Audit (2026-07-03) confirmed that peaks-solo workflows were silently
+ * Audit (2026-07-03) confirmed that peaks-code workflows were silently
  * skipping memory sediment at the end of the workflow — 2 consecutive
  * sessions (2026-07-01 + 2026-07-02) produced zero files in
  * `.peaks/memory/`. Root cause: SKILL.md "Completion handoff" section was
@@ -22,11 +22,11 @@ import { describe, expect, test } from 'vitest';
  *       LLM confusion.
  */
 
-const SKILL_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'SKILL.md');
-const RUNBOOK_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'runbook.md');
-const COMPLETION_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'completion-handoff.md');
+const SKILL_PATH = join(process.cwd(), 'skills', 'peaks-code', 'SKILL.md');
+const RUNBOOK_PATH = join(process.cwd(), 'skills', 'peaks-code', 'references', 'runbook.md');
+const COMPLETION_PATH = join(process.cwd(), 'skills', 'peaks-code', 'references', 'completion-handoff.md');
 
-describe('peaks-solo memory sediment regression guard (slice 2026-07-03)', () => {
+describe('peaks-code memory sediment regression guard (slice 2026-07-03)', () => {
   test('SKILL.md declares Step 11 as BLOCKING with memory extract CLI', async () => {
     const body = await readFile(SKILL_PATH, 'utf8');
 

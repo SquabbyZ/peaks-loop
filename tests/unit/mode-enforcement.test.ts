@@ -101,7 +101,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns immediately when mode is not set', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo' } as never);
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code' } as never);
 
     await expect(
       requireUserConfirmation({
@@ -112,7 +112,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns immediately for full-auto mode', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'full-auto', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'full-auto', setAt: '2026-05-28T00:00:00Z' });
 
     await expect(
       requireUserConfirmation({
@@ -123,7 +123,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns immediately when --confirm flag is passed', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
 
     await expect(
       requireUserConfirmation({
@@ -135,7 +135,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('throws ConfirmationRequiredError in assisted mode without confirmation', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
     // Simulate user declining the prompt
     mockReadlineQuestion.mockImplementation((_prompt: string, cb: (answer: string) => void) => cb('n'));
 
@@ -148,7 +148,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('throws ConfirmationRequiredError in strict mode with PEAKS_AUTO_CONFIRM without --force-confirm', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
     process.env.PEAKS_AUTO_CONFIRM = '1';
 
     await expect(
@@ -160,7 +160,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns in assisted mode with PEAKS_AUTO_CONFIRM and --force-confirm', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
     process.env.PEAKS_AUTO_CONFIRM = '1';
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -178,7 +178,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns in strict mode with --force-confirm (no env var)', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     await expect(
@@ -196,7 +196,7 @@ describe('requireUserConfirmation', () => {
 
   
   test('resolves when user answers y', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
     mockReadlineQuestion.mockImplementation((_prompt, cb) => cb('y'));
 
     await expect(
@@ -208,7 +208,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('resolves when user answers yes', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'strict', setAt: '2026-05-28T00:00:00Z' });
     mockReadlineQuestion.mockImplementation((_prompt, cb) => cb('yes'));
 
     await expect(
@@ -220,7 +220,7 @@ describe('requireUserConfirmation', () => {
   });
 
   test('returns in assisted mode for non-key transitions without confirmation', async () => {
-    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-solo', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
+    mockedGetSkillPresence.mockReturnValue({ skill: 'peaks-code', mode: 'assisted', setAt: '2026-05-28T00:00:00Z' });
 
     await expect(
       requireUserConfirmation({

@@ -1,5 +1,5 @@
 /**
- * Slice 5 (peaks-solo default fan-out) — integration test for the
+ * Slice 5 (peaks-code default fan-out) — integration test for the
  * multi-sub-agent dispatch path.
  *
  * The SKILL.md change promises: "If the slice DAG has >= 2 leaves at the
@@ -62,7 +62,7 @@ function diamondWithNLeaves(n: number): SliceDag {
   return { nodes, edges };
 }
 
-describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
+describe('peaks-code multi-sub-agent fan-out (slice 5 integration)', () => {
   it('3 same-level leaves produce 3 buildToolCall calls in ONE runDag() invocation', async () => {
     const dag = diamondWithNLeaves(3);
     const recorded: RecordedDispatch[] = [];
@@ -156,7 +156,7 @@ describe('peaks-solo multi-sub-agent fan-out (slice 5 integration)', () => {
     expect(wallTimeSpan).toBeLessThan(250);
 
     // Contract: each leaf received its own prompt via buildDispatchSpec,
-    // not a shared batch prompt. This proves peaks-solo can dispatch 3
+    // not a shared batch prompt. This proves peaks-code can dispatch 3
     // parallel leaves with per-slice prompts (the same shape the CLI's
     // --from-dag envelope surfaces).
     expect(Object.keys(promptBySlice).sort()).toEqual(['A', 'L1', 'L2', 'L3']);

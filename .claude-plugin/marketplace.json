@@ -35,23 +35,23 @@
       ],
       "skills": [
         {
-          "name": "peaks-solo",
-          "path": "./skills/peaks-solo",
+          "name": "peaks-code",
+          "path": "./skills/peaks-code",
           "description": "Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end."
         },
         {
-          "name": "peaks-solo-resume",
-          "path": "./skills/peaks-solo-resume",
-          "description": "Resume an in-flight peaks-solo slice in the current session."
+          "name": "peaks-resume",
+          "path": "./skills/peaks-resume",
+          "description": "Resume an in-flight peaks-code slice in the current session."
         },
         {
-          "name": "peaks-solo-status",
-          "path": "./skills/peaks-solo-status",
-          "description": "Show the current state of the peaks-solo orchestrator in a compact summary."
+          "name": "peaks-status",
+          "path": "./skills/peaks-status",
+          "description": "Show the current state of the peaks-code orchestrator in a compact summary."
         },
         {
-          "name": "peaks-solo-test",
-          "path": "./skills/peaks-solo-test",
+          "name": "peaks-test",
+          "path": "./skills/peaks-test",
           "description": "Run the project's test suite on the current repo and report results."
         },
         {

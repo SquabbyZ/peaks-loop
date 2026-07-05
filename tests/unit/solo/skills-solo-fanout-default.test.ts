@@ -1,7 +1,7 @@
 /**
- * Slice 5 (peaks-solo default fan-out) — guard the SKILL.md contract.
+ * Slice 5 (peaks-code default fan-out) — guard the SKILL.md contract.
  *
- * Slice 5 changes the peaks-solo SKILL.md to teach the default rule:
+ * Slice 5 changes the peaks-code SKILL.md to teach the default rule:
  * "If the slice DAG has >= 2 leaves at the same topological level, dispatch
  * them in a single batch via `peaks sub-agent dispatch --from-dag`."
  *
@@ -12,7 +12,7 @@
  *     `--from-dag` when the topological level has >= 2 leaves (the
  *     "default fan-out" instruction).
  *  2. SKILL.md stays under the 24000-byte cap (peaks scan file-size gate).
- *  3. The runbook (the CLI sequence peaks-solo follows) actually invokes
+ *  3. The runbook (the CLI sequence peaks-code follows) actually invokes
  *     `peaks sub-agent dispatch --from-dag` so the default fan-out path
  *     is triggered end-to-end, not just promised in prose.
  *
@@ -26,13 +26,13 @@ import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const SKILL_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'SKILL.md');
-const RUNBOOK_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'runbook.md');
-const SWARM_CONTRACT_PATH = join(process.cwd(), 'skills', 'peaks-solo', 'references', 'swarm-dispatch-contract.md');
+const SKILL_PATH = join(process.cwd(), 'skills', 'peaks-code', 'SKILL.md');
+const RUNBOOK_PATH = join(process.cwd(), 'skills', 'peaks-code', 'references', 'runbook.md');
+const SWARM_CONTRACT_PATH = join(process.cwd(), 'skills', 'peaks-code', 'references', 'swarm-dispatch-contract.md');
 const SKILL_BYTE_CAP = 25_000;
 const FANOUT_PHRASE = 'peaks sub-agent dispatch --from-dag';
 
-describe('peaks-solo SKILL.md — default fan-out contract (slice 5)', () => {
+describe('peaks-code SKILL.md — default fan-out contract (slice 5)', () => {
   it('SKILL.md body contains the default fan-out phrase', async () => {
     const body = await readFile(SKILL_PATH, 'utf8');
     expect(body).toContain(FANOUT_PHRASE);
@@ -72,7 +72,7 @@ describe('peaks-solo SKILL.md — default fan-out contract (slice 5)', () => {
   });
 });
 
-describe('peaks-solo runbook — CLI sequence triggers --from-dag fan-out (slice 5)', () => {
+describe('peaks-code runbook — CLI sequence triggers --from-dag fan-out (slice 5)', () => {
   it('runbook invokes peaks sub-agent dispatch --from-dag at the swarm phase', async () => {
     const body = await readFile(RUNBOOK_PATH, 'utf8');
     // Step 3 in the runbook (the swarm fan-out phase) must dispatch via

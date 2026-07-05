@@ -595,7 +595,7 @@ export function validateArtifactRetention(sliceId: string): {
 
   if (!workspace) {
     // No workspace: validate against the resolved session dir directly
-    // (this is the common peaks-solo / peaks-rd invocation: the slice
+    // (this is the common peaks-code / peaks-rd invocation: the slice
     // lives under the project-root `.peaks/_runtime/<sessionId>/`, and the
     // workspace artifact path is irrelevant). When the resolution also
     // fails, fall back to the legacy "No workspace configured" failure

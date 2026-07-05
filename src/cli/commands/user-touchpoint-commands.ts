@@ -31,7 +31,7 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   // user-touchpoints / commit-boundary-actions.
   //
   // We do NOT create a new `peaks solo` CLI command here because that
-  // would conflict with the peaks-solo skill presence tracking (see
+  // would conflict with the peaks-code skill presence tracking (see
   // `src/services/skills/skill-presence-service.ts`).
 
   addJsonOption(

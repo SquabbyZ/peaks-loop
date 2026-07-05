@@ -18,10 +18,10 @@ describe('renderStatusLine', () => {
   test('active: shows brand, filled glyph, skill, mode, gate and repo basename', () => {
     const line = renderStatusLine(model({
       state: 'active',
-      presence: { skill: 'peaks-solo', mode: 'full-auto', gate: 'rd-dry-run' }
+      presence: { skill: 'peaks-code', mode: 'full-auto', gate: 'rd-dry-run' }
     }));
 
-    expect(line).toBe(`${BRAND} ● peaks-solo · full-auto · gate:rd-dry-run · myapp`);
+    expect(line).toBe(`${BRAND} ● peaks-code · full-auto · gate:rd-dry-run · myapp`);
   });
 
   test('active: omits mode and gate when absent', () => {

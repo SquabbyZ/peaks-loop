@@ -42,12 +42,12 @@ describe('BatchHeartbeatPoller (G6.2 / AC-35)', () => {
     const poller = new BatchHeartbeatPoller(
       [{ path: p1, role: 'rd' }, { path: p2, role: 'qa' }, { path: p3, role: 'ui' }],
       { onStatus: (e) => events.push(e) },
-      { prefix: '[peaks-solo]', now: () => new Date('2026-06-07T00:00:30Z') }
+      { prefix: '[peaks-code]', now: () => new Date('2026-06-07T00:00:30Z') }
     );
     poller.tick();
     const status = events.find((e) => e.kind === 'status') as Extract<PollerEvent, { kind: 'status' }> | undefined;
     expect(status).toBeDefined();
-    expect(status?.line).toContain('[peaks-solo] swarm 3/3 running');
+    expect(status?.line).toContain('[peaks-code] swarm 3/3 running');
     expect(status?.line).toContain('rd 45%');
     expect(status?.line).toContain('qa 30%');
     expect(status?.line).toContain('ui 20%');

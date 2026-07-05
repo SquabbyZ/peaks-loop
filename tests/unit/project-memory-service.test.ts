@@ -296,7 +296,7 @@ describe('project memory service', () => {
   });
 
   test('does not overwrite existing project memory files (idempotent on re-extract)', () => {
-    // peaks-solo / peaks-txt may run `peaks memory extract --apply` more
+    // peaks-code / peaks-txt may run `peaks memory extract --apply` more
     // than once on the same handoff (e.g. handoff is edited and
     // re-extracted). The CLI must skip writes for memories whose slug
     // already lives in .peaks/memory/ and not abort the batch. This
@@ -325,7 +325,7 @@ describe('project memory service', () => {
 
   test('idempotent re-run on the same handoff writes zero new files but still regenerates the index', () => {
     // Re-running peaks memory extract --apply on an already-extracted
-    // handoff is a normal peaks-solo retry pattern. The second run must
+    // handoff is a normal peaks-code retry pattern. The second run must
     // succeed (no EEXIST), report writtenFiles=[], and still leave the
     // index.json in a consistent state. Without the index regen on
     // idempotent re-runs, downstream readers could see a stale index if

@@ -684,7 +684,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     }
   }
 
-  // Workspace guard: an active workflow presence (peaks-solo) with no workspace
+  // Workspace guard: an active workflow presence (peaks-code) with no workspace
   // session means the skill was anchored but `peaks workspace init` never ran —
   // the #1 reported failure where .peaks/ artifacts are never created. This
   // turns the SKILL.md "MUST create the workspace" prose into an executable check.
@@ -699,7 +699,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     checks.push({
       id: 'skill-presence:workspace',
       ok: false,
-      message: `Skill ${presence.skill} is active but no workspace session exists (.peaks/_runtime/session.json missing); run \`peaks workspace init --project <repo>\` — peaks-solo Step 0 must anchor the workspace before any work`
+      message: `Skill ${presence.skill} is active but no workspace session exists (.peaks/_runtime/session.json missing); run \`peaks workspace init --project <repo>\` — peaks-code Step 0 must anchor the workspace before any work`
     });
   } else {
     checks.push({

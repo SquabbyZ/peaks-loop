@@ -44,7 +44,7 @@ export type SkillPresence = {
    * observability consumer that an outer-session swap was observed
    * on the previous heartbeat. The actual binding rotation is
    * performed by `ensureSessionWithRotation` (slice 018), not by
-   * `setSkillPresence`. `peaks-solo`'s Step 0 used to read this
+   * `setSkillPresence`. `peaks-code`'s Step 0 used to read this
    * field and turn it into an AskUserQuestion; that ask is no
    * longer needed because the rotation already happened by the time
    * the skill is invoked.
@@ -188,7 +188,7 @@ function getBoundOuterSessionId(projectRootOverride?: string): string | undefine
  * the presence envelope (useful for the statusline to render a stale
  * marker and for the QA / log consumers to know an outer-session swap
  * happened), but it no longer carries the implicit "ask the user"
- * promise — `peaks-solo`'s Step 0 no longer needs to surface an
+ * promise — `peaks-code`'s Step 0 no longer needs to surface an
  * AskUserQuestion, because the rotation already fired by the time the
  * skill is invoked.
  *
@@ -405,11 +405,11 @@ export function getSkillPresence(projectRootOverride?: string): SkillPresence | 
  *     different outer (Claude / harness) session than the one that
  *     is now driving peaks. Most common cause: the LLM closed the
  *     previous Claude session, the next session boots and finds a
- *     presence leftover from the old one. peaks-solo Step 1 must
+ *     presence leftover from the old one. peaks-code Step 1 must
  *     AskUserQuestion to confirm the user wants the old mode.
  *
  *   - `'no-presence'`            — there is no presence file on disk.
- *     Not strictly "stale", but callers (peaks-solo Step 1, `peaks
+ *     Not strictly "stale", but callers (peaks-code Step 1, `peaks
  *     solo should-pause --step step-1-mode-select`) want to treat
  *     this case as "no opinion yet — must ask". Surfaced as
  *     `stale: true` with reason `'no-presence'` so the ask path is
@@ -505,7 +505,7 @@ export function checkStalePresence(opts?: {
  * Called from `peaks workspace init` immediately after a successful
  * `outer-session-mismatch` rotation. When the previous session's
  * presence is still on disk under the OLD outer session id,
- * clearing it prevents peaks-solo Step 1 from picking up a stale
+ * clearing it prevents peaks-code Step 1 from picking up a stale
  * `mode` field that the user never explicitly chose.
  *
  * Only clears when:

@@ -1,5 +1,5 @@
 /**
- * Slice 2026-06-16-peaks-solo-auto-scaffold (RD#7) — workspace-init integration
+ * Slice 2026-06-16-peaks-code-auto-scaffold (RD#7) — workspace-init integration
  * test for the missing-standards diagnostic.
  *
  * The detector itself is unit-tested in
@@ -46,7 +46,7 @@ function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-rd7-ws-'));
 }
 
-describe('workspace init — missing-standards diagnostic (slice 2026-06-16-peaks-solo-auto-scaffold)', () => {
+describe('workspace init — missing-standards diagnostic (slice 2026-06-16-peaks-code-auto-scaffold)', () => {
   let project: string;
   beforeEach(() => {
     project = makeProject();

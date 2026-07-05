@@ -342,7 +342,7 @@ export async function sliceCheck(options: SliceCheckOptions): Promise<SliceCheck
       description: 'vitest run (skipped per --skip-tests)',
       status: 'skipped',
       durationMs: 0,
-      detail: 'Skipped: --skip-tests was set. Use the peaks-solo-test skill to run the full suite manually.'
+      detail: 'Skipped: --skip-tests was set. Use the peaks-test skill to run the full suite manually.'
     });
     unitTestsRunMode = 'skipped';
   } else {

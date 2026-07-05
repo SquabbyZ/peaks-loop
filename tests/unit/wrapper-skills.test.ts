@@ -16,8 +16,8 @@ interface WrapperSpec {
 
 const WRAPPERS: WrapperSpec[] = [
   {
-    name: 'peaks-solo-resume',
-    triggers: ['/peaks-solo-resume', '继续完成', '把刚才没做完的收尾', 'resume the unfinished'],
+    name: 'peaks-resume',
+    triggers: ['/peaks-resume', '继续完成', '把刚才没做完的收尾', 'resume the unfinished'],
     expectedCliCommands: [
       'peaks skill presence:set',
       'peaks project memories',
@@ -27,33 +27,33 @@ const WRAPPERS: WrapperSpec[] = [
     forbiddenCliCommands: [
       // No new CLI allowed; only existing primitives
     ],
-    expectedHandoffTo: 'peaks-solo',
+    expectedHandoffTo: 'peaks-code',
   },
   {
-    name: 'peaks-solo-test',
-    triggers: ['/peaks-solo-test', '跑一下 test', '跑测试', 'run the tests'],
+    name: 'peaks-test',
+    triggers: ['/peaks-test', '跑一下 test', '跑测试', 'run the tests'],
     expectedCliCommands: [
       'peaks skill presence:set',
       'peaks project memories',
       'pnpm vitest run',
     ],
     forbiddenCliCommands: [],
-    expectedHandoffTo: 'peaks-solo (only if user wants to ship or fix)',
+    expectedHandoffTo: 'peaks-code (only if user wants to ship or fix)',
   },
   {
-    name: 'peaks-solo-status',
-    triggers: ['/peaks-solo-status', '现在到哪了', 'what is the current state', 'show me the dashboard'],
+    name: 'peaks-status',
+    triggers: ['/peaks-status', '现在到哪了', 'what is the current state', 'show me the dashboard'],
     expectedCliCommands: [
       'peaks skill presence:set',
       'peaks project memories',
       'peaks project dashboard',
     ],
     forbiddenCliCommands: [],
-    expectedHandoffTo: 'peaks-solo (only if user wants to act on the status)',
+    expectedHandoffTo: 'peaks-code (only if user wants to act on the status)',
   },
 ];
 
-describe('P2 wrapper skills (peaks-solo-resume / -test / -status)', () => {
+describe('P2 wrapper skills (peaks-resume / -test / -status)', () => {
   for (const spec of WRAPPERS) {
     describe(spec.name, () => {
       const skillDir = join(SKILLS_ROOT, spec.name);
@@ -74,7 +74,7 @@ describe('P2 wrapper skills (peaks-solo-resume / -test / -status)', () => {
       test('SKILL.md has valid frontmatter (name + description)', () => {
         const body = readFileSync(skillPath, 'utf8');
         expect(body).toMatch(/^---\n/);
-        expect(body).toMatch(/^name: peaks-solo-/m);
+        expect(body).toMatch(/^name: peaks-code-/m);
         expect(body).toMatch(/^description: .+/m);
       });
 
@@ -137,14 +137,14 @@ describe('P2 wrapper skills (peaks-solo-resume / -test / -status)', () => {
         expect(body).toMatch(/never silent/i);
       });
 
-      test('body has presence handoff pattern (set own presence, restore peaks-solo)', () => {
+      test('body has presence handoff pattern (set own presence, restore peaks-code)', () => {
         const body = readFileSync(skillPath, 'utf8');
         // Wrapper sets its own presence first
         expect(body).toMatch(
           new RegExp(`presence:set ${spec.name.replace(/\\./g, '\\.')}`, 'i'),
         );
-        // Wrapper restores peaks-solo presence
-        expect(body).toMatch(/presence:set peaks-solo/);
+        // Wrapper restores peaks-code presence
+        expect(body).toMatch(/presence:set peaks-code/);
       });
 
       test('file size under 800-line cap', () => {

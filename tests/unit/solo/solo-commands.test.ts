@@ -1,5 +1,5 @@
 /**
- * Slice 2 — peaks-solo fast mode.
+ * Slice 2 — peaks-code fast mode.
  *
  * `peaks solo [--fast] <change-id>` runs the LLM-side solo workflow.
  * With `--fast`, three steps are skipped:

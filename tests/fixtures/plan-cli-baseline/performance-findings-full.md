@@ -97,4 +97,4 @@ L-2. **No multi-MB stress test**: the perf-baseline notes "100KB body — expect
 
 ## Hand-off
 
-- to peaks-solo: perf re-measurement passed; ready for end-to-end workflow verification.
+- to peaks-code: perf re-measurement passed; ready for end-to-end workflow verification.

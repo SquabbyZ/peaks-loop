@@ -58,7 +58,7 @@ describe('loadBindingStatus — v2.18.2 PATCH (issue #2)', () => {
       instances: {
         '2026-06-29-session-aaaaaa': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo', 'peaks-rd'],
+          roles: ['peaks-code', 'peaks-rd'],
           callerId: 'shared-env#100',
           lastHeartbeat: new Date().toISOString()
         }
@@ -81,7 +81,7 @@ describe('loadBindingStatus — v2.18.2 PATCH (issue #2)', () => {
       instances: {
         '2026-06-29-session-bbbbbb': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env#100',
           lastHeartbeat: new Date().toISOString()
         }
@@ -132,7 +132,7 @@ describe('formatTable — v2.18.2 PATCH (issue #2)', () => {
       instances: {
         '2026-06-29-session-cccccc': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo', 'peaks-rd'],
+          roles: ['peaks-code', 'peaks-rd'],
           callerId: 'shared-env#100',
           lastHeartbeat: new Date().toISOString()
         }
@@ -144,7 +144,7 @@ describe('formatTable — v2.18.2 PATCH (issue #2)', () => {
     expect(table).toMatch(/sid\s+callerId\s+pid\s+roles\s+lastHeartbeat/);
     expect(table).toMatch(/2026-06-29-session-cccccc/);
     expect(table).toMatch(/shared-env#100/);
-    expect(table).toMatch(/peaks-solo,peaks-rd/);
+    expect(table).toMatch(/peaks-code,peaks-rd/);
   });
 
   test('multiple instances: N rows in insertion order', () => {
@@ -200,7 +200,7 @@ describe('formatJson — v2.18.2 PATCH (issue #2)', () => {
       instances: {
         '2026-06-29-session-dddddd': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'shared-env#100',
           lastHeartbeat: new Date().toISOString()
         }
@@ -216,7 +216,7 @@ describe('formatJson — v2.18.2 PATCH (issue #2)', () => {
     const inst = b.instances['2026-06-29-session-dddddd'];
     expect(inst).toBeDefined();
     expect(inst!.callerId).toBe('shared-env#100');
-    expect(inst!.roles).toEqual(['peaks-solo']);
+    expect(inst!.roles).toEqual(['peaks-code']);
   });
 });
 
@@ -283,7 +283,7 @@ describe('--project flag resolution — v2.18.2 PATCH (issue #2)', () => {
       instances: {
         '2026-06-29-session-aaaaaa': {
           startedAt: new Date().toISOString(),
-          roles: ['peaks-solo'],
+          roles: ['peaks-code'],
           callerId: 'project-A-env#100',
           lastHeartbeat: new Date().toISOString()
         }

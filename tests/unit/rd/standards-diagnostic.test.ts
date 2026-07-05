@@ -2,7 +2,7 @@
  * Slice 2026-06-16-peaks-rd-no-gates — regression tests for the
  * missing-project-standards diagnostic + JSON gate list shape.
  *
- * Background: when `peaks-rd` (or `peaks-qa` / `peaks-solo`) starts in a
+ * Background: when `peaks-rd` (or `peaks-qa` / `peaks-code`) starts in a
  * project whose `.claude/rules/{common,typescript}/` is missing or empty,
  * the existing code-review / security / performance gates were silently
  * dropped. This slice adds:

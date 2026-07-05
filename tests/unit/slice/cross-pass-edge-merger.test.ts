@@ -1,5 +1,5 @@
 /**
- * Unit tests for CrossPassEdgeMerger (peaks-solo/multipass W2 T7).
+ * Unit tests for CrossPassEdgeMerger (peaks-code/multipass W2 T7).
  *
  * Behavior under test (9 cases from the spec):
  *   1. type-shares        — `import type { Foo } from '../upper/...'` resolves to an upper file.

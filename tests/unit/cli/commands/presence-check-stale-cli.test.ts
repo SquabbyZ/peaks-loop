@@ -55,7 +55,7 @@ function writePresence(root: string, outerSessionId: string): void {
   const path = join(root, '.peaks', '_runtime', 'active-skill.json');
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify({
-    skill: 'peaks-solo',
+    skill: 'peaks-code',
     mode: 'full-auto',
     gate: 'startup',
     sessionId: '2026-06-28-session-test',

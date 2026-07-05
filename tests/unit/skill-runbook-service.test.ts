@@ -72,8 +72,8 @@ describe('inspectSkillRunbook', () => {
     await expect(inspectSkillRunbook('ghost-skill', root)).rejects.toThrow(/not found/);
   });
 
-  test('reads peaks-solo from the real repo and surfaces a healthy runbook', async () => {
-    const inspection = await inspectSkillRunbook('peaks-solo');
+  test('reads peaks-code from the real repo and surfaces a healthy runbook', async () => {
+    const inspection = await inspectSkillRunbook('peaks-code');
 
     expect(inspection.hasRunbook).toBe(true);
     expect(inspection.peaksCommandCount).toBeGreaterThanOrEqual(20);

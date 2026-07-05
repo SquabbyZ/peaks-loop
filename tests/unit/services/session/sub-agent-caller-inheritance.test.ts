@@ -44,7 +44,7 @@ describe('M5 — sub-agent inherits parent callerId via PEAKS_CALLER_ID', () => 
 
 describe('R2 — 3-level spawn chain preserves the original parent\'s callerId', () => {
   test('grandparent callerId survives 3 levels of spawn inheritance', () => {
-    // Level 0 (root): `peaks-solo` runs with `PEAKS_CALLER_ID=grandparent-id`.
+    // Level 0 (root): `peaks-code` runs with `PEAKS_CALLER_ID=grandparent-id`.
     // Level 1: spawns `peaks-rd` with `PEAKS_CALLER_ID=grandparent-id` in spawn env.
     // Level 2: `peaks-rd` spawns `peaks-qa` with `PEAKS_CALLER_ID=grandparent-id` in spawn env.
     // Level 3: `peaks-qa` reads `process.env.PEAKS_CALLER_ID` — it should be `grandparent-id`.

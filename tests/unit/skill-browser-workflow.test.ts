@@ -4,12 +4,12 @@ import { describe, expect, test } from 'vitest';
 
 const SKILLS_ROOT = join(process.cwd(), 'skills');
 
-const BROWSER_TOUCHING_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-qa', 'peaks-rd', 'peaks-solo'];
+const BROWSER_TOUCHING_SKILLS = ['peaks-prd', 'peaks-ui', 'peaks-qa', 'peaks-rd', 'peaks-code'];
 
 const MIGRATION_DOC_PATHS = [
-  join('skills', 'peaks-solo', 'references', 'browser-workflow.md'),
-  join('skills', 'peaks-solo', 'references', 'external-skill-invocation.md'),
-  join('skills', 'peaks-solo', 'SKILL.md')
+  join('skills', 'peaks-code', 'references', 'browser-workflow.md'),
+  join('skills', 'peaks-code', 'references', 'external-skill-invocation.md'),
+  join('skills', 'peaks-code', 'SKILL.md')
 ];
 
 async function read(relativePath: string): Promise<string> {
@@ -18,7 +18,7 @@ async function read(relativePath: string): Promise<string> {
 
 describe('audit: Playwright MCP is the canonical headed-browser launch surface', () => {
   test('the canonical browser-workflow.md reference documents Playwright as primary and Chrome DevTools as optional secondary', async () => {
-    const body = await read(join('skills', 'peaks-solo', 'references', 'browser-workflow.md'));
+    const body = await read(join('skills', 'peaks-code', 'references', 'browser-workflow.md'));
 
     expect(body).toMatch(/Playwright MCP/);
     // Slice #016 removed the peaks-loop MCP subsystem; the LLM now self-detects
@@ -63,8 +63,8 @@ describe('audit: Playwright MCP is the canonical headed-browser launch surface',
     }
   });
 
-  test('peaks-solo external-skill-invocation reference documents Chrome DevTools MCP as optional secondary surface (slice 016)', async () => {
-    const body = await read(join('skills', 'peaks-solo', 'references', 'external-skill-invocation.md'));
+  test('peaks-code external-skill-invocation reference documents Chrome DevTools MCP as optional secondary surface (slice 016)', async () => {
+    const body = await read(join('skills', 'peaks-code', 'references', 'external-skill-invocation.md'));
 
     // Slice #016: peaks-loop no longer owns MCP install. The reference must
     // document the chrome-devtools MCP and direct the LLM to its tool list.

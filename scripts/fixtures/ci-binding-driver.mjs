@@ -21,7 +21,7 @@
  *
  * Exit 0 on success, non-zero on failure (with stderr detail).
  *
- * The driver is intentionally tiny — it does NOT exercise peaks-solo or
+ * The driver is intentionally tiny — it does NOT exercise peaks-code or
  * the full CLI surface; it tests the binding-store primitive that
  * v2.18.0 fixed, which is the regression surface.
  */
@@ -45,7 +45,7 @@ const callerId = `${envSignal}#${process.pid}`;
 try {
   const result = registerInstance(projectRoot, {
     callerId,
-    roles: ['peaks-solo']
+    roles: ['peaks-code']
   });
   const binding = readBinding(projectRoot);
   const instancesCount = binding ? Object.keys(binding.instances).length : 0;

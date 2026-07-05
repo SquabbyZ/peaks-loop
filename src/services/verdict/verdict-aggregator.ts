@@ -1,5 +1,5 @@
 /**
- * peaks-solo multi-signal verdict aggregator (v2.13.1 Group A).
+ * peaks-code multi-signal verdict aggregator (v2.13.1 Group A).
  *
  * Implements the 4 aggregation rules documented in
  * `.peaks/project-scan/audit-output-schema.md:66-78` plus 3rd-party

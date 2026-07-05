@@ -35,8 +35,8 @@ export function registerSliceCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'target project root', '.')
       .option('--rid <rid>', 'request id; defaults to the active current-change binding')
       .option('--refresh-fanout', 're-run the 3-way review fan-out (peaks-rd) even if the review files already exist', false)
-      .option('--run-tests', 'opt in to the FULL test suite at the boundary (default is the changed-only suite via `vitest run --changed`); use the peaks-solo-test skill to run the full suite standalone', false)
-      .option('--skip-tests', 'skip the unit-test stage entirely (e.g. docs-only slices); use the peaks-solo-test skill to run the full suite manually if you want a separate check', false)
+      .option('--run-tests', 'opt in to the FULL test suite at the boundary (default is the changed-only suite via `vitest run --changed`); use the peaks-test skill to run the full suite standalone', false)
+      .option('--skip-tests', 'skip the unit-test stage entirely (e.g. docs-only slices); use the peaks-test skill to run the full suite manually if you want a separate check', false)
       .option('--allow-pre-existing-failures', 'opt-in: if the unit-test stage fails, report it as `skipped` with a reason naming the failure count (useful when the repo has unrelated pre-existing failures; the long-term fix is to .skip or coverage.exclude those tests). Only meaningful with --run-tests or the default changed-only mode.', false)
   ).action(async (options: { project: string; rid?: string; refreshFanout?: boolean; runTests?: boolean; skipTests?: boolean; allowPreExistingFailures?: boolean; json?: boolean }) => {
     try {

@@ -2,7 +2,7 @@
  * Type envelope for `peaks slice decompose` and its outputs.
  *
  * The slice-decomposition algorithm is a 6-stage deterministic function
- * (see `peaks-solo/references/slice-algorithm.md` for the full spec):
+ * (see `peaks-code/references/slice-algorithm.md` for the full spec):
  *
  *   1. workUnitResolution  -- codegraph.query + knowledge_graph.grep
  *   2. buildDependencyDAG  -- real import edges + codegraph.affected fallback

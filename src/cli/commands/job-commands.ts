@@ -32,21 +32,21 @@ function projectRoot(opts: any): string {
  *
  * Resolution order:
  * 1. `--session-id` flag (explicit override)
- * 2. `getCurrentSessionId(project)` — reads `.peaks/_runtime/session.json` per peaks-solo
+ * 2. `getCurrentSessionId(project)` — reads `.peaks/_runtime/session.json` per peaks-code
  * 3. Error (NO_ACTIVE_SESSION) — must never silently fall back to a random uuid
  */
 function resolveJobStateRoot(opts: any): { rootDir: string; sessionId: string; projectRoot: string } {
   const project = projectRoot(opts);
   const sessionId = opts.sessionId ?? getCurrentSessionId(project);
   if (!sessionId) {
-    throw new Error('NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-solo session via peaks workspace init');
+    throw new Error('NO_ACTIVE_SESSION: peaks job requires --session-id or an active peaks-code session via peaks workspace init');
   }
   const rootDir = join(project, '.peaks', '_runtime', sessionId, 'job');
   return { rootDir, sessionId, projectRoot: project };
 }
 
 export function registerJobCommands(program: Command, io: ProgramIO = { stdout: (t: string) => process.stdout.write(t), stderr: (t: string) => process.stderr.write(t) }): void {
-  const job = new Command('job').description('Drive long multi-slice work as one Job (peaks-solo Step 0.8+)');
+  const job = new Command('job').description('Drive long multi-slice work as one Job (peaks-code Step 0.8+)');
 
   job
     .command('init')
@@ -65,7 +65,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
       // a random UUID would scatter state across dirs and break resume/auto-compact.
       let sessionId: string | null = opts.sessionId ?? getCurrentSessionId(project);
       if (!sessionId) {
-        return printResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-solo session via peaks workspace init)', { project }, [
+        return printResult(io, fail('init', 'NO_ACTIVE_SESSION', 'peaks job init requires --session-id (or an active peaks-code session via peaks workspace init)', { project }, [
           'Re-run with --session-id <sid>',
           'Or run `peaks workspace init` to create a session first'
         ]), opts);
@@ -253,7 +253,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
 
   // v3.1.2: read the on-disk slice progress mirror written by `peaks
   // job checkpoint --state done`. Used by peaks solo gate-step-08 and
-  // by peaks-solo Step 0.7 (resume) to surface `Next: slice #N of M
+  // by peaks-code Step 0.7 (resume) to surface `Next: slice #N of M
   // (<currentSlice>)` without re-deriving from state.json.
   job
     .command('progress')

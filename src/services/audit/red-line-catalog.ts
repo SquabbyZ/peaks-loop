@@ -28,7 +28,7 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
     rule: 'Solo Code-Change Red Line',
     markers: ['BLOCKING', 'MANDATORY'],
     phrases: [
-      'peaks-solo',
+      'peaks-code',
       'orchestrator, NOT an implementer',
       'solo',
     ],

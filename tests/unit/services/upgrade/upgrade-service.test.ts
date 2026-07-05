@@ -51,8 +51,8 @@ let originalStubFail: string | undefined;
  * not.
  */
 function seedMemoryArtifacts(projectRoot: string): void {
-  mkdirSync(join(projectRoot, 'skills', 'peaks-solo'), { recursive: true });
-  writeFileSync(join(projectRoot, 'skills', 'peaks-solo', 'SKILL.md'), '# stub\n', 'utf8');
+  mkdirSync(join(projectRoot, 'skills', 'peaks-code'), { recursive: true });
+  writeFileSync(join(projectRoot, 'skills', 'peaks-code', 'SKILL.md'), '# stub\n', 'utf8');
   writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stub\n', 'utf8');
   mkdirSync(join(projectRoot, '.claude', 'rules', 'common'), { recursive: true });
   writeFileSync(join(projectRoot, '.claude', 'rules', 'common', 'coding-style.md'), '# stub\n', 'utf8');
@@ -285,8 +285,8 @@ describe('runUpgrade', () => {
 
   test('memory-extract receives the expanded literal file list when artifacts exist', () => {
     // Create the three artifact shapes the umbrella expands
-    mkdirSync(join(tmpProject, 'skills', 'peaks-solo'), { recursive: true });
-    writeFileSync(join(tmpProject, 'skills', 'peaks-solo', 'SKILL.md'), '# peaks-solo\n', 'utf8');
+    mkdirSync(join(tmpProject, 'skills', 'peaks-code'), { recursive: true });
+    writeFileSync(join(tmpProject, 'skills', 'peaks-code', 'SKILL.md'), '# peaks-code\n', 'utf8');
     mkdirSync(join(tmpProject, '.claude', 'rules', 'common'), { recursive: true });
     writeFileSync(join(tmpProject, '.claude', 'rules', 'common', 'coding-style.md'), '# coding\n', 'utf8');
     writeFileSync(join(tmpProject, 'CLAUDE.md'), '# project\n', 'utf8');

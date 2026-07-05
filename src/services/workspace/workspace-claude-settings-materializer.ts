@@ -61,7 +61,7 @@ const PEAKS_GITIGNORE_SNIPPET = [
  * recovery path: copy the file contents into
  * `.claude/settings.local.json` manually. The recovery path is
  * documented in
- * `skills/peaks-solo/references/anchoring-and-session-info.md`.
+ * `skills/peaks-code/references/anchoring-and-session-info.md`.
  *
  * Slice 2026-06-13-selfheal-claude-settings-template: the offline copy
  * is now ALSO drift-checked (via `templateContentMatches`) so stale

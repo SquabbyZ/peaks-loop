@@ -50,7 +50,7 @@ describe('no-root-pollution.isRootWrite', () => {
   });
 
   it('allows skills/ and src/ as top-level dirs', () => {
-    expect(isRootWrite({ projectRoot, filePath: '/c/Users/smallMark/Desktop/peaks-loop/skills/peaks-solo/SKILL.md' })).toEqual(
+    expect(isRootWrite({ projectRoot, filePath: '/c/Users/smallMark/Desktop/peaks-loop/skills/peaks-code/SKILL.md' })).toEqual(
       expect.objectContaining({ isRoot: false, allowed: true }),
     );
     expect(isRootWrite({ projectRoot, filePath: '/c/Users/smallMark/Desktop/peaks-loop/src/services/foo.ts' })).toEqual(

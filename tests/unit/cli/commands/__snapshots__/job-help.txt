@@ -1,6 +1,6 @@
 Usage: peaks job [options] [command]
 
-Drive long multi-slice work as one Job (peaks-solo Step 0.8+)
+Drive long multi-slice work as one Job (peaks-code Step 0.8+)
 
 Options:
   -h, --help                  display help for command

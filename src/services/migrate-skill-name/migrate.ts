@@ -1,6 +1,6 @@
 /**
  * `peaks session migrate-skill-name` core service (slice 2 of the
- * peaks-solo → peaks-code rename plan).
+ * peaks-code → peaks-code rename plan).
  *
  * Walks `.peaks/_runtime/**` and rewrites two patterns:
  *   1. Key-value:   `"skill": "<old>"`  →  `"skill": "<new>"`

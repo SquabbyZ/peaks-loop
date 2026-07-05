@@ -24,10 +24,10 @@ describe('red-lines-service.runRedLinesAudit', () => {
   });
 
   it('classifies red lines from skills/, .claude/rules/, openspec/changes/', () => {
-    mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
+    mkdirSync(join(projectRoot, 'skills/peaks-code'), { recursive: true });
     writeFileSync(
-      join(projectRoot, 'skills/peaks-solo/SKILL.md'),
-      '# peaks-solo\n\npeaks-solo is an orchestrator. One conversation = one sid. BLOCKING rule.\n',
+      join(projectRoot, 'skills/peaks-code/SKILL.md'),
+      '# peaks-code\n\npeaks-code is an orchestrator. One conversation = one sid. BLOCKING rule.\n',
     );
     mkdirSync(join(projectRoot, '.claude/rules/common'), { recursive: true });
     writeFileSync(
@@ -63,10 +63,10 @@ describe('red-lines-service.runRedLinesAudit', () => {
   });
 
   it('tally: cliBacked + partial + proseOnly + informational === totalRedLines (v2.12.1)', () => {
-    mkdirSync(join(projectRoot, 'skills/peaks-solo'), { recursive: true });
+    mkdirSync(join(projectRoot, 'skills/peaks-code'), { recursive: true });
     writeFileSync(
-      join(projectRoot, 'skills/peaks-solo/SKILL.md'),
-      '# peaks-solo\n\nBLOCKING step here.\n',
+      join(projectRoot, 'skills/peaks-code/SKILL.md'),
+      '# peaks-code\n\nBLOCKING step here.\n',
     );
     mkdirSync(join(projectRoot, 'src/services/audit/enforcers'), { recursive: true });
     writeFileSync(join(projectRoot, 'src/services/audit/enforcers/solo-code-ban.ts'), '// stub');

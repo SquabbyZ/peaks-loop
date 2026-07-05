@@ -103,7 +103,7 @@ describe('buildStatusLineModel', () => {
     const root = createTempDir();
     try {
       writeGitDir(root);
-      const presenceData = { skill: 'peaks-solo', setAt: new Date().toISOString() };
+      const presenceData = { skill: 'peaks-code', setAt: new Date().toISOString() };
       writePresence(root, presenceData);
       const presencePath = join(root, '.peaks', '.active-skill.json');
 
@@ -126,7 +126,7 @@ describe('buildStatusLineModel', () => {
     const root = createTempDir();
     try {
       writeGitDir(root);
-      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
+      writePresence(root, { skill: 'peaks-code', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
       const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
       expect(model.state).toBe('idle');
       expect(model.presence).toBeNull();
@@ -139,10 +139,10 @@ describe('buildStatusLineModel', () => {
     const root = createTempDir();
     try {
       writeGitDir(root);
-      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-LIVE', setAt: new Date().toISOString() });
+      writePresence(root, { skill: 'peaks-code', claudeSessionId: 'session-LIVE', setAt: new Date().toISOString() });
       const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-LIVE' }, Date.now());
       expect(model.state).toBe('active');
-      expect(model.presence?.skill).toBe('peaks-solo');
+      expect(model.presence?.skill).toBe('peaks-code');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -152,7 +152,7 @@ describe('buildStatusLineModel', () => {
     const root = createTempDir();
     try {
       writeGitDir(root);
-      writePresence(root, { skill: 'peaks-solo', setAt: new Date().toISOString() });
+      writePresence(root, { skill: 'peaks-code', setAt: new Date().toISOString() });
       const model = buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
       expect(model.state).toBe('active');
     } finally {
@@ -164,7 +164,7 @@ describe('buildStatusLineModel', () => {
     const root = createTempDir();
     try {
       writeGitDir(root);
-      writePresence(root, { skill: 'peaks-solo', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
+      writePresence(root, { skill: 'peaks-code', claudeSessionId: 'session-OLD', setAt: new Date().toISOString() });
       const presencePath = join(root, '.peaks', '.active-skill.json');
       buildStatusLineModel({ workspace: { current_dir: root }, session_id: 'session-NEW' }, Date.now());
       expect(existsSync(presencePath)).toBe(true);

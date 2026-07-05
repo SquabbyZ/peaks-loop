@@ -25,11 +25,11 @@ import { describe, expect, test } from 'vitest';
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
-const SKILL_PATH = join(REPO_ROOT, 'skills', 'peaks-solo', 'SKILL.md');
+const SKILL_PATH = join(REPO_ROOT, 'skills', 'peaks-code', 'SKILL.md');
 const PERIODIC_REF_PATH = join(
   REPO_ROOT,
   'skills',
-  'peaks-solo',
+  'peaks-code',
   'references',
   'periodic-checkpoint.md'
 );

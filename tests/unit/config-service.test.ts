@@ -612,7 +612,7 @@ describe('project config discovery', () => {
 
     expect(existsSync(configPath)).toBe(false);
 
-    bootstrapProjectLanguageConfig(projectRoot, '请使用 peaks-solo 帮我重构这个项目');
+    bootstrapProjectLanguageConfig(projectRoot, '请使用 peaks-code 帮我重构这个项目');
 
     expect(JSON.parse(readFileSync(configPath, 'utf8'))).toEqual({ language: 'zh-CN' });
     expect(readConfig(projectRoot).language).toBe('zh-CN');
@@ -621,7 +621,7 @@ describe('project config discovery', () => {
   test('bootstraps English project language from natural-language first use', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-config-root-'));
 
-    bootstrapProjectLanguageConfig(projectRoot, 'Please use peaks-solo to refactor this project');
+    bootstrapProjectLanguageConfig(projectRoot, 'Please use peaks-code to refactor this project');
 
     expect(JSON.parse(readFileSync(join(projectRoot, '.peaks', 'config.json'), 'utf8'))).toEqual({ language: 'en' });
   });

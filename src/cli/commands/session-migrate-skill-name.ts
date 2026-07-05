@@ -1,5 +1,5 @@
 /**
- * Slice 2 of the peaks-solo → peaks-code rename plan.
+ * Slice 2 of the peaks-code → peaks-code rename plan.
  *
  * `peaks session migrate-skill-name --from <old> --to <new> [--apply]
  * [--project <path>] [--json]` — idempotent string-rewrite across
@@ -33,7 +33,7 @@ export function registerSessionMigrateSkillNameCommand(session: Command): void {
       'Rewrite skill-name strings under .peaks/_runtime/** (idempotent, dry-run by default). ' +
       'Use --apply to write through. Skips .peaks/memory/** and .peaks/skills/.system/bees/.',
     )
-    .requiredOption('--from <old>', 'old skill name (e.g. peaks-solo)')
+    .requiredOption('--from <old>', 'old skill name (e.g. peaks-code)')
     .requiredOption('--to <new>', 'new skill name (e.g. peaks-code)')
     .option('--apply', 'write through (default is dry-run)', false)
     .option('--project <path>', 'project root (defaults to current directory)', '.')

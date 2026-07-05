@@ -121,7 +121,7 @@ export function registerUnderstandCommands(program: Command, io: ProgramIO): voi
   });
 
   // L3.1: opt-in UX subcommand. Returns the AskUserQuestion payload that
-  // the LLM-side UX layer (peaks-solo / peaks-ide) should surface when
+  // the LLM-side UX layer (peaks-code / peaks-ide) should surface when
   // uaPrompt === 'unset' and UA is absent. When uaPrompt is skip-this-session
   // or skip-forever, returns a no-op envelope (caller does not prompt).
   addJsonOption(

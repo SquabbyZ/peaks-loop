@@ -56,7 +56,7 @@ describe('checkStalePresence — AC-1', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-A',
@@ -71,7 +71,7 @@ describe('checkStalePresence — AC-1', () => {
       expect(result.reason).toBeNull();
       expect(result.currentOuterSessionId).toBe('outer-A');
       expect(result.recordedOuterSessionId).toBe('outer-A');
-      expect(result.presence?.skill).toBe('peaks-solo');
+      expect(result.presence?.skill).toBe('peaks-code');
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -81,7 +81,7 @@ describe('checkStalePresence — AC-1', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -130,7 +130,7 @@ describe('checkStalePresence — AC-1', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'assisted',
         setAt: '2026-06-28T10:00:00.000Z',
         lastHeartbeat: '2026-06-28T10:00:00.000Z'
@@ -149,11 +149,11 @@ describe('checkStalePresence — AC-1', () => {
   test('5. recorded outer matches current → NOT stale (the common reconnect case)', () => {
     // Same outer session reconnects after a peaks re-init. The
     // presence was stamped by `outer-A`; the env var is also
-    // `outer-A`. peaks-solo should reuse the mode.
+    // `outer-A`. peaks-code should reuse the mode.
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'assisted',
         outerSessionId: 'outer-A',
         setAt: '2026-06-28T10:00:00.000Z',
@@ -176,7 +176,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         outerSessionId: 'outer-OLD',
         setAt: '2026-06-28T10:00:00.000Z',
@@ -204,7 +204,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'assisted',
         outerSessionId: 'outer-OTHER',
         setAt: '2026-06-28T10:00:00.000Z',
@@ -231,7 +231,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
     const root = createTempDir();
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'swarm',
         outerSessionId: 'outer-NEW',
         setAt: '2026-06-28T10:00:00.000Z',
@@ -273,7 +273,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
       // We bypass setSkillPresence because it stamps `currentOuter`
       // from env vars; we want a deterministic `outerSessionId` field.
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-OLD',
@@ -295,7 +295,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
         rotatedOutSessionId: 'outer-OLD'
       });
       expect(cleared.cleared).toBe(true);
-      // After the clear, peaks-solo Step 1 sees no-presence (not
+      // After the clear, peaks-code Step 1 sees no-presence (not
       // outer-session-mismatch — both branches ask, but no-presence
       // is the "fresh start" path).
       const check2 = checkStalePresence({
@@ -315,7 +315,7 @@ describe('clearStalePresenceOnRotation — AC-1 rotation auto-clear', () => {
     try {
       // End-to-end through the public surface (no manual JSON
       // writing): set a presence, clear it, then re-check.
-      setSkillPresence('peaks-solo', 'assisted', 'doctor', root);
+      setSkillPresence('peaks-code', 'assisted', 'doctor', root);
       expect(existsSync(presencePath(root))).toBe(true);
       clearSkillPresence(root);
       const result = checkStalePresence({
@@ -445,7 +445,7 @@ describe('checkStalePresence — in-key contract (slice 002 repair)', () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'outer-ENV';
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-ENV',
@@ -478,7 +478,7 @@ describe('checkStalePresence — in-key contract (slice 002 repair)', () => {
     process.env.CLAUDE_CODE_SESSION_ID = 'outer-ENV';
     try {
       writePresence(root, {
-        skill: 'peaks-solo',
+        skill: 'peaks-code',
         mode: 'full-auto',
         gate: 'startup',
         outerSessionId: 'outer-ENV',

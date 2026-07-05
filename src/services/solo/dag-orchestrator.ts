@@ -8,7 +8,7 @@
  * Design:
  *  - **Pure dispatcher contract**: the orchestrator never calls an LLM
  *    directly; it returns `DispatchSpec[]` per topological level and lets
- *    the caller (the CLI / peaks-solo LLM) execute the per-IDE tool calls.
+ *    the caller (the CLI / peaks-code LLM) execute the per-IDE tool calls.
  *    This keeps the orchestrator testable end-to-end with mock sub-agents.
  *  - **Join barrier**: between levels, the orchestrator awaits the
  *    results of all dispatched leaves and refuses to advance if any
@@ -21,7 +21,7 @@
  *    and the next dispatch's prompt is built with `formatContractInjection`.
  *
  * Why this lives in `services/solo/`:
- *  `peaks-solo` is the natural caller. The CLI surface (`peaks sub-agent
+ *  `peaks-code` is the natural caller. The CLI surface (`peaks sub-agent
  *  dispatch --from-dag`) consumes the planner's output but the planner
  *  itself is a library.
  */
@@ -189,7 +189,7 @@ export function buildDispatchSpec(
     'Handoff protocol (REQUIRED — orchestrator depends on this):',
     '  1. Execute the slice to completion.',
     `  2. Write your public contract via \`peaks contract write --project <root> --session-id <sid> --slice-id ${sliceId} --exports <...> --types <...> --signatures <...>\`. The orchestrator will pick it up on the next dispatch run.`,
-    '  3. Do NOT re-invoke `peaks sub-agent dispatch --from-dag` yourself — the parent orchestrator (peaks-solo) drives level advancement.',
+    '  3. Do NOT re-invoke `peaks sub-agent dispatch --from-dag` yourself — the parent orchestrator (peaks-code) drives level advancement.',
     '',
     `After your contract is on disk, the orchestrator will auto-advance to the next topological level (if any) by re-invoking \`peaks sub-agent dispatch --from-dag\` with the same batch-id. Your slice will appear in its ancestors via \`formatContractInjection\`.${ancestorFragment}`
   ].join('\n');
@@ -299,7 +299,7 @@ export async function runDag(dag: SliceDag, opts: RunDagOptions): Promise<DagRun
  *      cancels in-flight siblings and breaks the loop.
  *
  * Pure planner; same I/O contract as `runDag`. The caller (CLI /
- * peaks-solo LLM) executes the per-IDE tool calls.
+ * peaks-code LLM) executes the per-IDE tool calls.
  */
 export async function runLayeredDag(
   dag: SliceDag,

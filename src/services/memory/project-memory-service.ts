@@ -784,7 +784,7 @@ export function executeProjectMemoryExtract(options: ExtractPlanOptions): Projec
     const safeMemoryDir = assertSafeProjectMemoryDir(plan.projectRoot);
     // Idempotency: skip writes for memories whose slug already lives in
     // .peaks/memory/. Re-running `peaks memory extract --apply` on the
-    // same handoff is a normal peaks-solo / peaks-txt retry pattern (the
+    // same handoff is a normal peaks-code / peaks-txt retry pattern (the
     // skill prompt may invoke extract more than once when a handoff is
     // edited and re-extracted). Without this, writeNewFile's O_EXCL
     // throws EEXIST and aborts the whole batch. Symmetric with

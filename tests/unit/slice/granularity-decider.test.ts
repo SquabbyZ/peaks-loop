@@ -1,5 +1,5 @@
 /**
- * Unit tests for GranularityDecider (peaks-solo/multipass W2 T6).
+ * Unit tests for GranularityDecider (peaks-code/multipass W2 T6).
  *
  * Pure-function decider used by MultiPassOrchestrator to decide whether
  * a WorkUnit should be subdivided further. No LLM dependency.

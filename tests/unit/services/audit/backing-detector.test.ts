@@ -50,7 +50,7 @@ describe('backing-detector.classifyBacking', () => {
     const entry = makeEntry({
       enforcerRef: 'src/services/audit/enforcers/solo-code-ban.ts',
       source: {
-        file: 'skills/peaks-solo/SKILL.md',
+        file: 'skills/peaks-code/SKILL.md',
         line: 1,
         marker: 'MANDATORY',
         context: 'This rule is best-effort, if LLM cooperates.',

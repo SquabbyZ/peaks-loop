@@ -70,7 +70,7 @@ One JSON object per line, terminated by `\n`. Every line has the same shape:
 | `command`   | string                     | yes      | The peaks subcommand that produced the entry (`main` for the bootstrap). |
 | `msg`       | string                     | yes      | Free-form, single-line. Redacted on write.                         |
 | `version`   | string                     | no       | `CLI_VERSION` at the time of write.                                |
-| `sessionId` | string                     | no       | The active peaks-solo session id, if any.                          |
+| `sessionId` | string                     | no       | The active peaks-code session id, if any.                          |
 | `data`      | object                     | no       | Structured payload; all secret-keyed fields are redacted.          |
 
 Lines that fail to parse (e.g. crash mid-write) are skipped by `peaks log tail` — partial lines never break the reader.

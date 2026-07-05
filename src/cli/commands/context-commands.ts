@@ -7,7 +7,7 @@
  *   - L2: index (just names + paths)
  *   - L3: fuzzy search by query (delegates to peaks memory search)
  *
- * The LLM-side UX layer (peaks-solo / peaks-ide) picks the layer based
+ * The LLM-side UX layer (peaks-code / peaks-ide) picks the layer based
  * on the L1a task level:
  *   - typo:     L0 only (a few lines)
  *   - bug:     L0 + L1

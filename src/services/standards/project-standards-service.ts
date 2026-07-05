@@ -51,7 +51,7 @@ export type ProjectStandardsSource = {
 };
 
 export type StandardsSkillPreflight = {
-  readonly appliesTo: readonly ['peaks-rd', 'peaks-qa', 'peaks-solo'];
+  readonly appliesTo: readonly ['peaks-rd', 'peaks-qa', 'peaks-code'];
   readonly summary: string;
 };
 
@@ -140,8 +140,8 @@ const SOURCE: ProjectStandardsSource = {
 };
 
 const SKILL_PREFLIGHT: StandardsSkillPreflight = {
-  appliesTo: ['peaks-rd', 'peaks-qa', 'peaks-solo'],
-  summary: 'peaks-rd、peaks-qa、peaks-solo 进入代码仓工作流时自动 preflight 项目规范。'
+  appliesTo: ['peaks-rd', 'peaks-qa', 'peaks-code'],
+  summary: 'peaks-rd、peaks-qa、peaks-code 进入代码仓工作流时自动 preflight 项目规范。'
 };
 
 const SUPPORTED_LANGUAGES = new Set<StandardsLanguage>(['generic', 'typescript', 'javascript', 'python', 'go', 'rust']);
@@ -229,7 +229,7 @@ function renderHeader(title: string): string {
     `# ${title}`,
     '',
     'Source: Peaks curated baseline; everything-claude-code reference: https://github.com/affaan-m/everything-claude-code',
-    'Scope: project-local standards for peaks-rd, peaks-qa, and peaks-solo workflow preflight.',
+    'Scope: project-local standards for peaks-rd, peaks-qa, and peaks-code workflow preflight.',
     ''
   ].join('\n');
 }
@@ -271,7 +271,7 @@ function renderClaudeMd(language: StandardsLanguage, ctx: ProjectContext): strin
     'Peaks workflow automation:',
     '- peaks-rd checks these standards before RD planning or implementation work.',
     '- peaks-qa checks code review and security guidance before verification work.',
-    '- peaks-solo summarizes RD and QA standards preflight before end-to-end code workflows.',
+    '- peaks-code summarizes RD and QA standards preflight before end-to-end code workflows.',
     '',
     'Rules:',
     '- Read `.claude/rules/common/coding-style.md` before editing code.',

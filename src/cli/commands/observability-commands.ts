@@ -252,7 +252,7 @@ export function registerObservabilityCommands(program: Command, io: ProgramIO): 
   addJsonOption(
     observability
       .command('repair-cycles')
-      .description('RD → QA repair-cycle count per slice. Cap = 3 (peaks-solo repair-loop contract); capHit flag is set when any slice hits the cap.')
+      .description('RD → QA repair-cycle count per slice. Cap = 3 (peaks-code repair-loop contract); capHit flag is set when any slice hits the cap.')
       .option('--project <path>', 'target project root (defaults to git root or cwd)')
       .option('--session <sessionId>', 'scope to one session (defaults to the canonical session binding)')
   ).action((options: { project?: string; session?: string; json?: boolean }) => {

@@ -14,12 +14,12 @@
 // assert the legacy sessionId-based shape; they were written assuming the
 // dev environment has no active session binding.
 //
-// When a developer (or a `peaks-solo` orchestrator) has run
+// When a developer (or a `peaks-code` orchestrator) has run
 // `peaks workspace init` in this repo, that file is created and the 31
 // tests start failing even though the production code is correct for
 // the "session active" code path. This setup moves the file out of the
 // way for the duration of the test run, and restores it on process
-// exit so the developer's peaks-solo session keeps working.
+// exit so the developer's peaks-code session keeps working.
 //
 // Per-test-file semantics
 // -----------------------

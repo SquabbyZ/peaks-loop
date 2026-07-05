@@ -1,7 +1,7 @@
 /**
  * Slice #009 / G5 RL-7 — dispatch record leak detector.
  *
- * After peaks-solo's reducer consumes a batch, any dispatch record that
+ * After peaks-code's reducer consumes a batch, any dispatch record that
  * is still `disposed === false` AND was created more than `thresholdMs`
  * ago is a **leak**. This helper scans the on-disk records under
  * `.peaks/_sub_agents/<sid>/` and returns the leaked ones. The CLI or
