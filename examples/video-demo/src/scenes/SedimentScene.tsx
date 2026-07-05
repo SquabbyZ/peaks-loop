@@ -1,12 +1,9 @@
 import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, Easing } from "remotion";
+import { COPY, type LocaleId } from "../copy";
 
 interface Props {
-  from: number;
-  to: number;
+  locale: LocaleId;
 }
-
-const NL_LINE =
-  "把'抓 arxiv 每日论文 → 清理 → 入库'沉淀成我的 bee";
 
 const MANIFEST_ROWS: ReadonlyArray<{ key: string; value: string }> = [
   { key: "name", value: "bee-arxiv-daily" },
@@ -15,41 +12,45 @@ const MANIFEST_ROWS: ReadonlyArray<{ key: string; value: string }> = [
   { key: "gates[3]", value: "audit · test · ship" },
 ];
 
-export const SedimentScene: React.FC<Props> = ({ from, to }) => {
+export const SedimentScene: React.FC<Props> = ({ locale }) => {
   const frame = useCurrentFrame();
-  const { width, height } = useVideoConfig();
-  if (frame < from || frame >= to) {
-    return null;
-  }
+  const { width, height, durationInFrames } = useVideoConfig();
 
-  const localT = frame - from;
-  const localDuration = to - from;
-  const beatW = localDuration / 3; // 80
+  const localT = frame;
+  const localDuration = durationInFrames;
+  const beatW = localDuration / 3;
+  const c = COPY[locale].sediment;
 
-  // Beats 0 (NL) / 1 (Manifest) / 2 (Bee). Each beat: fade-in 0..6, hold, fade-out at beatW-6..beatW.
   const beatFor = (t: number) => Math.min(2, Math.floor(t / beatW));
   const beatTInBeat = (t: number) => t - beatFor(t) * beatW;
-  const beatOpacity = (t: number) => {
-    const lt = beatTInBeat(t);
-    return interpolate(lt, [0, 6, beatW - 6, beatW], [0, 1, 1, 0], {
+  const beatOpacity = (t: number) =>
+    interpolate(beatTInBeat(t), [0, 6, beatW - 6, beatW], [0, 1, 1, 0], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     });
-  };
-  const beatSlide = (t: number) => {
-    const lt = beatTInBeat(t);
-    return interpolate(lt, [0, 6, beatW - 6, beatW], [40, 0, 0, -40], {
+  const beatSlide = (t: number) =>
+    interpolate(beatTInBeat(t), [0, 6, beatW - 6, beatW], [40, 0, 0, -40], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: Easing.out(Easing.cubic),
     });
-  };
 
-  const renderBeatHeadline = (beat: number, kicker: string, zh: string, en: string) => {
+  // === Cool effects ===
+  // Halo behind manifest card — pulses on manifest beat.
+  const haloOpacity = beatOpacity(localT) * 0.45;
+  const haloScale = interpolate(localT % beatW, [0, beatW * 0.3, beatW], [0.7, 1.05, 1.1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const renderBeatHeadline = (beat: number) => {
+    const beatData = c.beats[beat];
+    if (!beatData) {
+      return null;
+    }
     const opacity = beatOpacity(localT);
     const slide = beatSlide(localT);
-    const inThisBeat = beatFor(localT) === beat && opacity > 0.001;
-    if (!inThisBeat) {
+    if (beatFor(localT) !== beat || opacity <= 0.001) {
       return null;
     }
     return (
@@ -73,36 +74,63 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
             marginBottom: 22,
           }}
         >
-          {kicker}
+          {beatData.kicker}
         </div>
         <div
           className="font-sans"
           style={{
-            fontSize: 96,
+            fontSize: 88,
             fontWeight: 800,
             color: "#f8fafc",
-            lineHeight: 1.05,
+            lineHeight: 1.1,
             letterSpacing: -3,
-            marginBottom: 16,
+            marginBottom: 12,
           }}
         >
-          {zh}
+          {beatData.headlineLineA}
         </div>
         <div
           className="font-mono"
-          style={{ fontSize: 26, color: "#94a3b8", letterSpacing: 1 }}
+          style={{
+            fontSize: 24,
+            color: "#94a3b8",
+            letterSpacing: 1,
+            marginTop: 4,
+          }}
         >
-          {en}
+          {beatData.headlineSep} {beatData.headlineLineB}
         </div>
       </div>
     );
   };
 
-  // Render beats in DOM order — React uses CSS-driven opacity to hide ones not in beatFor(t).
   return (
-    <AbsoluteFill className="bg-brand-bg">
+    <AbsoluteFill className="bg-brand-bg" style={{ overflow: "hidden" }}>
+      {/* Pulsing halo behind manifest card (beat 1). */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          top: Math.round(height * 0.50),
+          width: 800,
+          height: 800,
+          marginLeft: -400,
+          marginTop: -400,
+          borderRadius: 400,
+          background:
+            "radial-gradient(circle, rgba(99,102,241,0.55) 0%, rgba(99,102,241,0) 70%)",
+          transform: `scale(${haloScale})`,
+          opacity: haloOpacity,
+          pointerEvents: "none",
+        }}
+      />
+
       {/* Beat 1: NL */}
       {(() => {
+        const beatData = c.beats[0];
+        if (!beatData) {
+          return null;
+        }
         const opacity = beatOpacity(localT);
         const slide = beatSlide(localT);
         if (beatFor(localT) !== 0 || opacity <= 0.001) {
@@ -110,7 +138,7 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
         }
         return (
           <div style={{ position: "absolute", inset: 0, opacity, transform: `translateY(${slide}px)` }}>
-            {renderBeatHeadline(0, "NL", "跑过一次还想跑", "say once to keep it forever")}
+            {renderBeatHeadline(0)}
             <div
               style={{
                 position: "absolute",
@@ -126,10 +154,11 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
                   "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace",
                 fontSize: 28,
                 color: "#cbd5e1",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.45)",
               }}
             >
               <span style={{ color: "#6366f1", marginRight: 18 }}>›</span>
-              {NL_LINE}
+              {beatData.bubbleLineA}
             </div>
           </div>
         );
@@ -144,7 +173,7 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
         }
         return (
           <div style={{ position: "absolute", inset: 0, opacity, transform: `translateY(${slide}px)` }}>
-            {renderBeatHeadline(1, "MANIFEST", "沉淀成战术套路", "sediment the playbook, not the spell")}
+            {renderBeatHeadline(1)}
             <div
               style={{
                 position: "absolute",
@@ -159,6 +188,7 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
                 display: "flex",
                 flexDirection: "column",
                 gap: 12,
+                boxShadow: "0 0 60px rgba(99,102,241,0.4)",
               }}
             >
               <div
@@ -195,14 +225,29 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
 
       {/* Beat 3: Bee */}
       {(() => {
+        const beatData = c.beats[2];
+        if (!beatData) {
+          return null;
+        }
         const opacity = beatOpacity(localT);
         const slide = beatSlide(localT);
         if (beatFor(localT) !== 2 || opacity <= 0.001) {
           return null;
         }
+        // Bee card "pops in" with a tiny scale 0.92 → 1.
+        const popScale = interpolate(
+          beatTInBeat(localT),
+          [0, 8, 18, beatW],
+          [0.92, 1.04, 1, 1],
+          {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+            easing: Easing.out(Easing.cubic),
+          },
+        );
         return (
           <div style={{ position: "absolute", inset: 0, opacity, transform: `translateY(${slide}px)` }}>
-            {renderBeatHeadline(2, "BEE", "驻场,下次说跑就跑", "the bee is grounded; run it again next time")}
+            {renderBeatHeadline(2)}
             <div
               style={{
                 position: "absolute",
@@ -218,7 +263,8 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "space-between",
-                boxShadow: "0 0 36px rgba(34,197,94,0.35)",
+                boxShadow: "0 0 60px rgba(34,197,94,0.5)",
+                transform: `scale(${popScale})`,
               }}
             >
               <div
@@ -241,7 +287,7 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
                   lineHeight: 1.2,
                 }}
               >
-                bee-arxiv-daily
+                {beatData.bubbleLineA}
               </div>
               <div
                 className="font-mono"
@@ -250,9 +296,21 @@ export const SedimentScene: React.FC<Props> = ({ from, to }) => {
                   color: "#22c55e",
                   letterSpacing: 4,
                   textTransform: "uppercase",
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "center",
                 }}
               >
-                ● STABLE
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    background: "#22c55e",
+                    boxShadow: "0 0 12px #22c55e",
+                  }}
+                />
+                {beatData.bubbleLineB}
               </div>
             </div>
           </div>
