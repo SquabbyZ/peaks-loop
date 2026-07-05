@@ -67,15 +67,12 @@ Optional 30-second walk-through: [`examples/video-demo/`](./examples/video-demo/
 
 ## One more thing
 
-This used to be `peaks-solo`. Then `peaks-code`. Now `peaks-loop` — a squad you grow into the team that runs your machine day in, day out.
+This repo used to be `peaks-cli`. It's called `peaks-loop` now.
 
-Names changed. The job didn't: you say it, it runs the whole engineering flow, stops where it breaks, you decide.
+Inside the box, the skills evolved from `peaks-solo` (single-role) to `peaks-code` (gate-bearing, code-domain) — both still here, both with their own lane: `peaks-solo` is the older single-task flow entry, and `peaks-code` runs the end-to-end main path.
 
-The first version was one role, so it was called solo.
-Then built-in roles kept coming, sedimented bees started pooling up, and it became a real squad — renamed loop.
-The literal name drops a piece of its past each time. The core never moved: you don't lay out the flow, it does.
+The job didn't change: you say it, the engineering gates get laid out — fail where it fails, you decide.
 
-What you install today is still the same engineering backbone, just with more teammate-shaped names beside it, a few bees you can summon any time, and a gate order you sign off on before it walks.
 Install this one repo and every new requirement after has a roster waiting for your call.
 
 ---
