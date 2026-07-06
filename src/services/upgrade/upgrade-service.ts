@@ -34,6 +34,57 @@ import { runRedLinesAudit } from '../audit/red-lines-service.js';
 import { savePreferences } from '../preferences/preferences-service.js';
 import { migrateGitignoreFile } from './gitignore-migrate-service.js';
 
+/**
+ * Pluggable executor for sub-step command spawns. Production
+ * callers omit `executor` on `UpgradeInput`; the default
+ * (`defaultSubstepExecutor`) wraps `node:child_process` `spawnSync`.
+ * Tests pass a synchronous fake executor to avoid the spawn cost.
+ *
+ * Contract:
+ *  - Return `status: 0` for success, non-zero for failure, `null`
+ *    for synchronous spawn errors (binary not found, EACCES, …).
+ *  - `stdout` / `stderr` are captured as UTF-8 strings.
+ *  - `durationMs` is the wall-clock duration of the spawn
+ *    (caller-facing field on `SubStepResult`).
+ */
+export type SubstepExecutor = (
+  command: string,
+  args: readonly string[],
+  timeoutMs: number
+) => { status: number | null; stdout: string; stderr: string; durationMs: number };
+
+/**
+ * Default substep executor — wraps `spawnSync` with the same
+ * stdio / encoding / timeout config the umbrella has used since
+ * v1. Exported for test coverage: the seam-preservation test
+ * imports this directly to verify the normalized return shape
+ * on a spawn failure (e.g. a non-existent command).
+ */
+export const defaultSubstepExecutor: SubstepExecutor = (command, args, timeoutMs) => {
+  const start = Date.now();
+  try {
+    const result = spawnSync(command, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: timeoutMs,
+    });
+    return {
+      status: result.status,
+      stdout: result.stdout ?? '',
+      stderr: result.stderr ?? '',
+      durationMs: Date.now() - start,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      status: null,
+      stdout: '',
+      stderr: message,
+      durationMs: Date.now() - start,
+    };
+  }
+};
+
 export interface UpgradeInput {
   readonly projectRoot: string;
   /**
@@ -50,6 +101,13 @@ export interface UpgradeInput {
    * install hint in `nextActions` instead.
    */
   readonly peaksBin?: string;
+  /**
+   * Optional injectable executor for sub-step command execution.
+   * When omitted, the umbrella uses `defaultSubstepExecutor`
+   * (real `spawnSync`). Tests pass a synchronous fake to avoid
+   * the per-sub-step `node peaks.js …` spawn cost.
+   */
+  readonly executor?: SubstepExecutor;
 }
 
 export interface SubStepResult {
@@ -205,9 +263,9 @@ function runStep(
   peaksBin: string,
   name: string,
   args: readonly string[],
-  timeoutMs: number = 60_000
+  timeoutMs: number = 60_000,
+  executor: SubstepExecutor = defaultSubstepExecutor
 ): SubStepResult {
-  const start = Date.now();
   // The global `peaks` shim is a `/bin/sh` symlink script (the
   // npm install postinstall creates `peaks` → `peaks.sh` on
   // Windows). cmd.exe (the default Windows shell) cannot run
@@ -228,31 +286,18 @@ function runStep(
     command = peaksBin;
     spawnArgs = args;
   }
-  try {
-    const result = spawnSync(command, spawnArgs, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: timeoutMs,
-    });
-    return {
-      name,
-      status: result.status === 0 ? 'pass' : 'fail',
-      exitCode: result.status,
-      stdout: result.stdout ?? '',
-      stderr: result.stderr ?? '',
-      durationMs: Date.now() - start,
-    };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      name,
-      status: 'fail',
-      exitCode: null,
-      stdout: '',
-      stderr: message,
-      durationMs: Date.now() - start,
-    };
-  }
+  // The executor normalizes spawn errors to { status: null, stderr: ... }
+  // so no try/catch wrapper is needed here — the call always returns
+  // a shaped record. See defaultSubstepExecutor for the reference impl.
+  const result = executor(command, spawnArgs, timeoutMs);
+  return {
+    name,
+    status: result.status === 0 ? 'pass' : 'fail',
+    exitCode: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+    durationMs: result.durationMs,
+  };
 }
 
 function writeUpgradeRecord(
@@ -327,6 +372,12 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   const fallbackPeaks = 'peaks';
   const resolvedPeaksBin = existsSync(peaksBin) ? peaksBin : fallbackPeaks;
 
+  // Resolve the executor once at the top of runUpgrade so every
+  // sub-step call shares the same instance. Tests pass a fake
+  // executor via UpgradeInput.executor; production callers omit
+  // it and get the default spawnSync wrapper.
+  const executor = input.executor ?? defaultSubstepExecutor;
+
   const fromVersion = read1xVersion(input.projectRoot);
   const steps: SubStepResult[] = [];
   const warnings: string[] = [];
@@ -400,7 +451,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
         continue;
       }
       const args = ['memory', 'extract', '--project', input.projectRoot, '--artifact', ...artifacts, '--apply', '--json'];
-      const r = runStep(resolvedPeaksBin, 'memory-extract', args);
+      const r = runStep(resolvedPeaksBin, 'memory-extract', args, 60_000, executor);
       steps.push(r);
       if (r.status === 'fail') {
         warnings.push(`memory-extract failed: ${r.stderr.slice(0, 200)}`);
@@ -408,7 +459,7 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
       continue;
     }
     const args = step.args(input.projectRoot);
-    const r = runStep(resolvedPeaksBin, step.name, args);
+    const r = runStep(resolvedPeaksBin, step.name, args, 60_000, executor);
     steps.push(r);
     if (r.status === 'fail') {
       warnings.push(`${step.name} failed: ${r.stderr.slice(0, 200)}`);

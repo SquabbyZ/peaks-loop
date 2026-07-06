@@ -4,16 +4,25 @@
  * Closes the test debt recorded in commit ec6f674
  * (fix(upgrade): commit upgrade-service.ts to repair broken HEAD).
  *
- * Strategy: real filesystem + a stub `peaks.js` script that the
- * service spawns. The stub reads its first argv (the sub-command
- * name) and consults env vars to decide whether to exit 0 or 1.
- * No `vi.mock` — matches the pattern in 1x-detector-service.test.ts.
+ * Strategy: real filesystem + an injectable `SubstepExecutor` that
+ * returns canned output synchronously. R4 (2026-07-06) replaced the
+ * `spawnSync(node peaks.js …)` path with a `makeFakeExecutor` factory
+ * so the suite no longer pays per-sub-step `node` startup cost.
+ * The default fake reply echoes argv as stdout (mirroring the
+ * original `peaks.js` stub) so the existing argv-parsing assertions
+ * still hold. Tests that need a specific step to fail pass an entry
+ * in the `replies` map keyed by the sub-command name (the first
+ * argv the umbrella forwards to the executor).
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
-import { runUpgrade } from '../../../../src/services/upgrade/upgrade-service.js';
+import {
+  defaultSubstepExecutor,
+  runUpgrade,
+  type SubstepExecutor,
+} from '../../../../src/services/upgrade/upgrade-service.js';
 
 const ALL_STEPS = [
   'config-migrate',
@@ -34,6 +43,53 @@ const STEP_TO_FIRST_ARGV: Record<string, string> = {
   'skill-sync': 'skill',
   'audit-verify': 'audit',
 };
+
+/**
+ * Canned reply for a single sub-step. Keyed on the sub-command
+ * name (the umbrella's first argv).
+ */
+type FakeReply = { exitCode: number; stdout: string; stderr: string };
+
+/**
+ * Build a synchronous fake executor from a `sub-command → reply`
+ * map. Steps not in the map default to `exitCode: 0` + an argv-echo
+ * stdout, mirroring the original `peaks.js` stub.
+ *
+ * The fake's `durationMs` is always 0 (no work performed). The
+ * real-impl timing is exercised by the spawnSync-backed default
+ * executor in production; the test only cares that the seam
+ * plumbs the right command + args.
+ *
+ * Note: when `peaksBin` is a real path, `runStep` prepends it to
+ * the spawn args (`[peaksBin, ...args]`), so the sub-command name
+ * shifts from `args[0]` to `args[1]`. The fake detects this
+ * offset by checking whether `args[0]` looks like a path
+ * (contains a separator or ends in `.js`).
+ */
+function makeFakeExecutor(replies: Map<string, FakeReply> = new Map()): SubstepExecutor {
+  return (_command, args) => {
+    // The sub-command may sit at args[0] (bare `peaks`) or
+    // args[1] (`node peaks.js …`). Detect by presence of a path
+    // separator in args[0].
+    const hasPathPrefix = args.length > 1 && /[\\/]/.test(args[0] ?? '');
+    const sub = hasPathPrefix ? (args[1] ?? '') : (args[0] ?? '');
+    const reply = replies.get(sub);
+    if (reply !== undefined) {
+      return {
+        status: reply.exitCode,
+        stdout: reply.stdout,
+        stderr: reply.stderr,
+        durationMs: 0,
+      };
+    }
+    return {
+      status: 0,
+      stdout: JSON.stringify({ ok: true, argv: args }),
+      stderr: '',
+      durationMs: 0,
+    };
+  };
+}
 
 let tmpHome: string;
 let tmpProject: string;
@@ -58,30 +114,15 @@ function seedMemoryArtifacts(projectRoot: string): void {
   writeFileSync(join(projectRoot, '.claude', 'rules', 'common', 'coding-style.md'), '# stub\n', 'utf8');
 }
 
-function writeStubPeaks(failArgvCsv: string = ''): string {
+function writeStubPeaks(): string {
+  // R4: this file is no longer spawned. It exists only so that
+  // `runUpgrade`'s `existsSync(peaksBin)` resolution branch
+  // (line 328) picks the real-path code path. Its content is
+  // not executed. We keep the tempdir write so a future
+  // integration test can re-enable the spawn path if needed.
   const stubDir = mkdtempSync(join(tmpdir(), 'peaks-stub-'));
   const stubPath = join(stubDir, 'peaks.js');
-  // The service spawns `node peaks.js <argv...>` when peaksBin
-  // contains a path separator. The stub exits 1 when its first
-  // argv matches one of the names in process.env.STUB_FAIL_ARGVS
-  // (comma-separated), else exits 0.
-  const stub = `#!/usr/bin/env node
-const argv = process.argv.slice(2);
-const first = argv[0] ?? '';
-const failList = (process.env.STUB_FAIL_ARGVS || '').split(',').filter(Boolean);
-if (failList.includes(first)) {
-  process.stderr.write('stub: simulated failure for ' + first + '\\n');
-  process.exit(1);
-}
-process.stdout.write(JSON.stringify({ ok: true, argv: argv }));
-process.exit(0);
-`;
-  writeFileSync(stubPath, stub, 'utf8');
-  if (failArgvCsv.length > 0) {
-    process.env['STUB_FAIL_ARGVS'] = failArgvCsv;
-  } else {
-    delete process.env['STUB_FAIL_ARGVS'];
-  }
+  writeFileSync(stubPath, '#!/usr/bin/env node\n// R4 stub (not executed; fake executor replaces spawnSync)\n', 'utf8');
   return stubPath;
 }
 
@@ -90,7 +131,6 @@ beforeEach(() => {
   tmpProject = mkdtempSync(join(tmpdir(), 'peaks-upgrade-project-'));
   originalHome = process.env['HOME'];
   originalUserprofile = process.env['USERPROFILE'];
-  originalStubFail = process.env['STUB_FAIL_ARGVS'];
   // Both Unix HOME and Windows USERPROFILE need to point at the
   // stub home; upgrade-service.read1xVersion checks them in
   // that order via process.env.HOME ?? process.env.USERPROFILE.
@@ -110,11 +150,6 @@ afterEach(() => {
   } else {
     process.env['USERPROFILE'] = originalUserprofile;
   }
-  if (originalStubFail === undefined) {
-    delete process.env['STUB_FAIL_ARGVS'];
-  } else {
-    process.env['STUB_FAIL_ARGVS'] = originalStubFail;
-  }
   try {
     rmSync(tmpHome, { recursive: true, force: true });
   } catch {
@@ -128,9 +163,25 @@ afterEach(() => {
 });
 
 describe('runUpgrade', () => {
+  /**
+   * Build a "fail all" replies map for tests that want every
+   * sub-step to exit non-zero with non-empty stderr.
+   */
+  function failAllReplies(): Map<string, FakeReply> {
+    const out = new Map<string, FakeReply>();
+    for (const sub of Object.values(STEP_TO_FIRST_ARGV)) {
+      out.set(sub, {
+        exitCode: 1,
+        stdout: '',
+        stderr: `stub: simulated failure for ${sub}`,
+      });
+    }
+    return out;
+  }
+
   test('returns an UpgradeResult with the full documented shape', () => {
     seedMemoryArtifacts(tmpProject);
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result).toMatchObject({
       applied: expect.any(Boolean),
       fromVersion: null,
@@ -150,9 +201,9 @@ describe('runUpgrade', () => {
     }
   });
 
-  test('all 6 sub-steps pass when the stub returns 0 → applied=true, passedCount=6', () => {
+  test('all 6 sub-steps pass when the fake returns 0 → applied=true, passedCount=6', () => {
     seedMemoryArtifacts(tmpProject);
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.applied).toBe(true);
     expect(result.passedCount).toBe(6);
     expect(result.failedCount).toBe(0);
@@ -163,11 +214,14 @@ describe('runUpgrade', () => {
     }
   });
 
-  test('all 6 sub-steps fail when the stub returns 1 for every command → applied=false', () => {
+  test('all 6 sub-steps fail when the fake returns 1 for every command → applied=false', () => {
     seedMemoryArtifacts(tmpProject);
     // Fail every first-argv (config, standards, memory, hooks, skill, audit)
-    writeStubPeaks(Object.values(STEP_TO_FIRST_ARGV).join(','));
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({
+      projectRoot: tmpProject,
+      peaksBin: stubPeaksBin,
+      executor: makeFakeExecutor(failAllReplies()),
+    });
     expect(result.applied).toBe(false);
     expect(result.passedCount).toBe(0);
     expect(result.failedCount).toBe(6);
@@ -181,8 +235,15 @@ describe('runUpgrade', () => {
 
   test('mixed pass/fail: failing only standards + memory keeps passedCount=4, failedCount=2', () => {
     seedMemoryArtifacts(tmpProject);
-    writeStubPeaks('standards,memory');
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const replies = new Map<string, FakeReply>([
+      ['standards', { exitCode: 1, stdout: '', stderr: 'stub: simulated failure for standards' }],
+      ['memory', { exitCode: 1, stdout: '', stderr: 'stub: simulated failure for memory' }],
+    ]);
+    const result = runUpgrade({
+      projectRoot: tmpProject,
+      peaksBin: stubPeaksBin,
+      executor: makeFakeExecutor(replies),
+    });
     expect(result.applied).toBe(false);
     expect(result.passedCount).toBe(4);
     expect(result.failedCount).toBe(2);
@@ -194,7 +255,7 @@ describe('runUpgrade', () => {
 
   test('writes the upgrade record to .peaks/memory/upgrade-2.0-YYYY-MM-DD.md', () => {
     seedMemoryArtifacts(tmpProject);
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.upgradeRecordPath).not.toBeNull();
     expect(result.upgradeRecordPath).toMatch(/upgrade-2\.0-\d{4}-\d{2}-\d{2}\.md$/);
     expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
@@ -210,7 +271,7 @@ describe('runUpgrade', () => {
   });
 
   test('captures auditBefore and auditAfter as { totalRedLines, cliBacked }', () => {
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.auditBefore).not.toBeNull();
     expect(result.auditAfter).not.toBeNull();
     expect(typeof (result.auditBefore as { totalRedLines: number }).totalRedLines).toBe('number');
@@ -220,17 +281,22 @@ describe('runUpgrade', () => {
   });
 
   test('auto: false (default) includes the "Run peaks audit red-lines" next action', () => {
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.nextActions.some((a) => a.includes('peaks audit red-lines'))).toBe(true);
   });
 
   test('auto: true suppresses the manual audit next action', () => {
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, auto: true });
+    const result = runUpgrade({
+      projectRoot: tmpProject,
+      peaksBin: stubPeaksBin,
+      auto: true,
+      executor: makeFakeExecutor(),
+    });
     expect(result.nextActions.every((a) => !a.includes('peaks audit red-lines'))).toBe(true);
   });
 
   test('fromVersion is null when global ~/.peaks/config.json is absent', () => {
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.fromVersion).toBeNull();
   });
 
@@ -241,7 +307,7 @@ describe('runUpgrade', () => {
       JSON.stringify({ version: '1.4.2' }),
       'utf8'
     );
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.fromVersion).toBe('1.4.2');
     // The record body should also carry the From version line.
     const body = readFileSync(result.upgradeRecordPath as string, 'utf8');
@@ -251,22 +317,33 @@ describe('runUpgrade', () => {
   test('fromVersion survives a malformed global config (does not throw)', () => {
     mkdirSync(join(tmpHome, '.peaks'), { recursive: true });
     writeFileSync(join(tmpHome, '.peaks', 'config.json'), '{not valid json', 'utf8');
-    expect(() => runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin })).not.toThrow();
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    expect(() =>
+      runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() })
+    ).not.toThrow();
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(result.fromVersion).toBeNull();
   });
 
   test('always emits a "see docs/UPGRADING-2.0.md" hint, regardless of pass/fail', () => {
-    const pass = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
-    writeStubPeaks(Object.values(STEP_TO_FIRST_ARGV).join(','));
-    const fail = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const pass = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
+    const fail = runUpgrade({
+      projectRoot: tmpProject,
+      peaksBin: stubPeaksBin,
+      executor: makeFakeExecutor(failAllReplies()),
+    });
     expect(pass.nextActions.some((a) => a.includes('docs/UPGRADING-2.0.md'))).toBe(true);
     expect(fail.nextActions.some((a) => a.includes('docs/UPGRADING-2.0.md'))).toBe(true);
   });
 
   test('record is written even on partial failure (forensic artifact guarantee)', () => {
-    writeStubPeaks('standards');
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const replies = new Map<string, FakeReply>([
+      ['standards', { exitCode: 1, stdout: '', stderr: 'stub: simulated failure for standards' }],
+    ]);
+    const result = runUpgrade({
+      projectRoot: tmpProject,
+      peaksBin: stubPeaksBin,
+      executor: makeFakeExecutor(replies),
+    });
     expect(result.applied).toBe(false);
     expect(result.upgradeRecordPath).not.toBeNull();
     expect(existsSync(result.upgradeRecordPath as string)).toBe(true);
@@ -276,7 +353,7 @@ describe('runUpgrade', () => {
 
   test('memory-extract is skipped (status=skipped) when no artifact files exist in the project', () => {
     // tmpProject is empty (no skills/, no CLAUDE.md, no .claude/rules/)
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const memStep = result.steps.find((s) => s.name === 'memory-extract');
     expect(memStep).toBeDefined();
     expect(memStep?.status).toBe('skipped');
@@ -291,10 +368,10 @@ describe('runUpgrade', () => {
     writeFileSync(join(tmpProject, '.claude', 'rules', 'common', 'coding-style.md'), '# coding\n', 'utf8');
     writeFileSync(join(tmpProject, 'CLAUDE.md'), '# project\n', 'utf8');
 
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const memStep = result.steps.find((s) => s.name === 'memory-extract');
     expect(memStep?.status).toBe('pass');
-    // The stub echoes its argv as JSON; the umbrella must have
+    // The fake echoes its argv as JSON; the umbrella must have
     // passed literal file paths (NOT the literal '**' glob string).
     expect(memStep?.stdout).not.toContain('**');
     // And the three files we created should each appear in argv
@@ -308,10 +385,10 @@ describe('runUpgrade', () => {
     // umbrella was calling memory-extract without --apply, so
     // memory-service ran in dry-run mode and wrote nothing.
     seedMemoryArtifacts(tmpProject);
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const memStep = result.steps.find((s) => s.name === 'memory-extract');
     expect(memStep?.status).toBe('pass');
-    // The stub echoes argv as JSON — '--apply' must be present
+    // The fake echoes argv as JSON — '--apply' must be present
     expect(memStep?.stdout).toContain('--apply');
   });
 
@@ -325,7 +402,7 @@ describe('runUpgrade', () => {
     mkdirSync(join(tmpProject, '.claude', 'skills', 'blueprint'), { recursive: true });
     writeFileSync(join(tmpProject, '.claude', 'skills', 'blueprint', 'SKILL.md'), '# stub\n', 'utf8');
 
-    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    const result = runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const memStep = result.steps.find((s) => s.name === 'memory-extract');
     expect(memStep?.status).toBe('pass'); // not skipped — artifacts found
     expect(memStep?.stdout).toContain('agent-sort');
@@ -340,7 +417,7 @@ describe('runUpgrade', () => {
     // the umbrella created the file when config-migrate said
     // "alreadyAtV2" + skipped.
     expect(existsSync(join(tmpProject, '.peaks', 'preferences.json'))).toBe(false);
-    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const prefsPath = join(tmpProject, '.peaks', 'preferences.json');
     expect(existsSync(prefsPath)).toBe(true);
     const body = JSON.parse(readFileSync(prefsPath, 'utf8'));
@@ -354,7 +431,7 @@ describe('runUpgrade', () => {
       JSON.stringify({ schema_version: '2.0.0', economyMode: false, customMarker: true }, null, 2),
       'utf8'
     );
-    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const body = JSON.parse(readFileSync(join(tmpProject, '.peaks', 'preferences.json'), 'utf8'));
     // User's economyMode=false override survived; the file was not clobbered with defaults.
     expect(body.economyMode).toBe(false);
@@ -368,7 +445,7 @@ describe('runUpgrade', () => {
     // upgrade. The umbrella now patches the .gitignore in place
     // with a backup.
     writeFileSync(join(tmpProject, '.gitignore'), 'node_modules/\n/.peaks/\n', 'utf8');
-    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     const after = readFileSync(join(tmpProject, '.gitignore'), 'utf8');
     expect(after).not.toMatch(/^\/?\.peaks\/?\s*$/m);
     expect(after).toContain('.peaks/_runtime/');
@@ -381,7 +458,28 @@ describe('runUpgrade', () => {
     // and must not create a .gitignore (that would be a
     // surprise side effect).
     expect(existsSync(join(tmpProject, '.gitignore'))).toBe(false);
-    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin });
+    runUpgrade({ projectRoot: tmpProject, peaksBin: stubPeaksBin, executor: makeFakeExecutor() });
     expect(existsSync(join(tmpProject, '.gitignore'))).toBe(false);
+  });
+});
+
+describe('defaultSubstepExecutor', () => {
+  test('returns a normalized shape with non-zero status when the command is missing', () => {
+    // Use a guaranteed-nonexistent command. On Windows the spawn
+    // will surface as { status: null, error: ENOENT } or a
+    // synchronous throw; both branches return the same shape.
+    const result = defaultSubstepExecutor(
+      'C:/__peaks-does-not-exist__/missing-binary',
+      ['config', 'migrate', '--json'],
+      5_000
+    );
+    // status is `number | null` per the SubstepExecutor contract;
+    // on a missing binary it lands as `null` (ENOENT).
+    expect(['number', 'object']).toContain(typeof result.status);
+    expect(typeof result.stdout).toBe('string');
+    expect(typeof result.stderr).toBe('string');
+    expect(typeof result.durationMs).toBe('number');
+    // Non-zero outcome: either null (ENOENT) or a non-zero exit code.
+    expect(result.status === null || (typeof result.status === 'number' && result.status !== 0)).toBe(true);
   });
 });
