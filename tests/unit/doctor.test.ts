@@ -9,6 +9,10 @@ import {
 
 describe('runDoctor', () => {
   test('passes the repository skeleton with required skills and schemas', async () => {
+    // Isolate from real workspace state so this assertion is not coupled
+    // to whatever orphan sessions or stale skill-presence happen to be on
+    // the test runner's disk. The test asserts the skeleton contract —
+    // required skills + schemas — not the repo's runtime hygiene.
     const report = await runDoctor({
       distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
       // Inject a passing workspace-layout probe so the live check
@@ -17,7 +21,15 @@ describe('runDoctor', () => {
       // binding from F3) doesn't incidentally flip the skeleton
       // summary. This test asserts "skeleton has required skills and
       // schemas", not "the repo is canonical".
-      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      // Point the L3:l3-orphan-sessions and L3:l3-memory-health checks at
+      // a fresh empty dir so the real .peaks/_runtime/ orphan sessions
+      // (e.g. heartbeat-test fixtures left behind by other test files)
+      // don't flip the skeleton summary to red.
+      l3ProjectRoot: await mkdtemp(join(tmpdir(), 'peaks-doctor-skeleton-')),
+      // Inject a null skill presence so the freshness check does not
+      // age out against a presence file older than the 24h threshold.
+      skillPresenceProbe: () => null
     });
 
     expect(report.summary.ok).toBe(true);
@@ -500,7 +512,9 @@ describe('runDoctor build:dist-version-matches-source check', () => {
   test('passes when the dist CLI_VERSION matches the source package.json#version', async () => {
     const report = await runDoctor({
       distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
-      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      l3ProjectRoot: await mkdtemp(join(tmpdir(), 'peaks-doctor-dist-match-')),
+      skillPresenceProbe: () => null
     });
     const check = report.checks.find((item) => item.id === 'build:dist-version-matches-source');
 
@@ -526,7 +540,9 @@ describe('runDoctor build:dist-version-matches-source check', () => {
   test('passes with an informational message when dist/ is absent (fresh clone, pre-build)', async () => {
     const report = await runDoctor({
       distVersionProbe: () => ({ dist: null, source: '1.3.1', match: false, distReadable: false }),
-      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      l3ProjectRoot: await mkdtemp(join(tmpdir(), 'peaks-doctor-dist-absent-')),
+      skillPresenceProbe: () => null
     });
     const check = report.checks.find((item) => item.id === 'build:dist-version-matches-source');
 
@@ -541,7 +557,9 @@ describe('runDoctor build:workspace-layout-canonical check', () => {
   test('passes when no top-level session dirs and no legacy dotfiles are present', async () => {
     const report = await runDoctor({
       distVersionProbe: () => ({ dist: '1.3.1', source: '1.3.1', match: true, distReadable: true }),
-      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] })
+      workspaceLayoutProbe: () => ({ topLevelSessionDirs: [], legacyDotfiles: [] }),
+      l3ProjectRoot: await mkdtemp(join(tmpdir(), 'peaks-doctor-layout-')),
+      skillPresenceProbe: () => null
     });
     const check = report.checks.find((item) => item.id === 'build:workspace-layout-canonical');
 
@@ -715,7 +733,9 @@ describe('runDoctor integration:gateguard-peaks-conflict check', () => {
         globalSettings: { hooks: { PreToolUse: [] } },
         projectSettingsPath: '/repo/.claude/settings.json',
         projectSettings: null
-      })
+      }),
+      l3ProjectRoot: await mkdtemp(join(tmpdir(), 'peaks-doctor-gateguard-')),
+      skillPresenceProbe: () => null
     });
     const check = report.checks.find((item) => item.id === 'integration:gateguard-peaks-conflict');
 
