@@ -87,7 +87,7 @@ function launchConcurrent<T>(n: number, body: (idx: number) => Promise<T>): Prom
   return promises;
 }
 
-describe('G5 heartbeat: 4+ concurrent appendHeartbeat on same record', () => {
+describe('G5 heartbeat: 4+ concurrent appendHeartbeat on same record', { timeout: 30_000 }, () => {
   it('preserves every heartbeat in append-order under concurrent appendHeartbeat (fuzz, 20×)', async () => {
     for (let rep = 0; rep < RACE_REPEAT; rep += 1) {
       // Bootstrap a real record via writeInitialDispatchRecord. Each

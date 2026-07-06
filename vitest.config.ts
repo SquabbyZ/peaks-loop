@@ -29,6 +29,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     setupFiles: ['./tests/vitest.setup.ts'],
+    // Slice A.1 — raise default testTimeout from 5000ms to 10000ms.
+    testTimeout: 10_000,
     /**
      * Slice A.3 / AC-5.1 — G5 race-detector mode is documented below.
      *

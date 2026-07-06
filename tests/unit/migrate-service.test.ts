@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep as pathSep } from 'node:path';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest';
 import { migrateWorkspace } from '../../src/services/workspace/migrate-service.js';
 
 // Convert any path-style to a forward-slash style for substring checks.
@@ -41,15 +41,26 @@ function readFile(absPath: string): string {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('migrateWorkspace', () => {
+describe('migrateWorkspace', { timeout: 30_000 }, () => {
   let project: string;
 
-  beforeEach(() => {
+  // Hoist git init ONCE per describe — git init + 3 config calls cost
+  // ~7s on Windows per call; 21 tests × 7s = ~150s of avoidable wall-clock.
+  // Each test still gets a clean `<sid>` realpath under `.peaks/_runtime/`
+  // (file-lock semantic preserved — sessions are different realpaths).
+  // `rmSync(.peaks)` in beforeEach removes only the .peaks/ tree; the
+  // outer git repo (`.git/`) survives, so we don't pay init cost again.
+  beforeAll(() => {
     project = makeProject();
     initGit(project);
   });
 
-  afterEach(() => {
+  beforeEach(() => {
+    // Reset only `.peaks/`; outer git repo (and `initGit` config) survives.
+    rmSync(join(project, '.peaks'), { recursive: true, force: true });
+  });
+
+  afterAll(() => {
     try {
       rmSync(project, { recursive: true, force: true });
     } catch {
