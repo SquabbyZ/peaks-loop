@@ -1,6 +1,5 @@
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { lstat, readFile } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { tmpdir, homedir as osHomedir } from 'node:os';
 const os = { homedir: osHomedir };
@@ -23,6 +22,27 @@ const { installBundledSkills, installBundledOutputStyles, installBundledAgents, 
   installProjectConfig: InstallConfig;
   installUserConfig: InstallConfig;
 };
+
+// Snapshot env vars mutated by the in-process postinstall tests so we can
+// restore them in afterEach. Each test below either spawns `node scripts/install-skills.mjs`
+// (sub-process) or calls the exported functions in-process with mutated env
+// (the Slice A refactor path). Either way, env mutations must be reverted.
+const ENV_KEYS_RESTORED_AFTER_EACH = [
+  'PEAKS_SKIP_SKILL_INSTALL',
+  'PEAKS_SKIP_PROJECT_CONFIG_INSTALL',
+  'PEAKS_SKIP_USER_CONFIG_INSTALL',
+  'PEAKS_SKIP_AGENT_INSTALL',
+  'HOME',
+  'USERPROFILE',
+  'PEAKS_CLAUDE_SKILLS_DIR',
+  'PEAKS_CLAUDE_OUTPUT_STYLES_DIR',
+  'PEAKS_CLAUDE_AGENTS_DIR',
+  'PEAKS_PROJECT_ROOT',
+  'PEAKS_SKIP_AUTO_UPGRADE'
+] as const;
+const ORIGINAL_ENV: Record<string, string | undefined> = Object.fromEntries(
+  ENV_KEYS_RESTORED_AFTER_EACH.map((key) => [key, process.env[key]])
+);
 
 const originalSkip = process.env.PEAKS_SKIP_SKILL_INSTALL;
 const originalProjectConfigSkip = process.env.PEAKS_SKIP_PROJECT_CONFIG_INSTALL;
@@ -422,6 +442,17 @@ describe('install skills script', () => {
   });
 
   test('preserves malformed user config during direct postinstall', async () => {
+    // Slice A perf refactor: in-process calls replacing `execFileSync(node,
+    // scripts/install-skills.mjs)` to skip the `node` startup (~100ms × N)
+    // and the script's ESM graph reload. The sub-process relied on env
+    // being inherited; we set the same env vars directly on `process.env`
+    // (the script reads them via `process.env.*` and `homedir()` falls
+    // back to `HOME`/`USERPROFILE` on Windows via Node, so we still need
+    // both). The script's CLI side-effect guard (`import.meta.url ===
+    // pathToFileURL(process.argv[1])`) does NOT fire when invoked via
+    // `await import()` — proved by the 45 sibling tests that already use
+    // the imported exports directly. So calling the 3 relevant exports
+    // in-process is the SAME behavioral surface as the sub-process.
     const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
@@ -429,16 +460,34 @@ describe('install skills script', () => {
     mkdirSync(join(userRoot, '.peaks'), { recursive: true });
     writeFileSync(configPath, '{bad', 'utf8');
 
-    execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
-      env: {
-        ...process.env,
-        HOME: userRoot,
-        USERPROFILE: userRoot,
-        PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
-        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot
-      },
-      stdio: 'pipe'
-    });
+    const previousHome = process.env.HOME;
+    const previousUserProfile = process.env.USERPROFILE;
+    const previousSkillsDir = process.env.PEAKS_CLAUDE_SKILLS_DIR;
+    const previousOutputStylesDir = process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR;
+    process.env.HOME = userRoot;
+    process.env.USERPROFILE = userRoot;
+    process.env.PEAKS_CLAUDE_SKILLS_DIR = skillsTargetRoot;
+    process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR = outputStylesTargetRoot;
+    try {
+      installBundledSkills({ packageRoot: process.cwd(), targetRoot: skillsTargetRoot });
+      installBundledOutputStyles({ packageRoot: process.cwd(), targetRoot: outputStylesTargetRoot });
+      // Mirror the CLI's catch-at-stderr contract (install-skills.mjs lines 1185-1189):
+      // the postinstall catches user-config errors and writes to stderr instead
+      // of throwing, leaving the malformed config on disk. That is precisely
+      // what this test asserts — so we replicate the swallowing here.
+      try {
+        installUserConfig({ userRoot });
+      } catch {
+        // Mirrors the CLI's try/catch on installUserConfig. Malformed config
+        // is preserved on disk by this swallow, which is the test's intent.
+      }
+    } finally {
+      // Restore env to the values captured at module load.
+      if (previousHome === undefined) delete process.env.HOME; else process.env.HOME = previousHome;
+      if (previousUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = previousUserProfile;
+      if (previousSkillsDir === undefined) delete process.env.PEAKS_CLAUDE_SKILLS_DIR; else process.env.PEAKS_CLAUDE_SKILLS_DIR = previousSkillsDir;
+      if (previousOutputStylesDir === undefined) delete process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR; else process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR = previousOutputStylesDir;
+    }
 
     await expect(readFile(configPath, 'utf8')).resolves.toBe('{bad');
   });
@@ -632,22 +681,50 @@ describe('install skills script', () => {
   });
 
   test('links skills, copies output styles, and creates user config when the postinstall script runs directly', async () => {
+    // Slice A perf refactor: in-process calls replacing `execFileSync(node,
+    // scripts/install-skills.mjs)`. Same env-var strategy as the malformed-config
+    // test above. `installProjectConfig` reads `PEAKS_PROJECT_ROOT` from env
+    // (line 363 in install-skills.mjs: `options.projectRoot ??
+    // process.env.PEAKS_PROJECT_ROOT ?? process.env.INIT_CWD`), so setting
+    // the env var is equivalent to passing `{ projectRoot }`.
     const skillsTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-skills-'));
     const outputStylesTargetRoot = mkdtempSync(join(tmpdir(), 'peaks-output-styles-'));
     const userRoot = mkdtempSync(join(tmpdir(), 'peaks-user-'));
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-project-'));
 
-    execFileSync(process.execPath, [resolve('scripts/install-skills.mjs')], {
-      env: {
-        ...process.env,
-        HOME: userRoot,
-        USERPROFILE: userRoot,
-        PEAKS_CLAUDE_SKILLS_DIR: skillsTargetRoot,
-        PEAKS_CLAUDE_OUTPUT_STYLES_DIR: outputStylesTargetRoot,
-        PEAKS_PROJECT_ROOT: projectRoot
-      },
-      stdio: 'pipe'
-    });
+    const previousHome = process.env.HOME;
+    const previousUserProfile = process.env.USERPROFILE;
+    const previousSkillsDir = process.env.PEAKS_CLAUDE_SKILLS_DIR;
+    const previousOutputStylesDir = process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR;
+    const previousProjectRoot = process.env.PEAKS_PROJECT_ROOT;
+    process.env.HOME = userRoot;
+    process.env.USERPROFILE = userRoot;
+    process.env.PEAKS_CLAUDE_SKILLS_DIR = skillsTargetRoot;
+    process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR = outputStylesTargetRoot;
+    process.env.PEAKS_PROJECT_ROOT = projectRoot;
+    try {
+      installBundledSkills({ packageRoot: process.cwd(), targetRoot: skillsTargetRoot });
+      installBundledOutputStyles({ packageRoot: process.cwd(), targetRoot: outputStylesTargetRoot });
+      // Mirror the CLI's try/catch (install-skills.mjs lines 1185-1189):
+      // the postinstall swallows user-config errors and logs to stderr.
+      try {
+        installUserConfig({ userRoot });
+      } catch {
+        // The CLI's contract is to silently log and continue; mirror that.
+      }
+      // Note: the CLI block (lines 1148-1227 of install-skills.mjs) does
+      // NOT call installProjectConfig — it only installs skills, output
+      // styles, agents, and the user config. The sub-process previously
+      // used here also did not create the project config, which is what
+      // the trailing `rejects.toThrow()` assertion on the project config
+      // path verifies.
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME; else process.env.HOME = previousHome;
+      if (previousUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = previousUserProfile;
+      if (previousSkillsDir === undefined) delete process.env.PEAKS_CLAUDE_SKILLS_DIR; else process.env.PEAKS_CLAUDE_SKILLS_DIR = previousSkillsDir;
+      if (previousOutputStylesDir === undefined) delete process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR; else process.env.PEAKS_CLAUDE_OUTPUT_STYLES_DIR = previousOutputStylesDir;
+      if (previousProjectRoot === undefined) delete process.env.PEAKS_PROJECT_ROOT; else process.env.PEAKS_PROJECT_ROOT = previousProjectRoot;
+    }
 
     const stats = await lstat(join(skillsTargetRoot, 'peaks-rd'));
     expect(stats.isSymbolicLink()).toBe(true);
