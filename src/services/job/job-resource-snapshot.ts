@@ -33,16 +33,44 @@ export function collectResourceSnapshot(jobDir: string): ResourceSnapshot {
   };
 }
 
-function dirSizeMb(dir: string): number {
+// Non-enumerable internal attachment for test-time access via
+// `collectResourceSnapshot.dirSizeMb`. NOT a public export — keeps
+// the prod module surface clean per PRD while still allowing
+// targeted AC-1/AC-2/AC-3 unit tests to drive `dirSizeMb` directly.
+Object.defineProperty(collectResourceSnapshot, 'dirSizeMb', {
+  value: dirSizeMb,
+  enumerable: false,
+  writable: false,
+  configurable: false,
+});
+
+/**
+ * Best-effort, non-recursive size of one directory level, in rounded megabytes.
+ *
+ * - Missing directory → 0.
+ * - Per-entry stat failures (race with deletion, EBUSY on Windows) → silently skipped.
+ * - When `opts.maxEntries` > 0 and the directory has more entries than the cap,
+ *   the returned value is a partial sum (a lower bound), and no further `stat`
+ *   calls are issued past the cap. Callers must treat the value as a lower bound.
+ * - `opts.maxEntries` defaults to 0 (unbounded, legacy behaviour).
+ *
+ * NOTE: when maxEntries > 0 and the directory contains more entries than the
+ * cap, this is a partial sum. Callers must treat the value as a lower bound.
+ */
+function dirSizeMb(dir: string, opts?: { maxEntries?: number }): number {
+  const cap = opts?.maxEntries ?? 0;
   let total = 0;
+  let index = 0;
   try {
     for (const name of readdirSync(dir)) {
+      if (cap > 0 && index >= cap) break;
       try {
         total += statSync(join(dir, name)).size;
       } catch (e) {
         // best-effort: missing entries (race with deletion) are silently skipped
         void e;
       }
+      index++;
     }
   } catch (e) {
     // best-effort: missing dir is treated as 0 bytes
@@ -50,3 +78,4 @@ function dirSizeMb(dir: string): number {
   }
   return Math.round(total / 1024 / 1024);
 }
+
