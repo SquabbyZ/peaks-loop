@@ -25,6 +25,11 @@ describe("openStateDb", () => {
         "bee_release",
         "bee_release_pointer",
         "bee_segment_ref",
+        // M1 / spec §4.1 / §7.2 — added by migration 002-loop-release.sql.
+        // The migration is non-breaking: existing 4.x `bee_release` rows
+        // are untouched (AC-3); this list grows because a NEW table
+        // appears alongside the existing 6 tables.
+        "loop_release",
       ].sort()
     );
     db.close();
