@@ -23,6 +23,10 @@ coverage/
 .peaks/preferences.json
 # Auto-generated upgrade record from `peaks upgrade --to 2.0`; per-installation artifact, not source-of-truth.
 .peaks/memory/upgrade-2.0-*.md
+# Loop Engineering dogfood ephemeral state DB (created by tests/integration/dogfood-loop-engineering-crystallization.test.ts).
+# The asset layer has been crystallized into .peaks/memory/2026-07-07-loop-engineering-first-crystallization.md;
+# the raw SQLite DB is per-installation and not source-of-truth.
+.peaks/state.db
 # Defense (slice 2026-06-22-top-level-change-id-cleanup): no YYYY-MM-DD-prefixed
 # directories are allowed at `.peaks/` top level. change-id / session-id style
 # dirs must live under `.peaks/_runtime/<sid>/` (gitignored) — never as siblings.
