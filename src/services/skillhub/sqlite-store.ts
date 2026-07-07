@@ -30,7 +30,24 @@ export function openStateDb(path: string): Database.Database {
     const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort();
     for (const f of files) {
       const sql = readFileSync(join(migrationsDir, f), "utf-8");
-      db.exec(sql);
+      try {
+        db.exec(sql);
+      } catch (err) {
+        // Tolerate idempotent re-runs of `ALTER TABLE ... ADD COLUMN`
+        // migrations (e.g. 004-loop-bee-extension). The migration
+        // files themselves are NOT idempotent (SQLite has no
+        // `ALTER TABLE ADD COLUMN IF NOT EXISTS`); the runner is
+        // made idempotent here so the same state.db can be opened
+        // by multiple CLI processes within one workflow.
+        const msg = err instanceof Error ? err.message : String(err);
+        if (
+          msg.includes("duplicate column name") ||
+          msg.includes("already exists")
+        ) {
+          continue;
+        }
+        throw err;
+      }
     }
   }
   return db;
