@@ -48,10 +48,15 @@ export function importRelease({
     mkdirSync(dest, { recursive: true });
     writeFileSync(join(dest, f.sha256), readFileSync(join(stageDir, "blobs", f.sha256)));
   }
-  // Re-insert rows: pick a new release id, mirror payload rows
+  // Re-insert rows: pick a new release id, mirror payload rows.
+  // M3 / spec §4.2: the new `shareable` and `desktop_visible` columns
+  // are written with their spec defaults (true). Future import
+  // payloads may carry these explicitly (M7 bundle format); until
+  // then M3 keeps defaulting on the insert path so existing call
+  // sites stay source-compatible.
   const tx = db.transaction(() => {
     const ins = db.prepare(
-      `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?)`
+      `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog, shareable, desktop_visible) VALUES (?, ?, 'user', ?, 'user', ?, ?, ?, ?, 1, 1)`
     );
     const id = ins.run(
       beeName,

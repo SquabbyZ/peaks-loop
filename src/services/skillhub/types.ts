@@ -9,6 +9,16 @@ export interface BeeReleaseRow {
   description: string | null;
   parent_version: string | null;
   changelog: string | null;
+  /**
+   * M3 / spec §4.2: `shareable` defaults to true (1 in SQLite).
+   * Enforced at the export CLI layer in M7; M3 only adds the column.
+   */
+  shareable: 0 | 1;
+  /**
+   * M3 / spec §4.2: `desktop_visible` defaults to true (1 in SQLite).
+   * Desktop visibility is a UI accelerator filter; M7 reads this.
+   */
+  desktop_visible: 0 | 1;
 }
 
 export interface BeeReleasePointerRow {

@@ -71,8 +71,13 @@ export function retainRelease({
 }): number {
   const version = explicitVersion ?? "0.1.0";
   const tx = db.transaction(() => {
+    // M3 / spec §4.2: `shareable` and `desktop_visible` are written
+    // with their spec defaults (true). M7 will add a CLI flag to
+    // override on retain; M3 keeps the defaulting on the insert path
+    // so existing call sites stay source-compatible. The two new
+    // columns were added by migration 004-loop-bee-extension.sql.
     const ins = db.prepare(
-      `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog) VALUES (?, ?, 'user', ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO bee_release (bee_name, version, source, archived_at, archived_by, user_intent_raw, description, parent_version, changelog, shareable, desktop_visible) VALUES (?, ?, 'user', ?, ?, ?, ?, ?, ?, 1, 1)`
     );
     const info = ins.run(
       manifest.name,

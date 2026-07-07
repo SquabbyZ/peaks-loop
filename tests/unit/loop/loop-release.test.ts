@@ -263,6 +263,9 @@ describe("loop_release SQLite migration", () => {
     expect(r?.user_intent_raw).toBe("legacy user intent");
     expect(r?.parent_version).toBeNull();
     // Snapshot the column set of bee_release before vs. after.
+    // M3 added `shareable` and `desktop_visible` (migration
+    // 004-loop-bee-extension.sql). The 4.x columns remain canonical
+    // and unchanged; the only additions are those two M3 fields.
     const cols = db.prepare("PRAGMA table_info(bee_release)").all() as Array<{
       name: string;
     }>;
@@ -273,8 +276,10 @@ describe("loop_release SQLite migration", () => {
       "bee_name",
       "changelog",
       "description",
+      "desktop_visible", // M3
       "id",
       "parent_version",
+      "shareable", // M3
       "source",
       "user_intent_raw",
       "version",

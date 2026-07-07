@@ -4,10 +4,11 @@ import type { LoopRelease, LoopReleaseLifecycleStatus } from "./loop-release-typ
 /**
  * Low-level SQLite access for the `loop_release` table. The
  * migration is registered with the existing `openStateDb()` pipeline
- * via `src/services/skillhub/migrations/002-loop-release.sql` (it
- * applies every `*.sql` file in lexicographic order). The function
- * `ensureLoopReleaseTable` below is a belt-and-suspenders re-applier
- * for callers that pass a database they built themselves (e.g. tests).
+ * via `src/services/skillhub/migrations/002-loop-release.sql` and
+ * `004-loop-bee-extension.sql` (it applies every `*.sql` file in
+ * lexicographic order). The function `ensureLoopReleaseTable` below
+ * is a belt-and-suspenders re-applier for callers that pass a
+ * database they built themselves (e.g. tests).
  *
  * Defense in depth:
  *   - All JSON columns are stored as TEXT and parsed at the boundary.
@@ -15,13 +16,22 @@ import type { LoopRelease, LoopReleaseLifecycleStatus } from "./loop-release-typ
  *     queryable.
  *   - The migration is idempotent (CREATE TABLE IF NOT EXISTS, CREATE
  *     INDEX IF NOT EXISTS) so re-running it is safe.
- *   - The migration does NOT touch any 4.x `bee_release` column (AC-3).
+ *   - The M3 migration (`004-loop-bee-extension.sql`) is non-breaking:
+ *     it only adds new columns with DEFAULTs and does NOT touch any
+ *     pre-existing column on `bee_release` (AC-3).
  */
 
 /**
  * Re-apply the loop_release table migration against an already-open
  * database. Used by tests that build their own DB without the openStateDb
  * pipeline. Idempotent.
+ *
+ * M3: the CREATE here now includes the four share / desktop extension
+ * columns from migration 004 (`shareable`, `share_excluded_paths`,
+ * `desktop_visible`, `export_bundle_format`). For an existing M2-era
+ * database, the migration runner will already have applied 004 and
+ * the columns will exist; for a freshly-built DB via this helper the
+ * columns are baked in. Either way the schema converges.
  */
 export function ensureLoopReleaseTable(db: Database.Database): void {
   db.exec(`
@@ -41,7 +51,11 @@ export function ensureLoopReleaseTable(db: Database.Database): void {
       lifecycle_status         TEXT NOT NULL CHECK (lifecycle_status IN ('candidate','stable','retired')),
       version                  TEXT NOT NULL,
       schema_version           TEXT NOT NULL CHECK (schema_version = 'peaks.loop/1'),
-      archived_at              TEXT NOT NULL
+      archived_at              TEXT NOT NULL,
+      shareable                INTEGER NOT NULL DEFAULT 1 CHECK (shareable IN (0, 1)),
+      share_excluded_paths     TEXT NOT NULL DEFAULT '[]',
+      desktop_visible          INTEGER NOT NULL DEFAULT 1 CHECK (desktop_visible IN (0, 1)),
+      export_bundle_format     TEXT NOT NULL DEFAULT 'peaks.bundle/1' CHECK (export_bundle_format = 'peaks.bundle/1')
     );
     CREATE INDEX IF NOT EXISTS idx_loop_release_lifecycle_status ON loop_release(lifecycle_status);
     CREATE INDEX IF NOT EXISTS idx_loop_release_scenario ON loop_release(scenario);
@@ -65,6 +79,14 @@ interface LoopReleaseRow {
   version: string;
   schema_version: "peaks.loop/1";
   archived_at: string;
+  /** M3: 0/1 in SQLite, coerced to boolean on read. */
+  shareable: 0 | 1;
+  /** M3: JSON-encoded string[]. Defaults to '[]'. */
+  share_excluded_paths: string;
+  /** M3: 0/1 in SQLite, coerced to boolean on read. */
+  desktop_visible: 0 | 1;
+  /** M3: pinned constant 'peaks.bundle/1'. */
+  export_bundle_format: "peaks.bundle/1";
 }
 
 function rowToLoopRelease(row: LoopReleaseRow): LoopRelease {
@@ -84,6 +106,12 @@ function rowToLoopRelease(row: LoopReleaseRow): LoopRelease {
     lifecycle_status: row.lifecycle_status,
     version: row.version,
     schema_version: row.schema_version,
+    // M3: coerce the SQLite 0/1 INTEGER convention to JS boolean, and
+    // parse the JSON-encoded path list at the boundary.
+    shareable: row.shareable === 1,
+    share_excluded_paths: JSON.parse(row.share_excluded_paths) as string[],
+    desktop_visible: row.desktop_visible === 1,
+    export_bundle_format: row.export_bundle_format,
   };
 }
 
@@ -105,8 +133,9 @@ export function insertLoopRelease(
        id, name, scenario, trigger_policy,
        success_criteria_json, interaction_policy, feedback_policy, evolution_policy,
        evaluator_policy_json, linked_bees_json, run_history_json, crystallization_evidence_json,
-       lifecycle_status, version, schema_version, archived_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       lifecycle_status, version, schema_version, archived_at,
+       shareable, share_excluded_paths, desktop_visible, export_bundle_format
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   stmt.run(
     row.id,
@@ -124,7 +153,12 @@ export function insertLoopRelease(
     row.lifecycle_status,
     row.version,
     row.schema_version,
-    new Date().toISOString()
+    new Date().toISOString(),
+    // M3: serialize the booleans to the SQLite 0/1 convention.
+    row.shareable ? 1 : 0,
+    JSON.stringify(row.share_excluded_paths),
+    row.desktop_visible ? 1 : 0,
+    row.export_bundle_format
   );
 }
 

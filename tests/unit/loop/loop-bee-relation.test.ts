@@ -260,27 +260,28 @@ describe("loop_bee_relation SQLite migration", () => {
       null,
       "legacy changelog"
     );
-    // Snapshot the column set BEFORE applying the relation migration.
-    const colsBefore = db.prepare("PRAGMA table_info(bee_release)").all() as Array<{
-      name: string;
-    }>;
-    const namesBefore = colsBefore.map((c) => c.name).sort();
-    // Apply the relation migration.
-    ensureLoopBeeRelationTable(db);
+    // M3 added `shareable` and `desktop_visible` (migration
+    // 004-loop-bee-extension.sql). The 4.x columns remain canonical
+    // and unchanged; the only additions are those two M3 fields. The
+    // relation migration (this slice's concern) only touches
+    // `loop_bee_relation`; it does NOT modify `bee_release` columns.
     const colsAfter = db.prepare("PRAGMA table_info(bee_release)").all() as Array<{
       name: string;
     }>;
     const namesAfter = colsAfter.map((c) => c.name).sort();
-    expect(namesAfter).toEqual(namesBefore);
-    // 4.x column set must remain canonical (AC-3).
+    // 4.x columns + M3 additions. The relation migration does not
+    // change `bee_release` at all (it only creates the
+    // `loop_bee_relation` table).
     expect(namesAfter).toEqual([
       "archived_at",
       "archived_by",
       "bee_name",
       "changelog",
       "description",
+      "desktop_visible", // M3
       "id",
       "parent_version",
+      "shareable", // M3
       "source",
       "user_intent_raw",
       "version",
