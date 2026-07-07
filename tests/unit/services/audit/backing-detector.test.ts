@@ -48,7 +48,7 @@ describe('backing-detector.classifyBacking', () => {
   it('upgrades to partial when context contains "if llm cooperates" marker', () => {
     const projectRoot = '/tmp/no-fs';
     const entry = makeEntry({
-      enforcerRef: 'src/services/audit/enforcers/solo-code-ban.ts',
+      enforcerRef: 'src/services/audit/enforcers/code-ban.ts',
       source: {
         file: 'skills/peaks-code/SKILL.md',
         line: 1,

@@ -37,14 +37,14 @@ UI inherits `peaks-qa`'s hard-block contract: `AskUserQuestion` with three optio
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` from `peaks-code`, these sections are **suspended** for the sub-agent run:
 
 - **Session id** — use parent's sid (`.peaks/_runtime/session.json` or `--session-id <parent-sid>`). Do NOT spawn your own session; `peaks session info --active` reads the canonical binding.
-- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Solo owns `.peaks/.active-skill.json`. Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
-- **Workspace initialization** — Solo ran `peaks workspace init` before fan-out; do not re-run.
-- **Mode selection** — Solo chose the mode.
-- **Statusline install** — done by Solo at startup.
+- **Skill presence** — do NOT call `peaks skill presence:set peaks-ui`; Code owns `.peaks/.active-skill.json`. Marker file at `.peaks/_runtime/<session-id>/system/sub-agent-ui.json` only.
+- **Workspace initialization** — Code ran `peaks workspace init` before fan-out; do not re-run.
+- **Mode selection** — Code chose the mode.
+- **Statusline install** — done by Code at startup.
 
 What the sub-agent **MUST** still do:
 
-1. **Do NOT call `peaks request init`** — Solo already initialised the slot. Read via `peaks request show <rid> --role ui --project <repo> --json` if needed.
+1. **Do NOT call `peaks request init`** — Code already initialised the slot. Read via `peaks request show <rid> --role ui --project <repo> --json` if needed.
 2. Read PRD scope via `peaks request show <rid> --role prd --project <repo> --json`.
 3. Read `rd/project-scan.md` for component library / CSS framework / design-system context.
 4. Run the prototype fidelity check (Figma / PRD visuals / headed browser).
@@ -65,13 +65,13 @@ What the sub-agent **MUST** still do:
 **Hard prohibitions** (sub-agent context):
 
 - Do NOT call `Skill(skill="...")`.
-- Do NOT call `peaks skill presence:set` — Solo owns active-skill.
+- Do NOT call `peaks skill presence:set` — Code owns active-skill.
 - Do NOT modify application code. UI is design-direction only.
-- Do NOT install MCP servers. If Playwright MCP is missing and headed browser is required, return `{"status":"blocked","blockedReason":"playwright-mcp-unavailable"}` for Solo escalation. (peaks-loop no longer manages MCP install — user runs `claude mcp add playwright -- npx @playwright/mcp@latest` in Claude Code.)
+- Do NOT install MCP servers. If Playwright MCP is missing and headed browser is required, return `{"status":"blocked","blockedReason":"playwright-mcp-unavailable"}` for Code escalation. (peaks-loop no longer manages MCP install — user runs `claude mcp add playwright -- npx @playwright/mcp@latest` in Claude Code.)
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask user questions; return `{"status":"blocked","blockedReason":"<text>"}` if blocked.
 
-If the request does not affect user-visible behavior (no frontend keyword hit, `frontendOnly=false`), the swarm plan should not include UI at all — Solo will not launch this sub-agent. But if it does launch you and you determine the work is non-visual, return `{"status":"skipped","reason":"non-frontend-request"}` so Solo can record the misfire.
+If the request does not affect user-visible behavior (no frontend keyword hit, `frontendOnly=false`), the swarm plan should not include UI at all — Code will not launch this sub-agent. But if it does launch you and you determine the work is non-visual, return `{"status":"skipped","reason":"non-frontend-request"}` so Code can record the misfire.
 
 ## Skill presence (MANDATORY first action — main-loop context only)
 

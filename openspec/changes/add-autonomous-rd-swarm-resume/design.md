@@ -96,7 +96,7 @@ MVP can be exposed through a dry-run command such as:
 
 ```bash
 peaks workflow autonomous \
-  --mode solo \
+  --mode code \
   --change-id <id> \
   --goal "<goal>" \
   --max-workers 40 \

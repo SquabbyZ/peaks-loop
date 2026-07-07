@@ -62,14 +62,14 @@ peaks skill presence --check-stale --project <path> --json
 
 Returns the same `stale` / `reason` / `currentOuterSessionId` / `recordedOuterSessionId` fields attached to the standard presence envelope. Default `false` (back-compat).
 
-## Pause integration via `peaks solo should-pause`
+## Pause integration via `peaks code should-pause`
 
-`peaks solo should-pause --step step-1-mode-select --mode <mode>` now consults `presence:check-stale` automatically. When stale:
+`peaks code should-pause --step step-1-mode-select --mode <mode>` now consults `presence:check-stale` automatically. When stale:
 
 ```json
 {
   "ok": true,
-  "command": "solo.should-pause",
+  "command": "code.should-pause",
   "data": {
     "shouldPause": true,
     "reason": "stale-presence — re-ask Step 1 (recorded outer session id does not match current)",
@@ -79,7 +79,7 @@ Returns the same `stale` / `reason` / `currentOuterSessionId` / `recordedOuterSe
 }
 ```
 
-The hard-pause on `step-1-mode-select` is preserved for ALL modes (defect #1 fix from slice 2026-06-28-solo-mode-bypass-fix). Stale-presence is an additional reason — even when the user names a profile explicitly, peaks-code can still surface the staleness for visibility.
+The hard-pause on `step-1-mode-select` is preserved for ALL modes (defect #1 fix from slice 2026-06-28-code-mode-bypass-fix). Stale-presence is an additional reason — even when the user names a profile explicitly, peaks-code can still surface the staleness for visibility.
 
 ## Auto-clear on session rotation
 
@@ -108,7 +108,7 @@ peaks workspace init --project . --json
 peaks skill presence:check-stale --project . --json
 # → { stale: true, reason: "no-presence", presence: null }
 
-peaks solo should-pause --step step-1-mode-select --mode full-auto --json
+peaks code should-pause --step step-1-mode-select --mode full-auto --json
 # → { shouldPause: true, reason: "step=step-1-mode-select is a mode/context-selection step → always pause" }
 
 # 3. User picks a profile (or repeats "full-auto"). Then:

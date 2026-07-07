@@ -6,7 +6,7 @@
  * file covers hooks #2–#7:
  *   #2 dispatch   (peaks sub-agent dispatch — dispatch-commands.ts)
  *   #3 checkpoint (peaks session checkpoint — session-checkpoint-service.ts)
- *   #4 mode-gate  (D5 — solo-commands.ts: should-pause)
+ *   #4 mode-gate  (D5 — code-commands.ts: should-pause)
  *   #5 context    (D6 — context-commands.ts: check)
  *   #6 post-compact (D7 — post-compact-detector.ts: detectPostCompactResume)
  *   #7 prereq     (RD→QA — artifact-prerequisites.ts: checkPrerequisites)
@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { writeCheckpoint } from '../../../../src/services/session/session-checkpoint-service.js';
-import { detectPostCompactResume } from '../../../../src/services/solo/post-compact-detector.js';
+import { detectPostCompactResume } from '../../../../src/services/code/post-compact-detector.js';
 import { checkPrerequisites } from '../../../../src/services/artifacts/artifact-prerequisites.js';
 import { readObservabilityEvents } from '../../../../src/services/observability/observability-service.js';
 import { metricsDirPath, metricsFilePath } from '../../../../src/services/observability/jsonl-store.js';

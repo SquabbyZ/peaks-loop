@@ -86,7 +86,7 @@ const KEEP_DESCRIPTIONS: ReadonlyArray<{ file: string; anchor: string }> = [
     anchor: 'NOT a sibling dir at .peaks/_runtime/<change-id>/',
   },
   // workflow/verify-pipeline: document the canonical look-up location
-  // (slice 2026-06-28-solo-mode-bypass-fix defect #3). The literal
+  // (slice 2026-06-28-code-mode-bypass-fix defect #3). The literal
   // `.peaks/_runtime/change/<sessionId>/` is the CANONICAL shape (under
   // `.peaks/_runtime/`), NOT the banned sibling form, but the directive
   // pattern matches any `<...>`-bracketed path so we keep-list the

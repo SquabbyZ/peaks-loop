@@ -339,58 +339,58 @@
       "updatedAt": "2026-06-05T15:00:39.684Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Test Report: 003-2026-06-04-solo-step-0-7-resume",
+      "title": "QA Test Report: 003-2026-06-04-code-step-0-7-resume",
       "summary": "All 8 acceptance test cases pass. The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-code/SKILL.md`. The new step runs a deterministic, read-only bash loop that classifies the session into one of `fresh | complete | resume:<gate…",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/test-reports/003-2026-06-04-solo-step-0-7-resume.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/qa/test-reports/003-2026-06-04-code-step-0-7-resume.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.682Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Test Cases: 003-2026-06-04-solo-step-0-7-resume",
-      "summary": "QA Test Cases: 003-2026-06-04-solo-step-0-7-resume",
+      "title": "QA Test Cases: 003-2026-06-04-code-step-0-7-resume",
+      "summary": "QA Test Cases: 003-2026-06-04-code-step-0-7-resume",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/test-cases/003-2026-06-04-solo-step-0-7-resume.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/qa/test-cases/003-2026-06-04-code-step-0-7-resume.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.681Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Test Report: 002-2026-06-04-solo-skill-slim-extract",
+      "title": "QA Test Report: 002-2026-06-04-code-skill-slim-extract",
       "summary": "All 10 acceptance test cases pass. The slice is a pure documentation + helper-extraction refactor that: 1. Slims `skills/peaks-code/SKILL.md` from 1071 → 765 lines (under the 800-line cap) 2. Extracts the 168-line bash runbook to `skills/peaks-code/references/runbook.md` 3. Extr…",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/test-reports/002-2026-06-04-solo-skill-slim-extract.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/qa/test-reports/002-2026-06-04-code-skill-slim-extract.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.678Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Test Cases: 002-2026-06-04-solo-skill-slim-extract",
-      "summary": "QA Test Cases: 002-2026-06-04-solo-skill-slim-extract",
+      "title": "QA Test Cases: 002-2026-06-04-code-skill-slim-extract",
+      "summary": "QA Test Cases: 002-2026-06-04-code-skill-slim-extract",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/test-cases/002-2026-06-04-solo-skill-slim-extract.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/qa/test-cases/002-2026-06-04-code-skill-slim-extract.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.676Z"
     },
@@ -983,105 +983,105 @@
       "updatedAt": "2026-06-05T15:00:39.610Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "Security Review: 003-2026-06-04-solo-step-0-7-resume",
+      "title": "Security Review: 003-2026-06-04-code-step-0-7-resume",
       "summary": "The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-code/SKILL.md`. The new step reads `.peaks/_runtime/<sid>/{prd,rd,qa}/requests/*.md` files and classifies the session. Threat-model-wise, the only new code path is the new bash loop in t…",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/security-review-003.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/rd/security-review-003.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.608Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "RD Request 003-2026-06-04-solo-step-0-7-resume",
-      "summary": "RD Request 003-2026-06-04-solo-step-0-7-resume",
+      "title": "RD Request 003-2026-06-04-code-step-0-7-resume",
+      "summary": "RD Request 003-2026-06-04-code-step-0-7-resume",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/requests/003-003-2026-06-04-solo-step-0-7-resume.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/rd/requests/003-003-2026-06-04-code-step-0-7-resume.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.607Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "Perf Baseline: 003-2026-06-04-solo-step-0-7-resume",
+      "title": "Perf Baseline: 003-2026-06-04-code-step-0-7-resume",
       "summary": "The slice is a pure markdown addition + test infrastructure. The performance surface is:",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/perf-baseline-003.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/rd/perf-baseline-003.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.606Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "Code Review: 003-2026-06-04-solo-step-0-7-resume",
+      "title": "Code Review: 003-2026-06-04-code-step-0-7-resume",
       "summary": "The slice adds a new `Step 0.7: Detect unfinished work and offer resume` sub-section to `skills/peaks-code/SKILL.md`, between the existing Step 0 (anchor workspace) and Step 1 (mode selection). The new step runs a deterministic, read-only shell loop that classifies the session i…",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/rd/code-review-003.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/rd/code-review-003.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.605Z"
     },
     {
-      "id": "003-2026-06-04-solo-step-0-7-resume",
+      "id": "003-2026-06-04-code-step-0-7-resume",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Request 003-2026-06-04-solo-step-0-7-resume",
-      "summary": "QA Request 003-2026-06-04-solo-step-0-7-resume",
+      "title": "QA Request 003-2026-06-04-code-step-0-7-resume",
+      "summary": "QA Request 003-2026-06-04-code-step-0-7-resume",
       "outcome": "blocked",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/003-2026-06-04-solo-step-0-7-resume/qa/requests/003-003-2026-06-04-solo-step-0-7-resume.md"
+        ".peaks/retrospective/003-2026-06-04-code-step-0-7-resume/qa/requests/003-003-2026-06-04-code-step-0-7-resume.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.604Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "Peaks-Loop Solo Handoff Capsule",
-      "summary": "Peaks-Loop Solo Handoff Capsule",
+      "title": "Peaks-Loop Code Handoff Capsule",
+      "summary": "Peaks-Loop Code Handoff Capsule",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/txt/handoff.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/txt/handoff.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.601Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "RD Request 002-2026-06-04-solo-skill-slim-extract",
-      "summary": "RD Request 002-2026-06-04-solo-skill-slim-extract",
+      "title": "RD Request 002-2026-06-04-code-skill-slim-extract",
+      "summary": "RD Request 002-2026-06-04-code-skill-slim-extract",
       "outcome": "shipped",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/requests/002-002-2026-06-04-solo-skill-slim-extract.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/rd/requests/002-002-2026-06-04-code-skill-slim-extract.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.600Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
       "title": "Security Review: peaks-code SKILL.md slim + references/ extraction",
@@ -1090,40 +1090,40 @@
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/security-review-002.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/rd/security-review-002.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.600Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "Perf Baseline: 002-2026-06-04-solo-skill-slim-extract",
+      "title": "Perf Baseline: 002-2026-06-04-code-skill-slim-extract",
       "summary": "The slice is a pure documentation + helper-extraction refactor. The performance surface is:",
       "outcome": "in-flight",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/perf-baseline-002.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/rd/perf-baseline-002.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.599Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
-      "title": "QA Request 002-2026-06-04-solo-skill-slim-extract",
-      "summary": "QA Request 002-2026-06-04-solo-skill-slim-extract",
+      "title": "QA Request 002-2026-06-04-code-skill-slim-extract",
+      "summary": "QA Request 002-2026-06-04-code-skill-slim-extract",
       "outcome": "blocked",
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/qa/requests/002-002-2026-06-04-solo-skill-slim-extract.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/qa/requests/002-002-2026-06-04-code-skill-slim-extract.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.598Z"
     },
     {
-      "id": "002-2026-06-04-solo-skill-slim-extract",
+      "id": "002-2026-06-04-code-skill-slim-extract",
       "sessionId": "2026-06-04-session-b60252",
       "type": "refactor",
       "title": "Code Review: peaks-code SKILL.md slim + references/ extraction",
@@ -1132,7 +1132,7 @@
       "keyDecisions": [],
       "lessonsLearned": 0,
       "artifactPaths": [
-        ".peaks/retrospective/002-2026-06-04-solo-skill-slim-extract/rd/code-review-002.md"
+        ".peaks/retrospective/002-2026-06-04-code-skill-slim-extract/rd/code-review-002.md"
       ],
       "updatedAt": "2026-06-05T15:00:39.598Z"
     },

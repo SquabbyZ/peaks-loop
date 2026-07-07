@@ -27,13 +27,13 @@ peaks agentTeam is a pseudo-swarm (per PRD §"Agent Team = 伪蜂群架构宣言
 **Must reclaim after use:**
 - **RL-5 Dispatch record落盘 mandatory.** Every `peaks sub-agent dispatch` writes `.peaks/_sub_agents/<sid>/dispatch-<rid>-<ts>.json` (already in slice #009 AC-24; G5 makes it a strong constraint, not nice-to-have).
 - **RL-6 Record schema with lifecycle fields.** `createdAt` (ISO8601) / `completedAt` (ISO8601 \| null, LLM回填) / `outcome` ("success" \| "failed" \| "timeout" \| "cancelled" \| "no-execution") / `artifactPaths` (string[]) / `disposed` (boolean) / `disposedAt` (ISO8601 \| null) / `role` / `requestId` / `sessionId` / `prompt` / `toolCall`. The `outcome: "no-execution"` case is the audit-risk marker for "LLM got the toolCall but never invoked it" (R-8 boundary).
-- **RL-7 Reducer disposes after consume.** Solo main loop, after reducing a batch, MUST traverse this batch's dispatch records, set `disposed: true` + write `disposedAt`. After reducer, any `disposed === false` AND `createdAt < now() - 1h` is a **leak** — emit warning to next session.
+- **RL-7 Reducer disposes after consume.** Code main loop, after reducing a batch, MUST traverse this batch's dispatch records, set `disposed: true` + write `disposedAt`. After reducer, any `disposed === false` AND `createdAt < now() - 1h` is a **leak** — emit warning to next session.
 - **RL-8 Slice close → archive + GC.** On `peaks session finish` / `peaks session abandon` / new rid startup, the previous slice's `.peaks/_sub_agents/<sid>/` records that are completed + disposed get archived to `.peaks/_runtime/<sid>/_archive/_sub_agents/<slice-id>/` (aligns with existing `_runtime` archive pattern), **retained 30 days then GC**. Records that are not yet disposed get archived but **not** GC'd — next session finishes them.
-- **RL-9 User cancel must dispose.** When user hits Ctrl-C in Solo main loop / `peaks workflow cancel --rid <rid>`, Solo catches SIGINT, MUST mark in-flight dispatch records `outcome: "cancelled"` + `disposed: true` + `disposedAt: now()` BEFORE exit. No silent discard of records when LLM got toolCall but sub-agent didn't finish.
+- **RL-9 User cancel must dispose.** When user hits Ctrl-C in Code main loop / `peaks workflow cancel --rid <rid>`, Code catches SIGINT, MUST mark in-flight dispatch records `outcome: "cancelled"` + `disposed: true` + `disposedAt: now()` BEFORE exit. No silent discard of records when LLM got toolCall but sub-agent didn't finish.
 
 **Observability is the enforcement mechanism:**
 - **RL-10 `peaks sub-agent list` future CLI stub.** New `peaks sub-agent` subcommand **only** implements `dispatch` atom in slice #009; `list` / `show` / `gc` are interface-only stubs (next implementer MUST add these 3 atoms before sub-agent CLI is "complete"). G5.3 makes the stub explicit.
-- **RL-11 Reducer completion visible.** Solo main loop after each batch emit `reducerReport: { batchId, total: N, disposed: M, leaked: K }`. `leaked > 0` triggers user-visible warning.
+- **RL-11 Reducer completion visible.** Code main loop after each batch emit `reducerReport: { batchId, total: N, disposed: M, leaked: K }`. `leaked > 0` triggers user-visible warning.
 - **RL-12 Slice-level audit.** Slice close emits `sliceReport.subAgentStats: { created: N, completed: M, disposed: K, leaked: L }`. `created > 30` triggers user-visible hint (经验上界, not hard fail).
 
 ## How to apply
@@ -46,7 +46,7 @@ For every `peaks sub-agent dispatch` invocation, the calling SKILL.md / LLM MUST
 4. Is the business sub-division ≤ 2 layers? (RL-4, peaks-qa only)
 5. After the batch reduces, will reducer dispose this record? (RL-7)
 
-For every peak-solo main loop iteration:
+For every peak-code main loop iteration:
 
 1. Track batch count + dispose status (RL-7)
 2. Emit `reducerReport` with `leaked` count (RL-11)
@@ -64,7 +64,7 @@ For slice close:
 - "I'll let the next slice clean up the leftover records" (violates RL-7 / RL-8 — slice-close MUST handle its own records)
 - "Sub-agent 3rd-level sub-roles are needed because the project is big" (violates RL-4 — 2 layers is hard cap; reconsider Dispatcher design)
 - "Disposed=false is fine, no one's been hurt" (violates RL-11 — emit reducerReport always, even when leaked=0)
-- "User can press Ctrl-C, the LLM cleans up" (violates RL-9 — Solo MUST dispose before exit, LLM behavior is not the disposal mechanism)
+- "User can press Ctrl-C, the LLM cleans up" (violates RL-9 — Code MUST dispose before exit, LLM behavior is not the disposal mechanism)
 
 ## Cross-reference
 

@@ -20,7 +20,7 @@ the skills compose. For sub-agent dispatch the relationship is:
 
 | Surface | Who owns | What it does | Who calls it |
 |---|---|---|---|
-| SKILL.md (主面) | peaks-code, peaks-rd, peaks-qa | Tells the LLM when and why to dispatch a sub-agent; what prompt to pass; what artifacts to expect back | LLM (during normal Solo / RD / QA flow) |
+| SKILL.md (主面) | peaks-code, peaks-rd, peaks-qa | Tells the LLM when and why to dispatch a sub-agent; what prompt to pass; what artifacts to expect back | LLM (during normal Code / RD / QA flow) |
 | CLI (副 / 原子) | `peaks sub-agent dispatch` | Validates the role, looks up the current IDE's `subAgentDispatcher`, returns a per-IDE tool-call descriptor + writes a dispatch record | LLM (read from the SKILL.md) |
 | Dispatcher 抽象 (per-IDE) | `src/services/dispatch/sub-agent-dispatcher.ts` | Encapsulates the IDE-private tool name (claude-code: `Task`, trae: UNVERIFIED placeholder) and arg shape | CLI (called by the CLI) |
 
@@ -278,7 +278,7 @@ When writing a SKILL.md that fans out sub-agents:
 
 ### Sub-agent mechanism (IDE-agnostic dispatch, NOT Skill tool)
 
-> Body of `### Sub-agent mechanism`. **Solo is itself a skill running in the current session. To invoke a role in the Swarm, Solo MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
+> Body of `### Sub-agent mechanism`. **Code is itself a skill running in the current session. To invoke a role in the Swarm, Code MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
 
 Each sub-agent dispatch call looks like:
 
@@ -304,21 +304,21 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 | `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
 | `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
-**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.
+**Code launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Code then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.
 
 **Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 
 - Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
-- Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
-- Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
-- Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
+- Do NOT call `peaks skill presence:set` — only the main Code loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
+- Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Code handle the user message.
+- Do NOT commit, push, install hooks, or apply settings.json mutations. Only Code holds those permissions.
   - **Reinforced (2026-06-28 incident):** an RD sub-agent silently auto-committed its own diff during a fix-callerid-leak dispatch (commit `bff4dff`). The orchestrator caught the unauthorized commit on the next turn but the user had to manually re-approve. **Every dispatch prompt MUST copy the verbatim block below into its `--prompt` argument** so the sub-agent sees the rule with full weight:
 
     ```
     ## Commit / push policy (verbatim, mandatory)
     - Do NOT run `git commit`, `git push`, `git tag`, `git checkout -b`, or any
       state-mutating git command. Leave the diff on disk and return the
-      diff summary in your final message. The orchestrator (Solo) owns the
+      diff summary in your final message. The orchestrator (Code) owns the
       commit / push decision; it will run `git status` and `git diff` after
       your return and decide whether to commit.
     - If you believe a commit is urgent (e.g. emergency hotfix), return
@@ -327,7 +327,7 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
     ```
 - **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
 
-After every sub-agent dispatch returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
+After every sub-agent dispatch returns, Code **restores presence** once (not per-agent), then continues to Gate B verification:
 
 ```bash
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-converged

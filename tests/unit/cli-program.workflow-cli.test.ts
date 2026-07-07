@@ -34,7 +34,7 @@ const TEST_TIMEOUT = 10000;
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
 const BUNDLED_WORKFLOW_PATH = join(PROJECT_ROOT, 'templates', 'workflows', 'default-fullauto-md.yaml');
 const SESSION_ID = '2026-06-30-session-f90141';
-const RID = 'loop-eng-native-solo-a-b';
+const RID = 'loop-eng-native-code-a-b';
 
 describe('createProgram workflow + loop CLI smoke (Slice A.3 + B.2)', () => {
   beforeEach(() => {

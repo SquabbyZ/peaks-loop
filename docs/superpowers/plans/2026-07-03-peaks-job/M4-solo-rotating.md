@@ -1,4 +1,4 @@
-# M4 — Solo Integration + Rotating Mode
+# M4 — Code Integration + Rotating Mode
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -239,7 +239,7 @@ After each slice's commit (Step 7 lands a commit):
 
 ### Peaks-Loop Step 0.85 — slice 阻塞处理
 
-Trigger: `peaks request repair-status --rid <rid>` returns `atCap: true`, OR `peaks solo context-now` is red-line sustained ≥5 min, OR `peaks job subagent-cleanup --force` fails twice.
+Trigger: `peaks request repair-status --rid <rid>` returns `atCap: true`, OR `peaks code context-now` is red-line sustained ≥5 min, OR `peaks job subagent-cleanup --force` fails twice.
 
 Action: `peaks job block --slice-id <rid> --reason "<precise reason>"` then STOP. Output a TXT-style handoff describing the block + job state.
 
@@ -251,7 +251,7 @@ Sequence:
 1. `peaks session cycle-summary --job-id <jid> --summary "..." --json`
 2. (bump state) `peaks job checkpoint --slice-id <rotate-marker> --state done --commit-sha <n/a>`  ← internal marker
 3. `peaks session rotate --project <repo> --json`
-4. Next user turn starts fresh main LLM session; Solo re-anchors via `peaks session resume --job-id <jid>`.
+4. Next user turn starts fresh main LLM session; Code re-anchors via `peaks session resume --job-id <jid>`.
 
 ### Peaks-Loop Step 0.87 — sub-agent cleanup gate
 
@@ -305,7 +305,7 @@ peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87
 - [ ] **Step 4: Create `references/job-loop.md`**
 
 ```markdown
-# Peaks-Loop Solo — Job Loop Deep-Dive
+# Peaks-Loop Code — Job Loop Deep-Dive
 
 > Read alongside `SKILL.md` Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87.
 

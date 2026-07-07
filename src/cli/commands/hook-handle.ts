@@ -3,7 +3,7 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectIdeFromContext, parseAdapterStdin, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
 import { buildCanonicalHook, formatDecisionResponse } from '../../services/ide/hook-protocol.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
-import { evaluateSoloCodeBan } from '../../services/audit/enforcers/solo-code-ban.js';
+import { evaluateCodeBan } from '../../services/audit/enforcers/code-ban.js';
 import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js';
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
@@ -94,17 +94,17 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
       // Dispatch by toolName. For slice #1+, we only handle Bash. Task tool sub-agent dispatch goes through `peaks sub-agent dispatch` (slice #009) and does not need a hook entry.
       // Other tools: allow (no-op; future events will be added here).
       if (hook.toolName === 'Bash' && typeof fallbackCommand === 'string' && fallbackCommand.trim().length > 0) {
-        // L2.1 P0 #1: solo-code-ban. Deny `git commit` / `git apply` from peaks-* skills
+        // L2.1 P0 #1: code-commit-ban. Deny `git commit` / `git apply` from peaks-* skills
         // BEFORE the SOP gate runs. The active skill is read from the per-caller
         // active-skill file (see active-skill-resolver.ts).
         const activeSkill = resolveActiveSkillForCaller(projectRoot);
         if (activeSkill.skill !== null) {
-          const soloDecision = evaluateSoloCodeBan({ skill: activeSkill.skill, command: fallbackCommand });
-          if (soloDecision.denied) {
-            const formatted = formatDecisionResponse(ide, 'deny', soloDecision.reason);
+          const codeDecision = evaluateCodeBan({ skill: activeSkill.skill, command: fallbackCommand });
+          if (codeDecision.denied) {
+            const formatted = formatDecisionResponse(ide, 'deny', codeDecision.reason);
             emitDecision(io, formatted.stdout);
             if (options.json === true) {
-              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: soloDecision.reason, enforcer: 'solo-code-ban' })));
+              emitHint(io, JSON.stringify(ok('hook.handle', { ide, tool: hook.toolName, decision: 'deny', reason: codeDecision.reason, enforcer: 'code-ban' })));
             }
             return;
           }
@@ -123,7 +123,7 @@ export function registerHookHandleCommand(program: Command, io: ProgramIO): void
         }
         }
 
-      // L2.2 P1 #1: login-gate. After solo-code-ban + gate-enforce pass,
+      // L2.2 P1 #1: login-gate. After code-commit-ban + gate-enforce pass,
       // flag destructive patterns (uninstall, force-push, --force, --hard,
       // rm -rf) so the LLM gets a soft warning (still allow). The user
       // gets the warning via the warn channel; the command proceeds.

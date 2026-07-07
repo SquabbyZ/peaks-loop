@@ -42,7 +42,7 @@ A 4-block ordering emerged from the user's clarifications 2026-07-05:
 3. **Capabilities in the box.** peaks-code is the first tactician — development, bug-fix, long-task requirement. Other loop-engineering roles = `敬请期待`.
 4. **Sediment-your-own-loop-engineering.** The contrast line: "what you sediment is loop-engineering tactical play, not a simple skill spell".
 
-Plus one closing hook naming the rename history (peaks-solo → peaks-code → peaks-loop) as a memory anchor.
+Plus one closing hook naming the rename history (peaks-code → peaks-code → peaks-loop) as a memory anchor.
 
 ---
 
@@ -54,7 +54,7 @@ Plus one closing hook naming the rename history (peaks-solo → peaks-code → p
 2. **The reader can name the in-box tactician (`peaks-code`) and what it does (development, bug-fix, long-task requirement).**
 3. **The reader knows more is coming** ("其他内置 loop engineering 敬请期待").
 4. **The reader knows they can sediment their own loop-engineering into the box.** The contrast sentence (loop-engineering vs simple skill) makes sediment-vs-prompt-templating obvious.
-5. **The reader retains the rename history in 24 hours**: peaks-solo → peaks-code → peaks-loop.
+5. **The reader retains the rename history in 24 hours**: peaks-code → peaks-code → peaks-loop.
 
 ### 2.2 Non-goals
 
@@ -94,7 +94,7 @@ Plus one closing hook naming the rename history (peaks-solo → peaks-code → p
 │     · One optional link to `examples/video-demo/` for visual. │
 ├──────────────────────────────────────────────────────────────┤
 │  H2  Closing hook                                             │
-│     · peaks-solo → peaks-code → peaks-loop, in one breath.    │
+│     · peaks-code → peaks-code → peaks-loop, in one breath.    │
 ├──────────────────────────────────────────────────────────────┤
 │  Footer strip: links to skills/, docs/, CHANGELOG, Issues    │
 └──────────────────────────────────────────────────────────────┘
@@ -121,7 +121,7 @@ Plus one closing hook naming the rename history (peaks-solo → peaks-code → p
 
 ### 3.3 The peak-code name inside capabilities
 
-peaks-code appears **inside the in-box section only** — not in the hero, not in the closing hook. The hero carries the brand image; the in-box section delivers the first example. The closing hook names it again **only** because peaks-code is in the rename arc (peaks-solo → peaks-code → peaks-loop), and the hook has to name `peaks-code` to make the arc complete.
+peaks-code appears **inside the in-box section only** — not in the hero, not in the closing hook. The hero carries the brand image; the in-box section delivers the first example. The closing hook names it again **only** because peaks-code is in the rename arc (peaks-code → peaks-code → peaks-loop), and the hook has to name `peaks-code` to make the arc complete.
 
 ### 3.4 Sediment contrast sentence
 
@@ -160,7 +160,7 @@ This artifact has no automated tests. The verification is human:
 | 24h memory. | 24h later, ask "what does this project do". Target ≥ 2 of 3 hit "loop engineering implementation, with an on-call tactical squad". |
 | In-box recall. | Ask "name one tactician and what it does". Target ≥ 2 of 3 say `peaks-code` for "development/bug-fix/requirement". |
 | Sediment distinction. | Ask "what does sediment mean in this context?". Target ≥ 2 of 3 distinguish "playbook vs spell". |
-| Rename recall. | Ask "what was this project called before?". Target ≥ 2 of 3 say "peaks-solo then peaks-code". |
+| Rename recall. | Ask "what was this project called before?". Target ≥ 2 of 3 say "peaks-code then peaks-code". |
 
 ---
 

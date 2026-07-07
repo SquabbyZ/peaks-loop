@@ -2,7 +2,7 @@
  * 1.x → 2.0 detection service — TypeScript mirror of
  * `scripts/install-skills.mjs:detect1xProjectState`.
  *
- * Slice: 2026-06-12-solo-step-0-55-1x-detection.
+ * Slice: 2026-06-12-code-step-0-55-1x-detection.
  *
  * The canonical implementation lives in the .mjs postinstall
  * (because the postinstall runs before any TS compile step).

@@ -22,7 +22,7 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
 
 const DISPATCH_COMMANDS = join(REPO_ROOT, 'src', 'cli', 'commands', 'dispatch-commands.ts');
-const DAG_ORCHESTRATOR = join(REPO_ROOT, 'src', 'services', 'solo', 'dag-orchestrator.ts');
+const DAG_ORCHESTRATOR = join(REPO_ROOT, 'src', 'services', 'code', 'dag-orchestrator.ts');
 const HELPER = join(REPO_ROOT, 'src', 'services', 'dispatch', 'test-tool-detection.ts');
 
 describe('Test Tool Detection — injection in dispatch-commands.ts (AC-2.1 / AC-2.2 / AC-2.3)', () => {

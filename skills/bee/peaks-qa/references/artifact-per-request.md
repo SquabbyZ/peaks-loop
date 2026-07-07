@@ -9,12 +9,12 @@ The three files for any QA invocation land under the active session's `qa/` work
 | # | File | Path | Reader | Content |
 |---|------|------|--------|---------|
 | 1 | Test cases | `.peaks/_runtime/<session-id>/qa/test-cases/<request-id>.md` | RD (before impl), QA | Generated test scenarios with status |
-| 2 | Test report | `.peaks/_runtime/<session-id>/qa/test-reports/<request-id>.md` | QA, SC, Solo | Summary, coverage%, security, perf, risks |
-| 3 | Request artifact | `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md` | Solo, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
+| 2 | Test report | `.peaks/_runtime/<session-id>/qa/test-reports/<request-id>.md` | QA, SC, Code | Summary, coverage%, security, perf, risks |
+| 3 | Request artifact | `.peaks/_runtime/<session-id>/qa/requests/<request-id>.md` | Code, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
 
 ## Required content
 
-The request artifact is the **verdict carrier** — it must include: QA verdict (`pass` / `return-to-rd` / `blocked`), the red-line audit outcome, links to the test-cases and test-report, the boundary check (acceptance items covered, gaps), and any cross-skill handoff notes for Solo. The test cases file enumerates every scenario with status; the test report summarises execution and links the security / performance / regression companion files.
+The request artifact is the **verdict carrier** — it must include: QA verdict (`pass` / `return-to-rd` / `blocked`), the red-line audit outcome, links to the test-cases and test-report, the boundary check (acceptance items covered, gaps), and any cross-skill handoff notes for Code. The test cases file enumerates every scenario with status; the test report summarises execution and links the security / performance / regression companion files.
 
 ## Rules
 

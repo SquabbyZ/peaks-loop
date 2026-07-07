@@ -95,7 +95,7 @@ describe('workspace init — consumer-project .claude/settings.local.json (slice
 
     // Slice 1.3.0: TEMPLATE_VERSION 1.3.0 emits TWO PreToolUse
     // matchers — the Write|Edit|MultiEdit fact-forcing bypass AND the
-    // v3.1.2 Bash `peaks solo gate-step-08` mechanical Step 0.8 gate.
+    // v3.1.2 Bash `peaks code gate-step-08` mechanical Step 0.8 gate.
     // Bash enforcement for OTHER commands remains owned by
     // `peaks gate enforce` in `.claude/settings.json`.
     const template = expected as {
@@ -103,14 +103,14 @@ describe('workspace init — consumer-project .claude/settings.local.json (slice
     };
     const matchers = template.hooks.PreToolUse.map((entry) => entry.matcher);
     expect(matchers).toEqual(['Write|Edit|MultiEdit', 'Bash']);
-    // The Bash matcher's command must invoke `peaks solo gate-step-08`
+    // The Bash matcher's command must invoke `peaks code gate-step-08`
     // (slice v3.1.2). Regression guard: a future template bump that
     // silently drops the Bash matcher (re-introducing the v3.1.1
     // recorder-only design) fails this assertion.
     const bashEntry = template.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
     expect(bashEntry, 'Bash matcher is required for v3.1.2 Step 0.8 mechanical gate').toBeDefined();
     const bashCommand = (bashEntry as unknown as { hooks: Array<{ command: string }> }).hooks[0]!.command;
-    expect(bashCommand).toMatch(/peaks solo gate-step-08/);
+    expect(bashCommand).toMatch(/peaks code gate-step-08/);
   });
 
   test('case B — noClaudeHooks flag → .claude/settings.local.json is NOT created', async () => {

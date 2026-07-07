@@ -1,4 +1,4 @@
-# Peaks-Loop Solo — Job Loop Deep-Dive
+# Peaks-Loop Code — Job Loop Deep-Dive
 
 > Read alongside `SKILL.md` Steps 0.8 / 0.81 / 0.85 / 0.86 / 0.87.
 

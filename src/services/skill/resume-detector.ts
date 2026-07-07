@@ -1,5 +1,5 @@
 /**
- * Peaks-Loop Solo Step 0.7 — Resume-mode detector.
+ * Peaks-Loop Code Step 0.7 — Resume-mode detector.
  *
  * Mirrors the classification table in
  * `skills/peaks-code/SKILL.md` "Peaks-Loop Step 0.7: Detect unfinished work

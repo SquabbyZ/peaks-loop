@@ -28,7 +28,7 @@ peaks understand show   --project <repo> --json                # when UA artifac
 peaks codegraph context --project <repo> "<task>"
 peaks codegraph affected --project <repo> <changed-files...> --json
 
-# 4.1 read project-scan from Solo's pre-RD scan — BLOCKING if missing
+# 4.1 read project-scan from Code's pre-RD scan — BLOCKING if missing
 # **STOP if .peaks/_runtime/<sessionId>/rd/project-scan.md does not exist.**
 # **Do not write any code, do not plan any implementation, do not pass go.**
 # **Create the project-scan first, then proceed.**

@@ -377,4 +377,4 @@ Outputs:
 - 9 cases of CLI tests
 - Help snapshot enabled
 
-Verification: AC-1 (9 subcommands callable + help), AC-14 partial (--watch renders ANSI). Onward to M4 (Solo SKILL.md integration + rotation).
+Verification: AC-1 (9 subcommands callable + help), AC-14 partial (--watch renders ANSI). Onward to M4 (Code SKILL.md integration + rotation).

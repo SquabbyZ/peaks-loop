@@ -8,7 +8,7 @@ sessionId: 2026-06-30-session-f90141
 
 # Red line: never credit Claude / AI assistants in commit messages
 
-> **Effective 2026-07-01:** No peaks-loop commit shall contain a `Co-Authored-By: Claude ...` line (or any equivalent AI assistant attribution). Solo takes sole authorship of every commit.
+> **Effective 2026-07-01:** No peaks-loop commit shall contain a `Co-Authored-By: Claude ...` line (or any equivalent AI assistant attribution). Code takes sole authorship of every commit.
 
 ## Why
 
@@ -23,7 +23,7 @@ For any new commit:
 - The author trailer stays empty or carries user identity only
 - This applies to:
   - the user's own local commits (user controls git config — drop the helper that adds trailers)
-  - sub-agent RD / QA / final-review / audit work products (their commit messages, even if solo commits on top, must not carry AI attribution)
+  - sub-agent RD / QA / final-review / audit work products (their commit messages, even if code commits on top, must not carry AI attribution)
   - any automated rebase / rewrite that re-templates commit messages
 
 If a sub-agent dispatch mistakenly outputs a `Co-Authored-By:` trailer, strip it before committing.
@@ -35,5 +35,5 @@ If a sub-agent dispatch mistakenly outputs a `Co-Authored-By:` trailer, strip it
 
 ## Related
 
-- [[sub-agent-no-commit-rule]] — sub-agents never commit; solo decides
+- [[sub-agent-no-commit-rule]] — sub-agents never commit; code decides
 - [[peaks-code-sub-agent-commit-incident]] — analogous 2026-06-28 RD sub-agent auto-commit incident

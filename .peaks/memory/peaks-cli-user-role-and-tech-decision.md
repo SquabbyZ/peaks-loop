@@ -8,7 +8,7 @@ metadata:
 
 # peaks-loop user 角色 + 技术决策反伪选择
 
-> 适用: 当 LLM 解释 Solo gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。
+> 适用: 当 LLM 解释 Code gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。
 
 ## 1. user 真实画像(peaks-loop 默认 user 模型)
 
@@ -21,7 +21,7 @@ user 的真实画像(资深前端 + 后端半盲 + 业务资深):
   性能 / 安全 维度     ██           (不熟)
   AI 使用 维度         ████████████ (资深 — 这是 peaks-loop 诞生的原因)
 
-→ user 在 Solo 循环里**只能有效决策**前 3 个维度
+→ user 在 Code 循环里**只能有效决策**前 3 个维度
 → 后 2 个维度必须 AI 拍板
 ```
 
@@ -47,7 +47,7 @@ user 的真实画像(资深前端 + 后端半盲 + 业务资深):
 - 让 user 选 = 让非专家决策 = 等于 AI 选
 - user 唯一能 override 技术的时机 = **prd 阶段写"业务场景"时**
 
-## 3. 14 个 Solo gate 的新分类(必须)
+## 3. 14 个 Code gate 的新分类(必须)
 
 | Gate 类型 | 数量 | 谁决定 | 处理 |
 |---|---|---|---|

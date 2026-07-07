@@ -649,15 +649,15 @@ No changes to: `Root.tsx` (frozen), `package.json` (frozen), `tailwind.config.js
 - The install line MUST show literally `npm i -g peaks-loop` (matches README §上号 / §Get it running). Not `npx peaks-loop install`.
 - The rename arc MUST distinguish REPO NAME from SKILL NAME (per user 2026-07-05:
   > 仓库以前叫 `peaks-cli`(现在叫 `peaks-loop`),不是改名史;
-  > 技能从 `peaks-solo`(单角色)演化到 `peaks-code`(带门禁的代码域).).
+  > 技能从 `peaks-code`(单角色)演化到 `peaks-code`(带门禁的代码域).).
 - Show both in two stacked rows:
   - Row A (REPO): `[ peaks-cli (was) ]   →   [ peaks-loop (now) ]`
     - The "peaks-cli (was)" half should be a clickable-looking muted link in slate. Visual cue: `#94a3b8` or strikethrough OR both, fontSize 24.
     - The "peaks-loop (now)" half: full-color `#f8fafc`, fontSize 40, bold.
     - Arrow: `→` (Unicode) in `#6366f1`, fontSize 32.
-  - Row B (SKILL): `[ peaks-solo ]   →   [ peaks-code ]`
+  - Row B (SKILL): `[ peaks-code ]   →   [ peaks-code ]`
     - Same arrow / same accent.
-    - "peaks-solo": fontSize 28, mono, color `#94a3b8`, with a micro-caption underneath: `single-role (legacy)`.
+    - "peaks-code": fontSize 28, mono, color `#94a3b8`, with a micro-caption underneath: `single-role (legacy)`.
     - "peaks-code": fontSize 36, mono, bold, color `#f8fafc`, with micro-caption `gate-bearing, code-domain`.
 - Install line at top-center, fontSize 56, mono, in a bordered chip (`#1e293b` bg, `2px solid #6366f1` border, padding `18 36`, borderRadius 14).
 - Bottom: a closing line (zh + en bilingual), fontSize 36, color `#94a3b8`.
@@ -781,7 +781,7 @@ No changes to: `Root.tsx` (frozen), `package.json` (frozen), `tailwind.config.js
               marginBottom: 28,
             }}
           >
-            <span style={{ fontSize: 28, color: "#94a3b8" }}>peaks-solo</span>
+            <span style={{ fontSize: 28, color: "#94a3b8" }}>peaks-code</span>
             <span style={{ fontSize: 32, color: "#6366f1" }}>→</span>
             <span style={{ fontSize: 36, fontWeight: 800, color: "#f8fafc" }}>
               peaks-code
@@ -885,7 +885,7 @@ No changes to: `Root.tsx` (frozen), `package.json` (frozen), `tailwind.config.js
 
   Run: `grep -F "npm i -g peaks-loop" examples/video-demo/src/scenes/ClosingScene.tsx` → 1 match.
   Run: `grep -F "peaks-cli" examples/video-demo/src/scenes/ClosingScene.tsx` → 1 match.
-  Run: `grep -F "peaks-solo" examples/video-demo/src/scenes/ClosingScene.tsx` → 1 match.
+  Run: `grep -F "peaks-code" examples/video-demo/src/scenes/ClosingScene.tsx` → 1 match.
   Run: `grep -F "peaks-code" examples/video-demo/src/scenes/ClosingScene.tsx` → ≥ 1 match.
   Run: `grep -F "npx peaks-loop install" examples/video-demo/src/scenes/ClosingScene.tsx` → 0 matches.
 

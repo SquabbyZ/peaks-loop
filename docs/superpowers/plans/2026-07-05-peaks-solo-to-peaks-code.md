@@ -1,4 +1,4 @@
-# Peaks-Solo → Peaks-Code Rename + Sub-Skills to General Primitives Implementation Plan
+# Peaks-Code → Peaks-Code Rename + Sub-Skills to General Primitives Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -513,7 +513,7 @@ describe('peaks session migrate-skill-name', () => {
     mkdirSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code'), { recursive: true });
     writeFileSync(
       join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'),
-      JSON.stringify({ id: 'peaks-code', displayName: 'Peaks Solo' }, null, 2),
+      JSON.stringify({ id: 'peaks-code', displayName: 'Peaks Code' }, null, 2),
     );
     const before = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'), 'utf-8');
     migrateSkillName({ projectRoot: sandbox, from: 'peaks-code', to: 'peaks-code', apply: true });
@@ -939,7 +939,7 @@ cd C:/Users/smallMark/Desktop/peaks-loop
 # 实际路径取决于 release-build 输出位置;典型是 ~/.peaks/skills/.system/bees/peaks-code/manifest.json
 # 仓库内 .peaks/ 由 release-build 生成,Task 6 步骤才会 rebuild
 # 此处直接改源 manifest(若存在)
-sed -i 's/"id": "peaks-code"/"id": "peaks-code"/; s/"displayName": "Peaks Solo"/"displayName": "Peaks Code"/' \
+sed -i 's/"id": "peaks-code"/"id": "peaks-code"/; s/"displayName": "Peaks Code"/"displayName": "Peaks Code"/' \
   .peaks/skills/.system/bees/peaks-code/manifest.json 2>&1 || \
   echo "manifest 不在源仓库,由 Task 6 release-build 重新生成"
 ```

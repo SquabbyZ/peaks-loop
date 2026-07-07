@@ -113,7 +113,7 @@ export function createRecommendationPlan(options: CreateRecommendationPlanOption
   return {
     intent: options.workflow,
     workflow: options.workflow,
-    profile: 'solo-guided-auto',
+    profile: 'code-guided-auto',
     audience: ['engineer'],
     options: [recommendedOption],
     requiredCapabilities,

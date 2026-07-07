@@ -63,7 +63,7 @@
         "name": "peaks-code-to-peaks-code-rename-session-directive",
         "kind": "feedback",
         "description": "peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4.x sediment release 出版后提出把 peaks-code 更名为 p...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-to-peaks-code-rename-session-directive.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-05"
       },
@@ -100,10 +100,10 @@
         "updatedAt": "2026-06-30"
       },
       {
-        "name": "user-decision-2026-07-05-eradicate-peaks-solo",
+        "name": "user-decision-2026-07-05-eradicate-peaks-code",
         "kind": "feedback",
-        "description": "User decision: \"彻底去根\" — 全仓库 peaks-solo → peaks-code > **Why:** 2026-07-05 user 在 peaks-solo → peaks-code rename 出版后,做...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
+        "description": "User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 user 在 peaks-code → peaks-code rename 出版后,做...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-code.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-05"
       },
@@ -203,7 +203,7 @@
         "name": "peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes",
         "kind": "rule",
         "description": "Confirmed in practice (slice 001-skill-authoritative-sentence): even when the implementation surface is a single SKIL...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-solo-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
         "updatedAt": "2026-07-05"
       },
@@ -732,7 +732,7 @@
       {
         "name": "peaks-loop-24h-ai-programmer-positioning",
         "kind": "project",
-        "description": "peaks-loop 24h AI 程序员定位 > 适用: 当 LLM 在解释 Solo 编排 / 退化路径 / mode 选择时,避免误读为\"通用 AI 工具\"或\"前端代码工具\"。 1.",
+        "description": "peaks-loop 24h AI 程序员定位 > 适用: 当 LLM 在解释 Code 编排 / 退化路径 / mode 选择时,避免误读为\"通用 AI 工具\"或\"前端代码工具\"。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-24h-ai-programmer-positioning.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-01"
@@ -788,7 +788,7 @@
       {
         "name": "peaks-loop-slice-review-and-qa-perspective",
         "kind": "project",
-        "description": "peaks-loop slice 审阅 + QA 视角 > 适用: 当 LLM 解释 Solo gate / slice review / QA 验收时,避免让 user 审技术。 1.",
+        "description": "peaks-loop slice 审阅 + QA 视角 > 适用: 当 LLM 解释 Code gate / slice review / QA 验收时,避免让 user 审技术。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-slice-review-and-qa-perspective.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-01"
@@ -796,7 +796,7 @@
       {
         "name": "peaks-loop-user-role-and-tech-decision",
         "kind": "project",
-        "description": "peaks-loop user 角色 + 技术决策反伪选择 > 适用: 当 LLM 解释 Solo gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。 1.",
+        "description": "peaks-loop user 角色 + 技术决策反伪选择 > 适用: 当 LLM 解释 Code gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-user-role-and-tech-decision.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-01"

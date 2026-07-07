@@ -11,7 +11,7 @@ import { RED_LINE_CATALOG_P2_A } from './red-line-catalog-p2-a.js';
 import { RED_LINE_CATALOG_P2_B } from './red-line-catalog-p2-b.js';
 
 export interface RedLineCatalogEntry {
-  /** Stable id, e.g. "rl-solo-code-ban-001". */
+  /** Stable id, e.g. "rl-code-ban-001". */
   readonly id: string;
   readonly rule: string;
   /** Markers that, if found near the rule's text, identify this red line. */
@@ -24,15 +24,15 @@ export interface RedLineCatalogEntry {
 
 export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
   {
-    id: 'rl-solo-code-ban-001',
-    rule: 'Solo Code-Change Red Line',
+    id: 'rl-code-ban-001',
+    rule: 'Code Commit Ban',
     markers: ['BLOCKING', 'MANDATORY'],
     phrases: [
       'peaks-code',
       'orchestrator, NOT an implementer',
-      'solo',
+      'code',
     ],
-    enforcerRef: 'src/services/audit/enforcers/solo-code-ban.ts',
+    enforcerRef: 'src/services/audit/enforcers/code-ban.ts',
   },
   {
     id: 'rl-no-root-pollution-001',
@@ -162,7 +162,7 @@ export const RED_LINE_CATALOG: readonly RedLineCatalogEntry[] = [
  * the integration seam is missing. When the integration lands, the entry
  * is removed from this set in a single-line follow-up commit.
  *
- * L2.1 final state: Tasks 5 (solo-code-ban) + 6 (no-root-pollution) are
+ * L2.1 final state: Tasks 5 (code-ban) + 6 (no-root-pollution) are
  * wired into peaks hook handle (Tasks 1-4: framework + 3 enforcers also
  * integrated). Tasks 3 (tech-doc-presence) and 4 (mock-placement) are
  * deferred — their request-transition / slice-check integrations are

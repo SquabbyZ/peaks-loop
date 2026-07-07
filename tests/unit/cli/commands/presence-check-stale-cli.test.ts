@@ -11,7 +11,7 @@
  *      fires. Verify: matching env var → `stale: false`, NOT
  *      matching → `stale: true`, omitted flag → env-fallback path.
  *
- * #2 — `peaks solo should-pause` lacked a CLI seam for the
+ * #2 — `peaks code should-pause` lacked a CLI seam for the
  *      commit-boundary hard-floor. The service-layer accepts
  *      `commitBoundaryAction: true` but the CLI never wired it
  *      through. Fix: `--commit-boundary-action <id>` flag,
@@ -123,10 +123,10 @@ describe('peaks skill presence:check-stale — CLI repair (QA blocker #1)', () =
   });
 });
 
-describe('peaks solo should-pause --commit-boundary-action — CLI repair (QA blocker #2)', () => {
+describe('peaks code should-pause --commit-boundary-action — CLI repair (QA blocker #2)', () => {
   it('4. --commit-boundary-action git-push + full-auto → hard-floor pause (gateKind=hard-floor)', async () => {
     const { stdout } = await runCommand([
-      'solo', 'should-pause',
+      'code', 'should-pause',
       '--commit-boundary-action', 'git-push',
       '--mode', 'full-auto',
       '--step', 'phase-10-txt-memory-extract',
@@ -148,7 +148,7 @@ describe('peaks solo should-pause --commit-boundary-action — CLI repair (QA bl
 
   it('5. --commit-boundary-action npm-publish + assisted → still hard-floor pause (override wins over mode)', async () => {
     const { stdout } = await runCommand([
-      'solo', 'should-pause',
+      'code', 'should-pause',
       '--commit-boundary-action', 'npm-publish',
       '--mode', 'assisted',
       '--step', 'phase-10-txt-memory-extract',
@@ -168,7 +168,7 @@ describe('peaks solo should-pause --commit-boundary-action — CLI repair (QA bl
 
   it('6. unknown --commit-boundary-action id → INVALID_COMMIT_BOUNDARY_ACTION', async () => {
     const { stdout, exitCode } = await runCommand([
-      'solo', 'should-pause',
+      'code', 'should-pause',
       '--commit-boundary-action', 'rm-rf-everything',
       '--mode', 'full-auto',
       '--step', 'phase-10-txt-memory-extract',
@@ -185,7 +185,7 @@ describe('peaks solo should-pause --commit-boundary-action — CLI repair (QA bl
     // Sanity check that adding the new flag did not regress the
     // existing auto-proceed path.
     const { stdout } = await runCommand([
-      'solo', 'should-pause',
+      'code', 'should-pause',
       '--mode', 'full-auto',
       '--step', 'phase-2-prd-confirm',
       '--project', root,

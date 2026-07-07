@@ -61,7 +61,7 @@ Every SC invocation must write a change-control record at `.peaks/_runtime/<sess
 - validation result (`peaks sc validate` output);
 - boundary record (`peaks sc boundary` output).
 
-Solo reads this record before declaring the workflow complete.
+Code reads this record before declaring the workflow complete.
 
 ## Refactor role
 

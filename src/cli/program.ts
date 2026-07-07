@@ -64,7 +64,7 @@ import { registerLogCommands } from './commands/log-commands.js';
 import { registerQaCommands } from './commands/qa-commands.js';
 import { registerTestCommands } from './commands/test-commands.js';
 import { registerPlaywrightCommands } from './commands/playwright-commands.js';
-import { registerSoloCommands } from './commands/solo-commands.js';
+import { registerCodeCommands } from './commands/code-commands.js';
 import { registerMutCommands } from './commands/mut-commands.js';
 import { registerFixtureCommands } from './commands/fixture-commands.js';
 import { registerReviewerCommands } from './commands/reviewer-commands.js';
@@ -300,7 +300,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // command conflict (peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first).
  // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
  registerLoopCommands(program, io);
-  // Slice v3.0.0 loop-eng-native-solo-a-b: peaks workflow run|plan|lint
+  // Slice v3.0.0 loop-eng-native-code-a-b: peaks workflow run|plan|lint
   // + peaks loop eval. Wraps the existing workflow + loop groups so the
   // add-a-new-subcommand-check-for-existing-top-level-first rule is honoured.
   registerWorkflowEvalCommands(program, io);
@@ -326,10 +326,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
  // (multi-terminal Playwright MCP lifecycle).
  registerPlaywrightCommands(program, io);
- // Slice 2 (peaks-code fast mode): `peaks solo plan [--fast] <change-id>`
- // v2.11.0 Group F (D5 + D7): also registers `peaks solo should-pause` and
- // `peaks solo post-compact-detect` for runtime-friction probes.
- registerSoloCommands(program, io);
+ // Slice 2 (peaks-code fast mode): `peaks code plan [--fast] <change-id>`
+ // v2.11.0 Group F (D5 + D7): also registers `peaks code should-pause` and
+ // `peaks code post-compact-detect` for runtime-friction probes.
+ registerCodeCommands(program, io);
  // Plan 2 / Task 6: `peaks mut run|mutants|asserts|report` — mutation
  // testing + assertion validity scan (spec §4.2 / §7). The
  // production Stryker invoker is wired here; tests use the

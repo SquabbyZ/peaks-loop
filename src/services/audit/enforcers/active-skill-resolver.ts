@@ -2,7 +2,7 @@
  * active-skill-resolver — utility for hook enforcers.
  *
  * Resolves the active peak skill name for the current session, so hook
- * enforcers (e.g. solo-code-ban) can decide whether to fire.
+ * enforcers (e.g. code-ban) can decide whether to fire.
  *
  * Per `src/services/session/caller-id-types.ts`: the active-skill file is
  * at `.peaks/_runtime/<peakSessionId>/active-skill-<callerId>.json`.

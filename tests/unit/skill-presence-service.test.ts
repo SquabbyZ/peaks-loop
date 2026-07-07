@@ -734,7 +734,7 @@ describe('skill presence service', () => {
         const step4 = getSkillPresence();
         expect(step4).toBeNull();
         // At this point, CLAUDE.md shows NOTHING — user is outside peaks workflow
-        // Solo MUST display: "Peaks-Loop Solo workflow has ended..."
+        // Code MUST display: "Peaks-Loop Code workflow has ended..."
       } finally {
         vi.restoreAllMocks();
         rmSync(root, { recursive: true, force: true });

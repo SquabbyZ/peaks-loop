@@ -23,8 +23,8 @@ metadata:
 
 ## 2. 关键决策（5 条 user-given rules，今天确立）
 
-1. **full-auto mode 边界 = commit only**——RD/QA 全程 Solo fork Agent 跑，但 push / tag / npm publish 都是 user-only。
-2. **Solo fork Agent，不让用户在 IDE 跑 Task toolCall**——之前我犯过错，记忆已写进 `2026-06-28-full-auto-boundary.md`。
+1. **full-auto mode 边界 = commit only**——RD/QA 全程 Code fork Agent 跑，但 push / tag / npm publish 都是 user-only。
+2. **Code fork Agent，不让用户在 IDE 跑 Task toolCall**——之前我犯过错，记忆已写进 `2026-06-28-full-auto-boundary.md`。
 3. **G4 第三方 reviewer 用 `~/.peaks/config.json.reviewer` 配置**——不是 CLI flag（user 给的方案）。
 4. **`~/.peaks/config.json.providers.minimax.model` 是合法字段**——schema 里就是有的（`ProviderModelConfig.model?: ExecutionModelId`），不是 dead config。我之前推断错。
 5. **P3 peaks-companion skill 是 DEAD（SKILL 有，CLI 无）**——但 P3 也需要 user 同意才能删（涉及 skill 删除），没做完。

@@ -60,7 +60,7 @@ peaks request transition <rid> --role prd --state confirmed-by-user --project <r
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
 # 3. Peaks-Loop Default sub-agent fan-out (slice 5 contract)
-#    Solo computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
+#    Code computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
 #    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then writes the slice
 #    DAG to .peaks/_runtime/<sid>/sc/slice-dag.json and launches ONE
 #    `peaks sub-agent dispatch --from-dag <dag-file>` call. The CLI's
@@ -75,10 +75,10 @@ peaks request transition <rid> --role prd --state handed-off --project <repo> --
 #    `peaks sub-agent dispatch <role>` calls in N separate messages when a fan-out
 #    shape exists — `--from-dag` is the only path that exercises the orchestrator.
 #
-# 3a. Pre-fan-out: Solo initialises every role's request artefact slot in the main
+# 3a. Pre-fan-out: Code initialises every role's request artefact slot in the main
 #     loop so sub-agents find a stable rid <-> artefact binding. Each role's
 #     sub-agent may also call peaks request init itself (idempotent on the same rid);
-#     Solo's call here is the source of truth. Only init roles that are in the
+#     Code's call here is the source of truth. Only init roles that are in the
 #     swarm plan — roles not in the plan do not get a slot yet.
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-fan-out
 # for each role in swarm-plan.subAgents:
@@ -88,7 +88,7 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-
 # e.g. if plan = [ui, rd, qa]: run init for ui, rd, qa.
 # If plan = [rd, qa]: run for rd, qa only.
 # If plan = [] (config|docs|chore skip): no inits here, jump to step 4 directly.
-# 3b. Solo writes the slice DAG to a JSON file then issues ONE
+# 3b. Code writes the slice DAG to a JSON file then issues ONE
 #     `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` call.
 #     The CLI envelope returns N parallel buildToolCall descriptors
 #     (dispatchCount = len(swarm-plan.subAgents) when the DAG has >= 2
@@ -98,7 +98,7 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-
 #     concurrently, so wall-time approximates max(per-leaf time), not sum.
 peaks sc build-dag --change-id <cid> --project <repo> --json > .peaks/_runtime/<sid>/sc/slice-dag.json
 peaks sub-agent dispatch --from-dag .peaks/_runtime/<sid>/sc/slice-dag.json --batch-id <id> --project <repo> --json
-# 3c. After fan-out, Solo restores presence once and runs Gate B (ls checks):
+# 3c. After fan-out, Code restores presence once and runs Gate B (ls checks):
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-converged
 ls .peaks/_runtime/<sid>/prd/requests/<rid>.md                # PRD artefact must exist (Gate B hard)
 # feature / refactor → ls .peaks/_runtime/<sid>/rd/tech-doc.md
@@ -174,7 +174,7 @@ peaks workspace reconcile --project <repo> --apply --older-than 7
 #       (c) Skip for now — blocks stay in the handoff only, no .peaks/memory/ write"
 #      If 10a returned 0 AND the session surfaced a stable project fact
 #      (decision / convention / approved refactor), STOP — peaks-txt must go
-#      back and embed at least one block before Solo can advance.
+#      back and embed at least one block before Code can advance.
 
 # 10c. After the user picks (a) or (b), run:
 peaks memory extract --project <repo> --artifact .peaks/_runtime/<id>/txt/handoff.md --apply --json
@@ -195,13 +195,13 @@ Repair loop details: see `## Mandatory RD QA repair loop` in SKILL.md for the fu
 # Step 0.8 (BLOCKING): LLM judges Job-shape, CLI records it.
 # This is a RECORDER, not a detector. The LLM supplies --is-job + --rationale;
 # the CLI writes .peaks/_runtime/<sid>/job-shape.json. Downstream steps call
-# `peaks solo read-job-shape` to enforce the decision exists.
+# `peaks code read-job-shape` to enforce the decision exists.
 
 # (The LLM does the semantic judgement, e.g.:)
 #   "The user named N=35 parallel app/ subdirs, said 'continue until all done',
 #    and disavowed cost. isJob=true, rationale=..., suggestedJobId=app-ut-batch,
 #    suggestedStrategy=rotating, confidence=high."
-peaks solo detect-job \
+peaks code detect-job \
   --is-job true \
   --rationale "35 parallel app/ subdirs + 'until all done' + '不用考虑费用'" \
   --suggested-job-id app-ut-batch \
@@ -209,7 +209,7 @@ peaks solo detect-job \
   --confidence high
 
 # Step 0.81-init: if Job-shaped, init BEFORE Step 1.
-DECISION=$(peaks solo read-job-shape --json)
+DECISION=$(peaks code read-job-shape --json)
 if [ "$(echo "$DECISION" | jq -r '.data.decision.isJob')" = "true" ]; then
   JID=$(echo "$DECISION" | jq -r '.data.decision.suggestedJobId')
   STRATEGY=$(echo "$DECISION" | jq -r '.data.decision.suggestedStrategy')
@@ -232,18 +232,18 @@ peaks job subagent-cleanup --job-id <jid> --batch-id <bid> --force   # Step 0.87
 
 # v3.1.2 size-fear ban: refuse to emit a final handoff while remaining > 0.
 # The LLM cannot bypass this; --force-under-job requires explicit user approval.
-peaks solo emit-handoff --project <repo> --job-id <jid> --json
+peaks code emit-handoff --project <repo> --job-id <jid> --json
 
 # v3.1.2 forced auto-compact: when --enforce-job-mode is set OR
 # job-shape.json says isJob=true, ≥0.85 is MANDATORY auto-compact.
-# Solo MUST call this without confirmation under Job mode.
-peaks solo context-now --project <repo> --enforce-job-mode --json
+# Code MUST call this without confirmation under Job mode.
+peaks code context-now --project <repo> --enforce-job-mode --json
 peaks session auto-compact --execute --project <repo> --json
 
 # v3.1.2 PreToolUse gate (installed by `peaks workspace init`):
-# every Bash tool call runs `peaks solo gate-step-08` automatically.
+# every Bash tool call runs `peaks code gate-step-08` automatically.
 # Exit 0 = allow (with optional Next: slice #N+1 of M line when
 # progress.json exists). Exit 2 = BLOCKED; LLM must call
-# `peaks solo detect-job` first.
-peaks solo gate-step-08 --project <repo> --json
+# `peaks code detect-job` first.
+peaks code gate-step-08 --project <repo> --json
 ```

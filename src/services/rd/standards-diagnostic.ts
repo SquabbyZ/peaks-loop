@@ -20,7 +20,7 @@
  *   G4  The remediation string is the exact copy-pasteable CLI invocation.
  *
  * This module is a pure-function helper. The `peaks rd` / `peaks qa` /
- * `peaks solo` runtime hooks call `resolveRdStartupStandardsCheck` at
+ * `peaks code` runtime hooks call `resolveRdStartupStandardsCheck` at
  * bootstrap and decide whether to write `process.stderr` + JSON envelope
  * + exit. The bootstrap is intentionally side-effect-free here so unit
  * tests can run it without spawning child processes.
@@ -163,7 +163,7 @@ export function buildRdStandardsGateList(input: { readonly missing: boolean }): 
 }
 
 /**
- * Single entry point for the RD / QA / Solo bootstrap. Returns the
+ * Single entry point for the RD / QA / Code bootstrap. Returns the
  * exit code + error code + diagnostic + gate list. The CLI wrapper is
  * responsible for `process.stderr.write(diagnostic ?? '')` and
  * `process.exit(result.exitCode)`.

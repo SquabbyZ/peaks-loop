@@ -83,8 +83,8 @@ The RD envelope written to `.peaks/_runtime/<sid>/rd/feedback-promote-<name>.jso
   "layer": "C",
   "layerDetail": "hardFloorCategory:commit-boundary-side-effect",
   "generatedFiles": [
-    "src/services/solo/mode-gate.ts",
-    "tests/unit/services/solo/commit-boundary-hard-floor.test.ts"
+    "src/services/code/mode-gate.ts",
+    "tests/unit/services/code/commit-boundary-hard-floor.test.ts"
   ],
   "promotedAt": "2026-06-28T12:00:00.000Z",
   "promotedBy": "peaks-rd (slice 002 / v2.15.0)"

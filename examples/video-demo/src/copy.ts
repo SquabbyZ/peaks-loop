@@ -136,7 +136,7 @@ export const COPY: Record<LocaleId, SceneCopy> = {
         caption: "repo · was, now",
       },
       skillArc: {
-        skillWas: "peaks-solo",
+        skillWas: "peaks-code",
         arrow: "→",
         skillNow: "peaks-code",
         legacyCaption: "单角色(老入口)",
@@ -222,7 +222,7 @@ export const COPY: Record<LocaleId, SceneCopy> = {
         caption: "repo · was, now",
       },
       skillArc: {
-        skillWas: "peaks-solo",
+        skillWas: "peaks-code",
         arrow: "→",
         skillNow: "peaks-code",
         legacyCaption: "single-role (legacy)",

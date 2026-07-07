@@ -42,7 +42,7 @@ describe('service skeletons', () => {
   });
 
   test('refactor dry run encodes hard gates', () => {
-    const dryRun = createRefactorDryRun('solo');
+    const dryRun = createRefactorDryRun('code');
 
     expect(dryRun.implementationAllowed).toBe(false);
     expect(dryRun.hardGates).toContain('Require UT coverage >= 95%');

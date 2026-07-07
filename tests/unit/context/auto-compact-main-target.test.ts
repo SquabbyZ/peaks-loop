@@ -1,5 +1,5 @@
 /**
- * Slice 2026-06-28-solo-mode-bypass-fix (defect #4) +
+ * Slice 2026-06-28-code-mode-bypass-fix (defect #4) +
  * slice 2026-07-02-auto-compact-zero-pause.
  *
  * Pins the contract that `dispatchIdeCompact` honours the `target`
@@ -27,7 +27,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dispatchIdeCompact } from '../../../src/services/context/auto-compact-dispatcher.js';
-import { runAutoCompact } from '../../../src/services/solo/auto-compact-orchestrator.js';
+import { runAutoCompact } from '../../../src/services/code/auto-compact-orchestrator.js';
 
 let projectRoot: string;
 
@@ -41,7 +41,7 @@ afterEach(() => {
 
 const CLAUDE_CODE_ENV = { CLAUDE_CODE_ENTRYPOINT: 'cli' } as NodeJS.ProcessEnv;
 
-describe('auto-compact target — slice 2026-06-28-solo-mode-bypass-fix', () => {
+describe('auto-compact target — slice 2026-06-28-code-mode-bypass-fix', () => {
   describe('dispatchIdeCompact', () => {
     it('main + claude-code returns ide-native pathway', async () => {
       const result = await dispatchIdeCompact({

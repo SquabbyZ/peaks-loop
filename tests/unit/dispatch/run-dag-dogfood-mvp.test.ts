@@ -7,7 +7,7 @@
  *   - 3 leaves (parallel):
  *       "slice-1-2-c-dag-model"        (DAG 模型)
  *       "slice-1-2-c-contract-store"   (contract store)
- *       "slice-1-2-c-orchestrator"     (solo 调度循环)
+ *       "slice-1-2-c-orchestrator"     (code 调度循环)
  *
  * Per PRD R1 mitigation: the MVP dogfood uses mock sub-agents
  * (`runSlice` test seam in `runDag`), not real LLM calls. We assert the
@@ -33,7 +33,7 @@ import {
   type DispatchSpec,
   type PublicSurface,
   type SliceOutcome
-} from '../../../src/services/solo/dag-orchestrator.js';
+} from '../../../src/services/code/dag-orchestrator.js';
 import type { SliceContract } from '../../../src/services/dispatch/contract-store.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -59,7 +59,7 @@ const dogfoodDag: SliceDag = {
     { id: 'slice-1-2-c-root', role: 'rd', label: 'dispatcher 改造' },
     { id: 'slice-1-2-c-dag-model', role: 'rd', label: 'DAG 模型' },
     { id: 'slice-1-2-c-contract-store', role: 'rd', label: 'contract store' },
-    { id: 'slice-1-2-c-orchestrator', role: 'rd', label: 'solo orchestrator' }
+    { id: 'slice-1-2-c-orchestrator', role: 'rd', label: 'code orchestrator' }
   ],
   edges: [
     { from: 'slice-1-2-c-root', to: 'slice-1-2-c-dag-model' },
@@ -376,7 +376,7 @@ describe('Cross-platform contract: paths use path.join, no hardcoded /Users/ or 
     // Read the orchestrator source and assert no hardcoded /Users/ or C:\
     // paths outside comments / strings used for error messages.
     const src = readFileSync(
-      join(REPO_ROOT, 'src/services/solo/dag-orchestrator.ts'),
+      join(REPO_ROOT, 'src/services/code/dag-orchestrator.ts'),
       'utf8'
     );
     // Strip block + line comments so error-message strings don't trip us.

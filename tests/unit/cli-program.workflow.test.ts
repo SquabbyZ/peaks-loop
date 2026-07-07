@@ -66,24 +66,24 @@ describe('createProgram workflow commands', () => {
     const techStatusResult = await runCommand(['tech-status', '--json']);
     expect(parseJsonOutput(techStatusResult.stdout).command).toBe('tech.status');
 
-    const routeResult = await runCommand(['route', '--mode', 'solo', '--solo-mode', 'full-auto', '--goal', 'Refactor checkout API', '--json']);
+    const routeResult = await runCommand(['route', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Refactor checkout API', '--json']);
     expect(parseJsonOutput(routeResult.stdout).command).toBe('workflow.route');
 
-    const autonomousResult = await runCommand(['autonomous', '--mode', 'solo', '--goal', 'Plan autonomous checkout refactor', '--json']);
+    const autonomousResult = await runCommand(['autonomous', '--mode', 'code', '--goal', 'Plan autonomous checkout refactor', '--json']);
     expect(parseJsonOutput(autonomousResult.stdout).command).toBe('workflow.autonomous');
 
     const swarmPlanResult = await runCommand(['swarm-plan', '--goal', 'Implement approved checkout refactor', '--json']);
     expect(parseJsonOutput(swarmPlanResult.stdout).command).toBe('swarm.plan');
   });
 
-  test('prints workflow route dry run for solo mode', async () => {
-    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'guided', '--goal', 'Refactor checkout API', '--max-workers', '40', '--dry-run', '--json']);
-    const output = parseJsonOutput<{ routePolicy: string; soloMode: string; executionMode: string }>(result.stdout);
+  test('prints workflow route dry run for code mode', async () => {
+    const result = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'guided', '--goal', 'Refactor checkout API', '--max-workers', '40', '--dry-run', '--json']);
+    const output = parseJsonOutput<{ routePolicy: string; codeMode: string; executionMode: string }>(result.stdout);
 
     expect(output.ok).toBe(true);
     expect(output.command).toBe('workflow.route');
-    expect(output.data.routePolicy).toBe('solo-broad-multi-model');
-    expect(output.data.soloMode).toBe('guided');
+    expect(output.data.routePolicy).toBe('code-broad-multi-model');
+    expect(output.data.codeMode).toBe('guided');
     expect(output.data.executionMode).toBe('autonomous');
   });
 
@@ -93,7 +93,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
       const output = parseJsonOutput(result.stdout);
 
       expect(output.ok).toBe(true);
@@ -111,7 +111,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
       const output = parseJsonOutput(result.stdout);
 
       expect(output.ok).toBe(true);
@@ -132,7 +132,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', '请使用 peaks-code 帮我重构这个项目', '--json']);
 
       expect(result.exitCode).not.toBe(1);
       expect(existsSync(join(projectRoot, '.peaks', 'config.json'))).toBe(false);
@@ -144,7 +144,7 @@ describe('createProgram workflow commands', () => {
   test('rejects workflow planning with an empty goal', async () => {
     // The empty-goal contract is preserved (internal gate inside
     // `createWorkflowRouterPlan`).
-    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '   ', '--json']);
+    const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', '   ', '--json']);
 
     expect(result.exitCode).toBe(1);
     expect(`${result.stderr}${result.stdout}`).toMatch(/Goal must be non-empty|INVALID_GOAL/);
@@ -166,24 +166,24 @@ describe('createProgram workflow commands', () => {
     expect(output.code).toBe('UNSUPPORTED_WORKFLOW_MODE');
   });
 
-  test('rejects workflow route solo-mode with team mode', async () => {
-    const result = await runCommand(['workflow', 'route', '--mode', 'team', '--solo-mode', 'guided', '--goal', 'Refactor checkout API', '--json']);
+  test('rejects workflow route code-mode with team mode', async () => {
+    const result = await runCommand(['workflow', 'route', '--mode', 'team', '--code-mode', 'guided', '--goal', 'Refactor checkout API', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
-    expect(output.code).toBe('SOLO_MODE_REQUIRES_SOLO_WORKFLOW');
+    expect(output.code).toBe('CODE_MODE_REQUIRES_CODE_WORKFLOW');
   });
 
-  test('rejects unsupported workflow route solo mode', async () => {
-    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'manual', '--goal', 'Refactor checkout API', '--json']);
+  test('rejects unsupported workflow route code mode', async () => {
+    const result = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'manual', '--goal', 'Refactor checkout API', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
-    expect(output.code).toBe('UNSUPPORTED_SOLO_MODE');
+    expect(output.code).toBe('UNSUPPORTED_CODE_MODE');
   });
 
   test('rejects workflow route invalid max-workers values', async () => {
-    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', 'Refactor checkout API', '--max-workers', 'abc', '--dry-run', '--json']);
+    const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', 'Refactor checkout API', '--max-workers', 'abc', '--dry-run', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -191,21 +191,21 @@ describe('createProgram workflow commands', () => {
   });
 
   test('rejects workflow route without dry-run', async () => {
-    const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', 'Refactor checkout API', '--no-dry-run', '--json']);
+    const result = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', 'Refactor checkout API', '--no-dry-run', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
     expect(output.code).toBe('UNSUPPORTED_NON_DRY_RUN');
   });
 
-  test('prints autonomous workflow dry run for solo mode', async () => {
-    const result = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--solo-mode', 'rnd', '--goal', 'Plan autonomous checkout refactor', '--max-workers', '40', '--dry-run', '--json']);
-    const output = parseJsonOutput<{ behavior: string; routePlan: { soloMode: string; executionMode: string } }>(result.stdout);
+  test('prints autonomous workflow dry run for code mode', async () => {
+    const result = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--code-mode', 'rnd', '--goal', 'Plan autonomous checkout refactor', '--max-workers', '40', '--dry-run', '--json']);
+    const output = parseJsonOutput<{ behavior: string; routePlan: { codeMode: string; executionMode: string } }>(result.stdout);
 
     expect(output.ok).toBe(true);
     expect(output.command).toBe('workflow.autonomous');
     expect(output.data.behavior).toBe('preview');
-    expect(output.data.routePlan.soloMode).toBe('rnd');
+    expect(output.data.routePlan.codeMode).toBe('rnd');
     expect(output.data.routePlan.executionMode).toBe('autonomous');
     expect(JSON.stringify(output.data)).toContain('autonomous-rd-plan.json');
     expect(JSON.stringify(output.data)).toContain('/goal');
@@ -228,32 +228,32 @@ describe('createProgram workflow commands', () => {
     expect(output.code).toBe('UNSUPPORTED_WORKFLOW_MODE');
   });
 
-  test('rejects autonomous workflow solo-mode with team mode', async () => {
-    const result = await runCommand(['workflow', 'autonomous', '--mode', 'team', '--solo-mode', 'guided', '--goal', 'Plan team-governed autonomous work', '--json']);
+  test('rejects autonomous workflow code-mode with team mode', async () => {
+    const result = await runCommand(['workflow', 'autonomous', '--mode', 'team', '--code-mode', 'guided', '--goal', 'Plan team-governed autonomous work', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
-    expect(output.code).toBe('SOLO_MODE_REQUIRES_SOLO_WORKFLOW');
+    expect(output.code).toBe('CODE_MODE_REQUIRES_CODE_WORKFLOW');
   });
 
   test('rejects autonomous workflow invalid max-workers values', async () => {
-    const result = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--goal', 'Plan autonomous checkout refactor', '--max-workers', 'abc', '--json']);
+    const result = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--goal', 'Plan autonomous checkout refactor', '--max-workers', 'abc', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
     expect(output.code).toBe('INVALID_MAX_WORKERS');
   });
 
-  test('rejects unsupported autonomous workflow solo mode', async () => {
-    const result = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--solo-mode', 'manual', '--goal', 'Plan autonomous checkout refactor', '--json']);
+  test('rejects unsupported autonomous workflow code mode', async () => {
+    const result = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--code-mode', 'manual', '--goal', 'Plan autonomous checkout refactor', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
-    expect(output.code).toBe('UNSUPPORTED_SOLO_MODE');
+    expect(output.code).toBe('UNSUPPORTED_CODE_MODE');
   });
 
   test('rejects autonomous workflow without dry-run', async () => {
-    const result = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--goal', 'Plan autonomous checkout refactor', '--no-dry-run', '--json']);
+    const result = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--goal', 'Plan autonomous checkout refactor', '--no-dry-run', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -359,10 +359,10 @@ describe('createProgram workflow commands', () => {
     expect(output.command).toBe('swarm.plan');
   });
 
-  test('defaults refactor mode to solo and supports rd mode', async () => {
-    const soloResult = await runCommand(['refactor', '--json']);
-    const soloOutput = parseJsonOutput(soloResult.stdout);
-    expect(JSON.stringify(soloOutput.data)).toContain('"mode":"solo"');
+  test('defaults refactor mode to code and supports rd mode', async () => {
+    const codeResult = await runCommand(['refactor', '--json']);
+    const codeOutput = parseJsonOutput(codeResult.stdout);
+    expect(JSON.stringify(codeOutput.data)).toContain('"mode":"code"');
 
     const rdResult = await runCommand(['refactor', '--rd', '--json']);
     const rdOutput = parseJsonOutput(rdResult.stdout);
@@ -374,7 +374,7 @@ describe('createProgram workflow commands', () => {
     const output = parseJsonOutput(result.stdout);
     expect(output.ok).toBe(true);
 
-    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', 'Refactor checkout API', '--json']);
+    const routeResult = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', 'Refactor checkout API', '--json']);
     const routeOutput = parseJsonOutput(routeResult.stdout);
     expect(routeOutput.ok).toBe(true);
   });
@@ -405,7 +405,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
-      const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
+      const routeResult = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
       const routeOutput = parseJsonOutput<{ rdPlan: { reason?: string; swarmMode: boolean; tasks: Array<{ workerKind: string }> }; blockedReasons: string[] }>(routeResult.stdout);
       // Slice 2026-06-29-change-id-root-removal: with no change-id, the
       // workspace lookup still resolves the artifact path. The planner
@@ -432,7 +432,7 @@ describe('createProgram workflow commands', () => {
       // `currentWorkspace` above.
       // expect(routeOutput.data.blockedReasons).not.toContain('artifact-workspace-unavailable');
 
-      const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--solo-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
+      const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
       const autonomousOutput = parseJsonOutput<{ rdPlan: { reason?: string; swarmMode: boolean; tasks: Array<{ workerKind: string }> }; blockedReasons: string[] }>(autonomousResult.stdout);
       expect(['true', 'false']).toContain(String(autonomousOutput.ok));
       // Slice 2026-06-29-change-id-root-removal: see note above.
@@ -478,7 +478,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
       const output = parseJsonOutput<{ rdPlan: { reason?: string; tasks: Array<{ workerKind: string }> } }>(result.stdout);
 
       // Slice 2026-06-29-change-id-root-removal: with no change-id, the
@@ -516,7 +516,7 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(join(projectRoot, 'packages', 'app'));
 
     try {
-      const result = await runCommand(['workflow', 'route', '--mode', 'solo', '--solo-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
+      const result = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
       const output = parseJsonOutput<{ rdPlan: { reason?: string }; blockedReasons: string[] }>(result.stdout);
 
       expect(output.ok).toBe(true);

@@ -15,9 +15,9 @@ Every sub-agent dispatch (`peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peak
 
 Never create `.peaks/_runtime/<YYYY-MM-DD-*>/` at the top level of `.peaks/`. ALL reviewable artifact dirs live under `.peaks/_runtime/<sessionId>/<role>/...` (gitignored) — never as siblings of `.peaks/_runtime/`. `peaks workspace init` creates only `.peaks/_runtime/<sessionId>/session.json`. If you find yourself about to write a date-prefixed directory directly under `.peaks/`, STOP and reroute under `.peaks/_runtime/<sessionId>/`. The `.gitignore` rule + vitest guard at `tests/unit/workspace/top-level-change-id-guard.test.ts` enforce this.
 
-# Peaks-Loop Solo
+# Peaks-Loop Code
 
-Peaks-Loop Solo is the orchestration facade for the Peaks-Loop short skill family. Use it to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
+Peaks-Loop Code is the orchestration facade for the Peaks-Loop short skill family. Use it to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
 ## 产品定位(2026-06-28 校准)
 
@@ -29,7 +29,7 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
-**Peaks-Loop Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-code → RD → QA → verdict`. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
+**Peaks-Loop Code is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-code → RD → QA → verdict`. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
 
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 
@@ -43,7 +43,7 @@ When a NEW conversation opens on a session whose `lastActivity` is from today AN
 
 ### Peaks-Loop Step N: Periodic checkpoint (auto-fire, no user action)
 
-Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write. See `references/periodic-checkpoint.md` (otherwise `tests/unit/solo/checkpoint-periodic-frequency.test.ts` fails).
+Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write. See `references/periodic-checkpoint.md` (otherwise `tests/unit/code/checkpoint-periodic-frequency.test.ts` fails).
 
 ### Peaks-Loop Step 0.5: OpenSpec first-run opt-in (conditional)
 
@@ -61,7 +61,7 @@ After autonomous work (RD, QA, security, perf), invoke peaks-final-review for 4-
 
 ### Peaks-Loop Step N+2: Main-session context monitor (D6 + slice 2026-07-02)
 
-After every 4th tool call, probe via `peaks solo context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory): Solo MUST call `peaks session auto-compact --execute --project <repo>` autonomously. Pass `--enforce-job-mode` to force the MANDATORY semantics in single-rid mode too (`job-shape.json` auto-enables it). **≥ 0.95** red line: next Bash/Task call fires `peaks session auto-compact-hook` (PreToolUse), in-band spawning `claude --compact`. **Karpathy §4 exception**: compact red line keeps runner alive → zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
+After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory): Code MUST call `peaks session auto-compact --execute --project <repo>` autonomously. Pass `--enforce-job-mode` to force the MANDATORY semantics in single-rid mode too (`job-shape.json` auto-enables it). **≥ 0.95** red line: next Bash/Task call fires `peaks session auto-compact-hook` (PreToolUse), in-band spawning `claude --compact`. **Karpathy §4 exception**: compact red line keeps runner alive → zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
@@ -79,9 +79,9 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-code` BEFORE any an
 
 After Step 0, run the resume-detection probe; surface via `AskUserQuestion` if a slice is in flight.
 
-**v3.1.2 resume rule:** if `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` exists, read it FIRST and surface `Next: slice #N of M (<currentSlice>)`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader; the same JSON is surfaced by `peaks solo gate-step-08` on every Bash call.
+**v3.1.2 resume rule:** if `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` exists, read it FIRST and surface `Next: slice #N of M (<currentSlice>)`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader; the same JSON is surfaced by `peaks code gate-step-08` on every Bash call.
 
-**v2.11.0 D7 override:** if user just `/compact`ed, run `peaks solo post-compact-detect --project <repo> --json` FIRST; `shouldAutoResume: true` skips AskUserQuestion (D7.b). Log to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md`.
+**v2.11.0 D7 override:** if user just `/compact`ed, run `peaks code post-compact-detect --project <repo> --json` FIRST; `shouldAutoResume: true` skips AskUserQuestion (D7.b). Log to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md`.
 
 → see `references/resume-detection.md`.
 
@@ -91,15 +91,15 @@ After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> 
 
 ### Peaks-Loop Step 0.8 — Job 启动 (BLOCKING on LLM judgement — v3.1.1 patch + v3.1.2 mechanical gates)
 
-The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peaks solo detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low>`, which writes `.peaks/_runtime/<sessionId>/job-shape.json`. Downstream steps call `read-job-shape` and refuse if missing.
+The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peaks code detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low>`, which writes `.peaks/_runtime/<sessionId>/job-shape.json`. Downstream steps call `read-job-shape` and refuse if missing.
 
-**Hard rule (v3.1.1 red-line #10):** LLM MUST NOT skip `peaks solo detect-job`. If `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, record a decision before proceeding.
+**Hard rule (v3.1.1 red-line #10):** LLM MUST NOT skip `peaks code detect-job`. If `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, record a decision before proceeding.
 
 **v3.1.2 mechanical gates** (recorder-only was bypassed twice):
 
-- **PreToolUse hook** — `peaks workspace init` installs the `Bash` matcher `peaks solo gate-step-08 --project .`. Exits 0 when `job-shape.json` exists (also emits `Next: slice #N+1 of M` from `progress.json`); exits 2 BLOCKED when missing AND prompt matches a fail-closed backup regex; otherwise 0 (allow).
-- **Size-fear ban** — `peaks solo emit-handoff` refuses a final handoff while `remaining > 0` under Job mode.
-- **Forced auto-compact** — `peaks solo context-now --enforce-job-mode` (auto-enabled on `isJob=true`) returns `auto-compact-now` at ≥ 0.85; **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory).
+- **PreToolUse hook** — `peaks workspace init` installs the `Bash` matcher `peaks code gate-step-08 --project .`. Exits 0 when `job-shape.json` exists (also emits `Next: slice #N+1 of M` from `progress.json`); exits 2 BLOCKED when missing AND prompt matches a fail-closed backup regex; otherwise 0 (allow).
+- **Size-fear ban** — `peaks code emit-handoff` refuses a final handoff while `remaining > 0` under Job mode.
+- **Forced auto-compact** — `peaks code context-now --enforce-job-mode` (auto-enabled on `isJob=true`) returns `auto-compact-now` at ≥ 0.85; **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory).
 - **On-disk slice progress** — `peaks job checkpoint --state done` writes `progress.json`; `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader.
 
 Full mechanics (judgement criteria, hook table, backup-regex rationale, hook wiring) at `references/step-0-8-gate.md`.
@@ -144,7 +144,7 @@ When peaks-code dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt,
 
 ## Boundaries
 
-Peaks-Loop Solo may: identify scenarios, recommend profiles, coordinate role skills through artifacts, coordinate project memory extraction, request user confirmation at risk/commit boundaries. Peaks-Loop Solo must NOT silently install hooks / create agents / enable MCP / modify Claude settings / create GitHub repos / bypass role-skill artifacts. → `references/boundaries.md`.
+Peaks-Loop Code may: identify scenarios, recommend profiles, coordinate role skills through artifacts, coordinate project memory extraction, request user confirmation at risk/commit boundaries. Peaks-Loop Code must NOT silently install hooks / create agents / enable MCP / modify Claude settings / create GitHub repos / bypass role-skill artifacts. → `references/boundaries.md`.
 
 ## Peaks-Loop GStack integration
 
@@ -160,7 +160,7 @@ Before handing off to `peaks-rd`, scan the project and record findings to `.peak
 
 ## Peaks-Loop Frontend-only development mode
 
-When the project has no live backend (no swagger.json, no API server), Solo must activate frontend-only mode. The CLI is authoritative — read `frontendOnly` and `frontendOnlyReason` from `peaks scan archetype --json`. → `references/frontend-only-mode.md`.
+When the project has no live backend (no swagger.json, no API server), Code must activate frontend-only mode. The CLI is authoritative — read `frontendOnly` and `frontendOnlyReason` from `peaks scan archetype --json`. → `references/frontend-only-mode.md`.
 
 ## Peaks-Loop Request type classification + Workflow order + Transition verification gates
 
@@ -186,7 +186,7 @@ Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-ag
 
 ## Peaks-Loop Mandatory RD QA repair loop (AUTO-PROCEED)
 
-After `peaks-rd` finishes, Solo MUST auto-route to `peaks-qa` without waiting for confirmation. Cap: 3 cycles; on 3rd failure emit blocked TXT handoff. Full 5-step procedure at `references/micro-cycle.md`.
+After `peaks-rd` finishes, Code MUST auto-route to `peaks-qa` without waiting for confirmation. Cap: 3 cycles; on 3rd failure emit blocked TXT handoff. Full 5-step procedure at `references/micro-cycle.md`.
 
 ## Default runbook
 
@@ -216,7 +216,7 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 ## Peaks-Loop Step 11: Memory sediment (BLOCKING on workflow complete)
 
-> **Hard rule.** Solo MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` (the durable, LLM-authored memory store) OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Applies to **all modes** including `assisted` and `strict` — `assisted` previously skipped Step 10 because there was no `[CONFIRM]` gate; Step 11 fixes that.
+> **Hard rule.** Code MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` (the durable, LLM-authored memory store) OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Applies to **all modes** including `assisted` and `strict` — `assisted` previously skipped Step 10 because there was no `[CONFIRM]` gate; Step 11 fixes that.
 
 ### Substeps (BLOCKING)
 
@@ -228,19 +228,19 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 **11d — Gate C (zero-write outcome):** If `extractedCount === 0` after 11c, fire AskUserQuestion:
 
-> "本次 solo 未沉淀任何 `.peaks/memory` 文件。可选: (a) 回去在 handoff.md 嵌入至少 1 个 `peaks-memory:start` block 后重试; (b) 显式接受 no-sediment 并记录为 lesson; (c) 取消完成。"
+> "本次 code 未沉淀任何 `.peaks/memory` 文件。可选: (a) 回去在 handoff.md 嵌入至少 1 个 `peaks-memory:start` block 后重试; (b) 显式接受 no-sediment 并记录为 lesson; (c) 取消完成。"
 
-Default option = (a). Solo MUST NOT silently accept (b) without user pick. Full bash + flow at `references/runbook.md` §Step 11.
+Default option = (a). Code MUST NOT silently accept (b) without user pick. Full bash + flow at `references/runbook.md` §Step 11.
 
 **Why this step exists:** audit 2026-07-03 confirmed 2 consecutive sessions produced zero `.peaks/memory/` files despite completing RD + QA + handoff artifacts; `assisted` mode silently skipped runbook Step 10 (no STOP condition). **Why `peaks memory extract` (not `peaks project memories:extract`):** the artifact-scoped extract is canonical; the batch-scoped sibling is for non-handoff flows. Always use `peaks memory extract --apply`.
 
 ## Peaks-Loop External references and lifecycle
 
-3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7) follow Discovery → Reference → Side effect through Peaks CLI only. Run `peaks capabilities` for capability discovery; treat external skills as reference material only. MCP servers (Playwright / Chrome DevTools / Figma) are user-installed — check the tool list for `mcp__<server>__*` entries. Do not execute upstream installer / run upstream commands / persist sensitive examples / install upstream resources directly — funnel side effects through the Peaks CLI surface. Peaks-Loop Solo gates remain authoritative. → `references/external-references.md` + `references/external-skill-invocation.md`.
+3rd-party integrations (codegraph, mattpocock/skills, shadcn/ui, MCPs, Context7) follow Discovery → Reference → Side effect through Peaks CLI only. Run `peaks capabilities` for capability discovery; treat external skills as reference material only. MCP servers (Playwright / Chrome DevTools / Figma) are user-installed — check the tool list for `mcp__<server>__*` entries. Do not execute upstream installer / run upstream commands / persist sensitive examples / install upstream resources directly — funnel side effects through the Peaks CLI surface. Peaks-Loop Code gates remain authoritative. → `references/external-references.md` + `references/external-skill-invocation.md`.
 
 ## Codegraph orchestration context
 
-`peaks codegraph affected` is an optional project-analysis enhancement (untrusted supporting evidence) for role handoff. Solo must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings / hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/_runtime/<sessionId>/rd/codegraph-context.md`; QA / TXT consume the same envelope. → `references/codegraph-orchestration.md`.
+`peaks codegraph affected` is an optional project-analysis enhancement (untrusted supporting evidence) for role handoff. Code must not treat codegraph output as approval for scope, design, or QA verdict. Never mutate agent settings / hooks from codegraph; do not commit `.codegraph/` artifacts. RD writes `.peaks/_runtime/<sessionId>/rd/codegraph-context.md`; QA / TXT consume the same envelope. → `references/codegraph-orchestration.md`.
 
 ## Sub-agent context governance (G7 + G7.7 + G8 + G9 — slice #010)
 
@@ -260,7 +260,7 @@ Index of every `references/` file. Read on demand.
 | `references/a2a-artifact-mapping.md` | A2A artifact-path mapping. |
 | `references/anchoring-and-session-info.md` | Step 0 + session-conflict. |
 | `references/artifact-contracts.md` | Sub-agent handoff contracts. |
-| `references/boundaries.md` | Solo's do / don't list. |
+| `references/boundaries.md` | Code's do / don't list. |
 | `references/browser-workflow.md` | Browser workflow (Playwright MCP). |
 | `references/codegraph-orchestration.md` | Codegraph role handoff. |
 | `references/command-migration.md` | Legacy command migration. |

@@ -147,7 +147,7 @@ function mergePreferences(
  * verbatim. v1's `agentShieldPrompt` and `loopAutonomousEnabled` were
  * already present, so they carry through unchanged. The `fanout` field
  * is new in v2 — it defaults to `{ defaultMode: 'fan-out' }` so the
- * pre-v2 behavior (peak-solo SKILL instructed fan-out when ≥ 2 leaves)
+ * pre-v2 behavior (peak-code SKILL instructed fan-out when ≥ 2 leaves)
  * is preserved.
  */
 export type MigrateResult = {

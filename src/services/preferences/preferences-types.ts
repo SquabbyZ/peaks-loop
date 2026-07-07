@@ -80,7 +80,7 @@ export interface ProjectPreferences {
    */
   readonly schema_version: typeof PREFERENCES_SCHEMA_VERSION;
   /**
-   * Slice 2026-06-28-solo-mode-bypass-fix: economyMode is a
+   * Slice 2026-06-28-code-mode-bypass-fix: economyMode is a
    * **MODEL-SELECTION** knob only — it chooses between the cheap
    * configured provider (`getConfiguredExecutionModelId`) and the
    * strongest planner/reviewer model (`STRONGEST_MODEL_ID`). It does

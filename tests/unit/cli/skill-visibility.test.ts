@@ -5,7 +5,7 @@
  * peaks-resume / peaks-status / peaks-test) and 6 internal role skills
  * (peaks-prd / peaks-rd / peaks-qa / peaks-ui / peaks-sc / peaks-txt).
  *
- * NOTE on Task 1 timing: at Task 1 stage the solo-* names have NOT yet been
+ * NOTE on Task 1 timing: at Task 1 stage the code-* names have NOT yet been
  * renamed to peaks-code / peaks-resume / peaks-status / peaks-test. Task 3
  * performs the rename. So the public-side list is currently peaks-code /
  * peaks-resume / peaks-status / peaks-test (4 entries), and

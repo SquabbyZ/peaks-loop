@@ -85,7 +85,7 @@ Everything else auto-proceeds.
 A new shared helper:
 
 ```typescript
-// src/services/solo/mode-gate.ts
+// src/services/code/mode-gate.ts
 export type Mode = 'full-auto' | 'assisted' | 'swarm' | 'strict';
 
 export function shouldAutoProceed(mode: Mode): boolean {
@@ -104,9 +104,9 @@ The helper MUST be the single source of truth — no inline `mode === 'full-auto
 
 ## Test requirements
 
-- New `tests/unit/services/solo/mode-gate.test.ts` covering all 4 modes × all 14 inventory rows → 56 cases
+- New `tests/unit/services/code/mode-gate.test.ts` covering all 4 modes × all 14 inventory rows → 56 cases
 - New `tests/unit/skill-auto-proceed.test.ts` covering each SKILL.md gate individually (mock the AskUserQuestion call → assert it was NOT made)
-- Each AskUserQuestion site that is mode-gated gets a `--json` probe that the LLM can grep before emitting the question: `peaks solo should-pause --step <step> --mode <mode> --project <repo> --json`
+- Each AskUserQuestion site that is mode-gated gets a `--json` probe that the LLM can grep before emitting the question: `peaks code should-pause --step <step> --mode <mode> --project <repo> --json`
 
 ## Why this is additive, not a replacement
 

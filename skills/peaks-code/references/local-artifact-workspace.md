@@ -50,13 +50,13 @@ system/          # Existing-system extraction output (visual tokens, conventions
 
 Files written into these directories during the workflow (not pre-created — they appear as their step runs):
 
-- `rd/project-scan.md` (Solo step 0.6)
+- `rd/project-scan.md` (Code step 0.6)
 - `rd/tech-doc.md` (feature/refactor planning; required by `rd → implemented` gate)
 - `rd/bug-analysis.md` (bugfix planning; required by `rd → implemented` gate for `--type bugfix`)
 - `rd/code-review.md`, `rd/security-review.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; security-review only for config)
 - `rd/mock-plan.md` (frontend-only mode)
 - `ui/design-draft.md` (UI step)
-- `system/existing-system.md` (Solo step 0.7; legacy projects only)
+- `system/existing-system.md` (Code step 0.7; legacy projects only)
 - `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md`, `qa/security-findings.md`, `qa/performance-findings.md` (gated per `--type`)
 
 ## Root pollution prohibition (CRITICAL)

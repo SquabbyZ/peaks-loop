@@ -269,7 +269,7 @@ export const ResourceSnapshotSchema = z.object({
   cpuPercent: z.number().min(0).max(100),
   memMb: z.number().nonnegative(),
   diskMb: z.number().nonnegative(),        // job/<jid>/ dir size
-  contextRatio: z.number().min(0).max(1),  // 0..1, last known from peaks solo context-now
+  contextRatio: z.number().min(0).max(1),  // 0..1, last known from peaks code context-now
 });
 
 export const JobStatusSummarySchema = z.object({
@@ -300,7 +300,7 @@ Trigger condition: user request semantics suggest multi-slice work. Heuristic:
 - Says "全部完成", "until all done", "全部", "all of them"
 - Mentions a cost/duration disavowal ("不用 care 费用", "don't worry about cost", "一直跑")
 
-If triggered, Solo calls `peaks job init` with the parsed slice list (LLM parses the user's list at this point — see 4.4) and proceeds to the loop.
+If triggered, Code calls `peaks job init` with the parsed slice list (LLM parses the user's list at this point — see 4.4) and proceeds to the loop.
 
 If the request is single-target (e.g. "fix bug in app/api/users"), Step 0.8 is a no-op and the standard single-rid runbook applies.
 
@@ -326,7 +326,7 @@ Loop control:
 
 #### Step 0.85 — slice 阻塞处理 (NEW)
 
-Triggered when `peaks request repair-status` returns `atCap: true` for the current slice, OR when `peaks solo context-now` returns red-line sustained ≥5 minutes:
+Triggered when `peaks request repair-status` returns `atCap: true` for the current slice, OR when `peaks code context-now` returns red-line sustained ≥5 minutes:
 
 ```
 peaks job block --slice-id <rid> --reason "<QA 3-cycle cap: ...>" 
@@ -334,7 +334,7 @@ peaks job block --slice-id <rid> --reason "<QA 3-cycle cap: ...>"
 peaks job block --slice-id <rid> --reason "<context overflow: ...>"
 ```
 
-Solo emits a TXT-style handoff describing the block reason + the job state, then **STOPS** and waits for the user.
+Code emits a TXT-style handoff describing the block reason + the job state, then **STOPS** and waits for the user.
 
 #### Step 0.86 — main session rotation (NEW, rotating mode only)
 
@@ -396,13 +396,13 @@ When `--parallelism-hint serial`, LLM still proposes the list (Step 0.8 prompt d
 | `peaks sub-agent dispatch` | Each slice's RD/QA swarm runs unchanged at the protocol layer. The **Job-aware wrapper** auto-injects `--budget-mb` (default 512 MB) and demands `peaks job subagent-cleanup` afterward. Vanilla `peaks sub-agent dispatch` is untouched. |
 | `peaks session checkpoint/resume` | Cross-session: read both `session/checkpoints/` AND `job/<jid>/state.json`. If job state says more slices remain, prompt user: resume / restart / skip. In rotating mode, `peaks session resume` reads `session/cycle-<n>.md` + job.state.json. |
 | `peaks session rotate` (NEW for rotating mode) | Active only when `--main-loop-strategy rotating`. Forces a controlled main-session reset every `rotateEvery` slices. Distinct from auto-compact, which is in-band compression; `rotate` is a fresh main-session kernel. |
-| `peaks solo auto-compact` (v2.13.0) | Per-slice (may fire many times across one job). Auto-compact touches only session-side artifacts (e.g. `session/auto-decisions.md`); it never reads or writes `job/<jobId>/state.json`. Each invocation is independent — job state always reflects "has this slice committed yet", independent of context pressure. **Note:** auto-compact is a *passive rescue inside one session*. The Job uses it for transient spikes but does **not** rely on it for long-term main-context health — that's what `rotate` is for. |
-| `peaks skill presence` | Unchanged. Solo remains the active skill. |
+| `peaks code auto-compact` (v2.13.0) | Per-slice (may fire many times across one job). Auto-compact touches only session-side artifacts (e.g. `session/auto-decisions.md`); it never reads or writes `job/<jobId>/state.json`. Each invocation is independent — job state always reflects "has this slice committed yet", independent of context pressure. **Note:** auto-compact is a *passive rescue inside one session*. The Job uses it for transient spikes but does **not** rely on it for long-term main-context health — that's what `rotate` is for. |
+| `peaks skill presence` | Unchanged. Code remains the active skill. |
 | `peaks standards / project scan` | Run once at job init, not per-slice. |
 | `peaks budget audit` | `--show-cost` becomes a new flag on `peaks job status` (read-only, never halts). |
 | `peaks statusline` | New event hook: when a Job is in flight, the statusline renders `job: <jid> [done/total] currentSlice ETA m:s context main%. <rotating cycle>`. Lets the user see progress passively. |
 | `peaks resource snapshot` (NEW, optional) | `peaks resource snapshot --job-id <jid>` returns the ResourceSnapshot for the Job. Polled opportunistically, not on a clock. Snapshot stored at `job/<jid>/resources/<timestamp>.json` for retrospective analysis. |
-| `peaks solo context-now` | Polled every slice in rotating mode (cheap). If ratio ≥ 0.85, Solo's Step 0.81 may trigger an out-of-cadence `peaks job rotate-now`. |
+| `peaks code context-now` | Polled every slice in rotating mode (cheap). If ratio ≥ 0.85, Code's Step 0.81 may trigger an out-of-cadence `peaks job rotate-now`. |
 
 ---
 
@@ -414,8 +414,8 @@ When `--parallelism-hint serial`, LLM still proposes the list (Step 0.8 prompt d
 T+0:  user request
       "peaks-code 给 app/ 下所有子目录补 UT,以子目录为 slice 维度,自验证后 commit,不用 care 费用"
 
-T+30s: Solo Step 0 — anchor workspace, scan archetype
-T+45s: Solo Step 0.8 — multi-slice heuristic triggers
+T+30s: Code Step 0 — anchor workspace, scan archetype
+T+45s: Code Step 0.8 — multi-slice heuristic triggers
         ls app/*/ → parses [api/users, api/orders, ui/dashboard, ui/auth, lib/db, ...]
         peaks job init --job-id ut-app-2026-07-03
                        --slice-list "api/users,api/orders,ui/dashboard,ui/auth,lib/db,..."
@@ -442,7 +442,7 @@ T+45m:  Loop iter 8: slice ui/dashboard
 
 T+50m:  user intervention — fixes props manually
         user: "peaks-code 续 ut-app-2026-07-03"
-        Solo detects "续" + has unfinished-work probe → peaks job resume
+        Code detects "续" + has unfinished-work probe → peaks job resume
         User: "已修,继续" → peaks job continue
         Re-runs slice ui/dashboard to completion
 
@@ -457,12 +457,12 @@ T+90m:  Loop terminates: { done: 8, remaining: 0 }
 ### 5.2 Cross-session recovery (24h off-line scenario)
 
 ```
-T+0..N: Solo runs job over hours
+T+0..N: Code runs job over hours
 T+N:    User closes IDE for the night
 
 T+M (next morning):
         User opens IDE, runs /peaks-code
-        Solo Step 0.7 (unfinished-work probe) reads job state.json
+        Code Step 0.7 (unfinished-work probe) reads job state.json
         { done: 3, remaining: 5, currentSlice: lib/db }
         AskUserQuestion: "检测到未完成的 job ut-app-2026-07-03 (3/8 done)。
                          (a) resume, (b) restart, (c) 跳过已完成"
@@ -474,7 +474,7 @@ T+M (next morning):
 
 ```
 Loop iter 4 mid-execution
-peaks solo context-now returns ratio=0.87 (pre-compact zone)
+peaks code context-now returns ratio=0.87 (pre-compact zone)
 auto-compact protocol runs:
   - writes .peaks/_runtime/<sid>/session/auto-decisions.md
   - triggers IDE-side compact
@@ -592,10 +592,10 @@ The LLM-runner MUST NOT:
 | **M1 — Spec + types** | Schema + zod + CLI help snapshot + ResourceSnapshot shape | 0.5d | AC-2 |
 | **M2 — State machine core** | Orchestrator + state-store + transition tests (single mode only) | 1d | AC-2 / AC-8 / AC-9 / AC-12 |
 | **M3 — CLI family** | 9 subcommands wired incl. `--watch` | 1d | AC-1 / AC-14 |
-| **M4 — Solo integration + rotating mode** | Step 0.8/0.81/0.85/0.86/0.87 + job-rotation.ts + SKILL.md + runbook | 2d | AC-3 / AC-4 / AC-7 / AC-11 |
+| **M4 — Code integration + rotating mode** | Step 0.8/0.81/0.85/0.86/0.87 + job-rotation.ts + SKILL.md + runbook | 2d | AC-3 / AC-4 / AC-7 / AC-11 |
 | **M5 — Sub-agent wrapper + resource safety** | subagent-job-wrapper.ts + job-resource-snapshot.ts + statusline event hook + AC-13 enforcement | 1d | AC-13 / AC-14 |
 | **M6 — Integration / E2E + fault injection** | 8-slice E2E + context-explosion inject + sub-agent budget breach | 1.5d | AC-5 / AC-6 / AC-11 |
-| **M7 — Regression + docs + release** | Run existing solo runbook + spec commit + memory sediment | 0.5d | AC-10 + release |
+| **M7 — Regression + docs + release** | Run existing code runbook + spec commit + memory sediment | 0.5d | AC-10 + release |
 
 **Total: ~7.5 working days, single dev, full-auto** (revised up from 5 to cover rotating-mode + cleanup + resource safety).
 

@@ -3,9 +3,9 @@ name: peaks-test
 description: Universal test-runner primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Runs the project's test suite on the current repo and reports results. Use when the user asks "run the tests", "跑一下 test", "跑测试" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-test", "跑一下 test", "跑测试", "run the tests", "test now". (Replaces peaks-test as a top-level primitive.)
 ---
 
-# Peaks-Loop Solo Test (wrapper)
+# Peaks-Loop Code Test (wrapper)
 
-Peaks-Loop Solo Test is a thin wrapper that runs the project's test suite on the current repo and reports results. It is the answer to "I just want to see if the tests pass" — no PRD, no RD, no QA, no full peaks-code orchestration. Just `pnpm vitest run` and a compact summary.
+Peaks-Loop Code Test is a thin wrapper that runs the project's test suite on the current repo and reports results. It is the answer to "I just want to see if the tests pass" — no PRD, no RD, no QA, no full peaks-code orchestration. Just `pnpm vitest run` and a compact summary.
 
 **This is a transparent wrapper.** The user does not stay in this skill — the test command runs, the result is summarized, and control hands off (back to the user, or to `peaks-code` if the user wants to act on the result).
 

@@ -25,9 +25,9 @@ export interface RedLineSource {
 }
 
 export interface RedLineEntry {
-  /** Stable id, e.g. "rl-solo-code-ban-001". */
+  /** Stable id, e.g. "rl-code-ban-001". */
   readonly id: string;
-  /** Human-readable rule name, e.g. "Solo Code-Change Red Line". */
+  /** Human-readable rule name, e.g. "Code Commit Ban". */
   readonly rule: string;
   readonly source: RedLineSource;
   readonly backing: RedLineBacking;

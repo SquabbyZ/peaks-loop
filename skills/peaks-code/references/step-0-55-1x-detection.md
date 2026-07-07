@@ -1,6 +1,6 @@
 # Step 0.55 — 1.x → 2.0 detection reference
 
-> Body of `### Peaks-Loop Step 0.55`. Slice: 2026-06-12-solo-step-0-55-1x-detection.
+> Body of `### Peaks-Loop Step 0.55`. Slice: 2026-06-12-code-step-0-55-1x-detection.
 
 ## Why this step exists
 

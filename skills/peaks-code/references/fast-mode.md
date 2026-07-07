@@ -1,7 +1,7 @@
-# Solo fast mode (slice 2 — round-trip ≤ 30s)
+# Code fast mode (slice 2 — round-trip ≤ 30s)
 
 For hot-fix / small-bug slices where the full 5-step workflow is overkill,
-use **fast mode**: `peaks solo plan --fast <change-id>`. Fast mode skips
+use **fast mode**: `peaks code plan --fast <change-id>`. Fast mode skips
 three steps that dominate cold-start cost:
 
 | Step | Default | Fast |

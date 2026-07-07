@@ -8,7 +8,7 @@ metadata:
 
 # peaks-loop slice 审阅 + QA 视角
 
-> 适用: 当 LLM 解释 Solo gate / slice review / QA 验收时,避免让 user 审技术。
+> 适用: 当 LLM 解释 Code gate / slice review / QA 验收时,避免让 user 审技术。
 
 ## 1. 核心原则
 

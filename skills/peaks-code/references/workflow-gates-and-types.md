@@ -1,6 +1,6 @@
 # Peaks-Loop Workflow Order + Request Type Classification + Transition Verification Gates
 
-> **Maintenance**: This reference holds the canonical contract for (a) how Solo sequences the 11 workflow steps, (b) which `--type` to pass to `peaks request init` for which slice shape, and (c) the executable `ls` / `grep` gate commands that physically block progression. SKILL.md keeps the narrative ("what peaks-code does"); this file keeps the contract.
+> **Maintenance**: This reference holds the canonical contract for (a) how Code sequences the 11 workflow steps, (b) which `--type` to pass to `peaks request init` for which slice shape, and (c) the executable `ls` / `grep` gate commands that physically block progression. SKILL.md keeps the narrative ("what peaks-code does"); this file keeps the contract.
 >
 > **Why extracted from SKILL.md**: this content is 165 lines of mostly-tabular + bash-block contract — reference data, not orchestration prose. Inlining it bloats SKILL.md past the 800-line cap (per `common/coding-style.md`). The numbers, gate command shapes, and type-classification rules change rarely; the SKILL.md prose around them (orchestration flow, repair-loop intent, swarm fan-out shape) changes more often.
 >
@@ -25,7 +25,7 @@ Before initializing any role artifact, classify the request into exactly one of 
 
 For ambiguous cases (e.g. "improve login flow"), ask the user to clarify before initializing. The cost of one `AskUserQuestion` round is much lower than running the wrong gate matrix for the whole workflow.
 
-When Peaks-Loop Solo coordinates development in a code repository, keep this order explicit:
+When Peaks-Loop Code coordinates development in a code repository, keep this order explicit:
 
 0. **Peaks-Loop Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
 0.5. **Peaks-Loop Workspace initialization** — `.peaks/_runtime/<session-id>/` created, directory structure verified;

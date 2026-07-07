@@ -51,7 +51,7 @@ describe('Codegraph skill analysis integration guidance', () => {
 
     expect(section).toContain('optional project-analysis enhancement');
     expect(section).toContain('role handoff');
-    expect(section).toContain('Solo must not treat codegraph output as approval');
+    expect(section).toContain('Code must not treat codegraph output as approval');
     expectCodegraphGuardrails(section);
   });
 

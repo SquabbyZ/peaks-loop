@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto';
 
 /**
  * Slice complexity tier (v2.15.0 follow-up, G2 in 12 Gaps).
- * Used by Solo to schedule complex slices during user-attended hours
+ * Used by Code to schedule complex slices during user-attended hours
  * and trivial / simple slices overnight.
  */
 export type SliceComplexity = 'trivial' | 'simple' | 'complex';
@@ -64,7 +64,7 @@ export interface SliceNode {
    */
   readonly upstreamSync?: boolean;
   /**
-   * v2.15.0 follow-up — G2: complexity tier. Drives Solo's scheduling
+   * v2.15.0 follow-up — G2: complexity tier. Drives Code's scheduling
    * (complex = user-attended, simple/trivial = overnight). Optional.
    */
   readonly complexity?: SliceComplexity;

@@ -66,12 +66,12 @@ metadata:
 ## Slice 002 repair (post-QA blocker round)
 
 **Commit**: pending repair commit on top of `070f790`
-**Reason**: peaks-qa returned verdict = FAIL with 2 BLOCKERS (defect 1: presence:check-stale always stale=true; defect 2: solo should-pause CLI lacks commit-boundary entry). Defect 3 (MINOR: presence:set omits outerSessionId key) was folded in.
+**Reason**: peaks-qa returned verdict = FAIL with 2 BLOCKERS (defect 1: presence:check-stale always stale=true; defect 2: code should-pause CLI lacks commit-boundary entry). Defect 3 (MINOR: presence:set omits outerSessionId key) was folded in.
 
 | # | Defect | Fix | Files |
 |---|---|---|---|
 | 1 | `peaks skill presence:check-stale` always returned `stale: true` because the CLI passed `{ currentOuter: options.currentOuter }` (explicit-undefined) which skipped the env-var fallback (service-layer guard `'currentOuter' in opts` returns true). | Build sparse opts object in the CLI handler so the service-layer's in-key check triggers env-var resolution. Also coerce `currentOuterSessionId`/`recordedOuterSessionId` to `''` when undefined so JSON.stringify emits the key. | `src/cli/commands/core/skill-command.ts` |
-| 2 | `peaks solo should-pause` did not accept a commit-boundary action id; the service-layer `shouldPauseAtGate({ commitBoundaryAction: true })` was unreachable from the CLI. | Added `--commit-boundary-action <id>` flag (validated against `COMMIT_BOUNDARY_ACTIONS`). Action id is echoed in the envelope and the boolean is forwarded to the service. | `src/cli/commands/solo-commands.ts` |
+| 2 | `peaks code should-pause` did not accept a commit-boundary action id; the service-layer `shouldPauseAtGate({ commitBoundaryAction: true })` was unreachable from the CLI. | Added `--commit-boundary-action <id>` flag (validated against `COMMIT_BOUNDARY_ACTIONS`). Action id is echoed in the envelope and the boolean is forwarded to the service. | `src/cli/commands/code-commands.ts` |
 | 3 | `presence:set` wrote `outerSessionId` only when the env var was set; downstream staleness detection couldn't tell "no signal" from "missing key". | Always write `outerSessionId: ''` (empty string) when no env var is set. Empty string is the canonical "no signal" sentinel. | `src/services/skills/skill-presence-service.ts` |
 
 **New tests**:
@@ -86,9 +86,9 @@ metadata:
 | AC | Status | Files | Tests |
 |---|---|---|---|
 | AC-1 presence:check-stale + rotation auto-clear | DONE | `src/services/skills/skill-presence-service.ts` (+checkStalePresence, +clearStalePresenceOnRotation), `src/cli/commands/core/skill-command.ts` (+presence:check-stale, +--check-stale flag), `src/cli/commands/workspace/init-command.ts` (rotation block) | `tests/unit/services/skills/presence-staleness.test.ts` (12) |
-| AC-2 SKILL.md Step 1 re-ask + should-pause integration | DONE | `skills/peaks-code/SKILL.md` (Step 1 wording), `skills/peaks-code/references/mode-selection-with-stale-presence.md` (NEW), `src/cli/commands/solo-commands.ts` (should-pause stale branch) | `tests/unit/services/solo/stale-presence-detection.test.ts` (9) |
+| AC-2 SKILL.md Step 1 re-ask + should-pause integration | DONE | `skills/peaks-code/SKILL.md` (Step 1 wording), `skills/peaks-code/references/mode-selection-with-stale-presence.md` (NEW), `src/cli/commands/code-commands.ts` (should-pause stale branch) | `tests/unit/services/code/stale-presence-detection.test.ts` (9) |
 | AC-3 feedback-promotion SOP + CLI + Gate H | DONE | `sops/feedback-promotion-sop.md` (NEW), `src/services/feedback/feedback-promotion-service.ts` (NEW), `src/cli/commands/feedback-commands.ts` (NEW), `src/cli/commands/program.ts` (+registration), `src/services/workflow/pipeline-verify-service.ts` (Gate H) | `tests/unit/services/feedback/feedback-promotion.test.ts` (18) |
-| AC-4 mode-gate.ts commit-boundary hard-floor | DONE | `src/services/solo/mode-gate.ts` (+commit-boundary-side-effect, +CommitBoundaryActionId, +detectCommitBoundaryAction, +commitBoundaryAction flag in shouldPauseAtGate) | `tests/unit/services/solo/commit-boundary-hard-floor.test.ts` (247) |
+| AC-4 mode-gate.ts commit-boundary hard-floor | DONE | `src/services/code/mode-gate.ts` (+commit-boundary-side-effect, +CommitBoundaryActionId, +detectCommitBoundaryAction, +commitBoundaryAction flag in shouldPauseAtGate) | `tests/unit/services/code/commit-boundary-hard-floor.test.ts` (247) |
 | AC-5 tests + docs + version | DONE | `CHANGELOG.md` (v2.15.0 entry), `package.json` + `src/shared/version.ts` (2.14.2 → 2.15.0), this memory addendum | All tests green |
 
 ## Test totals
@@ -102,19 +102,19 @@ metadata:
 
 Slice commit made. NO push / tag / publish. Per
 `.peaks/memory/2026-06-28-full-auto-boundary.md`:
-- commit = Solo fork Agent
+- commit = Code fork Agent
 - push / tag / publish = user-only (now enforced by Gate H + commit-boundary hard-floor)
 
 ## Verification commands for next session
 
 ```bash
-pnpm vitest run tests/unit/services/solo/ 2>&1 | tail -10
+pnpm vitest run tests/unit/services/code/ 2>&1 | tail -10
 pnpm vitest run tests/unit/services/workflow/ 2>&1 | tail -10
 pnpm vitest run tests/unit/services/feedback/ 2>&1 | tail -10
 pnpm vitest run tests/unit/services/skills/presence-staleness.test.ts 2>&1 | tail -10
 peaks skill presence:check-stale --project . --json
 peaks feedback check-unpromoted --project . --json
-peaks solo should-pause --step step-1-mode-select --mode full-auto --json
+peaks code should-pause --step step-1-mode-select --mode full-auto --json
 ```
 
 ---
@@ -141,7 +141,7 @@ peaks solo should-pause --step step-1-mode-select --mode full-auto --json
 | Blocker | File | Root cause | Fix |
 |---|---|---|---|
 | 1 | `src/cli/commands/core/skill-command.ts` | `presence:check-stale` always returns `stale: true` because commander spread `currentOuter: undefined` (key present) bypassed service-layer env-var fallback | sparse opts object at CLI boundary; preserve test seam `currentOuter: undefined = no signal` |
-| 2 | `src/cli/commands/solo-commands.ts` | `solo should-pause` only accepts 14 GATED_STEPS; service-layer commit-boundary hard-floor unreachable from CLI | add `--commit-boundary-action <id>` flag (5 actions: git-push/git-tag/npm-publish/npm-install-global/peaks-global-install) |
+| 2 | `src/cli/commands/code-commands.ts` | `code should-pause` only accepts 14 GATED_STEPS; service-layer commit-boundary hard-floor unreachable from CLI | add `--commit-boundary-action <id>` flag (5 actions: git-push/git-tag/npm-publish/npm-install-global/peaks-global-install) |
 | 3 minor | `src/services/skills/skill-presence-service.ts` | `presence:set` writes JSON without `outerSessionId` key when env unset | always write key (empty-string sentinel when no harness env var) |
 
 Net regression: **-1** (fixed an additional pre-existing test that asserted the old buggy `undefined` behavior in `skill-presence-service.test.ts`).
@@ -163,8 +163,8 @@ $ cat ~/.peaks/config.json | grep version
 
 | Rule | Enforcement |
 |---|---|
-| New session must ask mode | `peaks skill presence:check-stale` + `peaks solo should-pause --step step-1-mode-select` → AskUserQuestion when stale |
-| `full-auto boundary = commit only` | mode-gate `commit-boundary-side-effect` hard-floor category + `peaks solo should-pause --commit-boundary-action <id>` (5 actions, all 4 modes override to pause) |
+| New session must ask mode | `peaks skill presence:check-stale` + `peaks code should-pause --step step-1-mode-select` → AskUserQuestion when stale |
+| `full-auto boundary = commit only` | mode-gate `commit-boundary-side-effect` hard-floor category + `peaks code should-pause --commit-boundary-action <id>` (5 actions, all 4 modes override to pause) |
 | Feedback → peaks-loop capability | `peaks feedback promote` CLI + `peaks feedback check-unpromoted` + Gate H in `peaks workflow verify-pipeline` (13 unpromoted memories flagged at first run) |
 
 ## Why this slice is significant

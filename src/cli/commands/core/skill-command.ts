@@ -231,7 +231,7 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
   });
 
   // Slice 002 (v2.15.0) — AC-1: presence staleness detector.
-  // peaks-code Step 1 (and `peaks solo should-pause --step
+  // peaks-code Step 1 (and `peaks code should-pause --step
   // step-1-mode-select`) calls this to decide whether the recorded
   // `mode` field can be trusted or whether the LLM must AskUserQuestion.
   addJsonOption(

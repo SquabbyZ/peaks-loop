@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rewrite `README.md` and `README-en.md` to a 5-block Manifesto skeleton — hero (loop engineering + 战术小队 24 小时待命) → in-box (peaks-code 主官 + dev/bug/requirement) → sediment (战术套路 vs 招式) → install (npx 一行) → closing hook (peaks-solo → peaks-code → peaks-loop).
+**Goal:** Rewrite `README.md` and `README-en.md` to a 5-block Manifesto skeleton — hero (loop engineering + 战术小队 24 小时待命) → in-box (peaks-code 主官 + dev/bug/requirement) → sediment (战术套路 vs 招式) → install (npx 一行) → closing hook (peaks-code → peaks-code → peaks-loop).
 
 **Architecture:** Two parallel files (zh + en), each ~70–95 lines. Same 5-block skeleton, content parallel-translated. Brand-first manifest, NOT an onboarding doc. No new files; no code changes; no spec-derived sub-files.
 
@@ -142,7 +142,7 @@ No other files. No code, no spec diff, no test harness.
   ```markdown
   ## 顺便说一句
 
-  这玩意儿以前叫 `peaks-solo`,后来改 `peaks-code`,现在叫 `peaks-loop`——一只小队,要长成你机器上天天替你出力的那群战术角色。
+  这玩意儿以前叫 `peaks-code`,后来改 `peaks-code`,现在叫 `peaks-loop`——一只小队,要长成你机器上天天替你出力的那群战术角色。
   ```
 
   Rules:
@@ -244,7 +244,7 @@ No other files. No code, no spec diff, no test harness.
   ```markdown
   ## One more thing
 
-  This used to be `peaks-solo`. Then `peaks-code`. Now `peaks-loop` — a squad you grow into the team that runs your machine day in, day out.
+  This used to be `peaks-code`. Then `peaks-code`. Now `peaks-loop` — a squad you grow into the team that runs your machine day in, day out.
   ```
 
 - [ ] **Step 2.6: Footer (en)**

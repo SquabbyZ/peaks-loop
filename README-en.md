@@ -83,7 +83,7 @@ One sentence after install, and the squad is on the job.
 
 This repo used to be [`peaks-cli`](https://github.com/SquabbyZ/peaks-cli). It's called `peaks-loop` now.
 
-Inside the box, the skills evolved from `peaks-solo` (single-role) to `peaks-code` (gate-bearing, code-domain) — both still here, both with their own lane: `peaks-solo` is the older single-task flow entry, and `peaks-code` runs the end-to-end main path.
+Inside the box, the skills evolved from `peaks-code` (single-role) to `peaks-code` (gate-bearing, code-domain) — both still here, both with their own lane: `peaks-code` is the older single-task flow entry, and `peaks-code` runs the end-to-end main path.
 
 The job didn't change: you say it, the engineering gates get laid out — fail where it fails, you decide.
 

@@ -1,4 +1,4 @@
-# Peaks-Solo → Peaks-Code Rename + Sub-Skills to General Primitives
+# Peaks-Code → Peaks-Code Rename + Sub-Skills to General Primitives
 
 **Status:** Draft (post-brainstorming, pre-writing-plans)
 **Date:** 2026-07-05
@@ -34,7 +34,7 @@ user 在 brainstorm 中明确表态:
 > "这是个长痛和短痛的问题。开启 4.x 后整个项目不再是局限的代码开发,已经可以扩展到自定义的领域,后续会内置一些想 3.x 版本的 peaks-code 定位一样的 loop engineering。趁现在使用的人只是几个,做一次调整。"
 
 **短痛(本次承受):** 全量 id 重命名 + 全量测试 + marketplace + hooks + 文档同步。
-**长痛(现在不做、未来持续):** peaks-code 这个名字已经**直接误导用户**——它字面上暗示"solo = 单飞、孤立、零依赖",但实际 4.x 后的定位是"code-domain loop engineering orchestrator",与未来多个领域 loop engineering 并列存在。继续用 peaks-code,用户会自然以为"peaks-code 是唯一入口 / 其他领域只能靠 LLM 兜底",这与 4.x 多领域扩展的产品定位冲突。
+**长痛(现在不做、未来持续):** peaks-code 这个名字已经**直接误导用户**——它字面上暗示"code = 单飞、孤立、零依赖",但实际 4.x 后的定位是"code-domain loop engineering orchestrator",与未来多个领域 loop engineering 并列存在。继续用 peaks-code,用户会自然以为"peaks-code 是唯一入口 / 其他领域只能靠 LLM 兜底",这与 4.x 多领域扩展的产品定位冲突。
 
 ### 1.2 与 2026-07-04 决定的兼容性
 
@@ -148,7 +148,7 @@ description: Universal resume primitive for any in-flight Peaks-Loop workflow (o
 ```diff
  {
 -  "id": "peaks-code",
--  "displayName": "Peaks Solo",
+-  "displayName": "Peaks Code",
 -  "promotionStatus": "system-stable",
 -  "description": "Code-domain orchestrator (PRD/bug/coding)",
 +  "id": "peaks-code",

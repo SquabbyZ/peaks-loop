@@ -253,8 +253,8 @@ export function generatePromotionStub(opts: {
   }
   // layer === 'C'
   return {
-    snippet: `// src/services/solo/mode-gate.ts\n// 1. Add to HardFloorCategory union: '${feedbackName}-rule'\n// 2. Add to HARD_FLOOR_CATEGORIES\n// 3. Wire shouldPauseAtGate to recognise the new category\n// Tests: tests/unit/services/solo/<name>-hard-floor.test.ts (≥6 cases per AC-4)`,
-    targetFiles: ['src/services/solo/mode-gate.ts', `tests/unit/services/solo/${feedbackName}-hard-floor.test.ts`]
+    snippet: `// src/services/code/mode-gate.ts\n// 1. Add to HardFloorCategory union: '${feedbackName}-rule'\n// 2. Add to HARD_FLOOR_CATEGORIES\n// 3. Wire shouldPauseAtGate to recognise the new category\n// Tests: tests/unit/services/code/<name>-hard-floor.test.ts (≥6 cases per AC-4)`,
+    targetFiles: ['src/services/code/mode-gate.ts', `tests/unit/services/code/${feedbackName}-hard-floor.test.ts`]
   };
 }
 

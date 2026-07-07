@@ -276,7 +276,7 @@ describe('scanLibraries — monorepo', () => {
   });
 
   test('returns workspaces: [] for single-package projects (byte-identical to today)', async () => {
-    await writePkg({ name: 'solo', version: '1.0.0', dependencies: { lodash: '^4.0.0' } }, '.');
+    await writePkg({ name: 'code', version: '1.0.0', dependencies: { lodash: '^4.0.0' } }, '.');
     const report = await scanLibraries({ projectRoot: tmpDir });
     expect(report.workspaces).toEqual([]);
     expect(report.libraries).toHaveLength(1);

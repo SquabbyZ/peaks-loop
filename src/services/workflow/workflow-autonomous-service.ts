@@ -8,7 +8,7 @@ import { createCapabilityMapPlan } from '../recommendations/capability-map-servi
 import type { CapabilityAvailabilityStatus, CapabilityItemType } from '../recommendations/recommendation-types.js';
 import type { ModelProviderConfig, WorkspaceConfig } from '../config/config-types.js';
 import { createRdSwarmPlan, type RdPlanResult } from '../rd/rd-service.js';
-import { createWorkflowRouterPlan, type SoloMode, type WorkflowMode, type WorkflowRouterPlan } from './workflow-router-service.js';
+import { createWorkflowRouterPlan, type CodeMode, type WorkflowMode, type WorkflowRouterPlan } from './workflow-router-service.js';
 
 // Re-export the resume validation surface so external callers (CLI,
 // tests) keep importing from this module unchanged. The helpers
@@ -72,7 +72,7 @@ export type CapabilityCandidate = {
 
 export type AutonomousWorkflowRequest = {
   readonly mode: WorkflowMode;
-  readonly soloMode?: SoloMode;
+  readonly codeMode?: CodeMode;
   readonly sessionId: string;
   readonly goal: string;
   readonly maxWorkers?: number;
@@ -126,7 +126,7 @@ export type AutonomousStoragePlan = {
 
 export type AutonomousMvpPackage = {
   readonly mode: WorkflowMode;
-  readonly soloMode: SoloMode | undefined;
+  readonly codeMode: CodeMode | undefined;
   readonly executionMode: 'preview';
   readonly dryRun: true;
   readonly routePolicy: WorkflowRouterPlan['routePolicy'];
@@ -364,7 +364,7 @@ function createCapabilityPlan(request: AutonomousWorkflowRequest): AutonomousCap
 function createMvpPackage(request: AutonomousWorkflowRequest, routePlan: WorkflowRouterPlan, rdPlan: RdPlanResult, capabilityPlan: AutonomousCapabilityPlan, ready: boolean): AutonomousMvpPackage {
   return {
     mode: request.mode,
-    soloMode: routePlan.soloMode,
+    codeMode: routePlan.codeMode,
     executionMode: 'preview',
     dryRun: true,
     routePolicy: routePlan.routePolicy,
@@ -402,7 +402,7 @@ export function createAutonomousWorkflowPlan(request: AutonomousWorkflowRequest)
   const available = hasArtifactWorkspace(request, artifactWorkspacePath);
   const routePlan = createWorkflowRouterPlan({
     mode: request.mode,
-    ...(request.soloMode !== undefined ? { soloMode: request.soloMode } : {}),
+    ...(request.codeMode !== undefined ? { codeMode: request.codeMode } : {}),
     sessionId: request.sessionId,
     goal,
     maxWorkers,

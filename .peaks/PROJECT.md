@@ -49,7 +49,7 @@
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
 | 2026-07-03 | `2026-07-03-session-ee2aba` | Untitled | None. Single-file doc fix, fully reversible with `git checkout skills/ |
-| 2026-07-02 | `2026-07-03-session-447ab0` | Untitled | name: 001-solo-memory-write-broken |
+| 2026-07-02 | `2026-07-03-session-447ab0` | Untitled | name: 001-code-memory-write-broken |
 | 2026-07-02 | `2026-07-02-session-0cc78e` | Untitled | name: auto-compact-zero-pause-qa |
 | 2026-07-02 | `2026-07-02-session-21b44b` | Untitled | - |
 | 2026-07-01 | `2026-07-01-session-b42ac6` | Codegraph+UA 联合补强与降级 | schemaVersion: 2 |

@@ -20,7 +20,7 @@ describe('classifier.detectMarker', () => {
   });
 
   it('detects RED LINE', () => {
-    expect(detectMarker('Solo Code-Change RED LINE.')).toBe('RED LINE');
+    expect(detectMarker('Code Commit Ban RED LINE.')).toBe('RED LINE');
   });
 
   it('detects markers in lowercase/uppercase mix', () => {
@@ -31,8 +31,8 @@ describe('classifier.detectMarker', () => {
 
 describe('classifier.deriveRuleName', () => {
   it('strips markers and limits to 8 words', () => {
-    expect(deriveRuleName('Solo Code-Change Red Line: peaks-code is an orchestrator.')).toBe(
-      'solo code-change red line: peaks-code is an orchestrator.'
+    expect(deriveRuleName('Code Commit Ban Red Line: peaks-code is an orchestrator.')).toBe(
+      'code commit ban red line: peaks-code is an'
     );
   });
 
@@ -52,7 +52,7 @@ describe('classifier.classifyFile', () => {
       lines: [
         '# peaks-code',
         '',
-        'Peaks-Loop Solo is an orchestrator, NOT an implementer.',
+        'Peaks-Loop Code is an orchestrator, NOT an implementer.',
         'You MUST NOT write code directly here.',
         '',
       ],

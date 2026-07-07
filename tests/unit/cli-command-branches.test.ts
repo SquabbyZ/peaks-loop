@@ -117,7 +117,7 @@ describe('cli command branch handling', () => {
     branchState.getCurrentWorkspaceConfig.mockReturnValueOnce(null);
 
     const harness = createHarness(registerWorkflowCommands);
-    await harness.program.parseAsync(['node', 'peaks', 'workflow', 'route', '--mode', 'solo', '--goal', 'Refactor checkout API', '--json'], { from: 'node' });
+    await harness.program.parseAsync(['node', 'peaks', 'workflow', 'route', '--mode', 'code', '--goal', 'Refactor checkout API', '--json'], { from: 'node' });
 
     const output = parseJsonOutput(harness.stdout);
     expect(output.ok).toBe(true);
@@ -190,7 +190,7 @@ describe('cli command branch handling', () => {
     });
 
     const harness = createHarness(registerWorkflowCommands);
-    await harness.program.parseAsync(['node', 'peaks', 'workflow', 'route', '--mode', 'solo', '--goal', 'Refactor checkout API', '--json'], { from: 'node' });
+    await harness.program.parseAsync(['node', 'peaks', 'workflow', 'route', '--mode', 'code', '--goal', 'Refactor checkout API', '--json'], { from: 'node' });
 
     const output = parseJsonOutput(harness.stdout);
     expect(output.ok).toBe(true);

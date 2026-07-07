@@ -52,13 +52,13 @@
 
 **Dogfood**: `peaks slice check` flags a fixture with inline mock data.
 
-## Task 5 — Solo-code-ban enforcer (P0 #1)
+## Task 5 — Code-code-ban enforcer (P0 #1)
 
 **Scope**: PreToolUse hook on `Bash` matcher, deny `git commit` / `git apply` from a peaks-* skill.
 
-- [ ] `src/services/audit/enforcers/solo-code-ban.ts` (NEW) — `isSoloCodeCommit(skill, command)`
+- [ ] `src/services/audit/enforcers/code-code-ban.ts` (NEW) — `isSoloCodeCommit(skill, command)`
 - [ ] Wire into `src/services/hooks/pre-tool-use-bash.ts` (existing) — add the guard
-- [ ] Tests: `tests/unit/services/audit/enforcers/solo-code-ban.test.ts` + extend `tests/unit/services/hooks/pre-tool-use-bash.test.ts`
+- [ ] Tests: `tests/unit/services/audit/enforcers/code-code-ban.test.ts` + extend `tests/unit/services/hooks/pre-tool-use-bash.test.ts`
 
 **Trust red line**: fail-open if registry / manifest read fails (per `gate-enforcement-hook.md`).
 

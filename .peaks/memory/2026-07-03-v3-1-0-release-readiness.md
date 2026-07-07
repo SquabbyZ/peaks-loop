@@ -29,7 +29,7 @@ metadata:
 
 `peaks-code/SKILL.md` line 277 (External references paragraph) listed mattpocock/skills, Context7, MCPs, and "Do not execute upstream installer" — but had no authority-declaration phrase. The other 5 enforced skills had it.
 
-**One-line surgical fix:** append `Peaks-Loop Solo gates and artifacts remain authoritative.` to that paragraph. Re-ran the test → 16/16 pass.
+**One-line surgical fix:** append `Peaks-Loop Code gates and artifacts remain authoritative.` to that paragraph. Re-ran the test → 16/16 pass.
 
 Why the existing `The CLI is authoritative` line 174 (frontend-only mode) didn't satisfy the regex: that line says "The CLI is authoritative" without the required `Peaks-Loop` prefix, and it appears in a different paragraph than the external-references one.
 

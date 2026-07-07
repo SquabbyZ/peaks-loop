@@ -13,7 +13,7 @@ metadata:
 
 ## 1. 版本与栈
 
-- **版本**：`package.json` `version = "2.13.4-beta.1"`，`src/shared/version.ts` 同步。**CHANGELOG 顶部已记录 2.13.4 ship state**（slice `2026-06-28-solo-mode-bypass-fix`，4 production defects）。
+- **版本**：`package.json` `version = "2.13.4-beta.1"`，`src/shared/version.ts` 同步。**CHANGELOG 顶部已记录 2.13.4 ship state**（slice `2026-06-28-code-mode-bypass-fix`，4 production defects）。
 - **语言**：TypeScript（strict、`"type": "module"`、Node ≥20、`@types/node ^22.10.2`、TS `^5.7.2`）。
 - **包管理**：`pnpm@10.11.0`（`packageManager` 字段锁定）。`pnpm.onlyBuiltDependencies = []`（无 postinstall 构建脚本）。
 - **运行时依赖**（6 个）：
@@ -66,7 +66,7 @@ peaks-loop/
 
 | 子系统 | 路径 | 职责 |
 |---|---|---|
-| 编排 | `solo/` | mode-gate、dag-orchestrator、auto-compact-orchestrator、batch-heartbeat、post-compact-detector、status-line-renderer |
+| 编排 | `code/` | mode-gate、dag-orchestrator、auto-compact-orchestrator、batch-heartbeat、post-compact-detector、status-line-renderer |
 | 会话 | `session/` | session-manager、checkpoint、resume、caller-binding、resolve-caller-id、getSessionDir、platform-fallbacks |
 | 技能 | `skill/` | resume-detector、skill-scheduler |
 | 门禁与判定 | `verdict/` | verdict-aggregator、envelopes（v2.13.2+） |
@@ -79,7 +79,7 @@ peaks-loop/
 
 ## 5. CLI 表面（61 个命令文件）
 
-`src/cli/commands/` 下按动词分组：`agent / audit / capability / classify / code-review / codegraph / config / context / contract / core / core-artifact / dispatch / final-review / gate / heartbeat / hooks / log / loop / memory / migrate-* / mut / observability / openspec / perf / playwright / prd / preferences / project / qa / request / retrospective / sc / scan / security-audit / session-checkpoint / session-resume / share / skill-conformance / slice / solo / sop / statusline / sub-agent / sub-agent-shared / sub-agent-dispatch-guard / test / understand / upgrade / verdict-aggregate / worker / workflow / workflow-plan / workspace`。
+`src/cli/commands/` 下按动词分组：`agent / audit / capability / classify / code-review / codegraph / config / context / contract / core / core-artifact / dispatch / final-review / gate / heartbeat / hooks / log / loop / memory / migrate-* / mut / observability / openspec / perf / playwright / prd / preferences / project / qa / request / retrospective / sc / scan / security-audit / session-checkpoint / session-resume / share / skill-conformance / slice / code / sop / statusline / sub-agent / sub-agent-shared / sub-agent-dispatch-guard / test / understand / upgrade / verdict-aggregate / worker / workflow / workflow-plan / workspace`。
 
 `src/cli/program.ts` (281 行) 注册所有命令；`src/cli/index.ts` (32 行) 是 entry。
 

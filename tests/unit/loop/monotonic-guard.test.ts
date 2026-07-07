@@ -2,7 +2,7 @@
  * peaks-loop v3.0.0 — Slice C.3
  *
  * Unit tests for the monotonic-improvement guard. Mirrors the 8
- * scenarios required by `specs/loop-eng-native-solo-c-d-e.md` (b).
+ * scenarios required by `specs/loop-eng-native-code-c-d-e.md` (b).
  *
  * Karpathy §2: pure-data tests, no IO, single file under 800 lines.
  */

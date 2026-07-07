@@ -42,8 +42,8 @@ import {
 
 const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(TEST_DIR, '..', '..', '..');
-const SOLO_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'sub-agent-dispatch.md');
-const SOLO_FANOUT_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'fanout-mandatory.md');
+const CODE_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'sub-agent-dispatch.md');
+const CODE_FANOUT_REF = join(REPO_ROOT, 'skills', 'peaks-code', 'references', 'fanout-mandatory.md');
 const RD_REF = join(REPO_ROOT, 'skills', 'bee', 'peaks-rd', 'references', 'rd-sub-agent-dispatch.md');
 
 /* -------------------------------------------------------------------------- *
@@ -223,7 +223,7 @@ describe('AC-2 dispatch fanout mandatory — decision table', () => {
   // (h)
   test('rd-sub-agent-dispatch.md and fanout-mandatory.md agree on fan-out wording', async () => {
     const rdBody = await readFile(RD_REF, 'utf8');
-    const fanoutBody = await readFile(SOLO_FANOUT_REF, 'utf8');
+    const fanoutBody = await readFile(CODE_FANOUT_REF, 'utf8');
 
     // Both reference docs must mention the canonical trigger:
     expect(rdBody).toContain('--from-dag');

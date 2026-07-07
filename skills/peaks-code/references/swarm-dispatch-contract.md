@@ -1,6 +1,6 @@
 # Swarm dispatch contract
 
-> Reference for `peaks-code` Swarm phase and the role sub-agents (`peaks-ui` / `peaks-rd` planning / `peaks-qa` test-cases). Defines the **mechanism** of fan-out: how Solo launches sub-agents, what the sub-agent prompt must contain, what the sub-agent must return, and how Solo reduces the result.
+> Reference for `peaks-code` Swarm phase and the role sub-agents (`peaks-ui` / `peaks-rd` planning / `peaks-qa` test-cases). Defines the **mechanism** of fan-out: how Code launches sub-agents, what the sub-agent prompt must contain, what the sub-agent must return, and how Code reduces the result.
 
 ## Peaks-Loop Swarm parallel phase (sub-agent fan-out, default)
 
@@ -18,7 +18,7 @@
 > `references/fanout-mandatory.md`).
 
 The Swarm phase is the **default** for any DAG with ≥ 2 leaves at
-the same topological level. Solo derives the fan-out set from the
+the same topological level. Code derives the fan-out set from the
 DAG topology — not from a default of "always launch three", and
 not from a strict conditional check. The swarm gate (PRD state +
 request type + frontend touch), mode-driven fan-out shape, and
@@ -28,7 +28,7 @@ degradation rules live in the references file.
 
 The previous "Swarm" used `Skill(skill="peaks-rd")` calls. That is **single-stack and blocking** — there is no concurrency. Three sequential `Skill` calls run in order on the same main loop, not in parallel. The "parallel Agent calls" wording in the old SKILL.md was a v1.x illusion.
 
-This contract (slice #009) replaces the IDE-private sub-agent literal with the IDE-agnostic primitive `peaks sub-agent dispatch <role>`. The CLI returns a JSON `data.toolCall` descriptor; the LLM executes that tool in its own environment. SKILL.md is now free of IDE-private tool names and the same prompt works on every registered IDE. Real concurrent fan-out is achieved by Solo launching N dispatch calls in a single message and the platform scheduling the returned toolCalls concurrently.
+This contract (slice #009) replaces the IDE-private sub-agent literal with the IDE-agnostic primitive `peaks sub-agent dispatch <role>`. The CLI returns a JSON `data.toolCall` descriptor; the LLM executes that tool in its own environment. SKILL.md is now free of IDE-private tool names and the same prompt works on every registered IDE. Real concurrent fan-out is achieved by Code launching N dispatch calls in a single message and the platform scheduling the returned toolCalls concurrently.
 
 ```
 You are a sub-agent invoked by peaks-code. You are NOT the main Claude session.
@@ -43,7 +43,7 @@ Return a compact JSON envelope — do not write prose.
 - Do NOT ask the user interactive questions. If you need clarification, return
   {"status":"blocked","blockedReason":"<text>"} and let the main loop handle it.
 
-## Runtime arguments (provided by Solo)
+## Runtime arguments (provided by Code)
 - project: <repo>            (git repo root, NOT a sub-package)
 - session-id: <sid>          (from .peaks/.active-skill.json or .peaks/.session.json)
 - request-id: <rid>          (PRD id)
@@ -52,7 +52,7 @@ Return a compact JSON envelope — do not write prose.
 - project-scan-path: <path>  (read this for component library / CSS / build tool)
 - existing-system-path: <path>  (legacy projects only)
 - frontendOnly: <bool>       (from project-scan)
-- frontendKeywordHit: <bool> (Solo's PRD scan result)
+- frontendKeywordHit: <bool> (Code's PRD scan result)
 ```
 
 ### 3.2 peaks-ui sub-agent prompt
@@ -82,7 +82,7 @@ Steps:
    }
 
 If you determine the request is non-visual (no UI surface, no design impact),
-return {"status":"skipped","reason":"non-frontend-request"} so Solo can record
+return {"status":"skipped","reason":"non-frontend-request"} so Code can record
 the misfire in sc/swarm-plan.json.
 ```
 
@@ -97,7 +97,7 @@ Steps:
 1. peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json
 2. peaks request show <rid> --role prd --project <repo> --json
 3. peaks request show <rid> --role ui  --project <repo> --json  (if ui in plan)
-4. Read <project-scan-path>. If absent and Solo did not pre-create it, create it
+4. Read <project-scan-path>. If absent and Code did not pre-create it, create it
    by running `peaks scan archetype --project <repo> --json` and copying the JSON
    into rd/project-scan.md.
 5. Read <existing-system-path> if archetype is legacy-*.
@@ -144,9 +144,9 @@ If --type is docs|chore, return {"status":"skipped","reason":"type=<type>"} —
 no acceptance surface to plan tests for.
 ```
 
-## 4. Reducer (Solo side)
+## 4. Reducer (Code side)
 
-After all sub-agent dispatch calls return and the LLM has invoked the toolCalls, Solo:
+After all sub-agent dispatch calls return and the LLM has invoked the toolCalls, Code:
 
 1. Restores presence ONCE (not per-agent):
    ```
@@ -158,9 +158,9 @@ After all sub-agent dispatch calls return and the LLM has invoked the toolCalls,
 
 ## 5. Presence restoration (single-shot)
 
-Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means `.peaks/.active-skill.json` does not move during the fan-out. Solo sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
+Sub-agents are explicitly forbidden from calling `peaks skill presence:set`. That means `.peaks/.active-skill.json` does not move during the fan-out. Code sets it to `gate=swarm-fan-out` before fan-out and to `gate=swarm-converged` once after all Tasks return. The status header (the `Peaks-Loop Skill: peaks-code | Peaks-Loop Gate: <gate>` line) therefore reads consistently across the fan-out window.
 
-If a sub-agent is misbehaving and writes to `.peaks/.active-skill.json` anyway, the next Solo presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Solo should still treat the file as a single-writer resource.
+If a sub-agent is misbehaving and writes to `.peaks/.active-skill.json` anyway, the next Code presence-set (after fan-out) overwrites it — the bug self-heals on the next gate advance, but the swarm-phase display may be off. The hard prohibition is there to prevent this; Code should still treat the file as a single-writer resource.
 
 ## 6. Why not a `peaks-swarm` skill?
 
@@ -177,7 +177,7 @@ A skill cannot itself trigger sub-agents — the Skill tool runs in the main loo
 
 ### Swarm gate (decide BEFORE fan-out)
 
-> Body of `### Swarm gate`. Before launching any sub-agent, Solo must compute the **swarm plan** from three signals:
+> Body of `### Swarm gate`. Before launching any sub-agent, Code must compute the **swarm plan** from three signals:
 
 1. **PRD state** — `prd/requests/<rid>.md` must be in state `confirmed-by-user` or `handed-off`. If not, STOP. The Swarm is downstream of PRD, not a substitute for it.
 2. **Request type** (`--type` from `peaks request init`):
@@ -188,7 +188,7 @@ A skill cannot itself trigger sub-agents — the Skill tool runs in the main loo
    - **AND** scanning the PRD body for frontend keywords: 页面 / 组件 / 表单 / 弹窗 / 表格 / 样式 / 布局 / 交互 / UI / UX / page / component / form / modal / table / styling / layout / interaction
    - UI joins the swarm when (a) is `true` OR (b) matches. Both signals required `false` to skip UI.
 
-Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
+Code records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
 
 ```json
 {
@@ -200,26 +200,26 @@ Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` 
 }
 ```
 
-Sub-agent presence in this list = Solo launched a Task for it. Absence = the role was skipped with documented reason.
+Sub-agent presence in this list = Code launched a Task for it. Absence = the role was skipped with documented reason.
 
 ### Mode-driven fan-out shape
 
 > Body of `### Mode-driven fan-out shape`.
 
-| Mode | How the swarm plan is decided | What Solo does |
+| Mode | How the swarm plan is decided | What Code does |
 |---|---|---|
 | `full-auto` | Compute plan from signals above, no question to user | Auto-launch all sub-agents in the plan in parallel |
 | `swarm` | Same as `full-auto` | Same as `full-auto` (this profile name is historical — behavior is identical) |
 | `assisted` | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan |
 | `strict` | Same as `assisted` (the question is informational; strict still enforces confirmation gates later) | Same as `assisted` |
 
-In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Solo updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
+In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Code updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
 
 ### Degradation when swarm roles fail or are absent
 
 > Body of `### Degradation when swarm roles fail or are absent`.
 
-| Condition | Solo action | TXT handoff note |
+| Condition | Code action | TXT handoff note |
 |---|---|---|
 | UI sub-agent returns blocked/error | RD continues with PRD visual descriptions | `ui-design-missing` |
 | RD planning sub-agent returns blocked/error | RD continues with PRD-derived planning | `tech-doc-missing` |

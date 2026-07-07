@@ -21,7 +21,7 @@ metadata:
 - `tests/unit/artifact-prerequisites-typed.test.ts` (+20 lines) — same
 - `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` (NEW, 4 cases)
 - `tests/unit/services/verdict/verdict-aggregator.test.ts` (NEW, 13 cases)
-- `tests/unit/skills/solo/micro-cycle-verdict-reasoning.test.ts` (NEW, 4 cases)
+- `tests/unit/skills/code/micro-cycle-verdict-reasoning.test.ts` (NEW, 4 cases)
 - `CHANGELOG.md` (+75 lines) — full v2.13.1 release notes
 - `src/shared/version.ts` (1 line: 2.13.0 → 2.13.1)
 - `package.json` (1 line: 2.13.0 → 2.13.1)

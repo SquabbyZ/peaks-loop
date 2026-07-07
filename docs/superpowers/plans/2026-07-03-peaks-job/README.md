@@ -35,10 +35,10 @@ Copy these to every task's scope checklist:
 | **M1** | `M1-spec-types.md` | Spec final types + Zod schemas + CLI help snapshot | `src/services/job/job-types.ts`, snapshot test |
 | **M2** | `M2-state-machine.md` | Job orchestrator + state store + transition tests (single mode, basic ops) | `src/services/job/job-orchestrator.ts`, `job-state-store.ts`, transition tests |
 | **M3** | `M3-cli-family.md` | 9 `peaks job *` subcommands wired (init / status / checkpoint / continue / resume / block / handoff / rotate-now / subagent-cleanup) | `src/cli/commands/job-commands.ts`, CLI tests |
-| **M4** | `M4-solo-rotating.md` | Solo SKILL.md Step 0.8/0.81/0.85/0.86/0.87 + `job-rotation.ts` + runbook + visibility prose | `src/services/job/job-rotation.ts`, SKILL.md patches, runbook patch |
+| **M4** | `M4-code-rotating.md` | Code SKILL.md Step 0.8/0.81/0.85/0.86/0.87 + `job-rotation.ts` + runbook + visibility prose | `src/services/job/job-rotation.ts`, SKILL.md patches, runbook patch |
 | **M5** | `M5-subagent-resource.md` | `subagent-job-wrapper.ts` (budget-mb + cleanup gate) + `job-resource-snapshot.ts` + statusline event hook | Wrapper, snapshot, statusline |
 | **M6** | `M6-e2e-fault-inject.md` | 8-slice E2E + context-explosion noise injection + sub-agent budget breach | `tests/integration/job-e2e.test.ts` |
-| **M7** | `M7-regression-release.md` | Run existing solo runbook (no regression) + spec re-commit + memory sediment | Release notes, memory |
+| **M7** | `M7-regression-release.md` | Run existing code runbook (no regression) + spec re-commit + memory sediment | Release notes, memory |
 
 Total effort: **~7.5 working days, single dev, full-auto.**
 
@@ -46,7 +46,7 @@ Total effort: **~7.5 working days, single dev, full-auto.**
 
 ## Execution Order
 
-The 7 milestones MUST be executed **in order**. Each milestone produces an independently testable + releasable deliverable. M1-M3 may ship together as a Job v0.1 alpha. M4 adds the Solo integration. M5 + M6 are safety-critical and gate the v1.0 release.
+The 7 milestones MUST be executed **in order**. Each milestone produces an independently testable + releasable deliverable. M1-M3 may ship together as a Job v0.1 alpha. M4 adds the Code integration. M5 + M6 are safety-critical and gate the v1.0 release.
 
 ---
 

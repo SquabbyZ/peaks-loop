@@ -255,16 +255,16 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     });
   }
 
-  test('Solo runbook drives peaks request init for every role (prd, ui, rd, qa)', async () => {
+  test('Code runbook drives peaks request init for every role (prd, ui, rd, qa)', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     for (const role of ['prd', 'ui', 'rd', 'qa']) {
-      expect.soft(section, `Solo runbook should invoke peaks request init --role ${role}`).toMatch(new RegExp(`peaks request init --role ${role}`));
+      expect.soft(section, `Code runbook should invoke peaks request init --role ${role}`).toMatch(new RegExp(`peaks request init --role ${role}`));
     }
   });
 
-  test('Solo runbook references state transitions via peaks request transition', async () => {
+  test('Code runbook references state transitions via peaks request transition', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
@@ -273,14 +273,14 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(section).toMatch(/--state verdict-issued/);
   });
 
-  test('Solo runbook references peaks project dashboard for the cross-role snapshot', async () => {
+  test('Code runbook references peaks project dashboard for the cross-role snapshot', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
     expect(section).toMatch(/peaks project dashboard/);
   });
 
-  test('Solo runbook drives SC change-control evidence (impact / retention / validate / boundary)', async () => {
+  test('Code runbook drives SC change-control evidence (impact / retention / validate / boundary)', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
@@ -290,7 +290,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(section).toMatch(/peaks sc boundary/);
   });
 
-  test('Solo runbook drives TXT memory extraction as a dry-run by default', async () => {
+  test('Code runbook drives TXT memory extraction as a dry-run by default', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
     const section = await loadRunbookSection('peaks-code', body);
 
@@ -298,7 +298,7 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(section).toMatch(/--dry-run/);
   });
 
-  test('Solo SKILL.md declares Step 11 Memory sediment as BLOCKING (slice 2026-07-03-solo-memory-sediment)', async () => {
+  test('Code SKILL.md declares Step 11 Memory sediment as BLOCKING (slice 2026-07-03-code-memory-sediment)', async () => {
     const body = await readFile(skillDir('peaks-code') + "/SKILL.md", 'utf8');
 
     // Step 11 section must exist with a recognizable heading
@@ -316,12 +316,12 @@ describe('audit: orchestrator skills expose a Default runbook that drives the ro
     expect.soft(body).not.toMatch(/```[\s\S]*?peaks project memories:extract[\s\S]*?```/);
   });
 
-  test('Solo runbook references memory extract with --apply (not just --dry-run) so it actually writes .peaks/memory/', async () => {
+  test('Code runbook references memory extract with --apply (not just --dry-run) so it actually writes .peaks/memory/', async () => {
     const body = await readFile(skillDir("peaks-code") + "/references/runbook.md", 'utf8');
 
     // The Step 10/11 TXT handoff + memory sediment block must include a --apply
     // invocation; otherwise the LLM-only-dry-runs contract silently writes
-    // nothing. (slice 2026-07-03-solo-memory-sediment)
+    // nothing. (slice 2026-07-03-code-memory-sediment)
     expect.soft(body).toMatch(/peaks memory extract[^\n]*--apply/);
     // Also assert assisted-mode is no longer skipped
     expect.soft(body).toMatch(/assisted/i);

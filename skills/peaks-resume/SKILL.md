@@ -3,9 +3,9 @@ name: peaks-resume
 description: Universal resume primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Detects the current session's deepest completed gate and surfaces a resume option via AskUserQuestion. Use when ANY bee (peaks-code, future peaks-research, future peaks-content, …) needs to recover from /compact or session interruption. Triggers on "/peaks-resume", "continue the unfinished work", "继续完成", "把刚才没做完的收尾". (Replaces peaks-resume as a top-level primitive.)
 ---
 
-# Peaks-Loop Solo Resume (wrapper)
+# Peaks-Loop Code Resume (wrapper)
 
-Peaks-Loop Solo Resume is a thin wrapper that handles the **most common high-frequency request shape**: "I was in the middle of something, continue it." It detects the current session's deepest completed gate, surfaces a resume option, then yields to the main `peaks-code` skill (which runs the actual workflow from the matching gate onwards).
+Peaks-Loop Code Resume is a thin wrapper that handles the **most common high-frequency request shape**: "I was in the middle of something, continue it." It detects the current session's deepest completed gate, surfaces a resume option, then yields to the main `peaks-code` skill (which runs the actual workflow from the matching gate onwards).
 
 **This is a transparent wrapper.** The user does not stay in this skill — once the resume option is confirmed, control hands off to `peaks-code`. The wrapper exists only to (a) detect the in-flight slice without the LLM re-reading 3-5 artifact files, and (b) surface the resume option as a `AskUserQuestion` before the main loop skips ahead.
 

@@ -42,7 +42,7 @@ In this session (2026-06-27-session-b483e6) we finished:
 
 ## Resume procedure (next session, post-compact)
 
-1. **D7 post-compact detect**: `peaks solo post-compact-detect --project <repo> --json` — this memory + the RD/PRD artifacts together give resume context.
+1. **D7 post-compact detect**: `peaks code post-compact-detect --project <repo> --json` — this memory + the RD/PRD artifacts together give resume context.
 2. **Continue Group A**:
    - Tier 1.4 (`peaks project template init` CLI)
    - Tier 2 (`peaks-security-audit` skill)

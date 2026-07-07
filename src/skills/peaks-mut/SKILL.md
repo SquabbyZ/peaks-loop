@@ -21,7 +21,7 @@ Before any analysis or tool call, immediately run:
 peaks skill presence:set peaks-mut --project <repo> --mode <mode> --gate startup
 ```
 
-**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Solo owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
+**When invoked as a sub-agent (peaks-code swarm):** do NOT call `peaks skill presence:set` (Code owns the active-skill marker) and do NOT spawn your own session. Use the parent's sid — read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI. The new `peaks session info --active` reads the canonical binding for you.
 
 On the first presence:set in a project, ensure the out-of-band status bar is installed so the user can see at a glance that Peaks is orchestrating — it renders the active skill in Claude Code's terminal status line, independent of model output:
 

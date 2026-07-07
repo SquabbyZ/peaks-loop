@@ -2,7 +2,7 @@
 
 Default local artifact root: `.peaks/_runtime/<session-id>/` with role subdirectories `prd/`, `rd/`, `ui/`, `qa/`, `sc/`, and `txt/`.
 
-Solo coordinates artifact paths and handoff completeness. Keep artifacts local by default. Do not commit, sync, or move them to a git-backed artifact repository unless explicitly authorized.
+Code coordinates artifact paths and handoff completeness. Keep artifacts local by default. Do not commit, sync, or move them to a git-backed artifact repository unless explicitly authorized.
 
 ## Artifact file naming conventions
 

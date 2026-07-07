@@ -10,8 +10,8 @@ import { getSessionDir } from '../../src/services/session/getSessionDir.js';
 describe('createAutonomousWorkflowPlan', () => {
   test('creates a resumable autonomous goal package and dry-run constraints', () => {
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
-      soloMode: 'guided',
+      mode: 'code',
+      codeMode: 'guided',
       sessionId: 'ice-cola-governance',
       goal: 'Govern the Ice Cola project without changing product behavior',
       maxWorkers: 40,
@@ -19,8 +19,8 @@ describe('createAutonomousWorkflowPlan', () => {
     });
 
     expect(plan.sessionId).toBe('ice-cola-governance');
-    expect(plan.mode).toBe('solo');
-    expect(plan.routePlan.soloMode).toBe('guided');
+    expect(plan.mode).toBe('code');
+    expect(plan.routePlan.codeMode).toBe('guided');
     expect(plan.routePlan.executionMode).toBe('autonomous');
     expect(plan.dryRun).toBe(true);
     expect(plan.goalPackage.doneCondition).toContain('acceptance criteria pass');
@@ -34,8 +34,8 @@ describe('createAutonomousWorkflowPlan', () => {
     expect(plan.modelAssignments.filter((assignment) => assignment.modelRole === 'execution').map((assignment) => assignment.modelId)).toEqual(['minimax-2.7', 'minimax-2.7']);
     expect(plan.modelAssignments.filter((assignment) => assignment.modelRole === 'strongest').every((assignment) => assignment.modelId === 'claude-opus-4-7')).toBe(true);
     expect(plan.mvpPackage).toMatchObject({
-      mode: 'solo',
-      soloMode: 'guided',
+      mode: 'code',
+      codeMode: 'guided',
       executionMode: 'preview',
       dryRun: true,
       ready: false
@@ -46,7 +46,7 @@ describe('createAutonomousWorkflowPlan', () => {
 
   test('models curated accessRepo and mcpServer capabilities without activation', () => {
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'capability-reuse',
       goal: 'Plan capability reuse for frontend governance',
       dryRun: true
@@ -73,7 +73,7 @@ describe('createAutonomousWorkflowPlan', () => {
   test('maps installed non-MCP capabilities to available activation', () => {
     const workspace = createWorkspace();
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'installed-agent-capability',
       goal: 'Plan with an installed code review agent',
       dryRun: true,
@@ -158,7 +158,7 @@ describe('createAutonomousWorkflowPlan', () => {
     try {
       const mockedWorkflow = await import('../../src/services/workflow/workflow-autonomous-service.js');
       const plan = mockedWorkflow.createAutonomousWorkflowPlan({
-        mode: 'solo',
+        mode: 'code',
         sessionId: 'catalog-activation-states',
         goal: 'Plan with mocked catalog activation states',
         dryRun: true,
@@ -201,7 +201,7 @@ describe('createAutonomousWorkflowPlan', () => {
   test('defaults artifact workspace and memory backup paths to the local user workspace path', () => {
     const workspace = createWorkspace();
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'local-artifact-default',
       goal: 'Resume autonomous RD planning from artifacts',
       dryRun: true,
@@ -221,7 +221,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const invalidArtifactWorkspace = join(process.env.HOME ?? '', '.peaks', 'workspaces', 'invalid-artifact');
     writeResumeArtifacts(invalidArtifactWorkspace, 'resume-untrusted-workspace');
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'resume-untrusted-workspace',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
@@ -240,7 +240,7 @@ describe('createAutonomousWorkflowPlan', () => {
   test('keeps resume preview when artifact workspace exists but tech approval blocks planning', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'resume-blocked',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
@@ -259,7 +259,7 @@ describe('createAutonomousWorkflowPlan', () => {
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-ready');
     writeResumeArtifacts(artifactWorkspace, 'resume-ready', 'Resume autonomous RD planning from artifacts');
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'resume-ready',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
@@ -285,7 +285,7 @@ describe('createAutonomousWorkflowPlan', () => {
     const evidencePath = join(getSessionDir(artifactWorkspace, 'resume-terminal-evidence-refs'), 'rd', 'swarm', 'evidence', 'validation-report.md');
     writeFileSync(evidencePath, '---\nsessionId: resume-terminal-evidence-refs\nartifactType: validation-report\nstatus: passed\n---\nValidation summary:\nChecks:\nResult: passed\nEvidence refs:\n- validation-details.md', 'utf8');
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId: 'resume-terminal-evidence-refs',
       goal: 'Resume autonomous RD planning from artifacts',
       maxWorkers: 40,
@@ -302,10 +302,10 @@ describe('createAutonomousWorkflowPlan', () => {
     // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
     // was removed — the change-id is metadata-only. The empty-goal
     // contract is preserved.
-    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', sessionId: 'empty-goal', goal: '   ', dryRun: true })).toThrow('Goal must be non-empty');
+    expect(() => createAutonomousWorkflowPlan({ mode: 'code', sessionId: 'empty-goal', goal: '   ', dryRun: true })).toThrow('Goal must be non-empty');
   });
 
-  test('rejects empty solo mode values at the autonomous boundary', () => {
-    expect(() => createAutonomousWorkflowPlan({ mode: 'solo', sessionId: 'empty-solo-mode', goal: 'Resume autonomous RD planning from artifacts', soloMode: '' as 'guided', dryRun: true })).toThrow('Unsupported solo mode');
+  test('rejects empty code mode values at the autonomous boundary', () => {
+    expect(() => createAutonomousWorkflowPlan({ mode: 'code', sessionId: 'empty-code-mode', goal: 'Resume autonomous RD planning from artifacts', codeMode: '' as 'guided', dryRun: true })).toThrow('Unsupported code mode');
   });
 });

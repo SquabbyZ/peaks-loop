@@ -17,7 +17,7 @@ Inherited from Plan 1 + Plan 2:
 - Coverage ≥ 80% per module
 - peaks-context cross-version isolation promise (Plan 1) MUST still pass
 - peaks-mut MUT.sig chain (Plan 2) MUST still pass
-- peaks-rd对外接口不变(solo 仍按 peaks-rd <args> 调)
+- peaks-rd对外接口不变(code 仍按 peaks-rd <args> 调)
 
 ## File Structure
 

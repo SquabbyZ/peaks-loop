@@ -31,7 +31,7 @@ metadata:
 
 **Known limitations (carry-forward to v2.14.0):**
 
-1. **v2.13.0 auto-compact 没救活 100% context session** (用户反馈 2026-06-28) — v2.13.0 设计的 85% pre-compact + 95% red-line 0-intervention 协议在 ad-hoc Claude Code 跑 peak-cli session 时没生效 (this session 跑到 100% 没触发 auto-compact). 已知 v2.13.0 release notes 写过 "Ad-hoc Claude Code runner cannot be externally compacted" 限制, 但 v2.13.3 没修这个. v2.14.0 应该: (a) 给 Claude Code adapter 加更激进的 PreToolUse hook (在 tool call 之前自动跑 context-now), (b) 或改 `peaks solo auto-compact` 接受 `--force-spawn-detached` flag 在 100% 时 force 触发, (c) 或直接 fallback 到 `/compact` slash command.
+1. **v2.13.0 auto-compact 没救活 100% context session** (用户反馈 2026-06-28) — v2.13.0 设计的 85% pre-compact + 95% red-line 0-intervention 协议在 ad-hoc Claude Code 跑 peak-cli session 时没生效 (this session 跑到 100% 没触发 auto-compact). 已知 v2.13.0 release notes 写过 "Ad-hoc Claude Code runner cannot be externally compacted" 限制, 但 v2.13.3 没修这个. v2.14.0 应该: (a) 给 Claude Code adapter 加更激进的 PreToolUse hook (在 tool call 之前自动跑 context-now), (b) 或改 `peaks code auto-compact` 接受 `--force-spawn-detached` flag 在 100% 时 force 触发, (c) 或直接 fallback 到 `/compact` slash command.
 
 2. **scripts/prepublish-build.mjs Windows EINVAL** — `shell: isWindows` 是 partial fix. POSIX / git-bash .sh 路径 OK, Windows native + git-bash 内 Node 22 spawnSync 仍有 cmd.exe ENOENT. Real npm publish 路径 OK (CI Linux). v2.14.0 应换 `cross-spawn` 或 execFile.
 

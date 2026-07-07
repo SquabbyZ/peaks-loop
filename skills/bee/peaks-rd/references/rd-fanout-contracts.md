@@ -73,7 +73,7 @@ end of implementation, RD fires 3 sub-agents in parallel via
   conversation context. They MUST NOT mutate parent settings
   (`peaks skill presence:set`, hooks install, `.claude/settings.json`).
 - Sub-agents MUST NOT call `peaks workflow verify-pipeline` — that is
-  Solo's responsibility.
+  Code's responsibility.
 - Sub-agents MUST NOT modify the request artifact body — they only
   write their respective review artifact.
 - Sub-agents MUST NOT install or persist external material (no

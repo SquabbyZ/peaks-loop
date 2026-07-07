@@ -1,7 +1,7 @@
 /**
  * Slice #009 / G5 RL-9 — user cancel must dispose in-flight dispatch records.
  *
- * When Solo's main loop receives SIGINT (Ctrl-C) or the user runs
+ * When Code's main loop receives SIGINT (Ctrl-C) or the user runs
  * `peaks workflow cancel --rid <rid>`, the loop MUST mark in-flight
  * dispatch records as `outcome: "cancelled"` + `disposed: true` +
  * `disposedAt: now()` BEFORE exiting.
@@ -10,8 +10,8 @@
  * `completedAt: null`. Those are the ones that the LLM got a toolCall
  * for but did not (yet) confirm completion.
  *
- * This module is the helper Solo calls. The wiring (signal listener,
- * cancel command side-effect) is the Solo main loop's responsibility;
+ * This module is the helper Code calls. The wiring (signal listener,
+ * cancel command side-effect) is the Code main loop's responsibility;
  * this module is the pure data operation.
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';

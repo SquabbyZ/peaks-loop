@@ -114,7 +114,7 @@ peaks-rd's parallel audit sub-agent 1 (code-reviewer) is now an ECC bridge: invo
 1. **After compact:** fresh session, read this memory + the sibling [[2026-06-26-v2-11-full-auto-self-decision]] memory first
 2. **Combine into ONE slice:** both decisions (D1-D4 architectural + D5 self-decision) belong in the same v2.11.0 release; draft PRD for `v2-11-rm-rd-techdoc-immutable-handoff-and-self-decide` (or similar slug)
 3. **Run peaks-prd pipeline** to confirm PRD
-4. **Multi-CC execution:** since the change spans 9 tiers (D5 + D6 add 2 more tiers on top of the 8) touching ~40 files across `peaks-prd / peaks-rd / peaks-qa / peaks-txt / peaks-code / src/services/solo / src/services/context / src/cli/commands/solo-commands.ts` + new modules, dispatch in parallel where possible:
+4. **Multi-CC execution:** since the change spans 9 tiers (D5 + D6 add 2 more tiers on top of the 8) touching ~40 files across `peaks-prd / peaks-rd / peaks-qa / peaks-txt / peaks-code / src/services/code / src/services/context / src/cli/commands/code-commands.ts` + new modules, dispatch in parallel where possible:
    - Group A (Tier 1 + 2 — tech-doc removal + sub-agent rewiring): one CC
    - Group B (Tier 3 + 4 — peaks-prd handoff redefinition + project-scan read): one CC
    - Group C (Tier 5 + 6 — peaks-txt sediment + peaks-qa trim): one CC

@@ -73,7 +73,7 @@ export type PipelineVerification = {
    */
   gateH?: 'pass' | 'fail';
   /**
-   * Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
+   * Slice 2026-06-28-code-mode-bypass-fix (defect #3): `true` when
    * every evidence file resolved on the canonical path
    * (`.peaks/_runtime/change/<sessionId>/...`). `false` when at least
    * one evidence file resolved via a legacy fallback (`.peaks/<sessionId>/...`
@@ -109,7 +109,7 @@ function extractState(markdown: string): string {
 async function findRequestFile(projectRoot: string, role: string, rid: string): Promise<{ path: string; content: string; sessionId: string } | null> {
   const artifact = await showRequestArtifact({ projectRoot, role: role as 'prd' | 'ui' | 'rd' | 'qa' | 'sc', requestId: rid });
   if (artifact === null) return null;
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the legacy
+  // Slice 2026-06-28-code-mode-bypass-fix (defect #3): the legacy
   // `showRequestArtifact` returns the FULL SCOPE (`_runtime/<sid>`)
   // as `sessionId`, not just the trailing id segment. The canonical
   // evidence lookup needs only the bare id (`.peaks/_runtime/change/<id>/`).
@@ -259,7 +259,7 @@ export async function verifyPipeline(options: {
   // preferred filesystem scope; falling through to `options.rid` would
   // make every missing-evidence path look like a per-rid scope dir.
   const rdEvidenceDir = resolvedChangeId || options.sessionId || getSessionIdCanonical(options.projectRoot) || options.rid;
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): track whether
+  // Slice 2026-06-28-code-mode-bypass-fix (defect #3): track whether
   // every resolved evidence file landed on the canonical path. Drives
   // the `usedCanonicalPath` envelope field. The flag stays `true` if
   // no evidence file was resolved at all (nothing to be non-canonical
@@ -516,7 +516,7 @@ export async function verifyPipeline(options: {
   const gateC: 'pass' | 'fail' = allQaGatesPassed ? 'pass' : 'fail';
   const gateH: 'pass' | 'fail' = allFeedbackGatesPassed ? 'pass' : 'fail';
 
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #3): `true` when
+  // Slice 2026-06-28-code-mode-bypass-fix (defect #3): `true` when
   // every gate resolved on the canonical path; `false` when at least
   // one fell back to a legacy form. QA / TXT surface the value so the
   // user knows the legacy content must be moved into the canonical

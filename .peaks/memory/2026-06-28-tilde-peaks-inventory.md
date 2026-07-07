@@ -81,7 +81,7 @@ metadata:
 
 ## 5. Step 1+2+3 整理结果 (2 days later, 2026-06-28 11:19)
 
-**触发**: 用户在 v2.14.0 ship 后开启新 session 75d5f0 授权 Step 1+2+3 全档执行。Solo full-auto mode — 不留任何给用户。
+**触发**: 用户在 v2.14.0 ship 后开启新 session 75d5f0 授权 Step 1+2+3 全档执行。Code full-auto mode — 不留任何给用户。
 
 ### 时间戳
 
@@ -139,7 +139,7 @@ peaks-loop-2026-06-27.log
 
 **触发条件**：`peaks workspace init --change-id <id>` 中 `<id>` 解析为 `resume-untrusted-workspace` 这个 sid 时，会在 `~/.peaks/workspaces/<id>/` 下铺出 `.peaks/_runtime/change/<sid>/{prd,rd/swarm,...}` 的脚手架。如果 init 中途出错或 sid 异常，这个目录会留下半成品——但 `workspaces.json.workspaces` 不引用它，所以是孤儿。
 
-**v2.13.4 known issue vs v2.14.0**：CHANGELOG v2.13.4 记的是 "solo mode gate + verify-pipeline canonical path + auto-compact main target"。invalid-artifact 重生跟 v2.13.4 没有直接因果关系——它是从 v2.13.0 之前就存在的 workspace init 路径副作用，v2.14.0 没修也没加重。**这不是 v2.14.0 regression**。
+**v2.13.4 known issue vs v2.14.0**：CHANGELOG v2.13.4 记的是 "code mode gate + verify-pipeline canonical path + auto-compact main target"。invalid-artifact 重生跟 v2.13.4 没有直接因果关系——它是从 v2.13.0 之前就存在的 workspace init 路径副作用，v2.14.0 没修也没加重。**这不是 v2.14.0 regression**。
 
 **下次预测**：下次 `peaks workspace init --change-id resume-untrusted-workspace`（任何 session）会再次铺出这个目录。如果用户想彻底解决，需要在 `src/commands/workspace/init.ts` 中加清理钩子：检测 `~/.peaks/workspaces/<id>/.peaks/_runtime/change/<sid>/` 是否存在但 `workspaces.json.workspaces` 没引用 → 自动删除。这是 P5 候选修复项，**不在 Step 1+2+3 范围**。
 

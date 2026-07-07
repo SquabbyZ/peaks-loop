@@ -1,6 +1,6 @@
 /**
  * TDD coverage for the 1.x → 2.0 detection service.
- * Slice: 2026-06-12-solo-step-0-55-1x-detection.
+ * Slice: 2026-06-12-code-step-0-55-1x-detection.
  *
  * Mirrors the cases in
  * `tests/unit/scripts/install-skills-1x-detector.test.ts`

@@ -30,8 +30,8 @@ src/services/audit/red-lines-service.ts (NEW — main scanner)
 export type RedLineBacking = 'cli-backed' | 'partial' | 'prose-only';
 
 export interface RedLineEntry {
-  readonly id: string;                    // e.g. 'rl-solo-code-ban-001'
-  readonly rule: string;                  // human-readable rule, e.g. 'Solo Code-Change Red Line'
+  readonly id: string;                    // e.g. 'rl-code-code-ban-001'
+  readonly rule: string;                  // human-readable rule, e.g. 'Code Code-Change Red Line'
   readonly source: {
     readonly file: string;                // relative to project
     readonly line: number;
@@ -61,16 +61,16 @@ export interface RedLineAuditResult {
 
 ## P0 enforcer design
 
-### 1. Solo-code-ban
+### 1. Code-code-ban
 
 ```typescript
-// src/services/audit/enforcers/solo-code-ban.ts (NEW)
+// src/services/audit/enforcers/code-code-ban.ts (NEW)
 export function isSoloCodeCommit(skill: string, command: string): boolean {
   return /^peaks-/.test(skill) && /^\s*git\s+(commit|apply)\b/.test(command);
 }
 ```
 
-Wired into `src/services/hooks/pre-tool-use-bash.ts` (existing). Deny message: "Solo Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
+Wired into `src/services/hooks/pre-tool-use-bash.ts` (existing). Deny message: "Code Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
 
 ### 2. no-root-pollution
 
@@ -156,7 +156,7 @@ src/services/audit/
 │   ├── rules-tree-scanner.ts         (~80 lines)
 │   └── openspec-scanner.ts           (~80 lines)
 └── enforcers/
-    ├── solo-code-ban.ts              (~40 lines)
+    ├── code-code-ban.ts              (~40 lines)
     ├── no-root-pollution.ts          (~60 lines)
     ├── sub-agent-sid.ts              (~50 lines)
     ├── tech-doc-presence.ts          (~30 lines)
@@ -177,7 +177,7 @@ tests/unit/services/audit/
 │   ├── rules-tree-scanner.test.ts    (NEW)
 │   └── openspec-scanner.test.ts      (NEW)
 └── enforcers/
-    ├── solo-code-ban.test.ts         (NEW)
+    ├── code-code-ban.test.ts         (NEW)
     ├── no-root-pollution.test.ts     (NEW)
     ├── sub-agent-sid.test.ts         (NEW)
     ├── tech-doc-presence.test.ts     (NEW)

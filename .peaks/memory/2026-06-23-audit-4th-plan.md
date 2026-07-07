@@ -93,7 +93,7 @@ Concrete targets to probe:
 - SKILL.md says `peaks sub-agent dispatch <role>` for "CLI-auxiliary"
   use; in 2.7.0+ slice-dag-dispatcher MVP, the canonical entry point is
   `--from-dag <file>`. Is the SKILL.md narrative aligned with the
-  peak-solo's actual slice 5 default fan-out path?
+  peak-code's actual slice 5 default fan-out path?
 - `references/sub-agent-dispatch.md` — does it describe the G9 CLI 兜底
   thresholds or is it stale?
 - `references/swarm-dispatch-contract.md` — references `>= 2 leaves`;

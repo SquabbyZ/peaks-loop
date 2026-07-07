@@ -120,7 +120,7 @@ function writeQaEvidence(peaks: string, relativePath: string, content?: string):
 // the full scope path (containing `_runtime/test-change-id`), not
 // the bare session-id name. The path separator is platform-dependent
 // (forward slash on POSIX, backslash on Windows) — use endsWith CID
-// Slice 2026-06-28-solo-mode-bypass-fix (defect #3): the canonical
+// Slice 2026-06-28-code-mode-bypass-fix (defect #3): the canonical
 // change-id is the bare id (`test-change-id`); the legacy shape
 // `_runtime/test-change-id` is now normalised inside `findRequestFile`
 // so the path resolver builds the right canonical location. The

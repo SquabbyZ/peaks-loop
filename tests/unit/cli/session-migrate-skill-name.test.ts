@@ -4,6 +4,17 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { migrateSkillName } from '../../../src/services/migrate-skill-name/migrate.js';
 
+// IMPORTANT: This test pins the `peaks session migrate-skill-name` contract
+// for the rename peaks-solo → peaks-code. The beforeEach seed data MUST keep
+// the legacy `peaks-solo` literals so the migrate call (from: 'peaks-solo',
+// to: 'peaks-code') actually has something to rename. After the user-wide
+// sweep in 593d915 (chore(repo): user global sweep peaks-solo → peaks-code)
+// over-corrected this file, every assertion became a no-op because the
+// rename pair collapsed to (from: 'peaks-code', to: 'peaks-code') — leaving
+// modifiedFiles === 0 and breaking the migrate contract tests below.
+// See tests/fixtures/runtime/session-with-peaks-solo.json for the same
+// retention rationale (peaks-solo kept verbatim on purpose).
+
 describe('peaks session migrate-skill-name', () => {
   let sandbox: string;
 
@@ -66,15 +77,15 @@ describe('peaks session migrate-skill-name', () => {
     expect(after).toBe(before);
   });
 
-  it('跳过 .peaks/skills/.system/bees/peaks-solo/manifest.json', () => {
-    mkdirSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo'), { recursive: true });
+  it('跳过 .peaks/skills/.system/bees/peaks-code/manifest.json', () => {
+    mkdirSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code'), { recursive: true });
     writeFileSync(
-      join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'),
-      JSON.stringify({ id: 'peaks-solo', displayName: 'Peaks Solo' }, null, 2),
+      join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'),
+      JSON.stringify({ id: 'peaks-code', displayName: 'Peaks Code' }, null, 2),
     );
-    const before = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'), 'utf-8');
+    const before = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'), 'utf-8');
     migrateSkillName({ projectRoot: sandbox, from: 'peaks-solo', to: 'peaks-code', apply: true });
-    const after = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-solo', 'manifest.json'), 'utf-8');
+    const after = readFileSync(join(sandbox, '.peaks', 'skills', '.system', 'bees', 'peaks-code', 'manifest.json'), 'utf-8');
     expect(after).toBe(before);
   });
 

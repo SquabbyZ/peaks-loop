@@ -4,7 +4,7 @@
  * The Test Tool Detection block is prepended to every sub-agent prompt
  * dispatched by peaks-loop (both the single-dispatch chokepoint in
  * `src/cli/commands/dispatch-commands.ts` and the DAG-dispatch chokepoint
- * in `src/services/solo/dag-orchestrator.ts`). It tells the sub-agent
+ * in `src/services/code/dag-orchestrator.ts`). It tells the sub-agent
  * to read `package.json#scripts.test` first and use the project-local
  * runner — never `npx <runner>` — so it cannot bypass the lockfile or
  * spawn a network-bound tool call.

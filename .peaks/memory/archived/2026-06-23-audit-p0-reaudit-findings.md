@@ -19,7 +19,7 @@ Two commits land on `fix/audit-p0-2026-06-23` branch (NOT merged to develop yet)
      - `sub-agent-shared.ts` (171) — types/constants/helpers
    - Added 25 unit tests in `tests/unit/cli/commands/playwright-commands.test.ts`
    - Added `FanoutPreference` opt-out in `preferences-types.ts` + SKILL.md mention +
-     `references/fanout-opt-out.md` + 10 tests in `tests/unit/solo/skills-solo-fanout-opt-out.test.ts`
+     `references/fanout-opt-out.md` + 10 tests in `tests/unit/code/skills-code-fanout-opt-out.test.ts`
    - Removed redundant `isAbsolute ? resolve : resolve` in `change-scope-service.ts`
 
 2. Earlier today (NOT from this slice — pre-existing in `develop`):
@@ -43,8 +43,8 @@ Two commits land on `fix/audit-p0-2026-06-23` branch (NOT merged to develop yet)
      with `(program, io)` directly). → DELETE.
 
 2. **Inline type imports in `src/cli/commands/dispatch-commands.ts`:**
-   - Line 418: `cliRunner: async (spec: import('../../services/solo/dag-orchestrator.js').DispatchSpec) => Promise<import('../../services/solo/dag-orchestrator.js').SliceOutcome>`
-   - Line 452: `noopWriter: (sliceId, _publicSurface: import('../../services/solo/dag-orchestrator.js').PublicSurface): import('../../services/dispatch/contract-store.js').SliceContract`
+   - Line 418: `cliRunner: async (spec: import('../../services/code/dag-orchestrator.js').DispatchSpec) => Promise<import('../../services/code/dag-orchestrator.js').SliceOutcome>`
+   - Line 452: `noopWriter: (sliceId, _publicSurface: import('../../services/code/dag-orchestrator.js').PublicSurface): import('../../services/dispatch/contract-store.js').SliceContract`
    - Same pattern for the `SliceDag` type used at lines 401, 404.
    - Fix: move all four types to top-of-file named type imports
      (`type DispatchSpec, SliceOutcome, PublicSurface, SliceDag`).
@@ -90,7 +90,7 @@ git checkout fix/audit-p0-2026-06-23
 
 # 2. Read this file + check existing tests still green
 npx vitest run tests/unit/cli/commands/playwright-commands.test.ts \
-                tests/unit/solo/skills-solo-fanout-opt-out.test.ts \
+                tests/unit/code/skills-code-fanout-opt-out.test.ts \
                 tests/unit/sub-agent-commands.test.ts \
                 tests/unit/change-scope-service.test.ts
 

@@ -361,7 +361,7 @@ skills/peaks-slice-decompose/
 
 | Skill | Reference to add | What it tells the LLM |
 |---|---|---|
-| `peaks-code/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` in the "slice planning" section | When Solo orchestrates a multi-slice task, dispatch to `peaks-slice-decompose` first |
+| `peaks-code/SKILL.md` | Link to `peaks-slice-decompose/SKILL.md` in the "slice planning" section | When Code orchestrates a multi-slice task, dispatch to `peaks-slice-decompose` first |
 | `peaks-rd/SKILL.md` | New `references/reading-v2-slice-results.md` | How RD reads the v2 JSON and plans sub-agent dispatch per pass |
 | `peaks-qa/SKILL.md` | New `references/cross-pass-edge-verification.md` | How QA verifies that a multi-pass plan was executed with the right cross-pass ordering |
 | `peaks-prd/SKILL.md` | New `references/prd-for-multi-pass.md` | How PRD authors write acceptance criteria that yield clean slice boundaries |

@@ -124,14 +124,14 @@ If the PRD or project warrants it, subdivide `qa-business` further into roles li
 For the full contract (heartbeat instructions for each sub-agent, batch-id discipline, 30s cadence, 100-truncation, 5min stale) see `skills/bee/peaks-qa/references/qa-fanout-contract.md` and `skills/peaks-code/references/sub-agent-dispatch.md` §G6.
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
-- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
-- **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
-- **Mode selection** — Solo has already chosen the mode.
-- **Statusline install** — already done by Solo at session startup.
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-qa`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Code loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-qa.json` and only that.
+- **Workspace initialization** — Code has already run `peaks workspace init` before fan-out. Do not re-run it.
+- **Mode selection** — Code has already chosen the mode.
+- **Statusline install** — already done by Code at session startup.
 
 What the sub-agent **MUST** still do:
 
-0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out. The sub-agent reads it via `peaks request show <rid> --role qa --project <repo> --json` if it needs to.
+0. **Do NOT call `peaks request init`** — Code has already initialised the request artefact slot in the main loop before fan-out. The sub-agent reads it via `peaks request show <rid> --role qa --project <repo> --json` if it needs to.
 2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role rd`, `--role ui` if UI is in the swarm plan).
 3. Standards preflight (dry-run only).
 4. Write `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` with test cases that link to PRD acceptance items.
@@ -151,7 +151,7 @@ What the sub-agent **MUST** still do:
 **Hard prohibitions** (sub-agent context):
 
 - Do NOT call `Skill(skill="...")`.
-- Do NOT call `peaks skill presence:set` — Solo owns the active-skill file.
+- Do NOT call `peaks skill presence:set` — Code owns the active-skill file.
 - Do NOT run the actual test suite, do NOT execute security/perf tools, do NOT open a browser — those are the **QA validation** phase, not the Swarm planning phase. The Swarm sub-agent is "QA(test-cases)" (planning), which only produces the test-case artefact. The actual validation runs after RD implementation in a separate sub-agent or inline run.
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
 - Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}`.
@@ -199,8 +199,8 @@ Every QA invocation — feature, bug, refactor, clarification — must write **t
 | # | File | Path | Reader | Content |
 |---|------|------|--------|---------|
 | 1 | Test cases | `.peaks/_runtime/<sessionId>/qa/test-cases/<request-id>.md` | RD (before impl), QA | Generated test scenarios with status |
-| 2 | Test report | `.peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md` | QA, SC, Solo | Summary, coverage%, security, perf, risks |
-| 3 | Request artifact | `.peaks/_runtime/<sessionId>/qa/requests/<request-id>.md` | Solo, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
+| 2 | Test report | `.peaks/_runtime/<sessionId>/qa/test-reports/<request-id>.md` | QA, SC, Code | Summary, coverage%, security, perf, risks |
+| 3 | Request artifact | `.peaks/_runtime/<sessionId>/qa/requests/<request-id>.md` | Code, RD↔QA loop | Verdict, boundary check, links to #1 and #2 |
 
 Concrete template and rules: `references/artifact-per-request.md`.
 

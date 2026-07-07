@@ -7,7 +7,7 @@ P0 enforcers (L2.1, commit `621a693`) and 10-15 P1 enforcers (L2.2, commit
 `a80f28e`). The catalog currently has 15 entries:
 
 ```
-rl-solo-code-ban-001
+rl-code-code-ban-001
 rl-no-root-pollution-001
 rl-sub-agent-sid-001
 rl-tech-doc-presence-001
@@ -24,7 +24,7 @@ rl-login-gate-001
 rl-login-gate-002
 ```
 
-The L2.1 + L2.2 coverage protects the *structural* gates (solo-code-ban,
+The L2.1 + L2.2 coverage protects the *structural* gates (code-code-ban,
 root-pollution, sub-agent-sid, mock-placement, resume, prototype,
 design-draft, pre-rd, login). What's missing is the *lint-style* layer:
 small per-skill and per-reference red-lines that catch inline bloat, missing
@@ -177,6 +177,6 @@ enforcer file in `src/services/audit/enforcers/`:
 - A5 — The four-option UA-style install prompt fires once per session (not per call) when ECC is missing.
 - A6 — The catalog grows from 15 to ~45 entries; the `proseOnlyRatio` computed from the catalog is ≤ 5%.
 - A7 — The existing L2.1 / L2.2 / L2.4 enforcers continue to pass — no regression.
-- A8 — The `solo-code-ban` and `no-root-pollution` (L2.1 P0) tests still report 0 violations in the peaks-loop repo.
+- A8 — The `code-code-ban` and `no-root-pollution` (L2.1 P0) tests still report 0 violations in the peaks-loop repo.
 - A9 — `pnpm vitest run` is green (2595 + 25+ new tests = 2620+ passing).
 - A10 — `pnpm typecheck` is clean.

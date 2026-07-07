@@ -1,13 +1,13 @@
 # Step 0 — Anchor the workflow
 
-> Body of `### Peaks-Loop Step 0: Anchor the workflow`. The instant Peaks-Loop Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
+> Body of `### Peaks-Loop Step 0: Anchor the workflow`. The instant Peaks-Loop Code is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
 
 ```bash
 # Session ID is auto-generated when omitted; the command returns it in the JSON output.
 # Do NOT pass --session-id manually — the CLI is the single source of truth for the
 # project session binding. To look up the active session id from a skill / sub-agent,
 # use `peaks session info --active --json` (read-only, no side effects). To avoid
-# the "two sessions in .peaks/" confusion that bites Solo, always omit --session-id
+# the "two sessions in .peaks/" confusion that bites Code, always omit --session-id
 # here and let the CLI auto-generate.
 peaks workspace init --project <repo> --json
 peaks skill presence:set peaks-code --project <repo> --gate startup

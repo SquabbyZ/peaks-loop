@@ -69,7 +69,7 @@ describe('red-lines-service.runRedLinesAudit', () => {
       '# peaks-code\n\nBLOCKING step here.\n',
     );
     mkdirSync(join(projectRoot, 'src/services/audit/enforcers'), { recursive: true });
-    writeFileSync(join(projectRoot, 'src/services/audit/enforcers/solo-code-ban.ts'), '// stub');
+    writeFileSync(join(projectRoot, 'src/services/audit/enforcers/code-ban.ts'), '// stub');
 
     const result = runRedLinesAudit({ projectRoot });
     const informational = result.audit.audit.filter((e) => e.informational).length;

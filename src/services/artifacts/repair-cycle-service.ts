@@ -27,7 +27,7 @@ export type RepairCycleStatusOptions = {
 
 const DEFAULT_MAX_CYCLES = 3;
 
-// Matches transition notes Solo writes during repair routing.
+// Matches transition notes Code writes during repair routing.
 // Format example:
 //   - transition note (2026-05-25T08:00:00.000Z): QA return-to-rd cycle 1: failing acceptance items A, B
 //   - transition note (2026-05-25T09:00:00.000Z): QA cycle 2: regression in module X

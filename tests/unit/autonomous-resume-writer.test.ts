@@ -134,7 +134,7 @@ describe('writeAutonomousResumeArtifacts', () => {
     expect(writeResult.applied).toBe(true);
 
     const plan = createAutonomousWorkflowPlan({
-      mode: 'solo',
+      mode: 'code',
       sessionId,
       goal,
       maxWorkers: 40,

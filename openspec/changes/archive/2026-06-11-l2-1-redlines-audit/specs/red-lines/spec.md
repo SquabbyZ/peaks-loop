@@ -25,16 +25,16 @@ Output envelope (per `r3-format-compact-defaults-by-artifact-type.md`):
     "proseOnly": 0,
     "audit": [
       {
-        "id": "rl-solo-code-ban-001",
-        "rule": "Solo Code-Change Red Line",
+        "id": "rl-code-code-ban-001",
+        "rule": "Code Code-Change Red Line",
         "source": {
           "file": "skills/peaks-code/SKILL.md",
           "line": 42,
           "marker": "BLOCKING",
-          "context": "Peaks-Loop Solo is an orchestrator, NOT an implementer..."
+          "context": "Peaks-Loop Code is an orchestrator, NOT an implementer..."
         },
         "backing": "cli-backed",
-        "enforcerRef": "src/services/audit/enforcers/solo-code-ban.ts"
+        "enforcerRef": "src/services/audit/enforcers/code-code-ban.ts"
       }
     ]
   },
@@ -63,11 +63,11 @@ The detector's classification is **heuristic, not authoritative** — the catalo
 
 ## P0 enforcer contracts
 
-### 1. Solo-code-ban
+### 1. Code-code-ban
 
 **Trigger**: PreToolUse on `Bash` matcher, when the bash command is `git commit` or `git apply` AND the active skill starts with `peaks-`.
 
-**Behavior**: deny with `permissionDecision: "deny"`, reason: "Solo Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
+**Behavior**: deny with `permissionDecision: "deny"`, reason: "Code Code-Change Red Line: peaks-* skills must go through peaks-code / peaks-rd. Use `peaks request transition` instead."
 
 **Fail-open**: registry / manifest read failure → warn + allow (per `gate-enforcement-hook.md` trust red line).
 

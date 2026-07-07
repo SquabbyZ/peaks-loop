@@ -289,7 +289,7 @@ describe('promoteFeedback — AC-3', () => {
 
   test('layer C stub targets mode-gate.ts + a new test file', () => {
     const stub = generatePromotionStub({ layer: 'C', feedbackName: 'rule-x', feedbackBody: 'body' });
-    expect(stub.targetFiles).toContain('src/services/solo/mode-gate.ts');
+    expect(stub.targetFiles).toContain('src/services/code/mode-gate.ts');
     expect(stub.targetFiles.some((f) => f.includes('hard-floor'))).toBe(true);
   });
 });

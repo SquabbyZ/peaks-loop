@@ -2,7 +2,7 @@
 
 ## Why
 
-Peaks should help a solo developer get high-quality outcomes from lower-cost execution models by letting top-tier models define goals, gates, and review criteria while `peaks-rd` runs bounded autonomous swarm execution. The current CLI can plan workflow, tech gates, and RD swarm graphs, but it does not yet model durable goal state, compact/session recovery, or capability reuse from known MCPs, skills, and external resources.
+Peaks should help a code developer get high-quality outcomes from lower-cost execution models by letting top-tier models define goals, gates, and review criteria while `peaks-rd` runs bounded autonomous swarm execution. The current CLI can plan workflow, tech gates, and RD swarm graphs, but it does not yet model durable goal state, compact/session recovery, or capability reuse from known MCPs, skills, and external resources.
 
 This change makes the product direction explicit: Peaks should reuse existing capabilities listed in `docs/accessRepo.md` and `docs/mcpServer.md` before building features from scratch, and should make autonomous RD execution resumable after Claude Code auto compact or session continuation.
 

@@ -36,7 +36,7 @@ metadata:
 1. Self-dogfood blind spots — testing ourselves cannot catch all of our own blind spots
 2. 5-line mechanical defense reduces probability of undetected regressions but does NOT eliminate them
 3. Cross-platform `prepublish-build.mjs` still partial (Windows `cmd.exe` spawnSync issue observed — `spawnSync C:\Windows\system32\cmd.exe ENOENT`); mitigated by running `pnpm run build` directly
-4. (Carried from PRD NG1) `peaks` solo mode still relies on LLM verdict synthesis; gates can only verify mechanical invariants
+4. (Carried from PRD NG1) `peaks` code mode still relies on LLM verdict synthesis; gates can only verify mechanical invariants
 
 **Why this ship matters:**
 - v2.13.x added reasoning layer (multi-signal convergence) but still trusted itself

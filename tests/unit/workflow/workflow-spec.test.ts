@@ -96,7 +96,7 @@ describe('parseWorkflowYaml', () => {
   });
 
   it('throws on phase role not starting with peaks-', () => {
-    const bad = MINIMAL_YAML.replace('role: peaks-rd', 'role: solo');
+    const bad = MINIMAL_YAML.replace('role: peaks-rd', 'role: code');
     expect(() => parseWorkflowYaml(bad, 'demo')).toThrow(/must start with "peaks-"/);
   });
 
@@ -161,7 +161,7 @@ describe('lintWorkflowSpec', () => {
     const bad: WorkflowSpec = {
       ...spec,
       phases: [
-        { id: 'solo', role: 'peaks-rd', promptTemplate: 'x', gates: [], outputContract: [], parallelGroup: 'g1' }
+        { id: 'code', role: 'peaks-rd', promptTemplate: 'x', gates: [], outputContract: [], parallelGroup: 'g1' }
       ]
     };
     const report = lintWorkflowSpec(bad);

@@ -1,12 +1,12 @@
 /**
  * v2.15.0 follow-up — G4: user touchpoint CLI.
  *
- *   - `peaks solo gate-classify --step <step-id>` — classify a single
- *     Solo gate (business / tech / mode-selection / commit-boundary /
+ *   - `peaks code gate-classify --step <step-id>` — classify a single
+ *     Code gate (business / tech / mode-selection / commit-boundary /
  *     commit-floor)
- *   - `peaks solo user-touchpoints`                — list all gates the
+ *   - `peaks code user-touchpoints`                — list all gates the
  *     user must review (vs AI auto-decides in full-auto)
- *   - `peaks solo commit-boundary-actions`         — list the 5
+ *   - `peaks code commit-boundary-actions`         — list the 5
  *     hard-floor commit actions (push / tag / publish / global
  *     install)
  *
@@ -20,17 +20,17 @@ import {
   classifyGate,
   COMMIT_BOUNDARY_ACTIONS_LIST,
   userMustReviewGates
-} from '../../services/solo/user-touchpoint-classifier.js';
+} from '../../services/code/user-touchpoint-classifier.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerUserTouchpointCommands(program: Command, io: ProgramIO): void {
   // G4 commands are registered as TOP-LEVEL commands (not sub-commands
-  // of `peaks solo`) because `peaks solo` is a SKILL (consumed by the
+  // of `peaks code`) because `peaks code` is a SKILL (consumed by the
   // LLM in SKILL.md), not a CLI command. Top-level names: gate-classify /
   // user-touchpoints / commit-boundary-actions.
   //
-  // We do NOT create a new `peaks solo` CLI command here because that
+  // We do NOT create a new `peaks code` CLI command here because that
   // would conflict with the peaks-code skill presence tracking (see
   // `src/services/skills/skill-presence-service.ts`).
 
@@ -38,7 +38,7 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
     program
       .command('gate-classify')
       .description(
-        'v2.15.0 follow-up G4: classify a single Solo gate by its decision kind: ' +
+        'v2.15.0 follow-up G4: classify a single Code gate by its decision kind: ' +
           'business / tech / mode-selection / commit-boundary / commit-floor. ' +
           'Returns null when the step is unknown.'
       )
@@ -46,13 +46,13 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
   ).action((opts: { step: string; json?: boolean }) => {
     const c = classifyGate(opts.step);
     if (c === null) {
-      printResult(io, fail('solo.gate-classify', 'UNKNOWN_STEP', `unknown step "${opts.step}"`, {}, [
-        'Run `peaks solo user-touchpoints` to list all known steps.'
+      printResult(io, fail('code.gate-classify', 'UNKNOWN_STEP', `unknown step "${opts.step}"`, {}, [
+        'Run `peaks code user-touchpoints` to list all known steps.'
       ]), opts.json ?? false);
       process.exitCode = 1;
       return;
     }
-    printResult(io, ok('solo.gate-classify', { classification: c }, [], [
+    printResult(io, ok('code.gate-classify', { classification: c }, [], [
       c.userShouldReview === 'always'
         ? 'User must review this gate in all modes.'
         : c.userShouldReview === 'business-only'
@@ -65,14 +65,14 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
     program
       .command('user-touchpoints')
       .description(
-        'List all Solo gates the user must review. The 12 Gaps positioning ' +
+        'List all Code gates the user must review. The 12 Gaps positioning ' +
           'memory: user 在循环里 = 业务/产品审阅者,不参与技术决策。 ' +
           'These are the only gates where the user is asked to decide.'
       )
   ).action((opts: { json?: boolean }) => {
     const must = userMustReviewGates();
     const auto = aiAutoDecidesGates();
-    printResult(io, ok('solo.user-touchpoints', {
+    printResult(io, ok('code.user-touchpoints', {
       userMustReview: must,
       aiAutoDecides: auto,
       counts: {
@@ -94,7 +94,7 @@ export function registerUserTouchpointCommands(program: Command, io: ProgramIO):
           '"full-auto 只做到 commit"). The user is always asked to confirm.'
       )
   ).action((opts: { json?: boolean }) => {
-    printResult(io, ok('solo.commit-boundary-actions', { actions: COMMIT_BOUNDARY_ACTIONS_LIST }, [], [
+    printResult(io, ok('code.commit-boundary-actions', { actions: COMMIT_BOUNDARY_ACTIONS_LIST }, [], [
       'Even in full-auto, the user must explicitly confirm these actions.'
     ]), opts.json ?? false);
   });

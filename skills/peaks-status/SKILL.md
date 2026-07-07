@@ -3,9 +3,9 @@ name: peaks-status
 description: Universal status primitive for any in-flight Peaks-Loop workflow (orchestrator-agnostic). Reads the existing CLI primitives (peaks skill presence, peaks session list, peaks project dashboard, peaks request show) and renders a 1-screen status table. Use when the user asks "where are we", "现在到哪了", "what's the current state" for ANY bee (peaks-code, future peaks-research, …). Triggers on "/peaks-status", "现在到哪了", "what is the current state", "show me the dashboard". (Replaces peaks-status as a top-level primitive.)
 ---
 
-# Peaks-Loop Solo Status (wrapper)
+# Peaks-Loop Code Status (wrapper)
 
-Peaks-Loop Solo Status is a thin wrapper that renders a compact status table for the current peaks-code orchestrator state. It is the answer to "I just want to know where we are" — no PRD, no RD, no QA, no full peaks-code orchestration. Just read the existing CLI state and render a 1-screen summary.
+Peaks-Loop Code Status is a thin wrapper that renders a compact status table for the current peaks-code orchestrator state. It is the answer to "I just want to know where we are" — no PRD, no RD, no QA, no full peaks-code orchestration. Just read the existing CLI state and render a 1-screen summary.
 
 **This is a transparent wrapper.** The user does not stay in this skill — the status table is rendered, and control hands off (back to the user, or to `peaks-code` if the user wants to act on the status).
 

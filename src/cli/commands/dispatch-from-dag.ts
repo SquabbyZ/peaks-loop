@@ -40,7 +40,7 @@ import type {
   DispatchSpec,
   PublicSurface,
   SliceOutcome
-} from '../../services/solo/dag-orchestrator.js';
+} from '../../services/code/dag-orchestrator.js';
 import {
   SliceDagModule,
   DagOrchestratorModule,
@@ -75,7 +75,7 @@ export async function runDispatchFromDag(
   const [{ readFileSync }, sliceDagMod, dagOrchestratorMod, contractStoreMod] = await Promise.all([
     import('node:fs'),
     import('../../services/dispatch/slice-dag.js') as Promise<SliceDagModule>,
-    import('../../services/solo/dag-orchestrator.js') as Promise<DagOrchestratorModule>,
+    import('../../services/code/dag-orchestrator.js') as Promise<DagOrchestratorModule>,
     import('../../services/dispatch/contract-store.js') as Promise<ContractStoreModule>
   ]);
   const { validateDag, topologicalLevels, isSliceComplexity } = sliceDagMod;

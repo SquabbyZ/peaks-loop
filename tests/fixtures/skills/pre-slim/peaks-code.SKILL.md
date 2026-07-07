@@ -1,6 +1,6 @@
 ---
 name: peaks-code
-description: Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (产品文档/PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-code`, "peaks solo", "全流程开发", "端到端迭代", "根据产品文档开发", "从需求到上线".
+description: Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end (端到端/全流程/需求开发), especially from a product document (产品文档/PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-ui, peaks-qa, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-code`, "peaks code", "全流程开发", "端到端迭代", "根据产品文档开发", "从需求到上线".
 ---
 
 ## Two-axis naming convention
@@ -33,9 +33,9 @@ The `.peaks/` workspace is partitioned by **two orthogonal axes**. Every path in
 - Slice `005-session-runtime-dir-regression` (commit `178a47e`) — added the `getSessionDir()` resolver at `src/services/session/getSessionDir.ts` and routed 4 stragglers that were constructing `.peaks/_runtime/${sessionId}` (no `_runtime/`) through the canonical resolver. Defense-in-depth scan: `tests/unit/services/session/session-dir-canonical.test.ts`.
 - Slice `006-5th-writer-changeid-path` (this slice) — disambiguates the SKILL.md placeholders and adds the regression test `tests/unit/skills/skills-skill-md-naming.test.ts` that mechanically enforces (a) zero bare `<sid>`, (b) every `.peaks/_runtime/<X>/` reference has an axis label, (c) the "Two-axis naming convention" callout is present in `peaks-code`, `peaks-rd`, `peaks-qa`.
 
-# Peaks-Loop Solo
+# Peaks-Loop Code
 
-Peaks-Loop Solo is the orchestration facade for the Peaks-Loop short skill family.
+Peaks-Loop Code is the orchestration facade for the Peaks-Loop short skill family.
 
 Use this skill to identify the user scenario, recommend an execution mode, coordinate role skills, and produce the final handoff report. Do not collapse role responsibilities into this skill.
 
@@ -51,7 +51,7 @@ See `.claude/rules/common/dev-preference.md` for the full dev policy and the dec
 
 ## Code-Change Red Line (BLOCKING — read before ANY tool call)
 
-**Peaks-Loop Solo is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
+**Peaks-Loop Code is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.**
 
 Every code change — bugfix, feature, refactor, or config — MUST go through the full pipeline:
 
@@ -70,16 +70,16 @@ peaks-code (orchestrate only)
     → Verdict: pass | return-to-rd | blocked
 ```
 
-**Mechanism for "RD work" / "QA work" depends on the orchestration mode** (full details in "Peaks-Loop Swarm parallel phase" and "How Solo invokes another role"):
+**Mechanism for "RD work" / "QA work" depends on the orchestration mode** (full details in "Peaks-Loop Swarm parallel phase" and "How Code invokes another role"):
 
 | Mode | Swarm side (after PRD) | Repair loop side (RD↔QA) |
 |---|---|---|
 | `full-auto` / `swarm` | `peaks sub-agent dispatch <role>` — IDE-agnostic dispatch primitive; CLI returns a tool-call descriptor the LLM executes in its own environment | `peaks sub-agent dispatch <role>` per cycle |
-| `assisted` / `strict` / inline-fallback | Solo executes the role steps inline in the main loop (the `peaks-code` skill IS the role's owner) | Solo executes inline |
+| `assisted` / `strict` / inline-fallback | Code executes the role steps inline in the main loop (the `peaks-code` skill IS the role's owner) | Code executes inline |
 
-In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contracts. The only difference is whether the role's body is being read by a sub-agent Task prompt or by Solo's own main loop. **Never bypass the role contracts regardless of which path runs.**
+In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contracts. The only difference is whether the role's body is being read by a sub-agent Task prompt or by Code's own main loop. **Never bypass the role contracts regardless of which path runs.**
 
-**Violations (BLOCKING — Solo must refuse to proceed):**
+**Violations (BLOCKING — Code must refuse to proceed):**
 
 1. Writing implementation code directly instead of routing through the RD contract (whether inline or via sub-agent)
 2. Declaring work "done" without producing QA evidence after RD
@@ -95,21 +95,21 @@ In all modes, the work itself follows the same `peaks-rd` and `peaks-qa` contrac
 
 ### Peaks-Loop Step 0.5: OpenSpec first-run opt-in (conditional)
 
-After the workspace is anchored, before project scan, Solo checks whether
+After the workspace is anchored, before project scan, Code checks whether
 the project already has an `openspec/` directory. The lifecycle
 (`render → validate → show → to-rd → validate → archive`) only applies
 when `openspec/` exists; without it, RD/QA/SC silently skip the
 openspec-aware paths and you lose change-proposal tracking, commit
 boundaries from `tasks.md`, and the historical archive.
 
-To make that opt-in visible instead of silent, Solo runs:
+To make that opt-in visible instead of silent, Code runs:
 
 ```bash
 # 1. Detect whether the project already has openspec/.
 ls <repo>/openspec/changes 2>&1
-# 2. If absent, ask the user once — only on the first Solo run in this
+# 2. If absent, ask the user once — only on the first Code run in this
 #    project. The decision is sticky: write it to .peaks/.peaks-openspec-opt-in.json
-#    so subsequent Solo invocations do not re-ask.
+#    so subsequent Code invocations do not re-ask.
 test -f <repo>/.peaks/.peaks-openspec-opt-in.json || \
   echo "{\"enabled\": <bool>}" > <repo>/.peaks/.peaks-openspec-opt-in.json
 ```
@@ -119,11 +119,11 @@ file is missing):
 
 | Option | What it does |
 |---|---|
-| Enable OpenSpec for this project (Recommended) | Run `peaks openspec init --project <repo> --apply`. After that, every Solo run uses the change-proposal lifecycle for the same project. |
-| Skip for now | Do nothing. Solo proceeds without openspec; the question is re-asked on the next first-run detection. |
-| Never ask again for this project | Write `{enabled: false, sticky: true}`. Solo stops asking. The user can re-enable later by removing `.peaks/.peaks-openspec-opt-in.json` and re-running. |
+| Enable OpenSpec for this project (Recommended) | Run `peaks openspec init --project <repo> --apply`. After that, every Code run uses the change-proposal lifecycle for the same project. |
+| Skip for now | Do nothing. Code proceeds without openspec; the question is re-asked on the next first-run detection. |
+| Never ask again for this project | Write `{enabled: false, sticky: true}`. Code stops asking. The user can re-enable later by removing `.peaks/.peaks-openspec-opt-in.json` and re-running. |
 
-The first option is the recommended default because it gives Solo the
+The first option is the recommended default because it gives Code the
 full change-proposal lifecycle (proposal / tasks / design / specs
 deltas, archive on ship, commit boundaries from `tasks.md`). It costs
 only a single scaffolded directory and pays back the first time the
@@ -131,19 +131,19 @@ project needs a real review trail.
 
 If the user picks "Enable", the only required follow-up is to make
 sure `openspec/changes/` is added to git (it is part of the project
-repo, not a tool-managed artefact). Solo does not run `git add` for
+repo, not a tool-managed artefact). Code does not run `git add` for
 the user; that is the user's commit boundary.
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
-The instant Peaks-Loop Solo is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
+The instant Peaks-Loop Code is invoked, **before** the mode-selection question, before any analysis, and before you decide whether the request "needs" the full pipeline, you MUST run these two commands and see their output:
 
 ```bash
 # Session ID is auto-generated when omitted; the command returns it in the JSON output.
 # Do NOT pass --session-id manually — the CLI is the single source of truth for the
 # project session binding. To look up the active session id from a skill / sub-agent,
 # use `peaks session info --active --json` (read-only, no side effects). To avoid
-# the "two sessions in .peaks/" confusion that bites Solo, always omit --session-id
+# the "two sessions in .peaks/" confusion that bites Code, always omit --session-id
 # here and let the CLI auto-generate.
 peaks workspace init --project <repo> --json
 peaks skill presence:set peaks-code --project <repo> --gate startup
@@ -226,14 +226,14 @@ done
 
 ### Peaks-Loop Step 1: Mode selection
 
-After Step 0 has anchored the workspace and presence, when the user invokes Peaks-Loop Solo without explicitly naming an execution profile, use `AskUserQuestion` to pick the profile. Present the recommended full-auto path as the first/default option with a practical description for each:
+After Step 0 has anchored the workspace and presence, when the user invokes Peaks-Loop Code without explicitly naming an execution profile, use `AskUserQuestion` to pick the profile. Present the recommended full-auto path as the first/default option with a practical description for each:
 
 1. **Full auto (Recommended)** — Peaks-Loop handles planning, role coordination, validation, and compact handoff end-to-end while preserving required confirmation gates for risky or shared-state actions.
 2. **Assisted** — Peaks-Loop proposes plans, artifacts, and checks, then pauses for user decisions at major workflow boundaries.
 3. **Swarm** — Peaks-Loop maximizes safe parallel role/worker execution for larger RD or QA workloads while keeping reducer validation and artifact boundaries explicit.
 4. **Strict** — Peaks-Loop uses the most conservative gates: explicit confirmations, strict slice specs, coverage evidence, QA acceptance, and commit boundaries before continuing.
 
-Map the user's selection to the `--mode` flag value (used by `peaks skill presence:set`; `presence:set --mode` accepts any string, so the name matches the user-facing label rather than overloading "solo" which is also the skill name):
+Map the user's selection to the `--mode` flag value (used by `peaks skill presence:set`; `presence:set --mode` accepts any string, so the name matches the user-facing label rather than overloading "code" which is also the skill name):
 
 | User selects | `--mode` value |
 |---|---|
@@ -242,7 +242,7 @@ Map the user's selection to the `--mode` flag value (used by `peaks skill presen
 | Swarm | `swarm` |
 | Strict | `strict` |
 
-> Note: `peaks workflow route --mode solo|team` is a **different** CLI dimension (solo developer vs team flow) and is unrelated to the profile choice here. Do not conflate them.
+> Note: `peaks workflow route --mode code|team` is a **different** CLI dimension (code developer vs team flow) and is unrelated to the profile choice here. Do not conflate them.
 
 If the user already names a profile in their invocation (e.g. `/peaks-code --full-auto`, "用全自动模式"), skip this question and use the named profile directly.
 
@@ -300,16 +300,16 @@ Note: `peaks request init` is **dry-run by default** — the JSON response has `
 
 ## Boundaries
 
-Peaks-Loop Solo may:
+Peaks-Loop Code may:
 
 - identify scenarios such as refactor, bugfix, QA hardening, release validation, and incident response;
-- recommend Solo, Assisted, Swarm, or Strict profiles;
+- recommend Code, Assisted, Swarm, or Strict profiles;
 - coordinate Peaks-Loop role skills through artifacts;
 - coordinate project memory extraction from stable skill artifact sections;
 - request user confirmation at risk and commit boundaries;
 - read CLI doctor/profile/artifact reports.
 
-Peaks-Loop Solo must not silently:
+Peaks-Loop Code must not silently:
 
 - install hooks;
 - create agents;
@@ -376,13 +376,13 @@ system/          # Existing-system extraction output (visual tokens, conventions
 
 Files written into these directories during the workflow (not pre-created — they appear as their step runs):
 
-- `rd/project-scan.md` (Solo step 0.6)
+- `rd/project-scan.md` (Code step 0.6)
 - `rd/tech-doc.md` (feature/refactor planning; required by `rd → implemented` gate)
 - `rd/bug-analysis.md` (bugfix planning; required by `rd → implemented` gate for `--type bugfix`)
 - `rd/code-review.md`, `rd/security-review.md` (required by `rd → qa-handoff` gate for feature/bugfix/refactor; security-review only for config)
 - `rd/mock-plan.md` (frontend-only mode)
 - `ui/design-draft.md` (UI step)
-- `system/existing-system.md` (Solo step 0.7; legacy projects only)
+- `system/existing-system.md` (Code step 0.7; legacy projects only)
 - `qa/test-cases/<rid>.md`, `qa/test-reports/<rid>.md`, `qa/security-findings.md`, `qa/performance-findings.md` (gated per `--type`)
 
 ### Root pollution prohibition (CRITICAL)
@@ -412,7 +412,7 @@ Before handing off to `peaks-rd`, scan the project and record findings to `.peak
 
 ## Peaks-Loop Frontend-only development mode
 
-When the project has no live backend (no swagger.json, no API server), Solo must activate frontend-only mode.
+When the project has no live backend (no swagger.json, no API server), Code must activate frontend-only mode.
 
 **Full frontend-only contract lives in [`references/frontend-only-mode.md`](references/frontend-only-mode.md)**: mode determination (CLI is authoritative), mock-data strategy table by project data-fetching pattern, mock data rules, API contract placeholder pattern (`src/services/types/` + `src/services/` + `mock/`), mock-to-real migration path, and the Feishu document access fallback chain. Read that file before producing any mock files.
 
@@ -423,11 +423,11 @@ The full contract for the 6-type classification table, the 11-step workflow orde
 
 ## Peaks-Loop Swarm parallel phase (sub-agent fan-out, conditional)
 
-The Swarm phase is **conditional**, not unconditional. It only runs when there is a real, user-confirmed requirement. Solo derives the fan-out set from the PRD type and the request content — never from a default of "always launch three".
+The Swarm phase is **conditional**, not unconditional. It only runs when there is a real, user-confirmed requirement. Code derives the fan-out set from the PRD type and the request content — never from a default of "always launch three".
 
 ### Swarm gate (decide BEFORE fan-out)
 
-Before launching any sub-agent, Solo must compute the **swarm plan** from three signals:
+Before launching any sub-agent, Code must compute the **swarm plan** from three signals:
 
 1. **PRD state** — `prd/requests/<rid>.md` must be in state `confirmed-by-user` or `handed-off`. If not, STOP. The Swarm is downstream of PRD, not a substitute for it.
 2. **Request type** (`--type` from `peaks request init`):
@@ -438,7 +438,7 @@ Before launching any sub-agent, Solo must compute the **swarm plan** from three 
    - **AND** scanning the PRD body for frontend keywords: 页面 / 组件 / 表单 / 弹窗 / 表格 / 样式 / 布局 / 交互 / UI / UX / page / component / form / modal / table / styling / layout / interaction
    - UI joins the swarm when (a) is `true` OR (b) matches. Both signals required `false` to skip UI.
 
-Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
+Code records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` so SC and TXT can audit what was launched:
 
 ```json
 {
@@ -450,22 +450,22 @@ Solo records the swarm plan in `.peaks/_runtime/<sessionId>/sc/swarm-plan.json` 
 }
 ```
 
-Sub-agent presence in this list = Solo launched a Task for it. Absence = the role was skipped with documented reason.
+Sub-agent presence in this list = Code launched a Task for it. Absence = the role was skipped with documented reason.
 
 ### Mode-driven fan-out shape
 
-| Mode | How the swarm plan is decided | What Solo does |
+| Mode | How the swarm plan is decided | What Code does |
 |---|---|---|
 | `full-auto` | Compute plan from signals above, no question to user | Auto-launch all sub-agents in the plan in parallel |
 | `swarm` | Same as `full-auto` | Same as `full-auto` (this profile name is historical — behavior is identical) |
 | `assisted` | `AskUserQuestion` with three options: (a) Full — UI + RD(planning) + QA(test-cases); (b) Backend-only — RD(planning) + QA(test-cases); (c) Sequential — run RD first, then QA, skip UI | Use the user's choice as the plan |
 | `strict` | Same as `assisted` (the question is informational; strict still enforces confirmation gates later) | Same as `assisted` |
 
-In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Solo updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
+In all modes, **the plan must be written to `sc/swarm-plan.json` before any Task call.** Code updates `.peaks/.active-skill.json` to `gate=swarm-fan-out` at this point.
 
 ### Sub-agent mechanism (IDE-agnostic dispatch, NOT Skill tool)
 
-**Solo is itself a skill running in the current session. To invoke a role in the Swarm, Solo MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
+**Code is itself a skill running in the current session. To invoke a role in the Swarm, Code MUST call the IDE-agnostic dispatch primitive `peaks sub-agent dispatch <role>` — NOT the `Skill` tool, NOT any IDE-private sub-agent literal.** The `Skill` tool is single-stack and blocking; using it for "parallel" work was the v1.x illusion of concurrency. The dispatch CLI is the only mechanism that keeps SKILL.md free of IDE-private tool names and lets the same prompt work on every registered IDE.
 
 Each sub-agent dispatch call looks like:
 
@@ -491,17 +491,17 @@ The role's required artefact paths (also see peaks-ui/rd/qa SKILL.md and `refere
 | `rd-planning` | `.peaks/_runtime/<sessionId>/rd/tech-doc.md` (feature/refactor) or `.peaks/_runtime/<sessionId>/rd/bug-analysis.md` (bugfix) | PRD body, project-scan, existing-system, codegraph |
 | `qa-test-cases` | `.peaks/_runtime/<sessionId>/qa/test-cases/<rid>.md` | PRD body, RD planning artefact, project-scan, codegraph |
 
-**Solo launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Solo then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.
+**Code launches all sub-agents in the swarm plan in a single message (multiple `peaks sub-agent dispatch` calls in parallel, each followed by execution of the returned toolCall)** — this is what gives real concurrency. Do not sequentialize them. The CLI returns N toolCall descriptors; the LLM fires all N in the same message; the IDE dispatches them concurrently; Code then waits for all to return, runs `ls` checks against the paths above (Peaks-Loop Gate B), and only then advances to RD implementation.
 
 **Hard prohibitions on sub-agents** (also passed in each dispatch prompt):
 
 - Do NOT call `Skill(skill="...")` — sub-agents must not recursively activate skills, that defeats the fan-out.
-- Do NOT call `peaks skill presence:set` — only the main Solo loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
-- Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Solo handle the user message.
-- Do NOT commit, push, install hooks, or apply settings.json mutations. Only Solo holds those permissions.
+- Do NOT call `peaks skill presence:set` — only the main Code loop owns `.peaks/.active-skill.json`. Sub-agents write to a per-agent marker file `.peaks/_runtime/<sessionId>/system/sub-agent-<role>.json` if they need to record state, but never the main presence file.
+- Do NOT open interactive user prompts. If a sub-agent needs clarification, it must return a `blocked` verdict in its return string and let Code handle the user message.
+- Do NOT commit, push, install hooks, or apply settings.json mutations. Only Code holds those permissions.
 - **Do write heartbeats** — call `peaks sub-agent heartbeat --record <dispatchRecordPath> --status running --progress <pct> --note "<text>"` at least every 30s (see `references/sub-agent-dispatch.md` §G6 for the full contract). The parent Dispatcher uses these to render the live status line during the wait.
 
-After every sub-agent dispatch returns, Solo **restores presence** once (not per-agent), then continues to Gate B verification:
+After every sub-agent dispatch returns, Code **restores presence** once (not per-agent), then continues to Gate B verification:
 
 ```bash
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-converged
@@ -509,7 +509,7 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate swarm-
 
 ### Degradation when swarm roles fail or are absent
 
-| Condition | Solo action | TXT handoff note |
+| Condition | Code action | TXT handoff note |
 |---|---|---|
 | UI sub-agent returns blocked/error | RD continues with PRD visual descriptions | `ui-design-missing` |
 | RD planning sub-agent returns blocked/error | RD continues with PRD-derived planning | `tech-doc-missing` |
@@ -521,7 +521,7 @@ Skipping the entire swarm (when `--type` is `config|docs|chore`) is not a degrad
 
 ### Frontend-only trigger pre-flight
 
-Before computing the swarm plan, Solo runs the keyword scan deterministically:
+Before computing the swarm plan, Code runs the keyword scan deterministically:
 
 1. Read `.peaks/_runtime/<sessionId>/prd/requests/<rid>.md` body.
 2. Lowercase + strip markdown; check regex `\b(页面|组件|表单|弹窗|表格|样式|布局|交互|UI|UX|page|component|form|modal|table|styling|layout|interaction|frontend|前端)\b`.
@@ -529,7 +529,7 @@ Before computing the swarm plan, Solo runs the keyword scan deterministically:
 4. If `frontendOnly` (from project-scan) is `true` and no keyword hit → UI joins anyway (frontend-only project, even non-visual changes may need visual sanity for regressions).
 5. If `frontendOnly` is `false` and no keyword hit → UI skipped.
 
-Solo records the pre-flight result in `sc/swarm-plan.json` so the audit trail shows why UI was or was not included.
+Code records the pre-flight result in `sc/swarm-plan.json` so the audit trail shows why UI was or was not included.
 
 ## Peaks-Loop Mandatory RD QA repair loop (AUTO-PROCEED)
 
@@ -542,20 +542,20 @@ Solo records the pre-flight result in `sc/swarm-plan.json` so the audit trail sh
 >
 > When PRD lands, classify the request type before running `peaks request init` for every role — pass `--type <type>` so the artifact records it and downstream transitions enforce the right gates. Misclassifying a feature as `docs` to skip gates is a workflow violation. If a transition fails with `code: PREREQUISITES_MISSING`, the response lists every missing path — produce them, then re-transition. For one-off exceptions, the escape hatch `--allow-incomplete --reason "<text>"` records the bypass in the artifact transition note.
 
-After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks-Loop Solo MUST automatically route the result to `peaks-qa` without waiting for user confirmation. This is not optional in full-auto mode. Solo must not declare the workflow complete, emit a TXT handoff, or stop at RD completion.
+After `peaks-rd` finishes any implementation, repair, or code-output slice, Peaks-Loop Code MUST automatically route the result to `peaks-qa` without waiting for user confirmation. This is not optional in full-auto mode. Code must not declare the workflow complete, emit a TXT handoff, or stop at RD completion.
 
-**How Solo invokes another role (mechanism, not metaphor):**
+**How Code invokes another role (mechanism, not metaphor):**
 
-Solo is itself a skill running in the current session. There are **two distinct mechanisms** in this skill, and they MUST NOT be confused:
+Code is itself a skill running in the current session. There are **two distinct mechanisms** in this skill, and they MUST NOT be confused:
 
 1. **Swarm fan-out (planning side, after PRD confirmed)** — uses `peaks sub-agent dispatch <role>` to launch real concurrent sub-agents. The CLI returns a per-IDE tool-call descriptor that the LLM executes in its environment. See "Peaks-Loop Swarm parallel phase" above for the full contract. Sub-agents do NOT call Skill(...) back into the role; they execute the role's instructions inline from the prompt.
-2. **Sequential handoff (execution side, RD↔QA repair loop)** — Solo is the only loop, and after RD or QA finishes (whether as a sub-agent or directly), Solo drives the next step from the orchestrator seat. Do NOT use the `Skill` tool to "reactivate" peaks-rd or peaks-qa in the main loop; doing so is the v1.x anti-pattern that masqueraded as "calling the role" but actually just re-prompted the same session. From v1.3 onward, the main loop drives roles via the CLI gate (`peaks request transition`) and reads back artefacts (`peaks request show ... --json`); the actual RD/QA work is either done inline by Solo (when Solo has just been re-invoked by the user) or by a Task sub-agent (in swarm mode).
+2. **Sequential handoff (execution side, RD↔QA repair loop)** — Code is the only loop, and after RD or QA finishes (whether as a sub-agent or directly), Code drives the next step from the orchestrator seat. Do NOT use the `Skill` tool to "reactivate" peaks-rd or peaks-qa in the main loop; doing so is the v1.x anti-pattern that masqueraded as "calling the role" but actually just re-prompted the same session. From v1.3 onward, the main loop drives roles via the CLI gate (`peaks request transition`) and reads back artefacts (`peaks request show ... --json`); the actual RD/QA work is either done inline by Code (when Code has just been re-invoked by the user) or by a Task sub-agent (in swarm mode).
 
-After RD completes (whether inline or sub-agent), Solo does not stop — it must advance to QA. There is no "RD done, ask the user" state in full-auto mode. The only valid stops are: (a) QA verdict=pass, (b) repair cap hit, (c) explicit user cancel.
+After RD completes (whether inline or sub-agent), Code does not stop — it must advance to QA. There is no "RD done, ask the user" state in full-auto mode. The only valid stops are: (a) QA verdict=pass, (b) repair cap hit, (c) explicit user cancel.
 
-**RD's internal reviews are already parallelized.** When RD finishes implementation, it issues a 3-way sub-agent fan-out (code-review + security-review + perf-baseline, see `skills/bee/peaks-rd/SKILL.md` "Parallel review fan-out") and waits for all to return before transitioning to `qa-handoff`. Solo does NOT need to track three separate RD-side sub-runs; the RD role owns the fan-out lifecycle end-to-end. Solo's presence restoration after the swarm converges is the only coordination point.
+**RD's internal reviews are already parallelized.** When RD finishes implementation, it issues a 3-way sub-agent fan-out (code-review + security-review + perf-baseline, see `skills/bee/peaks-rd/SKILL.md` "Parallel review fan-out") and waits for all to return before transitioning to `qa-handoff`. Code does NOT need to track three separate RD-side sub-runs; the RD role owns the fan-out lifecycle end-to-end. Code's presence restoration after the swarm converges is the only coordination point.
 
-**Presence restoration after RD/QA work returns (MANDATORY):** In v1.x, role skills called `peaks skill presence:set <role>` internally and stomped on `.peaks/.active-skill.json`. From v1.3 onward, sub-agents in the Swarm path are forbidden from calling `peaks skill presence:set` (see "Sub-agent dispatch" in each role's SKILL.md), so the main loop's presence file is preserved across the fan-out window by construction. The one place Solo still has to actively restore presence is **once after the fan-out returns** (gate=swarm-converged) and again **after each RD↔QA repair iteration** (gate=repair-cycle-<N>). Use the same command from Step 2 with the current mode and the gate that has just advanced:
+**Presence restoration after RD/QA work returns (MANDATORY):** In v1.x, role skills called `peaks skill presence:set <role>` internally and stomped on `.peaks/.active-skill.json`. From v1.3 onward, sub-agents in the Swarm path are forbidden from calling `peaks skill presence:set` (see "Sub-agent dispatch" in each role's SKILL.md), so the main loop's presence file is preserved across the fan-out window by construction. The one place Code still has to actively restore presence is **once after the fan-out returns** (gate=swarm-converged) and again **after each RD↔QA repair iteration** (gate=repair-cycle-<N>). Use the same command from Step 2 with the current mode and the gate that has just advanced:
 
 ```bash
 peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <current-gate>
@@ -563,13 +563,13 @@ peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate <curre
 
 This keeps the CLAUDE.md status header accurate (`Peaks-Loop Skill: peaks-code`) instead of showing a stale role name. Use the current mode and gate values; the gate may have advanced since startup. Skipping this step causes the header to display the last-known gate permanently.
 
-**Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Solo immediately drives QA — by launching a `peaks sub-agent dispatch qa` sub-agent carrying the `peaks-qa` body (swarm path), then executing the returned toolCall, or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
+**Full-auto auto-proceed rule**: In the `full-auto` profile, when RD transitions to `qa-handoff`, Code immediately drives QA — by launching a `peaks sub-agent dispatch qa` sub-agent carrying the `peaks-qa` body (swarm path), then executing the returned toolCall, or by running QA inline in the main loop (assisted/strict path). Do not pause, do not ask the user, do not summarize RD results as if they were final. The only valid reason to skip QA is when `--type` is `docs` or `chore` (no acceptance surface).
 
 A QA report with any failing, blocked, missing, or unverified acceptance item is not a pass.
 
-**How Solo routes QA findings back to RD (mechanism, not metaphor):**
+**How Code routes QA findings back to RD (mechanism, not metaphor):**
 
-When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite RD artifacts. Instead it follows this exact sequence:
+When `peaks-qa` returns `verdict=return-to-rd`, Code does NOT manually rewrite RD artifacts. Instead it follows this exact sequence:
 
 1. Read the QA verdict and findings via `peaks request show <rid> --role qa --project <repo> --json`. The findings live in the QA artifact body (failing acceptance items, evidence paths, severity).
 2. Transition the RD artifact back from `qa-handoff` to a working state and record the QA verdict in the transition note:
@@ -580,13 +580,13 @@ When `peaks-qa` returns `verdict=return-to-rd`, Solo does NOT manually rewrite R
    ```
    `spec-locked` is the canonical "needs more RD work" state. The reason is mandatory in repair cycles so the artifact history shows the loop.
 3. Re-launch `peaks-rd` work. Two paths, mode-driven:
-   - **Swarm / full-auto**: launch a fresh `peaks sub-agent dispatch rd` sub-agent (then execute the returned toolCall) with the same `peaks-rd` body used in the Swarm phase, plus the QA findings path so it can read the failure list. Solo restores presence after the sub-agent returns.
-   - **Assisted / strict / inline-fallback**: Solo executes the RD repair steps directly in the main loop, since there is no concurrent fan-out to coordinate.
+   - **Swarm / full-auto**: launch a fresh `peaks sub-agent dispatch rd` sub-agent (then execute the returned toolCall) with the same `peaks-rd` body used in the Swarm phase, plus the QA findings path so it can read the failure list. Code restores presence after the sub-agent returns.
+   - **Assisted / strict / inline-fallback**: Code executes the RD repair steps directly in the main loop, since there is no concurrent fan-out to coordinate.
    In both paths, pass the QA findings path so the repair sees what failed.
 4. peaks-rd fixes the reported issues only (red-line scope: do not modify unrelated surfaces), regenerates code-review and security-review evidence if changes touched reviewed surfaces, then transitions `rd → implemented → qa-handoff` again.
-5. Solo re-runs QA (sub-agent Task in swarm/full-auto, inline in assisted/strict) with the same `<request-id>`. QA re-runs gates against the new diff.
+5. Code re-runs QA (sub-agent Task in swarm/full-auto, inline in assisted/strict) with the same `<request-id>`. QA re-runs gates against the new diff.
 6. Repeat steps 1-5 until QA returns `verdict=pass`, or the cap below fires.
-   **After each repair iteration** (after peaks-rd and peaks-qa both return), Solo MUST restore presence:
+   **After each repair iteration** (after peaks-rd and peaks-qa both return), Code MUST restore presence:
    ```bash
    peaks skill presence:set peaks-code --project <repo> --mode <mode> --gate repair-cycle-<N>
    ```
@@ -661,7 +661,7 @@ These commands harden the workflow against silent skips. Use them in the runbook
 | `peaks request lint <rid> --role <role> --project <path>` | Scan artifact body for unfilled `<placeholder>`, bare `- ...` bullets, TBD/TODO markers | Before every transition out of `draft` / before role handoff | Any `error`-severity finding (unfilled placeholder, bare-dot bullet) |
 | `peaks request repair-status <rid> --project <path>` | Count RD↔QA repair cycles from `--reason` transition notes ("QA cycle N: ...") | Before every RD repair iteration in step 7 | Cycle count reached the 3-cycle cap |
 | `peaks scan request-type-sanity --project <path> --type <type>` | Cross-verify declared `--type` against the actual `git diff` file mix (catches "feature mis-declared as docs" workflow violations) | After PRD type lock-in AND after each RD repair iteration | Declared type disagrees with the file mix |
-| `peaks scan libraries --project <path>` | Enumerate every dependency + devDependency + peerDependency + optionalDependency with parsed major version; output goes to `## Library versions` in `rd/project-scan.md`. Read-only. | At Solo step 0.6 (alongside `peaks scan archetype`) | Always exits 0 (warnings in JSON envelope; never blocks) |
+| `peaks scan libraries --project <path>` | Enumerate every dependency + devDependency + peerDependency + optionalDependency with parsed major version; output goes to `## Library versions` in `rd/project-scan.md`. Read-only. | At Code step 0.6 (alongside `peaks scan archetype`) | Always exits 0 (warnings in JSON envelope; never blocks) |
 | `peaks slice check [--rid <rid>] [--project <path>]` | 4-stage slice 边界 check (typecheck + unit-tests + review-fanout + gate-verify-pipeline). Aggregate pass/fail; non-zero exit if any stage fails. See "Slice 边界 check" below for usage rules (boundary only, never inside a micro-cycle). | At slice 边界（post-micro-cycle, pre-peaks-qa）| Any stage fails |
 
 Together with `peaks request transition` (which already CLI-enforces per-type artifact prerequisites), these five commands form the runtime quality net. SKILL.md prose is descriptive; the CLI is what physically blocks bad workflows.
@@ -687,13 +687,13 @@ peaks project memories:extract --session-id <session-id> --project <repo> --json
 
 ## Codegraph orchestration context
 
-Solo treats `peaks codegraph affected --project <path> <changed-files...> --json` as an optional project-analysis enhancement that informs the role handoff between PRD, RD, and QA. The output is untrusted supporting evidence — Solo must not treat codegraph output as approval for scope, design, or QA verdict.
+Code treats `peaks codegraph affected --project <path> <changed-files...> --json` as an optional project-analysis enhancement that informs the role handoff between PRD, RD, and QA. The output is untrusted supporting evidence — Code must not treat codegraph output as approval for scope, design, or QA verdict.
 
 Do not run upstream installer flows, mutate agent settings, or commit `.codegraph/` artifacts into git. Peaks-Loop gates remain authoritative; codegraph context is a hint, never a substitute for role-skill output.
 
 **External skills**: All external skill references (`mattpocock/skills`, `awesome-design-md`, `taste-skill`, `shadcn/ui`, `Chrome DevTools MCP`, `Figma Context MCP`, `Context7`, etc.) follow the three-stage pattern: capability discovery via `peaks capabilities` before naming, references only (no execute/install/persist), Peaks-Loop CLI for all side effects. Do not execute upstream installers, do not install upstream resources, do not persist sensitive examples — Peaks-Loop gates remain authoritative. External skills inform, they do not approve.
 
-**OpenSpec lifecycle**: `render → validate → show → to-rd → validate → archive`. Solo's default runbook handles the exit gate (validate → archive after QA pass). Entry-gate validation (to-rd before slicing) is available when `openspec/` exists pre-workflow; Solo delegates it to `peaks-rd` during implementation.
+**OpenSpec lifecycle**: `render → validate → show → to-rd → validate → archive`. Code's default runbook handles the exit gate (validate → archive after QA pass). Entry-gate validation (to-rd before slicing) is available when `openspec/` exists pre-workflow; Code delegates it to `peaks-rd` during implementation.
 
 **MCP lifecycle**: `list → plan → apply --yes → call → rollback`. `apply` backs up settings and refuses non-peaks entries unless `--claim` is passed.
 

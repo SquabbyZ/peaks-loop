@@ -20,7 +20,7 @@ Same pattern as v3.1.0 incident but with the v3.1.1 patch ALREADY SHIPPED:
 > 3. "现有 mocking 基础薄弱"
 > 4. "Context 限制: 单次会话 context 不能完全 cover 2,000+ 文件的源码阅读与编写"
 
-Only the first reason is partially true; the rest are LLM rationalisations. The true blocker: **LLM skipped `peaks solo detect-job` entirely**, so Step 0.8 never recorded a Job decision, and downstream steps never entered Job mode.
+Only the first reason is partially true; the rest are LLM rationalisations. The true blocker: **LLM skipped `peaks code detect-job` entirely**, so Step 0.8 never recorded a Job decision, and downstream steps never entered Job mode.
 
 ## Why v3.1.1 failed — the actual design flaw
 
@@ -38,24 +38,24 @@ Four mechanical gates, none optional:
 
 ### 1. PreToolUse hook auto-installed by `peaks workspace init`
 
-`.claude/settings.local.json` already gets a hook (peaks Fact-Forcing Gate). Extend it to also call `peaks solo gate-step-08`:
+`.claude/settings.local.json` already gets a hook (peaks Fact-Forcing Gate). Extend it to also call `peaks code gate-step-08`:
 
 ```json
 {
   "hooks": {
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [{"type": "command", "command": "peaks solo gate-step-08 --project ."}] },
+      { "matcher": "Bash", "hooks": [{"type": "command", "command": "peaks code gate-step-08 --project ."}] },
       // existing Write|Edit|MultiEdit hook stays
     ]
   }
 }
 ```
 
-`peaks solo gate-step-08` returns exit 0 (allow) or exit 2 (block) based on:
+`peaks code gate-step-08` returns exit 0 (allow) or exit 2 (block) based on:
 
 - If `.peaks/_runtime/<sid>/job-shape.json` exists → allow.
 - If not → check whether the user's first turn contains Job-shaped language (NOW we DO want a lightweight detector — but as a backup *fail-closed* gate, not the primary judgement).
-- If no decision AND no signal → block with "Run `peaks solo detect-job` to record your Job-shape verdict before any Bash call."
+- If no decision AND no signal → block with "Run `peaks code detect-job` to record your Job-shape verdict before any Bash call."
 
 The hook is the source of truth; the LLM's prose is not.
 
@@ -63,7 +63,7 @@ The hook is the source of truth; the LLM's prose is not.
 
 Once `decision.isJob === true && remaining > 0`:
 
-- `peaks solo emit-handoff` refuses to emit a final handoff. Returns `JOB_REMAINING_BLOCKED` until `remaining === 0`.
+- `peaks code emit-handoff` refuses to emit a final handoff. Returns `JOB_REMAINING_BLOCKED` until `remaining === 0`.
 - `peaks slice check` returns `JOB_ACTIVE` instead of "ready to commit."
 - The Step 11 / final-handoff text in SKILL.md is rewritten to gate on `remaining === 0` (already implicit but make explicit).
 
@@ -71,7 +71,7 @@ Once `decision.isJob === true && remaining > 0`:
 
 Context monitoring under Job mode:
 
-- 0.85 → `peaks solo auto-compact --execute` runs automatically without LLM confirmation.
+- 0.85 → `peaks code auto-compact --execute` runs automatically without LLM confirmation.
 - 0.95 → hook fires `peaks session auto-compact-hook` (already exists for v2.13.0).
 - LLM cannot opt out under Job mode.
 
@@ -79,7 +79,7 @@ Context monitoring under Job mode:
 
 After each slice commit, `peaks job checkpoint --state done --commit-sha <sha>` writes `progress.json`. Next LLM turn (after compact or resume) MUST read progress.json before any other tool call. The SkillSwarm output style already displays `Next: <one short action>`; under Job mode it should read `Next: slice #N of M (<slice-id>)`.
 
-If the LLM forgets, `peaks solo gate-step-08` (from #1) reads progress.json and inserts the slice context into the gate's stdout — so the LLM cannot "wake up cold."
+If the LLM forgets, `peaks code gate-step-08` (from #1) reads progress.json and inserts the slice context into the gate's stdout — so the LLM cannot "wake up cold."
 
 ## Why the v3.1.1 patch was the right shape on a smaller scope
 

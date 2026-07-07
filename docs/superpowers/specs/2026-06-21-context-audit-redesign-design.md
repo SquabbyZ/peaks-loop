@@ -557,7 +557,7 @@ SOP gates (用户声明式 simple predicate):
 | 自研 AST 解析器 | 用 TypeScript Compiler API / tree-sitter |
 | 全 5 种语言的 v1 一次发 | TS/JS v1,其他语言留接口 |
 | 把 SOP 形式门禁替换成新 gate | 正交共存,SOP 商业化不动 |
-| 改写 peaks-code orchestrator 内部 | solo 只调度表加 actor,自身不动 |
+| 改写 peaks-code orchestrator 内部 | code 只调度表加 actor,自身不动 |
 | 改写 8 个不动 skill | 范围控制 |
 | 引入新 CLI 配置语法 | 复用现有 `--flag` + JSON Schema 模式 |
 | 自建文档镜像 | 复用 Context7 / 本地缓存,不强求新基础设施 |

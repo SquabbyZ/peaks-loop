@@ -1,10 +1,10 @@
 ---
 name: 2026-07-03-v3-1-1-detect-job-recorder
-description: v3.1.1 patch — peaks solo detect-job / read-job-shape — Step 0.8 BLOCKING on LLM judgement, CLI is a recorder not a detector. Why keyword regex was the wrong design.
+description: v3.1.1 patch — peaks code detect-job / read-job-shape — Step 0.8 BLOCKING on LLM judgement, CLI is a recorder not a detector. Why keyword regex was the wrong design.
 metadata:
   type: project
   createdAt: 2026-07-03
-  affects: peaks-code Step 0.8, src/services/solo/job-shape-decision.ts, src/cli/commands/solo-commands.ts
+  affects: peaks-code Step 0.8, src/services/code/job-shape-decision.ts, src/cli/commands/code-commands.ts
 ---
 
 # v3.1.1 — Step 0.8 detect-job recorder (shipped)
@@ -28,20 +28,20 @@ Initial RD spec had the CLI run regex matching against the user prompt (`/直到
 
 CLI is a **recorder and gate**:
 
-- LLM reads the prompt, applies semantic judgement, and calls `peaks solo detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low> [--force]`.
+- LLM reads the prompt, applies semantic judgement, and calls `peaks code detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low> [--force]`.
 - CLI writes the decision to `.peaks/_runtime/<sessionId>/job-shape.json` (server-side stamps `decidedAt`; LLM cannot back-date).
 - `readJobShapeDecision` throws `JOB_SHAPE_NOT_DECIDED` when the file is absent.
-- Downstream steps (Step 1, Step 0.81, etc.) call `peaks solo read-job-shape` and refuse to proceed without a decision file.
+- Downstream steps (Step 1, Step 0.81, etc.) call `peaks code read-job-shape` and refuse to proceed without a decision file.
 
 So the gate is structural: the LLM cannot bypass it by simply not calling the CLI, because the next step requires the file to exist.
 
 ## Files
 
-- New: `src/services/solo/job-shape-decision.ts` (196 LOC)
-- New: `tests/unit/solo/job-shape-decision.test.ts` (15 tests)
-- New: `tests/integration/solo-detect-job-command.test.ts` (6 tests)
-- New: `tests/unit/solo/solo-step-08-block-guard.test.ts` (4 tests, locks the BLOCKING-on-LLM-judgement substring + runbook ordering)
-- Modified: `src/cli/commands/solo-commands.ts` (added detect-job + read-job-shape subcommands, ~217 LOC)
+- New: `src/services/code/job-shape-decision.ts` (196 LOC)
+- New: `tests/unit/code/job-shape-decision.test.ts` (15 tests)
+- New: `tests/integration/code-detect-job-command.test.ts` (6 tests)
+- New: `tests/unit/code/code-step-08-block-guard.test.ts` (4 tests, locks the BLOCKING-on-LLM-judgement substring + runbook ordering)
+- Modified: `src/cli/commands/code-commands.ts` (added detect-job + read-job-shape subcommands, ~217 LOC)
 - Modified: `skills/peaks-code/SKILL.md` (Step 0.8 marked BLOCKING on LLM judgement)
 - Modified: `skills/peaks-code/references/runbook.md` (runbook now detects via LLM verdict, calls detect-job BEFORE job init)
 - Bumped: `package.json` 3.1.0 → 3.1.1; `src/shared/version.ts` regenerated
@@ -55,7 +55,7 @@ So the gate is structural: the LLM cannot bypass it by simply not calling the CL
 
 ## Red-line #10 added
 
-"Job-trigger-miss" — LLM MUST NOT skip `peaks solo detect-job` even when the trigger is obvious from context. If `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Solo MUST record a decision before proceeding. Cross-ref: [[peaks-loop-job-introduction]] for the original 9 red lines.
+"Job-trigger-miss" — LLM MUST NOT skip `peaks code detect-job` even when the trigger is obvious from context. If `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Code MUST record a decision before proceeding. Cross-ref: [[peaks-loop-job-introduction]] for the original 9 red lines.
 
 ## Lesson for future Step gates
 

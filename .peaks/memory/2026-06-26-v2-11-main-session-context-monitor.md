@@ -105,8 +105,8 @@ Step N already says "fire `--reason periodic` every 20 tool calls" and "`--reaso
 
 D5 and D6 are both "remove friction at runtime" features. Combine into one CC (Group F → rename Group F to "D5 self-decision + D6 context monitor"):
 
-- Shared module: `src/services/solo/mode-gate.ts` (D5) and `src/services/context/main-session-monitor.ts` (D6)
-- Shared CLI additions: `peaks solo should-pause` (D5) + `peaks context check` (D6)
+- Shared module: `src/services/code/mode-gate.ts` (D5) and `src/services/context/main-session-monitor.ts` (D6)
+- Shared CLI additions: `peaks code should-pause` (D5) + `peaks context check` (D6)
 - Shared SKILL.md Step N+2 update (D6) and 14-row patch (D5)
 - Combined test: `tests/unit/services/runtime-friction.test.ts` covering both
 

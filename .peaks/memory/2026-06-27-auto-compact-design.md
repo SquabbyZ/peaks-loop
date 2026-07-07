@@ -83,13 +83,13 @@ that IDE without further orchestrator changes.
 
 ## Five sub-tasks (AC-1..AC-5)
 
-- **AC-1**: `peaks solo context-now` (AC-1) probes the adapter-
+- **AC-1**: `peaks code context-now` (AC-1) probes the adapter-
   declared env-var. Falls back to statusline poll + transcript
   estimate ONLY for adapters that opt in (Claude Code MVP). Other
   adapters without `compact` return `source: 'conservative-fallback',
   ratio: 0` so the orchestrator never auto-fires on a missing
   signal.
-- **AC-2**: `src/services/solo/auto-compact-orchestrator.ts` —
+- **AC-2**: `src/services/code/auto-compact-orchestrator.ts` —
   `evaluateCompactTrigger` (pure), `runAutoCompact` (side effects).
   Two tiers (0.85 pre-compact / 0.95 red-line); honors D6.e in-flight
   deferral for pre-compact zone; forces synchronous dispatch at red
@@ -99,22 +99,22 @@ that IDE without further orchestrator changes.
   `shell-exec` → `child_process.spawn`; `ide-native` → reserved for
   future slice; `llm-self-compress` → noop + LLM summarizes on next
   turn; `noop` → explicit noop for legacy adapters.
-- **AC-4**: `peaks solo auto-compact` CLI command + `peaks solo
+- **AC-4**: `peaks code auto-compact` CLI command + `peaks code
   context-now` (always JSON). 0 human intervention loop:
   context-now → auto-compact → IDE compact → D7 post-compact-detect
   → runner resumes from auto-decisions.md.
 - **AC-5**: this memory + tests (`tests/unit/services/context/
   auto-compact-reader.test.ts`, `auto-compact-orchestrator.test.ts`,
-  `auto-compact-dispatcher.test.ts`) + updated Solo Step N+2 prose.
+  `auto-compact-dispatcher.test.ts`) + updated Code Step N+2 prose.
 
 ## Files
 
 - `src/services/context/auto-compact-types.ts` — types + constants
 - `src/services/context/auto-compact-reader.ts` — AC-1 probe
 - `src/services/context/auto-compact-dispatcher.ts` — AC-3 IDE dispatch
-- `src/services/solo/auto-compact-orchestrator.ts` — AC-2 + AC-4 core
-- `src/cli/commands/solo-commands.ts` — `peaks solo auto-compact` +
-  `peaks solo context-now` subcommands
+- `src/services/code/auto-compact-orchestrator.ts` — AC-2 + AC-4 core
+- `src/cli/commands/code-commands.ts` — `peaks code auto-compact` +
+  `peaks code context-now` subcommands
 - `src/services/ide/ide-types.ts` — `IdeAdapter.compact` field
 - `src/services/ide/adapters/claude-code-adapter.ts` — MVP profile
 
@@ -128,8 +128,8 @@ that IDE without further orchestrator changes.
    the compact intent to the IDE's hook file (per
    `IdeSettingsLocation`) when an IDE requires registered hooks
    rather than a runtime command.
-3. **Solo Step N+2 prose update**: `skills/peaks-code/SKILL.md`
-   should mention `peaks solo context-now` + `auto-compact` so LLM
+3. **Code Step N+2 prose update**: `skills/peaks-code/SKILL.md`
+   should mention `peaks code context-now` + `auto-compact` so LLM
    sessions invoke the autonomous loop instead of `--prompt-size`
    hand-passing.
 4. **Statusline integration**: the `peaks statusline install` could
@@ -142,7 +142,7 @@ The v2.13.0-alpha.1 shell-exec pathway spawns the IDE's compact
 command via `child_process.spawn` — this fires a **separate** child
 process. It does NOT compact the **current** LLM runner session.
 
-Concrete example: when `peaks solo auto-compact` runs in a Claude
+Concrete example: when `peaks code auto-compact` runs in a Claude
 Code session at 100% context-fill, the dispatcher's
 `shell-exec('claude --compact')` spawns a new `claude` process in
 the shell. The original Claude Code runner that invoked
@@ -152,7 +152,7 @@ auto-compact, or a user-issued `/compact` slash command).
 
 This means:
 
-- **Peaks-solo mode**: the LLM in the runner reads
+- **Peaks-code mode**: the LLM in the runner reads
   `auto-decisions.md` on the next turn and self-issues `/compact`.
   Net effect: zero-human-intervention. ✓
 - **Ad-hoc Claude Code runner**: peaks-loop can detect + checkpoint

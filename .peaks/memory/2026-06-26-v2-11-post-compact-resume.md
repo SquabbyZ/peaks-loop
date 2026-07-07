@@ -119,16 +119,16 @@ D7 is the smallest unit of auto-resume: "I just `/compact`'d, please continue". 
 - **D7.h — Modify** `references/checkpoint-resume.md` — add "post-compact auto-resume" section; document the override of "never silently auto-resume" for this case
 - **D7.i — Modify** `references/resume-detection.md` — add "post-compact" tier to the classification table; auto-resume when D7.a.1–5 conditions met
 - **D7.j — Modify SKILL.md Step 0.7** — add the post-compact branch; document that ALL modes auto-proceed here (D7.b override)
-- **D7.k — New module** `src/services/solo/post-compact-detector.ts` — encapsulates detection logic; exposes `detectPostCompactResume(sid, projectRoot): Promise<PostCompactResumeProbe>`
-- **D7.l — Extend** `src/services/solo/mode-gate.ts` (from D5) — add `shouldAutoProceedOnPostCompact()` that always returns `true`; documents the D7.b override in code
-- **D7.m — New CLI** `peaks solo post-compact-detect --project <repo> --json` — LLM can probe before invoking Step 0.7 logic
-- **D7.n — Test** `tests/unit/services/solo/post-compact-detector.test.ts` covering: 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases; plus the multi-checkpoint disambiguation test (3 sessions, verify most-recent wins); plus the missing-mode-field test
+- **D7.k — New module** `src/services/code/post-compact-detector.ts` — encapsulates detection logic; exposes `detectPostCompactResume(sid, projectRoot): Promise<PostCompactResumeProbe>`
+- **D7.l — Extend** `src/services/code/mode-gate.ts` (from D5) — add `shouldAutoProceedOnPostCompact()` that always returns `true`; documents the D7.b override in code
+- **D7.m — New CLI** `peaks code post-compact-detect --project <repo> --json` — LLM can probe before invoking Step 0.7 logic
+- **D7.n — Test** `tests/unit/services/code/post-compact-detector.test.ts` covering: 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases; plus the multi-checkpoint disambiguation test (3 sessions, verify most-recent wins); plus the missing-mode-field test
 - **D7.o — Test** `tests/unit/skill-post-compact-resume.test.ts` covering SKILL.md Step 0.7 prose + the log-line shape + the Step 0.7 AskUserQuestion mock (assert NOT called)
 
 ### PostCompactResumeProbe schema
 
 ```typescript
-// src/services/solo/post-compact-detector.ts
+// src/services/code/post-compact-detector.ts
 export type PostCompactResumeReason =
   | 'post-compact-match'
   | 'no-checkpoint-today'
@@ -160,15 +160,15 @@ D5, D6, D7 all ship together as Group F ("runtime friction removal"):
 
 | Decision | Module(s) | SKILL.md touch | Test files |
 |---|---|---|---|
-| D5 self-decision | `src/services/solo/mode-gate.ts` | 14-row patch in Steps 0.5, 0.6, 0.7, 0.55, 0.75, 1, 2.5, N+1, Phase 2/3/6/10, frontend-only | `mode-gate.test.ts` (56 cases), `skill-auto-proceed.test.ts` |
+| D5 self-decision | `src/services/code/mode-gate.ts` | 14-row patch in Steps 0.5, 0.6, 0.7, 0.55, 0.75, 1, 2.5, N+1, Phase 2/3/6/10, frontend-only | `mode-gate.test.ts` (56 cases), `skill-auto-proceed.test.ts` |
 | D6 context monitor | `src/services/context/main-session-monitor.ts`, extend `threshold.ts` | New Step N+2 | `main-session-monitor.test.ts` (24 cases), `skill-context-monitor.test.ts` |
-| **D7 post-compact resume** | **`src/services/solo/post-compact-detector.ts`, extend `mode-gate.ts`** | **Step 0.7 prose update** | **`post-compact-detector.test.ts` (24 cases), `skill-post-compact-resume.test.ts`** |
+| **D7 post-compact resume** | **`src/services/code/post-compact-detector.ts`, extend `mode-gate.ts`** | **Step 0.7 prose update** | **`post-compact-detector.test.ts` (24 cases), `skill-post-compact-resume.test.ts`** |
 
 Combined integration test: `tests/unit/services/runtime-friction.test.ts` covers D5 + D6 + D7 end-to-end (one continuous session that gets mocked-compacted mid-flow).
 
 ## Implementation pattern
 
-Two-line pattern, fits in `src/services/solo/post-compact-detector.ts`:
+Two-line pattern, fits in `src/services/code/post-compact-detector.ts`:
 
 ```typescript
 // Detect post-compact auto-resume (called from SKILL.md Step 0.7 prose / skill code)
@@ -185,7 +185,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 
 ## Test requirements
 
-- New `tests/unit/services/solo/post-compact-detector.test.ts`:
+- New `tests/unit/services/code/post-compact-detector.test.ts`:
   - 4 modes × 3 checkpoint states (today / yesterday / none) × 2 binding states (bound / unbound) = 24 cases
   - Multi-checkpoint disambiguation (3 sessions with today's checkpoint → most-recent wins)
   - Stale-checkpoint (yesterday → fall through)
@@ -195,7 +195,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
   - SKILL.md Step 0.7 prose assertions
   - Log-line shape (regex match against `auto-decisions.md`)
   - Mock the AskUserQuestion call → assert it was NOT made when post-compact-match
-- Each gated decision gets a `--json` probe that the LLM can grep before emitting the question: `peaks solo post-compact-detect --project <repo> --json`
+- Each gated decision gets a `--json` probe that the LLM can grep before emitting the question: `peaks code post-compact-detect --project <repo> --json`
 
 ## Why this is additive, not a replacement
 
@@ -210,7 +210,7 @@ The detector MUST be the single source of truth — no inline `isPostCompact()` 
 
 - Should Option B (SessionStart hook) be added in v2.11.0 or deferred? **Lean deferred** — Option A covers the user's literal request, less surface area; revisit post-v2.11.0 if user asks
 - Should post-compact auto-resume work even if the user invokes a DIFFERENT skill (not `/peaks-code`) in fresh context? **Lean no** — the user might want a fresh perspective. Verify with user post-PRD
-- Should the auto-resume be opt-out via `peaks.solo.postCompactResume: false` in `.peaks/preferences.json`? **Lean yes** — default-on matches user's "你再继续" wording, opt-out for edge cases (rare LLM misfire, multi-session ambiguity)
+- Should the auto-resume be opt-out via `peaks.code.postCompactResume: false` in `.peaks/preferences.json`? **Lean yes** — default-on matches user's "你再继续" wording, opt-out for edge cases (rare LLM misfire, multi-session ambiguity)
 - Should the resume context block include the original user message (pre-compact) or just the checkpoint summary? **Lean summary only** — original messages may be sensitive / out of context. Checkpoint's `current-plan` + `open-questions` + `recent-decisions` is enough
 - What if multiple sessions have today's checkpoint (multi-session user)? Disambiguate via `lastActivity` (most recent wins); if equal, fall through to AskUserQuestion with disambiguation options. **Verify with user.**
 - Should D7 emit a user-visible notice ("auto-resuming from checkpoint <path>") or just the log line? **Lean log-only** (matches D5.a / D6.d) but make it grep-friendly so users can audit via `peaks session audit-log`

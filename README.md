@@ -73,7 +73,7 @@ npm i -g peaks-loop
 
 这个仓库以前叫 [`peaks-cli`](https://github.com/SquabbyZ/peaks-cli),现在叫 `peaks-loop`。
 
-里面的技能从 `peaks-solo`(单角色)演化到 `peaks-code`(带门禁的代码域).两边都还在,只是分工不同:`peaks-solo` 如今是给单任务跑流程用的那个老入口,`peaks-code` 接管了端到端的主路径。
+里面的技能从 `peaks-code`(单角色)演化到 `peaks-code`(带门禁的代码域).两边都还在,只是分工不同:`peaks-code` 如今是给单任务跑流程用的那个老入口,`peaks-code` 接管了端到端的主路径。
 
 事情一直没换过:你说话,它替你排工程门禁,坏哪道停哪道,你来拍板。
 

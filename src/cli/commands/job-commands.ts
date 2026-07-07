@@ -187,7 +187,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
         await orch.checkpointDone({ jobId: parsed.data.jobId, sliceId: parsed.data.sliceId, ...(parsed.data.commitSha ? { commitSha: parsed.data.commitSha } : {}) });
         // v3.1.2: after each --state done, mirror slice progress to
         // .peaks/_runtime/<sessionId>/job/<jid>/progress.json so the
-        // next LLM turn (or peaks solo gate-step-08 hook) can read it.
+        // next LLM turn (or peaks code gate-step-08 hook) can read it.
         const project = projectRoot(opts);
         const sessId = jobRoot.sessionId;
         const state = orch.status(parsed.data.jobId);
@@ -252,7 +252,7 @@ export function registerJobCommands(program: Command, io: ProgramIO = { stdout: 
   addJsonOption(job.commands.find(c => c.name() === 'resume')!);
 
   // v3.1.2: read the on-disk slice progress mirror written by `peaks
-  // job checkpoint --state done`. Used by peaks solo gate-step-08 and
+  // job checkpoint --state done`. Used by peaks code gate-step-08 and
   // by peaks-code Step 0.7 (resume) to surface `Next: slice #N of M
   // (<currentSlice>)` without re-deriving from state.json.
   job

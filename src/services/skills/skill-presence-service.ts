@@ -410,7 +410,7 @@ export function getSkillPresence(projectRootOverride?: string): SkillPresence | 
  *
  *   - `'no-presence'`            — there is no presence file on disk.
  *     Not strictly "stale", but callers (peaks-code Step 1, `peaks
- *     solo should-pause --step step-1-mode-select`) want to treat
+ *     code should-pause --step step-1-mode-select`) want to treat
  *     this case as "no opinion yet — must ask". Surfaced as
  *     `stale: true` with reason `'no-presence'` so the ask path is
  *     uniform.

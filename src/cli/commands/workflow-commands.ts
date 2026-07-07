@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { createRdSwarmPlan } from '../../services/rd/rd-service.js';
 import { createTechPlan, getTechStatus } from '../../services/tech/tech-service.js';
-import { createWorkflowRouterPlan, isSoloMode, isWorkflowMode, type SoloMode } from '../../services/workflow/workflow-router-service.js';
+import { createWorkflowRouterPlan, isCodeMode, isWorkflowMode, type CodeMode } from '../../services/workflow/workflow-router-service.js';
 import { createAutonomousWorkflowPlan } from '../../services/workflow/workflow-autonomous-service.js';
 import { writeAutonomousResumeArtifacts } from '../../services/workflow/autonomous-resume-writer.js';
 import { createRecommendationPlan } from '../../services/recommendations/recommendation-service.js';
@@ -78,7 +78,7 @@ interface TechStatusOptions {
 interface WorkflowRouteOptions {
   mode: string;
   goal: string;
-  soloMode?: string;
+  codeMode?: string;
   maxWorkers: string;
   dryRun?: boolean;
   json?: boolean;
@@ -141,23 +141,23 @@ function validatePlanningInput(goal: string): void {
   }
 }
 
-function parseSoloMode(io: ProgramIO, command: string, mode: string, soloMode: string | undefined, asJson?: boolean): SoloMode | undefined | null {
-  if (mode !== 'solo' && soloMode) {
-    printResult(io, fail(command, 'SOLO_MODE_REQUIRES_SOLO_WORKFLOW', '--solo-mode can only be used with --mode solo', {}, ['Remove --solo-mode or use --mode solo']), asJson);
+function parseCodeMode(io: ProgramIO, command: string, mode: string, codeMode: string | undefined, asJson?: boolean): CodeMode | undefined | null {
+  if (mode !== 'code' && codeMode) {
+    printResult(io, fail(command, 'CODE_MODE_REQUIRES_CODE_WORKFLOW', '--code-mode can only be used with --mode code', {}, ['Remove --code-mode or use --mode code']), asJson);
     process.exitCode = 1;
     return null;
   }
 
-  if (mode !== 'solo' || !soloMode) {
+  if (mode !== 'code' || !codeMode) {
     return undefined;
   }
 
-  if (!isSoloMode(soloMode)) {
-    printResult(io, fail(command, 'UNSUPPORTED_SOLO_MODE', `Unsupported solo mode ${soloMode}`, {}, ['Use --solo-mode full-auto, guided, or rnd']), asJson);
+  if (!isCodeMode(codeMode)) {
+    printResult(io, fail(command, 'UNSUPPORTED_CODE_MODE', `Unsupported code mode ${codeMode}`, {}, ['Use --code-mode full-auto, guided, or rnd']), asJson);
     process.exitCode = 1;
     return null;
   }
-  return soloMode;
+  return codeMode;
 }
 
 function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
@@ -204,7 +204,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
   }
 
   if (!isWorkflowMode(options.mode)) {
-    printResult(io, fail('workflow.route', 'UNSUPPORTED_WORKFLOW_MODE', `Unsupported workflow mode ${options.mode}`, {}, ['Use --mode solo or --mode team']), options.json);
+    printResult(io, fail('workflow.route', 'UNSUPPORTED_WORKFLOW_MODE', `Unsupported workflow mode ${options.mode}`, {}, ['Use --mode code or --mode team']), options.json);
     process.exitCode = 1;
     return;
   }
@@ -212,8 +212,8 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
   const maxWorkers = parseMaxWorkers(io, 'workflow.route', options.maxWorkers, options.json);
   if (maxWorkers === null) return;
 
-  const soloMode = parseSoloMode(io, 'workflow.route', options.mode, options.soloMode, options.json);
-  if (soloMode === null) return;
+  const codeMode = parseCodeMode(io, 'workflow.route', options.mode, options.codeMode, options.json);
+  if (codeMode === null) return;
 
   try {
     validatePlanningInput(options.goal);
@@ -222,7 +222,7 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
       sessionId: '',
       goal: options.goal,
       mode: options.mode,
-      ...(soloMode ? { soloMode } : {}),
+      ...(codeMode ? { codeMode } : {}),
       maxWorkers,
       dryRun: true,
       config: readConfig(),
@@ -242,7 +242,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
   }
 
   if (!isWorkflowMode(options.mode)) {
-    printResult(io, fail('workflow.autonomous', 'UNSUPPORTED_WORKFLOW_MODE', `Unsupported workflow mode ${options.mode}`, {}, ['Use --mode solo or --mode team']), options.json);
+    printResult(io, fail('workflow.autonomous', 'UNSUPPORTED_WORKFLOW_MODE', `Unsupported workflow mode ${options.mode}`, {}, ['Use --mode code or --mode team']), options.json);
     process.exitCode = 1;
     return;
   }
@@ -250,8 +250,8 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
   const maxWorkers = parseMaxWorkers(io, 'workflow.autonomous', options.maxWorkers, options.json);
   if (maxWorkers === null) return;
 
-  const soloMode = parseSoloMode(io, 'workflow.autonomous', options.mode, options.soloMode, options.json);
-  if (soloMode === null) return;
+  const codeMode = parseCodeMode(io, 'workflow.autonomous', options.mode, options.codeMode, options.json);
+  if (codeMode === null) return;
 
   try {
     validatePlanningInput(options.goal);
@@ -260,7 +260,7 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
       sessionId: '',
       goal: options.goal,
       mode: options.mode,
-      ...(soloMode ? { soloMode } : {}),
+      ...(codeMode ? { codeMode } : {}),
       maxWorkers,
       dryRun: true,
       config: readConfig(),
@@ -369,9 +369,9 @@ function addWorkflowRouteOptions(command: Command, description: string): Command
   return addJsonOption(
     command
       .description(description)
-      .requiredOption('--mode <mode>', 'workflow mode: solo or team')
+      .requiredOption('--mode <mode>', 'workflow mode: code or team')
       .requiredOption('--goal <goal>', 'planning goal')
-      .option('--solo-mode <mode>', 'solo mode: full-auto, guided, or rnd')
+      .option('--code-mode <mode>', 'code mode: full-auto, guided, or rnd')
       .option('--max-workers <count>', 'maximum worker count', '40')
       .option('--dry-run', 'preview without writing files', true)
       .option('--no-dry-run', 'unsupported: do not execute workflow planning from this CLI')
@@ -408,23 +408,23 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   const refactor = program.command('refactor').description('Plan a Peaks refactor run without modifying code');
   addJsonOption(
     refactor
-      .option('--solo', 'use peaks-code orchestration mode')
+      .option('--code', 'use peaks-code orchestration mode')
       .option('--rd', 'use peaks-rd direct mode')
       .option('--dry-run', 'print gates and required artifacts', true)
       .option('--no-dry-run', 'unsupported: do not modify code from this command')
-  ).action((options: { solo?: boolean; rd?: boolean; dryRun?: boolean; json?: boolean }) => {
+  ).action((options: { code?: boolean; rd?: boolean; dryRun?: boolean; json?: boolean }) => {
     if (options.dryRun === false) {
       failUnsupportedNonDryRun(io, 'refactor', options.json);
       return;
     }
 
-    if (options.solo && options.rd) {
-      printResult(io, fail('refactor', 'CONFLICTING_REFACTOR_MODE', 'Choose either --solo or --rd, not both', {}, ['Run peaks refactor --solo --dry-run']), options.json);
+    if (options.code && options.rd) {
+      printResult(io, fail('refactor', 'CONFLICTING_REFACTOR_MODE', 'Choose either --code or --rd, not both', {}, ['Run peaks refactor --code --dry-run']), options.json);
       process.exitCode = 1;
       return;
     }
 
-    const mode: RefactorMode = options.rd ? 'rd' : 'solo';
+    const mode: RefactorMode = options.rd ? 'rd' : 'code';
     printResult(io, ok('refactor', createRefactorDryRun(mode), [], ['This dry run never edits code']), options.json);
   });
 

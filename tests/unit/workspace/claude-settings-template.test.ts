@@ -77,7 +77,7 @@ describe('claude-settings-template — pure-data structure', () => {
   test('template emits both matchers as of TEMPLATE_VERSION 1.3.0 (Write|Edit|MultiEdit + Bash gate-step-08)', () => {
     // Slice 1.3.0 (v3.1.2 mechanical Job-mode gate): the Bash matcher
     // is RE-ADDED alongside the Write|Edit|MultiEdit matcher so
-    // `peaks solo gate-step-08 --project .` runs on every Bash call
+    // `peaks code gate-step-08 --project .` runs on every Bash call
     // (Step 0.8 mechanical gate). The Write|Edit|MultiEdit matcher
     // remains the fact-forcing bypass. Exit 0 = allow, exit 2 = block
     // with stderr BLOCKED reason.
@@ -86,14 +86,14 @@ describe('claude-settings-template — pure-data structure', () => {
     };
     const matchers = template.hooks.PreToolUse.map((entry) => entry.matcher);
     expect(matchers).toEqual(['Write|Edit|MultiEdit', 'Bash']);
-    // The Bash matcher's command must invoke `peaks solo gate-step-08`
+    // The Bash matcher's command must invoke `peaks code gate-step-08`
     // (slice v3.1.2). Regression guard: a future template bump that
     // silently drops the Bash matcher (re-introducing the v3.1.1
     // recorder-only design) fails this assertion.
     const bashEntry = template.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
     expect(bashEntry, 'Bash matcher is required for v3.1.2 Step 0.8 mechanical gate').toBeDefined();
     const bashCommand = bashEntry!.hooks[0]!.command;
-    expect(bashCommand).toMatch(/peaks solo gate-step-08/);
+    expect(bashCommand).toMatch(/peaks code gate-step-08/);
   });
 
   test('exposes the canonical filename constant for the caller to use', () => {

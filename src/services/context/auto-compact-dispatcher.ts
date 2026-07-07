@@ -45,11 +45,11 @@ export interface DispatchIdeCompactInput {
   /** Spawn timeout (ms). Default 30s — Claude Code `/compact` is sync. */
   readonly timeoutMs?: number | undefined;
   /**
-   * Slice 2026-06-28-solo-mode-bypass-fix (defect #4): which session
+   * Slice 2026-06-28-code-mode-bypass-fix (defect #4): which session
    * the compact should target. Default `'main'` — the orchestrator
    * (peaks-code body) runs in the main-session Claude Code window and
    * wants to compress *its* context, not a sub-agent's. Sub-agent
-   * shells that spawn their own `peaks solo auto-compact` flow pass
+   * shells that spawn their own `peaks code auto-compact` flow pass
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
    *
    * Behaviour matrix (claude-code MVP):
@@ -79,7 +79,7 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   // See auto-compact-reader.ts for the IdeKind→IdeId cast rationale.
   const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
   const adapter = getAdapter(ideId);
-  // Slice 2026-06-28-solo-mode-bypass-fix (defect #4): default to
+  // Slice 2026-06-28-code-mode-bypass-fix (defect #4): default to
   // `'main'` so the orchestrator's auto-compact actually compresses
   // the main-session context. The orchestrator passes `'sub-agent'`
   // explicitly when a sub-agent shell dispatches the call.
@@ -159,7 +159,7 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
         });
       }
       // Lazy install: we only get here when the caller explicitly
-      // invokes `peaks solo auto-compact --execute`, so the user has
+      // invokes `peaks code auto-compact --execute`, so the user has
       // already opted in. No zero-touch surprise on workspace init.
       return await dispatchIdeNativeHook({
         projectRoot: input.projectRoot,

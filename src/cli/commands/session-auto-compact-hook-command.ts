@@ -91,7 +91,7 @@ export function registerSessionAutoCompactHookCommand(session: Command): void {
       if (probe.ratio < RED_LINE_RATIO) {
         // Below red line → exit 0 silent. The orchestrator's
         // pre-compact zone (0.85–0.95) is handled out-of-band by
-        // the LLM firing `peaks solo auto-compact --execute`; the
+        // the LLM firing `peaks code auto-compact --execute`; the
         // hook only fires on the synchronous red-line path.
         return;
       }
@@ -107,7 +107,7 @@ export function registerSessionAutoCompactHookCommand(session: Command): void {
       // binary), `spawn` raises ENOENT. Catching this MUST NOT crash
       // the runner's tool call — the hook must exit 0 silently with
       // a one-line stderr hint so the runner keeps working. The user
-      // can then run `/compact` manually (or `peaks solo auto-compact`
+      // can then run `/compact` manually (or `peaks code auto-compact`
       // from another terminal).
       try {
         const child = spawn('claude', ['--compact'], {

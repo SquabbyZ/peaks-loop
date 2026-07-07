@@ -279,7 +279,7 @@ UA + ECC ──→ L3 三引擎编排的两个外部引擎
 
 #### 现状
 
-peaks-loop 现有蜂群机制 (sub-agent dispatch + 3-way fan-out via Solo) 在效率上有明确瓶颈:
+peaks-loop 现有蜂群机制 (sub-agent dispatch + 3-way fan-out via Code) 在效率上有明确瓶颈:
 
 | 瓶颈 | 现状 | 后果 |
 |---|---|---|
@@ -604,7 +604,7 @@ type TaskLevel = "typo" | "bug" | "feature" | "refactor" | "migration";
 |---|---|---|
 | ✅ CLI-backed (已强制) | ~20% | `peaks workspace init`, `peaks skill presence:set`, `peaks request transition` |
 | ⚠️ Partially CLI-backed (易绕开) | ~30% | tech-doc handoff, perf-baseline, Gate A 拒绝 design-draft |
-| ❌ Prose-only (零兜底) | ~50% | Solo Code-Change Red Line, no-root-pollution, sub-agent session sharing, mock-data placement, prototype fidelity, login gate, ASCII wireframe |
+| ❌ Prose-only (零兜底) | ~50% | Code Code-Change Red Line, no-root-pollution, sub-agent session sharing, mock-data placement, prototype fidelity, login gate, ASCII wireframe |
 
 ### 5.2 audit 框架: `peaks audit red-lines`
 
@@ -642,7 +642,7 @@ peaks audit static (L2 静态分析入口)
 
 | Slice | 范围 | red lines 数 | 时间 |
 |---|---|---|---|
-| **L2.1 P0 + audit 框架** | Solo-code-ban, no-root-pollution, sub-agent-sid, tech-doc-presence, mock-placement + `peaks audit red-lines` CLI 框架 | 8-12 | 2-3 天 |
+| **L2.1 P0 + audit 框架** | Code-code-ban, no-root-pollution, sub-agent-sid, tech-doc-presence, mock-placement + `peaks audit red-lines` CLI 框架 | 8-12 | 2-3 天 |
 | **L2.2 P1** | Resume detection, prototype fidelity, design-draft confirm, pre-RD scan, login gate | 10-15 | 2-3 天 |
 | **L2.3 P2-a** | 第一批 lint-style red lines (ASCII wireframe, 各 SKILL.md 小红线) + ECC AgentShield 集成 | 25-40 | 2-3 天 |
 | **L2.4 P2-b** | 第二批 lint-style red lines (references/*.md 内的小红线) + audit 回归 | 25-40 | 2-3 天 |

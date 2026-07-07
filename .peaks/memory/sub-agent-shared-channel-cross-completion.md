@@ -117,7 +117,7 @@ For every sub-agent dispatch by peaks-code / peaks-rd / peaks-qa:
 4. Dispatcher GCs SharedChannel at batch close (reducer complete)
 5. Reducer emit view: "shared channel entries this batch" alongside the G7 metadata view
 
-For dispatcher / Solo main loop:
+For dispatcher / Code main loop:
 
 1. On batch start: create `.peaks/_sub_agents/<sid>/shared/<batchId>.json` with empty entries
 2. On batch close: emit SharedChannel summary alongside dispatch records; mark channel for GC

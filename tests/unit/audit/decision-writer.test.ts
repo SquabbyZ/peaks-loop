@@ -48,7 +48,7 @@ function makeAudit(overrides: Partial<RedLineAudit> = {}): RedLineAudit {
     partial: 2,
     proseOnly: 2,
     audit: [
-      makeEntry({ id: 'rl-solo-code-ban', rule: 'Solo Code-Change Red Line', backing: 'cli-backed' }),
+      makeEntry({ id: 'rl-code-ban', rule: 'Code Commit Ban', backing: 'cli-backed' }),
       makeEntry({ id: 'rl-no-root-pollution', rule: 'No Root Pollution', backing: 'cli-backed' }),
       makeEntry({
         id: 'rl-skill-md-naming',
@@ -110,7 +110,7 @@ describe('decision-writer.renderDecisionMarkdown', () => {
     expect(md).toContain('## Per-Rule Decisions');
     expect(md).toContain('## Enforcer Findings');
     expect(md).toContain('| Total red lines | 12 |');
-    expect(md).toContain('| `rl-solo-code-ban` |');
+    expect(md).toContain('| `rl-code-ban` |');
     expect(md).toContain('| `lint-workflow-shape` |');
   });
 

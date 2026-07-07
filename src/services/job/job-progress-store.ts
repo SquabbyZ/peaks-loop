@@ -10,7 +10,7 @@
  *     jobId, done, total, currentSlice, lastCommitSha, updatedAt
  *   }
  *
- * The `peaks solo gate-step-08` hook reads this file in its case-1 path
+ * The `peaks code gate-step-08` hook reads this file in its case-1 path
  * (job-shape.json says isJob=true) and surfaces `Next: slice #N+1 of M
  * (<currentSlice>)` to stdout. The LLM cannot "wake up cold" — the
  * next-slice context is mechanically injected on every Bash call.

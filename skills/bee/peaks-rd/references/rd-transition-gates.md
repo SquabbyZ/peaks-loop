@@ -104,7 +104,7 @@ peaks scan request-type-sanity --project <repo> --type <type> --json
 peaks request repair-status <rid> --project <repo> --session-id <session-id> --json
 # Expected: atCap=false. exit 0.
 # atCap=true → BLOCKED. Three repair cycles already attempted; emit a blocked TXT
-# handoff via Solo rather than entering a fourth cycle.
+# handoff via Code rather than entering a fourth cycle.
 ```
 
 **Peaks-Loop Gate B8 — Diff stays inside the declared red-line scope:**

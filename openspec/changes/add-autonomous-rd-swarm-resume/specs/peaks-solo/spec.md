@@ -4,7 +4,7 @@
 
 ### Requirement: Autonomous workflow goal package
 
-Peaks Solo SHALL coordinate `peaks-prd` to create or validate an autonomous workflow goal package before autonomous RD swarm planning starts.
+Peaks Code SHALL coordinate `peaks-prd` to create or validate an autonomous workflow goal package before autonomous RD swarm planning starts.
 
 #### Scenario: Create autonomous goal package
 
@@ -24,7 +24,7 @@ Peaks Solo SHALL coordinate `peaks-prd` to create or validate an autonomous work
 
 ### Requirement: Capability reuse before custom build
 
-Peaks Solo SHALL prefer existing curated capabilities before proposing custom implementation from scratch.
+Peaks Code SHALL prefer existing curated capabilities before proposing custom implementation from scratch.
 
 #### Scenario: Curated capability sources are considered
 

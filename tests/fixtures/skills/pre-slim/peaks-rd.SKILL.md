@@ -70,19 +70,19 @@ The full hard-block contract is defined in `peaks-qa` (see "Hard contracts for b
 When this skill is launched as a sub-agent via `peaks sub-agent dispatch <role>` (then the LLM executes the returned toolCall) from `peaks-code`, the following sections of THIS skill are **suspended** for the sub-agent run:
 
 - **Session id** — use the parent's sid (read `.peaks/_runtime/session.json` or pass `--session-id <parent-sid>` to any session-creating CLI). Do NOT spawn your own session. The new `peaks session info --active` reads the canonical binding for you.
-- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Solo loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-rd.json` and only that.
-- **Workspace initialization** — Solo has already run `peaks workspace init` before fan-out. Do not re-run it.
-- **Mode selection** — Solo has already chosen the mode. Read it from the prompt arguments (or from `.peaks/.active-skill.json` if you can, but do not write it).
-- **Statusline install** — already done by Solo at session startup; do not re-run.
+- **Skill presence (MANDATORY first action)** — do NOT call `peaks skill presence:set peaks-rd`. The sub-agent must not overwrite `.peaks/.active-skill.json`; the main Code loop owns that file. If you need to mark your own state, write a marker file at `.peaks/_runtime/<sessionId>/system/sub-agent-rd.json` and only that.
+- **Workspace initialization** — Code has already run `peaks workspace init` before fan-out. Do not re-run it.
+- **Mode selection** — Code has already chosen the mode. Read it from the prompt arguments (or from `.peaks/.active-skill.json` if you can, but do not write it).
+- **Statusline install** — already done by Code at session startup; do not re-run.
 
 What the sub-agent **MUST** still do, from this skill's contract:
 
-0. **Do NOT call `peaks request init`** — Solo has already initialised the request artefact slot in the main loop before fan-out (the runbook has the exact `peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json` call). The sub-agent reads the slot via `peaks request show <rid> --role rd --project <repo> --json` if it needs to. Note: `peaks request init` is **dry-run by default**. Pass `--apply` to actually create the artifact.
+0. **Do NOT call `peaks request init`** — Code has already initialised the request artefact slot in the main loop before fan-out (the runbook has the exact `peaks request init --role rd --id <rid> --project <repo> --apply --type <type> --json` call). The sub-agent reads the slot via `peaks request show <rid> --role rd --project <repo> --json` if it needs to. Note: `peaks request init` is **dry-run by default**. Pass `--apply` to actually create the artifact.
 2. `peaks request show <rid> --role prd --project <repo> --json` (and `--role ui` if UI is in the swarm plan).
-3. Standards preflight (dry-run only; Solo owns the apply step).
-4. Project-scan read; create `rd/project-scan.md` only if Solo flagged it missing in the dispatch prompt.
+3. Standards preflight (dry-run only; Code owns the apply step).
+4. Project-scan read; create `rd/project-scan.md` only if Code flagged it missing in the dispatch prompt.
 5. Write the planning artefact: `rd/tech-doc.md` (feature/refactor) or `rd/bug-analysis.md` (bugfix). If `--type` is `config|docs|chore`, **no planning artefact is required** — return immediately with `{"role":"rd-planning","status":"skipped","reason":"type=<type>"}`.
-6. Return only a compact JSON envelope — Solo will run the convergence gate (`ls` checks):
+6. Return only a compact JSON envelope — Code will run the convergence gate (`ls` checks):
 
 ```json
 {
@@ -98,12 +98,12 @@ What the sub-agent **MUST** still do, from this skill's contract:
 **Hard prohibitions** (sub-agent context, in addition to general red lines):
 
 - Do NOT call `Skill(skill="...")` from inside the sub-agent — that defeats the fan-out.
-- Do NOT call `peaks skill presence:set` — Solo owns the active-skill file.
+- Do NOT call `peaks skill presence:set` — Code owns the active-skill file.
 - Do NOT commit, push, install hooks, or apply settings.json mutations.
-- Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}` and let Solo handle the user message.
+- Do NOT ask the user interactive questions. If you need clarification, return `{"status":"blocked","blockedReason":"<text>"}` and let Code handle the user message.
 - Do NOT modify code (the Swarm phase is planning only; code edits happen in the RD implementation phase, which is a separate sub-agent or inline run after Gate B).
 
-After returning, Solo re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/tech-doc.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
+After returning, Code re-checks Gate B (`ls .peaks/_runtime/<sessionId>/rd/tech-doc.md` etc.) and proceeds to RD implementation, which is a different sub-agent or inline run.
 
 ## Skill presence (MANDATORY first action — main-loop context only)
 
@@ -151,7 +151,7 @@ RD has two distinct artifact files, and the most common regression is to write t
 
 | File | Scope | Reader | Required content |
 |---|---|---|---|
-| `.peaks/_runtime/<sessionId>/rd/tech-doc.md` | per-session — the whole RD plan for the session, all slices | Solo, future LLM, the human scrolling the session | Architecture, slice graph, mock strategy, cross-cutting decisions. **Not** the place for per-slice implementation evidence. |
+| `.peaks/_runtime/<sessionId>/rd/tech-doc.md` | per-session — the whole RD plan for the session, all slices | Code, future LLM, the human scrolling the session | Architecture, slice graph, mock strategy, cross-cutting decisions. **Not** the place for per-slice implementation evidence. |
 | `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` | per-slice — one request, one planning artifact | QA, SC, the lint gate | Red-line scope, in-scope / out-of-scope, unit-test requirements, **Implementation evidence** (file list, `pnpm test` output, git diff excerpts), MCP usage, handoff, status. **This is the file the lint gate checks for placeholders.** |
 | `.peaks/_runtime/<sessionId>/rd/code-review.md` | per-session — the engineering review | QA, the human reviewer | Code review findings + fixes. |
 | `.peaks/_runtime/<sessionId>/rd/security-review.md` | per-session — the security review | QA | Security review findings + fixes. |
@@ -195,7 +195,7 @@ peaks understand show   --project <repo> --json                # when UA artifac
 peaks codegraph context --project <repo> "<task>"
 peaks codegraph affected --project <repo> <changed-files...> --json
 
-# 4.1 read project-scan from Solo's pre-RD scan — BLOCKING if missing
+# 4.1 read project-scan from Code's pre-RD scan — BLOCKING if missing
 # **STOP if .peaks/_runtime/<sessionId>/rd/project-scan.md does not exist.**
 # **Do not write any code, do not plan any implementation, do not pass go.**
 # **Create the project-scan first, then proceed.**

@@ -22,7 +22,7 @@ const FILES = [
   'src/services/dispatch/sub-agent-dispatcher.ts',
   'src/services/dispatch/slice-dag.ts',
   'src/services/dispatch/contract-store.ts',
-  'src/services/solo/dag-orchestrator.ts',
+  'src/services/code/dag-orchestrator.ts',
   'src/cli/commands/sub-agent-commands.ts'
 ];
 

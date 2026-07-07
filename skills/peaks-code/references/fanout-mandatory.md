@@ -1,6 +1,6 @@
 # Fan-out is mandatory (slice 2026-06-24-audit-5th-p2)
 
-> **Reference contract.** Slice 5 (`feat(solo): default to multi-sub-agent
+> **Reference contract.** Slice 5 (`feat(code): default to multi-sub-agent
 > fan-out when DAG has >= 2 same-level leaves`) shipped in 2.8.0 with
 > `'fan-out'` as the default but kept `'serial'` as an opt-out. Slice
 > 2026-06-24-audit-5th-p2 (this slice, 2.8.4) **removes the opt-out** by
@@ -95,10 +95,10 @@ shape it had pre-slice — the difference is that anything outside
 
 ## Tests
 
-- `tests/unit/solo/skills-solo-fanout-mandatory.test.ts` — pins that
+- `tests/unit/code/skills-code-fanout-mandatory.test.ts` — pins that
   SKILL.md still mentions `--from-dag`, does NOT mention `serial`
   opt-out, and references `references/fanout-mandatory.md`.
-- `tests/integration/solo/multi-sub-agent-fanout.test.ts` — pins the
+- `tests/integration/code/multi-sub-agent-fanout.test.ts` — pins the
   runtime fan-out behavior; not affected by this slice.
 
 ## Rollout

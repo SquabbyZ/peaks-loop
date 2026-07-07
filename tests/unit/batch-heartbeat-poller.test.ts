@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BatchHeartbeatPoller, DEFAULT_POLL_INTERVAL_MS, DEFAULT_STALE_THRESHOLD_MS, type PollerEvent } from '../../src/services/solo/batch-heartbeat-poller.js';
+import { BatchHeartbeatPoller, DEFAULT_POLL_INTERVAL_MS, DEFAULT_STALE_THRESHOLD_MS, type PollerEvent } from '../../src/services/code/batch-heartbeat-poller.js';
 import { writeInitialDispatchRecord, appendHeartbeat, markCompleted } from '../../src/services/dispatch/dispatch-record-writer.js';
 
 let root: string;

@@ -50,16 +50,16 @@ $ ./node_modules/peaks-loop/bin/peaks.js --version
 → 3.1.2
 
 $ ./node_modules/peaks-loop/bin/peaks.js help
-→ Peaks Loop 3.1.2 · 10 skills ready (banner 不再提 peaks-solo)
+→ Peaks Loop 3.1.2 · 10 skills ready (banner 不再提 peaks-code)
 
 $ ./node_modules/peaks-loop/bin/peaks.js skill list
 → 4 个 user-facing:peaks-code / peaks-resume / peaks-status / peaks-test
-  peaks-solo 字样 0 处出现
+  peaks-code 字样 0 处出现
 
-$ ./node_modules/peaks-loop/bin/peaks.js solo --help
+$ ./node_modules/peaks-loop/bin/peaks.js code --help
 → "peaks-code LLM-side workflow planner (slice 2 fast mode)" — orchestrator 字面锁死在 peaks-code
 
-$ ./node_modules/peaks-loop/bin/peaks.js session migrate-skill-name --from peaks-solo --to peaks-code --project . --json
+$ ./node_modules/peaks-loop/bin/peaks.js session migrate-skill-name --from peaks-code --to peaks-code --project . --json
 → ok: true, scannedFiles: 199, modifiedFiles: 0, keyValueReplacements: 0, stringReplacements: 0
   skipped: [.peaks/memory, .peaks/skills/.system/bees]
   → (与早场 198 → 199 差异 = 1 个新增 runtime 文件;本质仍是 ice-cola 0 残留峰值)
@@ -71,9 +71,9 @@ $ ./node_modules/peaks-loop/bin/peaks.js skill presence:set peaks-code --mode fu
 
 **附加校验(此次新增):**
 
-1. `ls peaks-loop/skills/ | grep -E 'peaks-(code|solo|resume|status|test)'` → 4 个 user-facing skills 目录,其中 `peaks-solo/` **不存在**。
-2. `grep -l peaks-solo peaks-loop/skills/peaks-code/SKILL.md` → **0 行**(SKILL.md 内部完全 peaks-code-only)。
-3. ice-cola 内部 `grep peaks-solo -r .peaks/ .md` 命中 `index.json` + `2026-07-01-session-41be24/**` 历史 runtime — 命中迁移 `--skip .peaks/memory` 跳过列表,符合 spec;非回归。
+1. `ls peaks-loop/skills/ | grep -E 'peaks-(code|code|resume|status|test)'` → 4 个 user-facing skills 目录,其中 `peaks-code/` **不存在**。
+2. `grep -l peaks-code peaks-loop/skills/peaks-code/SKILL.md` → **0 行**(SKILL.md 内部完全 peaks-code-only)。
+3. ice-cola 内部 `grep peaks-code -r .peaks/ .md` 命中 `index.json` + `2026-07-01-session-41be24/**` 历史 runtime — 命中迁移 `--skip .peaks/memory` 跳过列表,符合 spec;非回归。
 
 **复测结论:** peaks-code 在 consumer project 端入口、CLI 表面、orchestrator 字面、SKILL.md 引用全部锁死到 rename 后形态,user-facing 唯一性成立。
 

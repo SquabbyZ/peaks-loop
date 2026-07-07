@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
 /**
- * AC7 content-coverage test (slice 024 — skill-slim-solo-rd-qa).
+ * AC7 content-coverage test (slice 024 — skill-slim-code-rd-qa).
  *
  * For each of the 3 SKILL.md files (peaks-code, peaks-rd, peaks-qa), assert that:
  *   1. Every `##` / `###` heading from the pre-slim snapshot is present in

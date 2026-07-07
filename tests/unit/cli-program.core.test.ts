@@ -94,7 +94,7 @@ describe('createProgram', () => {
   });
 
   test('prints refactor hard gates', async () => {
-    const result = await runCommand(['refactor', '--solo', '--json']);
+    const result = await runCommand(['refactor', '--code', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(JSON.stringify(output.data)).toContain('Require UT coverage >= 95%');
@@ -190,7 +190,7 @@ describe('createProgram', () => {
   });
 
   test('rejects conflicting refactor modes', async () => {
-    const result = await runCommand(['refactor', '--solo', '--rd', '--json']);
+    const result = await runCommand(['refactor', '--code', '--rd', '--json']);
     const output = parseJsonOutput(result.stdout);
 
     expect(output.ok).toBe(false);
@@ -564,10 +564,10 @@ describe('createProgram', () => {
     const techPlanResult = await runCommand(['tech', 'plan', '--goal', '', '--json']);
     expect(parseJsonOutput(techPlanResult.stdout).code).toBe('INVALID_GOAL');
 
-    const routeResult = await runCommand(['workflow', 'route', '--mode', 'solo', '--goal', '', '--json']);
+    const routeResult = await runCommand(['workflow', 'route', '--mode', 'code', '--goal', '', '--json']);
     expect(parseJsonOutput(routeResult.stdout).code).toBe('INVALID_GOAL');
 
-    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'solo', '--goal', '', '--json']);
+    const autonomousResult = await runCommand(['workflow', 'autonomous', '--mode', 'code', '--goal', '', '--json']);
     expect(parseJsonOutput(autonomousResult.stdout).code).toBe('INVALID_GOAL');
 
     const swarmDryRunResult = await runCommand(['swarm', 'plan', '--skill', 'rd', '--goal', 'Fix checkout retry typo', '--no-dry-run', '--json']);

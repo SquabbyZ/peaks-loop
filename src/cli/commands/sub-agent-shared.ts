@@ -83,7 +83,7 @@ export type AwaitOptions = {
  * to keep the warm-path dispatch CLI cold-start fast (slice 9).
  */
 export type SliceDagModule = typeof import('../../services/dispatch/slice-dag.js');
-export type DagOrchestratorModule = typeof import('../../services/solo/dag-orchestrator.js');
+export type DagOrchestratorModule = typeof import('../../services/code/dag-orchestrator.js');
 export type ContractStoreModule = typeof import('../../services/dispatch/contract-store.js');
 
 /**

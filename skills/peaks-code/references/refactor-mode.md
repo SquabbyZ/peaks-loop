@@ -1,4 +1,4 @@
-# Peaks Solo Refactor Mode
+# Peaks Code Refactor Mode
 
 `peaks-code refactor` is the primary MVP path.
 

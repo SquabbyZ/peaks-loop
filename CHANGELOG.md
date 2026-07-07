@@ -3,11 +3,11 @@
 ## [Unreleased]
 
 ### Renamed
-- **`peaks-code` → `peaks-code`** — the long-running code-domain orchestrator skill (PRD/RD/QA/UI/SC/TXT pipeline) has been renamed to communicate its scope more accurately. The on-disk directory `~/.peaks/skills/.system/bees/peaks-code/` is preserved as a stable install location; only the manifest `id` and `displayName` change (`peaks-code` / `Peaks Code`). All four sibling skills (`peaks-code-resume` → `peaks-resume`, `peaks-code-status` → `peaks-status`, `peaks-code-test` → `peaks-test`) are now top-level primitives rather than child skills of `peaks-code`. Migration: `peaks session migrate-skill-name --from peaks-code --to peaks-code --apply`.
+- **`peaks-solo` → `peaks-code`** — the long-running code-domain orchestrator skill (PRD/RD/QA/UI/SC/TXT pipeline) has been renamed to communicate its scope more accurately. The on-disk directory `~/.peaks/skills/.system/bees/peaks-code/` is preserved as a stable install location; only the manifest `id` and `displayName` change (`peaks-code` / `Peaks Code`). All four sibling skills (`peaks-solo-resume` → `peaks-resume`, `peaks-solo-status` → `peaks-status`, `peaks-solo-test` → `peaks-test`) are now top-level primitives rather than child skills of `peaks-solo`. Migration: `peaks session migrate-skill-name --from peaks-solo --to peaks-code --apply`.
 
 ### Changed (Breaking)
-- **`peaks skill presence:set peaks-code` no longer recognized** — the canonical skill name is now `peaks-code`. Existing `.peaks/_runtime/*/active-skill.json` files carrying `skill: "peaks-code"` are migrated by `peaks session migrate-skill-name`. Manual override: edit the file and replace `"skill": "peaks-code"` with `"skill": "peaks-code"`.
-- **CLI surface unchanged** — `peaks solo`, `peaks solo --fast`, and the entire `peaks-code` skill runbook continue to function; only the skill-identification field (`id`, `displayName`, presence `skill` value) changes. The runbook name `peaks solo` is the user-facing verb and remains as-is.
+- **`peaks skill presence:set peaks-solo` no longer recognized** — the canonical skill name is now `peaks-code`. Existing `.peaks/_runtime/*/active-skill.json` files carrying `skill: "peaks-solo"` are migrated by `peaks session migrate-skill-name`. Manual override: edit the file and replace `"skill": "peaks-solo"` with `"skill": "peaks-code"`.
+- **CLI surface unchanged** — `peaks code`, `peaks code --fast`, and the entire `peaks-code` skill runbook continue to function; only the skill-identification field (`id`, `displayName`, presence `skill` value) changes. The runbook name `peaks code` is the user-facing verb and remains as-is.
 
 ### Added
 - **Manifest id field** — `.peaks/skills/.system/bees/peaks-code/manifest.json` now carries `{ "id": "peaks-code", "displayName": "Peaks Code" }`. The `migrate-skill-name` service explicitly skips this file (test: `session-migrate-skill-name.test.ts:69` "跳过 .peaks/skills/.system/bees/peaks-code/manifest.json") so the canonical id is only ever edited by hand or by an explicit `peaks skill sediment refine-bee` flow, never by bulk migration.
@@ -18,21 +18,21 @@
 
 ### Added — Mechanical Job-mode gates (Step 0.8 enforcement)
 
-The v3.1.1 recorder-only design was bypassed twice under load (2026-07-03 35-slice incident, 2026-07-04 3018-file incident): the LLM skipped `peaks solo detect-job` and ran fake-completion narratives instead of Job mode. The v3.1.2 patch converts Step 0.8 from "LLM should call" to "LLM cannot proceed without calling" through four mechanical gates — no LLM interpretation required.
+The v3.1.1 recorder-only design was bypassed twice under load (2026-07-03 35-slice incident, 2026-07-04 3018-file incident): the LLM skipped `peaks code detect-job` and ran fake-completion narratives instead of Job mode. The v3.1.2 patch converts Step 0.8 from "LLM should call" to "LLM cannot proceed without calling" through four mechanical gates — no LLM interpretation required.
 
-- **PreToolUse hook** — `peaks workspace init` now installs a `Bash` matcher in `.claude/settings.local.json` (TEMPLATE_VERSION bumped 1.2.0 → 1.3.0) that runs `peaks solo gate-step-08 --project .` before every Bash call. Exit 0 = allow, exit 2 = block. Existing `Write|Edit|MultiEdit` matcher preserved. Re-running `peaks workspace init` is idempotent (`templateContentMatches`).
-- **`peaks solo gate-step-08`** — new service `src/services/solo/step-08-gate.ts` (~120 LOC) + CLI. Reads `.peaks/_runtime/<sessionId>/job-shape.json`. When `decision.isJob=true` AND `job/<jid>/progress.json` exists, prints `Next: slice #<done+1> of <total> (<currentSlice>)` so the LLM cannot wake up cold. When the file is missing AND the user's prompt (from `--prompt` / `last-prompt.txt`) matches the fail-closed backup regex `/(until|全部|until all done|disavow cost|不用考虑费用|all of them)/i`, exits 2 with `BLOCKED:` on stderr.
-- **Size-fear ban** — `peaks solo emit-handoff`. New service `src/services/solo/emit-handoff.ts` (~70 LOC) + CLI. Under Job mode (`isJob=true`), refuses to emit a final handoff while `remaining > 0`. Codes: `JOB_NOT_INITIALIZED` (no state.json), `JOB_REMAINING_BLOCKED` (remaining > 0), allow when `remaining === 0`, allow under `--force-under-job` override.
-- **Forced auto-compact** — extended `peaks solo context-now` with `--enforce-job-mode` (auto-enabled when `job-shape.json` says `isJob=true`). At `ratio >= 0.85` returns `action: 'auto-compact-now'` (MANDATORY, not advisory); at `ratio >= 0.95` returns `action: 'red-line'`. SKILL.md Step N+2 prose updated: "in Job mode, ≥ 0.85 is MANDATORY auto-compact."
+- **PreToolUse hook** — `peaks workspace init` now installs a `Bash` matcher in `.claude/settings.local.json` (TEMPLATE_VERSION bumped 1.2.0 → 1.3.0) that runs `peaks code gate-step-08 --project .` before every Bash call. Exit 0 = allow, exit 2 = block. Existing `Write|Edit|MultiEdit` matcher preserved. Re-running `peaks workspace init` is idempotent (`templateContentMatches`).
+- **`peaks code gate-step-08`** — new service `src/services/code/step-08-gate.ts` (~120 LOC) + CLI. Reads `.peaks/_runtime/<sessionId>/job-shape.json`. When `decision.isJob=true` AND `job/<jid>/progress.json` exists, prints `Next: slice #<done+1> of <total> (<currentSlice>)` so the LLM cannot wake up cold. When the file is missing AND the user's prompt (from `--prompt` / `last-prompt.txt`) matches the fail-closed backup regex `/(until|全部|until all done|disavow cost|不用考虑费用|all of them)/i`, exits 2 with `BLOCKED:` on stderr.
+- **Size-fear ban** — `peaks code emit-handoff`. New service `src/services/code/emit-handoff.ts` (~70 LOC) + CLI. Under Job mode (`isJob=true`), refuses to emit a final handoff while `remaining > 0`. Codes: `JOB_NOT_INITIALIZED` (no state.json), `JOB_REMAINING_BLOCKED` (remaining > 0), allow when `remaining === 0`, allow under `--force-under-job` override.
+- **Forced auto-compact** — extended `peaks code context-now` with `--enforce-job-mode` (auto-enabled when `job-shape.json` says `isJob=true`). At `ratio >= 0.85` returns `action: 'auto-compact-now'` (MANDATORY, not advisory); at `ratio >= 0.95` returns `action: 'red-line'`. SKILL.md Step N+2 prose updated: "in Job mode, ≥ 0.85 is MANDATORY auto-compact."
 - **On-disk slice progress** — `peaks job checkpoint --state done` now writes `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` after updating state.json. New `peaks job progress --job-id <jid>` reader. `gate-step-08` reads the same file in its allow-job path so the LLM gets resume context BEFORE any Bash call. SKILL.md Step 0.7 updated: "if progress.json exists, read it FIRST and surface `Next: slice #N of M (<currentSlice>)`."
 
 ### Tests (v3.1.2)
 
-- `tests/unit/solo/gate-step-08.test.ts` — 9 unit tests covering the 4 paths + Next: slice context injection + backup-regex sanity + prompt-source fallback.
-- `tests/unit/solo/emit-handoff.test.ts` — 10 unit tests covering the 4 paths + `--force-under-job` override + `JOB_NOT_INITIALIZED` + skipped-slices edge case + `--job-id` override.
-- `tests/integration/solo-gate-step-08-hook.test.ts` — 5 integration tests spawning `node bin/peaks.js solo gate-step-08` as a real child process (the hook protocol itself), asserting exit 0 / exit 2 + stderr BLOCKED line + JSON envelope shape.
-- Extended `tests/unit/solo/solo-step-08-block-guard.test.ts` to assert SKILL.md + runbook.md reference `peaks solo gate-step-08`, `peaks solo emit-handoff`, `peaks job progress`, and the Job-mode MANDATORY auto-compact prose.
-- Extended `tests/unit/workspace/workspace-init-claude-hooks.test.ts` case-A to assert both PreToolUse matchers (`Write|Edit|MultiEdit` AND `Bash`) are emitted with the new Bash command invoking `peaks solo gate-step-08`.
+- `tests/unit/code/gate-step-08.test.ts` — 9 unit tests covering the 4 paths + Next: slice context injection + backup-regex sanity + prompt-source fallback.
+- `tests/unit/code/emit-handoff.test.ts` — 10 unit tests covering the 4 paths + `--force-under-job` override + `JOB_NOT_INITIALIZED` + skipped-slices edge case + `--job-id` override.
+- `tests/integration/code-gate-step-08-hook.test.ts` — 5 integration tests spawning `node bin/peaks.js code gate-step-08` as a real child process (the hook protocol itself), asserting exit 0 / exit 2 + stderr BLOCKED line + JSON envelope shape.
+- Extended `tests/unit/code/code-step-08-block-guard.test.ts` to assert SKILL.md + runbook.md reference `peaks code gate-step-08`, `peaks code emit-handoff`, `peaks job progress`, and the Job-mode MANDATORY auto-compact prose.
+- Extended `tests/unit/workspace/workspace-init-claude-hooks.test.ts` case-A to assert both PreToolUse matchers (`Write|Edit|MultiEdit` AND `Bash`) are emitted with the new Bash command invoking `peaks code gate-step-08`.
 
 ### Memory
 
@@ -44,15 +44,15 @@ Two consecutive ship-day incidents motivated this release: `2026-07-03-v3-1-0-jo
 
 `peaks-code` Step 0.8 is no longer prose-only: the LLM makes the Job-shape judgement, the CLI records it. The CLI is a **recorder and gate**, not a detector — no keyword regex anywhere in the service or CLI (the LLM is the source of truth). Downstream steps refuse to proceed until the decision file exists.
 
-- New service: `src/services/solo/job-shape-decision.ts` — `readJobShapeDecision` / `writeJobShapeDecision` / `validateJobShapeDecision`. Persists to `.peaks/_runtime/<sessionId>/job-shape.json`; server-side stamps `decidedAt` so the LLM cannot back-date; throws `JOB_SHAPE_NOT_DECIDED` on missing / unreadable / malformed.
+- New service: `src/services/code/job-shape-decision.ts` — `readJobShapeDecision` / `writeJobShapeDecision` / `validateJobShapeDecision`. Persists to `.peaks/_runtime/<sessionId>/job-shape.json`; server-side stamps `decidedAt` so the LLM cannot back-date; throws `JOB_SHAPE_NOT_DECIDED` on missing / unreadable / malformed.
 - New CLI subcommands:
-  - `peaks solo detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> [--suggested-strategy single|rotating] [--confidence high|medium|low] [--force]` — recorder. Validates `suggestedJobId` against `/^[a-z0-9][a-z0-9-]{2,40}$/`, hashes the user prompt, writes the file. Refuses overwrite without `--force`.
-  - `peaks solo read-job-shape` — downstream gate. Returns the current record or `JOB_SHAPE_NOT_DECIDED`.
-- New tests: `tests/unit/solo/job-shape-decision.test.ts` (validate happy/sad, server-stamp `decidedAt`, force semantics, missing/unreadable/malformed, round-trip, promptHash determinism), `tests/integration/solo-detect-job-command.test.ts` (CLI spawn happy / bad-flag / read-back / fresh / force), `tests/unit/solo/solo-step-08-block-guard.test.ts` (locks the SKILL.md / runbook contract: `BLOCKING on LLM judgement`, `peaks solo detect-job`, `peaks solo read-job-shape`, and runbook ordering before `# After Step 7`).
+  - `peaks code detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> [--suggested-strategy single|rotating] [--confidence high|medium|low] [--force]` — recorder. Validates `suggestedJobId` against `/^[a-z0-9][a-z0-9-]{2,40}$/`, hashes the user prompt, writes the file. Refuses overwrite without `--force`.
+  - `peaks code read-job-shape` — downstream gate. Returns the current record or `JOB_SHAPE_NOT_DECIDED`.
+- New tests: `tests/unit/code/job-shape-decision.test.ts` (validate happy/sad, server-stamp `decidedAt`, force semantics, missing/unreadable/malformed, round-trip, promptHash determinism), `tests/integration/code-detect-job-command.test.ts` (CLI spawn happy / bad-flag / read-back / fresh / force), `tests/unit/code/code-step-08-block-guard.test.ts` (locks the SKILL.md / runbook contract: `BLOCKING on LLM judgement`, `peaks code detect-job`, `peaks code read-job-shape`, and runbook ordering before `# After Step 7`).
 
 ### Hard red line #10 (v3.1.1)
 
-The LLM MUST NOT skip `peaks solo detect-job` even when the trigger is obvious from context. If the next step's `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Solo MUST record a decision before proceeding. Keyword-based "I already know it's a Job" is not a substitute — the LLM is the only authority for the Job-shape judgement, and the CLI is the only place that records it.
+The LLM MUST NOT skip `peaks code detect-job` even when the trigger is obvious from context. If the next step's `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, Code MUST record a decision before proceeding. Keyword-based "I already know it's a Job" is not a substitute — the LLM is the only authority for the Job-shape judgement, and the CLI is the only place that records it.
 
 ### Memory
 
@@ -62,7 +62,7 @@ Incident + rationale: `.peaks/memory/2026-07-03-v3-1-0-job-trigger-miss.md`. Thi
 
 ### Fixed — peaks-code external-references authority declaration
 
-- `skills/peaks-code/SKILL.md` External-references paragraph now ends with `Peaks-Loop Solo gates and artifacts remain authoritative.` to satisfy `tests/unit/skill-external-invocation.test.ts:63` (`PEAKS_AUTHORITATIVE_PATTERN`). One-line surgical patch; no behaviour change.
+- `skills/peaks-code/SKILL.md` External-references paragraph now ends with `Peaks-Loop Code gates and artifacts remain authoritative.` to satisfy `tests/unit/skill-external-invocation.test.ts:63` (`PEAKS_AUTHORITATIVE_PATTERN`). One-line surgical patch; no behaviour change.
 
 ### Added — Peaks-Loop Job
 
@@ -104,19 +104,19 @@ The v2.13.0 auto-compact design shipped `shell-exec` as the only pathway, which 
 - **New `ide-native` pathway** — `src/services/context/auto-compact-dispatcher.ts:138-155` routes main-session compacts through `installAutoCompactHook`, which writes a PreToolUse hook into `.claude/settings.local.json` (matcher `Bash|Task`, command `peaks session auto-compact-hook`).
 - **New `peaks session auto-compact-hook` CLI** — `src/cli/commands/session-auto-compact-hook-command.ts`. Reads `CLAUDE_CONTEXT_USAGE_PERCENT`; below 0.95 exits 0 silent; at ratio ≥ 0.95 spawns `claude --compact` in-band against the **current** runner (detached + unref, never blocks the runner's tool call). ENOENT-safe: if `claude` is not on PATH (e.g. user runs Claude Code as an MCP), the hook logs a stderr hint and exits 0 silent rather than crashing the runner.
 - **New `installAutoCompactHook` / `removeAutoCompactHook` service** — `src/services/hooks/auto-compact-hook-install.ts`. Idempotent: re-install returns `already-installed` and does NOT re-write the file; remove preserves other PreToolUse entries (the existing fact-forcing bypass hook on every peaks-loop consumer project survives).
-- **Lazy install** — hook is installed on first `peaks solo auto-compact` invocation, NOT on `peaks workspace init`. User has opted in by running the command; no zero-touch surprise.
+- **Lazy install** — hook is installed on first `peaks code auto-compact` invocation, NOT on `peaks workspace init`. User has opted in by running the command; no zero-touch surprise.
 - **Claude Code adapter** — `compactPathway` changed from `shell-exec` to `ide-native` for `target='main'`. Sub-agent shells still get the legacy `shell-exec` pathway.
 
-### Fixed — Solo Step N+2 prose (was 75% / "do NOT auto-execute")
+### Fixed — Code Step N+2 prose (was 75% / "do NOT auto-execute")
 
-- `skills/peaks-code/SKILL.md` Step N+2 paragraph rewritten: thresholds now 0.85 pre-compact / 0.95 red-line (matches v2.13.0 auto-compact), explicit Karpathy §4 compact-red-line exception cited, `peaks solo context-now --json` is the canonical probe primitive (replaces `peaks context check --prompt-size <bytes>` hand-pass).
+- `skills/peaks-code/SKILL.md` Step N+2 paragraph rewritten: thresholds now 0.85 pre-compact / 0.95 red-line (matches v2.13.0 auto-compact), explicit Karpathy §4 compact-red-line exception cited, `peaks code context-now --json` is the canonical probe primitive (replaces `peaks context check --prompt-size <bytes>` hand-pass).
 - `src/services/context/main-session-monitor.ts` — `@deprecated` JSDoc on `evaluateMainSessionThreshold` cross-links to `evaluateCompactTrigger` (0.85/0.95); legacy 4-tier envelope retained for statusline callers (migration to v2.15.0).
 
 ### Tests — 4 new suites + 3 modified files
 
 - `tests/unit/services/hooks/auto-compact-hook-install.test.ts` (7 cases) — install / idempotent / remove / preservation of unrelated entries.
 - `tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts` (9 cases) — `dispatchIdeCompact({ target: 'main' })` routes to `ide-native`; round-trip install / remove.
-- `tests/unit/skills/solo-step-n-plus-2-prose.test.ts` (6 cases) — pins the 0.85 / 0.95 / Karpathy §4 contract; asserts `75%` is NOT in the paragraph.
+- `tests/unit/skills/code-step-n-plus-2-prose.test.ts` (6 cases) — pins the 0.85 / 0.95 / Karpathy §4 contract; asserts `75%` is NOT in the paragraph.
 - `tests/unit/cli/session-auto-compact-hook-command.test.ts` (3 cases) — dogfood surfacing: below-threshold silent, missing env-var silent, red-line + ENOENT exits 0 with stderr hint.
 - `tests/unit/services/context/main-session-monitor.test.ts` (+2 AC-4 cases), `tests/unit/context/auto-compact-main-target.test.ts` (pathway assertion updated) — coverage.
 
@@ -231,39 +231,39 @@ The peak-loop skill-external-invocation audit pattern (capability discovery + re
 
 ### Removed — change-id shim (cleanup post v2.17.0 hard-kill, rolled up from v2.19.0)
 
-**PATCH bump from 2.18.3**. Resolves the user-reported "新项目第一次使用 peaks-code 时初始化完不按流程走、开发效果差、再开 session 后才正常" defect. Two surgical fixes to the first-run Solo gates (3 source files, 1 new test file, 2 test-regression updates; no schema change, no new dependencies, no public API change).
+**PATCH bump from 2.18.3**. Resolves the user-reported "新项目第一次使用 peaks-code 时初始化完不按流程走、开发效果差、再开 session 后才正常" defect. Two surgical fixes to the first-run Code gates (3 source files, 1 new test file, 2 test-regression updates; no schema change, no new dependencies, no public API change).
 
 ### Bugfix — `step-0.55-1x-upgrade` always pauses, even in `full-auto` (P0)
 
-The 1.x → 2.0 upgrade is an irreversible external side effect (rewrites `~/.peaks/config.json` + the on-disk cache schema). Pre-fix, `peaks solo should-pause --step step-0.55-1x-upgrade --mode full-auto` returned `shouldPause: false` because the step was declared in `GATED_STEPS` but missing from the `HARD_PAUSE_STEPS` `Set` that already covered `step-0.5-openspec-opt-in` and `step-0.7-resume-detection`. In `full-auto` mode, the `shouldAutoProceed` branch silently auto-proceeded the upgrade without user consent. The result: 1.x → 2.0 downgrade (or stale 1.x standards/config residue) on the very first Solo run of a fresh project. Post-fix, the step pauses with `gateKind: 'mode-selection-itself'` and the LLM-side caller presents an `AskUserQuestion` to the user.
+The 1.x → 2.0 upgrade is an irreversible external side effect (rewrites `~/.peaks/config.json` + the on-disk cache schema). Pre-fix, `peaks code should-pause --step step-0.55-1x-upgrade --mode full-auto` returned `shouldPause: false` because the step was declared in `GATED_STEPS` but missing from the `HARD_PAUSE_STEPS` `Set` that already covered `step-0.5-openspec-opt-in` and `step-0.7-resume-detection`. In `full-auto` mode, the `shouldAutoProceed` branch silently auto-proceeded the upgrade without user consent. The result: 1.x → 2.0 downgrade (or stale 1.x standards/config residue) on the very first Code run of a fresh project. Post-fix, the step pauses with `gateKind: 'mode-selection-itself'` and the LLM-side caller presents an `AskUserQuestion` to the user.
 
-- **Modified (2):** `src/services/solo/mode-gate.ts` (added 1 entry to `HARD_PAUSE_STEPS`), `src/services/solo/user-touchpoint-classifier.ts` (reclassified the row from `tech/business-only` with `fullAutoCanProceed: true` to `commit-floor/always` with `fullAutoCanProceed: false`).
+- **Modified (2):** `src/services/code/mode-gate.ts` (added 1 entry to `HARD_PAUSE_STEPS`), `src/services/code/user-touchpoint-classifier.ts` (reclassified the row from `tech/business-only` with `fullAutoCanProceed: true` to `commit-floor/always` with `fullAutoCanProceed: false`).
 - **User-observed symptom (now fixed):** "首次启动后开发效果差" — caused by 1.x standards/config residue silently surviving `full-auto` and contaminating subsequent RD/QA artifact contracts.
 
-### Bugfix — `--mode` is optional on `peaks solo should-pause` (P1, Step 1 chicken-and-egg)
+### Bugfix — `--mode` is optional on `peaks code should-pause` (P1, Step 1 chicken-and-egg)
 
-`peaks solo should-pause --step step-1-mode-select` (no `--mode` flag) failed pre-fix with `error: required option --mode <mode> not specified`. Step 1's SEMANTIC is "ask the user what mode to use" — requiring `--mode` to ask mode is a chicken-and-egg. Post-fix, `--mode` is `.option()` (not `.requiredOption()`); the action handler resolves `const mode = opts.mode ?? 'full-auto'` once at the top. All 5 downstream `opts.mode` references inside the same action body now use the local `mode` const. Existing `--mode <x>` callers are unaffected (backward-compatible). The service-layer `shouldPauseAtGate` still requires a resolved mode — defaulting is at the CLI boundary, which is the correct layer for ergonomics.
+`peaks code should-pause --step step-1-mode-select` (no `--mode` flag) failed pre-fix with `error: required option --mode <mode> not specified`. Step 1's SEMANTIC is "ask the user what mode to use" — requiring `--mode` to ask mode is a chicken-and-egg. Post-fix, `--mode` is `.option()` (not `.requiredOption()`); the action handler resolves `const mode = opts.mode ?? 'full-auto'` once at the top. All 5 downstream `opts.mode` references inside the same action body now use the local `mode` const. Existing `--mode <x>` callers are unaffected (backward-compatible). The service-layer `shouldPauseAtGate` still requires a resolved mode — defaulting is at the CLI boundary, which is the correct layer for ergonomics.
 
-- **Modified (1):** `src/cli/commands/solo-commands.ts` (option() + `mode` const + 5 reference rewrites inside the same action handler).
+- **Modified (1):** `src/cli/commands/code-commands.ts` (option() + `mode` const + 5 reference rewrites inside the same action handler).
 - **User-observed symptom (now fixed):** "再开 session 后才正常" — the first session's failed Step 1 caused the LLM-side caller to fall back to a sticky default mode; the second session's retry landed in the "right" mode by accident.
 
 ### Test surface
 
-- **Created (1):** `tests/unit/services/solo/first-run-step-gates.test.ts` — 20 vitest cases (4 modes × `step-0.55-1x-upgrade` pause guard; default-mode vs explicit-mode Step 1; AC-3 backward-compat byte-equality; 8 regression guards on the other 2 hard-pause steps; cross-check that non-hard-pause steps still auto-proceed).
-- **Modified (2, regression-data extension):** `tests/unit/services/solo/mode-gate.test.ts` (added `step-0.55-1x-upgrade` to the local `HARD_PAUSE_STEP_SET` test fixture), `tests/unit/services/solo/stale-presence-detection.test.ts` (added the new step to the case-#5 non-Step-1 filter — these existing tests encoded the BUG behavior, so leaving them stale would have caused a false-positive green).
+- **Created (1):** `tests/unit/services/code/first-run-step-gates.test.ts` — 20 vitest cases (4 modes × `step-0.55-1x-upgrade` pause guard; default-mode vs explicit-mode Step 1; AC-3 backward-compat byte-equality; 8 regression guards on the other 2 hard-pause steps; cross-check that non-hard-pause steps still auto-proceed).
+- **Modified (2, regression-data extension):** `tests/unit/services/code/mode-gate.test.ts` (added `step-0.55-1x-upgrade` to the local `HARD_PAUSE_STEP_SET` test fixture), `tests/unit/services/code/stale-presence-detection.test.ts` (added the new step to the case-#5 non-Step-1 filter — these existing tests encoded the BUG behavior, so leaving them stale would have caused a false-positive green).
 - **Updated (1):** `package.json` + `src/shared/version.ts` (2.18.3 → 2.18.4).
 
 ### Why this is the simplest fix
 
 - 1-line addition to `HARD_PAUSE_STEPS` + 5-line row replacement in the classifier + 5-line command-arg change with 5 mechanical reference rewrites = 3 source edits. No new abstractions, no new env vars, no new schemas, no CLI surface change beyond the `--mode` defaulting.
-- 800-line file cap respected: largest modified file is `solo-commands.ts` (well below the 800 cap).
+- 800-line file cap respected: largest modified file is `code-commands.ts` (well below the 800 cap).
 - Karpathy #3 surgical: 6 files touched, all justified (3 source + 1 new test + 2 test-regression updates because the existing tests encoded the BUG behavior).
 
 ### Verification (QA cycle 1, verdict pass)
 
-- AC-1: `peaks solo should-pause --step step-0.55-1x-upgrade --mode full-auto` → `ok: true, shouldPause: true, gateKind: "mode-selection-itself"` ✅
-- AC-2: `peaks solo should-pause --step step-1-mode-select` (no `--mode`) → `ok: true, shouldPause: true` (no "required option" error) ✅
-- AC-3: `peaks solo should-pause --step step-1-mode-select --mode full-auto` → byte-identical to AC-2 ✅
+- AC-1: `peaks code should-pause --step step-0.55-1x-upgrade --mode full-auto` → `ok: true, shouldPause: true, gateKind: "mode-selection-itself"` ✅
+- AC-2: `peaks code should-pause --step step-1-mode-select` (no `--mode`) → `ok: true, shouldPause: true` (no "required option" error) ✅
+- AC-3: `peaks code should-pause --step step-1-mode-select --mode full-auto` → byte-identical to AC-2 ✅
 - Cross-mode 4×2 matrix (full-auto / assisted / strict / swarm × step-0.55 / step-1): 8/8 pause ✅
 - `peaks-code` first-run sequence (skill presence:check-stale + upgrade --detect-1x + 4 should-pause steps): 6/6 clean ✅
 - vitest 527/527 passed (27 files, 0 failed, 22.61s wallclock)
@@ -500,9 +500,9 @@ Each original file gets a sibling `import { ... } from './X-helpers.js'` + `expo
 
 ### Behavior changes (user-visible)
 
-- **None at the CLI surface.** No new commands, no removed commands, no flag changes. Existing `peaks solo`, `peaks doctor`, `peaks request lint`, `peaks scan file-size` all behave identically.
+- **None at the CLI surface.** No new commands, no removed commands, no flag changes. Existing `peaks code`, `peaks doctor`, `peaks request lint`, `peaks scan file-size` all behave identically.
 - **Binding file format change (additive only):** on-disk binding files now carry a `#<pid>` suffix in `callerId` and `ownerHint`. Old v2.16.0 / v2.17.0 files without the suffix are still readable via `BindingSchema.safeParse` (v2.18.0 read path is forward-compatible); no automatic rewrite (write-amplification risk deferred to a future `peaks doctor --rebuild-binding` slice).
-- **Multi-Claude parallel fix (user-visible in the dogfood scenarios):** opening 2 Claude Code windows in the same project and running `peaks solo` in each now yields 2 distinct sids (was: 1 collided sid, per the v2.17.0 changelog dogfood scenario 1).
+- **Multi-Claude parallel fix (user-visible in the dogfood scenarios):** opening 2 Claude Code windows in the same project and running `peaks code` in each now yields 2 distinct sids (was: 1 collided sid, per the v2.17.0 changelog dogfood scenario 1).
 - **`/compact` resume (user-visible, no change):** same outer-session-id still reuses the same sid. Verified by dogfood.
 
 ### Verification
@@ -519,7 +519,7 @@ Each original file gets a sibling `import { ... } from './X-helpers.js'` + `expo
 |---|---|---|---|
 | A | P0 fix verification (binding file format) | PASS | `callerId: 5fa8a7d8-...#13472` matches shell pid 13472; pre-existing instance pid 3876 ≠ current shell — fix works in production-shape data |
 | B | peaks doctor stale-binding scan | PASS | 0 stale bindings, ttl=300000ms, v2.16.0 schema surface intact |
-| C | peaks solo smoke (4 sub-commands) | PARTIAL | 3/4 pass; `peaks request lint --project .` is invalid syntax (needs `<rid>` + `--role`); not a v2.18.0 regression |
+| C | peaks code smoke (4 sub-commands) | PARTIAL | 3/4 pass; `peaks request lint --project .` is invalid syntax (needs `<rid>` + `--role`); not a v2.18.0 regression |
 | D | env-collision simulation (single shell, 2 envs) | PASS | `fake-session-A#20984` + `fake-session-B#20984` → 2 distinct sids (fupv8b / xnntb1); transposed axis (same pid, different env) verified; primary 2-Claude-windows scenario needs CI integration test with 2 child node processes |
 
 **Dogfood verdict:** 3.5 / 4 pass; `recommend_v2.18.0_commit: true`.
@@ -590,7 +590,7 @@ The first v2.18.0 release deferred two open items to a redo slice; both are now 
 ### Behavior changes (user-visible)
 
 - **`--change-id <slug>`** is now a metadata-only slug, not a filesystem scope identifier. Existing commands that accept `--change-id` continue to work; the slug appears in envelope `data.changeId` for traceability.
-- **On-disk artifact paths** unchanged from a CLI user's perspective — reviewable artifacts still appear at the locations `peaks solo` / `peaks qa` write them. Internally they key off session id, not change-id.
+- **On-disk artifact paths** unchanged from a CLI user's perspective — reviewable artifacts still appear at the locations `peaks code` / `peaks qa` write them. Internally they key off session id, not change-id.
 - **`peaks doctor` exit code**: now exits 1 when stale bindings are present (in addition to its existing failure conditions).
 
 ### Verification
@@ -604,9 +604,9 @@ The first v2.18.0 release deferred two open items to a redo slice; both are now 
 
 Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-session-88411f/txt/handoff-2026-06-29-v2-17-0.md` for details):
 
-1. **Multi-Claude parallel提速**: open 2 Claude instances in the same project, run `peaks solo <different goal>` in each. Verify both bindings coexist with distinct sids.
+1. **Multi-Claude parallel提速**: open 2 Claude instances in the same project, run `peaks code <different goal>` in each. Verify both bindings coexist with distinct sids.
 2. **D1 conflict detection**: 2 instances both targeting the same source file. Verify each writes to its own session-scoped artifact directory.
-3. **`/compact` resume**: run `peaks solo <goal>`, `/compact`, continue. Verify same sid reused.
+3. **`/compact` resume**: run `peaks code <goal>`, `/compact`, continue. Verify same sid reused.
 4. **Doctor stale**: kill -9 a Claude instance, run `peaks doctor`, verify stale binding listed + `--cleanup-stale` works.
 
 ### Commits
@@ -619,19 +619,19 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 ### Out of scope (deferred)
 
 - Runner wiring for D1/D2 in `peaks workspace init` + `peaks audit-goal` (modules exist, not yet called).
-- 800-line cap backlog (`session-manager.ts` 710, `solo/` and `verdict/` modules) — unchanged from v2.15.x.
+- 800-line cap backlog (`session-manager.ts` 710, `code/` and `verdict/` modules) — unchanged from v2.15.x.
 - Final removal of `change-id.ts` shims (would require rewriting the 11 src services that still reference them).
 
 ---
 
 ## [2.15.1] — 2026-06-28 — 12 Gaps CLI 全套落地 + ice-cola dogfood 验证
 
-**PATCH bump from 2.15.0**. Follow-up ship for the 12 Gaps positioning memory (peaks-loop 真实定位 + 全套 15 个 Gap CLI 落地). No breaking changes. All new commands are additive top-level (no conflict with existing `peaks solo` / `peaks qa` / `peaks slice` role commands).
+**PATCH bump from 2.15.0**. Follow-up ship for the 12 Gaps positioning memory (peaks-loop 真实定位 + 全套 15 个 Gap CLI 落地). No breaking changes. All new commands are additive top-level (no conflict with existing `peaks code` / `peaks qa` / `peaks slice` role commands).
 
 ### Feature — slice DAG layered parallelism + foundation/upstreamSync/complexity 字段
 
 - `src/services/dispatch/slice-dag.ts` — `SliceNode` 加 3 optional 字段 (`foundation?: boolean` / `upstreamSync?: boolean` / `complexity?: 'trivial'|'simple'|'complex'`). `validateDag` 加字段合法性校验 + foundation-only-depends-on-foundation 防御性规则. `topologicalLevels` 同层内 priority 排序 (foundation > upstreamSync > id asc). 老 DAG hash 稳定.
-- `src/services/solo/dag-orchestrator.ts` — 新增 `runLayeredDag` (业务 slice 不等所有 foundation,只等其 dependsOn 子集). cancel-on-fail 保留.
+- `src/services/code/dag-orchestrator.ts` — 新增 `runLayeredDag` (业务 slice 不等所有 foundation,只等其 dependsOn 子集). cancel-on-fail 保留.
 - `src/cli/commands/dispatch-from-dag.ts` — 切到 `runLayeredDag` + envelope 加 `sliceMeta` 字段.
 
 ### Feature — G11/13/14/15 CLI 全套落地 (10 commands)
@@ -645,7 +645,7 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 
 - **G1 slice review** (4 cmds): `peaks slice-review` / `slice-score` / `slice-accept` / `slice-reject` — 4 项业务清单 + 12 Gaps 阈值 (avg >= 3 + no item <= 2)
 - **G3 prd blocks** (1 cmd): `peaks prd check-blocks` — 4 必填块校验 (业务场景 / 边界 / UI 装配 / 上游基线) + 业务禁区子节
-- **G4 user touchpoint** (3 cmds): `peaks gate-classify` / `user-touchpoints` / `commit-boundary-actions` — 14 Solo gate 静态分类 (business / tech / mode-selection / commit-boundary / commit-floor)
+- **G4 user touchpoint** (3 cmds): `peaks gate-classify` / `user-touchpoints` / `commit-boundary-actions` — 14 Code gate 静态分类 (business / tech / mode-selection / commit-boundary / commit-floor)
 - **G5 qa business** (4 cmds): `peaks qa-business-review` / `-score` / `-accept` / `-reject` — 6 项业务清单 + 同一阈值
 
 ### Feature — G6/G7/G8/G9/G10 CLI (10 commands, 30+ tests)
@@ -701,7 +701,7 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 - **`peaks workspace init`** (MODIFIED) — When an outer-session-mismatch rotation fires, the CLI now calls `clearStalePresenceOnRotation` to clear the stale presence. Two guards prevent accidental destruction of user-explicit mode choices:
   - **Reconnect guard** — recorded outer id matches the NEW outer id → do NOT clear (reconnect).
   - **Live-different-outer guard** — recorded outer id belongs to a different LIVE outer session → do NOT clear (would destroy another user's mode).
-- **`peaks solo should-pause --step step-1-mode-select`** (MODIFIED) — Now consults `presence:check-stale` automatically. When the presence is stale, returns `shouldPause: true, reason: 'stale-presence — re-ask Step 1'`. The hard-pause on Step 1 itself is preserved (defect #1 from slice 2026-06-28-solo-mode-bypass-fix).
+- **`peaks code should-pause --step step-1-mode-select`** (MODIFIED) — Now consults `presence:check-stale` automatically. When the presence is stale, returns `shouldPause: true, reason: 'stale-presence — re-ask Step 1'`. The hard-pause on Step 1 itself is preserved (defect #1 from slice 2026-06-28-code-mode-bypass-fix).
 - **`skills/peaks-code/SKILL.md` Step 1** (MODIFIED) — Wording changed from "if user did not name a profile, AskUserQuestion" to "if user did not name a profile OR presence is stale, AskUserQuestion". Cross-references the new `references/mode-selection-with-stale-presence.md`.
 - **`skills/peaks-code/references/mode-selection-with-stale-presence.md`** (NEW) — Detection protocol + worked example (88b27d defect) + ACL.
 - **`src/services/skills/skill-presence-service.ts`** — New exports: `checkStalePresence`, `clearStalePresenceOnRotation`, types `StalenessCheck`, `StaleReason`.
@@ -716,12 +716,12 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 
 ### Feature — Commit-boundary hard-floor (full-auto boundary = commit only)
 
-- **`src/services/solo/mode-gate.ts`** — New `HardFloorCategory` value: `'commit-boundary-side-effect'`. New `CommitBoundaryActionId` union with 5 actions: `git-push`, `git-tag`, `npm-publish`, `npm-install-global`, `peaks-global-install`. New function `detectCommitBoundaryAction(command)` matches the patterns. New `shouldPauseAtGate({ commitBoundaryAction: true })` flag — when true, ALWAYS pauses regardless of mode (overrides full-auto / swarm auto-proceed).
+- **`src/services/code/mode-gate.ts`** — New `HardFloorCategory` value: `'commit-boundary-side-effect'`. New `CommitBoundaryActionId` union with 5 actions: `git-push`, `git-tag`, `npm-publish`, `npm-install-global`, `peaks-global-install`. New function `detectCommitBoundaryAction(command)` matches the patterns. New `shouldPauseAtGate({ commitBoundaryAction: true })` flag — when true, ALWAYS pauses regardless of mode (overrides full-auto / swarm auto-proceed).
 - **Per the user-given rule** `.peaks/memory/2026-06-28-full-auto-boundary.md`: "full-auto 只做到 commit 就是，push 不用". The commit-boundary hard-floor is the machine enforcement of that advisory rule.
 
 ### Test results
 - 4 new test files: `presence-staleness.test.ts` (12), `stale-presence-detection.test.ts` (9), `feedback-promotion.test.ts` (18), `commit-boundary-hard-floor.test.ts` (247). Total new cases: **286**.
-- Existing solo tests (mode-gate × 81, post-compact × 11) pass unchanged.
+- Existing code tests (mode-gate × 81, post-compact × 11) pass unchanged.
 - Full unit suite baseline 4394 → 4680 passing (286 added). 0 new failures; pre-existing 7 unrelated failures unchanged.
 
 ### Out-of-scope
@@ -734,10 +734,10 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + 业务并行(节省 2-3 天 wall time);fork 场景 = 上游 tag 断点同步;复杂度分流 = user-attended vs overnight 排程。
 
 - **`src/services/dispatch/slice-dag.ts`** — `SliceNode` 加 3 可选字段(`foundation?: boolean` / `upstreamSync?: boolean` / `complexity?: 'trivial'|'simple'|'complex'`)。`validateDag` 加新字段合法性校验 + 防御性规则(foundation slice 不可 dependsOn 非 foundation)。`topologicalLevels` 同层内 priority 排序: foundation > upstreamSync > id asc。`serializeDag` / `hashDag` 含新字段,**老 DAG hash 稳定**。
-- **`src/services/solo/dag-orchestrator.ts`** — 新增 `runLayeredDag` 函数。同 `runDag` 语义 + 业务 slice 不等所有 foundation,只等其 `dependsOn` 子集。cancel-on-fail 保留。`runDag` 保留(向后兼容,内部走 priority-sorted levels)。
+- **`src/services/code/dag-orchestrator.ts`** — 新增 `runLayeredDag` 函数。同 `runDag` 语义 + 业务 slice 不等所有 foundation,只等其 `dependsOn` 子集。cancel-on-fail 保留。`runDag` 保留(向后兼容,内部走 priority-sorted levels)。
 - **`src/cli/commands/dispatch-from-dag.ts`** — 切到 `runLayeredDag`。envelope 加 `sliceMeta` 字段(per-slice foundation/upstreamSync/complexity)。
-- **2 new test files** — `tests/unit/dispatch/slice-dag-foundation.test.ts` (19 cases) + `tests/unit/solo/dag-orchestrator-layered.test.ts` (5 cases) = **24 new tests, 0 regression**。
-- **dispatch + solo tests**: 215/215 通过(单跑)。
+- **2 new test files** — `tests/unit/dispatch/slice-dag-foundation.test.ts` (19 cases) + `tests/unit/code/dag-orchestrator-layered.test.ts` (5 cases) = **24 new tests, 0 regression**。
+- **dispatch + code tests**: 215/215 通过(单跑)。
 - **全量 vitest** 4843 cases: 4824 passed / 2 failed(并发 race,pre-existing)。
 
 **不触动:** transition gates / hard contracts / Karpathy 4 / sub-agent 协议 / 老 DAG 兼容性。
@@ -791,8 +791,8 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 - 8 tests pass
 
 **G4 user touchpoint classifier**(slice-2026-06-28-user-touchpoints):
-- 3 commands: `peaks solo gate-classify` / `peaks solo user-touchpoints` / `peaks solo commit-boundary-actions`
-- 14 个 Solo gate 静态分类: business / tech / mode-selection / commit-boundary / commit-floor
+- 3 commands: `peaks code gate-classify` / `peaks code user-touchpoints` / `peaks code commit-boundary-actions`
+- 14 个 Code gate 静态分类: business / tech / mode-selection / commit-boundary / commit-floor
 - `userShouldReview`: always / business-only / never
 - 7 tests pass
 
@@ -980,26 +980,26 @@ Slice B of the v2.14.0 anti-fake-green hardening PRD (`v2-14-0-anti-fake-green-h
 
 ---
 
-## [2.13.4] — 2026-06-28 — Solo mode gate + verify-pipeline canonical path + auto-compact main target
+## [2.13.4] — 2026-06-28 — Code mode gate + verify-pipeline canonical path + auto-compact main target
 
-**PATCH bump from 2.13.3** (slice `2026-06-28-solo-mode-bypass-fix`, 4 production defects reported by user in solo session 2026-06-28).
+**PATCH bump from 2.13.3** (slice `2026-06-28-code-mode-bypass-fix`, 4 production defects reported by user in code session 2026-06-28).
 
 The four defects all stem from the v2.13.0 two-axis convention landing debt: the canonical evidence location is `.peaks/_runtime/change/<changeId>/<role>/...` (per `change-scope-service.ts`), but v2.13.0's mode-gate, verify-pipeline, and auto-compact dispatcher all referenced the pre-1.3.0 sibling-of-`_runtime/` form. v2.13.4 also adds the user-requested economy-vs-concurrency separation (per direction 2026-06-28: "效率比省钱更重要，是在效率达到最大值的时候，再去考虑经济问题").
 
 ### Bug fixes
 
-- **Step 1 AskUserQuestion is no longer auto-defaulted to `mode: full-auto`** (defect #1) — `src/services/solo/mode-gate.ts:104-196` now treats `step-1-mode-select` (and `step-0.5-openspec-opt-in`, `step-0.7-resume-detection`) as a `HARD_PAUSE_STEPS` set: even `full-auto` mode pauses for the user to pick the mode. A new `gateKind: 'mode-selection-itself' | 'mode-driven' | 'hard-floor'` discriminator lets the LLM-side runner distinguish "you paused because the user must choose" from "you paused because the user already chose assisted/strict" from "you paused because a hard-floor category always wins". Dogfood-verified: a new session no longer writes `mode: "full-auto"` to `.peaks/_runtime/active-skill.json` on the first tool call without surfacing the Step 1 AskUserQuestion. 14 new test cases in `tests/unit/solo/mode-gate-step-1-hard-pause.test.ts` cover the four-mode matrix + hard-floor precedence. The pre-existing `tests/unit/services/solo/mode-gate.test.ts` (77 cases) was also updated for the new `gateKind` field — 77/77 still pass.
+- **Step 1 AskUserQuestion is no longer auto-defaulted to `mode: full-auto`** (defect #1) — `src/services/code/mode-gate.ts:104-196` now treats `step-1-mode-select` (and `step-0.5-openspec-opt-in`, `step-0.7-resume-detection`) as a `HARD_PAUSE_STEPS` set: even `full-auto` mode pauses for the user to pick the mode. A new `gateKind: 'mode-selection-itself' | 'mode-driven' | 'hard-floor'` discriminator lets the LLM-side runner distinguish "you paused because the user must choose" from "you paused because the user already chose assisted/strict" from "you paused because a hard-floor category always wins". Dogfood-verified: a new session no longer writes `mode: "full-auto"` to `.peaks/_runtime/active-skill.json` on the first tool call without surfacing the Step 1 AskUserQuestion. 14 new test cases in `tests/unit/code/mode-gate-step-1-hard-pause.test.ts` cover the four-mode matrix + hard-floor precedence. The pre-existing `tests/unit/services/code/mode-gate.test.ts` (77 cases) was also updated for the new `gateKind` field — 77/77 still pass.
 - **`peaks workflow verify-pipeline` now resolves the canonical evidence path** (defect #3) — `src/services/workflow/pipeline-verify-service.ts:216,219,260,288,295` rebuilds evidence paths as `.peaks/_runtime/change/<changeId>/<role>/...` (was `.peaks/<changeId>/<role>/...`, the SKILL.md 2.8.3 hard-ban shape). `src/services/workflow/artifact-paths.ts:67,148` gets the same fix in the security/performance findings resolver. A 1-minor-release deprecation window accepts the legacy `.peaks/<changeId>/...` and `.peaks/_runtime/<changeId>/...` forms with a `DEPRECATION_LEGACY_PATH_USED` warning so un-migrated workspaces still resolve. `PipelineVerification.usedCanonicalPath: boolean` is added to the return envelope so QA / TXT can surface the deprecation state. The CLI help-text at `src/cli/commands/workflow-commands.ts:448` is updated to cite the canonical path. 4 new test cases in `tests/unit/workflow/pipeline-verify-canonical-path.test.ts` cover canonical / legacy misplaced / top-level fallback / absent. The pre-existing `tests/unit/pipeline-verify-service.test.ts` (60 cases) was updated to write evidence at both paths so the deprecation contract is exercised end-to-end — 60/60 still pass.
-- **`auto-compact` now targets the main-session context, not a sub-agent shell** (defect #4) — `src/services/context/auto-compact-dispatcher.ts` and `src/services/solo/auto-compact-orchestrator.ts` accept a new `target: 'main' | 'sub-agent'` parameter (default `'main'`). For `target='main' + ide='claude-code'`, the dispatcher returns the `llm-self-compress` pathway and the orchestrator writes `.peaks/_runtime/<sessionId>/txt/auto-compact-pending.json` (with `pending: true, target: 'main', ratio, redLine`) so the next main-session LLM turn fires `/compact` in-band rather than spawning a detached `sh -c /compact` (which previously only compressed the sub-agent shell). For `target='sub-agent'`, the legacy shell-spawn behavior is preserved. Non-claude-code IDEs + `target='main'` return `noop` with a "main-session target unsupported" reason. 6 new test cases in `tests/unit/context/auto-compact-main-target.test.ts` cover the dispatch matrix + the orchestrator's intent-file write.
+- **`auto-compact` now targets the main-session context, not a sub-agent shell** (defect #4) — `src/services/context/auto-compact-dispatcher.ts` and `src/services/code/auto-compact-orchestrator.ts` accept a new `target: 'main' | 'sub-agent'` parameter (default `'main'`). For `target='main' + ide='claude-code'`, the dispatcher returns the `llm-self-compress` pathway and the orchestrator writes `.peaks/_runtime/<sessionId>/txt/auto-compact-pending.json` (with `pending: true, target: 'main', ratio, redLine`) so the next main-session LLM turn fires `/compact` in-band rather than spawning a detached `sh -c /compact` (which previously only compressed the sub-agent shell). For `target='sub-agent'`, the legacy shell-spawn behavior is preserved. Non-claude-code IDEs + `target='main'` return `noop` with a "main-session target unsupported" reason. 6 new test cases in `tests/unit/context/auto-compact-main-target.test.ts` cover the dispatch matrix + the orchestrator's intent-file write.
 
 ### Features
 
-- **`peaks workspace migrate-change-scope --project <path> [--apply] [--json]`** — slice 2026-06-28-solo-mode-bypass-fix migration tool. Dry-run by default; `--apply` atomically renames misplaced `.peaks/_runtime/<changeId>/` (and `.peaks/<changeId>/`) entries into the canonical `.peaks/_runtime/change/<changeId>/` location, writes a `.peaks-migration.json` marker (with `from:`, `slice:`, `tool:`, `migratedAt:`) for audit. **Refusal conditions** (defense-in-depth, both pre-slice audit + new): entries that look like date-stamped session ids (`YYYY-MM-DD-session-X`) are refused to avoid destroying the session workspace (`MIGRATION_REFUSED_SESSION_ID_COLLISION`); entries whose target dir exists with non-byte-equal contents are refused to avoid clobbering (`MIGRATION_REFUSED_TARGET_NOT_EMPTY`); a hard-coded `PEAKS_TOP_LEVEL_DENY` / `RUNTIME_DENY` whitelist + `looksLikeChangeScopeId` structural check ensures `.peaks/memory`, `.peaks/standards`, `.peaks/retrospective`, `.peaks/sc`, `.peaks/sops`, `.peaks/project-scan`, `.peaks/_sub_agents` are **never** treated as misplaced change-ids. **Idempotent**: re-running on a clean workspace reports no work. Dogfood-verified: the actual misplaced `.peaks/_runtime/2026-06-27-verdict-aggregator-v2-12-debt/` (8 files) was migrated end-to-end; subsequent `peaks workflow verify-pipeline --rid 2026-06-27-verdict-aggregator-v2-12-debt --change-id 2026-06-27-verdict-aggregator-v2-12-debt --project .` reports `usedCanonicalPath: true` (was `false`) and zero `DEPRECATION_LEGACY_PATH_USED` warnings. 5 new test cases in `tests/unit/workspace/migrate-change-scope.test.ts` cover dry-run, apply, idempotency, session-id refusal, and target-not-empty refusal; a 6th case locks the `.peaks/<project-data>` whitelist contract.
+- **`peaks workspace migrate-change-scope --project <path> [--apply] [--json]`** — slice 2026-06-28-code-mode-bypass-fix migration tool. Dry-run by default; `--apply` atomically renames misplaced `.peaks/_runtime/<changeId>/` (and `.peaks/<changeId>/`) entries into the canonical `.peaks/_runtime/change/<changeId>/` location, writes a `.peaks-migration.json` marker (with `from:`, `slice:`, `tool:`, `migratedAt:`) for audit. **Refusal conditions** (defense-in-depth, both pre-slice audit + new): entries that look like date-stamped session ids (`YYYY-MM-DD-session-X`) are refused to avoid destroying the session workspace (`MIGRATION_REFUSED_SESSION_ID_COLLISION`); entries whose target dir exists with non-byte-equal contents are refused to avoid clobbering (`MIGRATION_REFUSED_TARGET_NOT_EMPTY`); a hard-coded `PEAKS_TOP_LEVEL_DENY` / `RUNTIME_DENY` whitelist + `looksLikeChangeScopeId` structural check ensures `.peaks/memory`, `.peaks/standards`, `.peaks/retrospective`, `.peaks/sc`, `.peaks/sops`, `.peaks/project-scan`, `.peaks/_sub_agents` are **never** treated as misplaced change-ids. **Idempotent**: re-running on a clean workspace reports no work. Dogfood-verified: the actual misplaced `.peaks/_runtime/2026-06-27-verdict-aggregator-v2-12-debt/` (8 files) was migrated end-to-end; subsequent `peaks workflow verify-pipeline --rid 2026-06-27-verdict-aggregator-v2-12-debt --change-id 2026-06-27-verdict-aggregator-v2-12-debt --project .` reports `usedCanonicalPath: true` (was `false`) and zero `DEPRECATION_LEGACY_PATH_USED` warnings. 5 new test cases in `tests/unit/workspace/migrate-change-scope.test.ts` cover dry-run, apply, idempotency, session-id refusal, and target-not-empty refusal; a 6th case locks the `.peaks/<project-data>` whitelist contract.
 
 ### Internal
 
-- `src/services/solo/mode-gate.ts` (+28/-4 lines) — `HARD_PAUSE_STEPS` set + `GateKind` union + `gateKind` field on `GateDecision`.
-- `src/services/solo/auto-compact-orchestrator.ts` (+24/-2 lines) — `target` parameter, `writeMainSessionCompactIntent` helper, surface `target` in return envelope.
+- `src/services/code/mode-gate.ts` (+28/-4 lines) — `HARD_PAUSE_STEPS` set + `GateKind` union + `gateKind` field on `GateDecision`.
+- `src/services/code/auto-compact-orchestrator.ts` (+24/-2 lines) — `target` parameter, `writeMainSessionCompactIntent` helper, surface `target` in return envelope.
 - `src/services/context/auto-compact-dispatcher.ts` (+38/-5 lines) — `CompactTarget` type, `target` parameter, reordered non-claude-code refusal, `shell-exec + main` → `llm-self-compress` rewrite.
 - `src/services/context/auto-compact-types.ts` (+6 lines) — `target?: 'main' | 'sub-agent'` on `AutoCompactResult.data`.
 - `src/services/preferences/preferences-types.ts` (+13 lines) — explicit doc-comments on `economyMode` (model selection only, NOT concurrency) and `swarmMode` (controls subgraph shape, NOT fan-out). Fan-out is governed by `fanout.defaultMode: 'fan-out'` (hard constraint per slice 2026-06-24-audit-5th-p2).
@@ -1010,12 +1010,12 @@ The four defects all stem from the v2.13.0 two-axis convention landing debt: the
 - `src/cli/commands/workspace/migrate-change-scope-command.ts` (NEW, 230 lines) — `migrateChangeScope()` core + `migrateOne()` per-entry handler with the deny-list + `shallowContentEqual` (1-level recursion) + 3 refusal conditions.
 - `tests/unit/workspace/banned-path-directive-guard.test.ts` (+11 lines) — added `KEEP_DESCRIPTIONS` anchor for the new help-text so the AC-2.2 banned-path-guard still passes.
 - `tests/unit/pipeline-verify-service.test.ts` (+24/-12 lines) — `writeRdEvidence` / `writeQaEvidence` now write at canonical + legacy paths; `isResolvedChangeId` updated for the bare-id contract.
-- `tests/unit/services/solo/mode-gate.test.ts` (linter-updated) — assertions for the new `gateKind` field on every `GateDecision` return.
-- 5 new test files: `tests/unit/solo/mode-gate-step-1-hard-pause.test.ts` (14 cases), `tests/unit/workflow/pipeline-verify-canonical-path.test.ts` (4 cases), `tests/unit/workflow/artifact-paths-canonical.test.ts` (4 cases), `tests/unit/context/auto-compact-main-target.test.ts` (6 cases), `tests/unit/workspace/migrate-change-scope.test.ts` (6 cases) — 34 new cases total, all pass.
+- `tests/unit/services/code/mode-gate.test.ts` (linter-updated) — assertions for the new `gateKind` field on every `GateDecision` return.
+- 5 new test files: `tests/unit/code/mode-gate-step-1-hard-pause.test.ts` (14 cases), `tests/unit/workflow/pipeline-verify-canonical-path.test.ts` (4 cases), `tests/unit/workflow/artifact-paths-canonical.test.ts` (4 cases), `tests/unit/context/auto-compact-main-target.test.ts` (6 cases), `tests/unit/workspace/migrate-change-scope.test.ts` (6 cases) — 34 new cases total, all pass.
 
 ### Test results
 
-- `pnpm vitest run` on the 4 affected module areas (solo/workflow/context/workspace): **181/181 pass** (5 new test files + pre-existing suites).
+- `pnpm vitest run` on the 4 affected module areas (code/workflow/context/workspace): **181/181 pass** (5 new test files + pre-existing suites).
 - Full unit suite: 4394/4418 pass (7 pre-existing failures unrelated to this slice — `doctor.test.ts` version-mismatch × 5, `tokenizer.test.ts` time-decay flake × 1, `35-checks-aggregate.test.ts` × 1).
 - `pnpm tsc --noEmit`: clean.
 
@@ -1065,7 +1065,7 @@ The four defects all stem from the v2.13.0 two-axis convention landing debt: the
 |---|---|
 | v2.13.3 | 4 bug fixes (parser / publish pipeline / CLI warnings / handoff sha256) + 3 new scripts + 4 new test cases + package.json prepublishOnly + README publish note + CHANGELOG + version bump + ship-state memory |
 
-### Verified (peaks solo dogfood + QA on this session)
+### Verified (peaks code dogfood + QA on this session)
 
 - AC-1 (parser fix): `tests/unit/services/verdict/envelopes.test.ts` → **11/11 pass** (was 7/7 in v2.13.2, +4 markdown fallback cases H/I/J/K). Dogfood script confirms: real `audit/security.md` with HIGH violation → `parseSecurityEnvelope` returns non-null envelope; `peaks verdict aggregate` returns `reasons: [{severity: HIGH, file: src/auth.ts:42}]`.
 - AC-2 (publish pipeline): `scripts/prepublish-build.sh` end-to-end via git-bash: `[prepublish-build] build OK — proceeding to publish` (exit 0). The `prepublishOnly` hook in `package.json` (line 47) is wired to `node scripts/prepublish-build.mjs`.
@@ -1143,7 +1143,7 @@ v2.13.1 shipped with a BLOCKER bug found via post-release dogfood: `aggregateVer
 |---|---|
 | v2.13.2 | `aggregateVerdict()` dedup bug fix + `peaks verdict aggregate` CLI + `envelopes.ts` unification + `prd/handoff.md` auto-regen + `MUT_REPORT` soft-block window + 4 new test files + 4 updated test files + CHANGELOG + version bump + ship-state memory |
 
-### Verified (peaks solo dogfood + QA on this session)
+### Verified (peaks code dogfood + QA on this session)
 
 - AC-1 (BLOCKER fix): `tests/unit/services/verdict/verdict-aggregator.test.ts` → **16/16 pass** (was 13/13 in v2.13.1, +3 cross-source cases). Dogfood script confirms: `reasons.length = 1, sources = ["security-audit","perf-audit"], verdict = warn`.
 - AC-2 (CLI surface): `tests/unit/cli/commands/verdict-aggregate-command.test.ts` → **4/4 pass**. Real CLI: `peaks verdict aggregate --help` shows `--from-rid/--sid/--project/--json` options correctly.
@@ -1193,7 +1193,7 @@ peaks-code previously received 5 heterogeneous signals (security-audit, perf-aud
 - `skills/peaks-code/references/micro-cycle.md` — added `## Verdict reasoning (v2.13.1)` section (91 lines) after the unchanged repair-cycle cap rule.
 - `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` (NEW, 4 cases).
 - `tests/unit/services/verdict/verdict-aggregator.test.ts` (NEW, 13 cases).
-- `tests/unit/skills/solo/micro-cycle-verdict-reasoning.test.ts` (NEW, 4 cases).
+- `tests/unit/skills/code/micro-cycle-verdict-reasoning.test.ts` (NEW, 4 cases).
 - `tests/unit/artifact-prerequisites.test.ts` (UPDATED, +25 lines) — seeded `mut-report.json` in 3 pass-path tests; added to negative-path missing-list.
 - `tests/unit/artifact-prerequisites-typed.test.ts` (UPDATED, +20 lines) — same across bugfix + feature + refactor.
 
@@ -1207,11 +1207,11 @@ peaks-code previously received 5 heterogeneous signals (security-audit, perf-aud
 |---|---|
 | v2.13.1 | MUT_REPORT prereq + `aggregateVerdict()` service + `## Verdict reasoning` section + 4 new test files + 2 updated test files + CHANGELOG + version bump + ship-state memory |
 
-### Verified (peaks solo dogfood on this session)
+### Verified (peaks code dogfood on this session)
 
 - AC-1 (MUT_REPORT prereq): `tests/unit/artifact-prerequisites/mut-report-prereq.test.ts` → 4/4 pass; `tests/unit/artifact-prerequisites.test.ts` → 9/9 pass; `tests/unit/artifact-prerequisites-typed.test.ts` → 19/19 pass.
 - AC-2 (verdict-aggregator): `tests/unit/services/verdict/verdict-aggregator.test.ts` → 13/13 pass; 8 AC-2 behaviors (A all-pass, B security-block, C mut-block, D qa-return-to-rd, E mixed-warn, F all-empty, G precedence block-dominant, H CRITICAL accumulation) all asserted.
-- AC-3 (micro-cycle reasoning): `tests/unit/skills/solo/micro-cycle-verdict-reasoning.test.ts` → 4/4 pass; 6-step cycle body byte-stable.
+- AC-3 (micro-cycle reasoning): `tests/unit/skills/code/micro-cycle-verdict-reasoning.test.ts` → 4/4 pass; 6-step cycle body byte-stable.
 - AC-4 (零回归): `tests/unit/parallel-fan-out.test.ts` → 18/18 pass (v2.12.0 stability pin); `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts` → 11/11 pass; `tests/unit/rd/deprecated-reviewer-back-compat.test.ts` → 12/12 pass.
 - Total: 8 test files, **90/90** tests pass, duration 1.27s.
 - `./node_modules/.bin/tsc --noEmit` → 0 errors.
@@ -1247,9 +1247,9 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 
 ### Features
 
-- **`peaks solo context-now`** (AC-1) — auto-probes the active IDE adapter's context-fill % without requiring the LLM to pass `--prompt-size <bytes>` manually. Adapter-driven: reads `IdeAdapter.compact.envVarForContextPercent` (Claude Code MVP: `CLAUDE_CONTEXT_USAGE_PERCENT`). Returns a verdict (`ok` / `soft-warn` / `pre-compact` / `red-line`) plus source-tagged probe (`claude-code-env` / `statusline-poll` / `conservative-fallback`). When no IDE-specific signal is available, returns `ratio: 0` with `source: 'conservative-fallback'` so the orchestrator never auto-fires on a missing signal.
-- **`peaks solo auto-compact`** (AC-4) — 0-intervention loop. Honors D6.e in-flight-batch deferral for the pre-compact zone; forces synchronous dispatch at red-line. `--force` and `--bypass-red-line` are test seams (never `true` in production).
-- **Convergence toolkit** (AC-2) — `src/services/solo/auto-compact-orchestrator.ts` `evaluateCompactTrigger` (pure) + `runAutoCompact` (side effects: `writePreCompactCheckpoint` + `appendAutoDecisionLog` + `dispatchIdeCompact`). Checkpoints land at `.peaks/_runtime/<sessionId>/checkpoints/{pre-compact,red-line}-<ISO>.json`; the LLM-readable decision log lands at `.peaks/_runtime/<sessionId>/txt/auto-decisions.md` so D7's post-compact-detect picks it up unchanged.
+- **`peaks code context-now`** (AC-1) — auto-probes the active IDE adapter's context-fill % without requiring the LLM to pass `--prompt-size <bytes>` manually. Adapter-driven: reads `IdeAdapter.compact.envVarForContextPercent` (Claude Code MVP: `CLAUDE_CONTEXT_USAGE_PERCENT`). Returns a verdict (`ok` / `soft-warn` / `pre-compact` / `red-line`) plus source-tagged probe (`claude-code-env` / `statusline-poll` / `conservative-fallback`). When no IDE-specific signal is available, returns `ratio: 0` with `source: 'conservative-fallback'` so the orchestrator never auto-fires on a missing signal.
+- **`peaks code auto-compact`** (AC-4) — 0-intervention loop. Honors D6.e in-flight-batch deferral for the pre-compact zone; forces synchronous dispatch at red-line. `--force` and `--bypass-red-line` are test seams (never `true` in production).
+- **Convergence toolkit** (AC-2) — `src/services/code/auto-compact-orchestrator.ts` `evaluateCompactTrigger` (pure) + `runAutoCompact` (side effects: `writePreCompactCheckpoint` + `appendAutoDecisionLog` + `dispatchIdeCompact`). Checkpoints land at `.peaks/_runtime/<sessionId>/checkpoints/{pre-compact,red-line}-<ISO>.json`; the LLM-readable decision log lands at `.peaks/_runtime/<sessionId>/txt/auto-decisions.md` so D7's post-compact-detect picks it up unchanged.
 - **IDE-aware compact dispatcher** (AC-3) — `src/services/context/auto-compact-dispatcher.ts` reads `IdeAdapter.compact` and dispatches via the adapter-declared pathway. `shell-exec` (Claude Code MVP) spawns the compact command via `child_process.spawn`. `ide-native` is reserved for a future slice. `llm-self-compress` returns success + instructs the LLM to summarize on next turn. `noop` returns explicit failure for legacy adapters.
 
 ### Internal
@@ -1257,10 +1257,10 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 - `src/services/context/auto-compact-types.ts` (NEW) — types + 3 constants: `AUTO_COMPACT_SOFT_WARN_RATIO = 0.5`, `AUTO_COMPACT_PRE_COMPACT_RATIO = 0.85`, `AUTO_COMPACT_RED_LINE_RATIO = 0.95`.
 - `src/services/context/auto-compact-reader.ts` (NEW) — `readContextPercent` (AC-1 probe).
 - `src/services/context/auto-compact-dispatcher.ts` (NEW) — `dispatchIdeCompact` (AC-3 IDE dispatch).
-- `src/services/solo/auto-compact-orchestrator.ts` (NEW) — `evaluateCompactTrigger` + `runAutoCompact` (AC-2 + AC-4 core).
+- `src/services/code/auto-compact-orchestrator.ts` (NEW) — `evaluateCompactTrigger` + `runAutoCompact` (AC-2 + AC-4 core).
 - `src/services/ide/ide-types.ts` — `IdeAdapter.compact?: IdeCompactProfile` + `IdeCompactProfile` interface.
 - `src/services/ide/adapters/claude-code-adapter.ts` — MVP `compact` profile: `CLAUDE_CONTEXT_USAGE_PERCENT` + `claude --compact` + `shell-exec`.
-- `src/cli/commands/solo-commands.ts` — `peaks solo context-now` + `peaks solo auto-compact` subcommands.
+- `src/cli/commands/code-commands.ts` — `peaks code context-now` + `peaks code auto-compact` subcommands.
 - `package.json` + `src/shared/version.ts` — `2.12.0 → 2.13.0`.
 
 ### Decision records
@@ -1271,10 +1271,10 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 
 | Commit tag | Scope |
 |---|---|
-| v2.13.0-alpha.1 (`edffc33`) | Two-tier threshold + auto-compact types + reader + dispatcher + orchestrator + Claude Code MVP adapter + `peaks solo context-now` + `peaks solo auto-compact` CLI |
+| v2.13.0-alpha.1 (`edffc33`) | Two-tier threshold + auto-compact types + reader + dispatcher + orchestrator + Claude Code MVP adapter + `peaks code context-now` + `peaks code auto-compact` CLI |
 | `a8b9804` | In-session dogfood limitation documented (current ad-hoc Claude Code session cannot be externally compacted — reserved for follow-up PreToolUse-hook slice) |
 
-### Verified (peaks solo dogfood on this session)
+### Verified (peaks code dogfood on this session)
 
 - `context-now` boundary tests: `0.30 = ok` / `0.50 = soft-warn` / `0.84 = soft-warn` / `0.85 = pre-compact` / `0.949 = pre-compact` / `0.95 = red-line` / `1.0 = red-line` ✓
 - `auto-compact @ 1.0` (red-line): dispatched (shell-exec ok), `red-line` checkpoint written at `.peaks/_runtime/<sessionId>/checkpoints/red-line-<ISO>.json`, convergence plan + auto-decisions.md appended, `redLineGated: true` ✓
@@ -1292,7 +1292,7 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 ### Known limitations (carry-forward to v2.13.1)
 
 - **Ad-hoc Claude Code runner cannot be externally compacted.** The v2.13.0-alpha.1 shell-exec pathway spawns the IDE's compact command via `child_process.spawn` — a separate child process. The current Claude Code runner that invoked `auto-compact` is unaffected; its own context window stays at 100% until that runner's own compact logic kicks in (Claude Code's own auto-compact or a user-issued `/compact` slash command). Follow-up slice: register a PreToolUse hook via `peaks hooks install` that intercepts the next Bash call and writes a stderr hint when ratio ≥ 0.95 — fills the already-reserved `ide-native` compact pathway.
-- **`peaks-code` Step N+2 prose update** — `skills/peaks-code/SKILL.md` should mention `peaks solo context-now` + `auto-compact` so LLM sessions invoke the autonomous loop instead of `--prompt-size` hand-passing.
+- **`peaks-code` Step N+2 prose update** — `skills/peaks-code/SKILL.md` should mention `peaks code context-now` + `auto-compact` so LLM sessions invoke the autonomous loop instead of `--prompt-size` hand-passing.
 
 ---
 
@@ -1387,9 +1387,9 @@ Read-only observability layer on top of the v2.11.0 slice topology + 10/90 parad
 - Modified: `src/services/artifacts/request-artifact-service.ts` (hook #1/7).
 - Modified: `src/cli/commands/dispatch-commands.ts` (hook #2/7).
 - Modified: `src/services/session/session-checkpoint-service.ts` (hook #3/7).
-- Modified: `src/cli/commands/solo-commands.ts` (hook #4/7).
+- Modified: `src/cli/commands/code-commands.ts` (hook #4/7).
 - Modified: `src/cli/commands/context-commands.ts` (hook #5/7).
-- Modified: `src/services/solo/post-compact-detector.ts` (hook #6/7).
+- Modified: `src/services/code/post-compact-detector.ts` (hook #6/7).
 - Modified: `src/services/artifacts/artifact-prerequisites.ts` (hook #7/7).
 - Modified: `src/cli/program.ts` (+1 line: registerObservabilityCommands).
 - Modified: `src/shared/version.ts` (CLI_VERSION 2.11.0 → 2.11.1).
@@ -1410,7 +1410,7 @@ Implements the "metering is value" + "10/90 paradigm" alignment: peaks-prd produ
 - **Tier 5+6 (Group C — `9fea8eb`)** — peaks-txt sediment step (`appendBusinessConcept`, idempotent on (concept, sourceRid), 7 tests); peaks-qa trim (removed `qa/security-findings.md` + `qa/performance-findings.md` from Gate D prerequisites).
 - **Tier 7 (Group D — `cd427f6`)** — ECC code-review bridge (`src/services/code-review/ecc-bridge.ts`): envelope validator `isEccEnvelope` + `adaptEccEnvelopeToRdCodeReview` + 5-state `detectEcc` + `runEccCodeReview` aggregator; 17 tests.
 - **Tier 8 (Group E — this CC)** — migration codemod `peaks migrate v2-10-to-v2-11` (deprecates historical `rd/tech-doc.md` files with a YAML banner frontmatter; text-only, idempotent).
-- **Tier 9 (Group F — commit `9e3ef49`)** — D5 self-decision (`src/services/solo/mode-gate.ts` + `peaks solo should-pause`); D6 context monitor (`src/services/context/main-session-monitor.ts` + `peaks context check`); D7 post-compact resume (`src/services/solo/post-compact-detector.ts` + `peaks solo post-compact-detect`); SKILL.md new Step N+2 + Step 0.7 D7 branch. +111 tests.
+- **Tier 9 (Group F — commit `9e3ef49`)** — D5 self-decision (`src/services/code/mode-gate.ts` + `peaks code should-pause`); D6 context monitor (`src/services/context/main-session-monitor.ts` + `peaks context check`); D7 post-compact resume (`src/services/code/post-compact-detector.ts` + `peaks code post-compact-detect`); SKILL.md new Step N+2 + Step 0.7 D7 branch. +111 tests.
 
 ### Migration
 
@@ -1473,7 +1473,7 @@ Implements the 10/90 paradigm foundation: 10% human / 90% LLM autonomous workflo
 ### Bugfixes — W8 / W8-b stabilization (slice `add-slice-topology-multipass`, post-W7 follow-up)
 
 - **W8 CC-α** (commit `56a9d9e`): stabilize 3 pre-existing flaky tests — `tests/unit/cli-program.workflow.test.ts` per-file timeout raised from vitest default 5000ms → 10000ms (`vi.setConfig({ testTimeout: 10000 })`); `tests/unit/dispatch-cli-latency-benchmark.test.ts` 250ms → 300ms threshold (median + min) with description + inline-comment updates for Karpathy #3 honesty.
-- **W8-b CC-α** (commits `e17f868` + `30f9b51`): fix 3 newly-surfaced state-bound pre-existing failures — `tests/unit/package.test.ts` `beforeAll` runs `scripts/sync-version.mjs` so the version-source assertion is deterministic without `pnpm build`; `tests/unit/cli-program.core.test.ts` + `tests/unit/project-commands.test.ts` use `vi.hoisted` + `vi.mock` to isolate from real-project filesystem state (synthetic passing doctor report + `vi.importActual` passthrough with default `doctorReport`/`runbookHealth` injection); `src/shared/version.ts` synced to `2.10.0` (W7-solo T22 missed this; W8-b surfaced it via the `beforeAll` sync-version run).
+- **W8-b CC-α** (commits `e17f868` + `30f9b51`): fix 3 newly-surfaced state-bound pre-existing failures — `tests/unit/package.test.ts` `beforeAll` runs `scripts/sync-version.mjs` so the version-source assertion is deterministic without `pnpm build`; `tests/unit/cli-program.core.test.ts` + `tests/unit/project-commands.test.ts` use `vi.hoisted` + `vi.mock` to isolate from real-project filesystem state (synthetic passing doctor report + `vi.importActual` passthrough with default `doctorReport`/`runbookHealth` injection); `src/shared/version.ts` synced to `2.10.0` (W7-code T22 missed this; W8-b surfaced it via the `beforeAll` sync-version run).
 - Net effect: full suite `3974 / 0 failed / 17 skipped` (was `3974 / 3 failed / 17 skipped` after W7 due to the 3 state-bound failures, and 3974 / 0 / 17 was timing-flaky due to the 3 W8 targets).
 
 ### Risks / gaps carried forward
@@ -1491,7 +1491,7 @@ Implements the 10/90 paradigm foundation: 10% human / 90% LLM autonomous workflo
 
 - **Sub-agent fan-out is mandatory** (slice `2026-06-24-audit-5th-p2`): `preferences.fanout.defaultMode = 'serial'` opt-out removed. When the slice DAG has ≥ 2 leaves at one topological level, the orchestrator MUST use `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>`. No preference, env-var, or CLI flag overrides this. `FANOUT_MODES = ['fan-out']` only; legacy `serial` values auto-migrate via `peaks preferences migrate --write`.
 - **4-policy bundle (slice `2026-06-24-efficiency-4p-bundle`)**: (a) default fan-out via `--from-dag`; (b) periodic checkpoint frequency locked at 20 tool calls (no `~` approximation, no `--periodic-every` override); (c) Karpathy reviewer skipped for `config | docs | chore` request types (5-way review otherwise); (d) `swarmSpeculative.maxConcurrent` default bumped 2 → 3.
-- **Test-tool-detection block** (slice `2026-06-24-test-tool-detection-injection`): Every sub-agent dispatched by Solo (`peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-txt`, `peaks-sc`, `peaks-general-purpose`, single + DAG) receives a hard "Test Tool Detection (mandatory)" block at the top of its prompt: read `package.json#scripts.test`, use project-local runner (`./node_modules/.bin/<runner>` or `pnpm test --`), NEVER `npx <runner>`. Wired at both `dispatch-commands.ts` and `dag-orchestrator.ts` chokepoints; envelope version bumped to `2.2.0`.
+- **Test-tool-detection block** (slice `2026-06-24-test-tool-detection-injection`): Every sub-agent dispatched by Code (`peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-txt`, `peaks-sc`, `peaks-general-purpose`, single + DAG) receives a hard "Test Tool Detection (mandatory)" block at the top of its prompt: read `package.json#scripts.test`, use project-local runner (`./node_modules/.bin/<runner>` or `pnpm test --`), NEVER `npx <runner>`. Wired at both `dispatch-commands.ts` and `dag-orchestrator.ts` chokepoints; envelope version bumped to `2.2.0`.
 
 ### Bugfixes — handoff path canonicalization (v1 + v2 + v3 + v4 + v5 + v6 + v7)
 
@@ -1558,7 +1558,7 @@ Replaced all 20 with a 4-helper API at `src/services/artifacts/artifact-template
 **Added.** Sub-agent dispatch (both single + DAG paths, all roles rd/qa/ui/txt/sc/general-purpose) now prepends a `## Test Tool Detection (mandatory)` block to every sub-agent prompt. The block tells the sub-agent to read `package.json#scripts.test` first and use the project-local runner (`./node_modules/.bin/<runner>` or `pnpm test -- <file>`) — never `npx <runner>`. Runtime introspection: `peaks test --json`.
 
 - New module: `src/services/dispatch/test-tool-detection.ts` (47 lines; exports `TEST_TOOL_DETECTION_BLOCK` + `formatTestToolDetection()`)
-- Dispatch chokepoints updated: `src/cli/commands/dispatch-commands.ts:187`, `src/services/solo/dag-orchestrator.ts:157,182-183`
+- Dispatch chokepoints updated: `src/cli/commands/dispatch-commands.ts:187`, `src/services/code/dag-orchestrator.ts:157,182-183`
 - Dispatch envelope bumped: `envelopeVersion: '2.1.0'` → `'2.2.0'` (consumers can detect the new prompt shape)
 - New tests: `tests/unit/dispatch/test-tool-detection.test.ts` (6), `tests/unit/dispatch/test-tool-detection-injection.test.ts` (9), `tests/unit/skills/test-tool-detection-docs.test.ts` (4) — 19 new assertions
 - Block size: 749 bytes UTF-8 (≤800 cap)
@@ -1574,7 +1574,7 @@ Replaced all 20 with a 4-helper API at `src/services/artifacts/artifact-template
 - **`FanoutMode` closed set narrowed to `['fan-out']`.** The `'serial'` member is gone from `src/services/preferences/preferences-types.ts`; any preferences.json file carrying `defaultMode = 'serial'` (or any non-fan-out value) now throws `PREFERENCES_FANOUT_INVALID` at load. The `migratePreferences` path silently rewrites legacy `'serial'` → `'fan-out'` for 2.8.3-era files and surfaces the change in the migration envelope's `changes[]`.
 - **SKILL.md contract flipped.** `peaks-code` SKILL.md now states "Hard constraint: fan-out is mandatory"; the previous "Fan-out opt-out" subsection is removed.
 - **Reference docs reorganized.** `references/fanout-opt-out.md` (escape hatch) → `references/fanout-mandatory.md` (hard constraint + migration contract). `references/swarm-dispatch-contract.md` opt-out callout removed.
-- **Test surface refreshed.** `tests/unit/solo/skills-solo-fanout-opt-out.test.ts` → `tests/unit/solo/skills-solo-fanout-mandatory.test.ts`; pins the new hard constraint and verifies the opt-out file is deleted.
+- **Test surface refreshed.** `tests/unit/code/skills-code-fanout-opt-out.test.ts` → `tests/unit/code/skills-code-fanout-mandatory.test.ts`; pins the new hard constraint and verifies the opt-out file is deleted.
 
 ### Migration
 
@@ -1903,8 +1903,8 @@ are unchanged by this release), `pnpm build` clean.
   `.peaks/_runtime/<sessionId>/dispatch/contracts/<slice-id>.json`. The B/C/D
   dispatch prompts auto-inject A's contract under a `slice A contract:`
   segment so downstream slices see the dependency without re-reading source.
-- **Solo DAG orchestrator with cancel-on-fail (slice 1.2)** —
-  `src/services/solo/dag-orchestrator.ts` exports `runDag(dag, opts)`:
+- **Code DAG orchestrator with cancel-on-fail (slice 1.2)** —
+  `src/services/code/dag-orchestrator.ts` exports `runDag(dag, opts)`:
   topological-layer fan-out, per-layer join barrier, 任一叶子失败整组回退
   (any leaf failure → in-flight sub-agents receive cancel signal → RD
   returns to repair). peaks-code SKILL.md references the orchestrator.
@@ -1967,7 +1967,7 @@ are unchanged by this release), `pnpm build` clean.
 - **`runDag` cancel-on-fail correctness (slice 1.2.c)** — when any leaf
   fails, in-flight sub-agents in the same batch receive a cancel signal
   at the envelope level; the orchestrator no longer waits for them to
-  finish naturally. Pinned by `tests/unit/solo/dag-orchestrator.test.ts`.
+  finish naturally. Pinned by `tests/unit/code/dag-orchestrator.test.ts`.
 
 ### Security
 
@@ -2614,7 +2614,7 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
   lookup.
 
 - **`peaks-code` Step 0.6** — pre-mode-selection slice decomposition.
-  Solo runs the algorithm automatically after Step 0.55 (1.x detection)
+  Code runs the algorithm automatically after Step 0.55 (1.x detection)
   returns "fresh". The user picks a profile informed by the
   decomposition's parallel structure.
 

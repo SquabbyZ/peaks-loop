@@ -8,11 +8,11 @@ import { createTechPlan, getTechStatus, type TechPlanResult, type TechStatus } f
 // at `shared/path-safety.ts` if this module ever needs them.
 import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-response.js';
 
-export type WorkflowMode = 'solo' | 'team';
-export type SoloMode = 'full-auto' | 'guided' | 'rnd';
+export type WorkflowMode = 'code' | 'team';
+export type CodeMode = 'full-auto' | 'guided' | 'rnd';
 export type ModelTier = 'top-tier' | 'mid-tier';
 export type ModelRole = 'strongest' | 'execution';
-export type WorkflowRoutePolicy = 'solo-broad-multi-model' | 'team-rd-limited-multi-model';
+export type WorkflowRoutePolicy = 'code-broad-multi-model' | 'team-rd-limited-multi-model';
 export type WorkflowStepStage = 'product-direction' | 'design-direction' | 'tech-direction' | 'tech-review' | 'rd-planning' | 'coding-execution' | 'unit-test-execution' | 'quality-review';
 export type WorkflowStepOwner = 'peaks-code' | 'peaks-rd' | 'peaks-tech' | 'human';
 
@@ -20,7 +20,7 @@ export type WorkflowRouterRequest = {
   sessionId: string;
   goal: string;
   mode: WorkflowMode;
-  soloMode?: SoloMode;
+  codeMode?: CodeMode;
   maxWorkers?: number;
   dryRun: true;
   artifactWorkspacePath?: string;
@@ -77,7 +77,7 @@ export type WorkflowRouterPlan = {
   readonly sessionId: string;
   readonly goal: string;
   readonly mode: WorkflowMode;
-  readonly soloMode?: SoloMode;
+  readonly codeMode?: CodeMode;
   readonly executionMode: 'autonomous';
   readonly decisionProfile: string;
   readonly dryRun: true;
@@ -108,7 +108,7 @@ const GUIDED_DECISION_STAGES: readonly WorkflowStepStage[] = ['product-direction
 const GOVERNED_DECISION_STAGES: readonly WorkflowStepStage[] = ['product-direction', 'design-direction', 'tech-direction', 'tech-review'];
 
 export function isWorkflowMode(mode: string): mode is WorkflowMode {
-  return mode === 'solo' || mode === 'team';
+  return mode === 'code' || mode === 'team';
 }
 
 function assertSupportedMode(mode: string): asserts mode is WorkflowMode {
@@ -125,9 +125,9 @@ function normalizeGoal(goal: string): string {
   return normalized;
 }
 
-function assertSoloModeAllowed(mode: WorkflowMode, soloMode: SoloMode | undefined): void {
-  if (mode !== 'solo' && soloMode !== undefined) {
-    throw new Error('soloMode requires solo workflow mode');
+function assertCodeModeAllowed(mode: WorkflowMode, codeMode: CodeMode | undefined): void {
+  if (mode !== 'code' && codeMode !== undefined) {
+    throw new Error('codeMode requires code workflow mode');
   }
 }
 
@@ -143,34 +143,34 @@ function step(input: Omit<WorkflowRouterStep, 'dryRunOnly' | 'invokesAgents' | '
   };
 }
 
-export function isSoloMode(value: string): value is SoloMode {
+export function isCodeMode(value: string): value is CodeMode {
   return value === 'full-auto' || value === 'guided' || value === 'rnd';
 }
 
-function getDecisionProfileSummary(mode: WorkflowMode, soloMode: SoloMode | undefined): string {
+function getDecisionProfileSummary(mode: WorkflowMode, codeMode: CodeMode | undefined): string {
   if (mode === 'team') {
     return 'Team mode keeps product and design governance on a human-controlled path while RD execution follows recommended defaults.';
   }
 
-  if (soloMode === 'guided') {
+  if (codeMode === 'guided') {
     return 'Guided mode keeps the user in the decision loop for the early recommended defaults, while later execution remains bounded by the routing plan.';
   }
 
-  if (soloMode === 'rnd') {
+  if (codeMode === 'rnd') {
     return 'R&D mode asks for technical confirmation up front, then applies recommended defaults for implementation, testing, review, and safety checks.';
   }
 
   return 'Full-auto mode applies recommended defaults for product, design, and tech decisions, then runs the engineering pipeline end to end under routing gates.';
 }
 
-function annotateSteps(steps: WorkflowRouterStep[], soloMode: SoloMode): WorkflowRouterStep[] {
-  const decisionStages = soloMode === 'guided'
+function annotateSteps(steps: WorkflowRouterStep[], codeMode: CodeMode): WorkflowRouterStep[] {
+  const decisionStages = codeMode === 'guided'
     ? GUIDED_DECISION_STAGES
     : GOVERNED_DECISION_STAGES;
   return steps.map((currentStep) => {
     const isDecisionStage = decisionStages.includes(currentStep.stage);
     const reasonPrefix = isDecisionStage
-      ? `[${soloMode}] decision stage`
+      ? `[${codeMode}] decision stage`
       : '[routed] execution stage';
     return {
       ...currentStep,
@@ -181,19 +181,19 @@ function annotateSteps(steps: WorkflowRouterStep[], soloMode: SoloMode): Workflo
 
 function createSoloSteps(executionModelId: string): WorkflowRouterStep[] {
   return [
-    step({ id: 'solo-product-direction', stage: 'product-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Product direction needs strong judgment before execution work is delegated.', dependsOn: [] }, executionModelId),
-    step({ id: 'solo-design-direction', stage: 'design-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Design direction uses the recommended default before cheaper implementation work.', dependsOn: ['solo-product-direction'] }, executionModelId),
-    step({ id: 'solo-tech-direction', stage: 'tech-direction', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Technical boundaries and approval gates use the recommended default with high-confidence planning.', dependsOn: ['solo-design-direction'] }, executionModelId),
-    step({ id: 'solo-tech-review', stage: 'tech-review', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Tech artifacts and gate decisions require strong review and a recommended default path.', dependsOn: ['solo-tech-direction'] }, executionModelId),
-    step({ id: 'solo-rd-planning', stage: 'rd-planning', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'RD task decomposition and acceptance criteria use the recommended default before execution delegation.', dependsOn: ['solo-tech-review'] }, executionModelId),
-    step({ id: 'solo-coding-execution', stage: 'coding-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Coding and routine refactoring must use the configured execution worker model ${executionModelId}.`, dependsOn: ['solo-rd-planning'] }, executionModelId),
-    step({ id: 'solo-unit-test-execution', stage: 'unit-test-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Unit test authoring and focused test runs must use the configured execution worker model ${executionModelId}.`, dependsOn: ['solo-coding-execution'] }, executionModelId),
-    step({ id: 'solo-quality-review', stage: 'quality-review', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Reducer and final quality gates need strong synthesis and risk review.', dependsOn: ['solo-unit-test-execution'] }, executionModelId)
+    step({ id: 'code-product-direction', stage: 'product-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Product direction needs strong judgment before execution work is delegated.', dependsOn: [] }, executionModelId),
+    step({ id: 'code-design-direction', stage: 'design-direction', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Design direction uses the recommended default before cheaper implementation work.', dependsOn: ['code-product-direction'] }, executionModelId),
+    step({ id: 'code-tech-direction', stage: 'tech-direction', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Technical boundaries and approval gates use the recommended default with high-confidence planning.', dependsOn: ['code-design-direction'] }, executionModelId),
+    step({ id: 'code-tech-review', stage: 'tech-review', owner: 'peaks-tech', modelTier: 'top-tier', reason: 'Tech artifacts and gate decisions require strong review and a recommended default path.', dependsOn: ['code-tech-direction'] }, executionModelId),
+    step({ id: 'code-rd-planning', stage: 'rd-planning', owner: 'peaks-rd', modelTier: 'top-tier', reason: 'RD task decomposition and acceptance criteria use the recommended default before execution delegation.', dependsOn: ['code-tech-review'] }, executionModelId),
+    step({ id: 'code-coding-execution', stage: 'coding-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Coding and routine refactoring must use the configured execution worker model ${executionModelId}.`, dependsOn: ['code-rd-planning'] }, executionModelId),
+    step({ id: 'code-unit-test-execution', stage: 'unit-test-execution', owner: 'peaks-rd', modelTier: executionModelId === STRONGEST_MODEL_ID ? 'top-tier' : 'mid-tier', reason: `Unit test authoring and focused test runs must use the configured execution worker model ${executionModelId}.`, dependsOn: ['code-coding-execution'] }, executionModelId),
+    step({ id: 'code-quality-review', stage: 'quality-review', owner: 'peaks-code', modelTier: 'top-tier', reason: 'Reducer and final quality gates need strong synthesis and risk review.', dependsOn: ['code-unit-test-execution'] }, executionModelId)
   ];
 }
 
-function createSoloStepsForMode(soloMode: SoloMode, executionModelId: string): WorkflowRouterStep[] {
-  return annotateSteps(createSoloSteps(executionModelId), soloMode);
+function createSoloStepsForMode(codeMode: CodeMode, executionModelId: string): WorkflowRouterStep[] {
+  return annotateSteps(createSoloSteps(executionModelId), codeMode);
 }
 
 function createTeamSteps(executionModelId: string): WorkflowRouterStep[] {
@@ -260,22 +260,22 @@ function createModeStatus(economyMode: boolean, swarmMode: boolean, executionMod
   };
 }
 
-function getSoloMode(mode: WorkflowMode, soloMode: SoloMode | undefined): SoloMode | undefined {
-  if (mode !== 'solo') {
+function getCodeMode(mode: WorkflowMode, codeMode: CodeMode | undefined): CodeMode | undefined {
+  if (mode !== 'code') {
     return undefined;
   }
-  if (soloMode === undefined) {
+  if (codeMode === undefined) {
     return 'full-auto';
   }
-  if (!isSoloMode(soloMode)) {
-    throw new Error('Unsupported solo mode');
+  if (!isCodeMode(codeMode)) {
+    throw new Error('Unsupported code mode');
   }
-  return soloMode;
+  return codeMode;
 }
 
 export function createWorkflowRouterPlan(request: WorkflowRouterRequest): WorkflowRouterPlan {
   assertSupportedMode(request.mode);
-  assertSoloModeAllowed(request.mode, request.soloMode);
+  assertCodeModeAllowed(request.mode, request.codeMode);
   // Slice 2026-06-29-change-id-root-removal: change-id is metadata-only;
   // no structural validation gate fires here.
   const goal = normalizeGoal(request.goal);
@@ -296,8 +296,8 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   const effectiveProviders: ModelProviderConfig = request.config?.providers ?? { minimax: { model: 'minimax-2.7' } };
   const executionModelId = economyMode !== false ? getConfiguredExecutionModelId(effectiveProviders) : STRONGEST_MODEL_ID;
   const modeStatus = createModeStatus(economyMode, swarmMode, executionModelId, economyMode ? 'config.providers' : 'planner-reviewer-strongest-model');
-  const soloMode = getSoloMode(request.mode, request.soloMode);
-  const decisionProfile = getDecisionProfileSummary(request.mode, soloMode);
+  const codeMode = getCodeMode(request.mode, request.codeMode);
+  const decisionProfile = getDecisionProfileSummary(request.mode, codeMode);
   const artifactWorkspacePath = request.artifactWorkspacePath ?? (request.workspace ? getLocalArtifactPath(request.workspace) : undefined);
   const sharedWorkspaceOptions = {
     ...(artifactWorkspacePath ? { artifactWorkspacePath } : {}),
@@ -306,7 +306,7 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   const techStatus = getTechStatus({ sessionId: request.sessionId, ...sharedWorkspaceOptions });
   const techPlan = createTechPlan({ sessionId: request.sessionId, goal, swarm: swarmMode, dryRun: true, ...sharedWorkspaceOptions });
   const rdPlan = createRdSwarmPlan({ skill: 'rd', sessionId: request.sessionId, goal, maxWorkers, swarmMode, executionModelId, dryRun: true, ...sharedWorkspaceOptions });
-  const steps = soloMode ? createSoloStepsForMode(soloMode, executionModelId) : createTeamSteps(executionModelId);
+  const steps = codeMode ? createSoloStepsForMode(codeMode, executionModelId) : createTeamSteps(executionModelId);
   const blockedReasons = uniqueStrings([
     ...techStatus.blockedReasons,
     ...getTechPlanBlockedReasons(techPlan),
@@ -320,11 +320,11 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
     sessionId: request.sessionId,
     goal,
     mode: request.mode,
-    ...(soloMode ? { soloMode } : {}),
+    ...(codeMode ? { codeMode } : {}),
     executionMode: 'autonomous',
     decisionProfile,
     dryRun: true,
-    routePolicy: request.mode === 'solo' ? 'solo-broad-multi-model' : 'team-rd-limited-multi-model',
+    routePolicy: request.mode === 'code' ? 'code-broad-multi-model' : 'team-rd-limited-multi-model',
     modelRouting: createModelRouting(steps, executionModelId),
     modelAssignments: createModelAssignments(steps),
     modeStatus,

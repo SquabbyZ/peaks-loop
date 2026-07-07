@@ -1,4 +1,4 @@
-export type RefactorMode = 'solo' | 'rd';
+export type RefactorMode = 'code' | 'rd';
 
 export type RefactorDryRun = {
   mode: RefactorMode;

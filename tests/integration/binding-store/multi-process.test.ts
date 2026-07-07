@@ -2,7 +2,7 @@
  * CI integration test for the v2.18.0 ownerHint collision fix
  * (binding-store P0) — exercises the production binding-store primitive
  * across 2 truly distinct child Node processes, simulating two Claude
- * Code windows running `peaks solo` in parallel.
+ * Code windows running `peaks code` in parallel.
  *
  * Why this lives under tests/integration and not tests/unit:
  *   - it spawns real child processes (child_process.spawn)
