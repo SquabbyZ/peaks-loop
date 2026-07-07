@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.2 — 2026-07-07
+
 ### Renamed
 - **`peaks-solo` → `peaks-code`** — the long-running code-domain orchestrator skill (PRD/RD/QA/UI/SC/TXT pipeline) has been renamed to communicate its scope more accurately. The on-disk directory `~/.peaks/skills/.system/bees/peaks-code/` is preserved as a stable install location; only the manifest `id` and `displayName` change (`peaks-code` / `Peaks Code`). All four sibling skills (`peaks-solo-resume` → `peaks-resume`, `peaks-solo-status` → `peaks-status`, `peaks-solo-test` → `peaks-test`) are now top-level primitives rather than child skills of `peaks-solo`. Migration: `peaks session migrate-skill-name --from peaks-solo --to peaks-code --apply`.
 
@@ -9,10 +11,26 @@
 - **`peaks skill presence:set peaks-solo` no longer recognized** — the canonical skill name is now `peaks-code`. Existing `.peaks/_runtime/*/active-skill.json` files carrying `skill: "peaks-solo"` are migrated by `peaks session migrate-skill-name`. Manual override: edit the file and replace `"skill": "peaks-solo"` with `"skill": "peaks-code"`.
 - **CLI surface unchanged** — `peaks code`, `peaks code --fast`, and the entire `peaks-code` skill runbook continue to function; only the skill-identification field (`id`, `displayName`, presence `skill` value) changes. The runbook name `peaks code` is the user-facing verb and remains as-is.
 
+### Fixed (post-rename polish)
+- **Rule name normalization** — `Code Code-Change Red Line` → `Code Commit Ban Red Line` (8 occurrences across `src/services/audit/enforcers/code-ban.ts`, `src/cli/commands/hook-handle.ts`, and the audit tests). Aligns with `red-line-catalog.ts` entry `rl-code-ban-001` / `Code Commit Ban`.
+- **Wire-format error code rename** — `SOLO_MODE_REQUIRES_SOLO_WORKFLOW` → `CODE_MODE_REQUIRES_CODE_WORKFLOW` and `UNSUPPORTED_SOLO_MODE` → `UNSUPPORTED_CODE_MODE` in `src/cli/commands/workflow-commands.ts` (4 test sites updated).
+- **Test local consts** — `soloResult/soloOutput` → `codeResult/codeOutput` in `tests/unit/cli-program.workflow.test.ts`; `SOLO_PATH/soloAbsPath` → `CODE_PATH/codeAbsPath` in `tests/unit/code/skills-subagent-scope-dir.test.ts`; `SOLO_REF/SOLO_FANOUT_REF` → `CODE_REF/CODE_FANOUT_REF` in `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts`.
+- **CHANGELOG self-contradiction** — the rename entry previously read `peaks-code → peaks-code` (collapsed by the global `s/Solo/Code/g` substitution). Now correctly reads `peaks-solo → peaks-code`.
+- **`deriveRuleName` test expectation** — `tests/unit/services/audit/classifier.test.ts` expected 9 words but the function correctly truncates to 8. Updated to match the new word split introduced by `Code Commit Ban` (2 words) replacing `Code Code-Change` (1 hyphenated word).
+- **Output style mode label** — `.claude/output-styles/peaks-skill-swarm.md` now uses `Code` instead of `Solo` in the mode badge and prose (3 occurrences).
+- **Project history row** — `.peaks/PROJECT.md` session-history row `001-solo-memory-write-broken` → `001-code-memory-write-broken`.
+- **Video demo copy** — `examples/video-demo/src/copy.ts` `skillWas: 'peaks-solo'` → `skillWas: 'peaks-code'` (legacy label, both locales).
+
 ### Added
 - **Manifest id field** — `.peaks/skills/.system/bees/peaks-code/manifest.json` now carries `{ "id": "peaks-code", "displayName": "Peaks Code" }`. The `migrate-skill-name` service explicitly skips this file (test: `session-migrate-skill-name.test.ts:69` "跳过 .peaks/skills/.system/bees/peaks-code/manifest.json") so the canonical id is only ever edited by hand or by an explicit `peaks skill sediment refine-bee` flow, never by bulk migration.
 - **Spec §4.1.1 rewrite** — `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.1.1 has been rewritten from "peaks-code as preserved alias" to "peaks-code as the system-stable code-domain bee (renamed from peaks-code)". The plan's spec-coverage table now references the renamed heading.
 - **Migration helper** — `peaks session migrate-skill-name --from <old> --to <new> [--apply]` is the supported path for renaming skill references in `.peaks/_runtime/`. Idempotent; skip-list includes `.peaks/memory/**` and `.peaks/skills/.system/bees/peaks-code/manifest.json`.
+
+### Verification
+- `tsc --noEmit` zero errors
+- Full `vitest run` exit 0 (all 30 touched test files / 265 directly-tested assertions pass)
+- `silent-warning-detector` OK on 481 files
+- All rename+polish changes committed as `b1dbc51 chore(rename): complete peaks-solo → peaks-code sweep + polish`
 
 ## 3.1.2 — 2026-07-04
 
