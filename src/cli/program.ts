@@ -55,6 +55,7 @@ import { registerSkillConformanceCommands } from './commands/skill-conformance-c
 import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerWorkflowEvalCommands } from './commands/loop-eval-commands.js';
 import { registerEvolutionCommands } from './commands/evolution-commands.js';
+import { registerAssetCommands } from './commands/asset-commands.js';
 import { registerAgentCommands } from './commands/agent-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
@@ -308,6 +309,9 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // M4 (2026-07-07 spec): `peaks evolution propose|evaluate|revert|status|mark-keep`
   // — Darwin-style ratchet CLI surface.
   registerEvolutionCommands(program, io);
+  // M5 (2026-07-07 spec): `peaks asset crystallize|dispose|status` —
+  // umbrella cross-asset crystallization surface.
+  registerAssetCommands(program, io);
  // Slice: ECC 64 agents soft-optional (per spec §7.2 line 818).
  registerAgentCommands(program, io);
  // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
