@@ -3,7 +3,7 @@
 **Status:** Draft (post-brainstorming, pre-writing-plans)
 **Date:** 2026-07-07
 **Author:** SquabbyZ (via peaks-code brainstorm session 2026-07-07-session-2af05f)
-**Affects:** `peaks-loop` product positioning, `peaks skill sediment *` CLI surface, SkillHub schema, peaks-maker skill, peaks-code & future peaks-* domain skills, `.peaks/standards/`, `.peaks/memory/`
+**Affects:** `peaks-loop` product positioning, `peaks skill sediment *` CLI surface, SkillHub schema, peaks-maker skill, peaks-code & future peaks-* domain skills, `.peaks/standards/`, `.peaks/memory/`, future desktop client (extension surface), future cross-user share surface
 **Target version:** 4.x (post-4.0.0-beta.2)
 **Inherits from:** `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` (4.x sediment pool), `docs/adr/0007-peaks-workflow-primitive.md` (now demoted to trace mechanism), `docs/superpowers/specs/2026-07-03-peaks-loop-job-design.md` (long-task loop)
 **External references (advisory, not normative):**
@@ -200,6 +200,10 @@ Storage: SkillHub continues to use 6+ relation tables + content-addressed blobs;
 | `lifecycle_status` | `candidate` / `stable` / `retired` |
 | `version` | semver |
 | `schema_version` | `peaks.loop/1` |
+| `shareable` | `true` \| `false` (default `true`) |
+| `share_excluded_paths` | `string[]` (optional, paths excluded from any future export bundle) |
+| `desktop_visible` | `true` \| `false` (default `true`) |
+| `export_bundle_format` | `"peaks.bundle/1"` (fixed constant, CLI-written) |
 
 ### 4.2 Bee Asset
 
@@ -221,6 +225,8 @@ Storage: SkillHub continues to use 6+ relation tables + content-addressed blobs;
 | `lifecycle_status` | `candidate` / `stable` / `retired` |
 | `version` | semver |
 | `schema_version` | `peaks.bee/1` |
+| `shareable` | `true` \| `false` (default `true`) |
+| `desktop_visible` | `true` \| `false` (default `true`) |
 
 ### 4.3 Workflow Trace (demoted)
 
@@ -490,6 +496,105 @@ peaks-maker still does not write application code; it only:
 - It is not the recommendation target.
 
 The existing `peaks workflow run / graph / lint` surface continues to function; the user-facing verb is reframed as "replay this run" not "create a new asset".
+
+---
+
+## 7A. Future extension surface — desktop client and cross-user share
+
+This spec does not implement a desktop client or a public SkillHub. It locks the **extension surface** so future slices do not have to break the asset model.
+
+### 7A.1 Desktop client — UI accelerator, not a new verb surface
+
+Per `.peaks/memory/two-forms-only-rule.md` and `.peaks/memory/4x-sediment-pool-reserves-desktop-client-entry-points.md`, the desktop client is a UI accelerator that maps every action to a single peaks CLI invocation. It does not introduce a new protocol, a new IPC bus, or a new write path.
+
+The 4 reserved contract surfaces:
+
+| # | Surface | Why the desktop client must use it |
+|---|---|---|
+| 1 | `peaks skill sediment list / show / search / recent` | List / search / detail UI gates on these; no parallel index |
+| 2 | `peaks skill sediment add-segment / add-bee / clone-bee / refine-bee` | Form / wizard writes through these; no direct SQLite |
+| 3 | `adapter.resolveScratchDir(provider)` / `adapter.materialize(bee)` | In-process bus for "which bee is running" |
+| 4 | `bees/<bee-id>/run-state.json` | Heartbeat / progress panel reads this read-only JSON |
+
+Hard rules for the desktop client:
+
+```text
+- Every UI action must be 1:1 mappable to a single peaks CLI command.
+- No direct SQLite / file writes from UI code.
+- Read-only on run-state.json; never mutate it.
+- Cross-process observation comes from run-state.json + peaks skill sediment list, nothing else.
+- If a new desktop action needs a verb that does not exist yet, the right move is to add a CLI verb, not to invent an IPC.
+```
+
+`desktop_visible` on `loop_release` / `bee_release` (added in §4.1 / §4.2) lets the user hide a loop or bee from the desktop UI without deleting it.
+
+### 7A.2 Cross-user share — bundle, not DB dump
+
+Sharing a loop or bee is a **bundle export / import** flow, not a database clone.
+
+**Export bundle (writer is CLI, never the LLM):**
+
+```text
+peaks.bundle/1
+├── manifest.json          (loop_release + related bee_release rows)
+├── evidence_briefs/       (crystallization_event.brief)
+├── relations.json         (loop_bee_relation rows)
+├── blobs/                 (content-addressed, same hashing as SkillHub)
+└── EVALUATION_REQUIRED.md (signals receiver to run independent eval)
+```
+
+**Hard rules:**
+
+```text
+- Bundles never include private run-state, personal `.peaks/memory/` files, or raw `state.db` rows.
+- Bundles always carry `peaks.bundle/1` as the format constant; CLI rejects other formats.
+- Bundles always carry `schema_version` (`peaks.loop/1` or `peaks.bee/1`); major-version mismatch is a hard block, minor mismatch is a warn.
+- Receiver must import as `candidate`; the import path cannot promote directly to `stable`.
+- Receiver must run an independent evaluation before any durable change to a shared loop / bee.
+- `shareable=false` on the source release blocks export at the CLI layer.
+- `share_excluded_paths` lets the author pre-empt the export to leave specific paths out.
+```
+
+**CLI surface (additive, no breakage):**
+
+```text
+peaks loop export   --loop <id> --out <path.tar.gz>
+peaks loop import   --in <path.tar.gz>
+peaks bee export    --bee <id> --out <path.tar.gz>
+peaks bee import    --in <path.tar.gz>
+```
+
+`peaks skill sediment export / import` are kept as aliases for one release cycle, then deprecated.
+
+### 7A.3 Run-state shape (read-only contract for the desktop client)
+
+The desktop client observes the in-flight bee through a single JSON file:
+
+```text
+{
+  bee_id: string,
+  status: "running" | "paused" | "done" | "failed" | "blocked",
+  current_step: string,
+  started_at: ISO8601,
+  updated_at: ISO8601,
+  last_evaluator_verdict: string | null,
+  last_user_choice: string | null
+}
+```
+
+This contract is **read-only for the desktop client**. Only the running bee (and peaks CLI) may write it. The shape is locked so the desktop can render progress without holding a lock on the asset.
+
+### 7A.4 What is explicitly out of desktop / share scope
+
+```text
+- Real-time multi-user collaboration / CRDT.
+- Marketplace ranking, pricing, payment.
+- Cross-machine automatic sync.
+- The desktop implementation itself.
+- A public SkillHub registry.
+```
+
+These remain future slices; the bundle format and run-state contract are the on-ramp.
 
 ---
 
@@ -920,6 +1025,50 @@ non_code_domains:
 **Out-of-scope**
 - Re-implementing peaks-code as a general orchestrator.
 
+### RL-9 — Desktop and share go through CLI
+
+**Failure modes**
+- UI writes to `state.db` directly → bypasses ratchet + evaluation
+- Imported bundle promoted to `stable` without independent evaluation
+- Exported bundle leaks private run-state or personal memory
+- Schema mismatch between sender and receiver without a warn/block
+- Desktop invents a new IPC bus instead of CLI + run-state
+
+**Imperative → declarative rewrite**
+
+```text
+user_imperative: "把这个 loop 分享给队友"
+  → declarative:
+      action: peaks loop export --loop <id> --out <path.tar.gz>
+      bundle_format: peaks.bundle/1
+      includes: [loop_release, related_bee_releases, evidence_briefs, relations]
+      excludes: [private_run_state, .peaks/memory/personal/, raw state.db rows]
+      receiver_must:
+        - import as candidate (no direct stable)
+        - run independent evaluation before any durable change
+        - respect schemaVersion peaks.loop/1 (major=block, minor=warn)
+
+user_imperative: "在桌面端列出所有 loop"
+  → declarative:
+      action: peaks skill sediment list --kind loop
+      reads_only: true
+      forbidden_actions: [direct_sqlite, direct_filesystem_write, custom_ipc]
+      source_of_truth: SkillHub (peaks CLI is the only writer)
+```
+
+**Self-check questions**
+- Is the share / desktop operation going through the peaks CLI?
+- Is the bundle free of personal state?
+- Does the import path land on `candidate`?
+- Does the import path require an independent evaluation before stable?
+- Is the schemaVersion checked?
+
+**Out-of-scope**
+- Multi-user real-time collaboration.
+- Marketplace pricing / ranking.
+- Cross-machine automatic sync.
+- The desktop implementation itself (only the contract is locked here).
+
 ---
 
 ## 11. Validation criteria (acceptance)
@@ -966,9 +1115,15 @@ This spec is accepted when the following ACs are met. Each AC is paired with its
 
 ### G. Red lines
 
-- AC-21: All 9 red lines (RL-0..RL-8) are present in `.peaks/standards/loop-engineering-guidelines.md` in the four-section form.
+- AC-21: All 10 red lines (RL-0..RL-9) are present in `.peaks/standards/loop-engineering-guidelines.md` in the four-section form.
 - AC-22: `peaks standards lint --category loop-engineering` asserts each red line has all 4 sections and no missing fields.
 - AC-23: A regression test in `tests/unit/standards/loop-engineering-guidelines.test.ts` enforces the four-section shape for every red line in the file.
+
+### H. Desktop + share extension surface
+
+- AC-24 (RL-9): `peaks loop export` / `peaks loop import` / `peaks bee export` / `peaks bee import` are registered; existing `peaks skill sediment export / import` remain as aliases.
+- AC-25 (RL-9): An export bundle is a tarball with `peaks.bundle/1` constant; the CLI refuses to write a bundle for any release with `shareable=false`; the CLI refuses to import a bundle into `stable` status.
+- AC-26 (RL-9): A receiver-side integration test imports a sample bundle, asserts the release lands as `candidate`, and asserts the CLI refuses a `peaks loop promote` until an `evolution_evaluation` row exists with an `independent_scorer_verdict`.
 
 ---
 
@@ -1016,6 +1171,7 @@ This spec is accepted when the following ACs are met. Each AC is paired with its
 | 2026-07-07 | SkillHub is a Loop & Bee Asset Pool | Storage layer expanded, not replaced |
 | 2026-07-07 | Evidence Brief is mandatory for every recommendation | User explicit: counts alone are not enough |
 | 2026-07-07 | Triggers: 4 supported, none required, user explicit is highest | User explicit: all four should be supported |
+| 2026-07-07 | Desktop + share extension surface locked (`peaks.bundle/1`, `peaks loop/bee export/import`, run-state contract) | User explicit: 后面会开发桌面应用的可扩展性，怎么分享沉淀的 loop/bee 需考虑 |
 
 ---
 
@@ -1037,7 +1193,8 @@ This spec is accepted when the following ACs are met. Each AC is paired with its
 - `.peaks/memory/human-nl-choice-only-tenet.md` — RL-1 derives from this
 - `.peaks/memory/two-forms-only-rule.md` — RL-1 derives from this
 - `.peaks/memory/peaks-loop-24h-ai-programmer-positioning.md` — positions peaks-code as code-domain orchestrator (RL-8 derives from this)
-- `.peaks/memory/4x-sediment-pool-reserves-desktop-client-entry-points.md` — desktop client implications (preserved)
+- `.peaks/memory/4x-sediment-pool-reserves-desktop-client-entry-points.md` — desktop client implications (preserved; this spec locks those contract surfaces as RL-9)
+- `.peaks/memory/two-forms-only-rule.md` — desktop + share must keep human-NL-choice-only (RL-1, RL-9)
 
 ---
 
