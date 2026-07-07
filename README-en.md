@@ -14,9 +14,18 @@
 
 ### Loop engineering, engineered
 
-### peaks-loop is your AI tactical squad — on call 24/7, summon them
+**peaks-loop is your Loop Engineering crystallization system — not a workflow tool.** It crystallizes Loop Engineering assets out of real, completed work, and only evolves them through verified improvements. You operate the system through natural language and choices; every structured action is performed by the LLM on your behalf.
 
-It packs engineering gates, orchestration, replay into your local AI CLI. Install it, say one sentence, it runs the whole flow end-to-end and hands it back.
+The product is governed by a four-layer asset model and a karpathy × darwin dual-discipline, both of which are non-negotiable:
+
+- **Four-layer asset model**: Loop Engineering Asset (the method system, first-class) + Bee Asset (the executable body, first-class) + Workflow Trace (execution trace — evidence only, never the durable asset) + Evolution Evaluation (anti-drift gate, mandatory for any change).
+- **karpathy × darwin dual discipline**: karpathy engineers every rule (failure modes + imperative→declarative rewrite + self-check + out-of-scope); darwin verifies every improvement (single object + single dimension + independent-context evaluator + ratchet). The two layers are co-equal partners — neither is a subset of the other. See `.peaks/standards/loop-engineering-guidelines.md` and the upstream references `multica-ai/andrej-karpathy-skills` and `alchaincyf/darwin-skill`.
+- **Post-run crystallization**: `loop_release` and `bee_release` are only written after a real task completes; pre-run is always scratch. Four triggers are supported, with `user_explicit` ranked highest.
+- **Human-NL-Choice-Only**: you speak or pick; the LLM runs the CLI. Hand-authoring JSON / manifests / form fields is forbidden.
+
+### peaks-code is the code-domain entry — and only the code-domain entry
+
+`peaks-code` is the code-domain long-task loop engineering orchestrator — it runs the long chain (PRD, RD, QA, UI, SC, TXT) and is the role you'll talk to most. It is **not a general-purpose orchestrator** — research, content, product, and other domains are independent `peaks-*` skills that reuse the same Loop Engineering guidelines. See the Loop Engineering design `docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §0.4 + RL-8, and the sediment design `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`.
 
 Summon them, they handle the work. Stand them down when it's done. **No skipped steps. No half-finished hand-offs.** No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
 

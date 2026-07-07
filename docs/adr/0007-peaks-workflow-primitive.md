@@ -130,3 +130,16 @@ Per user decision 2026-06-12, **no code work starts** until:
 - Real-time collaborative editing of workflows (file-based + git, no CRDT)
 - Visual workflow editor (defer to a later milestone; today: text + linter)
 - Workflow marketplace (peaks-sop positioning is general workflow tool; marketplace is a separate concern)
+
+## v3 demotion (2026-07-07)
+
+Per the Loop Engineering crystallization design
+(`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §7.6),
+`peaks-workflow.yaml` is **demoted from "durable asset" to "execution trace / replay skeleton"**:
+
+- The file remains as a replay skeleton and evidence source; it is no longer the user-facing asset.
+- It is not the recommendation target of any crystallization or evolution flow.
+- The durable assets are now `loop_release` + `bee_release` + `loop_bee_relation` + `crystallization_event` + `evolution_evaluation` (per §3 of the Loop Engineering spec).
+- The user-facing verb is reframed as **"replay this run"**, not **"create a new asset"**.
+- The existing `peaks workflow run / graph / lint` surface continues to function; only the narrative role changes.
+- Workflow traces are evidence, not assets — they feed crystallization and evolution but are not the durable product.

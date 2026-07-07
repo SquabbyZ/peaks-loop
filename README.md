@@ -14,9 +14,18 @@
 
 ### loop engineering 的工程实现
 
-### peaks-loop 就是你的 AI 战术小队,24 小时待命,随时接活
+**peaks-loop 是你的 Loop Engineering 结晶系统 —— 不是工作流工具。** 它从真实完成的工作里把 loop engineering 资产结晶出来,只通过被验证的改进让它们进化。你只用自然语言和选择操作系统,所有结构化操作由 LLM 代办。
 
-它把一套工程门禁、编排、回放都装进你本地的 AI CLI 里,装好之后,你说一句话,它替你把整套流程跑完再交还给你。
+产品遵循四层资产模型与 karpathy × darwin 双层纪律,两者缺一不可:
+
+- **四层资产模型**:Loop Engineering 资产(方法体系,一等公民)+ Bee 资产(可执行体,一等公民)+ Workflow Trace(执行轨迹,只作证据,不作资产)+ Evolution Evaluation(反漂移闸门,变更必经)。
+- **karpathy × darwin 双层纪律**:karpathy 工程化每一条规则(failure modes + imperative→declarative rewrite + self-check + out-of-scope);darwin 校验每一次改进(单对象 + 单维度 + 独立上下文评估 + ratchet 防回退)。两层是平行的伙伴,谁都不是谁的子集 —— 详见 `.peaks/standards/loop-engineering-guidelines.md` 与上游参考 `multica-ai/andrej-karpathy-skills`、`alchaincyf/darwin-skill`。
+- **post-run crystallization**:`loop_release` 与 `bee_release` 只在一次真实任务跑完后才写入;pre-run 永远是 scratch。沉淀触发支持四种,user explicit 优先级最高。
+- **Human-NL-Choice-Only**:你只说话或选择,LLM 替你跑 CLI;禁止手写 JSON / manifest / form field。
+
+### peaks-code 是 code-domain 唯一的入口
+
+`peaks-code` 是 loop engineering 在 **代码域** 的长任务编排器,管 PRD、RD、QA、UI、SC、TXT 这一长串工序的主调度,也是你日常跟 peaks-loop 说话时最常打交道的那个角色。它**不是通用编排器** —— 研究 / 内容 / 产品等其他域各自是独立的 `peaks-*` 技能,复用同一份 Loop Engineering 准则。详见 Loop Engineering 设计 `docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §0.4 + RL-8,以及 sediment 设计 `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`。
 
 召之即来,事完收队,**不跳步,不半截扔给你**。它不是新发明一个 AI CLI,而是架在你已有的 Claude Code / Codex / Copilot 之上,把它们都调成同一支团队,只对你这一个开发者的口味。
 

@@ -3,6 +3,19 @@ name: peaks-code
 description: Code-domain loop engineering orchestrator for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a code-repo workflow end-to-end (端到端/全流程/需求开发), especially from a product document (PRD/飞书文档/Feishu doc) through implementation and validation. Coordinates peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, and peaks-txt while preserving user confirmation gates. Triggers on `/peaks-code`, "peaks code", "全流程开发", "端到端迭代". General primitives (peaks-resume / peaks-status / peaks-test) are sibling skills, not children.
 ---
 
+## Scope (RL-8 — red line, locked 2026-07-08)
+
+`peaks-code` is a **code-domain long-task loop engineering orchestrator; not a general-purpose orchestrator.**
+
+This is RL-8 from the Loop Engineering crystallization design
+(`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md` §0.4 and §10 RL-8).
+The boundary is closed under this slice:
+
+- **In scope:** end-to-end code-domain workflows — repository scanning, RD planning, code implementation via RD, QA verification, UI changes inside a code repo, source-control handoff, and code-repo context packaging. Coordinated role skills: `peaks-prd`, `peaks-rd`, `peaks-qa`, `peaks-ui`, `peaks-sc`, `peaks-txt`.
+- **Out of scope:** research / content / product / medical / non-code domains. Each of those ships as an independent `peaks-*` skill that imports `.peaks/standards/loop-engineering-guidelines.md` and passes `peaks skill lint --category loop-engineering-readiness`. They are **not** subclasses or variants of `peaks-code`.
+- **Failure modes this rule prevents:** (a) `peaks-code` widening into a general orchestrator; (b) non-code capabilities being smuggled into `peaks-code`; (c) other domains being expressed as "peaks-code variants".
+- **Self-check:** before any new peak-* capability is added here, ask "is this code-domain?" If the answer is no, the right move is a new `peaks-*` skill, not an extension of `peaks-code`.
+
 ## Single-scope-axis naming convention (2.7.1)
 
 The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). Reviewable artifacts live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored); the change-id is an optional filename slug and does NOT route filesystem writes. CLI: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. OpenSpec's `openspec/changes/<change-id>/` vocabulary (L4) is preserved. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
