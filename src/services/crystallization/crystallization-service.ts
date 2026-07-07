@@ -388,7 +388,7 @@ export class CrystallizationService {
     }
 
     // Re-validate loop_input via Zod so a hand-crafted caller input
-    // cannot bypass the schema.
+    // cannot bypass the schema. (M8 dogfood follow-up.)
     const loopRow = LoopReleaseSchema.parse(payload.loop_input);
 
     // Re-validate bee_input.
