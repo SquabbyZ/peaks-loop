@@ -466,6 +466,13 @@ export async function runSediment(
         } finally {
           db.close();
         }
+        // M7 (spec §7A.2 / §10 RL-9): `peaks skill sediment export` is
+        // an ALIAS of `peaks loop export` for one release cycle. Emit
+        // the deprecation warning to stderr so downstream tooling can
+        // upgrade. Future slice removes the alias.
+        process.stderr.write(
+          "warning: 'peaks skill sediment export' is deprecated; use 'peaks loop export' or 'peaks bee export' (peaks.bundle/1, spec §7A.2)\n"
+        );
         return { ok: true, data: { outPath } };
       }
       case "import": {
@@ -490,6 +497,12 @@ export async function runSediment(
         } finally {
           db.close();
         }
+        // M7 (spec §7A.2): `peaks skill sediment import` is an ALIAS of
+        // `peaks loop import` for one release cycle. Emit the
+        // deprecation warning so downstream tooling can upgrade.
+        process.stderr.write(
+          "warning: 'peaks skill sediment import' is deprecated; use 'peaks loop import' or 'peaks bee import' (peaks.bundle/1, spec §7A.2)\n"
+        );
         return { ok: true, data: { asName: asName ?? basename(bundlePath) } };
       }
       case "gc-blobs": {

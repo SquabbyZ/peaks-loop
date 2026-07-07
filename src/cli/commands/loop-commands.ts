@@ -1,25 +1,47 @@
 /**
- * peaks loop * CLI (Slice #14) — L4 Agent Loop Integration.
+ * peaks loop * CLI (Slice #14 + M7 add).
  *
- * Per docs/superpowers/specs/2026-06-11-peaks-loop-l1-l2-l3-redesign.md §5.4
- * Slice #14, ships 5 sub-features:
+ * Slices:
+ *   #14 sub-features (L4 Agent Loop integration): distill / preflight /
+ *     detect-pattern / check-consistency / peaks goal compose.
  *
- *   14.1 peaks loop distill          — extract patterns from past sessions
- *                                       (delegates to peaks memory extract)
- *   14.2 peaks loop preflight        — pre-run sanity checks (placeholder)
- *   14.3 peaks loop detect-pattern   — find repeating patterns (placeholder)
- *   14.4 peaks loop check-consistency — verify state consistency (placeholder)
- *   14.5 peaks goal compose          — autonomous goal composition (placeholder;
- *                                       requires IDE adapter goalCommand capability
- *                                       per Slice #0.7)
+ *   M7 (2026-07-07 spec §7A.2):
+ *     peaks loop export --loop <id> --out <path.tar.gz>
+ *     peaks loop import --in <path.tar.gz> [--as <loop-id>]
  *
- * The 4 placeholders emit a clear nextActions list; the LLM-side UX
- * layer composes the actual runtime today.
+ * `peaks loop export` reads the source loop_release + relations +
+ * related bees + evidence briefs and emits a `peaks.bundle/1`
+ * tar.gz. Hard-blocks when the source has `shareable=false`.
+ *
+ * `peaks loop import` extracts a bundle, validates
+ * format_version_major=1, and lands the release as `candidate`
+ * (mandatory landing status per spec §7A.2). The receiver must run
+ * an independent evaluation before promoting to `stable`.
+ *
+ * The existing 14.x commands are kept under the same `loop` parent;
+ * M7 only ADDs export / import — it does not modify the existing
+ * surface.
  */
 
 import { Command } from 'commander';
+import { existsSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
+import { findProjectRoot } from '../../services/config/config-safety.js';
+import { openStateDb } from '../../services/skillhub/sqlite-store.js';
+import {
+  writeBundle,
+  BundleNotShareableError,
+  BundleAssetNotFoundError,
+} from '../../services/share/bundle-writer.js';
+import {
+  readBundle,
+  BundleMajorVersionMismatchError,
+  BundleSchemaVersionsMismatchError,
+  BundleImportToStableForbiddenError,
+  BundleMalformedError,
+} from '../../services/share/bundle-reader.js';
 
 type LoopDistillOptions = {
   project: string;
@@ -174,5 +196,143 @@ export function registerLoopCommands(program: Command, io: ProgramIO): void {
     }, [], [
       'loop.check-consistency is a thin facade; the LLM-side UX layer composes the drift scan.',
     ]), options.json);
+  });
+
+  // ---------- M7: peaks loop export / import (spec §7A.2) ----------
+  const LOOP_EXPORT_IMPORT_OPTS = (cmd: Command): Command =>
+    cmd
+      .option('--project <path>', 'target project root (defaults to cwd)')
+      .option('--json', 'print machine-readable JSON envelope');
+
+  LOOP_EXPORT_IMPORT_OPTS(
+    loop
+      .command('export')
+      .description(
+        "M7: export a loop_release as a peaks.bundle/1 tarball (spec §7A.2 / §10 RL-9). Refuses to export when shareable=false."
+      )
+      .requiredOption('--loop <id>', 'loop_release id (kebab-case)')
+      .requiredOption('--out <path>', 'output .tar.gz path')
+  ).action((options: { loop: string; out: string; project?: string; json?: boolean }) => {
+    const asJson = options.json === true;
+    try {
+      const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      if (!existsSync(join(projectRoot, '.peaks'))) {
+        mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+      }
+      const db = openStateDb(join(projectRoot, '.peaks', 'state.db'));
+      try {
+        const result = writeBundle({
+          db,
+          blobsDir: join(projectRoot, '.peaks', 'blobs'),
+          kind: 'loop',
+          id: options.loop,
+          outPath: options.out,
+        });
+        printResult(
+          io,
+          ok('loop.export', {
+            outPath: result.outPath,
+            kind: result.kind,
+            assetId: result.assetId,
+            importedAs: 'candidate' as const,
+          }, [], [
+            `Receiver must run \`peaks loop import --in ${result.outPath}\` to land this bundle, then run an independent evolution_evaluation before any promote.`,
+          ]),
+          asJson
+        );
+      } finally {
+        db.close();
+      }
+    } catch (error: unknown) {
+      if (error instanceof BundleNotShareableError) {
+        printResult(io, fail('loop.export', error.code, error.message, { ok: false, loop: options.loop } as never, [
+          'Set shareable=true on the loop_release row, or share via desktop_visible=false.',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof BundleAssetNotFoundError) {
+        printResult(io, fail('loop.export', error.code, error.message, { ok: false, loop: options.loop } as never, [
+          'Verify the loop id with `peaks asset status --loop <id>`.',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, fail('loop.export', 'LOOP_EXPORT_FAILED', getErrorMessage(error), { ok: false, loop: options.loop } as never, ['Verify --loop id and --out path.']), asJson);
+      process.exitCode = 1;
+    }
+  });
+
+  LOOP_EXPORT_IMPORT_OPTS(
+    loop
+      .command('import')
+      .description(
+        "M7: import a peaks.bundle/1 tarball. Lands as candidate only — promotion requires an evolution_evaluation row (spec §7A.2 / §10 RL-9 / AC-25 / AC-26)."
+      )
+      .requiredOption('--in <path>', 'input .tar.gz path')
+      .option('--as <id>', 'optional rename for the loop id when landing')
+  ).action((options: { in: string; as?: string; project?: string; json?: boolean }) => {
+    const asJson = options.json === true;
+    try {
+      const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+      if (!existsSync(join(projectRoot, '.peaks'))) {
+        mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
+      }
+      const db = openStateDb(join(projectRoot, '.peaks', 'state.db'));
+      try {
+        const result = readBundle({
+          db,
+          blobsDir: join(projectRoot, '.peaks', 'blobs'),
+          inPath: options.in,
+          ...(options.as !== undefined ? { asName: options.as } : {}),
+        });
+        printResult(
+          io,
+          ok('loop.import', {
+            assetId: result.assetId,
+            kind: result.kind,
+            importedAs: result.importedAs,
+            warnings: result.warnings,
+            evidenceBriefCount: result.evidenceBriefCount,
+          }, result.warnings, [
+            `Run an independent evaluation against this release before promoting; peaks loop promote refuses without an evolution_evaluation row.`,
+          ]),
+          asJson
+        );
+      } finally {
+        db.close();
+      }
+    } catch (error: unknown) {
+      if (error instanceof BundleMajorVersionMismatchError) {
+        printResult(io, fail('loop.import', error.code, error.message, { ok: false, receivedMajor: error.receivedMajor } as never, [
+          'Use the matching peaks.bundle/<major> reader; this peaks build only supports major=1.',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof BundleSchemaVersionsMismatchError) {
+        printResult(io, fail('loop.import', error.code, error.message, { ok: false } as never, [
+          'Source bundle did not declare the canonical schema versions; refuse the bundle.',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof BundleImportToStableForbiddenError) {
+        printResult(io, fail('loop.import', error.code, error.message, { ok: false } as never, [
+          'Bundles always land as candidate; promotion to stable requires an evolution_evaluation row (AC-26).',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      if (error instanceof BundleMalformedError) {
+        printResult(io, fail('loop.import', error.code, error.message, { ok: false, inPath: options.in } as never, [
+          'Re-export from the source via `peaks loop export`.',
+        ]), asJson);
+        process.exitCode = 1;
+        return;
+      }
+      printResult(io, fail('loop.import', 'LOOP_IMPORT_FAILED', getErrorMessage(error), { ok: false, inPath: options.in } as never, ['Verify the bundle path and integrity.']), asJson);
+      process.exitCode = 1;
+    }
   });
 }
