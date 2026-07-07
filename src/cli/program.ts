@@ -52,6 +52,7 @@ import { registerClassifyCommands } from './commands/classify-classify-commands.
 import { registerContextCommands } from './commands/context-commands.js';
 import { registerContractCommands } from './commands/contract-commands.js';
 import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
+import { registerSkillLoopEngineeringReadinessCommands } from './commands/skill-loop-engineering-readiness-commands.js';
 import { registerLoopCommands } from './commands/loop-commands.js';
 import { registerWorkflowEvalCommands } from './commands/loop-eval-commands.js';
 import { registerEvolutionCommands } from './commands/evolution-commands.js';
@@ -296,6 +297,10 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerContextCommands(program, io);
  // Slice #12: peaks skills:audit-conformance — skill family alignment pass.
  registerSkillConformanceCommands(program, io);
+ // M6 (2026-07-07 spec §7.5 / §8.4): peaks skill lint --category
+ // loop-engineering-readiness — readiness gate for any new peaks-*
+ // skill that participates in Loop Engineering.
+ registerSkillLoopEngineeringReadinessCommands(program, io);
  // Slice #13: peaks swarm * — additional subcommands (pipeline /
  // dispatch / verify / loop) are added inline in workflow-commands.ts
  // alongside the existing swarm.plan. This avoids the duplicate top-level
