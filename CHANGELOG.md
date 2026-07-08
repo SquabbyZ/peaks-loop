@@ -2,6 +2,87 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.4 — 2026-07-08
+
+Loop Engineering crystallization is now the product surface. The 4.0.0-beta.3 line shipped the framework; this release ships the post-run crystallization engine, the Darwin-style ratchet, the bundle share / desktop extension surface, and the karpathy-engineered red-line set that locks them together. Every durable-change entry is gated on a real, completed run; every evolution round is gated on an independent-context evaluation.
+
+### Added — Loop Engineering Asset layer (§4.1, AC-1/AC-2/AC-3)
+
+- **`loop_release` table** — `src/services/skillhub/migrations/002-loop-release.sql`. Schema version pinned to `peaks.loop/1` via CHECK constraint. Indexes on `lifecycle_status` and `scenario`. Non-breaking: 4.x `bee_release` rows continue to read.
+- **`loop_bee_relation` table** — `src/services/skillhub/migrations/003-loop-bee-relation.sql`. Schema version `peaks.loop-bee-relation/1`. Roles: `main` / `supporting` / `candidate` / `retired`. Partial UNIQUE index `WHERE role='main'` enforces at most one main bee per loop at the storage layer (defense in depth; the service layer also enforces it).
+- **Schema for the four-loop + dual-asset model** — Zod schemas in `src/services/loop/loop-release-types.ts` and `src/services/loop/loop-bee-relation-types.ts` mirror the §4.1 / §4.6 row shapes and refuse to parse rows whose `schema_version` is not the fixed literal.
+
+### Added — Post-run crystallization flow (§5, AC-4 / AC-5 / AC-6 / AC-7)
+
+- **`crystallization_event` table** — `src/services/skillhub/migrations/006-crystallization-event.sql`. Schema version `peaks.crystallization/1`. Carries the 4-section evidence brief inline; FKs to optional created/updated loop_release / bee_release.
+- **`CrystallizationService`** — `src/services/crystallization/crystallization-service.ts`. Pre-run gate: `task_status='completed'` AND `gates_passed=true` AND `evidence_collected=true` (Zod literal enforcement + service-layer re-assertion). Atomic single-transaction write of loop_release + bee_release header + bee_manifest + loop_bee_relation(main) + crystallization_event(brief inline).
+- **`peaks asset crystallize`** CLI — `src/cli/commands/asset-commands.ts`. Required options: `--brief-what-happened`, `--brief-why-it-matters`, `--brief-what-learned`, `--brief-what-action`. A partial brief is rejected with `MISSING_BRIEF_SECTION` and exit 1 (RL-7).
+- **`peaks asset dispose` / `peaks asset status`** — cross-asset dispose (trace_only / retain / destroy) and lifecycle status dashboard.
+
+### Added — Darwin-style ratchet (§6, AC-8 / AC-9 / AC-10 / AC-11)
+
+- **`evolution_evaluation` table** — `src/services/skillhub/migrations/005-evolution-evaluation.sql`. Schema version `peaks.evolution/1`. Carries `target_kind`, `target_release_id`, `optimization_dimensions_json` (length-1 enforced at service layer), `target_count=1` (CHECK), `author_id`, `evaluator_id`, `skeptic_id` (three independent agents), `verdict` ∈ {`keep`, `revert`, `needs-user-decision`}, `user_confirmation_pointer`, `brief_pointer`, and the four-section brief projection.
+- **`EvolutionService`** — `src/services/evolution/evolution-service.ts`. Hard rules: single object (AC-8) + single optimization dimension (AC-8) + author ≠ evaluator ≠ skeptic (AC-10/AC-12/AC-14) + score_delta >= score_delta_min for `keep` (AC-11, default 1.0) + user_confirmation_pointer required for `keep` (AC-15).
+- **`peaks evolution propose / evaluate / revert / mark-keep / status`** CLI — `src/cli/commands/evolution-commands.ts`. Each error path emits a stable wire-format code (`EVOLUTION_MULTI_OBJECT` / `EVOLUTION_MULTI_DIMENSION` / `EVOLUTION_SELF_SCORE` / `EVOLUTION_DELTA_BELOW_THRESHOLD` / `EVOLUTION_MISSING_USER_CONFIRMATION`).
+- **Independent-evaluator runner** — `src/services/evolution/independent-evaluator-runner.ts`. Frozen `EvaluationPackage` containing only `target_kind / target_release_id / optimization_dimension / before_snapshot / after_snapshot / diff / rubric / red_lines / source_traces` — no author session, no author reasoning, no recommendation framing (AC-12 / AC-13).
+- **Regression-skeptic runner** — `src/services/evolution/regression-skeptic-runner.ts`. A SEPARATE agent that emits `driftRisks / overfitRisks / safetyRegressionRisks` plus an optional `blocker` (which forces `verdict='revert'`).
+
+### Added — Karpathy-engineered red-line set (AC-21 / AC-22 / AC-23)
+
+- **`.peaks/standards/loop-engineering-guidelines.md`** — the single source of truth for the 10 red lines RL-0..RL-9, each in the four-section karpathy form (Failure modes / Rewrite / Self-check / Out-of-scope). Co-equal karpathy × darwin layers (RL-0).
+- **`peaks standards lint --category loop-engineering`** — `src/services/standards/loop-engineering-lint.ts`. Parses the guideline file and asserts every red line has all four sections, fails closed otherwise.
+- **`peaks skill lint --category loop-engineering-readiness --path <skill-dir>`** — `src/services/standards/loop-engineering-readiness-lint.ts` + `src/cli/commands/skill-loop-engineering-readiness-commands.ts`. Asserts a peaks-* SKILL.md (a) references `.peaks/standards/loop-engineering-guidelines.md`, (b) does not introduce a CLI verb the user is meant to type, (c) does not introduce a JSON / manifest hand-authoring surface. Alias verb: `peaks skill ready --category loop-engineering-readiness --path <skill-dir>`.
+- **Unit guard** — `tests/unit/standards/loop-engineering-guidelines.test.ts` enforces the four-section shape for every red line in the file.
+- **peaks-code domain boundary (RL-8)** — `skills/peaks-code/SKILL.md` self-declares as the code-domain long-task loop engineering orchestrator and is NOT a general-purpose orchestrator. Cross-domain peaks-* skills (peaks-content, peaks-issue-fix-orchestrator) import the shared guideline file and pass the readiness lint.
+
+### Added — Bundle share + desktop extension surface (§7A, AC-24 / AC-25 / AC-26)
+
+- **Share / desktop fields** — `src/services/skillhub/migrations/004-loop-bee-extension.sql`. Adds `shareable / share_excluded_paths / desktop_visible / export_bundle_format` to `loop_release`, and `shareable / desktop_visible` to `bee_release`. `export_bundle_format` is pinned to `peaks.bundle/1` via CHECK constraint. Non-breaking: every new column has a DEFAULT.
+- **Bundle writer** — `src/services/share/bundle-writer.ts`. Writes a `peaks.bundle/1` tar.gz with `manifest.json`, `relations.json`, `evidence_briefs/*.json`, content-addressed `blobs/<sha256>`, and `EVALUATION_REQUIRED.md`. Hard block: `shareable=false` throws `BundleNotShareableError(SHARE_BUNDLE_ERROR_CODES.NOT_SHAREABLE)` BEFORE any tarball work, for both loop and bee kinds.
+- **Bundle reader** — `src/services/share/bundle-reader.ts`. Hard blocks: `format_version_major != 1` is rejected (AC-25); `schema_versions` mismatch is rejected; the imported release ALWAYS lands as `candidate` (AC-25 / §10 RL-9). The bundle carries an `EVALUATION_REQUIRED.md` marker telling the receiver to run an independent evaluation before any durable change.
+- **`peaks loop export` / `peaks loop import`** — `src/cli/commands/loop-commands.ts`. Existing 14.x `peaks loop *` subcommands are preserved; M7 only ADDS export / import.
+- **`peaks bee export` / `peaks bee import`** — `src/cli/commands/share-commands.ts`. Same hard-block semantics.
+- **Receiver-side integration test** — `tests/integration/share-bundle-roundtrip.test.ts` asserts the round-trip lands as `candidate` (AC-25), that `shareable=false` blocks the export at the CLI layer, and that without an `evolution_evaluation` row the receiver has no path to `stable` (AC-26).
+
+### Added — SkillHub expansion (5 new tables / non-breaking)
+
+The 6+ relation table layout is preserved. 5 new tables added under `.peaks/_runtime/<sessionId>/`:
+- `loop_release` (002)
+- `loop_bee_relation` (003)
+- loop↔bee share / desktop extension columns (004)
+- `evolution_evaluation` (005)
+- `crystallization_event` (006)
+
+Migration is non-breaking: every new column has a DEFAULT and the new tables sit alongside the existing 4.x schema.
+
+### Added — New CLI verbs (spec §7.4)
+
+- `peaks loop init / list / show / search / recent / export / import`
+- `peaks asset crystallize / dispose / status`
+- `peaks evolution propose / evaluate / revert / mark-keep / status`
+- `peaks skill lint --category loop-engineering-readiness --path <skill-dir>`
+- `peaks skill ready --category loop-engineering-readiness --path <skill-dir>` (alias)
+
+### Changed
+
+- **`peaks workflow *`** is reframed as the execution trace surface (per spec §7.6 demotion); it remains functional. The user-facing verb is "replay this run", not "create a new asset".
+- **peaks-maker skill** is narratively repositioned to "Loop crystallizer + Bee creator + Evolution gatekeeper" (per spec §7.5); only the SKILL.md and memory references are re-narrated, the `id` is preserved.
+
+### Verification (4.0.0-beta.4)
+
+- `tsc --noEmit` zero errors
+- `peaks standards lint --category loop-engineering` parses all 10 red lines + 4 sections each (lint passes)
+- `pnpm vitest run tests/unit/{standards,crystallization,evolution,share}/` — 13 files / 154 unit tests pass
+- `pnpm vitest run tests/integration/{share-bundle-roundtrip,dogfood-loop-engineering-crystallization,asset-crystallize-cli,evolution-cli,skill-loop-engineering-readiness-cli}.test.ts` — 5 files / 26 integration tests pass
+- M8 dogfood (`tests/integration/dogfood-loop-engineering-crystallization.test.ts`) crystallizes the M0..M7 work into a real loop + bee + relation + event in 644ms (defense in depth: the release crystallizes itself)
+
+### Migration
+
+- 4.x `bee_release` rows continue to read. No data migration required.
+- The 5 new tables are added via non-destructive `CREATE TABLE IF NOT EXISTS` migrations.
+- The `bundle-writer / bundle-reader` pair is additive; existing `peaks skill sediment export / import` remains as an alias for one release cycle, then deprecates.
+- The peaks-code SKILL.md is unchanged from 4.0.0-beta.3 — no `peaks-solo` migration needed for users already on beta.2 or later.
+
 ## 4.0.0-beta.2 — 2026-07-07
 
 ### Renamed
