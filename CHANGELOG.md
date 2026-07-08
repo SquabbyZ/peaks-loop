@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.5 — 2026-07-08
+
+### Added — peaks-solo dispatcher (分诊员)
+
+- **`peaks-solo` skill** — `skills/peaks-solo/SKILL.md` + 3 references (triage / fallback / sediment). Natural-language front door for the Peaks-Loop skill family. Use when the user describes a task in NL and does not know which peaks-* skill fits. 0 breaking change: 3.x / 4.x `/peaks-code` / `/peaks-content` / `/peaks-doctor` etc. continue to work.
+- **`peaks skill search` CLI** — `src/services/skill/skill-search-service.ts` + `src/cli/commands/skill-search-commands.ts`. Query / tag / domain filters; substring match; structured JSON output. Used by `peaks-solo` to find the right leaf skill. Available as a top-level primitive (not dispatcher-specific).
+- **Sub-skills unchanged** — `peaks-code / peaks-content / peaks-doctor / peaks-issue-fix-orchestrator / peaks-sop / etc.` are NOT modified. peaks-solo sits alongside, not on top.
+
+### Verification (4.0.0-beta.5)
+
+- `peaks skill list` shows `peaks-solo` first
+- `peaks skill search --query "code"` returns `peaks-code` with matchScore > 0
+- `peaks skill search --query "xxxxxxxxxxxxx"` returns `[]` (no error)
+- `pnpm vitest run` — full regression green; `peaks-code / peaks-content / peaks-doctor` tests unchanged
+- `peaks code --help` / `peaks content --help` / `peaks doctor --help` — exit 0, behavior unchanged
+
 ## 4.0.0-beta.4 — 2026-07-08
 
 Loop Engineering crystallization is now the product surface. The 4.0.0-beta.3 line shipped the framework; this release ships the post-run crystallization engine, the Darwin-style ratchet, the bundle share / desktop extension surface, and the karpathy-engineered red-line set that locks them together. Every durable-change entry is gated on a real, completed run; every evolution round is gated on an independent-context evaluation.

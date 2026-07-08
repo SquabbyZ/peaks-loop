@@ -33,6 +33,10 @@ The product is governed by a four-layer asset model and a karpathy × darwin dua
 
 Summon them, they handle the work. Stand them down when it's done. **No skipped steps. No half-finished hand-offs.** No new AI CLI to learn — it sits on top of Claude Code, Codex, or Copilot you already run.
 
+### peaks-solo is the dispatcher (new in 4.0.0-beta.5)
+
+If you **don't know which peaks-* skill to use**, just type `/peaks-solo` and describe your task in natural language. It triages for you: dispatches to a matching leaf, or self-plans with deep-search / WebSearch / Bash / Edit markdown if no leaf fits, then asks whether to sediment the result. `/peaks-code` / `/peaks-content` / `/peaks-doctor` etc. continue to work — **zero breaking changes**.
+
 **Every gate has a hard exit.** Audit fails = stop. QA fails = stop. Any gate fails = full stop. You don't chase it, you don't patch it. You decide, it runs the next gate.
 
 #### Gates aren't decoration — 5,439 tests passed · 19 skipped · 0 failed

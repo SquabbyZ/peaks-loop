@@ -33,6 +33,10 @@
 
 召之即来,事完收队,**不跳步,不半截扔给你**。它不是新发明一个 AI CLI,而是架在你已有的 Claude Code / Codex / Copilot 之上,把它们都调成同一支团队,只对你这一个开发者的口味。
 
+### peaks-solo 是分诊员(新增,4.0.0-beta.5)
+
+如果**你不知道该用哪个 peaks-* 技能**,直接用 `/peaks-solo` 描述你的诉求就行。它会替你分诊:有合适的 leaf 就透明转交,没合适的就自己规划 + 跑(deep-search / WebSearch / Bash / Edit markdown),跑完回头问你要不要沉淀。`/peaks-code` / `/peaks-content` / `/peaks-doctor` 等老入口照常可用,**0 breaking**。
+
 **每一步都有强退出条件**:审计不通过就停,QA 没过就停,任何一道门失败 = 全流程停。你不必追着它催、也不必替它补,它跑完一道再交你拍板,拍完再走下一道。
 
 #### 门禁不是装饰 —— 5439 tests passed · 19 skipped · 0 failed

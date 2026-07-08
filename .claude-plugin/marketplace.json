@@ -35,6 +35,11 @@
       ],
       "skills": [
         {
+          "name": "peaks-solo",
+          "path": "./skills/peaks-solo",
+          "description": "Dispatcher (分诊员) — natural-language front door for the Peaks-Loop skill family. Use when the user describes a task in NL and does not know which peaks-* skill fits. NOT for code/content/doctor/issue-fix-orchestrator/SOP work (use the specific skill)."
+        },
+        {
           "name": "peaks-code",
           "path": "./skills/peaks-code",
           "description": "Full-auto orchestration facade for the Peaks-Loop skill family. Use when the user asks Peaks-Loop to handle a project workflow end-to-end."
