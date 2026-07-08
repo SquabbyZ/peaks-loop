@@ -7,6 +7,7 @@ metadata:
   source: 商讨 session 2026-07-08-session-fd90c4
   status: candidate
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # User decision 2026-07-08: revive peaks-solo as dispatcher
 

@@ -6,6 +6,7 @@ metadata:
   createdAt: 2026-07-05
   source: brainstorm session for `docs/superpowers/specs/2026-07-05-peaks-code-to-peaks-code-rename-design.md`
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05)
 

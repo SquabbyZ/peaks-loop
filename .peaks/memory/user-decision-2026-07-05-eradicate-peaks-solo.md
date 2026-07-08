@@ -6,6 +6,7 @@ metadata:
   createdAt: 2026-07-05
   source: post-rename user manual sweep
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # User decision: "彻底去根" — 全仓库 peaks-code → peaks-code
 

@@ -1,0 +1,10 @@
+{
+  "name": "peaks-code-to-peaks-code-rename-session-directive",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/peaks-code-to-peaks-code-rename-session-directive.md"
+  ],
+  "promotedAt": "2026-07-08T13:44:55.334Z",
+  "promotedBy": "peaks-rd fork agent"
+}

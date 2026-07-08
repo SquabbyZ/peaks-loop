@@ -1,0 +1,10 @@
+{
+  "name": "user-decision-2026-07-05-eradicate-peaks-code",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/user-decision-2026-07-05-eradicate-peaks-code.md"
+  ],
+  "promotedAt": "2026-07-08T13:44:57.264Z",
+  "promotedBy": "peaks-rd fork agent"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md"
+  ],
+  "promotedAt": "2026-07-08T13:43:34.164Z",
+  "promotedBy": "peaks-rd fork agent"
+}
