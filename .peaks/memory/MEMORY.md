@@ -11,6 +11,7 @@
 - [peaks-code-to-peaks-code-rename-session-directive](peaks-code-to-peaks-code-rename-session-directive.md) — 2026-07-05 user 在 rename brainstorm 末尾追加的 6 条硬约束(一次到位 / 不计成本 / 不计时间 / 禁假绿 / 禁偷懒 / 存量迁移 LLM 做),适用于所有 peaks-loop 长任务。
 - [peaks-code-consumer-project-smoke-test-ice-cola](peaks-code-consumer-project-smoke-test-ice-cola.md) — 2026-07-05 ice-cola 实测 peaks-code 消费项目两次:早场全绿 + 3 个冰山陷阱(dist 路径 / pnpm link 不触发 build / 全局 peaks 抢路径);晚场 re-run 确认 CLI / SKILL.md / skills/ 4-user-facing 目录全部锁死到 peaks-code-only,user-facing 唯一性成立。
 - [user-decision-2026-07-05-eradicate-peaks-code](user-decision-2026-07-05-eradicate-peaks-code.md) — 2026-07-05 user 决定"彻底去根",107 个文件 peaks-code → peaks-code 全替换,包括 48 个 `.peaks/memory/` 历史快照——打破 rename spec AC-10 不动 history 的硬规则。
+- [user-decision-2026-07-08-revive-peaks-solo-as-dispatcher](user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md) — 2026-07-08 商讨锁:4.x-beta 周期内 peaks-solo 0 起来作为 dispatcher(分诊员,不是 orchestrator、不是 rename peaks-code);peaks-code 完整保留;3.x→4.x 升级路径 0 breaking;同步新建 `peaks skill search` CLI 解决 dispatcher 分诊判断源(不能用 `peaks skill list` 兜底);沉淀时机 = LLM 识别 + 用户主动 / leaf 跑完不重复问;注册方式 = 装进 Skill tool skill 池(独立 skill)。
 
 ## 4.x sediment-pool — 项目元规则
 
