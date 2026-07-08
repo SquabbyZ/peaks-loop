@@ -10,6 +10,15 @@ import { generateProjectContext } from '../../../services/memory/project-context
 import { getSessionId, setSessionMeta } from '../../../services/session/session-manager.js';
 import { fail, ok } from '../../../shared/result.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
+// Slice S0 (4.0.0-beta.5 peaks-solo dispatcher release):
+// `peaks skill search` is the CLI primitive that feeds the
+// peaks-solo dispatcher (S1). Adding a single import + register call
+// here keeps the change surgical and leaves all existing skill
+// subcommands (list / doctor / sync / runbook / presence / heartbeat)
+// untouched. See
+// docs/superpowers/specs/2026-07-08-peaks-solo-dispatcher-design.md §3.2
+// and the S0 plan under docs/superpowers/plans/.
+import { registerSkillSearchCommand } from '../skill-search-commands.js';
 
 export function registerSkillCommand(program: Command, io: ProgramIO): void {
   const skill = program.command('skill').description('Manage Peaks skills');
@@ -324,4 +333,9 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
     const result = detectPresenceMarker({ project: projectRoot, latestAssistantMessage: message });
     printResult(io, ok('skill.detect-marker-loss', result), options.json);
   });
+
+  // Slice S0 — register `peaks skill search`. Sibling subcommand to
+  // list / runbook / presence; preserves the existing surface
+  // (HC-10 — 老入口保留).
+  registerSkillSearchCommand(program, io);
 }
