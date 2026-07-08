@@ -35,3 +35,5 @@ coverage/
 .peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/
 # Dogfood / scratch test runners; ephemeral, never source-of-truth.
 .tmp/
+.pack-cache/
+*.tgz
