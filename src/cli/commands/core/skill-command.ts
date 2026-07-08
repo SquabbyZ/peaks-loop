@@ -29,6 +29,13 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       printResult(io, ok('skill.list', { skills }), true);
     } else {
       const sorted = [...skills].sort((a, b) => {
+        // Slice S0 (4.0.0-beta.5): peaks-solo is the dispatcher (front
+        // door) — list it FIRST so users discover the dispatcher before
+        // any specific leaf. Followed by peaks-sop (current default
+        // runbook showcase) and peaks-code (canonical code-domain
+        // orchestrator); everything else falls back to alphabetical.
+        if (a.name === 'peaks-solo') return -1;
+        if (b.name === 'peaks-solo') return 1;
         if (a.name === 'peaks-sop') return -1;
         if (b.name === 'peaks-sop') return 1;
         if (a.name === 'peaks-code') return -1;
