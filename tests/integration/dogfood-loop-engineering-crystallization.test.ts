@@ -72,6 +72,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
         bee_input: { name: 'bee-shoo', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
+        trigger: 'user_explicit',
       })
     ).toThrow(/task.*completed|pre_run|gate|status/i);
   });
@@ -89,11 +90,12 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
     });
     expect(() =>
       svc.crystallize({
-        task: { task_id: 'm8-test-gate-block', task_status: 'completed' as never, gates_passed: false, evidence_collected: true },
+        task: { task_id: 'm8-test-gate-block', task_status: 'completed' as never, gates_passed: false as never, evidence_collected: true },
         loop_input: { name: 'shoo2', scenario: 'x', trigger_policy: 'x', shareable: true, desktop_visible: true } as never,
         bee_input: { name: 'bee-shoo2', description: 'x' } as never,
         bee_relation_reason: 'x',
         evidence_brief: brief,
+        trigger: 'user_explicit',
       })
     ).toThrow(/gate/i);
   });
@@ -186,10 +188,11 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
 
     const loopSvc = new LoopReleaseService(db);
     const stored = loopSvc.read(result.loop_release_id);
-    expect(stored.lifecycle_status).toBe('candidate');
-    expect(stored.shareable).toBe(true);
-    expect(stored.desktop_visible).toBe(true);
-    expect(stored.export_bundle_format).toBe('peaks.bundle/1');
+    expect(stored).toBeTruthy();
+    expect(stored!.lifecycle_status).toBe('candidate');
+    expect(stored!.shareable).toBe(true);
+    expect(stored!.desktop_visible).toBe(true);
+    expect(stored!.export_bundle_format).toBe('peaks.bundle/1');
 
     const relSvc = new LoopBeeRelationService(db);
     const relations = relSvc.listByLoop({ loop_release_id: result.loop_release_id });

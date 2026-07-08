@@ -7,5 +7,9 @@ out/
 # Public preview files — referenced from ../README + README-en
 # inline <video> embeds via ./examples/video-demo/preview/*.mp4.
 # Ship these two files in git so a clone renders the video at the
-# same path GitHub renders from. Render output in ./out stays ignored.
+# same path GitHub renders from. Render output in ./out stays ignored
+# (except the two closing-960 hero PNGs referenced from README as
+# the click-to-play thumbnail).
 !preview/*.mp4
+!out/zh-closing-960.png
+!out/en-closing-960.png

@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop",
-  "version": "4.0.0-beta.2",
+  "version": "4.0.0-beta.3",
   "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -39,7 +39,11 @@
     "README.md",
     "README-en.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "examples/video-demo/preview/peaks-loop-demo.mp4",
+    "examples/video-demo/preview/peaks-loop-demo-en.mp4",
+    "examples/video-demo/out/zh-closing-960.png",
+    "examples/video-demo/out/en-closing-960.png"
   ],
   "scripts": {
     "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",

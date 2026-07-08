@@ -136,6 +136,7 @@ describe("safeRenderRecommendationPayload", () => {
       evaluator_summary: { one_liner: "", risk_tags: [] },
     });
     expect(r.ok).toBe(false);
+    if (r.ok) return;
     expect(r.code).toBe("MISSING_BRIEF_SECTION");
   });
 });

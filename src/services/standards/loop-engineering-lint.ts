@@ -90,10 +90,10 @@ function parseRedLines(raw: string): RedLineReport[] {
   const headingRegex = new RegExp(RED_LINE_HEADING.source, RED_LINE_HEADING.flags);
   const sectionRegex = new RegExp(SECTION_HEADING.source, SECTION_HEADING.flags);
 
-  const headings: Array<{ id: string; title: string; start: number }> = [];
+  const headings: Array<{ id: string; title: string; start: number; end: number }> = [];
   let m: RegExpExecArray | null;
   while ((m = headingRegex.exec(raw)) !== null) {
-    headings.push({ id: m[1], title: m[2], start: m.index + m[0].length });
+    headings.push({ id: m[1] ?? '', title: m[2] ?? '', start: m.index + m[0].length, end: raw.length });
   }
   for (let i = 0; i < headings.length - 1; i++) {
     headings[i]!.end = headings[i + 1]!.start;
@@ -103,7 +103,7 @@ function parseRedLines(raw: string): RedLineReport[] {
   }
 
   return headings.map((h) => {
-    const body = raw.slice(h.start, h.end ?? raw.length);
+    const body = raw.slice(h.start, h.end);
     const sections: Partial<Record<RedLineSection, string>> = {};
     const sectionMatches: Array<{ name: RedLineSection; start: number }> = [];
     let sm: RegExpExecArray | null;

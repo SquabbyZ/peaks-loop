@@ -7,6 +7,7 @@ import { openStateDb } from "../../../src/services/skillhub/sqlite-store.js";
 import {
   CrystallizationService,
   CrystallizationIntegrityError,
+  type CrystallizationTaskState,
 } from "../../../src/services/crystallization/crystallization-service.js";
 import type { EvidenceBrief } from "../../../src/services/crystallization/crystallization-types.js";
 
@@ -64,19 +65,25 @@ function makeBeeInput(name: string) {
   };
 }
 
-function makeTask(overrides: Partial<{
-  task_id: string;
-  task_status: "completed" | "in_progress" | "failed";
-  gates_passed: boolean;
-  evidence_collected: boolean;
-}> = {}) {
-  return {
+function makeTask(
+  overrides: Partial<{
+    task_id: string;
+    task_status: "completed" | "in_progress" | "failed";
+    gates_passed: boolean;
+    evidence_collected: boolean;
+  }> = {}
+): CrystallizationTaskState {
+  const merged = {
     task_id: "task-1",
     task_status: "completed" as const,
     gates_passed: true as const,
     evidence_collected: true as const,
     ...overrides,
   };
+  // Override can widen the literal types (e.g. task_status:
+  // "in_progress" via `as unknown as "completed"`), but the
+  // production schema is strict-literal; cast at the test boundary.
+  return merged as unknown as CrystallizationTaskState;
 }
 
 /* ---------------------------------------------------------------------- */

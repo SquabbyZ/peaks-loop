@@ -375,8 +375,8 @@ function writeLoopBundle(args: {
         }
       );
       // Pull every content-addressed sha256 across all bee_files rows.
-      for (const f of bee.files) {
-        const sha = String((f as { sha256?: string }).sha256 ?? "");
+      for (const f of (bee.files as Array<{ sha256?: string }>)) {
+        const sha = String(f.sha256 ?? "");
         if (sha) blobHashes.add(sha);
       }
     }

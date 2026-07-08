@@ -25,7 +25,7 @@ import {
   safeParseRunStateContract,
 } from "../../../src/services/share/run-state-contract.js";
 
-function validContract(): unknown {
+function validContract(): Record<string, unknown> {
   return {
     bee_id: "bee-x",
     status: "running",

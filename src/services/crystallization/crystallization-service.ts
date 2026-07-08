@@ -122,7 +122,8 @@ export type CrystallizationTaskState = z.infer<
 export type CrystallizationIntegrityErrorCode =
   | "CRYSTALLIZATION_PRE_RUN"
   | "CRYSTALLIZATION_INVALID_TASK_STATE"
-  | "CRYSTALLIZATION_TX_FAILED";
+  | "CRYSTALLIZATION_TX_FAILED"
+  | "MISSING_BRIEF_SECTION";
 
 export class CrystallizationIntegrityError extends Error {
   readonly code: CrystallizationIntegrityErrorCode | "MISSING_BRIEF_SECTION";

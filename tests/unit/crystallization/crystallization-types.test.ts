@@ -42,6 +42,7 @@ describe("EvidenceBrief — 4-section guard", () => {
       what_action: "x",
     });
     expect(r.ok).toBe(false);
+    if (r.ok) return;
     expect(r.code).toBe("MISSING_BRIEF_SECTION");
   });
 
@@ -52,6 +53,7 @@ describe("EvidenceBrief — 4-section guard", () => {
       what_action: "x",
     });
     expect(r.ok).toBe(false);
+    if (r.ok) return;
     expect(r.code).toBe("MISSING_BRIEF_SECTION");
   });
 
@@ -133,6 +135,7 @@ describe("CrystallizationEvent — full row parse", () => {
     };
     const r = safeParseCrystallizationEvent(tampered);
     expect(r.ok).toBe(false);
+    if (r.ok) return;
     expect(r.code).toBe("MISSING_BRIEF_SECTION");
   });
 

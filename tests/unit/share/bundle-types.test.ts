@@ -33,7 +33,7 @@ import {
   SHARE_BUNDLE_ERROR_CODES,
 } from "../../../src/services/share/bundle-types.js";
 
-function minimalLoopManifest(extra: Record<string, unknown> = {}): unknown {
+function minimalLoopManifest(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     format_constant: PEAKS_BUNDLE_FORMAT_CONSTANT,
     format_version_major: PEAKS_BUNDLE_FORMAT_VERSION_MAJOR,
@@ -68,7 +68,7 @@ function minimalLoopManifest(extra: Record<string, unknown> = {}): unknown {
   };
 }
 
-function minimalBeeManifest(extra: Record<string, unknown> = {}): unknown {
+function minimalBeeManifest(extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     format_constant: PEAKS_BUNDLE_FORMAT_CONSTANT,
     format_version_major: PEAKS_BUNDLE_FORMAT_VERSION_MAJOR,

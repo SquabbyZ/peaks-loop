@@ -212,7 +212,6 @@ describe("share-bundle round-trip — AC-25", () => {
 // (Currently unused — the shareable=false round-trip is locked by
 // the unit test in tests/unit/share/bundle-writer.test.ts. Kept
 // here as a regression seam for future M7.x refactors.)
-void FLIP_SHAREABLE_SCRIPT;
 const FLIP_SHAREABLE_SCRIPT = `\
 // flip-shareable.cjs — flips shareable=0 for the test loop id.
 const Db = require('better-sqlite3');
@@ -221,6 +220,7 @@ const id = 'loop-private';
 db.prepare('UPDATE loop_release SET shareable = 0 WHERE id = ?').run(id);
 db.close();
 `;
+void FLIP_SHAREABLE_SCRIPT;
 
 describe("share-bundle round-trip — AC-26 (no promote without evaluation)", () => {
   test("without an evolution_evaluation row, peaks loop promote has no candidate path; the receiver must evaluate first", () => {
