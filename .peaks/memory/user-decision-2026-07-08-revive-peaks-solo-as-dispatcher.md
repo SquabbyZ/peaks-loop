@@ -92,6 +92,20 @@ metadata:
 - 本条走 `type: feedback` 命名空间(因为是 user 决策 / 硬约束,不是项目事实),**不**走 `peaks asset crystallize` 进 loop_release / bee_release(那是 Loop Engineering 资产域,本条是 dispatcher 实施域)
 - 是否未来要 `crystallize` peaks-solo 本身为 Loop Engineering 资产?**M4 ratchet 之后再说** —— 这次商讨的产物**不**自动升级为 loop engineering 资产
 
+## RL-10 编号决定(2026-07-08 follow-up)
+
+- 实施期间(spec §6 R5 + plan index §Tech Notes + s1 plan §Self-check)3 处提议"RL-10 编号待 user 拍板"
+- 4.0.0-beta.5 ship + 全部 follow-up 修完后,主 session 决策:**deferred to next slice**
+- 理由:
+  1. HC-11 在 11 hard constraints 里**已经 effective 锁死**(spec §0 + SKILL.md §6 + 3 个 reviewer's report 多个地方)
+  2. RL-10 升格需要改 `.peaks/standards/loop-engineering-guidelines.md` + 触发 `peaks standards lint --category loop-engineering` 验证(可能 break 现有 lint 状态)
+  3. 这超出"修 4 follow-ups"scope,需要 user 拍板
+  4. 下次 peaks-solo 相关 decision 时,**优先**考虑把 HC-11 升格为正式 RL-10
+- 替代方案(已实施):HC-11 在 spec / SKILL.md / 3 reviews 多个地方 redundant lock,不靠单一编号存活
+- 决策执行人:main session(本次 session 的 dispatcher role)
+- 决策时间:2026-07-08 4.0.0-beta.5 sign-off 阶段
+- 决策影响:零(HC-11 行为不变,只是编号升格延迟)
+
 ## 相关
 
 - [[peaks-solo-to-peaks-code-rename-session-directive]] — 2026-07-05 改名时锁的 6 条硬约束
