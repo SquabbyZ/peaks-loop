@@ -13,6 +13,13 @@
 - [user-decision-2026-07-05-eradicate-peaks-code](user-decision-2026-07-05-eradicate-peaks-code.md) — 2026-07-05 user 决定"彻底去根",107 个文件 peaks-code → peaks-code 全替换,包括 48 个 `.peaks/memory/` 历史快照——打破 rename spec AC-10 不动 history 的硬规则。
 - [user-decision-2026-07-08-revive-peaks-solo-as-dispatcher](user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md) — 2026-07-08 商讨锁:4.x-beta 周期内 peaks-solo 0 起来作为 dispatcher(分诊员,不是 orchestrator、不是 rename peaks-code);peaks-code 完整保留;3.x→4.x 升级路径 0 breaking;同步新建 `peaks skill search` CLI 解决 dispatcher 分诊判断源(不能用 `peaks skill list` 兜底);沉淀时机 = LLM 识别 + 用户主动 / leaf 跑完不重复问;注册方式 = 装进 Skill tool skill 池(独立 skill)。
 - [2026-07-08-4-0-0-beta-5-overview](2026-07-08-4-0-0-beta-5-overview.md) — 4.0.0-beta.5 整体改动轴心 = 上线 peaks-solo dispatcher(SKI search CLI + skill + 3 references + 老入口 0 改动);10 commits 增量;peak-code 流程 unchanged。后续 cross-version diff 先排除 dispatcher 维度再展开。
+- [2026-07-08-4-0-0-beta-6-published](2026-07-08-4-0-0-beta-6-published.md) — 4.0.0-beta.6 已 npm publish + global install 更新(commit ddc85f8);含 OpenSpec 解耦 + vendor adapter + polyrepo;已知遗留(S3-cleanup / AC-4 baseline / AC-5 PARTIAL / final-review allPass=false)。
+
+- [2026-07-09-zcode-adapter-overview](2026-07-09-zcode-adapter-overview.md) — RID 003-add-zcode-adapter 完成总结:Slice A (install 默认 model 修复) + Slice B (zcode-adapter 第 9 个 IDE) 全 PASS,verify-pipeline ok=true。
+- [z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter](z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md) — z-code 是 peaks-loop 第 9 个 IDE adapter,vendor-neutrality 通过 adapter 抽象守住(2026-07-09 lesson)。
+- [peaks-loop-install-model-getstrongestmodelid-fallback](peaks-loop-install-model-getstrongestmodelid-fallback.md) — peaks-loop install 不再写死默认 model,改运行时探测(getStrongestModelId 三层 fallback)(2026-07-09 lesson)。
+- [desktop-application-ide-adapter-z-code-cli](desktop-application-ide-adapter-z-code-cli.md) — desktop-application 类 IDE adapter 字段降级决策(z-code 非 CLI)(2026-07-09 lesson)。
+- [peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010](peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md) — peaks-code runbook 4.0.0-beta.6 SKILL.md 与实际 CLI 多处偏离(2026-07-09 lesson)。
 
 ## 4.x sediment-pool — 项目元规则
 

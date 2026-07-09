@@ -83,7 +83,7 @@ export interface ProjectPreferences {
    * Slice 2026-06-28-code-mode-bypass-fix: economyMode is a
    * **MODEL-SELECTION** knob only — it chooses between the cheap
    * configured provider (`getConfiguredExecutionModelId`) and the
-   * strongest planner/reviewer model (`STRONGEST_MODEL_ID`). It does
+   * strongest planner/reviewer model (`getStrongestModelId(...)`). It does
    * NOT throttle concurrency, fan-out, or worker count. Per user
    * direction 2026-06-28: "效率比省钱更重要，是在效率达到最大值的时
    * 候，再去考虑经济问题" (efficiency first; economy is only considered

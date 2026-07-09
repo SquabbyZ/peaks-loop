@@ -21,7 +21,8 @@ export type IdeId =
   | 'qoder'
   | 'tongyi-lingma'
   | 'hermes'
-  | 'openclaw';
+  | 'openclaw'
+  | 'zcode';
 
 export interface IdeCapabilities {
   /** peaks gate enforce 是否适用该 IDE(必备) */

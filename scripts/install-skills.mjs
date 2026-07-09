@@ -172,21 +172,15 @@ function readPackageVersion(packageRoot = resolvePackageRoot()) {
 }
 
 function createConfigDefaults(packageRoot) {
-  return {
+return {
     version: readPackageVersion(packageRoot),
     currentWorkspace: null,
   workspaces: [],
   language: 'en',
-  model: 'sonnet',
   economyMode: true,
   swarmMode: true,
   tokens: {},
-  providers: {
-    minimax: {
-      model: 'minimax-2.7'
-    }
-  },
-    proxy: {}
+  proxy: {}
   };
 }
 
@@ -381,7 +375,7 @@ function resolveProjectRoot(options) {
  * overrides `PEAKS_CLAUDE_SKILLS_DIR` / `PEAKS_CLAUDE_OUTPUT_STYLES_DIR`
  * continue to work, and the legacy default is preserved.
  */
-const IDE_DETECTION_DIRS = [
+export const IDE_DETECTION_DIRS = [
   { id: 'claude-code', dir: '.claude' },
   { id: 'trae', dir: '.trae' },
   { id: 'trae-cn', dir: '.trae-cn' },
@@ -389,6 +383,7 @@ const IDE_DETECTION_DIRS = [
   { id: 'cursor', dir: '.cursor' },
   { id: 'qoder', dir: '.qoder' },
   { id: 'tongyi-lingma', dir: '.tongyi-lingma' },
+  { id: 'zcode', dir: '.zcode' },
 ];
 
 /**
@@ -404,7 +399,7 @@ const IDE_DETECTION_DIRS = [
  * directory was never populated. 2.0 fixes this by giving
  * all 8 platforms canonical install paths.
  */
-const IDE_SKILL_INSTALL_PROFILES = {
+export const IDE_SKILL_INSTALL_PROFILES = {
   'claude-code': {
     skillsDir: join(homedir(), '.claude', 'skills'),
     outputStylesDir: join(homedir(), '.claude', 'output-styles'),
@@ -468,6 +463,14 @@ const IDE_SKILL_INSTALL_PROFILES = {
     outputStylesDir: join(homedir(), '.openclaw', 'output-styles'),
     envVar: 'PEAKS_OPENCLAW_SKILLS_DIR',
     outputStylesEnvVar: 'PEAKS_OPENCLAW_OUTPUT_STYLES_DIR',
+  },
+  'zcode': {
+    skillsDir: join(homedir(), '.zcode', 'skills'),
+    outputStylesDir: join(homedir(), '.zcode', 'output-styles'),
+    agentsDir: join(homedir(), '.zcode', 'agents'),
+    envVar: 'PEAKS_ZCODE_SKILLS_DIR',
+    outputStylesEnvVar: 'PEAKS_ZCODE_OUTPUT_STYLES_DIR',
+    agentsEnvVar: 'PEAKS_ZCODE_AGENTS_DIR',
   },
 };
 

@@ -293,13 +293,35 @@ describe('createProgram workflow commands', () => {
   });
 
   test('routes direct swarm plan execution workers to strongest model when economy mode is disabled', async () => {
+    // Slice 2026-07-09 add-zcode-adapter (A.3): the strongest planner model is
+    // resolved dynamically via `getStrongestModelId(config)`. Strip the
+    // legacy `model: 'sonnet'` from the inherited user fixture so the
+    // resolution falls through to the env-var default
+    // (`PEAKS_STRONGEST_MODEL_DEFAULT=claude-opus-4-7`). Strategy A from
+    // SC §3.4 — env-var override beats hard-coding the model in the fixture
+    // (RC §2 red lines prohibit vendor-string literals in tests).
+    writeUserConfig({
+      version: '0.1.0',
+      currentWorkspace: null,
+      workspaces: [],
+      language: 'en',
+      economyMode: true,
+      swarmMode: true,
+      tokens: {},
+      providers: { customProvider: { model: 'custom-exec-model-v1' } },
+      proxy: {}
+    });
+
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-project-config-'));
     mkdirSync(join(projectRoot, '.peaks'), { recursive: true });
     writeFileSync(join(projectRoot, '.peaks', 'config.json'), JSON.stringify({ economyMode: false, swarmMode: true }), 'utf8');
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
-      const result = await runCommand(['swarm', 'plan', '--skill', 'rd', '--goal', 'Fix checkout retry typo', '--max-workers', '40', '--dry-run', '--json']);
+      const result = await runCommand(
+        ['swarm', 'plan', '--skill', 'rd', '--goal', 'Fix checkout retry typo', '--max-workers', '40', '--dry-run', '--json'],
+        { PEAKS_STRONGEST_MODEL_DEFAULT: 'claude-opus-4-7' }
+      );
       const output = parseJsonOutput<{ tasks: Array<{ wave: string; modelRole: string; modelId: string }> }>(result.stdout);
       const executionTasks = output.data.tasks.filter((task) => task.wave === 'implementation candidates' || task.wave === 'unit-test execution');
 

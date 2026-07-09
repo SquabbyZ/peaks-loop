@@ -321,15 +321,9 @@ describe('install skills script', () => {
           currentWorkspace: null,
           workspaces: [],
           language: 'en',
-          model: 'sonnet',
           economyMode: true,
           swarmMode: true,
           tokens: {},
-          providers: {
-            minimax: {
-              model: 'minimax-2.7'
-            }
-          },
           proxy: {}
         },
         null,
@@ -354,14 +348,8 @@ describe('install skills script', () => {
       economyMode: false,
       currentWorkspace: null,
       workspaces: [],
-      model: 'sonnet',
       swarmMode: true,
       tokens: {},
-      providers: {
-        minimax: {
-          model: 'minimax-2.7'
-        }
-      },
       proxy: {}
     });
     expect(result).toEqual({ created: false, updated: true, skipped: false });
@@ -863,9 +851,10 @@ describe('install skills script', () => {
 
     // Slice 2.6.1.E: 5 platforms now have agentsDir (claude-code + trae + trae-cn + codex + cursor).
     // The other 3 (qoder / tongyi-lingma / hermes / openclaw) are still filtered out.
-    expect(perPlatform).toHaveLength(5);
+    // 2026-07-09-zcode (Slice B B.2): zcode added a 6th agentsDir, so the count grows to 6.
+    expect(perPlatform).toHaveLength(6);
     const ids = perPlatform.map((p) => p.ideId).sort();
-    expect(ids).toEqual(['claude-code', 'codex', 'cursor', 'trae', 'trae-cn']);
+    expect(ids).toEqual(['claude-code', 'codex', 'cursor', 'trae', 'trae-cn', 'zcode']);
     for (const p of perPlatform) {
       expect(p.installed).toEqual(['karpathy-reviewer.md']);
       expect(p.skipped).toEqual([]);
@@ -891,7 +880,8 @@ describe('install skills script', () => {
       'trae': '.trae',
       'trae-cn': '.trae-cn',
       'codex': '.codex',
-      'cursor': '.cursor'
+      'cursor': '.cursor',
+      'zcode': '.zcode' // 2026-07-09-zcode Slice B B.2
     };
     for (const p of perPlatform) {
       const seg = expectedByIdeId[p.ideId] as string;

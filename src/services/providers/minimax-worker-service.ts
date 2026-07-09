@@ -16,7 +16,7 @@ export type MiniMaxWorkerRequest = {
 export type MiniMaxWorkerResult = {
   provider: MiniMaxProviderSmokeResult;
   reviewHandoff: {
-    model: 'claude-opus-4-7';
+    model: string;
     prompt: string;
   };
   constraints: {
@@ -98,7 +98,7 @@ export async function runMiniMaxWorker(
   );
 
   const reviewHandoff = {
-    model: 'claude-opus-4-7' as const,
+    model: process.env.PEAKS_MINIMAX_REVIEW_MODEL ?? 'claude-opus-4-7',
     prompt: [
       `Review this MiniMax worker result for change ${sessionId}.`,
       `Goal: ${goal}`,

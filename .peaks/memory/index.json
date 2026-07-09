@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-09T04:01:27.839Z",
+  "updatedAt": "2026-07-09T12:49:47.354Z",
   "hot": {
     "feedback": [
       {
@@ -406,11 +406,27 @@
         "updatedAt": "2026-06-30"
       },
       {
+        "name": "desktop-application-ide-adapter-z-code-cli",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f zcode-adapter 关键设计:z-code 是 VS Code-style 桌面应用,无 binary CLI。 机制: 留 undefined(z-code...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\desktop-application-ide-adapter-z-code-cli.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
+        "updatedAt": "2026-07-09"
+      },
+      {
         "name": "openspec-peaks-code-peaks-runtime-source-of-truth",
         "kind": "lesson",
         "description": "peaks-code 与 OpenSpec 解耦(session 2026-07-08-session-17918f,2026-07-08)。 实施:删 SKILL.md Step 0.5 + references/openspec-...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\openspec-peaks-code-peaks-runtime-source-of-truth.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-07-09"
+      },
+      {
+        "name": "peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f 跑 peaks-code 启动时实测发现 4 处 SKILL.md 描述跟实际 CLI 不一致: D-001:SKILL.md 描述 ,实际是 。 D-002:SKI...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
         "updatedAt": "2026-07-09"
       },
       {
@@ -428,6 +444,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-file-size-scan-readfile-on-deleted-paths.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/txt/handoff-014-2026-06-07-remove-legacy-progress-start-surface.md",
         "updatedAt": "2026-07-01"
+      },
+      {
+        "name": "peaks-loop-install-model-getstrongestmodelid-fallback",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f Slice A 删除  +  install 默认值 +  常量,新增  函数。 机制:三层 fallback = config.model →  env var →...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-loop-install-model-getstrongestmodelid-fallback.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
+        "updatedAt": "2026-07-09"
       },
       {
         "name": "peaks-loop-request-init-filename-truncation-255-char-actual-limit",
@@ -523,6 +547,14 @@
         "description": "session 2026-07-08-session-17918f 新增  两组 CLI verb。 机制: 是统一入口; 0 vendor 动词(实测 AC-1 exit=1);新 vendor 接入 = 新 adapter 文件 ...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\vendor-neutrality-adapter-vendor.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-07-09"
+      },
+      {
+        "name": "z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f 新增 zcode-adapter(,98 行),peaks-loop 首次支持 z-code 桌面应用。 机制:沿用 claude-code-adapter.ts 模...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md",
         "updatedAt": "2026-07-09"
       }
     ]
@@ -712,6 +744,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-08-4-0-0-beta-5-overview.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-08"
+      },
+      {
+        "name": "4-0-0-beta-6-published",
+        "kind": "project",
+        "description": "4.0.0-beta.6 — 已 publish + global 更新 **发布日期:** 2026-07-09 **Commit:** ddc85f8 feat: 发布4.0.0-beta.6(35 files / +2517/-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-08-4-0-0-beta-6-published.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-09"
       },
       {
         "name": "4x-sediment-pool-reserves-desktop-client-entry-points",

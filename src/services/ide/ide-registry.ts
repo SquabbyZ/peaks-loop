@@ -5,6 +5,7 @@ import { CURSOR_ADAPTER } from './adapters/cursor-adapter.js';
 import { CODEX_ADAPTER } from './adapters/codex-adapter.js';
 import { HERMES_ADAPTER } from './adapters/hermes-adapter.js';
 import { OPENCLAW_ADAPTER } from './adapters/openclaw-adapter.js';
+import { ZCODE_ADAPTER } from './adapters/zcode-adapter.js';
 
 /**
  * Built-in IDE adapter registry。Map<IdeId, IdeAdapter> 是单一来源。
@@ -26,6 +27,7 @@ const ADAPTERS: ReadonlyMap<IdeId, IdeAdapter> = new Map<IdeId, IdeAdapter>([
   ['codex', CODEX_ADAPTER],
   ['hermes', HERMES_ADAPTER],
   ['openclaw', OPENCLAW_ADAPTER],
+  ['zcode', ZCODE_ADAPTER],
 ]);
 
 /** Get the adapter for a given IDE id. Throws on unsupported IDE. */
@@ -64,4 +66,5 @@ export function _resetAdaptersForTesting(): void {
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('codex', CODEX_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('hermes', HERMES_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('openclaw', OPENCLAW_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('zcode', ZCODE_ADAPTER);
 }

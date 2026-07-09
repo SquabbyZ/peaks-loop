@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "peaks code gate-step-08 --project \"${CLAUDE_PROJECT_DIR}\""
+            "command": "peaks solo gate-step-08 --project \"${CLAUDE_PROJECT_DIR}\""
           }
         ]
       }

@@ -5,7 +5,7 @@ import { WORKSPACE_UNAVAILABLE_NEXT_ACTIONS } from '../../shared/planner-respons
 import { getLocalArtifactPath, hasValidArtifactWorkspace } from '../artifacts/workspace-service.js';
 import { getSessionDir } from '../session/getSessionDir.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
-import { getConfiguredExecutionModelId, STRONGEST_MODEL_ID } from '../config/model-routing.js';
+import { getConfiguredExecutionModelId, getStrongestModelId } from '../config/model-routing.js';
 
 /**
  * 2.0.1-bug1: the slim 2.0 `~/.peaks/config.json` no longer carries a
@@ -269,8 +269,8 @@ function getTaskModelRole(wave: RdWaveName): RdModelRole {
   return wave === 'implementation candidates' || wave === 'unit-test execution' ? 'execution' : 'strongest';
 }
 
-function getTaskModelId(modelRole: RdModelRole, executionModelId: string): string {
-  return modelRole === 'execution' ? executionModelId : STRONGEST_MODEL_ID;
+function getTaskModelId(modelRole: RdModelRole, executionModelId: string, strongestModelId: string): string {
+  return modelRole === 'execution' ? executionModelId : strongestModelId;
 }
 
 const MAX_ARTIFACT_BYTES = 256_000;
@@ -400,6 +400,9 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
   const goal = normalizeGoal(request.goal);
   const swarmMode = request.swarmMode ?? true;
   const executionModelId = request.executionModelId?.trim() || resolveExecutionModelId();
+  // Slice 2026-07-09 add-zcode-adapter (A.3): strongest planner/reviewer
+  // model is resolved dynamically (config.model → env-var fallback).
+  const strongestModelId = getStrongestModelId();
   const { workerTarget, blockedReasons } = resolveWorkerTarget(request.maxWorkers);
   const artifactWorkspacePath = resolveArtifactWorkspacePath(request);
   const artifactRoot = 'rd/swarm';
@@ -529,7 +532,7 @@ function buildPlan(request: RdSwarmPlanRequest, standardsOverlay: StandardsOverl
       workerKind: taskId,
       purpose: `${taskId.replace(/^rd-/, '').replace(/-/g, ' ')} for ${goal}`,
       modelRole,
-      modelId: getTaskModelId(modelRole, executionModelId),
+      modelId: getTaskModelId(modelRole, executionModelId, strongestModelId),
       inputs: [goal, artifactRoot],
       outputs: [briefPath] as [string, ...string[]],
       dependsOn: [...waveDependencies[wave]],
