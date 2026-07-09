@@ -2,6 +2,68 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.7 — 2026-07-09
+
+### Added — zcode adapter (9th IDE) + runtime model detection
+
+- **`peaks ide model --current` CLI** — `src/cli/commands/ide-commands.ts` (80 lines) + register in `src/cli/program.ts`. Outputs `{ modelId, detected, registeredAdapters }`. Available as a top-level primitive (not adapter-specific).
+- **`detectCurrentIdeModel()` service** — `src/services/ide/current-model-detector.ts` (43 lines). Walks the adapter registry in insertion order, calls each adapter's optional `detectCurrentModel()` with try/catch isolation — one bad adapter cannot poison the chain.
+- **zcode-adapter `detectCurrentModel()` method** — `src/services/ide/adapters/zcode-adapter.ts`. Reads `~/.zcode/v2/config.json`, resolves active provider via 4-tier priority chain (env override → non-`builtin:` provider → first enabled → first provider), returns the model's id. Live test: `peaks ide model --current` against a real z-code installation → `"modelId": "M3"`.
+- **`IdeAdapter` interface optional field** — `readonly detectCurrentModel?: () => Promise<string | undefined>` in `src/services/ide/ide-types.ts`. Back-compat: 8 existing adapters without the field are unaffected.
+- **`getStrongestModelIdAsync()` async variant** — `src/services/config/model-routing.ts`. Sync `getStrongestModelId()` is unchanged (rd-service compat); new async variant lets future async callers fall back to runtime probe instead of `'claude-opus-4-7'`.
+
+### Changed — install no longer writes hardcoded default model
+
+- **`scripts/install-skills.mjs`** — removed `model: 'sonnet'` default and `providers.minimax.model` default from `createConfigDefaults()`. After install, `~/.peaks/config.json` no longer contains a Claude model recommendation; users set their own via `peaks config set model <id>` (or leave unset and the back-compat fallback applies).
+- **`STRONGEST_MODEL_ID` constant removed** — replaced by `getStrongestModelId(config?)` function in `src/services/config/model-routing.ts`. Resolution order: `config.model` → `PEAKS_STRONGEST_MODEL_DEFAULT` env var → back-compat `'claude-opus-4-7'`.
+- **`workflow-router-service.ts` / `minimax-worker-service.ts` / `rd-service.ts`** — threaded dynamic modelId through 16 call sites in `workflow-router-service.ts`, replaced literal `'claude-opus-4-7'` in `minimax-worker-service.ts` (×2) and `rd-service.ts`.
+
+### Added — zcode IDE (peaks-loop's 9th)
+
+- **`IdeId` union type** — `'zcode'` added in `src/services/ide/ide-types.ts`.
+- **`ZCODE_ADAPTER`** — new `src/services/ide/adapters/zcode-adapter.ts` (98 lines). Template: `claude-code-adapter.ts` with `compact.compactCommand` / `hookEvent` / `toolMatcher` / `envVar` degraded (z-code is a desktop application, no CLI binary; UNVERIFIED sentinel strings used where the interface requires non-optional types).
+- **`IDE_DETECTION_DIRS` + `IDE_SKILL_INSTALL_PROFILES`** — `scripts/install-skills.mjs`. New `{ id: 'zcode', dir: '.zcode' }` detection entry + zcode profile (skillsDir `~/.zcode/skills`, env override `PEAKS_ZCODE_SKILLS_DIR`).
+- **`ide-registry.ts`** — registers `ZCODE_ADAPTER` alongside the existing 8 adapters (claude-code / trae / trae-cn / codex / cursor / qoder / tongyi-lingma / hermes / openclaw).
+- **`tests/unit/ide/zcode-adapter.test.ts`** — 10 cases (T-1 id, T-2 dirName, T-3 standards rootFile = `CLAUDE.md`, T-4 rulesDir = `.claude/rules`, T-5 skillsDir, T-6 compactCommand undefined, T-7 hookEvent is string, T-8 type test, T-9 IDE_DETECTION_DIRS contains, T-10 IDE_SKILL_INSTALL_PROFILES contains).
+- **`tests/unit/ide/zcode-adapter-detect-model.test.ts`** — 14 cases (pure resolver + env-fixture file IO + path helper).
+- **`tests/unit/cli/ide-commands.test.ts`** — 5 cases (CLI + top-level command registration).
+- **Fixture sync** — `tests/unit/install-skills-script.test.ts` + `tests/unit/cli-program.workflow.test.ts` (Strategy A: env-var override, no hardcoded literals) + `tests/unit/ide/ide-registry.test.ts` (whitelist 6 → 7 adapters).
+
+### Documentation — SKILL.md sync with 4.0.0-beta.6 CLI reality
+
+- **`skills/peaks-code/SKILL.md`** — added inline `> CLI reality check` blocks at §Step 0.8 (D-001 `peaks code detect-job` is `peaks job init`), §Step 0.8 third paragraph (D-003 `JOB_SHAPE_NOT_DECIDED` is now passive `done: 0` warning, not exception), §Step 2.5 (D-002 `peaks session title` takes positional sid, not `--session-id` flag), §Step 11c + 11d (D-010 `<!-- peaks-memory:start -->` block requires YAML frontmatter `title:` + `kind:` + `---` + closing `<!-- peaks-memory:end -->`, otherwise `extractedCount: 0` silently). New **§CLI Drift Index** section after Boundaries provides single landing page for D-001/002/003/010 with inline-anchor table.
+- **`skills/peaks-slice-decompose/SKILL.md`** — new **§SC template hard rules (sediment 2026-07-09)** section with 3 rules: Rule 1 ESM/CJS pre-flight before specifying export syntax (D-009c), Rule 2 whitelist fixture sync is a primary task not collateral (D-009a), Rule 3 adapter-interface optional fields > required (D-009b reciprocal).
+
+### Verification (4.0.0-beta.7)
+
+- `pnpm tsc -p tsconfig.json --noEmit` — 0 errors
+- `pnpm vitest run tests/unit/ide/ tests/unit/cli/ide-commands.test.ts` — 15 files / 211 tests / 0 failed
+- `peaks workflow verify-pipeline --rid 003-add-zcode-adapter` — `ok=true, complete=true`, 9/9 gate PASS
+- `node bin/peaks.js ide model --current` (against real z-code installation) — `modelId: "M3"`, `detected: true`
+
+### Sediment (Step 11) — 7 lessons in `.peaks/memory/`
+
+| File | Topic |
+|---|---|
+| `z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md` | z-code 9th IDE + vendor-neutrality adapter pattern |
+| `peaks-loop-install-model-getstrongestmodelid-fallback.md` | install no longer hardcodes default model |
+| `desktop-application-ide-adapter-z-code-cli.md` | desktop-app IDE adapter field-degradation decision |
+| `peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md` | 4 SKILL.md / CLI drift points |
+| `2026-07-09-zcode-adapter-overview.md` | RID 003 overall summary (project record) |
+| `peaks-ide-runtime-detect-zcode-only.md` | `peaks ide model --current` z-code 4-tier priority chain |
+| `ide-adapter-detectcurrentmodel-optional-interface-pattern.md` | optional interface field extension pattern |
+
+### Known follow-ups (S3-cleanup backlog)
+
+- **Slice C extension** — other 8 IDEs' `detectCurrentModel()` (claude-code / trae / cursor / codex / qoder / tongyi-lingma / hermes / openclaw). Currently only z-code has a working detector; all 8 still fall through to the back-compat `'claude-opus-4-7'`.
+- **zai / GLM provider entry** — `D-008`: peaks-loop has no built-in provider entry for z-code's default `builtin:zai` (GLM) or `builtin:bigmodel` providers. Users on those providers must add custom `provider.<uuid>` entries to their `~/.peaks/config.json` themselves.
+- **zcode-adapter UNVERIFIED sentinel values** — `hookEvent: 'PreToolUse'`, `toolMatcher: 'Bash'`, `envVar: 'ZCODE_PROJECT_DIR'` are placeholder guesses based on Anthropic-compatible protocol. Real z-code desktop application dogfood will reveal the actual values; replace once known.
+- **`IdeAdapter` interface optional fields** — `D-009b` proposes converting `hookEvent` / `toolMatcher` / `envVar` to optional types, or adding an `unverified: boolean` flag, so future adapters with unknown protocols don't need to fabricate sentinel values.
+
+### Breaking changes
+
+None. All 8 pre-existing adapters continue to load without changes. CLI subcommands `peaks ide *` and `peaks ide model --current` are additive.
+
 ## 4.0.0-beta.5 — 2026-07-08
 
 ### Added — peaks-solo dispatcher (分诊员)
