@@ -44,7 +44,7 @@ When Peaks-Loop Code coordinates development in a code repository, keep this ord
 6. **Peaks-Loop QA validation** (auto-proceed from RD in full-auto) — execute test cases + API checks + Playwright MCP headed browser E2E for frontend + security/perf checks + test report;
 7. **Peaks-Loop RD↔QA repair loop** — if QA verdict is `return-to-rd`, loop back to step 4 (RD implementation) and re-run through QA; max 3 repair cycles, then emit blocked TXT regardless;
 8. **Peaks-Loop SC phase** — change-control evidence: impact, retention, validate, boundary;
-9. **Peaks-Loop OpenSpec archive** — exit gate: validate → archive only after QA verdict=pass (when `openspec/` exists);
+9. **Peaks-Loop Workspace reconcile** — slate cleanup;
 10. **Peaks-Loop TXT handoff capsule** — mode, validated decisions, artifact paths, standards deltas, open questions, next action;
 11. **Peaks-Loop Final snapshot** — `peaks project dashboard` + `peaks skill doctor` to confirm the workflow closed cleanly.
 

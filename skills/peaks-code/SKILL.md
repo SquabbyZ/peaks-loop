@@ -18,7 +18,7 @@ The boundary is closed under this slice:
 
 ## Single-scope-axis naming convention (2.7.1)
 
-The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). Reviewable artifacts live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored); the change-id is an optional filename slug and does NOT route filesystem writes. CLI: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. OpenSpec's `openspec/changes/<change-id>/` vocabulary (L4) is preserved. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
+The `.peaks/` workspace has a **single scope axis** (session-id) plus a nested **sub-agent axis** under `.peaks/_sub_agents/<sessionId>/...`. Use `<sessionId>` (NEVER bare `<sid>`). Reviewable artifacts live at `.peaks/_runtime/<sessionId>/<role>/...` (gitignored); the change-id is an optional filename slug and does NOT route filesystem writes. CLI: session-id → `peaks session *`; sub-agent → `peaks sub-agent *`. Test `skills-skill-md-naming.test.ts` enforces (a) zero bare `<sid>`, (b) axis labels, (c) this callout.
 
 ## Karpathy guidance (Slice 1/6 — karpathy prompt-injection-lift)
 
@@ -57,12 +57,6 @@ When a NEW conversation opens on a session whose `lastActivity` is from today AN
 ### Peaks-Loop Step N: Periodic checkpoint (auto-fire, no user action)
 
 Proactive context-overflow defense. CLI: `peaks session checkpoint [--reason <r>] [...flags]`. Fire `--reason periodic` every 20 tool calls (G1 hard-coded), `--reason artifact-written` per PRD/RD/QA/TXT write. See `references/periodic-checkpoint.md` (otherwise `tests/unit/code/checkpoint-periodic-frequency.test.ts` fails).
-
-### Peaks-Loop Step 0.5: OpenSpec first-run opt-in (conditional)
-
-Run when `openspec/` is absent and `.peaks/.peaks-openspec-opt-in.json` is missing. Asks once and persists the decision.
-
-→ see `references/openspec-workflow.md` for the full opt-in flow + lifecycle.
 
 ### Peaks-Loop Step 0.6: Audit + Goal (NEW)
 
@@ -288,7 +282,6 @@ Index of every `references/` file. Read on demand.
 | `references/local-artifact-workspace.md` | Workspace tree + root-prohibition. |
 | `references/micro-cycle.md` | RD micro-cycle + repair loop. |
 | `references/mode-selection.md` | Step 1 mode + `--mode`. |
-| `references/openspec-workflow.md` | Step 0.5 OpenSpec. |
 | `references/playwright-mcp-multi-terminal.md` | Multi-terminal Playwright MCP. |
 | `references/project-memory-loading.md` | Step 2.3 memories. |
 | `references/project-scan-checklist.md` | Pre-RD scan + template. |

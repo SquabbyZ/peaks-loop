@@ -10,8 +10,6 @@ Do not run upstream installer flows, mutate agent settings, or commit `.codegrap
 
 **External skills**: All external skill references (`mattpocock/skills`, `awesome-design-md`, `taste-skill`, `shadcn/ui`, `Chrome DevTools MCP`, `Figma Context MCP`, `Context7`, etc.) follow the three-stage pattern: capability discovery via `peaks capabilities` before naming, references only (no execute/install/persist), Peaks-Loop CLI for all side effects. Do not execute upstream installers, do not install upstream resources, do not persist sensitive examples — Peaks-Loop gates remain authoritative. External skills inform, they do not approve.
 
-**OpenSpec lifecycle**: `render → validate → show → to-rd → validate → archive`. Code's default runbook handles the exit gate (validate → archive after QA pass). Entry-gate validation (to-rd before slicing) is available when `openspec/` exists pre-workflow; Code delegates it to `peaks-rd` during implementation.
-
 **MCP lifecycle**: `list → plan → apply --yes → call → rollback`. `apply` backs up settings and refuses non-peaks entries unless `--claim` is passed.
 
-Detailed rules: `references/external-skill-invocation.md`, `references/openspec-mcp-workflow.md`, `references/workflow.md`, `references/existing-system-extraction.md`. For an informational mapping of peaks artefact paths to the A2A (Agent2Agent) protocol's Task / Artifact / Part / Message / AgentCard vocabulary (no A2A implementation, just a shared naming layer), see `references/a2a-artifact-mapping.md`.
+Detailed rules: `references/external-skill-invocation.md`, `references/workflow.md`, `references/existing-system-extraction.md`. For an informational mapping of peaks artefact paths to the A2A (Agent2Agent) protocol's Task / Artifact / Part / Message / AgentCard vocabulary (no A2A implementation, just a shared naming layer), see `references/a2a-artifact-mapping.md`.

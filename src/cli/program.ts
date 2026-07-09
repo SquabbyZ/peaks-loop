@@ -85,6 +85,15 @@ import { registerJobCommands } from './commands/job-commands.js';
 // 15b / 15c / 15d will extend sediment-commands.ts with the remaining 14 verbs.
 import { registerSedimentCommands } from './commands/sediment-commands.js';
 import { registerAdapterCommands } from './commands/adapter-commands.js';
+// Slice RD-2 S2-a: `peaks runtime *` (detect / list / compact) +
+// `peaks adapter *` (list / register). See src/services/runtime/ and
+// src/services/adapter/adapter-registry.ts. Coexists with the older
+// `peaks skill adapter` surface (slice 2026-07-04-cli-15a) which is
+// for skill materialization, not vendor-adapter registry.
+import { registerRuntimeCommands } from './commands/runtime-commands.js';
+import { registerAdapterS2ACommands } from './commands/adapter-commands-s2a.js';
+// Slice RD-2 S2-b: `peaks polyrepo *` (init / status / dispatch).
+import { registerPolyrepoCommands } from './commands/polyrepo-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { applyRetention } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
@@ -386,6 +395,13 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   registerSedimentCommands(program, io);
   // Slice 2026-07-04-cli-15a: `peaks skill adapter <verb>` — adapter list / set-active.
   registerAdapterCommands(program, io);
+  // Slice RD-2 S2-a: `peaks runtime *` (detect / list / compact) +
+  // `peaks adapter *` (list / register). Vendor verbs live ONLY in
+  // src/services/runtime/vendors/<vendor>.ts (AC-1 enforcement).
+  registerRuntimeCommands(program, io);
+  registerAdapterS2ACommands(program, io);
+  // Slice RD-2 S2-b: `peaks polyrepo *` (init / status / dispatch).
+  registerPolyrepoCommands(program, io);
 
   // Slice 2026-07-05-peaks-code-to-peaks-code (Task 1): `peaks skill:visibility --list --json`
   // — read .claude-plugin/marketplace.json and report each skill's

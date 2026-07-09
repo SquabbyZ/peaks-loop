@@ -73,10 +73,11 @@ The decision is persisted via `peaks preferences set --project <root> --key auto
 
 ## How this integrates with the rest of the workflow
 
-- Step 0.5 (OpenSpec opt-in) — runs first if `openspec/` is missing.
 - Step 0 (anchor) — runs always.
 - Step 0.7 (resume detection) — runs after Step 0.
 - **Step 0.55 (1.x detection) — runs after Step 0.7, only when the project is not on a 2.0 layout.**
 - Step 1 (mode selection) — runs after Step 0.55.
 
 The 1.x detection is intentionally placed AFTER Step 0.7 because the user might already have a 1.x-converted in-flight slice; the resume flow takes precedence over the upgrade prompt.
+
+> **Historical note (prior to 2026-07-08 RR slice):** an OpenSpec first-run opt-in step (Step 0.5) used to sit between Step 0 and Step 0.7. peaks-code is now decoupled from OpenSpec and does not surface that step; this reference still preserves the historical ordering for context.

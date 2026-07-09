@@ -149,9 +149,7 @@ peaks sc retention --slice-id <rid> --prd <prd> --rd <rd> --qa <qa> --json
 peaks sc validate --slice-id <rid> --json
 peaks sc boundary --slice-id <rid> --artifact <artifact> --code <file> --json
 
-# 9. Peaks-Loop OpenSpec archive (exit gate; only after QA pass, when openspec/ exists)
-peaks openspec validate <cid> --project <repo> --json
-peaks openspec archive <cid> --project <repo> --apply --json
+# 9. Peaks-Loop Workspace reconcile (slate cleanup)
 peaks workspace reconcile --project <repo> --apply --older-than 7
 
 # 10. Peaks-Loop TXT handoff — invoke peaks-txt which embeds memory markers (BLOCKING)

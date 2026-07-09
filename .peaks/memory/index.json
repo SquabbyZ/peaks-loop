@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-06T00:10:33.460Z",
+  "updatedAt": "2026-07-09T04:01:27.839Z",
   "hot": {
     "feedback": [
       {
@@ -25,7 +25,7 @@
         "description": "<!-- peaks-feedback-promoted: layer=C --> full-auto mode 的实际边界（2026-06-28 用户明确划定） **触发**: 在 v2.14.0 ship 收尾时，我越界做 pus...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-full-auto-boundary.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-06-30"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "active-skill-cli-routing",
@@ -62,10 +62,10 @@
       {
         "name": "peaks-code-to-peaks-code-rename-session-directive",
         "kind": "feedback",
-        "description": "peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4.x sediment release 出版后提出把 peaks-code 更名为 p...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-to-peaks-code-rename-session-directive.md",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-solo-to-peaks-code-rename-session-directive.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-08"
       },
       {
         "name": "peaks-current-directory-scope",
@@ -102,10 +102,18 @@
       {
         "name": "user-decision-2026-07-05-eradicate-peaks-code",
         "kind": "feedback",
-        "description": "User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 user 在 peaks-code → peaks-code rename 出版后,做...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-code.md",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision: \"彻底去根\" — 全仓库 peaks-code → peaks-code > **Why:** 2026-07-05 u...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-05-eradicate-peaks-solo.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-08"
+      },
+      {
+        "name": "user-decision-2026-07-08-revive-peaks-solo-as-dispatcher",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> User decision 2026-07-08: revive peaks-solo as dispatcher > **Why:** 这次商讨直接...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\user-decision-2026-07-08-revive-peaks-solo-as-dispatcher.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-08"
       },
       {
         "name": "windows-shell-quoting-divergence",
@@ -203,9 +211,9 @@
         "name": "peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes",
         "kind": "rule",
         "description": "Confirmed in practice (slice 001-skill-authoritative-sentence): even when the implementation surface is a single SKIL...",
-        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-solo-is-an-orchestrator-not-an-implementer-even-for-pure-doc-changes.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "peaks-loop-tenet-one-key-completion-and-minimal-user-operation",
@@ -229,7 +237,7 @@
         "description": "peaks-txt's Step 11 BLOCKING contract: durable, LLM-authored memories land in  (the canonical project-local store).",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-memory-start-blocks-must-survive-the-slice-close-not-stay-under-peaks-runtime.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-03-session-ee2aba/txt/handoff.md",
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "staged-enforcer-delivery-via-deferred-enforcers-set",
@@ -269,7 +277,7 @@
         "description": "User hard rule (2026-06-07 1:19 GMT+8): \"要加一条红线子 agent 不是越多越好,要合理创建,还有用完必须回收\".",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\sub-agent-resource-lifecycle-red-line.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "sub-agent-shared-channel-cross-completion",
@@ -277,7 +285,7 @@
         "description": "User hard rule (2026-06-07 1:46 GMT+8): \"**而且只要有子 agent 完成就更新 dispatcher 的共享上下文,这样其他未完成的子 agent 也能感知**\".",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\sub-agent-shared-channel-cross-completion.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/prd/requests/002-2026-06-07-sub-agent-dispatch-decouple.md",
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "workspace-underscore-convention",
@@ -398,6 +406,14 @@
         "updatedAt": "2026-06-30"
       },
       {
+        "name": "openspec-peaks-code-peaks-runtime-source-of-truth",
+        "kind": "lesson",
+        "description": "peaks-code 与 OpenSpec 解耦(session 2026-07-08-session-17918f,2026-07-08)。 实施:删 SKILL.md Step 0.5 + references/openspec-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\openspec-peaks-code-peaks-runtime-source-of-truth.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-07-09"
+      },
+      {
         "name": "peaks-hook-stdin-test-seam-pattern",
         "kind": "lesson",
         "description": "The  env var is the test seam for hook stdin in both  (gate-commands.ts) and  (hook-handle.ts).",
@@ -436,6 +452,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-slice-check-windows-typecheck-bug.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/txt/handoff-2026-06-07-session-runtime-dir-regression.md",
         "updatedAt": "2026-06-30"
+      },
+      {
+        "name": "polyrepo-root-child-peaks-lazy",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f 实施 polyrepo 工作流。 机制: 在父目录写 root ,child  在首次 dispatch 时 lazy 创建(Karpathy #2 Simplici...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\polyrepo-root-child-peaks-lazy.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-07-09"
       },
       {
         "name": "real-cmdline-regression-test-for-spawn",
@@ -492,6 +516,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\trae-adapter-values-verified-against-1x.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-5b1095/qa/dogfood-trae-1x-2026-06-07.md",
         "updatedAt": "2026-06-30"
+      },
+      {
+        "name": "vendor-neutrality-adapter-vendor",
+        "kind": "lesson",
+        "description": "session 2026-07-08-session-17918f 新增  两组 CLI verb。 机制: 是统一入口; 0 vendor 动词(实测 AC-1 exit=1);新 vendor 接入 = 新 adapter 文件 ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\vendor-neutrality-adapter-vendor.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
+        "updatedAt": "2026-07-09"
       }
     ]
   },
@@ -535,7 +567,7 @@
         "description": "v2.11.0 — full-auto self-decision rule > Decided in session  immediately after the > v2.11.0 architectural direction ...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-26-v2-11-full-auto-self-decision.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-26-v2-11-main-session-context-monitor",
@@ -543,7 +575,7 @@
         "description": "v2.11.0 — D6: main-session context monitor + IDE-aware compact > Decided in session  immediately after D5.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-26-v2-11-main-session-context-monitor.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-26-v2-11-post-compact-resume",
@@ -551,7 +583,7 @@
         "description": "D7 — post-compact auto-resume contract > User asked: \"我是想先手动 compact 之后，你再继续\".",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-26-v2-11-post-compact-resume.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff",
@@ -559,7 +591,7 @@
         "description": "v2.11.0 Architectural Direction — RD tech-doc removal + immutable shared handoff > Decided in session  after v2.10.0 ...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-26-v2-11-rm-rd-techdoc-immutable-handoff.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-27-800-line-followup",
@@ -583,7 +615,7 @@
         "description": "v2.12.0 Group A Partial Checkpoint (slice 2026-06-27-v2-12) > **Status**: Group A Tier 1 (3 templates) **DONE**.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-27-v2-12-group-a-partial-t1.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-27-v2-12-independent-security-perf-audit",
@@ -599,7 +631,7 @@
         "description": "session 75d5f0 — auto-compact checkpoint（2026-06-28 ~11:50） **触发**: 用户说\"自己 auto compact\"——按 v2.13.0 auto-compact 设计（8...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-session-75d5f0-compaction-1.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-28-session-75d5f0-familiarization",
@@ -607,7 +639,7 @@
         "description": "2026-06-28 75d5f0 session 启动熟悉要点 **触发**: 用户开场白\"你先熟悉下当前这个项目，我有些问题\"。 **session id**: （由 outer-session-mismatch 自动 rotat...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-session-75d5f0-familiarization.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-28-tilde-peaks-inventory",
@@ -615,7 +647,7 @@
         "description": "盘点 + 保守档清理（2026-06-28 session 75d5f0） **触发**: 用户在 v2.14.0 anti-fake-green PRD 完成后让 peaks-code \"顺手整理下 \"。 **执行档**: 保守档（...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-tilde-peaks-inventory.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-06-30-v2-19-0-change-id-root-removal",
@@ -631,7 +663,7 @@
         "description": "v3.1.0 — Job-Loop Trigger Miss (real-project incident, 2026-07-03) What happened User invoked  on a real project with...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-03-v3-1-0-job-trigger-miss.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-07-03-v3-1-0-release-readiness",
@@ -639,7 +671,7 @@
         "description": "v3.1.0 Release-Readiness Review (2026-07-03) Outcome 3.1.0 ready to publish.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-03-v3-1-0-release-readiness.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-07-03-v3-1-1-detect-job-recorder",
@@ -647,7 +679,7 @@
         "description": "v3.1.1 — Step 0.8 detect-job recorder (shipped) Why this patch exists Incident on 2026-07-03 (v3.1.0 ship day): user ...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-03-v3-1-1-detect-job-recorder.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "2026-07-04-v3-1-1-second-incident-3018-files",
@@ -655,7 +687,31 @@
         "description": "v3.1.1 SECOND Ship-Day Incident — 3018-File UT Batch What happened (2026-07-04) Same pattern as v3.1.0 incident but w...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-04-v3-1-1-second-incident-3018-files.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "2026-07-07-loop-engineering-first-crystallization",
+        "kind": "project",
+        "description": "Loop Engineering First Crystallization (M8 dogfood) > **Why:** This is the first time the M5 crystallization pipeline...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-07-loop-engineering-first-crystallization.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-07"
+      },
+      {
+        "name": "2026-07-08-peaks-solo-dogfood",
+        "kind": "project",
+        "description": "peaks-solo Dogfood — 4.0.0-beta.5 (获取 GitHub top 10) > **Per user-decision 2026-07-08 §\"沉淀为本条\" 协议, this brief is feed...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-08-peaks-solo-dogfood.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-08"
+      },
+      {
+        "name": "4-0-0-beta-5-overview",
+        "kind": "project",
+        "description": "4.0.0-beta.5(发布日 2026-07-08,10 commits 增量,轴心 = **上线 peaks-solo dispatcher**)。 1.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-08-4-0-0-beta-5-overview.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-08"
       },
       {
         "name": "4x-sediment-pool-reserves-desktop-client-entry-points",
@@ -719,7 +775,7 @@
         "description": "peaks-code 在消费项目 ice-cola 实测 — 2026-07-05 > **Why:** 2026-07-05 完成 peaks-code → peaks-code rename 后,首次在消费项目 () 做端到端 s...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-consumer-project-smoke-test-ice-cola.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "peaks-loop-1-3-3-will-be-the-first-release-with-the-ide-adapter-layer",
@@ -735,7 +791,7 @@
         "description": "peaks-loop 24h AI 程序员定位 > 适用: 当 LLM 在解释 Code 编排 / 退化路径 / mode 选择时,避免误读为\"通用 AI 工具\"或\"前端代码工具\"。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-24h-ai-programmer-positioning.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "peaks-loop-fast-iteration-quality-loop",
@@ -791,7 +847,7 @@
         "description": "peaks-loop slice 审阅 + QA 视角 > 适用: 当 LLM 解释 Code gate / slice review / QA 验收时,避免让 user 审技术。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-slice-review-and-qa-perspective.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "peaks-loop-user-role-and-tech-decision",
@@ -799,7 +855,7 @@
         "description": "peaks-loop user 角色 + 技术决策反伪选择 > 适用: 当 LLM 解释 Code gate / 14 个 AskUserQuestion 点 / slice review 模板时,避免让 user 参与技术决策。 1.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-user-role-and-tech-decision.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "plan-2-ship-state",
@@ -839,7 +895,7 @@
         "description": "**v2.13.1 ship state (Windows session, 2026-06-27):** RID: 2026-06-27-verdict-aggregator Branch: main Working tree: c...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-27-v2-13-1-verdict-aggregator.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "v2-13-2-verdict-aggregator-fixes",
@@ -855,7 +911,7 @@
         "description": "**v2.13.3 ship state (Windows session, 2026-06-28):** RID: 2026-06-27-verdict-aggregator-v2-12-debt Branch: main (com...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-27-v2-13-3-verdict-aggregator-v2-12-debt.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "v2-14-0-anti-fake-green-hardening",
@@ -863,7 +919,7 @@
         "description": "**v2.14.0 ship state (Windows session, 2026-06-28):** RID: 2026-06-28-anti-fake-green-hardening (session: 2026-06-28-...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\v2-14-0-anti-fake-green-hardening.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-01"
+        "updatedAt": "2026-07-06"
       },
       {
         "name": "v2-15-0-sticky-mode-and-feedback-promotion",
@@ -871,7 +927,7 @@
         "description": "Slice 002 / v2.15.0 — sticky-mode + feedback promotion (PRD 已 ship，等 RD) **触发**: 2026-06-28 session 88b27d 用户两条 feedb...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\v2-15-0-sticky-mode-and-feedback-promotion.md",
         "sourceArtifact": null,
-        "updatedAt": "2026-07-05"
+        "updatedAt": "2026-07-06"
       }
     ],
     "reference": [

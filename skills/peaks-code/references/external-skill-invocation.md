@@ -40,7 +40,7 @@ The skill body must not silently:
 - commit or sync intermediate artifacts;
 - create remote repositories.
 
-All of these must route through the Peaks CLI under the appropriate command (`peaks artifacts …`, `peaks memory …`, `peaks openspec …`, `peaks standards …`, `peaks codegraph …`, `peaks capabilities …`), with dry-run preview where supported and `--yes` / `--apply` where a real write is required. The `peaks mcp …` command tree was retired in slice #016; MCP install / dispatch is the LLM runtime's job, not the CLI's.
+All of these must route through the Peaks CLI under the appropriate command (`peaks artifacts …`, `peaks memory …`, `peaks standards …`, `peaks codegraph …`, `peaks capabilities …`), with dry-run preview where supported and `--yes` / `--apply` where a real write is required. The `peaks mcp …` command tree was retired in slice #016; MCP install / dispatch is the LLM runtime's job, not the CLI's. Note: peaks-code's 11-step workflow does NOT route through any external artifact lifecycle (OpenSpec or otherwise) — all reads/writes are confined to the LLM-authored artifact workspace under `.peaks/_runtime/<sessionId>/<role>/`. External CLI surfaces remain available for users who call them directly, but Code never calls them on the user's behalf as of the 2026-07-08 RR decoupling slice.
 
 ## Allowed in-process references
 
