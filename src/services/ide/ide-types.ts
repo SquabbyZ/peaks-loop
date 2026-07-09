@@ -138,6 +138,29 @@ export interface IdeAdapter {
    * `.peaks/memory/2026-06-27-auto-compact-design.md`.
    */
   readonly compact?: IdeCompactProfile;
+  /**
+   * Optional runtime probe for the IDE's currently-active model id.
+   * When defined, `detectCurrentIdeModel()` in
+   * `src/services/ide/current-model-detector.ts` calls this to
+   * discover which model the IDE UI is currently configured for —
+   * e.g. so `peaks ide model --current` and the future
+   * `getStrongestModelIdAsync()` can use the same value without
+   * forcing the user to set `config.model` manually.
+   *
+   * Returning `undefined` (or the method being absent on this
+   * adapter) means "I don't know — fall back to the configured
+   * model / env var / back-compat default".
+   *
+   * Implementations may read local files (`fs.readFileSync`),
+   * env vars, or both. They MUST NOT throw on missing files — catch
+   * locally and return `undefined`. The orchestration layer also
+   * catches, but defense in depth.
+   *
+   * Added in slice 2026-07-09 add-zcode-adapter (Slice C); only the
+   * `zcode` adapter opts in this slice. Future slices can opt in
+   * other IDEs without changing this signature (optional method).
+   */
+  readonly detectCurrentModel?: () => Promise<string | undefined>;
 }
 
 /**

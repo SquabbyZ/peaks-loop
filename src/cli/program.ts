@@ -73,6 +73,10 @@ import { registerMutCommands } from './commands/mut-commands.js';
 import { registerFixtureCommands } from './commands/fixture-commands.js';
 import { registerReviewerCommands } from './commands/reviewer-commands.js';
 import { registerObservabilityCommands } from './commands/observability-commands.js';
+// Slice 2026-07-09 add-zcode-adapter (Slice C): `peaks ide model --current` —
+// read-only runtime model probe surfaced via the registered IDE adapter
+// chain. See src/services/ide/current-model-detector.ts.
+import { registerIdeCommands } from './commands/ide-commands.js';
 // Slice 2026-07-01-strategic-compact-cli: peaks compact
 // (suggest | recommend | survival | dry-run | force) — strategic-compact
 // CLI primitives. See src/services/compact/ and
@@ -378,6 +382,9 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // Slice B of v2.11.1: `peaks observability status|slices|fanout|repair-cycles`
   // (read-only queries over the JSONL metrics emitted from the
   // peaks request transition hook in Slice A).
+  // Slice 2026-07-09 add-zcode-adapter (C.6): `peaks ide model --current`
+  // (read-only runtime model probe via the registered IDE adapter chain).
+  registerIdeCommands(program, io);
   registerObservabilityCommands(program, io);
 
   // Slice 2026-07-01-strategic-compact-cli: `peaks compact

@@ -29,10 +29,126 @@
  *   中的 `CLAUDE.md` / `.claude/rules` 是 z-code 借用的上游路径常量,
  *   属于架构事实,不算 vendor verb 泄漏。
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { IdeAdapter } from '../ide-types.js';
 import { nullSubAgentDispatcher } from '../../dispatch/sub-agent-dispatcher.js';
+
+/**
+ * Helper exported for tests + internal use: the default location of the
+ * z-code v2 config file on the host filesystem.
+ */
+export function defaultZcodeConfigPath(): string {
+  return join(homedir(), '.zcode', 'v2', 'config.json');
+}
+
+/**
+ * Read the z-code config from `path` (string-typed to keep this
+ * swappable for tests). Synchronous + Node.js `fs` so adapter callers
+ * stay async-only at the public surface (`detectCurrentModel` is
+ * already declared `async`).
+ */
+function readZcodeConfig(path: string): unknown {
+  if (!existsSync(path)) return undefined;
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Resolve the active model id from a parsed z-code config payload
+ * (the `~/.zcode/v2/config.json` root object). Pure / exported for
+ * unit tests so the file-IO seam and the resolution seam are
+ * independently verifiable.
+ *
+ * Resolution order (Slice C §"z-code config 解析路径"):
+ *   P1. env var `PEAKS_ZCODE_ACTIVE_PROVIDER_UUID` (test seam +
+ *       manual pin for the user).
+ *   P2. The provider whose top-level UUID key is NOT prefixed
+ *       `builtin:` — this matches the user-installed provider
+ *       pattern. Within that provider, prefer its `models` first
+ *       key (insertion order — z-code writes the active model
+ *       first in the picker).
+ *   P3. The first provider with `enabled: true`.
+ *   P4. The first provider in the object (insertion order) — last
+ *       resort. Returns undefined if there are zero providers.
+ *
+ * Returns `undefined` when nothing matches.
+ */
+export function resolveZcodeCurrentModel(
+  config: unknown,
+  envOverride?: string | undefined
+): string | undefined {
+  const providers = (config as { provider?: unknown } | null | undefined)?.provider;
+  if (!providers || typeof providers !== 'object') return undefined;
+
+  // P1: env var override (vendor-neutral identifier: the provider UUID).
+  if (envOverride !== undefined && envOverride !== '') {
+    const target = (providers as Record<string, unknown>)[envOverride];
+    if (target && typeof target === 'object') {
+      const modelId = pickFirstModelId(target as { models?: unknown });
+      if (modelId) return modelId;
+    }
+  }
+
+  // P2: prefer a non-builtin provider (the user-installed one).
+  for (const [uuid, entry] of Object.entries(providers as Record<string, unknown>)) {
+    if (uuid.startsWith('builtin:')) continue;
+    if (!entry || typeof entry !== 'object') continue;
+    const modelId = pickFirstModelId(entry as { models?: unknown });
+    if (modelId) return modelId;
+  }
+
+  // P3: first enabled provider (legacy / fresh-install case).
+  for (const entry of Object.values(providers as Record<string, unknown>)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const enabled = (entry as { enabled?: unknown }).enabled;
+    if (enabled === true) {
+      const modelId = pickFirstModelId(entry as { models?: unknown });
+      if (modelId) return modelId;
+    }
+  }
+
+  // P4: first provider at all.
+  for (const entry of Object.values(providers as Record<string, unknown>)) {
+    if (!entry || typeof entry !== 'object') continue;
+    const modelId = pickFirstModelId(entry as { models?: unknown });
+    if (modelId) return modelId;
+  }
+
+  return undefined;
+}
+
+function pickFirstModelId(provider: { models?: unknown }): string | undefined {
+  const models = provider.models;
+  if (!models || typeof models !== 'object') return undefined;
+  for (const key of Object.keys(models as Record<string, unknown>)) {
+    if (typeof key === 'string' && key.trim().length > 0) return key.trim();
+  }
+  return undefined;
+}
+
+/**
+ * The async adapter method that `detectCurrentIdeModel()` calls.
+ *
+ * Resolution order:
+ *   1. `PEAKS_ZCODE_ACTIVE_PROVIDER_UUID` env var override (test seam
+ *      + manual pin).
+ *   2. `PEAKS_ZCODE_CONFIG_PATH` env var override (test seam for a
+ *      fixture file). Falls back to `~/.zcode/v2/config.json`.
+ *   3. Returns `undefined` when the file is missing / malformed
+ *      (consistent with the cross-IDE contract).
+ */
+export async function detectZcodeCurrentModel(): Promise<string | undefined> {
+  const overridePath = process.env.PEAKS_ZCODE_CONFIG_PATH;
+  const path = overridePath && overridePath.length > 0 ? overridePath : defaultZcodeConfigPath();
+  const config = readZcodeConfig(path);
+  if (config === undefined) return undefined;
+  return resolveZcodeCurrentModel(config, process.env.PEAKS_ZCODE_ACTIVE_PROVIDER_UUID);
+}
 
 export const ZCODE_ADAPTER: IdeAdapter = {
   id: 'zcode',
@@ -94,4 +210,13 @@ export const ZCODE_ADAPTER: IdeAdapter = {
   // compact profile 留空 — z-code 没有 CLI binary (RD-3 §2.2 D1 决策)。
   // peaks-loop 走 `llm-self-compress` fallback 路径 (LLM 自己总结 context),
   // 不抛错、不警告 (符合 slice #008 P-5 capability-check contract)。
+
+  // Slice C (2026-07-09 add-zcode-adapter, C.2): runtime probe for
+  // the currently-active model id. Reads `~/.zcode/v2/config.json`
+  // and resolves the active provider via `resolveZcodeCurrentModel`.
+  // See `.peaks/_runtime/2026-07-08-session-17918f/qa/.../slice-C-completion.md`
+  // for the resolution priority chain (env override → non-builtin
+  // provider → first enabled → first provider). Returns undefined
+  // on any failure (consistent with the cross-IDE contract).
+  detectCurrentModel: detectZcodeCurrentModel,
 };

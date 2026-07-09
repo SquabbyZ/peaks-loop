@@ -1,4 +1,5 @@
 import { DEFAULT_CONFIG, type ModelProviderConfig, type PeaksConfig } from './config-types.js';
+import { detectCurrentIdeModel } from '../ide/current-model-detector.js';
 
 /**
  * Slice 2026-07-09 add-zcode-adapter (A.3): replaces the legacy
@@ -18,8 +19,8 @@ import { DEFAULT_CONFIG, type ModelProviderConfig, type PeaksConfig } from './co
  * *back-compat fallback*, NOT a hardcoded "the strongest model is
  * always Claude" assumption. Production callers should set
  * `config.model` (or override the env var) to declare their strongest
- * model. Adapter-level runtime probing will be wired in Slice C
- * (D-007 in discovery-issues.md).
+ * model. Adapter-level runtime probing is wired in Slice C
+ * (`getStrongestModelIdAsync` below).
  */
 export function getStrongestModelId(config?: { model?: unknown }): string {
   const raw = config?.model;
@@ -28,6 +29,51 @@ export function getStrongestModelId(config?: { model?: unknown }): string {
   // Slice 2026-07-09: back-compat fallback for test fixtures that
   // pre-date this slice (SC §3.4 strategy A env-var override).
   return process.env.PEAKS_STRONGEST_MODEL_DEFAULT ?? 'claude-opus-4-7';
+}
+
+/**
+ * Slice 2026-07-09 add-zcode-adapter (Slice C, C.4): async variant
+ * of `getStrongestModelId`. Same precedence for layers 1 + 2, but
+ * layer 2.5 is the IDE's runtime probe (`detectCurrentIdeModel`)
+ * which is consulted BEFORE the env-var back-compat fallback.
+ *
+ * Why this exists:
+ *   - `rd-service.buildPlan` (and other sync callers) still call the
+ *     sync `getStrongestModelId` — we do NOT change those signatures.
+ *   - New async callers (the future Slice C-extension of
+ *     `workflow-router-service`, plus any LLM-inside-z-code path)
+ *     resolve the strongest model from the IDE's actual state,
+ *     without forcing the user to set `config.model`.
+ *
+ * Resolution order:
+ *   1. Explicit `config.model`.
+ *   2. `PEAKS_STRONGEST_MODEL_DEFAULT` env var override.
+ *   3. Runtime probe via `detectCurrentIdeModel()` (only when the
+ *      registered IDE adapter opts in via `detectCurrentModel?` —
+ *      only `zcode` does in Slice C; other IDEs skip this layer).
+ *   4. Hardcoded back-compat default `'claude-opus-4-7'`.
+ *
+ * Each layer is isolated so a failure in the probe does not break
+ * the resolver.
+ */
+export async function getStrongestModelIdAsync(
+  config?: { model?: unknown },
+  runtimeProbeDisabled: boolean = false
+): Promise<string> {
+  const raw = config?.model;
+  const fromConfig = typeof raw === 'string' ? raw.trim() : undefined;
+  if (fromConfig) return fromConfig;
+  const envDefault = process.env.PEAKS_STRONGEST_MODEL_DEFAULT;
+  if (envDefault && envDefault.length > 0) return envDefault;
+  if (!runtimeProbeDisabled) {
+    try {
+      const probed = await detectCurrentIdeModel();
+      if (probed && probed.length > 0) return probed;
+    } catch {
+      // best-effort — fall through to back-compat default
+    }
+  }
+  return 'claude-opus-4-7';
 }
 
 export function getConfiguredExecutionModelId(providers: ModelProviderConfig | undefined): string {
