@@ -98,9 +98,13 @@ After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> 
 
 ### Peaks-Loop Step 0.8 — Job 启动 (BLOCKING on LLM judgement — v3.1.1 patch + v3.1.2 mechanical gates)
 
-The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peaks code detect-job --is-job <bool> --rationale <text> --suggested-job-id <jid> --suggested-strategy <single|rotating> --confidence <high|medium|low>`, which writes `.peaks/_runtime/<sessionId>/job-shape.json`. Downstream steps call `read-job-shape` and refuse if missing.
+> **CLI reality check (D-001 sediment, 2026-07-09):** The CLI surface has changed since this section was last verified. The actual command is **`peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single|rotating> [--parallelism-hint <serial|llm-decides>] [--exit-policy <strict|best-effort>] [--project <repo>]`**. The legacy `peaks code detect-job --is-job/--suggested-job-id/--confidence` form described below is **no longer present** in 4.0.0-beta.6. If you find `--is-job` rejected, fall back to `peaks job init`.
 
-**Hard rule (v3.1.1 red-line #10):** LLM MUST NOT skip `peaks code detect-job`. If `read-job-shape` throws `JOB_SHAPE_NOT_DECIDED`, record a decision before proceeding.
+The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single|rotating>` (with `--caller-id <id>` and `--project <repo>` in non-Claude-Code environments), which writes `.peaks/_runtime/<sessionId>/job/<jid>/state.json` and emits a `[job-event] {kind: job-started, jobId, total, strategy}` line. Downstream steps call `peaks job status --job-id <jid>` to read state.
+
+**Hard rule (v3.1.1 red-line #10):** LLM MUST NOT skip the job-init call. If `peaks job status` reports `done: 0` and the slice work has begun, the LLM forgot to initialize — re-call `peaks job init` immediately.
+
+> **D-003 sediment (2026-07-09):** The historical `JOB_SHAPE_NOT_DECIDED` exception thrown by `read-job-shape` is no longer wired in 4.0.0-beta.6. The current CLI uses `peaks job status` which reports a passive `done: 0` instead of throwing. Both behaviors enforce the same intent (no work may begin before init) but the failure mode is a soft warning rather than a hard exception. LLM should treat `done: 0` after Step 0.8 as a recoverable miss, not an unrecoverable error.
 
 **v3.1.2 mechanical gates** (recorder-only was bypassed twice):
 
@@ -143,7 +147,9 @@ Run `peaks project memories --project <repo> --json` to read decisions / convent
 
 ### Peaks-Loop Step 2.5: Set session title
 
-Extract a short title from the user's first request (8-20 Chinese chars or 4-10 English words). Run `peaks session title` with the active sid. Skip if a title is already set. → `references/skill-presence-and-title.md` (same file as Step 2).
+Extract a short title from the user's first request (8-20 Chinese chars or 4-10 English words). Run `peaks session title <sid> "<title>" --json`. Skip if a title is already set. → `references/skill-presence-and-title.md` (same file as Step 2).
+
+> **CLI reality check (D-002 sediment, 2026-07-09):** The session id is a **positional argument**, not a `--session-id` flag. Correct invocation is `peaks session title 2026-07-08-session-17918f "add-zcode-adapter — peaks-loop 第 9 IDE 接入" --json`. Passing `--session-id` will be rejected with `error: unknown option '--session-id'`.
 
 ## Sub-agent session sharing (MANDATORY — one conversation = one sid)
 
@@ -152,6 +158,19 @@ When peaks-code dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt,
 ## Boundaries
 
 Peaks-Loop Code may: identify scenarios, recommend profiles, coordinate role skills through artifacts, coordinate project memory extraction, request user confirmation at risk/commit boundaries. Peaks-Loop Code must NOT silently install hooks / create agents / enable MCP / modify Claude settings / create GitHub repos / bypass role-skill artifacts. → `references/boundaries.md`.
+
+## CLI Drift Index (sediment 2026-07-09)
+
+> **Reading guide:** This document was last verified against CLI surface in **peaks-loop 4.0.0-beta.6**. The CLI has drifted in 4 places since this SKILL.md was last fully aligned. Each drift below is annotated **inline at the relevant step** with a `> CLI reality check` blockquote. When you hit a `error: unknown option ...` error, **read the inline reality check first** before guessing.
+
+| Drift ID | Step | Symptom | Fix | Inline location |
+|---|---|---|---|---|
+| **D-001** | 0.8 | `peaks code detect-job --is-job ...` rejected with `error: unknown option '--is-job'` | Use `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single\|rotating>` | §Step 0.8 first paragraph |
+| **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` | sid is positional: `peaks session title <sid> "<title>" --json` | §Step 2.5 |
+| **D-003** | 0.8 | `JOB_SHAPE_NOT_DECIDED` exception expected but never thrown | Current behavior is `peaks job status` reports `done: 0` passively — treat as recoverable miss, not hard error | §Step 0.8 third paragraph |
+| **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. Bare `peaks-memory:start` is parsed silently but produces no writes | §Step 11c + 11d |
+
+> **Sediment lesson (master record):** `.peaks/memory/peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md`
 
 ## Peaks-Loop GStack integration
 
@@ -233,11 +252,13 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 **11c — Canonical extract** (the only CLI that writes `.peaks/memory/`): `peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json`. `--apply` is REQUIRED (without it the command only previews — no files land).
 
+> **CLI reality check (D-010 sediment, 2026-07-09):** The `<!-- peaks-memory:start -->` block must be followed immediately by a **YAML frontmatter** (`title: ...`, `kind: lesson | decision | convention`) and a `---` separator. Each block must close with `<!-- peaks-memory:end -->`. A bare `peaks-memory:start` without the YAML fields is parsed but produces no `plannedWrites` — the CLI silently returns `extractedCount: 0`. Full format reference: see any successful extract output (e.g. `.peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md`).
+
 **11d — Gate C (zero-write outcome):** If `extractedCount === 0` after 11c, fire AskUserQuestion:
 
 > "本次 code 未沉淀任何 `.peaks/memory` 文件。可选: (a) 回去在 handoff.md 嵌入至少 1 个 `peaks-memory:start` block 后重试; (b) 显式接受 no-sediment 并记录为 lesson; (c) 取消完成。"
 
-Default option = (a). Code MUST NOT silently accept (b) without user pick. Full bash + flow at `references/runbook.md` §Step 11.
+> **D-010 fix root cause check:** When firing 11d, first inspect whether the block has the YAML frontmatter (`title:` + `kind:` + `---`). If the `<!-- peaks-memory:start -->` exists but no `title:` line follows, fix the block format and re-run 11c — don't ask the user yet. Default option = (a). Code MUST NOT silently accept (b) without user pick. Full bash + flow at `references/runbook.md` §Step 11.
 
 **Why this step exists:** audit 2026-07-03 confirmed 2 consecutive sessions produced zero `.peaks/memory/` files despite completing RD + QA + handoff artifacts; `assisted` mode silently skipped runbook Step 10 (no STOP condition). **Why `peaks memory extract` (not `peaks project memories:extract`):** the artifact-scoped extract is canonical; the batch-scoped sibling is for non-handoff flows. Always use `peaks memory extract --apply`.
 

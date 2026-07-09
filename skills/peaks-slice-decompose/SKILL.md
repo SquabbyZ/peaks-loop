@@ -109,3 +109,63 @@ This skill does NOT modify source code. It documents the v2 envelope produced by
 | `references/v2-schema.md` | Field-by-field table for `DecompositionResultV2`, `PassResult`, `SliceV2`, `CrossPassEdge.arbitratedBy`, `LlmArbitration`. |
 | `references/granularity-decision.md` | Decision tree for the 4 `--granularity` modes; `shouldSubdivide()` thresholds + tie-break semantics. |
 | `references/cross-pass-edge-interpretation.md` | The 4 edge kinds and how `peaks-rd` should use them for dispatch ordering; `LlmArbitration` trace reader. |
+
+---
+
+## SC template hard rules (sediment 2026-07-09)
+
+These rules are added in response to **D-009a + D-009c** discovered while running RID 003-add-zcode-adapter. They prevent the same class of mistake from re-occurring in future SC drafts.
+
+### Rule 1 — Pre-flight: detect ESM vs CJS before writing export syntax (D-009c)
+
+Before specifying `--caller-id` / export guard syntax in any SC task, run:
+
+```bash
+head -3 package.json | grep '"type"'
+```
+
+- `"type": "module"` → ESM. Use `export const FOO = ...` for any constant that tests need to import. **Do NOT** write `if (typeof module !== 'undefined' && module.exports) { module.exports = { FOO }; }` — that pattern is CJS-only.
+- No `"type"` field (or `"type": "commonjs"`) → CJS. Use the `module.exports` guard.
+
+Why: RID-003 SC §3.5 originally specified the CJS guard for `scripts/install-skills.mjs`. The script is actually ESM (`"type": "module"`). The RD agent had to backtrack and the SC lost 5 minutes of spec clarity.
+
+### Rule 2 — Whitelist fixture sync is NOT collateral (D-009a)
+
+When a slice adds a new entry to a **whitelist fixture** (e.g. `tests/unit/ide/ide-registry.test.ts` asserting `expect(adapters).toHaveLength(7)` after adding the 8th adapter), that fixture sync is a **primary task**, not a "by the way" footnote.
+
+Mandatory structure for any slice that adds to a known set:
+
+```markdown
+### Tasks
+
+| Task | File | Change |
+|---|---|---|
+| T-1 | `src/services/ide/ide-types.ts` | Add `'zcode'` to IdeId |
+| T-2 | `src/services/ide/ide-registry.ts` | Register ZCODE_ADAPTER |
+| T-3 | `tests/unit/ide/ide-registry.test.ts` | Update whitelist: 7 → 8 adapters, add 'zcode' |
+| T-4 | `tests/unit/install-skills-script.test.ts` | Update whitelist: 5 → 6 platforms, add 'zcode' |
+```
+
+If you find a whitelist fixture during execution but didn't pre-list it as a task, treat it as a **NEW TASK** and run the SC ↔ QA repair loop, not as "necessary collateral". Pre-listing prevents surprises at Gate 1.
+
+### Rule 3 — Adapter interface optional fields (D-009b reciprocal)
+
+When extending `IdeAdapter` (or any plugin-interface in `src/services/**/ide/`), prefer **optional fields** over required fields so existing implementations don't need stub updates:
+
+```ts
+// ✅ Optional — back-compat safe
+interface IdeAdapter {
+  readonly detectCurrentModel?: () => Promise<string | undefined>;
+}
+
+// ❌ Required — every existing adapter must add a stub
+interface IdeAdapter {
+  readonly detectCurrentModel: () => Promise<string | undefined>;
+}
+```
+
+If a field MUST be required, document in the SC why each existing implementation must be updated inline, and pre-list those updates as primary tasks (Rule 2 pattern).
+
+---
+
+**Sediment source:** `.peaks/_runtime/2026-07-08-session-17918f/qa/003-add-zcode-adapter/{slice-A-completion,slice-B-completion}.md` D-009a/b/c sections. Master lesson: `.peaks/memory/peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md`.
