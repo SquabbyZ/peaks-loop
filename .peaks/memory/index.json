@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-09T12:49:47.354Z",
+  "updatedAt": "2026-07-10T08:42:24.073Z",
   "hot": {
     "feedback": [
       {
@@ -438,6 +438,14 @@
         "updatedAt": "2026-06-30"
       },
       {
+        "name": "peaks-ide-runtime-detect-zcode-only",
+        "kind": "lesson",
+        "description": "peaks ide model --current — z-code 运行时探测 **日期:** 2026-07-09 **RID:** 003-add-zcode-adapter (Slice C) **Slice 范围:** 仅 ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-ide-runtime-detect-zcode-only.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/qa/003-add-zcode-adapter/slice-C-completion.md",
+        "updatedAt": "2026-07-09"
+      },
+      {
         "name": "peaks-loop-file-size-scan-readfile-on-deleted-paths",
         "kind": "lesson",
         "description": "calls into the file-size scan at  to enforce the 800-line cap.",
@@ -502,6 +510,14 @@
         "updatedAt": "2026-06-30"
       },
       {
+        "name": "silent-warning-5-grace-marker-slice-1-5",
+        "kind": "lesson",
+        "description": "2026-07-10 Slice 1.5:给 silent-warning-detector 报的 5 处误报加  grace marker。 **核心问题**:detector 是 AST 形态检测,看不见 catch 上下文注释(...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\silent-warning-5-grace-marker-slice-1-5.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-005-silent-warning-grace.md",
+        "updatedAt": "2026-07-10"
+      },
+      {
         "name": "skill-external-invocation-pattern-doctoring-is-one-line-surgery",
         "kind": "lesson",
         "description": "When  fails, root-cause before bulk-patching.",
@@ -548,6 +564,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\vendor-neutrality-adapter-vendor.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
         "updatedAt": "2026-07-09"
+      },
+      {
+        "name": "vitest-perf",
+        "kind": "lesson",
+        "description": "2026-07-10 vitest-perf 治理最终交付的核心教训: **1.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\vitest-perf.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-006-final-delivery.md",
+        "updatedAt": "2026-07-10"
+      },
+      {
+        "name": "vitest-perf-3-slice-delivery-and-3-active-disclosures",
+        "kind": "lesson",
+        "description": "Lesson — vitest 单测性能治理(2026-07-10) 三个切片已落地(Slice 1/2/3) 1.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\vitest-perf-3-slice-delivery-and-3-active-disclosures.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff-004-vitest-perf.md",
+        "updatedAt": "2026-07-10"
       },
       {
         "name": "z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter",
@@ -736,6 +768,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-08-peaks-solo-dogfood.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-08"
+      },
+      {
+        "name": "2026-07-09-zcode-adapter-overview",
+        "kind": "project",
+        "description": "2026-07-09-zcode-adapter — 完成总结 **日期:** 2026-07-09 **RID:** 003-add-zcode-adapter **Session:** 2026-07-08-session-179...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-09-zcode-adapter-overview.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-09"
       },
       {
         "name": "4-0-0-beta-5-overview",
