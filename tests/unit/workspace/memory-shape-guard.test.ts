@@ -120,9 +120,16 @@ function scanShape(rootDir: string): ScanResult {
   for (const entry of topEntries) {
     if (entry.name.startsWith('.')) continue;
     if (entry.isFile() && entry.name.endsWith('.json')) {
-      if (entry.name !== 'index.json') {
-        forbiddenTopLevelJson.push(entry.name);
-      }
+      if (entry.name === 'index.json') continue;
+      // `peaks memory extract --apply` writes a `.promotion.json` sidecar
+      // per memory file as part of the promotion workflow (slice 2026-06-23
+      // audit-artifact-writer-generalization). These sidecars are not part
+      // of the memory contract — they are extracted-state metadata used by
+      // the memory service. Tolerate them here; if `extract` ever changes
+      // to write a different sidecar name, this allow-list will need an
+      // update.
+      if (entry.name.endsWith('.promotion.json')) continue;
+      forbiddenTopLevelJson.push(entry.name);
       continue;
     }
     if (entry.isDirectory()) {
