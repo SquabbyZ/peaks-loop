@@ -69,7 +69,7 @@ export async function getStrongestModelIdAsync(
     try {
       const probed = await detectCurrentIdeModel();
       if (probed && probed.length > 0) return probed;
-    } catch {
+    } catch { // TODO(g2): best-effort runtime probe — fall through to back-compat default is intentional
       // best-effort — fall through to back-compat default
     }
   }

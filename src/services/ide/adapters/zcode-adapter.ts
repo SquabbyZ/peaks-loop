@@ -53,7 +53,7 @@ function readZcodeConfig(path: string): unknown {
   if (!existsSync(path)) return undefined;
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as unknown;
-  } catch {
+  } catch { // TODO(g2): fail-closed JSON parse — undefined is the documented contract for missing/corrupt config
     return undefined;
   }
 }

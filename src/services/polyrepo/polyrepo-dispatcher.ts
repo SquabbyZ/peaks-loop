@@ -141,7 +141,7 @@ export function readManifest(root: string): PolyrepoManifest | null {
   try {
     const raw = readFileSync(p, 'utf8');
     return JSON.parse(raw) as PolyrepoManifest;
-  } catch {
+  } catch { // TODO(g2): fail-closed JSON parse — null is the documented contract, caller checks via existsSync
     return null;
   }
 }

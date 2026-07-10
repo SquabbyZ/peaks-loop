@@ -49,7 +49,7 @@ export async function detectCurrentIdeModel(): Promise<string | undefined> {
       if (typeof modelId === 'string' && modelId.trim().length > 0) {
         return modelId.trim();
       }
-    } catch {
+    } catch { // TODO(g2): Per-SC §3.4 best-effort — a misconfigured adapter must not poison the chain
       // Per-SC §3.4: detection is best-effort. Swallow errors so a
       // misconfigured adapter cannot poison the chain; the next
       // adapter still gets a chance.

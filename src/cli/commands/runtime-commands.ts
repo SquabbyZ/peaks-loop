@@ -148,7 +148,7 @@ async function runCompact(
   if (existsSync(registryFile)) {
     try {
       registry.load(registryFile);
-    } catch {
+    } catch { // TODO(g2): vendor-neutrality — corrupt adapter registry must NOT block peaks runtime
       // Treat corrupt registry as empty — vendor-neutrality: a corrupt
       // .peaks/runtime/adapters.json must NOT block peaks runtime.
       // We still try the built-in path below.
