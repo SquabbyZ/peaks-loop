@@ -4,11 +4,16 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { parseJsonOutput, resetCliProgramMocks, runCommand, writeUserConfig } from './cli-program-test-utils.js';
 
-// W8-CC-α: raise per-file default test timeout from 5000ms → 10000ms.
-// The longest workflow tests (swarm / economy dispatch) spawn real CLI
-// sub-processes that occasionally exceed 5s on Windows under load.
-// 10s gives enough headroom for slow CI without masking real hangs.
-vi.setConfig({ testTimeout: 10000 });
+// W8-CC-α (revised 2026-07-11): per-file default test timeout raised
+// from 5000ms → 10s originally, but the longest workflow tests (swarm /
+// economy dispatch) spawn real CLI sub-processes that occasionally
+// exceed 10s on Windows under load. Bumped to 60s to match vitest.config.ts
+// default — the cli-program test util spawns the same `tsx src/cli/index.ts`
+// entrypoint that integration tests use, so the two layers must share
+// the same ceiling. 60s accommodates observed worst-case (one timed-out
+// swarm-plan dispatch hit ~50s in CI on 2026-07-10) without masking real
+// hangs (a true hang will still trip hookTimeout at 60s).
+vi.setConfig({ testTimeout: 60_000 });
 
 describe('createProgram workflow commands', () => {
 

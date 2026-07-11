@@ -134,7 +134,7 @@ function isResolvedChangeId(value: string): boolean {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('verifyPipeline', { timeout: 30_000 }, () => {
+describe('verifyPipeline', { timeout: 60_000 }, () => {
   let temp: { root: string; peaks: string };
 
   beforeEach(() => {

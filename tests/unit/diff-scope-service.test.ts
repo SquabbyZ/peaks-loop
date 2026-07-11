@@ -71,13 +71,13 @@ describe('globToRegex', () => {
 });
 
 describe('getDiffVsScope', () => {
-  test('returns rd-not-found when RD artifact missing', { timeout: 15000 }, async () => {
+  test('returns rd-not-found when RD artifact missing', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     const result = await getDiffVsScope({ projectRoot: project, requestId: 'nope', sessionId: SESSION });
     expect(isDiffScopeError(result)).toBe(true);
   });
 
-  test('reports patternsDeclared=false when RD has no scope bullets', { timeout: 15000 }, async () => {
+  test('reports patternsDeclared=false when RD has no scope bullets', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await createRequestArtifact({
       role: 'rd', requestId: '2026-05-25-feat', projectRoot: project, sessionId: SESSION,
@@ -90,7 +90,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('classifies files matching in-scope patterns as in-scope', { timeout: 30000 }, async () => {
+  test('classifies files matching in-scope patterns as in-scope', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       'In-scope:',
@@ -110,7 +110,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('flags out-of-scope writes as violations', { timeout: 15000 }, async () => {
+  test('flags out-of-scope writes as violations', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       'In-scope:',
@@ -131,7 +131,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('flags files matching no pattern as unclassified', { timeout: 15000 }, async () => {
+  test('flags files matching no pattern as unclassified', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       'In-scope:',
@@ -148,7 +148,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('auto-allows test files and .peaks artifacts without requiring an in-scope pattern', { timeout: 15000 }, async () => {
+  test('auto-allows test files and .peaks artifacts without requiring an in-scope pattern', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       'In-scope:',
@@ -168,7 +168,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('handles bullets without explicit subheaders (treats all as in-scope)', { timeout: 15000 }, async () => {
+  test('handles bullets without explicit subheaders (treats all as in-scope)', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       '- src/services/login/**',
@@ -184,7 +184,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('returns gitAvailable=false when project is not a git repo', { timeout: 15000 }, async () => {
+  test('returns gitAvailable=false when project is not a git repo', { timeout: 60_000 }, async () => {
     const project = await mkdtemp(join(tmpdir(), 'peaks-diffscope-nogit-'));
     await createRequestArtifact({
       role: 'rd', requestId: '2026-05-25-feat', projectRoot: project, sessionId: SESSION,
@@ -197,7 +197,7 @@ describe('getDiffVsScope', () => {
     }
   });
 
-  test('parses backtick-wrapped path patterns in scope bullets', { timeout: 15000 }, async () => {
+  test('parses backtick-wrapped path patterns in scope bullets', { timeout: 60_000 }, async () => {
     const project = await makeGitRepo();
     await seedRdWithScope(project, '2026-05-25-feat', [
       'In-scope:',

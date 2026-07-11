@@ -68,7 +68,7 @@ After autonomous work (RD, QA, security, perf), invoke peaks-final-review for 4-
 
 ### Peaks-Loop Step N+2: Main-session context monitor (D6 + slice 2026-07-02)
 
-After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory): Code MUST call `peaks session auto-compact --execute --project <repo>` autonomously. Pass `--enforce-job-mode` to force the MANDATORY semantics in single-rid mode too (`job-shape.json` auto-enables it). **≥ 0.95** red line: next Bash/Task call fires `peaks session auto-compact-hook` (PreToolUse), in-band spawning `claude --compact`. **Karpathy §4 exception**: compact red line keeps runner alive → zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
+After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (`peaks session auto-compact --execute`). Pass `--enforce-job-mode` for single-rid. **≥ 0.95** red line: next Bash/Task fires `peaks session auto-compact-hook`. **Karpathy §4 exception**: compact red line keeps runner alive — zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 
@@ -84,17 +84,11 @@ Run `peaks workspace init` + `peaks skill presence:set peaks-code` BEFORE any an
 
 ### Peaks-Loop Step 0.7: Detect unfinished work and offer resume (BLOCKING on first invocation per session)
 
-After Step 0, run the resume-detection probe; surface via `AskUserQuestion` if a slice is in flight.
-
-**v3.1.2 resume rule:** if `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` exists, read it FIRST and surface `Next: slice #N of M (<currentSlice>)`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader; the same JSON is surfaced by `peaks code gate-step-08` on every Bash call.
-
-**v2.11.0 D7 override:** if user just `/compact`ed, run `peaks code post-compact-detect --project <repo> --json` FIRST; `shouldAutoResume: true` skips AskUserQuestion (D7.b). Log to `.peaks/_runtime/<sessionId>/txt/auto-decisions.md`.
-
-→ see `references/resume-detection.md`.
+After Step 0, run the resume-detection probe; surface via `AskUserQuestion` if a slice is in flight. **v3.1.2 resume rule:** if `.peaks/_runtime/<sessionId>/job/<jid>/progress.json` exists, read FIRST and surface `Next: slice #N of M`. **v2.11.0 D7 override:** if user just `/compact`ed, run `peaks code post-compact-detect --project <repo> --json` FIRST; `shouldAutoResume: true` skips AskUserQuestion. → `references/resume-detection.md`.
 
 ### Peaks-Loop Step 0.55: 1.x → 2.0 detection (BLOCKING on first invocation per session, when the project is not on a 2.0 layout)
 
-After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> --json`. If `isOneX: true`, surface `AskUserQuestion`. Persist to `.peaks/preferences.json`. → `references/step-0-55-1x-detection.md`.
+After Step 0.7 returns "fresh", run `peaks upgrade --detect-1x --project <root> --json`. If `isOneX: true`, surface `AskUserQuestion`. → `references/step-0-55-1x-detection.md`.
 
 ### Peaks-Loop Step 0.8 — Job 启动 (BLOCKING on LLM judgement — v3.1.1 patch + v3.1.2 mechanical gates)
 
@@ -108,12 +102,7 @@ The CLI is a **recorder + gate** for job-shape (the LLM judges). LLM calls `peak
 
 **v3.1.2 mechanical gates** (recorder-only was bypassed twice):
 
-- **PreToolUse hook** — `peaks workspace init` installs the `Bash` matcher `peaks code gate-step-08 --project .`. Exits 0 when `job-shape.json` exists (also emits `Next: slice #N+1 of M` from `progress.json`); exits 2 BLOCKED when missing AND prompt matches a fail-closed backup regex; otherwise 0 (allow).
-- **Size-fear ban** — `peaks code emit-handoff` refuses a final handoff while `remaining > 0` under Job mode.
-- **Forced auto-compact** — `peaks code context-now --enforce-job-mode` (auto-enabled on `isJob=true`) returns `auto-compact-now` at ≥ 0.85; **In Job mode ≥ 0.85 is MANDATORY auto-compact** (not advisory).
-- **On-disk slice progress** — `peaks job checkpoint --state done` writes `progress.json`; `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader.
-
-Full mechanics (judgement criteria, hook table, backup-regex rationale, hook wiring) at `references/step-0-8-gate.md`.
+PreToolUse hook on `peaks code gate-step-08`; size-fear ban on `peaks code emit-handoff`; forced auto-compact at ≥ 0.85 in Job mode; on-disk slice progress via `peaks job checkpoint` (canonical reader `peaks job progress --job-id <jid>`). Full mechanics (judgement criteria, hook table, backup-regex rationale, hook wiring) at `references/step-0-8-gate.md`.
 
 ### Peaks-Loop Step 0.81 — per-slice 收尾
 
@@ -121,11 +110,11 @@ After commit: `peaks job checkpoint --slice-id <rid> --state done --commit-sha $
 
 ### Peaks-Loop Step 0.85 — slice 阻塞处理
 
-Trigger: `repair-status` atCap=true, context-now red-line ≥5min, or `subagent-cleanup` fails twice. Action: `peaks job block --slice-id <rid> --reason "<reason>"` then STOP with TXT handoff.
+Trigger: `repair-status` atCap=true, context-now red-line ≥5min, or `subagent-cleanup` fails twice. Action: `peaks job block --slice-id <rid> --reason "<reason>"` then STOP.
 
 ### Peaks-Loop Step 0.86 — main session rotation
 
-Active in rotating mode; fires every `rotateEvery` slices or on-demand via `peaks job rotate-now`. Sequence: cycle-summary → checkpoint rotate-marker → `peaks session rotate` → next turn resumes via `peaks session resume --job-id <jid>`.
+Active in rotating mode; fires every `rotateEvery` slices or via `peaks job rotate-now`. Sequence: cycle-summary → checkpoint rotate-marker → `peaks session rotate` → resume via `peaks session resume --job-id <jid>`.
 
 ### Peaks-Loop Step 0.87 — sub-agent cleanup gate
 
@@ -147,9 +136,7 @@ Run `peaks project memories --project <repo> --json` to read decisions / convent
 
 ### Peaks-Loop Step 2.5: Set session title
 
-Extract a short title from the user's first request (8-20 Chinese chars or 4-10 English words). Run `peaks session title <sid> "<title>" --json`. Skip if a title is already set. → `references/skill-presence-and-title.md` (same file as Step 2).
-
-> **CLI reality check (D-002 sediment, 2026-07-09):** The session id is a **positional argument**, not a `--session-id` flag. Correct invocation is `peaks session title 2026-07-08-session-17918f "add-zcode-adapter — peaks-loop 第 9 IDE 接入" --json`. Passing `--session-id` will be rejected with `error: unknown option '--session-id'`.
+Extract a short title from the user's first request (8-20 Chinese chars or 4-10 English words). Run `peaks session title <sessionId> "<title>" --json`. Skip if a title is already set. → `references/skill-presence-and-title.md` (same file as Step 2). D-002: sid is positional, NOT `--session-id` flag (rejected with `error: unknown option`).
 
 ## Sub-agent session sharing (MANDATORY — one conversation = one sid)
 
@@ -157,16 +144,16 @@ When peaks-code dispatches a sub-agent (peaks-rd, peaks-qa, peaks-ui, peaks-txt,
 
 ## Boundaries
 
-Peaks-Loop Code may: identify scenarios, recommend profiles, coordinate role skills through artifacts, coordinate project memory extraction, request user confirmation at risk/commit boundaries. Peaks-Loop Code must NOT silently install hooks / create agents / enable MCP / modify Claude settings / create GitHub repos / bypass role-skill artifacts. → `references/boundaries.md`.
+Peaks-Loop Code may identify scenarios, recommend profiles, coordinate role skills via artifacts, coordinate project memory extraction, request user confirmation at risk/commit boundaries. MUST NOT silently install hooks / create agents / enable MCP / modify Claude settings / create GitHub repos / bypass role-skill artifacts. → `references/boundaries.md`.
 
 ## CLI Drift Index (sediment 2026-07-09)
 
-> **Reading guide:** This document was last verified against CLI surface in **peaks-loop 4.0.0-beta.6**. The CLI has drifted in 4 places since this SKILL.md was last fully aligned. Each drift below is annotated **inline at the relevant step** with a `> CLI reality check` blockquote. When you hit a `error: unknown option ...` error, **read the inline reality check first** before guessing.
+> **Reading guide:** Verified against peaks-loop 4.0.0-beta.6. Each drift below is annotated inline at the relevant step with a `> CLI reality check`. On `error: unknown option ...`, **read the inline reality check first** before guessing.
 
 | Drift ID | Step | Symptom | Fix | Inline location |
 |---|---|---|---|---|
 | **D-001** | 0.8 | `peaks code detect-job --is-job ...` rejected with `error: unknown option '--is-job'` | Use `peaks job init --job-id <jid> --slice-list <list> --main-loop-strategy <single\|rotating>` | §Step 0.8 first paragraph |
-| **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` | sid is positional: `peaks session title <sid> "<title>" --json` | §Step 2.5 |
+| **D-002** | 2.5 | `peaks session title --session-id <sid> ...` rejected with `error: unknown option '--session-id'` (this is the bare `<sid>` anti-pattern) | sid is positional: `peaks session title <sessionId> "<title>" --json` | §Step 2.5 |
 | **D-003** | 0.8 | `JOB_SHAPE_NOT_DECIDED` exception expected but never thrown | Current behavior is `peaks job status` reports `done: 0` passively — treat as recoverable miss, not hard error | §Step 0.8 third paragraph |
 | **D-010** | 11c | `peaks memory extract` returns `extractedCount: 0` despite `<!-- peaks-memory:start -->` existing | Block requires YAML frontmatter (`title:` + `kind:` + `---`) + closing `<!-- peaks-memory:end -->`. Bare `peaks-memory:start` is parsed silently but produces no writes | §Step 11c + 11d |
 
@@ -190,15 +177,13 @@ When the project has no live backend (no swagger.json, no API server), Code must
 
 ## Peaks-Loop Request type classification + Workflow order + Transition verification gates
 
-The contract for the 6-type classification table, the 11-step workflow order, and the 7 transition verification gates (A through G with their `ls` / `grep` shell snippets) lives in `references/workflow-gates-and-types.md`. The peaks-code narrative references those gate numbers (Gate A through Gate G) — keep both files in lockstep when adding or renaming a gate.
+The 6-type table + 11-step order + 7 transition gates (A-G) live in `references/workflow-gates-and-types.md`. peaks-code narrative references Gate A-G — keep both files in lockstep.
 
 ## Peaks-Loop Default sub-agent fan-out (≥ 2 leaves/topological level → `--from-dag`)
 
 > **Slice 5:** when the slice DAG has ≥ 2 leaves at one topological level, dispatch via `peaks sub-agent dispatch --from-dag <dag-file>` (wall-time ≈ max, not sum).
 
-Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`).
-
-> **2026-06-28 校准:** 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。详见 `.peaks/memory/peaks-loop-24h-ai-programmer-positioning.md`。
+Write DAG → `.peaks/_runtime/<sessionId>/sc/slice-dag.json`, run `peaks sub-agent dispatch --from-dag <dag-file> --batch-id <id>` once; orchestrator emits N parallel `buildToolCall` (`dispatchCount === N`). 主路径 = 唯一蜂群;config/docs/chore 跳过不打断。详见 `.peaks/memory/peaks-loop-24h-ai-programmer-positioning.md`。
 
 ### Hard constraint: fan-out is mandatory (slice 2026-06-24-audit-5th-p2)
 
@@ -242,25 +227,7 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 ## Peaks-Loop Step 11: Memory sediment (BLOCKING on workflow complete)
 
-> **Hard rule.** Code MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` (the durable, LLM-authored memory store) OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Applies to **all modes** including `assisted` and `strict` — `assisted` previously skipped Step 10 because there was no `[CONFIRM]` gate; Step 11 fixes that.
-
-### Substeps (BLOCKING)
-
-**11a — Gate A (txt/ inventory):** `find .peaks/_runtime/<sessionId>/txt/ -type f -name '*.md' | head`. If **0 files** → STOP. Dispatch `peaks-txt` first to write `handoff.md`, then return to 11c.
-
-**11b — Gate B (memory block embed scan):** `grep -c 'peaks-memory:start' .peaks/_runtime/<sessionId>/txt/handoff.md || true`. If **0 AND this session surfaced a stable project fact** (decision / convention / approved refactor / hard rule), STOP and tell peaks-txt to embed at least one `<!-- peaks-memory:start -->` block first.
-
-**11c — Canonical extract** (the only CLI that writes `.peaks/memory/`): `peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json`. `--apply` is REQUIRED (without it the command only previews — no files land).
-
-> **CLI reality check (D-010 sediment, 2026-07-09):** The `<!-- peaks-memory:start -->` block must be followed immediately by a **YAML frontmatter** (`title: ...`, `kind: lesson | decision | convention`) and a `---` separator. Each block must close with `<!-- peaks-memory:end -->`. A bare `peaks-memory:start` without the YAML fields is parsed but produces no `plannedWrites` — the CLI silently returns `extractedCount: 0`. Full format reference: see any successful extract output (e.g. `.peaks/_runtime/2026-07-08-session-17918f/txt/handoff-003-add-zcode-adapter.md`).
-
-**11d — Gate C (zero-write outcome):** If `extractedCount === 0` after 11c, fire AskUserQuestion:
-
-> "本次 code 未沉淀任何 `.peaks/memory` 文件。可选: (a) 回去在 handoff.md 嵌入至少 1 个 `peaks-memory:start` block 后重试; (b) 显式接受 no-sediment 并记录为 lesson; (c) 取消完成。"
-
-> **D-010 fix root cause check:** When firing 11d, first inspect whether the block has the YAML frontmatter (`title:` + `kind:` + `---`). If the `<!-- peaks-memory:start -->` exists but no `title:` line follows, fix the block format and re-run 11c — don't ask the user yet. Default option = (a). Code MUST NOT silently accept (b) without user pick. Full bash + flow at `references/runbook.md` §Step 11.
-
-**Why this step exists:** audit 2026-07-03 confirmed 2 consecutive sessions produced zero `.peaks/memory/` files despite completing RD + QA + handoff artifacts; `assisted` mode silently skipped runbook Step 10 (no STOP condition). **Why `peaks memory extract` (not `peaks project memories:extract`):** the artifact-scoped extract is canonical; the batch-scoped sibling is for non-handoff flows. Always use `peaks memory extract --apply`.
+> **Hard rule.** Code MUST NOT declare a workflow complete until Step 11 has produced ≥ 1 file in `.peaks/memory/` OR the user has explicitly approved a no-sediment outcome via AskUserQuestion. Canonical CLI: `peaks memory extract --project <repo> --artifact .peaks/_runtime/<sessionId>/txt/handoff.md --apply --json` (the artifact-scoped extract; the batch-scoped sibling `peaks project memories:extract` is for non-handoff flows only). Substeps 11a/11b/11c/11d (Gate A/B/C), D-010 fix root cause check → `references/step-11-memory-sediment.md` + `references/runbook.md` §Step 11.
 
 ## Peaks-Loop External references and lifecycle
 
@@ -274,9 +241,9 @@ After final validation, refresh project-local standards via `peaks standards ini
 
 Main LLM reducer sees metadata-only view (~200 chars/sub-agent); on-demand `Read` for full content. Threshold table: 50% soft warn, 75% `CONTEXT_NEAR_LIMIT`, 80% hard reject (CLI + hook double-guard). → `references/context-governance.md`.
 
-## Sub-agent cross-batch signal — G8.4 share / shared-read / await (slice 2026-06-23-audit-3rd)
+## Sub-agent cross-batch signal — G8.4 share / shared-read / await
 
-Three CLI primitives let sibling sub-agents coordinate: `peaks sub-agent share / shared-read / await` (last-write-wins, ≤ 1KB warn / ≥ 64KB reject). Channel file gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
+Three CLI primitives: `peaks sub-agent share / shared-read / await` (last-write-wins, ≤ 1KB warn / ≥ 64KB reject). Channel gitignored under `.peaks/_sub_agents/<sessionId>/shared/`.
 
 ## References
 

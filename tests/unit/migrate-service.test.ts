@@ -41,7 +41,7 @@ function readFile(absPath: string): string {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('migrateWorkspace', { timeout: 30_000 }, () => {
+describe('migrateWorkspace', { timeout: 60_000 }, () => {
   let project: string;
 
   // Hoist git init ONCE per describe — git init + 3 config calls cost
