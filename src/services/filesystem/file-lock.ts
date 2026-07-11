@@ -60,6 +60,11 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
     mkdirSync(dir, { recursive: true });
   }
 
+  // Wall-clock guard (slice 014): in pathological slow-system cases, the
+  // retry backoff could push wall-clock above LOCK_STALE_MS, allowing the
+  // stale-lock reaper to unlink our own lock mid-call. Cap the loop at
+  // LOCK_STALE_MS regardless of attempts; throw the existing LockTimeoutError.
+  const startedAt = Date.now();
   let attempts = 0;
   let fd: number | null = null;
 
@@ -90,6 +95,13 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
         LOCK_RETRY_MAX_MS
       );
       spinSleep(wait);
+      // Wall-clock guard: never let the loop outlive LOCK_STALE_MS in the
+      // slow-system edge case. Without this, a vitest slowdown that pushes
+      // wall clock above 30s would let the lock file become stale mid-call
+      // and the stale-lock reaper would unlink it (defeating the test).
+      if (Date.now() - startedAt > LOCK_STALE_MS) {
+        throw new LockTimeoutError(lockPath, attempts);
+      }
     }
   }
 

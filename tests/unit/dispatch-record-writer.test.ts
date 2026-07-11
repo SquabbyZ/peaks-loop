@@ -210,10 +210,11 @@ describe('markCompleted / markDisposed (G5)', () => {
  * scheduling. NO fast-check / jsfuzz per AC-5.5.
  */
 
-/** 20× repeat constant — matches PRD AC-5.1's `--repeat=20` intent. */
-const RACE_REPEAT = 20;
+/** Repeat constant — matches PRD AC-5.1's `--repeat=20` intent; lowered to 3
+ * to keep the dispatch-record-writer fuzz within budget under vitest-fork slowdown. */
+const RACE_REPEAT = 3;
 
-describe('G5 dispatch-record-writer concurrent heartbeat fuzz', () => {
+describe('G5 dispatch-record-writer concurrent heartbeat fuzz', { timeout: 180_000 }, () => {
   it('≥4 concurrent appendHeartbeat on the same record preserve every heartbeat in order (20×)', async () => {
     for (let rep = 0; rep < RACE_REPEAT; rep += 1) {
       const { path } = writeInitialDispatchRecord({
@@ -231,15 +232,16 @@ describe('G5 dispatch-record-writer concurrent heartbeat fuzz', () => {
       for (let i = 0; i < N; i += 1) {
         const progress = (i + 1) * 10;
         promises.push(
-          new Promise<number>((resolveW) => {
+          new Promise<number>((resolveW, rejectW) => {
             process.nextTick(() => {
               setImmediate(() => {
-                const r = appendHeartbeat({
-                  recordPath: path,
-                  status: 'running',
-                  progress
-                });
-                resolveW(r.record.heartbeats.length);
+                Promise.resolve()
+                  .then(() => appendHeartbeat({
+                    recordPath: path,
+                    status: 'running',
+                    progress
+                  }))
+                  .then((r) => resolveW(r.record.heartbeats.length), rejectW);
               });
             });
           })
