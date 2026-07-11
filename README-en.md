@@ -15,19 +15,14 @@
 </div>
 
 <p align="center">
-  <video
-    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.mp4"
-    poster="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/out/en-closing-960.png"
+  <img
+    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.gif"
+    alt="peaks-loop 30-second demo (first 18s · install + slash command + 5 domains + sediment into bee)"
     width="92%"
-    autoplay
-    loop
-    muted
-    playsinline
-    preload="metadata"
     style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
-  ></video>
+  />
   <br>
-  <sub>👆 30s demo · autoplay, loop, muted (browser policy); <a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.mp4">download mp4</a></sub>
+  <sub>👆 18s looping GIF (<a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.mp4">full 30s mp4 download</a> · 13MB · 480p)</sub>
 </p>
 
 ---

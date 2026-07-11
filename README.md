@@ -15,19 +15,14 @@
 </div>
 
 <p align="center">
-  <video
-    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.mp4"
-    poster="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/out/zh-closing-960.png"
+  <img
+    src="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.gif"
+    alt="peaks-loop 30 秒演示(前 18 秒 · install + 斜杠命令 + 5 域 + 沉淀成 bee)"
     width="92%"
-    autoplay
-    loop
-    muted
-    playsinline
-    preload="metadata"
     style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
-  ></video>
+  />
   <br>
-  <sub>👆 30s 演示 · 自动播放、循环、静音(浏览器策略);<a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.mp4">点此下载 mp4</a></sub>
+  <sub>👆 18s 循环 GIF(<a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.mp4">完整 30s mp4 下载</a> · 13MB · 480p)</sub>
 </p>
 
 ---
