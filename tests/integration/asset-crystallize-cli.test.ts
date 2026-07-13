@@ -1,53 +1,28 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { runCli } from "./_cli-helper.js";
 
-// The `bin/peaks.js` shim imports from `dist/`, which is not
-// rebuilt by the test harness. Invoke the CLI from `src/`
-// directly via `tsx` so the in-tree source is exercised.
-const REPO_ROOT = resolve(__dirname, "../..");
-const TSX_BIN = resolve(REPO_ROOT, "node_modules", ".bin", "tsx");
-const CLI_ENTRY = resolve(REPO_ROOT, "src", "cli", "index.ts");
+// In-process CLI invocation (see tests/integration/_cli-helper.ts).
+// Replaces the previous `execFileSync(TSX, ...)` spawn which became
+// the dominant cost under vitest single-fork full-suite execution
+// on Windows (`Test timed out in 120000ms` for the crystallize path
+// despite per-test runs completing in <2s).
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), "peaks-asset-cli-"));
 }
 
-function cli(args: string[], cwd: string): {
-  stdout: string;
-  stderr: string;
-  code: number;
-} {
-  try {
-    const stdout = execFileSync(TSX_BIN, [CLI_ENTRY, ...args], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
-    });
-    return { stdout, stderr: "", code: 0 };
-  } catch (err: unknown) {
-    const e = err as {
-      stdout: string | Buffer;
-      stderr: string | Buffer;
-      status: number;
-    };
-    return {
-      stdout: typeof e.stdout === "string" ? e.stdout : e.stdout?.toString() ?? "",
-      stderr:
-        typeof e.stderr === "string" ? e.stderr : e.stderr?.toString() ?? "",
-      code: e.status ?? 1,
-    };
-  }
+function cli(args: string[], cwd: string) {
+  return runCli(args, cwd);
 }
 
 describe("peaks asset CLI integration — M5", () => {
-  test("crystallize end-to-end: writes loop + bee + relation + crystallization_event", () => {
+  test("crystallize end-to-end: writes loop + bee + relation + crystallization_event", async () => {
     const project = makeProject();
     try {
-      const result = cli(
+      const result = await cli(
         [
           "asset",
           "crystallize",
@@ -134,11 +109,11 @@ describe("peaks asset CLI integration — M5", () => {
     }
   });
 
-  test("crystallize refuses to render a recommendation when a brief section is missing", () => {
+  test("crystallize refuses to render a recommendation when a brief section is missing", async () => {
     const project = makeProject();
     try {
       // Every other flag set; only --brief-what-action is missing.
-      const result = cli(
+      const result = await cli(
         [
           "asset",
           "crystallize",
@@ -209,11 +184,11 @@ describe("peaks asset CLI integration — M5", () => {
     }
   });
 
-  test("status lists the loop + bee lifecycle after crystallization", () => {
+  test("status lists the loop + bee lifecycle after crystallization", async () => {
     const project = makeProject();
     try {
       // First crystallize a loop+bee so status has something to show.
-      const crys = cli(
+      const crys = await cli(
         [
           "asset",
           "crystallize",
@@ -265,7 +240,7 @@ describe("peaks asset CLI integration — M5", () => {
 
       // Then run `peaks asset status --loop loop-status` and verify the
       // dashboard reflects the asset.
-      const status = cli(
+      const status = await cli(
         ["asset", "status", "--loop", "loop-status", "--json"],
         project
       );
@@ -282,10 +257,10 @@ describe("peaks asset CLI integration — M5", () => {
     }
   });
 
-  test("dispose trace_only retires the crystallization_event", () => {
+  test("dispose trace_only retires the crystallization_event", async () => {
     const project = makeProject();
     try {
-      const crys = cli(
+      const crys = await cli(
         [
           "asset",
           "crystallize",
@@ -337,7 +312,7 @@ describe("peaks asset CLI integration — M5", () => {
       const crysOut = JSON.parse(crys.stdout);
       const eventId = crysOut.data.result.crystallization_event_id;
 
-      const dispose = cli(
+      const dispose = await cli(
         [
           "asset",
           "dispose",

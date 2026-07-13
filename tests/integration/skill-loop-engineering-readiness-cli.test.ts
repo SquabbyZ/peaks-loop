@@ -12,15 +12,19 @@
  *   - the alias `peaks skill ready --category loop-engineering-readiness` works
  */
 
-import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { runCli } from './_cli-helper.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const TSX_BIN = resolve(REPO_ROOT, 'node_modules', '.bin', 'tsx');
-const CLI_ENTRY = resolve(REPO_ROOT, 'src', 'cli', 'index.ts');
+
+// In-process CLI invocation (see tests/integration/_cli-helper.ts).
+// Replaces the previous `execFileSync(TSX, ...)` spawn which became
+// the dominant cost under vitest single-fork full-suite execution
+// on Windows (`Test timed out in 120000ms` for the readiness-lint
+// path despite per-test runs completing in <1s).
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
@@ -48,35 +52,12 @@ function writeFakeSkill(
   return dir;
 }
 
-function cli(
-  args: string[],
-  cwd: string,
-): { stdout: string; stderr: string; code: number } {
-  try {
-    const stdout = execFileSync(TSX_BIN, [CLI_ENTRY, ...args], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: true,
-    });
-    return { stdout, stderr: '', code: 0 };
-  } catch (err: unknown) {
-    const e = err as {
-      stdout: string | Buffer;
-      stderr: string | Buffer;
-      status: number;
-    };
-    return {
-      stdout: typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString() ?? '',
-      stderr:
-        typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString() ?? '',
-      code: e.status ?? 1,
-    };
-  }
+function cli(args: string[], cwd: string) {
+  return runCli(args, cwd);
 }
 
 describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
-  test('peaks-maker SKILL.md passes the readiness lint', () => {
+  test('peaks-maker SKILL.md passes the readiness lint', async () => {
     const peaksMakerPath = resolve(
       REPO_ROOT,
       'src',
@@ -86,7 +67,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     );
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'lint',
@@ -108,7 +89,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     }
   });
 
-  test('a fake skill that does not reference the guideline file fails the lint', () => {
+  test('a fake skill that does not reference the guideline file fails the lint', async () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const skillDir = writeFakeSkill(
@@ -117,7 +98,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
           'No reference to the shared guideline file at all.',
         ].join('\n'),
       );
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'lint',
@@ -142,7 +123,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     }
   });
 
-  test('a fake skill that introduces a CLI-verb-bypass line fails the lint', () => {
+  test('a fake skill that introduces a CLI-verb-bypass line fails the lint', async () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const skillDir = writeFakeSkill(
@@ -153,7 +134,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
           'Run `peaks custom-evolve my-bee` to evolve your bee directly.',
         ].join('\n'),
       );
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'lint',
@@ -177,14 +158,14 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     }
   });
 
-  test('unknown --category fails with UNKNOWN_LINT_CATEGORY', () => {
+  test('unknown --category fails with UNKNOWN_LINT_CATEGORY', async () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
       const skillDir = writeFakeSkill(
         project,
         'Reference: .peaks/standards/loop-engineering-guidelines.md',
       );
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'lint',
@@ -204,10 +185,10 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     }
   });
 
-  test('missing --path fails with MISSING_PATH', () => {
+  test('missing --path fails with MISSING_PATH', async () => {
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'lint',
@@ -226,7 +207,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     }
   });
 
-  test('alias `peaks skill ready --category loop-engineering-readiness` works', () => {
+  test('alias `peaks skill ready --category loop-engineering-readiness` works', async () => {
     const peaksMakerPath = resolve(
       REPO_ROOT,
       'src',
@@ -236,7 +217,7 @@ describe('peaks skill lint --category loop-engineering-readiness (M6)', () => {
     );
     const project = mkdtempSync(join(tmpdir(), 'peaks-skill-readiness-'));
     try {
-      const result = cli(
+      const result = await cli(
         [
           'skill',
           'ready',

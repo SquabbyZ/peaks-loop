@@ -25,55 +25,33 @@
  *     loop import` to verify the lifecycle=candidate landing.
  */
 
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { runCli } from "./_cli-helper.js";
 
-const REPO_ROOT = resolve(__dirname, "..", "..");
-const TSX_BIN = resolve(REPO_ROOT, "node_modules", ".bin", "tsx");
-const CLI_ENTRY = resolve(REPO_ROOT, "src", "cli", "index.ts");
+// In-process CLI invocation (see tests/integration/_cli-helper.ts).
+// Replaces the previous `execFileSync(TSX, ...)` spawn which became
+// the dominant cost under vitest single-fork full-suite execution
+// on Windows (`Test timed out in 120000ms` for the export → import
+// round-trip despite per-test runs completing in <2s).
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), "peaks-share-bundle-"));
 }
 
-function cli(
-  args: string[],
-  cwd: string
-): { stdout: string; stderr: string; code: number } {
-  try {
-    const stdout = execFileSync(TSX_BIN, [CLI_ENTRY, ...args], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
-    });
-    return { stdout, stderr: "", code: 0 };
-  } catch (err: unknown) {
-    const e = err as {
-      stdout: string | Buffer;
-      stderr: string | Buffer;
-      status: number;
-    };
-    return {
-      stdout:
-        typeof e.stdout === "string" ? e.stdout : e.stdout?.toString() ?? "",
-      stderr:
-        typeof e.stderr === "string" ? e.stderr : e.stderr?.toString() ?? "",
-      code: e.status ?? 1,
-    };
-  }
+function cli(args: string[], cwd: string) {
+  return runCli(args, cwd);
 }
 
-function seedLoopRelease(project: string, loopId: string): void {
+async function seedLoopRelease(project: string, loopId: string): Promise<void> {
   // M5 path: peaks asset crystallize creates a loop_release +
   // main_bee_release + loop_bee_relation + crystallization_event
   // in a single transaction. We use it as the source of truth on
   // the sender side so the bundle carries a real crystallization
   // event + evidence_brief.
-  const r = cli(
+  const r = await cli(
     [
       "asset",
       "crystallize",
@@ -127,15 +105,15 @@ function seedLoopRelease(project: string, loopId: string): void {
 }
 
 describe("share-bundle round-trip — AC-25", () => {
-  test("export → import lands as candidate on the receiver (AC-25)", () => {
+  test("export → import lands as candidate on the receiver (AC-25)", async () => {
     const sender = makeProject();
     const receiver = makeProject();
     const bundlePath = join(sender, "share-bundle.tar.gz");
     try {
-      seedLoopRelease(sender, "loop-share-bundle");
+      await seedLoopRelease(sender, "loop-share-bundle");
 
       // ---- SENDER: peaks loop export ----
-      const exportResult = cli(
+      const exportResult = await cli(
         [
           "loop",
           "export",
@@ -154,7 +132,7 @@ describe("share-bundle round-trip — AC-25", () => {
       expect(exportOut.data.assetId).toBe("loop-share-bundle");
 
       // ---- RECEIVER: peaks loop import ----
-      const importResult = cli(
+      const importResult = await cli(
         ["loop", "import", "--in", bundlePath, "--json"],
         receiver
       );
@@ -174,7 +152,7 @@ describe("share-bundle round-trip — AC-25", () => {
     }
   });
 
-  test("shareable=false blocks export at the CLI layer", () => {
+  test("shareable=false blocks export at the CLI layer", async () => {
     const project = makeProject();
     try {
       // Crystallize a normal loop first (creates the row with
@@ -184,9 +162,9 @@ describe("share-bundle round-trip — AC-25", () => {
       // (`refuses to write a loop bundle when shareable=false`);
       // we re-assert the CLI shape here so a future CLI refactor
       // cannot drop the guard.
-      seedLoopRelease(project, "loop-private");
+      await seedLoopRelease(project, "loop-private");
       const out = join(project, "private.tar.gz");
-      const exportResult = cli(
+      const exportResult = await cli(
         ["loop", "export", "--loop", "loop-private", "--out", out, "--json"],
         project
       );
@@ -223,7 +201,7 @@ db.close();
 void FLIP_SHAREABLE_SCRIPT;
 
 describe("share-bundle round-trip — AC-26 (no promote without evaluation)", () => {
-  test("without an evolution_evaluation row, peaks loop promote has no candidate path; the receiver must evaluate first", () => {
+  test("without an evolution_evaluation row, peaks loop promote has no candidate path; the receiver must evaluate first", async () => {
     // AC-26 requires `peaks loop promote` to refuse a candidate → stable transition
     // unless an evolution_evaluation row exists with an
     // `independent_scorer_verdict`. M7 does not add a `peaks loop
@@ -236,8 +214,8 @@ describe("share-bundle round-trip — AC-26 (no promote without evaluation)", ()
     const receiver = makeProject();
     const bundlePath = join(sender, "share-bundle-2.tar.gz");
     try {
-      seedLoopRelease(sender, "loop-share-bundle-2");
-      const exportResult = cli(
+      await seedLoopRelease(sender, "loop-share-bundle-2");
+      const exportResult = await cli(
         [
           "loop",
           "export",
@@ -251,7 +229,7 @@ describe("share-bundle round-trip — AC-26 (no promote without evaluation)", ()
       );
       expect(exportResult.code).toBe(0);
 
-      const importResult = cli(
+      const importResult = await cli(
         ["loop", "import", "--in", bundlePath, "--json"],
         receiver
       );
@@ -263,7 +241,7 @@ describe("share-bundle round-trip — AC-26 (no promote without evaluation)", ()
       // total=0 — there is no evolution_evaluation row against
       // the imported loop_release, so any future peaks loop
       // promote would refuse.
-      const statusResult = cli(
+      const statusResult = await cli(
         [
           "evolution",
           "status",

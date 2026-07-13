@@ -1,41 +1,21 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { describe, expect, test } from "vitest";
+import { runCli } from "./_cli-helper.js";
 
-// The `bin/peaks.js` shim imports from `dist/`, which is not
-// rebuilt by the test harness. We invoke the CLI from `src/`
-// directly via `tsx` so the in-tree source is exercised.
-const REPO_ROOT = resolve(__dirname, "../..");
-const TSX_BIN = resolve(REPO_ROOT, "node_modules", ".bin", "tsx");
-const CLI_ENTRY = resolve(REPO_ROOT, "src", "cli", "index.ts");
+// In-process CLI invocation (see tests/integration/_cli-helper.ts).
+// Replaces the previous `execFileSync(TSX, ...)` spawn which became
+// the dominant cost under vitest single-fork full-suite execution
+// on Windows (`Test timed out in 120000ms` for the propose/evaluate
+// path despite per-test runs completing in <1s).
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), "peaks-evolution-cli-"));
 }
 
-function cli(args: string[], cwd: string): { stdout: string; stderr: string; code: number } {
-  try {
-    // On Windows, execFileSync with a `.bin/tsx.cmd` shim needs
-    // `shell: true` so the .cmd wrapper is found when the cwd is
-    // a long path (e.g. mkdtemp in AppData/Local/Temp). Without
-    // shell, spawn fails with ENOENT.
-    const stdout = execFileSync(TSX_BIN, [CLI_ENTRY, ...args], {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-      shell: true,
-    });
-    return { stdout, stderr: "", code: 0 };
-  } catch (err: unknown) {
-    const e = err as { stdout: string | Buffer; stderr: string | Buffer; status: number };
-    return {
-      stdout: typeof e.stdout === "string" ? e.stdout : e.stdout?.toString() ?? "",
-      stderr: typeof e.stderr === "string" ? e.stderr : e.stderr?.toString() ?? "",
-      code: e.status ?? 1,
-    };
-  }
+function cli(args: string[], cwd: string) {
+  return runCli(args, cwd);
 }
 
 function extractProposalId(stdout: string): string {
@@ -45,10 +25,10 @@ function extractProposalId(stdout: string): string {
 }
 
 describe("peaks evolution CLI integration", () => {
-  test("propose / status / revert happy path", () => {
+  test("propose / status / revert happy path", async () => {
     const project = makeProject();
     try {
-      const proposeResult = cli(
+      const proposeResult = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -64,7 +44,7 @@ describe("peaks evolution CLI integration", () => {
       const proposalId = extractProposalId(proposeResult.stdout);
       expect(proposalId).toMatch(/^eval-[0-9a-f]{12}$/);
 
-      const statusResult = cli(
+      const statusResult = await cli(
         ["evolution", "status", "--target", "loop:loop-1", "--json"],
         project
       );
@@ -76,7 +56,7 @@ describe("peaks evolution CLI integration", () => {
       expect(statusOut.data.total).toBe(1);
       expect(statusOut.data.byVerdict["needs-user-decision"]).toBe(1);
 
-      const revertResult = cli(
+      const revertResult = await cli(
         [
           "evolution", "revert",
           "--proposal", proposalId,
@@ -95,10 +75,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("evaluate path: auto-derives verdict='keep' when delta >= delta_min", () => {
+  test("evaluate path: auto-derives verdict='keep' when delta >= delta_min", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -111,7 +91,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      const evalResult = cli(
+      const evalResult = await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -134,10 +114,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("evaluate path: rejects self-score (AC-10) with EVOLUTION_SELF_SCORE", () => {
+  test("evaluate path: rejects self-score (AC-10) with EVOLUTION_SELF_SCORE", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -150,7 +130,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      const evalResult = cli(
+      const evalResult = await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -170,10 +150,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("evaluate path: rejects skeptic === evaluator (AC-12/AC-14) with EVOLUTION_SELF_SCORE", () => {
+  test("evaluate path: rejects skeptic === evaluator (AC-12/AC-14) with EVOLUTION_SELF_SCORE", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -186,7 +166,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      const evalResult = cli(
+      const evalResult = await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -206,10 +186,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("evaluate path: auto-derives verdict='revert' when score_delta < score_delta_min (AC-11)", () => {
+  test("evaluate path: auto-derives verdict='revert' when score_delta < score_delta_min (AC-11)", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -222,7 +202,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      const evalResult = cli(
+      const evalResult = await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -244,10 +224,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("mark-keep: rejected with EVOLUTION_DELTA_BELOW_THRESHOLD when delta < delta_min (AC-11)", () => {
+  test("mark-keep: rejected with EVOLUTION_DELTA_BELOW_THRESHOLD when delta < delta_min (AC-11)", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -260,7 +240,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      cli(
+      await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -271,7 +251,7 @@ describe("peaks evolution CLI integration", () => {
         ],
         project
       );
-      const keepResult = cli(
+      const keepResult = await cli(
         [
           "evolution", "mark-keep",
           "--proposal", proposalId,
@@ -289,10 +269,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("mark-keep: requires user_confirmation_pointer (AC-15)", () => {
+  test("mark-keep: requires user_confirmation_pointer (AC-15)", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -305,7 +285,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      cli(
+      await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -316,7 +296,7 @@ describe("peaks evolution CLI integration", () => {
         ],
         project
       );
-      const keepResult = cli(
+      const keepResult = await cli(
         [
           "evolution", "mark-keep",
           "--proposal", proposalId,
@@ -333,10 +313,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("mark-keep: succeeds when delta >= delta_min and user_confirmation is set", () => {
+  test("mark-keep: succeeds when delta >= delta_min and user_confirmation is set", async () => {
     const project = makeProject();
     try {
-      const propose = cli(
+      const propose = await cli(
         [
           "evolution", "propose",
           "--target", "loop:loop-1",
@@ -349,7 +329,7 @@ describe("peaks evolution CLI integration", () => {
         project
       );
       const proposalId = extractProposalId(propose.stdout);
-      cli(
+      await cli(
         [
           "evolution", "evaluate",
           "--proposal", proposalId,
@@ -360,7 +340,7 @@ describe("peaks evolution CLI integration", () => {
         ],
         project
       );
-      const keepResult = cli(
+      const keepResult = await cli(
         [
           "evolution", "mark-keep",
           "--proposal", proposalId,
@@ -378,10 +358,10 @@ describe("peaks evolution CLI integration", () => {
     }
   });
 
-  test("invalid --target flag is rejected with EVOLUTION_INVALID_TARGET", () => {
+  test("invalid --target flag is rejected with EVOLUTION_INVALID_TARGET", async () => {
     const project = makeProject();
     try {
-      const result = cli(
+      const result = await cli(
         [
           "evolution", "propose",
           "--target", "badformat",
