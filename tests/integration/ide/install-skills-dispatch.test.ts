@@ -51,8 +51,24 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
   beforeEach(() => {
     project = mkdtempSync(join(tmpdir(), 'peaks-install-skills-'));
   });
-  afterEach(() => {
+  afterEach(async () => {
     if (existsSync(project)) {
+      // Windows holds fs handles open for a brief moment after a
+      // child process exits. `execFile(node, install-skills.mjs)`
+      // spawns the postinstall script which writes symlinks and
+      // runs `peaks upgrade` as fire-and-forget; if the upgrade
+      // is still resolving paths when afterEach fires, rmSync hits
+      // EBUSY. Retry with short backoff before giving up.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        try {
+          rmSync(project, { recursive: true, force: true });
+          return;
+        } catch (err) {
+          const code = (err as NodeJS.ErrnoException).code;
+          if (code !== 'EBUSY' && code !== 'EPERM' && code !== 'ENOTEMPTY') throw err;
+          await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+        }
+      }
       rmSync(project, { recursive: true, force: true });
     }
   });
@@ -68,7 +84,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(existsSync(skillsRoot)).toBe(true);
   }, 30000);
 
-  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', async () => {
+  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', { timeout: 120_000 }, async () => {
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-custom-'));
     try {
       const result = await runInstallSkills(
@@ -116,7 +132,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(existsSync(traeSkills)).toBe(true);
   }, 30000);
 
-  test('Trae-detected project still honors PEAKS_CLAUDE_SKILLS_DIR override for the claude-code install (env var > IDE profile, regression fix 2026-06-12)', async () => {
+  test('Trae-detected project still honors PEAKS_CLAUDE_SKILLS_DIR override for the claude-code install (env var > IDE profile, regression fix 2026-06-12)', { timeout: 120_000 }, async () => {
     mkdirSync(join(project, '.trae'));
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-trae-custom-'));
     try {

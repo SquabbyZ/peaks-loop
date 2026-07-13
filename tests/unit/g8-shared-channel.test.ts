@@ -409,7 +409,7 @@ describe('G8 path safety (R-2)', () => {
 const RACE_REPEAT = 20;
 
 describe('G5 shared-channel concurrent LWW fuzz', () => {
-  it('≥4 concurrent writeSharedEntry to the same key: exactly one final value survives and it is from the launched set (20×)', { timeout: 60000 }, async () => {
+  it('≥4 concurrent writeSharedEntry to the same key: exactly one final value survives and it is from the launched set (20×)', { timeout: 180_000 }, async () => {
     for (let rep = 0; rep < RACE_REPEAT; rep += 1) {
       const key = `rd.completed-${rep}`;
       const batch = `${BATCH}-rep-${rep}`;
@@ -467,7 +467,7 @@ describe('G5 shared-channel concurrent LWW fuzz', () => {
     }
   });
 
-  it('≥4 concurrent writeSharedEntry to distinct keys: all N keys survive (no lost updates, 20×)', { timeout: 60000 }, async () => {
+  it('≥4 concurrent writeSharedEntry to distinct keys: all N keys survive (no lost updates, 20×)', { timeout: 180_000 }, async () => {
     // Distinct keys → no LWW collision, but the lock + read-modify-
     // write sequence must still produce a channel file with all N
     // entries. A lost-update regression would surface as fewer entries.

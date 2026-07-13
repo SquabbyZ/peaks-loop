@@ -228,7 +228,7 @@ describe('dirSizeMb cap (AC-1 / AC-2 / AC-3) and AC-6 catch paths', () => {
     expect(resultZeroCap).toBe(expectedMb);
   });
 
-  it('AC-2: maxEntries cap is respected and partial sum is non-zero (lower bound)', () => {
+  it('AC-2: maxEntries cap is respected and partial sum is non-zero (lower bound)', { timeout: 180_000 }, () => {
     const TOTAL = 5500;
     const CAP = 5000;
     const ENTRY_SIZE = 1024;

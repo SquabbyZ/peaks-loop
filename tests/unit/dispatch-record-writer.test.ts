@@ -102,7 +102,7 @@ describe('appendHeartbeat (G6)', () => {
     expect(() => appendHeartbeat({ recordPath: path, status: 'running', progress: 1, note: 'x'.repeat(201) })).toThrow(/note must be/);
   });
 
-  it('truncates heartbeats past 100 entries', () => {
+  it('truncates heartbeats past 100 entries', { timeout: 180_000 }, () => {
     const { path } = writeInitialDispatchRecord({
       projectRoot: root,
       sessionId: 's5',

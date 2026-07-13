@@ -613,7 +613,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
   });
 
-  test('keeps resume preview when resume JSON is not an object', () => {
+  test('keeps resume preview when resume JSON is not an object', { timeout: 180_000 }, () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-json-array');
     writeResumeArtifacts(artifactWorkspace, 'resume-json-array');

@@ -11,36 +11,26 @@
  * peaks-solo SKILL.md (S1) + surface wiring (S2) compose into a working
  * dogfood flow on a query that has no peak-* skill match.
  *
- * Runs the CLI as a child process (mirrors
- * `tests/integration/skill-search-cli.test.ts` and
- * `tests/integration/asset-crystallize-cli.test.ts` patterns).
+ * In-process CLI invocation (see tests/integration/_cli-helper.ts);
+ * replaces the previous `execFileSync(TSX, ...)` spawn which became
+ * the dominant cost under vitest single-fork full-suite execution
+ * on Windows (`Test timed out in 120000ms` for the T-1 path despite
+ * per-test runs completing in <1s).
+ *
+ * T-7 still spawns `vitest run` recursively — that's a different
+ * harness surface (regression sub-suite), kept as execFileSync.
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { describe, expect, test } from 'vitest';
+import { runCli } from './_cli-helper.js';
 
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const TSX_BIN = resolve(REPO_ROOT, 'node_modules', '.pnpm', 'tsx@4.22.0', 'node_modules', 'tsx', 'dist', 'cli.mjs');
-const CLI_ENTRY = resolve(REPO_ROOT, 'src', 'cli', 'index.ts');
 
-function cli(args: string[]): { stdout: string; stderr: string; code: number } {
-  try {
-    const stdout = execFileSync(process.execPath, [TSX_BIN, CLI_ENTRY, ...args], {
-      cwd: REPO_ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    return { stdout, stderr: '', code: 0 };
-  } catch (err: unknown) {
-    const e = err as { stdout: string | Buffer; stderr: string | Buffer; status: number };
-    return {
-      stdout: typeof e.stdout === 'string' ? e.stdout : e.stdout?.toString() ?? '',
-      stderr: typeof e.stderr === 'string' ? e.stderr : e.stderr?.toString() ?? '',
-      code: e.status ?? 1,
-    };
-  }
+function cli(args: string[]) {
+  return runCli(args, REPO_ROOT);
 }
 
 type SkillSearchResult = {
@@ -74,13 +64,13 @@ function parseSearch(stdout: string): SkillSearchResult[] {
 const MEANINGFUL_MATCH_SCORE = 0.05;
 
 describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
-  test('T-1: peaks-solo is registered in the skill pool', () => {
-    const result = cli(['skill', 'list']);
+  test('T-1: peaks-solo is registered in the skill pool', async () => {
+    const result = await cli(['skill', 'list']);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('peaks-solo');
   });
 
-  test('T-2: peaks-solo SKILL.md frontmatter has Dispatcher role + NOT clause for all 5 leaves', () => {
+  test('T-2: peaks-solo SKILL.md frontmatter has Dispatcher role + NOT clause for all 5 leaves', async () => {
     const skillPath = resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md');
     expect(existsSync(skillPath)).toBe(true);
     const skill = readFileSync(skillPath, 'utf8');
@@ -95,12 +85,12 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(skill).toContain('/peaks-sop');
   });
 
-  test('T-3: peaks skill search for "github" returns no MEANINGFUL match (zero-candidate path → self-plan)', () => {
+  test('T-3: peaks skill search for "github" returns no MEANINGFUL match (zero-candidate path → self-plan)', async () => {
     // Dogfood scenario: "GitHub top 10" has no peak-* skill that
     // meaningfully handles it. The dispatcher's SKILL.md §3 routes a
     // zero-meaningful-match to self-planning fallback. We assert the
     // dispatcher signal: top matchScore below threshold = noise.
-    const result = cli(['skill', 'search', '--query', 'github']);
+    const result = await cli(['skill', 'search', '--query', 'github']);
     expect(result.code).toBe(0);
     const parsed = parseSearch(result.stdout);
     expect(parsed.length).toBeGreaterThan(0); // S0 returns substring hits, not literal zero
@@ -111,8 +101,8 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(parsed[0]!.matchScore).toBeLessThan(MEANINGFUL_MATCH_SCORE);
   });
 
-  test('T-4: peaks skill search for "code" returns peaks-code (positive case, threshold crossed)', () => {
-    const result = cli(['skill', 'search', '--query', 'code']);
+  test('T-4: peaks skill search for "code" returns peaks-code (positive case, threshold crossed)', async () => {
+    const result = await cli(['skill', 'search', '--query', 'code']);
     expect(result.code).toBe(0);
     const parsed = parseSearch(result.stdout);
     const names = parsed.map((s) => s.name);
@@ -122,13 +112,13 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(parsed[0]!.name).toBe('peaks-code');
   });
 
-  test('T-5: peaks-solo SKILL.md references ≥ 1 fallback tool (deep-search / WebSearch / Bash / Edit)', () => {
+  test('T-5: peaks-solo SKILL.md references ≥ 1 fallback tool (deep-search / WebSearch / Bash / Edit)', async () => {
     const skillPath = resolve(REPO_ROOT, 'skills/peaks-solo/SKILL.md');
     const skill = readFileSync(skillPath, 'utf8');
     expect(/deep-search|WebSearch|Bash|Edit/.test(skill)).toBe(true);
   });
 
-  test('T-6: sediment-prompt-template.md has 4 options (a)/(b)/(c)/(d) + default is NOT (d)', () => {
+  test('T-6: sediment-prompt-template.md has 4 options (a)/(b)/(c)/(d) + default is NOT (d)', async () => {
     const tplPath = resolve(REPO_ROOT, 'skills/peaks-solo/references/sediment-prompt-template.md');
     expect(existsSync(tplPath)).toBe(true);
     const tpl = readFileSync(tplPath, 'utf8');
@@ -143,7 +133,7 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     expect(tpl).not.toMatch(/默认推荐\s*=\s*\(d\)/);
   });
 
-  test('T-7: S0+S1+S2 regression scope is green (no regressions introduced)', () => {
+  test('T-7: S0+S1+S2 regression scope is green (no regressions introduced)', async () => {
     // Run the locked regression scope of S0 (skill-search) + S1
     // (peaks-solo) + S2 (surface) per S3 brief §Workflow step 12.
     // The full `pnpm vitest run` is the main-session final gate
