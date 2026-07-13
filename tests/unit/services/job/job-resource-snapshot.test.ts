@@ -228,9 +228,18 @@ describe('dirSizeMb cap (AC-1 / AC-2 / AC-3) and AC-6 catch paths', () => {
     expect(resultZeroCap).toBe(expectedMb);
   });
 
-  it('AC-2: maxEntries cap is respected and partial sum is non-zero (lower bound)', { timeout: 180_000 }, () => {
-    const TOTAL = 5500;
-    const CAP = 5000;
+  it('AC-2: maxEntries cap is respected and partial sum is non-zero (lower bound)', () => {
+    // Contract: `entries.length > cap ⇒ cap triggers and the returned
+    // value is a lower-bound partial sum`. The smallest such fixture
+    // is CAP + 1 entries; CAP and TOTAL are both arbitrary test-local
+    // values (the prod caller always passes its own `maxEntries`).
+    // A previous version used TOTAL=5500, CAP=5000 — a 5500-file
+    // statSync loop that ran 27 minutes under cumulative fs-handle
+    // pressure during `vitest run` (full suite) on Windows despite
+    // 4-5s per-test runs. The contract is independent of magnitude;
+    // we test the smallest case that exercises it.
+    const CAP = 100;
+    const TOTAL = CAP + 1;
     const ENTRY_SIZE = 1024;
 
     const bigDir = mkdtempSync(join(os.tmpdir(), 'peaks-job-snap-big-'));
