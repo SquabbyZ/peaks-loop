@@ -27,6 +27,23 @@
 
 ---
 
+## 它是什么
+
+peaks-loop 是一个 **Loop Engineering 结晶系统**,不是工作流工具 —— 你跑过的工作里,沉淀下来的不是「流程」,是一套**可被 karpathy 风格工程化、又被 darwin 风格独立验证**的 Loop Engineering 方法资产。**Loop engineering 结晶系统** 的工程实现见 [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)。
+
+| 资产层 | 角色 | 一句话 |
+| --- | --- | --- |
+| **Loop Engineering 资产** | 方法系统,一等公民 | 回答「为什么有这条 loop、何时触发、怎样算成功、如何改进」 |
+| **Bee 资产** | 可执行体,一等公民 | Loop Engineering 资产的可执行体,蜂群里的每只 bee |
+| **Workflow Trace (执行轨迹)** | 证据,**不是**主资产 | 不可变的单次执行记录,供结晶与评估反查,不是用户对外的产品 |
+| **Evolution Evaluation (反漂移)** | 反漂移闸门,强制项 | 每次改进都要有独立上下文的评估者 + 反方怀疑者,过了才留,不过就回滚 |
+
+- **工程化每条规则 = karpathy 风格 · 验证每次改进 = darwin 风格** —— 两条缺一不可。砍掉 karpathy,原则没人写清;砍掉 darwin,改得对不对没人验。这一对是 co-equal 的双层结构,不是先后两步。
+- `/peaks-code` 是 **code-domain** 长任务 Loop Engineering 编排器,不是通用编排器;非代码域(`peaks-content` / `peaks-doctor` / `peaks-issue-fix-orchestrator` / `peaks-sop`)都是独立的 `peaks-*` 蜂,不是 `peaks-code` 的子类。
+- 跑两次稳定就沉淀成本地战术(bee);跑翻车的会让你重定义。bee 跟着你的口味长。
+
+---
+
 ## 30 秒上手
 
 ```bash
@@ -64,8 +81,8 @@ npm i -g peaks-loop
 
 | 域 | 你发这条命令 | 它会做什么 |
 | --- | --- | --- |
-| 💻 **代码** | `/peaks-code 帮我实现这个功能` | PRD → RD → 实现 → QA → UI → 切片,跑完交你拍板 |
-| 💻 **代码** | `/peaks-code 这个 bug 帮我修一下` | 复现 → 改 → review → 测试,同日 ship |
+| 💻 **代码域 (code-domain) only** | `/peaks-code 帮我实现这个功能` | PRD → RD → 实现 → QA → UI → 切片,跑完交你拍板 |
+| 💻 **代码域 (code-domain) only** | `/peaks-code 这个 bug 帮我修一下` | 复现 → 改 → review → 测试,同日 ship |
 | 📝 **内容** | `/peaks-content 帮我把这篇推文写出来再发` | 草稿 → 编辑 → 调性检查 → 发布 → 归档,中间不跳步 |
 | 🩺 **项目健康** | `/peaks-doctor 帮我体检一下这个仓库` | 红线审计 + L3 doctor 检查 + 转 OpenSpec,坏在哪道停在哪道 |
 | 🐛 **批量修 issue** | `/peaks-issue-fix-orchestrator 帮我把 upstream 的 30 个 open issue 修一批` | 调研 → 分类 → 参考 PR → 逐个修复 + commit + PR 草稿 |
@@ -198,6 +215,8 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 - 提问 → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - 致敬: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
 - 组合推荐: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
+- 沉淀设计 → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
+- Loop Engineering 结晶设计 → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
 
 ---
 

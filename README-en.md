@@ -27,6 +27,23 @@
 
 ---
 
+## What it is
+
+peaks-loop is a **Loop Engineering crystallization system**, not a workflow tool — what sediments from the runs you do is **not** a procedure, it's a set of **Loop Engineering** method assets that are karpathy-engineered at the rule level and darwin-verified at the change level. The **Loop engineering, engineered** crystallization design lives at [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md).
+
+| Asset layer | Role | One-liner |
+| --- | --- | --- |
+| **Loop Engineering Asset** | Method system, first-class | Answers "why this loop exists, when it fires, what counts as success, how it improves" |
+| **Bee Asset** | Executable body, first-class | The runnable body of a Loop Engineering Asset — every bee in the swarm |
+| **Workflow Trace** | Evidence, **NOT** the durable product | Immutable per-run record; feeds crystallization + evaluation, not the user-facing asset |
+| **Evolution Evaluation** | Anti-drift gate, mandatory | Every improvement needs an independent-context scorer + a regression skeptic; keep only if it passes, otherwise revert |
+
+- **Engineering principles = karpathy-style · Verify every improvement = darwin-style** — both are required, not optional. Drop karpathy and your principles are never written down; drop darwin and your changes are never verified. They are co-equal layers, not sequential steps.
+- `/peaks-code` is the **code-domain** long-task Loop Engineering orchestrator, not a general orchestrator; non-code lanes (`peaks-content` / `peaks-doctor` / `peaks-issue-fix-orchestrator` / `peaks-sop`) ship as independent `peaks-*` bees, **not** as subclasses of `peaks-code`.
+- Twice-clean runs sediment into your local tactic pool (bee); broken runs come back for you to redefine. Your few bees grow with your taste.
+
+---
+
 ## Up and running in 30 seconds
 
 ```bash
@@ -64,8 +81,8 @@ Code, content, project health, issue sweeps, custom workflows — **4.x ships fi
 
 | Domain | Send this slash command | It will… |
 | --- | --- | --- |
-| 💻 **Code** | `/peaks-code build this feature` | PRD → RD → code → QA → UI → slice, ready for your sign-off |
-| 💻 **Code** | `/peaks-code fix this bug` | reproduce → patch → review → tests, ship same day |
+| 💻 **Code (code-domain) only** | `/peaks-code build this feature` | PRD → RD → code → QA → UI → slice, ready for your sign-off |
+| 💻 **Code (code-domain) only** | `/peaks-code fix this bug` | reproduce → patch → review → tests, ship same day |
 | 📝 **Content** | `/peaks-content draft and publish this post` | draft → edit → tone check → publish → archive, no skipped steps |
 | 🩺 **Project health** | `/peaks-doctor run a health check on this repo` | red-line audit + L3 doctor + convert to OpenSpec, stops where it breaks |
 | 🐛 **Issue sweep** | `/peaks-issue-fix-orchestrator fix the next 30 open issues upstream` | survey → classify → reference PRs → fix + commit + PR draft |
@@ -198,6 +215,8 @@ It changes, but **the gates hold**. Audit fails = nothing ships. QA fails = noth
 - Questions → [GitHub Issues](https://github.com/SquabbyZ/peaks-loop/issues)
 - Tribute: [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) · [alchaincyf/darwin-skill](https://github.com/alchaincyf/darwin-skill)
 - Recommended combo: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
+- Sediment design → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
+- Loop Engineering crystallization design → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
 
 ---
 

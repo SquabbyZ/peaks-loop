@@ -61,25 +61,44 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
   }
 
   // Wall-clock guard (slice 014): in pathological slow-system cases, the
-  // retry backoff could push wall-clock above LOCK_STALE_MS, allowing the
-  // stale-lock reaper to unlink our own lock mid-call. Cap the loop at
+  // retry backoff could push wall-clock above LOCK_STALE_MS. Cap the loop at
   // LOCK_STALE_MS regardless of attempts; throw the existing LockTimeoutError.
+  //
+  // Slice 2026-07-12-fix note: the slice 014 implementation re-checked
+  // `isStaleLock(lockPath)` at the TOP of every loop iteration. Under
+  // vitest-on-Windows slowdown (each `spinSleep` actually waits hundreds of
+  // ms because of event-loop preemption), the wall clock would cross
+  // `LOCK_STALE_MS` mid-loop and the reaper would unlink a still-fresh
+  // lock — `file-lock.test.ts` "does NOT reap a fresh .lock (<30s old)"
+  // caught this: the lock was reaped at iter ~54 after 30s of retries,
+  // defeating the test that asserts the fresh lock should block. The fix
+  // is to check staleness ONCE, before the loop, and inside the loop
+  // only retry on EEXIST. A crashed previous holder is reaped at entry;
+  // after we begin the retry-backoff phase, the lock is by definition
+  // non-stale (or absent after a race with another reaper), so a stale
+  // check on each iteration only adds risk of spuriously reaping a lock
+  // we just decided was live.
   const startedAt = Date.now();
   let attempts = 0;
   let fd: number | null = null;
 
+  // One-shot stale reap before the loop: if a previous holder crashed and
+  // left the lock older than LOCK_STALE_MS, unlink it now so the first
+  // `openSync(lockPath, 'wx')` attempt can succeed.
+  if (isStaleLock(lockPath)) {
+    try {
+      unlinkSync(lockPath);
+    } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+      // race: another process reaped it; loop will try to acquire directly.
+    }
+  }
+
   while (attempts < MAX_LOCK_RETRIES) {
-    // Stale-lock reap: if the lock file is older than LOCK_STALE_MS, the
-    // previous holder must have crashed. Unlink and retry without
-    // counting this attempt against MAX_LOCK_RETRIES (only EEXIST from
-    // a non-stale holder consumes a retry).
-    if (isStaleLock(lockPath)) {
-      try {
-        unlinkSync(lockPath);
-      } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
-        // race: another process reaped it; loop and try to acquire.
-      }
-      continue;
+    // Wall-clock guard runs at the top of each iteration so a slow retry
+    // backoff (e.g. vitest on Windows) never lets us outlive the stale
+    // threshold and re-enter the reaper branch on a still-live lock.
+    if (Date.now() - startedAt > LOCK_STALE_MS) {
+      throw new LockTimeoutError(lockPath, attempts);
     }
 
     try {
@@ -95,13 +114,6 @@ export function withFileLockSync<T>(filePath: string, fn: () => T): T {
         LOCK_RETRY_MAX_MS
       );
       spinSleep(wait);
-      // Wall-clock guard: never let the loop outlive LOCK_STALE_MS in the
-      // slow-system edge case. Without this, a vitest slowdown that pushes
-      // wall clock above 30s would let the lock file become stale mid-call
-      // and the stale-lock reaper would unlink it (defeating the test).
-      if (Date.now() - startedAt > LOCK_STALE_MS) {
-        throw new LockTimeoutError(lockPath, attempts);
-      }
     }
   }
 
