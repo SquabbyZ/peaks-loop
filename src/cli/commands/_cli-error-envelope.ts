@@ -27,7 +27,13 @@ export type EnvelopeMapping =
 // message wording changes in a future slice, this branch silently
 // degrades into INTERNAL_ERROR. Mitigated by the helper's unit test
 // pinning the literal substring.
-const GOAL_VALIDATION_MESSAGE_RE = /goal must not be empty/i;
+// Slice 015 — match the goal-validation throw message. The current
+// `validatePlanningInput` literal is `"Goal must be non-empty"` (capital
+// G, "non-empty" with hyphen). The regex tolerates common wording
+// variations (`must be non-empty`, `must not be empty`, case-insensitive)
+// so a future message tweak still routes correctly; the unit test below
+// pins the *current* literal substring so any wording change fails loudly.
+const GOAL_VALIDATION_MESSAGE_RE = /goal.{0,4}(must be non-empty|must not be empty)/i;
 
 /**
  * Map a thrown error into an envelope code + nextActions hint. Pure

@@ -17,9 +17,12 @@ describe('mapServiceError (Slice 015)', () => {
   });
 
   test('goal-validation message substring → INVALID_GOAL with current literal hint', () => {
-    // PIN the literal substring here. If validatePlanningInput changes,
-    // this test fails and Slice 015's risk-A mitigation needs updating.
-    const result = mapServiceError(new Error('goal must not be empty'));
+    // PIN the literal substring here. The actual throw site at
+    // src/cli/commands/workflow-commands.ts:145 emits
+    //   Error('Goal must be non-empty')
+    // If validatePlanningInput changes, this test fails and
+    // Slice 015's risk-A mitigation needs updating.
+    const result = mapServiceError(new Error('Goal must be non-empty'));
     expect(result.code).toBe('INVALID_GOAL');
     expect(result.nextActions).toEqual(['Use a non-empty goal']);
   });
