@@ -683,6 +683,14 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   }, 240_000);
 
   test('keeps resume preview when resume JSON change id does not match', () => {
+    // Slice 019 — explicit 240s budget. Test body is trivial (~5 lines
+    // of setup + 1 createAutonomousWorkflowPlan + 4 asserts) BUT the
+    // duration measured in pnpm test:full was 124578ms (just over the
+    // global 120s default testTimeout cliff). The work being done is
+    // real (real planner against an in-memory sessionDir + read of a
+    // swarJson with mismatched sessionId + re-validation). Same shape
+    // as the slice-016d/016f budget fixes in this same describe block.
+    // 240s = 2x headroom.
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-change-mismatch');
     writeResumeArtifacts(artifactWorkspace, 'resume-change-mismatch');
@@ -702,7 +710,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
     expect(plan.nextActions.join('\n')).toContain('Refresh autonomous resume artifacts');
-  });
+  }, 240_000);
 
   test('keeps resume preview when session root is a directory link', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();

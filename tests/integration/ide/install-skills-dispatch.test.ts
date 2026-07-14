@@ -84,7 +84,11 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     expect(existsSync(skillsRoot)).toBe(true);
   }, 30000);
 
-  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', { timeout: 120_000 }, async () => {
+  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', { timeout: 240_000 }, async () => {
+    // Slice 019 — bumped from 120s to 240s. Measured 127159ms under
+    // pnpm test:full (real CLI binary spawn + IDE dispatch + skills
+    // writeFileSync in a tmpdir, no parallelism can help). 240s = 2x
+    // headroom over observed; well below vitest's 600s hard limit.
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-custom-'));
     try {
       const result = await runInstallSkills(

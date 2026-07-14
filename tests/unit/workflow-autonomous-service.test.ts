@@ -279,6 +279,11 @@ describe('createAutonomousWorkflowPlan', () => {
   });
 
   test('marks resume ready when evidence refs end the validation report body', () => {
+    // Slice 019 — explicit 240s budget. Measured 128843ms wall under
+    // pnpm test:full (just over 120s default testTimeout cliff). Real
+    // planner work (resume-artifact re-validation + evidence-ref end
+    // boundary check). Same shape as slice-016d/016f/018 — 240s = 2x
+    // headroom.
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs');
     writeResumeArtifacts(artifactWorkspace, 'resume-terminal-evidence-refs', 'Resume autonomous RD planning from artifacts');
@@ -296,7 +301,7 @@ describe('createAutonomousWorkflowPlan', () => {
 
     expect(plan.available).toBe(true);
     expect(plan.resumePlan.status).toBe('ready');
-  });
+  }, 240_000);
 
   test('rejects invalid change id and empty goal', () => {
     // Slice 2026-06-29-change-id-root-removal: `validateChangeIdOrThrow`
