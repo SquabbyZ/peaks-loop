@@ -1,6 +1,17 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { defineConfig as _defineConfig, type TestUserConfig } from 'vitest/config';
+
+// vitest 4.1.10 ships a broken `defineConfig` overload chain in its
+// top-level type definitions (see `node_modules/vitest/dist/config.d.ts`:
+// all overloads take Vite's `UserConfig`, which lacks `pool`,
+// `fileParallelism`, `experimental.fsModuleCache`, etc.). The runtime
+// implementation is a passthrough identity function that accepts any
+// valid vitest config, so we wrap the typed overload in a narrow
+// identity function whose signature matches the literal's real type.
+// This sidesteps the broken chain without `as any` casts scattered
+// across the file.
+const defineConfig = <T>(config: T): T => _defineConfig(config as never);
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)));
 const stableCoverageRoot = process.platform === 'win32'
@@ -24,42 +35,78 @@ const stableCoverageRoot = process.platform === 'win32'
 // design choice (see PRD risk R4) and is intentionally NOT modified here —
 // this config isolates vitest from that side-effect without touching the
 // orchestrator.
-export default defineConfig({
+//
+// Type note: see the `defineConfig` wrapper above — it bypasses
+// vitest 4.1.10's broken top-level `defineConfig` overloads. The
+// literal below is annotated as `TestUserConfig` (vitest's real
+// `UserConfig`) so every field — `pool`, `fileParallelism`,
+// `experimental.fsModuleCache`, etc. — is type-checked correctly.
+const config: TestUserConfig = {
   root: stableCoverageRoot,
-  // Run tests in a single forked process. Reasons:
+  // Run test files in PARALLEL forked workers. This is the single biggest
+  // lever on suite wall-clock: the suite is now 488 files (not the "121
+  // files / ~18s" an earlier comment assumed), and vitest 4 in a single
+  // fork accumulates per-test overhead that grows ~O(N) with files-per-
+  // worker (documented in
+  // .peaks/memory/slice-014-vitest-slowdown-and-race-repeat.md). Forcing
+  // all 488 files through one worker pushed the full `pnpm test` run past
+  // 10 minutes; spreading them across forks bounds each worker's file
+  // count and keeps per-test overhead flat.
   //
-  // 1. tests/vitest.setup.ts stashes the project's .peaks/.session.json
-  //    so buildArtifactRelativePath (which walks process.cwd() to find
-  //    the project root and reads .peaks/.session.json from it) falls
-  //    into the legacy changeId-based path the tests assert on. With
-  //    multiple workers, each worker runs the setup independently and
-  //    races on the rename — some workers see the file, others don't,
-  //    and the file gets restored at the wrong time, leading to flaky
-  //    failures.
+  // Why this is now race-free (it wasn't before): the ONLY cross-worker
+  // hazard was tests/vitest.setup.ts renaming the shared
+  // .peaks/.session.json + .active-skill.json files on every worker. That
+  // stash moved to tests/vitest.global-setup.ts, which runs ONCE in the
+  // main process before any worker spawns and restores once after they
+  // exit. The per-worker tests/vitest.setup.ts now only pins
+  // process.cwd() (process-local, safe under parallelism).
   //
-  // 2. The test suite is small enough (121 files, 1739 tests, ~18s) that
-  //    the parallelism benefit is marginal. Determinism is more
-  //    valuable than a few seconds of wall-clock here.
-  //
-  // Vitest 4 note: `poolOptions` was removed from under `test`; pool/
-  // poolOptions now live at the top level. `singleFork: true` was also
-  // removed in Vitest 4 — the replacement is `fileParallelism: false`,
-  // which forces test files to run sequentially in a single worker.
+  // pool: 'forks' (not 'threads') is deliberate — the setup chdir()s and
+  // several tests spy/override process.cwd(); forks give each file its own
+  // process so cwd changes cannot leak across concurrently-running files.
   pool: 'forks',
-  poolOptions: {
-    forks: {
-      // singleFork removed in vitest 4; replaced by maxWorkers: 1 below
-    }
+  fileParallelism: true,
+  // maxWorkers: 4 is empirical (see sediment below + the full-suite profile
+  // at .peaks/_runtime/<sessionId>/rd/vitest-mw4-baseline.json this slice).
+  // At maxWorkers=16 cross-fork contention on shared resources produces ~1
+  // flaky failure per full run; at 4 the same files report 0 failures while
+  // still overlapping real I/O. CI runners with < 4 cores can override via
+  // `vitest run --maxWorkers=2` (the CLI flag beats the config value).
+  // minWorkers: 1 lets the runner shed workers when the file count drops.
+  maxWorkers: 4,
+  minWorkers: 1,
+  // Slice 2026-07-12-vitest-perf-tune — enable vitest 4's on-disk
+  // module cache (`experimental.fsModuleCache`, 4.0.11+). Transformed
+  // modules are persisted under `node_modules/.experimental-vitest-cache`
+  // and reused on re-runs, skipping the per-run transform/parse work.
+  // Independent of pool/parallelism — orthogonal to the deterministic
+  // single-worker setup above (no interaction with the
+  // .peaks/.session.json race avoidance). Clear with `vitest --clearCache`.
+  //
+  // Empirical note (2026-07-12): with vitest 4.1.10 + pool=forks +
+  // Node 22 + Windows, runtime logs `[write]` events going to
+  // `%TEMP%/<random>/ssr/...` (per-fork temp) rather than the
+  // persistent fsModuleCache location, and warm runs show no measurable
+  // transform-time reduction (cold 17.8s → warm 15.9s is within noise).
+  // The flag is kept enabled for forward compatibility with vitest
+  // versions where the persistence path is fully wired, and is
+  // runtime-accepted by vitest 4.1.10 (no errors). Revisit if a
+  // future vitest upgrade resolves the persistence gap.
+  experimental: {
+    fsModuleCache: true,
   },
-  maxWorkers: '100%',
-  fileParallelism: false,
   test: {
     include: ['tests/**/*.test.ts'],
     setupFiles: ['./tests/vitest.setup.ts'],
+    // Runs once in the main process before any worker spawns (and restores
+    // once after). Stashes .peaks/.session.json + .active-skill.json so the
+    // per-worker setup no longer races on those shared files — the change
+    // that makes `fileParallelism: true` above safe.
+    globalSetup: ['./tests/vitest.global-setup.ts'],
 // Slice A.1 — raise default testTimeout. Bumped from 10s in vitest 4
-    // migration: even with `maxWorkers: 1` (which replaced the removed
-    // `poolOptions.forks.singleFork`), tests that perform real
-    // filesystem + git + subprocess I/O regularly take 12–60s on Windows.
+    // migration: even with `fileParallelism: false` (which forces
+    // single-worker mode), tests that perform real filesystem + git +
+    // subprocess I/O regularly take 12–60s on Windows.
     // 60s accommodates the slowest unit-test case (~50s for the worst
     // config-safety tests); integration tests that spawn `tsx`+node+CLI
     // (~3s per call × 7 calls = 21s baseline) can occasionally hit 60s
@@ -75,6 +122,14 @@ export default defineConfig({
     // reason (real I/O in fixtures under a single-worker fork). 60s
     // matches testTimeout so the cliff stays out of the picture.
     hookTimeout: 60_000,
+    // Slice 2026-07-12-vitest-perf-tune — flag any test or suite that
+    // exceeds 1s as "slow" in vitest's reporter output. Pure
+    // observability — no behavior change, no timeout interaction.
+    // Default is 300ms which is too noisy for a real-I/O-heavy suite
+    // where legitimate filesystem / git / subprocess calls routinely
+    // take hundreds of milliseconds. 1000ms surfaces genuinely slow
+    // cases (CI candidate for further slicing) without flooding output.
+    slowTestThreshold: 1000,
     /**
      * Slice A.3 / AC-5.1 — G5 race-detector mode is documented below.
      *
@@ -134,4 +189,5 @@ export default defineConfig({
       },
     },
   },
-});
+};
+export default defineConfig(config);

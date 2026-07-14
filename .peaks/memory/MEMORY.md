@@ -17,6 +17,7 @@
 
 - [2026-07-09-zcode-adapter-overview](2026-07-09-zcode-adapter-overview.md) — RID 003-add-zcode-adapter 完成总结:Slice A (install 默认 model 修复) + Slice B (zcode-adapter 第 9 个 IDE) 全 PASS,verify-pipeline ok=true。
 - [slice-014-vitest-slowdown-and-race-repeat](slice-014-vitest-slowdown-and-race-repeat.md) — Slice 014: vitest fork slowdown × RACE_REPEAT=20 blew 60s/120s timeouts; 修复 = Promise 传播 + RACE_REPEAT 20→3 + describe 60s→180s + withFileLockSync wall-clock guard; 剩余 g8-shared-channel / legacy-detector / file-size-scan 是同样 race-mode 套路,留 slice 015 处理。
+- [slice-014b-vitest-slowdown-real-cause-fork-accumulation](slice-014b-vitest-slowdown-real-cause-fork-accumulation.md) — Slice 014b: 慢+超时根因 = 单 fork O(N) 累积(非 test body);修 = .session.json stash 挪到 globalSetup + file-parallelism=true + maxWorkers=4 + test:fast lane + 撤销上一会话的 30000 band-aid;3 失败已定位为预存 bug(F-3 已切 delta 断言,另 2 个留 slice 015)。
 - [z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter](z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md) — z-code 是 peaks-loop 第 9 个 IDE adapter,vendor-neutrality 通过 adapter 抽象守住(2026-07-09 lesson)。
 - [peaks-loop-install-model-getstrongestmodelid-fallback](peaks-loop-install-model-getstrongestmodelid-fallback.md) — peaks-loop install 不再写死默认 model,改运行时探测(getStrongestModelId 三层 fallback)(2026-07-09 lesson)。
 - [desktop-application-ide-adapter-z-code-cli](desktop-application-ide-adapter-z-code-cli.md) — desktop-application 类 IDE adapter 字段降级决策(z-code 非 CLI)(2026-07-09 lesson)。
