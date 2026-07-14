@@ -108,7 +108,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
   // normalizes walkDir keys via `.split(sep).join('/')` so the
   // forward-slash filters on lines 459 / 500 match on Windows hosts
   // too. The orphan report is no longer empty on Windows.
-  test('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', { timeout: 60_000 }, async () => {
+  test('AC-1 cliSubcommandOrphan: declaration-file-only references are NOT considered wiring', { timeout: 180_000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/cli/commands'), { recursive: true });
       // scan-commands.ts declares 'orphan' subcommand; nothing else references it.
@@ -128,7 +128,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-1 cliSubcommandOrphan: a subcommand referenced in tests/ is wired', { timeout: 60_000 }, async () => {
+  test('AC-1 cliSubcommandOrphan: a subcommand referenced in tests/ is wired', { timeout: 180_000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/cli/commands'), { recursive: true });
       await mkdir(join(root, 'tests/unit'), { recursive: true });
@@ -150,7 +150,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-2 export-default detection: named default exports are tracked', { timeout: 60_000 }, async () => {
+  test('AC-2 export-default detection: named default exports are tracked', { timeout: 180_000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(
@@ -167,7 +167,17 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-3 re-export detection: `export { x } from "./y"` counts as a consumer', { timeout: 60_000 }, async () => {
+  // Slice 018 — explicit 180s budget for AC-3 (this single test hits
+  // 60.004s in single-file runs of the orphan-scan suite; other AC
+  // tests in this describe block hit 35-54s with the existing 60s
+  // budget — bumping the whole describe block keeps them uniformly
+  // under one explicit ceiling). The cost is real (git init +
+  // working-tree scan + every-export-walk), not parallelism
+  // contention. 180s = 3x the existing budget; well under vitest's
+  // 600s hard limit. Sibling tests in the same describe block were
+  // also bumped to 180s for uniformity (same single-file
+  // measurement grid).
+  test('AC-3 re-export detection: `export { x } from "./y"` counts as a consumer', { timeout: 180_000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(join(root, 'src/services/leaf.ts'), `export const leaf = 1;\n`);
@@ -185,7 +195,7 @@ describe('Slice 2.6.1.A — orphan-service behavior fixes', () => {
     });
   });
 
-  test('AC-4 --base <ref> support: option accepted without throwing', { timeout: 60_000 }, async () => {
+  test('AC-4 --base <ref> support: option accepted without throwing', { timeout: 180_000 }, async () => {
     await withTempRepo(async (root) => {
       await mkdir(join(root, 'src/services'), { recursive: true });
       await writeFile(join(root, 'src/services/foo.ts'), `export const foo = 1;\n`);
