@@ -51,18 +51,16 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   });
 
   test('keeps resume preview when swarm root is a symbolic link', () => {
-    // Slice 016f — explicit 240s budget. Test body itself is trivial
-    // (43ms single-file: mkdtemp + symlink + createAutonomousWorkflowPlan
-    // + 3 asserts). The hang ONLY surfaces under `pnpm test:full`
-    // with all 520 files running in `maxWorkers: 4` parallel mode,
-    // where cumulative `.peaks/_runtime/` / heartbeat / file-lock
-    // pressure across many concurrent workers can push this test's
-    // wall-clock past the default 120s testTimeout. Slice-016d/016e
-    // already documented this exact contention class; this is the
-    // 4th instance. Slice-017 (this same commit set) plans a
-    // slow-lane config split that will eliminate this entire class
-    // of flake at the architectural level — once that lands, these
-    // per-test budgets can be reverted.
+    // Slice 017d — slow-lane project in vitest.config.ts (`maxWorkers:
+    // 1`, `fileParallelism: false`) now handles this file outside the
+    // fast-pool contention. The 240s budget below was the slice-016f
+    // band-aid for cumulative `.peaks/_runtime/` / heartbeat / file-
+    // lock pressure under `maxWorkers: 4`; with the file now running
+    // single-worker the cliff is structurally impossible. Budget is
+    // kept here as a defensive guardrail against future regression
+    // (e.g. someone re-merging the file into the fast project); if
+    // 240s is ever fired, the audit-action is to re-verify the slow
+    // project's `extends: true` + include glob are still in effect.
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const sessionId = 'resume-swarm-root-link';
     const swarmRoot = join(getSessionDir(artifactWorkspace, sessionId), 'rd', 'swarm');
@@ -89,7 +87,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.available).toBe(false);
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-missing');
-  }, 240_000);
+  });
 
   test('keeps resume preview when resume artifacts are missing', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
@@ -625,7 +623,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
   });
 
-  test('keeps resume preview when resume JSON is not an object', { timeout: 180_000 }, () => {
+  test('keeps resume preview when resume JSON is not an object', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-json-array');
     writeResumeArtifacts(artifactWorkspace, 'resume-json-array');
@@ -680,7 +678,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.available).toBe(false);
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
-  }, 240_000);
+  });
 
   test('keeps resume preview when resume JSON change id does not match', () => {
     // Slice 019 — explicit 240s budget. Test body is trivial (~5 lines
@@ -710,7 +708,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
     expect(plan.nextActions.join('\n')).toContain('Refresh autonomous resume artifacts');
-  }, 240_000);
+  });
 
   test('keeps resume preview when session root is a directory link', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();

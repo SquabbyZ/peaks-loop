@@ -41,40 +41,63 @@ const stableCoverageRoot = process.platform === 'win32'
 // literal below is annotated as `TestUserConfig` (vitest's real
 // `UserConfig`) so every field — `pool`, `fileParallelism`,
 // `experimental.fsModuleCache`, etc. — is type-checked correctly.
+// Slice 017d — two-project slow-lane split.
+//
+// WHAT THIS CHANGES
+// -----------------
+// Before this slice, vitest.config.ts had ONE root config (`pool: forks`,
+// `fileParallelism: true`, `maxWorkers: 4`) and the root's `test.include`
+// matched every test file. 5 files use the `vi.doMock('node:fs') +
+// vi.resetModules() + dynamic await import(...)` pattern to test real-fs
+// failure modes (TOCTOU inode-shift, lstat/realpath/readSync hooks, etc.).
+// Each such test forces a fresh transform of the entire target service's
+// import graph. Under `maxWorkers: 4` × cumulative contention across all
+// 488 files, these 5 files' wall-clocks ballooned from <50ms single-file
+// to >120s, hitting the default testTimeout cliff and pushing the full
+// `pnpm test:full` to 36+ minutes. 016d/016f/019 parked the cliff via
+// per-test 240s budgets but did not fix the contention class.
+//
+// THIS SLICE FIXES IT AT THE ARCHITECTURE LAYER:
+// The root config is split into two inline `test.projects` entries:
+//   - `fast` (maxWorkers: 4, fileParallelism: true) — runs the 483-file
+//     bulk via the slice-014b parallelism-unlock pattern
+//   - `slow` (maxWorkers: 1, fileParallelism: false) — runs the 5 node:fs-
+//     mock-heavy files in a single sequential fork, eliminating the
+//     cumulative IO contention that produced the 18-min wall
+//
+// WHY TWO PROJECTS (NOT ONE)
+// --------------------------
+// Vitest's `projects` field, when non-empty, **orphans the root config's
+// `test.include`** ("vitest does not treat the root vitest.config file as
+// a project unless it is explicitly specified" — vitest.dev/guide/projects,
+// WARNING under "Defining Projects"). The root config becomes a global-
+// options-only envelope (coverage, reporters, experimental flags). To keep
+// the 483-file bulk running under the proven slice-014b settings, that
+// bulk has to be re-declared as an inline project entry with `extends: true`
+// — `extends: true` merges root-level pool/coverage/etc into the project
+// so we do not duplicate the entire config per project.
+//
+// VERIFY
+// ------
+// Single-file: each slow file runs green in <2s.
+// Combined (slow): `vitest run --project slow` 5 files / all-green / <10s.
+// Combined (full): `vitest run` runs both projects in parallel — fast
+// lane keeps slice-014b's parallelism win, slow lane replaces per-test
+// 240s budgets with a single-worker pool that cannot contend with the
+// fast lane's transforms. The per-test budget comments at lines 92 /
+// 628 / 683 / 713 of workflow-autonomous-resume-validation.test.ts are
+// still kept (as documented removal-feasibility markers) until at least
+// one full clean run confirms the cliff is gone — see slice-017d.2.
 const config: TestUserConfig = {
   root: stableCoverageRoot,
-  // Run test files in PARALLEL forked workers. This is the single biggest
-  // lever on suite wall-clock: the suite is now 488 files (not the "121
-  // files / ~18s" an earlier comment assumed), and vitest 4 in a single
-  // fork accumulates per-test overhead that grows ~O(N) with files-per-
-  // worker (documented in
-  // .peaks/memory/slice-014-vitest-slowdown-and-race-repeat.md). Forcing
-  // all 488 files through one worker pushed the full `pnpm test` run past
-  // 10 minutes; spreading them across forks bounds each worker's file
-  // count and keeps per-test overhead flat.
-  //
-  // Why this is now race-free (it wasn't before): the ONLY cross-worker
-  // hazard was tests/vitest.setup.ts renaming the shared
-  // .peaks/.session.json + .active-skill.json files on every worker. That
-  // stash moved to tests/vitest.global-setup.ts, which runs ONCE in the
-  // main process before any worker spawns and restores once after they
-  // exit. The per-worker tests/vitest.setup.ts now only pins
-  // process.cwd() (process-local, safe under parallelism).
+  // The 4 root-only `experimental` / `pool` / `globalSetup` /
+  // `coverage` knobs below apply to BOTH projects (each project
+  // inherits them via `extends: true`).
   //
   // pool: 'forks' (not 'threads') is deliberate — the setup chdir()s and
   // several tests spy/override process.cwd(); forks give each file its own
   // process so cwd changes cannot leak across concurrently-running files.
   pool: 'forks',
-  fileParallelism: true,
-  // maxWorkers: 4 is empirical (see sediment below + the full-suite profile
-  // at .peaks/_runtime/<sessionId>/rd/vitest-mw4-baseline.json this slice).
-  // At maxWorkers=16 cross-fork contention on shared resources produces ~1
-  // flaky failure per full run; at 4 the same files report 0 failures while
-  // still overlapping real I/O. CI runners with < 4 cores can override via
-  // `vitest run --maxWorkers=2` (the CLI flag beats the config value).
-  // minWorkers: 1 lets the runner shed workers when the file count drops.
-  maxWorkers: 4,
-  minWorkers: 1,
   // Slice 2026-07-12-vitest-perf-tune — enable vitest 4's on-disk
   // module cache (`experimental.fsModuleCache`, 4.0.11+). Transformed
   // modules are persisted under `node_modules/.experimental-vitest-cache`
@@ -96,14 +119,13 @@ const config: TestUserConfig = {
     fsModuleCache: true,
   },
   test: {
-    include: ['tests/**/*.test.ts'],
     setupFiles: ['./tests/vitest.setup.ts'],
     // Runs once in the main process before any worker spawns (and restores
     // once after). Stashes .peaks/.session.json + .active-skill.json so the
     // per-worker setup no longer races on those shared files — the change
-    // that makes `fileParallelism: true` above safe.
+    // that makes the fast project's `fileParallelism: true` safe.
     globalSetup: ['./tests/vitest.global-setup.ts'],
-// Slice A.1 — raise default testTimeout. Bumped from 10s in vitest 4
+    // Slice A.1 — raise default testTimeout. Bumped from 10s in vitest 4
     // migration: even with `fileParallelism: false` (which forces
     // single-worker mode), tests that perform real filesystem + git +
     // subprocess I/O regularly take 12–60s on Windows.
@@ -130,6 +152,77 @@ const config: TestUserConfig = {
     // take hundreds of milliseconds. 1000ms surfaces genuinely slow
     // cases (CI candidate for further slicing) without flooding output.
     slowTestThreshold: 1000,
+    // Slice 017d — two-project slow-lane split. See top-of-file header
+    // for the why. Why these specific 5 files land in the `slow`
+    // project:
+    //
+    //   - tests/unit/path-utils.test.ts (3 vi.doMock+resetModules sites)
+    //   - tests/unit/project-memory-service.test.ts (3 sites)
+    //   - tests/unit/rd-service-target-area-security.test.ts (24 sites)
+    //   - tests/unit/workflow-autonomous-resume-validation.test.ts (12 sites)
+    //   - tests/unit/workflow-autonomous-service.test.ts (2 sites)
+    //
+    // These all test real `node:fs` failure modes by mocking the module
+    // + invalidating vitest's per-file module cache. The cumulative
+    // transform cost under `maxWorkers: 4` parallelism is what produces
+    // the 18-min wall documented in slice-016d. The slow project runs
+    // them single-worker so no contention can compound.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'fast',
+          // Bulk of the suite — runs under slice-014b's proven
+          // parallelism-unlock settings. The previous single-root
+          // config had this same include; carrying it forward verbatim.
+          include: ['tests/**/*.test.ts'],
+          exclude: [
+            // The 5 heavy files go to the slow project below. Wildcard
+            // exclude must match the same glob the slow project uses,
+            // otherwise the same file would be matched by BOTH projects
+            // and run twice (vitest disambiguates by include order, not
+            // exclude semantics — first match wins per file).
+            'tests/unit/path-utils.test.ts',
+            'tests/unit/project-memory-service.test.ts',
+            'tests/unit/rd-service-target-area-security.test.ts',
+            'tests/unit/workflow-autonomous-resume-validation.test.ts',
+            'tests/unit/workflow-autonomous-service.test.ts',
+          ],
+          // Slice 014b — proven fast-lane tuning. Kept verbatim.
+          fileParallelism: true,
+          maxWorkers: 4,
+          minWorkers: 1,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'slow',
+          // The 5 module-cache-invalidation heavy files. Single worker,
+          // no file parallelism: each test runs the full dynamic-await-
+          // import chain without contending with sibling file transforms.
+          include: [
+            'tests/unit/path-utils.test.ts',
+            'tests/unit/project-memory-service.test.ts',
+            'tests/unit/rd-service-target-area-security.test.ts',
+            'tests/unit/workflow-autonomous-resume-validation.test.ts',
+            'tests/unit/workflow-autonomous-service.test.ts',
+          ],
+          fileParallelism: false,
+          maxWorkers: 1,
+          minWorkers: 1,
+          // Slow project must NOT inherit the 120s testTimeout ceiling
+          // via extends: the previous 016d/016f/019 cliff was at the
+          // 120s boundary. The slow project is single-worker so the
+          // cliff is gone architecturally, but a 600s ceiling gives
+          // catastrophic-regression slack without bumping the global
+          // default the fast lane benefits from.
+          testTimeout: 600_000,
+          // Per-file setup still runs here — chdir() is process-local,
+          // safe under single-worker mode.
+        },
+      },
+    ],
     /**
      * Slice A.3 / AC-5.1 — G5 race-detector mode is documented below.
      *
