@@ -92,7 +92,19 @@ describe('cli command branch handling', () => {
     const skillOutput = parseJsonOutput(skillResult.stdout);
     expect(skillOutput.command).toBe('skill.doctor');
     expect(skillResult.exitCode).toBe(1);
-  }, 10_000);
+  // Slice 016 — bumped from 10s default to 30s. Two real
+  // `runRegisteredCommand` calls in this test invoke the real
+  // `skill doctor` action (not mocked here — only
+  // `doctor-service.runDoctor` is mocked). Single-file runs
+  // complete in <1s; under `maxWorkers: 4` the unmocked skill-
+  // doctor path + the heavy `src/cli/program.ts` import graph
+  // can race other CLI tests for FS / module-resolve time on
+  // Windows. 30s is well above worst-case observed (15s in the
+  // 9-file combined run) and well below vitest's per-test
+  // budget cliff. Per-Promise-prop being lost from the original
+  // Promise constructor (slice-014) is not relevant here — this
+  // is a budget, not a swallow.
+  }, 30_000);
 
   test('covers config get and set default layer branches', async () => {
     const { registerConfigCommands } = await import('../../src/cli/commands/config-commands.js');
