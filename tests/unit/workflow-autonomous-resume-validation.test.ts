@@ -635,6 +635,21 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   });
 
   test('keeps resume preview when resume JSON is malformed', () => {
+    // Slice 016d — bumped from the default 120s testTimeout cliff to an
+    // explicit 240s. Test body itself is trivial (~46ms single-file:
+    // mkdtemp + 3 writeFileSync + createAutonomousWorkflowPlan + 3
+    // asserts). The hang ONLY surfaces under `pnpm test:full` with all
+    // 520 files running in `maxWorkers: 4` parallel mode, where
+    // cumulative `.peaks/_runtime/` / heartbeat / file-lock pressure
+    // across many concurrent workers can push the test's cumulative
+    // wall-clock past the 120s default cliff. Smaller batches (single
+    // file, 14-file mix, 4-workflow-file batch) all complete in <55s
+    // — verified. 240s gives ample headroom (2x the cliff, well below
+    // vitest's 600s hard limit) and makes the budget EXPLICIT so this
+    // test is no longer subject to the hookTimeout misinterpretation
+    // seen in slice-016c. Budget, not swallow — slice-014's Promise
+    // propagation lesson is unrelated (the test body has no inner
+    // Promise.all that drops rejections).
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     writeApprovedTechArtifacts(artifactWorkspace, 'resume-malformed-json');
     writeResumeArtifacts(artifactWorkspace, 'resume-malformed-json');
@@ -653,7 +668,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.available).toBe(false);
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-invalid');
-  });
+  }, 240_000);
 
   test('keeps resume preview when resume JSON change id does not match', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
