@@ -51,6 +51,18 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
   });
 
   test('keeps resume preview when swarm root is a symbolic link', () => {
+    // Slice 016f — explicit 240s budget. Test body itself is trivial
+    // (43ms single-file: mkdtemp + symlink + createAutonomousWorkflowPlan
+    // + 3 asserts). The hang ONLY surfaces under `pnpm test:full`
+    // with all 520 files running in `maxWorkers: 4` parallel mode,
+    // where cumulative `.peaks/_runtime/` / heartbeat / file-lock
+    // pressure across many concurrent workers can push this test's
+    // wall-clock past the default 120s testTimeout. Slice-016d/016e
+    // already documented this exact contention class; this is the
+    // 4th instance. Slice-017 (this same commit set) plans a
+    // slow-lane config split that will eliminate this entire class
+    // of flake at the architectural level — once that lands, these
+    // per-test budgets can be reverted.
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();
     const sessionId = 'resume-swarm-root-link';
     const swarmRoot = join(getSessionDir(artifactWorkspace, sessionId), 'rd', 'swarm');
@@ -77,7 +89,7 @@ describe('createAutonomousWorkflowPlan resume artifact validation', () => {
     expect(plan.available).toBe(false);
     expect(plan.resumePlan.status).toBe('preview');
     expect(plan.blockedReasons).toContain('resume-artifacts-missing');
-  });
+  }, 240_000);
 
   test('keeps resume preview when resume artifacts are missing', () => {
     const { workspace, artifactWorkspace } = createWorkspaceWithArtifactWorkspace();

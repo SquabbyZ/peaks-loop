@@ -92,19 +92,15 @@ describe('cli command branch handling', () => {
     const skillOutput = parseJsonOutput(skillResult.stdout);
     expect(skillOutput.command).toBe('skill.doctor');
     expect(skillResult.exitCode).toBe(1);
-  // Slice 016 — bumped from 10s default to 30s. Two real
-  // `runRegisteredCommand` calls in this test invoke the real
-  // `skill doctor` action (not mocked here — only
-  // `doctor-service.runDoctor` is mocked). Single-file runs
-  // complete in <1s; under `maxWorkers: 4` the unmocked skill-
-  // doctor path + the heavy `src/cli/program.ts` import graph
-  // can race other CLI tests for FS / module-resolve time on
-  // Windows. 30s is well above worst-case observed (15s in the
-  // 9-file combined run) and well below vitest's per-test
-  // budget cliff. Per-Promise-prop being lost from the original
-  // Promise constructor (slice-014) is not relevant here — this
-  // is a budget, not a swallow.
-  }, 30_000);
+  // Slice 016f — bumped 30s → 60s after the user-facing pnpm test:full
+  // run still hit this cliff (517 sibling files driving cumulative
+  // FS / heartbeat contention pushed it past 30s on Windows; observed
+  // 31-40s under contention). 60s gives 2x headroom. Same rationale as
+  // slice-016b: budget, not swallow. See slice-016f memory for the
+  // full diagnostic grid + the parallel slice-017 plan (slow-lane
+  // split) that targets the cumulative-contention class of flake at
+  // its source.
+  }, 60_000);
 
   test('covers config get and set default layer branches', async () => {
     const { registerConfigCommands } = await import('../../src/cli/commands/config-commands.js');
