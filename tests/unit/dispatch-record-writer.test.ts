@@ -102,7 +102,7 @@ describe('appendHeartbeat (G6)', () => {
     expect(() => appendHeartbeat({ recordPath: path, status: 'running', progress: 1, note: 'x'.repeat(201) })).toThrow(/note must be/);
   });
 
-  it('truncates heartbeats past 100 entries', { timeout: 180_000 }, () => {
+  it('truncates heartbeats past 100 entries', () => {
     const { path } = writeInitialDispatchRecord({
       projectRoot: root,
       sessionId: 's5',
@@ -112,14 +112,40 @@ describe('appendHeartbeat (G6)', () => {
       toolCall: { name: 'Task', args: {} },
       batchId: 'b5'
     });
-    let lastTruncated = false;
-    for (let i = 0; i < 101; i += 1) {
-      const r = appendHeartbeat({ recordPath: path, status: 'running', progress: i });
-      lastTruncated = r.truncated;
-    }
+    // Slice 016e — pre-populate the record with 100 heartbeats via a
+    // direct JSON write, then call appendHeartbeat ONCE to verify
+    // truncation behavior. The previous implementation did 101
+    // sequential appendHeartbeat calls, each acquiring
+    // withFileLockSync on `path`. Under `maxWorkers: 4` + the full
+    // 520-file suite, those 101 lock acquisitions ballooned past the
+    // 180s ceiling (each lock went from ~9ms single-file to ~1800ms
+    // under cumulative contention). Pre-populating bypasses the lock
+    // for setup; the truncation contract is verified by the single
+    // appendHeartbeat call (which DOES acquire the lock, since the
+    // truncation logic lives inside the lock-protected read-modify-
+    // write path). Lock-acquisition correctness is already covered by
+    // the sibling tests in this describe block + the heartbeat.test.ts
+    // G5 fuzz at a much smaller scale.
+    const existing = readRecord(path);
+    const prePopulated = {
+      ...existing,
+      heartbeats: Array.from({ length: 100 }, (_, i) => ({
+        at: new Date(2026, 0, 1, 0, 0, i).toISOString(),
+        status: 'running' as const,
+        progress: i % 100,
+        note: null
+      }))
+    };
+    require('node:fs').writeFileSync(path, JSON.stringify(prePopulated), 'utf8');
+
+    // Single appendHeartbeat — this is the call that exercises the
+    // truncation path. It must acquire the lock, re-read, see 100
+    // existing, append 1 → 101, truncate to 100, return truncated=true.
+    const r = appendHeartbeat({ recordPath: path, status: 'running', progress: 50 });
+    expect(r.truncated).toBe(true);
+
     const rec = readRecord(path);
     expect(rec.heartbeats).toHaveLength(100);
-    expect(lastTruncated).toBe(true);
   });
 });
 
