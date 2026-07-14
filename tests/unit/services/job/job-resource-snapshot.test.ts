@@ -238,9 +238,17 @@ describe('dirSizeMb cap (AC-1 / AC-2 / AC-3) and AC-6 catch paths', () => {
     // pressure during `vitest run` (full suite) on Windows despite
     // 4-5s per-test runs. The contract is independent of magnitude;
     // we test the smallest case that exercises it.
+    //
+    // Slice-014b fix: ENTRY_SIZE=1024 with CAP=100 produced a partial
+    // sum of 100 KiB which `Math.round(100 KiB / 1 MiB) → 0`. The old
+    // assertion `expect(expectedMb).toBeGreaterThan(0)` was therefore
+    // unsatisfiable on this fixture (NOT a service bug — `dirSizeMb`
+    // is correct). ENTRY_SIZE=12 KiB keeps the fixture CAP-sized but
+    // lifts the partial sum above 1 MiB so the rounded value is ≥ 1.
+    // Calculated: (CAP × 12 KiB) = 1.2 MiB → Math.round → 1.
     const CAP = 100;
     const TOTAL = CAP + 1;
-    const ENTRY_SIZE = 1024;
+    const ENTRY_SIZE = 12 * 1024; // 12 KiB; CAP × 12 KiB = 1.2 MiB ⇒ rounds to 1
 
     const bigDir = mkdtempSync(join(os.tmpdir(), 'peaks-job-snap-big-'));
     try {

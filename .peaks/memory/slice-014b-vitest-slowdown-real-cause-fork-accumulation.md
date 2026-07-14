@@ -101,9 +101,16 @@ fail when run serially (`--no-file-parallelism`):
    at `tests/unit/rd/repair-cycle-2-cli-wiring.test.ts:144:37` —
    fails the same way in isolation. Pre-existing real bug.
 
-2. `tests/unit/services/job/job-resource-snapshot.test.ts` (1 test):
+2. `tests/unit/services/job/job-resource-snapshot.test.ts` AC-2 (1 test):
    `expected 0 to be greater than 0` (partial sum lower bound) —
-   fails the same way in isolation. Pre-existing real bug.
+   fails the same way in isolation. **Fixed in slice-014b** by raising
+   `ENTRY_SIZE` from `1024` to `12 * 1024`: 100 entries × 1 KiB
+   partial-summed to 100 KiB, which `Math.round(... / 1 MiB) → 0`
+   (an unsatisfiable test contract, not a service bug — `dirSizeMb`
+   is correct). 12 KiB keeps the fixture CAP-sized (CAP=100 + 1=101
+   files, <1s wall) but lifts the partial sum to 1.2 MiB ⇒ rounds to
+   1. The fix turns the "real bug" assessment into a "test contract
+   bug" and makes the assertion satisfiable.
 
 3. `tests/unit/workspace/workspace-migrate-f3-cleanup.test.ts` (1 test):
    `(c) leaves no top-level session dir behind` — fixed in this slice
@@ -111,6 +118,18 @@ fail when run serially (`--no-file-parallelism`):
    pollution) to a delta check (the seeded session id is gone in this
    fixture; the migration itself did the work, proven by
    `toRuntimeMoved contains SESSION_ID`). Tracked as slice-015 work.
+
+4. `tests/unit/rd/repair-cycle-2-cli-wiring.test.ts` (2 tests) — **service-
+   layer regression**, not a test bug. `swarm plan --strict-standards` is
+   unreachable: `createRdSwarmPlan` throws "Execution model must be
+   configured in providers" (from `getEconomyAwareExecutionModelId`) which
+   the catch handler at `src/cli/commands/workflow-commands.ts:318` wraps
+   as `INVALID_GOAL`. The test's premise is that `data.gateStatus.
+   standardsErrorCode === 'EPEAKS_NO_STANDARDS'` — but the provider-config
+   short-circuit fires before any standards check. Defer to peaks-rd +
+   peaks-qa (decide whether to mock providers in the test fixture or split
+   the catch to surface `INVALID_PROVIDERS` separately — either restores
+   test observability of `--strict-standards`).
 
 ## Files touched
 
@@ -128,6 +147,10 @@ fail when run serially (`--no-file-parallelism`):
   `tests/unit/dispatch-record-writer.test.ts` — unchanged; their
   `RACE_REPEAT=3` + 180s describe-timeout from [[slice-014-vitest-slowdown-and-race-repeat]]
   remain the right thing for `pnpm test:race`.
+- `tests/unit/services/job/job-resource-snapshot.test.ts` AC-2 — fix
+  the unsatisfiable test contract: `ENTRY_SIZE 1024 → 12 KiB` lifts
+  the partial sum above 1 MiB so `Math.round` returns ≥ 1 instead of
+  0. Comment cross-link to this slice.
 
 ## Why this matters going forward
 
