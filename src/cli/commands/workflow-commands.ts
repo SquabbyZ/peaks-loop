@@ -17,6 +17,11 @@ import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.
 import { applySkip, detectCallerKind, type SkipArgs } from '../../services/workflow/workflow-skip-service.js';
 import { fail, ok } from '../../shared/result.js';
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
+// Slice 015 — typed error → envelope code routing. Used by the four
+// catch sites below (tech.plan / workflow.route / workflow.autonomous /
+// swarm.plan) so provider-config errors surface as `INVALID_PROVIDERS`
+// instead of being silently re-labelled `INVALID_GOAL`.
+import { mapServiceError } from './_cli-error-envelope.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
 import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
@@ -182,7 +187,8 @@ function runTechPlan(io: ProgramIO, options: TechPlanOptions): void {
     });
     printResult(io, ok('tech.plan', plan), options.json);
   } catch (error) {
-    printResult(io, fail('tech.plan', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
+    const mapping = mapServiceError(error);
+    printResult(io, fail('tech.plan', mapping.code, getErrorMessage(error), {}, [...mapping.nextActions]), options.json);
     process.exitCode = 1;
   }
 }
@@ -230,7 +236,8 @@ function runWorkflowRoute(io: ProgramIO, options: WorkflowRouteOptions): void {
     });
     printResult(io, ok('workflow.route', plan), options.json);
   } catch (error) {
-    printResult(io, fail('workflow.route', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
+    const mapping = mapServiceError(error);
+    printResult(io, fail('workflow.route', mapping.code, getErrorMessage(error), {}, [...mapping.nextActions]), options.json);
     process.exitCode = 1;
   }
 }
@@ -268,7 +275,8 @@ function runAutonomousWorkflow(io: ProgramIO, options: WorkflowRouteOptions): vo
     });
     printResult(io, ok('workflow.autonomous', plan), options.json);
   } catch (error) {
-    printResult(io, fail('workflow.autonomous', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
+    const mapping = mapServiceError(error);
+    printResult(io, fail('workflow.autonomous', mapping.code, getErrorMessage(error), {}, [...mapping.nextActions]), options.json);
     process.exitCode = 1;
   }
 }
@@ -315,7 +323,8 @@ async function runSwarmPlan(io: ProgramIO, options: SwarmPlanOptions): Promise<v
     }
     printResult(io, ok('swarm.plan', plan), options.json);
   } catch (error) {
-    printResult(io, fail('swarm.plan', 'INVALID_GOAL', getErrorMessage(error), {}, ['Use a non-empty goal']), options.json);
+    const mapping = mapServiceError(error);
+    printResult(io, fail('swarm.plan', mapping.code, getErrorMessage(error), {}, [...mapping.nextActions]), options.json);
     process.exitCode = 1;
   }
 }

@@ -37,12 +37,36 @@ import { Command } from 'commander';
 import { mkdtempSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { registerWorkflowCommands } from '../../../src/cli/commands/workflow-commands.js';
 import { registerWorkspaceCommands } from '../../../src/cli/commands/workspace-commands.js';
 import { EPEAKS_NO_STANDARDS } from '../../../src/services/rd/standards-diagnostic.js';
 import type { ProgramIO } from '../../../src/cli/cli-helpers.js';
+
+// Slice 015 — mock the execution-model resolver so the swarm-plan path
+// proceeds past the provider-config check. This isolates the
+// standards-overlay behaviour (the regression we're guarding) from
+// the provider-config concern (now exercisable by the dedicated
+// `INVALID_PROVIDERS` test below). Without this mock, every
+// `swarm.plan` invocation throws `ProviderNotConfiguredError`
+// before reaching `buildStandardsOverlay`, hiding the original
+// bug from the test surface.
+//
+// hoisted flag lets the `INVALID_PROVIDERS` test temporarily switch
+// the mock off to prove the catch helper routes the typed error.
+const providerMockState = vi.hoisted(() => ({ configured: true }));
+vi.mock('../../../src/services/config/model-routing.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/services/config/model-routing.js')>();
+  return {
+    ...actual,
+    getEconomyAwareExecutionModelId: () => {
+      if (providerMockState.configured) return 'claude-sonnet-test-mock';
+      throw new actual.ProviderNotConfiguredError();
+    },
+    ProviderNotConfiguredError: actual.ProviderNotConfiguredError,
+  };
+});
 
 function captureIO(): { io: ProgramIO; stdout: string[]; stderr: string[] } {
   const stdout: string[] = [];
@@ -187,5 +211,52 @@ describe('RD#4 repair cycle 2 — CLI workspace context threads projectRoot', ()
 
   test('EPEAKS_NO_STANDARDS contract value is stable', () => {
     expect(EPEAKS_NO_STANDARDS).toBe('EPEAKS_NO_STANDARDS');
+  });
+
+  // Slice 015 — when no provider model is configured, the CLI must
+  // surface the REAL error class instead of misleadingly returning
+  // INVALID_GOAL. The new `INVALID_PROVIDERS` envelope + the catch
+  // helper's `mapServiceError` together produce an envelope whose
+  // message matches `getConfiguredExecutionModelId`'s throw text
+  // and whose nextActions point the user at `peaks config provider`.
+  test('strict-standards without a provider configured surfaces INVALID_PROVIDERS envelope (Slice 015)', async () => {
+    // Slice 015 — flip the hoisted provider mock OFF so the swarm-plan
+    // call throws `ProviderNotConfiguredError`, exercising the catch
+    // helper's INVALID_PROVIDERS branch. Restore in `finally` so the
+    // rest of the suite (and any subsequent run) sees the "configured"
+    // default.
+    const previousConfigured = providerMockState.configured;
+    providerMockState.configured = false;
+    try {
+    const initIo = captureIO();
+    const initProgram = buildProgram(initIo.io);
+    await initProgram.parseAsync([
+      'node', 'peaks', 'workspace', 'init',
+      '--project', projectRoot,
+      '--json',
+    ]);
+
+    const { io, stdout } = captureIO();
+    const program = buildProgram(io);
+    await program.parseAsync([
+      'node', 'peaks', 'swarm', 'plan',
+      '--skill', 'rd',
+      '--goal', 'strict-standards-without-provider',
+      '--strict-standards',
+      '--json',
+    ]);
+
+    const envelope = JSON.parse(stdout.join(''));
+    expect(envelope.ok).toBe(false);
+    expect(envelope.command).toBe('swarm.plan');
+    // NEW: real error class surfaced, no longer hidden behind INVALID_GOAL
+    expect(envelope.code).toBe('INVALID_PROVIDERS');
+    // Original message text preserved (proves the throw site is the source of truth)
+    expect(envelope.message).toContain('Execution model must be configured in providers');
+    // nextActions hints at the right recovery command
+    expect((envelope.nextActions ?? []).join(' ')).toContain('peaks config provider');
+    } finally {
+      providerMockState.configured = previousConfigured;
+    }
   });
 });

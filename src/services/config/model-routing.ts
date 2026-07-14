@@ -82,9 +82,22 @@ export function getConfiguredExecutionModelId(providers: ModelProviderConfig | u
     .map((provider) => provider?.model?.trim())
     .find((model): model is string => typeof model === 'string' && model.length > 0);
   if (!configuredModel) {
-    throw new Error('Execution model must be configured in providers');
+    throw new ProviderNotConfiguredError();
   }
   return configuredModel;
+}
+
+/**
+ * Slice 015 — typed exception for "no provider has a configured model".
+ * Lives next to its throw site so a downstream `instanceof` check survives
+ * any tree-shaking. CLI catch sites map this to the `INVALID_PROVIDERS`
+ * envelope code via `_cli-error-envelope.mapServiceError`.
+ */
+export class ProviderNotConfiguredError extends Error {
+  constructor(message = 'Execution model must be configured in providers') {
+    super(message);
+    this.name = 'ProviderNotConfiguredError';
+  }
 }
 
 export function getEconomyAwareExecutionModelId(config: Pick<PeaksConfig, 'economyMode' | 'providers'> & { model?: string }): string {
