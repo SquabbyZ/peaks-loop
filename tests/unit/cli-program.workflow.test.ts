@@ -432,6 +432,18 @@ describe('createProgram workflow commands', () => {
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
 
     try {
+      // Slice 016c — bumped from the default 60s cliff. Three sequential
+      // `runCommand` calls in this test (workflow.route →
+      // workflow.autonomous → swarm.plan), each invoking the real
+      // RD planner + workspace lookup + the heavy `src/cli/program.ts`
+      // import graph. Single-file run completes in ~1.4s (verified).
+      // Under `maxWorkers: 4` (vitest.config.ts) combined with 519 other
+      // tests loading the same heavy import graph, observed
+      // wall-clock is consistently 50-70s on Windows — exactly at
+      // the default 60s cliff. 120s is well above worst-case observed
+      // and matches the global `testTimeout` default in
+      // vitest.config.ts:116. This is a budget, not a swallow —
+      // slice-014's Promise-propagation lesson is unrelated.
       const routeResult = await runCommand(['workflow', 'route', '--mode', 'code', '--code-mode', 'full-auto', '--goal', 'Fix checkout retry typo', '--json']);
       const routeOutput = parseJsonOutput<{ rdPlan: { reason?: string; swarmMode: boolean; tasks: Array<{ workerKind: string }> }; blockedReasons: string[] }>(routeResult.stdout);
       // Slice 2026-06-29-change-id-root-removal: with no change-id, the
@@ -479,7 +491,8 @@ describe('createProgram workflow commands', () => {
     } finally {
       cwdSpy.mockRestore();
     }
-  });
+  // Slice 016c — see budget note at the top of this test body.
+  }, 120_000);
 
   test('runs workflow planning for the current repository during workflow planning', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'peaks-loop-auto-workspace-project-'));
