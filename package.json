@@ -22,9 +22,10 @@
   },
   "files": [
     "bin/peaks.js",
-    "dist/src/cli/index.js",
-    "dist/src/**/*.js",
-    "dist/src/**/*.d.ts",
+    "dist/cli/index.js",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.md",
     "scripts/clean-dist.mjs",
     "scripts/copy-templates.mjs",
     "scripts/sync-version.mjs",

@@ -42,7 +42,7 @@ function copyTree(srcDir, destDir, extensions) {
 const targets = [
   {
     src: join(packageRoot, 'src/services/workspace/templates/project-scan'),
-    dest: join(packageRoot, 'dist/src/services/workspace/templates/project-scan'),
+    dest: join(packageRoot, 'dist/services/workspace/templates/project-scan'),
     extensions: ['.md']
   }
 ];
