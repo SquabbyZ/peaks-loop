@@ -234,12 +234,15 @@ export function registerSkillCommand(program: Command, io: ProgramIO): void {
       .command('presence:clear')
       .description('Clear the active Peaks skill presence indicator and update project context')
       .option('--project <path>', 'project root path (auto-detected from cwd when omitted)')
-  ).action((options: { project?: string; json?: boolean }) => {
+  ).action(async (options: { project?: string; json?: boolean }) => {
     const projectRoot = options.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
     const removed = clearSkillPresence(options.project);
-    // Auto-update project context so future sessions have up-to-date history
+    // Auto-update project context so future sessions have up-to-date history.
+    // Slice 2026-07-15-project-scan-bootstrap: generateProjectContext now also
+    // bootstraps `.peaks/project-scan/` (idempotent). Await the async
+    // signature; failure is still non-fatal so we don't block the clear.
     try {
-      generateProjectContext(projectRoot);
+      await generateProjectContext(projectRoot);
     } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       // non-fatal: context update failure should not block presence clear
     }

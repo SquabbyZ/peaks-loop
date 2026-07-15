@@ -2,10 +2,28 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { listSessionMetas } from '../session/session-manager.js';
 import { getSessionDir } from '../session/getSessionDir.js';
+import {
+  bootstrapProjectScan,
+  type BootstrapProjectScanEnvelope
+} from '../prd/project-scan-bootstrap-service.js';
 
 export type ProjectContextSection = {
   heading: string;
   body: string;
+};
+
+/**
+ * Slice 2026-07-15-project-scan-bootstrap (G1 + G2):
+ * generateProjectContext now also bootstraps the project-level
+ * `.peaks/project-scan/` artifact set. The envelope is returned
+ * alongside the context so `peaks project context` can surface
+ * `templatesBooted` / `templatesSkipped` / `durationMs` in its JSON.
+ */
+export type ProjectContextEnvelope = {
+  path: string;
+  content: string;
+  sessionCount: number;
+  projectScan: BootstrapProjectScanEnvelope;
 };
 
 const PROJECT_CONTEXT_FILE = '.peaks/PROJECT.md';
@@ -110,7 +128,7 @@ function buildSessionHistory(projectRoot: string): string {
 }
 
 
-export function generateProjectContext(projectRoot: string): { path: string; content: string; sessionCount: number } {
+export async function generateProjectContext(projectRoot: string): Promise<ProjectContextEnvelope> {
   const peaksDir = join(projectRoot, '.peaks');
   if (!existsSync(peaksDir)) {
     mkdirSync(peaksDir, { recursive: true });
@@ -150,7 +168,20 @@ export function generateProjectContext(projectRoot: string): { path: string; con
 
   writeFileSync(contextPath, content, 'utf8');
 
-  return { path: contextPath, content, sessionCount: listSessionMetas(projectRoot).length };
+  // Slice 2026-07-15-project-scan-bootstrap (G1 + G2):
+  // After writing PROJECT.md, also bootstrap `.peaks/project-scan/`
+  // (project-scan.md + 4 bundled audit/business templates). Idempotent
+  // — re-running this call does not overwrite existing files (unless
+  // the caller passes `force` / `forceTemplates`, which we do NOT do
+  // here; peaks workspace init owns the force variants).
+  const projectScan = await bootstrapProjectScan({ projectRoot });
+
+  return {
+    path: contextPath,
+    content,
+    sessionCount: listSessionMetas(projectRoot).length,
+    projectScan
+  };
 }
 
 export function readProjectContext(projectRoot: string): string | null {

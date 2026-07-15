@@ -2,12 +2,12 @@
 
 > Body of `## Library version awareness (3rd-party breaking-change gate)`. After `peaks scan libraries` lands the dependency list under `## Library versions` in `rd/project-scan.md`, RD MUST cross-check the slice's diff against `schemas/library-breaking-changes.data.json` before writing any 3rd-party API call. Concretely:
 
-1. **Read the project's `## Library versions` section** in `.peaks/_runtime/<sessionId>/rd/project-scan.md`. Identify the `name` + `major` of every dependency the slice imports from.
+1. **Read the project's `## Library versions` section** in `.peaks/project-scan/project-scan.md`. Identify the `name` + `major` of every dependency the slice imports from.
 2. **Open `schemas/library-breaking-changes.data.json`** (LLM reads via the `Read` tool). For each library where the installed `major` matches a `toMajor` in the table, load the corresponding `breakingChanges[]` list.
 3. **For each `import` statement in the slice's diff** (e.g. `import { Drawer } from 'antd'`), check whether the imported symbol or its prop signature matches any `breakingChanges[].api` entry for the library's installed major.
 4. **On a hit**:
    - **Warn the LLM in the slice's handoff**: in `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md` under `## Implementation evidence`, append a one-line note per hit: `- [lib-version] <library> <installed version> imports <api>; breaking-change rule says use <replacement> instead.`
-   - **Persist a `lesson` memory** at the END of `.peaks/_runtime/<sessionId>/rd/project-scan.md` (or the tech-doc, or the handoff — any of these is read by future RD runs):
+   - **Persist a `lesson` memory** at the END of `.peaks/project-scan/project-scan.md` (or the tech-doc, or the handoff — any of these is read by future RD runs):
      ```
      <!-- peaks-memory:start -->
      title: <library> <installed major> requires <api> → <replacement>

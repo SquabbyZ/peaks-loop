@@ -2,7 +2,9 @@
 
 > Extracted from `skills/peaks-code/SKILL.md` on 2026-06-09 (slice 019 — slim skill files to references) to keep SKILL.md under the 800-line cap from `common/coding-style.md`. The content below is the verbatim Pre-RD project scan checklist that was previously inline; nothing was paraphrased, just relocated.
 
-Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/_runtime/<sessionId>/rd/project-scan.md`. RD and UI roles read this before starting work. **project-scan.md is a session-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/_runtime/<sessionId>/rd/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
+Before handing off to `peaks-rd`, scan the project and record findings to `.peaks/project-scan/project-scan.md` (project-level, git-tracked; sibling of `.peaks/PROJECT.md`). RD and UI roles read this before starting work. **project-scan.md is a project-scoped singleton** — check if it already exists before regenerating (e.g. via `ls .peaks/project-scan/project-scan.md`). If it exists and is complete (has `## Archetype` and `## Project mode` sections), reuse it. Only regenerate if missing or incomplete.
+
+> **Slice 2026-07-15-project-scan-bootstrap (G1 + G2 + G4b):** `peaks workspace init` and `peaks project context` now both bootstrap `.peaks/project-scan/project-scan.md` automatically. On a brand-new 0-1 project (no `package.json` or no source files) the file is seeded with `archetype: unknown` + `(empty)` placeholder rows. On an existing project it is filled from `peaks scan archetype` + `peaks scan libraries` output. Idempotent — re-running `workspace init` does NOT overwrite the existing file unless `--force` is passed.
 
 ### 0. Project archetype detection (MANDATORY — run FIRST, deterministic CLI)
 

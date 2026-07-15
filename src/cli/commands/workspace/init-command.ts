@@ -39,6 +39,10 @@ import {
   markStandardsChecked
 } from '../../../services/standards/missing-standards-detector.js';
 import {
+  bootstrapProjectScan,
+  type BootstrapProjectScanEnvelope
+} from '../../../services/prd/project-scan-bootstrap-service.js';
+import {
   readDecisionMarker,
   writeDecisionMarker,
   promptYesNo,
@@ -86,6 +90,24 @@ export type WorkspaceInitOptions = {
    * `executeProjectStandardsInit({ projectRoot, apply: true })`.
    */
   initStandards?: boolean;
+  /**
+   * Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC9 / AC10):
+   * commander-style `--no-project-scan-bootstrap` opt-out. Default
+   * (no flag) leaves this `undefined` (treated as `true`). Pass the
+   * flag to set `options.projectScanBootstrap === false`, which the
+   * caller reads as `=== false` to skip the bootstrap call.
+   */
+  projectScanBootstrap?: boolean;
+  /**
+   * Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC10):
+   * `--force-project-scan-templates` flag. Default (no flag)
+   * leaves this `undefined`. Pass the flag to set
+   * `options.forceProjectScanTemplates === true`, which forces the
+   * bootstrap service to overwrite the 4 bundled audit/business
+   * templates even when they already exist (sediment is preserved
+   * otherwise).
+   */
+  forceProjectScanTemplates?: boolean;
 };
 
 /**
@@ -157,6 +179,15 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
       .option(
         '--init-standards',
         'slice 2026-06-16-peaks-code-auto-scaffold: when the consumer project\'s .claude/rules/ is missing or empty, auto-apply `peaks standards init --project <path> --apply` after emitting the diagnostic. Default: diagnostic only (no write).'
+      )
+      .option(
+        '--no-project-scan-bootstrap',
+        'slice 2026-07-15-project-scan-bootstrap: skip the bootstrap of .peaks/project-scan/{project-scan.md + 4 audit/business templates} that runs after init succeeds. Default: bootstrap runs (idempotent: existing files are kept unless --force-project-scan-templates is also passed).'
+      )
+      .option(
+        '--force-project-scan-templates',
+        'slice 2026-07-15-project-scan-bootstrap (AC10): overwrite the 4 audit/business templates under .peaks/project-scan/ (business-knowledge.md, security-template.md, perf-template.md, audit-output-schema.md) even when they already exist. Default: skip existing files (sediment-preserved).',
+        false
       )
   ).action(async (options: WorkspaceInitOptions) => {
     try {
@@ -231,6 +262,43 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         // also run `executeProjectStandardsInit({ apply: true })`.
         initStandards: options.initStandards === true
       });
+
+      // Slice 2026-07-15-project-scan-bootstrap (G2 / G4b / AC9):
+      // After the workspace dir is initialized, also bootstrap the
+      // `.peaks/project-scan/` artifact tree (project-scan.md + 4
+      // bundled audit/business templates). Idempotent — when the user
+      // re-runs `workspace init`, the existing files are kept (their
+      // sediment is user-authored). Pass `--no-project-scan-bootstrap`
+      // to skip, or `--force-project-scan-templates` to overwrite the
+      // 4 bundled templates anyway.
+      let projectScanEnvelope: BootstrapProjectScanEnvelope | null = null;
+      let projectScanError: string | null = null;
+      if (options.projectScanBootstrap === false) {
+        // Explicit opt-out. The envelope stays null; the JSON
+        // response carries `projectScan: { skipped: true, ... }` so
+        // callers can distinguish "skipped by flag" from "skipped by
+        // idempotency".
+        projectScanEnvelope = {
+          created: false,
+          skipped: true,
+          templatesBooted: 0,
+          templatesSkipped: 0,
+          projectScanPath: `${projectRoot}/.peaks/project-scan/project-scan.md`,
+          durationMs: 0
+        };
+      } else {
+        try {
+          projectScanEnvelope = await bootstrapProjectScan({
+            projectRoot,
+            ...(options.forceProjectScanTemplates === true ? { forceTemplates: true } : {})
+          });
+        } catch (error) {
+          // Don't fail init over a project-scan issue — the workspace
+          // is already initialized and the user has the JSON envelope.
+          // Surface the failure as a warning so the LLM can decide.
+          projectScanError = getErrorMessage(error);
+        }
+      }
       const nextActions: string[] = [];
       if (report.previousSessionId !== null && report.bound) {
         nextActions.push(`Replaced prior session binding "${report.previousSessionId}" with "${report.sessionId}".`);
@@ -338,6 +406,14 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
         );
       }
 
+      // Slice 2026-07-15-project-scan-bootstrap (G2): surface the
+      // bootstrap outcome. The envelope carries the write counts and
+      // duration so the LLM (and the human) see what landed. The
+      // nextAction only fires when the project-scan tree is fresh —
+      // idempotent re-runs are silent to keep the nextAction list
+      // scannable.
+      // (deferred until after warningsForEnvelope is declared below)
+
       // First-time hooks install decision. Sticky-marker at
       // .peaks/.peaks-init-hooks-decision.json records the user's answer
       // (or the auto-decision) so subsequent inits for new sessions in the
@@ -388,6 +464,22 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
             `kept ${report.standardsApplied.skippedFiles.length} existing file(s).`
         );
       }
+
+      // Slice 2026-07-15-project-scan-bootstrap (G2): surface the
+      // bootstrap outcome. The envelope carries the write counts and
+      // duration so the LLM (and the human) see what landed. The
+      // nextAction only fires when the project-scan tree is fresh —
+      // idempotent re-runs are silent to keep the nextAction list
+      // scannable.
+      if (projectScanError !== null) {
+        warningsForEnvelope.push(`project-scan bootstrap failed: ${projectScanError}`);
+      } else if (projectScanEnvelope !== null && projectScanEnvelope.created) {
+        nextActions.push(
+          `Bootstrapped .peaks/project-scan/ (project-scan.md + 4 audit/business templates) — ` +
+            `${projectScanEnvelope.templatesBooted} file(s) written, ${projectScanEnvelope.templatesSkipped} preserved. ` +
+            `Run \`peaks scan archetype --project ${projectRoot}\` and \`peaks scan libraries --project ${projectRoot}\` next to refresh the scan.`
+        );
+      }
       // Write the once-per-session marker AFTER the envelope is built
       // (so subsequent inits skip the warning even on rapid back-to-back
       // calls).
@@ -412,7 +504,14 @@ export function registerWorkspaceInitCommand(workspace: Command, io: ProgramIO):
               action: hooksOutcome.action,
               scope: hooksOutcome.scope,
               ...(hooksOutcome.reason !== undefined ? { reason: hooksOutcome.reason } : {})
-            }
+            },
+            // Slice 2026-07-15-project-scan-bootstrap (G2): envelope
+            // for the .peaks/project-scan/ bootstrap. Always present
+            // (even when skipped / errored) so downstream readers can
+            // rely on the shape.
+            ...(projectScanEnvelope !== null
+              ? { projectScan: { ...projectScanEnvelope, ...(projectScanError !== null ? { error: projectScanError } : {}) } }
+              : {})
           },
           warningsForEnvelope,
           nextActions

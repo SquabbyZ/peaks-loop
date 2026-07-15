@@ -26,8 +26,8 @@ peaks skill runbook peaks-code --json
 peaks workspace init --project <repo> --json
 peaks workspace reconcile --project <repo> --json
 peaks scan archetype --project <repo> --json
-# → copy archetype, frontendOnly, signals into .peaks/_runtime/<session-id>/rd/project-scan.md (Peaks-Loop Gate A)
-# → copy libraries[] into .peaks/_runtime/<session-id>/rd/project-scan.md under `## Library versions`
+# → copy archetype, frontendOnly, signals into .peaks/project-scan/project-scan.md (Peaks-Loop Gate A; project-level, git-tracked — slice 2026-07-15-project-scan-bootstrap G1)
+# → copy libraries[] into .peaks/project-scan/project-scan.md under `## Library versions`
 peaks scan libraries --project <repo> --json
 # → if archetype != greenfield AND archetype != unknown:
 peaks scan existing-system --project <repo> --json

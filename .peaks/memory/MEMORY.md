@@ -38,6 +38,7 @@
 - [peaks-loop-install-model-getstrongestmodelid-fallback](peaks-loop-install-model-getstrongestmodelid-fallback.md) — peaks-loop install 不再写死默认 model,改运行时探测(getStrongestModelId 三层 fallback)(2026-07-09 lesson)。
 - [desktop-application-ide-adapter-z-code-cli](desktop-application-ide-adapter-z-code-cli.md) — desktop-application 类 IDE adapter 字段降级决策(z-code 非 CLI)(2026-07-09 lesson)。
 - [peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010](peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md) — peaks-code runbook 4.0.0-beta.6 SKILL.md 与实际 CLI 多处偏离(2026-07-09 lesson)。
+- [2026-07-15-project-scan-bootstrap](2026-07-15-project-scan-bootstrap.md) — slice 2026-07-15:项目扫描产物路径从 .peaks/_runtime/<sid>/rd/project-scan.md 改为 .peaks/project-scan/project-scan.md;peaks workspace init 触发;0-1 写空模板;5 文件 boot(含 audit/business 模板);build script 加 copy-templates.mjs 防模板漂移;RD→QA verdict=pass,20/20 vitest,CLI 验证全过(2026-07-15 lesson)。
 - [peaks-ide-runtime-detect-zcode-only](peaks-ide-runtime-detect-zcode-only.md) — `peaks ide model --current` 运行时探测 z-code 当前激活 model(4-tier 优先级链,实测命中 P2 返回 `"M3"`)(2026-07-09 lesson)。
 - [ide-adapter-detectcurrentmodel-optional-interface-pattern](ide-adapter-detectcurrentmodel-optional-interface-pattern.md) — IdeAdapter interface 加 optional `detectCurrentModel?` 字段的扩展模式(back-compat + vendor-neutrality + 异步隔离)(2026-07-09 pattern)。
 

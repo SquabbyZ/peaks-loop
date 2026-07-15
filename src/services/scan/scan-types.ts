@@ -3,6 +3,7 @@ export type ProjectArchetype =
   | 'legacy-frontend'
   | 'legacy-fullstack'
   | 'frontend-monorepo'
+  | 'fullstack-monorepo'
   | 'unknown';
 
 export type ArchetypeSignal = {

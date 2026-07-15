@@ -29,7 +29,7 @@ When Peaks-Loop Code coordinates development in a code repository, keep this ord
 
 0. **Peaks-Loop Snapshot** — `peaks doctor` + `peaks project dashboard` to capture baseline state before anything else;
 0.5. **Peaks-Loop Workspace initialization** — `.peaks/_runtime/<session-id>/` created, directory structure verified;
-0.6. **Peaks-Loop Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/_runtime/<session-id>/rd/project-scan.md`;
+0.6. **Peaks-Loop Project scan** — archetype, component library, CSS framework, build tool, state management, routing, data fetching, legacy signals detected and recorded to `.peaks/project-scan/project-scan.md`;
 0.7. **Peaks-Loop Existing-system extraction** (MANDATORY when archetype ∈ {legacy-frontend, legacy-fullstack, frontend-monorepo}; SKIP for greenfield) — extract visual tokens and code conventions from the live codebase to `.peaks/_runtime/<session-id>/system/existing-system.md`. The path lives under `system/` (not `ui/`) because the file also records non-UI conventions (service-layer signatures, hooks, naming) that backend-only or legacy-fullstack work consumes. See `references/existing-system-extraction.md`. UI design-draft and RD implementation MUST treat the extracted tokens and conventions as hard constraints;
 1. **Peaks-Loop Standards preflight** — `peaks standards init/update --dry-run`, must reference concrete project-scan findings (never emit generic templates);
 2. **Peaks-Loop PRD phase** — capture request as canonical artifact, extract scope and acceptance criteria:
@@ -54,8 +54,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` comma
 
 **Peaks-Loop Gate A — After workspace init + project scan:**
 ```bash
-ls .peaks/_runtime/<sessionId>/rd/project-scan.md
-# Expected output: .peaks/_runtime/<sessionId>/rd/project-scan.md
+ls .peaks/project-scan/project-scan.md
+# Expected output: .peaks/project-scan/project-scan.md
 # "No such file" → STOP, run project scan first
 # File present but missing `## Archetype` or `## Project mode` sections → INCOMPLETE, rerun scan
 # File present and complete → reuse (project-scan is a session-scoped singleton)

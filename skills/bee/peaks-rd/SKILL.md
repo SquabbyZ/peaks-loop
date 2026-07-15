@@ -185,7 +185,7 @@ Peaks-Loop PRD/RD/QA gates remain authoritative: OpenSpec structures the durable
 
 ## Mock data placement rules (BLOCKING — framework-aware)
 
-When the project-scan in `.peaks/_runtime/<sessionId>/rd/project-scan.md` identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
+When the project-scan in `.peaks/project-scan/project-scan.md` (project-level, git-tracked; slice 2026-07-15-project-scan-bootstrap) identifies a frontend framework, mock data MUST follow the framework's built-in mock mechanism. **Never write mock data inline in component files.**
 
 → see `references/mock-data-placement.md` for the framework-to-mock-directory mapping + hard rules + verification gate.
 

@@ -96,10 +96,10 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     project
       .command('context')
-      .description('Generate or read persistent project context for cross-session Peaks understanding')
+      .description('Generate or read persistent project context for cross-session Peaks understanding. Generates BOTH `.peaks/PROJECT.md` (session history) AND `.peaks/project-scan/project-scan.md` (tech stack + archetypes) — see `peaks workspace init` for the full 5-template boot (G4b/AC9).')
       .requiredOption('--project <path>', 'target project root')
       .option('--read', 'read existing PROJECT.md without regenerating')
-  ).action((options: { project: string; read?: boolean; json?: boolean }) => {
+  ).action(async (options: { project: string; read?: boolean; json?: boolean }) => {
     try {
       if (options.read) {
         const content = readProjectContext(options.project);
@@ -110,11 +110,16 @@ export function registerProjectCommands(program: Command, io: ProgramIO): void {
         printResult(io, ok('project.context', { exists: true, path: `${options.project}/.peaks/PROJECT.md`, content }), options.json);
         return;
       }
-      const result = generateProjectContext(options.project);
+      const result = await generateProjectContext(options.project);
       printResult(io, ok('project.context', {
         path: result.path,
         sessionCount: result.sessionCount,
-        content: result.content
+        content: result.content,
+        // Slice 2026-07-15-project-scan-bootstrap (G1 + G2): the
+        // context command also bootstraps the project-scan tree.
+        // The envelope surfaces write counts + duration so the LLM
+        // (and the user) see what landed.
+        projectScan: result.projectScan
       }), options.json);
     } catch (error) {
       printResult(io, fail('project.context', 'PROJECT_CONTEXT_FAILED', getErrorMessage(error), { projectRoot: options.project }, ['Check the project path and .peaks directory']), options.json);

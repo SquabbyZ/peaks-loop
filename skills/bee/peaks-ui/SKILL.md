@@ -138,7 +138,7 @@ peaks request show <request-id> --role prd --project <repo> --json   # read link
 # browser-launch substitute (it cannot launch a browser of its own).
 
 # 3. read project-scan for component library and CSS framework context
-#    check .peaks/_runtime/<session-id>/rd/project-scan.md (blocking if missing for existing projects)
+#    check .peaks/project-scan/project-scan.md (blocking if missing for existing projects)
 #    NOTE: project-scan.md is a session-scoped singleton — check before regenerating. Reuse if complete.
 
 # 4. PROTOTYPE FIDELITY CHECK (MANDATORY before any design work):
@@ -319,7 +319,7 @@ Every UI invocation touching user-visible behavior MUST produce a design-draft a
 8. **Anti-template checklist** — which generic patterns were rejected.
 
 **Component library awareness rules:**
-- Read `.peaks/_runtime/<session-id>/rd/project-scan.md` before proposing UI changes.
+- Read `.peaks/project-scan/project-scan.md` before proposing UI changes.
 - antd → `theme.token`, `className`/`styles` APIs; no TailwindCSS utilities on antd components.
 - MUI → `sx` prop, `styled()`, `theme`; no TailwindCSS utilities on MUI components.
 - shadcn/ui → TailwindCSS utility classes + existing shadcn variants (expected pattern).

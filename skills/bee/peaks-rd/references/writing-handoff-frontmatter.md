@@ -33,7 +33,7 @@ nextActions:
   - "peaks-qa reads this handoff and runs the regression matrix"
   - "If Gate C passes, transition to txt handoff"
 gateEvidence:
-  projectScan: .peaks/_runtime/<sessionId>/rd/project-scan.md
+  projectScan: .peaks/project-scan/project-scan.md
   prdHandoff: .peaks/_runtime/<sessionId>/prd/handoff.md
   codeReview: .peaks/_runtime/<sessionId>/rd/code-review.md
   securityReview: .peaks/_runtime/<sessionId>/rd/security-review.md

@@ -196,8 +196,20 @@ function decideArchetype(
     return { archetype: 'unknown', confidence: 'low', signals };
   }
 
-  if (detected.hasMonorepoConfig && !hasBackend) {
-    return { archetype: 'frontend-monorepo', confidence: 'high', signals };
+  // Monorepo detection runs BEFORE the backend check: a monorepo with
+  // a packages/server dir is a fullstack-monorepo, NOT legacy-fullstack.
+  // Slice 2026-07-15 ice-cola hot-fix: previously a monorepo with a
+  // backend sub-package fell through to `legacy-fullstack` because
+  // `hasBackend` includes `backendDirsPresent.length > 0`, which the
+  // L199 guard above couldn't handle. We now treat `hasMonorepoConfig`
+  // as a top-level classifier: any monorepo with a backend sub-package
+  // is `fullstack-monorepo`; without a backend it is `frontend-monorepo`.
+  if (detected.hasMonorepoConfig) {
+    return {
+      archetype: hasBackend ? 'fullstack-monorepo' : 'frontend-monorepo',
+      confidence: 'high',
+      signals
+    };
   }
 
   if (hasBackend && detected.srcFileCount >= 20) {

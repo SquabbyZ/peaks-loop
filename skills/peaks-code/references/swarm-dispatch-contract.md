@@ -184,7 +184,7 @@ A skill cannot itself trigger sub-agents — the Skill tool runs in the main loo
    - `feature` / `refactor` / `bugfix` → RD(planning) and QA(test-cases) are always in the swarm
    - `config` / `docs` / `chore` → no swarm. RD/QA artefacts are not required by Gates B/C/D for these types. Skip the Swarm phase entirely and proceed to step 4 (RD implementation) with only the PRD in hand.
 3. **Frontend touch** — does the request affect user-visible behavior? This is decided by:
-   - Reading `.peaks/_runtime/<sessionId>/rd/project-scan.md` `## Project mode` for `frontendOnly` (project-shape signal)
+   - Reading `.peaks/project-scan/project-scan.md` `## Project mode` for `frontendOnly` (project-shape signal)
    - **AND** scanning the PRD body for frontend keywords: 页面 / 组件 / 表单 / 弹窗 / 表格 / 样式 / 布局 / 交互 / UI / UX / page / component / form / modal / table / styling / layout / interaction
    - UI joins the swarm when (a) is `true` OR (b) matches. Both signals required `false` to skip UI.
 

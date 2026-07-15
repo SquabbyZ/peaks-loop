@@ -19,8 +19,8 @@ You cannot declare a phase complete from memory. Each gate below is a `ls` or `g
 
 **Peaks-Loop Gate A — After project-scan read (before any implementation):**
 ```bash
-ls .peaks/_runtime/<sessionId>/rd/project-scan.md
-# Expected output: .peaks/_runtime/<sessionId>/rd/project-scan.md
+ls .peaks/project-scan/project-scan.md
+# Expected output: .peaks/project-scan/project-scan.md
 # "No such file" → STOP, create the project-scan first. Do not write code.
 ```
 

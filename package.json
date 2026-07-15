@@ -26,6 +26,7 @@
     "dist/src/**/*.js",
     "dist/src/**/*.d.ts",
     "scripts/clean-dist.mjs",
+    "scripts/copy-templates.mjs",
     "scripts/sync-version.mjs",
     "scripts/install-skills.mjs",
     "scripts/watch.mjs",
@@ -46,7 +47,7 @@
     "examples/video-demo/out/en-closing-960.png"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && node ./scripts/copy-templates.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",
