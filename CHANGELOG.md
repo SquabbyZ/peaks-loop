@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.9 — 2026-07-15
+
+### Fixed — `npm install peaks-loop` runtime path layout
+
+`4.0.0-beta.8` shipped a tarball where `bin/peaks.js` imported
+`'../dist/src/cli/index.js'`, but tsc actually emitted the runtime
+files at `dist/cli/index.js` (rootDir walked past `src/` because of
+cross-folder imports like `src/services/hooks/output.ts → ../../cli/`).
+Downstream `npm i -g peaks-loop` then `peaks -v` failed with
+`ERR_MODULE_NOT_FOUND: .../dist/src/cli/index.js`. The 4 audit/business
+templates also failed to enter the tarball because `package.json#files[]`
+whitelisted `dist/src/**/*.js` / `.d.ts` but never `.md`.
+
+This release:
+
+- `bin/peaks.js` import: `'../dist/src/cli/index.js'` → `'../dist/cli/index.js'`.
+- `scripts/copy-templates.mjs` dest: `dist/src/services/...` →
+  `dist/services/...` so the bundled templates land where the runtime
+  `import.meta.url` resolver expects them.
+- `package.json#files[]`: prefixes shifted from `dist/src/` to `dist/`,
+  plus a new `dist/**/*.md` entry so the 4 templates bundled by
+  `copy-templates.mjs` actually ship.
+- `tsconfig.build.json` (introduced in beta.8) confirmed correct — it
+  is the build-time emit that controls the dist tree shape.
+
+End-to-end smoke after the fix (local):
+
+```
+$ npm pack                                  # 30 MB tarball
+$ npm install ./peaks-loop-4.0.0-beta.9.tgz --prefix /tmp/test
+$ peaks --version                           # → "4.0.0-beta.9"
+$ peaks workspace init --project /tmp/fresh  # → templatesBooted: 5
+```
+
+`.peaks/project-scan/{project-scan.md, business-knowledge.md,
+security-template.md, perf-template.md, audit-output-schema.md}`
+all present after a fresh workspace init.
+
+### Notes
+
+- 4.0.0-beta.8 is left in place on npm as a known-broken release.
+  Consumers who already pinned `peaks-loop@4.0.0-beta.8` should bump
+  to `4.0.0-beta.9`.
+- Beta.9 contains everything beta.8 advertised plus the path fix.
+
 ## 4.0.0-beta.8 — 2026-07-15
 
 ### Added — project-scan bootstrap (slice 2026-07-15)
