@@ -4,6 +4,7 @@
 
 ## 4.x sediment-pool
 
+- [cli-cleanup-on-demand-ecc-design-2026-07-16](cli-cleanup-on-demand-ecc-design-2026-07-16.md) — peaks-loop 4.0.0-beta.10 cli-surface-cleanup-and-on-demand-ecc 3-slice 设计 sediment,含 affaan-m/ECC 不是 npm、Gate S3-0 (缺 ecc agent run CLI)、真实隐藏入口数=10、合并顺序 1→2→3（2026-07-16）。
 - [4x-sediment-pool-reserves-desktop-client-entry-points](4x-sediment-pool-reserves-desktop-client-entry-points.md) — 4.x pool + CLI + adapter 对未来桌面客户端天然预留的 4 个契约面（2026-07-04 user note）。
 - [peaks-loop-is-enhancement-not-new-cli](peaks-loop-is-enhancement-not-new-cli.md) — peaks-loop = 现有 AI CLI 之上的增强层,不造新 AI CLI（2026-07-04 user note）。
 - [human-nl-choice-only-tenet](human-nl-choice-only-tenet.md) — 项目元规则: 人参与决策 = 选择 / 自然语言描述,user 不敲 CLI 也不手写 JSON（2026-07-04 user note,优先级最高）。

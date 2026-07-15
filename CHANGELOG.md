@@ -2,6 +2,140 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.10 — 2026-07-16
+
+### Status: PRE-IMPLEMENTATION
+
+> **This CHANGELOG entry documents the CONTRACT for 4.0.0-beta.10.
+> The 3 slices below are NOT YET IMPLEMENTED in this branch.**
+> See `docs/release/4.0.0-beta.10.md` for the user-facing runbook
+> and `peaks workflow verify-pipeline --rid 2026-07-15-cli-surface-cleanup`
+> for the pre-implementation gate (9/9 gates PASS).
+>
+> **Ship path**: user implements Slices 1+2+3 per the runbook,
+> runs `pnpm test:full` + manual AC verification, then runs
+> `npm publish --tag beta`. No code change is included in the
+> sediment/version-bump commit that produced this CHANGELOG.
+
+### Removed — `peaks minimax-worker` (Slice 1)
+
+- **`peaks minimax-worker` CLI removed** — historical MiniMax
+  provider integration. `peaks minimax-worker --help` now exits
+  non-zero with `COMMAND_NOT_FOUND`.
+- **`peaks worker minimax` CLI removed** — same module.
+- **`peaks config provider minimax *` subtree removed** —
+  `peaks config provider minimax set --help` exits non-zero.
+- **6 source files deleted**:
+  - `src/cli/commands/worker-commands.ts`
+  - `src/services/providers/minimax-provider-service.ts`
+  - `src/services/providers/minimax-worker-service.ts`
+  - `src/services/config/provider-service.ts` (entire file; 100% MiniMax)
+  - `tests/unit/minimax-worker-service.test.ts`
+  - `tests/unit/minimax-provider-service.test.ts`
+- **~21 source files modified** (drop imports, drop function bodies,
+  drop registrations, replace `'minimax-2.7'` literal with
+  `'claude-opus-4-7'` in 5 files).
+- **~8 test files modified** (drop MiniMax cases; replace literal in 3).
+- **4 openspec files updated** (1-line wording fixes).
+- **Net security improvement**: smaller secret-handling surface
+  (5 MiniMax functions removed).
+
+### Changed — 10 role-skill CLI commands hidden (Slice 2)
+
+- **10 top-level role-skill CLI commands** now hidden from `peaks --help`
+  via `Commander.hidden()`. Still invokable for internal
+  `peaks sub-agent dispatch --role <role>` paths. Final canonical
+  list (per QA grep audit):
+  - `peaks prd`
+  - `peaks qa`
+  - `peaks sc`
+  - `peaks audit`
+  - `peaks code-review`
+  - `peaks perf-audit`
+  - `peaks security-audit`
+  - `peaks upgrade`
+  - `peaks agent`
+  - `peaks code`
+- **`peaks skill list`** now excludes skills with
+  `visibility: internal` frontmatter. Use `--include-internal` to opt in.
+- **`peaks skill search`** accepts `--include-internal` flag.
+- **8 SKILL.md files** updated to add/rename `visibility: internal`:
+  `peaks-prd`, `peaks-qa`, `peaks-rd`, `peaks-sc`, `peaks-ui`,
+  `peaks-txt`, `peaks-final-review`, `peaks-perf-audit`,
+  `peaks-security-audit`.
+- **Integration test rewritten**:
+  `tests/integration/skill-search-cli.test.ts:72-79` now asserts
+  the new `visibility:` frontmatter field instead of legacy
+  `userInvocable`.
+
+### Added — `peaks ecc install|status|ls|show` (Slice 3)
+
+> **PIVOT vs initial design**: Originally Slice 3 was supposed to
+> spawn `<cached>/ecc agent run <name> --json` as a subprocess.
+> RD sub-agent triggered **Gate S3-0**: affaan-m/everything-claude-code
+> has no `ecc` binary; its real structure is `agents/*.md` flat
+> + SKILL.md descriptors. User chose Option B — drop the subprocess
+> model entirely.
+
+- **`peaks ecc install`** — downloads affaan-m/everything-claude-code
+  from GitHub releases to `~/.peaks/cache/ecc-<sha>/`. Selective
+  tarball extraction: ONLY `agents/` subtree (skip `rules/`,
+  `commands/`, `settings/`, `docs/`, `README.md`).
+- **`peaks ecc status`** — reads cache manifest, reports version + sha
+  + agent count.
+- **`peaks ecc ls`** — lists cached agents by parsing `agents/*.md`
+  frontmatter.
+- **`peaks ecc show <name>`** — outputs the agent's SKILL.md body
+  to stdout. LLM-side consumers (Skill-first path) read this output
+  to apply the agent's instructions.
+- **3 source files deleted** (with Slice 1):
+  - `src/cli/commands/agent-commands.ts` (the old `peaks agent run/list`)
+  - `src/services/agent/ecc-agent-service.ts` (the spawn orchestrator)
+  - `tests/unit/services/agent/ecc-agent-service.test.ts`
+- **3 new source files**:
+  - `src/services/agent/ecc-cache-service.ts` — pure-IO cache module
+    (`downloadToCache`, `readCacheManifest`, `listCachedAgents`,
+    `readAgentSkill`, `cleanupStaleCache`)
+  - `src/cli/commands/ecc-commands.ts` — 4 subcommands
+  - `tests/unit/agent/ecc-cache-service.test.ts`
+- **Dead-probes removed**:
+  - `npx ecc --version` probe (was: never worked; affaan-m/ECC not on npm)
+  - `npx ecc-agentshield --version` probe in
+    `src/services/audit/static-service.ts:104` (parallel fix)
+- **7-day cache TTL** via `bootstrapLogger.applyRetention` sweep
+  (wired at `src/cli/program.ts:121`). NOT via
+  `peaks doctor --cleanup-stale` (which is bound to `dropStale()`
+  for the binding store).
+
+### Removed — `peaks agent run` and `peaks agent list`
+
+- **`peaks agent run <name>` exits non-zero with `COMMAND_NOT_FOUND`**.
+- **`peaks agent list` exits non-zero with `COMMAND_NOT_FOUND`**.
+- **No replacement CLI** — LLM-side consumers use
+  `peaks ecc show <name>` or read `<cache>/agents/<name>.md` directly.
+
+### Net security / performance impact
+
+- **Security**: 0 subprocess attack surface (was: 1 per call in beta.9);
+  smaller secret-handling surface (5 MiniMax functions removed).
+- **Performance**: cache-dir probe is pure read (<15ms vs ~500ms
+  for the npm-registry probe in beta.9); selective tarball extraction
+  saves ~95% disk footprint.
+
+### Pre-implementation gate
+
+`peaks workflow verify-pipeline --rid 2026-07-15-cli-surface-cleanup`
+returns `ok: true, complete: true, violations: []` (9/9 gates PASS).
+This CHANGELOG entry is the contract; the actual implementation
+follows the runbook in `docs/release/4.0.0-beta.10.md`.
+
+### Acceptance criteria
+
+27 ACs total: 7 (Slice 1) + 8 (Slice 2) + 11 (Slice 3 redesign + 1).
+Full list in `docs/release/4.0.0-beta.10.md` §Acceptance criteria.
+
+---
+
 ## 4.0.0-beta.9 — 2026-07-15
 
 ### Fixed — `npm install peaks-loop` runtime path layout
