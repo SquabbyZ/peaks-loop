@@ -72,7 +72,9 @@ function warnUnregisteredIde(ideId: IdeId, projectRoot: string): void {
 function warnNoIdeDetected(projectRoot: string): void {
   process.stderr.write(
     `peaks standards: no IDE detected in '${projectRoot}'; ` +
-      `writing to the legacy Claude Code path (CLAUDE.md + .claude/rules/**). ` +
+      `writing to the 2.0 canonical path (CLAUDE.md + .peaks/standards/**). ` +
+      `Projects with a legacy 1.x thick .claude/rules/ tree keep that layout ` +
+      `(use \`peaks standards migrate --from-claude-rules\` to converge to 2.0). ` +
       `Pass --ide <id> to bypass detection.\n`
   );
 }

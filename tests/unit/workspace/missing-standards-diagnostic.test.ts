@@ -55,23 +55,25 @@ describe('workspace init — missing-standards diagnostic (slice 2026-06-16-peak
     rmSync(project, { recursive: true, force: true });
   });
 
-  test('AC1 — empty .claude/rules/ → report.standardsMissing is populated', async () => {
+  test('AC1 — empty project tree → report.standardsMissing is populated (2.0 canonical path)', async () => {
     const report = await initWorkspace({ projectRoot: project, sessionId: '2026-06-16-test-diagnostic' });
 
     expect(report.standardsMissing).toBeDefined();
     expect(report.standardsMissing?.missing).toBe(true);
-    expect(report.standardsMissing?.path).toContain('.claude');
-    expect(report.standardsMissing?.path).toContain('rules');
+    // 2.0 canonical location: `.peaks/standards/` (slice 2026-07-15).
+    expect(report.standardsMissing?.path).toContain('.peaks');
+    expect(report.standardsMissing?.path).toContain('standards');
     expect(report.standardsMissing?.remediation).toContain('peaks standards init');
     expect(report.standardsMissing?.remediation).toContain('--init-standards');
   });
 
-  test('AC2 — populated .claude/rules/ → report.standardsMissing has missing=false', async () => {
-    // Pre-populate both required dirs with at least one .md file.
-    mkdirSync(join(project, '.claude', 'rules', 'common'), { recursive: true });
-    writeFileSync(join(project, '.claude', 'rules', 'common', 'coding-style.md'), '# common rules');
-    mkdirSync(join(project, '.claude', 'rules', 'typescript'), { recursive: true });
-    writeFileSync(join(project, '.claude', 'rules', 'typescript', 'coding-style.md'), '# ts rules');
+  test('AC2 — populated .peaks/standards/ → report.standardsMissing has missing=false', async () => {
+    // Pre-populate both required dirs (common + language pack) with at
+    // least one .md file at the 2.0 canonical location.
+    mkdirSync(join(project, '.peaks', 'standards', 'common'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'common', 'coding-style.md'), '# common rules');
+    mkdirSync(join(project, '.peaks', 'standards', 'typescript'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'typescript', 'coding-style.md'), '# ts rules');
 
     const report = await initWorkspace({ projectRoot: project, sessionId: '2026-06-16-test-populated' });
 
@@ -79,7 +81,7 @@ describe('workspace init — missing-standards diagnostic (slice 2026-06-16-peak
     expect(report.standardsMissing?.missing).toBe(false);
   });
 
-  test('AC3 — initStandards=true auto-applies the scaffold', async () => {
+  test('AC3 — initStandards=true auto-applies the scaffold to the 2.0 canonical tree', async () => {
     const sessionId = '2026-06-16-test-init-stds';
     // Pre-create a package.json so detectLanguage picks 'javascript' (the
     // empty-dir test project would otherwise resolve to 'generic', which
@@ -98,9 +100,11 @@ describe('workspace init — missing-standards diagnostic (slice 2026-06-16-peak
     expect(report.standardsApplied).toBeDefined();
     expect(report.standardsApplied?.writtenFiles.length).toBeGreaterThan(0);
 
-    // After apply, the on-disk rules tree is populated.
-    expect(existsSync(join(project, '.claude', 'rules', 'common', 'coding-style.md'))).toBe(true);
-    expect(existsSync(join(project, '.claude', 'rules', report.standardsApplied!.language, 'coding-style.md'))).toBe(true);
+    // After apply, the on-disk 2.0 canonical tree is populated
+    // (slice 2026-07-15: init now writes `.peaks/standards/`, not
+    // `.claude/rules/`).
+    expect(existsSync(join(project, '.peaks', 'standards', 'common', 'coding-style.md'))).toBe(true);
+    expect(existsSync(join(project, '.peaks', 'standards', report.standardsApplied!.language, 'coding-style.md'))).toBe(true);
   });
 
   test('AC4 — envelope shape: data.standardsMissing carries the structured descriptor and warnings[] has the copy-paste hint', async () => {

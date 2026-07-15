@@ -192,12 +192,12 @@ describe('project-standards write-path containment guard (slice 2026-06-16-rules
     }
   });
 
-  // Edge case: writing inside `.claude/` but at the project level (not
-  // homedir) must still pass. This is the happy path.
-  test('writes inside project-local .claude/rules/ are allowed', () => {
+  // Edge case: writing inside `.peaks/standards/` but at the project level (not
+  // homedir) must still pass. This is the happy path on a new project.
+  test('writes inside project-local .peaks/standards/ are allowed', () => {
     writeFileSync(join(projectRoot, 'tsconfig.json'), '{}', 'utf8');
     expect(() => executeProjectStandardsInit({ projectRoot, apply: true })).not.toThrow();
-    expect(existsSync(join(projectRoot, '.claude', 'rules', 'common', 'coding-style.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.peaks', 'standards', 'common', 'coding-style.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
   });
 
@@ -251,8 +251,8 @@ describe('project-standards write-path containment guard (slice 2026-06-16-rules
       ).not.toThrow();
       // The 5 files were written INSIDE the project, not in the synthetic home.
       expect(existsSync(join(subdir, 'CLAUDE.md'))).toBe(true);
-      expect(existsSync(join(subdir, '.claude', 'rules', 'common', 'coding-style.md'))).toBe(true);
-      expect(existsSync(join(subdir, '.claude', 'rules', 'typescript', 'coding-style.md'))).toBe(true);
+      expect(existsSync(join(subdir, '.peaks', 'standards', 'common', 'coding-style.md'))).toBe(true);
+      expect(existsSync(join(subdir, '.peaks', 'standards', 'typescript', 'coding-style.md'))).toBe(true);
     } finally {
       rmSync(subdir, { recursive: true, force: true });
     }

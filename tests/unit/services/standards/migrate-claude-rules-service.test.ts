@@ -97,7 +97,10 @@ describe('migrateClaudeRules — empty / thick / re-run / readonly / no-existing
     const first = migrateClaudeRules({ projectRoot, apply: true });
     const second = migrateClaudeRules({ projectRoot, apply: true });
     // Second run sees .claude/rules/ is already thinned (2-line pointers)
-    // — should report wouldChange=false for the thinning step.
+    // AND the backup dir is excluded from the thick-files scan
+    // (slice 2026-07-15-ice-cola-dogfood: backup files are real
+    // content, but they live under `.peaks-2.0-backup-*` and must
+    // not be re-thinned on a second run).
     expect(second.data.thinnedFiles).toEqual([]);
     expect(second.data.scaffoldedFiles).toEqual([]);
     // Backup still exists from the first run.

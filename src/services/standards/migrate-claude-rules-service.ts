@@ -22,7 +22,7 @@
  * returns the would-change diff without writing.
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export interface MigrateClaudeRulesInput {
   readonly projectRoot: string;
@@ -137,7 +137,18 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
   const canonicalRelPath = '.peaks/standards/';
 
   const existingRulesFiles = readMarkdownFilesRecursive(claudeRulesDir);
-  const thickFiles = existingRulesFiles.filter((f) => !isAlreadyPointer(f));
+  // Exclude any prior `.peaks-2.0-backup-*` directory created by an
+  // earlier migration run. The backup is real content (not a pointer),
+  // so without this filter a second run would treat the backup dir as
+  // a fresh thick tree and re-thin / re-scaffold over it
+  // (slice 2026-07-15-ice-cola-dogfood).
+  const BACKUP_DIR_PREFIX = '.peaks-2.0-backup-';
+  const thickFiles = existingRulesFiles.filter((f) => {
+    if (isAlreadyPointer(f)) return false;
+    const relFromRules = f.slice(claudeRulesDir.length + 1);
+    const topSegment = relFromRules.split(/[\\/]/, 1)[0] ?? '';
+    return !topSegment.startsWith(BACKUP_DIR_PREFIX);
+  });
 
   const hasThickFiles = thickFiles.length > 0;
   // The backup path is computed eagerly (so dry-run can preview
@@ -162,7 +173,16 @@ export function migrateClaudeRules(input: MigrateClaudeRulesInput): MigrateClaud
         for (const file of thickFiles) {
           const body = readFileSync(file, 'utf8');
           const rel = file.slice(claudeRulesDir.length + 1);
-          writeFileSync(join(backupPath, rel), body, 'utf8');
+          const destPath = join(backupPath, rel);
+          // Each subdirectory under .claude/rules/ (e.g. common/,
+          // typescript/) needs to be materialised before writing —
+          // `mkdirSync(backupPath, { recursive: true })` only creates
+          // the top-level backup dir, not the nested language pack
+          // dirs. Without this mkdirSync, the first file written to
+          // a nested subdir ENOENTs and the whole backup silently
+          // becomes empty (slice 2026-07-15-ice-cola-dogfood).
+          mkdirSync(dirname(destPath), { recursive: true });
+          writeFileSync(destPath, body, 'utf8');
         }
       } catch (err) {
         warnings.push(`Backup step failed: ${err instanceof Error ? err.message : String(err)}`);

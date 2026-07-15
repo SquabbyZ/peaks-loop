@@ -3,9 +3,9 @@
  *
  * Read-side companion to the `peaks standards init` / `peaks standards update`
  * writers in `./project-standards-service.ts`. The writer KNOWS how to scaffold
- * `.claude/rules/{common,<language>}/` from the curated baseline; this module
- * detects when the consumer project's rules tree is missing or empty and emits
- * a copy-pasteable diagnostic for the operator.
+ * `.peaks/standards/{common,<language>}/` (2.0 canonical) from the curated
+ * baseline; this module detects when the consumer project's rules tree is
+ * missing or empty and emits a copy-pasteable diagnostic for the operator.
  *
  * Why a separate read module: the writer is `apply`-gated and write-bounded
  * (it touches the filesystem via `prevalidateWrites`/`assertNotHomedirBaseline`).
@@ -65,11 +65,16 @@ function renderForPlatform(projectRoot: string): string {
   // AC6: render with the platform-native separator. On win32 we replace '/'
   // with '\\' in the project path; the rest of the path is constructed with
   // the same separator via the literal '\\' join below.
+  //
+  // 2.0 canonical location: `<projectRoot>/.peaks/standards/`
+  // (slice 2026-07-15-missing-standards-on-fresh-project — the 2.0
+  // writer scaffolds the rules tree under `.peaks/standards/`, not
+  // the legacy `.claude/rules/`).
   if (process.platform === 'win32') {
     const nativeRoot = projectRoot.replace(/\//g, '\\');
-    return `${nativeRoot}\\.claude\\rules`;
+    return `${nativeRoot}\\.peaks\\standards`;
   }
-  return `${projectRoot}/.claude/rules`;
+  return `${projectRoot}/.peaks/standards`;
 }
 
 function hasPopulatedMarkdown(dir: string): boolean {
@@ -81,13 +86,15 @@ function hasPopulatedMarkdown(dir: string): boolean {
 }
 
 /**
- * Detect whether a consumer project's `.claude/rules/` tree is missing or
- * empty.
+ * Detect whether a consumer project's `.peaks/standards/` tree (2.0
+ * canonical) is missing or empty.
  *
- * Rules (per PRD R2):
- *   - `.claude/rules/common/` MUST exist AND contain at least one `.md` file.
- *   - `.claude/rules/<language>/` MUST exist AND contain at least one `.md`
- *     file — except for `generic`, where the language dir is OPTIONAL.
+ * Rules (per PRD R2, slice 2026-07-15):
+ *   - `.peaks/standards/common/` MUST exist AND contain at least one
+ *     `.md` file.
+ *   - `.peaks/standards/<language>/` MUST exist AND contain at least one
+ *     `.md` file — except for `generic`, where the language dir is
+ *     OPTIONAL.
  *
  * Returns `{ missing: true, ... }` when either required dir is absent or
  * empty. The diagnostic is always populated so the caller can surface the
@@ -105,10 +112,10 @@ export function detectMissingProjectStandards(
   const normalizedRoot = normalizeProjectRoot(projectRoot);
   const renderedPath = renderForPlatform(normalizedRoot);
 
-  const commonDir = join(normalizedRoot, '.claude', 'rules', 'common');
+  const commonDir = join(normalizedRoot, '.peaks', 'standards', 'common');
   const languageDir = language === 'generic'
     ? null
-    : join(normalizedRoot, '.claude', 'rules', language);
+    : join(normalizedRoot, '.peaks', 'standards', language);
 
   const commonOk = hasPopulatedMarkdown(commonDir);
   const languageOk = languageDir === null ? true : hasPopulatedMarkdown(languageDir);

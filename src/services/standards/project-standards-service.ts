@@ -1,4 +1,4 @@
-import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, lstatSync, mkdirSync, openSync, readdirSync, realpathSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir as osHomedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { buildToolLabel, componentLibraryLabel, cssFrameworkLabel, detectProjectContext, type ProjectContext } from './project-context.js';
@@ -186,8 +186,15 @@ function assertSafeStandardsRoot(projectRoot: string): string {
   const resolvedRoot = normalizeRoot(projectRoot);
   const claudeDir = join(resolvedRoot, '.claude');
   const rulesDir = join(claudeDir, 'rules');
+  const peaksDir = join(resolvedRoot, '.peaks');
+  const peaksStandardsDir = join(peaksDir, 'standards');
   assertDirectoryNotSymlink(claudeDir);
   assertDirectoryNotSymlink(rulesDir);
+  // 2.0 canonical layout — same symlink/junction protection as
+  // the legacy `.claude/rules/` tree. A symlinked `.peaks/standards/`
+  // is a write-target escape attempt and must be rejected.
+  assertDirectoryNotSymlink(peaksDir);
+  assertDirectoryNotSymlink(peaksStandardsDir);
 
   if (existsSync(rulesDir)) {
     assertRealPathInsideProject(rulesDir, resolvedRoot);
@@ -274,10 +281,10 @@ function renderClaudeMd(language: StandardsLanguage, ctx: ProjectContext): strin
     '- peaks-code summarizes RD and QA standards preflight before end-to-end code workflows.',
     '',
     'Rules:',
-    '- Read `.claude/rules/common/coding-style.md` before editing code.',
-    '- Read `.claude/rules/common/code-review.md` before reviewing changes.',
-    '- Read `.claude/rules/common/security.md` before touching filesystem, user input, external calls, auth, or secrets.',
-    `- Read .claude/rules/${language}/coding-style.md for language-specific standards when applicable.`,
+    '- Read `.peaks/standards/common/coding-style.md` before editing code.',
+    '- Read `.peaks/standards/common/code-review.md` before reviewing changes.',
+    '- Read `.peaks/standards/common/security.md` before touching filesystem, user input, external calls, auth, or secrets.',
+    `- Read .peaks/standards/${language}/coding-style.md for language-specific standards when applicable.`,
     '',
     'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.'
   ].join('\n');
@@ -388,13 +395,13 @@ function renderManagedClaudeMdIndex(language: StandardsLanguage): string {
     '<!-- peaks-standards:index:start -->',
     '## Peaks Standards Index',
     '- Constitution: `CLAUDE.md` is the repository-wide constitution.',
-    '- Local laws: `.claude/rules/**` are project-local laws and are created only when missing.',
+    '- Local laws: `.peaks/standards/**` are project-local laws and are created only when missing.',
     '- Managed by: `peaks standards update`.',
     '- Managed files:',
-    '  - `.claude/rules/common/code-review.md`',
-    '  - `.claude/rules/common/coding-style.md`',
-    '  - `.claude/rules/common/security.md`',
-    `  - .claude/rules/${language}/coding-style.md`,
+    '  - `.peaks/standards/common/code-review.md`',
+    '  - `.peaks/standards/common/coding-style.md`',
+    '  - `.peaks/standards/common/security.md`',
+    `  - .peaks/standards/${language}/coding-style.md`,
     '- Conflict note: keep the existing body unchanged and resolve any disagreement manually before the next standards update.',
     '<!-- peaks-standards:index:end -->',
     ''
@@ -492,11 +499,108 @@ function writeMissingStandardsRules(plan: ProjectStandardsInitPlan, writes = get
 function createTemplates(language: StandardsLanguage, ctx: ProjectContext): StandardsTemplate[] {
   return [
     { relativePath: 'CLAUDE.md', content: renderClaudeMd(language, ctx) },
+    { relativePath: '.peaks/standards/common/code-review.md', content: renderCodeReview(ctx) },
+    { relativePath: '.peaks/standards/common/coding-style.md', content: renderCommonCodingStyle(ctx) },
+    { relativePath: '.peaks/standards/common/security.md', content: renderSecurity(ctx) },
+    { relativePath: `.peaks/standards/${language}/coding-style.md`, content: renderLanguageCodingStyle(language, ctx) }
+  ];
+}
+
+/**
+ * Legacy 1.x templates — used only when the consumer project
+ * still carries a thick `.claude/rules/` tree. These mirror the
+ * historical 1.x install layout so the existing files are not
+ * silently overwritten; the caller should follow up with
+ * `peaks standards migrate --from-claude-rules` to converge to
+ * the 2.0 canonical layout.
+ */
+function createLegacyOneXTemplates(language: StandardsLanguage, ctx: ProjectContext): StandardsTemplate[] {
+  return [
+    { relativePath: 'CLAUDE.md', content: renderClaudeMdOneX(language, ctx) },
     { relativePath: '.claude/rules/common/code-review.md', content: renderCodeReview(ctx) },
     { relativePath: '.claude/rules/common/coding-style.md', content: renderCommonCodingStyle(ctx) },
     { relativePath: '.claude/rules/common/security.md', content: renderSecurity(ctx) },
     { relativePath: `.claude/rules/${language}/coding-style.md`, content: renderLanguageCodingStyle(language, ctx) }
   ];
+}
+
+function renderClaudeMdOneX(language: StandardsLanguage, ctx: ProjectContext): string {
+  const head = [
+    '# Project Instructions',
+    '',
+    '> 🤖 AI 生成，请审阅',
+    '',
+    'This repository uses project-local Peaks standards. Existing repository conventions override generic generated guidance.',
+    '',
+    'Peaks workflow automation:',
+    '- peaks-rd checks these standards before RD planning or implementation work.',
+    '- peaks-qa checks code review and security guidance before verification work.',
+    '- peaks-code summarizes RD and QA standards preflight before end-to-end code workflows.',
+    '',
+    'Rules:',
+    '- Read `.claude/rules/common/coding-style.md` before editing code.',
+    '- Read `.claude/rules/common/code-review.md` before reviewing changes.',
+    '- Read `.claude/rules/common/security.md` before touching filesystem, user input, external calls, auth, or secrets.',
+    `- Read .claude/rules/${language}/coding-style.md for language-specific standards when applicable.`,
+    '',
+    'Active Peaks-Loop skill presence: at the start of every response, run `peaks skill presence --json` to read the active skill marker. The CLI handles canonical-path resolution (`.peaks/_runtime/active-skill.json` with back-compat fallback to `.peaks/.active-skill.json`); do not read those files directly. When the response includes a valid skill name, display the compact status header: `Peaks-Loop Skill: <skill> | Peaks-Loop Gate: <gate> | Next: <one short action>`. Display the header on every turn while the CLI returns an active skill; omit when the CLI returns no active skill.'
+  ].join('\n');
+  const stack = renderProjectStackSection(ctx);
+  return stack === '' ? head : `${head}\n${stack}`;
+}
+
+/**
+ * Detect whether the consumer project still carries a 1.x "thick"
+ * `.claude/rules/` tree (the legacy layout that 2.0 migrates away
+ * from). A project with thick 1.x rules should NOT be silently
+ * re-initialised into the 2.0 `.peaks/standards/` layout; the
+ * caller should explicitly run `peaks standards migrate --from-claude-rules`
+ * instead. A new project (no `.claude/rules/` tree, or only a
+ * previously-thinned 2-line-pointer tree) is safe to bootstrap
+ * directly into the 2.0 canonical layout.
+ */
+function hasThickOneXClaudeRules(projectRoot: string): boolean {
+  const claudeRulesDir = join(projectRoot, '.claude', 'rules');
+  if (!existsSync(claudeRulesDir)) return false;
+  const stat = lstatSync(claudeRulesDir);
+  if (!stat.isDirectory()) return false;
+  // Walk one level deep; if any .md file under common/ or
+  // typescript/ (or the language pack) exists and is NOT a
+  // 2-line pointer, treat the tree as thick 1.x.
+  const POINTER_MARKER = 'Canonical peaks-loop 2.0 rules live at:';
+  const stack = [claudeRulesDir];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    if (dir === undefined) break;
+    let entries: string[];
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return false;
+    }
+    for (const entry of entries) {
+      if (entry.startsWith('.')) continue;
+      const entryPath = join(dir, entry);
+      let entryStat;
+      try {
+        entryStat = lstatSync(entryPath);
+      } catch {
+        continue;
+      }
+      if (entryStat.isDirectory()) {
+        stack.push(entryPath);
+      } else if (entryStat.isFile() && entry.endsWith('.md')) {
+        let body = '';
+        try {
+          body = readFileSync(entryPath, 'utf8');
+        } catch {
+          continue;
+        }
+        if (!body.includes(POINTER_MARKER)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function createManagedClaudeBlock(language: StandardsLanguage): string {
@@ -597,7 +701,16 @@ export function createProjectStandardsInitPlan(options: ProjectStandardsInitOpti
   assertSafeStandardsRoot(projectRoot);
   const language = options.language === undefined ? detectLanguageInternal(projectRoot) : parseLanguage(options.language);
   const ctx = detectProjectContext(projectRoot);
-  const plannedWrites = createTemplates(language, ctx).map((template) => buildWrite(projectRoot, template));
+  // Default to the 2.0 canonical layout (`.peaks/standards/`).
+  // If the consumer project still carries a 1.x "thick" `.claude/rules/`
+  // tree, fall back to the legacy 1.x path so the operator's existing
+  // rules are never silently overwritten — the caller should follow up
+  // with `peaks standards migrate --from-claude-rules` to migrate them
+  // to 2.0.
+  const useLegacyOneXLayout = hasThickOneXClaudeRules(projectRoot);
+  const plannedWrites = useLegacyOneXLayout
+    ? createLegacyOneXTemplates(language, ctx).map((template) => buildWrite(projectRoot, template))
+    : createTemplates(language, ctx).map((template) => buildWrite(projectRoot, template));
 
   return {
     apply: options.apply ?? false,
