@@ -1,0 +1,47 @@
+# .npmignore — npm pack 用的忽略文件。
+# npm 在打包时会优先用 .npmignore（不存在时回退 .gitignore）。
+# 关键：这里**不能**包含 dist/，否则发布的 tarball 又会缺 dist/src/**。
+# 已知根 .gitignore 里有 'dist/' 规则（用于 git 不追踪 build artifact），
+# 所以这里必须显式存在，让 npm 不去读 .gitignore。
+
+# node / dev toolchain
+node_modules/
+.git/
+.github/
+.gitlab-ci.yml
+.circleci/
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+
+# tests（不在 files[] 白名单里，但显式排除防止误入）
+tests/
+coverage/
+.nyc_output/
+
+# build 时生成的中间产物（保留 dist/——它是 publish artifact）
+*.tsbuildinfo
+.tsbuildinfo
+
+# 项目级辅助目录
+.peaks/
+.peaks-loop/
+docs/release/
+plans/
+reports/
+.cache/
+.out/
+
+# misc
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.*.local
+
+# 单独的脚本（保留 package.json#scripts 需要的）
+# sync-version.mjs / clean-dist.mjs / copy-templates.mjs / install-skills.mjs / watch.mjs 保留
