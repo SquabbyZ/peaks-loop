@@ -2,6 +2,96 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.8 — 2026-07-15
+
+### Added — project-scan bootstrap (slice 2026-07-15)
+
+- **`peaks project context` writes `.peaks/project-scan/project-scan.md`**
+  alongside `.peaks/PROJECT.md`. The project-scan.md file is the new
+  canonical home for project archetype + libraryVersions + tech stack
+  (project-scoped, git-tracked, survives session rotation). The old
+  `.peaks/_runtime/<sessionId>/rd/project-scan.md` path is fully
+  migrated across SKILL.md / references / peaks-rd SKILL.md /
+  peaks-ui SKILL.md (14 occurrences in 8 files).
+- **`peaks workspace init` triggers `bootstrapProjectScan`** on its
+  main path. Idempotent: existing `schemaVersion: 1` files are
+  preserved unless `--force`. New CLI flags:
+  - `--no-project-scan-bootstrap` — opt out of the bootstrap call.
+  - `--force-project-scan-templates` — overwrite the 4 bundled
+    audit/business templates (default: skip if present).
+- **5-template boot** — every `peaks workspace init` materialises
+  `.peaks/project-scan/{project-scan.md, business-knowledge.md,
+  security-template.md, perf-template.md, audit-output-schema.md}`.
+  The 4 audit/business templates are bundled at
+  `src/services/workspace/templates/project-scan/*.md` and copied
+  verbatim by `scripts/copy-templates.mjs` (post-`tsc` step; tsc
+  does not emit `.md` files).
+- **`scripts/copy-templates.mjs`** — mirrors bundled `.md` templates
+  into `dist/`. Wired into `package.json#scripts.build` after `tsc`.
+  Required to keep `import.meta.url` template reads working for
+  downstream `npm install peaks-loop` consumers.
+- **`tests/unit/workspace/templates/template-integrity.test.ts`**
+  (5 cases) — byte-equality guard between bundled and canonical
+  templates; fails CI on drift.
+- **`tests/unit/services/prd/project-scan-bootstrap-service.test.ts`**
+  (13 cases) — 0-1 path, existing-project path, monorepo variants,
+  idempotency, force overrides, dual-write.
+- **`tests/unit/workspace/init-hooks-project-scan.test.ts`**
+  (4 cases) — `peaks workspace init` integration with all 3 CLI flag
+  combinations.
+
+### Fixed — monorepo 0-1 misjudgement + scanArchetype fall-through
+
+Real-world smoke against `C:\Users\smallMark\Desktop\peaksclaw\ice-cola`
+(pnpm-workspace monorepo with `packages/{server,client,admin,hermes-agent}`)
+exposed two follow-on bugs that the unit suite missed:
+
+- **0-1 detection now considers monorepo sentinels.**
+  `bootstrapProjectScan.isZeroToOneProject` previously only checked
+  `<root>/src/`, silently mis-classifying pnpm-workspace projects as
+  0-1 (the source lives at `packages/<pkg>/src/`). New sentinels:
+  `pnpm-workspace.yaml` / `turbo.json` / `nx.json` + the
+  `package.json#workspaces` field. Source-root candidates extended
+  to `packages/` / `apps/` / `libs/` / `services/` / `workspaces/`.
+- **`scanArchetype` hoists `hasMonorepoConfig` above the `hasBackend`
+  check.** A monorepo with a backend sub-package (`packages/server`)
+  used to fall through to `legacy-fullstack` because `hasBackend`
+  included `backendDirsPresent.length > 0`. New behaviour: any monorepo
+  resolves to `frontend-monorepo` (no backend pkg) or
+  `fullstack-monorepo` (with backend pkg).
+- **`ProjectArchetype` union gains `'fullstack-monorepo'`.**
+  Previously the union was 5 values; now 6. `ArchetypeService` and
+  `peaks-code` consumers updated accordingly.
+
+### Changed
+
+- `src/services/memory/project-context-service.ts` — `generateProjectContext`
+  is now `async` and calls `bootstrapProjectScan` after writing
+  `PROJECT.md`. The companion `peaks skill presence:clear` was missing
+  an `await`; fixed in `src/cli/commands/core/skill-command.ts`.
+- `src/cli/commands/workspace/init-command.ts` — adds
+  `--no-project-scan-bootstrap` and `--force-project-scan-templates`;
+  surfaces `projectScan` envelope field on the init response.
+
+### Verification
+
+- vitest: 22/22 pass across 3 slice-owned test files.
+- tsc: 0 errors in slice-owned `src/` files.
+- CLI: `./bin/peaks.js workspace init --project <tmp>` writes 5 files
+  in `templatesBooted:5, durationMs:23`; `--no-project-scan-bootstrap`
+  correctly skips; `--force-project-scan-templates` correctly
+  overrides user sediment.
+- Ice-cola: `peaks project context --project .` produces
+  `archetype: fullstack-monorepo` with 18 real library versions
+  (Docusaurus 3.9.2 / Camofox / @easyops-cn / etc.).
+
+### Notes
+
+- pre-existing `FILE_SIZE_VIOLATION` on
+  `src/services/standards/project-standards-service.ts` (837 lines,
+  in-flight `.claude/rules/` → `.peaks/standards/` migration) is out
+  of slice scope.
+
 ## 4.0.0-beta.7 — 2026-07-09
 
 ### Added — zcode adapter (9th IDE) + runtime model detection

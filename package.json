@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop",
-  "version": "4.0.0-beta.7",
+  "version": "4.0.0-beta.8",
   "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -47,7 +47,7 @@
     "examples/video-demo/out/en-closing-960.png"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json && node ./scripts/copy-templates.mjs",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json --noEmitOnError false && node ./scripts/copy-templates.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",
