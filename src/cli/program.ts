@@ -58,7 +58,7 @@ import { registerWorkflowEvalCommands } from './commands/loop-eval-commands.js';
 import { registerEvolutionCommands } from './commands/evolution-commands.js';
 import { registerAssetCommands } from './commands/asset-commands.js';
 import { registerBeeCommands } from './commands/bee-commands.js';
-import { registerAgentCommands } from './commands/agent-commands.js';
+import { registerEccCommands } from './commands/ecc-commands.js';
 import { registerUpgradeCommands } from './commands/upgrade-commands.js';
 import { registerCodeReviewCommands } from './commands/code-review-commands.js';
 import { registerSecurityAuditCommands } from './commands/security-audit-commands.js';
@@ -99,7 +99,7 @@ import { registerAdapterS2ACommands } from './commands/adapter-commands-s2a.js';
 // Slice RD-2 S2-b: `peaks polyrepo *` (init / status / dispatch).
 import { registerPolyrepoCommands } from './commands/polyrepo-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
-import { applyRetention } from '../services/log/retention.js';
+import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
 import type { ProgramIO } from './cli-helpers.js';
 
@@ -121,6 +121,12 @@ function bootstrapLogger(verbose: boolean): void {
     applyRetention({ retentionDays: 7 });
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* best-effort retention sweep; never block the CLI */
+  }
+  // Slice 3 (on-demand-ecc): 7-day TTL sweep over ecc-<sha>/ cache dirs.
+  try {
+    cleanupEccCache({ retentionDays: 7, nowMs: Date.now() });
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    /* best-effort ECC retention sweep; never block the CLI */
   }
   const dateOverride = process.env.PEAKS_LOG_DATE_OVERRIDE;
   const entry = {
@@ -334,8 +340,9 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
   // M7 (2026-07-07 spec §7A.2 / §10 RL-9): `peaks bee export|import`
   // — cross-user share surface for bee_release rows.
   registerBeeCommands(program, io);
- // Slice: ECC 64 agents soft-optional (per spec §7.2 line 818).
- registerAgentCommands(program, io);
+ // Slice 3 (on-demand-ecc): `peaks ecc install|status|ls|show` replaces the
+ // deleted `peaks agent run|list` subprocess surface.
+ registerEccCommands(program, io);
  // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
  registerUpgradeCommands(program, io);
  // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).

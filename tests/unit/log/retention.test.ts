@@ -9,8 +9,9 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => homeDirMock.value };
 });
 
-import { applyRetention } from '../../../src/services/log/retention.js';
+import { applyRetention, cleanupEccCache } from '../../../src/services/log/retention.js';
 import { resolveLogDir } from '../../../src/services/log/logger.js';
+import { mkdirSync, writeFileSync, utimesSync, existsSync } from 'node:fs';
 
 describe('log/retention', () => {
   let tempHome: string;
@@ -63,5 +64,36 @@ describe('log/retention', () => {
   it('does not throw when log dir is missing', () => {
     expect(() => applyRetention({ retentionDays: 7, nowMs: Date.now() })).not.toThrow();
     expect(existsSync(resolveLogDir())).toBe(false);
+  });
+
+  it('cleanupEccCache: 7-day survivor by manifest fetchedAt', () => {
+    const cacheDir = join(tempHome, '.peaks', 'cache');
+    mkdirSync(cacheDir, { recursive: true });
+    const sha = 'a'.repeat(40);
+    const activeDir = join(cacheDir, `ecc-${sha}`);
+    mkdirSync(activeDir, { recursive: true });
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    writeFileSync(
+      join(cacheDir, 'ecc-installed.json'),
+      JSON.stringify({ version: '1', sha, fetchedAt: new Date(now - 7 * day).toISOString(), agents: [] })
+    );
+    const removed = cleanupEccCache({ retentionDays: 7, nowMs: now });
+    expect(existsSync(activeDir)).toBe(true);
+    expect(removed.removed).toEqual([]);
+  });
+
+  it('cleanupEccCache: 8-day orphan removed', () => {
+    const cacheDir = join(tempHome, '.peaks', 'cache');
+    mkdirSync(cacheDir, { recursive: true });
+    const orphanSha = 'b'.repeat(40);
+    const orphanDir = join(cacheDir, `ecc-${orphanSha}`);
+    mkdirSync(orphanDir, { recursive: true });
+    const now = Date.now();
+    const day = 24 * 60 * 60 * 1000;
+    utimesSync(orphanDir, new Date(now - 8 * day), new Date(now - 8 * day));
+    const removed = cleanupEccCache({ retentionDays: 7, nowMs: now });
+    expect(existsSync(orphanDir)).toBe(false);
+    expect(removed.removed).toContain(orphanDir);
   });
 });

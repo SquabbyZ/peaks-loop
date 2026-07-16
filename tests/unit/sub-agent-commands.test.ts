@@ -146,6 +146,25 @@ describe('peaks sub-agent dispatch (G2 / AC-7..AC-10)', () => {
     // The description is set at register time, so we test via dispatch description (covered via shape).
     expect(true).toBe(true);
   });
+
+  // Slice 3 (on-demand-ecc) AC3.12 + D-012: the `agent` role was
+  // removed in 4.0.0-beta.10 — there is no longer a subprocess
+  // path for it. The action-path dispatch returns a clear
+  // ROLE_REMOVED envelope + exit 1. Note that Commander
+  // short-circuits `--help` BEFORE `.action()` fires, so
+  // `peaks sub-agent dispatch agent --help` continues to exit 0
+  // with the help text — that is intentional.
+  it('AC3.12: peaks sub-agent dispatch agent --prompt x --json returns role-removed-in-slice-3', async () => {
+    const { stdout, exitCode } = await runCommand([
+      'sub-agent', 'dispatch', 'agent',
+      '--prompt', 'x',
+      '--json'
+    ], {});
+    const envelope = parseJsonOutput(stdout);
+    expect(envelope.ok).toBe(false);
+    expect(exitCode).toBe(1);
+    expect((envelope as { data: { reason: string } }).data.reason).toBe('role-removed-in-slice-3');
+  });
 });
 
 describe('peaks sub-agent heartbeat (G6 / AC-33)', () => {

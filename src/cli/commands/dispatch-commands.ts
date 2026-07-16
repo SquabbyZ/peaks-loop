@@ -100,6 +100,22 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       process.exitCode = 1;
       return;
     }
+    // Slice 3 (on-demand-ecc) D-012: the `agent` role was removed in
+    // 4.0.0-beta.10 — there is no longer a subprocess path for it
+    // (the upstream ECC v2.0.0 ships no `ecc` binary). This guard
+    // sits AFTER role validation but BEFORE the missing-prompt
+    // check so an action-path dispatch with a valid prompt still
+    // returns a clear ROLE_REMOVED envelope + exit 1. Note that
+    // Commander short-circuits `--help` BEFORE `.action()` fires,
+    // so `peaks sub-agent dispatch agent --help` continues to
+    // exit 0 with the help text — that is intentional, not a bug.
+    if (role === 'agent') {
+      printResult(io, fail('sub-agent.dispatch', 'ROLE_REMOVED',
+        'The agent role was removed in Slice 3',
+        { role, reason: 'role-removed-in-slice-3', toolCall: null, dispatchRecordPath: null } as never, []), asJson);
+      process.exitCode = 1;
+      return;
+    }
     if (!options.prompt || options.prompt.length === 0) {
       printResult(io, fail('sub-agent.dispatch', 'MISSING_PROMPT', '--prompt is required when --from-dag is not provided', { role, toolCall: null, dispatchRecordPath: null } as never, [
         'Re-run with either:',
