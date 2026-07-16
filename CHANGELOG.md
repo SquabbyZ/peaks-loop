@@ -2,20 +2,27 @@
 
 ## [Unreleased]
 
-## 4.0.0-beta.10 — 2026-07-16
+## 4.0.0-beta.11 — 2026-07-16
 
-### Status: PRE-IMPLEMENTATION
+### Status: RELEASED (release of `4.0.0-beta.10` contract; same source tree)
 
-> **This CHANGELOG entry documents the CONTRACT for 4.0.0-beta.10.
-> The 3 slices below are NOT YET IMPLEMENTED in this branch.**
-> See `docs/release/4.0.0-beta.10.md` for the user-facing runbook
-> and `peaks workflow verify-pipeline --rid 2026-07-15-cli-surface-cleanup`
-> for the pre-implementation gate (9/9 gates PASS).
+> **This CHANGELOG entry documents the SHIPPED 4.0.0-beta.11.
+> It is the post-implementation release of the 4.0.0-beta.10 contract
+> documented at `docs/release/4.0.0-beta.10.md` (runbook filename
+> preserved for cross-reference stability).
 >
-> **Ship path**: user implements Slices 1+2+3 per the runbook,
-> runs `pnpm test:full` + manual AC verification, then runs
-> `npm publish --tag beta`. No code change is included in the
-> sediment/version-bump commit that produced this CHANGELOG.
+> The 3 slices (del-minimax-worker, hide-role-skills, on-demand-ecc)
+> all landed PASS in this branch — see `peaks workflow verify-pipeline
+> --rid 2026-07-15-cli-surface-cleanup` and the Slice 1/2/3 sediment
+> memories in `.peaks/memory/`.
+>
+> **Version bump rationale** (D-016): 4.0.0-beta.10 was the pre-impl
+> contract name; 4.0.0-beta.11 is the actual release of that contract.
+> One-line summary: **"CLI surface cleanup + on-demand ECC"**.
+>
+> **Verdict**: 10/12 AC PASS + 2 PASS-WITH-DEFERRED (D-013 wrapper
+> exit-code bug, separate follow-up slice after publish).
+> Ice-cola baseline gate: 27/27 AC functionally pass.
 
 ### Removed — `peaks minimax-worker` (Slice 1)
 

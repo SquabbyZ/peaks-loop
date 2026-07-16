@@ -1,5 +1,5 @@
 /**
- * `peaks ecc install|status|ls|show` — Slice 3 of 4.0.0-beta.10.
+ * `peaks ecc install|status|ls|show` — Slice 3 of 4.0.0-beta.11.
  *
  * Drop-in replacement for the deleted `peaks agent run|list`
  * surface. The pre-Slice-3 implementation shelled out to

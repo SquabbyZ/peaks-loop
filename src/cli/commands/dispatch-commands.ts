@@ -101,7 +101,7 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       return;
     }
     // Slice 3 (on-demand-ecc) D-012: the `agent` role was removed in
-    // 4.0.0-beta.10 — there is no longer a subprocess path for it
+    // 4.0.0-beta.11 — there is no longer a subprocess path for it
     // (the upstream ECC v2.0.0 ships no `ecc` binary). This guard
     // sits AFTER role validation but BEFORE the missing-prompt
     // check so an action-path dispatch with a valid prompt still

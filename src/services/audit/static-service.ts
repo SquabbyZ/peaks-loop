@@ -1,7 +1,7 @@
 /**
  * Static audit service — `peaks audit static`.
  *
- * Slice 3 of 4.0.0-beta.10 dropped the ECC AgentShield subprocess
+ * Slice 3 of 4.0.0-beta.11 dropped the ECC AgentShield subprocess
  * integration entirely. The pre-Slice-3 implementation probed
  * `npx ecc-agentshield --version` and shelled out to
  * `npx ecc-agentshield scan --json --target <path>` on every audit

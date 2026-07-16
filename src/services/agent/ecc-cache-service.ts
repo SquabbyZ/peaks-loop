@@ -1,5 +1,5 @@
 /**
- * ECC cache service — Slice 3 of 4.0.0-beta.10.
+ * ECC cache service — Slice 3 of 4.0.0-beta.11.
  *
  * Drop-in replacement for the deleted `ecc-agent-service.ts`. The
  * pre-Slice-3 implementation shelled out to `npx ecc agent run ...`,
