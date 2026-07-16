@@ -11,18 +11,17 @@ import { getConfiguredExecutionModelId, getStrongestModelId } from '../config/mo
  * 2.0.1-bug1: the slim 2.0 `~/.peaks/config.json` no longer carries a
  * `providers` block (legacy model config lives in
  * `.peaks/preferences.json` per spec §10.4). `buildPlan` is a pure
- * planner function and historically took its execution model from
- * `DEFAULT_CONFIG.providers.minimax.model`; with the slim default
- * that field is `undefined`, so `getConfiguredExecutionModelId`
- * would throw. We retain the pre-2.0 default here as a literal so
- * the planner remains usable when the caller has not passed an
- * explicit `executionModelId` (unit tests, dry-run previews, the
- * `peaks swarm plan` onboarding path). Production callers that
- * have a real `ocr.llm.model` configured pass it via
- * `request.executionModelId` (or via the legacy preferences.json
- * bridge) and bypass this fallback.
+ * planner function and historically took its execution model from a
+ * legacy provider config; with the slim default that field is
+ * `undefined`, so `getConfiguredExecutionModelId` would throw. We
+ * retain a sensible default here as a literal so the planner remains
+ * usable when the caller has not passed an explicit `executionModelId`
+ * (unit tests, dry-run previews, the `peaks swarm plan` onboarding
+ * path). Production callers that have a real `ocr.llm.model` configured
+ * pass it via `request.executionModelId` (or via the legacy
+ * preferences.json bridge) and bypass this fallback.
  */
-const DEFAULT_EXECUTION_MODEL_ID = 'minimax-2.7';
+const DEFAULT_EXECUTION_MODEL_ID = 'claude-opus-4-7';
 import { getTechStatus, TECH_REQUIRED_ARTIFACTS } from '../tech/tech-service.js';
 import {
   buildRdStandardsGateList,

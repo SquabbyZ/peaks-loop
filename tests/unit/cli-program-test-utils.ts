@@ -11,9 +11,7 @@ const cliProgramTestState = vi.hoisted(() => {
   const { tmpdir } = require('node:os') as typeof import('node:os');
   const { join } = require('node:path') as typeof import('node:path');
   return {
-    home: mkdtempSync(join(tmpdir(), 'peaks-loop-home-')),
-    smokeTest: vi.fn(),
-    workerRun: vi.fn()
+    home: mkdtempSync(join(tmpdir(), 'peaks-loop-home-'))
   };
 });
 
@@ -22,12 +20,6 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => cliProgramTestState.home };
 });
 
-vi.mock('../../src/services/providers/minimax-provider-service.js', () => ({
-  testMiniMaxProvider: cliProgramTestState.smokeTest
-}));
-vi.mock('../../src/services/providers/minimax-worker-service.js', () => ({
-  runMiniMaxWorker: cliProgramTestState.workerRun
-}));
 vi.mock('../../src/services/mode/mode-enforcement.js', () => ({
   requireUserConfirmation: mockedConfirmation,
   ConfirmationRequiredError: class ConfirmationRequiredError extends Error {
@@ -41,7 +33,7 @@ vi.mock('../../src/services/artifacts/artifact-lint-service.js', () => ({
   lintRequestArtifact: mockedLint
 }));
 
-const DEFAULT_CLI_CONFIG = { version: '0.1.0', currentWorkspace: null, workspaces: [], language: 'en', model: 'sonnet', tokens: {}, providers: { minimax: { model: 'minimax-2.7' } } };
+const DEFAULT_CLI_CONFIG = { version: '0.1.0', currentWorkspace: null, workspaces: [], language: 'en', model: 'sonnet', tokens: {}, providers: { anthropic: { model: 'claude-opus-4-7' } } };
 
 // Caller-id source env vars fed by host shell into vitest workers. Must be cleared
 // before runCommand so resolveCallerId (src/services/session/resolve-caller-id.ts,
@@ -59,17 +51,10 @@ export function getMockedHomeDir(): string {
   return cliProgramTestState.home;
 }
 
-export function getMinimaxSmokeTest() {
-  return cliProgramTestState.smokeTest;
-}
-
-export function getMinimaxWorkerRun() {
-  return cliProgramTestState.workerRun;
-}
-
 export function resetCliProgramMocks(): void {
-  cliProgramTestState.smokeTest.mockReset();
-  cliProgramTestState.workerRun.mockReset();
+  // MiniMax smoke-test and worker mocks were removed in Slice 1.
+  // This stub is kept so existing beforeEach() calls in workflow/core tests
+  // continue to compile.
 }
 
 export function writeUserConfig(config: unknown = DEFAULT_CLI_CONFIG): void {
@@ -91,7 +76,7 @@ export async function runCommand(args: string[], env: Record<string, string> = {
   const previousExitCode = process.exitCode;
   process.exitCode = undefined;
   const harness = createHarness();
-  const envKeys = new Set([...Object.keys(env), 'MINIMAX_API_KEY', ...CALLER_ID_ENV_KEYS]);
+  const envKeys = new Set([...Object.keys(env), ...CALLER_ID_ENV_KEYS]);
   // Plan A2: synthesize a regex-valid default callerId so tests don't depend
   // on host shell injection. D4 reject tests pass CLAUDE_CODE_SESSION_ID: ''
   // to force D2 — the hasOwnProperty guard keeps our default from interfering.

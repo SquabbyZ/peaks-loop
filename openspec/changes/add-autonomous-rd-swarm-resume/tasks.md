@@ -14,7 +14,7 @@
 - [ ] Add tests proving `docs/accessRepo.md` and `docs/mcpServer.md` are represented as curated capability inputs.
 - [ ] Parse or model curated resource entries without installing or invoking them.
 - [ ] Label each capability with purpose, trust level, activation requirement, and risk.
-- [ ] Preserve the categories from `docs/accessRepo.md`, including code standards, project scanning, frontend/browser validation, MiniMax-oriented execution helpers, cross-session memory, UI/design resources, OpenSpec, and swarm/orchestration references.
+- [ ] Preserve the categories from `docs/accessRepo.md`, including code standards, project scanning, frontend/browser validation, cross-session memory, UI/design resources, OpenSpec, and swarm/orchestration references.
 - [ ] Prefer existing local skills/MCP/resources before custom implementation in recommendations.
 
 ## 3. Autonomous RD resume plan

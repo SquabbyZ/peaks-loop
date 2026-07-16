@@ -287,13 +287,13 @@ export function createWorkflowRouterPlan(request: WorkflowRouterRequest): Workfl
   // "enabled" (matches the pre-2.0.1 implicit default).
   const economyMode = request.config?.economyMode ?? true;
   const swarmMode = request.config?.swarmMode ?? true;
-  // Pre-2.0.1 DEFAULT_CONFIG carried an implicit `minimax-2.7` provider
-  // for test fixtures that did not pass `config.providers`. The slim
-  // DEFAULT_CONFIG removed that field, so we re-supply it here only when
-  // the caller did not pass any providers at all. An explicit empty
-  // object (`config: { providers: {} }`) still surfaces the "must be
-  // configured" error from `getConfiguredExecutionModelId`.
-  const effectiveProviders: ModelProviderConfig = request.config?.providers ?? { minimax: { model: 'minimax-2.7' } };
+  // Pre-2.0.1 DEFAULT_CONFIG carried an implicit provider for test fixtures
+  // that did not pass `config.providers`. The slim DEFAULT_CONFIG removed that
+  // field, so we re-supply it here only when the caller did not pass any
+  // providers at all. An explicit empty object (`config: { providers: {} }`)
+  // still surfaces the "must be configured" error from
+  // `getConfiguredExecutionModelId`.
+  const effectiveProviders: ModelProviderConfig = request.config?.providers ?? { anthropic: { model: 'claude-opus-4-7' } };
   // Slice 2026-07-09 add-zcode-adapter (A.3): the strongest
   // planner/reviewer model is now resolved via `getStrongestModelId`,
   // which reads `config.model` (if present) or falls back to the

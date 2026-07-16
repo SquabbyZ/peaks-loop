@@ -63,10 +63,10 @@ describe('sidecar-store', () => {
       const { readSidecarJson, providersConfigPath } = await import('../../../src/services/config/sidecar-store.js');
       const path = providersConfigPath(fakeHome);
       mkdirSync(join(fakeHome, '.peaks'), { recursive: true });
-      writeFileSync(path, JSON.stringify({ version: '2.0.0', providers: { minimax: { model: 'test-model' } } }, null, 2));
+      writeFileSync(path, JSON.stringify({ version: '2.0.0', providers: { anthropic: { model: 'test-model' } } }, null, 2));
       expect(readSidecarJson(path, { version: '2.0.0', providers: {} })).toEqual({
         version: '2.0.0',
-        providers: { minimax: { model: 'test-model' } }
+        providers: { anthropic: { model: 'test-model' } }
       });
     });
 
@@ -93,20 +93,20 @@ describe('sidecar-store', () => {
     it('creates file with formatted JSON content', async () => {
       const { writeSidecarJson, providersConfigPath, readSidecarJson } = await import('../../../src/services/config/sidecar-store.js');
       const path = providersConfigPath(fakeHome);
-      writeSidecarJson(path, { version: '2.0.0', providers: { minimax: { model: 'test-model' } } });
+      writeSidecarJson(path, { version: '2.0.0', providers: { anthropic: { model: 'test-model' } } });
       expect(existsSync(path)).toBe(true);
       const content = readFileSync(path, 'utf-8');
       expect(content).toContain('"version": "2.0.0"');
       expect(content).toContain('"model": "test-model"');
-      expect(readSidecarJson(path, {})).toEqual({ version: '2.0.0', providers: { minimax: { model: 'test-model' } } });
+      expect(readSidecarJson(path, {})).toEqual({ version: '2.0.0', providers: { anthropic: { model: 'test-model' } } });
     });
 
     it('overwrites existing file', async () => {
       const { writeSidecarJson, providersConfigPath } = await import('../../../src/services/config/sidecar-store.js');
       const path = providersConfigPath(fakeHome);
-      writeSidecarJson(path, { version: '2.0.0', providers: { minimax: { model: 'first' } } });
-      writeSidecarJson(path, { version: '2.0.0', providers: { minimax: { model: 'second' } } });
-      expect(JSON.parse(readFileSync(path, 'utf-8')).providers.minimax.model).toBe('second');
+      writeSidecarJson(path, { version: '2.0.0', providers: { anthropic: { model: 'first' } } });
+      writeSidecarJson(path, { version: '2.0.0', providers: { anthropic: { model: 'second' } } });
+      expect(JSON.parse(readFileSync(path, 'utf-8')).providers.anthropic.model).toBe('second');
     });
 
     it('creates parent directory if missing', async () => {

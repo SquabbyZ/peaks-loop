@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { describe, expect, test } from 'vitest';
-import { addJsonOption, isArtifactRepoSegment, isMiniMaxHttpsUrl, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
+import { addJsonOption, isArtifactRepoSegment, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
 import { ok } from '../../src/shared/result.js';
 
 describe('cli helpers', () => {
@@ -19,10 +19,6 @@ describe('cli helpers', () => {
     const command = addJsonOption(new Command('demo'));
 
     expect(command.options.some((option) => option.long === '--json')).toBe(true);
-  });
-
-  test('rejects malformed MiniMax URLs', () => {
-    expect(isMiniMaxHttpsUrl('not a url')).toBe(false);
   });
 
   test('accumulates repeated command option values', () => {

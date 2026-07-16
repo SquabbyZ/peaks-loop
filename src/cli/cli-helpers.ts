@@ -2,16 +2,12 @@ import { Command } from 'commander';
 import { fail, getErrorMessage, ok, redactSensitiveErrorMessage, type ResultEnvelope } from '../shared/result.js';
 import type { ArtifactProvider, GuidedArtifactSetup } from '../services/artifacts/artifact-service.js';
 import type { ConfigLayer } from '../services/config/config-service.js';
-import type { MiniMaxProviderSmokeResult } from '../services/providers/minimax-provider-service.js';
-import type { MiniMaxWorkerResult } from '../services/providers/minimax-worker-service.js';
 import type { RecommendationWorkflow } from '../services/recommendations/recommendation-service.js';
 
 export type ProgramIO = {
   stdout: (text: string) => void;
   stderr: (text: string) => void;
 };
-
-const MINIMAX_API_HOST = 'api.minimaxi.com';
 
 export function printResult<T>(io: ProgramIO, result: ResultEnvelope<T>, asJson = false): void {
   if (asJson) {
@@ -83,15 +79,6 @@ export function isArtifactRepoSegment(value: string): boolean {
   return /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes('..') && !value.endsWith('.');
 }
 
-export function isMiniMaxHttpsUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === MINIMAX_API_HOST && url.username.length === 0 && url.password.length === 0 && url.search.length === 0 && url.hash.length === 0;
-  } catch {
-    return false;
-  }
-}
-
 export function parseConfigLayer(value: string | undefined): ConfigLayer | undefined | null {
   if (value === undefined) {
     return undefined;
@@ -106,22 +93,6 @@ export function printInvalidConfigLayer(io: ProgramIO, command: string, asJson?:
 
 export function multipleOption(value: string, previous: string[]): string[] {
   return [...(previous || []), value];
-}
-
-export function summarizeMiniMaxSmokeResult(result: MiniMaxProviderSmokeResult): MiniMaxProviderSmokeResult {
-  return { ...result, responseText: null, summary: null };
-}
-
-export function summarizeMiniMaxWorkerResult(result: MiniMaxWorkerResult): MiniMaxWorkerResult {
-  const provider = summarizeMiniMaxSmokeResult(result.provider);
-  return {
-    ...result,
-    provider,
-    reviewHandoff: {
-      model: result.reviewHandoff.model,
-      prompt: '[redacted]'
-    }
-  };
 }
 
 export { getErrorMessage, ok, redactSensitiveErrorMessage };

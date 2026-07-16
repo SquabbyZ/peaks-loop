@@ -208,7 +208,6 @@ describe('P2 wrapper skills (peaks-resume / -test / -status)', () => {
         'understand',
         'capability',
         'worker',
-        'minimax-worker',
         'openspec',
         'artifacts',
         'proxy',

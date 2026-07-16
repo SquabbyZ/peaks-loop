@@ -60,7 +60,7 @@ describe('createRdSwarmPlan', () => {
       expect(task.workerKind.length).toBeGreaterThan(0);
       expect(task.purpose).toContain('Implement approved checkout refactor');
       expect(task.modelRole).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'execution' : 'strongest');
-      expect(task.modelId).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'minimax-2.7' : 'claude-opus-4-7');
+      expect(task.modelId).toBe(task.wave === 'implementation candidates' || task.wave === 'unit-test execution' ? 'claude-opus-4-7' : 'claude-opus-4-7');
       expect(task.inputs.length).toBeGreaterThan(0);
       expect(task.outputs.every((output) => output.startsWith('rd/swarm/'))).toBe(true);
       expect(task.outputs.every((output) => !output.includes('\\'))).toBe(true);
@@ -138,7 +138,7 @@ describe('createRdSwarmPlan', () => {
     expect(unitTestTasks.length).toBeGreaterThan(0);
     expect([...codingTasks, ...unitTestTasks].every((task) => task.modelRole === 'execution' && task.modelId === 'custom-exec-model-v1')).toBe(true);
     expect([...codingTasks, ...unitTestTasks].every((task) => task.expectedEvidence.includes('patch') || task.expectedEvidence.includes('test'))).toBe(true);
-    expect(plan.tasks.filter((task) => task.modelRole === 'execution').every((task) => task.modelId !== 'minimax-2.7')).toBe(true);
+    expect(plan.tasks.filter((task) => task.modelRole === 'execution').every((task) => task.modelId === 'custom-exec-model-v1')).toBe(true);
   });
 
   test('derives implementation target areas from approved tech artifacts', () => {
@@ -173,7 +173,7 @@ describe('createRdSwarmPlan', () => {
     expect(targetAreas).not.toContain('packages/client/src/forbidden.ts');
     expect(targetAreas).not.toContain('area-1');
     expect(targetAreas).not.toContain('area-2');
-    expect(plan.tasks.filter((task) => task.wave === 'implementation candidates' || task.wave === 'unit-test execution').every((task) => task.modelRole === 'execution' && task.modelId === 'minimax-2.7')).toBe(true);
+    expect(plan.tasks.filter((task) => task.wave === 'implementation candidates' || task.wave === 'unit-test execution').every((task) => task.modelRole === 'execution' && task.modelId === 'claude-opus-4-7')).toBe(true);
     expect(plan.tasks.filter((task) => task.wave === 'quality gates' || task.wave === 'reducer').every((task) => task.modelRole === 'strongest' && task.modelId === 'claude-opus-4-7')).toBe(true);
   });
 

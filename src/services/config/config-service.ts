@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
-import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, MiniMaxProviderConfig, ModelPreference, ModelProviderConfig, OcrAuthHeader, OcrConfig, OcrLlmConfig, PeaksConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
+import type { ConfigGetOptions, ConfigLayer, ConfigSetOptions, ConfigV2, ModelPreference, ModelProviderConfig, OcrAuthHeader, OcrConfig, OcrLlmConfig, PeaksConfig, ProviderModelConfig, ProxyConfig, TokenConfig, TokenRef, WorkspaceConfig } from './config-types.js';
 import { DEFAULT_CONFIG } from './config-types.js';
 import { stablePath } from '../../shared/path-utils.js';
 import { findProjectRoot, getProjectBootstrapConfigPath, getProjectConfigPath, getUserConfigPath, isInsidePath, readConfigFileSafely, resolveCanonicalProjectRoot, resolveProjectRootForConfig, validateArtifactWorkspaceMarkerPath, validateArtifactWorkspaceRoot, validateProjectBootstrapConfigPathForWrite, validateUserConfigPathForWrite, writeConfigFileSafely, writeProjectConfigFile, writeUserConfigFile } from './config-safety.js';
@@ -246,8 +246,6 @@ function sanitizeBaseUrlForDisplay(value: string): string {
   }
 }
 
-const MINIMAX_API_HOST = 'api.minimaxi.com';
-
 function isProviderBaseUrlPath(path: string): boolean {
   return /^providers\.[^.]+\.baseUrl$/.test(path);
 }
@@ -261,37 +259,9 @@ function isValidProviderBaseUrl(value: string): boolean {
   }
 }
 
-function isValidMiniMaxBaseUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === MINIMAX_API_HOST && url.username.length === 0 && url.password.length === 0 && url.search.length === 0 && url.hash.length === 0;
-  } catch {
-    return false;
-  }
-}
-
-function getMiniMaxBaseUrlCandidate(key: string, value: unknown): unknown {
-  if (key === 'providers.minimax.baseUrl') {
-    return value;
-  }
-  if (key === 'providers.minimax' && value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    return (value as Partial<MiniMaxProviderConfig>).baseUrl;
-  }
-  if (key === 'providers' && value !== null && typeof value === 'object' && !Array.isArray(value)) {
-    return (value as Partial<ModelProviderConfig>).minimax?.baseUrl;
-  }
-  return undefined;
-}
-
 function validateProviderBaseUrl(value: unknown): void {
   if (value !== undefined && (typeof value !== 'string' || !isValidProviderBaseUrl(value))) {
     throw new Error('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
-  }
-}
-
-function validateMiniMaxBaseUrl(value: unknown): void {
-  if (value !== undefined && (typeof value !== 'string' || !isValidMiniMaxBaseUrl(value))) {
-    throw new Error('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
   }
 }
 
@@ -310,11 +280,8 @@ function isProxyConfigPath(path: string): boolean {
 }
 
 function validateModelProviderConfig(providers: ModelProviderConfig): void {
-  validateMiniMaxBaseUrl(providers.minimax?.baseUrl);
   for (const [providerId, provider] of Object.entries(providers)) {
-    if (providerId !== 'minimax') {
-      validateProviderBaseUrl(provider?.baseUrl);
-    }
+    validateProviderBaseUrl(provider?.baseUrl);
   }
 }
 
@@ -394,17 +361,13 @@ function toWorkspaceConfigs(value: unknown): WorkspaceConfig[] {
   return Array.isArray(value) ? value.map(toWorkspaceConfig).filter((workspace): workspace is WorkspaceConfig => workspace !== null) : [];
 }
 
-function toProviderModelConfig(value: unknown): MiniMaxProviderConfig {
+function toProviderModelConfig(value: unknown): ProviderModelConfig {
   if (!isRecord(value)) return {};
   return {
     ...(typeof value.model === 'string' && value.model.trim().length > 0 ? { model: value.model.trim() } : {}),
     ...(typeof value.baseUrl === 'string' ? { baseUrl: value.baseUrl } : {}),
     ...(typeof value.apiKey === 'string' ? { apiKey: value.apiKey } : {})
   };
-}
-
-function toMiniMaxProviderConfig(value: unknown): MiniMaxProviderConfig {
-  return toProviderModelConfig(value);
 }
 
 const TOKEN_CONFIG_KEYS = new Set<keyof TokenConfig>(['AnthropicApiKey', 'OpenAiApiKey', 'GitHubToken', 'GitLabToken']);
@@ -493,54 +456,6 @@ export function redactConfigSecrets(value: unknown, path = ''): RedactedConfigVa
   }));
 }
 
-export type MiniMaxProviderStatus = {
-  provider: 'minimax';
-  configured: boolean;
-  baseUrlConfigured: boolean;
-  apiKeyConfigured: boolean;
-  storage: 'user-plaintext-v1';
-  nextActions: string[];
-};
-
-function createMiniMaxProviderStatus(config: MiniMaxProviderConfig): MiniMaxProviderStatus {
-  const baseUrl = config.baseUrl?.trim();
-  const apiKey = config.apiKey?.trim();
-  const baseUrlConfigured = typeof baseUrl === 'string' && baseUrl.length > 0 && isValidMiniMaxBaseUrl(baseUrl);
-  const apiKeyConfigured = typeof apiKey === 'string' && apiKey.length > 0;
-  return {
-    provider: 'minimax',
-    configured: baseUrlConfigured && apiKeyConfigured,
-    baseUrlConfigured,
-    apiKeyConfigured,
-    storage: 'user-plaintext-v1',
-    nextActions: baseUrlConfigured && apiKeyConfigured ? [] : ['Export MINIMAX_API_KEY and rerun peaks config provider minimax set --base-url <url>']
-  };
-}
-
-export function getMiniMaxProviderConfig(): MiniMaxProviderConfig {
-  return toMiniMaxProviderConfig(readUserJsonFile()?.providers?.minimax);
-}
-
-export function getMiniMaxProviderStatus(): MiniMaxProviderStatus {
-  return createMiniMaxProviderStatus(getMiniMaxProviderConfig());
-}
-
-export function setMiniMaxProviderConfig(input: MiniMaxProviderConfig): MiniMaxProviderStatus {
-  validateMiniMaxBaseUrl(input.baseUrl);
-  const userConfig = readUserJsonFile() ?? {};
-  const existingProviders = toModelProviderConfig(userConfig.providers);
-  const providers: ModelProviderConfig = {
-    ...existingProviders,
-    minimax: {
-      ...existingProviders.minimax,
-      ...input
-    }
-  };
-  validateMiniMaxBaseUrl(providers.minimax?.baseUrl);
-  writeConfig({ providers }, 'user');
-  return createMiniMaxProviderStatus(providers.minimax ?? {});
-}
-
 const OCR_AUTH_HEADERS: ReadonlySet<OcrAuthHeader> = new Set<OcrAuthHeader>(['authorization', 'x-api-key', 'bearer']);
 
 function toOcrLlmConfig(value: unknown): OcrLlmConfig {
@@ -615,7 +530,7 @@ function toPeaksConfig(value: unknown): Partial<PeaksConfig> {
   return {
     ...(typeof value.version === 'string' ? { version: value.version } : {}),
     ...(typeof value.language === 'string' ? { language: value.language } : {}),
-    ...(typeof value.model === 'string' && ['haiku', 'sonnet', 'opus', 'minimax'].includes(value.model) ? { model: value.model as ModelPreference } : {}),
+    ...(typeof value.model === 'string' && ['haiku', 'sonnet', 'opus'].includes(value.model) ? { model: value.model as ModelPreference } : {}),
     ...(typeof value.economyMode === 'boolean' ? { economyMode: value.economyMode } : {}),
     ...(typeof value.swarmMode === 'boolean' ? { swarmMode: value.swarmMode } : {}),
     ...(isRecord(value.tokens) ? { tokens: toTokenConfig(value.tokens) } : {}),
@@ -720,10 +635,9 @@ export function setConfig(options: ConfigSetOptions): void {
   if (layer === 'project' && (isProviderConfigPath(options.key) || isProxyConfigPath(options.key) || isSensitiveConfigPath(options.key) || containsSensitiveConfigValue(options.value))) {
     throw new Error('Sensitive config keys must be stored in the user config layer');
   }
-  validateMiniMaxBaseUrl(getMiniMaxBaseUrlCandidate(options.key, options.value));
   if (options.key === 'providers') {
     validateModelProviderConfig(toModelProviderConfig(options.value));
-  } else if (options.key.startsWith('providers.') && !options.key.startsWith('providers.minimax.')) {
+  } else if (options.key.startsWith('providers.')) {
     const providerId = getNestedPathParts(options.key)[1];
     if (options.key === `providers.${providerId}`) {
       validateModelProviderConfig({ [providerId as string]: toProviderModelConfig(options.value) });

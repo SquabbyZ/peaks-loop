@@ -18,7 +18,7 @@ This change makes the product direction explicit: Peaks should reuse existing ca
 
 - Installing Claude Code Router, MCP servers, hooks, or external skills automatically.
 - Storing API keys or provider credentials.
-- Launching real MiniMax, Claude, OpenAI, or other model workers.
+- Launching real Claude, OpenAI, or other model workers.
 - Replacing Claude Code `/goal`; Peaks should interoperate with it but remain independent.
 - Writing implementation code into target projects from this change.
 

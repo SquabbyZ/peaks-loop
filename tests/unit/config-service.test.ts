@@ -32,7 +32,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, homedir: () => configTestHome };
 });
 
-import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, ensureWorkspaceConfigForPath, getConfig, getMiniMaxProviderConfig, getWorkspaceConfigForPath, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, resolveProjectRootForConfig, setConfig, setCurrentWorkspace, setMiniMaxProviderConfig, writeConfig } from '../../src/services/config/config-service.js';
+import { addWorkspace, bootstrapProjectLanguageConfig, containsSensitiveConfigValue, ensureWorkspaceConfigForPath, getConfig, getWorkspaceConfigForPath, isConfigLayer, isSensitiveConfigPath, readConfig, redactConfigSecrets, removeWorkspace, resolveProjectRootForConfig, setConfig, setCurrentWorkspace, writeConfig } from '../../src/services/config/config-service.js';
 
 // Test helper path parsing logic directly
 // The actual config service uses these functions internally
@@ -128,22 +128,22 @@ describe('secret config handling', () => {
     expect(isConfigLayer('user')).toBe(true);
     expect(isConfigLayer('project')).toBe(true);
     expect(isConfigLayer('other')).toBe(false);
-    expect(isSensitiveConfigPath('providers.minimax.apiKey')).toBe(true);
+    expect(isSensitiveConfigPath('providers.anthropic.apiKey')).toBe(true);
     expect(isSensitiveConfigPath('tokens.GitHubToken')).toBe(true);
-    expect(isSensitiveConfigPath('providers.minimax.baseUrl')).toBe(false);
+    expect(isSensitiveConfigPath('providers.anthropic.baseUrl')).toBe(false);
   });
 
   test('detects nested sensitive config values', () => {
-    expect(containsSensitiveConfigValue({ minimax: { apiKey: 'secret' } })).toBe(true);
+    expect(containsSensitiveConfigValue({ anthropic: { apiKey: 'secret' } })).toBe(true);
     expect(containsSensitiveConfigValue([{ token: 'secret' }])).toBe(true);
-    expect(containsSensitiveConfigValue({ minimax: { baseUrl: 'https://api.minimaxi.com/anthropic' } })).toBe(false);
+    expect(containsSensitiveConfigValue({ anthropic: { baseUrl: 'https://api.example.com/anthropic' } })).toBe(false);
   });
 
   test('redacts nested secret values without mutating the input', () => {
     const config = {
       providers: {
-        minimax: {
-          baseUrl: 'https://api.minimaxi.com/anthropic',
+        anthropic: {
+          baseUrl: 'https://api.example.com/anthropic',
           apiKey: { value: 'plain-secret' },
           emptyToken: ''
         },
@@ -155,28 +155,26 @@ describe('secret config handling', () => {
     };
 
     const redacted = redactConfigSecrets(config);
-    const redactedConfig = redacted as { providers: { minimax: { baseUrl: string; apiKey: string; emptyToken: string }; customProvider: { baseUrl: string } }; list: { token: string }[] };
+    const redactedConfig = redacted as { providers: { anthropic: { baseUrl: string; apiKey: string; emptyToken: string }; customProvider: { baseUrl: string } }; list: { token: string }[] };
 
-    expect(redactedConfig.providers.minimax.baseUrl).toBe('https://api.minimaxi.com/anthropic');
-    expect(redactedConfig.providers.minimax.apiKey).toBe('***');
-    expect(redactedConfig.providers.minimax.emptyToken).toBe('***');
+    expect(redactedConfig.providers.anthropic.baseUrl).toBe('https://api.example.com/anthropic');
+    expect(redactedConfig.providers.anthropic.apiKey).toBe('***');
+    expect(redactedConfig.providers.anthropic.emptyToken).toBe('***');
     expect(redactedConfig.providers.customProvider.baseUrl).toBe('https://example.com/anthropic');
     expect(redactedConfig.list[0]?.token).toBe('***');
-    expect(config.providers.minimax.apiKey.value).toBe('plain-secret');
+    expect(config.providers.anthropic.apiKey.value).toBe('plain-secret');
   });
 
-  test('rejects insecure MiniMax base URLs through all config write paths', () => {
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'http://api.minimaxi.com/anthropic' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers.minimax', value: { baseUrl: 'http://api.minimaxi.com/anthropic' } })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers', value: { minimax: { baseUrl: 'http://api.minimaxi.com/anthropic' } } })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => writeConfig({ providers: { minimax: { baseUrl: 'http://api.minimaxi.com/anthropic' } } }, 'user')).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setMiniMaxProviderConfig({ baseUrl: 'http://api.minimaxi.com/anthropic' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://user:pass@api.minimaxi.com/anthropic' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://api.minimaxi.com/anthropic?apiKey=secret' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://api.minimaxi.com/anthropic#token=secret' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://example.com/anthropic' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
+  test('rejects insecure provider base URLs through all config write paths', () => {
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'http://api.example.com/anthropic' })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => setConfig({ key: 'providers.anthropic', value: { baseUrl: 'http://api.example.com/anthropic' } })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => setConfig({ key: 'providers', value: { anthropic: { baseUrl: 'http://api.example.com/anthropic' } } })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => writeConfig({ providers: { anthropic: { baseUrl: 'http://api.example.com/anthropic' } } }, 'user')).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'https://user:pass@api.example.com/anthropic' })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'https://api.example.com/anthropic?apiKey=secret' })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'https://api.example.com/anthropic#token=secret' })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
 
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://api.minimaxi.com/anthropic' })).not.toThrow();
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'https://api.example.com/anthropic' })).not.toThrow();
   });
 
   test('rejects unsafe generic provider base URLs', () => {
@@ -258,22 +256,22 @@ describe('secret config handling', () => {
   });
 
   test('rejects project-layer sensitive writes', () => {
-    expect(() => setConfig({ key: 'providers.minimax.apiKey', value: 'secret', layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
-    expect(() => setConfig({ key: 'providers.minimax', value: { apiKey: 'secret' }, layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
-    expect(() => setConfig({ key: 'providers.minimax.baseUrl', value: 'https://api.minimaxi.com/anthropic', layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
+    expect(() => setConfig({ key: 'providers.anthropic.apiKey', value: 'secret', layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
+    expect(() => setConfig({ key: 'providers.anthropic', value: { apiKey: 'secret' }, layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'https://api.example.com/anthropic', layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
     expect(() => setConfig({ key: 'proxy.httpProxy', value: 'http://127.0.0.1:58309', layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
     expect(() => setConfig({ key: 'safe', value: { nested: { token: 'secret' } }, layer: 'project' })).toThrow('Sensitive config keys must be stored in the user config layer');
-    expect(() => writeConfig({ providers: { minimax: { baseUrl: 'https://api.minimaxi.com/anthropic' } } }, 'project')).toThrow('Sensitive config keys must be stored in the user config layer');
+    expect(() => writeConfig({ providers: { anthropic: { baseUrl: 'https://api.example.com/anthropic' } } }, 'project')).toThrow('Sensitive config keys must be stored in the user config layer');
     expect(() => writeConfig({ proxy: { httpProxy: 'http://127.0.0.1:58309' } }, 'project')).toThrow('Sensitive config keys must be stored in the user config layer');
     expect(() => setConfig({ key: 'safe', value: 'value', layer: 'invalid' as 'project' })).toThrow('Invalid config layer');
   });
 
   test('normalizes external config shapes before exposing provider config', () => {
-    writeConfig({ providers: { minimax: { model: 'minimax-2.7', baseUrl: 'https://api.minimaxi.com/anthropic', apiKey: 123 as unknown as string } as never } }, 'user');
-    const providerConfig = getMiniMaxProviderConfig();
-    expect(providerConfig.model).toBe('minimax-2.7');
-    expect(providerConfig.baseUrl).toBe('https://api.minimaxi.com/anthropic');
-    expect(providerConfig.apiKey).toBeUndefined();
+    writeConfig({ providers: { anthropic: { model: 'claude-opus-4-7', baseUrl: 'https://api.example.com/anthropic', apiKey: 'plain-secret' } as never } }, 'user');
+    const providerConfig = getConfig({ layer: 'user', key: 'providers.anthropic' }) as { model: string; baseUrl: string; apiKey?: string };
+    expect(providerConfig.model).toBe('claude-opus-4-7');
+    expect(providerConfig.baseUrl).toBe('https://api.example.com/anthropic');
+    expect(providerConfig.apiKey).toBe('plain-secret');
   });
 
   test('normalizes token refs and drops malformed token config entries', () => {
@@ -526,13 +524,10 @@ describe('secret config handling', () => {
     expect(existsSync(join(artifactTarget, '.peaks', 'config.json'))).toBe(false);
   });
 
-  test('rejects MiniMax provider updates when an existing stored URL is invalid', () => {
-    // Slice 2026-06-13-repair-pre-existing-test-failures: ensure the
-    // `.peaks` directory exists before writeFileSync (otherwise the
-    // write throws ENOENT before the MiniMax URL validator fires).
+  test('rejects provider updates when an existing stored URL is invalid', () => {
     mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
-    writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ providers: { minimax: { baseUrl: 'https://example.com/anthropic' } } }), 'utf8');
-    expect(() => setMiniMaxProviderConfig({ apiKey: 'secret' })).toThrow('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
+    writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ providers: { anthropic: { baseUrl: 'http://example.com/anthropic' } } }), 'utf8');
+    expect(() => setConfig({ key: 'providers.anthropic.baseUrl', value: 'http://example.com/anthropic' })).toThrow('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
   });
 });
 
@@ -558,7 +553,7 @@ describe('project config discovery', () => {
     mkdirSync(join(configTestHome, '.peaks'), { recursive: true });
     // 2.0.1 slim: legacy fields can still be present in pre-2.0.1
     // config files and must be exposed via getConfig (loader is tolerant).
-    writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ language: 'zh', model: 'minimax' }), 'utf8');
+    writeFileSync(join(configTestHome, '.peaks', 'config.json'), JSON.stringify({ language: 'zh', model: 'opus' }), 'utf8');
 
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(projectRoot);
     try {
@@ -721,9 +716,9 @@ describe('config types', () => {
       swarmMode: true,
       tokens: { GitHubToken: { env: 'GH_TOKEN' } },
       providers: {
-        minimax: {
-          model: 'minimax-2.7',
-          baseUrl: 'https://api.minimaxi.com/anthropic',
+        anthropic: {
+          model: 'claude-opus-4-7',
+          baseUrl: 'https://api.example.com/anthropic',
           apiKey: 'test-key'
         }
       },
@@ -734,8 +729,8 @@ describe('config types', () => {
     expect(config.model).toBe('sonnet');
     expect(config.economyMode).toBe(true);
     expect(config.swarmMode).toBe(true);
-    expect(config.providers.minimax?.model).toBe('minimax-2.7');
-    expect(config.providers.minimax?.baseUrl).toBe('https://api.minimaxi.com/anthropic');
+    expect(config.providers.anthropic?.model).toBe('claude-opus-4-7');
+    expect(config.providers.anthropic?.baseUrl).toBe('https://api.example.com/anthropic');
   });
 });
 

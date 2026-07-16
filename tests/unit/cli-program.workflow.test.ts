@@ -334,7 +334,7 @@ describe('createProgram workflow commands', () => {
       expect(output.command).toBe('swarm.plan');
       expect(executionTasks.length).toBeGreaterThan(0);
       expect(executionTasks.every((task) => task.modelRole === 'execution' && task.modelId === 'claude-opus-4-7')).toBe(true);
-      expect(executionTasks.some((task) => task.modelId === 'minimax-2.7')).toBe(false);
+      expect(executionTasks.every((task) => task.modelId !== 'legacy-deleted-model-id')).toBe(true);
     } finally {
       cwdSpy.mockRestore();
     }
@@ -426,7 +426,7 @@ describe('createProgram workflow commands', () => {
       economyMode: true,
       swarmMode: true,
       tokens: {},
-      providers: { minimax: { model: 'minimax-2.7' } },
+      providers: { anthropic: { model: 'claude-opus-4-7' } },
       proxy: {}
     });
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
@@ -512,7 +512,7 @@ describe('createProgram workflow commands', () => {
       economyMode: true,
       swarmMode: true,
       tokens: {},
-      providers: { minimax: { model: 'minimax-2.7' } },
+      providers: { anthropic: { model: 'claude-opus-4-7' } },
       proxy: {}
     });
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(nestedDir);
@@ -550,7 +550,7 @@ describe('createProgram workflow commands', () => {
       economyMode: true,
       swarmMode: true,
       tokens: {},
-      providers: { minimax: { model: 'minimax-2.7' } },
+      providers: { anthropic: { model: 'claude-opus-4-7' } },
       proxy: {}
     });
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(join(projectRoot, 'packages', 'app'));

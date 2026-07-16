@@ -31,7 +31,7 @@ Peaks Code SHALL prefer existing curated capabilities before proposing custom im
 - **GIVEN** `docs/accessRepo.md`, `docs/mcpServer.md`, and local `skills/*/SKILL.md` exist
 - **WHEN** Peaks plans autonomous execution
 - **THEN** Peaks includes relevant existing skills, MCP servers, repositories, or docs as candidate capabilities
-- **AND** the candidate set reflects the user-curated categories from `docs/accessRepo.md`, including code standards, project scanning, frontend/browser validation, MiniMax-oriented execution helpers, cross-session memory, UI/design resources, OpenSpec, and swarm/orchestration references
+- **AND** the candidate set reflects the user-curated categories from `docs/accessRepo.md`, including code standards, project scanning, frontend/browser validation, cross-session memory, UI/design resources, OpenSpec, and swarm/orchestration references
 - **AND** each candidate records source, purpose, trust level, activation requirement, and risk
 - **AND** Peaks does not install, enable, or invoke unavailable capabilities in dry-run mode
 

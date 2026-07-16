@@ -1,9 +1,9 @@
 import { CLI_VERSION } from '../../shared/version.js';
 
 // Provider types (consumed by provider-service.ts and config-service.ts legacy compat)
-export type ModelPreference = 'haiku' | 'sonnet' | 'opus' | 'minimax';
+export type ModelPreference = 'haiku' | 'sonnet' | 'opus';
 
-export type ModelProviderId = 'minimax' | string;
+export type ModelProviderId = string;
 export type ExecutionModelId = string;
 
 export type ProviderModelConfig = {
@@ -12,10 +12,7 @@ export type ProviderModelConfig = {
   apiKey?: string;
 };
 
-export type MiniMaxProviderConfig = ProviderModelConfig;
-
 export type ModelProviderConfig = {
-  minimax?: MiniMaxProviderConfig;
   [providerId: string]: ProviderModelConfig | undefined;
 };
 

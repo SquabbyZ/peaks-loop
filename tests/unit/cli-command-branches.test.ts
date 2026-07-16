@@ -9,8 +9,7 @@ const branchState = vi.hoisted(() => ({
   removeWorkspace: vi.fn(),
   runDoctor: vi.fn(),
   setConfig: vi.fn(),
-  setCurrentWorkspace: vi.fn(),
-  setMiniMaxProviderConfig: vi.fn()
+  setCurrentWorkspace: vi.fn()
 }));
 
 const standardsState = vi.hoisted(() => ({
@@ -36,8 +35,7 @@ vi.mock('../../src/services/config/config-service.js', async (importOriginal) =>
     getCurrentWorkspaceConfig: branchState.getCurrentWorkspaceConfig,
     removeWorkspace: branchState.removeWorkspace,
     setConfig: branchState.setConfig,
-    setCurrentWorkspace: branchState.setCurrentWorkspace,
-    setMiniMaxProviderConfig: branchState.setMiniMaxProviderConfig
+    setCurrentWorkspace: branchState.setCurrentWorkspace
   };
 });
 
@@ -68,7 +66,6 @@ describe('cli command branch handling', () => {
   beforeEach(() => {
     branchState.runDoctor.mockReset();
     branchState.setConfig.mockReset();
-    branchState.setMiniMaxProviderConfig.mockReset();
     standardsState.executeProjectStandardsUpdate.mockReset();
     standardsState.summarizeProjectStandardsUpdateResult.mockReset();
   });
@@ -215,41 +212,15 @@ describe('cli command branch handling', () => {
     expect(parseJsonOutput(projectResult.stdout).code).toBe('PROJECT_CONFIG_NOT_FOUND');
 
     branchState.setConfig.mockImplementationOnce(() => {
-      throw new Error('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
+      throw new Error('Provider base URL must be HTTPS without embedded credentials, query, or fragment');
     });
-    const invalidMiniMaxResult = await runRegisteredCommand(registerConfigCommands, ['config', 'set', '--key', 'language', '--value', '"en"', '--json']);
-    expect(parseJsonOutput(invalidMiniMaxResult.stdout).code).toBe('INVALID_MINIMAX_BASE_URL');
+    const invalidBaseUrlResult = await runRegisteredCommand(registerConfigCommands, ['config', 'set', '--key', 'language', '--value', '"en"', '--json']);
+    expect(parseJsonOutput(invalidBaseUrlResult.stdout).code).toBe('CONFIG_SET_FAILED');
 
     branchState.setConfig.mockImplementationOnce(() => {
       throw new Error('Unexpected write failure');
     });
     const genericResult = await runRegisteredCommand(registerConfigCommands, ['config', 'set', '--key', 'language', '--value', '"en"', '--json']);
     expect(parseJsonOutput(genericResult.stdout).code).toBe('CONFIG_SET_FAILED');
-
-    const previousMiniMaxApiKey = process.env.MINIMAX_API_KEY;
-    delete process.env.MINIMAX_API_KEY;
-    try {
-      const missingProviderValuesResult = await runRegisteredCommand(registerConfigCommands, ['config', 'provider', 'minimax', 'set', '--json']);
-      expect(parseJsonOutput(missingProviderValuesResult.stdout).code).toBe('MINIMAX_PROVIDER_NO_VALUES');
-      expect(branchState.setMiniMaxProviderConfig).not.toHaveBeenCalled();
-    } finally {
-      if (previousMiniMaxApiKey === undefined) {
-        delete process.env.MINIMAX_API_KEY;
-      } else {
-        process.env.MINIMAX_API_KEY = previousMiniMaxApiKey;
-      }
-    }
-
-    branchState.setMiniMaxProviderConfig.mockImplementationOnce(() => {
-      throw new Error('MiniMax base URL must be the MiniMax HTTPS endpoint without embedded credentials');
-    });
-    const invalidProviderResult = await runRegisteredCommand(registerConfigCommands, ['config', 'provider', 'minimax', 'set', '--base-url', 'https://api.minimaxi.com/anthropic', '--json']);
-    expect(parseJsonOutput(invalidProviderResult.stdout).code).toBe('INVALID_MINIMAX_BASE_URL');
-
-    branchState.setMiniMaxProviderConfig.mockImplementationOnce(() => {
-      throw new Error('Unexpected provider write failure');
-    });
-    const genericProviderResult = await runRegisteredCommand(registerConfigCommands, ['config', 'provider', 'minimax', 'set', '--base-url', 'https://api.minimaxi.com/anthropic', '--json']);
-    expect(parseJsonOutput(genericProviderResult.stdout).code).toBe('MINIMAX_PROVIDER_SET_FAILED');
   });
 });

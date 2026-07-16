@@ -69,7 +69,7 @@ function writeWorkspaceServiceConfig(): void {
     economyMode: true,
     swarmMode: true,
     tokens: {},
-    providers: { minimax: { model: 'minimax-2.7' } },
+    providers: { anthropic: { model: 'claude-opus-4-7' } },
     proxy: {}
   }), 'utf8');
 }

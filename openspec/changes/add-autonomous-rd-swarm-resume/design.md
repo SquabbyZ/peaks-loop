@@ -55,7 +55,7 @@ Before planning custom implementation, Peaks should consult curated capability s
 - Concise-code and expert TypeScript/engineering skill resources.
 - Project scanning tools.
 - React/frontend agent skills and browser-based frontend validation resources.
-- MiniMax frontend-oriented skills for lower-cost model execution.
+- Frontend-oriented skills for lower-cost model execution.
 - Cross-session memory/context systems.
 - shadcn/UI and design-component resources.
 - Skill evaluation resources.

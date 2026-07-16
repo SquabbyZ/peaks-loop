@@ -317,7 +317,7 @@ describe('createProgram', () => {
       expect(parseJsonOutput(invalidJsonResult.stdout).code).toBe('INVALID_JSON');
       expect(invalidJsonResult.exitCode).toBe(1);
 
-      const sensitiveLayerResult = await runCommand(['config', 'set', '--key', 'providers.minimax.apiKey', '--value', '"secret"', '--layer', 'project', '--json']);
+      const sensitiveLayerResult = await runCommand(['config', 'set', '--key', 'providers.anthropic.apiKey', '--value', '"secret"', '--layer', 'project', '--json']);
       expect(parseJsonOutput(sensitiveLayerResult.stdout).code).toBe('SECRET_CONFIG_REQUIRES_USER_LAYER');
       expect(sensitiveLayerResult.exitCode).toBe(1);
 
@@ -325,9 +325,8 @@ describe('createProgram', () => {
       expect(parseJsonOutput(invalidLayerResult.stdout).code).toBe('INVALID_CONFIG_LAYER');
       expect(invalidLayerResult.exitCode).toBe(1);
 
-      const invalidMiniMaxResult = await runCommand(['config', 'set', '--key', 'providers.minimax.baseUrl', '--value', '"http://example.com"', '--json']);
-      expect(parseJsonOutput(invalidMiniMaxResult.stdout).code).toBe('INVALID_MINIMAX_BASE_URL');
-      expect(invalidMiniMaxResult.exitCode).toBe(1);
+      const invalidBaseUrlResult = await runCommand(['config', 'set', '--key', 'providers.anthropic.baseUrl', '--value', '"http://example.com"', '--json']);
+      expect(invalidBaseUrlResult.exitCode).toBe(1);
     } finally {
       cwdSpy.mockRestore();
     }
