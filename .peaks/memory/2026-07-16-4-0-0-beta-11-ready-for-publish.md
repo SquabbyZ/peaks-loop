@@ -1,13 +1,18 @@
 ---
 name: 2026-07-16-4-0-0-beta-11-ready-for-publish
-description: peaks-loop 4.0.0-beta.11 ready for npm publish. Version bumped from beta.10 (pre-impl contract name) to beta.11 (actual release). All preflight checks green. User must run `npm publish --tag beta --otp=<6位OTP码>`.
+description: peaks-loop 4.0.0-beta.11 **PUBLISHED 2026-07-16**. Version bumped from beta.10 (pre-impl contract name) to beta.11 (actual release). User confirmed global install at 4.0.0-beta.11. Status: PUBLISHED.
 metadata:
   type: project
   date: 2026-07-16
   sessionId: 2026-07-16-session-651c20
   targetRelease: 4.0.0-beta.11
-  releaseStatus: READY-FOR-PUBLISH
-  publishAction: user only (Human-NL-Choice-Only + 2FA OTP)
+  releaseStatus: PUBLISHED
+  publishedAt: 2026-07-16
+  publishedBy: SquabbyZ (user; 2FA OTP)
+  npmRegistryVersion: 4.0.0-beta.11
+  globalInstallVersion: 4.0.0-beta.11
+  globalInstallPath: C:\nvm4w\nodejs\peaks
+  publishAction: user only (Human-NL-Choice-Only + 2FA OTP) — COMPLETED
   newDrift: D-016 version bump rationale (beta.10 = contract; beta.11 = release)
 ---
 
@@ -18,6 +23,11 @@ metadata:
 **HEAD:** `40e2962` (chore(version): sync CLI_VERSION 4.0.0-beta.10 → 4.0.0-beta.11)
 **Target release:** `4.0.0-beta.11`
 **Tarball:** `.pack-cache/peaks-loop-4.0.0-beta.11.tgz` (30MB, 1255 files)
+**Publish status:** ✅ **PUBLISHED 2026-07-16**. User confirmed:
+- `npm view peaks-loop@beta version` → `4.0.0-beta.11`
+- `npm ls -g peaks-loop` → `peaks-loop@4.0.0-beta.11`
+- `peaks --version` (global) → `4.0.0-beta.11`
+- Global binary: `C:\nvm4w\nodejs\peaks`
 
 ## Version bump rationale (D-016)
 
