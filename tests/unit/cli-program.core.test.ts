@@ -110,7 +110,7 @@ describe('createProgram', () => {
     expect(output.data.apply).toBe(false);
     expect(output.data.language).toBe('typescript');
     expect(output.data.skillPreflight.appliesTo).toEqual(['peaks-rd', 'peaks-qa', 'peaks-code']);
-    expect(output.data.plannedWrites.map((write) => write.relativePath)).toContain('.claude/rules/common/security.md');
+    expect(output.data.plannedWrites.map((write) => write.relativePath)).toContain('.peaks/standards/common/security.md');
   });
 
   test('applies standards init with detected language when language is omitted', async () => {

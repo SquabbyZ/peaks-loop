@@ -136,30 +136,7 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (v2.12.0 3-way fanout — code-reviewer + qa-test-cases-writer + karpathy-reviewer)
 
-The THREE review activities run in parallel via `peaks sub-agent dispatch <role>`, not sequentially. Sub-agents: `code-reviewer`, `qa-test-cases-writer` (writes `qa/test-cases/<rid>.md`), `karpathy-reviewer` (the **hard Karpathy-Gate**). This is the v2.12.0 3-way fanout. Feature / refactor / bugfix: all three. Config / docs / chore: no fan-out — no `karpathy-reviewer` dispatched. OCR augmentation (B3): `peaksConfig.ocr.llm` → `peaks code-review run-ocr --json` → merge into `code-review.md`; → `references/ocr-integration.md`.
-
-> **v2.12.0 collapse (Group A):** the 5-way fan-out moved `security-reviewer` + `perf-baseline-reviewer` into standalone audit skills (`peaks-security-audit` + `peaks-perf-audit`). → `references/v2-12-fanout-collapse.md`.
-
-> **v2.15.0+:** 技术决策 AI 据 prd 业务场景块自决,user 不参与;存量项目无 UT,改 A 前跑 `peaks impact scan`(G13);fork 场景 tech-doc 列上游基线+业务 patch 集(G11)。详见 `.peaks/memory/peaks-loop-user-role-and-tech-decision.md`。
-
-> **Slice 2026-06-24-efficiency-4p-bundle / G4 (P1.3) — karpathy-skip policy authoritative.** Decision table at `src/services/rd/reviewer-dispatch-policy.ts` (`shouldDispatchKarpathy`, `reviewerListFor`). Pinned by `tests/unit/rd/karpathy-skip-on-config-docs-chore.test.ts`.
-
-### Hard Karpathy-Gate (Slice 5/6)
-
-The `karpathy-reviewer` sub-agent is a **hard gate** for `rd:qa-handoff`. Per `andrej-karpathy-skills:karpathy-guidelines` §1 Think Before Coding ("state your assumptions") + §3 Surgical Changes ("touch only what the user asked"), `peaks request transition --state qa-handoff` is BLOCKED by the CLI gate until `.peaks/_runtime/<sessionId>/rd/karpathy-review.md` exists with the `## Karpathy-Gate` header and at least one of the 4 guideline section markers. The file is enforced by the `KARPATHY_REVIEW` prerequisite in `src/services/artifacts/artifact-prerequisites.ts` (added in Slice 5). The escape hatch is `peaks request transition --allow-incomplete --confirm` (assisted mode). The companion `peaks scan karpathy` CLI is a structural scanner for the same file (`src/services/scan/karpathy-service.ts`); the semantic review is the sub-agent's job.
-
-### Peaks-Loop Gate C — type-specific RD evidence
-
-The CLI gate at `rd:qa-handoff` is the authoritative check. Missing any required file → DO NOT attempt the qa-handoff transition; CLI will reject with `PREREQUISITES_MISSING`.
-
-| Request type | Required RD evidence |
-|---|---|
-| feature / refactor | `audit/security.md` + `audit/perf.md` + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` + `prd/handoff.md` |
-| bugfix | `audit/security.md` + `audit/perf.md` (perf-shaped only) + `rd/code-review.md` + `rd/karpathy-review.md` + `qa/test-cases/<rid>.md` + `prd/handoff.md` |
-| config | `audit/security.md` |
-| docs / chore | (no extra evidence required) |
-
-→ see `references/rd-fanout-contracts.md` for the **3** sub-agents' contracts + hard prohibitions + aggregation + degradation. Pre-v2.12.0 `rd/{security-review,perf-baseline}.md` paths remain readable for the 1-minor-release back-compat window.
+Full content extracted to **`references/parallel-review-fanout.md`** (3-way fan-out dispatch contract, when-to-fan-out rules, dispatch template, prereq gates). Read that file before issuing any 3-way fan-out.
 
 ## Refactor hard gates
 

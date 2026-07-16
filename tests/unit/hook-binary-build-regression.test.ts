@@ -25,7 +25,7 @@ import { describe, expect, test } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = resolve(__dirname, '..', '..');
-const DIST_GATE_COMMANDS = join(PROJECT_ROOT, 'dist', 'src', 'cli', 'commands', 'gate-commands.js');
+const DIST_GATE_COMMANDS = join(PROJECT_ROOT, 'dist', 'cli', 'commands', 'gate-commands.js');
 
 describe('PRD#8: built gate-commands binary matches the source fix', () => {
   test('dist/src/cli/commands/gate-commands.js exists and contains emitBlock (the deny-path helper)', () => {
@@ -33,7 +33,7 @@ describe('PRD#8: built gate-commands binary matches the source fix', () => {
       throw new Error(
         `Built gate-commands.js missing at ${DIST_GATE_COMMANDS}. ` +
           'Run `pnpm build` to compile src/ → dist/. The Claude Code hook ' +
-          'invokes bin/peaks.js → dist/src/cli/index.js, so a stale dist ' +
+          'invokes bin/peaks.js → dist/cli/index.js, so a stale dist ' +
           'silently reverts the Fact-Forcing Gate fix in production.'
       );
     }
@@ -52,7 +52,7 @@ describe('PRD#8: built gate-commands binary matches the source fix', () => {
   test('dist/src/cli/commands/hook-handle.js exists and contains emitHint / emitBlock (PRD#3 hook governance)', () => {
     // Sanity-check the broader hook-governance surface so a stale dist on
     // hook-handle.js also fails loudly.
-    const hookHandle = join(PROJECT_ROOT, 'dist', 'src', 'cli', 'commands', 'hook-handle.js');
+    const hookHandle = join(PROJECT_ROOT, 'dist', 'cli', 'commands', 'hook-handle.js');
     if (!existsSync(hookHandle)) {
       throw new Error(`Built hook-handle.js missing at ${hookHandle}. Run pnpm build.`);
     }

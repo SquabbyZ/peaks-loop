@@ -30,18 +30,18 @@ describe('package publishing configuration', () => {
     expect(versionSource).toBe(`export const CLI_VERSION = ${JSON.stringify(packageJson.version)};\n`);
     expect(packageJson.bin.peaks).toBe('./bin/peaks.js');
     expect(packageJson.files).toContain('bin/peaks.js');
-    expect(packageJson.files).toContain('dist/src/cli/index.js');
+    expect(packageJson.files).toContain('dist/cli/index.js');
     expect(packageJson.files).toContain('scripts/clean-dist.mjs');
     expect(packageJson.files).toContain('scripts/sync-version.mjs');
     expect(packageJson.files).toContain('scripts/install-skills.mjs');
     expect(packageJson.files).toContain('scripts/watch.mjs');
     expect(packageJson.files).toContain('skills/**');
-    expect(packageJson.scripts.build).toBe('node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.json');
+    expect(packageJson.scripts.build).toBe('node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs');
     expect(packageJson.scripts.prepack).toBe('npm run build');
     expect(packageJson.scripts.postinstall).toBe('node ./scripts/install-skills.mjs');
     expect(packageJson.scripts.dev).toBe('tsx src/cli/index.ts');
     expect(packageJson.scripts['dev:watch']).toBe('node ./scripts/watch.mjs');
-    expect(binSource).toContain("../dist/src/cli/index.js");
+    expect(binSource).toContain("../dist/cli/index.js");
   });
 
   test('does not publish production sourcemaps', async () => {
