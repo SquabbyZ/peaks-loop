@@ -42,4 +42,20 @@ describe('listSkills', () => {
     const result = await listSkills('/this/path/does/not/exist/at/all');
     expect(result).toEqual([]);
   });
+
+  test('surfaces visibility field from SKILL.md frontmatter', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'peaks-skills-'));
+    await mkdir(join(root, 'internal-skill'));
+    await writeFile(
+      join(root, 'internal-skill', 'SKILL.md'),
+      `---\nname: internal-skill\ndescription: Internal demo\nvisibility: internal\n---\n# Internal\n`
+    );
+    const skills = await listSkills(root);
+    expect(skills).toEqual([
+      expect.objectContaining({
+        name: 'internal-skill',
+        visibility: 'internal'
+      })
+    ]);
+  });
 });

@@ -121,7 +121,7 @@ export interface StaticAuditData {
 
 export function registerAuditCommands(program: Command, io: ProgramIO): void {
   const audit = program
-    .command('audit')
+    .command('audit', { hidden: true })
     .description('Audit a project for compliance with peaks-loop red lines (P0 / P1 / P2 tiers)');
 
   addJsonOption(

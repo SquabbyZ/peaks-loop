@@ -1,7 +1,7 @@
 ---
 name: peaks-doctor
 description: Orchestrate peaks-loop's L3 doctor (peaks audit + peaks doctor + peaks openspec from-doctor) for project health. Use when the user asks for a project health check, doctor report, audit, or wants to convert doctor findings into OpenSpec change records. Coordinates the L2 audit framework + the L3.2 doctor + the L3.3 from-doctor proposal generator. Triggers on `/peaks-doctor`, "peaks doctor", "项目健康", "doctor report", "health check", "check the project", "audit my repo".
-internal: true
+visibility: internal
 ---
 ---
 

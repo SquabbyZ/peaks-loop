@@ -23,8 +23,11 @@ import { registerSkillSearchCommand } from '../skill-search-commands.js';
 export function registerSkillCommand(program: Command, io: ProgramIO): void {
   const skill = program.command('skill').description('Manage Peaks skills');
 
-  addJsonOption(skill.command('list').description('List skills derived from skills/*/SKILL.md')).action(async (options: { json?: boolean }) => {
-    const skills = await listSkills();
+  addJsonOption(skill.command('list').description('List skills derived from skills/*/SKILL.md').option('--include-internal', 'include skills with visibility: internal (default: hide them)')).action(async (options: { json?: boolean; includeInternal?: boolean }) => {
+    let skills = await listSkills();
+    if (options.includeInternal !== true) {
+      skills = skills.filter((s) => s.visibility !== 'internal');
+    }
     if (options.json === true) {
       printResult(io, ok('skill.list', { skills }), true);
     } else {

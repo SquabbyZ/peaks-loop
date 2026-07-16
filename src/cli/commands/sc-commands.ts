@@ -4,7 +4,9 @@ import { ok } from '../../shared/result.js';
 import { addJsonOption, multipleOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerSCCommands(program: Command, io: ProgramIO): void {
-  const sc = program.command('sc').description('Source control and change traceability (peaks-sc integration)');
+  const sc = program
+    .command('sc', { hidden: true })
+    .description('Source control and change traceability (peaks-sc integration)');
   registerSCStatusCommands(sc, io);
   registerSCArtifactCommands(sc, io);
 }

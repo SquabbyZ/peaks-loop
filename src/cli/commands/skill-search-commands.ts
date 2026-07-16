@@ -66,12 +66,17 @@ export function registerSkillSearchCommand(program: Command, io: ProgramIO): voi
       'max results returned (1..100, default 20)',
       (v: string) => Number.parseInt(v, 10)
     )
+    .option(
+      '--include-internal',
+      'include skills with visibility: internal (default: hide them)'
+    )
     .action(
       async (options: {
         query?: string;
         tag?: string;
         domain?: string;
         limit?: number;
+        includeInternal?: boolean;
       }) => {
         // 1) Coerce + validate input via the service's Zod schema.
         //    The schema's refine rejects empty input — that is the
@@ -81,6 +86,7 @@ export function registerSkillSearchCommand(program: Command, io: ProgramIO): voi
         if (options.tag !== undefined) raw['tag'] = options.tag;
         if (options.domain !== undefined) raw['domain'] = options.domain;
         if (options.limit !== undefined) raw['limit'] = options.limit;
+        if (options.includeInternal === true) raw['includeInternal'] = true;
 
         const parsed = SkillSearchInputSchema.safeParse(raw);
         if (!parsed.success) {

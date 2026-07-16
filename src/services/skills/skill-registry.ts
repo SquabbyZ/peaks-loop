@@ -8,6 +8,7 @@ export type SkillMetadata = {
   description: string;
   directory: string;
   skillPath: string;
+  visibility?: string;
 };
 
 export type SkillLoadFailure = {
@@ -53,7 +54,8 @@ export async function loadSkillRegistry(baseDir = skillsDir): Promise<SkillRegis
             name: frontmatter.name,
             description: frontmatter.description,
             directory: subDir,
-            skillPath
+            skillPath,
+            ...(frontmatter.visibility !== undefined ? { visibility: frontmatter.visibility } : {})
           });
         } catch (error) {
           failures.push({ directory: subDir, skillPath, message: getLoadFailureMessage(error) });
@@ -71,7 +73,8 @@ export async function loadSkillRegistry(baseDir = skillsDir): Promise<SkillRegis
         name: frontmatter.name,
         description: frontmatter.description,
         directory,
-        skillPath
+        skillPath,
+        ...(frontmatter.visibility !== undefined ? { visibility: frontmatter.visibility } : {})
       });
     } catch (error) {
       failures.push({ directory, skillPath, message: getLoadFailureMessage(error) });

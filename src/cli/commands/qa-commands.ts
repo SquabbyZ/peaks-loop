@@ -290,7 +290,7 @@ export function readQaRunOptions(options: QaRunOptions): {
 
 export function registerQaCommands(program: Command, io: ProgramIO): void {
   const qa = program
-    .command('qa')
+    .command('qa', { hidden: true })
     .description('peaks-qa slice: run QA gates (functional / security / browser E2E / mutation) for the active project');
 
   addJsonOption(

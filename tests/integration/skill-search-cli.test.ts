@@ -69,19 +69,40 @@ describe('peaks skill search — CLI integration (S0)', () => {
     }
   });
 
-  test('I-5 (HC-10): peaks-code / peaks-content / peaks-doctor still work after S0 wiring', async () => {
-    // peaks skill list — exit 0
+  test('I-5 (Slice 2 AC2.4): peaks skill list excludes visibility:internal skills by default', async () => {
     const list = await cli(['skill', 'list']);
     expect(list.code).toBe(0);
     expect(list.stdout).toContain('peaks-code');
     expect(list.stdout).toContain('peaks-content');
-    expect(list.stdout).toContain('peaks-doctor');
+    // Row-level check: peaks-doctor must NOT appear as its own list row.
+    // A naive substring check would also match the peaks-solo description
+    // body (which lists peaks-doctor as a dispatch leaf) — anchor on the
+    // `  peaks-doctor ` row prefix (two-space indent + name + space).
+    expect(list.stdout).not.toMatch(/^ {2}peaks-doctor\s/m);
+  });
 
-    // peaks skill runbook peaks-code — exit 0
+  test('I-6 (Slice 2 AC2.5): peaks skill list --include-internal includes visibility:internal skills', async () => {
+    const list = await cli(['skill', 'list', '--include-internal']);
+    expect(list.code).toBe(0);
+    expect(list.stdout).toContain('peaks-code');
+    expect(list.stdout).toContain('peaks-doctor');
+  });
+
+  test('I-7 (Slice 2 AC2.6): peaks skill search hides visibility:internal unless --include-internal', async () => {
+    const hidden = await cli(['skill', 'search', '--query', 'doctor']);
+    expect(hidden.code).toBe(0);
+    const hiddenNames = JSON.parse(hidden.stdout).map((r: { name: string }) => r.name);
+    expect(hiddenNames).not.toContain('peaks-doctor');
+
+    const included = await cli(['skill', 'search', '--query', 'doctor', '--include-internal']);
+    expect(included.code).toBe(0);
+    const includedNames = JSON.parse(included.stdout).map((r: { name: string }) => r.name);
+    expect(includedNames).toContain('peaks-doctor');
+  });
+
+  test('I-8 (HC-10 + Slice 2 AC2.8): peaks skill runbook + presence still work', async () => {
     const runbook = await cli(['skill', 'runbook', 'peaks-code']);
     expect(runbook.code).toBe(0);
-
-    // peaks skill presence — exit 0 (empty envelope when no presence set)
     const presence = await cli(['skill', 'presence']);
     expect(presence.code).toBe(0);
   });

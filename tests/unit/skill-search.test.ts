@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 // unit tests are pure and never touch the on-disk skills/ dir. This
 // keeps the test self-contained and deterministic.
 let stubListSkills: (baseDir?: string) => Promise<
-  Array<{ name: string; description: string; directory: string; skillPath: string }>
+  Array<{ name: string; description: string; directory: string; skillPath: string; visibility?: string }>
 >;
 
 vi.mock('../../src/services/skills/skill-registry.js', () => ({
@@ -94,6 +94,22 @@ describe('SkillSearchInputSchema', () => {
   test('rejects --domain outside the locked enum', () => {
     const result = SkillSearchInputSchema.safeParse({ domain: 'magic' });
     expect(result.success).toBe(false);
+  });
+
+  test('accepts includeInternal: true', () => {
+    const result = SkillSearchInputSchema.safeParse({ query: 'code', includeInternal: true });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeInternal).toBe(true);
+    }
+  });
+
+  test('defaults includeInternal to false when omitted', () => {
+    const result = SkillSearchInputSchema.safeParse({ query: 'code' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.includeInternal).toBe(false);
+    }
   });
 });
 
@@ -193,6 +209,26 @@ describe('searchSkills', () => {
     const results = await searchSkills({ query: 'skill' });
     const names = results.map((r) => r.name);
     expect(names).toContain('peaks-solo');
+  });
+
+  test('U-11 (Slice 2): includeInternal=true returns visibility:internal skills', async () => {
+    stubListSkills = async () => [
+      { ...PEAKS_CODE_FIXTURE },
+      { ...PEAKS_DOCTOR_FIXTURE, visibility: 'internal' as const }
+    ];
+    const results = await searchSkills({ query: 'doctor', includeInternal: true });
+    const names = results.map((r) => r.name);
+    expect(names).toContain('peaks-doctor');
+  });
+
+  test('U-12 (Slice 2): includeInternal defaults to false (omitted) — visibility:internal skills excluded', async () => {
+    stubListSkills = async () => [
+      { ...PEAKS_CODE_FIXTURE },
+      { ...PEAKS_DOCTOR_FIXTURE, visibility: 'internal' as const }
+    ];
+    const results = await searchSkills({ query: 'doctor' });
+    const names = results.map((r) => r.name);
+    expect(names).not.toContain('peaks-doctor');
   });
 });
 

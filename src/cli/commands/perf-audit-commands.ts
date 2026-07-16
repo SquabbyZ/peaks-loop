@@ -79,7 +79,7 @@ function readStdinSync(): unknown {
 
 export function registerPerfAuditCommands(program: Command, io: ProgramIO): void {
   const perfAudit = program
-    .command('perf-audit')
+    .command('perf-audit', { hidden: true })
     .description(
       'Independent performance audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level perf-template.md, then writes a structured perf-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 3). See skills/bee/peaks-perf-audit/SKILL.md for the full workflow.'
     );

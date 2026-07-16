@@ -54,7 +54,7 @@ type ConfigTemplateOptions = {
 
 export function registerCodeReviewCommands(program: Command, io: ProgramIO): void {
   const codeReview = program
-    .command('code-review')
+    .command('code-review', { hidden: true })
     .description(
       'Code-review primitives for peaks-rd Gate B3. Wraps the soft-optional `@alibaba-group/open-code-review` (ocr) tool when it is installed + configured; peaks-rd uses the structured JSON output as a second-opinion review alongside its own LLM review. ocr is a peerDependency of peaks-loop 2.8.2+ (was briefly promoted to a hard dependency in 2.0.1/2.0.2, then demoted to optionalDependencies 2.0.3+ — peer in 2.8.2 because its postinstall downloads a Go binary via HTTPS and would otherwise slow `npm i -g peaks-loop` in restricted environments). Install manually with `npm i -g @alibaba-group/open-code-review` if you want second-opinion reviews. LLM endpoint config lives under `peaksConfig.ocr.llm` in the user config — run `peaks code-review config-template` to see the JSON snippet to paste.'
     );

@@ -80,7 +80,7 @@ function readStdinSync(): unknown {
 
 export function registerSecurityAuditCommands(program: Command, io: ProgramIO): void {
   const securityAudit = program
-    .command('security-audit')
+    .command('security-audit', { hidden: true })
     .description(
       'Independent security audit skill driver. Reads the immutable peaks-prd handoff (sha256-locked) + the project-level security-template.md, then writes a structured security-<rid>.md artifact. Decoupled from peaks-rd 5-way fan-out per slice v2.12.0 (Group A, Tier 2). See skills/bee/peaks-security-audit/SKILL.md for the full workflow.'
     );

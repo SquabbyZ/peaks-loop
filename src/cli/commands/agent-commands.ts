@@ -37,7 +37,7 @@ type AgentListOptions = {
 
 export function registerAgentCommands(program: Command, io: ProgramIO): void {
   const agent = program
-    .command('agent')
+    .command('agent', { hidden: true })
     .description(
       'Run an ECC agent (soft-optional per spec §7.2). 64 agents are npm-installable via npx ecc; peaks-loop shells out when ECC is installed and soft-fails with a 4-option install prompt when it is not. Native peaks-loop diagnostics still run via `peaks doctor scan`.'
     );

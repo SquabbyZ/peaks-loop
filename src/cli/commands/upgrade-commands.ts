@@ -38,7 +38,7 @@ type UpgradeOptions = {
 export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
     program
-      .command('upgrade')
+      .command('upgrade', { hidden: true })
       .description(
         'Upgrade a peaks-loop 1.x project to 2.0. Umbrella that orquestrates 7 sub-commands: config-migrate / standards-migrate / memory-extract / hooks-install / skill-sync / audit-verify + write-upgrade-record. Per the "one-key completion" tenet, prefer letting `npm i -g peaks-loop@2.0` postinstall run this for you. Use `--detect-1x` for a read-only probe (no file writes) that the peaks-code skill uses to gate the 1.x → 2.0 AskUserQuestion.'
       )

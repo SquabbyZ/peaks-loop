@@ -178,7 +178,7 @@ export async function runCodeFast(opts: {
  */
 export function registerCodeCommands(program: Command, io: ProgramIO): void {
   const code = program
-    .command('code')
+    .command('code', { hidden: true })
     .description('peaks-code LLM-side workflow planner (slice 2 fast mode)');
 
   code

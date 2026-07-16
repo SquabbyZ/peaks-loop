@@ -53,7 +53,8 @@ export const SkillSearchInputSchema = z
     query: z.string().min(1).max(500).optional(),
     tag: z.string().min(1).max(100).optional(),
     domain: z.enum(SKILL_DOMAINS).optional(),
-    limit: z.number().int().min(1).max(100).optional().default(20)
+    limit: z.number().int().min(1).max(100).optional().default(20),
+    includeInternal: z.boolean().optional().default(false)
   })
   .refine(
     (v) => v.query !== undefined || v.tag !== undefined || v.domain !== undefined,
@@ -80,6 +81,7 @@ type EnrichedSkill = {
   tags: string[];
   domain: string;
   skillPath: string;
+  visibility?: string;
 };
 
 /**
@@ -150,7 +152,8 @@ async function loadEnrichedSkills(): Promise<EnrichedSkill[]> {
         triggers: extractTriggers(s.description),
         tags: meta.tags,
         domain: meta.domain,
-        skillPath: s.skillPath
+        skillPath: s.skillPath,
+        ...(s.visibility !== undefined ? { visibility: s.visibility } : {})
       };
     })
   );
@@ -216,6 +219,7 @@ export async function searchSkills(rawInput: SkillSearchInput): Promise<SkillSea
   const skills = await loadEnrichedSkills();
 
   const filtered = skills.filter((skill) => {
+    if (!input.includeInternal && skill.visibility === 'internal') return false;
     if (input.tag !== undefined) {
       const wanted = input.tag.toLowerCase();
       const has = skill.tags.some((t) => t.toLowerCase() === wanted);

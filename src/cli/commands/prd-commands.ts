@@ -64,7 +64,9 @@ async function resolveBody(bodyArg: string): Promise<string> {
 }
 
 export function registerPrdCommands(program: Command, io: ProgramIO): void {
-  const prd = program.command('prd').description('peaks-prd role: artifact + handoff primitives');
+  const prd = program
+    .command('prd', { hidden: true })
+    .description('peaks-prd role: artifact + handoff primitives');
 
   const handoff = prd.command('handoff').description('Write / verify / show the immutable PRD handoff (sha256-locked, schemaVersion: 2)');
 
