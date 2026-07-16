@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.14 — 2026-07-16
+
+### Status: RELEASED (D-019: copy-templates.mjs + package.json files[])
+
+> **This release fixes D-019 (full end-to-end)**:
+>
+> 1. `scripts/copy-templates.mjs` now copies
+>    `src/services/skillhub/migrations/*.sql` into `dist/services/skillhub/migrations/`.
+> 2. `package.json` `"files"` whitelist now includes `dist/**/*.sql`
+>    (previously the whitelist was `dist/**/*.js | .d.ts | .md` only,
+>    so the migrations were filtered out of the npm tarball even
+>    after being copied to `dist/`).
+>
+> Without this fix, the published `peaks-loop` tarball shipped without
+> the SkillHub SQLite schema, breaking any downstream consumer's first
+> `peaks skill sediment <verb>` with `no such table: bee_release`.
+>
+> **Verdict**: `pnpm build` copies 6 migrations; tarball includes them.
+> In-process vitest tests were always green (they use tsx + source tree
+> directly, not `dist/`), so no test count change. Combined with
+> 4.0.0-beta.13's D-018 path fix, the published tarball is now
+> correct end-to-end.
+
 ## 4.0.0-beta.13 — 2026-07-16
 
 ### Status: RELEASED (D-018: state.db path relocation)

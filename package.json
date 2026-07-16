@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop",
-  "version": "4.0.0-beta.13",
+  "version": "4.0.0-beta.14",
   "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "license": "MIT",
@@ -26,6 +26,7 @@
     "dist/**/*.js",
     "dist/**/*.d.ts",
     "dist/**/*.md",
+    "dist/**/*.sql",
     "scripts/clean-dist.mjs",
     "scripts/copy-templates.mjs",
     "scripts/sync-version.mjs",

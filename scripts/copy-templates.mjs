@@ -9,6 +9,15 @@
  * therefore only get the dynamically-generated `project-scan.md` and
  * the 4 audit/business templates would silently be missing.
  *
+ * D-019 (2026-07-16): also copy the SkillHub SQLite migrations
+ * (`src/services/skillhub/migrations/*.sql`) into dist/. Without this,
+ * the published `peaks-loop` tarball ships an empty
+ * `dist/services/skillhub/migrations/` and `openStateDb()` opens a
+ * schema-less database, breaking any `peaks skill sediment <verb>`
+ * on a fresh consumer install. Vitest tests still pass because they
+ * use tsx + the source tree directly, but downstream npm consumers
+ * see `no such table: bee_release` on the very first command.
+ *
  * Idempotent: safe to run multiple times. Run after `tsc` in `build`.
  */
 import { copyFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
@@ -44,6 +53,13 @@ const targets = [
     src: join(packageRoot, 'src/services/workspace/templates/project-scan'),
     dest: join(packageRoot, 'dist/services/workspace/templates/project-scan'),
     extensions: ['.md']
+  },
+  {
+    // D-019: SkillHub SQLite migrations must reach the published tarball
+    // so `openStateDb()` can apply the schema on first run.
+    src: join(packageRoot, 'src/services/skillhub/migrations'),
+    dest: join(packageRoot, 'dist/services/skillhub/migrations'),
+    extensions: ['.sql']
   }
 ];
 
