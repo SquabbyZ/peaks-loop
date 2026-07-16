@@ -39,6 +39,7 @@
 - [peaks-loop-install-model-getstrongestmodelid-fallback](peaks-loop-install-model-getstrongestmodelid-fallback.md) — peaks-loop install 不再写死默认 model,改运行时探测(getStrongestModelId 三层 fallback)(2026-07-09 lesson)。
 - [desktop-application-ide-adapter-z-code-cli](desktop-application-ide-adapter-z-code-cli.md) — desktop-application 类 IDE adapter 字段降级决策(z-code 非 CLI)(2026-07-09 lesson)。
 - [peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010](peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md) — peaks-code runbook 4.0.0-beta.6 SKILL.md 与实际 CLI 多处偏离(2026-07-09 lesson)。
+- [peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006](peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006.md) — 4.0.0-beta.10 peaks sub-agent dispatch / job checkpoint / session title 实测签名 vs SKILL.md + 4.0.0-beta.6 sediment 多处偏离 + CLI 速查表(2026-07-16 lesson,本 session cli-surface-cleanup-impl 卡死根因)。
 - [2026-07-15-project-scan-bootstrap](2026-07-15-project-scan-bootstrap.md) — slice 2026-07-15:项目扫描产物路径从 .peaks/_runtime/<sid>/rd/project-scan.md 改为 .peaks/project-scan/project-scan.md;peaks workspace init 触发;0-1 写空模板;5 文件 boot(含 audit/business 模板);build script 加 copy-templates.mjs 防模板漂移;RD→QA verdict=pass,20/20 vitest,CLI 验证全过(2026-07-15 lesson)。
 - [peaks-ide-runtime-detect-zcode-only](peaks-ide-runtime-detect-zcode-only.md) — `peaks ide model --current` 运行时探测 z-code 当前激活 model(4-tier 优先级链,实测命中 P2 返回 `"M3"`)(2026-07-09 lesson)。
 - [ide-adapter-detectcurrentmodel-optional-interface-pattern](ide-adapter-detectcurrentmodel-optional-interface-pattern.md) — IdeAdapter interface 加 optional `detectCurrentModel?` 字段的扩展模式(back-compat + vendor-neutrality + 异步隔离)(2026-07-09 pattern)。
@@ -51,3 +52,4 @@
   - Two-Forms-Only + 桌面是 UI 加速 (2026-07-04)
   - Enhancement, not new AI CLI (2026-07-04)
 - 数据层一等公民: local SkillHub (`state.db` `bee_release` table) 与 pool (JSON) 并列,前者是版本化历史库,后者是 live dispatch 源。任何设计都不得混淆这两者。
+- [2026-07-16-beta-10-ice-cola-real-test-checkpoint](2026-07-16-beta-10-ice-cola-real-test-checkpoint.md) — 4.0.0-beta.10 ice-cola 实测 0/27 AC + 用户决策 "实现 3 切片后 publish" + rotating job `2026-07-16-cli-surface-cleanup-impl` 启动 + peaks-prd sub-agent 已 dispatch (2026-07-16)。
