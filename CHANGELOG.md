@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+## 4.0.0-beta.13 — 2026-07-16
+
+### Status: RELEASED (D-018: state.db path relocation)
+
+> **This release fixes the SQLite `state.db` location** to match the
+> original peaks-loop design contract: `PEAKS_HOME/.peaks/skills/state.db`
+> (PEAKS_HOME defaults to `~/.peaks`). Previously, the code resolved
+> `home` to `process.cwd()` when invoked from a project root, producing
+> `<project>/.peaks/state.db` — wrong location for loop engineering
+> + bee sediment data.
+>
+> **Fix**: `src/cli/commands/sediment-commands.ts:664-665` now uses
+> `peaksHome()` from `src/services/sop/sop-paths.ts:29` (which honors
+> `PEAKS_HOME` override for test isolation). The downstream
+> `resolveStateDbPath({ home })` (in `src/services/sediment/pool-paths.ts:15`)
+> already correctly returned `{home}/.peaks/skills/state.db`; only the
+> `home` resolution was broken.
+>
+> **Side bug found but out of scope**: `src/services/skillhub/migrations/*.sql`
+> is not copied to `dist/` by `scripts/copy-templates.mjs`. This is a
+> pre-existing build-config issue separate from D-018. Tracked as
+> follow-up; tests still pass because the tests use vitest + tsx
+> (which sees the source tree directly), but the published
+> `peaks-loop@4.0.0-beta.13` will hit `no such table: bee_release` until
+> a D-019 follow-up adds `.sql` to the copy-templates extensions.
+>
+> **Verdict**: 27/27 AC PASS (beta.12 verdict preserved; D-018 is
+> architecture fix, no AC change). Old `<peaks-loop>/.peaks/state.db`
+> discarded (beta phase, single user).
+
 ## 4.0.0-beta.12 — 2026-07-16
 
 ### Status: RELEASED (follow-up to `4.0.0-beta.11`; D-013 wrapper exit-code fix)

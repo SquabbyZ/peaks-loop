@@ -36,6 +36,7 @@ import {
   resolveUserBeesDir,
   resolveUserBeeDir,
 } from "../../services/sediment/pool-paths.js";
+import { peaksHome } from "../../services/sop/sop-paths.js";
 import { writeBeeManifest } from "../../services/sediment/pool-write.js";
 import { readPool } from "../../services/sediment/pool-read.js";
 import { rebuildIndexFromFs } from "../../services/sediment/pool-rebuild-index.js";
@@ -661,8 +662,15 @@ export function registerSedimentCommands(program: Command, io: ProgramIO): void 
       "Sediment pool operations (LLM-coordinated; see peaks-maker skill)"
     )
     .action(async (args: string[]) => {
-      const home =
-        process.env.HOME ?? process.env.USERPROFILE ?? process.cwd();
+      // D-018: peaks-loop's `state.db` (loop engineering + bee sediment pool)
+      // lives at PEAKS_HOME-based path, NOT under the project root. The
+      // original `process.env.HOME ?? USERPROFILE ?? process.cwd()` would
+      // resolve `home` to cwd when invoked from a project (e.g.
+      // `peaks skill sediment list` from peaks-loop/), producing
+      // `<project>/.peaks/state.db` — wrong. Per design contract
+      // (peaks-maker SKILL.md §22 + sop-paths.ts §29), the canonical
+      // home is `~/.peaks` (or PEAKS_HOME override for test isolation).
+      const home = peaksHome();
       const r = await runSediment(args, { home });
       // Delegate the JSON rendering AND the process.exitCode side-effect
       // to the shared CLI shim helper (Critical #1 fix). The library
