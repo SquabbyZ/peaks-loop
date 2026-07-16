@@ -2,9 +2,18 @@
 
 ## [Unreleased]
 
-## 4.0.0-beta.11 — 2026-07-16
+## 4.0.0-beta.12 — 2026-07-16
 
-### Status: RELEASED (release of `4.0.0-beta.10` contract; same source tree)
+### Status: RELEASED (follow-up to `4.0.0-beta.11`; D-013 wrapper exit-code fix)
+
+> **This CHANGELOG entry documents the D-013 follow-up release.
+> Same source tree as `4.0.0-beta.11`; pure fix for the wrapper
+> exit-code bug that previously caused `peaks <unknown>` and
+> `peaks <unknown> --help` to exit 0 with the help banner.
+>
+> **Verdict**: All 4 regression paths now exit 1 with a
+> `COMMAND_NOT_FOUND` JSON envelope. ice-cola baseline 27/27 PASS
+> (AC3.9/AC3.10 now functionally correct).
 
 > **This CHANGELOG entry documents the SHIPPED 4.0.0-beta.11.
 > It is the post-implementation release of the 4.0.0-beta.10 contract

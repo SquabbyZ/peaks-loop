@@ -209,6 +209,41 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
    }
  })
  .action(() => {
+ // D-013 wrapper exit-code fix: when the user typed a command token but
+ // it didn't match any registered subcommand, exit non-zero with a JSON
+ // `COMMAND_NOT_FOUND` envelope. Without this check, Commander's root
+ // `.action()` runs whenever no subcommand matches (including unknown
+ // commands) and prints the help banner with exit 0 — which violates
+ // the PRD AC3.9/AC3.10 contract for `peaks agent run/list` and any
+ // other deleted/hidden command.
+ //
+ // Detection: use `program.args` (Commander's parsed argv) for the
+ // first non-option token. If it's present and Commander didn't route
+ // to a subcommand (we got here, so it didn't), the user typed an
+ // unknown command. Exit 1. `program.args` works correctly under both
+ // `parseAsync(['node', 'peaks', ...])` (real CLI) and direct in-process
+ // calls (vitest integration tests), unlike `process.argv` which is
+ // the test runner's argv.
+ //
+ // --help and --version bypass this path entirely (handled below).
+ const firstNonOption = program.args.find((arg) => !arg.startsWith('-'));
+ if (firstNonOption !== undefined) {
+   // Commander reached this `.action()` despite a positional token,
+   // which means the token was NOT routed to any subcommand. This is
+   // the unknown-command path. Emit a JSON envelope + exit 1.
+   io.stdout(JSON.stringify({
+     ok: false,
+     command: 'cli',
+     code: 'COMMAND_NOT_FOUND',
+     message: `Unknown command: ${firstNonOption}. Run \`peaks --help\` for available commands.`,
+     data: { argv: firstNonOption },
+     warnings: [],
+     nextActions: ['Run `peaks --help` to list available commands.']
+   }, null, 2));
+   process.exitCode = 1;
+   return;
+ }
+
  const opts = program.opts<{ V?: boolean; version?: boolean; verbose?: boolean }>();
  if (opts.V || opts.version) {
  // AC1: write the peaks-loop start log line BEFORE printing the
