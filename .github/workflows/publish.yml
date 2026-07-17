@@ -1,0 +1,96 @@
+# peaks-loop Trusted Publishing (OIDC) via changesets
+#
+# Trigger:
+#   - push tag v*.*.*
+#   - workflow_dispatch (manual from GitHub UI)
+#
+# Chain:
+#   install → typecheck → build → vitest → changesets version → changesets publish
+#
+# Permissions:
+#   - contents: read    (checkout code)
+#   - id-token: write   (OIDC: npmjs trusted publisher will validate this JWT)
+#
+# Pinned versions:
+#   - actions/checkout@v4
+#   - pnpm/action-setup@v4
+#   - actions/setup-node@v4
+#   - pnpm 10.11.0  (matches package.json#packageManager)
+#   - Node 22.x    (matches package.json#engines.node ">=20")
+#
+# No npm token is required / used / stored.
+# npmjs side: Settings → Trusted Publishers → Add GitHub Action
+# (Owner=SquabbyZ, Repo=peaks-loop, Workflow=publish.yml)
+
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+# Default to least privilege. `id-token: write` is REQUIRED for npm OIDC;
+# removing it will fail the publish step with "Cannot get JWT".
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  # Cancel in-flight manual retries so only one publish runs at a time.
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: trusted-publish (changesets + OIDC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.11.0
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit --pretty false
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Vitest
+        run: pnpm exec vitest run --reporter=default
+        env:
+          TZ: UTC
+
+      - name: Changesets version (no-op if already versioned locally)
+        # If the maintainer already ran `pnpm changeset version` and committed
+        # the resulting package.json bump + CHANGELOG.md update, this is a
+        # no-op. If not, this promotes the pending .changeset/*.md entries
+        # into a version bump on the current commit.
+        run: pnpm exec changeset version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm (OIDC trusted publishing, dist-tag=latest)
+        # changesets calls `npm publish` under the hood; the new npm CLI
+        # detects ACTIONS_ID_TOKEN_REQUEST_TOKEN / ACTIONS_ID_TOKEN_REQUEST_URL
+        # and exchanges the GitHub-issued OIDC JWT for a short-lived npm token.
+        run: pnpm exec changeset publish --tag=latest
+        env:
+          NODE_AUTH_TOKEN: '//registry.npmjs.org/:_authToken=//does/not/matter' # ignored when OIDC is used

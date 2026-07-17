@@ -22,7 +22,7 @@
     style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
   />
   <br>
-  <sub>👆 18s 循环 GIF(<a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo.mp4">完整 30s mp4 下载</a> · 13MB · 480p)</sub>
+  <sub>👆 18s 循环 GIF(完整 30s mp4 不再随 npm 包发布,见 <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Release</a> · 13MB · 480p)</sub>
 </p>
 
 ---
@@ -217,6 +217,37 @@ peaks-loop 的两条工程脊柱直接来自这两个项目:
 - 组合推荐: [affaan-m/ECC](https://github.com/affaan-m/ECC) · [Egonex-AI/Understand-Anything](https://github.com/Egonex-AI/Understand-Anything) · [obra/superpowers](https://github.com/obra/superpowers)
 - 沉淀设计 → [`docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md`](./docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md)
 - Loop Engineering 结晶设计 → [`docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md`](./docs/superpowers/specs/2026-07-07-peaks-loop-loop-engineering-crystallization-design.md)
+
+---
+
+## 发布(Trusted Publishing · OIDC)
+
+本仓库发布链路**不**使用 npm token,改用 **Trusted Publishing + OIDC**:
+
+- 维护者**不需要**也不会持有 `NPM_TOKEN` —— `~/.npmrc` 已被清理,npmjs.com 已把 Publishing access 切到 disallow tokens。
+- 触发方式 1:`git tag vX.Y.Z && git push --tags`(走 `.github/workflows/publish.yml` 的 `push: tags: v*.*.*` 触发器)。
+- 触发方式 2:GitHub UI → Actions → publish → Run workflow(手动兜底,可用于 dry-run / 补发)。
+- 每次发布跑完整链路:`install → typecheck → build → vitest → changesets version → changesets publish`,全部通过才会真正落到 npm。
+- 维护者的本地动作只有两步:`pnpm changeset` 写变更说明 + 合并 PR(剩下的 CI 自动跑)。
+
+**npmjs 侧一次性配置**(本 slice 完成后由人工做一次):
+
+1. 登录 https://www.npmjs.com → Settings → Trusted Publishers → Add GitHub Action。
+2. Owner / Org:`SquabbyZ` · Repository:`peaks-loop` · Workflow filename:`publish.yml` · Environment name:留空。
+3. 保存。
+
+**撤销** = npmjs 端删 trusted publisher,**无需** rotate token。
+
+**常见故障**:
+
+| 现象 | 原因 | 修法 |
+|------|------|------|
+| publish 步骤报 `Cannot get JWT` | 缺 `id-token: write` | 检查 `.github/workflows/publish.yml#permissions` |
+| publish 步骤报 `ENEEDAUTH` 或 `404 from registry.npmjs.org` | npmjs 端没配 trusted publisher | 走上面的 3 步配置 |
+| `changeset version` 把 `package.json` 改了我没想要 | 漏掉了手动 version | 提交前先本地 `pnpm changeset version`,CI 端为 no-op |
+| tag 推了但 CI 没跑 | tag 格式不符 `v*.*.*` | 检查 `git tag` 输出 |
+
+详细 RD 文档见 [`docs/superpowers/slices/slice-s1-trusted-publish.md`](./docs/superpowers/slices/slice-s1-trusted-publish.md)。
 
 ---
 

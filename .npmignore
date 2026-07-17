@@ -33,6 +33,9 @@ plans/
 reports/
 .cache/
 .out/
+.pack-cache/
+examples/video-demo/node_modules/
+examples/video-demo/out/
 
 # misc
 *.log

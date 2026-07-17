@@ -22,7 +22,7 @@
     style="border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.55); display: block;"
   />
   <br>
-  <sub>👆 18s looping GIF (<a href="https://raw.githubusercontent.com/SquabbyZ/peaks-loop/main/examples/video-demo/preview/peaks-loop-demo-en.mp4">full 30s mp4 download</a> · 13MB · 480p)</sub>
+  <sub>👆 18s looping GIF (full 30s mp4 is no longer shipped with the npm package — see <a href="https://github.com/SquabbyZ/peaks-loop/releases">GitHub Releases</a> · 13MB · 480p)</sub>
 </p>
 
 ---

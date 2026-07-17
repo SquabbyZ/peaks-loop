@@ -42,11 +42,7 @@
     "README.md",
     "README-en.md",
     "CHANGELOG.md",
-    "LICENSE",
-    "examples/video-demo/preview/peaks-loop-demo.mp4",
-    "examples/video-demo/preview/peaks-loop-demo-en.mp4",
-    "examples/video-demo/out/zh-closing-960.png",
-    "examples/video-demo/out/en-closing-960.png"
+    "LICENSE"
   ],
   "scripts": {
     "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs",
@@ -110,6 +106,7 @@
     }
   },
   "devDependencies": {
+    "@changesets/cli": "2.31.1",
     "@jridgewell/trace-mapping": "^0.3.31",
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/typescript-checker": "^8.7.1",
