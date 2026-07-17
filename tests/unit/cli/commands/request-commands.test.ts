@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Command } from 'commander';
 import { registerRequestCommands } from '../../../../src/cli/commands/request-commands.js';
 import type { ProgramIO } from '../../../../src/cli/cli-helpers.js';
-import type { ResultEnvelope } from '../../../../src/shared/result.js';
+import type { ResultEnvelope } from 'peaks-loop-shared/result';
 
 function captureIo(): { io: ProgramIO; stdout: () => string; stderr: () => string } {
   const out: string[] = [];

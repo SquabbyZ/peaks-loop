@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { createArtifactRetentionReport, createChangeImpact, getChangeTraceabilityStatus, getScHelpText, recordCommitBoundary, validateArtifactRetention } from '../../services/sc/sc-service.js';
-import { ok } from '../../shared/result.js';
+import { ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, multipleOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerSCCommands(program: Command, io: ProgramIO): void {

@@ -10,7 +10,8 @@
 import type { Command } from 'commander';
 import { migrateWorkspace } from '../../../services/workspace/migrate-service.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 type WorkspaceMigrateOptions = {

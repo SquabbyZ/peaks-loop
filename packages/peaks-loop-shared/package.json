@@ -1,0 +1,39 @@
+{
+  "name": "peaks-loop-shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared pure-function utils for peaks-loop workspace packages (fs / paths / result / version). Slice 3a.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./fs": {
+      "types": "./dist/fs.d.ts",
+      "default": "./dist/fs.js"
+    },
+    "./paths": {
+      "types": "./dist/paths.d.ts",
+      "default": "./dist/paths.js"
+    },
+    "./result": {
+      "types": "./dist/result.d.ts",
+      "default": "./dist/result.js"
+    },
+    "./version": {
+      "types": "./dist/version.d.ts",
+      "default": "./dist/version.js"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

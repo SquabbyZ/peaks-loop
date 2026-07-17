@@ -1,7 +1,9 @@
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isDirectory, pathExists, readText } from '../../shared/fs.js';
-import { getErrorMessage } from '../../shared/result.js';
+import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
+
+import { getErrorMessage } from 'peaks-loop-shared/result';
+
 import { loadPreferences } from '../preferences/preferences-service.js';
 import type {
   UnderstandFlagReport,

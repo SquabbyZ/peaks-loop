@@ -11,7 +11,8 @@
  */
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, mkdirSync, type Dirent } from 'node:fs';
 import { join, sep } from 'node:path';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import { getSessionDir } from '../session/getSessionDir.js';
 import { hashNormalizedBody, normalizePlanBody, type PlanType } from './plan-reader.js';
 

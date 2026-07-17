@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { pathExists, readText } from '../../shared/fs.js';
+import { pathExists, readText } from 'peaks-loop-shared/fs';
+
 import { showRequestArtifact } from '../artifacts/request-artifact-service.js';
 
 export type AcceptanceItem = {

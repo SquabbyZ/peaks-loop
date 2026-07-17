@@ -3,7 +3,8 @@ import { executeMigration, planMigration } from '../../services/config/config-mi
 import { getConfig, isSensitiveConfigPath, redactConfigSecrets, setConfig, type ConfigLayer } from '../../services/config/config-service.js';
 import { listAvailableFields, restoreField } from '../../services/config/config-restore.js';
 import { executeRollback, planRollback } from '../../services/config/config-rollback.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, parseConfigLayer, printInvalidConfigLayer, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 export function registerConfigCommands(program: Command, io: ProgramIO): void {

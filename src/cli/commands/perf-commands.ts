@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { executePerfBaselineInit, resolveProjectRootFromCwd, type PerfBaselineInitOptions } from '../../services/perf/perf-baseline-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type PerfBaselineCommandOptions = PerfBaselineInitOptions & {

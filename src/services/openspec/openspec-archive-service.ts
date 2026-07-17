@@ -1,6 +1,7 @@
 import { mkdir, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { isDirectory } from '../../shared/fs.js';
+import { isDirectory } from 'peaks-loop-shared/fs';
+
 import type { OpenSpecScanOptions } from './openspec-scan-service.js';
 
 export type OpenSpecArchiveOptions = OpenSpecScanOptions & {

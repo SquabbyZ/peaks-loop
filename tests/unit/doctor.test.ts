@@ -164,7 +164,7 @@ describe('doctor-report schema documents the check ID prefixes', () => {
   test('every check ID emitted by runDoctor matches the documented schema pattern', async () => {
     const { readFile } = await import('node:fs/promises');
     const { join: joinPath } = await import('node:path');
-    const { schemasDir } = await import('../../src/shared/paths.js');
+    const { schemasDir } = await import('peaks-loop-shared/paths');
     const schema = JSON.parse(await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8')) as {
       properties: { checks: { items: { properties: { id: { pattern: string } } } } };
     };
@@ -179,7 +179,7 @@ describe('doctor-report schema documents the check ID prefixes', () => {
   test('schema documents skill-apply-note as a known check prefix', async () => {
     const { readFile } = await import('node:fs/promises');
     const { join: joinPath } = await import('node:path');
-    const { schemasDir } = await import('../../src/shared/paths.js');
+    const { schemasDir } = await import('peaks-loop-shared/paths');
     const raw = await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8');
 
     expect(raw).toContain('skill-apply-note');
@@ -214,7 +214,7 @@ describe('skill runbooks reference their own peaks skill runbook self-check', ()
   test('every required skill runbook embeds `peaks skill runbook <self> --json`', async () => {
     const { readFile } = await import('node:fs/promises');
     const { join: joinPath } = await import('node:path');
-    const { skillsDir, requiredSkillNames } = await import('../../src/shared/paths.js');
+    const { skillsDir, requiredSkillNames } = await import('peaks-loop-shared/paths');
 
     // After the v2.13.0 bee-demote (commit de0872b), the role skills
     // (peaks-prd, peaks-rd, peaks-qa, peaks-ui, peaks-sc, peaks-txt)
@@ -437,7 +437,7 @@ describe('doctor-report schema documents the skill-presence prefix', () => {
   test('schema pattern includes skill-presence prefix', async () => {
     const { readFile } = await import('node:fs/promises');
     const { join: joinPath } = await import('node:path');
-    const { schemasDir } = await import('../../src/shared/paths.js');
+    const { schemasDir } = await import('peaks-loop-shared/paths');
     const raw = await readFile(joinPath(schemasDir, 'doctor-report.schema.json'), 'utf8');
 
     expect(raw).toContain('skill-presence');

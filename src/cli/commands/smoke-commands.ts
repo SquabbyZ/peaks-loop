@@ -33,7 +33,8 @@ import {
   type CriticalPathSource,
   type CriticalPathStatus
 } from '../../services/smoke/smoke-paths-state.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 const RUN_STATUSES: readonly CriticalPathStatus[] = ['pending', 'pass', 'fail'];

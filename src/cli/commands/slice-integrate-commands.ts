@@ -12,7 +12,8 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { integrateSlices } from '../../services/slice/slice-integration.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { SliceContract } from '../../services/dispatch/contract-store.js';
 

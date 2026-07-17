@@ -740,7 +740,7 @@ describe('CLI integration via program', () => {
 
   test('config types are correctly exported from config-types', async () => {
     const { DEFAULT_CONFIG } = await import('../../src/services/config/config-types.js');
-    const { CLI_VERSION } = await import('../../src/shared/version.js');
+    const { CLI_VERSION } = await import('peaks-loop-shared/version');
     expect(DEFAULT_CONFIG).toBeDefined();
     // 2.0.1 slim: only `version` + `ocr` placeholders live in DEFAULT_CONFIG.
     // Legacy fields (language/model/etc.) are rejected by setConfig and live

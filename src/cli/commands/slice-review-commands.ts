@@ -33,7 +33,8 @@ import {
   scoreItem,
   writeSliceReview
 } from '../../services/slice/slice-review-state.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerSliceReviewCommands(program: Command, io: ProgramIO): void {

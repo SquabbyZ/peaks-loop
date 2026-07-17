@@ -21,7 +21,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { emitObservabilityEvent } from '../../services/observability/observability-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import {

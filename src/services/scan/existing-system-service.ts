@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
-import { isDirectory, pathExists, readText } from '../../shared/fs.js';
+import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
+
 import { scanArchetype } from './archetype-service.js';
 import type { ConventionSample, ExistingSystemReport, VisualToken, VisualTokenSource } from './scan-types.js';
 

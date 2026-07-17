@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync, readdirSync, type Dirent } from 'node:fs';
 import { join } from 'node:path';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 export type TriggerReason =
   | 'new-dependency'

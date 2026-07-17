@@ -19,7 +19,8 @@ import { ConfirmationRequiredError } from '../../services/mode/mode-enforcement.
 import { recordBypass, isBypassLimitReached, MAX_BYPASSES_PER_SESSION } from '../../services/mode/bypass-tracker.js';
 import { lintRequestArtifact } from '../../services/artifacts/artifact-lint-service.js';
 import { getRepairCycleStatus } from '../../services/artifacts/repair-cycle-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { formatMdCompact } from '../../shared/format-md-compact.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
@@ -493,7 +494,7 @@ export function registerRequestCommands(program: Command, io: ProgramIO): void {
       // hook only surfaces the signal. The 0.95 red-line behaviour is
       // unchanged — the existing auto-compact orchestrator continues to
       // refuse dispatch at ratio ≥ 0.95.
-      let preCompact: import('../../shared/result.js').ResultEnvelope<unknown> | null = null;
+      let preCompact: import('peaks-loop-shared/result').ResultEnvelope<unknown> | null = null;
       if (role === 'rd' && newState === 'qa-handoff') {
         try {
           const { maybePreCompactCheckpoint } = await import('../../services/compact/request-transition-hook.js');

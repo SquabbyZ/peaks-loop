@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { repoRoot } from '../../src/shared/paths.js';
+import { repoRoot } from 'peaks-loop-shared/paths';
 
 const dataPath = join(repoRoot, 'schemas', 'library-breaking-changes.data.json');
 const metaPath = join(repoRoot, 'schemas', 'library-breaking-changes.meta.json');

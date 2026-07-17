@@ -22,7 +22,7 @@ import { classifyTask } from '../../services/classify/classify-service.js';
 import { TASK_LEVELS, type TaskLevel, type ClassifySignals } from '../../services/classify/classify-types.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type RunOptions = {
   project: string;

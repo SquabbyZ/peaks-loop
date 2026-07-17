@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 import { isInsidePath, stablePath } from '../../shared/path-utils.js';
 import { getWorkspaceConfig, getWorkspaceConfigForCurrentPath } from '../config/config-service.js';
 import type { WorkspaceConfig } from '../config/config-types.js';
-import { pathExists } from '../../shared/fs.js';
+import { pathExists } from 'peaks-loop-shared/fs';
+
 import { execCommand } from '../../shared/process.js';
 
 export type SyncStatus = 'synced' | 'pending' | 'out-of-sync' | 'unknown';

@@ -22,7 +22,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { Command } from 'commander';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 type PrepareFinalReviewOptions = {
   project: string;

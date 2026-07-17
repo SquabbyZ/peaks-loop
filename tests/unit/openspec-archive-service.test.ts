@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { pathExists } from '../../src/shared/fs.js';
+import { pathExists } from 'peaks-loop-shared/fs';
+
 import { archiveOpenSpecChange } from '../../src/services/openspec/openspec-archive-service.js';
 
 async function makeOpenSpecRoot(): Promise<string> {

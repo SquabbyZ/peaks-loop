@@ -1,6 +1,6 @@
 import { CommanderError } from 'commander';
 import { createProgram } from './program.js';
-import { getErrorMessage } from '../shared/result.js';
+import { getErrorMessage } from 'peaks-loop-shared/result';
 
 // D-013 wrapper exit-code fix (PART 2): Commander's `--help` short-circuit
 // fires BEFORE `commander.unknownCommand` is raised, so `peaks xxx --help`

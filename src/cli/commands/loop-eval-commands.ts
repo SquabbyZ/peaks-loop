@@ -48,7 +48,8 @@ import {
   type RunDriverResult
 } from '../../services/loop/run-driver.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { findProjectRoot } from '../../services/config/config-safety.js';
 
 const VALID_EVALUATORS: ReadonlySet<EvaluatorKind> = new Set<EvaluatorKind>([

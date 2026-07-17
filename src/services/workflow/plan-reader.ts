@@ -15,7 +15,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import { getSessionDir } from '../session/getSessionDir.js';
 
 export type PlanType = 'security' | 'perf';

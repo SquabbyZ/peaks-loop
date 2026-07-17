@@ -9,7 +9,8 @@
 
 import type { Command } from 'commander';
 
-import { ok, fail, type ResultEnvelope } from '../../shared/result.js';
+import { ok, fail, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import { planMigrate1_4_1, applyMigrate1_4_1 } from '../../services/workspace/migrate-1-4-1-service.js';

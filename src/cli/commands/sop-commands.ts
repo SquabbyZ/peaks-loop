@@ -7,7 +7,8 @@ import { advanceSop, SopAdvanceError, SopGateBlockedError, SopPhaseSkipError } f
 import { sopStateDir } from '../../services/sop/sop-paths.js';
 import { getSkillPresence } from '../../services/skills/skill-presence-service.js';
 import { recordBypass, isBypassLimitReached, MAX_BYPASSES_PER_SESSION } from '../../services/mode/bypass-tracker.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type SopInitCliOptions = {

@@ -3,15 +3,18 @@ import { homedir } from 'node:os';
 import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve as resolvePath } from 'node:path';
-import { readText } from '../../shared/fs.js';
-import { requiredSchemaFiles, requiredSkillNames, schemasDir } from '../../shared/paths.js';
-import { getErrorMessage } from '../../shared/result.js';
+import { readText } from 'peaks-loop-shared/fs';
+
+import { requiredSchemaFiles, requiredSkillNames, schemasDir } from 'peaks-loop-shared/paths';
+
+import { getErrorMessage } from 'peaks-loop-shared/result';
+
 import { loadSkillRegistry } from '../skills/skill-registry.js';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 import { planStatusLineInstall } from '../skills/statusline-settings-service.js';
 import { findProjectRoot } from '../config/config-safety.js';
 import { isValidSessionId } from '../workspace/sid-naming-guard.js';
-import { CLI_VERSION } from '../../shared/version.js';
+import { CLI_VERSION } from 'peaks-loop-shared/version';
 
 export type DoctorCheck = {
   id: string;

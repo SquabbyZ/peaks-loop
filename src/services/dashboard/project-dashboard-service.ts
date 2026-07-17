@@ -4,7 +4,8 @@ import type { OpenSpecChangeSummary } from '../openspec/openspec-types.js';
 import { scanUnderstandAnything } from '../understand/understand-scan-service.js';
 import { seedCapabilityItems } from '../recommendations/capability-seed-items.js';
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
-import { requiredSkillNames } from '../../shared/paths.js';
+import { requiredSkillNames } from 'peaks-loop-shared/paths';
+
 import type { DoctorCheck } from '../doctor/doctor-service.js';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 

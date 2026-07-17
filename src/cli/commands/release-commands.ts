@@ -31,7 +31,8 @@ import {
   writeReleaseState,
   type ReleaseStage
 } from '../../services/release/release-state.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 const CANARY_PERCENTS: Readonly<Record<10 | 50, ReleaseStage>> = {

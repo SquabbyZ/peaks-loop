@@ -10,7 +10,8 @@ import { scanApiSurface, formatApiSurfaceMarkdown, type ApiSurfaceReport } from 
 import { scanOrphans, formatOrphanMarkdown, type OrphanReport } from '../../services/scan/orphan-service.js';
 import { scanKarpathy, formatKarpathyMarkdown, type KarpathyScanReport } from '../../services/scan/karpathy-service.js';
 import { isRequestType, VALID_REQUEST_TYPES, type RequestType } from '../../services/artifacts/artifact-prerequisites.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type ArchetypeOptions = {

@@ -1,7 +1,8 @@
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isDirectory, listDirectories, pathExists } from '../../shared/fs.js';
+import { isDirectory, listDirectories, pathExists } from 'peaks-loop-shared/fs';
+
 import { checkPrerequisites, DEFAULT_REQUEST_TYPE, isRequestType, VALID_REQUEST_TYPES, type PrerequisiteCheckResult, type RequestType } from './artifact-prerequisites.js';
 import { ensureSession, getSessionIdCanonical } from '../session/session-manager.js';
 // Slice 2026-06-29-change-id-root-removal: `getCurrentChangeId` was

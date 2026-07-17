@@ -1,6 +1,7 @@
 import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isDirectory, pathExists, readText } from '../../shared/fs.js';
+import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
+
 import type { ArchetypeReport, ArchetypeSignal, ProjectArchetype } from './scan-types.js';
 
 export type ArchetypeScanOptions = {

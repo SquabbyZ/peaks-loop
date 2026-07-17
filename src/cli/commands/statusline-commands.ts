@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, getErrorMessage, type ProgramIO } from '../cli-helpers.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { buildStatusLineModel, parseStatusLineStdin } from '../../services/skills/skill-statusline-service.js';

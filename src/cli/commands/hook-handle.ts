@@ -8,7 +8,8 @@ import { isRootWrite } from '../../services/audit/enforcers/no-root-pollution.js
 import { checkLoginGate } from '../../services/audit/enforcers/login-gate.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { resolveActiveSkillForCaller } from '../../services/audit/enforcers/active-skill-resolver.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { emitDecision, emitHint } from '../../services/hooks/output.js';
 
 type HookHandleOptions = { project: string; json?: boolean };

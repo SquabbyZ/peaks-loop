@@ -1,7 +1,8 @@
 import { mkdir } from 'node:fs/promises';
 import { existsSync, lstatSync, readdirSync, type Stats } from 'node:fs';
 import { join } from 'node:path';
-import { isDirectory } from '../../shared/fs.js';
+import { isDirectory } from 'peaks-loop-shared/fs';
+
 import { getSessionId, setCurrentSessionBinding, setSessionMeta } from '../session/session-manager.js';
 
 /**

@@ -34,7 +34,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Command } from 'commander';
 import { registerFinalReviewCommands, type FinalReviewData } from '../../../../src/cli/commands/final-review-commands.js';
 import type { ProgramIO } from '../../../../src/cli/cli-helpers.js';
-import type { ResultEnvelope } from '../../../../src/shared/result.js';
+import type { ResultEnvelope } from 'peaks-loop-shared/result';
 
 function captureIo(): {
   io: ProgramIO;

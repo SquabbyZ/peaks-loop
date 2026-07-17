@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { isDirectory } from '../../shared/fs.js';
+import { isDirectory } from 'peaks-loop-shared/fs';
+
 import { loadOpenSpecChange, type OpenSpecScanOptions } from './openspec-scan-service.js';
 
 export type OpenSpecValidationLevel = 'error' | 'warning';

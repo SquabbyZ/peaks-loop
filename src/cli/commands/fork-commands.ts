@@ -25,7 +25,8 @@ import {
   type ForkBaseline,
   type ForkSyncRecord
 } from '../../services/fork/fork-sync-state.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerForkCommands(program: Command, io: ProgramIO): void {

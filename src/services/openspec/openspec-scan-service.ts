@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { isDirectory, listDirectories, pathExists, readText } from '../../shared/fs.js';
+import { isDirectory, listDirectories, pathExists, readText } from 'peaks-loop-shared/fs';
+
 import type {
   OpenSpecChangeDetail,
   OpenSpecChangePaths,

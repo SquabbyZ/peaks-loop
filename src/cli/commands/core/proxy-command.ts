@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { planProxyTest } from '../../../services/proxy/proxy-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 export function registerProxyCommand(program: Command, io: ProgramIO): void {

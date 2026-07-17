@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { listDirectories, pathExists, readText } from '../../shared/fs.js';
+import { listDirectories, pathExists, readText } from 'peaks-loop-shared/fs';
 import { parseFrontmatter } from '../../shared/frontmatter.js';
-import { skillsDir } from '../../shared/paths.js';
+import { skillsDir } from 'peaks-loop-shared/paths';
 
 export type SkillMetadata = {
   name: string;

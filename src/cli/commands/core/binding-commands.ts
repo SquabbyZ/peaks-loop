@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { loadBindingStatus, formatTable, formatJson, type BindingStatusFormat } from '../../../services/session/binding-status-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 // v2.18.2 PATCH scope (follow-up issues #2). Read-only introspection
 // CLI. Surface is intentionally minimal: one subcommand

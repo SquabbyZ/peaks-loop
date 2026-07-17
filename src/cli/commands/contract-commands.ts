@@ -22,7 +22,8 @@
  * after the slice completes.
  */
 import { Command } from 'commander';
-import { fail, ok, getErrorMessage } from '../../shared/result.js';
+import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   writeContract,

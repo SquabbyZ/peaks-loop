@@ -44,7 +44,7 @@ import {
   runRegressionSkeptic,
 } from "../../services/evolution/regression-skeptic-runner.js";
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from "../cli-helpers.js";
-import { fail, ok } from "../../shared/result.js";
+import { fail, ok } from 'peaks-loop-shared/result';
 
 /**
  * Parse `--target <kind:id>`. Returns the kind + id, or `null` on

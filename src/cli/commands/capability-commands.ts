@@ -5,7 +5,8 @@ import { resolveCapabilityAvailability } from '../../services/recommendations/ca
 import { createCapabilityMapPlan } from '../../services/recommendations/capability-map-service.js';
 import { seedCapabilityItems, seedCapabilitySources } from '../../services/recommendations/seed-capability-catalog.js';
 import type { CapabilityMapSourceFilter } from '../../services/recommendations/recommendation-types.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type CapabilityMapOptions = {

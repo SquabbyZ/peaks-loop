@@ -15,7 +15,7 @@ vi.mock('../../src/services/config/config-service.js', () => ({
   readConfig: () => ({ workspaces: currentWorkspace ? [currentWorkspace] : [] })
 }));
 
-vi.mock('../../src/shared/fs.js', () => ({
+vi.mock('peaks-loop-shared/fs', () => ({
   pathExists: () => Promise.resolve(localDirExists)
 }));
 

@@ -1,6 +1,6 @@
 import { dirname, join } from 'node:path';
 import * as path from 'node:path';
-import { readText } from '../../shared/fs.js';
+import { readText } from 'peaks-loop-shared/fs';
 import { loadSkillRegistry } from './skill-registry.js';
 
 const DESTRUCTIVE_APPLY_PATTERNS = [

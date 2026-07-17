@@ -1,7 +1,8 @@
 // src/cli/commands/job-commands.ts
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { JobStateStore } from '../../services/job/job-state-store.js';
 import { JobOrchestrator } from '../../services/job/job-orchestrator.js';

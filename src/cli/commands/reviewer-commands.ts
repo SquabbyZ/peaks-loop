@@ -14,7 +14,7 @@ import { runReviewer, REVIEWER_ID, type ReviewerEnvelope } from '../../services/
 import { loadReviewerConfig } from '../../services/reviewer/reviewer-config.js';
 import { deriveModelFamily } from '../../services/reviewer/model-family.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type RunOptions = { rid?: string; json?: boolean };
 type StatusOptions = { json?: boolean };

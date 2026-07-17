@@ -33,7 +33,7 @@ import {
   readCacheManifest,
 } from 'peaks-loop-mut';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 export function registerEccCommands(program: Command, io: ProgramIO): void {
   const ecc = program

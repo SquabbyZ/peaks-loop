@@ -24,7 +24,7 @@ import {
 } from '../../services/verdict/envelopes.js';
 import { loadMutReport } from 'peaks-loop-mut';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type AggregateOptions = {
   fromRid?: string;

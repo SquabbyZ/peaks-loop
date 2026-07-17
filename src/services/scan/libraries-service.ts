@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import { join, sep } from 'node:path';
-import { isDirectory, pathExists, readText } from '../../shared/fs.js';
+import { isDirectory, pathExists, readText } from 'peaks-loop-shared/fs';
+
 import type {
   DependencyScope,
   LibraryEntry,

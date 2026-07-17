@@ -26,7 +26,7 @@ import {
   type PerfAuditEnvelope,
 } from '../../services/audit-independent/perf-audit-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type DetectOptions = {
   rid?: string;

@@ -18,7 +18,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { tailLog, listLogFiles } from '../../services/log/log-commands-service.js';
 import { getErrorMessage, printResult, addJsonOption, type ProgramIO } from '../cli-helpers.js';
-import { ok, fail } from '../../shared/result.js';
+import { ok, fail } from 'peaks-loop-shared/result';
 
 export function registerLogCommands(program: Command, io: ProgramIO): void {
   const log = program

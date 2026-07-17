@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { enforceBashCommand, recordGateBypass, GateBypassError } from '../../services/sop/gate-enforce-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectIdeFromContext, parseClaudeShapeStdin } from '../../services/ide/hook-translator.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';

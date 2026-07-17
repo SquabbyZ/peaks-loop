@@ -2,7 +2,8 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { loadMemoryIndex, searchMemory, searchMemoryWithResults, type MemoryIndexEntry, type ProjectMemoryKind } from '../../services/memory/memory-search-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { join } from 'node:path';
 

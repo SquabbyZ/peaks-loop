@@ -21,7 +21,8 @@ import {
   COMMIT_BOUNDARY_ACTIONS_LIST,
   userMustReviewGates
 } from '../../services/code/user-touchpoint-classifier.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerUserTouchpointCommands(program: Command, io: ProgramIO): void {

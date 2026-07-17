@@ -1,7 +1,8 @@
 import { Command, InvalidArgumentError } from 'commander';
 import { scanUnderstandAnything, summarizeKnowledgeGraph } from '../../services/understand/understand-scan-service.js';
 import { buildUnderstandContext } from '../../services/understand/understand-hybrid-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { UaOptInPrompt } from '../../services/understand/understand-types.js';
 

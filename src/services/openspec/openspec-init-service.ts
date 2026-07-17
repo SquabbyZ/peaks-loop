@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isDirectory, pathExists } from '../../shared/fs.js';
+import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
 
 export type OpenSpecInitOptions = {
   projectRoot: string;

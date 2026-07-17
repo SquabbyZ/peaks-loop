@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { describe, expect, test } from 'vitest';
 import { addJsonOption, isArtifactRepoSegment, multipleOption, printResult } from '../../src/cli/cli-helpers.js';
-import { ok } from '../../src/shared/result.js';
+import { ok } from 'peaks-loop-shared/result';
 
 describe('cli helpers', () => {
   test('prints warnings and next actions for non-json success output', () => {

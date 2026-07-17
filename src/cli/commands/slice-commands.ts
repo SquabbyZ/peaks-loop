@@ -8,7 +8,8 @@ import { decomposeSlicesWithBenchmark } from '../../services/slice/slice-benchma
 import { pickSlicesInteractive } from '../../services/slice/slice-pick-service.js';
 import { decompose as multiPassDecompose } from '../../services/slice/multi-pass-orchestrator.js';
 import { readResult as readDecompositionResult, writeResult as writeSchemaResult } from '../../services/slice/schema-router.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import type { DecompositionResult } from '../../services/slice/slice-decompose-types.js';
 

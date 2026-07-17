@@ -414,8 +414,14 @@ const config: TestUserConfig = {
         'src/cli/commands/workflow-commands.ts',
         'src/cli/commands/request-commands.ts',
         'src/cli/commands/scan-commands.ts',
-        'src/shared/paths.ts',
-        'src/shared/result.ts',
+        // Slice 3a — paths.ts and result.ts moved to peaks-loop-shared.
+        // Their coverage is now exercised by the shared package's own
+        // vitest run (`pnpm --filter peaks-loop-shared test`), not the
+        // main package's coverage gate. Excluded here so the main
+        // package's src/** include does not sweep them in (and fail to
+        // resolve them at coverage-report time).
+        'packages/peaks-loop-shared/src/paths.ts',
+        'packages/peaks-loop-shared/src/result.ts',
         'src/services/recommendations/recommendation-types.ts',
         'src/services/artifacts/artifact-service.ts',
         'src/services/artifacts/workspace-service.ts',

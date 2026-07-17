@@ -1,4 +1,4 @@
-import { CLI_VERSION } from '../../shared/version.js';
+import { CLI_VERSION } from 'peaks-loop-shared/version';
 
 // Provider types (consumed by provider-service.ts and config-service.ts legacy compat)
 export type ModelPreference = 'haiku' | 'sonnet' | 'opus';

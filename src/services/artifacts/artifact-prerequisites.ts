@@ -1,6 +1,7 @@
 import { join, dirname, basename } from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
-import { pathExists } from '../../shared/fs.js';
+import { pathExists } from 'peaks-loop-shared/fs';
+
 import { emitObservabilityEvent } from '../observability/observability-service.js';
 import type { RequestArtifactRole, RequestArtifactState } from './request-artifact-service.js';
 

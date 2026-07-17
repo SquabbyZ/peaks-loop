@@ -1,4 +1,5 @@
-import { readText } from '../../shared/fs.js';
+import { readText } from 'peaks-loop-shared/fs';
+
 import { loadOpenSpecChange, type OpenSpecScanOptions } from './openspec-scan-service.js';
 
 export type OpenSpecCommitBoundary = {

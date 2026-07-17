@@ -35,7 +35,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { initWorkspace } from '../../../src/services/workspace/workspace-service.js';
-import { ok, type ResultEnvelope } from '../../../src/shared/result.js';
+import { ok, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import {
   detectMissingProjectStandards,
   hasStandardsCheckedMarker,

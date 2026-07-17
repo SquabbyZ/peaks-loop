@@ -25,8 +25,9 @@
 import { z } from 'zod';
 import { listSkills } from '../skills/skill-registry.js';
 import { parseFrontmatter } from '../../shared/frontmatter.js';
-import { readText } from '../../shared/fs.js';
-import { skillsDir } from '../../shared/paths.js';
+import { readText } from 'peaks-loop-shared/fs';
+
+import { skillsDir } from 'peaks-loop-shared/paths';
 
 const SKILL_DOMAINS = [
   'code',

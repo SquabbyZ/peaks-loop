@@ -17,7 +17,8 @@
 import type { Command } from 'commander';
 import { existsSync } from 'node:fs';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok, getErrorMessage } from '../../shared/result.js';
+import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
+
 import { AdapterRegistry, type AdapterRecord } from '../../services/adapter/adapter-registry.js';
 import { registryFileFor } from './runtime-commands.js';
 

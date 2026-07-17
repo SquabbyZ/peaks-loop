@@ -21,7 +21,8 @@ import { join } from 'node:path';
 import { Command } from 'commander';
 import { searchMemory, loadMemoryIndex } from '../../services/memory/memory-search-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { emitObservabilityEvent } from '../../services/observability/observability-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';

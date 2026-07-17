@@ -28,7 +28,8 @@ import {
   promoteFeedback,
   type PromotionLayer
 } from '../../services/feedback/feedback-promotion-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 export function registerFeedbackCommands(program: Command, io: ProgramIO): void {

@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { pathExists } from '../../src/shared/fs.js';
+import { pathExists } from 'peaks-loop-shared/fs';
+
 import { createRequestArtifact, type RequestArtifactRole } from '../../src/services/artifacts/request-artifact-service.js';
 
 async function makeProject(): Promise<string> {

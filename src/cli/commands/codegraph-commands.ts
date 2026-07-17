@@ -1,6 +1,7 @@
 import { Command, InvalidArgumentError } from 'commander';
 import { createCodegraphInvocation, executeCodegraphInvocation, type CodegraphInvocationOptions } from '../../services/codegraph/codegraph-service.js';
-import { fail } from '../../shared/result.js';
+import { fail } from 'peaks-loop-shared/result';
+
 import { getErrorMessage, printResult, redactSensitiveErrorMessage, type ProgramIO } from '../cli-helpers.js';
 
 interface CommonCodegraphOptions {

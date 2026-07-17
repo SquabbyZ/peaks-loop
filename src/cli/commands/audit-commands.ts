@@ -14,7 +14,8 @@ import { Command } from 'commander';
 import { runRedLinesAudit } from '../../services/audit/red-lines-service.js';
 import { runStaticAudit, type AgentShieldState } from '../../services/audit/static-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import type { RedLineAudit } from '../../services/audit/types.js';
 import type { AuditDecisionRecord } from '../../services/audit/decision-writer.js';
 import { writeAuditDecision } from '../../services/audit/decision-writer.js';

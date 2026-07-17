@@ -62,7 +62,7 @@ import {
 } from "../../services/crystallization/evidence-brief-builder.js";
 import { findProjectRoot } from "../../services/config/config-safety.js";
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from "../cli-helpers.js";
-import { fail, ok } from "../../shared/result.js";
+import { fail, ok } from 'peaks-loop-shared/result';
 
 function collectRepeatable(value: string, previous: string[]): string[] {
   if (Array.isArray(previous)) return [...previous, value];

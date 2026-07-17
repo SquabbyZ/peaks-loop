@@ -12,7 +12,8 @@
  * - `detect-trigger` (2) JSON-gated — slice workflow needs the verdict.
  */
 import { Command } from 'commander';
-import { fail, getErrorMessage, ok } from '../../shared/result.js';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { readPlan, type PlanType } from '../../services/workflow/plan-reader.js';
 import { refreshPlan } from '../../services/workflow/plan-refresher.js';

@@ -1,7 +1,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isDirectory, pathExists } from '../../shared/fs.js';
+import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
+
 import { validateAgainstSchema, type JsonSchemaIssue, type JsonSchemaNode } from '../../shared/json-schema-mini.js';
 
 export type OpenSpecRenderTaskSection = {

@@ -8,7 +8,8 @@ import { detectPresenceMarker } from '../../../services/hooks/presence-marker-de
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { generateProjectContext } from '../../../services/memory/project-context-service.js';
 import { getSessionId, setSessionMeta } from '../../../services/session/session-manager.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 // Slice S0 (4.0.0-beta.5 peaks-solo dispatcher release):
 // `peaks skill search` is the CLI primitive that feeds the

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { getSessionMeta, rotateSessionBinding, setSessionTitle, listSessionMetas } from '../../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../../services/config/config-service.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 // Slice 2026-07-01-strategic-compact-cli fix: register the
 // `peaks session checkpoint` and `peaks session resume` subcommands

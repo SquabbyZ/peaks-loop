@@ -33,7 +33,7 @@ import { Command } from 'commander';
 import { getOcrConfigTemplate, detectOcr, runOcrReview } from '../../services/code-review/ocr-service.js';
 import { getOcrLlmConfig, getUserConfigPath, redactConfigSecrets } from '../../services/config/config-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type DetectOcrOptions = {
   project?: string;

@@ -23,7 +23,8 @@
 import { Command } from 'commander';
 import { detectCurrentIdeModel } from '../../services/ide/current-model-detector.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { listAdapterIds } from '../../services/ide/ide-registry.js';
 
 type IdeModelOptions = {

@@ -13,7 +13,8 @@
  */
 import { existsSync } from 'node:fs';
 import type { Command } from 'commander';
-import { fail, getErrorMessage, ok } from '../../shared/result.js';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { appendHeartbeat, type HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';

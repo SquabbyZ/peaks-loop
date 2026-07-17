@@ -29,7 +29,8 @@
 import { randomUUID } from 'node:crypto';
 import type { ProgramIO } from '../cli-helpers.js';
 import { printResult } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';

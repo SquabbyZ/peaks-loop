@@ -38,7 +38,7 @@ import {
   type EnvelopeKind
 } from '../../services/fixture/index.js';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type CaptureOptions = {
   fromRid?: string;

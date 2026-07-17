@@ -11,7 +11,8 @@
  * Not peer-to-peer — pseudo-swarm property 3 preserved.
  */
 import type { Command } from 'commander';
-import { fail, getErrorMessage, ok } from '../../shared/result.js';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import {
   readSharedChannel,

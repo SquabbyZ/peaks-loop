@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { listProfiles } from '../../../services/profiles/profile-service.js';
-import { ok } from '../../../shared/result.js';
+import { ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 export function registerProfileCommand(program: Command, io: ProgramIO): void {

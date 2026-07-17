@@ -3,7 +3,8 @@ import { executeProjectStandardsInit, executeProjectStandardsUpdate, summarizePr
 import { executeProjectStandardsInitIdeAware, executeProjectStandardsUpdateIdeAware } from '../../../services/standards/ide-aware-standards-service.js';
 import { migrateStandards } from '../../../services/standards/migrate-service.js';
 import { migrateClaudeRules } from '../../../services/standards/migrate-claude-rules-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 export function registerStandardsCommand(program: Command, io: ProgramIO): void {

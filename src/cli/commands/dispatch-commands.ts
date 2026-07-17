@@ -17,7 +17,8 @@
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import type { Command } from 'commander';
-import { fail, getErrorMessage, ok } from '../../shared/result.js';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { detectInstalledIde } from '../../services/ide/ide-detector.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';

@@ -8,7 +8,8 @@ import { archiveOpenSpecChange, type OpenSpecArchiveOptions } from '../../servic
 import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
 import { proposeFromDoctor, type DoctorFinding } from '../../services/openspec/openspec-propose-from-doctor-service.js';
 import { runDoctor } from '../../services/doctor/doctor-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type OpenSpecListOptions = {

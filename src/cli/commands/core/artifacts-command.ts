@@ -1,7 +1,8 @@
 import type { Command } from 'commander';
 import { createArtifactInitPlan, getArtifactStatus, createGuidedArtifactSetup } from '../../../services/artifacts/artifact-service.js';
 import { getArtifactWorkspaceStatus, planArtifactSync } from '../../../services/artifacts/workspace-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, failUnsupportedNonDryRun, isArtifactProvider, isArtifactSetupStep, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 export function registerArtifactsCommand(program: Command, io: ProgramIO): void {

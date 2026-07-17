@@ -41,7 +41,7 @@ import {
   type ReadinessLintResult,
 } from '../../services/standards/loop-engineering-readiness-lint.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 export const LOOP_ENGINEERING_READINESS_CATEGORY = 'loop-engineering-readiness';
 

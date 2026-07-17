@@ -15,7 +15,8 @@ import { getSessionDir } from '../../services/session/getSessionDir.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { verifyPipeline } from '../../services/workflow/pipeline-verify-service.js';
 import { applySkip, detectCallerKind, type SkipArgs } from '../../services/workflow/workflow-skip-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendationWorkflow, printResult, type ProgramIO } from '../cli-helpers.js';
 // Slice 015 — typed error → envelope code routing. Used by the four
 // catch sites below (tech.plan / workflow.route / workflow.autonomous /

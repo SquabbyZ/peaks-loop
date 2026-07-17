@@ -19,7 +19,8 @@
 import type { Command } from 'commander';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { findProjectRoot } from '../../services/config/config-safety.js';
-import { fail, ok, getErrorMessage } from '../../shared/result.js';
+import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
+
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { writeCheckpoint } from '../../services/session/session-checkpoint-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';

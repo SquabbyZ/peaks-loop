@@ -22,7 +22,8 @@ import { Command } from 'commander';
 
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 

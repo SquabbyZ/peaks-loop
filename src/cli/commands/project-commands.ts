@@ -5,7 +5,8 @@ import { extractSessionMemories, readMemoryIndex, readProjectMemories, readProje
 import { readBusinessKnowledge } from '../../services/prd/project-scan-reader.js';
 import { applyStalePolicy, DEFAULT_STALE_DAYS } from '../../shared/stale-policy.js';
 import { formatMdCompact } from '../../shared/format-md-compact.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type ProjectDashboardOptions = {

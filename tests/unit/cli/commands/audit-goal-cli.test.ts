@@ -25,7 +25,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Command } from 'commander';
 import { registerAuditCommands, type AuditGoalData } from '../../../../src/cli/commands/audit-commands.js';
 import type { ProgramIO } from '../../../../src/cli/cli-helpers.js';
-import type { ResultEnvelope } from '../../../../src/shared/result.js';
+import type { ResultEnvelope } from 'peaks-loop-shared/result';
 
 function captureIo(): { io: ProgramIO; stdout: () => string; stderr: () => string } {
   const out: string[] = [];

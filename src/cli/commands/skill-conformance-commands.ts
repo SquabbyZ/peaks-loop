@@ -8,7 +8,7 @@
 import { Command } from 'commander';
 import { auditSkillConformance } from '../../services/skills/skill-conformance-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 type AuditConformanceOptions = {
   project: string;

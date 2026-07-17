@@ -13,7 +13,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { getErrorMessage } from '../../shared/result.js';
+import { getErrorMessage } from 'peaks-loop-shared/result';
 
 export interface DoctorFinding {
   readonly id: string;

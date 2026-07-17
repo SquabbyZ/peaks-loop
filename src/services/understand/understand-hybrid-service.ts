@@ -4,7 +4,8 @@ import {
   type CodegraphProcessRunner
 } from '../codegraph/codegraph-service.js';
 import { scanUnderstandAnything, summarizeKnowledgeGraph, type SummarizeKnowledgeGraphOptions, type UnderstandGraphSummary } from './understand-scan-service.js';
-import { getErrorMessage } from '../../shared/result.js';
+import { getErrorMessage } from 'peaks-loop-shared/result';
+
 import type { UnderstandScanReport } from './understand-types.js';
 import type {
   CodegraphContextBlock,

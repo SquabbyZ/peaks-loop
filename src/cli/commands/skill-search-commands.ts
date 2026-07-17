@@ -17,7 +17,8 @@
  */
 import type { Command } from 'commander';
 import { searchSkills, SkillSearchInputSchema } from '../../services/skill/skill-search-service.js';
-import { getErrorMessage } from '../../shared/result.js';
+import { getErrorMessage } from 'peaks-loop-shared/result';
+
 import type { ProgramIO } from '../cli-helpers.js';
 
 /**

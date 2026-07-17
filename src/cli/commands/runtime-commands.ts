@@ -26,8 +26,8 @@ import type { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
-import { getErrorMessage } from '../../shared/result.js';
+import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
+
 import { detectRuntime } from '../../services/runtime/runtime-detector.js';
 import { RuntimeService } from '../../services/runtime/runtime-service.js';
 import { AdapterRegistry } from '../../services/adapter/adapter-registry.js';

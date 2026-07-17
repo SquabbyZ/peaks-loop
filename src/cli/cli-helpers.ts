@@ -1,5 +1,6 @@
 import { Command } from 'commander';
-import { fail, getErrorMessage, ok, redactSensitiveErrorMessage, type ResultEnvelope } from '../shared/result.js';
+import { fail, getErrorMessage, ok, redactSensitiveErrorMessage, type ResultEnvelope } from 'peaks-loop-shared/result';
+
 import type { ArtifactProvider, GuidedArtifactSetup } from '../services/artifacts/artifact-service.js';
 import type { ConfigLayer } from '../services/config/config-service.js';
 import type { RecommendationWorkflow } from '../services/recommendations/recommendation-service.js';

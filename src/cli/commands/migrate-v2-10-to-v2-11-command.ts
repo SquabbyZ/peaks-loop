@@ -21,7 +21,7 @@ import type { Command } from 'commander';
 import { addJsonOption, type ProgramIO } from '../cli-helpers.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { planV2ToV11Migration, applyV2ToV11Migration, dryRunV2ToV11Migration } from '../../services/migration/v2-10-to-v2-11-service.js';
-import { ok, fail, type ResultEnvelope } from '../../shared/result.js';
+import { ok, fail, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 type MigrateV2ToV11Options = {
   project: string;

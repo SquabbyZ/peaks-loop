@@ -29,6 +29,9 @@ importers:
       peaks-loop-mut:
         specifier: workspace:*
         version: link:packages/peaks-loop-mut
+      peaks-loop-shared:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-shared
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -81,6 +84,8 @@ importers:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
+
+  packages/peaks-loop-shared: {}
 
 packages:
 

@@ -1,8 +1,10 @@
 import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Command } from 'commander';
-import { skillsDir, repoRoot } from '../shared/paths.js';
-import { CLI_VERSION } from '../shared/version.js';
+import { skillsDir, repoRoot } from 'peaks-loop-shared/paths';
+
+import { CLI_VERSION } from 'peaks-loop-shared/version';
+
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';

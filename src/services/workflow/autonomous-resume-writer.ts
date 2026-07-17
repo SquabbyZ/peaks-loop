@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { getSessionDir } from '../session/getSessionDir.js';
-import { pathExists } from '../../shared/fs.js';
+import { pathExists } from 'peaks-loop-shared/fs';
+
 import { isUnsafePathInput } from '../../shared/path-safety.js';
 
 export type AutonomousResumeWriteRequest = {

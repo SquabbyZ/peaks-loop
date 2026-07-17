@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isDirectory, pathExists } from '../../shared/fs.js';
+import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
+
 import { isPathInsideArtifactRoot } from '../../shared/path-safety.js';
 import type {
   MigrateFilePlan,

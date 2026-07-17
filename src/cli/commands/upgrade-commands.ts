@@ -25,7 +25,7 @@ import { initWorkspace } from '../../services/workspace/workspace-service.js';
 import { ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
+import { fail, ok, type ResultEnvelope } from 'peaks-loop-shared/result';
 
 type UpgradeOptions = {
   project?: string;

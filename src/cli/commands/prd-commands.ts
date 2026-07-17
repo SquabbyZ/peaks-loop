@@ -17,7 +17,8 @@
 import { readFile } from 'node:fs/promises';
 import { Command } from 'commander';
 import { initHandoff, readHandoff, showHandoff, verifyHandoff, writeHandoff } from '../../services/prd/handoff-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 type HandoffInitOptions = {

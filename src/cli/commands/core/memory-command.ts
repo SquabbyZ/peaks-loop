@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import { executeProjectMemoryBackup, executeProjectMemoryExtract, summarizeProjectMemoryBackupResult, summarizeProjectMemoryExtractResult } from '../../../services/memory/project-memory-service.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../../cli-helpers.js';
 
 export function registerMemoryCommand(program: Command, io: ProgramIO): void {

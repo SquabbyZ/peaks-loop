@@ -27,7 +27,8 @@ import { Command } from 'commander';
 import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { findProjectRoot } from '../../services/config/config-safety.js';
 import { openStateDb } from '../../services/skillhub/sqlite-store.js';
 import {

@@ -3,7 +3,7 @@ import { runDoctor } from '../../../services/doctor/doctor-service.js';
 import { readBinding, dropStale, rebuildBindingFromLegacy } from '../../../services/session/binding-store.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
-import { fail, ok } from '../../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
 
 // Slice 021/022: the on-disk home a `peaks session info --active` lookup
 // resolved the binding from. `canonical` = .peaks/_runtime/session.json (the

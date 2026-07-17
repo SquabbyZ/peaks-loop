@@ -6,7 +6,8 @@ import { loadRetrospectiveIndex } from '../../services/retrospective/retrospecti
 import { showRetrospective } from '../../services/retrospective/retrospective-show.js';
 import { searchRetrospective, type RetrospectiveType, type RetrospectiveOutcome, type RetrospectiveEntry } from '../../services/retrospective/retrospective-search-service.js';
 import { pickFromList } from '../../services/fuzzy-matching/fzf-pick-service.js';
-import { fail, ok } from '../../shared/result.js';
+import { fail, ok } from 'peaks-loop-shared/result';
+
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 
 const VALID_RETRO_TYPES: ReadonlyArray<RetrospectiveType> = ['refactor', 'feature', 'bugfix', 'config', 'docs', 'chore'];
