@@ -13,8 +13,8 @@ import {
   type MutEnvelope,
   type QaEnvelope
 } from '../../../../src/services/verdict/verdict-aggregator.js';
-import type { SecurityAuditEnvelope } from '../../../../src/services/audit-independent/security-audit-service.js';
-import type { PerfAuditEnvelope } from '../../../../src/services/audit-independent/perf-audit-service.js';
+import type { SecurityAuditEnvelope } from 'peaks-loop-audit-independent';
+import type { PerfAuditEnvelope } from 'peaks-loop-audit-independent';
 
 // ─── Hand-built envelope fixtures ──────────────────────────────────────
 

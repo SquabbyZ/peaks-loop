@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtempSync, rmSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, utimesSync, mkdirSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -11,7 +11,6 @@ vi.mock('node:os', async (importOriginal) => {
 
 import { applyRetention, cleanupEccCache } from '../../../src/services/log/retention.js';
 import { resolveLogDir } from '../../../src/services/log/logger.js';
-import { mkdirSync, writeFileSync, utimesSync, existsSync } from 'node:fs';
 
 describe('log/retention', () => {
   let tempHome: string;

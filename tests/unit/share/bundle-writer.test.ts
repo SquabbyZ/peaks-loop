@@ -30,7 +30,7 @@ import {
   type LoopReleaseInput,
 } from "../../../src/services/loop/loop-release-types.js";
 import { ensureLoopBeeRelationTable, insertLoopBeeRelation } from "../../../src/services/loop/loop-bee-relation-store.js";
-import { ensureCrystallizationEventTable, insertCrystallizationEvent } from "../../../src/services/crystallization/crystallization-store.js";
+import { ensureCrystallizationEventTable, insertCrystallizationEvent } from 'peaks-loop-crystallization';
 import {
   writeBundle,
   BundleNotShareableError,
