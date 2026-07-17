@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import {
   prepareFinalReview,
   IncompleteFinalReviewError
-} from '../../../src/services/final-review/final-review-service.js';
-import type { LlmRunner } from '../../../src/services/audit/audit-goal-service.js';
+} from '../src/index.js';
+import type { LlmRunner } from '../src/index.js';
 
 const REQUIRED_DIMS = [
   'functional-completeness',

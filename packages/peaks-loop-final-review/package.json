@@ -1,0 +1,22 @@
+{
+  "name": "peaks-loop-final-review",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Final-review 4-dim business review pipeline (slice 6)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist/**"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "peaks-loop-shared": "workspace:*"
+  },
+  "engines": { "node": ">=20.0.0" }
+}

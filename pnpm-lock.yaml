@@ -32,6 +32,9 @@ importers:
       peaks-loop-doctor:
         specifier: workspace:*
         version: link:packages/peaks-loop-doctor
+      peaks-loop-final-review:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-final-review
       peaks-loop-mut:
         specifier: workspace:*
         version: link:packages/peaks-loop-mut
@@ -99,6 +102,12 @@ importers:
         version: 12.11.1
 
   packages/peaks-loop-doctor:
+    dependencies:
+      peaks-loop-shared:
+        specifier: workspace:*
+        version: link:../peaks-loop-shared
+
+  packages/peaks-loop-final-review:
     dependencies:
       peaks-loop-shared:
         specifier: workspace:*

@@ -1,6 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { LlmRunner } from '../audit/audit-goal-service.js';
+// Inline copy of LlmRunner interface from src/services/audit/audit-goal-service.ts.
+// Carried into peaks-loop-final-review so the subpackage stays standalone
+// (no back-dep on main peaks-loop, which would create a workspace:* circular
+// trap). Source of truth lives in audit/audit-goal-service.ts.
+export interface LlmRunner {
+  call(
+    systemPrompt: string,
+    userPrompt: string,
+    opts: { maxTokens: number }
+  ): Promise<{
+    output: string;
+    tokens: { input: number; output: number };
+  }>;
+}
+type _LlmRunnerRef = LlmRunner;
 import type {
   DimensionEvidence,
   DimensionKind,
