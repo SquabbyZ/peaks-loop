@@ -45,7 +45,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs",
+    "build": "node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter \"./packages/*\" run build && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "node scripts/prepublish-build.mjs",
     "prepublish": "node ./scripts/sync-version.mjs",

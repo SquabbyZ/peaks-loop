@@ -23,7 +23,8 @@ import { registerHeartbeatCommand } from './heartbeat-commands.js';
 import {
   registerShareCommand,
   registerSharedReadCommand,
-  registerAwaitCommand
+  registerAwaitCommand,
+  registerFinalizeCommand
 } from './share-commands.js';
 
 // Re-export `validateRole` for backward compat — the integration test
@@ -45,4 +46,5 @@ export function registerSubAgentCommands(program: Command, io: ProgramIO): void 
   registerShareCommand(subAgent, io);
   registerSharedReadCommand(subAgent, io);
   registerAwaitCommand(subAgent, io);
+  registerFinalizeCommand(subAgent, io); // D21
 }

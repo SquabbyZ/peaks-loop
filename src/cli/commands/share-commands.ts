@@ -11,6 +11,7 @@
  * Not peer-to-peer — pseudo-swarm property 3 preserved.
  */
 import type { Command } from 'commander';
+import { resolve } from 'node:path';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -334,4 +335,116 @@ function awaitErrorNextActions(code: string): string {
     return 'Switch to claude-code, or rely on LLM-side await for non-claude-code IDEs in slice 1.3.';
   }
   return 'See error message; check that --batch matches the dispatch envelope and --timeout is a positive integer ms.';
+}
+
+/**
+ * Slice 2026-07-17-D21: peaks sub-agent finalize — LLM-side completion
+ * signal. Without this, dispatch records stay queued forever.
+ *
+ * Contract:
+ *   - LLM MUST call once per dispatched Task, in post-completion branch.
+ *   - --all-stale bulk-marks every queued record for this session (crash recovery).
+ */
+export interface FinalizeOptions {
+  batch?: string;
+  requestId?: string;
+  outcome?: string;
+  error?: string;
+  allStale?: boolean;
+  project?: string;
+  sessionId?: string;
+  json?: boolean;
+}
+
+export function registerFinalizeCommand(parent: Command, io: ProgramIO): void {
+  addJsonOption(
+    parent
+      .command('finalize')
+      .description('D21: signal that a dispatched sub-agent has finished (success/failure/cancellation). Pass --all-stale for crash-recovery sweep.')
+      .option('--batch <batchId>', 'batchId from dispatch envelope')
+      .option('--request-id <rid>', 'requestId from dispatch envelope')
+      .option('--outcome <state>', 'done | failed | cancelled (default: done)')
+      .option('--error <msg>', 'error message (when --outcome=failed)')
+      .option('--all-stale', 'bulk-mark every queued record for this session as done')
+      .option('--project <path>', 'target project root (defaults to cwd)')
+      .option('--session-id <sid>', 'override active session id')
+  ).action((options: FinalizeOptions) => {
+    void (async () => {
+      const asJson = options.json === true;
+      try {
+        const projectRoot = resolve(options.project ?? process.cwd());
+        const sessionId = options.sessionId ?? getCurrentSessionId(projectRoot) ?? 'unknown-sid';
+        if (!options.allStale && !options.requestId && !options.batch) {
+          printResult(io, fail('sub-agent.finalize', 'MISSING_TARGET', 'Pass --request-id or --batch (or --all-stale)', { ok: false } as never, ['Call finalize after each Task completes.']), asJson);
+          process.exitCode = 1;
+          return;
+        }
+        const outcome = (options.outcome ?? 'done') as 'done' | 'failed' | 'cancelled';
+        const writerMod = await import('../../services/dispatch/dispatch-record-writer.js');
+        const { readRecord, markCompleted, readActiveDispatchIndex } = writerMod;
+        // map outcome -> (status, outcome)
+        const outcomeMap: Record<string, { status: 'done' | 'failed' | 'cancelled'; outcome: 'success' | 'failed' | 'cancelled' }> = {
+          done: { status: 'done', outcome: 'success' },
+          failed: { status: 'failed', outcome: 'failed' },
+          cancelled: { status: 'cancelled', outcome: 'cancelled' },
+        };
+        const mapped = outcomeMap[outcome] ?? outcomeMap['done']!;
+        const finalized = [] as Array<{ recordPath: string; requestId: string; status: string }>;
+        const skipped = [] as Array<{ recordPath: string; reason: string }>;
+        const errors = [] as Array<{ recordPath: string; error: string }>;
+        const applyOutcome = (recordPath: string, rid: string): void => {
+          markCompleted({ recordPath, now: () => new Date(), status: mapped.status, outcome: mapped.outcome, projectRoot });
+          finalized.push({ recordPath, requestId: rid, status: mapped.status });
+        };
+        if (options.allStale) {
+          const index = readActiveDispatchIndex(projectRoot, sessionId);
+          for (const [recordPath, entry] of Object.entries(index)) {
+            if (entry.status !== 'queued') { skipped.push({ recordPath, reason: 'status is ' + entry.status }); continue; }
+            try { applyOutcome(recordPath, entry.requestId); }
+            catch (e: unknown) { errors.push({ recordPath, error: getErrorMessage(e) }); }
+          }
+        } else if (options.requestId) {
+          const fs2 = await import('node:fs');
+          const path2 = await import('node:path');
+          const dir = path2.resolve(projectRoot, '.peaks', '_sub_agents', sessionId);
+          let resolvedPath: string | null = null;
+          if (fs2.existsSync(dir)) {
+            for (const f of fs2.readdirSync(dir)) {
+              if (!f.endsWith('.json')) continue;
+              const p = path2.join(dir, f);
+              const r = readRecord(p);
+              if (r.requestId === options.requestId) { resolvedPath = p; break; }
+            }
+          }
+          if (!resolvedPath) {
+            printResult(io, fail('sub-agent.finalize', 'RECORD_NOT_FOUND', 'No dispatch record for requestId=' + options.requestId, { ok: false } as never, ['Check --request-id matches the dispatch envelope.']), asJson);
+            process.exitCode = 1;
+            return;
+          }
+          try { applyOutcome(resolvedPath, options.requestId); }
+          catch (e: unknown) { errors.push({ recordPath: resolvedPath, error: getErrorMessage(e) }); }
+        } else {
+          const fs2 = await import('node:fs');
+          const path2 = await import('node:path');
+          const dir = path2.resolve(projectRoot, '.peaks', '_sub_agents', sessionId);
+          if (fs2.existsSync(dir)) {
+            for (const f of fs2.readdirSync(dir)) {
+              if (!f.startsWith('dispatch-') || !f.endsWith('.json')) continue;
+              const p = path2.join(dir, f);
+              const r = readRecord(p);
+              if (r.batchId !== options.batch) continue;
+              if (r.status !== 'queued') { skipped.push({ recordPath: p, reason: 'status is ' + r.status }); continue; }
+              try { applyOutcome(p, r.requestId); }
+              catch (e: unknown) { errors.push({ recordPath: p, error: getErrorMessage(e) }); }
+            }
+          }
+        }
+        printResult(io, ok('sub-agent.finalize', { finalized, skipped, errors, sessionId, outcome }, errors.length > 0 ? [errors.length + ' failed'] : [], errors.length > 0 ? ['Re-run after fixing.'] : ['All targeted records transitioned out of queued.']), asJson);
+        if (errors.length > 0) process.exitCode = 1;
+      } catch (error: unknown) {
+        printResult(io, fail('sub-agent.finalize', 'FINALIZE_ERROR', getErrorMessage(error), { ok: false } as never, ['Inspect the error.']), asJson);
+        process.exitCode = 1;
+      }
+    })();
+  });
 }
