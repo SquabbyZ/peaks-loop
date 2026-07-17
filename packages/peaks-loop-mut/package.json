@@ -1,7 +1,6 @@
 {
   "name": "peaks-loop-mut",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "description": "Mutation testing + assertion scanning + ECC cache for peaks-loop (workspace-internal)",
   "type": "module",
   "exports": {
@@ -22,5 +21,8 @@
   },
   "dependencies": {
     "zod": "^3.25.76"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

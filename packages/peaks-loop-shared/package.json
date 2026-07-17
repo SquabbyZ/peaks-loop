@@ -1,7 +1,6 @@
 {
   "name": "peaks-loop-shared",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "description": "Shared pure-function utils for peaks-loop workspace packages (fs / paths / result / version). Slice 3a.",
   "type": "module",
   "exports": {
@@ -35,5 +34,8 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

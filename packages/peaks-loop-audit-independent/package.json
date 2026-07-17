@@ -1,7 +1,6 @@
 {
   "name": "peaks-loop-audit-independent",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "description": "Independent security + perf audit services (slice 7)",
   "type": "module",
   "exports": {
@@ -10,7 +9,9 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist/**"],
+  "files": [
+    "dist/**"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
@@ -18,5 +19,10 @@
   "dependencies": {
     "peaks-loop-shared": "workspace:*"
   },
-  "engines": { "node": ">=20.0.0" }
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
