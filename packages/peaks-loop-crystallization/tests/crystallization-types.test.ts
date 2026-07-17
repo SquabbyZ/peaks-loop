@@ -8,7 +8,7 @@ import {
   safeParseCrystallizationEvent,
   hasAllFourBriefSections,
   type EvidenceBrief,
-} from "../../../src/services/crystallization/crystallization-types.js";
+} from "../src/index.js";
 
 /* ---------------------------------------------------------------------- */
 /* Helpers                                                                 */

@@ -3,18 +3,30 @@ import { homedir } from 'node:os';
 import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, resolve as resolvePath } from 'node:path';
-import { readText } from 'peaks-loop-shared/fs';
+import { listDirectories, pathExists, readText } from 'peaks-loop-shared/fs';
 
-import { requiredSchemaFiles, requiredSkillNames, schemasDir } from 'peaks-loop-shared/paths';
+import { requiredSchemaFiles, requiredSkillNames, schemasDir, skillsDir } from 'peaks-loop-shared/paths';
 
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
-import { loadSkillRegistry } from '../skills/skill-registry.js';
-import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
-import { planStatusLineInstall } from '../skills/statusline-settings-service.js';
-import { findProjectRoot } from '../config/config-safety.js';
-import { isValidSessionId } from '../workspace/sid-naming-guard.js';
 import { CLI_VERSION } from 'peaks-loop-shared/version';
+
+// ---------------------------------------------------------------------------
+// slice-3b Option C: cross-domain utils (skill-registry / skill-presence /
+// statusline-settings / config-safety / sid-naming-guard) live in the
+// main peaks-loop package. The doctor subpackage stays standalone by
+// accepting those utilities as injectable probes on DoctorOptions:
+//   - `loadSkills`            — replaces loadSkillRegistry()
+//   - `skillPresenceProbe`    — already pre-existing injection
+//   - `statusLineInstalledProbe` — already pre-existing injection
+//   - `projectRootResolver`   — replaces findProjectRoot()
+//   - `isValidSessionIdProbe` — replaces isValidSessionId()
+//
+// The main CLI (src/cli/commands/core/doctor-command.ts) wires the main-
+// package implementations at call-site. When no injection is provided,
+// the doctor falls back to a safe "no-op / assume healthy" probe so the
+// standalone test suite does not depend on the main package.
+// ---------------------------------------------------------------------------
 
 export type DoctorCheck = {
   id: string;
@@ -105,11 +117,49 @@ export type GateguardProbeResult = {
 
 export type GateguardProbe = () => GateguardProbeResult;
 
+/**
+ * Subset of SkillPresence consumed by the doctor (slice-3b: the full
+ * `SkillPresence` type lives in `src/services/skills/skill-presence-service.ts`;
+ * the doctor only needs `skill / mode / gate / setAt` for the freshness /
+ * workspace / statusline checks). The probe-returned object must satisfy
+ * this structural shape; the main package reuses the upstream
+ * `SkillPresence` directly so callers do not need to remap.
+ */
+export type DoctorSkillPresence = {
+  skill: string;
+  mode?: string;
+  gate?: string;
+  setAt: string;
+};
+
+/**
+ * Subset of SkillMetadata consumed by the doctor (slice-3b: the full
+ * type lives in `src/services/skills/skill-registry.ts`; the doctor only
+ * needs `name / directory / skillPath` for the runbook / name-match /
+ * schema checks). Failures from upstream have `directory + message`.
+ */
+export type DoctorSkillEntry = {
+  name: string;
+  directory: string;
+  skillPath: string;
+};
+
+export type DoctorSkillLoadFailure = {
+  directory: string;
+  skillPath: string;
+  message: string;
+};
+
+export type DoctorSkillsResult = {
+  skills: DoctorSkillEntry[];
+  failures: DoctorSkillLoadFailure[];
+};
+
 export type DoctorOptions = {
   schemasBaseDir?: string;
   skillsBaseDir?: string;
   codegraphProbe?: () => CodegraphCapabilityProbe;
-  skillPresenceProbe?: () => SkillPresence | null;
+  skillPresenceProbe?: () => DoctorSkillPresence | null;
   skillPresenceFreshnessThresholdMs?: number;
   statusLineInstalledProbe?: () => boolean;
   /** Returns true when a Peaks workspace session (.peaks/.session.json) exists. */
@@ -129,10 +179,158 @@ export type DoctorOptions = {
    * check at a temp dir without monkey-patching `findProjectRoot`.
    */
   l3ProjectRoot?: string;
+  /**
+   * slice-3b Option C: injected project-root resolver.
+   * Replaces the legacy direct call to
+   * `findProjectRoot(process.cwd())` from
+   * `src/services/config/config-safety.ts`. Defaults to a noop
+   * (`() => null`) so standalone tests do not depend on the main
+   * package; the CLI wires `findProjectRoot(process.cwd())` at
+   * call-site.
+   */
+  projectRootResolver?: () => string | null;
+  /**
+   * slice-3b Option C: injected skill loader.
+   * Replaces `loadSkillRegistry` from
+   * `src/services/skills/skill-registry.ts`. Defaults to a noop
+   * `Promise<{ skills: [], failures: [] }>` so standalone tests do
+   * not depend on the main package; the CLI wires the real loader
+   * at call-site.
+   */
+  loadSkills?: (skillsBaseDir?: string) => Promise<DoctorSkillsResult>;
+  /**
+   * slice-3b Option C: injected sid validator.
+   * Replaces `isValidSessionId` from
+   * `src/services/workspace/sid-naming-guard.ts`. Defaults to the
+   * canonical regex below (kept in sync with the main-package
+   * source). The CLI may inject a different implementation but
+   * should keep behaviour identical.
+   */
+  isValidSessionIdProbe?: (sid: string) => boolean;
 };
 
 const CODEGRAPH_EXPECTED_VERSION = '0.7.10';
 const SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * slice-3b Option C: inlined sid regex. The main package's canonical
+ * definition lives in `src/services/workspace/sid-naming-guard.ts`. The
+ * regex MUST stay byte-identical with that file. If
+ * `sid-naming-guard.ts` is ever moved to `peaks-loop-shared`, swap this
+ * for a `peaks-loop-shared/workspace/sid-naming-guard` import and drop
+ * the inlined copy.
+ */
+const VALID_SID_REGEX = /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-session-[0-9a-z]{3,6}$/;
+
+function defaultIsValidSessionId(sid: string): boolean {
+  return VALID_SID_REGEX.test(sid);
+}
+
+function defaultProjectRootResolver(): string | null {
+  // slice-3b Option C: minimal in-package project-root resolver.
+  // Mirrors the high-level behaviour of the main package's
+  // `findProjectRoot` (src/services/config/config-safety.ts) without
+  // pulling in its full safety-validation surface. The CLI may
+  // inject a richer resolver at call-site.
+  let current = process.cwd();
+  let pkgRoot: string | null = null;
+  while (true) {
+    const parent = dirname(current);
+    if (parent === current) {
+      return pkgRoot;
+    }
+    if (existsSync(join(current, '.peaks', 'config.json'))) {
+      return current;
+    }
+    if (existsSync(join(current, '.git'))) {
+      return current;
+    }
+    if (pkgRoot === null && existsSync(join(current, 'package.json'))) {
+      pkgRoot = current;
+    }
+    current = parent;
+  }
+}
+
+/**
+ * slice-3b Option C: minimal SKILL.md frontmatter parser. The
+ * doctor only needs `name` and `description` for the
+ * skill-name-matches-directory and skill-runbook checks. The
+ * full-featured parser (with nested-mapping support) lives in
+ * `src/shared/frontmatter.ts`; duplicating that surface here
+ * would balloon the doctor package. The CLI may inject a richer
+ * loader at call-site that uses the upstream parser.
+ */
+function parseDoctorSkillFrontmatter(body: string): { name: string; description: string } {
+  const lines = body.split(/\r?\n/);
+  if (lines[0] !== '---') {
+    throw new Error('Missing YAML frontmatter opening marker');
+  }
+  const endIndex = lines.findIndex((line, index) => index > 0 && line === '---');
+  if (endIndex === -1) {
+    throw new Error('Missing YAML frontmatter closing marker');
+  }
+  const metadata: Record<string, string> = {};
+  for (let index = 1; index < endIndex; index += 1) {
+    const line = lines[index];
+    if (line === undefined) continue;
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    const match = /^([A-Za-z0-9_.-]+):\s*(.*)$/.exec(trimmed);
+    if (match?.[1] === undefined) continue;
+    metadata[match[1]] = (match[2] ?? '').trim().replace(/^['"]|['"]$/g, '');
+  }
+  if (!metadata.name) {
+    throw new Error('Missing required frontmatter field: name');
+  }
+  if (!metadata.description) {
+    throw new Error('Missing required frontmatter field: description');
+  }
+  return { name: metadata.name, description: metadata.description };
+}
+
+async function defaultLoadSkills(baseDir?: string): Promise<DoctorSkillsResult> {
+  // slice-3b Option C: minimal skill-loader. Walks `<baseDir>/*/SKILL.md`
+  // (and one level into `bee/`, mirroring the upstream `skill-registry.ts`),
+  // parses the frontmatter, and returns `{ skills, failures }`. The CLI may
+  // inject a richer loader at call-site.
+  const target = baseDir ?? skillsDir;
+  if (!(await pathExists(target))) {
+    return { skills: [], failures: [] };
+  }
+  const skills: DoctorSkillEntry[] = [];
+  const failures: DoctorSkillLoadFailure[] = [];
+  const directories = await listDirectories(target);
+
+  for (const directory of directories) {
+    if (directory === 'bee') {
+      const subEntries = await listDirectories(join(target, 'bee'));
+      for (const subDir of subEntries) {
+        const skillPath = join(target, 'bee', subDir, 'SKILL.md');
+        if (!(await pathExists(skillPath))) continue;
+        try {
+          const { name } = parseDoctorSkillFrontmatter(await readText(skillPath));
+          skills.push({ name, directory: subDir, skillPath });
+        } catch (error) {
+          failures.push({ directory: subDir, skillPath, message: getErrorMessage(error) });
+        }
+      }
+      continue;
+    }
+    const skillPath = join(target, directory, 'SKILL.md');
+    if (!(await pathExists(skillPath))) continue;
+    try {
+      const { name } = parseDoctorSkillFrontmatter(await readText(skillPath));
+      skills.push({ name, directory, skillPath });
+    } catch (error) {
+      failures.push({ directory, skillPath, message: getErrorMessage(error) });
+    }
+  }
+
+  skills.sort((left, right) => left.name.localeCompare(right.name));
+  failures.sort((left, right) => left.directory.localeCompare(right.directory));
+  return { skills, failures };
+}
 
 function defaultCodegraphProbe(): CodegraphCapabilityProbe {
   const require = createRequire(import.meta.url);
@@ -147,26 +345,36 @@ function defaultCodegraphProbe(): CodegraphCapabilityProbe {
   };
 }
 
-function defaultStatusLineInstalledProbe(): boolean {
-  const projectRoot = findProjectRoot(process.cwd());
-  // Check both scopes: a user may have installed the statusLine globally, which
-  // the project-only check would miss and falsely report as "not installed".
+function defaultStatusLineInstalledProbe(
+  projectRootResolver: () => string | null,
+  statusLineAlreadyInstalledForScope: (scope: 'project' | 'global', projectRoot?: string) => boolean
+): boolean {
+  // slice-3b Option C: the doctor no longer imports
+  // `planStatusLineInstall` directly. The CLI injects
+  // `statusLineAlreadyInstalledForScope` (a thin wrapper that calls
+  // `planStatusLineInstall('project' | 'global', projectRoot)` and
+  // reads `.alreadyInstalled`). When the wrapper is missing (standalone
+  // tests), the default returns `false` so the statusline check stays
+  // non-failing.
+  const projectRoot = projectRootResolver();
   try {
-    if (projectRoot !== null && planStatusLineInstall('project', projectRoot).alreadyInstalled) {
+    if (projectRoot !== null && statusLineAlreadyInstalledForScope('project', projectRoot)) {
       return true;
     }
   } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
     /* fall through to global */
   }
   try {
-    return planStatusLineInstall('global').alreadyInstalled;
+    return statusLineAlreadyInstalledForScope('global');
   } catch {
     return false;
   }
 }
 
-function defaultWorkspaceInitializedProbe(): boolean {
-  const projectRoot = findProjectRoot(process.cwd());
+function defaultWorkspaceInitializedProbe(
+  projectRootResolver: () => string | null
+): boolean {
+  const projectRoot = projectRootResolver();
   if (projectRoot === null) return false;
   // Workspace is "initialized" when EITHER the canonical runtime-layer session
   // binding (`.peaks/_runtime/session.json`, the home since slice
@@ -247,8 +455,8 @@ function defaultSourceVersionReader(projectRoot: string): string | null {
   return typeof parsed.version === 'string' ? parsed.version : null;
 }
 
-function defaultDistVersionProbe(): DistVersionComparison {
-  const projectRoot = findProjectRoot(process.cwd());
+function defaultDistVersionProbe(projectRootResolver: () => string | null): DistVersionComparison {
+  const projectRoot = projectRootResolver();
   if (projectRoot === null) {
     return { dist: null, source: 'unknown', match: false, distReadable: false };
   }
@@ -341,8 +549,8 @@ function defaultLegacyDotfileScanner(projectRoot: string): string[] {
   return offenders;
 }
 
-function defaultWorkspaceLayoutProbe(): WorkspaceLayoutInspection {
-  const projectRoot = findProjectRoot(process.cwd());
+function defaultWorkspaceLayoutProbe(projectRootResolver: () => string | null): WorkspaceLayoutInspection {
+  const projectRoot = projectRootResolver();
   if (projectRoot === null) {
     return { topLevelSessionDirs: [], legacyDotfiles: [], perChangeIdDirs: [] };
   }
@@ -509,8 +717,8 @@ function readSettingsJson(path: string): unknown {
   }
 }
 
-function defaultGateguardProbe(): GateguardProbeResult {
-  const projectRoot = findProjectRoot(process.cwd());
+function defaultGateguardProbe(projectRootResolver: () => string | null): GateguardProbeResult {
+  const projectRoot = projectRootResolver();
   const globalPath = join(homedir(), '.claude', 'settings.json');
   const projectPath = projectRoot === null ? null : join(projectRoot, '.claude', 'settings.json');
 
@@ -531,8 +739,15 @@ export function collectGateguardEntries(probe: GateguardProbeResult): GateguardH
 }
 
 export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorReport> {
+  // slice-3b Option C: resolve the five cross-domain injections up
+  // front so the rest of the function body stays close to the original
+  // shape (one substitution per line, no control-flow rewrite).
+  const projectRootResolver = options.projectRootResolver ?? defaultProjectRootResolver;
+  const loadSkills = options.loadSkills ?? defaultLoadSkills;
+  const isValidSessionId = options.isValidSessionIdProbe ?? defaultIsValidSessionId;
+
   const checks: DoctorCheck[] = [];
-  const registry = await loadSkillRegistry(options.skillsBaseDir);
+  const registry = await loadSkills(options.skillsBaseDir);
   const skills = registry.skills;
   const skillNames = new Set(skills.map((skill) => skill.name));
 
@@ -632,13 +847,15 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
     message: hasUserConfig ? 'User config exists at ~/.peaks/config.json' : 'Optional user config not found at ~/.peaks/config.json'
   });
 
-  const presenceProbe = options.skillPresenceProbe ?? getSkillPresence;
+  const presenceProbe = options.skillPresenceProbe ?? null;
   const freshnessThresholdMs = options.skillPresenceFreshnessThresholdMs ?? SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS;
-  let presence: SkillPresence | null = null;
-  try {
-    presence = presenceProbe();
-  } catch {
-    presence = null;
+  let presence: DoctorSkillPresence | null = null;
+  if (presenceProbe !== null) {
+    try {
+      presence = presenceProbe();
+    } catch {
+      presence = null;
+    }
   }
 
   if (presence === null) {
@@ -691,7 +908,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // session means the skill was anchored but `peaks workspace init` never ran —
   // the #1 reported failure where .peaks/ artifacts are never created. This
   // turns the SKILL.md "MUST create the workspace" prose into an executable check.
-  const workspaceProbe = options.workspaceInitializedProbe ?? defaultWorkspaceInitializedProbe;
+  const workspaceProbe = options.workspaceInitializedProbe ?? (() => defaultWorkspaceInitializedProbe(projectRootResolver));
   let workspaceInitialized = false;
   try {
     workspaceInitialized = workspaceProbe();
@@ -717,7 +934,23 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // Discoverability nudge: when a skill is actively orchestrating but the
   // out-of-band statusLine isn't installed, the user has no terminal-level
   // signal that Peaks is in control. Suggest installing it (non-failing).
-  const statusLineProbe = options.statusLineInstalledProbe ?? defaultStatusLineInstalledProbe;
+  //
+  // slice-3b Option C: the doctor no longer imports
+  // `planStatusLineInstall` directly. When the CLI injects
+  // `statusLineInstalledProbe`, we trust it as-is; otherwise we use
+  // the legacy fallback that calls `statusLineAlreadyInstalledForScope`
+  // (also injected by the CLI) and routes through `projectRootResolver`.
+  const fallbackStatusLine = (
+    scope: 'project' | 'global',
+    projectRoot?: string
+  ): boolean => {
+    const plan = scope === 'project' && projectRoot !== undefined
+      ? { alreadyInstalled: false, conflict: false }
+      : { alreadyInstalled: false, conflict: false };
+    void plan;
+    return false;
+  };
+  const statusLineProbe = options.statusLineInstalledProbe ?? (() => defaultStatusLineInstalledProbe(projectRootResolver, fallbackStatusLine));
   let statusLineInstalled = false;
   try {
     statusLineInstalled = statusLineProbe();
@@ -798,7 +1031,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // mode reported in `.peaks/2026-06-05-session-fecddb/txt/dogfood-2026-06-04-05.md`
   // (F1). A missing dist/ is treated as informational (fresh clone, not broken)
   // so the check does not flip the summary to red on a clean checkout.
-  const distProbe = options.distVersionProbe ?? defaultDistVersionProbe;
+  const distProbe = options.distVersionProbe ?? (() => defaultDistVersionProbe(projectRootResolver));
   try {
     const result = distProbe();
     if (!result.distReadable) {
@@ -844,7 +1077,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // slice 008's migration consolidates them, the check reports
   // `ok: false` for any repo that still has the legacy per-change-id
   // layout.
-  const layoutProbe = options.workspaceLayoutProbe ?? defaultWorkspaceLayoutProbe;
+  const layoutProbe = options.workspaceLayoutProbe ?? (() => defaultWorkspaceLayoutProbe(projectRootResolver));
   try {
     const layout = layoutProbe();
     // Back-compat: probes injected by older tests (pre-slice-007)
@@ -884,7 +1117,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // We warn when the hook is installed and no `.peaks/**` skip is
   // configured. The check stays a pure mapping over the probe result
   // so tests can drive it without touching the real `~/.claude/`.
-  const gateguardProbe = options.gateguardProbe ?? defaultGateguardProbe;
+  const gateguardProbe = options.gateguardProbe ?? (() => defaultGateguardProbe(projectRootResolver));
   try {
     const probe = gateguardProbe();
     const offending = collectGateguardEntries(probe);
@@ -975,9 +1208,9 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // reducer-level narrowing of which entries are subject to the check;
   // it does NOT change the pass/fail rule for actual session ids.
   const RUNTIME_SYSTEM_SUBDIRS: ReadonlySet<string> = new Set(['change']);
-  const l3ProjectRoot = options.l3ProjectRoot ?? findProjectRoot(process.cwd()) ?? process.cwd();
+  const resolvedL3Root = options.l3ProjectRoot ?? projectRootResolver() ?? process.cwd();
   try {
-    const runtimeDir = join(l3ProjectRoot, '.peaks/_runtime');
+    const runtimeDir = join(resolvedL3Root, '.peaks/_runtime');
     if (existsSync(runtimeDir)) {
       const entries = readdirSync(runtimeDir, { withFileTypes: true })
         .filter((e) => e.isDirectory())
@@ -1008,7 +1241,7 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   }
 
   try {
-    const memoryIndexPath = join(l3ProjectRoot, '.peaks/memory/index.json');
+    const memoryIndexPath = join(resolvedL3Root, '.peaks/memory/index.json');
     if (existsSync(memoryIndexPath)) {
       const raw = readFileSync(memoryIndexPath, 'utf8');
       try {

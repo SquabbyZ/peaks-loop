@@ -48,18 +48,27 @@ import { openStateDb } from "../../services/skillhub/sqlite-store.js";
 import {
   CrystallizationService,
   CrystallizationIntegrityError,
-} from "../../services/crystallization/crystallization-service.js";
-import {
+  type CrystallizationOptions,
+  BriefSectionError,
+  renderRecommendationPayload,
+  safeRenderRecommendationPayload,
   CRYSTALLIZATION_TRIGGERS,
   type CrystallizationTrigger,
   type EvidenceBrief,
   parseEvidenceBrief,
-} from "../../services/crystallization/crystallization-types.js";
+} from "peaks-loop-crystallization";
 import {
-  BriefSectionError,
-  renderRecommendationPayload,
-  safeRenderRecommendationPayload,
-} from "../../services/crystallization/evidence-brief-builder.js";
+  LoopReleaseSchema,
+} from "../../services/loop/loop-release-types.js";
+import {
+  insertLoopRelease,
+} from "../../services/loop/loop-release-store.js";
+import {
+  insertLoopBeeRelation,
+} from "../../services/loop/loop-bee-relation-store.js";
+import {
+  LoopBeeRelationSchema,
+} from "../../services/loop/loop-bee-relation-types.js";
 import { findProjectRoot } from "../../services/config/config-safety.js";
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from "../cli-helpers.js";
 import { fail, ok } from 'peaks-loop-shared/result';
@@ -190,13 +199,14 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
           brief = parseEvidenceBrief(candidateBrief);
         } catch (err) {
           if (err instanceof BriefSectionError) {
+            const briefErr = err as unknown as { message: string; findings: readonly string[] };
             printResult(
               io,
               fail(
                 "asset.crystallize",
                 "MISSING_BRIEF_SECTION",
-                err.message,
-                { findings: [...err.findings], flagsProvided: Object.keys(candidateBrief) },
+                briefErr.message,
+                { findings: [...briefErr.findings], flagsProvided: Object.keys(candidateBrief) },
                 [
                   "Pass ALL FOUR brief sections via --brief-what-happened / --brief-why-it-matters / --brief-what-learned / --brief-what-action.",
                   "The CLI refuses to render a recommendation without a complete 4-section brief (spec §4.7 / RL-7).",
@@ -247,7 +257,12 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         }
         const db = openStateDb(join(projectRoot, ".peaks", "state.db"));
         try {
-          const svc = new CrystallizationService(db);
+          const svc = new CrystallizationService(db, {
+            loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopReleaseSchema"],
+            loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopBeeRelationSchema"],
+            insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopRelease"],
+            insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopBeeRelation"],
+          });
           const result = svc.crystallize({
             task: {
               task_id: options.fromTask,
@@ -317,17 +332,18 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         }
       } catch (err) {
         if (err instanceof CrystallizationIntegrityError) {
+          const integrityErr = err as unknown as { code: string; message: string; findings: readonly string[] };
           printResult(
             io,
             fail(
               "asset.crystallize",
-              err.code,
-              err.message,
-              { findings: [...err.findings] },
+              integrityErr.code,
+              integrityErr.message,
+              { findings: [...integrityErr.findings] },
               [
-                err.code === "CRYSTALLIZATION_PRE_RUN"
+                integrityErr.code === "CRYSTALLIZATION_PRE_RUN"
                   ? "Re-shape the candidate task so task_status=completed AND gates_passed=true AND evidence_collected=true (spec §5 / RL-2)."
-                  : err.code === "MISSING_BRIEF_SECTION"
+                  : integrityErr.code === "MISSING_BRIEF_SECTION"
                     ? "Pass ALL FOUR brief sections (RL-7); the CLI refuses to render a recommendation without them."
                     : "Inspect the failure findings and re-shape the payload.",
               ]
@@ -338,13 +354,14 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
           return;
         }
         if (err instanceof BriefSectionError) {
+          const briefErr = err as unknown as { message: string; findings: readonly string[] };
           printResult(
             io,
             fail(
               "asset.crystallize",
               "MISSING_BRIEF_SECTION",
-              err.message,
-              { findings: [...err.findings] },
+              briefErr.message,
+              { findings: [...briefErr.findings] },
               ["Pass all 4 brief sections (RL-7)."]
             ),
             options.json
@@ -352,14 +369,7 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
           process.exitCode = 1;
           return;
         }
-        printResult(
-          io,
-          fail("asset.crystallize", "ASSET_CRYSTALLIZE_FAILED", getErrorMessage(err), {}, [
-            "Verify the brief flags and the loop/bee identifiers are valid.",
-          ]),
-          options.json
-        );
-        process.exitCode = 1;
+        throw err;
       }
     }
   );
@@ -408,7 +418,12 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         }
         const db = openStateDb(join(projectRoot, ".peaks", "state.db"));
         try {
-          const svc = new CrystallizationService(db);
+          const svc = new CrystallizationService(db, {
+            loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopReleaseSchema"],
+            loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopBeeRelationSchema"],
+            insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopRelease"],
+            insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopBeeRelation"],
+          });
           const existing = svc.read(options.crystallizationEvent);
           if (!existing) {
             printResult(
@@ -520,7 +535,12 @@ export function registerAssetCommands(program: Command, io: ProgramIO): void {
         }
         const db = openStateDb(join(projectRoot, ".peaks", "state.db"));
         try {
-          const svc = new CrystallizationService(db);
+          const svc = new CrystallizationService(db, {
+            loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopReleaseSchema"],
+            loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]["loopBeeRelationSchema"],
+            insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopRelease"],
+            insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<typeof CrystallizationService>[1]["insertLoopBeeRelation"],
+          });
           let events: ReturnType<typeof svc.read>[] = [];
           if (options.loop) {
             events = [

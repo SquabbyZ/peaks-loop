@@ -1,0 +1,30 @@
+{
+  "name": "peaks-loop-doctor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Doctor check orchestration for peaks-loop — owns the runDoctor probe-driven check pipeline (slice 3b).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./services/doctor/doctor-service": {
+      "types": "./dist/services/doctor/doctor-service.d.ts",
+      "default": "./dist/services/doctor/doctor-service.js"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "peaks-loop-shared": "workspace:*"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
   isWorkspaceInitializedAt,
   runDoctor
-} from '../../src/services/doctor/doctor-service.js';
+} from '../src/services/doctor/doctor-service.js';
 
 describe('runDoctor', () => {
   test('passes the repository skeleton with required skills and schemas', async () => {

@@ -1,0 +1,30 @@
+{
+  "name": "peaks-loop-crystallization",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Crystallization service — loop release / bee relation / evidence brief pipeline (slice 4)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "peaks-loop-shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.11.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

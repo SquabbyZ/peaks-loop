@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { runDoctor } from '../../../src/services/doctor/doctor-service.js';
+import { runDoctor } from '../../src/services/doctor/doctor-service.js';
 
 // Slice 2026-06-24-doctor-1xdetector-residual regression suite.
 // The `L3:l3-orphan-sessions` reducer must skip canonical system

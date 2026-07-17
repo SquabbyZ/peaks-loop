@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { runDoctor } from '../../../services/doctor/doctor-service.js';
+import { runDoctor } from 'peaks-loop-doctor';
 import { listSkills } from '../../../services/skills/skill-registry.js';
 import { runSkillSync, SYNC_PLATFORMS } from '../../../services/skills/sync-service.js';
 import { inspectSkillRunbook } from '../../../services/skills/skill-runbook-service.js';

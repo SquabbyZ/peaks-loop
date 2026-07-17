@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
-import { runDoctor } from '../../../src/services/doctor/doctor-service.js';
+import { runDoctor } from '../../src/services/doctor/doctor-service.js';
 
 const PASSING_DIST_PROBE = () => ({ dist: '1.3.3', source: '1.3.3', match: true, distReadable: true });
 const CLEAN_WORKSPACE_PROBE = () => ({ topLevelSessionDirs: [], legacyDotfiles: [] });

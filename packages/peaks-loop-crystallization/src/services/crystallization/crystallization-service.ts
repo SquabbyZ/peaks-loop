@@ -17,13 +17,18 @@ import {
   newCrystallizationId,
   updateCrystallizationEventStatus,
 } from "./crystallization-store.js";
-import { insertLoopRelease } from "../loop/loop-release-store.js";
-import { LoopReleaseSchema, type LoopReleaseInput } from "../loop/loop-release-types.js";
-import { insertLoopBeeRelation } from "../loop/loop-bee-relation-store.js";
-import {
-  LoopBeeRelationSchema,
-  type LoopBeeRelationInput,
-} from "../loop/loop-bee-relation-types.js";
+// Loop domain (loop-release / loop-bee-relation) lives in the main
+// peaks-loop package. Slice-4 (crystallization split) injects the
+// loop-side Zod schemas + insert helpers via CrystallizationOptions
+// at call-site in src/cli/commands/asset-commands.ts, so this
+// subpackage stays standalone and does NOT depend on the main
+// peaks-loop package (avoiding workspace:* circular trap).
+type LoopReleaseRow = Record<string, unknown> & { id: string };
+type LoopBeeRelationRow = Record<string, unknown> & { id?: number; created_at?: string };
+type LoopReleaseZodSchema = { parse: (input: unknown) => unknown };
+type LoopBeeRelationZodSchema = { parse: (input: unknown) => unknown; omit: (keys: Record<string, true>) => { parse: (input: unknown) => unknown } };
+type InsertLoopReleaseFn = (db: Database.Database, row: unknown) => void;
+type InsertLoopBeeRelationFn = (db: Database.Database, row: unknown) => unknown;
 
 /**
  * CrystallizationService — spec §5 (post-run crystallization)
@@ -149,7 +154,7 @@ export interface CrystallizePayload {
   /** The candidate task state. Must satisfy the pre-run gate. */
   task: CrystallizationTaskState;
   /** The loop_release to create (new). Must include main bee via relation. */
-  loop_input: LoopReleaseInput;
+  loop_input: unknown;
   /**
    * The main bee_release to create. Note: bee_release requires a
    * manifest row to keep the existing 4.x schema consistent;
@@ -238,11 +243,20 @@ export interface CrystallizationResult {
 /**
  * Service interface for the post-run crystallization flow.
  */
+export interface CrystallizationOptions {
+  loopReleaseSchema: LoopReleaseZodSchema;
+  loopBeeRelationSchema: LoopBeeRelationZodSchema;
+  insertLoopRelease: InsertLoopReleaseFn;
+  insertLoopBeeRelation: InsertLoopBeeRelationFn;
+}
+
 export class CrystallizationService {
   private readonly db: Database.Database;
+  private readonly opts: CrystallizationOptions;
 
-  constructor(db: Database.Database) {
+  constructor(db: Database.Database, opts: CrystallizationOptions) {
     this.db = db;
+    this.opts = opts;
     // Idempotent — safe to call on every constructor invocation; the
     // openStateDb pipeline already applied the SQL migration, but a
     // caller-built DB (e.g. tests) needs this.
@@ -390,7 +404,7 @@ export class CrystallizationService {
 
     // Re-validate loop_input via Zod so a hand-crafted caller input
     // cannot bypass the schema. (M8 dogfood follow-up.)
-    const loopRow = LoopReleaseSchema.parse(payload.loop_input);
+    const loopRow = this.opts.loopReleaseSchema.parse(payload.loop_input) as { id: string; [k: string]: unknown };
 
     // Re-validate bee_input.
     const beeRow = BeeCrystallizeInputSchema.parse(payload.bee_input);
@@ -399,7 +413,7 @@ export class CrystallizationService {
     // account the LLM authored). We validate the shape WITHOUT
     // bee_release_id (which is filled in by the bee insert below),
     // then validate the final tuple after the SQL writes.
-    const relationInputShape = LoopBeeRelationSchema.omit({
+    const relationInputShape = this.opts.loopBeeRelationSchema.omit({
       id: true,
       created_at: true,
       bee_release_id: true,
@@ -407,7 +421,7 @@ export class CrystallizationService {
       loop_release_id: loopRow.id,
       role: "main",
       reason: payload.bee_relation_reason,
-    });
+    }) as { loop_release_id: string; role: string; reason: string; bee_release_id?: number };
 
     const eventId = newCrystallizationId();
     const eventCreatedAt = new Date().toISOString();
@@ -419,7 +433,7 @@ export class CrystallizationService {
 
     const tx = this.db.transaction(() => {
       // 1. Insert loop_release.
-      insertLoopRelease(this.db, loopRow);
+      this.opts.insertLoopRelease(this.db, loopRow);
 
       // 2. Insert bee_release header. The existing
       // `retainRelease` adds segment_ref / file / change rows; the
@@ -473,7 +487,7 @@ export class CrystallizationService {
       // 4. Insert the loop_bee_relation row (FKs now valid). Re-parse
       // through the input schema so the bee_release_id is validated
       // too — defense in depth. `id` is autoincrement (not in input).
-      const fullRelation = LoopBeeRelationSchema.omit({
+      const fullRelation = this.opts.loopBeeRelationSchema.omit({
         id: true,
         created_at: true,
       }).parse({
@@ -481,9 +495,8 @@ export class CrystallizationService {
         bee_release_id: beeReleaseId,
         role: relationInputShape.role,
         reason: relationInputShape.reason,
-        schema_version: "peaks.loop-bee-relation/1",
-      });
-      const relationRow = insertLoopBeeRelation(this.db, fullRelation);
+      }) as { loop_release_id: string; bee_release_id: number; role: string; reason: string };
+      const relationRow = this.opts.insertLoopBeeRelation(this.db, fullRelation) as { id: number };
       relationId = relationRow.id;
 
       // 5. Persist the crystallization_event row with the brief inline

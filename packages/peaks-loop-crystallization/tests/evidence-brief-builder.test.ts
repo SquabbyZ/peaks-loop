@@ -5,7 +5,7 @@ import {
   renderRecommendationPayload,
   safeRenderRecommendationPayload,
   type BriefTraceInput,
-} from "../../../src/services/crystallization/evidence-brief-builder.js";
+} from "../src/index.js";
 
 /* ---------------------------------------------------------------------- */
 /* Helpers                                                                 */

@@ -1,9 +1,62 @@
 import type { Command } from 'commander';
-import { runDoctor } from '../../../services/doctor/doctor-service.js';
+import { runDoctor } from 'peaks-loop-doctor';
 import { readBinding, dropStale, rebuildBindingFromLegacy } from '../../../services/session/binding-store.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
+import { loadSkillRegistry } from '../../../services/skills/skill-registry.js';
+import { planStatusLineInstall } from '../../../services/skills/statusline-settings-service.js';
 import { addJsonOption, printResult, type ProgramIO } from '../../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
+
+// slice-3b Option C: the doctor subpackage owns the check pipeline but
+// does NOT import cross-domain utils from the main package (avoids
+// circular deps). The CLI is the natural wiring point — every cross-
+// domain util the doctor used to import directly is now injected as a
+// probe on DoctorOptions at call-site:
+//
+//   loadSkills           ← loadSkillRegistry (main/services/skills/skill-registry.ts)
+//   skillPresenceProbe   ← leave as-is; doctor-command does not own the presence probe
+//   statusLineInstalledProbe ← defaults to a `planStatusLineInstall` wrapper below
+//   projectRootResolver  ← findProjectRoot (main/services/config/config-safety.ts)
+//   isValidSessionIdProbe ← the regex kept in main/services/workspace/sid-naming-guard.ts
+//
+// Inlining isValidSessionId via the doctor subpackage's default regex
+// (which mirrors the upstream file byte-for-byte) keeps the L3 orphan
+// check behaviour-identical without dragging sid-naming-guard into a
+// workspace package. If sid-naming-guard is ever moved into
+// peaks-loop-shared, swap this for a re-import.
+function doctorIsValidSessionId(sid: string): boolean {
+  return /^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])-session-[0-9a-z]{3,6}$/.test(sid);
+}
+
+function statusLineAlreadyInstalledForScope(scope: 'project' | 'global', projectRoot?: string): boolean {
+  try {
+    if (scope === 'project') {
+      if (projectRoot === undefined) return false;
+      return planStatusLineInstall('project', projectRoot).alreadyInstalled;
+    }
+    return planStatusLineInstall('global').alreadyInstalled;
+  } catch {
+    return false;
+  }
+}
+
+function doctorStatusLineInstalledProbe(): boolean {
+  const projectRoot = findProjectRoot(process.cwd());
+  // Check both scopes: a user may have installed the statusLine globally, which
+  // the project-only check would miss and falsely report as "not installed".
+  try {
+    if (projectRoot !== null && statusLineAlreadyInstalledForScope('project', projectRoot)) {
+      return true;
+    }
+  } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+    /* fall through to global */
+  }
+  try {
+    return statusLineAlreadyInstalledForScope('global');
+  } catch {
+    return false;
+  }
+}
 
 // Slice 021/022: the on-disk home a `peaks session info --active` lookup
 // resolved the binding from. `canonical` = .peaks/_runtime/session.json (the
@@ -163,7 +216,13 @@ export function registerDoctorCommand(program: Command, io: ProgramIO): void {
       return;
     }
 
-    const report = await runDoctor();
+    const report = await runDoctor({
+      // slice-3b Option C: wire cross-domain probes at call-site.
+      loadSkills: loadSkillRegistry,
+      projectRootResolver: () => findProjectRoot(process.cwd()),
+      isValidSessionIdProbe: doctorIsValidSessionId,
+      statusLineInstalledProbe: doctorStatusLineInstalledProbe
+    });
     let logsSection: DoctorLogsSection | null = null;
     if (options.log === true) {
       logsSection = await buildDoctorLogsSection();

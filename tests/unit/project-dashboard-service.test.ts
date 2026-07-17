@@ -8,7 +8,7 @@ import { createRequestArtifact } from '../../src/services/artifacts/request-arti
 const REPO_ROOT = resolve(__dirname, '..', '..');
 const SKILL_MD_PATH = join(REPO_ROOT, 'skills', 'peaks-ide', 'SKILL.md');
 
-vi.mock('../../src/services/doctor/doctor-service.js', () => ({
+vi.mock('peaks-loop-doctor', () => ({
   runDoctor: async () => ({
     summary: { ok: false, passed: 1, failed: 3 },
     checks: [

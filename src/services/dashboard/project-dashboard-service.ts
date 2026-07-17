@@ -6,7 +6,7 @@ import { seedCapabilityItems } from '../recommendations/capability-seed-items.js
 import type { CapabilityItem } from '../recommendations/recommendation-types.js';
 import { requiredSkillNames } from 'peaks-loop-shared/paths';
 
-import type { DoctorCheck } from '../doctor/doctor-service.js';
+import type { DoctorCheck } from 'peaks-loop-doctor';
 import { getSkillPresence, type SkillPresence } from '../skills/skill-presence-service.js';
 
 const SKILL_PRESENCE_FRESHNESS_THRESHOLD_MS = 24 * 60 * 60 * 1000;
@@ -139,7 +139,7 @@ async function loadDoctorAndRunbookHealth(
       runbookHealth: { ok: true, required: 0, healthy: 0, missingRunbook: [], applyNoteFailed: [] }
     };
   }
-  const { runDoctor } = await import('../doctor/doctor-service.js');
+  const { runDoctor } = await import('peaks-loop-doctor');
   const report = await runDoctor();
   return {
     doctor: { ok: report.summary.ok, passed: report.summary.passed, failed: report.summary.failed },
