@@ -243,6 +243,27 @@ peaks-loop-assets/           # 仅 examples/video-demo/preview 的 mp4 + png
 - "看到 indegree=0" ≠ "可以无成本搬走"
 - 跨包 import 必须在子包有对应依赖或 alias 才能搬
 
+## 十七、Monorepo 拆分执行总结(2026-07-17 终)
+
+**总成果:**
+- 8 commit 推进 monorepo 化
+- 6 个 peaks-loop-* 子包成功拆分(独立 workspace package):
+  - peaks-loop-shared(4 utils + peaks-loop-shared 依赖)
+  - peaks-loop-mut(mut + ecc-cache)
+  - peaks-loop-doctor(injectable probes,Option C 真拆)
+  - peaks-loop-crystallization(injectable loop schemas,Option C 真拆)
+  - peaks-loop-final-review(inline LlmRunner type,真拆)
+  - peaks-loop-audit-independent(零 cross-domain,最干净拆分)
+- 1 个 Tier A 包跳过:**peaks-loop-skillhub**(被 8 个 CLI command + sediment types 深度耦合,需要单独 slice-5b)
+- 主包 npm pack dry-run: **1.7MB**(原 30MB → **18x reduction**)
+- Trusted Publishing OIDC 链路接通(.github/workflows/publish.yml)
+- 全程零 Claude/Anthropic co-author trailer
+
+**验证结果:**
+- 子包 build 全过(tsc clean)
+- 子包 tests 全过(mut 41/41, shared 4/4, doctor 57/57, crystallization 27/27, final-review 5/5, audit-independent 32/32 = **166/166 PASS**)
+- 主仓 `pnpm build` 通过
+
 ## 十六、Trusted Publishing 决策(2026-07-17 第五轮)
 
 **用户确认走 Trusted Publishing(OIDC)。**
