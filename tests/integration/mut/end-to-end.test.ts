@@ -33,7 +33,7 @@ import { createMutCommands } from '../../../src/cli/commands/mut-commands.js';
 import {
   loadMutReport,
   mutReportPath,
-} from '../../../src/services/mut/report-loader.js';
+} from 'peaks-loop-mut';
 
 const HEX_SIG = 'a'.repeat(64);
 

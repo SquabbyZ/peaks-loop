@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MutReportSchema } from '../../../../src/services/mut/types.js';
+import { MutReportSchema } from '../../../src/services/mut/types.js';
 
 describe('MutReportSchema', () => {
   it('accepts a valid mut-report.json', () => {

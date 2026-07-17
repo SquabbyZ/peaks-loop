@@ -1,0 +1,26 @@
+{
+  "name": "peaks-loop-mut",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mutation testing + assertion scanning + ECC cache for peaks-loop (workspace-internal)",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

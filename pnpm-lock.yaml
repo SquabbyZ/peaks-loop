@@ -26,6 +26,9 @@ importers:
       headroom-ai:
         specifier: 0.22.4
         version: 0.22.4
+      peaks-loop-mut:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-mut
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -72,6 +75,12 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.2
         version: 3.25.2(zod@3.25.76)
+
+  packages/peaks-loop-mut:
+    dependencies:
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
 
 packages:
 

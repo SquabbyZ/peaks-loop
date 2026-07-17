@@ -44,8 +44,7 @@ import { buildContext } from '../../services/context/context-builder.js';
 import { createHeadroomFetcher } from '../../services/context/headroom-fetcher.js';
 import type { DocFetcher } from '../../services/context/doc-retriever.js';
 // Plan 2 / Task 8 — consume MUT.sig from peaks-mut into verdict envelope.
-import { loadMutReport, mutReportPath } from '../../services/mut/index.js';
-import type { MutReportJson } from '../../services/mut/types.js';
+import { loadMutReport, mutReportPath, type MutReportJson } from 'peaks-loop-mut';
 
 function buildHeadroomFetcher(sid: string): DocFetcher {
   return createHeadroomFetcher({

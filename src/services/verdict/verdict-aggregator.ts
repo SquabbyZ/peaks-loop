@@ -29,7 +29,7 @@
  */
 import type { SecurityAuditEnvelope } from '../audit-independent/security-audit-service.js';
 import type { PerfAuditEnvelope } from '../audit-independent/perf-audit-service.js';
-import type { ThresholdViolation } from '../mut/thresholds.js';
+import type { ThresholdViolation } from 'peaks-loop-mut';
 
 // v2.13.1 — karpathy / mut / qa envelope types are defined locally
 // (surgeon change). v2.14 will move them to a shared

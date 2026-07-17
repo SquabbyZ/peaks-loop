@@ -394,7 +394,7 @@ describe('cli/qa-commands: full CLI → runQaSlice integration (cycle-2 regressi
 // ---------------------------------------------------------------------------
 // Plan 2 / Task 8 — MUT.sig gate (MUT.sig consumption contract).
 // ---------------------------------------------------------------------------
-import type { MutReportJson } from '../../../src/services/mut/types.js';
+import type { MutReportJson } from 'peaks-loop-mut';
 
 function makeMutReport(overrides: Partial<MutReportJson> = {}): MutReportJson {
   return {

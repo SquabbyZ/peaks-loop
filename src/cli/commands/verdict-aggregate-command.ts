@@ -22,7 +22,7 @@ import {
   envelopesToAggregatorInput,
   type AnyEnvelope
 } from '../../services/verdict/envelopes.js';
-import { loadMutReport } from '../../services/mut/report-loader.js';
+import { loadMutReport } from 'peaks-loop-mut';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from '../../shared/result.js';
 

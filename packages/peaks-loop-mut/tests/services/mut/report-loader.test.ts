@@ -8,8 +8,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { loadMutReport, mutReportPath, MUT_REPORT_RELATIVE_PATH } from '../../../../src/services/mut/report-loader.js';
-import type { MutReportJson } from '../../../../src/services/mut/types.js';
+import { loadMutReport, mutReportPath, MUT_REPORT_RELATIVE_PATH } from '../../../src/services/mut/report-loader.js';
+import type { MutReportJson } from '../../../src/services/mut/types.js';
 
 function makeValidReport(): MutReportJson {
   return {

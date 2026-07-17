@@ -31,7 +31,7 @@ import {
   listCachedAgents,
   readAgentSkill,
   readCacheManifest,
-} from '../../services/agent/ecc-cache-service.js';
+} from 'peaks-loop-mut';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, type ResultEnvelope } from '../../shared/result.js';
 

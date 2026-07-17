@@ -15,12 +15,16 @@
  */
 import { readFile } from 'node:fs/promises';
 import { Command } from 'commander';
-import { scanAssertions } from '../../services/mut/assert-scanner.js';
-import { runMutation, type StrykerInvoker } from '../../services/mut/mut-runner.js';
-import { buildMutReport } from '../../services/mut/report-builder.js';
-import { createProductionStrykerInvoker } from '../../services/mut/production-stryker.js';
-import { MutReportSchema } from '../../services/mut/types.js';
-import type { AssertionsReport, MutationReport } from '../../services/mut/types.js';
+import {
+  scanAssertions,
+  runMutation,
+  buildMutReport,
+  createProductionStrykerInvoker,
+  MutReportSchema,
+  type StrykerInvoker,
+  type AssertionsReport,
+  type MutationReport,
+} from 'peaks-loop-mut';
 import type { ProgramIO } from '../cli-helpers.js';
 
 export interface MutCommandsOptions {

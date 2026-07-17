@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { scanAssertions } from '../../../../src/services/mut/assert-scanner.js';
+import { scanAssertions } from '../../../src/services/mut/assert-scanner.js';
 
 let workdir: string;
 beforeEach(() => {

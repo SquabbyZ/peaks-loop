@@ -94,6 +94,7 @@
     "commander": "^12.1.0",
     "fzf": "^0.5.2",
     "headroom-ai": "0.22.4",
+    "peaks-loop-mut": "workspace:*",
     "yaml": "^2.9.0",
     "zod": "^3.25.76"
   },

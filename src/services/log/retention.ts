@@ -17,7 +17,7 @@
 import { readdirSync, statSync, unlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolveLogDir } from './logger.js';
-import { cleanupStaleCache } from '../agent/ecc-cache-service.js';
+import { cleanupStaleCache } from 'peaks-loop-mut';
 
 const LOG_FILE_NAME_PATTERN = /^peaks-loop-(\d{4}-\d{2}-\d{2})\.log$/;
 

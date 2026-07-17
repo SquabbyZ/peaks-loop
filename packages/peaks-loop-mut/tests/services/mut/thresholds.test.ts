@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_THRESHOLDS,
   evaluateThresholds,
-} from '../../../../src/services/mut/thresholds.js';
+} from '../../../src/services/mut/thresholds.js';
 
 describe('evaluateThresholds', () => {
   it('passes when both metrics within bounds', () => {

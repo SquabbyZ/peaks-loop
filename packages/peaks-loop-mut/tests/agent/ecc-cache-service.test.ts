@@ -30,8 +30,10 @@ import {
   readCacheManifest,
   resolveEccCacheDir,
   setCacheDirPermissions,
-} from '../../../src/services/agent/ecc-cache-service.js';
-import { cleanupEccCache } from '../../../src/services/log/retention.js';
+} from '../../src/services/agent/ecc-cache-service.js';
+// NOTE: `cleanupEccCache` (thin wrapper in main peaks-loop's
+// src/services/log/retention.ts) is no longer tested here. The wrapper is
+// covered by tests/unit/services/log/retention.test.ts in the main package.
 
 describe('ecc-cache-service', () => {
   let tempHome: string;
@@ -207,25 +209,6 @@ describe('ecc-cache-service', () => {
     expect(existsSync(activeDir)).toBe(false);
     expect(result.removed).toContain(activeDir);
     expect(existsSync(join(dir, 'ecc-installed.json'))).toBe(false);
-  });
-
-  it('cleanupEccCache (retention re-export) delegates to cleanupStaleCache', () => {
-    const sha = '0'.repeat(40);
-    const dir = resolveEccCacheDir();
-    mkdirSync(dir, { recursive: true });
-    const orphanSha = '1'.repeat(40);
-    const orphanDir = join(dir, `ecc-${orphanSha}`);
-    mkdirSync(orphanDir, { recursive: true });
-    const day = 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    utimesSync(orphanDir, new Date(now - 9 * day), new Date(now - 9 * day));
-    writeFileSync(
-      join(dir, 'ecc-installed.json'),
-      JSON.stringify({ version: '1', sha, fetchedAt: new Date(now).toISOString(), agents: [] })
-    );
-    const result = cleanupEccCache({ retentionDays: 7, nowMs: now });
-    expect(existsSync(orphanDir)).toBe(false);
-    expect(result.removed).toContain(orphanDir);
   });
 
   it('cleanupStaleCache does nothing when dir does not exist', () => {

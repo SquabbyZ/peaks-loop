@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildMutReport } from '../../../../src/services/mut/report-builder.js';
+import { buildMutReport } from '../../../src/services/mut/report-builder.js';
 
 const FIXED_NOW = new Date('2026-06-22T12:00:00.000Z');
 

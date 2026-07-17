@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runMutation } from '../../../../src/services/mut/mut-runner.js';
+import { runMutation } from '../../../src/services/mut/mut-runner.js';
 
 describe('runMutation', () => {
   it('invokes Stryker with locked test files and parses result', async () => {
