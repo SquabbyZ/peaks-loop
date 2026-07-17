@@ -24,7 +24,7 @@ import {
   isPerfAuditEnvelope,
   runPerfAudit,
   type PerfAuditEnvelope,
-} from '../../services/audit-independent/perf-audit-service.js';
+} from 'peaks-loop-audit-independent';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

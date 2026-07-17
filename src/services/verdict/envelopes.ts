@@ -23,8 +23,8 @@
  *     "missing → null" contract). Callers can detect "envelope missing"
  *     without throwing.
  */
-import { isSecurityAuditEnvelope, type SecurityAuditEnvelope } from '../audit-independent/security-audit-service.js';
-import { isPerfAuditEnvelope, type PerfAuditEnvelope } from '../audit-independent/perf-audit-service.js';
+import { isSecurityAuditEnvelope, type SecurityAuditEnvelope } from 'peaks-loop-audit-independent';
+import { isPerfAuditEnvelope, type PerfAuditEnvelope } from 'peaks-loop-audit-independent';
 import {
   type KarpathyEnvelope,
   type MutEnvelope,

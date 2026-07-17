@@ -1,17 +1,21 @@
 /**
- * TDD coverage for the perf-audit service
- * (`src/services/audit-independent/perf-audit-service.ts`).
+ * TDD coverage for the security-audit service
+ * (`src/services/audit-independent/security-audit-service.ts`).
  *
- * Covers (per PRD v2.12.0 AC-3.7 — 6 cases):
- *   1. isPerfAuditEnvelope — strict shape validator
- *   2. detectPerfAudit — 5-state (ready / handoff-missing /
+ * Covers (per PRD v2.12.0 AC-2.8 — 6 cases):
+ *   1. isSecurityAuditEnvelope — strict shape validator (pass / reject)
+ *   2. detectSecurityAudit — 5-state (ready / handoff-missing /
  *      template-missing / dispatch-failed / envelope-malformed)
  *   3. readAndVerifyHandoff — sha256 verification (match / mismatch)
- *   4. readPerfTemplate — project-level template loader
- *   5. renderPerfAuditArtifact — markdown body rendering with
+ *   4. readSecurityTemplate — project-level template loader (present /
+ *      missing)
+ *   5. renderSecurityAuditArtifact — markdown body rendering with
  *      all required sections per audit-output-schema.md
- *   6. runPerfAudit — convenience wrapper (happy path + missing
+ *   6. runSecurityAudit — convenience wrapper (happy path + missing
  *      template short-circuit)
+ *
+ * No real handoff / template required — all fixtures are synthetic
+ * and use a tmp dir.
  */
 import { describe, expect, test } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
@@ -19,40 +23,40 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import {
-  detectPerfAudit,
-  isPerfAuditEnvelope,
+  detectSecurityAudit,
+  isSecurityAuditEnvelope,
   readAndVerifyHandoff,
-  readPerfTemplate,
-  renderPerfAuditArtifact,
-  runPerfAudit,
-  type PerfAuditEnvelope,
-  type PerfAuditViolation
-} from '../../../../src/services/audit-independent/perf-audit-service.js';
+  readSecurityTemplate,
+  renderSecurityAuditArtifact,
+  runSecurityAudit,
+  type SecurityAuditEnvelope,
+  type SecurityAuditViolation
+} from '../src/index.js';
 
 const ISO = '2026-06-27T10:00:00.000Z';
 
-function makeViolation(over: Partial<PerfAuditViolation> = {}): PerfAuditViolation {
+function makeViolation(over: Partial<SecurityAuditViolation> = {}): SecurityAuditViolation {
   return {
-    dimension: 'I/O throughput',
+    dimension: 'Path traversal & filesystem trust',
     severity: 'HIGH',
     file: 'src/services/foo.ts',
     line: 42,
-    hint: 'unbatched fs.readFile in a hot loop',
+    hint: 'path.resolve not called before fs.readFile',
     ...over
   };
 }
 
-function makeEnvelope(over: Partial<PerfAuditEnvelope> = {}): PerfAuditEnvelope {
+function makeEnvelope(over: Partial<SecurityAuditEnvelope> = {}): SecurityAuditEnvelope {
   return {
     verdict: 'pass',
     violations: [],
-    summary: 'No perf regressions found in the in-scope surface.',
+    summary: 'No security issues found in the in-scope surface.',
     ...over
   };
 }
 
 function makeProjectRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'peaks-perf-audit-test-'));
+  return mkdtempSync(join(tmpdir(), 'peaks-security-audit-test-'));
 }
 
 function makeHandoffFixture(projectRoot: string, sid: string, bodyContent: string): string {
@@ -70,34 +74,34 @@ function makeTemplateFixture(projectRoot: string): void {
   const scanDir = join(projectRoot, '.peaks', 'project-scan');
   mkdirSync(scanDir, { recursive: true });
   writeFileSync(
-    join(scanDir, 'perf-template.md'),
-    '---\nschemaVersion: 1\n---\n# Perf template (test fixture)\n',
+    join(scanDir, 'security-template.md'),
+    '---\nschemaVersion: 1\n---\n# Security template (test fixture)\n',
     'utf8'
   );
 }
 
-describe('isPerfAuditEnvelope — strict shape validator', () => {
+describe('isSecurityAuditEnvelope — strict shape validator', () => {
   test('accepts the canonical envelope shape (empty + non-empty violations)', () => {
-    expect(isPerfAuditEnvelope(makeEnvelope())).toBe(true);
-    expect(isPerfAuditEnvelope(makeEnvelope({
+    expect(isSecurityAuditEnvelope(makeEnvelope())).toBe(true);
+    expect(isSecurityAuditEnvelope(makeEnvelope({
       verdict: 'block',
-      violations: [makeViolation({ severity: 'CRITICAL' }), makeViolation({ severity: 'LOW' })]
+      violations: [makeViolation({ severity: 'CRITICAL' }), makeViolation({ severity: 'MED' })]
     }))).toBe(true);
   });
 
   test('rejects null / non-objects / wrong verdict / wrong severity / wrong types', () => {
-    expect(isPerfAuditEnvelope(null)).toBe(false);
-    expect(isPerfAuditEnvelope(undefined)).toBe(false);
-    expect(isPerfAuditEnvelope('pass')).toBe(false);
-    expect(isPerfAuditEnvelope({ verdict: 'PASS', violations: [], summary: 'x' })).toBe(false);
-    expect(isPerfAuditEnvelope({ verdict: 'pass', violations: 'not-array', summary: 'x' })).toBe(false);
-    expect(isPerfAuditEnvelope({ verdict: 'pass', violations: [], summary: 42 })).toBe(false);
-    expect(isPerfAuditEnvelope({
+    expect(isSecurityAuditEnvelope(null)).toBe(false);
+    expect(isSecurityAuditEnvelope(undefined)).toBe(false);
+    expect(isSecurityAuditEnvelope('pass')).toBe(false);
+    expect(isSecurityAuditEnvelope({ verdict: 'PASS', violations: [], summary: 'x' })).toBe(false);
+    expect(isSecurityAuditEnvelope({ verdict: 'pass', violations: 'not-array', summary: 'x' })).toBe(false);
+    expect(isSecurityAuditEnvelope({ verdict: 'pass', violations: [], summary: 42 })).toBe(false);
+    expect(isSecurityAuditEnvelope({
       verdict: 'pass',
       violations: [{ dimension: 'x', severity: 'FATAL', file: 'a', line: 1, hint: 'h' }],
       summary: 'x'
     })).toBe(false);
-    expect(isPerfAuditEnvelope({
+    expect(isSecurityAuditEnvelope({
       verdict: 'pass',
       violations: [{ dimension: 'x', severity: 'HIGH', file: 'a', line: '1', hint: 'h' }],
       summary: 'x'
@@ -105,10 +109,10 @@ describe('isPerfAuditEnvelope — strict shape validator', () => {
   });
 });
 
-describe('detectPerfAudit — 5-state detector', () => {
+describe('detectSecurityAudit — 5-state detector', () => {
   test('returns handoff-missing when handoff absent', () => {
     const projectRoot = makeProjectRoot();
-    const result = detectPerfAudit({ projectRoot, sessionId: 'sid-1' });
+    const result = detectSecurityAudit({ projectRoot, sessionId: 'sid-1' });
     expect(result.state).toBe('handoff-missing');
     expect(result.handoffPresent).toBe(false);
     expect(result.nextActions.length).toBeGreaterThan(0);
@@ -119,7 +123,7 @@ describe('detectPerfAudit — 5-state detector', () => {
     const projectRoot = makeProjectRoot();
     const sid = 'sid-template-missing';
     makeHandoffFixture(projectRoot, sid, '# Goals\n- G1: ship it\n');
-    const result = detectPerfAudit({ projectRoot, sessionId: sid });
+    const result = detectSecurityAudit({ projectRoot, sessionId: sid });
     expect(result.state).toBe('template-missing');
     expect(result.handoffPresent).toBe(true);
     expect(result.templatePresent).toBe(false);
@@ -131,7 +135,7 @@ describe('detectPerfAudit — 5-state detector', () => {
     const sid = 'sid-ready';
     makeHandoffFixture(projectRoot, sid, '# Goals\n- G1: ship it\n');
     makeTemplateFixture(projectRoot);
-    const result = detectPerfAudit({ projectRoot, sessionId: sid });
+    const result = detectSecurityAudit({ projectRoot, sessionId: sid });
     expect(result.state).toBe('ready');
     expect(result.handoffPresent).toBe(true);
     expect(result.templatePresent).toBe(true);
@@ -143,7 +147,7 @@ describe('detectPerfAudit — 5-state detector', () => {
     const sid = 'sid-dispatch-failed';
     makeHandoffFixture(projectRoot, sid, '# Goals\n- G1\n');
     makeTemplateFixture(projectRoot);
-    const result = detectPerfAudit({
+    const result = detectSecurityAudit({
       projectRoot,
       sessionId: sid,
       dispatchError: new Error('parent LLM threw')
@@ -159,7 +163,7 @@ describe('detectPerfAudit — 5-state detector', () => {
     const sid = 'sid-envelope-malformed';
     makeHandoffFixture(projectRoot, sid, '# Goals\n- G1\n');
     makeTemplateFixture(projectRoot);
-    const result = detectPerfAudit({
+    const result = detectSecurityAudit({
       projectRoot,
       sessionId: sid,
       envelope: { verdict: 'PASS', violations: [], summary: 'x' } // wrong case
@@ -205,33 +209,33 @@ describe('readAndVerifyHandoff — sha256 verification', () => {
   });
 });
 
-describe('readPerfTemplate — project-level template loader', () => {
+describe('readSecurityTemplate — project-level template loader', () => {
   test('returns template body when file present', () => {
     const projectRoot = makeProjectRoot();
     makeTemplateFixture(projectRoot);
-    const result = readPerfTemplate(projectRoot);
+    const result = readSecurityTemplate(projectRoot);
     expect(result).not.toBeNull();
-    expect(result).toContain('Perf template');
+    expect(result).toContain('Security template');
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
   test('returns null when template absent', () => {
     const projectRoot = makeProjectRoot();
-    expect(readPerfTemplate(projectRoot)).toBeNull();
+    expect(readSecurityTemplate(projectRoot)).toBeNull();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 });
 
-describe('renderPerfAuditArtifact — markdown body rendering', () => {
+describe('renderSecurityAuditArtifact — markdown body rendering', () => {
   test('renders all required sections per audit-output-schema.md', () => {
     const env = makeEnvelope({
       verdict: 'warn',
       violations: [
-        makeViolation({ severity: 'CRITICAL', dimension: 'Bundle / artifact size' }),
-        makeViolation({ severity: 'MED', dimension: 'Memory allocation' })
+        makeViolation({ severity: 'CRITICAL', dimension: 'SQL/NoSQL injection' }),
+        makeViolation({ severity: 'MED', dimension: 'Input validation' })
       ]
     });
-    const rendered = renderPerfAuditArtifact(env, {
+    const rendered = renderSecurityAuditArtifact(env, {
       rid: '2026-06-27-test-1',
       handoffHash: 'a'.repeat(64),
       generatedAt: ISO
@@ -239,20 +243,18 @@ describe('renderPerfAuditArtifact — markdown body rendering', () => {
     expect(rendered.verdict).toBe('warn');
     expect(rendered.violationsCount).toBe(2);
     expect(rendered.body).toContain('## Summary');
-    expect(rendered.body).toContain('## Baseline reference');
-    expect(rendered.body).toContain('## Measurement result');
-    expect(rendered.body).toContain('## Threshold check');
+    expect(rendered.body).toContain('## Threat model coverage');
     expect(rendered.body).toContain('## Findings');
     expect(rendered.body).toContain('## Required fixes');
     expect(rendered.body).toContain('## Verdict');
     expect(rendered.body).toContain('CRITICAL: 1');
     expect(rendered.body).toContain('verdict: warn');
-    expect(rendered.body).toContain('Bundle / artifact size');
+    expect(rendered.body).toContain('SQL/NoSQL injection');
   });
 
   test('renders zero-violation artifact cleanly (no Required fixes section)', () => {
     const env = makeEnvelope({ verdict: 'pass' });
-    const rendered = renderPerfAuditArtifact(env, {
+    const rendered = renderSecurityAuditArtifact(env, {
       rid: '2026-06-27-test-2',
       handoffHash: 'b'.repeat(64),
       generatedAt: ISO
@@ -265,7 +267,7 @@ describe('renderPerfAuditArtifact — markdown body rendering', () => {
   });
 });
 
-describe('runPerfAudit — convenience wrapper', () => {
+describe('runSecurityAudit — convenience wrapper', () => {
   test('happy path: writes the artifact and returns the detect + verdict', () => {
     const projectRoot = makeProjectRoot();
     const sid = 'sid-run-happy';
@@ -273,7 +275,7 @@ describe('runPerfAudit — convenience wrapper', () => {
     makeHandoffFixture(projectRoot, sid, body);
     makeTemplateFixture(projectRoot);
 
-    const result = runPerfAudit({
+    const result = runSecurityAudit({
       projectRoot,
       sessionId: sid,
       rid: '2026-06-27-run-1',
@@ -299,7 +301,7 @@ describe('runPerfAudit — convenience wrapper', () => {
     const sid = 'sid-run-no-template';
     makeHandoffFixture(projectRoot, sid, '# Goals\n- G1\n');
 
-    const result = runPerfAudit({
+    const result = runSecurityAudit({
       projectRoot,
       sessionId: sid,
       rid: '2026-06-27-run-2',

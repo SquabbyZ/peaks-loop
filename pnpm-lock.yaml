@@ -26,6 +26,9 @@ importers:
       headroom-ai:
         specifier: 0.22.4
         version: 0.22.4
+      peaks-loop-audit-independent:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-audit-independent
       peaks-loop-crystallization:
         specifier: workspace:*
         version: link:packages/peaks-loop-crystallization
@@ -87,6 +90,12 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.2
         version: 3.25.2(zod@3.25.76)
+
+  packages/peaks-loop-audit-independent:
+    dependencies:
+      peaks-loop-shared:
+        specifier: workspace:*
+        version: link:../peaks-loop-shared
 
   packages/peaks-loop-crystallization:
     dependencies:
