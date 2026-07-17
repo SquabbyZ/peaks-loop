@@ -248,6 +248,36 @@ once the poller has read them.
 - AC-25..AC-32: G5 resource lifecycle (RL-1 batch counter, dispatch record schema, reducer dispose, slice archive, cancel dispose)
 - AC-33..AC-37: G6 heartbeat CLI, schema, poller, status line, E2E
 
+## D21 — LLM-side completion signal (mandatory)
+
+`peaks sub-agent dispatch` writes the record in `queued` state. The
+dispatcher has no other way to learn that the spawned Task tool
+actually returned. **The LLM runner MUST call `peaks sub-agent finalize`
+once per dispatched Task, in the post-completion branch** (after the
+Task tool's `tool_result` has been received). Without it, the record
+stays `queued, no-execution` forever.
+
+```sh
+# After each Task tool returns:
+peaks sub-agent finalize --request-id <rid> --outcome done
+
+# On Task failure:
+peaks sub-agent finalize --request-id <rid> --outcome failed --error "<msg>"
+
+# Crash-recovery sweep (only if the runner was interrupted and many
+# records are stuck in queued):
+peaks sub-agent finalize --all-stale --outcome done
+```
+
+`finalize` calls `markCompleted` (in dispatch-record-writer.ts), which
+transitions the record to the chosen status and unregisters the path
+from `active-dispatches.json`. The next runner does not see a stale
+ghost.
+
+This was added in slice 2026-07-17-D21 after 13 stale records were
+observed in the peaks-loop repo (`active-dispatches.json` would have
+grown unboundedly without this fix).
+
 ## How to apply
 
 When writing a SKILL.md that fans out sub-agents:
