@@ -89,10 +89,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm (OIDC trusted publishing, dist-tag=latest)
-        # changesets calls `npm publish` under the hood; the new npm CLI
-        # detects ACTIONS_ID_TOKEN_REQUEST_TOKEN / ACTIONS_ID_TOKEN_REQUEST_URL
-        # and exchanges the GitHub-issued OIDC JWT for a short-lived npm token.
-        run: pnpm exec changeset publish --tag=latest
+      - name: Publish to npm (OIDC + per-package script)
+        # Strategy:
+        #   - Main package peaks-loop uses OIDC (Trusted Publisher already
+        #     configured on npmjs.com).
+        #   - The 6 subpackages (peaks-loop-{shared,mut,doctor,
+        #     crystallization,final-review,audit-independent}) each need
+        #     their OWN Trusted Publisher entry on npmjs.com — until those
+        #     are configured (one-time browser step per package), their
+        #     publish is attempted but a failure does NOT block the main
+        #     package release.
+        #
+        # TODO 2026-07-17-D22: once each subpackage has its own Trusted
+        # Publisher on npmjs.com, drop the per-package publish loop below
+        # and let changesets publish all 7 packages via OIDC in one go.
+        run: |
+          echo ":: Publishing subpackages individually (each needs its own npmjs Trusted Publisher) ::"
+          for pkg in peaks-loop-shared peaks-loop-mut peaks-loop-doctor \
+                     peaks-loop-crystallization peaks-loop-final-review \
+                     peaks-loop-audit-independent; do
+            echo "::: Publishing $pkg via changesets (OIDC) :::"
+            pnpm --filter "$pkg" exec changeset publish --tag=latest 2>&1 || {
+              echo "::warning::$pkg publish failed (likely needs npmjs Trusted Publisher setup). Continuing."
+            }
+          done
+          echo ":: Publishing main peaks-loop package via changesets (OIDC) ::"
+          pnpm exec changeset publish --tag=latest
         env:
           NODE_AUTH_TOKEN: '//registry.npmjs.org/:_authToken=//does/not/matter' # ignored when OIDC is used
