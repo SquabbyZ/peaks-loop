@@ -1,5 +1,43 @@
 # Changelog
 
+## 4.0.0
+
+### Minor Changes
+
+- 5d01343: Monorepo extraction: peaks-loop 4.0.0-beta.15 ships the new pnpm
+  workspace shell with 6 independent packages extracted from the main
+  repo as Tier-A zero/low-coupling domains:
+
+  - peaks-loop-shared (4 utils: fs / paths / result / version)
+  - peaks-loop-mut (mutation testing + ECC cache)
+  - peaks-loop-doctor (project health check)
+  - peaks-loop-crystallization (crystallization pipeline)
+  - peaks-loop-final-review (4-dim business review)
+  - peaks-loop-audit-independent (security + perf audit)
+
+  Each subpackage has its own typecheck / build / vitest pipeline; they
+  are wired back into the main peaks-loop CLI via workspace:_ protocol.
+  Trusted Publishing (OIDC) is wired via .github/workflows/publish.yml
+  on push tags v_._._ — no NPM_TOKEN required.
+
+  Also:
+
+  - D21: peaks sub-agent finalize command (LLM-side completion signal
+    to mark dispatch records done/failed/cancelled; without it records
+    would stay queued forever).
+  - Trusted Publishing via OIDC — npmjs.com trusted publisher
+    configured; npm token removed from ~/.npmrc.
+
+### Patch Changes
+
+- Updated dependencies [5d01343]
+  - peaks-loop-shared@0.1.0
+  - peaks-loop-mut@0.1.0
+  - peaks-loop-doctor@0.1.0
+  - peaks-loop-crystallization@0.1.0
+  - peaks-loop-final-review@0.1.0
+  - peaks-loop-audit-independent@0.1.0
+
 ## [Unreleased]
 
 ## 4.0.0-beta.14 — 2026-07-16
@@ -34,7 +72,8 @@
 > (PEAKS_HOME defaults to `~/.peaks`). Previously, the code resolved
 > `home` to `process.cwd()` when invoked from a project root, producing
 > `<project>/.peaks/state.db` — wrong location for loop engineering
-> + bee sediment data.
+>
+> - bee sediment data.
 >
 > **Fix**: `src/cli/commands/sediment-commands.ts:664-665` now uses
 > `peaksHome()` from `src/services/sop/sop-paths.ts:29` (which honors
@@ -59,7 +98,7 @@
 
 ### Status: RELEASED (follow-up to `4.0.0-beta.11`; D-013 wrapper exit-code fix)
 
-> **This CHANGELOG entry documents the D-013 follow-up release.
+> \*\*This CHANGELOG entry documents the D-013 follow-up release.
 > Same source tree as `4.0.0-beta.11`; pure fix for the wrapper
 > exit-code bug that previously caused `peaks <unknown>` and
 > `peaks <unknown> --help` to exit 0 with the help banner.
@@ -68,14 +107,14 @@
 > `COMMAND_NOT_FOUND` JSON envelope. ice-cola baseline 27/27 PASS
 > (AC3.9/AC3.10 now functionally correct).
 
-> **This CHANGELOG entry documents the SHIPPED 4.0.0-beta.11.
+> \*\*This CHANGELOG entry documents the SHIPPED 4.0.0-beta.11.
 > It is the post-implementation release of the 4.0.0-beta.10 contract
 > documented at `docs/release/4.0.0-beta.10.md` (runbook filename
 > preserved for cross-reference stability).
 >
 > The 3 slices (del-minimax-worker, hide-role-skills, on-demand-ecc)
 > all landed PASS in this branch — see `peaks workflow verify-pipeline
-> --rid 2026-07-15-cli-surface-cleanup` and the Slice 1/2/3 sediment
+--rid 2026-07-15-cli-surface-cleanup` and the Slice 1/2/3 sediment
 > memories in `.peaks/memory/`.
 >
 > **Version bump rationale** (D-016): 4.0.0-beta.10 was the pre-impl
@@ -143,15 +182,16 @@
 > spawn `<cached>/ecc agent run <name> --json` as a subprocess.
 > RD sub-agent triggered **Gate S3-0**: affaan-m/everything-claude-code
 > has no `ecc` binary; its real structure is `agents/*.md` flat
-> + SKILL.md descriptors. User chose Option B — drop the subprocess
-> model entirely.
+>
+> - SKILL.md descriptors. User chose Option B — drop the subprocess
+>   model entirely.
 
 - **`peaks ecc install`** — downloads affaan-m/everything-claude-code
   from GitHub releases to `~/.peaks/cache/ecc-<sha>/`. Selective
   tarball extraction: ONLY `agents/` subtree (skip `rules/`,
   `commands/`, `settings/`, `docs/`, `README.md`).
 - **`peaks ecc status`** — reads cache manifest, reports version + sha
-  + agent count.
+  - agent count.
 - **`peaks ecc ls`** — lists cached agents by parsing `agents/*.md`
   frontmatter.
 - **`peaks ecc show <name>`** — outputs the agent's SKILL.md body
@@ -269,7 +309,7 @@ all present after a fresh workspace init.
     audit/business templates (default: skip if present).
 - **5-template boot** — every `peaks workspace init` materialises
   `.peaks/project-scan/{project-scan.md, business-knowledge.md,
-  security-template.md, perf-template.md, audit-output-schema.md}`.
+security-template.md, perf-template.md, audit-output-schema.md}`.
   The 4 audit/business templates are bundled at
   `src/services/workspace/templates/project-scan/*.md` and copied
   verbatim by `scripts/copy-templates.mjs` (post-`tsc` step; tsc
@@ -381,15 +421,15 @@ exposed two follow-on bugs that the unit suite missed:
 
 ### Sediment (Step 11) — 7 lessons in `.peaks/memory/`
 
-| File | Topic |
-|---|---|
-| `z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md` | z-code 9th IDE + vendor-neutrality adapter pattern |
-| `peaks-loop-install-model-getstrongestmodelid-fallback.md` | install no longer hardcodes default model |
-| `desktop-application-ide-adapter-z-code-cli.md` | desktop-app IDE adapter field-degradation decision |
-| `peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md` | 4 SKILL.md / CLI drift points |
-| `2026-07-09-zcode-adapter-overview.md` | RID 003 overall summary (project record) |
-| `peaks-ide-runtime-detect-zcode-only.md` | `peaks ide model --current` z-code 4-tier priority chain |
-| `ide-adapter-detectcurrentmodel-optional-interface-pattern.md` | optional interface field extension pattern |
+| File                                                                      | Topic                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `z-code-peaks-loop-9-ide-adapter-vendor-neutrality-adapter.md`            | z-code 9th IDE + vendor-neutrality adapter pattern       |
+| `peaks-loop-install-model-getstrongestmodelid-fallback.md`                | install no longer hardcodes default model                |
+| `desktop-application-ide-adapter-z-code-cli.md`                           | desktop-app IDE adapter field-degradation decision       |
+| `peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010.md` | 4 SKILL.md / CLI drift points                            |
+| `2026-07-09-zcode-adapter-overview.md`                                    | RID 003 overall summary (project record)                 |
+| `peaks-ide-runtime-detect-zcode-only.md`                                  | `peaks ide model --current` z-code 4-tier priority chain |
+| `ide-adapter-detectcurrentmodel-optional-interface-pattern.md`            | optional interface field extension pattern               |
 
 ### Known follow-ups (S3-cleanup backlog)
 
@@ -406,7 +446,7 @@ None. All 8 pre-existing adapters continue to load without changes. CLI subcomma
 
 ### Added — peaks-solo dispatcher (分诊员)
 
-- **`peaks-solo` skill** — `skills/peaks-solo/SKILL.md` + 3 references (triage / fallback / sediment). Natural-language front door for the Peaks-Loop skill family. Use when the user describes a task in NL and does not know which peaks-* skill fits. 0 breaking change: 3.x / 4.x `/peaks-code` / `/peaks-content` / `/peaks-doctor` etc. continue to work.
+- **`peaks-solo` skill** — `skills/peaks-solo/SKILL.md` + 3 references (triage / fallback / sediment). Natural-language front door for the Peaks-Loop skill family. Use when the user describes a task in NL and does not know which peaks-\* skill fits. 0 breaking change: 3.x / 4.x `/peaks-code` / `/peaks-content` / `/peaks-doctor` etc. continue to work.
 - **`peaks skill search` CLI** — `src/services/skill/skill-search-service.ts` + `src/cli/commands/skill-search-commands.ts`. Query / tag / domain filters; substring match; structured JSON output. Used by `peaks-solo` to find the right leaf skill. Available as a top-level primitive (not dispatcher-specific).
 - **Sub-skills unchanged** — `peaks-code / peaks-content / peaks-doctor / peaks-issue-fix-orchestrator / peaks-sop / etc.` are NOT modified. peaks-solo sits alongside, not on top.
 
@@ -447,9 +487,9 @@ Loop Engineering crystallization is now the product surface. The 4.0.0-beta.3 li
 
 - **`.peaks/standards/loop-engineering-guidelines.md`** — the single source of truth for the 10 red lines RL-0..RL-9, each in the four-section karpathy form (Failure modes / Rewrite / Self-check / Out-of-scope). Co-equal karpathy × darwin layers (RL-0).
 - **`peaks standards lint --category loop-engineering`** — `src/services/standards/loop-engineering-lint.ts`. Parses the guideline file and asserts every red line has all four sections, fails closed otherwise.
-- **`peaks skill lint --category loop-engineering-readiness --path <skill-dir>`** — `src/services/standards/loop-engineering-readiness-lint.ts` + `src/cli/commands/skill-loop-engineering-readiness-commands.ts`. Asserts a peaks-* SKILL.md (a) references `.peaks/standards/loop-engineering-guidelines.md`, (b) does not introduce a CLI verb the user is meant to type, (c) does not introduce a JSON / manifest hand-authoring surface. Alias verb: `peaks skill ready --category loop-engineering-readiness --path <skill-dir>`.
+- **`peaks skill lint --category loop-engineering-readiness --path <skill-dir>`** — `src/services/standards/loop-engineering-readiness-lint.ts` + `src/cli/commands/skill-loop-engineering-readiness-commands.ts`. Asserts a peaks-\* SKILL.md (a) references `.peaks/standards/loop-engineering-guidelines.md`, (b) does not introduce a CLI verb the user is meant to type, (c) does not introduce a JSON / manifest hand-authoring surface. Alias verb: `peaks skill ready --category loop-engineering-readiness --path <skill-dir>`.
 - **Unit guard** — `tests/unit/standards/loop-engineering-guidelines.test.ts` enforces the four-section shape for every red line in the file.
-- **peaks-code domain boundary (RL-8)** — `skills/peaks-code/SKILL.md` self-declares as the code-domain long-task loop engineering orchestrator and is NOT a general-purpose orchestrator. Cross-domain peaks-* skills (peaks-content, peaks-issue-fix-orchestrator) import the shared guideline file and pass the readiness lint.
+- **peaks-code domain boundary (RL-8)** — `skills/peaks-code/SKILL.md` self-declares as the code-domain long-task loop engineering orchestrator and is NOT a general-purpose orchestrator. Cross-domain peaks-\* skills (peaks-content, peaks-issue-fix-orchestrator) import the shared guideline file and pass the readiness lint.
 
 ### Added — Bundle share + desktop extension surface (§7A, AC-24 / AC-25 / AC-26)
 
@@ -463,6 +503,7 @@ Loop Engineering crystallization is now the product surface. The 4.0.0-beta.3 li
 ### Added — SkillHub expansion (5 new tables / non-breaking)
 
 The 6+ relation table layout is preserved. 5 new tables added under `.peaks/_runtime/<sessionId>/`:
+
 - `loop_release` (002)
 - `loop_bee_relation` (003)
 - loop↔bee share / desktop extension columns (004)
@@ -502,13 +543,16 @@ Migration is non-breaking: every new column has a DEFAULT and the new tables sit
 ## 4.0.0-beta.2 — 2026-07-07
 
 ### Renamed
+
 - **`peaks-solo` → `peaks-code`** — the long-running code-domain orchestrator skill (PRD/RD/QA/UI/SC/TXT pipeline) has been renamed to communicate its scope more accurately. The on-disk directory `~/.peaks/skills/.system/bees/peaks-code/` is preserved as a stable install location; only the manifest `id` and `displayName` change (`peaks-code` / `Peaks Code`). All four sibling skills (`peaks-solo-resume` → `peaks-resume`, `peaks-solo-status` → `peaks-status`, `peaks-solo-test` → `peaks-test`) are now top-level primitives rather than child skills of `peaks-solo`. Migration: `peaks session migrate-skill-name --from peaks-solo --to peaks-code --apply`.
 
 ### Changed (Breaking)
+
 - **`peaks skill presence:set peaks-solo` no longer recognized** — the canonical skill name is now `peaks-code`. Existing `.peaks/_runtime/*/active-skill.json` files carrying `skill: "peaks-solo"` are migrated by `peaks session migrate-skill-name`. Manual override: edit the file and replace `"skill": "peaks-solo"` with `"skill": "peaks-code"`.
 - **CLI surface unchanged** — `peaks code`, `peaks code --fast`, and the entire `peaks-code` skill runbook continue to function; only the skill-identification field (`id`, `displayName`, presence `skill` value) changes. The runbook name `peaks code` is the user-facing verb and remains as-is.
 
 ### Fixed (post-rename polish)
+
 - **Rule name normalization** — `Code Code-Change Red Line` → `Code Commit Ban Red Line` (8 occurrences across `src/services/audit/enforcers/code-ban.ts`, `src/cli/commands/hook-handle.ts`, and the audit tests). Aligns with `red-line-catalog.ts` entry `rl-code-ban-001` / `Code Commit Ban`.
 - **Wire-format error code rename** — `SOLO_MODE_REQUIRES_SOLO_WORKFLOW` → `CODE_MODE_REQUIRES_CODE_WORKFLOW` and `UNSUPPORTED_SOLO_MODE` → `UNSUPPORTED_CODE_MODE` in `src/cli/commands/workflow-commands.ts` (4 test sites updated).
 - **Test local consts** — `soloResult/soloOutput` → `codeResult/codeOutput` in `tests/unit/cli-program.workflow.test.ts`; `SOLO_PATH/soloAbsPath` → `CODE_PATH/codeAbsPath` in `tests/unit/code/skills-subagent-scope-dir.test.ts`; `SOLO_REF/SOLO_FANOUT_REF` → `CODE_REF/CODE_FANOUT_REF` in `tests/unit/dispatch/dispatch-fanout-mandatory.test.ts`.
@@ -519,11 +563,13 @@ Migration is non-breaking: every new column has a DEFAULT and the new tables sit
 - **Video demo copy** — `examples/video-demo/src/copy.ts` `skillWas: 'peaks-solo'` → `skillWas: 'peaks-code'` (legacy label, both locales).
 
 ### Added
+
 - **Manifest id field** — `.peaks/skills/.system/bees/peaks-code/manifest.json` now carries `{ "id": "peaks-code", "displayName": "Peaks Code" }`. The `migrate-skill-name` service explicitly skips this file (test: `session-migrate-skill-name.test.ts:69` "跳过 .peaks/skills/.system/bees/peaks-code/manifest.json") so the canonical id is only ever edited by hand or by an explicit `peaks skill sediment refine-bee` flow, never by bulk migration.
 - **Spec §4.1.1 rewrite** — `docs/superpowers/specs/2026-07-04-peaks-maker-dynamic-skill-sediment-design.md` §4.1.1 has been rewritten from "peaks-code as preserved alias" to "peaks-code as the system-stable code-domain bee (renamed from peaks-code)". The plan's spec-coverage table now references the renamed heading.
 - **Migration helper** — `peaks session migrate-skill-name --from <old> --to <new> [--apply]` is the supported path for renaming skill references in `.peaks/_runtime/`. Idempotent; skip-list includes `.peaks/memory/**` and `.peaks/skills/.system/bees/peaks-code/manifest.json`.
 
 ### Verification
+
 - `tsc --noEmit` zero errors
 - Full `vitest run` exit 0 (all 30 touched test files / 265 directly-tested assertions pass)
 - `silent-warning-detector` OK on 481 files
@@ -642,10 +688,11 @@ Validated on `C:/Users/smallMark/Desktop/peaksclaw/ice-cola` (consumer project).
 ## [3.0.2] — 2026-07-02 — change-id shim retirement (v2.19.0) + Understand Anything hybrid context (3.0.2)
 
 **PATCH bump from 3.0.1**. Two independent slices bundled into one release:
+
 - **v2.19.0 change-id shim retirement** — full removal of the peaks-loop change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). The change-id was a no-op post-v2.17.0 hard-kill; this slice retires the v2.17.0 shim half-life. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched.
 - **3.0.2 Understand Anything hybrid context** — new `peaks understand context` subcommand that encapsulates the UA-first / codegraph-fallback / hybrid-union routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture). Consumers no longer pick one or the other at the LLM level.
 
-The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore *not* a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
+The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore _not_ a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
 
 ### Removed — change-id shim (cleanup post v2.17.0 hard-kill)
 
@@ -668,7 +715,7 @@ The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced8
 - 12 JSDoc references to the deleted `src/shared/change-id.ts` file scrubbed across `src/services/session/session-binding-bridge.ts`, `src/services/session/session-manager.ts`, `src/shared/path-safety.ts`, `tests/unit/session-manager.test.ts`, `tests/vitest.setup.ts`. The 3 pre-slim `tests/fixtures/skills/pre-slim/*.SKILL.md` fixtures preserve the historical reference per the FROZEN EVIDENCE rule.
 - 2 weakened `tests/unit/rd/repair-cycle-2-cli-wiring.test.ts` cases restored with real assertions: the test now bootstraps a real session via `peaks workspace init` then drives `peaks swarm plan` end-to-end, asserting `standardsErrorCode`, `standardsDiagnostic`, and `process.exitCode` (no `expect(true).toBe(true)`, no `.skip`).
 
-### Round 3 — change-id彻底根治
+### Round 3 — change-id 彻底根治
 
 - All 275 internal `changeId` field references in `src/` renamed to `sessionId` across 35 source files (cli/commands, services/workflow, services/tech, services/workspace, services/sc, services/rd, services/prd, services/audit, services/fixture, services/slice, services/mut, services/providers, services/artifacts, services/openspec-adjacent callers). The 65 remaining `changeId` hits are EXCLUSIVELY in `src/cli/commands/openspec-commands.ts` and `src/services/openspec/*.ts` — L4 OpenSpec vocabulary (positional `<change-id>` arg, `openspec/changes/<change-id>/` dir name, OpenSpec spec/proposal markdown tokens). The rename preserves L4 per PRD §Non-Goals.
 - `WorkspaceInitOptions.changeId?: string` field REMOVED entirely (was a no-op post-v2.17.0; the slice deletes the binding-file legacy and the inline lstatSync guard now scopes the v2.8.3 hard-ban to date-stamped top-level siblings at `.peaks/<YYYY-MM-DD-*>/` only).
@@ -684,6 +731,7 @@ The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced8
 - `pnpm build` regenerated `dist/` to drop the dead `migrate-change-scope` JS. AC-15 (`node bin/peaks.js workspace migrate-change-scope`) now reports `error: unknown command 'migrate-change-scope'`.
 
 ### Round 4 — change-id full root-out (fix 55 test regressions)
+
 - Fixed 55 unit tests failing across 15 files (regressions from round-3 rename script + incomplete code paths).
 - `peaks request *` dry-run mode no longer creates `.peaks/_runtime/<sid>/` dir eagerly (test updated to assert the canonical single-axis scope dir at apply-time only).
 - Observability event hook restored on `peaks request transition` (3 tests): root cause was `readSummary` returning the scope fragment (`_runtime/<sid>`) as the bare session id, so `emitObservabilityEvent` landed at `.peaks/_runtime/_runtime/<sid>/metrics/slices.jsonl`. Fix strips the `_runtime[\\/]` prefix when storing the summary's sessionId.
@@ -716,10 +764,11 @@ The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced8
 ## [3.0.2] — 2026-07-02 — change-id shim retirement (v2.19.0) + Understand Anything hybrid context (3.0.2)
 
 **PATCH bump from 3.0.1**. Two independent slices bundled into one release:
+
 - **v2.19.0 change-id shim retirement** — full removal of the peaks-loop change-id axis (filesystem axis, code shim, envelope JSON slug, CLI flags). The change-id was a no-op post-v2.17.0 hard-kill; this slice retires the v2.17.0 shim half-life. OpenSpec's independent `openspec/changes/<change-id>/` vocabulary (L4) is preserved untouched.
 - **3.0.2 Understand Anything hybrid context** — new `peaks understand context` subcommand that encapsulates the UA-first / codegraph-fallback / hybrid-union routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture). Consumers no longer pick one or the other at the LLM level.
 
-The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore *not* a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
+The v2.19.0 work shipped as code commits (`f91d71c`, `5186d3d`, `b598612`, `ced835e`, `7ee9d8f`, plus follow-up tests) but was never formally released. v2.19.0 is therefore _not_ a separate release line — its changes are rolled forward into 3.0.2. Future releases resume numeric sequence from 3.0.3.
 
 ### Added — `peaks understand context` (3.0.2 user-facing feature)
 
@@ -728,12 +777,14 @@ The Understand Anything (UA) Claude Code plugin and `@colbymchenry/codegraph` ar
 This slice adds a single `peaks understand context` subcommand that encapsulates the routing decision in the service layer (per the peaks-loop "skill-first / CLI-auxiliary" architecture — see `peaks-code` SKILL.md). The envelope carries a `source` tag so downstream consumers can audit which evidence contributed to the context.
 
 **Source routing** (deterministic, decided in `buildUnderstandContext`):
+
 - `ua-only` — UA knowledge graph present, no codegraph
 - `ua-missing-fallback-codegraph` — UA absent, codegraph produced evidence
 - `ua-and-codegraph-hybrid` — both present, both contribute (parallel `Promise.all`)
 - `both-missing` — neither produced evidence, exit code 2
 
 **Added files (5):**
+
 - `src/services/understand/understand-hybrid-service.ts` (133L, new): `buildUnderstandContext({projectRoot, files?, sampleSize?, artifactDir?, codegraphRunner?})` uses `Promise.all` to run UA scan and codegraph affected in parallel; total wall-clock = `max(uaMs, codegraphMs)`, not sum. Failures are caught into `warnings[]` (best-effort); the main envelope is always returned so consumers can audit missing evidence.
 - `src/services/understand/hybrid-types.ts` (39L, new): `UnderstandContextResult` envelope + 4-value source enum + `CodegraphContextBlock`.
 - `src/cli/commands/understand-commands.ts` (208L, +51L net): new `peaks understand context` subcommand at base path `admin/audit-logs` (the only 3rd CLI surface in the understand module family). The subcommand accepts `--project --files --sample --artifact-dir` and emits the envelope as JSON or human-readable summary.
@@ -880,12 +931,12 @@ The 1.x → 2.0 upgrade is an irreversible external side effect (rewrites `~/.pe
 
 The split methodology follows the v2.18.0 `session-binding-bridge.ts` pattern: identify a natural seam (state/helpers vs business logic, types vs impl, etc.), extract the chosen section into a new sibling file, and re-export the moved symbols from the original module so external imports are unchanged. Internal references are routed through a local `import { ... }` so the body of the original module continues to compile and behave identically.
 
-| # | File | Before | After (orig + sibling) | New sibling | Seam |
-|---|------|-------:|-----------------------:|-------------|------|
-| 1 | `src/services/artifacts/request-artifact-service.ts` | 783 | 649 + 153 | `request-artifact-state-helpers.ts` | `RequestArtifactState` type, `ALLOWED_STATES_PER_ROLE`, `allowedStatesForRole`, 4 transition error classes, `updateStatusBlock` frontmatter mutator |
-| 2 | `src/services/slice/slice-decompose-service.ts` | 775 | 632 + 178 | `slice-decompose-runners.ts` | 3 default runner factories (`defaultCodegraphRunner`, `defaultUnderstandRunner`, `defaultImportEdgeRunner`) + `runCodegraph` shell-out helper |
-| 3 | `src/services/workflow/workflow-autonomous-service.ts` | 774 | 465 + 337 | `workflow-autonomous-resume-helpers.ts` | Resume validation pipeline (`getResumeRequiredArtifacts`, `readResumeArtifact`, `stripChangeScopePrefix`, JSON / frontmatter parsers, `getResumeArtifactsStatus`, `createResumePlan`) + `MAX_RESUME_ARTIFACT_BYTES` const |
-| 4 | `src/services/workspace/workspace-service.ts` | 742 | 550 + 217 | `workspace-claude-settings-materializer.ts` | Consumer `.claude/settings.local.json` materialization (`materializeClaudeSettingsLocal`, `writeOfflineTemplateCopy`, `upsertPeaksGitignoreSnippet`) + `PEAKS_GITIGNORE_*` constants |
+| #   | File                                                   | Before | After (orig + sibling) | New sibling                                 | Seam                                                                                                                                                                                                                      |
+| --- | ------------------------------------------------------ | -----: | ---------------------: | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `src/services/artifacts/request-artifact-service.ts`   |    783 |              649 + 153 | `request-artifact-state-helpers.ts`         | `RequestArtifactState` type, `ALLOWED_STATES_PER_ROLE`, `allowedStatesForRole`, 4 transition error classes, `updateStatusBlock` frontmatter mutator                                                                       |
+| 2   | `src/services/slice/slice-decompose-service.ts`        |    775 |              632 + 178 | `slice-decompose-runners.ts`                | 3 default runner factories (`defaultCodegraphRunner`, `defaultUnderstandRunner`, `defaultImportEdgeRunner`) + `runCodegraph` shell-out helper                                                                             |
+| 3   | `src/services/workflow/workflow-autonomous-service.ts` |    774 |              465 + 337 | `workflow-autonomous-resume-helpers.ts`     | Resume validation pipeline (`getResumeRequiredArtifacts`, `readResumeArtifact`, `stripChangeScopePrefix`, JSON / frontmatter parsers, `getResumeArtifactsStatus`, `createResumePlan`) + `MAX_RESUME_ARTIFACT_BYTES` const |
+| 4   | `src/services/workspace/workspace-service.ts`          |    742 |              550 + 217 | `workspace-claude-settings-materializer.ts` | Consumer `.claude/settings.local.json` materialization (`materializeClaudeSettingsLocal`, `writeOfflineTemplateCopy`, `upsertPeaksGitignoreSnippet`) + `PEAKS_GITIGNORE_*` constants                                      |
 
 The original 4 files land at 465-649 LOC (well below the 800 cap; target range 600-650). The 4 new sibling files are 153-337 LOC. Total LOC across the 8 files is unchanged (3074) — this is a structural refactor only, not a deletion or compression.
 
@@ -956,12 +1007,12 @@ Each original file gets a sibling `import { ... } from './X-helpers.js'` + `expo
 
 ### Dogfood
 
-| # | Scenario | Verdict | Evidence |
-|---|---|---|---|
-| A | v2.18.1 verify-pipeline happy-path (session-axis) | PASS | `.peaks/_runtime/2026-06-29-session-9cac8e/{rd,qa}/...` resolves as canonical; `data.changeId` slug preserved in envelope |
-| B | v2.18.1 verify-pipeline missing-evidence | PASS | Clear `RD evidence missing: ...` violations, no `ReferenceError` |
-| C | v2.18.1 prd check-blocks well-formed PRD | PASS | `report.ok: true`, all 4 blocks pass, JSON envelope `{ 业务场景: 'pass', 边界 case: 'pass', UI 装配意图: 'pass' }` |
-| D | v2.18.1 prd check-blocks missing 业务场景 block | PASS | `report.ok: false`, `issues: ["Missing required block: 业务场景"]`, no `ReferenceError` |
+| #   | Scenario                                          | Verdict | Evidence                                                                                                                  |
+| --- | ------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| A   | v2.18.1 verify-pipeline happy-path (session-axis) | PASS    | `.peaks/_runtime/2026-06-29-session-9cac8e/{rd,qa}/...` resolves as canonical; `data.changeId` slug preserved in envelope |
+| B   | v2.18.1 verify-pipeline missing-evidence          | PASS    | Clear `RD evidence missing: ...` violations, no `ReferenceError`                                                          |
+| C   | v2.18.1 prd check-blocks well-formed PRD          | PASS    | `report.ok: true`, all 4 blocks pass, JSON envelope `{ 业务场景: 'pass', 边界 case: 'pass', UI 装配意图: 'pass' }`        |
+| D   | v2.18.1 prd check-blocks missing 业务场景 block   | PASS    | `report.ok: false`, `issues: ["Missing required block: 业务场景"]`, no `ReferenceError`                                   |
 
 ### Commits
 
@@ -992,7 +1043,7 @@ Each original file gets a sibling `import { ... } from './X-helpers.js'` + `expo
 - `src/services/session/binding-store.ts:259` — `ownerHint` field is now `${envSignal}#${pid}` (was bare env signal). Preserves the existing v2.17.0 field shape; only the value format changes.
 - `registerInstance` distinguishes instances by `(callerId, pid)` tuple, not by `ownerHint` alone. Same pid + same callerId → auto-resume (D2 Claude-instance-level hard-exclusive sid preserved); same callerId + different pid → distinct sids.
 - `/compact` resume: same outer-session-id + same pid → reuses sid (verified by new Case B test). Different pid (rare, but possible if the harness restarts) → new sid (safe default, not a stale resume).
-- Sub-agent dispatch: sub-agents inherit parent's `CLAUDE_CODE_SESSION_ID` but run in the same Node process → same pid → same callerId → same sid (D2 sid-aggregation across peaks-* skill activations preserved).
+- Sub-agent dispatch: sub-agents inherit parent's `CLAUDE_CODE_SESSION_ID` but run in the same Node process → same pid → same callerId → same sid (D2 sid-aggregation across peaks-\* skill activations preserved).
 - 6 new test cases in `tests/unit/services/session/binding-store.test.ts:151-242`:
   - **Case A:** 2 instances, same `callerId`, different `pid` → 2 distinct sids
   - **Case B:** 2 instances, same `callerId`, same `pid`, same outer-session-id → 1 sid (auto-resume)
@@ -1030,12 +1081,12 @@ Each original file gets a sibling `import { ... } from './X-helpers.js'` + `expo
 
 ### Dogfood (ice-cola NestJS project, 2026-06-29-session-2e81dc)
 
-| # | Scenario | Verdict | Evidence |
-|---|---|---|---|
-| A | P0 fix verification (binding file format) | PASS | `callerId: 5fa8a7d8-...#13472` matches shell pid 13472; pre-existing instance pid 3876 ≠ current shell — fix works in production-shape data |
-| B | peaks doctor stale-binding scan | PASS | 0 stale bindings, ttl=300000ms, v2.16.0 schema surface intact |
-| C | peaks code smoke (4 sub-commands) | PARTIAL | 3/4 pass; `peaks request lint --project .` is invalid syntax (needs `<rid>` + `--role`); not a v2.18.0 regression |
-| D | env-collision simulation (single shell, 2 envs) | PASS | `fake-session-A#20984` + `fake-session-B#20984` → 2 distinct sids (fupv8b / xnntb1); transposed axis (same pid, different env) verified; primary 2-Claude-windows scenario needs CI integration test with 2 child node processes |
+| #   | Scenario                                        | Verdict | Evidence                                                                                                                                                                                                                         |
+| --- | ----------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | P0 fix verification (binding file format)       | PASS    | `callerId: 5fa8a7d8-...#13472` matches shell pid 13472; pre-existing instance pid 3876 ≠ current shell — fix works in production-shape data                                                                                      |
+| B   | peaks doctor stale-binding scan                 | PASS    | 0 stale bindings, ttl=300000ms, v2.16.0 schema surface intact                                                                                                                                                                    |
+| C   | peaks code smoke (4 sub-commands)               | PARTIAL | 3/4 pass; `peaks request lint --project .` is invalid syntax (needs `<rid>` + `--role`); not a v2.18.0 regression                                                                                                                |
+| D   | env-collision simulation (single shell, 2 envs) | PASS    | `fake-session-A#20984` + `fake-session-B#20984` → 2 distinct sids (fupv8b / xnntb1); transposed axis (same pid, different env) verified; primary 2-Claude-windows scenario needs CI integration test with 2 child node processes |
 
 **Dogfood verdict:** 3.5 / 4 pass; `recommend_v2.18.0_commit: true`.
 
@@ -1074,7 +1125,7 @@ The first v2.18.0 release deferred two open items to a redo slice; both are now 
 ### Feature — binding-store v2 sentinel (v2.16.0-alpha + v2.17.0)
 
 - `src/services/session/binding-store.ts` — zod-validated multi-instance binding schema with auto-migration from legacy `{ sessionId, createdAt, projectRoot }`. New shape: `{ ownerHint, pid, lastHeartbeat, scope, instances: Record<sid, InstanceRecord> }`.
-- `InstanceRecord` = `{ startedAt, roles: string[], callerId, lastHeartbeat }` — `roles` accumulates as the Claude instance activates multiple peaks-* skills (solos → rd → qa all share one sid).
+- `InstanceRecord` = `{ startedAt, roles: string[], callerId, lastHeartbeat }` — `roles` accumulates as the Claude instance activates multiple peaks-\* skills (solos → rd → qa all share one sid).
 - Auto-resume: same callerId reuses the same sid; different callers get different sids in the same `instances` map.
 - `dropStale(projectRoot, ttlMs)` for Doctor integration.
 
@@ -1086,7 +1137,7 @@ The first v2.18.0 release deferred two open items to a redo slice; both are now 
 
 ### Feature — D2 Claude-instance-level hard-exclusive sid
 
-- Same Claude instance keeps one sid across multiple peaks-* skill activations (peaks-code → peaks-rd → peaks-qa).
+- Same Claude instance keeps one sid across multiple peaks-\* skill activations (peaks-code → peaks-rd → peaks-qa).
 - `/compact` resume: same outer-session-id reuses the same sid (post-compact-resume v2.11.0 D7 alignment).
 
 ### Feature — Doctor stale-binding scan (AC-10)
@@ -1119,7 +1170,7 @@ The first v2.18.0 release deferred two open items to a redo slice; both are now 
 
 Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-session-88411f/txt/handoff-2026-06-29-v2-17-0.md` for details):
 
-1. **Multi-Claude parallel提速**: open 2 Claude instances in the same project, run `peaks code <different goal>` in each. Verify both bindings coexist with distinct sids.
+1. **Multi-Claude parallel 提速**: open 2 Claude instances in the same project, run `peaks code <different goal>` in each. Verify both bindings coexist with distinct sids.
 2. **D1 conflict detection**: 2 instances both targeting the same source file. Verify each writes to its own session-scoped artifact directory.
 3. **`/compact` resume**: run `peaks code <goal>`, `/compact`, continue. Verify same sid reused.
 4. **Doctor stale**: kill -9 a Claude instance, run `peaks doctor`, verify stale binding listed + `--cleanup-stale` works.
@@ -1235,11 +1286,13 @@ Recommended scenarios before next release (see `peaks/_runtime/2026-06-29-sessio
 - **Per the user-given rule** `.peaks/memory/2026-06-28-full-auto-boundary.md`: "full-auto 只做到 commit 就是，push 不用". The commit-boundary hard-floor is the machine enforcement of that advisory rule.
 
 ### Test results
+
 - 4 new test files: `presence-staleness.test.ts` (12), `stale-presence-detection.test.ts` (9), `feedback-promotion.test.ts` (18), `commit-boundary-hard-floor.test.ts` (247). Total new cases: **286**.
 - Existing code tests (mode-gate × 81, post-compact × 11) pass unchanged.
 - Full unit suite baseline 4394 → 4680 passing (286 added). 0 new failures; pre-existing 7 unrelated failures unchanged.
 
 ### Out-of-scope
+
 - Push / tag / npm publish — full-auto boundary = commit only; the commit-boundary hard-floor now BLOCKS these in full-auto (was advisory). User must explicitly confirm via AskUserQuestion to proceed.
 - `peaks hooks install` — slice is code-only. Hooks remain user-only.
 - Cleaning the 88b27d session's stale presence on disk — slice ships the detection + auto-clear, does NOT proactively touch the live tree.
@@ -1262,12 +1315,14 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 4 个 PRD + 4 个 service + 4 个 CLI 文件 + 4 个 test 文件,共 **17 个新命令 + 63 个新测试通过**。
 
 **G11 上游 tag 同步**(slice-2026-06-28-fork-cli):
+
 - 5 commands: `peaks fork status` / `upstream-check` / `sync-plan` / `sync` / `sync-verify`
 - 持久化 `.peaks/fork-state.json` (baseline + history)
 - `recommendStableTags` 过滤 pre-release 标签(alpha/beta/rc/dev/preview)
 - 15 tests pass
 
 **G13 存量影响面扫描**(slice-2026-06-28-impact-cli):
+
 - 2 commands: `peaks impact scan --files <list>` / `peaks impact must-check --files <list>`
 - 手写 glob 匹配(`**` / `*`),无 AST 依赖
 - 10 个默认业务流(用户管理 / 权限校验 / 登录流程 / Skill 权限 / 数据列表 / API 网关 / DB schema / ...)
@@ -1275,6 +1330,7 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 - 13 tests pass
 
 **G14 轻量回归 critical-paths**(slice-2026-06-28-smoke-cli):
+
 - 4 commands: `peaks smoke define` / `run` / `run-and-repair` / `add-path`
 - 持久化 `.peaks/smoke-paths.json`
 - 5 个 source (prd-business-scenario / boss-stated / historical-incident / impact-must-check / manual)
@@ -1282,6 +1338,7 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 - 16 tests pass
 
 **G15 上线观察期状态机**(slice-2026-06-28-release-cli):
+
 - 7 commands: `peaks release plan` / `canary` / `promote` / `watch` / `done` / `rollback` / `hotfix`
 - 8 阶段状态机: planned → canary-10 → canary-50 → promoted → watching → done
 - side branches: → rolled-back (from any pre-done), → hotfixed (from watching)
@@ -1292,6 +1349,7 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 **触动:** 新增 4 个 service / 4 个 CLI / 4 个 test 文件 = **12 个新文件**。CLI 注册全在 `src/cli/program.ts`,**不触动** transition gates / hard contracts / Karpathy 4 / sub-agent 协议 / mode-gate。
 
 **已知未实现**(后续切片):
+
 - 真实 git fetch + merge(G11)
 - 真实 Playwright 路径执行(G14)
 - 真实 k8s rollout / LB config / 监控集成(G15)
@@ -1301,23 +1359,27 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 4 个 service + 4 个 CLI 文件 + 4 个 test 文件,共 **16 个新命令 + 40+ 个新测试通过**。所有 CLI 都遵循 12 Gaps 核心原则: user 在循环里 = 业务/产品审阅,不参与技术决策。
 
 **G3 prd 4 必填块**(slice-2026-06-28-prd-blocks):
+
 - `peaks prd check-blocks <rid>` — 验证 4 必填块(业务场景/边界/UI 装配/上游基线)+ 业务禁区子节
 - 上游基线仅在 fork 项目上 required(检测 `.peaks/fork-state.json`)
 - 8 tests pass
 
 **G4 user touchpoint classifier**(slice-2026-06-28-user-touchpoints):
+
 - 3 commands: `peaks code gate-classify` / `peaks code user-touchpoints` / `peaks code commit-boundary-actions`
 - 14 个 Code gate 静态分类: business / tech / mode-selection / commit-boundary / commit-floor
 - `userShouldReview`: always / business-only / never
 - 7 tests pass
 
 **G1 slice 业务审阅**(slice-2026-06-28-slice-review):
+
 - 4 commands: `peaks slice review` / `score` / `accept` / `reject`
 - 4 个默认 review item: business-match / boundary-cases / ui-assembly / mergeable
 - 12 Gaps 阈值: avg >= 3 AND no item <= 2 → accepted
 - 16 tests pass
 
 **G5 QA 业务视角验收**(slice-2026-06-28-qa-business):
+
 - 4 commands: `peaks qa business-review` / `business-score` / `business-accept` / `business-reject`
 - 6 个默认 review item: business-flow / req-coverage / boundary-cases / ui-assembly / exception-tone / mergeable
 - 同一阈值(avg >= 3, no item <= 2)
@@ -1330,29 +1392,35 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 5 个 PRD 一次性收尾剩余 5 个 Gaps。每 G 一个 service + CLI + test,**10 个新文件 + 30+ 个新测试通过**。
 
 **G6 跨 slice 集成**(slice-2026-06-28-slice-integrate):
+
 - `peaks slice-integrate --slices <id1,id2,...>` — 验证多个 slice 的公共契约不冲突(重复 export / signature drift)
 - 5 tests pass
 
 **G7 文档自动化**(slice-2026-06-28-doc):
+
 - `peaks doc generate-skill --name --from <commands-dir>` — 扫描 program.command() 自动生成 SKILL.md skeleton
 - `peaks doc changelog-suggest --since <ref>` — git log 解析 conventional commit + 生成 [Unreleased] 块
 - 6 tests pass
 
 **G8 存量代码 smell 扫描**(slice-2026-06-28-legacy):
+
 - `peaks legacy-detect --dir <path>` — TODO/FIXME/HACK/console.log/any-type/large-file/ts-ignore 启发式扫描
 - 5 tests pass
 
 **G9 角色 RBAC**(slice-2026-06-28-role):
+
 - `peaks role list/add/grant/check` — 4 命令,持久化 .peaks/role-registry.json
 - `--preset senior-fe` 一键预置 12 Gaps 高级前端权限
 - 5 tests pass
 
 **G10 复杂度估算**(slice-2026-06-28-complexity):
+
 - `peaks complexity-estimate --files <list>` — 按 LOC + exports + async 估算 trivial/simple/complex
 - 与 G2 字段(complexity tier)对齐,驱动 user-attended vs overnight 排程
 - 5 tests pass
 
 **Dogfood 验证(ice-cola NestJS 项目):**
+
 - peaks legacy-detect (164 文件, smells=high, 406 个 any-type, 15 个 large-file)
 - peaks role add senior-fe --preset senior-fe + role list + role check (granted/not)
 - peaks complexity-estimate (auth files → complex, 41 lines + hasAsync)
@@ -1377,6 +1445,7 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 - `tests/unit/services/context/tokenizer.test.ts:23` — `fetchedAt` 硬编码 `2026-06-21` 距今 7 天触发 `timeDecayScore 0.886 < 0.9` 期望,改 `new Date().toISOString()` 符合"fresh fetch"测试意图
 
 **测试结果:**
+
 - silent-warning-detector: 2 violations → 0
 - `tests/unit/services/context/`: 49/50 → 50/50
 - 全量 vitest 4819 tests:3 failed → 2 failed(剩下 2 个是并发 race condition,单跑 context 50/50 全过,pre-existing)
@@ -1388,19 +1457,23 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 **PATCH bump from 2.14.1** (slice `2026-06-28-tilde-peaks-p3p4`). Closes P3 + P4 from `.peaks/memory/2026-06-28-tilde-peaks-inventory.md`.
 
 ### Cleanup
+
 - **`skills/peaks-companion/`** — REMOVED. Skill was dead: SKILL.md documented `peaks companion status/install/setup/start` but no CLI implementation existed (`src/services/companion/` not present, `peaks --help` had no companion entry). Empty `~/.peaks/companion/` directory is no longer expected to receive `cc-connect.log` writes.
 - **`tests/unit/skills/peaks-companion.test.ts`** — REMOVED (9 cases). The companion skill-count assertion (19 → 18 skills) is now verified by `tests/unit/skills/skill-count.test.ts` (already covers the meta count, not companion specifically).
 - **`.peaks/memory/peaks-companion-*.md`** — REMOVED (4 files: `cc-connect-dogfood-2026-06-15`, `qr-autoopen-2026-06-15`, `qr-inline-display-2026-06-15`, `watcher-ecs-url-config`). Historical dogfood records, no longer relevant.
 
 ### Refactor
+
 - **`~/.peaks/providers.json`** (NEW sidecar) — MiniMax provider config migrated from deprecated `~/.peaks/config.json.providers` to canonical `~/.peaks/providers.json` per `provider-service.ts` schema. The slim `config.json` (per `config-types.ts`) no longer carries the `providers` field.
 - **MiniMax model field preserved** — `~/.peaks/providers.json.providers.minimax.model = "minimax-2.7"`; `peaks config provider minimax get/status` continue to report correctly via the back-compat fallback in `provider-service.ts`.
 
 ### Test results
+
 - `pnpm vitest run tests/unit/doctor.test.ts` — 50/50 pass
 - `pnpm vitest run` full unit suite — `peaks-companion.test.ts` no longer runs; total cases drop from 4418 → 4409. Pre-existing failures (`doctor.test.ts` × 0, `tokenizer.test.ts` × 1, `35-checks-aggregate.test.ts` × 1) unchanged.
 
 ### Out-of-scope
+
 - Push / tag / npm publish — full-auto mode boundary = commit only; user-only.
 - Re-implementing peaks-companion CLI — user chose delete over revive.
 - Cleaning `~/.peaks/companion/` empty dir — left in place; harmless.
@@ -1412,14 +1485,17 @@ slice-2026-06-28-layered-dag PRD: 大需求(1 周内做不完)= 基础先行 + �
 **PATCH bump from 2.14.0** (carry-forward from v2.13.3 AC-2 partial fix + npm 11.x config rename).
 
 ### Bug fixes
+
 - `scripts/prepublish-build.mjs` — use `execFileSync('pnpm', ['run', 'build'])` (no shell) with Windows fallback to `prepublish-build.ps1` (proven dogfood). Eliminates the v2.13.4 partial-fix `spawnSync cmd.exe ENOENT` on Node 22 + Windows native.
 - `.npmrc` (NEW, repo-local template) — documents that `https_proxy` (underscore) is NO LONGER VALID in npm 11.x; use `https-proxy` or `proxy`. User-global `~/.npmrc` may still have `https_proxy`; npm 11.x warns, npm 12 will error.
 
 ### Test results
+
 - `tests/unit/scripts/prepublish-build.test.ts` (NEW, 6 cases) — covers execFile happy path + Windows ps1 fallback + error propagation + version validation + ENOENT regression
 - `node scripts/prepublish-build.mjs` end-to-end: `[prepublish-build] build OK` exit 0 (verified on this Windows session)
 
 ### Out-of-scope
+
 - Do NOT modify user-global `~/.npmrc` (user-only boundary); user must run `npm config delete https_proxy` themselves if they want to silence the warning before npm 12.
 
 ---
@@ -1540,7 +1616,7 @@ The four defects all stem from the v2.13.0 two-axis convention landing debt: the
 
 **PATCH bump from 2.13.2** (slice `2026-06-27-verdict-aggregator-v2-12-debt`, red-line scope 7 source files + 3 test files modified + 3 new scripts + 1 package.json hook).
 
-2.13.2 dogfood surfaced 4 bugs that all stem from v2.12.0 envelope-schema落地 debt: the v2.12.0 audit artifacts (`audit/security.md`, `audit/perf.md`) are YAML-frontmatter + markdown, but v2.13.2's `parseSecurityEnvelope` / `parsePerfEnvelope` used `JSON.parse` (which is the wrong shape). v2.13.3 also fixes a cross-version publish-pipeline issue (`bin/peaks.js` was shipping a Jun 13 stale dist because `prepublishOnly` was never wired) and adds a soft-block-warning surface in the CLI so users can see v2.13.2's `mut-report-missing-deprecated-in-v2.14.0` warning instead of having it silently downgraded in service-layer.
+2.13.2 dogfood surfaced 4 bugs that all stem from v2.12.0 envelope-schema 落地 debt: the v2.12.0 audit artifacts (`audit/security.md`, `audit/perf.md`) are YAML-frontmatter + markdown, but v2.13.2's `parseSecurityEnvelope` / `parsePerfEnvelope` used `JSON.parse` (which is the wrong shape). v2.13.3 also fixes a cross-version publish-pipeline issue (`bin/peaks.js` was shipping a Jun 13 stale dist because `prepublishOnly` was never wired) and adds a soft-block-warning surface in the CLI so users can see v2.13.2's `mut-report-missing-deprecated-in-v2.14.0` warning instead of having it silently downgraded in service-layer.
 
 ### Bug fixes
 
@@ -1576,9 +1652,9 @@ The four defects all stem from the v2.13.0 two-axis convention landing debt: the
 
 ### Multi-CC commit boundaries
 
-| Commit tag | Scope |
-|---|---|
-| v2.13.3 | 4 bug fixes (parser / publish pipeline / CLI warnings / handoff sha256) + 3 new scripts + 4 new test cases + package.json prepublishOnly + README publish note + CHANGELOG + version bump + ship-state memory |
+| Commit tag | Scope                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.13.3    | 4 bug fixes (parser / publish pipeline / CLI warnings / handoff sha256) + 3 new scripts + 4 new test cases + package.json prepublishOnly + README publish note + CHANGELOG + version bump + ship-state memory |
 
 ### Verified (peaks code dogfood + QA on this session)
 
@@ -1654,9 +1730,9 @@ v2.13.1 shipped with a BLOCKER bug found via post-release dogfood: `aggregateVer
 
 ### Multi-CC commit boundaries
 
-| Commit tag | Scope |
-|---|---|
-| v2.13.2 | `aggregateVerdict()` dedup bug fix + `peaks verdict aggregate` CLI + `envelopes.ts` unification + `prd/handoff.md` auto-regen + `MUT_REPORT` soft-block window + 4 new test files + 4 updated test files + CHANGELOG + version bump + ship-state memory |
+| Commit tag | Scope                                                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.13.2    | `aggregateVerdict()` dedup bug fix + `peaks verdict aggregate` CLI + `envelopes.ts` unification + `prd/handoff.md` auto-regen + `MUT_REPORT` soft-block window + 4 new test files + 4 updated test files + CHANGELOG + version bump + ship-state memory |
 
 ### Verified (peaks code dogfood + QA on this session)
 
@@ -1718,9 +1794,9 @@ peaks-code previously received 5 heterogeneous signals (security-audit, perf-aud
 
 ### Multi-CC commit boundaries
 
-| Commit tag | Scope |
-|---|---|
-| v2.13.1 | MUT_REPORT prereq + `aggregateVerdict()` service + `## Verdict reasoning` section + 4 new test files + 2 updated test files + CHANGELOG + version bump + ship-state memory |
+| Commit tag | Scope                                                                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v2.13.1    | MUT_REPORT prereq + `aggregateVerdict()` service + `## Verdict reasoning` section + 4 new test files + 2 updated test files + CHANGELOG + version bump + ship-state memory |
 
 ### Verified (peaks code dogfood on this session)
 
@@ -1784,10 +1860,10 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 
 ### Multi-CC commit boundaries
 
-| Commit tag | Scope |
-|---|---|
+| Commit tag                  | Scope                                                                                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v2.13.0-alpha.1 (`edffc33`) | Two-tier threshold + auto-compact types + reader + dispatcher + orchestrator + Claude Code MVP adapter + `peaks code context-now` + `peaks code auto-compact` CLI |
-| `a8b9804` | In-session dogfood limitation documented (current ad-hoc Claude Code session cannot be externally compacted — reserved for follow-up PreToolUse-hook slice) |
+| `a8b9804`                   | In-session dogfood limitation documented (current ad-hoc Claude Code session cannot be externally compacted — reserved for follow-up PreToolUse-hook slice)       |
 
 ### Verified (peaks code dogfood on this session)
 
@@ -1798,7 +1874,7 @@ Adapter-driven protocol (no hard-coded IDE names): `IdeAdapter.compact?: IdeComp
 - `post-compact-detect` after pre-compact: `shouldAutoResume: true`, `reason: post-compact-match` ✓
 - Trae IDE (no `compact` profile): `ratio: 0` + `source: conservative-fallback` + `below-threshold` (no auto-fire on missing signal — by design) ✓
 - `pnpm tsc --noEmit`: clean
-- `pnpm vitest run` (full suite): `4317 / 4317` pass + 17 skipped (2 pre-existing baseline failures on session-checkpoint + _archive-removal-guard unchanged)
+- `pnpm vitest run` (full suite): `4317 / 4317` pass + 17 skipped (2 pre-existing baseline failures on session-checkpoint + \_archive-removal-guard unchanged)
 
 ### Out-of-scope (NOT changed)
 
@@ -1855,17 +1931,17 @@ v2.13.0 hard-deletes the legacy paths.
 
 ### Multi-CC commit boundaries
 
-| Group | Tiers | Commit tag | Scope |
-|---|---|---|---|
-| A | 1+2+3 | v2.12.0-alpha.1 | Templates + new skills (fa082f5) |
-| B | 4+5 | v2.12.0-alpha.2 | 5→3 fanout collapse + prereq migration (6485f1c) |
-| C | 6 | v2.12.0-alpha.3 | peaks-txt sediment extension (ab2757b) |
-| D | 7 | v2.12.0-alpha.4 | fan-out SKILL.md updates (b6c4fae) |
-| E | 8+9 | v2.12.0 (release) | Decision records + migration + CHANGELOG + version bump (this commit) |
+| Group | Tiers | Commit tag        | Scope                                                                 |
+| ----- | ----- | ----------------- | --------------------------------------------------------------------- |
+| A     | 1+2+3 | v2.12.0-alpha.1   | Templates + new skills (fa082f5)                                      |
+| B     | 4+5   | v2.12.0-alpha.2   | 5→3 fanout collapse + prereq migration (6485f1c)                      |
+| C     | 6     | v2.12.0-alpha.3   | peaks-txt sediment extension (ab2757b)                                |
+| D     | 7     | v2.12.0-alpha.4   | fan-out SKILL.md updates (b6c4fae)                                    |
+| E     | 8+9   | v2.12.0 (release) | Decision records + migration + CHANGELOG + version bump (this commit) |
 
 ### Zero regression (verified per group)
 
-Each Group A→D ran the full RD→QA loop independently. Group C final QA: 14/14 sediment tests pass + 39/39 prd service tests pass; 9 pre-existing baseline failures unchanged (doctor / _archive-removal-guard / request-commands / observability / session-checkpoint / tech-service / workflow-autonomous-resume / jsonl-store / 35-checks-aggregate — all unrelated to v2.12.0). Group D final QA: 35/35 fan-out SKILL.md contract tests pass; same 9 pre-existing baseline failures.
+Each Group A→D ran the full RD→QA loop independently. Group C final QA: 14/14 sediment tests pass + 39/39 prd service tests pass; 9 pre-existing baseline failures unchanged (doctor / \_archive-removal-guard / request-commands / observability / session-checkpoint / tech-service / workflow-autonomous-resume / jsonl-store / 35-checks-aggregate — all unrelated to v2.12.0). Group D final QA: 35/35 fan-out SKILL.md contract tests pass; same 9 pre-existing baseline failures.
 
 ### Out-of-scope (NOT changed)
 
@@ -2046,6 +2122,7 @@ LLM was creating top-level `.peaks/_runtime/<change-id>/` siblings of `.peaks/_r
 - Bumps `package.json#version` from 2.9.1 to 2.9.2
 
 **Pre-existing violations preserved as-is** (intentional historical/forbidden documentation, all explicitly labeled):
+
 - 6 ban-explanation memory files under `.peaks/memory/` (slice 005 / 2.8.3 / 2.7.1 lessons)
 - 28 historic session files under `.peaks/_runtime/2026-06-*/`
 - 5 historic dispatch records under `.peaks/_sub_agents/`
@@ -2142,37 +2219,37 @@ the four-step recipe; no data is lost.
   final root-out of a 2.8.0-era orphan (`.peaks/2026-06-22-cc-connect-orphan-cleanup/`,
   4 files, 28 KB, untracked) and pins the rule across FOUR layers so a
   regression cannot survive:
-    1. **`.gitignore` fnmatch rule** —
-       `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks any
-       future untracked date-prefix sibling at `.peaks/_runtime/<seg>/`. Path-anchored
-       so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
-       by the existing `.peaks/_runtime/` rule, not this one).
-    2. **Vitest guard** at
-       `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases)
-       pins the gitignore rule literal, asserts fnmatch matches a synthetic
-       candidate, asserts it does NOT match `.peaks/_runtime/-nested`
-       candidates, scans the live working tree for orphan date-prefix
-       siblings, scans `git ls-files` for tracked escapes, asserts both
-       `CLAUDE.md` and `.peaks/PROJECT.md` carry the ban wording, AND
-       asserts the CLI help text (`init-command.ts`) teaches the
-       `.peaks/_runtime/current-change` binding path + the four
-       migration verbs (inspect / move / delete / unlink / re-run).
-    3. **Source-code redirect** —
-       `src/shared/change-id.ts#setCurrentChangeId` now defaults to
-       `{ form: 'file' }` (was `'symlink'`); the file form writes ONLY
-       `.peaks/_runtime/current-change` and never creates
-       `.peaks/_runtime/<changeId>/`. The legacy `'symlink'` form is kept for
-       back-compat reads but is no longer written by `peaks workspace init`.
-       `src/services/workspace/workspace-service.ts#initWorkspace`
-       pre-flights the existence of `.peaks/_runtime/<changeId>/` and throws
-       `LegacyChangeIdSiblingError` if found.
-    4. **CLI help-text guard** — `src/cli/commands/workspace/init-command.ts`
-       rewrites the `init` command description and `--change-id` option
-       description so an LLM reading `peaks workspace init --help` is
-       taught the correct path (`.peaks/_runtime/current-change`) instead
-       of the legacy `.peaks/_runtime/<change-id>/` sibling dir. A new catch block
-       surfaces `LegacyChangeIdSiblingError` with the 4-step migration
-       recipe in the JSON envelope.
+  1. **`.gitignore` fnmatch rule** —
+     `.peaks/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*/` blocks any
+     future untracked date-prefix sibling at `.peaks/_runtime/<seg>/`. Path-anchored
+     so it does not over-match (`.peaks/_runtime/<date>/` is still ignored
+     by the existing `.peaks/_runtime/` rule, not this one).
+  2. **Vitest guard** at
+     `tests/unit/workspace/top-level-change-id-guard.test.ts` (8 cases)
+     pins the gitignore rule literal, asserts fnmatch matches a synthetic
+     candidate, asserts it does NOT match `.peaks/_runtime/-nested`
+     candidates, scans the live working tree for orphan date-prefix
+     siblings, scans `git ls-files` for tracked escapes, asserts both
+     `CLAUDE.md` and `.peaks/PROJECT.md` carry the ban wording, AND
+     asserts the CLI help text (`init-command.ts`) teaches the
+     `.peaks/_runtime/current-change` binding path + the four
+     migration verbs (inspect / move / delete / unlink / re-run).
+  3. **Source-code redirect** —
+     `src/shared/change-id.ts#setCurrentChangeId` now defaults to
+     `{ form: 'file' }` (was `'symlink'`); the file form writes ONLY
+     `.peaks/_runtime/current-change` and never creates
+     `.peaks/_runtime/<changeId>/`. The legacy `'symlink'` form is kept for
+     back-compat reads but is no longer written by `peaks workspace init`.
+     `src/services/workspace/workspace-service.ts#initWorkspace`
+     pre-flights the existence of `.peaks/_runtime/<changeId>/` and throws
+     `LegacyChangeIdSiblingError` if found.
+  4. **CLI help-text guard** — `src/cli/commands/workspace/init-command.ts`
+     rewrites the `init` command description and `--change-id` option
+     description so an LLM reading `peaks workspace init --help` is
+     taught the correct path (`.peaks/_runtime/current-change`) instead
+     of the legacy `.peaks/_runtime/<change-id>/` sibling dir. A new catch block
+     surfaces `LegacyChangeIdSiblingError` with the 4-step migration
+     recipe in the JSON envelope.
 - **`CLI_VERSION`** sync bumped 2.8.2 → 2.8.3 (regenerated via
   `scripts/sync-version.mjs` from `package.json#version`).
 
@@ -2298,7 +2375,7 @@ are unchanged by this release), `pnpm build` clean.
   `src/services/companion/*` module + `src/cli/commands/companion.ts`
   CLI + 14 `tests/unit/companion/*` test files are removed
   (~7,700 lines deleted, 0 added). The `peaks companion install|setup|
-  start|stop|bind|status|restart|verify|token|qr` command tree is gone
+start|stop|bind|status|restart|verify|token|qr` command tree is gone
   along with the `peaks scan companion-binary` sub-command and the
   `capability:companion-binary-resolution` doctor check. Companion
   types (`CompanionConfig`, `CompanionWeixinConfig`, `CompanionChannel`,
@@ -2326,7 +2403,7 @@ are unchanged by this release), `pnpm build` clean.
 - **`@alibaba-group/open-code-review` is now a peer dependency** —
   moved from `optionalDependencies` to `peerDependencies` with
   `peerDependenciesMeta."@alibaba-group/open-code-review".optional =
-  true`. The peer hint lets npm skip the optional resolution entirely
+true`. The peer hint lets npm skip the optional resolution entirely
   during global install; users who want second-opinion reviews via
   `peaks code-review run-ocr` install it manually with
   `npm i -g @alibaba-group/open-code-review`. Install hint copy in
@@ -2358,8 +2435,8 @@ are unchanged by this release), `pnpm build` clean.
 - **Defense-in-depth comment cites H6 verbatim (Plan 5 R1-W3 MED)** —
   `src/services/rd/impl.ts` defense-in-depth check now cites spec H6
   (CLI 计算裁决) directly. The accompanying `docs/superpowers/specs/
-  2026-06-21-context-audit-redesign-design.md` gained a new §4.3
-  *战术审计* subsection that consolidates §3.2 / §3.3 / H6 / H8 / Phase 3
+2026-06-21-context-audit-redesign-design.md` gained a new §4.3
+  _战术审计_ subsection that consolidates §3.2 / §3.3 / H6 / H8 / Phase 3
   AC-2 into a single canonical anchor (previous code references to
   `§4.2` updated to `§4.3`).
 
@@ -2376,7 +2453,7 @@ are unchanged by this release), `pnpm build` clean.
   is in the test name, not just the body.
 
 - **Atomic-write crash test (Plan 5 R1-W5 LOW)** — new test
-  *unlinks .tmp when rename throws* pins the catch→unlink fallback in
+  _unlinks .tmp when rename throws_ pins the catch→unlink fallback in
   `writeImpl` (EISDIR-triggered real-rename failure). Mutation probe
   KILLED: commenting out the unlink makes the test fail at the
   `existsSync(tmp)` assertion.
@@ -2478,7 +2555,7 @@ are unchanged by this release), `pnpm build` clean.
   `C:\Users\name\.trae\agents` and a Mac user gets
   `/Users/name/.trae/agents`. No hardcoded `/Users/...` or `C:\...` in
   any 5-IDE `awaitBatch` path. The 4 new IDE paths (`trae / trae-cn /
-  codex / cursor`) follow the same discipline.
+codex / cursor`) follow the same discipline.
 - **`runDag` cancel-on-fail correctness (slice 1.2.c)** — when any leaf
   fails, in-flight sub-agents in the same batch receive a cancel signal
   at the envelope level; the orchestrator no longer waits for them to
@@ -2569,11 +2646,11 @@ are unchanged by this release), `pnpm build` clean.
   4. `scanExportsInFile` now matches `export default function name()`
      and `export default class Name`; `importedNameCount` now treats
      re-exports (`export { x } from './y'`, `export type { T } from
-     './y'`) as consumer references.
-  Bonus: `OrphanScanOptions.baseRef` lets the scan diff against an
-  arbitrary git ref (default: `HEAD`) for branch-vs-main reviews.
+   './y'`) as consumer references.
+     Bonus: `OrphanScanOptions.baseRef` lets the scan diff against an
+     arbitrary git ref (default: `HEAD`) for branch-vs-main reviews.
 - **karpathy-service code-fence skip (Slice 2.6.1.B)** — `peaks scan
-  karpathy` no longer flags anti-pattern phrases (TODO, "should be
+karpathy` no longer flags anti-pattern phrases (TODO, "should be
   fine", "maybe", "probably") when they appear inside fenced markdown
   code blocks. Illustrative code snippets were eroding trust in the
   structural scanner. The 4 guideline-marker tests
@@ -2596,7 +2673,7 @@ are unchanged by this release), `pnpm build` clean.
   byte-identical.
 - **KARPATHY_REVIEW heading-anchored gate (Slice 2.6.1.F)** — the L3
   LOW (the 4 guideline `mustContain` substring markers could be
-  spoofed by any file that just *mentioned* the marker names as
+  spoofed by any file that just _mentioned_ the marker names as
   prose) is fixed by a new `headingMustContain: string[]` field on
   `ArtifactPrerequisite`. `KARPATHY_REVIEW` now requires each of
   the 4 guidelines to appear as an actual markdown heading
@@ -2613,8 +2690,7 @@ are unchanged by this release), `pnpm build` clean.
 
 - **L2-install dogfood verification (Slice 2.6.1.D)** — confirmed
   end-to-end on a temp HOME that the 2.6.0 tarball's `postinstall`
-  creates `~/.claude/agents/karpathy-reviewer.md` (15.4 KB, mode
-  0600) and the matching `.peaks-managed` marker (245 bytes, JSON
+  creates `~/.claude/agents/karpathy-reviewer.md` (15.4 KB, mode 0600) and the matching `.peaks-managed` marker (245 bytes, JSON
   with `version`, `kind`, `agentName`, `sourcePath`, `contentSha256`).
   The 8-platform skill fan-out also confirmed (codex, cursor, trae,
   trae-cn, qoder, tongyi-lingma, hermes, openclaw). After Slice E,
@@ -2644,7 +2720,7 @@ are unchanged by this release), `pnpm build` clean.
   title-case section markers (Think Before Coding / Simplicity First /
   Surgical Changes / Goal-Driven Execution). CLI error code
   `PREREQUISITES_MISSING`. Escape hatch: `peaks request transition
-  --allow-incomplete --confirm` (assisted mode).
+--allow-incomplete --confirm` (assisted mode).
 - **Karpathy prompt-injection across the full RD surface** (slice 1) —
   4-layer guard: SKILL.md body + 3 reference docs
   (`mandatory-tech-doc.md`, `rd-fanout-contracts.md`,
@@ -2666,7 +2742,7 @@ are unchanged by this release), `pnpm build` clean.
   endpoints / components / stores / mocks in the consumer project
   before any new code is written. `--project --format --scope --max-per-kind`
   options; output feeds the tech-doc's `## Existing API or Component
-  Inventory` section. New service
+Inventory` section. New service
   `src/services/scan/api-surface-service.ts` (~280 lines).
 - **`peaks scan orphan` CLI** (slice 4) — 4-kind orphan detection
   (exportOrphan / importOrphan / cliSubcommandOrphan /
@@ -2783,8 +2859,8 @@ are unchanged by this release), `pnpm build` clean.
   `references/checkpoint-resume.md` + `references/periodic-checkpoint.md`, but
   SKILL.md body only mentioned them in a single line. New Claude Code sessions
   that load SKILL.md never learned the optimization existed. `### Peaks-Loop
-  Step 0.75: Resume from checkpoint` and `### Peaks-Loop Step N: Periodic
-  checkpoint` headings are now in the body (≥ 5 lines each), with explicit
+Step 0.75: Resume from checkpoint` and `### Peaks-Loop Step N: Periodic
+checkpoint` headings are now in the body (≥ 5 lines each), with explicit
   `peaks session checkpoint` / `peaks session resume` CLI mentions and
   reference-doc pointers. Byte cap bumped 22K → 24K (precedent: 18K → 20K → 22K).
 - **`peaks test <pattern...>` CLI with smart cache** (sub-fix B) — new CLI
@@ -2893,7 +2969,7 @@ are unchanged by this release), `pnpm build` clean.
   (~/.claude/skills + ~/.claude/output-styles)" and writes to
   `~/.claude/skills/`.
 - Byte-stability: `git diff
-  src/services/ide/adapters/{claude-code,trae}-adapter.ts` returns
+src/services/ide/adapters/{claude-code,trae}-adapter.ts` returns
   empty (AC8 / AC15 ✓). Dispatch chokepoints `resource-profile.ts` /
   `ide-aware-standards-service.ts` / `install-skills.mjs` untouched
   (R6 inverse rule ✓).
@@ -2988,6 +3064,7 @@ are unchanged by this release), `pnpm build` clean.
   registered SOP gate.
 
   Concrete changes:
+
   - `src/services/workspace/claude-settings-template.ts` — deleted
     `PEAKS_SUBCOMMAND_ALLOWLIST`, `buildBashHookCommand()`. The
     template now emits only the `Write|Edit|MultiEdit` matcher.
@@ -3040,11 +3117,12 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
 - **`headroom-ai` preferences resolver** — `src/services/context/headroom-prefs.ts` with
   `resolveHeadroomOptions` and `shouldCompressResults` (pure functions, no IO). Sub-agent
   dispatch now reads `loadPreferences().headroom` and:
-    - Hard-blocks `--use-headroom` when `headroom.enabled = false` (new error code
-      `HEADROOM_DISABLED_BY_PREFERENCE`, exit 1).
-    - Respects `--headroom-mode <m>` CLI override > `perTouchpoint.subAgentDispatch` >
-      `defaultMode` precedence.
-    - Falls back to G7 metadata-only on any preferences load failure (no dispatch break).
+
+  - Hard-blocks `--use-headroom` when `headroom.enabled = false` (new error code
+    `HEADROOM_DISABLED_BY_PREFERENCE`, exit 1).
+  - Respects `--headroom-mode <m>` CLI override > `perTouchpoint.subAgentDispatch` >
+    `defaultMode` precedence.
+  - Falls back to G7 metadata-only on any preferences load failure (no dispatch break).
 
 - **New preferences fields** — `headroom.perTouchpoint.subAgentDispatch` and
   `headroom.compressMinBytes` (default 4096). Shallow-merge on existing
@@ -3174,7 +3252,7 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
 
 - The "one rid = one feature" pattern. From 2.1.1 onward, the
   recommended workflow is: PRD -> `peaks slice decompose` -> `peaks
-  slice pick` (interactive) -> `peaks slice plan` -> N child rids.
+slice pick` (interactive) -> `peaks slice plan` -> N child rids.
   Legacy `--type`-based fan-out still works as a fallback for rids
   that pre-date the algorithm.
 
@@ -3252,10 +3330,10 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
     (canonical home: proxy-service.ts).
   - `~/.peaks/workspaces.json` — registered workspaces + current-workspace
     pointer (canonical home: workspace-state-service.ts).
-  On-disk legacy bloat is auto-detected and promoted to the correct
-  sidecar on next CLI invocation; the slim `config.json` is then
-  rewritten. The migration is **idempotent and silent** — no user
-  action required.
+    On-disk legacy bloat is auto-detected and promoted to the correct
+    sidecar on next CLI invocation; the slim `config.json` is then
+    rewritten. The migration is **idempotent and silent** — no user
+    action required.
 - **`peaks config migrate --apply` distributes legacy fields across
   their canonical homes.** `economyMode` / `swarmMode` continue to
   forward to `<project>/.peaks/preferences.json`; `providers` /
@@ -3274,9 +3352,9 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
 
 - **New `src/services/config/sidecar-store.ts`** — path helpers
   (`providersConfigPath()`, `proxyConfigPath()`, `workspacesConfigPath()`)
-  + generic `readSidecarJson<T>` / `writeSidecarJson` with the same
-  hardened-fs guarantees as `config-safety.ts` (symlink / hardlink
-  guards, atomic temp-file rename, 0o600 mode).
+  - generic `readSidecarJson<T>` / `writeSidecarJson` with the same
+    hardened-fs guarantees as `config-safety.ts` (symlink / hardlink
+    guards, atomic temp-file rename, 0o600 mode).
 - **New `src/services/config/provider-service.ts`** —
   `getMiniMaxProviderConfig()`, `setMiniMaxProviderConfig()`,
   `getMiniMaxProviderStatus()`, `getAllProviders()`,
@@ -3395,10 +3473,10 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
      call; a missing or anonymous caller-id is rejected.
   3. **Mandatory `--reason`** — the CLI rejects `--reason ""`; the
      reason is persisted into the slice record for the retrospective.
-  Three rules, not one: each rule is independently fail-closed, so a
-  misuse in any one of them blocks the bypass. The classifier is the
-  pure function `canSkipSlice(slice, callerId, reason)` so the rule
-  set is testable in isolation.
+     Three rules, not one: each rule is independently fail-closed, so a
+     misuse in any one of them blocks the bypass. The classifier is the
+     pure function `canSkipSlice(slice, callerId, reason)` so the rule
+     set is testable in isolation.
 - **`peaks workflow verify-pipeline --gate-skipped`** — reporting
   flag that surfaces slices that completed via the skip classifier
   during a pipeline run. The default `verify-pipeline` output hides
@@ -3435,27 +3513,29 @@ Full suite: **2957 passed, 12 skipped, 0 failed**.
   bash saw literal `const c=process.argv[1]...` and tripped
   `syntax error near unexpected token`. Net effect on every 2.0.3
   install on Windows + macOS + Linux:
+
   - Every Bash tool call (peaks CLI or otherwise) was rejected.
   - Every Write / Edit / MultiEdit call was rejected.
   - The [Fact-Forcing Gate] bypass that `peaks workspace init` was
     supposed to install was therefore self-defeating — the bypass
     broke the gate itself, and the gate could not be reached to fix
     it.
-  Recovery required the user to delete `.claude/settings.local.json`
-  manually (losing the bypass permanently) or hand-patch the
-  `command` field (drift vs the template).
-  The fix wraps both builders' JS payloads in a real shell-evaluable
-  `node -e "<js>"` form via a new `wrapAsNodeOneLiner` helper in
-  `src/services/workspace/claude-settings-template.ts`. Inner `"`
-  are escaped to `\"`; backslashes pass through unchanged so regex
-  literals like `/\.peaks\//` still match correctly. `process.argv[1]`
-  is the correct slot under `-e` per Node.js docs
-  (https://nodejs.org/api/process.html#processargv) — consistent
-  across Windows, macOS, and Linux. The docstring is reconciled
-  with the implementation (the previous docstring incorrectly said
-  `argv[2]`).
+    Recovery required the user to delete `.claude/settings.local.json`
+    manually (losing the bypass permanently) or hand-patch the
+    `command` field (drift vs the template).
+    The fix wraps both builders' JS payloads in a real shell-evaluable
+    `node -e "<js>"` form via a new `wrapAsNodeOneLiner` helper in
+    `src/services/workspace/claude-settings-template.ts`. Inner `"`
+    are escaped to `\"`; backslashes pass through unchanged so regex
+    literals like `/\.peaks\//` still match correctly. `process.argv[1]`
+    is the correct slot under `-e` per Node.js docs
+    (https://nodejs.org/api/process.html#processargv) — consistent
+    across Windows, macOS, and Linux. The docstring is reconciled
+    with the implementation (the previous docstring incorrectly said
+    `argv[2]`).
 
   Regression tests cover:
+
   - `buildBashHookCommand()` and `buildWriteHookCommand()` return
     `node -e "..."` form.
   - Inner `"` are escaped to `\"`.
@@ -3570,6 +3650,7 @@ config surface.
   > `optionalDependencies`; everything else in this section
   > (env-var injection, `config-template` CLI, `missingKeys`,
   > source-of-truth under `peaksConfig.ocr.llm`) is unchanged.
+
 - **`detectOcr` / `runOcrReview` no longer read `~/.opencodereview/config.json`.**
   The source of truth is `peaksConfig.ocr.llm` (parsed by
   `getOcrLlmConfig()` in `config-service.ts`). Missing fields surface
@@ -3631,7 +3712,7 @@ subprocess ignores it when peaks-loop's env vars are present).
   supported IDE platforms in one command.
 
 - **`peaks audit red-lines`** — L2 catalog audit (P0/P1/P2-a/P2-b
-  enforcers) for skills/SKILL.md, references/*.md, and the agent shield.
+  enforcers) for skills/SKILL.md, references/\*.md, and the agent shield.
 
 - **`peaks agent run`** — ECC 64 agents soft-optional integration
   (spec §7.2). When the L3 stack is installed, peaks delegates to it;
@@ -3666,6 +3747,7 @@ subprocess ignores it when peaks-loop's env vars are present).
   expands globs on disk before spawning.
 
 - **(2026-06-12) Three bugs surfaced by real-world ice-cola dogfood:**
+
   - memory-extract was called without `--apply` → always dry-ran, never
     actually wrote.
   - `.claude/skills/**/SKILL.md` (the standard Claude-Code consumer
@@ -3789,7 +3871,7 @@ call-to-action text differ.
   Chinese tagline: `peaks-loop: 跨 AI IDE 的工程门禁与编排`).
 - `README-en.md` synced to mirror the new layout (typing animation
   uses the English tagline: `peaks-loop: cross-AI-IDE engineering
-  gates & orchestration`).
+gates & orchestration`).
 - Card anchors renamed to ASCII-friendly slugs on the English file
   (`30-seconds-to-running`, `5-minute-onboarding`, `11-skills-in-the-family`,
   `killer-feature-un-bypassable-gates`) so the README renders

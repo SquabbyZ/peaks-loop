@@ -7,13 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "node_modules",
-    ".peaks",
-    "dist",
-    "coverage",
-    "examples/video-demo/preview",
-    "examples/video-demo/out",
-    "examples/video-demo/node_modules"
-  ]
+  "ignore": []
 }
