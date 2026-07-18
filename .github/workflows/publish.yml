@@ -26,6 +26,7 @@ name: publish
 
 on:
   push:
+    branches: [main]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
