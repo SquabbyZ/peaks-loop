@@ -6,7 +6,7 @@
  * output" chrome.
  *
  * Background: `bin/peaks.js` is a thin shim that imports the compiled
- * `dist/src/cli/index.js`. When the local peaks-loop source is updated
+ * `dist/cli/index.js`. When the local peaks-loop source is updated
  * but `pnpm build` is not re-run (or `npm install -g .` not re-run
  * after a version bump), Claude Code's hook fires the OLD compiled
  * gate-commands code, which still uses the pre-PRD#2 path. The unit
@@ -28,7 +28,7 @@ const PROJECT_ROOT = resolve(__dirname, '..', '..');
 const DIST_GATE_COMMANDS = join(PROJECT_ROOT, 'dist', 'cli', 'commands', 'gate-commands.js');
 
 describe('PRD#8: built gate-commands binary matches the source fix', () => {
-  test('dist/src/cli/commands/gate-commands.js exists and contains emitBlock (the deny-path helper)', () => {
+  test('dist/cli/commands/gate-commands.js exists and contains emitBlock (the deny-path helper)', () => {
     if (!existsSync(DIST_GATE_COMMANDS)) {
       throw new Error(
         `Built gate-commands.js missing at ${DIST_GATE_COMMANDS}. ` +
@@ -49,7 +49,7 @@ describe('PRD#8: built gate-commands binary matches the source fix', () => {
     ).toBeGreaterThan(0);
   });
 
-  test('dist/src/cli/commands/hook-handle.js exists and contains emitHint / emitBlock (PRD#3 hook governance)', () => {
+  test('dist/cli/commands/hook-handle.js exists and contains emitHint / emitBlock (PRD#3 hook governance)', () => {
     // Sanity-check the broader hook-governance surface so a stale dist on
     // hook-handle.js also fails loudly.
     const hookHandle = join(PROJECT_ROOT, 'dist', 'cli', 'commands', 'hook-handle.js');

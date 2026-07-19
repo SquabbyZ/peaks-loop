@@ -78,8 +78,13 @@ jobs:
       # Typecheck is now performed as part of `pnpm run build` (the root
       # tsc -p tsconfig.build.json step, gated by subpackage dist presence).
 
-      - name: Vitest
-        run: pnpm exec vitest run --reporter=default
+      - name: Vitest (unit only — integration suite is exercised by tests/manual)
+        # Rationale: the publish pipeline must stay green even when a slow
+        # integration test flakes. Integration tests (tests/integration/**)
+        # spawn real child processes and need a hand-tuned sandbox; they
+        # are out of scope for release-time smoke. Run the full suite
+        # locally with `pnpm run test:full` or in the `tests` workflow on PR.
+        run: pnpm exec vitest run --reporter=default tests/unit
         env:
           TZ: UTC
 

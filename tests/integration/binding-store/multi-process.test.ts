@@ -6,7 +6,7 @@
  *
  * Why this lives under tests/integration and not tests/unit:
  *   - it spawns real child processes (child_process.spawn)
- *   - each child imports the BUILT `dist/src/services/session/binding-store.js`
+ *   - each child imports the BUILT `dist/services/session/binding-store.js`
  *     (not a TS source import) to mirror the production runtime path
  *   - it asserts on a shared on-disk binding file (the multi-process
  *     surface the unit tests cannot reach with their single-process

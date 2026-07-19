@@ -162,7 +162,7 @@ const DEFAULT_RUNNER: SubprocessRunner = {
  * present (peaks-loop was installed but its dependency tree is
  * corrupt, or the user removed it).
  *
- * Walks up from this file (dist/src/services/code-review/) to
+ * Walks up from this file (dist/services/code-review/) to
  * find the project root, then checks node_modules.
  */
 export function resolveOcrLauncher(searchRoots: readonly string[]): string | null {
@@ -184,8 +184,11 @@ export function resolveOcrLauncher(searchRoots: readonly string[]): string | nul
  * (2) the user's cwd.
  */
 export function defaultOcrSearchRoots(currentDirPath: string, cwd: string): readonly string[] {
-  // currentDirPath is dist/src/services/code-review/; walk up 4 to repo root.
-  const peaksRoot = join(currentDirPath, '..', '..', '..', '..');
+  // currentDirPath is dist/services/code-review/ under tsc rootDir=src;
+  // walk up 3 to repo root. If tsconfig.build.json#rootDir ever reverts
+  // to "." (emits dist/src/services/code-review/), this must become
+  // walk-4 — keep these two in lockstep.
+  const peaksRoot = join(currentDirPath, '..', '..', '..');
   return [peaksRoot, cwd];
 }
 

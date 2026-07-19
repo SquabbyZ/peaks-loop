@@ -364,11 +364,12 @@ export function runUpgrade(input: UpgradeInput): UpgradeResult {
   // a Unix-style environment that can run the shim directly.
   const here = dirname(fileURLToPath(import.meta.url));
   // Walk up from the compiled location to find bin/peaks.js.
-  // The compiled service lives at dist/src/services/upgrade/upgrade-service.js;
-  // bin/peaks.js is at the peaks-loop root.
+  // The compiled service lives at dist/services/upgrade/upgrade-service.js
+  // (rootDir=src in tsconfig.build.json trims the "src" segment); bin/peaks.js
+  // is at the peaks-loop root, 3 dirs up.
   const peaksBin =
     input.peaksBin ??
-    resolve(here, '..', '..', '..', '..', 'bin', 'peaks.js');
+    resolve(here, '..', '..', '..', 'bin', 'peaks.js');
   const fallbackPeaks = 'peaks';
   const resolvedPeaksBin = existsSync(peaksBin) ? peaksBin : fallbackPeaks;
 

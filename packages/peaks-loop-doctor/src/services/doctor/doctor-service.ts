@@ -436,7 +436,11 @@ function defaultDistVersionReader(projectRoot: string): string | null {
   // Synchronous read is fine: the dist version.js is small and on the
   // local build pipeline's hot path. readFileSync + regex is cheaper
   // than pulling in fs/promises for a single short file.
-  const distPath = join(projectRoot, 'dist', 'src', 'shared', 'version.js');
+  //
+  // Path layout: tsconfig.build.json#rootDir = "src" trims the "src"
+  // segment from emitted output, so the on-disk file lives at
+  // dist/shared/version.js (NOT dist/src/shared/version.js).
+  const distPath = join(projectRoot, 'dist', 'shared', 'version.js');
   if (!existsSync(distPath)) {
     return null;
   }
@@ -1031,6 +1035,10 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
   // mode reported in `.peaks/2026-06-05-session-fecddb/txt/dogfood-2026-06-04-05.md`
   // (F1). A missing dist/ is treated as informational (fresh clone, not broken)
   // so the check does not flip the summary to red on a clean checkout.
+  //
+  // IMPORTANT: emit paths must match `tsconfig.build.json#rootDir = "src"`,
+  // which trims the `src/` segment from the published output. Resulting
+  // emitted path is `dist/shared/version.js` (NOT `dist/src/shared/version.js`).
   const distProbe = options.distVersionProbe ?? (() => defaultDistVersionProbe(projectRootResolver));
   try {
     const result = distProbe();
@@ -1038,19 +1046,19 @@ export async function runDoctor(options: DoctorOptions = {}): Promise<DoctorRepo
       checks.push({
         id: 'build:dist-version-matches-source',
         ok: true,
-        message: `dist/ is not present; run \`pnpm build\` to populate dist/src/shared/version.js (source version ${result.source})`
+        message: `dist/ is not present; run \`pnpm build\` to populate dist/shared/version.js (source version ${result.source})`
       });
     } else if (result.match) {
       checks.push({
         id: 'build:dist-version-matches-source',
         ok: true,
-        message: `dist/src/shared/version.js ships CLI_VERSION ${result.dist} matching source ${result.source}`
+        message: `dist/shared/version.js ships CLI_VERSION ${result.dist} matching source ${result.source}`
       });
     } else {
       checks.push({
         id: 'build:dist-version-matches-source',
         ok: false,
-        message: `dist/src/shared/version.js ships CLI_VERSION ${result.dist} but source ${result.source} is in src/shared/version.ts; run \`pnpm build\` to refresh dist/`
+        message: `dist/shared/version.js ships CLI_VERSION ${result.dist} but source ${result.source} is in src/shared/version.ts; run \`pnpm build\` to refresh dist/`
       });
     }
   } catch (error) {

@@ -5,7 +5,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const CLI = join(process.cwd(), 'dist/src/cli/index.js');
+// Built CLI entry point. Path must stay in sync with tsconfig.build.json
+// (rootDir = "src" → tsc emits src/cli/index.ts → dist/cli/index.js, NOT
+// dist/src/cli/index.js). If rootDir is ever moved back to ".", update
+// this constant in lockstep.
+const CLI = join(process.cwd(), 'dist/cli/index.js');
 
 function peaks(args: string[], cwd: string, env: Record<string, string> = {}) {
   const r = spawnSync('node', [CLI, ...args, '--json'], {
