@@ -5,7 +5,8 @@
 #   - workflow_dispatch (manual from GitHub UI)
 #
 # Chain:
-#   install → typecheck → build → vitest → changesets version → changesets publish
+#   install → build (incl. subpackage builds + root tsc) → vitest
+#     → changesets version → changesets publish
 #
 # Permissions:
 #   - contents: read    (checkout code)
@@ -68,13 +69,14 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck (src only — tests skipped: pre-existing vitest-4
-          # Mock type errors are out of scope for this release;
-          # tests are checked at runtime via Vitest below)
-        run: pnpm exec tsc --noEmit --pretty false -p tsconfig.build.json
-
-      - name: Build
+      - name: Build (runs subpackage builds before root tsc — required so
+          # workspace:* deps provide dist/* .d.ts/.js exports for typecheck
+          # resolution against `tsconfig.build.json`; standalone tsc before
+          # this step will fail with "Cannot find module 'peaks-loop-shared/*'")
         run: pnpm run build
+
+      # Typecheck is now performed as part of `pnpm run build` (the root
+      # tsc -p tsconfig.build.json step, gated by subpackage dist presence).
 
       - name: Vitest
         run: pnpm exec vitest run --reporter=default
