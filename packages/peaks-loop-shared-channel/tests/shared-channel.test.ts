@@ -28,8 +28,8 @@ import {
   isOrphanChannel,
   readSharedChannel,
   writeSharedEntry
-} from '../../src/services/context/shared-channel.js';
-import { assertSafeSharedChannelPath, sharedChannelPath } from '../../src/services/context/dispatch-context-guard.js';
+} from '../src/shared-channel.js';
+import { assertSafeSharedChannelPath, sharedChannelPath } from '../src/dispatch-context-guard.js';
 
 let root: string;
 const SID = '2026-06-06-session-5b1095';

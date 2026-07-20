@@ -1,7 +1,7 @@
 import os from 'node:os';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ResourceSnapshot } from './job-types.js';
+import type { ResourceSnapshot } from './types.js';
 
 /**
  * Collects a coarse-grained snapshot of host + project resources.

@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { readSharedChannel, writeSharedEntry } from '../../src/services/context/shared-channel.js';
+import { readSharedChannel, writeSharedEntry } from 'peaks-loop-shared-channel';
 
 let root: string;
 const SID = '2026-06-06-session-5b1095';

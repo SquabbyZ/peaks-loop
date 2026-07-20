@@ -19,7 +19,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { assertSafeSharedChannelPath, sharedChannelPath } from './dispatch-context-guard.js';
-import { withFileLockSync } from '../filesystem/file-lock.js';
+import { withFileLockSync } from './file-lock.js';
 
 export interface SharedChannelEntry {
   // Slice 2026-06-23-audit-4th #E2: shape version marker so future

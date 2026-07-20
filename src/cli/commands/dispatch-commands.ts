@@ -36,7 +36,7 @@ import { writeInitialDispatchRecord } from '../../services/dispatch/dispatch-rec
 import { evaluatePromptSize } from '../../services/context/context-guard.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { buildArtifactMeta, buildContextImpact, type ArtifactMeta } from '../../services/context/artifact-meta.js';
-import { assertSafeArtifactPath } from '../../services/context/dispatch-context-guard.js';
+import { assertSafeArtifactPath } from 'peaks-loop-shared-channel';
 import { compressPrompt, type HeadroomResult } from '../../services/context/headroom-client.js';
 import { resolveHeadroomOptions } from '../../services/context/headroom-prefs.js';
 import { loadPreferences } from '../../services/preferences/preferences-service.js';

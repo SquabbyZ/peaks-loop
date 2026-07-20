@@ -19,7 +19,7 @@ import {
   readSharedChannel,
   writeSharedEntry,
   SHARED_CHANNEL_SOFT_VALUE_WARN
-} from '../../services/context/shared-channel.js';
+} from 'peaks-loop-shared-channel';
 import { writeLogEntry } from '../../services/log/logger.js';
 import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import {

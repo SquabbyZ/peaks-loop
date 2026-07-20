@@ -17,7 +17,7 @@ import {
   artifactPath,
   assertSafeArtifactPath,
   checkArtifactNameConvention
-} from '../../src/services/context/dispatch-context-guard.js';
+} from 'peaks-loop-shared-channel';
 
 let root: string;
 const SID = '2026-06-06-session-5b1095';

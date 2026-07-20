@@ -23,7 +23,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { withFileLockSync } from '../filesystem/file-lock.js';
+import { withFileLockSync } from 'peaks-loop-shared-channel';
 
 export const BATCH_LIMIT = 6;
 export const BATCH_OVER_LIMIT_CODE = 'BATCH_OVER_LIMIT';

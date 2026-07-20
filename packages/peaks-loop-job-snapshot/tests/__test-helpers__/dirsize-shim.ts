@@ -5,7 +5,7 @@
 // reaches it via that property. This keeps Object.keys of the module
 // free of "dirSizeMb" while still allowing AC-1/AC-2/AC-3/AC-6
 // unit tests to drive the function directly.
-import { collectResourceSnapshot } from '../../../src/services/job/job-resource-snapshot.js';
+import { collectResourceSnapshot } from '../../src/snapshot.js';
 export const dirSizeMb = (collectResourceSnapshot as unknown as {
   dirSizeMb: (dir: string, opts?: { maxEntries?: number }) => number;
 }).dirSizeMb;

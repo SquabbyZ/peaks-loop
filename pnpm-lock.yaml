@@ -38,12 +38,18 @@ importers:
       peaks-loop-final-review:
         specifier: workspace:*
         version: link:packages/peaks-loop-final-review
+      peaks-loop-job-snapshot:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-job-snapshot
       peaks-loop-mut:
         specifier: workspace:*
         version: link:packages/peaks-loop-mut
       peaks-loop-shared:
         specifier: workspace:*
         version: link:packages/peaks-loop-shared
+      peaks-loop-shared-channel:
+        specifier: workspace:*
+        version: link:packages/peaks-loop-shared-channel
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
@@ -122,6 +128,12 @@ importers:
         specifier: workspace:*
         version: link:../peaks-loop-shared
 
+  packages/peaks-loop-job-snapshot:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.10(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))(vite@6.4.3(@types/node@22.19.19)(tsx@4.22.0)(yaml@2.9.0))
+
   packages/peaks-loop-mut:
     dependencies:
       zod:
@@ -129,6 +141,12 @@ importers:
         version: 3.25.76
 
   packages/peaks-loop-shared: {}
+
+  packages/peaks-loop-shared-channel:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.10(@types/node@22.19.19)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))(vite@6.4.3(@types/node@22.19.19)(tsx@4.22.0)(yaml@2.9.0))
 
 packages:
 

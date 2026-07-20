@@ -8,9 +8,8 @@ import {
   rmSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { collectResourceSnapshot } from '../../../../src/services/job/job-resource-snapshot.js';
-import { dirSizeMb } from '../../__test-helpers__/dirsize-shim.js';
-import { ResourceSnapshotSchema } from '../../../../src/services/job/job-types.js';
+import { collectResourceSnapshot } from '../src/snapshot.js';
+import { dirSizeMb } from './__test-helpers__/dirsize-shim.js';
 
 // Single hoisted state shared by the `node:fs` and `node:os` vi.mock
 // factories below. `vi.hoisted` is required so the variable exists at
@@ -112,8 +111,6 @@ describe('collectResourceSnapshot', () => {
     expect(snap.diskMb).toBeGreaterThanOrEqual(0);
     expect(snap.contextRatio).toBeGreaterThanOrEqual(0);
     expect(snap.contextRatio).toBeLessThanOrEqual(1);
-    const r = ResourceSnapshotSchema.safeParse(snap);
-    expect(r.success).toBe(true);
   });
 
   it('capturedAt is ISO 8601', () => {

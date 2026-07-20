@@ -17,8 +17,7 @@ import {
   buildArtifactMeta,
   buildContextImpact
 } from '../../src/services/context/artifact-meta.js';
-import { artifactPath } from '../../src/services/context/dispatch-context-guard.js';
-import { readSharedChannel, writeSharedEntry } from '../../src/services/context/shared-channel.js';
+import { artifactPath, readSharedChannel, writeSharedEntry } from 'peaks-loop-shared-channel';
 
 let root: string;
 const SID = '2026-06-06-session-5b1095';

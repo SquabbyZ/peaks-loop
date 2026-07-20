@@ -28,7 +28,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { dirname, resolve } from 'node:path';
 import type { SubAgentToolCall } from './sub-agent-dispatcher.js';
 import { assertSafeDispatchRecordPath, dispatchRecordPath } from '../security/safe-settings-path.js';
-import { withFileLockSync } from '../filesystem/file-lock.js';
+import { withFileLockSync } from 'peaks-loop-shared-channel';
 
 /** G6.3 Heartbeat entry — single update written by a running sub-agent. */
 export interface Heartbeat {

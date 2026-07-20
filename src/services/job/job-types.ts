@@ -71,7 +71,7 @@ export const JobStatusSummarySchema = z.object({
 
 export type SliceState = z.infer<typeof SliceStateSchema>;
 export type JobState = z.infer<typeof JobStateSchema>;
-export type ResourceSnapshot = z.infer<typeof ResourceSnapshotSchema>;
+export type { ResourceSnapshot } from 'peaks-loop-job-snapshot/types';
 export type JobStatusSummary = z.infer<typeof JobStatusSummarySchema>;
 
 // ── Spec §4.1 CLI input schemas (used by M3) ─────────────────────────────

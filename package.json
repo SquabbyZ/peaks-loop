@@ -67,7 +67,7 @@
     "test:ci": "node ./scripts/sync-version.mjs && node ./scripts/lint/silent-warning-detector.mjs && vitest run --coverage",
     "test:changed": "node scripts/test-changed.mjs",
     "lint:silent-warning": "node ./scripts/lint/silent-warning-detector.mjs",
-    "test:race": "vitest run --no-file-parallelism tests/unit/g8-shared-channel.test.ts tests/unit/dispatch-record-writer.test.ts tests/unit/services/retrospective/heartbeat.test.ts tests/unit/cli/commands/share-commands.test.ts",
+    "test:race": "vitest run --no-file-parallelism packages/peaks-loop-shared-channel/tests/shared-channel.test.ts tests/unit/dispatch-record-writer.test.ts tests/unit/services/retrospective/heartbeat.test.ts tests/unit/cli/commands/share-commands.test.ts",
     "test:replay": "node scripts/fixture-capture-setup.mjs && vitest run tests/unit/replay tests/unit/fixture",
     "fixture:capture-setup": "node scripts/fixture-capture-setup.mjs",
     "test:coverage": "vitest run --coverage",
@@ -99,6 +99,8 @@
     "peaks-loop-doctor": "workspace:*",
     "peaks-loop-final-review": "workspace:*",
     "peaks-loop-mut": "workspace:*",
+    "peaks-loop-job-snapshot": "workspace:*",
+    "peaks-loop-shared-channel": "workspace:*",
     "peaks-loop-shared": "workspace:*",
     "yaml": "^2.9.0",
     "zod": "^3.25.76"
