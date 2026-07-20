@@ -101,12 +101,15 @@ export function evaluateCompactTrigger(ratio: number): CompactTrigger {
       message: `Context at ${(ratio * 100).toFixed(1)}% ≥ 95% red line. Synchronous compact REQUIRED (LLM cannot opt out).`
     };
   }
-  // 0.85 ≤ ratio < 0.95: pre-compact zone — toolkit ready, LLM decides.
+  // 0.85 ≤ ratio < 0.95: pre-compact zone — peaks-loop fires
+  // `peaks session auto-compact --execute` AUTOMATICALLY (zero-pause
+  // contract, v2.13.0). The LLM does NOT decide; the orchestrator does.
+  // D6.e in-flight deferral below is the only reason to wait.
   return {
     kind: 'pre-compact',
     ratio,
     toolkitReady: true,
-    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (0.85–0.95). Convergence toolkit is ready; LLM decides when to fire \`peaks code auto-compact --execute\`.`
+    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (0.85–0.95). peaks-loop will automatically fire \`peaks session auto-compact --execute\` (zero-pause contract).`
   };
 }
 
