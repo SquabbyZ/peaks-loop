@@ -33,7 +33,13 @@ function canon(p: string): string {
 }
 
 function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  // Inject user.name + user.email inline via -c so `git commit` works in
+  // sandboxed environments that have no global git identity (CI runners,
+  // fresh containers). Without this, `git commit --allow-empty` fails
+  // with "Author identity unknown" and the worktree regression test
+  // (slice 9) fails the publish.yml vitest gate.
+  const wrapped = ['-c', 'user.email=test@example.com', '-c', 'user.name=test', ...args];
+  return execFileSync('git', wrapped, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 }
 
 describe('resolveCanonicalProjectRoot', () => {

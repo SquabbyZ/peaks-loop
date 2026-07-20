@@ -6,7 +6,13 @@ import { beforeAll, describe, expect, test } from 'vitest';
 const packagePath = resolve('package.json');
 const binPath = resolve('bin', 'peaks.js');
 const tsconfigPath = resolve('tsconfig.json');
-const versionPath = resolve('src', 'shared', 'version.ts');
+// Slice 3a (monorepo extraction): version.ts moved to the
+// peaks-loop-shared workspace package. The pre-monorepo path
+// `src/shared/version.ts` no longer exists, and sync-version.mjs writes
+// to `packages/peaks-loop-shared/src/version.ts` instead. Update the
+// test to read from the new canonical path so it does not 404 on a
+// fresh checkout (publish.yml Run #14 regression: ENOENT at this line).
+const versionPath = resolve('packages', 'peaks-loop-shared', 'src', 'version.ts');
 
 beforeAll(() => {
   // Slice 2026-06-26 W8-b: keep `src/shared/version.ts` in lockstep with
@@ -36,7 +42,10 @@ describe('package publishing configuration', () => {
     expect(packageJson.files).toContain('scripts/install-skills.mjs');
     expect(packageJson.files).toContain('scripts/watch.mjs');
     expect(packageJson.files).toContain('skills/**');
-    expect(packageJson.scripts.build).toBe('node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs');
+    // Slice 3a (monorepo extraction): the root build must build all
+    // workspace subpackages BEFORE the root tsc, because workspace:*
+    // deps resolve through their dist/* exports during typecheck.
+    expect(packageJson.scripts.build).toBe('node ./scripts/sync-version.mjs && node ./scripts/clean-dist.mjs && pnpm -r --filter "./packages/*" run build && tsc -p tsconfig.build.json && node ./scripts/copy-templates.mjs');
     expect(packageJson.scripts.prepack).toBe('npm run build');
     expect(packageJson.scripts.postinstall).toBe('node ./scripts/install-skills.mjs');
     expect(packageJson.scripts.dev).toBe('tsx src/cli/index.ts');
