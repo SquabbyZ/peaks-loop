@@ -89,6 +89,14 @@ describe('archive feature removal — guard fence', () => {
   });
 
   test('live .claude/settings.local.json no longer allow-lists _archive', () => {
+    // CI runners do not have a developer's local Claude Code settings file
+    // (`.claude/settings.local.json` is created by Claude Code on first run,
+    // not committed). The fence is meaningful only when the file exists;
+    // skip cleanly when absent so the publish pipeline does not false-fail
+    // on environments that have never run Claude Code locally.
+    if (!existsSync(join(REPO_ROOT, '.claude/settings.local.json'))) {
+      return;
+    }
     const src = read('.claude/settings.local.json');
     expect(src).not.toContain('_archive');
   });
