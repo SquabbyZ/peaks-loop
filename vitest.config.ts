@@ -395,7 +395,7 @@ const config: TestUserConfig = {
      *
      * The 4 race-mode test files (per PRD v2-14-0-anti-fake-green-hardening
      * AC-5.1):
-     *   - tests/unit/g8-shared-channel.test.ts
+     *   - packages/peaks-loop-shared-channel/tests/shared-channel.test.ts
      *   - tests/unit/dispatch-record-writer.test.ts
      *   - tests/unit/services/retrospective/heartbeat.test.ts
      *   - tests/unit/cli/commands/share-commands.test.ts

@@ -48,6 +48,19 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.87 / 1 / 2 / 2.3 / 2.5 / N / N+1 / N+2 + sub-agent sharing + boundaries). Read that file in full at session start; the sequence is MANDATORY.
 
+## Peaks-Loop Step 0.8 — Job-shape detection (BLOCKING on LLM judgement)
+
+> **BLOCKING on LLM judgement.** Before Step 1 mode selection, Code MUST surface a Job-shape decision via `peaks code detect-job` and persist it to `.peaks/_runtime/<sessionId>/job-shape.json`. The CLI is a recorder + gate — the LLM makes the judgement; downstream steps call `read-job-shape` and refuse if missing. See `references/step-0-8-gate.md` for the full contract (LLM criteria, action sequence, hard rule red-line #10). Failure mode: skipping `peaks code detect-job` blocks the workflow at the next `read-job-shape` call (`JOB_SHAPE_NOT_DECIDED`).
+
+**v3.1.2 mechanical gates** (the recorder-only design was bypassed twice under load; the gate must be un-bypassable):
+
+1. **PreToolUse hook — `peaks code gate-step-08`.** Installed by `peaks workspace init` on the `Bash` matcher; checks `job-shape.json` presence + fail-closed backup regex. If `job-shape.json` exists AND `progress.json` exists, surfaces `Next: slice #N of M (<currentSlice>)` so the LLM cannot wake up cold.
+2. **Size-fear ban — `peaks code emit-handoff`.** Refuses to emit a final handoff while `remaining > 0` under Job mode. Pass `--force-under-job` only with explicit user approval.
+3. **On-disk slice progress — `peaks job progress`.** `peaks job checkpoint --state done` writes `progress.json`. `peaks job progress --job-id <jid> [--allow-missing]` is the canonical reader; `peaks code gate-step-08` also surfaces it on every Bash call.
+4. **Forced auto-compact — `--enforce-job-mode`.** `peaks code context-now --enforce-job-mode` returns `action: 'auto-compact-now'` at ≥ 0.85. **Job mode at ≥ 0.85 is MANDATORY auto-compact** — Code MUST call `peaks session auto-compact --execute` without confirmation.
+
+**Step 0.7 resume rule (read-FIRST):** on resume, `peaks code gate-step-08` reads `progress.json` first and surfaces `Next: slice #N of M (<currentSlice>)` so the orchestrator picks up at the right slice without re-reading the artifact tree.
+
 ## CLI Drift Index (sediment 2026-07-09)
 
 > **Reading guide:** Verified against peaks-loop 4.0.0-beta.6. Each drift below is annotated inline at the relevant step with a `> CLI reality check`. On `error: unknown option ...`, **read the inline reality check first** before guessing.

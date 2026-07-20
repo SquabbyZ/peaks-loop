@@ -136,7 +136,20 @@ If any gate fails, return to development for fixes or hand off as blocked. Do no
 
 ## Parallel review fan-out (v2.12.0 3-way fanout — code-reviewer + qa-test-cases-writer + karpathy-reviewer)
 
-Full content extracted to **`references/parallel-review-fanout.md`** (3-way fan-out dispatch contract, when-to-fan-out rules, dispatch template, prereq gates). Read that file before issuing any 3-way fan-out.
+**v2.12.0 collapse (Group A — Tier 1+2+3):** the previous 5-way fan-out (slice 004 4-way + slice 5/6 `karpathy-reviewer` addition) totalled **5 sub-agents**. The `security-reviewer` and `perf-baseline-reviewer` slots moved out of the RD 3-way fan-out into two new standalone audit skills:
+
+- `peaks-security-audit` — CLI: `peaks security-audit run`. Writes `audit/security.md` (under `.peaks/_runtime/<sessionId>/audit/security.md`). Required RD-side prereq `AUDIT_SECURITY`.
+- `peaks-perf-audit` — CLI: `peaks perf-audit run`. Writes `audit/perf.md` (under `.peaks/_runtime/<sessionId>/audit/perf.md`). Required RD-side prereq `AUDIT_PERF`.
+
+Both audit skills consume the immutable peaks-prd handoff (`prd/handoff.md`) and the project-scoped audit templates under `.peaks/project-scan/{security-template, perf-template, audit-output-schema}.md`. The handoff presence is enforced by the `AUDIT_REQUIRES_HANDOFF` prereq. The 1-minor-release back-compat window (v2.12.0) keeps the old `rd/security-review.md` and `rd/perf-baseline.md` paths readable via `mustContainAny` — see `references/rd-fanout-contracts.md` §"Deprecated reviewer back-compat".
+
+**Current 3-way fan-out** (always runs for feature / refactor / bugfix; no fan-out for config / docs / chore):
+
+1. `code-reviewer` — writes `rd/code-review.md` (Gate B3).
+2. `qa-test-cases-writer` — writes `qa/test-cases/<rid>.md` (Gate C2).
+3. `karpathy-reviewer` — writes `rd/karpathy-review.md` (the **hard Karpathy-Gate**, KARPATHY_REVIEW prereq).
+
+Full dispatch contract (when-to-fan-out rules, dispatch template, prereq gates) lives in **`references/parallel-review-fanout.md`**. Read that file before issuing any 3-way fan-out.
 
 ## Refactor hard gates
 
