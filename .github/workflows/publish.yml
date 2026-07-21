@@ -73,6 +73,15 @@ jobs:
           # — Step 2 "Configure your CI/CD workflow" example.
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Upgrade npm to 11+ (required for OIDC Trusted Publishing)
+        # Node 22.23.1 on the runner ships npm 10.9.8, but npm OIDC
+        # Trusted Publishing was added in npm 11.5.1 (per npm docs).
+        # Without this upgrade, npm CLI does not know how to exchange
+        # the GitHub Actions OIDC JWT for a publish token — npm sees
+        # the request as anonymous and returns ENEEDAUTH/E404.
+        # 'lts/*' pins to whatever the latest stable npm line is.
+        run: npm install -g npm@latest
+
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
