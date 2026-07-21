@@ -24,6 +24,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 import {
   runPnpm,
@@ -76,6 +77,24 @@ function packOne(pkgDir) {
   return { tarball: join(tarballDir, tarballName), name: spec.name, version: spec.version };
 }
 
+function isAlreadyPublished(name, version) {
+  // Probe npmjs for an existing version of `name`. The CI runner
+  // is a fresh container; the `npm view` call goes over OIDC-
+  // compatible public registry egress and does NOT require any
+  // write access. We return true when the version is already on
+  // the registry so the publish step can be skipped; otherwise
+  // the npm CLI rejects `npm publish <same version>` with the
+  // "cannot publish over the previously published versions" error.
+  const probe = spawnSync('npm.cmd', ['view', `${name}@${version}`, 'version', '--json'], {
+    cwd: projectRoot,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    shell: process.platform === 'win32',
+  });
+  if (probe.status !== 0) return false;
+  const stdout = probe.stdout?.toString?.() ?? '';
+  return /"\d+\.\d+\.\d+/.test(stdout) || /\d+\.\d+\.\d+/.test(stdout);
+}
+
 function publishOne(pkgDir, internalPackages) {
   const { tarball, name, version } = packOne(pkgDir);
   console.log(`[release-pack] packed ${name}@${version} -> ${tarball}`);
@@ -87,6 +106,10 @@ function publishOne(pkgDir, internalPackages) {
   }
   if (process.env.PEAKS_DRY_RUN === '1') {
     console.log(`[release-pack] DRY RUN: would publish ${name}@${version}`);
+    return;
+  }
+  if (isAlreadyPublished(name, version)) {
+    console.log(`[release-pack] SKIP ${name}@${version} (already on registry)`);
     return;
   }
   console.log(`[release-pack] publishing ${name}@${version} via npm OIDC ...`);
