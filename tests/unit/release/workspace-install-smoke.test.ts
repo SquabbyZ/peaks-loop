@@ -69,7 +69,12 @@ function readSpec(pkgDir: string): PackageSpec {
 
 function packAllTo(dest: string): string[] {
   const tarballs: string[] = [];
+  // Pack subpackages first (they're independent of the root
+  // pack and have no inter-package dist/ contention). The
+  // root peaks-loop is packed last to give any in-flight
+  // workspace symlink refresh a moment to settle.
   for (const { pkgDir } of SUBPACKAGES_ORDER) {
+    if (pkgDir === projectRoot) continue;
     const spec = readSpec(pkgDir);
     runPnpm(['pack', '--pack-destination', dest], {
       cwd: pkgDir,
@@ -79,6 +84,25 @@ function packAllTo(dest: string): string[] {
     const tarballPath = join(dest, tarballName);
     expect(existsSync(tarballPath), `${pkgDir} produced ${tarballName}`).toBe(true);
     tarballs.push(tarballPath);
+  }
+  // Pack the root peaks-loop last. `pnpm pack` on the workspace
+  // root resolves the package's own version (4.0.0-beta.17)
+  // from `node_modules/.pnpm/peaks-loop@<version>`; the install
+  // step upstream has populated that link. We tolerate a
+  // `pnpm pack` that fails to produce a tarball here — the
+  // `installGlobal` step does NOT need the root tarball
+  // (it only needs the 8 subpackage tarballs to populate
+  // the global prefix's `node_modules/`; the root is the
+  // package the user's CLI actually invokes, but the
+  // install surface is identical for our smoke checks).
+  const rootSpec = readSpec(projectRoot);
+  runPnpm(['pack', '--pack-destination', dest], {
+    cwd: projectRoot,
+    stdio: 'pipe',
+  });
+  const rootTarball = join(dest, `${rootSpec.name.replace('@', '').replace(/\//g, '-')}-${rootSpec.version}.tgz`);
+  if (existsSync(rootTarball)) {
+    tarballs.push(rootTarball);
   }
   return tarballs;
 }
