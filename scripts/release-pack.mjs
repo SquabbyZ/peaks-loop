@@ -126,6 +126,21 @@ function main() {
   const skipRoot = process.env.PEAKS_SKIP === 'root';
   const skipSub = process.env.PEAKS_SKIP === 'sub';
 
+  // Rebuild the workspace tarballs from the current tree BEFORE
+  // packing. The upstream CI Build step also runs `pnpm run build`,
+  // but `release-pack.mjs` may run in a shell where that build was
+  // a different process (e.g. on a runner where the worktree was
+  // re-checked-out, or locally without a previous build). Re-running
+  // the build here guarantees peaks-loop-shared/dist/version.js etc.
+  // carry the current root version stamp (4.0.0-beta.18) rather
+  // than a stale 4.0.0 from a previous build. Safe to run when the
+  // dist already exists: tsc simply overwrites the .js / .d.ts
+  // files in place.
+  if (process.env.PEAKS_SKIP_BUILD !== '1') {
+    console.log('[release-pack] running pnpm run build to refresh dist/');
+    runPnpm(['run', 'build'], { cwd: projectRoot, stdio: 'inherit' });
+  }
+
   try {
     if (!skipSub) {
       for (const subDir of SUBPACKAGE_DIRECTORIES) publishOne(subDir, internalPackages);
