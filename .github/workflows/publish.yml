@@ -152,11 +152,7 @@ jobs:
             }
           done
           echo ":: Publishing main peaks-loop package via npm publish (OIDC) ::"
-          # Debug npm publish with NPM_CONFIG_LOGLEVEL=verbose so we can see
-          # the OIDC exchange HTTP request/response (npm CLI 11 masks the
-          # exact failure as E404 by default; verbose forces detail output
-          # that names the Trusted Publisher fingerprint mismatch).
-          NPM_CONFIG_LOGLEVEL=verbose npm publish --tag=latest --provenance=false
+          npm publish --tag=latest --provenance=false
         # NO NODE_AUTH_TOKEN here — npm CLI 11 + changesets interprets
         # any NODE_AUTH_TOKEN as "I have credentials, use those", which
         # suppresses the OIDC Trusted Publishing flow that npmjs.com is
