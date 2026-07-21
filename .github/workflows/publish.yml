@@ -65,6 +65,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
+          # npm CLI 11+ OIDC Trusted Publishing requires setup-node to
+          # know which registry to exchange the GitHub Actions OIDC JWT
+          # against. Without this, npm CLI treats the publish as
+          # unauthenticated and returns ENEEDAUTH instead of triggering
+          # the OIDC flow. See https://docs.npmjs.com/trusted-publishers/
+          # — Step 2 "Configure your CI/CD workflow" example.
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
