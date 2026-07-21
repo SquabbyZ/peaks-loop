@@ -1,7 +1,8 @@
 {
   "name": "peaks-loop-final-review",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Final-review 4-dim business review pipeline (slice 6)",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {

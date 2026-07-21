@@ -1,7 +1,8 @@
 {
   "name": "peaks-loop-mut",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Mutation testing + assertion scanning + ECC cache for peaks-loop (workspace-internal)",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {

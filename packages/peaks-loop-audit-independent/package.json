@@ -1,7 +1,8 @@
 {
   "name": "peaks-loop-audit-independent",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Independent security + perf audit services (slice 7)",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {

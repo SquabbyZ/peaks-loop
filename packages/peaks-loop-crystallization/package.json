@@ -1,7 +1,8 @@
 {
   "name": "peaks-loop-crystallization",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Crystallization service — loop release / bee relation / evidence brief pipeline (slice 4)",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
