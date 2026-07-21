@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-shared",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Shared pure-function utils for peaks-loop workspace packages (fs / paths / result / version). Slice 3a.",
   "license": "MIT",
   "type": "module",
