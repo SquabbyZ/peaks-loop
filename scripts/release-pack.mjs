@@ -85,7 +85,8 @@ function isAlreadyPublished(name, version) {
   // the registry so the publish step can be skipped; otherwise
   // the npm CLI rejects `npm publish <same version>` with the
   // "cannot publish over the previously published versions" error.
-  const probe = spawnSync('npm.cmd', ['view', `${name}@${version}`, 'version', '--json'], {
+  const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const probe = spawnSync(npmBin, ['view', `${name}@${version}`, 'version', '--json'], {
     cwd: projectRoot,
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
