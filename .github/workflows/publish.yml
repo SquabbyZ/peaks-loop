@@ -133,13 +133,14 @@ jobs:
       # Typecheck is now performed as part of `pnpm run build` (the root
       # tsc -p tsconfig.build.json step, gated by subpackage dist presence).
 
-      - name: Vitest (unit only — integration suite is exercised by tests/manual)
-        # Rationale: the publish pipeline must stay green even when a slow
-        # integration test flakes. Integration tests (tests/integration/**)
-        # spawn real child processes and need a hand-tuned sandbox; they
-        # are out of scope for release-time smoke. Run the full suite
-        # locally with `pnpm run test:full` or in the `tests` workflow on PR.
-        run: pnpm exec vitest run --reporter=default tests/unit
+      - name: Vitest (release tests + repo regression)
+        # The publish pipeline runs the release pack/install/guard
+        # tests (which directly exercise the OIDC tarball path) plus
+        # the hook-binary-build-regression (which asserts the dist
+        # tree produced by the Build step above is present). The
+        # rest of `tests/unit` is exercised by the `tests` workflow
+        # on PR and by `pnpm test:full` locally.
+        run: pnpm exec vitest run --reporter=default tests/unit/release/ tests/unit/hook-binary-build-regression.test.ts
         env:
           TZ: UTC
 
