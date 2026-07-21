@@ -100,13 +100,21 @@ function npmCmd(): string {
  * chain holds end-to-end.
  */
 function installGlobal(globalPrefix: string, tarballs: string[], env: NodeJS.ProcessEnv): void {
+  // We DELIBERATELY do NOT pass `--offline` here. The npm-side
+  // cache under the isolated HOME is empty on first run, and
+  // several peaks-loop-* packages depend on a few transitive
+  // packages (e.g. `@colbymchenry/codegraph`) that are NOT in
+  // the tarball set. `--prefer-offline` (npm 8+) lets npm use
+  // the cache when available but still resolves missing
+  // packages from the network when the host has egress. The
+  // isolated HOME keeps the postinstall side-effects sandboxed.
   const args = [
     'install',
     '--global',
     '--prefix', globalPrefix,
     '--no-audit',
     '--no-fund',
-    '--offline',
+    '--prefer-offline',
     ...tarballs,
   ];
   const result = spawnSync(npmCmd(), args, {
@@ -153,6 +161,15 @@ describe('workspace publish install smoke (TDD regression gate)', () => {
     // is exactly what just made
     // `tests/unit/hook-binary-build-regression.test.ts` fail in
     // CI. We re-pack the source files only.
+    //
+    // Refresh the workspace symlinks so `pnpm pack` resolves the
+    // workspace deps to the SAME version the local manifests
+    // declare. On a stale local install (e.g. an editor run after
+    // a version bump but before `pnpm install`), the previous
+    // version would leak into the tarball and trip the
+    // `verifyTarball` pin-check. `pnpm install --frozen-lockfile`
+    // does NOT run `clean-dist`, so it is parallel-safe.
+    runPnpm(['install', '--frozen-lockfile', '--prefer-offline'], { cwd: projectRoot, stdio: 'pipe' });
     prebuiltTarballs = packAllTo(tarballDir);
 
     // Per install-skills.mjs exports, redirect every per-IDE

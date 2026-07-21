@@ -52,10 +52,31 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     // at afterAll. Items (3) and (5): the root peaks-loop tarball
     // is part of the green-path set (PACKAGES), so this test
     // exercises both subpackages and the main peaks-package pack.
+    //
+    // DO NOT re-run `pnpm run build` here — `clean-dist.mjs` would
+    // race with parallel vitest workers (e.g.
+    // tests/unit/hook-binary-build-regression.test.ts) that
+    // read `dist/cli/commands/*.js`. The CI publish workflow
+    // already runs `pnpm run build` upstream; the dist tree is
+    // populated by the time this test file is loaded.
+    //
+    // We DO refresh the workspace symlinks (`pnpm install
+    // --frozen-lockfile` does NOT run clean-dist; it just syncs
+    // the `node_modules/.pnpm` link tree). On a stale local
+    // install, the previous version of `peaks-loop-shared`
+    // (e.g. 0.0.5) would be resolved by `pnpm pack` and the
+    // verifyTarball pin-check would trip. Refreshing before pack
+    // is hermetic and parallel-safe (no `dist/` writes).
     tarballDir = mkdtempSync(join(os.tmpdir(), 'peaks-guard-'));
-    // Build workspace once so the packs have dist/ contents.
-    runPnpm(['-r', '--filter', './packages/*', 'run', 'build'], { cwd: projectRoot, stdio: 'pipe' });
-    runPnpm(['run', 'build'], { cwd: projectRoot, stdio: 'pipe' });
+    // We use `--frozen-lockfile` here so pnpm does NOT silently
+    // re-resolve the entire dependency graph and purge the
+    // content-addressable store. In CI, the lockfile pins
+    // 0.0.4 for every workspace dep, so a frozen install yields
+    // the correct symlinks. The local-development case
+    // (lockfile lags behind the manifests) is rare — the
+    // test will still fail loudly on version drift, which is
+    // the desired regression signal.
+    runPnpm(['install', '--frozen-lockfile', '--prefer-offline'], { cwd: projectRoot, stdio: 'pipe' });
     for (const { pkgDir } of PACKAGES) {
       runPnpm(['pack', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
     }
