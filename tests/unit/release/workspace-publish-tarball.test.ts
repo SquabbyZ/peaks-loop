@@ -148,15 +148,28 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
     }
   }, 120_000);
 
-  test('every package version is the registry-repair bump (4.0.0-beta.17 / 0.0.4)', () => {
+  test('every package version is the registry-repair bump (4.0.0-beta.17 / 0.0.x)', () => {
     // Item (6) from the 2026-07-21 review: tighten version
     // assertions to exact bumped values, not lenient accepts.
     // This protects against an accidental revert that would
     // re-publish the immutable 4.0.0-beta.16 / 0.0.3 manifests.
+    // peaks-loop-crystallization was bumped to 0.0.5 to fix the
+    // missing `zod` runtime dep — every other subpackage remains
+    // at 0.0.4.
+    const EXPECTED_SUB_VERSIONS: Record<string, string> = {
+      'peaks-loop-shared': '0.0.4',
+      'peaks-loop-shared-channel': '0.0.4',
+      'peaks-loop-job-snapshot': '0.0.4',
+      'peaks-loop-mut': '0.0.4',
+      'peaks-loop-doctor': '0.0.4',
+      'peaks-loop-crystallization': '0.0.5',
+      'peaks-loop-final-review': '0.0.4',
+      'peaks-loop-audit-independent': '0.0.4',
+    };
     const specs = listSpecs();
     for (const spec of specs) {
       const pkg = readPackageSpec(spec.dir);
-      expect(pkg.version, `${spec.name} must be 0.0.4`).toBe('0.0.4');
+      expect(pkg.version, `${spec.name} must be ${EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4'}`).toBe(EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4');
     }
     const rootPkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };
     expect(rootPkg.version, 'root peaks-loop must be 4.0.0-beta.17').toBe('4.0.0-beta.17');

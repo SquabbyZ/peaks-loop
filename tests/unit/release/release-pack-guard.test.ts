@@ -68,15 +68,22 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     // verifyTarball pin-check would trip. Refreshing before pack
     // is hermetic and parallel-safe (no `dist/` writes).
     tarballDir = mkdtempSync(join(os.tmpdir(), 'peaks-guard-'));
-    // We use `--frozen-lockfile` here so pnpm does NOT silently
-    // re-resolve the entire dependency graph and purge the
-    // content-addressable store. In CI, the lockfile pins
-    // 0.0.4 for every workspace dep, so a frozen install yields
-    // the correct symlinks. The local-development case
-    // (lockfile lags behind the manifests) is rare — the
-    // test will still fail loudly on version drift, which is
-    // the desired regression signal.
-    runPnpm(['install', '--frozen-lockfile', '--prefer-offline'], { cwd: projectRoot, stdio: 'pipe' });
+    // Intentionally DO NOT call `pnpm install` here.
+    //
+    // The CI publish workflow's upstream `Build` step already
+    // runs `pnpm install --frozen-lockfile` once before vitest,
+    // so the workspace symlinks are fresh. Calling it again
+    // inside beforeAll can race with parallel vitest workers
+    // (each runs in its own child process) and briefly leave
+    // the workspace deps pinning to a previous release's store
+    // entry (e.g. peaks-loop-shared@0.0.5 from an earlier run),
+    // which `pnpm pack` happily resolves to and which trips our
+    // pin-check.
+    //
+    // The regression signal we care about (workspace:* protocol
+    // leaks) is independent of `pnpm install`; `pnpm pack` is
+    // the actual SUT. We rely on the test runner's own pnpm
+    // invocation.
     for (const { pkgDir } of PACKAGES) {
       runPnpm(['pack', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
     }
