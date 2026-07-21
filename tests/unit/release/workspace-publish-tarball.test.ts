@@ -157,7 +157,7 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
     // missing `zod` runtime dep — every other subpackage remains
     // at 0.0.4.
     const EXPECTED_SUB_VERSIONS: Record<string, string> = {
-      'peaks-loop-shared': '0.0.4',
+      'peaks-loop-shared': '0.0.5',
       'peaks-loop-shared-channel': '0.0.4',
       'peaks-loop-job-snapshot': '0.0.4',
       'peaks-loop-mut': '0.0.4',
