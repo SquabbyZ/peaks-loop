@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-doctor",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Doctor check orchestration for peaks-loop — owns the runDoctor probe-driven check pipeline (slice 3b).",
   "license": "MIT",
   "type": "module",

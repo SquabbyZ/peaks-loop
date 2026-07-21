@@ -1,4 +1,4 @@
-# peaks-loop Trusted Publishing (OIDC) via changesets
+# peaks-loop Trusted Publishing (OIDC) via scripts/release-pack.mjs
 #
 # Trigger:
 #   - push tag v*.*.*
@@ -6,7 +6,40 @@
 #
 # Chain:
 #   install → build (incl. subpackage builds + root tsc) → vitest
-#     → changesets version → changesets publish
+#     → conditional changeset version → release-pack.mjs
+#
+# WHY release-pack.mjs INSTEAD OF `npm publish` per package directory:
+#   `npm publish` invoked against a pnpm workspace package directory
+#   serializes the manifest verbatim, which means every internal dep
+#   `workspace:*` string survives into the published tarball. The npm
+#   registry treats `workspace:*` as an unresolvable spec, so the next
+#   `npm i -g peaks-loop` fails with ENOTFOUND for every internal
+#   package. Confirmed root cause: `npm view peaks-loop@4.0.0-beta.16
+#   dependencies --json` exposes 8 internal deps as `workspace:*`.
+#   `pnpm pack` performs the equivalent of `--no-workspace`: workspace:*
+#   becomes an exact semver pin matching the local manifest. Publishing
+#   that tarball via `npm publish <tarball>` keeps npm 11+ OIDC intact.
+#
+# WHY THE CONDITIONAL changeset step (2026-07-21 follow-up):
+#   The 2026-07-21 dispatch triage observed that a blanket
+#   `pnpm exec changeset version` step would re-derive ALL package
+#   versions from the change-set's declared semver level (e.g.
+#   `minor` -> 4.0.0). For the registry-repair release the
+#   maintainer manually bumps manifests to specific pre-release
+#   pins (root 4.0.0-beta.17, subpackages 0.0.4) and intentionally
+#   publishes without a `.changeset/*.md`. For all FUTURE
+#   releases we still want changesets to drive the version bump
+#   and CHANGELOG update. The conditional step below:
+#     - lists `.changeset/*.md` files EXCLUDING `config.json` and
+#       `README.md`,
+#     - if any exist, runs `pnpm exec changeset version` so the
+#       bump + CHANGELOG update happen as before,
+#     - if none exist, logs a one-line acknowledgement that the
+#       committed manifest versions are used as-is and proceeds
+#       with publish.
+#   This keeps BOTH paths green: future contributors add a
+#   changeset and the version bumps; the registry-repair release
+#   skips the step so the manual bumps are preserved.
 #
 # Permissions:
 #   - contents: read    (checkout code)
@@ -21,13 +54,19 @@
 #
 # No npm token is required / used / stored.
 # npmjs side: Settings → Trusted Publishers → Add GitHub Action
-# (Owner=SquabbyZ, Repo=peaks-loop, Workflow=publish.yml)
+# (Owner=SquabbyZ, Repo=peaks-loop, Workflow=publish.yml, one entry
+# per peaks-loop-* package — the 2026-07-21 registry-repair slice
+# documents this in scripts/release-pack.mjs).
 
 name: publish
 
 on:
+  # Only `v*.*.*` tags + manual `workflow_dispatch` may publish.
+  # A direct push to `main` (e.g. a doc-only change) must NOT
+  # bump the registry's `latest` tag pointer. Use the
+  # `v*.*.*` tag (peaks-code: `git tag v4.0.0-beta.17` then
+  # `git push --tags`) or the GitHub UI "Run workflow" button.
   push:
-    branches: [main]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -45,7 +84,7 @@ concurrency:
 
 jobs:
   publish:
-    name: trusted-publish (changesets + OIDC)
+    name: trusted-publish (release-pack + OIDC)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -104,58 +143,64 @@ jobs:
         env:
           TZ: UTC
 
-      - name: Changesets version (no-op if already versioned locally)
-        # If the maintainer already ran `pnpm changeset version` and committed
-        # the resulting package.json bump + CHANGELOG.md update, this is a
-        # no-op. If not, this promotes the pending .changeset/*.md entries
-        # into a version bump on the current commit.
+      - name: Detect pending changesets
+        # Lists `.changeset/*.md` files minus the always-present
+        # `config.json` (and the directory's own README if any).
+        # The result is exposed via the `${{ steps.detect.outputs.count }}`
+        # env for the next step.
+        id: detect
+        run: |
+          count=$(ls .changeset 2>/dev/null \
+            | grep -v '^config\.json$' \
+            | grep -v '^README\.md$' \
+            | grep -c '\.md$' || true)
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          if [ "${count}" -gt 0 ]; then
+            echo "pending_changesets=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=changesets found::${count} pending change(s) in .changeset/ — will run changeset version"
+          else
+            echo "pending_changesets=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=no pending changesets::committed manifest versions will be used as-is"
+          fi
+
+      - name: Changesets version (only when pending changesets exist)
+        # Karpathy §2 Simplicity: prefer the small `if` expression
+        # over a custom action — `pnpm exec changeset version` is
+        # already an idempotent end-to-end test surface (see
+        # tests/unit/release/release-pack-guard.test.ts > "version
+        # bump is coherent"). When `${{ steps.detect.outputs.pending_changesets }}`
+        # is true, changesets owns the version bump + CHANGELOG.md
+        # update; when false, the registry-repair release keeps the
+        # manifest version the maintainer committed.
+        if: steps.detect.outputs.pending_changesets == 'true'
         run: pnpm exec changeset version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to npm (OIDC + per-package script)
-        # Strategy:
-        #   - Main package peaks-loop uses OIDC (Trusted Publisher already
-        #     configured on npmjs.com).
-        #   - The 6 subpackages (peaks-loop-{shared,mut,doctor,
-        #     crystallization,final-review,audit-independent}) each need
-        #     their OWN Trusted Publisher entry on npmjs.com — until those
-        #     are configured (one-time browser step per package), their
-        #     publish is attempted but a failure does NOT block the main
-        #     package release.
-        #
-        # TODO 2026-07-17-D22: once each subpackage has its own Trusted
-        # Publisher on npmjs.com, drop the per-package publish loop below
-        # and let changesets publish all 7 packages via OIDC in one go.
-        run: |
-          # Why we don't use `changeset publish`: changesets auto-passes
-          # `--no-git-checks` to pnpm when pnpm >= 5, and npm 11.5.1+
-          # REMOVED that flag (it was an npm-only concept). The combined
-          # result is that every package publish fails with
-          # `EUNKNOWNCONFIG Unknown cli flag: --git-checks` even though
-          # OIDC + Trusted Publisher config are correct.
-          #
-          # Workaround: bypass changesets' publish wrapper and call
-          # `npm publish` directly. changesets version has already run
-          # (step above) so the local versions reflect the bumped
-          # versions; npm publish picks them up from each package's
-          # package.json. We publish via `npm publish --tag=latest`
-          # per package, which triggers npm CLI 11+'s OIDC flow.
-          echo ":: Publishing subpackages individually via direct npm publish (OIDC) ::"
-          for pkg in peaks-loop-shared peaks-loop-mut peaks-loop-doctor \
-                     peaks-loop-crystallization peaks-loop-final-review \
-                     peaks-loop-audit-independent \
-                     peaks-loop-job-snapshot peaks-loop-shared-channel; do
-            echo "::: Publishing $pkg via npm publish (OIDC) :::"
-            (cd "packages/$pkg" && npm publish --tag=latest --provenance=false) 2>&1 || {
-              echo "::warning::$pkg publish failed (likely needs npmjs Trusted Publisher setup). Continuing."
-            }
-          done
-          echo ":: Publishing main peaks-loop package via npm publish (OIDC) ::"
-          npm publish --tag=latest --provenance=false
-        # NO NODE_AUTH_TOKEN here — npm CLI 11 + changesets interprets
-        # any NODE_AUTH_TOKEN as "I have credentials, use those", which
-        # suppresses the OIDC Trusted Publishing flow that npmjs.com is
+      - name: Publish to npm (OIDC + scripts/release-pack.mjs)
+        # All-in-one publish script:
+        #   - packs each workspace package with `pnpm pack` (rewrites
+        #     workspace:* to exact versions so the registry install
+        #     does not need pnpm to resolve the protocol),
+        #   - inspects the packed manifest to ensure zero workspace:*
+        #     leaks and that every internal dep matches the local
+        #     manifest version,
+        #   - publishes each tarball via `npm publish <tarball>` so the
+        #     npm 11+ OIDC Trusted Publishing flow remains in effect,
+        #   - publishes in dependency-safe order (shared first, root
+        #     last) and fails the workflow on the FIRST error — no
+        #     warning-and-continue.
+        # Defence-in-depth: this step is gated on a `v*.*.*` tag
+        # OR an explicit `workflow_dispatch`. A direct push to `main`
+        # cannot run it. The `on:` block at the top of this file
+        # already excludes non-tag branches; the per-step `if:` is
+        # belt-and-braces so a future refactor of `on:` cannot
+        # silently turn push-to-main into a registry release.
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        run: node ./scripts/release-pack.mjs
+        # NO NODE_AUTH_TOKEN here — npm CLI 11 + Trusted Publishing
+        # interprets any NODE_AUTH_TOKEN as "I have credentials, use
+        # those", which suppresses the OIDC flow that npmjs.com is
         # actually configured for. The publish.yml permission block
         # above already grants id-token: write, so the OIDC JWT will
         # be minted automatically; NODE_AUTH_TOKEN must remain unset.

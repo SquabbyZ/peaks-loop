@@ -1,5 +1,26 @@
 # peaks-loop-shared
 
+## 0.0.4
+
+### Patch Changes
+
+- Registry-repair: confirm the package tarball ships a clean
+  `package.json` with internal deps pinned to `0.0.4` (no
+  `workspace:*` leak) and a working `bin/peaks.js` entry. Pre-2.0
+  registry install (`npm i -g peaks-loop`) now succeeds end-to-end.
+
+## 0.0.5
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.5
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
 ## 0.1.0
 
 ### Minor Changes

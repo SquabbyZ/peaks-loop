@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-shared-channel",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Dispatcher-mediated shared channel and its filesystem safety primitives for peaks-loop.",
   "license": "MIT",
   "type": "module",

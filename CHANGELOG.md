@@ -1,5 +1,55 @@
 # Changelog
 
+## 4.0.0-beta.17
+
+### Patch Changes
+
+- Repair registry install: `npm i -g peaks-loop` previously failed with
+  `EUNSUPPORTEDPROTOCOL / workspace:*` because the publish workflow
+  called `npm publish` on each workspace directory directly, which
+  serialized the manifest verbatim and leaked the pnpm-only
+  `workspace:*` protocol into the published tarballs. The new
+  `scripts/release-pack.mjs` packs each workspace package with
+  `pnpm pack` (which rewrites `workspace:*` to exact semver pins) and
+  then publishes the resulting tarball via `npm publish <tarball>` so
+  npm 11+ OIDC Trusted Publishing remains in effect.
+
+  Bumped versions: `peaks-loop` 4.0.0-beta.16 → 4.0.0-beta.17; all
+  eight subpackages 0.0.3 → 0.0.4. The publish workflow's changeset
+  step is now conditional on detected `.changeset/*.md` files so the
+  registry-repair release keeps its manually-pinned versions, and
+  future releases still pick up automated `changeset version` bumps.
+
+  - per-package OIDC Trusted Publisher entries still need to be added
+    once on npmjs.com (one-time UI step per package).
+  - the install smoke verifies the registry tarball surface: bin shim,
+    package layout, postinstall, and registry metadata. `peaks
+    --version`/`--help` may fail at runtime until
+    `peaks-loop-crystallization` declares `zod` as a runtime
+    dependency (a separate source bug, out of scope for this repair).
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+  - peaks-loop-audit-independent@0.0.5
+  - peaks-loop-crystallization@0.0.5
+  - peaks-loop-doctor@0.0.5
+  - peaks-loop-final-review@0.0.5
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+  - peaks-loop-audit-independent@0.0.5
+  - peaks-loop-crystallization@0.0.5
+  - peaks-loop-doctor@0.0.5
+  - peaks-loop-final-review@0.0.5
+
 ## 4.0.0
 
 ### Minor Changes
@@ -2646,7 +2696,7 @@ codex / cursor`) follow the same discipline.
   4. `scanExportsInFile` now matches `export default function name()`
      and `export default class Name`; `importedNameCount` now treats
      re-exports (`export { x } from './y'`, `export type { T } from
-   './y'`) as consumer references.
+'./y'`) as consumer references.
      Bonus: `OrphanScanOptions.baseRef` lets the scan diff against an
      arbitrary git ref (default: `HEAD`) for branch-vs-main reviews.
 - **karpathy-service code-fence skip (Slice 2.6.1.B)** — `peaks scan
