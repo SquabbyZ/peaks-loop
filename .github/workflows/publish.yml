@@ -115,7 +115,8 @@ jobs:
           echo ":: Publishing subpackages individually (each needs its own npmjs Trusted Publisher) ::"
           for pkg in peaks-loop-shared peaks-loop-mut peaks-loop-doctor \
                      peaks-loop-crystallization peaks-loop-final-review \
-                     peaks-loop-audit-independent; do
+                     peaks-loop-audit-independent \
+                     peaks-loop-job-snapshot peaks-loop-shared-channel; do
             echo "::: Publishing $pkg via changesets (OIDC) :::"
             pnpm --filter "$pkg" exec changeset publish --tag=latest 2>&1 || {
               echo "::warning::$pkg publish failed (likely needs npmjs Trusted Publisher setup). Continuing."
@@ -123,5 +124,9 @@ jobs:
           done
           echo ":: Publishing main peaks-loop package via changesets (OIDC) ::"
           pnpm exec changeset publish --tag=latest
-        env:
-          NODE_AUTH_TOKEN: '//registry.npmjs.org/:_authToken=//does/not/matter' # ignored when OIDC is used
+        # NO NODE_AUTH_TOKEN here — npm CLI 11 + changesets interprets
+        # any NODE_AUTH_TOKEN as "I have credentials, use those", which
+        # suppresses the OIDC Trusted Publishing flow that npmjs.com is
+        # actually configured for. The publish.yml permission block
+        # above already grants id-token: write, so the OIDC JWT will
+        # be minted automatically; NODE_AUTH_TOKEN must remain unset.
