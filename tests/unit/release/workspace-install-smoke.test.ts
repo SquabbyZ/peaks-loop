@@ -144,16 +144,15 @@ describe('workspace publish install smoke (TDD regression gate)', () => {
     globalPrefix = mkdtempSync(join(os.tmpdir(), 'peaks-global-prefix-'));
     tarballDir = mkdtempSync(join(os.tmpdir(), 'peaks-install-tarballs-'));
 
-    execFileSync('node', [resolve(projectRoot, 'scripts', 'sync-version.mjs')], {
-      cwd: projectRoot,
-      stdio: 'pipe',
-    });
-    runPnpm(['-r', '--filter', './packages/*', 'run', 'build'], {
-      cwd: projectRoot,
-      stdio: 'pipe',
-    });
-    runPnpm(['run', 'build'], { cwd: projectRoot, stdio: 'pipe' });
-
+    // Pack the source-managed tarballs WITHOUT re-running
+    // `clean-dist` or root tsc. The CI publish workflow already
+    // ran `pnpm run build` upstream; rebuilding here is not only
+    // redundant but actively HARMFUL — `clean-dist.mjs` races
+    // with parallel vitest workers that are reading
+    // `dist/cli/commands/{gate-commands,hook-handle}.js`, which
+    // is exactly what just made
+    // `tests/unit/hook-binary-build-regression.test.ts` fail in
+    // CI. We re-pack the source files only.
     prebuiltTarballs = packAllTo(tarballDir);
 
     // Per install-skills.mjs exports, redirect every per-IDE

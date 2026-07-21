@@ -1,5 +1,11 @@
 # peaks-loop-shared
 
+## 0.0.5
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
 ## 0.0.4
 
 ### Patch Changes

@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+  - peaks-loop-audit-independent@0.0.5
+  - peaks-loop-crystallization@0.0.5
+  - peaks-loop-doctor@0.0.5
+  - peaks-loop-final-review@0.0.5
+
 ## 4.0.0-beta.17
 
 ### Patch Changes
@@ -24,7 +35,7 @@
     once on npmjs.com (one-time UI step per package).
   - the install smoke verifies the registry tarball surface: bin shim,
     package layout, postinstall, and registry metadata. `peaks
-    --version`/`--help` may fail at runtime until
+--version`/`--help` may fail at runtime until
     `peaks-loop-crystallization` declares `zod` as a runtime
     dependency (a separate source bug, out of scope for this repair).
 
