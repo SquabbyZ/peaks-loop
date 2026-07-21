@@ -128,18 +128,31 @@ jobs:
         # Publisher on npmjs.com, drop the per-package publish loop below
         # and let changesets publish all 7 packages via OIDC in one go.
         run: |
-          echo ":: Publishing subpackages individually (each needs its own npmjs Trusted Publisher) ::"
+          # Why we don't use `changeset publish`: changesets auto-passes
+          # `--no-git-checks` to pnpm when pnpm >= 5, and npm 11.5.1+
+          # REMOVED that flag (it was an npm-only concept). The combined
+          # result is that every package publish fails with
+          # `EUNKNOWNCONFIG Unknown cli flag: --git-checks` even though
+          # OIDC + Trusted Publisher config are correct.
+          #
+          # Workaround: bypass changesets' publish wrapper and call
+          # `npm publish` directly. changesets version has already run
+          # (step above) so the local versions reflect the bumped
+          # versions; npm publish picks them up from each package's
+          # package.json. We publish via `npm publish --tag=latest`
+          # per package, which triggers npm CLI 11+'s OIDC flow.
+          echo ":: Publishing subpackages individually via direct npm publish (OIDC) ::"
           for pkg in peaks-loop-shared peaks-loop-mut peaks-loop-doctor \
                      peaks-loop-crystallization peaks-loop-final-review \
                      peaks-loop-audit-independent \
                      peaks-loop-job-snapshot peaks-loop-shared-channel; do
-            echo "::: Publishing $pkg via changesets (OIDC) :::"
-            pnpm --filter "$pkg" exec changeset publish --tag=latest 2>&1 || {
+            echo "::: Publishing $pkg via npm publish (OIDC) :::"
+            (cd "packages/$pkg" && npm publish --tag=latest --provenance=false) 2>&1 || {
               echo "::warning::$pkg publish failed (likely needs npmjs Trusted Publisher setup). Continuing."
             }
           done
-          echo ":: Publishing main peaks-loop package via changesets (OIDC) ::"
-          pnpm exec changeset publish --tag=latest
+          echo ":: Publishing main peaks-loop package via npm publish (OIDC) ::"
+          npm publish --tag=latest --provenance=false
         # NO NODE_AUTH_TOKEN here — npm CLI 11 + changesets interprets
         # any NODE_AUTH_TOKEN as "I have credentials, use those", which
         # suppresses the OIDC Trusted Publishing flow that npmjs.com is
