@@ -1,5 +1,71 @@
 # peaks-loop-shared
 
+## 0.0.11
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.11
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.11
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.10
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.10
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
+## 0.0.9
+
+### Patch Changes
+
+- workflow-guard fixture changeset (positive control)
+
 ## 0.0.5
 
 ### Patch Changes

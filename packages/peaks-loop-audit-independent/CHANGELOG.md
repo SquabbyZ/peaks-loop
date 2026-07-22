@@ -1,5 +1,138 @@
 # peaks-loop-audit-independent
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.11
+
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.11
+
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.11
+
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.10
+
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.10
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.9
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
+## 0.0.5
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.5
+
 ## 0.0.5
 
 ### Patch Changes

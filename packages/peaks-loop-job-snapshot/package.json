@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-job-snapshot",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Host and job-directory resource snapshots for peaks-loop.",
   "license": "MIT",
   "type": "module",

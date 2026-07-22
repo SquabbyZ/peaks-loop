@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop",
-  "version": "4.0.0-beta.20",
+  "version": "4.0.1",
   "description": "Loop Engineering CLI — workflow primitive / loop guards / evaluators / slice orchestration",
   "author": "SquabbyZ",
   "license": "MIT",
