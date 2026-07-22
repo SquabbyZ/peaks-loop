@@ -5,10 +5,12 @@
 ### You talk. It runs the entire engineering chain for you — beyond just code, twice-run flows sediment into local tactics.
 
 [![npm](https://img.shields.io/npm/v/peaks-loop?style=for-the-badge&logo=npm&logoColor=white&color=cb3837)](https://www.npmjs.com/package/peaks-loop)
+[![publish](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/publish.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=publish)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/publish.yml)
+[![ci](https://img.shields.io/github/actions/workflow/status/SquabbyZ/peaks-loop/ci.yml?style=for-the-badge&logo=githubactions&logoColor=white&label=ci)](https://github.com/SquabbyZ/peaks-loop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](./LICENSE)
-[![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
+[[![node](https://img.shields.io/badge/node-%E2%89%A520-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://www.npmjs.com/package/peaks-loop)
 [![tests](https://img.shields.io/badge/tests-5%2C439%20passed-22c55e?style=for-the-badge&logo=vitest&logoColor=white)](#status)
-[![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
+[![stars](https://img.shields.io/github/stars/SquabbyZ/peaks-loop?style=for-the-badge&logo=github&github=github&logoColor=white)](https://github.com/SquabbyZ/peaks-loop/stargazers)
 
 **English** · [简体中文](./README.md)
 
@@ -123,7 +125,7 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [`4.0.0-beta.25`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
+| **Latest** | [`4.0.0-beta.26`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
 | **Test suite** | 5,439 passed · 19 skipped · 0 failed |

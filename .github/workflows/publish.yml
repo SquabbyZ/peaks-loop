@@ -70,6 +70,12 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Optional target version (e.g. 4.0.0-beta.27). If empty, the auto-bump step uses the smallest-semver-unit default (4.0.0-beta.26 -> 4.0.0-beta.27). For explicit major bumps, set this AND set PEAKS_NEXT_MAJOR env var (or just pass 4.0.0 / 5.0.0).'
+        type: string
+        required: false
+        default: ''
 
 # Default to least privilege. `id-token: write` is REQUIRED for npm OIDC;
 # removing it will fail the publish step with "Cannot get JWT".
@@ -123,6 +129,33 @@ jobs:
 
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
+
+      - name: Auto-bump version per smallest-semver policy
+        # 2026-07-22 explicit maintainer rule: "默认版本新增采用最小的
+        # 版本位,除非我特意规划大版本". When a `v*.*.*` tag is pushed
+        # without the local package.json version already advanced, this
+        # step patches the version forward by the smallest semver unit
+        # (patch bit +1; for `x.y.z-beta.N` -> `x.y.z-beta.(N+1)`). Major
+        # bumps require explicit `--to X.Y.0` or `PEAKS_NEXT_MAJOR` env
+        # override. When the local version already matches the tag, the
+        # script is a no-op (idempotent). For `workflow_dispatch` runs,
+        # the same env / flag pattern works — the script does NOT
+        # auto-create a tag (that remains the operator's job).
+        env:
+          INPUT_TARGET: ${{ inputs.target_version || '' }}
+        run: |
+          if [ -n "${INPUT_TARGET}" ]; then
+            node ./scripts/bump-version.mjs --to "${INPUT_TARGET}"
+          else
+            node ./scripts/bump-version.mjs
+          fi
+
+      - name: Sync README badges to new version
+        # 2026-07-22 follow-up: keep the `Latest` / `最新版本` row in
+        # both READMEs in lockstep with the just-bumped version. The
+        # release-page link stays the same (GitHub renders the latest
+        # tag by default); only the displayed version text changes.
+        run: node ./scripts/sync-readme-version.mjs
 
       - name: Build (runs subpackage builds before root tsc — required so
           # workspace:* deps provide dist/* .d.ts/.js exports for typecheck
