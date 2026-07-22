@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.1.0 (Unreleased)
+
+### Added
+- **Sub-agent memory preflight**: peaks-code orchestrator now
+  automatically injects a token-bounded `feedback / layer A` memory
+  block from `.peaks/memory/index.json` into every sub-agent's
+  system prompt. Defaults to 1.2k token cap (configurable via
+  `.peaks/preferences.json::memoryPreflight.maxTokens`); silent
+  degradation when the index is missing. No new CLI surface.
+  See `docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md`.
+
 ## 4.0.0
 
 ### Patch Changes
