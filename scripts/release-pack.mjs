@@ -114,7 +114,7 @@ function publishOne(pkgDir, internalPackages) {
     return;
   }
   console.log(`[release-pack] publishing ${name}@${version} via npm OIDC ...`);
-  runNpm(['publish', tarball, '--tag=latest', '--provenance=false'], {
+  runNpm(['publish', tarball, '--tag=latest', '--provenance=true'], {
     cwd: projectRoot,
     stdio: 'inherit',
   });
