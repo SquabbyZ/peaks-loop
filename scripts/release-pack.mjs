@@ -96,6 +96,46 @@ function isAlreadyPublished(name, version) {
   return /"\d+\.\d+\.\d+/.test(stdout) || /\d+\.\d+\.\d+/.test(stdout);
 }
 
+// 2026-07-22 follow-up: return TRUE only when the on-registry
+// tarball's CLI_VERSION matches the local dist's. If the local
+// content changed but the version is the same, we MUST republish
+// (skipping would leave downstream consumers with stale CLI_VERSION).
+// This is the actual root cause of the 4.0.0-beta.32 -> 33 ladder
+// of stale shared@X.Y.Z on the registry.
+function isRegistryStale(name, version, localTarball) {
+  try {
+    const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-stale-'));
+    try {
+      const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      execFileSync(npmBin, ['pack', `${name}@${version}`, '--pack-destination', tmp], {
+        cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
+        shell: process.platform === 'win32',
+      });
+      const localVer = (function() {
+        const localTmp = mkdtempSync(join(os.tmpdir(), 'peaks-local-'));
+        try {
+          execFileSync('tar', ['-xzf', localTarball, '-C', localTmp]);
+          const f = join(localTmp, 'package', 'dist', 'version.js');
+          if (!existsSync(f)) return null;
+          return readFileSync(f, 'utf8');
+        } finally { rmSync(localTmp, { recursive: true, force: true }); }
+      })();
+      const regVer = (function() {
+        const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
+        if (!tgz) return null;
+        const regTmp = mkdtempSync(join(os.tmpdir(), 'peaks-reg-'));
+        try {
+          execFileSync('tar', ['-xzf', join(tmp, tgz), '-C', regTmp]);
+          const f = join(regTmp, 'package', 'dist', 'version.js');
+          if (!existsSync(f)) return null;
+          return readFileSync(f, 'utf8');
+        } finally { rmSync(regTmp, { recursive: true, force: true }); }
+      })();
+      return localVer && regVer && localVer !== regVer;
+    } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } catch { return false; }
+}
+
 function publishOne(pkgDir, internalPackages) {
   const { tarball, name, version } = packOne(pkgDir);
   console.log(`[release-pack] packed ${name}@${version} -> ${tarball}`);
@@ -109,9 +149,12 @@ function publishOne(pkgDir, internalPackages) {
     console.log(`[release-pack] DRY RUN: would publish ${name}@${version}`);
     return;
   }
-  if (isAlreadyPublished(name, version)) {
+  if (isAlreadyPublished(name, version) && !isRegistryStale(name, version, tarball)) {
     console.log(`[release-pack] SKIP ${name}@${version} (already on registry)`);
     return;
+  }
+  if (isAlreadyPublished(name, version) && isRegistryStale(name, version, tarball)) {
+    console.log(`[release-pack] RE-PUBLISH ${name}@${version} (registry CLI_VERSION is stale)`);
   }
   console.log(`[release-pack] publishing ${name}@${version} via npm OIDC ...`);
   runNpm(['publish', tarball, '--tag=latest', '--provenance=true'], {

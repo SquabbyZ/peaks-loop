@@ -125,7 +125,7 @@ Every lane opens with **one slash command**.
 
 | | |
 | --- | --- |
-| **Latest** | [`4.0.0-beta.32`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
+| **Latest** | [`4.0.0-beta.34`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x GA is in the works |
 | **Domains** | Code (`peaks-code`) · Content (`peaks-content`) · Project health (`peaks-doctor`) · Issue sweep (`peaks-issue-fix-orchestrator`) · Custom SOP (`peaks-sop`) · Cross-domain primitives (`peaks-solo` dispatcher · `peaks-resume` · `peaks-status` · `peaks-test`) |
 | **Sediment pool** | `~/.peaks/` local pool · twice-clean runs auto-promote to a bee · broken runs come back for you to redefine · the bee grows with your taste |
 | **Test suite** | 5,439 passed · 19 skipped · 0 failed |
