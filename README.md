@@ -125,7 +125,7 @@ npm i -g peaks-loop
 
 | | |
 | --- | --- |
-| **最新版本** | [`4.0.0-beta.29`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x 正式版筹备中 |
+| **最新版本** | [`4.0.0-beta.30`](https://github.com/SquabbyZ/peaks-loop/releases) — 4.x 正式版筹备中 |
 | **覆盖域** | 代码(`peaks-code`) · 内容(`peaks-content`) · 项目健康(`peaks-doctor`) · 批量修 issue(`peaks-issue-fix-orchestrator`) · 自定义 SOP(`peaks-sop`) · 通用原语(`peaks-solo` 分诊 / `peaks-resume` 续 / `peaks-status` 看 / `peaks-test` 测) |
 | **沉淀池** | `~/.peaks/` 本地池 · 跑两次自动晋升成 bee · 跑翻车让你重定义 · bee 跟着你的口味长 |
 | **测试套件** | 5,439 passed · 19 skipped · 0 failed |
