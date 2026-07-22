@@ -1,15 +1,78 @@
 # Changelog
 
-## 4.0.0
+## 4.0.0-beta.21 — 2026-07-22 (ice-cola surface-check fixes, republish)
 
-### Patch Changes
+This release is the **republish** after the accidental 4.0.2
+publish earlier on 2026-07-22. The 4.0.2 manifest is being
+unpublished (`npm unpublish --force`, within 72h window). The
+intended release is `4.0.0-beta.21`, the version that was
+manually pinned but the publish workflow's `pnpm exec changeset
+version` step overrode it to `4.0.2` due to a pending
+`.changeset/*.md` in the tagged commit.
 
-- Updated dependencies
-  - peaks-loop-shared@0.0.5
-  - peaks-loop-audit-independent@0.0.5
-  - peaks-loop-crystallization@0.0.5
-  - peaks-loop-doctor@0.0.5
-  - peaks-loop-final-review@0.0.5
+### Bug fixes
+
+- **standardsMissing UX (`fix(standards)`)** — `peaks workspace init`
+  previously reported `standardsMissing.missing: true` with the
+  remediation text "no project-local standards found" whenever the
+  language overlay was empty, even when common was clearly populated
+  (ice-cola shape: common/\*.md + typescript overlay populated, but
+  no javascript/ dir). The detector now distinguishes three states
+  (`complete` / `common-missing` / `language-missing`) and the
+  remediation text calls out the precise failing component.
+
+- **`peaks statusline` default action (`fix(statusline)`)** — `peaks
+statusline` (no subcommand) was documented as "Run with no
+  subcommand to render" but commander was printing usage instead of
+  dispatching to the hidden `render` subcommand. The fix attaches
+  a default `.action(...)` on the parent `statusline` command that
+  delegates to a public `runDefaultStatuslineRender` body, and adds
+  `--project <path>` to the parent so the default path inherits the
+  project label.
+
+- **release-pack test version pinning (`fix(release-tests)`)** —
+  five `tests/unit/release/*.test.ts` files hard-coded `'4.0.0-beta.17'`
+  and `'0.0.4'` literals. Root bumping from 4.0.0-beta.17 to
+  4.0.0-beta.20 made three tests fail immediately, demonstrating the
+  tests were carrying version knowledge the production code does not.
+  Expectations now derive from the on-disk `package.json` instead,
+  so future version bumps are a no-op for the suite.
+
+- **`peaks preferences` unknown-key error (`fix(preferences)`)** —
+  the prior error was `PREFERENCES_KEY_UNKNOWN: <key>` which forced
+  the operator to look up valid keys elsewhere. All three sites
+  (`get` / `set` / `reset`) now throw via a shared `unknownKeyError`
+  helper that includes the sorted `ALLOWED_KEYS_LIST` inline.
+
+### Chore
+
+- **`chore(deps)`** — Migrate `onlyBuiltDependencies: [better-sqlite3]`
+  out of `package.json#pnpm` (no longer read by pnpm 10.11+) into
+  `.npmrc` as the canonical pnpm config key. Silences the per-package
+  `WARN  The "pnpm" field in package.json is no longer read by pnpm`
+  log line without changing install behavior.
+
+### CI
+
+- **`ci(publish)`** — Add `workflow_dispatch` input
+  `skip_changeset_version` to `.github/workflows/publish.yml`. When
+  set, the conditional `pnpm exec changeset version` step is
+  skipped, so manual version pins in `package.json` survive the
+  registry-repair release path.
+
+- **`ci(unpublish)`** — One-shot `unpublish-4-0-2` workflow that
+  uses Trusted Publishing + OIDC to remove peaks-loop@4.0.2 + 8
+  subpackages. Triggered by `gh workflow run` with
+  `confirm_destructive=yes-i-am-sure`. Retired (kept for audit)
+  once the unpublish completes (npm 72h propagation).
+
+### Validation
+
+- `vitest tests/unit/standards/missing-standards-detector.test.ts` — 18/18
+- `vitest tests/unit/cli/commands/statusline-default-render.test.ts` — 3/3
+- `vitest tests/unit/release` — 20/20
+- `vitest tests/integration/preferences-cli.test.ts` — 5/5
+- `PEAKS_DRY_RUN=1 node scripts/release-pack.mjs` — 9/9 packages, zero WARN
 
 ## 4.0.0-beta.17
 
