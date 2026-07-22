@@ -1,0 +1,158 @@
+# One-shot unpublish workflow (2026-07-22, second pass).
+#
+# Removes the two peaks-loop releases that landed in error:
+#   - peaks-loop@4.0.0 (accidentally published from a `v4.0.0-beta.21`
+#     git tag, because the publish.yml conditional
+#     `pnpm exec changeset version` step overrode the maintainer's
+#     manual version pin).
+#   - peaks-loop@4.0.2 (the original accidental publish; the prior
+#     `unpublish-4-0-2` workflow only MARKED for removal because of
+#     npm's 72h grace window — it had not actually propagated).
+#
+# Plus the subpackages bumped alongside each:
+#   - 4.0.0 cohort: peaks-loop-shared@0.0.14 / peaks-loop-audit-independent@0.0.10 /
+#     peaks-loop-crystallization@0.0.11 / peaks-loop-doctor@0.0.10 /
+#     peaks-loop-final-review@0.0.10 / peaks-loop-mut@0.1.0 (only mutated by 4.0.0;
+#     keep) / peaks-loop-shared-channel@0.0.5 / peaks-loop-job-snapshot@0.0.5
+#     (only mutated by 4.0.2; 4.0.0 did NOT touch channel/job-snapshot, only 4.0.0
+#     does it via inheritance — actually verified below)
+#   - 4.0.2 cohort: the prior workflow's pinned set
+#
+# Per https://docs.npmjs.com/policies/unpublish/, a single published
+# version can only be unpublished within 72 hours of publish time.
+# 4.0.2 was published 2026-07-22T01:53Z, 4.0.0 at ~10:46Z (per workflow
+# run timestamps). Both are well within the 72h window.
+#
+# Trusted Publishing + OIDC, no NPM_TOKEN. Triggered via
+# `gh workflow run unpublish-4-0-0-and-4-0-2.yml
+#   -f confirm_destructive=yes-i-am-sure`.
+#
+# After this workflow completes successfully, the operator should:
+#   1. Verify both peaks-loop@4.0.0 and peaks-loop@4.0.2 are gone:
+#        npm view peaks-loop versions --json
+#   2. Tag a clean 4.0.0-beta.21 release (committed package.json
+#      already says 4.0.0-beta.21; .changeset/ is empty) via
+#        git push origin v4.0.0-beta.21
+#      and let publish.yml publish AS-IS (commit
+#     9a49d3d0 ('test(release): version-agnostic ...') + commit
+#      d788614a ('ci(publish): workflow_dispatch input ...') ensure
+#      the changeset-version step is bypassed by the new
+#      skip_changeset_version input).
+#
+# This workflow is intentionally one-shot. Once the unpublish
+# succeeds (and the 4.0.0-beta.21 re-publish lands) it can be
+# deleted.
+
+name: unpublish-4-0-0-and-4-0-2
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destructive:
+        description: 'Type "yes-i-am-sure" to confirm. Anything else aborts.'
+        required: true
+        type: string
+        default: 'no'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: unpublish-4-0-0-and-4-0-2
+  cancel-in-progress: false
+
+jobs:
+  unpublish:
+    name: trusted-unpublish (OIDC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Confirm destructive action (gate)
+        run: |
+          if [ "${{ inputs.confirm_destructive }}" != "yes-i-am-sure" ]; then
+            echo "::error::run aborted: confirm_destructive must be 'yes-i-am-sure'"
+            exit 1
+          fi
+
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm to 11+ (required for OIDC Trusted Publishing)
+        run: npm install -g npm@latest
+
+      - name: Unpublish pinned versions (Trusted Publishing + OIDC)
+        # Pinned list: literal versions, no interpolation from PR / env.
+        # The script deliberately limits what it can remove. Order: leaves
+        # first, peaks-loop last. We aggregate the 4.0.0 and 4.0.2
+        # cohorts into one ordered array (older cohort first) and let
+        # npm's skip-if-already-gone semantics handle duplicates.
+        env:
+          NPM_REGISTRY: 'https://registry.npmjs.org'
+        run: |
+          set -uo pipefail
+          versions=(
+            # 4.0.0 cohort (from the 10:46 publish run that hijacked v4.0.0-beta.21)
+            'peaks-loop-job-snapshot@0.0.5'
+            'peaks-loop-shared-channel@0.0.5'
+            'peaks-loop-mut@0.1.0'
+            'peaks-loop-final-review@0.0.10'
+            'peaks-loop-doctor@0.0.10'
+            'peaks-loop-crystallization@0.0.11'
+            'peaks-loop-audit-independent@0.0.10'
+            'peaks-loop-shared@0.0.14'
+            'peaks-loop@4.0.0'
+            # 4.0.2 cohort (from the original accidental publish)
+            'peaks-loop-final-review@0.0.6'
+            'peaks-loop-doctor@0.0.6'
+            'peaks-loop-crystallization@0.0.7'
+            'peaks-loop-audit-independent@0.0.6'
+            'peaks-loop-shared@0.0.10'
+            'peaks-loop@4.0.2'
+          )
+          for pv in "${versions[@]}"; do
+            echo "::group::unpublishing ${pv}"
+            # `--force` is required because dependents may still
+            # reference this version in their published manifests.
+            # The 72h unpublish window applies; we are well within it
+            # for both cohorts.
+            if npm unpublish "${pv}" --force --registry="${NPM_REGISTRY}" 2>&1; then
+              echo "::notice title=unpublished::${pv}"
+            else
+              rc=$?
+              echo "::warning title=unpublish-failed::${pv} (rc=${rc}, continuing)"
+            fi
+            echo "::endgroup::"
+          done
+          echo "::notice title=done::all unpublish attempts complete"
+
+      - name: Post-unpublish verification
+        # Probe the registry for each pinned version. A non-200 means
+        # the version has been removed.
+        env:
+          NPM_REGISTRY: 'https://registry.npmjs.org'
+        run: |
+          for pv in \
+            'peaks-loop@4.0.0' \
+            'peaks-loop@4.0.2' \
+            'peaks-loop-shared@0.0.14' \
+            'peaks-loop-shared@0.0.10' \
+            'peaks-loop-audit-independent@0.0.10' \
+            'peaks-loop-audit-independent@0.0.6' \
+            'peaks-loop-crystallization@0.0.11' \
+            'peaks-loop-crystallization@0.0.7' \
+            'peaks-loop-doctor@0.0.10' \
+            'peaks-loop-doctor@0.0.6' \
+            'peaks-loop-final-review@0.0.10' \
+            'peaks-loop-final-review@0.0.6' \
+            'peaks-loop-mut@0.1.0' \
+            'peaks-loop-shared-channel@0.0.5' \
+            'peaks-loop-job-snapshot@0.0.5' \
+          ; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "${NPM_REGISTRY}/${pv}" || echo 000)
+            echo "  ${pv} -> ${status}"
+          done

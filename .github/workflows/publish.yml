@@ -70,17 +70,6 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
-    inputs:
-      skip_changeset_version:
-        description: 'Skip `pnpm exec changeset version` (publish whatever is in package.json). Default: false.'
-        type: boolean
-        required: false
-        default: false
-      targeted_version:
-        description: 'Optional: override the published version (must be a valid SemVer; if set, also rewritten into package.json + peaks-loop-shared/src/version.ts before packing). Leave empty for the as-committed version.'
-        type: string
-        required: false
-        default: ''
 
 # Default to least privilege. `id-token: write` is REQUIRED for npm OIDC;
 # removing it will fail the publish step with "Cannot get JWT".
@@ -158,55 +147,30 @@ jobs:
         env:
           TZ: UTC
 
-      - name: Detect pending changesets
-        # Lists `.changeset/*.md` files minus the always-present
-        # `config.json` (and the directory's own README if any).
-        # The result is exposed via the `${{ steps.detect.outputs.count }}`
-        # env for the next step.
-        id: detect
+      - name: Refuse to publish if any .changeset/*.md is staged (hard gate)
+        # 2026-07-22 root-cause fix: the prior workflow conditionally
+        # ran `pnpm exec changeset version` whenever a `.changeset/*.md`
+        # existed, which silently overrode maintainer-pinned versions on
+        # tag pushes (the v4.0.0-beta.21 → 4.0.2 → 4.0.0 accidents).
+        # We removed the run-changeset-version step entirely; this gate
+        # now REFUSES to publish if the operator forgot to delete the
+        # pending changeset (forcing them to either delete it or commit
+        # it first). The two paths are mutually exclusive: manual pin +
+        # clean changeset/ folder, OR changeset-driven bump (consume
+        # the changeset locally via `pnpm changeset version` before
+        # tagging).
+        id: gate-changeset
         run: |
-          count=$(ls .changeset 2>/dev/null \
+          stale=$(ls .changeset 2>/dev/null \
             | grep -v '^config\.json$' \
             | grep -v '^README\.md$' \
-            | grep -c '\.md$' || true)
-          echo "count=${count}" >> "$GITHUB_OUTPUT"
-          if [ "${count}" -gt 0 ]; then
-            echo "pending_changesets=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=changesets found::${count} pending change(s) in .changeset/ — will run changeset version"
-          else
-            echo "pending_changesets=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=no pending changesets::committed manifest versions will be used as-is"
+            | grep '\.md$' || true)
+          if [ -n "${stale}" ]; then
+            echo "::error title=stale changesets::${stale}"
+            echo "::error::publish.yml refuses to publish while .changeset/*.md is staged."
+            echo "::error::Either delete the file(s), or consume them locally via 'pnpm changeset version' and commit the manifest bump."
+            exit 1
           fi
-
-      - name: Changesets version (only when pending changesets exist AND changeset bump is allowed)
-        # Karpathy §2 Simplicity: prefer the small `if` expression
-        # over a custom action — `pnpm exec changeset version` is
-        # already an idempotent end-to-end test surface (see
-        # tests/unit/release/release-pack-guard.test.ts > "version
-        # bump is coherent"). When `${{ steps.detect.outputs.pending_changesets }}`
-        # is true AND the operator did not request `skip_changeset_version`,
-        # changesets owns the version bump + CHANGELOG.md update.
-        # When the operator passes `skip_changeset_version=true` from
-        # the workflow_dispatch UI, this step is skipped entirely and
-        # the registry-repair release keeps the manifest version the
-        # maintainer committed.
-        #
-        # 2026-07-22 follow-up: a `v4.0.1` tag with a pending
-        # `.changeset/*.md` in the commit ran `changeset version` and
-        # overrode the maintainer's manual pin to `4.0.2`, releasing
-        # the wrong version. Operators must now either delete the
-        # `.changeset/*.md` before tagging, or pass
-        # `skip_changeset_version=true` from the UI to bypass this
-        # step. The two paths are mutually exclusive (see
-        # `.peaks/memory/peaks-release-4-0-2-published.md`).
-        # Default: tag push with a pending changeset file → run
-        # `changeset version` (legacy behavior). Set
-        # `skip_changeset_version=true` via the UI to keep the
-        # committed package.json version (registry-repair path).
-        if: steps.detect.outputs.pending_changesets == 'true' && github.event.inputs.skip_changeset_version != 'true'
-        run: pnpm exec changeset version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to npm (OIDC + scripts/release-pack.mjs)
         # All-in-one publish script:

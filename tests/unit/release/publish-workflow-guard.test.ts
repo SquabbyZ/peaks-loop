@@ -6,38 +6,43 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { runPnpm } from '../../../scripts/_release-shared.mjs';
 
 // YAML/static guard for `.github/workflows/publish.yml`. The
-// 2026-07-21 dispatch triage observed that a blanket
-// `pnpm exec changeset version` step would re-derive ALL package
-// versions from the change-set's declared semver level (e.g.
-// `minor` -> 4.0.0). For the registry-repair release the maintainer
-// manually bumps manifests to specific pre-release pins and
-// intentionally publishes without a `.changeset/*.md`. For all
-// FUTURE releases we still want changesets to drive the version
-// bump + CHANGELOG update.
+// 2026-07-22 follow-up removed the `pnpm exec changeset version`
+// step from the workflow entirely. The maintainer's manual version
+// pin in `package.json` + `peaks-loop-shared/src/version.ts` is
+// now authoritative. To keep this safe (a future contributor
+// re-introducing a changeset-version step would re-create the
+// 4.0.0-beta.21 → 4.0.2 → 4.0.0 accident), the workflow now HARD-
+// GATES on `.changeset/*.md` presence instead: if a pending
+// changeset file exists, the publish step fails fast with an
+// actionable ::error pointing the operator at either delete-the-
+// file or `pnpm changeset version` to consume it locally.
 //
 // This guard enforces:
 //
-//   1. The workflow DOES NOT call `pnpm exec changeset version`
-//      unconditionally. The presence of a `changeset version` step
-//      must be gated by `if:` on the detect step's output.
+//   1. There is NO `pnpm exec changeset version` step in the
+//      workflow. Any such step (whether conditional or unconditional)
+//      would re-introduce the bug we just escaped; the loader is the
+//      single source of truth for the published version.
 //
-//   2. The detect step exposes `pending_changesets` outputs that the
-//      publish step reads. Pinning the contract via text-match keeps
-//      the workflow from regressing to a blanket version call.
+//   2. There IS a hard-gate step named "Refuse to publish if any
+//      .changeset/*.md is staged", with `exit 1` + `::error` when a
+//      stale changeset is present.
 //
-//   3. The two enumerated .changeset entries (config.json, README.md)
-//      are NOT counted as pending changesets — the `ls | grep`
-//      excludes them via hardcoded filters.
+//   3. The hard gate's filter excludes the same two enumerated
+//      .changeset entries (config.json, README.md) the prior
+//      detect-step handled. Without that exclusion, `.changeset/
+//      config.json` would always trip the gate.
 //
-// These three properties are checked directly against the YAML
-// source — we do not need a yaml library; a strict text scan is
-// sufficient and keeps the test hermetic on Windows where `python3`
-// is not always on PATH.
+// These properties are checked directly against the YAML source —
+// we do not need a yaml library; a strict text scan is sufficient
+// and keeps the test hermetic on Windows where `python3` is not
+// always on PATH.
 //
 // Karpathy §2 (Simplicity First): text-match over the raw YAML.
 // Karpathy §3 (Surgical Changes): the contract is structural —
-// never replace this with a yaml parser, the failing case (lost
-// gating) is one missing `if:` line and a regex catches it cleanly.
+// never replace this with a yaml parser, the failing case (re-added
+// changeset-version step OR lost gate) is one stray `run:` /
+// `exit 1` line and a regex catches it cleanly.
 
 const projectRoot = resolve(__dirname, '..', '..', '..');
 const workflowPath = resolve(projectRoot, '.github', 'workflows', 'publish.yml');
