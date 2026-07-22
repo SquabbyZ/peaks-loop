@@ -50,31 +50,40 @@ jobs:
         env:
           INPUT_TARGET_VERSION: ${{ inputs.target_version }}
         run: |
-          # `npm dist-tag add` accepts the version either as a fully-qualified
-          # `name@version` operand, OR as `<version>` after `--tag latest`.
-          # The Trusted-Publishing OIDC token is bound to the repository at
-          # publish time; on this workflow the OIDC subject's audience is
-          # peaks-loop's publish workflow permission, but the registry's
-          # token-issuing endpoint also accepts dist-tag mutations from
-          # the same OIDC principal (the npm registry treats publish and
-          # dist-tag as the same auth principal).
-          #
-          # The npm CLI does not yet expose OIDC for `dist-tag`; we work
-          # around that by using the registry's HTTP API directly with
-          # a PUT to /-/package/<name>/dist-tags/<tag>, then authenticating
-          # via the legacy bearer token (NODE_AUTH_TOKEN set up by
-          # setup-node). This is a known gap; future npm releases will
-          # close it.
+          # npm 11+ supports OIDC for `npm publish` but NOT for
+          # `npm dist-tag add` (still requires a legacy bearer token).
+          # We acquire the OIDC JWT directly from the GitHub Actions
+          # OIDC provider and exchange it at the npm registry's
+          # `-/npm/v1/oidc/token/exchange/` endpoint, then use the
+          # resulting bearer token against the dist-tag PUT.
           set -euo pipefail
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::setup-node did not set NODE_AUTH_TOKEN; abort"
+
+          # 1. Get the OIDC JWT for npm-registry.
+          oidc_jwt=$(curl -sS \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL:-}audience=repo:registry.npmjs.org&expiration=900")
+          if [ -z "${oidc_jwt}" ] || [ "${oidc_jwt}" = "null" ]; then
+            echo "::error::failed to acquire OIDC JWT (ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:-unset})"
             exit 1
           fi
+
+          # 2. Exchange for an npm publish token.
+          exchange_response=$(curl -sS -X POST \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json" \
+            --data "{\"token\":\"${oidc_jwt}\"}")
+          npm_token=$(echo "${exchange_response}" | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.token||'')})")
+          if [ -z "${npm_token}" ]; then
+            echo "::error::npm token exchange failed: ${exchange_response:0:200}"
+            exit 1
+          fi
+
+          # 3. PUT the new dist-tag.
           payload='"'${INPUT_TARGET_VERSION}'"'
           status=$(curl -sS -o /tmp/dist-tag-resp.json -w '%{http_code}' \
             -X PUT \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${NODE_AUTH_TOKEN}" \
+            -H "Authorization: Bearer ${npm_token}" \
             --data-binary "${payload}" \
             "https://registry.npmjs.org/-/package/peaks-loop/dist-tags/latest")
           echo "registry response (status ${status}):"
