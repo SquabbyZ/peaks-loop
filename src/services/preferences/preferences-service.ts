@@ -21,6 +21,14 @@ export function preferencesPath(projectRoot: string): string {
 export function loadPreferences(projectRoot: string): ProjectPreferences {
   const filePath = preferencesPath(projectRoot);
   if (!existsSync(filePath)) {
+    // Slice 2026-07-22-orchestrator-memory-preflight: when
+    // .peaks/preferences.json is missing, this returns a clone of
+    // DEFAULT_PREFERENCES, which now carries the `memoryPreflight`
+    // block (see preferences-types.ts). Partial overlays fall through
+    // to mergePreferences below, where missing fields inherit from
+    // the same DEFAULT_PREFERENCES — including memoryPreflight, so
+    // resolveMemoryPreflightConfig() always sees a fully-populated
+    // block.
     return structuredClone(DEFAULT_PREFERENCES);
   }
   let raw: unknown;

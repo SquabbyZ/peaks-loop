@@ -143,6 +143,19 @@ export interface ProjectPreferences {
    * saved file is rejected at load time.
    */
   readonly fanout: FanoutPreference;
+  /**
+   * Slice 2026-07-22-orchestrator-memory-preflight: orchestrator-side memory
+   * preflight knobs. Optional — `resolveMemoryPreflightConfig` (see
+   * src/services/context/memory-preflight-config.ts) merges over a hard-coded
+   * default block when this key is absent, so legacy preferences.json files
+   * keep working unchanged.
+   */
+  readonly memoryPreflight?: {
+    readonly enabled?: boolean;
+    readonly maxTokens?: number;
+    readonly listCap?: number;
+    readonly contentCacheBytes?: number;
+  };
 }
 
 export type FanoutMode = 'fan-out';
@@ -197,5 +210,16 @@ export const DEFAULT_PREFERENCES: ProjectPreferences = {
   agentShieldEnabled: false,
   fanout: {
     defaultMode: 'fan-out'
+  },
+  // Slice 2026-07-22-orchestrator-memory-preflight: defaults aligned with
+  // memory-preflight-config.ts::DEFAULTS. Kept in sync manually because
+  // loadPreferences() returns DEFAULT_PREFERENCES verbatim when the on-disk
+  // file is absent, and partial overlays rely on memoryPreflight being
+  // defined here.
+  memoryPreflight: {
+    enabled: true,
+    maxTokens: 1200,
+    listCap: 12,
+    contentCacheBytes: 6000,
   },
 };
