@@ -130,6 +130,41 @@ jobs:
           done
           echo "::notice title=done::all unpublish attempts complete"
 
+      - name: Mark the bad versions deprecated (UI propagation fix)
+        # npm 'unpublish' propagates to the registry API within minutes
+        # but to the npmjs.com web UI within 24h. To make the
+        # withdrawal user-visible immediately on the package page
+        # (and to discourage `npm install peaks-loop@4.0.0` /
+        # `npm install peaks-loop@4.0.2`), we ALSO add a
+        # deprecation message via the same OIDC publish token. This
+        # surfaces in the npmjs.com sidebar as a yellow "Deprecated"
+        # badge within seconds of the call.
+        # The deprecation message is the canonical "user landed here by
+        # mistake" — npm CLI prints it at install time as well.
+        env:
+          NPM_REGISTRY: 'https://registry.npmjs.org'
+        run: |
+          set -uo pipefail
+          deps=(
+            'peaks-loop@4.0.0|Yanked: never published — published by accident when an automated `pnpm changeset version` step overrode a maintainer pin. Use 4.0.0-beta.21.'
+            'peaks-loop@4.0.2|Yanked: never published — published by accident when an automated `pnpm changeset version` step overrode a maintainer pin to 4.0.1. Use 4.0.0-beta.21.'
+          )
+          for entry in "${deps[@]}"; do
+            pkgver="${entry%%|*}"
+            msg="${entry#*|}"
+            echo "::group::deprecating ${pkgver}"
+            # `npm deprecate` REPLACES the existing deprecation
+            # message on re-run; safe to re-dispatch.
+            if npm deprecate "${pkgver}" "${msg}" --registry="${NPM_REGISTRY}" 2>&1; then
+              echo "::notice title=deprecated::${pkgver}"
+            else
+              rc=$?
+              echo "::warning title=deprecate-failed::${pkgver} (rc=${rc}, continuing)"
+            fi
+            echo "::endgroup::"
+          done
+          echo "::notice title=done::all deprecate calls complete"
+
       - name: Post-unpublish verification
         # Probe the registry for each pinned version. A non-200 means
         # the version has been removed.
