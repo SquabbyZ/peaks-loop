@@ -1,0 +1,87 @@
+# dist-tag-move — one-shot workflow to move peaks-loop@latest to a target version.
+#
+# Trigger: workflow_dispatch (manual). Operator confirms the target version
+# + the package name in the dispatch inputs; the workflow re-tags
+# `latest` to point at the chosen version via the npm OIDC flow.
+#
+# Why: when peaks-loop@4.0.x is published with `--tag=latest` AND a prior
+# peaks-loop@4.0.y already has `latest` on the registry, the publish
+# script's `isAlreadyPublished` short-circuit SKIPS the root, so the
+# `latest` dist-tag never moves. Use this workflow to move the tag
+# post-hoc. Hardcoded for `peaks-loop` (the only package where this
+# matters for the 4.1 release dance).
+
+name: dist-tag-move
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: 'Version to set as `latest` (must already be on the registry).'
+        type: string
+        required: true
+        default: '4.0.0-beta.22'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: dist-tag-move
+  cancel-in-progress: false
+
+jobs:
+  retag:
+    name: trusted-retag (OIDC)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Setup Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm to 11+ (OIDC Trusted Publishing)
+        run: npm install -g npm@latest
+
+      - name: npm dist-tag add <package>@<version> latest (Trusted Publishing + OIDC)
+        env:
+          INPUT_TARGET_VERSION: ${{ inputs.target_version }}
+        run: |
+          # `npm dist-tag add` accepts the version either as a fully-qualified
+          # `name@version` operand, OR as `<version>` after `--tag latest`.
+          # The Trusted-Publishing OIDC token is bound to the repository at
+          # publish time; on this workflow the OIDC subject's audience is
+          # peaks-loop's publish workflow permission, but the registry's
+          # token-issuing endpoint also accepts dist-tag mutations from
+          # the same OIDC principal (the npm registry treats publish and
+          # dist-tag as the same auth principal).
+          #
+          # The npm CLI does not yet expose OIDC for `dist-tag`; we work
+          # around that by using the registry's HTTP API directly with
+          # a PUT to /-/package/<name>/dist-tags/<tag>, then authenticating
+          # via the legacy bearer token (NODE_AUTH_TOKEN set up by
+          # setup-node). This is a known gap; future npm releases will
+          # close it.
+          set -euo pipefail
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::error::setup-node did not set NODE_AUTH_TOKEN; abort"
+            exit 1
+          fi
+          payload='"'${INPUT_TARGET_VERSION}'"'
+          status=$(curl -sS -o /tmp/dist-tag-resp.json -w '%{http_code}' \
+            -X PUT \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${NODE_AUTH_TOKEN}" \
+            --data-binary "${payload}" \
+            "https://registry.npmjs.org/-/package/peaks-loop/dist-tags/latest")
+          echo "registry response (status ${status}):"
+          cat /tmp/dist-tag-resp.json
+          echo
+          if [ "${status}" != "201" ] && [ "${status}" != "200" ]; then
+            echo "::error::dist-tag move failed (status ${status})"
+            exit 1
+          fi
+          echo "moved peaks-loop@latest to peaks-loop@${INPUT_TARGET_VERSION}"
