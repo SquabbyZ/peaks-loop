@@ -1,5 +1,17 @@
-const BYTES_PER_TOKEN_ESTIMATE = 1; // we measure bytes, not tokens, for LRU.
-
+/**
+ * Byte-budgeted LRU cache.
+ *
+ * Eviction contract:
+ * - Every `set` enforces the byte budget.
+ * - On a normal-size insert, least-recently-touched entries are evicted
+ *   until the total byte count fits back inside `budgetBytes`.
+ * - On an oversized insert (`body.bytes > budgetBytes`), ALL existing
+ *   entries are evicted (LRU order) so only the newly inserted key
+ *   remains. This prevents unbounded growth when oversized values are
+ *   inserted consecutively; without this rule, a naive
+ *   "single oversized exception" would let multiple oversized values
+ *   accumulate without bound.
+ */
 interface Entry { body: string; bytes: number; }
 
 export class MemoryLruCache {
@@ -11,13 +23,19 @@ export class MemoryLruCache {
   set(key: string, body: string): void {
     if (this.store.has(key)) this.delete(key);
     const bytes = Buffer.byteLength(body, 'utf8');
+    if (bytes > this.budgetBytes) {
+      // Oversized insert: evict ALL existing entries (LRU order) so only
+      // the newly inserted key remains in the cache. This prevents the
+      // unbounded growth that a naive "single oversized exception" would
+      // allow when oversized values are inserted consecutively.
+      this.evictAll();
+      this.store.set(key, { body, bytes });
+      this.currentBytes += bytes;
+      return;
+    }
     this.store.set(key, { body, bytes });
     this.currentBytes += bytes;
-    if (bytes <= this.budgetBytes) {
-      // only evict when the new entry fits the budget on its own;
-      // otherwise a too-large single entry would just evict itself
-      this.evictIfOver();
-    }
+    this.evictIfOver();
   }
 
   get(key: string): string | undefined {
@@ -47,5 +65,12 @@ export class MemoryLruCache {
       if (oldestKey === undefined) break;
       this.delete(oldestKey);
     }
+  }
+
+  private evictAll(): void {
+    // Empty the store; called before an oversized insert so only the new
+    // entry remains, per the eviction contract documented above.
+    this.store.clear();
+    this.currentBytes = 0;
   }
 }
