@@ -110,4 +110,22 @@ describe('MemoryPreflightService', () => {
       expect(t1 - t0).toBeLessThan(100);
     } finally { rmSync(root, { recursive: true, force: true }); }
   });
+
+  test('cacheMemoContent with markdown bullets in memo body does not inflate feedbackListItems (regression for over-count bug)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'mp-'));
+    try {
+      writeIndex(root, { hot: { feedback: [
+        { name: 'r1', kind: 'feedback',
+          description: '<!-- peaks-feedback-promoted: layer=A --> s1',
+          sourcePath: '/r1', sourceArtifact: null, updatedAt: '2026-07-22' }
+      ]}});
+      const s = new MemoryPreflightService(root, { memoryPreflight: {} });
+      // Memo body contains 3 `- * ` markers — must NOT be counted in feedbackListItems.
+      s.cacheMemoContent('/memo.md', '- * point one\n- * point two\n- * point three\n');
+      const res = await s.fetchBlock('publish');
+      expect(res.feedbackListItems).toBe(1);
+      expect(res.cachedItemCount).toBe(1);
+      expect(res.truncated).toBeFalsy();
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
 });

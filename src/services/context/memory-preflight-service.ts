@@ -131,5 +131,18 @@ function summarize(description: string): string {
 }
 
 function countItemsInBlock(text: string): number {
-  return (text.match(/- \* /g) ?? []).length;
+  // Count `- * ` markers ONLY in the list portion (between the
+  // `## Project memory relevant to this task` header and the
+  // `## Requested memory details:` sub-section, if present). Memo
+  // bodies appended under `## Requested memory details:` may
+  // legitimately contain their own `- * ` markdown bullets, which
+  // would otherwise inflate the count and produce a wrong
+  // `droppedCount` in the truncated case.
+  const headerEnd = text.indexOf('\n## ');
+  if (headerEnd === -1) {
+    return (text.match(/- \* /g) ?? []).length;
+  }
+  const tailStart = text.indexOf('\n## Requested memory details:', headerEnd + 1);
+  const listEnd = tailStart === -1 ? text.length : tailStart;
+  return (text.slice(0, listEnd).match(/- \* /g) ?? []).length;
 }
