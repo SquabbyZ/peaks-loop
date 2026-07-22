@@ -7,6 +7,20 @@ export interface MemoryPreflightConfig {
   readonly contentCacheBytes: number;
 }
 
+/**
+ * Loose input type for `resolveMemoryPreflightConfig`. Accepts either a
+ * full `ProjectPreferences` (e.g. the output of `loadPreferences()`) or
+ * any object that at minimum carries `memoryPreflight`. Lets callers
+ * pass a partial overlay literal — e.g. `{}` or `{ memoryPreflight: {...} }`
+ * — without having to construct a fully-populated preferences fixture.
+ *
+ * Downstream tasks (orchestrator service, dispatch hook) should import
+ * this alias rather than re-deriving the structural type.
+ */
+export type MemoryPreflightPrefsInput =
+  | ProjectPreferences
+  | Pick<ProjectPreferences, 'memoryPreflight'>;
+
 const DEFAULTS = Object.freeze({
   enabled: true,
   maxTokens: 1200,
@@ -24,7 +38,7 @@ function asFiniteInt(value: unknown, fallback: number): number {
 }
 
 export function resolveMemoryPreflightConfig(
-  prefs: ProjectPreferences
+  prefs: MemoryPreflightPrefsInput
 ): MemoryPreflightConfig {
   const m = prefs.memoryPreflight ?? {};
   const listCapRaw = asFiniteInt(m.listCap, DEFAULTS.listCap);

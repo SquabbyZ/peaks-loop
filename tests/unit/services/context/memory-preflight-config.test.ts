@@ -1,8 +1,9 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
   resolveMemoryPreflightConfig,
   type MemoryPreflightConfig,
 } from '../../../../src/services/context/memory-preflight-config.js';
+import { DEFAULT_PREFERENCES } from '../../../../src/services/preferences/preferences-types.js';
 
 describe('resolveMemoryPreflightConfig', () => {
   test('defaults when preference key is absent', () => {
@@ -31,5 +32,15 @@ describe('resolveMemoryPreflightConfig', () => {
   test('listCap clamped to [1, 50]', () => {
     expect(resolveMemoryPreflightConfig({ memoryPreflight: { listCap: 0 } }).listCap).toBe(1);
     expect(resolveMemoryPreflightConfig({ memoryPreflight: { listCap: 9999 } }).listCap).toBe(50);
+  });
+
+  // Locks the two default blocks together: the standalone DEFAULTS in
+  // memory-preflight-config.ts and the DEFAULT_PREFERENCES.memoryPreflight
+  // block in preferences-types.ts must produce the same resolved
+  // configuration. If either side drifts, this test fails loudly.
+  it('DEFAULT_PREFERENCES.memoryPreflight produces the same config as an empty input', () => {
+    const fromDefaults = resolveMemoryPreflightConfig(DEFAULT_PREFERENCES);
+    const fromEmpty = resolveMemoryPreflightConfig({});
+    expect(fromDefaults).toEqual(fromEmpty);
   });
 });

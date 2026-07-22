@@ -25,10 +25,12 @@ export function loadPreferences(projectRoot: string): ProjectPreferences {
     // .peaks/preferences.json is missing, this returns a clone of
     // DEFAULT_PREFERENCES, which now carries the `memoryPreflight`
     // block (see preferences-types.ts). Partial overlays fall through
-    // to mergePreferences below, where missing fields inherit from
-    // the same DEFAULT_PREFERENCES — including memoryPreflight, so
-    // resolveMemoryPreflightConfig() always sees a fully-populated
-    // block.
+    // to mergePreferences below, where the new `memoryPreflight` block
+    // shallow-replaces the default block — `mergePreferences` does not
+    // deep-merge `memoryPreflight` (only `fanout` is deep-merged), so a
+    // partial overlay will replace the whole block. Resolution still
+    // works because `resolveMemoryPreflightConfig` applies field-level
+    // defaults over the partial input (see memory-preflight-config.ts).
     return structuredClone(DEFAULT_PREFERENCES);
   }
   let raw: unknown;
