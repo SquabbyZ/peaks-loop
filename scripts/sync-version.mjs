@@ -31,21 +31,32 @@ writeFileSync(
 // appear in any consumer's package.json (the peaks-loop dependency
 // rewrite is still handled by the publish pack step).
 //
+// SAFETY: this auto-bump only runs when invoked from the publish
+// `build` step (i.e. on the CI runner producing a release). It does NOT
+// run for `pretest` / `predev` / `prepublish` / `pretest:coverage` —
+// otherwise a local dev loop would ratchet the shared version upward
+// by 0.0.1 every test run and the working tree would diverge from the
+// last git tag. The gate is `process.env.PEAKS_AUTO_BUMP_SHARED === '1'`.
+//
 // Skip the bump when the existing shared version is NOT a clean
 // x.y.z SemVer (some test fixtures use markers like `9.9.9-oldsub`).
 // In that case, leave the version alone and let the test that set
 // the marker continue to work.
-const sharedPkgPath = resolve('packages/peaks-loop-shared/package.json');
-const sharedPkg = JSON.parse(readFileSync(sharedPkgPath, 'utf8'));
-const sharedVersion = sharedPkg.version;
-const sharedVersionMatch = /^(\d+)\.(\d+)\.(\d+)$/.exec(sharedVersion);
-if (sharedVersionMatch) {
-  const nextSharedVersion = `${sharedVersionMatch[1]}.${sharedVersionMatch[2]}.${Number(sharedVersionMatch[3]) + 1}`;
-  sharedPkg.version = nextSharedVersion;
-  writeFileSync(sharedPkgPath, JSON.stringify(sharedPkg, null, 2) + '\n');
-  console.log(`[sync-version] bumped peaks-loop-shared ${sharedVersion} -> ${nextSharedVersion} (root ${version})`);
+if (process.env.PEAKS_AUTO_BUMP_SHARED === '1') {
+  const sharedPkgPath = resolve('packages/peaks-loop-shared/package.json');
+  const sharedPkg = JSON.parse(readFileSync(sharedPkgPath, 'utf8'));
+  const sharedVersion = sharedPkg.version;
+  const sharedVersionMatch = /^(\d+)\.(\d+)\.(\d+)$/.exec(sharedVersion);
+  if (sharedVersionMatch) {
+    const nextSharedVersion = `${sharedVersionMatch[1]}.${sharedVersionMatch[2]}.${Number(sharedVersionMatch[3]) + 1}`;
+    sharedPkg.version = nextSharedVersion;
+    writeFileSync(sharedPkgPath, JSON.stringify(sharedPkg, null, 2) + '\n');
+    console.log(`[sync-version] bumped peaks-loop-shared ${sharedVersion} -> ${nextSharedVersion} (root ${version})`);
+  } else {
+    console.log(`[sync-version] peaks-loop-shared version "${sharedVersion}" is not x.y.z; skipping auto-bump`);
+  }
 } else {
-  console.log(`[sync-version] peaks-loop-shared version "${sharedVersion}" is not x.y.z; skipping auto-bump`);
+  console.log(`[sync-version] peaks-loop-shared auto-bump skipped (PEAKS_AUTO_BUMP_SHARED not set)`);
 }
 
 // 2026-07-22 follow-up (Bug-04 root-cause fix): the previous version of

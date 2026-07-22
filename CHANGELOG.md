@@ -1,8 +1,54 @@
 # Changelog
 
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0-beta.26 — 2026-07-22 (peaks-loop-shared lockstep)
+
+- Monorepo recurrence fix: `scripts/sync-version.mjs` now auto-bumps
+  `peaks-loop-shared` by 0.0.1 each time the root version is bumped,
+  gated by `PEAKS_AUTO_BUMP_SHARED=1` in the publish workflow's
+  `build` step. Without this, the publish workflow's
+  `isAlreadyPublished` guard short-circuits the shared subpackage
+  re-publish, leaving downstream `peaks -v` to read a stale
+  CLI_VERSION from the cached tarball. Tests: pretest/predev
+  invocations of sync-version are now no-ops w.r.t. the shared
+  version (no ratcheting during local dev loops).
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
 ## 4.1.0 (Unreleased)
 
 ### Added
+
 - **Sub-agent memory preflight**: peaks-code orchestrator now
   automatically injects a token-bounded `feedback / layer A` memory
   block from `.peaks/memory/index.json` into every sub-agent's
@@ -10,6 +56,237 @@
   `.peaks/preferences.json::memoryPreflight.maxTokens`); silent
   degradation when the index is missing. No new CLI surface.
   See `docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md`.
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.18
+  - peaks-loop-audit-independent@0.0.12
+  - peaks-loop-crystallization@0.0.13
+  - peaks-loop-doctor@0.0.12
+  - peaks-loop-final-review@0.0.12
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.15
+  - peaks-loop-audit-independent@0.0.11
+  - peaks-loop-crystallization@0.0.12
+  - peaks-loop-doctor@0.0.11
+  - peaks-loop-final-review@0.0.11
+
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.15
+  - peaks-loop-audit-independent@0.0.11
+  - peaks-loop-crystallization@0.0.12
+  - peaks-loop-doctor@0.0.11
+  - peaks-loop-final-review@0.0.11
 
 ## 4.0.0
 
