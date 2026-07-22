@@ -54,6 +54,8 @@ import {
   TEST_TOOL_DETECTION_BLOCK,
   formatTestToolDetection
 } from '../../services/dispatch/test-tool-detection.js';
+import { MemoryPreflightService } from '../../services/context/memory-preflight-service.js';
+import { buildDispatchSystemPrompt } from '../../services/context/build-dispatch-system-prompt.js';
 
 export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(
@@ -181,9 +183,11 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
       // Preferences hard-block when headroom.enabled=false (returns HEADROOM_DISABLED_BY_PREFERENCE).
       // loadPreferences can throw on schema mismatch; we fall back to defaults to avoid
       // breaking the dispatch on a stale preferences.json file.
+      let projectPrefs = DEFAULT_PREFERENCES;
       let headroomPrefs = DEFAULT_PREFERENCES.headroom;
       try {
-        headroomPrefs = loadPreferences(projectRoot).headroom;
+        projectPrefs = loadPreferences(projectRoot);
+        headroomPrefs = projectPrefs.headroom;
       } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
         // Keep default preferences; the user can re-run with explicit --headroom-mode
         // if they want to override the fallback.
@@ -217,7 +221,18 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
 
       // G7.7 headroom compress (opt-in). If headroom fails or is unavailable,
       // fall back to the original prompt + emit warning.
-      let effectivePrompt = `${formatTestToolDetection()}\n\n${options.prompt}`;
+      // Slice 2026-07-22-orchestrator-memory-preflight (Task 5): prepend the
+      // memory preflight block (or silently skip when unavailable) via the
+      // pure-function builder, BEFORE the headroom-ai compress step so the
+      // compressor sees the augmented payload.
+      const preflightService = new MemoryPreflightService(projectRoot, projectPrefs);
+      const memoryBlock = await preflightService.fetchBlock(role);
+      const memoryAugmentedBody = buildDispatchSystemPrompt({
+        taskTitle: role,
+        taskBody: options.prompt,
+        memoryBlock,
+      });
+      let effectivePrompt = `${formatTestToolDetection()}\n\n${memoryAugmentedBody}`;
       let headroomCompressed = false;
       let headroomResult: HeadroomResult | null = null;
       const warnings: string[] = [...decision.warnings];
