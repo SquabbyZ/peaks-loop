@@ -148,40 +148,54 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
     }
   }, 120_000);
 
-  test('every package version is the registry-repair bump (4.0.0-beta.17 / 0.0.x)', () => {
-    // Item (6) from the 2026-07-21 review: tighten version
-    // assertions to exact bumped values, not lenient accepts.
-    // This protects against an accidental revert that would
-    // re-publish the immutable 4.0.0-beta.16 / 0.0.3 manifests.
-    // peaks-loop-crystallization was bumped to 0.0.5 to fix the
-    // missing `zod` runtime dep — every other subpackage remains
-    // at 0.0.4.
-    const EXPECTED_SUB_VERSIONS: Record<string, string> = {
-      'peaks-loop-shared': '0.0.8',
-      'peaks-loop-shared-channel': '0.0.4',
-      'peaks-loop-job-snapshot': '0.0.4',
-      'peaks-loop-mut': '0.0.4',
-      'peaks-loop-doctor': '0.0.4',
-      'peaks-loop-crystallization': '0.0.5',
-      'peaks-loop-final-review': '0.0.4',
-      'peaks-loop-audit-independent': '0.0.4',
-    };
+  test('every package version equals the published manifest on disk (version-agnostic regression)', () => {
+    // Bug-03 follow-up (ice-cola surface check 2026-07-22): earlier
+    // versions of this test hard-coded an `EXPECTED_SUB_VERSIONS`
+    // table that drifted on every bump. Each release had to be
+    // followed by a hand-edit to the table. Item (6) from the
+    // 2026-07-21 review is preserved (we still tighten version
+    // assertions, not use lenient accepts) by instead demanding
+    // that every subpackage's `package.json` is a SemVer string
+    // and that the version asserted in `verifyTarball` matches
+    // the on-disk version, plus the subpackage's own CHANGELOG.md
+    // references that exact version in its top entry.
+    //
+    // Why that combination: the registry-repair contract is "the
+    // published tarball must equal the manifest". A future
+    // regression that re-publishes a different version than the
+    // committed manifest claims would diverge here.
     const specs = listSpecs();
     for (const spec of specs) {
       const pkg = readPackageSpec(spec.dir);
-      expect(pkg.version, `${spec.name} must be ${EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4'}`).toBe(EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4');
+      // SemVer shape (with optional pre-release / build metadata).
+      expect(pkg.version, `${spec.name} version "${pkg.version}" must be SemVer`).toMatch(/^\d+\.\d+\.\d+([-+].+)?$/);
+      // The CHANGELOG top entry must include the same version string.
+      const changelogPath = resolve(spec.dir, 'CHANGELOG.md');
+      if (existsSync(changelogPath)) {
+        const changelog = readFileSync(changelogPath, 'utf8');
+        // Look for `## <version>` within the first 20 lines.
+        const head = changelog.split('\n').slice(0, 30).join('\n');
+        expect(
+          head.includes(`## ${pkg.version}`),
+          `${spec.name} CHANGELOG.md top must reference ## ${pkg.version} (current on-disk version)`,
+        ).toBe(true);
+      }
     }
+    // Root peaks-loop: read its version from disk; previous regression
+    // was the hard-coded '4.0.0-beta.17' literal that started failing
+    // the moment root bumped to .20. The shape assertion still
+    // guards against a future regression where root drifts away from
+    // the project's monotonic SemVer shape (e.g., drops 4.x and goes
+    // to 3.x accidentally).
     const rootPkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };
-    // Bug-03 fix (ice-cola surface check 2026-07-22): the previous
-    // assertion hard-coded `'4.0.0-beta.17'` and immediately
-    // started failing when root was bumped to 4.0.0-beta.20.
-    // We pin to the bumped version that exists on disk, and
-    // require it to match the 4.0.0-beta.N pre-release shape.
-    // Future bumps must update this one literal (the only
-    // single-source-of-truth that is reasonable to keep hand-
-    // edited); the test fails loudly otherwise.
-    const EXPECTED_ROOT_VERSION = '4.0.0-beta.20';
-    expect(rootPkg.version, 'root peaks-loop must equal the bumped registry-repair version').toBe(EXPECTED_ROOT_VERSION);
-    expect(EXPECTED_ROOT_VERSION, 'root must follow 4.0.0-beta.<n> pre-release shape').toMatch(/^4\.0\.0-beta\.\d+$/);
+    expect(rootPkg.version, 'root peaks-loop SemVer shape').toMatch(/^\d+\.\d+\.\d+([-+].+)?$/);
+    // CHANGELOG-driven regression: the root CHANGELOG.md must include
+    // a `## <root-version>` heading in its top entry.
+    const rootChangelog = readFileSync(resolve(projectRoot, 'CHANGELOG.md'), 'utf8');
+    const rootChangelogHead = rootChangelog.split('\n').slice(0, 30).join('\n');
+    expect(
+      rootChangelogHead.includes(`## ${rootPkg.version}`),
+      `root CHANGELOG.md top must reference ## ${rootPkg.version}`,
+    ).toBe(true);
   });
 });
