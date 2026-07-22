@@ -172,6 +172,48 @@ jobs:
             exit 1
           fi
 
+      - name: Verify peaks-loop-shared/dist/version.js carries the root version (CLI_VERSION alignment gate)
+        # 2026-07-22 Bug-04 follow-up (HARD guarantee, not a memory hint):
+        # peaks-loop imports `CLI_VERSION` from peaks-loop-shared at
+        # runtime (`import { CLI_VERSION } from 'peaks-loop-shared/version';`).
+        # If peaks-loop-shared/dist/version.js carries an older root
+        # version stamp than package.json at pack time, then the
+        # downstream `npm install -g peaks-loop@<new>` reads the
+        # wrong CLI_VERSION from the resolved peaks-loop-shared@<old>
+        # and `peaks -v` prints a lag.
+        #
+        # The "chicken-and-egg" is real: peaks-loop@<new> pins
+        # peaks-loop-shared@<old> because `pnpm pack` rewrites the
+        # workspace-protocol dependency to whatever subpackage
+        # version is committed at pack time. If the operator bumped
+        # root BEFORE peaks-loop-shared, the pack proceeds with
+        # root's new version but shared's old version, leaving an
+        # aligned root manifest with a stale shared stamp.
+        #
+        # Gate: refuse to publish when the on-disk
+        # peaks-loop-shared/dist/version.js has not been refreshed to
+        # mirror the root package.json version. This is a STRUCTURAL
+        # guarantee — it does not depend on memory recall, only on
+        # the on-disk state + the registry contract.
+        id: gate-cli-version
+        run: |
+          # Defensive — build must have just refreshed dist/.
+          if [ ! -f packages/peaks-loop-shared/dist/version.js ]; then
+            echo "::error title=missing shared dist/version.js::publish.yml refuses to publish when peaks-loop-shared/dist/version.js is missing (did sync-version.mjs run before this gate?)"
+            exit 1
+          fi
+          root_version=$(node -e "console.log(require('./package.json').version)")
+          shared_cli_version=$(grep -oE 'CLI_VERSION = "[^"]+"' packages/peaks-loop-shared/dist/version.js | head -1 \
+            | sed -E 's/CLI_VERSION = "([^"]+)"/\1/')
+          if [ "${shared_cli_version}" != "${root_version}" ]; then
+            echo "::error title=CLI_VERSION drift::peaks-loop-shared carries ${shared_cli_version} but root package.json is ${root_version}"
+            echo "::error::publish.yml refuses to publish when peaks-loop-shared/dist/version.js lags the root version."
+            echo "::error::Fix: bump packages/peaks-loop-shared/package.json to a new version, commit, then re-tag. This avoids peaks-loop@<new> pinning a stale peaks-loop-shared@<old>."
+            echo "::error::Detail: ../.peaks/memory/peaks-cli-version-shared-chicken-egg.md"
+            exit 1
+          fi
+          echo "CLI_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-shared@${shared_cli_version}"
+
       - name: Publish to npm (OIDC + scripts/release-pack.mjs)
         # All-in-one publish script:
         #   - packs each workspace package with `pnpm pack` (rewrites

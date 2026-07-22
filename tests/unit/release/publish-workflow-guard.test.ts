@@ -73,50 +73,85 @@ afterAll(() => {
   }
 });
 
-describe('publish.yml workflow guard (2026-07-21 registry-repair follow-up)', () => {
-  test('workflow DOES NOT call `pnpm exec changeset version` unconditionally', () => {
-    // We scan the YAML line-by-line. When we hit `- name: ...
-    // changeset version`, we walk forward (not backward) to
-    // collect the rest of THIS step's attributes up to the next
-    // `- name:` (start of the next step) or end-of-file. The
-    // `if:` predicate — when present — lives between the name
-    // and the `run:` block of the same step, so forward-walking
-    // correctly captures it. We split each step into its
-    // attribute lines, then assert that any step whose name
-    // matches carries an `if:` line.
-    const stepHeaderRe = /^\s*-\s+name:\s*(.*)$/;
-    const lines = workflowSource.split('\n');
-    const steps: { name: string; lines: string[]; start: number }[] = [];
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(stepHeaderRe);
-      if (!m) continue;
-      const body: string[] = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        if (stepHeaderRe.test(lines[j])) break;
-        body.push(lines[j]);
-      }
-      steps.push({ name: m[1].trim(), lines: body, start: i });
-    }
-    const matches = steps.filter((s) => /changeset.*version/i.test(s.name));
-    expect(matches.length, 'expected at least one changeset-version step in the workflow').toBeGreaterThanOrEqual(1);
-    const bareMatches = matches.filter((s) => !s.lines.some((l) => /^\s+if:/.test(l)));
-    expect(bareMatches, 'all changeset-version steps must carry an `if:` predicate').toHaveLength(0);
-    expect(matches.length, 'must have at least one conditional changeset-version step').toBeGreaterThanOrEqual(1);
+describe('publish.yml workflow guard (2026-07-22 CLI_VERSION alignment + reject-on-stale-changeset)', () => {
+  test('workflow does NOT have any step whose `run:` body invokes `pnpm exec changeset version`', () => {
+    // Strategy: strip YAML comments (lines whose first non-blank
+    // character is `#`) before scanning. Author prose mentions of
+    // the deprecated behavior are allowed in comments; the term is
+    // forbidden in actual `run:` invocations only.
+    const stripped = workflowSource
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+    expect(
+      stripped,
+      `no surviving (non-comment) line should invoke 'pnpm exec changeset version'`,
+    ).not.toMatch(/\bpnpm\s+exec\s+changeset\s+version\b/);
   });
 
-  test('detect step exposes the pending_changesets output used by the gating step', () => {
-    // The detect step MUST emit `pending_changesets=true|false`
-    // via `$GITHUB_OUTPUT`. The gating step then references that
-    // output via `steps.detect.outputs.pending_changesets`. Both
-    // contracts must be present in the YAML.
+  test('refuse-gate step exists with name starting with `Refuse to publish if any .changeset/.md is staged`', () => {
+    // Match the step name prefix rather than the full substring — avoids
+    // false-positives from the CLI_VERSION gate's prose mentions.
     expect(
       workflowSource,
-      'detect step must write pending_changesets=true|false to $GITHUB_OUTPUT',
-    ).toMatch(/pending_changesets=(true|false)["']?\s*>>\s*["']?\$GITHUB_OUTPUT/);
+      'publish.yml must contain a refuse-on-stale-changeset step',
+    ).toMatch(/- name: Refuse to publish if any \.changeset\/\*\.md is staged/);
+    expect(workflowSource, 'the refuse gate must call `exit 1`').toMatch(/exit 1/);
+  });
+
+  test('CLI_VERSION alignment gate exists and gates on shared dist/version.js vs root package.json', () => {
+    // 2026-07-22 Bug-04 follow-up: peaks-loop imports CLI_VERSION from
+    // peaks-loop-shared at runtime. npm pack rewrites the
+    // `workspace:*` dependency to whatever subpackage version is
+    // committed at pack time — so if peaks-loop-shared@<old> is
+    // committed, peaks-loop@<new> pins peaks-loop-shared@<old> and
+    // the resolved CLI_VERSION lags the root version. This gate
+    // refuses to publish when the on-disk
+    // peaks-loop-shared/dist/version.js has not been refreshed to
+    // match the root package.json version.
     expect(
       workflowSource,
-      'gating step must reference steps.detect.outputs.pending_changesets',
-    ).toMatch(/steps\.detect\.outputs\.pending_changesets\s*==\s*['"]true['"]/);
+      'publish.yml must contain a CLI_VERSION alignment step',
+    ).toMatch(/Verify peaks-loop-shared\/dist\/version\.js carries the root version/);
+    expect(
+      workflowSource,
+      'the CLI_VERSION gate must exit 1 when the shared CLI_VERSION lags the root version',
+    ).toMatch(/CLI_VERSION drift|peaks-loop-shared carries.*but root package\.json is/);
+    expect(workflowSource, 'gate should reference the shared chicken-egg memory').toMatch(/peaks-cli-version-shared-chicken-egg/);
+  });
+
+  test('refuse-gate step excludes config.json + README.md', () => {
+    // Strip YAML comments. The refuse-gate step's `run:` block lists
+    // exclusions for config.json and README.md. We accept either the
+    // literal string or its regex-escaped form (^config\.json$ is the
+    // literal source pattern).
+    const stripped = workflowSource
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+    // Match on the exclusion-pattern lines specifically to avoid the
+    // file-head prose comment that mentions config.json.
+    const gateRunBlock = stripped.split(/- name: Refuse to publish if any \.changeset\/\*\.md is staged/, 2)[1] || '';
+    expect(gateRunBlock.length, 'gate run-block must exist').toBeGreaterThan(0);
+    expect(gateRunBlock, 'gate must exclude config.json').toMatch(/grep -v.*config[\\]?\.json/);
+    expect(gateRunBlock, 'gate must exclude README.md').toMatch(/grep -v.*README[\\]?\.md/);
+  });
+
+  test('dry-run `pnpm exec changeset version` against the bumped source is a no-op (defense in depth)', () => {
+    // Even though publish.yml no longer runs it, a future contributor
+    // who re-adds a changeset-version step must see a no-op exit 0
+    // here. We re-snapshot every package.json + subpackage
+    // package.json so the run is hermetic.
+    if (!existsSync(changesetsDir)) {
+      return; // nothing to do; the no-op assertion is trivially true
+    }
+    for (const f of [resolve(projectRoot, 'package.json'), ...['peaks-loop-shared', 'peaks-loop-shared-channel', 'peaks-loop-job-snapshot', 'peaks-loop-mut', 'peaks-loop-doctor', 'peaks-loop-crystallization', 'peaks-loop-final-review', 'peaks-loop-audit-independent'].map((s) => resolve(projectRoot, 'packages', s, 'package.json'))]) {
+      staleVersionFixtures.push({ file: f, originalContent: readFileSync(f, 'utf8') });
+    }
+    const rootPkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };
+    const result = spawnPnpm(['exec', 'changeset', 'version'], projectRoot);
+    const afterRoot = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };
+    expect(afterRoot.version, `root peaks-loop must stay at ${rootPkg.version}`).toBe(rootPkg.version);
   });
 
   test('detect step ignores non-changeset entries (config.json, README.md)', () => {
