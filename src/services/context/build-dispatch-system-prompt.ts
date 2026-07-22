@@ -20,11 +20,25 @@ export interface DispatchPromptInput {
   memoryBlock: MemoryPreflightResult;
 }
 
+/**
+ * Compose the system-prompt body that the dispatch site prepends to
+ * `formatTestToolDetection()\n\n`.
+ *
+ * Byte-identical degradation contract (slice 2026-07-22-orchestrator-memory-preflight
+ * controller brief): when the memory block is unavailable, the caller does
+ * `formatTestToolDetection()\n\n${taskBody}` — i.e. the final prompt is exactly
+ * `${formatTestToolDetection()}\n\n${taskBody}`. Today's pre-change behavior
+ * produced the same string from `src/cli/commands/dispatch-commands.ts:220`,
+ * so the unavailable branch MUST return `taskBody` (NOT a `# title\n\n` wrap).
+ *
+ * Available branch prepends the memory block before the `## Task` heading so
+ * `## Project memory …` always sits above the task brief (never pushed below
+ * it).
+ */
 export function buildDispatchSystemPrompt(input: DispatchPromptInput): string {
-  const { taskTitle, taskBody, memoryBlock } = input;
-  const head = `# ${taskTitle}\n\n`;
+  const { taskBody, memoryBlock } = input;
   if (memoryBlock.available === true && typeof memoryBlock.block === 'string') {
-    return `${head}${memoryBlock.block}\n## Task\n${taskBody}\n`;
+    return `${memoryBlock.block}\n## Task\n${taskBody}\n`;
   }
-  return `${head}## Task\n${taskBody}\n`;
+  return taskBody;
 }

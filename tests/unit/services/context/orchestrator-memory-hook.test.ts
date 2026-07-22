@@ -2,13 +2,16 @@ import { describe, expect, test } from 'vitest';
 import { buildDispatchSystemPrompt } from '../../../../src/services/context/build-dispatch-system-prompt.js';
 
 describe('buildDispatchSystemPrompt', () => {
-  test('returns original prompt when memory unavailable', () => {
+  test('returns taskBody byte-identically when memory unavailable (silent degradation)', () => {
+    const taskBody = 'explanation';
     const out = buildDispatchSystemPrompt({
       taskTitle: 'do thing',
-      taskBody: 'explanation',
+      taskBody,
       memoryBlock: { available: false, reason: 'MEMORY_INDEX_MISSING' },
     });
-    expect(out).toContain('explanation');
+    // Byte-identical: caller composes `${formatTestToolDetection()}\n\n${out}`
+    // which must equal today's pre-change `${formatTestToolDetection()}\n\n${taskBody}`.
+    expect(out).toBe(taskBody);
     expect(out).not.toContain('## Project memory relevant to this task');
   });
 
