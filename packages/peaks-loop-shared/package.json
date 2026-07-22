@@ -1,6 +1,6 @@
 {
   "name": "peaks-loop-shared",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "description": "Shared pure-function utils for peaks-loop workspace packages (fs / paths / result / version). Slice 3a.",
   "license": "MIT",
   "type": "module",
@@ -38,5 +38,12 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SquabbyZ/peaks-loop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SquabbyZ/peaks-loop/issues"
   }
 }

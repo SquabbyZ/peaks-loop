@@ -25,5 +25,12 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SquabbyZ/peaks-loop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SquabbyZ/peaks-loop/issues"
   }
 }
