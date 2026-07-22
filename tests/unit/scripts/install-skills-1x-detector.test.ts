@@ -28,7 +28,7 @@ import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync }
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 
 // Mock node:child_process so the install-skills.mjs
 // autoUpgrade1xProjectIfPresent function can be tested
@@ -44,7 +44,7 @@ vi.mock('node:child_process', async () => {
 });
 
 const childProcess = await import('node:child_process');
-const mockedSpawnSync = childProcess.spawnSync as unknown as ReturnType<typeof vi.fn>;
+const mockedSpawnSync: Mock<(...args: any[]) => any> = childProcess.spawnSync as unknown as Mock<(...args: any[]) => any>;
 
 const SCRIPT_URL = pathToFileURL(resolve('scripts/install-skills.mjs')).href;
 const scriptModule = (await import(SCRIPT_URL)) as {

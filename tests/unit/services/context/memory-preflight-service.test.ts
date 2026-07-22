@@ -14,11 +14,11 @@ function writeIndex(root: string, body: object) {
   writeFileSync(join(path, 'index.json'), JSON.stringify(body));
 }
 
-const prefs = {} as Parameters<typeof MemoryPreflightService>[0]; // any — service should default.
+const prefs = {} as ConstructorParameters<typeof MemoryPreflightService>[0]; // any — service should default.
 
 describe('MemoryPreflightService', () => {
   beforeEach(() => {
-    process.cwd_cache;
+    // Reserved for future per-test reset; intentionally empty.
   });
 
   test('returns available=false when memory index missing', async () => {

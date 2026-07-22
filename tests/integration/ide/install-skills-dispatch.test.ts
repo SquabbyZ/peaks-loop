@@ -82,9 +82,9 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // canonical one; assert non-empty result rather than pinning a name).
     expect(result.stdout).toMatch(/Peaks skills linked/);
     expect(existsSync(skillsRoot)).toBe(true);
-  }, 30000);
+  });
 
-  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', { timeout: 240_000 }, async () => {
+  test('PEAKS_CLAUDE_SKILLS_DIR back-compat override writes to the env-var target', async () => {
     // Slice 019 — bumped from 120s to 240s. Measured 127159ms under
     // pnpm test:full (real CLI binary spawn + IDE dispatch + skills
     // writeFileSync in a tmpdir, no parallelism can help). 240s = 2x
@@ -106,7 +106,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     } finally {
       rmSync(customSkills, { recursive: true, force: true });
     }
-  }, 30000);
+  });
 
   test('Claude Code-detected project (.claude/ present) installs to ~/.claude/skills/', async () => {
     // Create the .claude dir at the project root so the detector picks up 'claude-code'.
@@ -114,7 +114,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     const result = await runInstallSkills({}, project);
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/Peaks skills linked/);
-  }, 30000);
+  });
 
   test('Trae-detected project (.trae/ present) installs to all 8 platforms including ~/.trae/skills/', async () => {
     // Per peaks-loop 2.0: Trae is a verified IDE with its own
@@ -134,9 +134,9 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     // never wrote to ~/.trae/skills).
     const traeSkills = join(homedir(), '.trae', 'skills');
     expect(existsSync(traeSkills)).toBe(true);
-  }, 30000);
+  });
 
-  test('Trae-detected project still honors PEAKS_CLAUDE_SKILLS_DIR override for the claude-code install (env var > IDE profile, regression fix 2026-06-12)', { timeout: 120_000 }, async () => {
+  test('Trae-detected project still honors PEAKS_CLAUDE_SKILLS_DIR override for the claude-code install (env var > IDE profile, regression fix 2026-06-12)', async () => {
     mkdirSync(join(project, '.trae'));
     const customSkills = mkdtempSync(join(tmpdir(), 'peaks-skills-trae-custom-'));
     try {
@@ -158,7 +158,7 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     } finally {
       rmSync(customSkills, { recursive: true, force: true });
     }
-  }, 30000);
+  });
 
   // Auto-upgrade E2E test (slice 2026-06-12-postinstall-1x-detector-tdd).
   // Per the "one-key completion" tenet (2026-06-11): when the
@@ -189,5 +189,5 @@ describe('install-skills.mjs — IDE-aware dispatch (slice #011)', () => {
     );
     expect(result.code).toBe(0);
     expect(result.stdout).toMatch(/Peaks skills linked/);
-  }, 30000);
+  });
 });

@@ -251,7 +251,7 @@ describe('workspace publish install smoke (TDD regression gate)', () => {
       const filename = tarball.split(/[\\/]/).pop() ?? '';
       const m = filename.match(/^(.+)-(\d+\.\d+\.\d+(?:[-+].+)?)\.tgz$/);
       expect(m, `unexpected tarball name ${filename}`).toBeTruthy();
-      const pkgName = m![1];
+      const pkgName = m![1]!;
       const installedPkgDir = join(installedNodeModules, pkgName);
       expect(
         existsSync(installedPkgDir),

@@ -87,8 +87,8 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     for (const { pkgDir } of PACKAGES) {
       runPnpm(['pack', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
     }
-    doctorTarball = join(tarballDir, `peaks-loop-doctor-${readSpec(PACKAGES[1].pkgDir).version}.tgz`);
-    finalReviewTarball = join(tarballDir, `peaks-loop-final-review-${readSpec(PACKAGES[2].pkgDir).version}.tgz`);
+    doctorTarball = join(tarballDir, `peaks-loop-doctor-${readSpec(PACKAGES[1]!.pkgDir).version}.tgz`);
+    finalReviewTarball = join(tarballDir, `peaks-loop-final-review-${readSpec(PACKAGES[2]!.pkgDir).version}.tgz`);
     expect(existsSync(doctorTarball), `doctor tarball present at ${doctorTarball}`).toBe(true);
     expect(existsSync(finalReviewTarball), `final-review tarball present at ${finalReviewTarball}`).toBe(true);
   }, 600_000);
@@ -136,7 +136,7 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     const internals = internalPackageSet();
     const tamperedPath = tamperedSpec(doctorTarball);
     expect(existsSync(tamperedPath), `tampered tarball at ${tamperedPath}`).toBe(true);
-    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1].pkgDir).version, internals);
+    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1]!.pkgDir).version, internals);
     expect(verdict.ok, 'tampered tarball MUST fail verification').toBe(false);
     expect(
       verdict.errors.join('\n'),
@@ -161,7 +161,7 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     const sharedSpec = readSpec(resolve(projectRoot, 'packages', 'peaks-loop-shared'));
     const tamperedPath = tamperedSpec(doctorTarball, '0.0.99');
     expect(existsSync(tamperedPath), `version-drift tarball at ${tamperedPath}`).toBe(true);
-    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1].pkgDir).version, internals);
+    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1]!.pkgDir).version, internals);
     expect(verdict.ok, 'version-drift tarball MUST fail verification').toBe(false);
     const driftRegex = new RegExp(sharedSpec.version.replace(/\./g, '\\.'));
     expect(

@@ -55,7 +55,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
   });
 
   it('gates crystallization when task status is not completed (pre-run block, RL-2)', () => {
-    const svc = new CrystallizationService(db);
+    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
     const sourceShas = [git('rev-parse', 'HEAD')];
     const brief = buildEvidenceBrief({
       trace_id: 'm8-dogfood-pre-run-block',
@@ -78,7 +78,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
   });
 
   it('gates crystallization when gates_passed is false', () => {
-    const svc = new CrystallizationService(db);
+    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
     const sourceShas = [git('rev-parse', 'HEAD')];
     const brief = buildEvidenceBrief({
       trace_id: 'm8-dogfood-gate-block',
@@ -150,7 +150,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
     expect(brief.what_learned.length).toBeGreaterThan(10);
     expect(brief.what_action.length).toBeGreaterThan(10);
 
-    const svc = new CrystallizationService(db);
+    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
     const result = svc.crystallize({
       task: { task_id: 'm8-dogfood-loop-engineering-2026-07-07', task_status: 'completed' as never, gates_passed: true, evidence_collected: true },
       loop_input: {

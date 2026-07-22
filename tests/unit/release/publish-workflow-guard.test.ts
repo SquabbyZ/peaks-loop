@@ -174,10 +174,10 @@ describe('publish.yml workflow guard (2026-07-22 CLI_VERSION alignment + reject-
     const onText = onBlock![1];
     // `branches: [main]` MUST NOT appear under push (that would
     // turn every commit into a release).
-    const pushBranchesSection = onText.match(/push:\s*\n([\s\S]*?)(?=\n\s*\w+:|\s*$)/);
+    const pushBranchesSection = onText!.match(/push:\s*\n([\s\S]*?)(?=\n\s*\w+:|\s*$)/);
     if (pushBranchesSection) {
       expect(
-        pushBranchesSection[1],
+        pushBranchesSection[1]!,
         '`on.push.branches` must NOT be set to plain `main`; only `v*.*.*` tags are allowed',
       ).not.toMatch(/branches:\s*\[\s*['"]?main['"]?\s*\]/);
     }
@@ -197,14 +197,14 @@ describe('publish.yml workflow guard (2026-07-22 CLI_VERSION alignment + reject-
     const lines = workflowSource.split('\n');
     const steps: { name: string; lines: string[] }[] = [];
     for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(stepHeaderRe);
+      const m = lines[i]!.match(stepHeaderRe);
       if (!m) continue;
       const body: string[] = [];
       for (let j = i + 1; j < lines.length; j++) {
-        if (stepHeaderRe.test(lines[j])) break;
-        body.push(lines[j]);
+        if (stepHeaderRe.test(lines[j]!)) break;
+        body.push(lines[j]!);
       }
-      steps.push({ name: m[1].trim(), lines: body });
+      steps.push({ name: m[1]!.trim(), lines: body });
     }
     const publishSteps = steps.filter((s) => /release-pack\.mjs|npm publish/.test(s.name));
     expect(publishSteps.length, 'must find the publish step').toBeGreaterThanOrEqual(1);

@@ -25,6 +25,7 @@ import { MemoryIndexReader } from './memory-index-reader.js';
 import {
   resolveMemoryPreflightConfig,
   type MemoryPreflightConfig,
+  type MemoryPreflightPrefsInput,
 } from './memory-preflight-config.js';
 import type { MemoryIndexEntry } from '../memory/memory-search-service.js';
 import type { ProjectPreferences } from '../preferences/preferences-types.js';
@@ -35,8 +36,8 @@ export interface MemoryPreflightResult {
   feedbackListItems?: number;
   cachedItemCount?: number;
   reason?: string;
-  truncated?: boolean;
-  droppedCount?: number;
+  truncated?: boolean | undefined;
+  droppedCount?: number | undefined;
 }
 
 type HeadroomMode = 'balanced' | 'aggressive' | 'conservative';
@@ -68,7 +69,7 @@ export class MemoryPreflightService {
   /** path -> body; sub-agent-requested memo contents (Task 4 deviation, see module header). */
   private readonly cachedMemoContents = new Map<string, string>();
 
-  constructor(projectRoot: string, prefs: ProjectPreferences) {
+  constructor(projectRoot: string, prefs: MemoryPreflightPrefsInput) {
     this.config = resolveMemoryPreflightConfig(prefs);
     this.reader = new MemoryIndexReader(projectRoot);
   }

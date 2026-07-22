@@ -10,7 +10,7 @@
  * Round-trip KPI: ≤ 30s from invocation to peaks-txt completion.
  */
 
-import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi, type Mock } from 'vitest';
 import {
   buildCodePlan,
   runCodeFast,
@@ -81,11 +81,11 @@ describe('code-commands: buildCodePlan', () => {
 });
 
 describe('code-commands: runCodeFast', () => {
-  let memSpy: ReturnType<typeof vi.fn>;
-  let prefSpy: ReturnType<typeof vi.fn>;
-  let rdSpy: ReturnType<typeof vi.fn>;
-  let qaSpy: ReturnType<typeof vi.fn>;
-  let emitSpy: ReturnType<typeof vi.fn>;
+  let memSpy: Mock<(ctx: { sessionId: string }) => Promise<unknown>>;
+  let prefSpy: Mock<(ctx: { sessionId: string }) => Promise<unknown>>;
+  let rdSpy: Mock<(ctx: { sessionId: string }) => Promise<unknown>>;
+  let qaSpy: Mock<(ctx: { sessionId: string; repairLoop: boolean }) => Promise<unknown>>;
+  let emitSpy: Mock<(ctx: { sessionId: string }) => Promise<unknown>>;
 
   beforeEach(() => {
     memSpy = vi.fn().mockResolvedValue({ loaded: 4 });
