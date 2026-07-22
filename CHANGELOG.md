@@ -1,5 +1,16 @@
 # Changelog
 
+## 4.0.0
+
+### Patch Changes
+
+- Updated dependencies
+  - peaks-loop-shared@0.0.15
+  - peaks-loop-audit-independent@0.0.11
+  - peaks-loop-crystallization@0.0.12
+  - peaks-loop-doctor@0.0.11
+  - peaks-loop-final-review@0.0.11
+
 ## 4.0.0-beta.21 — 2026-07-22 (ice-cola surface-check fixes, republish)
 
 This release is the **republish** after the accidental 4.0.2
