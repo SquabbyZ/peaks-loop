@@ -81,4 +81,30 @@ describe('peaks preferences CLI', () => {
       rmSync(project, { recursive: true, force: true });
     }
   });
+
+  test('peaks preferences set on unknown key lists the allowed keys (Stage-3 follow-up)', () => {
+    // ice-cola surface check 2026-07-22, follow-on to report item 5.3:
+    // the prior error message was bare `PREFERENCES_KEY_UNKNOWN: <key>`
+    // which forced the operator to look up valid keys elsewhere. The
+    // follow-up baked the ALLOWED_KEYS list into the stderr text so
+    // the response is actionable. We exercise the `set` subcommand
+    // because it is the only one of the three (get / set / reset) that
+    // shares the same exec argv shape as the pre-existing passing
+    // test on line 74; the get/reset paths reach the same
+    // `unknownKeyError` helper via shared code so coverage of `set`
+    // is sufficient regression coverage for the helper change.
+    const project = makeProject();
+    try {
+      const sampleAllowed = ['economyMode', 'swarmMode', 'classifyRules'];
+      const { code, stderr } = cli(`preferences set --key bogusKey --value x --json`, project);
+      expect(code, 'set should exit non-zero').not.toBe(0);
+      expect(stderr, 'should mention PREFERENCES_KEY_UNKNOWN').toMatch(/PREFERENCES_KEY_UNKNOWN/);
+      expect(stderr, 'should list "Allowed keys:" prefix').toMatch(/Allowed keys:/);
+      for (const sample of sampleAllowed) {
+        expect(stderr, `stderr must list allowed key '${sample}'`).toContain(sample);
+      }
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+    }
+  });
 });

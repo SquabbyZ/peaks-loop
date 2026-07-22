@@ -21,6 +21,30 @@ const ALLOWED_KEYS: ReadonlySet<keyof ProjectPreferences> = new Set<keyof Projec
   'loopAutonomousEnabled',
 ]);
 
+/**
+ * Stable, sorted list of allowed preference keys. Used in error messages
+ * so a PREFERENCES_KEY_UNKNOWN throw is self-documenting (the operator
+ * sees exactly which keys are valid without reading the source).
+ */
+const ALLOWED_KEYS_LIST: ReadonlyArray<keyof ProjectPreferences> = Array.from(ALLOWED_KEYS).sort();
+
+/**
+ * Build a PREFERENCES_KEY_UNKNOWN error with the allowed-keys list baked
+ * in. Throwing a plain Error here is the legacy path that the CLI
+ * surfaces verbatim on stderr; the helper exists so all three sites
+ * (`get` / `set` / `reset`) emit the same operator-facing message.
+ *
+ * Stage-3 follow-up (ice-cola surface check 2026-07-22, follow-on to
+ * report item 5.3): previously the message was just `PREFERENCES_KEY_UNKNOWN:
+ * <key>` which forced the operator to look up valid keys elsewhere. The
+ * new message lists the valid keys inline so the response is actionable.
+ */
+function unknownKeyError(key: string): Error {
+  return new Error(
+    `PREFERENCES_KEY_UNKNOWN: ${key}. Allowed keys: ${ALLOWED_KEYS_LIST.join(', ')}.`
+  );
+}
+
 interface GetOptions {
   key: string;
   project: string;
@@ -60,7 +84,7 @@ export function registerPreferencesCommands(program: Command): void {
     .action((opts: GetOptions) => {
       try {
         if (!ALLOWED_KEYS.has(opts.key as keyof ProjectPreferences)) {
-          throw new Error(`PREFERENCES_KEY_UNKNOWN: ${opts.key}`);
+          throw unknownKeyError(opts.key);
         }
         const all = loadPreferences(opts.project);
         const value = (all as unknown as Record<string, unknown>)[opts.key];
@@ -105,7 +129,7 @@ export function registerPreferencesCommands(program: Command): void {
     .action((opts: SetOptions) => {
       try {
         if (!ALLOWED_KEYS.has(opts.key as keyof ProjectPreferences)) {
-          throw new Error(`PREFERENCES_KEY_UNKNOWN: ${opts.key}`);
+          throw unknownKeyError(opts.key);
         }
         let parsed: unknown = opts.value;
         try {
@@ -139,7 +163,7 @@ export function registerPreferencesCommands(program: Command): void {
     .action((opts: ResetOptions) => {
       try {
         if (!ALLOWED_KEYS.has(opts.key as keyof ProjectPreferences)) {
-          throw new Error(`PREFERENCES_KEY_UNKNOWN: ${opts.key}`);
+          throw unknownKeyError(opts.key);
         }
         const filePath = preferencesPath(opts.project);
         // Read raw on-disk state (not the merged view) so removing a key
