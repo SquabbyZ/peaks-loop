@@ -45,7 +45,7 @@ function toPosix(p: string): string {
 
 function packPackage(spec: PackageSpec, dest: string): string {
   const pkgDir = resolve(packagesRoot, spec.dir);
-  runPnpm(['pack', '--pack-destination', dest], {
+  runPnpm(['pack', '--config.ignore-scripts=true', '--pack-destination', dest], {
     cwd: pkgDir,
     stdio: 'pipe',
   });

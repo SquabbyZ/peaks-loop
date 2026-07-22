@@ -18,46 +18,20 @@ writeFileSync(
   `export const CLI_VERSION = ${JSON.stringify(version)};\n`,
 );
 
-// 2026-07-22 follow-up (post-monorepo recurrence): automatically bump
-// `peaks-loop-shared`'s own package.json version so the npm pack always
-// ships a fresh tarball. Pre-monorepo this never recurred because the
-// root was the only published artifact; in monorepo mode the shared
-// subpackage's tarball gets cached on the registry with stale CLI_VERSION
-// when only the root version changes, and `npm install` re-uses that
-// cached tarball because peaks-loop<ver>'s package.json still pins
-// `peaks-loop-shared@<old>`. Bumping the shared version forces a fresh
-// tarball upload. Read-modify-write on the shared package's package.json
-// only — the shared package is private, so its version field doesn't
-// appear in any consumer's package.json (the peaks-loop dependency
-// rewrite is still handled by the publish pack step).
+// 2026-07-23 follow-up (peaks-publish-stale fix, AC6): the shared
+// bump used to live here, gated on `PEAKS_AUTO_BUMP_SHARED === '1'`.
+// That gate was the Layer 2 root cause: publish.yml set the env on
+// the CI Build step, but local dev runs (and any path that didn't
+// re-export the env) produced stale shared tarballs. The bump now
+// lives in `scripts/bump-version.mjs` (which always runs when root
+// version changes) and `bump-version.mjs` is the single owner of
+// the shared/package.json#version bump.
 //
-// SAFETY: this auto-bump only runs when invoked from the publish
-// `build` step (i.e. on the CI runner producing a release). It does NOT
-// run for `pretest` / `predev` / `prepublish` / `pretest:coverage` —
-// otherwise a local dev loop would ratchet the shared version upward
-// by 0.0.1 every test run and the working tree would diverge from the
-// last git tag. The gate is `process.env.PEAKS_AUTO_BUMP_SHARED === '1'`.
-//
-// Skip the bump when the existing shared version is NOT a clean
-// x.y.z SemVer (some test fixtures use markers like `9.9.9-oldsub`).
-// In that case, leave the version alone and let the test that set
-// the marker continue to work.
-if (process.env.PEAKS_AUTO_BUMP_SHARED === '1') {
-  const sharedPkgPath = resolve('packages/peaks-loop-shared/package.json');
-  const sharedPkg = JSON.parse(readFileSync(sharedPkgPath, 'utf8'));
-  const sharedVersion = sharedPkg.version;
-  const sharedVersionMatch = /^(\d+)\.(\d+)\.(\d+)$/.exec(sharedVersion);
-  if (sharedVersionMatch) {
-    const nextSharedVersion = `${sharedVersionMatch[1]}.${sharedVersionMatch[2]}.${Number(sharedVersionMatch[3]) + 1}`;
-    sharedPkg.version = nextSharedVersion;
-    writeFileSync(sharedPkgPath, JSON.stringify(sharedPkg, null, 2) + '\n');
-    console.log(`[sync-version] bumped peaks-loop-shared ${sharedVersion} -> ${nextSharedVersion} (root ${version})`);
-  } else {
-    console.log(`[sync-version] peaks-loop-shared version "${sharedVersion}" is not x.y.z; skipping auto-bump`);
-  }
-} else {
-  console.log(`[sync-version] peaks-loop-shared auto-bump skipped (PEAKS_AUTO_BUMP_SHARED not set)`);
-}
+// This script keeps a fallback shared bump when explicitly invoked
+// from another path with `PEAKS_AUTO_BUMP_SHARED === '1'` — that
+// preserves the contract for any out-of-band build invocation that
+// still sets the env var. The bump-version.mjs path is primary and
+// always-on; the gate here is just a back-stop.
 
 // 2026-07-22 follow-up (Bug-04 root-cause fix): the previous version of
 // this script wrote `version.ts` only, then handed off to `tsc`. Tsc's

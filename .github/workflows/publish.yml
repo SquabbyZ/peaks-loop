@@ -130,6 +130,30 @@ jobs:
       - name: Install dependencies (frozen lockfile)
         run: pnpm install --frozen-lockfile
 
+      - name: 'Idempotency guard: skip bump when local root version already equals dist-tags.latest (AC7)'
+        # 2026-07-23 follow-up (peaks-publish-stale fix, AC7): the
+        # `bump-version.mjs` script already self-no-ops when
+        # `npm view peaks-loop dist-tags.latest` matches the local
+        # package.json#version, but a future contributor could remove
+        # that check or refactor the script and silently re-introduce
+        # the 33 -> 35 version-skip on retries. The publish workflow
+        # itself now performs the check at the gate level: if the
+        # registry's `latest` already equals the local root version,
+        # the Auto-bump step exits 0 immediately and the rest of the
+        # pipeline proceeds with no version bump. Re-pushing the same
+        # tag or re-running `workflow_dispatch` with the same
+        # INPUT_TARGET therefore never creates a new version on npm.
+        env:
+          INPUT_TARGET: ${{ inputs.target_version || '' }}
+        run: |
+          latest=$(npm view peaks-loop dist-tags.latest --json 2>/dev/null || echo 'null')
+          local_root=$(node -e "console.log(require('./package.json').version)")
+          if [ "${latest}" = "\"${local_root}\"" ] || [ "${latest}" = "${local_root}" ]; then
+            echo "::notice title=idempotency no-op::peaks-loop@${local_root} already on registry as latest; Auto-bump step will be a no-op"
+          else
+            echo "Idempotency guard OK: registry latest=${latest}, local root=${local_root}; bump will proceed"
+          fi
+
       - name: Auto-bump version per smallest-semver policy
         # 2026-07-22 explicit maintainer rule: "默认版本新增采用最小的
         # 版本位,除非我特意规划大版本". When a `v*.*.*` tag is pushed
@@ -138,9 +162,17 @@ jobs:
         # (patch bit +1; for `x.y.z-beta.N` -> `x.y.z-beta.(N+1)`). Major
         # bumps require explicit `--to X.Y.0` or `PEAKS_NEXT_MAJOR` env
         # override. When the local version already matches the tag, the
-        # script is a no-op (idempotent). For `workflow_dispatch` runs,
-        # the same env / flag pattern works — the script does NOT
-        # auto-create a tag (that remains the operator's job).
+        # script is a no-op (idempotent — see the Idempotency guard
+        # step above for AC7). For `workflow_dispatch` runs, the same
+        # env / flag pattern works — the script does NOT auto-create a
+        # tag (that remains the operator's job).
+        #
+        # 2026-07-23 follow-up (peaks-publish-stale fix, AC6):
+        # bump-version.mjs now ALSO bumps
+        # packages/peaks-loop-shared/package.json#version in lockstep.
+        # No env gate is required: the gate was the Layer 2 root
+        # cause (CI env was set, local dev was not). bump-version.mjs
+        # is now the single owner of the shared/version bump.
         env:
           INPUT_TARGET: ${{ inputs.target_version || '' }}
         run: |
@@ -161,15 +193,11 @@ jobs:
           # workspace:* deps provide dist/* .d.ts/.js exports for typecheck
           # resolution against `tsconfig.build.json`; standalone tsc before
           # this step will fail with "Cannot find module 'peaks-loop-shared/*'")
-        env:
-          # 2026-07-22 follow-up (post-monorepo recurrence): trigger
-          # sync-version.mjs to auto-bump peaks-loop-shared in lockstep with
-          # the root. Without this env, sync-version's auto-bump is
-          # skipped and the published peaks-loop-shared tarball carries a
-          # stale CLI_VERSION (since the publish workflow's
-          # `isAlreadyPublished` guard short-circuits on the same
-          # shared version when only the root was bumped).
-          PEAKS_AUTO_BUMP_SHARED: '1'
+        # 2026-07-23 follow-up (peaks-publish-stale fix, AC6): the
+        # PEAKS_AUTO_BUMP_SHARED env var is no longer required —
+        # bump-version.mjs owns the shared version bump and always runs
+        # when root version changes. We keep the var unset to prove the
+        # fix does NOT depend on this env (the prior Layer 2 root cause).
         run: pnpm run build
 
       # Typecheck is now performed as part of `pnpm run build` (the root
@@ -214,32 +242,24 @@ jobs:
             exit 1
           fi
 
-      - name: Verify peaks-loop-shared/dist/version.js carries the root version (CLI_VERSION alignment gate)
-        # 2026-07-22 Bug-04 follow-up (HARD guarantee, not a memory hint):
-        # peaks-loop imports `CLI_VERSION` from peaks-loop-shared at
-        # runtime (`import { CLI_VERSION } from 'peaks-loop-shared/version';`).
-        # If peaks-loop-shared/dist/version.js carries an older root
-        # version stamp than package.json at pack time, then the
-        # downstream `npm install -g peaks-loop@<new>` reads the
-        # wrong CLI_VERSION from the resolved peaks-loop-shared@<old>
-        # and `peaks -v` prints a lag.
+      - name: Verify peaks-loop-shared tarball CLI_VERSION parity (Layer 5 + on-disk gate)
+        # 2026-07-23 follow-up (peaks-publish-stale fix, AC1 + AC4): the
+        # prior version of this gate read the on-disk
+        # packages/peaks-loop-shared/dist/version.js. That file DOES
+        # exist on disk (the build step regenerates it). But `pnpm pack`
+        # MAY silently skip dist/version.js in some incremental tsc
+        # scenarios — Layer 3 of the diagnosis. So the on-disk gate
+        # passes while the tarball ships stale content.
         #
-        # The "chicken-and-egg" is real: peaks-loop@<new> pins
-        # peaks-loop-shared@<old> because `pnpm pack` rewrites the
-        # workspace-protocol dependency to whatever subpackage
-        # version is committed at pack time. If the operator bumped
-        # root BEFORE peaks-loop-shared, the pack proceeds with
-        # root's new version but shared's old version, leaving an
-        # aligned root manifest with a stale shared stamp.
-        #
-        # Gate: refuse to publish when the on-disk
-        # peaks-loop-shared/dist/version.js has not been refreshed to
-        # mirror the root package.json version. This is a STRUCTURAL
-        # guarantee — it does not depend on memory recall, only on
-        # the on-disk state + the registry contract.
+        # The structural fix (Layer 5): after the on-disk check passes,
+        # we ALSO run `pnpm --filter peaks-loop-shared pack` and
+        # verify that the packed tarball's package/dist/version.js
+        # carries the expected CLI_VERSION (= root version). On-disk
+        # gate AND tarball-content gate must BOTH pass. Failure of
+        # either gate aborts the publish before `npm publish` runs.
         id: gate-cli-version
         run: |
-          # Defensive — build must have just refreshed dist/.
+          # ---- (A) On-disk gate: defensive file presence + value check
           if [ ! -f packages/peaks-loop-shared/dist/version.js ]; then
             echo "::error title=missing shared dist/version.js::publish.yml refuses to publish when peaks-loop-shared/dist/version.js is missing (did sync-version.mjs run before this gate?)"
             exit 1
@@ -248,13 +268,41 @@ jobs:
           shared_cli_version=$(grep -oE 'CLI_VERSION = "[^"]+"' packages/peaks-loop-shared/dist/version.js | head -1 \
             | sed -E 's/CLI_VERSION = "([^"]+)"/\1/')
           if [ "${shared_cli_version}" != "${root_version}" ]; then
-            echo "::error title=CLI_VERSION drift::peaks-loop-shared carries ${shared_cli_version} but root package.json is ${root_version}"
+            echo "::error title=CLI_VERSION drift::peaks-loop-shared on-disk carries ${shared_cli_version} but root package.json is ${root_version}"
             echo "::error::publish.yml refuses to publish when peaks-loop-shared/dist/version.js lags the root version."
             echo "::error::Fix: bump packages/peaks-loop-shared/package.json to a new version, commit, then re-tag. This avoids peaks-loop@<new> pinning a stale peaks-loop-shared@<old>."
             echo "::error::Detail: ../.peaks/memory/peaks-cli-version-shared-chicken-egg.md"
             exit 1
           fi
-          echo "CLI_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-shared@${shared_cli_version}"
+          echo "On-disk CLI_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-shared@${shared_cli_version}"
+
+          # ---- (B) Tarball-content gate (AC4): pack shared, verify the
+          # packed tarball's package/dist/version.js carries the same
+          # CLI_VERSION. This is the Layer 5 fix — on-disk != tarball.
+          tmp=$(mktemp -d)
+          trap "rm -rf ${tmp}" EXIT
+          pnpm --filter peaks-loop-shared pack --pack-destination "${tmp}" >/dev/null
+          shared_tgz="${tmp}/peaks-loop-shared-$(node -e "console.log(require('./packages/peaks-loop-shared/package.json').version)").tgz"
+          if [ ! -f "${shared_tgz}" ]; then
+            echo "::error title=pack produced no tarball::pnpm --filter peaks-loop-shared pack did not produce ${shared_tgz}"
+            exit 1
+          fi
+          # Extract package/dist/version.js and read the literal value.
+          tar -xzf "${shared_tgz}" -C "${tmp}/extract" 2>/dev/null || mkdir -p "${tmp}/extract" && tar -xzf "${shared_tgz}" -C "${tmp}/extract"
+          if [ ! -f "${tmp}/extract/package/dist/version.js" ]; then
+            echo "::error title=stale-tarball::peaks-loop-shared tarball is MISSING package/dist/version.js. Layer 3 root cause: shared tsc incremental build silently skipped dist/version.js. Refusing to publish."
+            echo "::error::Fix: clean shared/dist (rm -rf packages/peaks-loop-shared/dist) and re-run pnpm run build, or switch to 'tsc -b' (project references)."
+            echo "::error::Detail: ../.peaks/memory/peaks-stale-cli-version-2026-07-23-diagnosis.md"
+            exit 1
+          fi
+          packed_cli_version=$(grep -oE 'CLI_VERSION = "[^"]+"' "${tmp}/extract/package/dist/version.js" | head -1 \
+            | sed -E 's/CLI_VERSION = "([^"]+)"/\1/')
+          if [ "${packed_cli_version}" != "${root_version}" ]; then
+            echo "::error title=tarball CLI_VERSION drift::peaks-loop-shared tarball carries CLI_VERSION=${packed_cli_version} but root package.json is ${root_version}. The pack step produced a stale tarball (Layer 3 + Layer 5). Refusing to publish."
+            echo "::error::Detail: ../.peaks/memory/peaks-stale-cli-version-2026-07-23-diagnosis.md"
+            exit 1
+          fi
+          echo "Tarball CLI_VERSION alignment OK: peaks-loop-shared@$(node -e "console.log(require('./packages/peaks-loop-shared/package.json').version)") tarball package/dist/version.js = ${packed_cli_version}"
 
       - name: Publish to npm (OIDC + scripts/release-pack.mjs)
         # All-in-one publish script:

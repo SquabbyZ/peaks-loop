@@ -76,7 +76,7 @@ function packAllTo(dest: string): string[] {
   for (const { pkgDir } of SUBPACKAGES_ORDER) {
     if (pkgDir === projectRoot) continue;
     const spec = readSpec(pkgDir);
-    runPnpm(['pack', '--pack-destination', dest], {
+    runPnpm(['pack', '--config.ignore-scripts=true', '--pack-destination', dest], {
       cwd: pkgDir,
       stdio: 'pipe',
     });

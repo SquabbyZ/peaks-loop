@@ -20,16 +20,17 @@
  *   PEAKS_SKIP=root      publish subpackages only (skip root)
  *   PEAKS_KEEP_TARBALLS=1 keep staged tarballs for QA inspection
  */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import os from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 
 import {
   runPnpm,
   runNpm,
   verifyTarball,
+  toPosixPath,
 } from './_release-shared.mjs';
 
 const projectRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
@@ -96,54 +97,118 @@ function isAlreadyPublished(name, version) {
   return /"\d+\.\d+\.\d+/.test(stdout) || /\d+\.\d+\.\d+/.test(stdout);
 }
 
-// 2026-07-22 follow-up: return TRUE only when the on-registry
-// tarball's CLI_VERSION matches the local dist's. If the local
-// content changed but the version is the same, we MUST republish
-// (skipping would leave downstream consumers with stale CLI_VERSION).
-// This is the actual root cause of the 4.0.0-beta.32 -> 33 ladder
-// of stale shared@X.Y.Z on the registry.
+// 2026-07-23 follow-up (peaks-publish-stale fix, AC5): when the
+// LOCAL tarball is missing `package/dist/version.js`, fail-loud
+// instead of returning null/false. The prior `null && regVer` short
+// circuit caused the silent SKIP that let stale CLI_VERSION tarballs
+// onto npm — peaks-loop@<new> shipping peaks-loop-shared@<new> with
+// NO version.js file at all. We refuse to publish such a tarball;
+// the upstream publish.yml `gate-cli-version` step is the parallel
+// gate for the on-disk state, this is the tarball-level gate.
 function isRegistryStale(name, version, localTarball) {
+  const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-stale-'));
   try {
-    const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-stale-'));
-    try {
-      const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-      execFileSync(npmBin, ['pack', `${name}@${version}`, '--pack-destination', tmp], {
-        cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
-        shell: process.platform === 'win32',
-      });
-      const localVer = (function() {
-        const localTmp = mkdtempSync(join(os.tmpdir(), 'peaks-local-'));
-        try {
-          execFileSync('tar', ['-xzf', localTarball, '-C', localTmp]);
-          const f = join(localTmp, 'package', 'dist', 'version.js');
-          if (!existsSync(f)) return null;
-          return readFileSync(f, 'utf8');
-        } finally { rmSync(localTmp, { recursive: true, force: true }); }
-      })();
-      const regVer = (function() {
-        const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
-        if (!tgz) return null;
-        const regTmp = mkdtempSync(join(os.tmpdir(), 'peaks-reg-'));
-        try {
-          execFileSync('tar', ['-xzf', join(tmp, tgz), '-C', regTmp]);
-          const f = join(regTmp, 'package', 'dist', 'version.js');
-          if (!existsSync(f)) return null;
-          return readFileSync(f, 'utf8');
-        } finally { rmSync(regTmp, { recursive: true, force: true }); }
-      })();
-      return localVer && regVer && localVer !== regVer;
-    } finally { rmSync(tmp, { recursive: true, force: true }); }
-  } catch { return false; }
+    const localVer = readVersionJsFromTarball(localTarball, `local ${name}@${version}`);
+    const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    execFileSync(npmBin, ['pack', `${name}@${version}`, '--pack-destination', tmp], {
+      cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
+      shell: process.platform === 'win32',
+    });
+    const tgz = readdirSync(tmp).find(f => f.endsWith('.tgz'));
+    if (!tgz) {
+      // No registry tarball yet (first publish of this version).
+      // Not "stale" — there is nothing to compare against. Return
+      // false so the publish proceeds.
+      return false;
+    }
+    const regVer = readVersionJsFromTarball(join(tmp, tgz), `registry ${name}@${version}`);
+    return localVer !== regVer;
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// Read `package/dist/version.js` out of a tarball. Throws when the
+// file is missing — the publish gate (AC1, AC5) refuses to ship a
+// tarball without it. Used by `isRegistryStale` and `publishOne`'s
+// post-pack gate so the tarball content is the source of truth, not
+// the on-disk file. The Windows path conversion (`toPosixPath`) is
+// required — GNU tar on Windows misreads `C:\Users\…` as a remote
+// host spec. The shared helper does the canonical conversion.
+function readVersionJsFromTarball(tarball, label) {
+  const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-'));
+  try {
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)]);
+    const f = join(tmp, 'package', 'dist', 'version.js');
+    if (!existsSync(f)) {
+      throw new Error(
+        `[release-pack] ${label} tarball is missing package/dist/version.js — refusing to publish. ` +
+        `Layer 3 root cause: shared tsc incremental build silently skipped dist/version.js. ` +
+        `See .peaks/memory/peaks-stale-cli-version-2026-07-23-diagnosis.md`,
+      );
+    }
+    return readFileSync(f, 'utf8');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+// AC1/AC4 helper: pack the workspace package and extract
+// `package/dist/version.js` from the resulting tarball ONLY for
+// `peaks-loop-shared` (the only subpackage that ships a CLI_VERSION
+// file — others are pure utility packages). Returns
+// `{ tarball, cliVersion? }` so callers can decide whether the
+// packed content matches the expected CLI_VERSION. Fail-loud when
+// the shared tarball is missing `dist/version.js` — that mirrors
+// the publish.yml gate and catches the Layer 3 (silent tsc skip)
+// case before npm publish.
+function packAndInspectTarball(pkgDir) {
+  const spec = readPackage(pkgDir);
+  runPnpm(['pack', '--pack-destination', tarballDir], {
+    cwd: resolve(projectRoot, pkgDir),
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+  const tarballName = `${spec.name.replace('@', '').replace(/\//g, '-')}-${spec.version}.tgz`;
+  const tarball = join(tarballDir, tarballName);
+  if (spec.name === 'peaks-loop-shared') {
+    const cliVersion = readVersionJsFromTarball(tarball, `local ${spec.name}@${spec.version}`);
+    return { tarball, name: spec.name, version: spec.version, cliVersion };
+  }
+  return { tarball, name: spec.name, version: spec.version };
 }
 
 function publishOne(pkgDir, internalPackages) {
-  const { tarball, name, version } = packOne(pkgDir);
-  console.log(`[release-pack] packed ${name}@${version} -> ${tarball}`);
+  const packed = packAndInspectTarball(pkgDir);
+  const { tarball, name, version } = packed;
+  const cliVersion = packed.cliVersion;
+  const cliLabel = cliVersion !== undefined ? ` (CLI_VERSION from tarball: ${extractCliVersion(cliVersion) ?? '<unparseable>'})` : '';
+  console.log(`[release-pack] packed ${name}@${version} -> ${tarball}${cliLabel}`);
   const verdict = verifyTarball(tarball, name, version, internalPackages);
   if (!verdict.ok) {
     throw new Error(
       `[release-pack] ${name}@${version} failed verification:\n  - ${verdict.errors.join('\n  - ')}`,
     );
+  }
+  // AC1 structural gate: the packed CLI_VERSION must equal the
+  // ROOT version (4.0.0-beta.N), not the local package.json
+  // version. Only applies to packages that ship a CLI_VERSION
+  // file (peaks-loop-shared). Why: peaks-loop imports CLI_VERSION
+  // from peaks-loop-shared; the shared package's own
+  // package.json#version (e.g. 0.0.25) is the npm-pack pin target
+  // but is irrelevant to downstream consumers — what matters is
+  // that shared's `dist/version.js` carries the LATEST root
+  // version stamp. This catches the Layer 3 (silent tsc skip)
+  // case BEFORE npm publish.
+  if (cliVersion !== undefined) {
+    const rootVersion = readPackage('.').version;
+    const packedCli = extractCliVersion(cliVersion);
+    if (packedCli !== rootVersion) {
+      throw new Error(
+        `[release-pack] ${name}@${version} tarball CLI_VERSION does not match root version. ` +
+        `tarball=${packedCli ?? '<unparseable>'}, expected=${rootVersion} (root). ` +
+        `Refusing to publish a stale tarball.`,
+      );
+    }
   }
   if (process.env.PEAKS_DRY_RUN === '1') {
     console.log(`[release-pack] DRY RUN: would publish ${name}@${version}`);
@@ -162,6 +227,15 @@ function publishOne(pkgDir, internalPackages) {
     stdio: 'inherit',
   });
   console.log(`[release-pack] OK ${name}@${version}`);
+}
+
+// Extract the literal CLI_VERSION value out of a `dist/version.js`
+// blob. Returns null on parse failure so callers can surface a
+// clear error instead of an opaque object equality check.
+function extractCliVersion(blob) {
+  const m = /CLI_VERSION\s*=\s*("([^"]*)"|'([^']*)')/.exec(blob ?? '');
+  if (!m) return null;
+  return m[2] ?? m[3] ?? null;
 }
 
 function main() {
@@ -220,3 +294,16 @@ if (isDirectInvocation()) {
     process.exit(1);
   }
 }
+
+// Module exports for regression tests in tests/unit/release/. The
+// direct-invocation guard above ensures main() does NOT run when
+// imported, so the helper functions are safe to surface for AC1 /
+// AC5 / AC7 test coverage.
+export {
+  readVersionJsFromTarball,
+  packAndInspectTarball,
+  isRegistryStale,
+  extractCliVersion,
+  SUBPACKAGE_DIRECTORIES,
+  ROOT_DIR,
+};

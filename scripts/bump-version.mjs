@@ -22,14 +22,28 @@
  *
  * After picking the target version, the script:
  *   1. Sets `package.json#version` to the target.
- *   2. Re-prints the new version on stdout (the publish workflow
+ *   2. Bumps `packages/peaks-loop-shared/package.json#version` in
+ *      lockstep (AC6 of peaks-publish-stale-2026-07-23) so that the
+ *      shared workspace tarball shipped on the next publish always
+ *      carries a fresh `dist/version.js`. The shared package is
+ *      `private: false` and its version is what `pnpm pack` rewrites
+ *      the `workspace:*` dependency to — leaving it stale is the
+ *      Layer 1 root cause of the 4.0.0-beta.35 → CLI_VERSION lag.
+ *   3. Re-prints the new version on stdout (the publish workflow
  *      greps this for the git tag).
+ *
+ * Idempotency (AC7): if `package.json#version` already equals
+ * `npm view peaks-loop dist-tags.latest`, the script exits 0 with
+ * a no-op log line and does NOT bump shared. This stops the publish
+ * workflow from re-running the auto-bump on a re-pushed tag (which
+ * was the root cause of the 33 → 35 version-skip on npm).
  *
  * Stops with non-zero exit code on any parse / range error so the
  * publish workflow can fail fast.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
 function parseArgs() {
@@ -82,10 +96,60 @@ function bumpMajor(v) {
   return p.pre ? `${p.major + 1}.0.0-${p.pre}` : `${p.major + 1}.0.0`;
 }
 
+// Read `npm view peaks-loop dist-tags.latest`. Returns null when
+// the registry is unreachable (e.g. local dev with no network) so
+// callers can treat it as "unknown — proceed with bump".
+function registryLatest() {
+  try {
+    const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const out = execFileSync(
+      npmBin,
+      ['view', 'peaks-loop', 'dist-tags.latest', '--json'],
+      { stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' },
+    ).toString();
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+// Bump the peaks-loop-shared subpackage version in lockstep with
+// root. Skipped when the existing shared version is NOT a clean
+// x.y.z SemVer (some test fixtures use markers like
+// `9.9.9-oldsub`); in that case, leave the version alone. Always
+// returns the (possibly unchanged) post-bump shared version so the
+// caller can log it.
+function bumpSharedVersion(rootNext) {
+  const sharedPkgPath = resolve('packages/peaks-loop-shared/package.json');
+  const sharedPkg = JSON.parse(readFileSync(sharedPkgPath, 'utf8'));
+  const sharedVersion = sharedPkg.version;
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(sharedVersion);
+  if (!m) {
+    console.log(`[bump-version] peaks-loop-shared version "${sharedVersion}" is not x.y.z; skipping auto-bump`);
+    return sharedVersion;
+  }
+  const nextShared = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+  sharedPkg.version = nextShared;
+  writeFileSync(sharedPkgPath, JSON.stringify(sharedPkg, null, 2) + '\n');
+  console.log(`[bump-version] peaks-loop-shared ${sharedVersion} -> ${nextShared} (root ${rootNext})`);
+  return nextShared;
+}
+
 const pkgPath = resolve('package.json');
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const current = pkg.version;
 const { to } = parseArgs();
+
+// AC7 idempotency: if current version is already published as
+// dist-tags.latest, exit 0 BEFORE writing anything. This stops the
+// publish workflow from re-running the auto-bump on a re-pushed
+// tag and publishing a redundant version (the 33 -> 35 skip root
+// cause).
+const latestOnRegistry = registryLatest();
+if (latestOnRegistry === current) {
+  console.log(`[bump-version] no-op: ${current} already on registry as latest; skipping bump`);
+  process.exit(0);
+}
 
 let next;
 if (to) {
@@ -115,7 +179,14 @@ if (next === current) {
   process.exit(1);
 }
 
+// AC6: shared always bumped in lockstep with root. No env gate —
+// the env gate was the Layer 2 root cause (local dev builds
+// produced stale shared tarballs because publish.yml set the env
+// only on the CI Build step). bump-version.mjs is now the single
+// owner of the shared/package.json#version bump.
 pkg.version = next;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
+
+bumpSharedVersion(next);
 
 console.log(`[bump-version] peaks-loop ${current} -> ${next}`);

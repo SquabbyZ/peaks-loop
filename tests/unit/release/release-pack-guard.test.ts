@@ -85,7 +85,7 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     // the actual SUT. We rely on the test runner's own pnpm
     // invocation.
     for (const { pkgDir } of PACKAGES) {
-      runPnpm(['pack', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
+      runPnpm(['pack', '--config.ignore-scripts=true', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
     }
     doctorTarball = join(tarballDir, `peaks-loop-doctor-${readSpec(PACKAGES[1]!.pkgDir).version}.tgz`);
     finalReviewTarball = join(tarballDir, `peaks-loop-final-review-${readSpec(PACKAGES[2]!.pkgDir).version}.tgz`);
@@ -182,6 +182,11 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
         ...process.env,
         PEAKS_DRY_RUN: '1',
         PEAKS_SKIP: 'root',
+        // The suite packs the already-built dist tree. Rebuilding here
+        // runs clean-dist concurrently with AC1 tarball inspection in
+        // publish-stale-fix.test.ts and can transiently remove
+        // package/dist/version.js during pnpm pack.
+        PEAKS_SKIP_BUILD: '1',
       },
       stdio: 'pipe',
     });
