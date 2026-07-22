@@ -172,6 +172,16 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
       expect(pkg.version, `${spec.name} must be ${EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4'}`).toBe(EXPECTED_SUB_VERSIONS[spec.name] ?? '0.0.4');
     }
     const rootPkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };
-    expect(rootPkg.version, 'root peaks-loop must be 4.0.0-beta.17').toBe('4.0.0-beta.17');
+    // Bug-03 fix (ice-cola surface check 2026-07-22): the previous
+    // assertion hard-coded `'4.0.0-beta.17'` and immediately
+    // started failing when root was bumped to 4.0.0-beta.20.
+    // We pin to the bumped version that exists on disk, and
+    // require it to match the 4.0.0-beta.N pre-release shape.
+    // Future bumps must update this one literal (the only
+    // single-source-of-truth that is reasonable to keep hand-
+    // edited); the test fails loudly otherwise.
+    const EXPECTED_ROOT_VERSION = '4.0.0-beta.20';
+    expect(rootPkg.version, 'root peaks-loop must equal the bumped registry-repair version').toBe(EXPECTED_ROOT_VERSION);
+    expect(EXPECTED_ROOT_VERSION, 'root must follow 4.0.0-beta.<n> pre-release shape').toMatch(/^4\.0\.0-beta\.\d+$/);
   });
 });

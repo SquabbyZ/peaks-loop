@@ -23,7 +23,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep as pathSep } from 'node:path';
 
-import { detectMissingProjectStandards } from '../../../src/services/standards/missing-standards-detector.js';
+import { detectMissingProjectStandards, diagnoseStandardsTree } from '../../../src/services/standards/missing-standards-detector.js';
 
 function makeProject(): string {
   return mkdtempSync(join(tmpdir(), 'peaks-rd7-detector-'));
@@ -174,5 +174,72 @@ describe('detectMissingProjectStandards — slice 2026-06-16-peaks-code-auto-sca
       language: expect.any(String)
     });
     expect(['generic', 'typescript', 'javascript', 'python', 'go', 'rust']).toContain(result.language);
+  });
+});
+
+/**
+ * Bug-01 regression suite (ice-cola surface check 2026-07-22).
+ *
+ * Prior detector returned `missing: true` with a remediation that said
+ * "no project-local standards found" whenever the language overlay was
+ * empty, even when common/ was clearly populated. ice-cola has
+ * common/*.md + typescript/coding-style.md but is detected as
+ * `language: javascript` (multi-language), and the detector labeled
+ * "no project-local standards found" — wrong. The split-diagnostic API
+ * (`diagnoseStandardsTree`) plus per-kind remediation string fixes it.
+ */
+describe('Bug-01 — standardsMissing UX (ice-cola regression)', () => {
+  let project: string;
+  beforeEach(() => {
+    project = makeProject();
+  });
+  afterEach(() => {
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  test('common populated + typescript populated → diagnoseStandardsTree = complete', () => {
+    mkdirSync(join(project, '.peaks', 'standards', 'common'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'common', 'coding-style.md'), '# common');
+    mkdirSync(join(project, '.peaks', 'standards', 'typescript'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'typescript', 'coding-style.md'), '# ts');
+
+    expect(diagnoseStandardsTree(project, 'typescript')).toEqual({ kind: 'complete' });
+    const result = detectMissingProjectStandards(project, 'typescript');
+    expect(result.missing).toBe(false);
+  });
+
+  test('common populated + typescript empty/missing (asked for javascript overlay) → language-missing', () => {
+    // ice-cola shape: common/*.md present, typescript overlay populated,
+    // but the detected language is javascript (no javascript/ dir).
+    mkdirSync(join(project, '.peaks', 'standards', 'common'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'common', 'coding-style.md'), '# common');
+    writeFileSync(join(project, '.peaks', 'standards', 'common', 'code-review.md'), '# review');
+    mkdirSync(join(project, '.peaks', 'standards', 'typescript'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'typescript', 'coding-style.md'), '# ts');
+
+    expect(diagnoseStandardsTree(project, 'javascript')).toEqual({
+      kind: 'language-missing',
+      language: 'javascript'
+    });
+    const result = detectMissingProjectStandards(project, 'javascript');
+    expect(result.missing).toBe(true);
+    // Remediation must NOT say "no project-local standards found" (the old wrong text)
+    // — it must specifically call out the missing overlay.
+    expect(result.remediation).not.toMatch(/no project-local standards found/);
+    expect(result.remediation).toMatch(/common standards present/i);
+    expect(result.remediation).toMatch(/javascript language overlay is missing/i);
+  });
+
+  test('common missing (language overlay also missing) → common-missing', () => {
+    expect(diagnoseStandardsTree(project, 'typescript')).toEqual({ kind: 'common-missing' });
+    const result = detectMissingProjectStandards(project, 'typescript');
+    expect(result.missing).toBe(true);
+    expect(result.remediation).toMatch(/no project-local common standards/i);
+  });
+
+  test('generic language with common populated → complete (language overlay optional for generic)', () => {
+    mkdirSync(join(project, '.peaks', 'standards', 'common'), { recursive: true });
+    writeFileSync(join(project, '.peaks', 'standards', 'common', 'coding-style.md'), '# common');
+    expect(diagnoseStandardsTree(project, 'generic')).toEqual({ kind: 'complete' });
   });
 });

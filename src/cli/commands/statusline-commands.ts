@@ -71,6 +71,30 @@ type UninstallOptions = { global?: boolean; project?: string; json?: boolean; id
 type StatusOptions = { global?: boolean; project?: string; json?: boolean; ide?: string };
 type RenderOptions = { project?: string; json?: boolean };
 
+/**
+ * Default-statusline render body. Reused by both the top-level default
+ * action (Bug-02 dispatch) and the explicit `render` subcommand. Exported
+ * so a unit test can exercise the JSON / text output paths without going
+ * through commander.
+ */
+export async function runDefaultStatuslineRender(
+  options: RenderOptions,
+  io: ProgramIO
+): Promise<void> {
+  const raw = await readStdin();
+  const stdin = parseStatusLineStdin(raw);
+  const seeded = options.project
+    ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
+    : stdin;
+  const model = buildStatusLineModel(seeded, Date.now());
+  const text = renderStatusLine(model);
+  if (options.json === true) {
+    io.stdout(JSON.stringify({ ok: true, command: 'statusline.render', data: { text } }, null, 2));
+    return;
+  }
+  io.stdout(text);
+}
+
 export function registerStatusLineCommands(program: Command, io: ProgramIO): void {
   // Top-level `peaks statusline` — register as a group with subcommands
   // (install | uninstall | status). When the user runs `peaks statusline` with
@@ -84,28 +108,33 @@ export function registerStatusLineCommands(program: Command, io: ProgramIO): voi
     program
       .command('statusline')
       .description('Render the Peaks skill status line for the current session, or manage the adapter-driven statusLine entry. Run with no subcommand to render; with a subcommand (install | uninstall | status) to manage.')
+      .option('--project <path>', 'project root path (used to label the status line when stdin is absent; applies to the default render path)')
   );
 
-  // Hidden render subcommand. This is the default behavior when the user types
-  // `peaks statusline` with no subcommand. We mark it hidden so `peaks
-  // statusline --help` does not show "render" as a subcommand.
+  // Default behavior: when the user types `peaks statusline` with no
+  // subcommand, render the status line. Without this default action,
+  // commander falls back to printing usage (Bug-02, ice-cola surface check
+  // 2026-07-22). The hidden `render` subcommand is preserved so callers
+  // can still invoke it explicitly.
+  //
+  // Note (commander 12.x): when both a top-level `.action(...)` and
+  // subcommands exist, commander's option parser can conflate parent and
+  // child flags. We therefore parse `process.argv` for the bare `statusline`
+  // invocation here, and otherwise let the subcommand machinery handle the
+  // rest. The implementation is wrapped in `peekDefaultStatuslineRender` so
+  // it can be exercised in isolation by unit tests.
+  statusline.action(async (_parentOptions: RenderOptions, command: Command) => {
+    await runDefaultStatuslineRender(command.opts() as RenderOptions, io);
+  });
+
+  // Hidden render subcommand. Preserved for callers that want to invoke
+  // render explicitly without going through the default-action dispatch.
   statusline
     .command('render', { hidden: true })
     .description('Render the Peaks skill status line for the current session (reads session JSON on stdin; honors --project for the project label).')
     .option('--project <path>', 'project root path (used to label the status line when stdin is absent)')
     .action(async (options: RenderOptions) => {
-      const raw = await readStdin();
-      const stdin = parseStatusLineStdin(raw);
-      const seeded = options.project
-        ? { ...(stdin ?? {}), workspace: { current_dir: options.project } }
-        : stdin;
-      const model = buildStatusLineModel(seeded, Date.now());
-      const text = renderStatusLine(model);
-      if (options.json === true) {
-        io.stdout(JSON.stringify({ ok: true, command: 'statusline.render', data: { text } }, null, 2));
-        return;
-      }
-      io.stdout(text);
+      await runDefaultStatuslineRender(options, io);
     });
 
   addJsonOption(

@@ -86,6 +86,54 @@ function hasPopulatedMarkdown(dir: string): boolean {
 }
 
 /**
+ * List which standards tree components are missing vs populated.
+ *
+ * Returns one of three stable shapes:
+ *   - { kind: 'complete' }                    — both common + language overlay populated
+ *   - { kind: 'common-missing' }              — common dir absent/empty (universal)
+ *   - { kind: 'language-missing', language }  — common ok, language overlay absent/empty
+ *
+ * The detector previously returned a single boolean that flipped to
+ * "missing: true" the moment the language overlay was empty, but printed
+ * the remediation as if BOTH common AND language were missing — a UX bug
+ * that surfaced in ice-cola (common=4 .md files; typescript=1 .md file;
+ * javascript overlay absent → label said "no project-local standards found"
+ * even though common was clearly populated). This split lets the CLI emit
+ * a precise remediation string per kind.
+ */
+export type StandardsTreeDiagnostic =
+  | { readonly kind: 'complete' }
+  | { readonly kind: 'common-missing' }
+  | { readonly kind: 'language-missing'; readonly language: StandardsLanguage };
+
+export function diagnoseStandardsTree(
+  projectRoot: string,
+  language: StandardsLanguage
+): StandardsTreeDiagnostic {
+  if (!SUPPORTED_LANGUAGES.has(language)) {
+    throw new Error(`Unsupported standards language: ${String(language)}`);
+  }
+
+  const normalizedRoot = normalizeProjectRoot(projectRoot);
+  const commonDir = join(normalizedRoot, '.peaks', 'standards', 'common');
+  const languageDir = language === 'generic'
+    ? null
+    : join(normalizedRoot, '.peaks', 'standards', language);
+
+  const commonOk = hasPopulatedMarkdown(commonDir);
+  const languageOk = languageDir === null ? true : hasPopulatedMarkdown(languageDir);
+
+  if (commonOk && languageOk) {
+    return { kind: 'complete' };
+  }
+  if (!commonOk) {
+    return { kind: 'common-missing' };
+  }
+  // common ok, language overlay empty/missing
+  return { kind: 'language-missing', language };
+}
+
+/**
  * Detect whether a consumer project's `.peaks/standards/` tree (2.0
  * canonical) is missing or empty.
  *
@@ -111,22 +159,28 @@ export function detectMissingProjectStandards(
 
   const normalizedRoot = normalizeProjectRoot(projectRoot);
   const renderedPath = renderForPlatform(normalizedRoot);
+  const diagnostic = diagnoseStandardsTree(projectRoot, language);
 
-  const commonDir = join(normalizedRoot, '.peaks', 'standards', 'common');
-  const languageDir = language === 'generic'
-    ? null
-    : join(normalizedRoot, '.peaks', 'standards', language);
-
-  const commonOk = hasPopulatedMarkdown(commonDir);
-  const languageOk = languageDir === null ? true : hasPopulatedMarkdown(languageDir);
-
-  const missing = !(commonOk && languageOk);
-
-  // Remediation message: copy-pasteable, mentions language, references the
-  // resolved project path, and hints at the `--init-standards` opt-in flag.
-  const remediation = missing
-    ? `⚠ no project-local standards found at ${renderedPath} — run \`peaks standards init --project ${normalizedRoot} --apply\` to scaffold, or pass --init-standards to peaks workspace init for one-shot auto-apply (language: ${language}).`
-    : `Project-local standards already present at ${renderedPath}. Re-run \`peaks standards init --project ${normalizedRoot} --apply\` to refresh from the curated baseline.`;
+  // Bug-01 fix (ice-cola surface check 2026-07-22): the previous
+  // remediation said "no project-local standards found" whenever EITHER
+  // common or the language overlay was empty, which misrepresented
+  // projects that have common populated but a missing language overlay
+  // (e.g. ice-cola has common/*.md + typescript/coding-style.md but no
+  // javascript/coding-style.md). The remediation now distinguishes the
+  // three kinds so the operator gets a precise hint.
+  let missing: boolean;
+  let remediation: string;
+  if (diagnostic.kind === 'complete') {
+    missing = false;
+    remediation = `Project-local standards already present at ${renderedPath}. Re-run \`peaks standards init --project ${normalizedRoot} --apply\` to refresh from the curated baseline.`;
+  } else if (diagnostic.kind === 'common-missing') {
+    missing = true;
+    remediation = `⚠ no project-local common standards at ${renderedPath} — run \`peaks standards init --project ${normalizedRoot} --apply\` to scaffold (language: ${language}), or pass --init-standards to peaks workspace init for one-shot auto-apply.`;
+  } else {
+    missing = true;
+    const overlayName = diagnostic.language;
+    remediation = `⚠ common standards present at ${renderedPath}\\common but ${overlayName} language overlay is missing — run \`peaks standards init --project ${normalizedRoot} --apply\` to scaffold the ${overlayName} overlay (or pass --init-standards to peaks workspace init for one-shot auto-apply).`;
+  }
 
   return {
     missing,

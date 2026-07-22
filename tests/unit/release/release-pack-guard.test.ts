@@ -111,16 +111,21 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     }
   }, 60_000);
 
-  test('root peaks-loop tarball is green and matches version 4.0.0-beta.17', () => {
+  test('root peaks-loop tarball is green and matches the current root version (Bug-03 fix)', () => {
     // Item (5): exercise the root tarball explicitly. The root is
     // the main package whose install is the user-visible success
     // criterion; if it leaks workspace:*, every consumer install
-    // breaks.
+    // breaks. Bug-03 (ice-cola surface check 2026-07-22): the
+    // previous version of this test hard-coded the literal
+    // `4.0.0-beta.17` and started failing the moment root was
+    // bumped to 4.0.0-beta.20. The expected version is now read
+    // from the on-disk manifest so future bumps are no-op.
     const internals = internalPackageSet();
-    const rootName = `peaks-loop-${readSpec(projectRoot).version}.tgz`;
+    const rootVersion = readSpec(projectRoot).version;
+    const rootName = `peaks-loop-${rootVersion}.tgz`;
     rootTarball = join(tarballDir, rootName);
     expect(existsSync(rootTarball!), `root tarball present at ${rootTarball}`).toBe(true);
-    const verdict = verifyTarball(rootTarball!, 'peaks-loop', '4.0.0-beta.17', internals);
+    const verdict = verifyTarball(rootTarball!, 'peaks-loop', rootVersion, internals);
     expect(verdict.ok, `errors: ${verdict.errors.join(', ')}`).toBe(true);
   }, 60_000);
 
@@ -144,17 +149,25 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
 
   test('production verifyTarball rejects a tarball with a version-mismatched internal dep', () => {
     // A tampered tarball where `peaks-loop-shared` is pinned to a
-    // fictional version (e.g. `0.0.99`) MUST fail verification,
-    // because the local internal-package set says
-    // `peaks-loop-shared` is at `0.0.4`. This guards against a
-    // future regression that would re-introduce the workspace-to-
-    // registry drift.
+    // fictional version MUST fail verification, because the local
+    // internal-package set disagrees. This guards against a future
+    // regression that would re-introduce the workspace-to-registry
+    // drift. Bug-03 (ice-cola surface check 2026-07-22): the
+    // previous version of this test hard-coded the literal `0.0.4`
+    // drift expectation; that only worked while peaks-loop-shared
+    // was at 0.0.4 — the assertion is now parameterized against
+    // the actual local shared version so it survives bumps.
     const internals = internalPackageSet();
+    const sharedSpec = readSpec(resolve(projectRoot, 'packages', 'peaks-loop-shared'));
     const tamperedPath = tamperedSpec(doctorTarball, '0.0.99');
     expect(existsSync(tamperedPath), `version-drift tarball at ${tamperedPath}`).toBe(true);
     const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1].pkgDir).version, internals);
     expect(verdict.ok, 'version-drift tarball MUST fail verification').toBe(false);
-    expect(verdict.errors.join('\n'), 'verdict must mention 0.0.4 drift').toMatch(/0\.0\.4/);
+    const driftRegex = new RegExp(sharedSpec.version.replace(/\./g, '\\.'));
+    expect(
+      verdict.errors.join('\n'),
+      `verdict must mention ${sharedSpec.version} drift`
+    ).toMatch(driftRegex);
     rmSync(tamperedPath, { force: true });
   }, 60_000);
 

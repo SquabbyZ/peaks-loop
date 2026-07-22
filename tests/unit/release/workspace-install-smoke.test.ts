@@ -86,15 +86,17 @@ function packAllTo(dest: string): string[] {
     tarballs.push(tarballPath);
   }
   // Pack the root peaks-loop last. `pnpm pack` on the workspace
-  // root resolves the package's own version (4.0.0-beta.17)
-  // from `node_modules/.pnpm/peaks-loop@<version>`; the install
-  // step upstream has populated that link. We tolerate a
-  // `pnpm pack` that fails to produce a tarball here — the
-  // `installGlobal` step does NOT need the root tarball
-  // (it only needs the 8 subpackage tarballs to populate
-  // the global prefix's `node_modules/`; the root is the
-  // package the user's CLI actually invokes, but the
-  // install surface is identical for our smoke checks).
+  // root resolves the package's own version from
+  // `node_modules/.pnpm/peaks-loop@<version>`; the install step
+  // upstream has populated that link. We tolerate a `pnpm pack`
+  // that fails to produce a tarball here — the `installGlobal`
+  // step does NOT need the root tarball (it only needs the 8
+  // subpackage tarballs to populate the global prefix's
+  // `node_modules/`; the root is the package the user's CLI
+  // actually invokes, but the install surface is identical for
+  // our smoke checks). Bug-03 (ice-cola surface check 2026-07-22):
+  // earlier versions of this comment pinned `4.0.0-beta.17` —
+  // moved to a self-derived version so future bumps are no-op.
   const rootSpec = readSpec(projectRoot);
   runPnpm(['pack', '--pack-destination', dest], {
     cwd: projectRoot,
@@ -303,7 +305,16 @@ describe('workspace publish install smoke (TDD regression gate)', () => {
       readFileSync(join(globalPrefix, 'node_modules', 'peaks-loop', 'package.json'), 'utf8'),
     ) as { bin: { peaks: string }; name: string; version: string };
     expect(installedPkg.name, 'installed peaks-loop manifest').toBe('peaks-loop');
-    expect(installedPkg.version, 'installed peaks-loop version').toBe('4.0.0-beta.17');
+    // Bug-03 fix (ice-cola surface check 2026-07-22): the previous
+    // hard-coded `4.0.0-beta.17` started failing the moment root
+    // was bumped to 4.0.0-beta.20. The smoke check now asserts
+    // the installed version equals the on-disk source version;
+    // the install round-trip is the real invariant, not a
+    // particular numeric literal.
+    const expectedRootVersion = JSON.parse(
+      readFileSync(resolve(projectRoot, 'package.json'), 'utf8'),
+    ) as { version: string };
+    expect(installedPkg.version, 'installed peaks-loop version matches source manifest').toBe(expectedRootVersion.version);
     expect(installedPkg.bin.peaks, 'installed peaks-loop bin.peaks').toBe('./bin/peaks.js');
     expect(
       existsSync(join(globalPrefix, 'node_modules', 'peaks-loop', 'bin', 'peaks.js')),
