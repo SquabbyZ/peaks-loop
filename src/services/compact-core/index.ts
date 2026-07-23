@@ -23,6 +23,10 @@ export type {
   RollbackSupport
 } from './protocol/capability-profile.js';
 
+// Attempt journal + session circuit (types surfaced because public
+// functions on the verification / circuit policy return them).
+export type { CompactSessionCircuitState } from './attempt-store.js';
+
 // Bridge requests + attempt identity.
 export {
   MUTATING_REQUEST_KINDS,

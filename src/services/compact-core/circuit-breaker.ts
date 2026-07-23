@@ -7,14 +7,21 @@ import {
 export const AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN =
   'AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN' as const;
 
+/**
+ * Per design §10.3, the on-disk failure count is always exactly
+ * VERIFICATION_CIRCUIT_TRIP_THRESHOLD (=3) while the circuit is non-closed.
+ * `already-open.failureCount` is therefore literally the threshold.
+ */
+type TripCount = 3;
+
 export type CircuitDecision =
   | { readonly kind: 'continue'; readonly failureCount: 1 | 2 }
   | {
       readonly kind: 'open';
-      readonly failureCount: 3;
+      readonly failureCount: TripCount;
       readonly code: typeof AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN;
     }
-  | { readonly kind: 'already-open'; readonly failureCount: number };
+  | { readonly kind: 'already-open'; readonly failureCount: TripCount };
 
 export async function recordVerificationFailure(
   store: AttemptStore,
@@ -29,17 +36,21 @@ export async function recordVerificationFailure(
   const current = await store.readSessionCircuit();
   assertSession(current, input.sessionId);
   if (current.circuit !== 'closed') {
+    // Persisted invariant: non-closed circuit always carries exactly the
+    // trip count. The Zod superRefine has already enforced this on disk.
+    assertOpenCountInvariant(current);
     return {
       kind: 'already-open',
-      failureCount: current.consecutiveVerificationFailures
+      failureCount: VERIFICATION_CIRCUIT_TRIP_THRESHOLD
     };
   }
 
-  const next = await store.recordVerificationFailure(input.attemptId, input.failureCode);
-  if (next.consecutiveVerificationFailures >= VERIFICATION_CIRCUIT_TRIP_THRESHOLD) {
+  const next = await store.recordVerificationFailure(input.attemptId, input.failureCode, input.now);
+  assertOpenCountInvariant(next);
+  if (next.consecutiveVerificationFailures === VERIFICATION_CIRCUIT_TRIP_THRESHOLD) {
     return {
       kind: 'open',
-      failureCount: 3,
+      failureCount: VERIFICATION_CIRCUIT_TRIP_THRESHOLD,
       code: AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN
     };
   }
@@ -59,6 +70,7 @@ export async function markManualCompactObserved(
   if (current.circuit === 'closed') {
     throw new Error('manual compact observation requires an open verification circuit');
   }
+  assertOpenCountInvariant(current);
   return store.writeSessionCircuit({
     ...current,
     circuit: 'awaiting-manual-observation'
@@ -79,6 +91,7 @@ export async function closeCircuitAfterVerifiedManualCompact(
   if (current.circuit !== 'awaiting-manual-observation') {
     throw new Error('verified manual compact requires an awaited manual observation');
   }
+  assertOpenCountInvariant(current);
   if (!input.verificationPassed) {
     return store.writeSessionCircuit({ ...current, circuit: 'open' });
   }
@@ -89,6 +102,16 @@ export async function closeCircuitAfterVerifiedManualCompact(
     openedAt: null,
     lastFailureCode: null
   });
+}
+
+function assertOpenCountInvariant(state: CompactSessionCircuitState): void {
+  if (state.circuit !== 'closed') {
+    if (state.consecutiveVerificationFailures !== VERIFICATION_CIRCUIT_TRIP_THRESHOLD) {
+      throw new Error(
+        `non-closed session circuit must carry exactly ${VERIFICATION_CIRCUIT_TRIP_THRESHOLD} failures, got ${state.consecutiveVerificationFailures}`
+      );
+    }
+  }
 }
 
 function assertSession(state: CompactSessionCircuitState, sessionId: string): void {

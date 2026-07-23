@@ -109,25 +109,47 @@ export const CompactAttemptJournalSchema = z
 
 export type CompactAttemptJournal = z.infer<typeof CompactAttemptJournalSchema>;
 
-/** Initial empty session-circuit state. The store mints this lazily. */
+/**
+ * §10.3 invariant: when the circuit is anything other than `closed`, the
+ * failure counter MUST be exactly the trip threshold. Persisted state
+ * whose counter is past threshold is treated as corruption and rejected
+ * (fail closed). When the circuit is `closed`, the counter is bounded
+ * in `[0, threshold]`. The threshold constant is hoisted as a literal
+ * here so the schema does not close over a forward reference.
+ */
+const TRIP_THRESHOLD = 3;
+const OpenFailureCount = z.literal(TRIP_THRESHOLD);
+const ClosedFailureCount = z.number().int().min(0).max(TRIP_THRESHOLD);
+
 export const CompactSessionCircuitStateSchema = z
   .object({
     schemaVersion: z.literal(1),
     sessionId: PathSegment,
-    consecutiveVerificationFailures: z.number().int().min(0).max(1_000_000),
+    consecutiveVerificationFailures: z.union([OpenFailureCount, ClosedFailureCount]),
     circuit: z.enum(['closed', 'open', 'awaiting-manual-observation']),
     openedAt: IsoTimestamp.nullable(),
     lastAttemptId: PathSegment.nullable(),
     lastFailureCode: FailureCode.nullable(),
     manualPromptShown: z.boolean()
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.circuit !== 'closed' && value.consecutiveVerificationFailures !== TRIP_THRESHOLD) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['consecutiveVerificationFailures'],
+        message: `non-closed circuit requires exactly ${TRIP_THRESHOLD} failures, got ${value.consecutiveVerificationFailures}`
+      });
+    }
+  });
 
 export type CompactSessionCircuitState = z.infer<typeof CompactSessionCircuitStateSchema>;
 
 /**
  * Threshold at which the §10.3 circuit must open. Exported so the
  * coordinator can re-derive the constant without importing the store.
+ * Kept in sync with `TRIP_THRESHOLD` above; if it ever needs to change,
+ * update both.
  */
 export const VERIFICATION_CIRCUIT_TRIP_THRESHOLD = 3;
 

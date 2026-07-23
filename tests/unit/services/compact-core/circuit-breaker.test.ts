@@ -5,7 +5,7 @@
  * this module returns typed control decisions without user-facing output.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -99,12 +99,77 @@ describe('integration — persistence and verified manual recovery', () => {
   });
 });
 
-function failure(attemptId: string) {
+describe('integration — caller-supplied timestamps are persisted deterministically', () => {
+  it('records openedAt using the caller-supplied now (no wall-clock jitter)', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const declared = new Date('2026-07-23T03:30:00.000Z');
+    await recordVerificationFailure(store, failure('attempt-1', declared));
+    await recordVerificationFailure(store, failure('attempt-1', declared));
+    await recordVerificationFailure(store, failure('attempt-1', declared));
+    const state = await store.readSessionCircuit();
+    expect(state.openedAt).toBe('2026-07-23T03:30:00.000Z');
+  });
+
+  it('records manual observation transitions at caller-supplied time', async () => {
+    const store = await openCircuit();
+    const declared = new Date('2026-07-23T04:00:00.000Z');
+    await markManualCompactObserved(store, { sessionId: SESSION, now: declared });
+    const state = await store.readSessionCircuit();
+    expect(state.circuit).toBe('awaiting-manual-observation');
+  });
+});
+
+describe('integration — corrupted circuit count is fail-closed', () => {
+  it('rejects persisted state whose count is past threshold instead of restoring the literal 3', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    await recordVerificationFailure(store, failure('attempt-1'));
+    await recordVerificationFailure(store, failure('attempt-1'));
+    await recordVerificationFailure(store, failure('attempt-1'));
+    const tampered = JSON.stringify({
+      ...(await store.readSessionCircuit()),
+      consecutiveVerificationFailures: 4
+    });
+    const circuitPath = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      SESSION,
+      'compact-attempts',
+      'session-circuit.json'
+    );
+    mkdirSync(join(projectRoot, '.peaks', '_runtime', SESSION, 'compact-attempts'), {
+      recursive: true
+    });
+    writeFileSync(circuitPath, `${tampered}\n`, 'utf8');
+    const restarted = createAttemptStore({ projectRoot, sessionId: SESSION });
+    await expect(restarted.readSessionCircuit()).rejects.toThrow(
+      /consecutiveVerificationFailures/
+    );
+    // Policy returns literal 3 only when the store accepts the state.
+    await expect(recordVerificationFailure(restarted, failure('attempt-2'))).rejects.toThrow(
+      /consecutiveVerificationFailures/
+    );
+  });
+});
+
+describe('integration — concurrency is delegated to the coordinator (synchronous-after-read)', () => {
+  it('records decisions that the caller invokes in order even on the same store', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const t0 = new Date('2026-07-23T05:00:00.000Z');
+    const r1 = await recordVerificationFailure(store, failure('attempt-1', t0));
+    const r2 = await recordVerificationFailure(store, failure('attempt-1', t0));
+    const r3 = await recordVerificationFailure(store, failure('attempt-1', t0));
+    expect([r1.failureCount, r2.failureCount, r3.failureCount]).toEqual([1, 2, 3]);
+    expect(r3.kind).toBe('open');
+  });
+});
+
+function failure(attemptId: string, now: Date = new Date('2026-07-23T00:00:00Z')) {
   return {
     sessionId: SESSION,
     attemptId,
     failureCode: 'CONTEXT_NOT_REDUCED',
-    now: new Date('2026-07-23T00:00:00Z')
+    now
   } as const;
 }
 

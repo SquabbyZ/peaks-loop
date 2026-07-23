@@ -105,7 +105,11 @@ export interface AttemptStore {
   /** Persist an explicit session circuit state transition. */
   writeSessionCircuit(state: CompactSessionCircuitState): Promise<CompactSessionCircuitState>;
   /** Increment the consecutive verification failure counter and possibly trip the circuit. */
-  recordVerificationFailure(attemptId: string, code: string): Promise<CompactSessionCircuitState>;
+  recordVerificationFailure(
+    attemptId: string,
+    code: string,
+    now?: Date
+  ): Promise<CompactSessionCircuitState>;
   /** Record that the manual-prompt hint was shown to the user. */
   markManualPromptShown(): Promise<void>;
   /** Close the circuit and zero the counter (only after an explicit recovery signal). */
@@ -324,11 +328,15 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
 
   async function recordVerificationFailure(
     attemptId: string,
-    code: string
+    code: string,
+    now: Date = new Date()
   ): Promise<CompactSessionCircuitState> {
     assertSafePathSegment('attemptId', attemptId);
     if (!/^[A-Z][A-Z0-9_]*$/.test(code)) {
       throw new Error(`failure code "${code}" must be SCREAMING_SNAKE_CASE`);
+    }
+    if (!(now instanceof Date) || !Number.isFinite(now.getTime())) {
+      throw new Error('now must be a valid Date');
     }
     const prev = loadSessionCircuit();
     const count = prev.consecutiveVerificationFailures + 1;
@@ -337,7 +345,7 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
       ...prev,
       consecutiveVerificationFailures: count,
       circuit: trip ? 'open' : prev.circuit,
-      openedAt: trip ? new Date().toISOString() : prev.openedAt,
+      openedAt: trip ? now.toISOString() : prev.openedAt,
       lastAttemptId: attemptId,
       lastFailureCode: code
     };
