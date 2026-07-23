@@ -19,9 +19,11 @@
  *     secret, or vendor command (§15).
  *   - strict Zod on the on-disk shape; `schemaVersion: 1` is the only
  *     accepted version and any field shape drift throws.
- *   - the §6.1 state machine is captured by `COMPACT_STAGES`, which is
- *     intentionally wider than `CompactStage` (that one is just the
- *     progress surface emitted over the wire).
+ *   - the §6.1 state machine is captured by `COMPACT_JOURNAL_STAGES`,
+ *     which is intentionally wider than `CompactStage` exported from
+ *     `./protocol/compact-events.js` (that one is just the progress
+ *     surface emitted over the wire). Renamed from `COMPACT_STAGES` so
+ *     it cannot be confused with the wire-emit `CompactStage` set.
  */
 import { z } from 'zod';
 
@@ -29,8 +31,13 @@ import { z } from 'zod';
  * Ordered list of every state the §6.1 state machine can be in, including
  * the recovery / retry / terminal branches. Used by the journal to
  * record the exact state at each atomic write.
+ *
+ * Distinct from `CompactStage` in `./protocol/compact-events.ts`:
+ * `CompactStage` is the narrower set of progress events the core emits
+ * over the wire; `COMPACT_JOURNAL_STAGES` is the full state set the
+ * durable journal must be able to express.
  */
-export const COMPACT_STAGES = [
+export const COMPACT_JOURNAL_STAGES = [
   'probing',
   'preparing',
   'checkpointing',
@@ -46,7 +53,7 @@ export const COMPACT_STAGES = [
   'completed'
 ] as const;
 
-export type CompactAttemptStage = (typeof COMPACT_STAGES)[number];
+export type CompactJournalStage = (typeof COMPACT_JOURNAL_STAGES)[number];
 
 /** ISO-8601 UTC timestamp string. */
 const IsoTimestamp = z.string().datetime({ offset: true });
@@ -78,7 +85,8 @@ const FailureCode = z
  * Invariants the store enforces on top of this schema:
  *   - `pathGeneration` is monotonically non-decreasing across writes.
  *   - `stage` does not regress except via the recovery transition family
- *     (`verifying → recovering → retrying → …`).
+ *     (`verifying → recovering → retrying → verifying`). See
+ *     `isPermittedStageTransition` for the exact rule.
  *   - `updatedAt` is refreshed on every successful write.
  *   - the same `attemptId` always carries the same `(sessionId,
  *     capabilityEpoch)` (cross-field guards live in the store).
@@ -89,7 +97,7 @@ export const CompactAttemptJournalSchema = z
     sessionId: PathSegment,
     attemptId: PathSegment,
     pathGeneration: z.number().int().min(0).max(1_000_000),
-    stage: z.enum(COMPACT_STAGES),
+    stage: z.enum(COMPACT_JOURNAL_STAGES),
     verificationFailureCount: z.number().int().min(0).max(1_000_000),
     capabilityEpoch: z.string().min(1).max(128),
     sealedIdempotencyKeys: z.array(SealedIdempotencyKey).max(1024),
@@ -124,33 +132,61 @@ export type CompactSessionCircuitState = z.infer<typeof CompactSessionCircuitSta
 export const VERIFICATION_CIRCUIT_TRIP_THRESHOLD = 3;
 
 /** Stages that form the §10.2 recovery transition family. */
-const RECOVERY_STAGE_FAMILY: ReadonlySet<CompactAttemptStage> = new Set([
+const RECOVERY_STAGE_FAMILY: ReadonlySet<CompactJournalStage> = new Set([
   'recovering',
   'retrying',
   'rolled-back',
   'blocked'
 ]);
 
+/** Terminal stages: no transition out of them is permitted (§10.3). */
+const TERMINAL_STAGES: ReadonlySet<CompactJournalStage> = new Set([
+  'rolled-back',
+  'blocked',
+  'completed'
+]);
+
+/**
+ * The single permitted re-entry transition from the recovery family
+ * back into the happy path. Per design §10.2: a verification failure
+ * trips `verifying → recovering → retrying`, after which the next
+ * attempt re-runs §9 (verification). That means `retrying` must be
+ * allowed to advance to `verifying`.
+ *
+ * No other recovery-stage → happy-path transition is permitted; the
+ * other recovery states (`rolled-back`, `blocked`) are terminal.
+ */
+const RETRYING_TO_VERIFYING: ReadonlyArray<readonly [CompactJournalStage, CompactJournalStage]> = [
+  ['retrying', 'verifying']
+];
+
 /**
  * Return true when `next` is a permitted stage transition from `prev`
- * given the design §6.1 + §10.2 rules. A monotonic forward path is
- * always allowed; backward steps are only allowed when the transition
- * is into the recovery family.
+ * given the design §6.1 + §10.2 rules.
+ *
+ * Rules:
+ *   - Terminal stages (`rolled-back`, `blocked`, `completed`): no
+ *     transition out is permitted; a re-write of the same stage is the
+ *     only legal operation (§10.3 / §10.4).
+ *   - Same stage: always allowed (idempotent re-write).
+ *   - Forward monotonic path along `COMPACT_JOURNAL_STAGES`: allowed.
+ *   - Transition *into* the recovery family (`recovering`, `retrying`,
+ *     `rolled-back`, `blocked`): allowed from any non-terminal stage.
+ *   - Transition *out of* the recovery family: only the single explicit
+ *     re-entry `retrying → verifying` is permitted. `recovering` cannot
+ *     jump to verifying directly; it must pass through `retrying` first.
  */
 export function isPermittedStageTransition(
-  prev: CompactAttemptStage,
-  next: CompactAttemptStage
+  prev: CompactJournalStage,
+  next: CompactJournalStage
 ): boolean {
   if (next === prev) return true;
+  if (TERMINAL_STAGES.has(prev)) return false;
   if (RECOVERY_STAGE_FAMILY.has(next)) return true;
   if (RECOVERY_STAGE_FAMILY.has(prev)) {
-    // From a recovery state, we may move into any successor of the
-    // recovery branch — but never back into the happy path. `retrying`
-    // can return to `verifying` (one step forward), `rolled-back` /
-    // `blocked` are terminal.
-    return false;
+    return RETRYING_TO_VERIFYING.some(([from, to]) => from === prev && to === next);
   }
-  const order = COMPACT_STAGES.indexOf(next) - COMPACT_STAGES.indexOf(prev);
+  const order = COMPACT_JOURNAL_STAGES.indexOf(next) - COMPACT_JOURNAL_STAGES.indexOf(prev);
   return order > 0;
 }
 
@@ -185,4 +221,68 @@ export function assertSafeIdempotencyKey(value: string): void {
       `idempotency key "${value}" is not safe (must match /^[A-Za-z0-9._:-]+$/)`
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Containment helpers (fix 1: realpath-based junction/reparse escape guard).
+//
+// These are *pure* functions that take resolved canonical paths so tests
+// can inject pre-resolved values without needing symlink privilege. The
+// store calls them with `fs.realpathSync(...)` output. The helpers refuse
+// any resolved target whose canonical path does not sit inside the
+// canonical `.peaks/_runtime/` anchor of the project root.
+//
+// On Windows, `lstat(...).isSymbolicLink()` returns FALSE for junctions
+// and reparse points, so a junction at `compact-attempts/` can redirect
+// writes outside the project while still appearing to be a regular
+// directory. Realpath-based containment is the only portable guard.
+// ---------------------------------------------------------------------------
+
+export interface ContainmentCheckInput {
+  readonly projectRoot: string;
+  readonly canonicalProjectRoot: string;
+  /** Canonical path of the candidate target (after realpathSync). */
+  readonly canonicalTarget: string;
+  /**
+   * Optional canonical path of the candidate target's parent directory
+   * (after realpathSync). Used to detect a junction at the target's
+   * parent that redirects the target itself.
+   */
+  readonly canonicalTargetParent?: string | undefined;
+}
+
+/**
+ * Returns true iff `canonicalTarget` sits inside
+ * `<canonicalProjectRoot>/.peaks/_runtime` (or in that anchor itself).
+ *
+ * The anchor is `<projectRoot>/.peaks/_runtime` — the canonical runtime
+ * sandbox. Anything resolving outside it is a containment violation and
+ * must be rejected by the store. The check is `realpath`-based so it
+ * follows (and therefore detects) Windows junctions and reparse points.
+ */
+export function isInsideRuntimeAnchor(input: ContainmentCheckInput): boolean {
+  const anchor = joinCanonical(input.canonicalProjectRoot, '.peaks', '_runtime');
+  if (!isSameOrNested(input.canonicalTarget, anchor)) return false;
+  if (input.canonicalTargetParent !== undefined) {
+    if (!isSameOrNested(input.canonicalTargetParent, anchor)) return false;
+  }
+  return true;
+}
+
+/**
+ * Compare two canonical, platform-normalized paths. Returns true when
+ * `child === parent` or `child` is nested inside `parent`. Pure; safe
+ * to call from tests with injected strings.
+ */
+export function isSameOrNested(child: string, parent: string): boolean {
+  if (child === parent) return true;
+  const sep = parent.includes('\\') ? '\\' : '/';
+  const prefix = parent.endsWith(sep) ? parent : parent + sep;
+  return child.startsWith(prefix);
+}
+
+function joinCanonical(base: string, ...segments: readonly string[]): string {
+  const sep = base.includes('\\') ? '\\' : '/';
+  const parts = [base.replace(/[\\/]+$/, ''), ...segments];
+  return parts.join(sep);
 }

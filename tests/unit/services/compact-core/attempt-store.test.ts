@@ -15,11 +15,14 @@
  *   - atomic temp + rename, 0o600 target where supported
  *   - no-follow reads
  *   - monotonic pathGeneration; stage regression rejected unless it is
- *     an explicit recovery transition (the §10.2 rules)
+ *     an explicit recovery transition (the §10.2 rules), with the
+ *     single permitted re-entry `retrying → verifying`
  *   - session circuit state persists across a fresh store instance and a
  *     new attemptId (must not be cleared by an attemptId rotation, design
  *     §10.3)
- *   - path segment validation before join; symlink/junction escape rejected
+ *   - path segment validation before join; symlink/junction/reparse escape
+ *     rejected via realpath-based containment against the canonical
+ *     `.peaks/_runtime` anchor
  *   - journal contains no raw continuation token, capsule, transcript,
  *     secret or vendor command (§15)
  */
@@ -34,17 +37,23 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  COMPACT_STAGES,
+  COMPACT_JOURNAL_STAGES,
+  isInsideRuntimeAnchor,
+  isSameOrNested,
+  isPermittedStageTransition,
   type CompactAttemptJournal,
+  type CompactJournalStage,
   type CompactSessionCircuitState
 } from '../../../../src/services/compact-core/attempt-schema.js';
 import {
+  ATTEMPT_FILE_MODE,
   createAttemptStore,
   type AttemptStore
 } from '../../../../src/services/compact-core/attempt-store.js';
@@ -80,21 +89,129 @@ function newJournal(overrides: Partial<CompactAttemptJournal> = {}): CompactAtte
   };
 }
 
-describe('COMPACT_STAGES', () => {
+describe('COMPACT_JOURNAL_STAGES', () => {
   it('lists the §6.1 state-machine stages including terminal/recovery transitions', () => {
-    expect(COMPACT_STAGES).toContain('probing');
-    expect(COMPACT_STAGES).toContain('preparing');
-    expect(COMPACT_STAGES).toContain('checkpointing');
-    expect(COMPACT_STAGES).toContain('native-compacting');
-    expect(COMPACT_STAGES).toContain('fallback-summarizing');
-    expect(COMPACT_STAGES).toContain('replacing');
-    expect(COMPACT_STAGES).toContain('verifying');
-    expect(COMPACT_STAGES).toContain('resuming');
-    expect(COMPACT_STAGES).toContain('recovering');
-    expect(COMPACT_STAGES).toContain('retrying');
-    expect(COMPACT_STAGES).toContain('rolled-back');
-    expect(COMPACT_STAGES).toContain('blocked');
-    expect(COMPACT_STAGES).toContain('completed');
+    expect(COMPACT_JOURNAL_STAGES).toContain('probing');
+    expect(COMPACT_JOURNAL_STAGES).toContain('preparing');
+    expect(COMPACT_JOURNAL_STAGES).toContain('checkpointing');
+    expect(COMPACT_JOURNAL_STAGES).toContain('native-compacting');
+    expect(COMPACT_JOURNAL_STAGES).toContain('fallback-summarizing');
+    expect(COMPACT_JOURNAL_STAGES).toContain('replacing');
+    expect(COMPACT_JOURNAL_STAGES).toContain('verifying');
+    expect(COMPACT_JOURNAL_STAGES).toContain('resuming');
+    expect(COMPACT_JOURNAL_STAGES).toContain('recovering');
+    expect(COMPACT_JOURNAL_STAGES).toContain('retrying');
+    expect(COMPACT_JOURNAL_STAGES).toContain('rolled-back');
+    expect(COMPACT_JOURNAL_STAGES).toContain('blocked');
+    expect(COMPACT_JOURNAL_STAGES).toContain('completed');
+  });
+});
+
+describe('isPermittedStageTransition (§10.2 recovery + retrying → verifying)', () => {
+  it('allows identical stages (idempotent re-write)', () => {
+    expect(isPermittedStageTransition('verifying', 'verifying')).toBe(true);
+    expect(isPermittedStageTransition('retrying', 'retrying')).toBe(true);
+  });
+
+  it('allows monotonic forward steps', () => {
+    expect(isPermittedStageTransition('probing', 'preparing')).toBe(true);
+    expect(isPermittedStageTransition('checkpointing', 'native-compacting')).toBe(true);
+    expect(isPermittedStageTransition('verifying', 'resuming')).toBe(true);
+  });
+
+  it('rejects a plain regression outside the recovery family', () => {
+    expect(isPermittedStageTransition('verifying', 'preparing')).toBe(false);
+    expect(isPermittedStageTransition('replacing', 'checkpointing')).toBe(false);
+  });
+
+  it('allows entry into the recovery family from any non-terminal stage', () => {
+    expect(isPermittedStageTransition('verifying', 'recovering')).toBe(true);
+    expect(isPermittedStageTransition('resuming', 'recovering')).toBe(true);
+    expect(isPermittedStageTransition('replacing', 'blocked')).toBe(true);
+  });
+
+  it('allows the single recovery re-entry transition: retrying → verifying', () => {
+    expect(isPermittedStageTransition('retrying', 'verifying')).toBe(true);
+  });
+
+  it('forbids every other recovery-stage → happy-path transition', () => {
+    // Cannot skip the retrying step.
+    expect(isPermittedStageTransition('recovering', 'verifying')).toBe(false);
+    // Cannot skip ahead.
+    expect(isPermittedStageTransition('retrying', 'resuming')).toBe(false);
+    // Terminal recovery stages cannot escape (§10.3 / §10.4).
+    expect(isPermittedStageTransition('rolled-back', 'verifying')).toBe(false);
+    expect(isPermittedStageTransition('blocked', 'verifying')).toBe(false);
+    expect(isPermittedStageTransition('rolled-back', 'retrying')).toBe(false);
+    expect(isPermittedStageTransition('blocked', 'recovering')).toBe(false);
+    // The completed terminal stage is also write-once: cannot regress
+    // back into the recovery family or any forward stage.
+    expect(isPermittedStageTransition('completed', 'verifying')).toBe(false);
+    expect(isPermittedStageTransition('completed', 'recovering')).toBe(false);
+  });
+});
+
+describe('isInsideRuntimeAnchor — pure containment helper (Windows-friendly)', () => {
+  // We exercise the helper with INJECTED canonical paths so the test
+  // runs on any platform (no symlink privilege required).
+  const PROJ = 'C:\\proj';
+  const ANCHOR = 'C:\\proj\\.peaks\\_runtime';
+  const COMPACT_DIR = 'C:\\proj\\.peaks\\_runtime\\sess-1\\compact-attempts';
+  const JOURNAL_FILE = 'C:\\proj\\.peaks\\_runtime\\sess-1\\compact-attempts\\a.journal.json';
+  const OUTSIDE_PARENT = 'C:\\outside';
+  const OUTSIDE_FILE = 'C:\\outside\\hijack.journal.json';
+
+  it('isSameOrNested — same path returns true', () => {
+    expect(isSameOrNested(ANCHOR, ANCHOR)).toBe(true);
+    expect(isSameOrNested(JOURNAL_FILE, JOURNAL_FILE)).toBe(true);
+  });
+
+  it('isSameOrNested — nested path returns true', () => {
+    expect(isSameOrNested(JOURNAL_FILE, ANCHOR)).toBe(true);
+    expect(isSameOrNested(COMPACT_DIR, ANCHOR)).toBe(true);
+  });
+
+  it('isSameOrNested — sibling with shared prefix returns false', () => {
+    // C:\proj\.peaks\_runtime-evil must NOT match the anchor.
+    expect(isSameOrNested('C:\\proj\\.peaks\\_runtime-evil', ANCHOR)).toBe(false);
+    expect(isSameOrNested('C:\\proj\\.peaks\\_runtimeX', ANCHOR)).toBe(false);
+  });
+
+  it('isSameOrNested — outside path returns false', () => {
+    expect(isSameOrNested(OUTSIDE_FILE, ANCHOR)).toBe(false);
+  });
+
+  it('isInsideRuntimeAnchor — accepts a nested target', () => {
+    expect(
+      isInsideRuntimeAnchor({
+        projectRoot: PROJ,
+        canonicalProjectRoot: PROJ,
+        canonicalTarget: JOURNAL_FILE
+      })
+    ).toBe(true);
+  });
+
+  it('isInsideRuntimeAnchor — rejects an outside target (the junction escape)', () => {
+    expect(
+      isInsideRuntimeAnchor({
+        projectRoot: PROJ,
+        canonicalProjectRoot: PROJ,
+        canonicalTarget: OUTSIDE_FILE,
+        canonicalTargetParent: OUTSIDE_PARENT
+      })
+    ).toBe(false);
+  });
+
+  it('isInsideRuntimeAnchor — rejects a target whose parent escapes the anchor', () => {
+    // Mimics a junction at `sess-1` whose canonical parent is OUTSIDE_PARENT.
+    expect(
+      isInsideRuntimeAnchor({
+        projectRoot: PROJ,
+        canonicalProjectRoot: PROJ,
+        canonicalTarget: OUTSIDE_FILE,
+        canonicalTargetParent: OUTSIDE_PARENT
+      })
+    ).toBe(false);
   });
 });
 
@@ -147,9 +264,9 @@ describe('createAttemptStore — path safety', () => {
   it('rejects a symlinked compact-attempts directory (junction escape)', async () => {
     if (process.platform === 'win32') {
       // symlink creation requires elevated privileges on Windows; the
-      // structural guard is still validated via the no-follow read tests
-      // below, which exercise the same escape surface without requiring
-      // admin or Developer Mode. Skip the junction test here.
+      // realpath-based containment guard is exercised by the
+      // `isInsideRuntimeAnchor` unit tests above, which run on every
+      // platform. Skip the live-junction test here.
       return;
     }
     // Build the parent dir tree, then replace compact-attempts with a
@@ -168,6 +285,37 @@ describe('createAttemptStore — path safety', () => {
       rmSync(outsideDir, { recursive: true, force: true });
     }
   });
+
+  it('rejects a junction at the session directory whose canonical parent escapes the anchor', async () => {
+    // Pure-helper-driven test: build the directory tree, then verify the
+    // store's containment path through the public surface by asking the
+    // store to read a journal that, structurally, has a canonical parent
+    // outside the anchor. We achieve this without symlink privilege by
+    // removing the session dir mid-flight (canonical parent resolves to
+    // the project root, which IS inside the anchor — so we exercise the
+    // positive path here). The negative case is unit-tested via
+    // `isInsideRuntimeAnchor` above and on POSIX via the live symlink
+    // test below.
+    if (process.platform === 'win32') {
+      // Live junction creation requires elevated privileges; the pure
+      // helper unit tests cover the structural negative case.
+      return;
+    }
+    const outsideDir = mkdtempSync(join(tmpdir(), 'peaks-session-outside-'));
+    try {
+      // Create the runtime anchor and a `sess-junction` symlink that
+      // points outside. This mirrors a junction at the session level.
+      const runtimeDir = join(projectRoot, '.peaks', '_runtime');
+      mkdirSync(runtimeDir, { recursive: true });
+      const sessionLink = join(runtimeDir, 'sess-junction');
+      symlinkSync(outsideDir, sessionLink, 'dir');
+
+      const store = createAttemptStore({ projectRoot, sessionId: 'sess-junction' });
+      await expect(store.writeAttempt(newJournal({ attemptId: 'x' }))).rejects.toThrow();
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('atomic write semantics', () => {
@@ -177,6 +325,41 @@ describe('atomic write semantics', () => {
     const compactDir = join(projectRoot, '.peaks', '_runtime', SESSION, 'compact-attempts');
     const leftovers = readdirSyncCompat(compactDir).filter((f) => f.startsWith('.attempt-') && f.endsWith('.tmp'));
     expect(leftovers).toEqual([]);
+  });
+
+  it('cleans up the temp file when rename fails (target is a non-empty directory)', async () => {
+    // The atomic helper MUST remove its temp file when renameSync throws;
+    // otherwise subsequent writes accumulate stale `.attempt-*.tmp` files.
+    if (process.platform === 'win32') {
+      // On Windows, rename over a non-empty directory can succeed in
+      // surprising ways; the cleanup contract is exercised on POSIX.
+      return;
+    }
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const path = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      SESSION,
+      'compact-attempts',
+      `${ATTEMPT}.journal.json`
+    );
+    // First write succeeds.
+    await store.writeAttempt(newJournal());
+    // Force rename to fail by making the target a non-empty directory.
+    rmSync(path, { force: true });
+    mkdirSync(path, { recursive: true });
+    writeFileSync(join(path, 'contents'), 'x', 'utf8');
+    await expect(store.writeAttempt(newJournal({ pathGeneration: 1 }))).rejects.toThrow();
+    const compactDir = join(projectRoot, '.peaks', '_runtime', SESSION, 'compact-attempts');
+    const leftovers = readdirSyncCompat(compactDir).filter(
+      (f) => f.startsWith('.attempt-') && f.endsWith('.tmp')
+    );
+    expect(leftovers).toEqual([]);
+  });
+
+  it('uses 0o600 as the temp file mode constant', () => {
+    expect(ATTEMPT_FILE_MODE).toBe(0o600);
   });
 
   it('writes the journal with 0o600 permissions where supported', async () => {
@@ -340,6 +523,33 @@ describe('monotonic generation + stage rules', () => {
     await expect(
       store.writeAttempt(newJournal({ pathGeneration: 5, stage: 'retrying' }))
     ).resolves.toBeUndefined();
+  });
+
+  it('accepts the single recovery re-entry: retrying → verifying', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    await store.writeAttempt(newJournal({ pathGeneration: 6, stage: 'retrying' }));
+    // §10.2 explicit re-entry: retrying → verifying is allowed.
+    await expect(
+      store.writeAttempt(newJournal({ pathGeneration: 6, stage: 'verifying' }))
+    ).resolves.toBeUndefined();
+  });
+
+  it('rejects other recovery → happy-path transitions', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    // rolled-back and blocked are terminal; they cannot re-enter verifying.
+    await store.writeAttempt(newJournal({ attemptId: 'a-rolled', pathGeneration: 7, stage: 'rolled-back' }));
+    await expect(
+      store.writeAttempt(newJournal({ attemptId: 'a-rolled', pathGeneration: 7, stage: 'verifying' }))
+    ).rejects.toThrow(/stage/);
+    await store.writeAttempt(newJournal({ attemptId: 'a-blocked', pathGeneration: 8, stage: 'blocked' }));
+    await expect(
+      store.writeAttempt(newJournal({ attemptId: 'a-blocked', pathGeneration: 8, stage: 'verifying' }))
+    ).rejects.toThrow(/stage/);
+    // recovering must pass through retrying; jumping to verifying is rejected.
+    await store.writeAttempt(newJournal({ attemptId: 'a-recover', pathGeneration: 9, stage: 'recovering' }));
+    await expect(
+      store.writeAttempt(newJournal({ attemptId: 'a-recover', pathGeneration: 9, stage: 'verifying' }))
+    ).rejects.toThrow(/stage/);
   });
 
   it('bumps updatedAt on every successful write', async () => {
@@ -552,7 +762,7 @@ describe('no-follow read for circuit state', () => {
 
     const outsideDir = mkdtempSync(join(tmpdir(), 'peaks-circuit-outside-'));
     const outside = join(outsideDir, 'hijack.json');
-    writeFileSync(outside, '{"schemaVersion":1,"sessionId":"hijack","consecutiveVerificationFailures":0,"circuit":"closed","openedAt":null,"lastAttemptId":null,"manualPromptShown":false}', 'utf8');
+    writeFileSync(outside, '{"schemaVersion":1,"sessionId":"hijack","consecutiveVerificationFailures":0,"circuit":"closed","openedAt":null,"lastAttemptId":null,"lastFailureCode":null,"manualPromptShown":false}', 'utf8');
     try {
       rmSync(target, { force: true });
       linkSync(outside, target);
@@ -566,3 +776,10 @@ describe('no-follow read for circuit state', () => {
 function readdirSyncCompat(dir: string): string[] {
   return readdirSync(dir);
 }
+
+// Keep `chmodSync` and `statSync` listed in the import surface even
+// though they are not exercised today; future tests will reuse them.
+void chmodSync;
+void statSync;
+void ({} as CompactJournalStage);
+void ({} as CompactAttemptJournal);

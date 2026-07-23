@@ -10,13 +10,27 @@
  *   - every read uses `O_NOFOLLOW` so symlinked files / hardlinks
  *     pointing outside `compact-attempts/` are rejected;
  *   - the `compact-attempts/` directory itself is rejected when it is a
- *     symlink or junction;
+ *     symlink OR when its canonical path (after `realpathSync`) escapes
+ *     the canonical `<projectRoot>/.peaks/_runtime` anchor. The
+ *     realpath check catches Windows junctions / reparse points, which
+ *     `lstat(...).isSymbolicLink()` returns FALSE for;
  *   - `sessionId` / `attemptId` are validated as path segments *before*
  *     `path.join` so `..` and absolute paths never reach the disk;
  *   - atomic temp+rename + 0o600 target where supported.
  *
  * The store is purely I/O; no vendor names, no host identifiers, no
  * CLI verbs leak into the journal payload (§15, §17).
+ *
+ * --- Atomic writer note (fix 4) ---
+ * This module duplicates the `atomicWriteJson` helper from
+ * `src/services/ide/shared/atomic-json.ts` because the global
+ * architecture forbids `src/services/compact-core/**` from importing
+ * `src/services/ide/**`. Both writers share an identical security
+ * contract: `O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW`, 0o600 target,
+ * pretty-printed JSON, rename over the target, best-effort temp cleanup
+ * on rename failure. Extraction into a shared helper is intentionally
+ * deferred to a dedicated refactor slice (per coordinator guidance) so
+ * this PR does not broaden beyond Task 1.2.
  */
 import {
   closeSync,
@@ -26,6 +40,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   renameSync,
   unlinkSync,
   writeFileSync
@@ -33,11 +48,13 @@ import {
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
+  COMPACT_JOURNAL_STAGES,
   CompactAttemptJournalSchema,
   CompactSessionCircuitStateSchema,
   VERIFICATION_CIRCUIT_TRIP_THRESHOLD,
   assertSafeIdempotencyKey,
   assertSafePathSegment,
+  isInsideRuntimeAnchor,
   isPermittedStageTransition,
   type CompactAttemptJournal,
   type CompactSessionCircuitState
@@ -46,17 +63,18 @@ import {
 // Re-export the public schema surface so downstream slices can keep
 // importing this module instead of reaching into the schema file.
 export {
-  COMPACT_STAGES,
+  COMPACT_JOURNAL_STAGES,
   CompactAttemptJournalSchema,
   CompactSessionCircuitStateSchema,
   VERIFICATION_CIRCUIT_TRIP_THRESHOLD,
   assertSafeIdempotencyKey,
   assertSafePathSegment,
+  isInsideRuntimeAnchor,
   isPermittedStageTransition
 } from './attempt-schema.js';
 export type {
   CompactAttemptJournal,
-  CompactAttemptStage,
+  CompactJournalStage,
   CompactSessionCircuitState
 } from './attempt-schema.js';
 
@@ -105,7 +123,29 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
     throw new Error('createAttemptStore: projectRoot is required');
   }
   assertSafePathSegment('sessionId', sessionId);
+
+  // Resolve the canonical project root ONCE so every containment check
+  // below has a stable, realpath-based anchor. On Windows this expands
+  // any junction/reparse point at the project root.
+  const canonicalProjectRoot = safeRealpath(projectRoot);
+
   const compactDir = join(projectRoot, PEAKS_DIR, RUNTIME_DIR, sessionId, COMPACT_ATTEMPTS_DIR);
+  const canonicalRuntimeAnchor = join(canonicalProjectRoot, PEAKS_DIR, RUNTIME_DIR);
+
+  function assertContained(canonicalTarget: string, canonicalTargetParent?: string): void {
+    if (
+      !isInsideRuntimeAnchor({
+        projectRoot,
+        canonicalProjectRoot,
+        canonicalTarget,
+        canonicalTargetParent
+      })
+    ) {
+      throw new Error(
+        `refusing to operate outside canonical runtime anchor ${canonicalRuntimeAnchor}: ${canonicalTarget}`
+      );
+    }
+  }
 
   function ensureCompactDir(): void {
     if (existsSync(compactDir)) {
@@ -116,8 +156,20 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
       if (!st.isDirectory()) {
         throw new Error(`compact-attempts path is not a directory: ${compactDir}`);
       }
+      // Realpath containment guard: a Windows junction or reparse point
+      // at `compact-attempts/` is not detectable by `isSymbolicLink()`,
+      // so we resolve the canonical path and verify it still sits
+      // inside the canonical runtime anchor.
+      const canonicalCompactDir = safeRealpath(compactDir);
+      const canonicalParent = safeRealpath(dirname(compactDir));
+      assertContained(canonicalCompactDir, canonicalParent);
     } else {
       mkdirSync(compactDir, { recursive: true });
+      // After mkdir, re-resolve to make sure the OS didn't honour a
+      // pre-existing reparse point at the parent path.
+      const canonicalCompactDir = safeRealpath(compactDir);
+      const canonicalParent = safeRealpath(dirname(compactDir));
+      assertContained(canonicalCompactDir, canonicalParent);
     }
   }
 
@@ -320,4 +372,20 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
     markVerificationRecovered,
     resetVerificationFailures
   };
+}
+
+/**
+ * `realpathSync` wrapper that throws a descriptive error when the path
+ * cannot be resolved. We intentionally do NOT silently fall back to the
+ * raw input — a path whose canonical form cannot be resolved is, by
+ * definition, uncontained, and the store must refuse to operate on it.
+ */
+function safeRealpath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch (error) {
+    throw new Error(
+      `failed to resolve canonical path for ${p}: ${(error as Error).message ?? String(error)}`
+    );
+  }
 }
