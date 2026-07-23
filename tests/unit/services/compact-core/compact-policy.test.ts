@@ -154,3 +154,96 @@ describe('decideCompactPath — additional invariants', () => {
     );
   });
 });
+
+describe('decideCompactPath — §5.2 fallback quality gate (measurement / completion signal)', () => {
+  // Profile that is otherwise structurally fallback-eligible: in-place, progress,
+  // same-ui, rollback, nativeCompact='none'. The only knob we vary is the
+  // measurement + completion-signal combination.
+  const fallbackStructOnly: CapabilityProfile = {
+    schemaVersion: 1,
+    contextMeasurement: 'exact',
+    nativeCompact: 'none',
+    contextReplacement: 'in-place',
+    progressSurface: 'native',
+    continuation: 'same-ui',
+    completionSignal: 'remeasure',
+    rollbackSupport: 'transactional',
+    capabilityEpoch: 'epoch-1'
+  };
+
+  // Sanity: this profile is the canonical fallback-admissible shape → fallback.
+  it('baseline: structural-only fallback profile + remeasure under certified-strong → fallback', () => {
+    expect(decideCompactPath({ profile: fallbackStructOnly, certification: 'certified-strong' })).toEqual({
+      kind: 'fallback'
+    });
+  });
+
+  // NEGATIVE 1 (the blocking bug): measurement 'none' + completion 'remeasure'
+  // — no independent measurement source AND no event-with-measurement → blocked.
+  it('certified-strong with contextMeasurement=none + completionSignal=remeasure → blocked', () => {
+    const noneRemeasure: CapabilityProfile = {
+      ...fallbackStructOnly,
+      contextMeasurement: 'none',
+      completionSignal: 'remeasure'
+    };
+    expect(decideCompactPath({ profile: noneRemeasure, certification: 'certified-strong' })).toEqual({
+      kind: 'blocked',
+      code: 'AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE'
+    });
+  });
+
+  // POSITIVE: measurement 'none' is acceptable only when the provider is
+  // certified-strong AND the event itself carries host-trusted measurement.
+  it('certified-strong with contextMeasurement=none + completionSignal=event-with-measurement → fallback', () => {
+    const noneEventMeasured: CapabilityProfile = {
+      ...fallbackStructOnly,
+      contextMeasurement: 'none',
+      completionSignal: 'event-with-measurement'
+    };
+    expect(decideCompactPath({ profile: noneEventMeasured, certification: 'certified-strong' })).toEqual({
+      kind: 'fallback'
+    });
+  });
+
+  // Non-strong certifications cannot use the event-with-measurement escape:
+  // they have no certified event source to trust.
+  it('same none+event-with-measurement profile under native-only → blocked', () => {
+    const noneEventMeasured: CapabilityProfile = {
+      ...fallbackStructOnly,
+      contextMeasurement: 'none',
+      completionSignal: 'event-with-measurement'
+    };
+    expect(decideCompactPath({ profile: noneEventMeasured, certification: 'native-only' })).toEqual({
+      kind: 'blocked',
+      code: 'AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE'
+    });
+  });
+
+  // Negative: pure measurement capability with remeasure signal remains admissible
+  // (this is the canonical fallback-admissible path; pin to lock in).
+  it('certified-strong with contextMeasurement=exact + completionSignal=remeasure → fallback', () => {
+    const exactRemeasure: CapabilityProfile = {
+      ...fallbackStructOnly,
+      contextMeasurement: 'exact',
+      completionSignal: 'remeasure'
+    };
+    expect(decideCompactPath({ profile: exactRemeasure, certification: 'certified-strong' })).toEqual({
+      kind: 'fallback'
+    });
+  });
+
+  // Negative structural cases (still relevant): a fallback profile that is
+  // missing measurement entirely under native-only is irrelevant (native-only
+  // never uses fallback), but ensure the certification arm is unchanged.
+  it('certified-strong with measurement=none and completion=none → blocked (no signal either)', () => {
+    const noneNone: CapabilityProfile = {
+      ...fallbackStructOnly,
+      contextMeasurement: 'none',
+      completionSignal: 'none'
+    };
+    expect(decideCompactPath({ profile: noneNone, certification: 'certified-strong' })).toEqual({
+      kind: 'blocked',
+      code: 'AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE'
+    });
+  });
+});

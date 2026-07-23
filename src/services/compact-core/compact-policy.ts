@@ -12,8 +12,17 @@
  *     completionSignal !== 'none'.
  *   Fallback (§5.2): contextReplacement === 'in-place' AND
  *     progressSurface !== 'none' AND continuation === 'same-ui' AND
- *     rollbackSupport !== 'none'.
+ *     rollbackSupport !== 'none' AND
+ *     (contextMeasurement !== 'none' OR
+ *       (certification === 'certified-strong' AND
+ *         completionSignal === 'event-with-measurement')).
  *   `new-ui` continuation can only ever yield the consent-required result.
+ *
+ * The §5.2 trailing clause is the *quality gate* on fallback: without an
+ * independent measurement source we cannot verify that context actually
+ * dropped (§9.2). A provider only earns the event-with-measurement escape
+ * when the conformance runner has certified its host-event receipts as
+ * trustworthy.
  */
 import type { CapabilityProfile } from './protocol/capability-profile.js';
 
@@ -44,14 +53,44 @@ function isNativeAdmissible(profile: CapabilityProfile): boolean {
   );
 }
 
-/** True when the profile satisfies the fallback strong-guarantee rule (§5.2). */
-function isFallbackAdmissible(profile: CapabilityProfile): boolean {
+/**
+ * True when the profile satisfies the fallback strong-guarantee *structural*
+ * rule (§5.2). The measurement/quality gate is applied separately because
+ * it depends on the provider's certification.
+ */
+function hasFallbackStructure(profile: CapabilityProfile): boolean {
   return (
     profile.contextReplacement === 'in-place' &&
     profile.progressSurface !== 'none' &&
     profile.continuation === 'same-ui' &&
     profile.rollbackSupport !== 'none'
   );
+}
+
+/**
+ * §5.2 quality gate. Either the host can independently measure context, or
+ * the provider is `certified-strong` *and* its completion event itself
+ * carries host-trusted pre/post measurement. Without one of these we cannot
+ * verify the compact actually reduced context (design §9.2).
+ */
+function hasFallbackMeasurementGate(
+  profile: CapabilityProfile,
+  certification: ProviderCertification
+): boolean {
+  if (profile.contextMeasurement !== 'none') {
+    return true;
+  }
+  return (
+    certification === 'certified-strong' && profile.completionSignal === 'event-with-measurement'
+  );
+}
+
+/** True when the profile + certification satisfy the full fallback rule (§5.2). */
+function isFallbackAdmissible(
+  profile: CapabilityProfile,
+  certification: ProviderCertification
+): boolean {
+  return hasFallbackStructure(profile) && hasFallbackMeasurementGate(profile, certification);
 }
 
 const BLOCKED: CompactPathDecision = {
@@ -86,7 +125,7 @@ export function decideCompactPath(input: {
       if (isNativeAdmissible(profile)) {
         return { kind: 'native' };
       }
-      if (isFallbackAdmissible(profile)) {
+      if (isFallbackAdmissible(profile, certification)) {
         return { kind: 'fallback' };
       }
       return BLOCKED;
