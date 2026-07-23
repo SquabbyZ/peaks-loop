@@ -601,7 +601,7 @@ interface CompactCapabilityProvider {
 | `safe-handoff` | 能力真实、capsule 完整性与新 UI continuation 通过 | 永不自动执行；必须自然语言多选确认 |
 | `unsupported` | 仅能 probe / checkpoint，或合同测试失败 | 阻断并报告缺失能力 |
 
-认证结果由 conformance runner 输出带 digest 的本地 manifest，默认路径为 `.peaks/runtime/compact-providers.json`。Manifest 只记录 provider ID、protocol version、capability hash、认证等级、测试证据 digest 和有效期，不记录 vendor 命令。未出现在有效 manifest 中的 provider 不得被加载为可执行 bridge。
+认证结果由 conformance runner 输出带 digest 的本地 manifest，默认路径为 `.peaks/_runtime/compact-providers.json`。Manifest 只记录 provider ID、protocol version、capability hash、认证等级、测试证据 digest 和有效期，不记录 vendor 命令。未出现在有效 manifest 中的 provider 不得被加载为可执行 bridge。
 
 生产默认只自动执行 `certified-strong`，以及符合 native 强保证准入的 `native-only` provider。
 
