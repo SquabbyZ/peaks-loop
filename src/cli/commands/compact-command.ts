@@ -1,26 +1,23 @@
 /**
- * `peaks compact *` — strategic-compact CLI primitives.
+ * `peaks compact *` — capability-first compact control plane.
  *
- * Two surfaces coexist under the same `peaks compact` group:
+ * Public LLM surface (Task 1.6, design §11.1). These are the ONLY
+ * commands registered under `peaks compact`:
  *
- * 1. Public LLM surface (Task 1.6, design §11.1):
- *      - auto:          vendor-neutral auto compact handling
- *                       (probe + capability + plan/execute + verify
- *                       + resume). `--dry-run` is side-effect-free.
- *      - status:        read-only session circuit view.
- *      - capabilities:  read-only host capability profile view.
+ *   - auto:          vendor-neutral auto compact handling
+ *                    (probe + capability + plan/execute + verify
+ *                    + resume). `--dry-run` is side-effect-free.
+ *   - status:        read-only session circuit view.
+ *   - capabilities:  read-only host capability profile view.
  *
- * 2. Legacy 5-verb group (slice 2026-07-01-strategic-compact-cli):
- *      - suggest / recommend / survival / dry-run / force
- *    PRESERVED as registered aliases for now, but each is registered
- *    with `command(name, { hidden: true })` so it does not appear in
- *    `peaks compact --help` output (Task 1.7 retires these verbs
- *    outright — the `hidden: true` flag is the bridge until
- *    retirement, the day Task 1.7 lands the verbs are deleted from
- *    `registerCompactCommands` entirely). The legacy block is
- *    intentionally left in this file so the migration slice has a
- *    single, locatable target; do NOT register any new code under
- *    this comment.
+ * Task 1.7 (design §13.1) retired the legacy 5-verb group
+ * (`suggest / recommend / survival / dry-run / force`) outright:
+ * those verbs used a different signal + semantics from the control
+ * plane and are no longer registered as Commander subcommands.
+ * `peaks compact --help` now lists exactly `auto / status /
+ * capabilities / help`. The underlying pure services
+ * (`suggest-service`, `decision-tables`) remain for the
+ * request-transition hook but are no longer exposed as CLI verbs.
  *
  * Each subcommand returns a `--json` envelope via `printResult`.
  */
@@ -31,20 +28,7 @@ import { findProjectRoot } from '../../services/config/config-safety.js';
 import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
-import { writeCheckpoint } from '../../services/session/session-checkpoint-service.js';
 import { getSessionIdCanonical } from '../../services/session/session-manager.js';
-import {
-  buildRecommendEnvelopePure,
-  dryRunCompact,
-  suggestCompact
-} from '../../services/compact/suggest-service.js';
-import {
-  PHASES,
-  SURVIVAL_TABLE,
-  isPhase,
-  lookupPhaseTransition,
-  type Phase
-} from '../../services/compact/decision-tables.js';
 import {
   AUTO_COMPACT_EXHAUSTED,
   AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE,
@@ -57,45 +41,6 @@ import { createAttemptStore } from '../../services/compact-core/attempt-store.js
 import { AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN } from '../../services/compact-core/index.js';
 import type { CapabilityProfile } from '../../services/compact-core/protocol/capability-profile.js';
 import type { ProviderCertification } from '../../services/compact-core/compact-policy.js';
-
-type CompactSuggestOptions = {
-  json?: boolean;
-  project?: string;
-  sessionId?: string;
-  apply?: boolean;
-};
-
-type CompactRecommendOptions = {
-  from: string;
-  to: string;
-  json?: boolean;
-};
-
-type CompactSurvivalOptions = {
-  json?: boolean;
-};
-
-type CompactDryRunOptions = {
-  from?: string;
-  to?: string;
-  json?: boolean;
-  project?: string;
-  sessionId?: string;
-};
-
-type CompactForceOptions = {
-  reason?: string;
-  json?: boolean;
-  project?: string;
-  sessionId?: string;
-  currentPlan?: string;
-  openQuestions?: string;
-  recentDecisions?: string;
-  recentArtifactPaths?: string;
-  gitStatus?: string;
-  skillsActive?: string;
-  todoState?: string;
-};
 
 // --- Task 1.6 (design §11.1) ---------------------------------------------
 // Public LLM surface. The CLI accepts exactly the flags published in
@@ -224,14 +169,6 @@ function compactAutoOutcomeToLabel(result: CompactAutoResult): {
   return { outcome: 'exhausted' };
 }
 
-function splitList(value: string | undefined): string[] {
-  if (!value) return [];
-  return value
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-}
-
 function resolveSessionId(
   projectRoot: string,
   explicit: string | undefined
@@ -262,262 +199,12 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   const compact = program
     .command('compact')
     .description(
-      'Strategic-compact control plane (design §11.1). Public LLM surface: ' +
-        'auto / status / capabilities.'
+      'Capability-first compact control plane (design §11.1). ' +
+        'Public LLM surface: auto / status / capabilities.'
     );
 
   // -----------------------------------------------------------------
-  // 1. peaks compact suggest [--json]
-  // TODO(Task 1.7 retire): delete this block when the strategic-compact
-  // migration lands. Until then the `hidden: true` option on the
-  // subcommand keeps it out of `peaks compact --help` while it
-  // remains functional.
-  // -----------------------------------------------------------------
-  const suggestCmd = compact
-    .command('suggest', { hidden: true })
-    .description(
-      'Two-signal suggestion (context-size + tool-call-count). ' +
-        'Honor COMPACT_THRESHOLD / COMPACT_CONTEXT_THRESHOLD / COMPACT_CONTEXT_INTERVAL env vars. ' +
-        'Read-only by default; pass --apply to also append a one-line info row to the session log.'
-    )
-    .option('--project <path>', 'project root (defaults to git root or cwd)')
-    .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
-    .option('--apply', 'append a one-line info row to .peaks/_runtime/<sid>/session.json (default: dry-run)');
-  addJsonOption(suggestCmd).action((options: CompactSuggestOptions) => {
-    try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
-      const session = resolveSessionId(projectRoot, options.sessionId);
-      if (session.error !== null) {
-        printResult(io, fail('compact.suggest', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      const result = suggestCompact({
-        projectRoot,
-        sessionId: session.sid
-      });
-      printResult(io, ok('compact.suggest', result, [], [
-        result.shouldSuggest
-          ? `Run \`peaks compact force --reason "<short note>"\` to checkpoint, then /compact.`
-          : `Context at ${(result.ratio * 100).toFixed(1)}% (${result.tokensUsed} of ${result.windowKind === '1m' ? '1M' : '200k'}); below threshold.`
-      ]), options.json);
-    } catch (error) {
-      printResult(io, fail('compact.suggest', 'COMPACT_SUGGEST_FAILED', getErrorMessage(error), {}, ['Verify project root and session binding before retrying']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  // -----------------------------------------------------------------
-  // 2. peaks compact recommend --from <phase> --to <phase> [--json]
-  // TODO(Task 1.7 retire): delete this block when the strategic-compact
-  // migration lands. The `hidden: true` option keeps it out of
-  // `peaks compact --help` until retirement.
-  // -----------------------------------------------------------------
-  const recommendCmd = compact
-    .command('recommend', { hidden: true })
-    .description(
-      `Strategic-compact "Compaction Decision Guide" lookup. ` +
-        `Valid phases: ${PHASES.join(', ')}. Pure function over (from, to); no I/O.`
-    )
-    .requiredOption('--from <phase>', `source phase (one of ${PHASES.join(', ')})`)
-    .requiredOption('--to <phase>', `target phase (one of ${PHASES.join(', ')})`);
-  addJsonOption(recommendCmd).action((options: CompactRecommendOptions) => {
-    try {
-      if (!isPhase(options.from)) {
-        printResult(io, fail('compact.recommend', 'INVALID_PHASE', `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`, { from: options.from }, [`Use --from ${PHASES.join('|')}`]), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      if (!isPhase(options.to)) {
-        printResult(io, fail('compact.recommend', 'INVALID_PHASE', `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`, { to: options.to }, [`Use --to ${PHASES.join('|')}`]), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      const envelope = buildRecommendEnvelopePure(options.from as Phase, options.to as Phase);
-      const lookup = lookupPhaseTransition(options.from as Phase, options.to as Phase);
-      printResult(io, ok('compact.recommend', {
-        from: envelope.from,
-        to: envelope.to,
-        shouldCompact: envelope.shouldCompact,
-        severity: envelope.severity,
-        rationale: envelope.rationale,
-        suggestedMessage: envelope.suggestedMessage,
-        notInTable: lookup.notInTable
-      }, lookup.notInTable ? [`Transition ${options.from} → ${options.to} is not in the strategic-compact table; defaulting to severity=no.`] : []), options.json);
-    } catch (error) {
-      printResult(io, fail('compact.recommend', 'COMPACT_RECOMMEND_FAILED', getErrorMessage(error), { from: options.from, to: options.to }, ['Verify the phase pair against the documented transitions']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  // -----------------------------------------------------------------
-  // 3. peaks compact survival [--json]
-  // TODO(Task 1.7 retire): delete this block when the strategic-compact
-  // migration lands. The `hidden: true` option keeps it out of
-  // `peaks compact --help` until retirement.
-  // -----------------------------------------------------------------
-  const survivalCmd = compact
-    .command('survival', { hidden: true })
-    .description('Strategic-compact "What Survives Compaction" table. Pure static data; no I/O.');
-  addJsonOption(survivalCmd).action((options: CompactSurvivalOptions) => {
-    printResult(io, ok('compact.survival', {
-      persists: [...SURVIVAL_TABLE.persists],
-      lost: [...SURVIVAL_TABLE.lost]
-    }, [], [
-      'Persists = guaranteed across `/compact`. Lost = not preserved; persist to disk before compacting.'
-    ]), options.json);
-  });
-
-  // -----------------------------------------------------------------
-  // 4. peaks compact dry-run [--from <phase>] [--to <phase>] [--json]
-  // TODO(Task 1.7 retire): delete this block when the strategic-compact
-  // migration lands. The `hidden: true` option keeps it out of
-  // `peaks compact --help` until retirement. (Replaced by the new
-  // `peaks compact auto` public surface, which is side-effect-free
-  // by default.)
-  // -----------------------------------------------------------------
-  const dryRunCmd = compact
-    .command('dry-run', { hidden: true })
-    .description(
-      'Composite preview of (suggest + recommend + survival). ' +
-        'No writes. The LLM calls this every tool-call cycle to stay informed.'
-    )
-    .option('--from <phase>', `optional source phase for recommend lookup (one of ${PHASES.join(', ')})`)
-    .option('--to <phase>', `optional target phase for recommend lookup (one of ${PHASES.join(', ')})`)
-    .option('--project <path>', 'project root (defaults to git root or cwd)')
-    .option('--session-id <sid>', 'override the active session id');
-  addJsonOption(dryRunCmd).action((options: CompactDryRunOptions) => {
-    try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
-      const session = resolveSessionId(projectRoot, options.sessionId);
-      if (session.error !== null) {
-        printResult(io, fail('compact.dry-run', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      if ((options.from === undefined) !== (options.to === undefined)) {
-        printResult(io, fail('compact.dry-run', 'PHASE_PAIR_INCOMPLETE', 'Both --from and --to must be provided together', { from: options.from, to: options.to }, ['Pass both --from and --to, or omit both for a suggest-only dry-run']), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      if (options.from !== undefined && !isPhase(options.from)) {
-        printResult(io, fail('compact.dry-run', 'INVALID_PHASE', `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`, { from: options.from }, [`Use --from ${PHASES.join('|')}`]), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      if (options.to !== undefined && !isPhase(options.to)) {
-        printResult(io, fail('compact.dry-run', 'INVALID_PHASE', `--to must be one of ${PHASES.join(', ')} (got "${options.to}")`, { to: options.to }, [`Use --to ${PHASES.join('|')}`]), options.json);
-        process.exitCode = 1;
-        return;
-      }
-      const hasPhasePair = options.from !== undefined && options.to !== undefined;
-      const dryRunInput: { projectRoot: string; sessionId: string | null; from?: Phase; to?: Phase } = {
-        projectRoot,
-        sessionId: session.sid
-      };
-      if (hasPhasePair) {
-        dryRunInput.from = options.from as Phase;
-        dryRunInput.to = options.to as Phase;
-      }
-      const result = dryRunCompact(dryRunInput);
-      printResult(io, ok('compact.dry-run', result, [], [
-        result.action === 'compact'
-          ? `Action=compact: run \`peaks compact force --reason "<note>"\`, then /compact.`
-          : `Action=skip: continue without compacting.`
-      ]), options.json);
-    } catch (error) {
-      printResult(io, fail('compact.dry-run', 'COMPACT_DRY_RUN_FAILED', getErrorMessage(error), {}, ['Verify project root, session binding, and phase pair before retrying']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  // -----------------------------------------------------------------
-  // 5. peaks compact force [--reason <text>] [--json]
-  // TODO(Task 1.7 retire): delete this block when the strategic-compact
-  // migration lands. The `hidden: true` option keeps it out of
-  // `peaks compact --help` until retirement. (Replaced by the public
-  // auto/status/capabilities surface, which is the LLM-facing path
-  // going forward.)
-  // -----------------------------------------------------------------
-  const forceCmd = compact
-    .command('force', { hidden: true })
-    .description(
-      'Write a pre-compact checkpoint via `peaks session checkpoint --reason context-fill`. ' +
-        'The IDE-side `/compact` is still the LLM\'s call; this primitive guarantees ' +
-        'the pre-compact state is persisted. NO sleep, NO wait for IDE response.'
-    )
-    .option('--reason <text>', 'human-readable reason for the pre-compact checkpoint', 'pre-force-compact')
-    .option('--project <path>', 'project root (defaults to git root or cwd)')
-    .option('--session-id <sid>', 'override the active session id')
-    .option('--current-plan <text>', 'current plan summary (forwarded to the checkpoint snapshot)')
-    .option('--open-questions <list>', 'newline-separated open questions')
-    .option('--recent-decisions <list>', 'newline-separated recent decisions')
-    .option('--recent-artifact-paths <list>', 'newline-separated recent artifact paths')
-    .option('--git-status <text>', 'recent git status')
-    .option('--skills-active <list>', 'newline-separated active skill names')
-    .option('--todo-state <list>', 'newline-separated todo lines');
-  addJsonOption(forceCmd).action((options: CompactForceOptions) => {
-    try {
-      const projectRoot = options.project !== undefined
-        ? resolveCanonicalProjectRoot(options.project)
-        : (findProjectRoot(process.cwd()) ?? process.cwd());
-      const session = resolveSessionId(projectRoot, options.sessionId);
-      if (session.error !== null) {
-        printResult(io, fail('compact.force', session.error.code, session.error.message, { projectRoot }, session.error.nextActions), options.json);
-        process.exitCode = 1;
-        return;
-      }
-          const reason = (options.reason ?? 'pre-force-compact').slice(0, 200);
-      // The session-checkpoint-service restricts `reason` to a fixed
-      // enum. The strategic-compact `force` primitive uses
-      // 'context-fill' (the closest semantic match: the LLM is
-      // compacting because of context pressure) and records the
-      // caller's free-form reason in `gitStatus` so the snapshot
-      // is self-describing without inventing a new enum value.
-      const checkpointOptions: Parameters<typeof writeCheckpoint>[1] = {
-        sessionId: session.sid as string,
-        reason: 'context-fill',
-        gitStatus: `compact.force: ${reason}`,
-        openQuestions: splitList(options.openQuestions),
-        recentDecisions: splitList(options.recentDecisions),
-        recentArtifactPaths: splitList(options.recentArtifactPaths),
-        skillsActive: splitList(options.skillsActive),
-        todoState: splitList(options.todoState)
-      };
-      if (options.currentPlan !== undefined) {
-        checkpointOptions.currentPlan = options.currentPlan;
-      }
-      const result = writeCheckpoint(projectRoot, checkpointOptions);
-      printResult(io, ok('compact.force', {
-        checkpointPath: result.path,
-        reason: 'pre-force-compact',
-        callerReason: reason,
-        sessionId: result.sessionId,
-        createdAt: result.createdAt,
-        totalRetained: result.totalRetained,
-        message: 'Pre-compact checkpoint written. The IDE-side /compact is still the LLM\'s call; this CLI does NOT invoke the IDE slash command.'
-      }, [], [
-        'After the LLM fires the IDE-side /compact, call `peaks compact survival` to see what to persist before the next compact.'
-      ]), options.json);
-    } catch (error) {
-      printResult(io, fail('compact.force', 'COMPACT_FORCE_FAILED', getErrorMessage(error), {}, ['Verify the project path is writable and a session is bound']), options.json);
-      process.exitCode = 1;
-    }
-  });
-
-  // -----------------------------------------------------------------
-  // Task 1.6 (design §11.1) — public LLM surface.
-  // The three handlers below are the ONLY discoverable commands under
-  // `peaks compact`. The legacy 5-verb group above remains registered
-  // as aliases — Task 1.7 will migrate them.
-  // -----------------------------------------------------------------
-
-  // -----------------------------------------------------------------
-  // 6. peaks compact auto --project <path> [--dry-run] [--target-ratio N] [--json]
+  // 1. peaks compact auto --project <path> [--dry-run] [--target-ratio N] [--json]
   // -----------------------------------------------------------------
   addJsonOption(
     compact
@@ -645,7 +332,7 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   });
 
   // -----------------------------------------------------------------
-  // 7. peaks compact status --project <path> [--json]
+  // 2. peaks compact status --project <path> [--json]
   // -----------------------------------------------------------------
   addJsonOption(
     compact
@@ -710,7 +397,7 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
   });
 
   // -----------------------------------------------------------------
-  // 8. peaks compact capabilities --project <path> [--json]
+  // 3. peaks compact capabilities --project <path> [--json]
   // -----------------------------------------------------------------
   addJsonOption(
     compact

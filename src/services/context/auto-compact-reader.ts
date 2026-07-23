@@ -118,18 +118,25 @@ export function readContextPercent(input: ReadContextPercentInput): ContextPerce
   const capturedAt = new Date().toISOString();
   const capacityBytes = 256 * 1024;
   const detected = detectIdeFromEnv(env);
-  // `detectIdeFromEnv` may return `'unknown'` when no IDE-specific
-  // marker is on PATH; narrow to a registered adapter id so the
-  // typed `getAdapter` call accepts it. `'unknown'` falls through to
-  // the conservative-zero probe (no compact dispatch). IdeKind is a
-  // narrow 3-element union (claude-code / trae / opencode); cast
-  // through `unknown` to IdeId's wider 8-element set.
-  const ideId: IdeId = (detected === 'unknown' ? 'claude-code' : detected) as IdeId;
+  // `detectIdeFromEnv` returns `IdeKind` (a 4-element union including
+  // `'unknown'`); `getAdapter` requires `IdeId` (the registered set).
+  // When no IDE marker is on PATH the probe MUST stay conservative —
+  // silently casting `'unknown'` to `'claude-code'` would let a
+  // hostile / misconfigured env feed an executable path, which is
+  // the exact false-success shape Task 1.7 retires. We therefore
+  // refuse to dispatch on `'unknown'` and return the zero probe.
+  if (detected === 'unknown') {
+    return { ratio: 0, source: 'conservative-fallback', capacityBytes, ide: 'unknown', capturedAt };
+  }
+  const ideId: IdeId = detected as IdeId;
   const adapter = getAdapter(ideId);
 
-  // Primary: read the adapter-declared env-var (no hard-coded IDE names).
-  if (adapter.compact) {
-    const primary = readEnvPercent(env, adapter.compact.envVarForContextPercent);
+  // Primary: read the adapter-declared env-var (no hard-coded IDE
+  // names, no spawn). Task 1.7 retired the old `IdeCompactProfile`
+  // shape; the read-only env-var probe survives as the
+  // `contextPercentEnvVar` field on the adapter.
+  if (adapter.contextPercentEnvVar !== undefined) {
+    const primary = readEnvPercent(env, adapter.contextPercentEnvVar);
     if (primary !== null) {
       return {
         ratio: primary,

@@ -1,36 +1,32 @@
 /**
  * `peaks runtime *` — vendor-runtime detection + compact CLI surface.
  *
- * Slice S2-a of RD-2 (2026-07-08 session). Four subcommands:
+ * Slice S2-a of RD-2 (2026-07-08 session). Three subcommands:
  *
  *   detect    — print which vendor is the active AI runtime
  *               (claude-code / codex / copilot / unknown).
  *   list      — list the built-in vendor adapters registered by
  *               RuntimeService (Claude Code / Codex / Copilot).
- *   compact   — invoke a vendor's compact verb via the adapter. The
- *               adapter (NOT this file) chooses the vendor verb;
- *               see src/services/runtime/vendors/<vendor>.ts.
- *
- * Vendor verb strings (`claude --compact`, `codex --compact`,
- * `copilot compact`) MUST live ONLY in `src/services/runtime/vendors/`
- * — verified by AC-1: `rg -n "claude --compact|codex --compact|copilot
- * compact" src/services/code/` returns 0 matches.
- *
- * `peaks runtime compact --via <id>` first consults the user
- * adapter registry (`.peaks/runtime/adapters.json`) for the id, then
- * falls back to the built-in adapter list. Missing vendor CLI
- * surfaces as exitCode=127 + warning, NOT as a fatal error — vendor
- * neutrality demands peaks-loop stay alive.
+ *   compact   — Task 1.7 (design §13.1 row 5) retired the
+ *               adapter-vendor `compact` dispatch. Pre-1.7 this
+ *               command could `child_process.spawn` an adapter-
+ *               declared `compactCommand` (e.g. `claude --compact`)
+ *               and return `ok: true` on spawn. That was a
+ *               false-success shape: spawn is not proof of
+ *               completion. The handler now returns an explicit
+ *               deprecation envelope with the capability-first
+ *               next action (`peaks compact auto`). The legacy
+ *               adapter registry and RuntimeService paths are
+ *               preserved (so `peaks runtime detect` / `list`
+ *               remain useful) but `peaks runtime compact` never
+ *               exits 0.
  */
 import type { Command } from 'commander';
-import { existsSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { detectRuntime } from '../../services/runtime/runtime-detector.js';
 import { RuntimeService } from '../../services/runtime/runtime-service.js';
-import { AdapterRegistry } from '../../services/adapter/adapter-registry.js';
 
 export interface RuntimeDetectOptions {
   json?: boolean;
@@ -103,104 +99,53 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
   // -----------------------------------------------------------------
   // 3. peaks runtime compact [--via <id>] [--force] [--json] [--project <root>]
   // -----------------------------------------------------------------
+  // Task 1.7 (design §13.1 row 5): the legacy adapter-vendor
+  // dispatch is retired. The verb remains so callers get an
+  // explicit deprecation envelope with the capability-first
+  // next action, instead of a fabricated `ok: true` from a
+  // child_process.spawn return value.
   addJsonOption(
     runtime
       .command('compact')
-      .description('Compact the active vendor via the chosen adapter (--via <vendor-id>); vendor verbs live ONLY in adapter files')
-      .option('--via <id>', 'vendor adapter id (built-in or user-registered)')
-      .option('--force', 'ask the vendor to compact unconditionally')
+      .description(
+        'RETIRED by Task 1.7 (design §13.1). Returns an explicit deprecation ' +
+          'envelope; the next step is the capability-first control plane ' +
+          '(`peaks compact auto --project <repo> --session-id <sid> --json`).'
+      )
+      .option('--via <id>', '(ignored) — vendor adapter id; pre-1.7 dispatch path is retired')
+      .option('--force', '(ignored) — pre-1.7 spawn flag; retired')
       .option('--project <path>', 'project root (defaults to cwd)')
-  ).action(async (options: RuntimeCompactOptions) => {
+  ).action((options: RuntimeCompactOptions) => {
     try {
       const projectRoot = resolveProjectRoot(options.project);
       const requested = options.via;
-      if (requested === undefined || requested.length === 0) {
-        // No explicit --via: try to detect first, then fall back.
-        const detected = detectRuntime();
-        if (detected.vendor === 'unknown') {
-          printResult(io, fail('runtime.compact', 'NO_VENDOR_SPECIFIED', 'No --via <id> provided and no vendor detected.', { detected }, [
-            'Pass --via <vendor-id>, or run `peaks runtime detect` to see what was detected.'
-          ]), options.json);
-          process.exitCode = 1;
-          return;
-        }
-        await runCompact(projectRoot, detected.vendor, options.force === true, io, options.json);
-        return;
-      }
-      await runCompact(projectRoot, requested, options.force === true, io, options.json);
+      const detected = requested !== undefined && requested.length > 0
+        ? { vendor: requested, source: 'flag' as const }
+        : detectRuntime();
+      printResult(
+        io,
+        fail(
+          'runtime.compact',
+          'RUNTIME_COMPACT_RETIRED',
+          'Task 1.7 (design §13.1) retired the adapter-vendor compact ' +
+            'dispatch: a child_process.spawn return value is not proof ' +
+            'of compact completion. The next step is the capability-first ' +
+            'control plane.',
+          { projectRoot, via: requested ?? null, detected },
+          [
+            'peaks compact auto --project <repo> --session-id <sid> --json',
+            'peaks compact status --project <repo> --session-id <sid> --json',
+            'peaks compact capabilities --project <repo> --json'
+          ]
+        ),
+        options.json
+      );
+      process.exitCode = 1;
     } catch (error) {
-      printResult(io, fail('runtime.compact', 'RUNTIME_COMPACT_FAILED', getErrorMessage(error), {}, []), options.json);
+      printResult(io, fail('runtime.compact', 'RUNTIME_COMPACT_FAILED', getErrorMessage(error), {}, [
+        'peaks compact auto --project <repo> --session-id <sid> --json'
+      ]), options.json);
       process.exitCode = 1;
     }
   });
 }
-
-async function runCompact(
-  projectRoot: string,
-  viaId: string,
-  force: boolean,
-  io: ProgramIO,
-  asJson: boolean | undefined
-): Promise<void> {
-  // Layer 1: user-registered adapter (via AdapterRegistry).
-  const registryFile = AdapterRegistry.defaultFile(projectRoot);
-  const registry = new AdapterRegistry();
-  if (existsSync(registryFile)) {
-    try {
-      registry.load(registryFile);
-    } catch { // TODO(g2): vendor-neutrality — corrupt adapter registry must NOT block peaks runtime
-      // Treat corrupt registry as empty — vendor-neutrality: a corrupt
-      // .peaks/runtime/adapters.json must NOT block peaks runtime.
-      // We still try the built-in path below.
-    }
-  }
-  const registered = registry.resolve(viaId);
-  if (registered !== undefined) {
-    const r = await registered.compact({ force });
-    const warnings: string[] = [];
-    if (r.exitCode === 127) {
-      warnings.push(`binary for adapter "${viaId}" not found on PATH; compact is a no-op`);
-    }
-    printResult(io, ok('runtime.compact', { via: viaId, source: 'registry', compact: r }, warnings, [
-      r.exitCode === 0
-        ? 'Compact completed.'
-        : `Compact exited with code ${r.exitCode}. Check stderr above.`
-    ]), asJson);
-    if (r.exitCode !== 0) process.exitCode = 1;
-    return;
-  }
-
-  // Layer 2: built-in adapter (via RuntimeService).
-  const svc = new RuntimeService();
-  const r = await svc.compactVia(viaId, force);
-  const warnings: string[] = [];
-  if (r.warning !== undefined) warnings.push(r.warning);
-  if (r.exitCode === 127) {
-    warnings.push(`built-in adapter "${viaId}" binary not found on PATH; compact is a no-op`);
-  }
-  printResult(io, ok('runtime.compact', { via: viaId, source: 'built-in', compact: { exitCode: r.exitCode, stdout: r.stdout, stderr: r.stderr } }, warnings, [
-    r.exitCode === 0
-      ? 'Compact completed.'
-      : `Compact exited with code ${r.exitCode}. Check stderr above.`
-  ]), asJson);
-  if (r.exitCode !== 0) process.exitCode = 1;
-}
-
-/** Internal helper exposed for tests + future programmatic callers:
- *  resolve the registry file location, ensuring the parent dir
- *  exists. Idempotent. */
-export function ensureRegistryDir(registryFile: string): void {
-  mkdirSync(dirname(registryFile), { recursive: true });
-}
-
-/** Internal helper for tests: locate the registry file under the
- *  given project root. Thin wrapper so tests can stub the resolution. */
-export function registryFileFor(projectRoot: string): string {
-  const f = AdapterRegistry.defaultFile(projectRoot);
-  ensureRegistryDir(f);
-  return f;
-}
-
-/** Re-export the path join helper for completeness; not strictly
- *  needed by callers but keeps the module self-contained. */
-export { join };

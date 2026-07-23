@@ -1,43 +1,40 @@
 /**
- * Auto-compact orchestrator (v2.13.0 AC-2 + AC-3 + AC-4).
+ * Auto-compact orchestrator (Task 1.7 honest-blocked rewrite).
  *
- * Closes the loop between `peaks context now` (AC-1) and the IDE's
- * native compact capability (AC-3). peaks-loop is project-aware: it
- * knows the current plan, open questions, recent decisions, in-flight
- * batches, todo state, git status, and active skills. That context is
- * strictly more valuable than what `/compact` can synthesize from raw
- * conversation history — so peaks-loop drives the entire compaction:
+ * Pre-Task-1.7 the orchestrator:
+ *   1. Read the context % via the IDE adapter.
+ *   2. Wrote a pre-compact checkpoint + convergence plan + auto-decisions
+ *      log + an intent record at
+ *      `.peaks/_runtime/<sessionId>/txt/auto-compact-pending.json`.
+ *   3. Called `dispatchIdeCompact` and treated `dispatch.ok` as proof
+ *      the runner's context was compacting.
  *
- *   1. Read current context % (via IDE adapter's `readContextPercent`).
- *   2. If ratio ≥ 0.95 (RED LINE): synchronous gate — peaks-loop
- *      refuses sub-agent dispatch and forces IDE compact immediately.
- *      The LLM cannot opt out (compact red line — keeps the runner
- *      alive).
- *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-loop prepares
- *      the convergence toolkit (checkpoint + auto-decisions log +
- *      IDE-dispatch handle) and surfaces it to the LLM. The LLM
- *      DECIDES when to fire `peaks code auto-compact --execute`;
- *      peaks-loop does NOT auto-fire. The toolkit is ready so the
- *      LLM doesn't lose context to a last-second `/compact` panic.
- *   4. If ratio < 0.85: skip — return a one-line info row.
+ * Design §13.2 retires that whole shape:
+ *   - checkpoint / convergence plan / auto-decisions log: those are
+ *     still written when a real attempt fires, but the orchestrator
+ *     no longer auto-fires an attempt based on a hook-install /
+ *     shell-spawn signal.
+ *   - The `auto-compact-pending.json` intent record is gone — it
+ *     pointed the next LLM turn at the never-existing
+ *     `peaks compact auto`.
+ *   - The result envelope now reports `ok: false` with the
+ *     Task-1.7 deprecation code so the only "next action" the LLM
+ *     ever sees is `peaks compact auto`.
  *
- * Why two tiers (vs. one): the LLM uses the 0.85–0.95 zone for
- * intelligent convergence — wait for in-flight sub-agents, finish
- * the current todo row, persist a checkpoint, then compact. At 0.95
- * the window is gone; peaks-loop takes over synchronously. Net effect:
- * the LLM-runner keeps working with context < 95% without human
- * intervention.
+ * Why a thin file instead of deletion: the `code auto-compact` CLI
+ * verb still calls `runAutoCompact` (design §13.1 row 3 — kept as a
+ * forwarder). The function signature is preserved so a follow-up
+ * slice can replace it with a call into the new coordinator without
+ * touching the CLI handler. Until that replacement lands, this
+ * module is the only place that knows about the old dispatch
+ * pathway, and the next-action surface is the new control plane.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
 import { getSessionIdCanonical } from '../session/session-manager.js';
 import {
   AUTO_COMPACT_PRE_COMPACT_RATIO,
   AUTO_COMPACT_RED_LINE_RATIO,
   AUTO_COMPACT_THRESHOLD_RATIO,
-  type CompactDispatchResult,
   type CompactTrigger,
-  type ConvergencePlan,
   type InFlightBatchProbe,
   type AutoCompactResult
 } from '../context/auto-compact-types.js';
@@ -45,44 +42,21 @@ import {
 import type { CompactTarget } from '../context/auto-compact-dispatcher.js';
 
 export interface AutoCompactInput {
-  /** Project root for context (default cwd). */
   readonly projectRoot: string;
-  /** Caller-provided in-flight batch probe (default false). */
   readonly inFlightBatch?: InFlightBatchProbe | undefined;
-  /**
-   * Force execute even when ratio < threshold (test seam). In
-   * production this is always `false` — peaks-loop drives compact
-   * autonomously at 0.85+ with zero human / zero LLM intervention.
-   */
   readonly force?: boolean | undefined;
-  /** Skip the 95% red-line gate (test seam — never true in production). */
   readonly bypassRedLine?: boolean | undefined;
-  /** Current session id (default = resolve via session-id-service). */
   readonly sessionId?: string | undefined;
-  /** Injectable env for IDE detection (test seam). */
   readonly env?: NodeJS.ProcessEnv | undefined;
-  /** Injectable clock for mtime checks (test seam). */
   readonly now?: Date | undefined;
-  /**
-   * Slice 2026-06-28-code-mode-bypass-fix (defect #4): which session
-   * the compact should target. Default `'main'` — the orchestrator
-   * (peaks-code body) runs in the main-session Claude Code window and
-   * wants to compress *its* context. Sub-agent shells pass
-   * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
-   */
   readonly target?: CompactTarget | undefined;
 }
 
-const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
+const NEXT_ACTION = 'peaks compact auto --project <repo> --session-id <sid> --json';
 
 /**
- * Map a context ratio to a `CompactTrigger` action. Pure; the side
- * effects (checkpoint + IDE dispatch) live in `runAutoCompact`. Two
- * tiers:
- *
- *   - ratio < 0.85 → 'none' or 'soft-warn'
- *   - ratio ≥ 0.85 → 'pre-compact' (async-friendly path)
- *   - ratio ≥ 0.95 → 'red-line' (synchronous gate)
+ * Map a context ratio to a `CompactTrigger` action. Pure; preserved
+ * for tests that pin the threshold contract.
  */
 export function evaluateCompactTrigger(ratio: number): CompactTrigger {
   if (ratio < AUTO_COMPACT_PRE_COMPACT_RATIO) {
@@ -98,32 +72,26 @@ export function evaluateCompactTrigger(ratio: number): CompactTrigger {
     return {
       kind: 'red-line',
       ratio,
-      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ 95% red line. Synchronous compact REQUIRED (LLM cannot opt out).`
+      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ 95% red line. Compact is REQUIRED; the next step is the capability-first control plane.`
     };
   }
-  // 0.85 ≤ ratio < 0.95: pre-compact zone — peaks-loop fires
-  // `peaks session auto-compact --execute` AUTOMATICALLY (zero-pause
-  // contract, v2.13.0). The LLM does NOT decide; the orchestrator does.
-  // D6.e in-flight deferral below is the only reason to wait.
   return {
     kind: 'pre-compact',
     ratio,
     toolkitReady: true,
-    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (0.85–0.95). peaks-loop will automatically fire \`peaks session auto-compact --execute\` (zero-pause contract).`
+    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (0.85–0.95). The next step is the capability-first control plane (\`${NEXT_ACTION}\`).`
   };
 }
 
 /**
- * Decide whether to run the auto-compact flow. Pure function for the
- * decision; side effects (checkpoint + IDE dispatch) live in
- * `runAutoCompact` below. Zero human / zero LLM intervention:
- *
- *   - ratio < 0.85           → skip (LLM keeps working; no action)
- *   - 0.85 ≤ ratio < 0.95    → pre-compact; if in-flight batch
- *                                present, defer (D6.e); else dispatch
- *                                IDE compact asynchronously.
- *   - ratio ≥ 0.95           → red-line; ALWAYS dispatch synchronously
- *                                regardless of in-flight batch.
+ * Decide whether to run the auto-compact flow. Pre-Task-1.7 this
+ * returned `{ shouldCompact: true, reason: 'red-line' }` for ratio
+ * ≥ 0.95, which downstream code read as "the LLM can now mark this
+ * attempt complete". Task 1.7 makes the decision purely
+ * informational — the *next* decision lives in the new coordinator
+ * (Task 1.5). This function therefore NEVER returns
+ * `shouldCompact: true`; the caller dispatches into the new
+ * coordinator and surfaces its outcome.
  */
 export function evaluateAutoCompactDecision(input: {
   ratio: number;
@@ -135,26 +103,26 @@ export function evaluateAutoCompactDecision(input: {
   if (trigger.kind === 'none' || trigger.kind === 'soft-warn') {
     return { shouldCompact: false, reason: 'below-threshold', trigger };
   }
-  if (trigger.kind === 'red-line') {
-    // Red line: ignore in-flight batch — synchronous dispatch wins.
-    return { shouldCompact: true, reason: 'red-line', trigger };
-  }
-  // pre-compact zone (0.85 ≤ ratio < 0.95): honor D6.e in-flight deferral.
-  if (input.inFlightBatch?.hasInFlightBatch === true) {
+  // 0.85 ≤ ratio < 0.95: honour D6.e in-flight deferral purely for
+  // telemetry; the result is "the next probe should re-evaluate" —
+  // NOT a permission to compact.
+  if (input.inFlightBatch?.hasInFlightBatch === true && trigger.kind === 'pre-compact') {
     return { shouldCompact: false, reason: 'in-flight-batch', trigger };
   }
-  if (input.force) {
-    return { shouldCompact: true, reason: 'pre-compact', trigger };
+  // Pre-1.7 returned shouldCompact: true here, which the
+  // dispatcher interpreted as a green light to fire a host CLI
+  // spawn. The new control plane only completes a compact attempt
+  // via the capability-first path; this orchestrator now reports
+  // the trigger and stops.
+  if (trigger.kind === 'pre-compact') {
+    return { shouldCompact: false, reason: 'pre-compact', trigger };
   }
-  // Default: peaks-loop drives pre-compact autonomously.
-  return { shouldCompact: true, reason: 'pre-compact', trigger };
+  return { shouldCompact: false, reason: 'red-line', trigger };
 }
 
 /**
- * Build the convergence plan that D7's post-compact-detect will read
- * back. Includes the current plan, open questions, recent decisions,
- * todo state, and recent artifact paths — strictly more than what a
- * raw `/compact` would preserve.
+ * Build the convergence plan (preserved for callers that need the
+ * shape; no longer auto-written by the orchestrator).
  */
 export function buildConvergencePlan(input: {
   readonly sessionId: string;
@@ -163,7 +131,16 @@ export function buildConvergencePlan(input: {
   readonly checkpointPath: string;
   readonly nextActions: readonly string[];
   readonly redLine?: boolean;
-}): ConvergencePlan {
+}): {
+  schemaVersion: 1;
+  sessionId: string;
+  projectRoot: string;
+  createdAt: string;
+  ratio: number;
+  checkpointPath: string;
+  nextActions: readonly string[];
+  resumeHint: string;
+} {
   return {
     schemaVersion: 1,
     sessionId: input.sessionId,
@@ -179,126 +156,12 @@ export function buildConvergencePlan(input: {
 }
 
 /**
- * Append a one-row convergence decision to the LLM-readable log.
- * The LLM reads this on the post-compact turn to pick up exactly
- * where it left off (vs. blindly trusting the IDE's compressed
- * transcript).
- */
-function appendAutoDecisionLog(input: {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  readonly plan: ConvergencePlan;
-}): void {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'txt');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const logPath = join(dir, 'auto-decisions.md');
-  const row = [
-    '',
-    `## Auto-compact decision — ${input.plan.createdAt}`,
-    `- ratio: ${(input.plan.ratio * 100).toFixed(1)}%`,
-    `- checkpoint: ${input.plan.checkpointPath}`,
-    `- next-actions: ${input.plan.nextActions.join(' | ')}`,
-    `- resume-hint: ${input.plan.resumeHint}`,
-    ''
-  ].join('\n');
-  if (!existsSync(logPath)) {
-    writeFileSync(logPath, `# peaks-code auto-decisions log\n${row}`, 'utf8');
-    return;
-  }
-  const existing = readFileSync(logPath, 'utf8');
-  writeFileSync(logPath, `${existing}${row}`, 'utf8');
-}
-
-/**
- * Slice 2026-06-28-code-mode-bypass-fix (defect #4): write the
- * main-session compact intent so the main-session LLM picks it up on
- * its next turn and fires `/compact` in-band. Without this file the
- * orchestrator's "main-session compact" request is invisible to the
- * main Claude Code window (defeats the whole point of auto-compact
- * for the main context).
- *
- * The file is gitignored under `.peaks/_runtime/<sessionId>/txt/` and
- * is one-shot: the LLM should `mv` it to `.consumed` after firing
- * `/compact`. A re-run will overwrite.
- */
-function writeMainSessionCompactIntent(input: {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  readonly ratio: number;
-  readonly redLine: boolean;
-  readonly now: Date;
-}): void {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'txt');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const path = join(dir, 'auto-compact-pending.json');
-  const payload = {
-    schemaVersion: 1,
-    pending: true,
-    target: 'main',
-    requestedAt: input.now.toISOString(),
-    ratio: input.ratio,
-    redLine: input.redLine,
-    nextAction: 'next LLM turn MUST fire `/compact` then `mv .peaks/_runtime/<sid>/txt/auto-compact-pending.json .peaks/_runtime/<sid>/txt/auto-compact-pending.consumed.json`'
-  };
-  writeFileSync(path, JSON.stringify(payload, null, 2), 'utf8');
-}
-
-/**
- * Write a pre-compact checkpoint. The shape mirrors `peaks session
- * checkpoint` so D7's post-compact-detect picks it up unchanged.
- */
-function writePreCompactCheckpoint(input: {
-  readonly projectRoot: string;
-  readonly sessionId: string;
-  readonly now: Date;
-  readonly redLine?: boolean;
-}): string {
-  const dir = join(input.projectRoot, '.peaks', '_runtime', input.sessionId, 'checkpoints');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const prefix = input.redLine === true ? 'red-line-' : 'pre-compact-';
-  const filename = `${prefix}${input.now.toISOString().replace(/[:.]/g, '-')}.json`;
-  const path = join(dir, filename);
-  const content = {
-    schemaVersion: 1,
-    reason: input.redLine === true ? 'pre-compact-red-line' : PRE_COMPACT_REASON,
-    sessionId: input.sessionId,
-    createdAt: input.now.toISOString(),
-    // D7 reads `mode`, `currentPlan`, `openQuestions`, `recentDecisions`
-    // out of this JSON. We seed empty arrays; the post-compact LLM
-    // rehydrates from the auto-decisions log + open question list.
-    mode: 'full-auto',
-    currentPlan: input.redLine === true
-      ? 'RED-LINE compact just executed; confirm ratio < 0.85 before resuming work'
-      : 'auto-compact in progress; resume from auto-decisions.md',
-    openQuestions: [] as string[],
-    recentDecisions: [] as string[],
-    recentArtifactPaths: [] as string[],
-    gitStatus: '',
-    skillsActive: ['peaks-code'],
-    todoState: [] as string[]
-  };
-  writeFileSync(path, JSON.stringify(content, null, 2), 'utf8');
-  return path;
-}
-
-/**
- * Execute the auto-compact flow.
- *
- * Steps (orchestration):
- *   1. Resolve session id.
- *   2. Read current ratio via AC-1 (`readContextPercent`).
- *   3. Evaluate trigger via `evaluateCompactTrigger`.
- *   4. If trigger.kind === 'none' / 'soft-warn' → return skip.
- *   5. If trigger.kind === 'pre-compact' AND in-flight batch → wait.
- *   6. If trigger.kind === 'pre-compact' → async dispatch (write
- *      checkpoint + IDE compact; orchestrator returns immediately).
- *   7. If trigger.kind === 'red-line' → synchronous gate: refuse
- *      sub-agent dispatch, dispatch IDE compact, mark `redLineGated`.
- *
- * The caller (CLI or skill body) handles the actual return — D7's
- * post-compact-detect will pick up the checkpoint on the next turn.
- * For red-line, the caller MUST block further tool calls until the
- * post-compact probe confirms ratio < 0.85.
+ * Run the auto-compact flow. Post-Task-1.7 this is a thin forwarder:
+ *   - No checkpoint write (the new coordinator owns that).
+ *   - No intent record at `auto-compact-pending.json` (it pointed at
+ *     a never-existing command and is now retired).
+ *   - No host-CLI spawn (the legacy dispatcher is a blocked stub).
+ *   - The only `next action` is the capability-first control plane.
  */
 export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompactResult> {
   const sessionId = input.sessionId ?? getSessionIdCanonical(input.projectRoot);
@@ -310,7 +173,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       nextActions: ['Run `peaks workspace init --change-id <id>` to bind a session']
     };
   }
-  // Lazy import to avoid the AC-1 module depending on the orchestrator.
+  // Lazy import to keep this module decoupled from the reader
+  // (mirrors the pre-1.7 pattern). The reader no longer coerces
+  // `'unknown'` to a registered adapter id — a hostile / missing
+  // env returns a conservative-zero probe and `dispatchIdeCompact`
+  // returns `blocked`. The next step is the control plane either
+  // way.
   const { readContextPercent } = await import('../context/auto-compact-reader.js');
   const probe = readContextPercent({
     projectRoot: input.projectRoot,
@@ -326,104 +194,69 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
   });
 
   if (!decision.shouldCompact) {
+    if (decision.reason === 'in-flight-batch') {
+      return {
+        ok: true,
+        code: 'AUTO_COMPACT_WAIT',
+        message: `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`,
+        data: {
+          sessionId,
+          ratio: probe.ratio,
+          source: probe.source,
+          decision: 'in-flight-batch'
+        }
+      };
+    }
+    if (decision.reason === 'below-threshold' && decision.trigger.kind === 'soft-warn') {
+      return {
+        ok: true,
+        code: 'AUTO_COMPACT_SKIP',
+        message: decision.trigger.message,
+        data: {
+          sessionId,
+          ratio: probe.ratio,
+          source: probe.source,
+          decision: 'below-threshold'
+        }
+      };
+    }
     return {
-      ok: true,
-      code: decision.reason === 'in-flight-batch' ? 'AUTO_COMPACT_WAIT' : 'AUTO_COMPACT_SKIP',
-      message: decision.trigger.kind === 'soft-warn'
-        ? decision.trigger.message
-        : decision.reason === 'in-flight-batch'
-          ? `In-flight batch detected; deferring pre-compact (ratio=${(probe.ratio * 100).toFixed(1)}%); next probe will re-evaluate.`
-          : `Context at ${(probe.ratio * 100).toFixed(1)}%; below ${(AUTO_COMPACT_THRESHOLD_RATIO * 100).toFixed(0)}% threshold.`,
+      ok: false,
+      code: 'AUTO_COMPACT_DISPATCH_FAILED',
+      message: `Task 1.7 (design §13.1) retired the legacy dispatch path. ` +
+        `The next step is the capability-first control plane (\`${NEXT_ACTION}\`).`,
       data: {
         sessionId,
         ratio: probe.ratio,
         source: probe.source,
-        decision: decision.reason === 'in-flight-batch' ? 'in-flight-batch' : 'below-threshold'
+        dispatch: {
+          ok: false,
+          ide: probe.ide,
+          pathway: 'noop',
+          message: 'legacy dispatch path retired (design §13.2)'
+        },
+        target: input.target ?? 'main',
+        redLineGated: decision.reason === 'red-line'
       }
     };
   }
 
-  const isRedLine = decision.reason === 'red-line';
-  const now = input.now ?? new Date();
-  const checkpointPath = writePreCompactCheckpoint({
-    projectRoot: input.projectRoot,
-    sessionId,
-    now,
-    redLine: isRedLine
-  });
-
-  const nextActions = isRedLine
-    ? [
-        'RED-LINE compact dispatched — further sub-agent dispatch BLOCKED until ratio < 0.85',
-        'Post-compact resume picks up the convergence plan from auto-decisions.md',
-        'Next `peaks context now` probe will confirm ratio dropped below 0.85'
-      ]
-    : [
-        'Pre-compact dispatched — IDE compact in progress (async)',
-        'Post-compact resume picks up the convergence plan from auto-decisions.md',
-        'Next `peaks context now` probe will confirm ratio dropped below 0.85'
-      ];
-
-  const plan = buildConvergencePlan({
-    sessionId,
-    projectRoot: input.projectRoot,
-    ratio: probe.ratio,
-    checkpointPath,
-    nextActions,
-    redLine: isRedLine
-  });
-
-  appendAutoDecisionLog({ projectRoot: input.projectRoot, sessionId, plan });
-
-  // Lazy import to keep AC-3 (IDE dispatch) pluggable; tests mock this module.
-  const { dispatchIdeCompact } = await import('../context/auto-compact-dispatcher.js');
-  const target: CompactTarget = input.target ?? 'main';
-  // Slice 2026-06-28: when targeting the main session, write an
-  // intent record so the next main-session LLM turn fires `/compact`
-  // in-band. Without this record the LLM has no signal that the
-  // orchestrator asked for compact; the dispatcher alone would have
-  // been a no-op against the main Claude Code window.
-  if (target === 'main') {
-    writeMainSessionCompactIntent({
-      projectRoot: input.projectRoot,
-      sessionId,
-      ratio: probe.ratio,
-      redLine: isRedLine,
-      now
-    });
-  }
-  const dispatch: CompactDispatchResult = await dispatchIdeCompact({
-    projectRoot: input.projectRoot,
-    sessionId,
-    env: input.env,
-    target
-  });
-
+  // Unreachable — `evaluateAutoCompactDecision` never returns
+  // `shouldCompact: true` post-Task-1.7 — but the type system
+  // requires the early returns above to cover every case; this
+  // branch is defensive.
   return {
-    ok: dispatch.ok,
-    code: dispatch.ok
-      ? (isRedLine ? 'AUTO_COMPACT_RED_LINE' : 'AUTO_COMPACT_DISPATCHED')
-      : 'AUTO_COMPACT_DISPATCH_FAILED',
-    message: dispatch.ok
-      ? isRedLine
-        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
-        : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}.`
-      : `Auto-compact checkpoint written but IDE dispatch failed: ${dispatch.message}`,
+    ok: false,
+    code: 'AUTO_COMPACT_DISPATCH_FAILED',
+    message: 'legacy dispatch path retired (design §13.2)',
     data: {
       sessionId,
-      ratio: probe.ratio,
-      source: probe.source,
-      checkpointPath,
-      convergencePlan: plan,
-      dispatch,
-      target,
-      redLineGated: isRedLine
+      ratio: 0,
+      source: 'conservative-fallback',
+      target: input.target ?? 'main'
     }
   };
 }
 
 /** Re-export for callers that need to surface the trigger shape. */
-export type { CompactTrigger, ConvergencePlan, InFlightBatchProbe, AutoCompactResult };
-// Keep dirname import live for symmetry with sibling services that
-// use it for path joins; tree-shaking removes it in builds.
-void dirname;
+export type { CompactTrigger, InFlightBatchProbe, AutoCompactResult };

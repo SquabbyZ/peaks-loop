@@ -31,7 +31,7 @@ After autonomous work (RD, QA, security, perf), invoke peaks-final-review for 4-
 
 ### Peaks-Loop Step N+2: Main-session context monitor (D6 + slice 2026-07-02)
 
-After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (`peaks session auto-compact --execute`). Pass `--enforce-job-mode` for single-rid. **≥ 0.95** red line: next Bash/Task fires `peaks session auto-compact-hook`. **Karpathy §4 exception**: compact red line keeps runner alive — zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
+After every 4th tool call, probe via `peaks code context-now --project <repo> --json`. Thresholds: 50% / **0.85 pre-compact / 0.95 red-line** (v2.13.0). **In Job mode ≥ 0.85 is MANDATORY auto-compact** (`peaks compact auto`). Pass `--enforce-job-mode` for single-rid. **≥ 0.95** red line: next Bash/Task fires `peaks compact auto`. **Karpathy §4 exception**: compact red line keeps runner alive — zero-intervention wins; LLM MUST NOT ask user to run `/compact`. Honor `--in-flight-batch` (D6.e).
 
 ### Peaks-Loop Step 0: Anchor the workflow (MANDATORY FIRST ACTIONS — no bail-out)
 

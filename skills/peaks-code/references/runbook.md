@@ -236,7 +236,7 @@ peaks code emit-handoff --project <repo> --job-id <jid> --json
 # job-shape.json says isJob=true, ≥0.85 is MANDATORY auto-compact.
 # Code MUST call this without confirmation under Job mode.
 peaks code context-now --project <repo> --enforce-job-mode --json
-peaks session auto-compact --execute --project <repo> --json
+peaks compact auto --project <repo> --json
 
 # v3.1.2 PreToolUse gate (installed by `peaks workspace init`):
 # every Bash tool call runs `peaks code gate-step-08` automatically.

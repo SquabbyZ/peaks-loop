@@ -125,7 +125,7 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
     expect(env.ok).toBe(true);
     expect(env.data.action).toBe('red-line');
     expect(env.data.jobMode).toBe(true);
-    expect(env.data.next).toMatch(/auto-compact-hook/);
+    expect(env.data.next).toMatch(/peaks compact auto/);
   });
 
   test('AC-15c: ratio=0.40 (no job-shape.json, no --enforce-job-mode) → action=ok (advisory)', () => {

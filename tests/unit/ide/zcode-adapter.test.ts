@@ -60,8 +60,13 @@ describe('ZCODE_ADAPTER (zcode-adapter)', () => {
     expect(ZCODE_ADAPTER.skillInstall?.skillsDir).toMatch(/[/\\]\.zcode[/\\]skills$/);
   });
 
-  it('T-6: compact is undefined (降级 — z-code 无 CLI)', () => {
-    expect(ZCODE_ADAPTER.compact).toBeUndefined();
+  it('T-6: contextPercentEnvVar is undefined (降级 — z-code 不暴露 env-var)', () => {
+    // Task 1.7 retired the `IdeCompactProfile.compactCommand` /
+    // `compactPathway` shape; the only surviving per-IDE auto-compact
+    // descriptor is the read-only `contextPercentEnvVar`. z-code does
+    // not expose one, so the reader returns a conservative-zero
+    // probe for this adapter.
+    expect(ZCODE_ADAPTER.contextPercentEnvVar).toBeUndefined();
   });
 
   it('T-7: hookEvent is UNVERIFIED 占位 "PreToolUse" (类型为 string)', () => {

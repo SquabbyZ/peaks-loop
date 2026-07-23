@@ -109,36 +109,19 @@ export interface IdeAdapter {
    */
   readonly skillInstall?: IdeSkillInstall;
   /**
-   * v2.13.0 auto-compact (AC-1 + AC-3): per-IDE compact-capability
-   * descriptor. When `undefined`, peaks-loop falls back to the
-   * `llm-self-compress` pathway (the LLM summarizes its own context).
-   * Adapters that fill this expose a 4-stage protocol so peaks-loop
-   * can drive compact autonomously:
-   *
-   *   1. `envVarForContextPercent` — env-var the IDE sets per turn
-   *      (e.g. `CLAUDE_CONTEXT_USAGE_PERCENT`). Read by AC-1.
-   *   2. `compactCommand` — slash command or shell-call the IDE
-   *      accepts to trigger compact (e.g. `/compact`). Dispatched
-   *      by AC-3.
-   *   3. `compactPathway` — `'shell-exec' | 'ide-native' |
-   *      'llm-self-compress' | 'noop'`. `shell-exec` means peaks-loop
-   *      spawns `compactCommand` via `child_process.spawn` (zero IDE
-   *      hook required). `ide-native` means the IDE exposes a hook
-   *      surface peaks-loop can write to. `llm-self-compress` is the
-   *      fallback when no compact capability is registered.
-   *   4. `postCompactDetectCommand` (optional) — command the LLM
-   *      runner can invoke after compact to confirm ratio dropped.
-   *
-   * Claude Code is the MVP implementation; trae / codex / cursor /
-   * qoder / tongyi-lingma / hermes / openclaw ship with
-   * `compactPathway: 'llm-self-compress'` until L2-dogfood verifies
-   * each IDE's actual compact surface.
-   *
-   * Added in slice 2026-06-27-auto-compact-protocol. See
-   * `.peaks/memory/2026-06-27-auto-compact-design.md`.
+   * Task 1.7: read-only env-var the IDE sets per turn to expose
+   * the context-fill ratio (e.g. `CLAUDE_CONTEXT_USAGE_PERCENT`).
+   * Consumed by `readContextPercent` (AC-1) to read a host signal
+   * WITHOUT spawning anything. This is the ONLY remaining
+   * per-IDE auto-compact descriptor after Task 1.7 retired the
+   * `IdeCompactProfile.compactCommand` / `compactPathway` shape
+   * (a host-CLI spawn or hook install is not proof of compact
+   * completion). Real compact dispatch lives in the capability-
+   * first control plane (`peaks compact auto`).
    */
-  readonly compact?: IdeCompactProfile;
+  readonly contextPercentEnvVar?: string;
   /**
+   * Optional runtime probe for the IDE's currently-active model id.
    * Optional runtime probe for the IDE's currently-active model id.
    * When defined, `detectCurrentIdeModel()` in
    * `src/services/ide/current-model-detector.ts` calls this to
@@ -161,44 +144,6 @@ export interface IdeAdapter {
    * other IDEs without changing this signature (optional method).
    */
   readonly detectCurrentModel?: () => Promise<string | undefined>;
-}
-
-/**
- * Per-IDE auto-compact capability descriptor. See `IdeAdapter.compact`
- * for the protocol contract. The `MvpCompactPathway` string union
- * keeps the field exhaustive — adding a new pathway requires updating
- * every adapter that opts in.
- */
-export interface IdeCompactProfile {
-  /** Env-var name the IDE writes per turn to expose context-fill %. */
-  readonly envVarForContextPercent: string;
-  /**
-   * Slash command or shell-call to invoke compact. The orchestrator
-   * spawns this via `child_process.spawn` (shell-exec pathway) or
-   * writes it to an IDE hook file (ide-native pathway).
-   */
-  readonly compactCommand: string;
-  /**
-   * `shell-exec` — peaks-loop spawns the command via child_process
-   *                (works for any IDE that accepts a slash command
-   *                via a shell-spawnable entry point).
-   * `ide-native` — peaks-loop writes to an IDE-specific hook file;
-   *                used when the IDE requires a registered hook
-   *                rather than a runtime command.
-   * `llm-self-compress` — peaks-loop prompts the LLM to summarize
-   *                its own context (no IDE integration required;
-   *                least precise but always available).
-   * `noop` — peaks-loop records the intent but performs no action;
-   *          used by IDEs that explicitly opt out (e.g. legacy
-   *          adapters still on the v2.11.x model).
-   */
-  readonly compactPathway: 'shell-exec' | 'ide-native' | 'llm-self-compress' | 'noop';
-  /**
-   * Optional command the runner invokes post-compact to confirm
-   * ratio dropped (e.g. `peaks context now --json`). When omitted,
-   * the orchestrator polls `envVarForContextPercent` directly.
-   */
-  readonly postCompactDetectCommand?: string;
 }
 
 /**

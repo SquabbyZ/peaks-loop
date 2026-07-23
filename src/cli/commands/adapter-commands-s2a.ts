@@ -20,7 +20,7 @@ import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok, getErrorMessage } from 'peaks-loop-shared/result';
 
 import { AdapterRegistry, type AdapterRecord } from '../../services/adapter/adapter-registry.js';
-import { registryFileFor } from './runtime-commands.js';
+import { registryFileFor } from './runtime-commands-helpers.js';
 
 export interface AdapterListOptions {
   json?: boolean;

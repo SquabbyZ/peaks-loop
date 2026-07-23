@@ -72,10 +72,9 @@ This step is strictly IDE-agnostic. The LLM calls the peaks CLI; no IDE-specific
 
 ## Companion surface — auto-compact (zero-pause)
 
-When the runner crosses the v2.13.0 auto-compact thresholds (0.85 pre-compact / 0.95 red-line), `peaks session checkpoint` is NOT enough on its own — the LLM must also fire `peaks code auto-compact --execute` (or wait for the in-band PreToolUse hook at ratio ≥ 0.95 to compact the runner itself). See:
+When the runner crosses the v2.13.0 auto-compact thresholds (0.85 pre-compact / 0.95 red-line), `peaks session checkpoint` is NOT enough on its own — the LLM must also fire `peaks compact auto` to drive the capability-first control plane. See:
 
-- `peaks code auto-compact --execute` — orchestrator that writes the convergence plan + dispatches the compact pathway
-- `peaks session auto-compact-hook` — the PreToolUse hook entrypoint fired by `.claude/settings.local.json` (slice 2026-07-02-auto-compact-zero-pause)
+- `peaks compact auto` — the capability-first control plane entry (Task 1.6, design §11.1)
 - `.peaks/memory/2026-06-27-auto-compact-design.md` — zero-human-intervention design rationale
 
-The two surfaces compose: `peaks session checkpoint` persists the context state, `peaks code auto-compact` collapses the runner's window. The LLM fires both in the 0.85–0.95 zone; the hook fires alone at ≥ 0.95.
+The two surfaces compose: `peaks session checkpoint` persists the context state, `peaks compact auto` collapses the runner's window via the capability-first control plane. The LLM fires both in the 0.85–0.95 zone; ≥ 0.95 is a synchronous hard-stop that the control plane handles automatically.

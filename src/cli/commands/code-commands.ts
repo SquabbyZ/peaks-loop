@@ -574,17 +574,19 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
         let action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line' = 'ok';
         let next: string | null = null;
         if (probe.ratio >= 0.95) {
-          action = isJobMode ? 'red-line' : 'red-line';
-          next = 'peaks session auto-compact-hook';
+          action = 'red-line';
+          next = 'peaks compact auto';
         } else if (probe.ratio >= 0.85) {
           if (isJobMode) {
             action = 'auto-compact-now';
-            next = 'peaks session auto-compact --execute';
+            next = 'peaks compact auto';
           } else {
             action = 'soft-warn';
+            next = null;
           }
         } else if (probe.ratio >= 0.5) {
           action = 'soft-warn';
+          next = null;
         }
         const verdict =
           action === 'red-line' ? 'red-line'
@@ -615,8 +617,8 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
                 ? `Job-mode MANDATORY auto-compact. Code MUST call \`${next}\` WITHOUT confirmation.`
                 : action === 'soft-warn'
                   ? isJobMode
-                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
-                    : `Soft warn (50–85%). Continue working; the next \`peaks context now\` will re-check.`
+                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
+                    : `Soft warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
                   : `Below 50%. No action required.`,
             jobModeNotice
           ]),
