@@ -217,3 +217,30 @@ export type {
   CompactProviderCertification,
   LoadedProvider
 } from '../compact-providers/compact-capability-provider.js';
+
+// Phase 3 Task 3.2 — provider manifest store + certification policy +
+// capability-first registry. All vendor-neutral; core never branches on
+// `providerId` (opaque token) and never elevates the recorded certification
+// level above what the live profile actually supports.
+export {
+  parseProviderManifestJson,
+  loadProviderManifestFile,
+  findManifestEntry
+} from '../compact-providers/provider-manifest-store.js';
+export {
+  computeCapabilityHash,
+  evaluateCertification,
+  decideAttachment,
+  CertificationReducedError,
+  CertificationCapabilityHashMismatchError
+} from '../compact-providers/provider-certification-policy.js';
+export type { EffectiveCertification, CertificationDecision } from '../compact-providers/provider-certification-policy.js';
+export {
+  CompactProviderRegistry,
+  ProviderRegistryError,
+  DuplicateProviderError,
+  UnknownProviderError,
+  ProviderNotAttachableError,
+  CanAttachError
+} from '../compact-providers/compact-provider-registry.js';
+export type { CertifiedBridgeAttachment as RegistryCertifiedBridgeAttachment } from '../compact-providers/compact-provider-registry.js';
