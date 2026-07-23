@@ -185,3 +185,35 @@ export type {
   ResumeAttemptFromJournalInput,
   ResumeAttemptFromJournalResult
 } from './recovery.js';
+
+// Phase 3 Task 3.1 — provider manifest schema re-exports. Imported from
+// a separate module so the manifest loader can validate before any host
+// bridge is constructed.
+export {
+  PROVIDER_MANIFEST_SCHEMA_VERSION,
+  DEFAULT_MANIFEST_TTL_MS,
+  CompactProviderManifestSchema,
+  computeManifestDigest,
+  validateManifestFreshness,
+  assertNoForbiddenManifestContent
+} from '../compact-providers/provider-manifest-schema.js';
+export type {
+  CompactProviderManifest,
+  CompactProviderManifestEntry
+} from '../compact-providers/provider-manifest-schema.js';
+export {
+  ManifestParseError,
+  ManifestDigestMismatchError,
+  ManifestExpiredError,
+  ManifestClockSkewError,
+  ManifestSuspiciousTtlError,
+  ManifestInvalidTimestampError,
+  ManifestForbiddenContentError
+} from '../compact-providers/provider-manifest-schema.js';
+export type {
+  HostSessionDescriptor,
+  CompactProviderMetadata,
+  CompactCapabilityProvider,
+  CompactProviderCertification,
+  LoadedProvider
+} from '../compact-providers/compact-capability-provider.js';

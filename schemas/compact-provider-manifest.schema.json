@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Compact Provider Manifest",
+  "description": "Vendor-neutral provider manifest for the peaks-loop auto-compact control plane. Manifest MUST NOT contain commands, raw tokens, transcripts, or capsule bodies. Schema is generated from CompactProviderManifestSchema (Phase 3 Task 3.1); see src/services/compact-providers/provider-manifest-schema.ts for the source of truth.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatedAt", "entries", "manifestDigest"],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["providerId", "metadata", "certification"],
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["providerId", "protocolVersion", "implementationVersion", "implementationDigest"],
+            "properties": {
+              "providerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "protocolVersion": { "type": "integer", "const": 1 },
+              "implementationVersion": { "type": "string", "pattern": "^[A-Za-z0-9._+-]{1,64}$" },
+              "implementationDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            }
+          },
+          "certification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "providerId",
+              "protocolVersion",
+              "implementationVersion",
+              "implementationDigest",
+              "capabilityHash",
+              "certificationLevel",
+              "conformanceSuiteVersion",
+              "evidenceDigest",
+              "evidenceIndexPath",
+              "certifiedAt",
+              "expiresAt"
+            ],
+            "properties": {
+              "providerId": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "protocolVersion": { "type": "integer", "const": 1 },
+              "implementationVersion": { "type": "string", "pattern": "^[A-Za-z0-9._+-]{1,64}$" },
+              "implementationDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "capabilityHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "certificationLevel": {
+                "type": "string",
+                "enum": ["certified-strong", "native-only", "safe-handoff", "unsupported"]
+              },
+              "conformanceSuiteVersion": { "type": "string", "pattern": "^[A-Za-z0-9._+-]{1,64}$" },
+              "evidenceDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "evidenceIndexPath": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024,
+                "pattern": "^(?!.*\\.\\.)(?!.*(/|\\\\))(?!^([A-Za-z]:)?[/\\\\])(?!^/)(?!^\\\\)(?!.*\\.(env|pem|key)$)(?!.*(id_rsa|id_dsa|passwd|shadow))[^\\0<>:\"|?*]+$"
+              },
+              "certifiedAt": { "type": "string", "format": "date-time" },
+              "expiresAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    "manifestDigest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}
