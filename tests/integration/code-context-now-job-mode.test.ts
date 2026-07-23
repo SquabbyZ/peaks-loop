@@ -40,12 +40,14 @@ interface ContextNowEnvelope {
   readonly ok: boolean;
   readonly command: string;
   readonly code?: string;
+  readonly message?: string;
   readonly data: {
     readonly ratio: number;
     readonly action: 'ok' | 'soft-warn' | 'auto-compact-now' | 'red-line';
     readonly jobMode: boolean;
     readonly next: string | null;
   };
+  readonly nextActions?: readonly string[];
 }
 
 function makeProject(): string {
@@ -106,7 +108,9 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
     );
     expect(r.code).toBe(0);
     const env = JSON.parse(r.stdout) as ContextNowEnvelope;
-    expect(env.ok).toBe(true);
+    expect(env.ok).toBe(false);
+    expect(env.command).toBe('code.context-now');
+    expect(env.code).toBe('DEPRECATED_ALIAS');
     expect(env.command).toBe('code.context-now');
     expect(env.data.action).toBe('auto-compact-now');
     expect(env.data.jobMode).toBe(true);
@@ -122,10 +126,15 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
     );
     expect(r.code).toBe(0);
     const env = JSON.parse(r.stdout) as ContextNowEnvelope;
-    expect(env.ok).toBe(true);
+    expect(env.ok).toBe(false);
+    expect(env.command).toBe('code.context-now');
+    expect(env.code).toBe('DEPRECATED_ALIAS');
     expect(env.data.action).toBe('red-line');
     expect(env.data.jobMode).toBe(true);
     expect(env.data.next).toMatch(/peaks compact auto/);
+    expect(env.nextActions ?? []).toEqual(
+      expect.arrayContaining([expect.stringMatching(/peaks compact auto/)])
+    );
   });
 
   test('AC-15c: ratio=0.40 (no job-shape.json, no --enforce-job-mode) → action=ok (advisory)', () => {
@@ -137,7 +146,9 @@ describe('peaks code context-now (v3.1.2) AC-15 job-mode action field', () => {
     );
     expect(r.code).toBe(0);
     const env = JSON.parse(r.stdout) as ContextNowEnvelope;
-    expect(env.ok).toBe(true);
+    expect(env.ok).toBe(false);
+    expect(env.command).toBe('code.context-now');
+    expect(env.code).toBe('DEPRECATED_ALIAS');
     expect(env.data.action).not.toBe('auto-compact-now');
     expect(env.data.action).not.toBe('red-line');
     expect(env.data.jobMode).toBe(false);

@@ -67,7 +67,7 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
       printResult(io, ok('adapter.list', { projectRoot, file, records, count: records.length }, [], [
         records.length === 0
           ? 'No adapters registered yet. Run `peaks adapter register --id <vendor> --binary <cmd>` to add one.'
-          : `Run \`peaks runtime compact --via <id>\` to invoke a registered adapter.`
+          : `Run \`peaks compact auto --project <repo> --json\` to invoke the capability-first control plane.`
       ]), options.json);
     } catch (error) {
       printResult(io, fail('adapter.list', 'ADAPTER_LIST_FAILED', getErrorMessage(error), {}, []), options.json);
@@ -124,7 +124,7 @@ export function registerAdapterS2ACommands(program: Command, io: ProgramIO): voi
         adapter: result.record,
         created: result.created
       }, warnings, [
-        `Run \`peaks runtime compact --via ${id}\` to invoke it.`
+        `Run \`peaks compact auto --project <repo> --json\` to invoke the capability-first control plane.`
       ]), options.json);
     } catch (error) {
       printResult(io, fail('adapter.register', 'ADAPTER_REGISTER_FAILED', getErrorMessage(error), {}, []), options.json);

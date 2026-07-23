@@ -77,7 +77,7 @@ Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.
 
 **Enforcement layers (defense in depth — no single layer is the gate):**
 
-1. `src/services/code/auto-compact-orchestrator.ts` — `evaluateAutoCompactDecision` default-returns `shouldCompact: true` for both `pre-compact` and `red-line` zones. The only deferral is `inFlightBatch.hasInFlightBatch` (D6.e); no LLM / human approval branch.
+1. `src/services/code/auto-compact-orchestrator.ts` — post-Task-1.7 `evaluateAutoCompactDecision` NEVER returns `shouldCompact: true` (design §13.1/13.2): it always returns explicit blocked envelopes that point the next step at the capability-first control plane (`peaks compact auto`). The pre-1.7 shape — which default-returned `shouldCompact: true` for both `pre-compact` and `red-line` zones and relied on `inFlightBatch.hasInFlightBatch` (D6.e) as the only deferral — was the false-success shape that the dispatcher used to fire host-CLI spawns / hook installs.
 2. `--enforce-job-mode` (v3.1.2) — Job mode elevates ≥0.85 to MANDATORY regardless of in-flight batch (see Step 0.8 §4 above).
 3. `peaks code gate-step-08` (PreToolUse hook) — surfaces `auto-compact-now` on every Bash call when ratio is in the zone, so the LLM cannot wake up cold and forget.
 4. The Karpathy §4 exception: `peaks compact auto` is fired *by the orchestrator*, not by the user running `/compact`. If you find yourself about to write prose that says "ask the user to compact" or "prompt the user to run `/compact`", STOP — that is the regression.

@@ -130,3 +130,74 @@ describe('Task 1.7 — legacy false-success execution paths are retired', () => 
     expect(stripped).not.toMatch(/\bspawn\s*\(/);
   });
 });
+
+// ----------------------------------------------------------------------
+// Task 1.7 review follow-ups — additional stale next-action red lines.
+// ----------------------------------------------------------------------
+// Additional retired / stale next-action strings that runtime + skill prose
+// MUST NOT point the LLM at any longer. Assembled from fragments so this
+// test source itself doesn't contain the literal substring.
+const ADDITIONAL_FORBIDDEN_NEXT_ACTIONS: readonly { id: string; literal: string }[] = [
+  // adapter-commands-s2a.ts and runtime-commands.ts previously steered the
+  // LLM at the never-existing-by-vendor `peaks runtime compact --via ${id}`
+  // path. That verb is retired (Task 1.7, design §13.1 row 5).
+  { id: 'peaks-runtime-compact', literal: ['peaks runtime', 'compact'].join(' ') },
+  // Vendor-specific hard-coded compact verbs that the adapter layer used to
+  // shell-exec. The capability-first control plane (`peaks compact auto`)
+  // owns the dispatch; no vendor string should leak into active prose.
+  { id: 'claude-compact', literal: ['claude', '--compact'].join(' ') }
+];
+
+describe('Task 1.7 review — additional stale next-action strings are retired', () => {
+  for (const { id, literal } of ADDITIONAL_FORBIDDEN_NEXT_ACTIONS) {
+    it(`does not reference "${literal}" anywhere in active source/docs (id=${id})`, () => {
+      const violations: string[] = [];
+      for (const file of activeFiles) {
+        const content = readFileSync(file, 'utf8');
+        if (content.includes(literal)) {
+          violations.push(relative(repoRoot, file));
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+  }
+});
+
+// MEDIUM/MINOR review items — assert the three hidden `code *` commands
+// now emit DEPRECATED_ALIAS envelopes that point the LLM at
+// `peaks compact auto`.
+describe('Task 1.7 review — hidden code commands wrap with DEPRECATED_ALIAS', () => {
+  const codeCommandsPath = join(srcRoot, 'cli', 'commands', 'code-commands.ts');
+  // For each hidden code command, read the file and assert:
+  //   - the handler's printResult(...) call wraps with fail('<cmd>',
+  //     'DEPRECATED_ALIAS', ...)
+  //   - the next-action string `peaks compact auto --project <repo> --json`
+  //     is present in the wrapper.
+  const cases: ReadonlyArray<{ command: string; nextAction: string }> = [
+    {
+      command: 'code.auto-compact',
+      nextAction: 'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.'
+    },
+    {
+      command: 'code.post-compact-detect',
+      nextAction: 'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.'
+    },
+    {
+      command: 'code.context-now',
+      nextAction: 'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.'
+    }
+  ];
+  for (const { command, nextAction } of cases) {
+    it(`${command} handler wraps the result with fail(... 'DEPRECATED_ALIAS', ...) and points LLM at peaks compact auto`, () => {
+      const src = readFileSync(codeCommandsPath, 'utf8');
+      // assert: `fail(` followed (within the same handler block) by
+      // the command literal, then 'DEPRECATED_ALIAS'.
+      const wrapRegex = new RegExp(
+        "fail\\(\\s*`?" + command + "`?,\\s*'DEPRECATED_ALIAS'"
+      );
+      expect(src).toMatch(wrapRegex);
+      // assert: the next-action text appears at least once for this command
+      expect(src).toContain(nextAction);
+    });
+  }
+});

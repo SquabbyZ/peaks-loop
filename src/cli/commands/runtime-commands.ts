@@ -68,7 +68,7 @@ export function registerRuntimeCommands(program: Command, io: ProgramIO): void {
       printResult(io, ok('runtime.detect', result, [], [
         result.vendor === 'unknown'
           ? 'No vendor sentinel detected. Use `peaks adapter register --id <vendor> --binary <cmd>` to wire a custom one.'
-          : `Run \`peaks runtime compact --via ${result.vendor}\` to invoke its compact verb.`
+          : `Run \`peaks compact auto --project <repo> --json\` to invoke the capability-first control plane.`
       ]), options.json);
     } catch (error) {
       printResult(io, fail('runtime.detect', 'RUNTIME_DETECT_FAILED', getErrorMessage(error), {}, ['Retry with a clean env']), options.json);

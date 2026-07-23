@@ -448,13 +448,24 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
           activeSkill: opts.activeSkill
         });
         const logLine = formatPostCompactResumeLogLine(probe);
+        // Task 1.7 (design §13.1): `peaks code post-compact-detect` is RETIRED.
+        // Wrap the result with DEPRECATED_ALIAS so the LLM is steered at
+        // the capability-first control plane (`peaks compact auto`).
+        // The original `data` (probe fields + logLine) is preserved.
         printResult(
           io,
-          ok('code.post-compact-detect', { ...probe, logLine }, [...probe.warnings], [
-            probe.shouldAutoResume
-              ? `Post-compact match → auto-resume mode=${probe.mode ?? '?'} checkpoint=${probe.checkpointPath ?? '?'}`
-              : `No auto-resume: ${probe.reason}`
-          ]),
+          fail(
+            'code.post-compact-detect',
+            'DEPRECATED_ALIAS',
+            'peaks code post-compact-detect is retired by Task 1.7 (design §13.1).',
+            { ...probe, logLine },
+            [
+              'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.',
+              ...(probe.shouldAutoResume
+                ? [`Post-compact match → auto-resume mode=${probe.mode ?? '?'} checkpoint=${probe.checkpointPath ?? '?'}`]
+                : [`No auto-resume: ${probe.reason}`])
+            ]
+          ),
           opts.json
         );
       } catch (err) {
@@ -511,9 +522,24 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
         // path; surface both directly to the user.
         const data = 'data' in result ? result.data : null;
         const nextActions = 'nextActions' in result ? result.nextActions : [];
-        const envelope = result.ok
-          ? ok(`code.auto-compact`, data ?? {}, [], [result.message, ...nextActions])
-          : fail(`code.auto-compact`, code, result.message, data, [...nextActions]);
+        // Task 1.7 (design §13.1): `peaks code auto-compact` is RETIRED.
+        // Always wrap with DEPRECATED_ALIAS so the LLM is steered at
+        // the capability-first control plane (`peaks compact auto`).
+        // The original `data` (ratio, source, dispatch, target,
+        // redLineGated) is preserved so downstream tooling that
+        // reads `envelope.data` continues to work; only the
+        // envelope's top-level `ok` / `code` flip to signal
+        // deprecation.
+        const envelope = fail(
+          `code.auto-compact`,
+          'DEPRECATED_ALIAS',
+          `peaks code auto-compact is retired by Task 1.7 (design §13.1): ${result.message}`,
+          data,
+          [
+            'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.',
+            ...nextActions
+          ]
+        );
         printResult(io, envelope, opts.json);
         if (!exitOk) process.exitCode = 1;
       } catch (err) {
@@ -596,9 +622,12 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
         const jobModeNotice = isJobMode
           ? 'Job mode enforced: ≥0.85 is MANDATORY auto-compact (v3.1.2).'
           : 'Advisory mode (single-rid): ≥0.85 is recommended, not mandatory.';
-        printResult(
-          io,
-          ok('code.context-now', {
+        // Task 1.7 (design §13.1):  is RETIRED.
+        // Wrap the result with DEPRECATED_ALIAS so the LLM is steered at
+        // the capability-first control plane ().
+        // The original  (ratio, action, jobMode, next, source, ...)
+        // is preserved.
+        const contextNowData = {
             ratio: probe.ratio,
             ratioPct: `${ratioPct}%`,
             verdict,
@@ -610,18 +639,28 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
             capacityBytes: probe.capacityBytes,
             rawBytes: probe.rawBytes ?? null,
             capturedAt: probe.capturedAt
-          }, [], [
-            action === 'red-line'
-              ? `RED LINE: ≥ 95%. Next: \`${next}\` (PreToolUse hook fires next turn).`
-              : action === 'auto-compact-now'
-                ? `Job-mode MANDATORY auto-compact. Code MUST call \`${next}\` WITHOUT confirmation.`
-                : action === 'soft-warn'
-                  ? isJobMode
-                    ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
-                    : `Soft warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
-                  : `Below 50%. No action required.`,
-            jobModeNotice
-          ]),
+          };
+        printResult(
+          io,
+          fail(
+            'code.context-now',
+            'DEPRECATED_ALIAS',
+            'peaks code context-now is retired by Task 1.7 (design §13.1).',
+            contextNowData,
+            [
+              'Run `peaks compact auto --project <repo> --json` to invoke the capability-first control plane.',
+              action === 'red-line'
+                ? `RED LINE: ≥ 95%. Next: \`${next}\` (PreToolUse hook fires next turn).`
+                : action === 'auto-compact-now'
+                  ? `Job-mode MANDATORY auto-compact. Code MUST call \`${next}\` WITHOUT confirmation.`
+                  : action === 'soft-warn'
+                    ? isJobMode
+                      ? `Job mode soft-warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
+                      : `Soft warn (50–85%). Continue working; the next \`peaks code context-now\` will re-check.`
+                    : `Below 50%. No action required.`,
+              jobModeNotice
+            ]
+          ),
           true
         );
       } catch (err) {
