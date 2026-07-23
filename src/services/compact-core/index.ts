@@ -127,3 +127,15 @@ export { CircularCapsuleError, canonicalize, digestCapsule, verifyCapsuleDigest 
 
 // Phase 2 Task 2.2 — bounded deterministic reduction.
 export { CapsuleBudgetExceededError, canonicalBodyBytes, reduceCapsule } from './capsule-reducer.js';
+
+// Phase 2 Task 2.3 — canonical progress semantics (design §8).
+export {
+  COMPACT_STAGE_WEIGHTS,
+  CompactProgressTracker,
+  verifyResumeCompletion
+} from './progress-protocol.js';
+export type {
+  CompactProgressSnapshot,
+  CompactTerminal,
+  ResumeCompletionResult
+} from './progress-protocol.js';
