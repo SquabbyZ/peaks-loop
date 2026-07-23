@@ -103,7 +103,16 @@ export const CompactAttemptJournalSchema = z
     sealedIdempotencyKeys: z.array(SealedIdempotencyKey).max(1024),
     lastFailureCode: FailureCode.nullable(),
     createdAt: IsoTimestamp,
-    updatedAt: IsoTimestamp
+    updatedAt: IsoTimestamp,
+    /**
+     * Phase 2 Task 2.6 — SHA-256 hex digest of the journal's canonical
+     * content. Optional so journals written before the field was added
+     * still parse. Format validation (64 lowercase hex chars) is the
+     * recovery module's job — a tampered journal must remain readable
+     * from disk so the recovery module can detect and refuse it, rather
+     * than throwing at parse time and losing all recovery context.
+     */
+    digest: z.string().optional()
   })
   .strict();
 

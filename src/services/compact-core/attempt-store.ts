@@ -46,7 +46,7 @@ import {
   writeFileSync
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   COMPACT_JOURNAL_STAGES,
   CompactAttemptJournalSchema,
@@ -284,7 +284,15 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
       const prior = CompactAttemptJournalSchema.parse(priorRaw);
       assertMonotonicTransition(prior, validated);
     }
-    atomicWriteJson(path, validated);
+    // Phase 2 Task 2.6 — seal a SHA-256 digest of the journal's canonical
+    // shape so the recovery module can refuse journals that have been
+    // tampered between writes. The digest is computed AFTER schema
+    // validation so a malformed field can't poison the canonical payload.
+    const sealed: CompactAttemptJournal = {
+      ...validated,
+      digest: digestJournal(validated)
+    };
+    atomicWriteJson(path, sealed);
   }
 
   async function readAttempt(attemptId: string): Promise<CompactAttemptJournal | null> {
@@ -410,4 +418,29 @@ function safeRealpath(p: string): string {
       `failed to resolve canonical path for ${p}: ${(error as Error).message ?? String(error)}`
     );
   }
+}
+
+/**
+ * Phase 2 Task 2.6 — compute the canonical SHA-256 hex digest of one
+ * journal's durable content. The digest is computed over the canonical
+ * JSON form of every journal field EXCEPT `digest` itself, with the
+ * `sealedIdempotencyKeys` array sorted to make the digest deterministic
+ * across writers that append the same key in different orders.
+ */
+export function digestJournal(journal: CompactAttemptJournal): string {
+  const sortedKeys = [...journal.sealedIdempotencyKeys].sort();
+  const canonical = {
+    schemaVersion: journal.schemaVersion,
+    sessionId: journal.sessionId,
+    attemptId: journal.attemptId,
+    pathGeneration: journal.pathGeneration,
+    stage: journal.stage,
+    verificationFailureCount: journal.verificationFailureCount,
+    capabilityEpoch: journal.capabilityEpoch,
+    sealedIdempotencyKeys: sortedKeys,
+    lastFailureCode: journal.lastFailureCode,
+    createdAt: journal.createdAt,
+    updatedAt: journal.updatedAt
+  };
+  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
 }

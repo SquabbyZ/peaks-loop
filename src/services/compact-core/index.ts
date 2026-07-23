@@ -170,3 +170,18 @@ export type {
   MockHostBridgeAttachment,
   MockScript
 } from './fallback-coordinator.js';
+
+// Phase 2 Task 2.6 — journal-driven recovery (design §10.5).
+export {
+  DEFAULT_MAX_AGE_MS,
+  decideRecoveryAction,
+  resumeAttemptFromJournal
+} from './recovery.js';
+export type {
+  DecideRecoveryActionInput,
+  FallbackCoordinatorDispatch,
+  RecoveryAbandonCode,
+  RecoveryDecision,
+  ResumeAttemptFromJournalInput,
+  ResumeAttemptFromJournalResult
+} from './recovery.js';
