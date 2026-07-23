@@ -103,3 +103,27 @@ export type {
   CompactAutoResult,
   CompactCoordinatorDependencies
 } from './attempt-coordinator.js';
+
+// Phase 2 Task 2.1 — capsule types + canonical SHA-256 digest.
+export type {
+  ConvergenceCapsule,
+  ApprovedGoal,
+  JobCursor,
+  RequestCursor,
+  GateReceipt,
+  TaskSnapshot,
+  DecisionRecord,
+  OpenQuestion,
+  FailureRecord,
+  ArtifactPointer,
+  NextAction,
+  IdempotencyEnvelope,
+  ConvergenceCapsuleInput,
+  ConvergenceCapsuleSchema,
+  WorkflowMode
+} from './capsule-types.js';
+export { deriveCapsuleId } from './capsule-types.js';
+export { CircularCapsuleError, canonicalize, digestCapsule, verifyCapsuleDigest } from './capsule-digest.js';
+
+// Phase 2 Task 2.2 — bounded deterministic reduction.
+export { CapsuleBudgetExceededError, canonicalBodyBytes, reduceCapsule } from './capsule-reducer.js';
