@@ -90,3 +90,16 @@ export {
   recordVerificationFailure
 } from './circuit-breaker.js';
 export type { CircuitDecision } from './circuit-breaker.js';
+
+// Attempt coordinator (Task 1.5) — the §6 state-machine brain.
+export {
+  AUTO_COMPACT_EXHAUSTED,
+  createAttemptCoordinator
+} from './attempt-coordinator.js';
+export type {
+  AttemptCoordinator,
+  CertifiedBridgeAttachment,
+  CompactAutoInput,
+  CompactAutoResult,
+  CompactCoordinatorDependencies
+} from './attempt-coordinator.js';
