@@ -57,6 +57,92 @@
   degradation when the index is missing. No new CLI surface.
   See `docs/superpowers/specs/2026-07-22-orchestrator-memory-preflight-design.md`.
 
+- **Capability-first auto-compact control plane** (Phases 1+2+3): the legacy
+  `peaks code auto-compact` spawn/hook/intent paths that pretended success
+  are replaced by `peaks compact auto|status|capabilities` plus a
+  phase-1-no-provider factory. Every bridge call carries an
+  `AttemptIdentity` (attemptId, pathGeneration, capabilityEpoch).
+  Manual compact uses a real prompt latch (no re-prompt on failure).
+  Architecture spec:
+  `docs/superpowers/specs/2026-07-23-auto-compact-control-plane-design.md`.
+
+  - `src/services/compact-core/`: capability profile + admission
+    policy + bridge contracts + request identity + event identity
+    + attempt coordinator with typed boundary errors
+    (`AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE` /
+    `AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN` /
+    `AUTO_COMPACT_EXHAUSTED`).
+  - `src/services/compact-core/attempt-store.ts`: atomic, realpath + O_NOFOLLOW
+    boundary check, sealed-digest journal, persistent three-failure
+    session circuit (cannot be reset by a new `attemptId`).
+  - `src/services/compact-core/manual-fallback.ts`: two-level
+    fallback policy (`手动压缩当前会话` first, then host-native
+    hint only when bridge mapping is unavailable, never re-prompts
+    on failure).
+  - `src/services/compact-core/capsule-types.ts` +
+    `capsule-digest.ts` + `capsule-reducer.ts`:
+    `ConvergenceCapsule` schema with canonical SHA-256 digest
+    verifier + 4-step deterministic bounded reducer (mandatory
+    retention: goal / mode / activeJob / activeRequest / completedGates /
+    blockingQuestions / activeTasks / nextAction).
+  - `src/services/compact-core/progress-protocol.ts`:
+    `CompactProgressTracker` enforcing monotonic work units and
+    the `100%-only-after-completed-event` invariant.
+  - `src/services/compact-core/artifact-pointers.ts`:
+    `createArtifactPointer` / `verifyArtifactPointer` with O_NOFOLLOW
+    realpath containment + 64-hex SHA-256 match.
+  - `src/services/compact-core/fallback-coordinator.ts`:
+    `makeMockHostBridge` + `runFallbackCompaction` running the §6
+    state machine with one bounded native→fallback switch.
+  - `src/services/compact-core/recovery.ts`: `decideRecoveryAction` +
+    `resumeAttemptFromJournal` driven by sealed digest, with
+    per-phase restart semantics (probing / replacing / verifying /
+    resuming).
+  - `src/services/compact-conformance/`: sanitized evidence model
+    + canonical digest + forbidden-substring scan (capsule bodies,
+    raw tokens, transcripts) + Zod strict schemas
+    (`evidence-recorder.ts`, `evidence-schema.ts`,
+    `conformance-cases.ts`, `conformance-runner.ts`,
+    `certification-evaluator.ts`).
+  - `src/services/compact-providers/`:
+    `compact-capability-provider.ts` + `provider-manifest-schema.ts`
+    + `provider-manifest-store.ts` +
+    `provider-certification-policy.ts` +
+    `compact-provider-registry.ts`. The core never branches on
+    `providerId`; certified-strong is computed from the live profile
+    + recorded ceiling.
+  - `src/cli/commands/compact-command.ts` now exposes `auto|status|
+    capabilities`. The legacy 5-verb group is fully retired; emit
+    `DEPRECATED_ALIAS` envelopes for any caller that still emits the
+    old names. No spawn/hook paths survive.
+
+### Changed
+
+- All compact-core entry points now run under `node:test` /
+  `vitest` and require an injected `CapabilityProfile` /
+  `HostCompactBridge` for attach — no implicit host SDK import.
+  Vendor-neutrality is enforced by a static red-line test.
+
+### Removed
+
+- `peaks session auto-compact-hook` CLI verb, the
+  `auto-compact-hook-install.ts` runtime hook installer, and the
+  legacy `peaks code auto-compact` /
+  `peaks code context-now` / `peaks code post-compact-detect` /
+  `peaks code auto-compact --execute` /
+  `peaks context now` / `peaks session auto-compact --execute` paths.
+  Anything that depended on those now reports
+  `AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE` or
+  `AUTO_COMPACT_EXHAUSTED` (or `DEPRECATED_ALIAS` for the legacy
+  CLI names). Static `git grep` gate ensures they do not return.
+
+### Migration
+
+- v4.0 callers should switch to `peaks compact auto --project <path>
+  --session-id <sid> --json`. The capability envelope is the new
+  source of truth. Real providers are registered through the
+  capability-first registry; see Phase 4.
+
 ## 4.0.0
 
 ### Patch Changes
