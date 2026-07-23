@@ -75,3 +75,14 @@ export {
   decideCompactPath
 } from './compact-policy.js';
 export type { CompactPathDecision, ProviderCertification } from './compact-policy.js';
+
+// Verification and persistent circuit policy.
+export { verifyContextReduction } from './context-verifier.js';
+export type { ContextReductionVerification } from './context-verifier.js';
+export {
+  AUTO_COMPACT_VERIFICATION_CIRCUIT_OPEN,
+  closeCircuitAfterVerifiedManualCompact,
+  markManualCompactObserved,
+  recordVerificationFailure
+} from './circuit-breaker.js';
+export type { CircuitDecision } from './circuit-breaker.js';

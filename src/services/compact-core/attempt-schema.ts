@@ -115,7 +115,7 @@ export const CompactSessionCircuitStateSchema = z
     schemaVersion: z.literal(1),
     sessionId: PathSegment,
     consecutiveVerificationFailures: z.number().int().min(0).max(1_000_000),
-    circuit: z.enum(['closed', 'open']),
+    circuit: z.enum(['closed', 'open', 'awaiting-manual-observation']),
     openedAt: IsoTimestamp.nullable(),
     lastAttemptId: PathSegment.nullable(),
     lastFailureCode: FailureCode.nullable(),

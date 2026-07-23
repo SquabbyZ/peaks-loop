@@ -102,6 +102,8 @@ export interface AttemptStore {
   sealIdempotencyKey(attemptId: string, key: string): Promise<void>;
   /** Read the session circuit state. */
   readSessionCircuit(): Promise<CompactSessionCircuitState>;
+  /** Persist an explicit session circuit state transition. */
+  writeSessionCircuit(state: CompactSessionCircuitState): Promise<CompactSessionCircuitState>;
   /** Increment the consecutive verification failure counter and possibly trip the circuit. */
   recordVerificationFailure(attemptId: string, code: string): Promise<CompactSessionCircuitState>;
   /** Record that the manual-prompt hint was shown to the user. */
@@ -309,6 +311,17 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
     return loadSessionCircuit();
   }
 
+  async function writeSessionCircuit(
+    state: CompactSessionCircuitState
+  ): Promise<CompactSessionCircuitState> {
+    if (state.sessionId !== sessionId) {
+      throw new Error('session circuit state sessionId must match the store session');
+    }
+    const validated = CompactSessionCircuitStateSchema.parse(state);
+    saveSessionCircuit(validated);
+    return validated;
+  }
+
   async function recordVerificationFailure(
     attemptId: string,
     code: string
@@ -367,6 +380,7 @@ export function createAttemptStore(options: CreateAttemptStoreOptions): AttemptS
     readAttempt,
     sealIdempotencyKey,
     readSessionCircuit,
+    writeSessionCircuit,
     recordVerificationFailure,
     markManualPromptShown,
     markVerificationRecovered,
