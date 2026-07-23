@@ -87,19 +87,13 @@ describe('peaks compact auto (integration, design §11.1)', () => {
       ['compact', 'auto', '--project', root, '--session-id', sid, '--execute', '--json'],
       root
     );
-    // The integration helper uses exitOverride() so Commander's unknown-
-    // option rejection is thrown and silently swallowed; the render still
-    // routes the error to stderr via configureOutput. We assert both the
-    // exit code (when the helper propagates it) AND the stderr message.
+    // Primary assertion: exit code is non-zero. Secondary: the rendered
+    // error mentions the rejected flag so the LLM / user sees why the
+    // command failed. Both must hold; an exit-0 with no error message
+    // would be a regression where Commander silently accepted the flag.
+    expect(result.code).toBeGreaterThan(0);
     const out = `${result.stdout}\n${result.stderr}`;
     expect(out).toMatch(/--execute/);
-    if (result.code === 0) {
-      // Helper swallowed the Commander throw; the rendered error MUST
-      // still be visible on stderr so the LLM / user sees the rejection.
-      expect(result.stderr).toMatch(/--execute/);
-    } else {
-      expect(result.code).toBeGreaterThan(0);
-    }
   });
 
   it('rejects --target-ratio=1.5 with INVALID_TARGET_RATIO', async () => {
@@ -114,12 +108,26 @@ describe('peaks compact auto (integration, design §11.1)', () => {
     expect(env.code).toBe('INVALID_TARGET_RATIO');
   });
 
-  it('lists auto / status / capabilities in the help text', async () => {
+  it('lists auto / status / capabilities in the help text and hides the legacy 5-verb group', async () => {
+    // Drives the full CLI through `runCli` (not a stub) so the assertion
+    // covers the production help-rendering path. Companion test in
+    // tests/unit/cli/compact-command.test.ts covers the same contract
+    // through `createHarness`; this one is the integration guarantee.
     const result = await runCli(['compact', '--help'], root);
+    expect(result.code).toBe(0); // --help is a success path.
     const out = `${result.stdout}\n${result.stderr}`;
-    expect(out).toMatch(/auto/);
-    expect(out).toMatch(/status/);
-    expect(out).toMatch(/capabilities/);
+    // The public LLM surface (Task 1.6, design §11.1) MUST appear.
+    expect(out).toMatch(/\bauto\b/);
+    expect(out).toMatch(/\bstatus\b/);
+    expect(out).toMatch(/\bcapabilities\b/);
+    // The legacy 5-verb group MUST NOT appear — they are registered
+    // with `command(name, { hidden: true })` so Commander's help
+    // renderer filters them out (Task 1.7 retires the verbs outright).
+    const legacyVerbs = ['suggest', 'recommend', 'survival', 'dry-run', 'force'];
+    for (const verb of legacyVerbs) {
+      const asSubcommandLine = new RegExp(`^\\s+${verb}\\b`, 'm');
+      expect(out, `legacy verb "${verb}" must be hidden from --help`).not.toMatch(asSubcommandLine);
+    }
   });
 });
 
@@ -191,14 +199,11 @@ describe('peaks compact capabilities (integration, no vendor parameter)', () => 
       ['compact', 'capabilities', '--project', root, '--vendor', 'claude-code', '--json'],
       root
     );
+    // Primary assertion: exit code is non-zero. Secondary: the rendered
+    // error mentions the rejected flag. Both must hold; the envelope MUST
+    // NOT silently include a vendor field.
+    expect(result.code).toBeGreaterThan(0);
     const out = `${result.stdout}\n${result.stderr}`;
     expect(out).toMatch(/--vendor/);
-    if (result.code === 0) {
-      // Helper swallowed the Commander throw; the rendered error MUST
-      // still be visible on stderr so the LLM / user sees the rejection.
-      expect(result.stderr).toMatch(/--vendor/);
-    } else {
-      expect(result.code).toBeGreaterThan(0);
-    }
   });
 });

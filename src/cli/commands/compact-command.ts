@@ -12,10 +12,15 @@
  *
  * 2. Legacy 5-verb group (slice 2026-07-01-strategic-compact-cli):
  *      - suggest / recommend / survival / dry-run / force
- *    Preserved as registered aliases for now; Task 1.7 handles their
- *    migration to the new public surface. The help text intentionally
- *    lists only the three primary commands — the legacy aliases are
- *    still functional but not discoverable from the help output.
+ *    PRESERVED as registered aliases for now, but each is registered
+ *    with `command(name, { hidden: true })` so it does not appear in
+ *    `peaks compact --help` output (Task 1.7 retires these verbs
+ *    outright — the `hidden: true` flag is the bridge until
+ *    retirement, the day Task 1.7 lands the verbs are deleted from
+ *    `registerCompactCommands` entirely). The legacy block is
+ *    intentionally left in this file so the migration slice has a
+ *    single, locatable target; do NOT register any new code under
+ *    this comment.
  *
  * Each subcommand returns a `--json` envelope via `printResult`.
  */
@@ -263,19 +268,22 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
 
   // -----------------------------------------------------------------
   // 1. peaks compact suggest [--json]
+  // TODO(Task 1.7 retire): delete this block when the strategic-compact
+  // migration lands. Until then the `hidden: true` option on the
+  // subcommand keeps it out of `peaks compact --help` while it
+  // remains functional.
   // -----------------------------------------------------------------
-  addJsonOption(
-    compact
-      .command('suggest')
-      .description(
-        'Two-signal suggestion (context-size + tool-call-count). ' +
-          'Honor COMPACT_THRESHOLD / COMPACT_CONTEXT_THRESHOLD / COMPACT_CONTEXT_INTERVAL env vars. ' +
-          'Read-only by default; pass --apply to also append a one-line info row to the session log.'
-      )
-      .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
-      .option('--apply', 'append a one-line info row to .peaks/_runtime/<sid>/session.json (default: dry-run)')
-  ).action((options: CompactSuggestOptions) => {
+  const suggestCmd = compact
+    .command('suggest', { hidden: true })
+    .description(
+      'Two-signal suggestion (context-size + tool-call-count). ' +
+        'Honor COMPACT_THRESHOLD / COMPACT_CONTEXT_THRESHOLD / COMPACT_CONTEXT_INTERVAL env vars. ' +
+        'Read-only by default; pass --apply to also append a one-line info row to the session log.'
+    )
+    .option('--project <path>', 'project root (defaults to git root or cwd)')
+    .option('--session-id <sid>', 'override the active session id (defaults to the canonical binding)')
+    .option('--apply', 'append a one-line info row to .peaks/_runtime/<sid>/session.json (default: dry-run)');
+  addJsonOption(suggestCmd).action((options: CompactSuggestOptions) => {
     try {
       const projectRoot = options.project !== undefined
         ? resolveCanonicalProjectRoot(options.project)
@@ -303,17 +311,19 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
 
   // -----------------------------------------------------------------
   // 2. peaks compact recommend --from <phase> --to <phase> [--json]
+  // TODO(Task 1.7 retire): delete this block when the strategic-compact
+  // migration lands. The `hidden: true` option keeps it out of
+  // `peaks compact --help` until retirement.
   // -----------------------------------------------------------------
-  addJsonOption(
-    compact
-      .command('recommend')
-      .description(
-        `Strategic-compact "Compaction Decision Guide" lookup. ` +
-          `Valid phases: ${PHASES.join(', ')}. Pure function over (from, to); no I/O.`
-      )
-      .requiredOption('--from <phase>', `source phase (one of ${PHASES.join(', ')})`)
-      .requiredOption('--to <phase>', `target phase (one of ${PHASES.join(', ')})`)
-  ).action((options: CompactRecommendOptions) => {
+  const recommendCmd = compact
+    .command('recommend', { hidden: true })
+    .description(
+      `Strategic-compact "Compaction Decision Guide" lookup. ` +
+        `Valid phases: ${PHASES.join(', ')}. Pure function over (from, to); no I/O.`
+    )
+    .requiredOption('--from <phase>', `source phase (one of ${PHASES.join(', ')})`)
+    .requiredOption('--to <phase>', `target phase (one of ${PHASES.join(', ')})`);
+  addJsonOption(recommendCmd).action((options: CompactRecommendOptions) => {
     try {
       if (!isPhase(options.from)) {
         printResult(io, fail('compact.recommend', 'INVALID_PHASE', `--from must be one of ${PHASES.join(', ')} (got "${options.from}")`, { from: options.from }, [`Use --from ${PHASES.join('|')}`]), options.json);
@@ -344,12 +354,14 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
 
   // -----------------------------------------------------------------
   // 3. peaks compact survival [--json]
+  // TODO(Task 1.7 retire): delete this block when the strategic-compact
+  // migration lands. The `hidden: true` option keeps it out of
+  // `peaks compact --help` until retirement.
   // -----------------------------------------------------------------
-  addJsonOption(
-    compact
-      .command('survival')
-      .description('Strategic-compact "What Survives Compaction" table. Pure static data; no I/O.')
-  ).action((options: CompactSurvivalOptions) => {
+  const survivalCmd = compact
+    .command('survival', { hidden: true })
+    .description('Strategic-compact "What Survives Compaction" table. Pure static data; no I/O.');
+  addJsonOption(survivalCmd).action((options: CompactSurvivalOptions) => {
     printResult(io, ok('compact.survival', {
       persists: [...SURVIVAL_TABLE.persists],
       lost: [...SURVIVAL_TABLE.lost]
@@ -360,19 +372,23 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
 
   // -----------------------------------------------------------------
   // 4. peaks compact dry-run [--from <phase>] [--to <phase>] [--json]
+  // TODO(Task 1.7 retire): delete this block when the strategic-compact
+  // migration lands. The `hidden: true` option keeps it out of
+  // `peaks compact --help` until retirement. (Replaced by the new
+  // `peaks compact auto` public surface, which is side-effect-free
+  // by default.)
   // -----------------------------------------------------------------
-  addJsonOption(
-    compact
-      .command('dry-run')
-      .description(
-        'Composite preview of (suggest + recommend + survival). ' +
-          'No writes. The LLM calls this every tool-call cycle to stay informed.'
-      )
-      .option('--from <phase>', `optional source phase for recommend lookup (one of ${PHASES.join(', ')})`)
-      .option('--to <phase>', `optional target phase for recommend lookup (one of ${PHASES.join(', ')})`)
-      .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id')
-  ).action((options: CompactDryRunOptions) => {
+  const dryRunCmd = compact
+    .command('dry-run', { hidden: true })
+    .description(
+      'Composite preview of (suggest + recommend + survival). ' +
+        'No writes. The LLM calls this every tool-call cycle to stay informed.'
+    )
+    .option('--from <phase>', `optional source phase for recommend lookup (one of ${PHASES.join(', ')})`)
+    .option('--to <phase>', `optional target phase for recommend lookup (one of ${PHASES.join(', ')})`)
+    .option('--project <path>', 'project root (defaults to git root or cwd)')
+    .option('--session-id <sid>', 'override the active session id');
+  addJsonOption(dryRunCmd).action((options: CompactDryRunOptions) => {
     try {
       const projectRoot = options.project !== undefined
         ? resolveCanonicalProjectRoot(options.project)
@@ -421,26 +437,30 @@ export function registerCompactCommands(program: Command, io: ProgramIO): void {
 
   // -----------------------------------------------------------------
   // 5. peaks compact force [--reason <text>] [--json]
+  // TODO(Task 1.7 retire): delete this block when the strategic-compact
+  // migration lands. The `hidden: true` option keeps it out of
+  // `peaks compact --help` until retirement. (Replaced by the public
+  // auto/status/capabilities surface, which is the LLM-facing path
+  // going forward.)
   // -----------------------------------------------------------------
-  addJsonOption(
-    compact
-      .command('force')
-      .description(
-        'Write a pre-compact checkpoint via `peaks session checkpoint --reason context-fill`. ' +
-          'The IDE-side `/compact` is still the LLM\'s call; this primitive guarantees ' +
-          'the pre-compact state is persisted. NO sleep, NO wait for IDE response.'
-      )
-      .option('--reason <text>', 'human-readable reason for the pre-compact checkpoint', 'pre-force-compact')
-      .option('--project <path>', 'project root (defaults to git root or cwd)')
-      .option('--session-id <sid>', 'override the active session id')
-      .option('--current-plan <text>', 'current plan summary (forwarded to the checkpoint snapshot)')
-      .option('--open-questions <list>', 'newline-separated open questions')
-      .option('--recent-decisions <list>', 'newline-separated recent decisions')
-      .option('--recent-artifact-paths <list>', 'newline-separated recent artifact paths')
-      .option('--git-status <text>', 'recent git status')
-      .option('--skills-active <list>', 'newline-separated active skill names')
-      .option('--todo-state <list>', 'newline-separated todo lines')
-  ).action((options: CompactForceOptions) => {
+  const forceCmd = compact
+    .command('force', { hidden: true })
+    .description(
+      'Write a pre-compact checkpoint via `peaks session checkpoint --reason context-fill`. ' +
+        'The IDE-side `/compact` is still the LLM\'s call; this primitive guarantees ' +
+        'the pre-compact state is persisted. NO sleep, NO wait for IDE response.'
+    )
+    .option('--reason <text>', 'human-readable reason for the pre-compact checkpoint', 'pre-force-compact')
+    .option('--project <path>', 'project root (defaults to git root or cwd)')
+    .option('--session-id <sid>', 'override the active session id')
+    .option('--current-plan <text>', 'current plan summary (forwarded to the checkpoint snapshot)')
+    .option('--open-questions <list>', 'newline-separated open questions')
+    .option('--recent-decisions <list>', 'newline-separated recent decisions')
+    .option('--recent-artifact-paths <list>', 'newline-separated recent artifact paths')
+    .option('--git-status <text>', 'recent git status')
+    .option('--skills-active <list>', 'newline-separated active skill names')
+    .option('--todo-state <list>', 'newline-separated todo lines');
+  addJsonOption(forceCmd).action((options: CompactForceOptions) => {
     try {
       const projectRoot = options.project !== undefined
         ? resolveCanonicalProjectRoot(options.project)

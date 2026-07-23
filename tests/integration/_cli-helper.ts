@@ -65,22 +65,51 @@ export async function runCli(args: string[], cwd: string): Promise<CliResult> {
     // "missing brief section" — commander rejects on requiredOption
     // before the action runs, so the only JSON the test can see is
     // the envelope written here).
+    //
+    // For ANY `commander.*` throw that is not a help/version path, we
+    // set `process.exitCode = 1` so the helper returns a non-zero
+    // code. The previous version suppressed exit code for
+    // `commander.unknownOption` / `commander.unknownCommand` /
+    // `commander.missingArgument`, which forced integration tests to
+    // assert against stderr string match instead of exit code. That
+    // made the contract "untrusted options fail loudly" difficult to
+    // assert, and it masked regressions where Commander emitted a
+    // message but did not actually fail the process. The hardened
+    // contract is:
+    //   - commander.help / commander.helpDisplayed / commander.version:
+    //     exit 0 (user explicitly asked for help/version).
+    //   - all other commander.* throws (unknownOption, unknownCommand,
+    //     missingArgument, …): exit 1, stderr already carries the
+    //     message, and we additionally write a JSON envelope so
+    //     structured-error grep tests still find it. The envelope
+    //     uses `code: 'UNHANDLED_ERROR'` for unknown commander
+    //     codes (preserving the prior contract) and the specific
+    //     commander code in the `data.commanderCode` field for
+    //     callers that want to distinguish them. This keeps the
+    //     existing whitelist `MISSING_BRIEF_SECTION || UNHANDLED_ERROR`
+    //     working for the asset-crystallize brief-section test.
+    //   - non-commander throws: treated as unhandled errors; exit 1,
+    //     write UNHANDLED_ERROR envelope.
     const code = (err as { code?: string } | null)?.code ?? '';
-    if (
-      code !== 'commander.help' &&
-      code !== 'commander.helpDisplayed' &&
-      code !== 'commander.version' &&
-      code !== 'commander.missingArgument' &&
-      code !== 'commander.unknownCommand' &&
-      code !== 'commander.unknownOption'
-    ) {
+    const isCommanderInfo =
+      code === 'commander.help' ||
+      code === 'commander.helpDisplayed' ||
+      code === 'commander.version';
+    if (isCommanderInfo) {
+      // exit 0 — user asked for help / version.
+    } else {
       const message = (err as Error)?.message ?? String(err);
+      // If stderr has not already been written by configureOutput,
+      // surface the message + a structured envelope.
+      if (stderrChunks.length === 0) {
+        stderrChunks.push(message);
+      }
       stderrChunks.push(JSON.stringify({
         ok: false,
         command: 'cli',
         code: 'UNHANDLED_ERROR',
         message,
-        data: {},
+        data: { commanderCode: code },
         warnings: [],
         nextActions: []
       }));

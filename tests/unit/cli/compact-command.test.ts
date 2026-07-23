@@ -339,8 +339,10 @@ describe('peaks compact --help discoverability', () => {
     // Task 1.6 (design §11.1): the public LLM surface is `auto / status /
     // capabilities`. The legacy 5-verb group (suggest / recommend / survival /
     // dry-run / force) is preserved as registered aliases for now and will
-    // be migrated by Task 1.7 — it is intentionally NOT listed in the
-    // discoverable help text any longer.
+    // be migrated by Task 1.7. Each legacy verb is registered with
+    // `command(name, { hidden: true })` so it does NOT appear in
+    // `peaks compact --help` — that hidden flag is the bridge until
+    // Task 1.7 retires the verbs outright.
     const harness = createHarness();
     try {
       await harness.program.parseAsync(['node', 'peaks', 'compact', '--help'], { from: 'node' });
@@ -356,6 +358,47 @@ describe('peaks compact --help discoverability', () => {
     expect(out).toMatch(/auto/);
     expect(out).toMatch(/status/);
     expect(out).toMatch(/capabilities/);
+  });
+
+  it('hides the legacy 5-verb group (suggest / recommend / survival / dry-run / force) from --help', async () => {
+    // Drives the real Commander program (not a stub) so the assertion
+    // covers both the help-renderer path AND Commander's hidden-flag
+    // filter (we use `command(name, { hidden: true })` — the v12
+    // Commander contract for hiding a subcommand; `hideHelp` only
+    // exists on Option, not on Command). The block above lists what
+    // *should* appear; this block asserts the legacy five do NOT
+    // appear. Together they prove the discoverability contract for
+    // design §11.1.
+    const harness = createHarness();
+    let helpText = '';
+    try {
+      await harness.program.parseAsync(['node', 'peaks', 'compact', '--help'], { from: 'node' });
+    } catch (error: unknown) {
+      if (
+        !(error instanceof CommanderError) ||
+        (error.code !== 'commander.help' && error.code !== 'commander.helpDisplayed')
+      ) {
+        throw error;
+      }
+    }
+    helpText = [...harness.stdout, ...harness.stderr].join('\n');
+
+    // The new verbs MUST appear.
+    expect(helpText).toMatch(/\bauto\b/);
+    expect(helpText).toMatch(/\bstatus\b/);
+    expect(helpText).toMatch(/\bcapabilities\b/);
+
+    // The legacy five MUST NOT appear anywhere in the rendered help.
+    // Match each as a standalone command name (start of line + 2-space
+    // indent) so we don't false-positive on incidental substrings.
+    const legacyVerbs = ['suggest', 'recommend', 'survival', 'dry-run', 'force'];
+    for (const verb of legacyVerbs) {
+      // Commander formats subcommands as indented lines: "  suggest [options]"
+      // or, in a Commands: list, "  suggest". Reject any line whose first
+      // non-space content is the legacy verb name.
+      const asSubcommandLine = new RegExp(`^\\s+${verb}\\b`, 'm');
+      expect(helpText, `legacy verb "${verb}" must be hidden from --help`).not.toMatch(asSubcommandLine);
+    }
   });
 });
 
