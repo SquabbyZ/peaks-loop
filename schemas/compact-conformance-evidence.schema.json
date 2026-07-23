@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Compact Conformance Evidence",
+  "description": "Vendor-neutral, sanitized conformance evidence model. The schema rejects raw tokens, transcripts, capsule bodies, and secret-like substrings. Source of truth: src/services/compact-conformance/evidence-schema.ts (Phase 3 Task 3.3).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contractVersion", "generatedAt", "cases"],
+  "properties": {
+    "contractVersion": { "type": "integer", "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "cases": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["caseId", "status", "startedAt", "completedAt", "evidence"],
+        "properties": {
+          "caseId": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "status": { "type": "string", "enum": ["passed", "failed", "skipped"] },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "completedAt": { "type": "string", "format": "date-time" },
+          "failureCode": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "failureMessage": { "type": "string", "minLength": 1, "maxLength": 1024 },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "path", "sha256", "summary"],
+              "properties": {
+                "key": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024,
+                  "pattern": "^(?!.*\\.\\.)(?!.*//)(?!^/)(?!^\\\\)(?!.*\\.(env|pem|key)$)(?!.*(id_rsa|id_dsa|passwd|shadow))[^\\0<>:\"|?*]+$"
+                },
+                "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+                "summary": { "type": "string", "minLength": 1, "maxLength": 256 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "reportDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
