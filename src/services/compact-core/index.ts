@@ -139,3 +139,34 @@ export type {
   CompactTerminal,
   ResumeCompletionResult
 } from './progress-protocol.js';
+
+// Phase 2 Task 2.5 — mock host bridge + fallback coordinator (design §4.4,
+// §6.1, §9, §10.2, §10.3).
+export {
+  FALLBACK_PROBE_FAILED,
+  FALLBACK_REDUCE_FAILED,
+  FALLBACK_REPLACE_FAILED,
+  FALLBACK_RESUME_FAILED,
+  FallbackProbeError,
+  FallbackReductionError,
+  FallbackReplaceError,
+  FallbackResumeError,
+  createFallbackCapsule,
+  createFallbackCapsuleSeam,
+  defaultFallbackEvents,
+  makeMockHostBridge,
+  runFallbackCompaction,
+  strongDefaultProfile
+} from './fallback-coordinator.js';
+export type {
+  CreateFallbackCapsuleInput,
+  CreateFallbackCapsuleSeamGetters,
+  FallbackCoordinationInput,
+  FallbackCoordinationResult,
+  FallbackFailureCode,
+  FallbackStage,
+  MakeMockHostBridgeOptions,
+  MockAttemptsLedger,
+  MockHostBridgeAttachment,
+  MockScript
+} from './fallback-coordinator.js';
