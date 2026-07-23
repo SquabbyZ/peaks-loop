@@ -123,15 +123,23 @@ export async function recordCaseResult(
 ): Promise<CompactConformanceCaseResult> {
   const now = options.now ?? new Date();
   const evidence = options.pointerSource ? await options.pointerSource(options.projectRoot) : [];
-  const result: CompactConformanceCaseResult = {
+  // Build the case result incrementally. `as` casts cannot satisfy
+  // exactOptionalPropertyTypes with Zod's `optional()` (which forbids
+  // an explicit `| undefined`), so we assemble a plain object and
+  // re-validate via the strict schema below.
+  const result: Record<string, unknown> = {
     caseId: options.caseId,
     status: options.status,
     startedAt: options.startedAt.toISOString(),
     completedAt: now.toISOString(),
     evidence
   };
-  if (options.failureCode !== undefined) (result as { failureCode?: string }).failureCode = options.failureCode;
-  if (options.failureMessage !== undefined) (result as { failureMessage?: string }).failureMessage = options.failureMessage;
+  if (options.failureCode !== undefined) {
+    result.failureCode = options.failureCode;
+  }
+  if (options.failureMessage !== undefined) {
+    result.failureMessage = options.failureMessage;
+  }
   const parsed = CompactConformanceCaseResultSchema_.safeParse(result);
   if (!parsed.success) {
     throw new EvidenceSchemaError(parsed.error.issues.map((i) => i.message).join('; '));
@@ -148,7 +156,7 @@ export async function recordCaseResult(
     const filePath = resolve(outDir, `${options.caseId}.json`);
     writeFileSync(filePath, JSON.stringify(parsed.data, null, 2), 'utf8');
   }
-  return parsed.data;
+  return parsed.data as unknown as CompactConformanceCaseResult;
 }
 
 /**
@@ -156,15 +164,18 @@ export async function recordCaseResult(
  * result is a strict-schema instance.
  */
 export function buildReport(cases: readonly CompactConformanceCaseResult[], now: Date = new Date()): CompactConformanceReport {
-  const partial = {
+  const partial: Record<string, unknown> = {
     contractVersion: 1 as const,
     generatedAt: now.toISOString(),
     cases
   };
-  const withDigest = { ...partial, reportDigest: computeRecordDigest(partial as CompactConformanceReport) };
+  const withDigest: Record<string, unknown> = {
+    ...partial,
+    reportDigest: computeRecordDigest(partial as unknown as CompactConformanceReport)
+  };
   const parsed = CompactConformanceReportSchema_.safeParse(withDigest);
   if (!parsed.success) {
     throw new EvidenceSchemaError(parsed.error.issues.map((i) => i.message).join('; '));
   }
-  return parsed.data;
+  return parsed.data as unknown as CompactConformanceReport;
 }
