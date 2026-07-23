@@ -16,23 +16,30 @@
  *     nothing, and branches on capability values only — never a vendor
  *     discriminator (design §2.3 red line, enforced by
  *     `vendor-neutrality.test.ts`).
- *   - The convergence-capsule engine lands in Phase 2. Here the capsule is
- *     represented only by a deterministic digest over attempt identity so
- *     `replaceWithCapsule` can carry a real, traceable `capsuleDigest`. No
- *     capsule content, continuity, or checkpoint is fabricated.
+ *   - The convergence-capsule engine lands in Phase 2. The optional
+ *     `createFallbackCapsule` dependency seam lets Phase 2 inject a real
+ *     capsule + digest; while absent, the coordinator must NEVER claim
+ *     fallback completion (no fabricated digest, no fabricated continuity,
+ *     no fabricated checkpoint). Dry-run may still plan fallback.
  *
  * Concurrency (handoff #1): Task 1.3's store/circuit are read-modify-write
  * and are NOT safe under parallel increments by themselves. The
  * coordinator therefore serializes all `compactAuto` calls per `sessionId`
- * through an in-process promise-chain mutex, so two concurrent auto calls
- * can neither lose a failure increment nor dispatch a mutation twice.
+ * through an in-process promise-chain mutex. The lock tail is the entry's
+ * own completion (success or throw), so a thrown attach/probe/journal/
+ * bridge/store error releases the lock and the NEXT call proceeds; the
+ * public boundary swallows those throws and resolves a typed non-success.
  *
- * Failure taxonomy (handoff #8): a *verification* failure (a completion
- * receipt was received and evaluated against §9 and lost) increments the
- * session verification counter. An *invocation* failure (the bridge
- * rejected the call, the stream ended with no completion, or the epoch
- * changed) does NOT touch the counter — it may trigger the single
- * native→fallback switch instead.
+ * Failure taxonomy (handoff #8):
+ *   - Verification failure: a completion receipt was received and
+ *     evaluated against §9 and lost. Moves the session counter.
+ *   - Invocation failure: the bridge rejected the call, the stream ended
+ *     with no completion, the epoch changed, or the capsule engine was
+ *     absent. Does NOT touch the counter; may trigger the single
+ *     native→fallback switch.
+ *   - Internal/bridge/store throw (new): caught at the public boundary,
+ *     converted to a typed `AUTO_COMPACT_EXHAUSTED + remain-blocked`
+ *     result, and the lock released.
  */
 import { createHash } from 'node:crypto';
 import {
@@ -60,6 +67,7 @@ import type {
 } from './protocol/bridge-requests.js';
 import type {
   CompactCompletionReceipt,
+  ContextMeasurementReading,
   ResumeReceipt
 } from './protocol/bridge-receipts.js';
 import type { CompactEvent } from './protocol/compact-events.js';
@@ -81,6 +89,24 @@ export interface CertifiedBridgeAttachment {
   readonly manualMetadata: CertifiedManualCompactMetadata | null;
 }
 
+/**
+ * Phase-2 seam. When provided, the coordinator calls this factory to
+ * produce a real convergence capsule + digest before any
+ * `replaceWithCapsule` dispatch. When absent, the coordinator refuses to
+ * execute the fallback mutation (handoff #5: never fabricate a digest
+ * from session/attempt/generation alone) — it still plans fallback under
+ * dry-run so the plan surface is honest about what *would* run.
+ */
+export interface FallbackCapsuleFactory {
+  create(input: {
+    readonly sessionId: string;
+    readonly attemptId: string;
+    readonly pathGeneration: number;
+  }):
+    | { readonly capsule: unknown; readonly capsuleDigest: string }
+    | Promise<{ readonly capsule: unknown; readonly capsuleDigest: string }>;
+}
+
 export interface CompactCoordinatorDependencies {
   readonly attachBridge: (
     sessionId: string,
@@ -89,6 +115,8 @@ export interface CompactCoordinatorDependencies {
   readonly store: AttemptStore;
   readonly now: () => Date;
   readonly newAttemptId: () => string;
+  /** Optional Phase-2 capsule factory; see `FallbackCapsuleFactory`. */
+  readonly createFallbackCapsule?: FallbackCapsuleFactory['create'];
 }
 
 export interface CompactAutoInput {
@@ -124,13 +152,11 @@ export interface AttemptCoordinator {
 }
 
 /**
- * In-process, per-session serialization. Task 1.3's store performs a
- * read-modify-write on the circuit counter with no internal lock; two
- * overlapping `compactAuto` calls could otherwise read the same count and
- * lose an increment, or dispatch two mutations for one session. We chain
- * every call for a `sessionId` behind the previous one. The stored tail
- * swallows errors so a failing call never rejects its successor; the real
- * result/errors still propagate to the original caller.
+ * In-process, per-session serialization. The stored tail is the previous
+ * call's completion (success or throw); a thrown predecessor does NOT
+ * poison the successor because we register `.then(_, _)` so the tail
+ * always settles. The real result/errors still propagate to the original
+ * caller via `await run`.
  */
 const sessionLocks = new Map<string, Promise<unknown>>();
 
@@ -149,7 +175,8 @@ async function withSessionLock<T>(
     return await run;
   } finally {
     // Best-effort cleanup: drop the entry once we are the last in line so
-    // the map does not grow without bound across many sessions.
+    // the map does not grow without bound across many sessions. Runs on
+    // both success and throw paths.
     if (sessionLocks.get(sessionId) === tail) {
       sessionLocks.delete(sessionId);
     }
@@ -171,16 +198,6 @@ function continuationDigest(token: string): string {
   return sha256(token);
 }
 
-/**
- * Deterministic capsule digest seam. The Phase-2 capsule engine will
- * digest real capsule bytes; here we digest the attempt identity so the
- * `capsule-replacement` request carries a real, traceable value rather
- * than a fabricated one.
- */
-function capsuleDigestSeam(sessionId: string, attemptId: string, gen: number): string {
-  return sha256(`${sessionId}:${attemptId}:${gen}`);
-}
-
 type PathKind = 'native' | 'fallback';
 
 type RunOutcome =
@@ -193,10 +210,45 @@ type RunOutcome =
 export function createAttemptCoordinator(
   deps: CompactCoordinatorDependencies
 ): AttemptCoordinator {
-  const { attachBridge, store, now, newAttemptId } = deps;
+  const { attachBridge, store, now, newAttemptId, createFallbackCapsule } = deps;
 
   async function compactAuto(input: CompactAutoInput): Promise<CompactAutoResult> {
-    return withSessionLock(input.sessionId, () => runCompactAuto(input));
+    return withSessionLock(input.sessionId, () =>
+      runCompactAuto(input).catch(async (_error) => {
+        // (boundary) Internal/attach/probe/journal/bridge/store throws
+        // become a typed non-success at the public surface (handoff #1).
+        // The session lock has already been released by withSessionLock's
+        // `finally` block, so the next call will proceed normally. The raw
+        // error is intentionally NOT surfaced to the caller — the contract
+        // is a typed `ok:false` decision (no rejection).
+        const circuit = await safeReadCircuit(store);
+        return {
+          ok: false,
+          code: AUTO_COMPACT_EXHAUSTED,
+          manualFallback: decideManualFallback({ metadata: null, circuit })
+        } satisfies CompactAutoResult;
+      })
+    );
+  }
+
+  async function safeReadCircuit(s: AttemptStore) {
+    try {
+      return await s.readSessionCircuit();
+    } catch {
+      // If even the circuit read throws, fabricate a transient "closed"
+      // view so the caller still gets a typed decision. Real persisted
+      // state is untouched.
+      return {
+        schemaVersion: 1 as const,
+        sessionId: '',
+        consecutiveVerificationFailures: 0,
+        circuit: 'closed' as const,
+        openedAt: null,
+        lastAttemptId: null,
+        lastFailureCode: null,
+        manualPromptShown: false
+      };
+    }
   }
 
   async function runCompactAuto(input: CompactAutoInput): Promise<CompactAutoResult> {
@@ -215,11 +267,16 @@ export function createAttemptCoordinator(
       };
     }
 
-    // (2) Attach + probe (both read-only). Probe once for admission; every
-    // later mutation re-probes and compares the epoch (handoff #4).
+    // (2) Attach + probe (both read-only). Probe once for admission at
+    // pathGeneration=0; every later mutation re-probes with the CURRENT
+    // generation and compares the epoch (handoff #2 + handoff #4).
     const preAttemptId = input.dryRun ? '' : newAttemptId();
     const attachment = await attachBridge(input.sessionId, preAttemptId || 'dry-run');
-    const admissionProfile = await probe(attachment.bridge, input.sessionId, preAttemptId || 'dry-run');
+    const admissionProfile = await probe(attachment.bridge, {
+      sessionId: input.sessionId,
+      attemptId: preAttemptId || 'dry-run',
+      pathGeneration: 0
+    });
 
     // (3) Admission decision — pure, capability-only (design §5).
     const decision = decideCompactPath({
@@ -255,6 +312,8 @@ export function createAttemptCoordinator(
         attemptId: preAttemptId,
         admissionEpoch: admissionProfile.capabilityEpoch,
         bridge: attachment.bridge,
+        certification: attachment.certification,
+        admissionProfile,
         manualMetadata: attachment.manualMetadata
       },
       initialPath: path
@@ -265,6 +324,8 @@ export function createAttemptCoordinator(
     readonly attemptId: string;
     readonly admissionEpoch: string;
     readonly bridge: HostCompactBridge;
+    readonly certification: ProviderCertification;
+    readonly admissionProfile: CapabilityProfile;
     readonly manualMetadata: CertifiedManualCompactMetadata | null;
   }
 
@@ -286,6 +347,14 @@ export function createAttemptCoordinator(
     // Bounded loop: native → (single) fallback. No path may loop forever
     // (handoff #7). Two iterations is the hard ceiling.
     for (let iteration = 0; iteration < 2; iteration += 1) {
+      // Fallback seam gate (handoff #5): without a real capsule factory,
+      // we MUST NOT dispatch `replaceWithCapsule` with a fabricated digest.
+      // Dry-run already planned fallback; here we return honest
+      // EXHAUSTED with `remain-blocked` and skip the mutation entirely.
+      if (path === 'fallback' && createFallbackCapsule === undefined) {
+        return await blockedExhausted(journal, attempt, args.input);
+      }
+
       const outcome = await runPath({ input, attempt, journal, path, generation });
 
       if (outcome.kind === 'completed') {
@@ -338,7 +407,9 @@ export function createAttemptCoordinator(
   /**
    * Execute a single path generation: re-probe the epoch, dispatch the
    * mutation, consume its event stream (ignoring stale-generation events),
-   * verify §9 reduction, then resume and verify the resume receipt.
+   * verify §9 reduction (resolving the after-measurement per profile +
+   * certification), then resume and verify the resume receipt. A post-
+   * resume epoch re-probe seals completion (handoff #4).
    */
   async function runPath(args: {
     readonly input: CompactAutoInput;
@@ -350,19 +421,23 @@ export function createAttemptCoordinator(
     const { input, attempt, journal, path, generation } = args;
 
     // (a) Re-probe immediately before mutation and reject a stale epoch
-    // (handoff #4). Done BEFORE persisting the executing stage or calling
-    // any mutating method, so a stale bridge never mutates host state.
-    if (!(await epochStillFresh(attempt))) {
+    // (handoff #2 + handoff #4). The probe carries the CURRENT generation
+    // so the bridge can correlate re-probes to the in-flight attempt.
+    if (!(await epochStillFresh(attempt, generation, input.sessionId))) {
       return { kind: 'stale-epoch' };
     }
 
-    await writeStage(journal, path === 'native' ? 'native-compacting' : 'fallback-summarizing', generation);
+    if (path === 'native') {
+      await writeStage(journal, 'native-compacting', generation);
+    } else {
+      await writeStage(journal, 'fallback-summarizing', generation);
+    }
 
     // (b) Dispatch the mutation and collect its event stream. A synchronous
     // throw or an async rejection is an invocation failure.
     let events: readonly CompactEvent[];
     try {
-      events = await collectEvents(dispatch({ input, attempt, path, generation }));
+      events = await collectEvents(await dispatch({ input, attempt, path, generation }));
     } catch {
       return { kind: 'invoke-failed' };
     }
@@ -374,11 +449,29 @@ export function createAttemptCoordinator(
       return { kind: 'no-completion' };
     }
 
-    // (d) §9 reduction gate.
+    // (d) §9 reduction gate with completionSource validation (handoff #3).
+    // The receipt's self-claimed `after` is honored ONLY when the certified
+    // attachment + profile both permit it. Otherwise we remeasure via the
+    // live `measureContext` and use that reading.
     await writeStage(journal, 'verifying', generation);
+    const resolvedAfter = await resolveAfterMeasurement({
+      receipt,
+      bridge: attempt.bridge,
+      profile: attempt.admissionProfile,
+      certification: attempt.certification,
+      sessionId: input.sessionId,
+      attemptId: attempt.attemptId,
+      generation
+    });
+    if (resolvedAfter === null) {
+      // Receipt claimed a completion source the certified contract does
+      // not permit. Treat as verification failure so the session counter
+      // reflects the untrusted claim.
+      return { kind: 'verification-failed', code: 'COMPLETION_SOURCE_UNTRUSTED' };
+    }
     const reduction = verifyContextReduction({
       before: { ratio: receipt.before.ratio },
-      after: { ratio: receipt.after.ratio },
+      after: { ratio: resolvedAfter.ratio },
       targetRatio: input.targetRatio
     });
     if (!reduction.passed) {
@@ -387,7 +480,7 @@ export function createAttemptCoordinator(
 
     // (e) Resume, then verify the resume receipt digest/identity/continuity
     // (design §9.2). Success is claimed ONLY after this passes (handoff #5).
-    if (!(await epochStillFresh(attempt))) {
+    if (!(await epochStillFresh(attempt, generation, input.sessionId))) {
       return { kind: 'stale-epoch' };
     }
     await writeStage(journal, 'resuming', generation);
@@ -403,15 +496,24 @@ export function createAttemptCoordinator(
       return { kind: 'verification-failed', code: 'RESUME_FAILED' };
     }
 
+    // (f) Post-resume epoch re-probe (handoff #4 end-to-end). A change
+    // here means the bridge mutability contract changed AFTER the
+    // resume — refuse to seal completion. Counts as invocation-class
+    // (the bridge is no longer the bridge we admitted), NOT a verification
+    // failure (no §9 evaluation lost).
+    if (!(await epochStillFresh(attempt, generation, input.sessionId))) {
+      return { kind: 'stale-epoch' };
+    }
+
     return { kind: 'completed', receipt };
   }
 
-  function dispatch(args: {
+  async function dispatch(args: {
     readonly input: CompactAutoInput;
     readonly attempt: AttemptContext;
     readonly path: PathKind;
     readonly generation: number;
-  }): AsyncIterable<CompactEvent> {
+  }): Promise<AsyncIterable<CompactEvent>> {
     const { input, attempt, path, generation } = args;
     if (path === 'native') {
       const request: NativeCompactRequest = {
@@ -424,20 +526,46 @@ export function createAttemptCoordinator(
       };
       return attempt.bridge.invokeNative(request);
     }
+    // Fallback: build a real capsule via the injected Phase-2 seam
+    // (handoff #5). The seam returns a digest traceable to real capsule
+    // bytes; the request carries that digest. The outer loop has already
+    // gated on `createFallbackCapsule` presence.
+    const seam = createFallbackCapsule;
+    if (!seam) {
+      throw new Error('createFallbackCapsule is required for fallback execution');
+    }
+    const result = await Promise.resolve(
+      seam({
+        sessionId: input.sessionId,
+        attemptId: attempt.attemptId,
+        pathGeneration: generation
+      })
+    );
     const request: CapsuleReplacementRequest = {
       kind: 'capsule-replacement',
       sessionId: input.sessionId,
       attemptId: attempt.attemptId,
       pathGeneration: generation,
       capabilityEpoch: attempt.admissionEpoch,
-      capsuleDigest: capsuleDigestSeam(input.sessionId, attempt.attemptId, generation),
+      capsuleDigest: result.capsuleDigest,
       rollbackRequired: true
     };
+    // Suppress the unused `capsule` payload warning while still letting
+    // the seam produce real content (the digest is the traceable handle).
+    void result.capsule;
     return attempt.bridge.replaceWithCapsule(request);
   }
 
-  async function epochStillFresh(attempt: AttemptContext): Promise<boolean> {
-    const reprobe = await probe(attempt.bridge, attempt.attemptId, attempt.attemptId);
+  async function epochStillFresh(
+    attempt: AttemptContext,
+    generation: number,
+    sessionId: string
+  ): Promise<boolean> {
+    const reprobe = await probe(attempt.bridge, {
+      sessionId,
+      attemptId: attempt.attemptId,
+      pathGeneration: generation
+    });
     return reprobe.capabilityEpoch === attempt.admissionEpoch;
   }
 
@@ -526,14 +654,13 @@ export function createAttemptCoordinator(
 
 async function probe(
   bridge: HostCompactBridge,
-  sessionId: string,
-  attemptId: string
+  identity: { readonly sessionId: string; readonly attemptId: string; readonly pathGeneration: number }
 ): Promise<CapabilityProfile> {
   const request: ProbeRequest = {
     kind: 'probe',
-    sessionId,
-    attemptId,
-    pathGeneration: 0
+    sessionId: identity.sessionId,
+    attemptId: identity.attemptId,
+    pathGeneration: identity.pathGeneration
   };
   return bridge.probe(request);
 }
@@ -603,3 +730,46 @@ function resumeReceiptValid(
     receipt.continuationTokenDigest === continuationDigest(continuationToken)
   );
 }
+
+/**
+ * Validate the receipt's `completionSource` against the certified
+ * attachment + profile (handoff #3). Returns the trusted `after`
+ * measurement, or `null` when the receipt claims a source the contract
+ * does not permit (caller must convert to verification failure).
+ *
+ * Rules:
+ *   - `host-event`: trusted ONLY when `certified-strong` AND the profile's
+ *     `completionSignal === 'event-with-measurement'`. Otherwise we must
+ *     remeasure.
+ *   - `remeasure`: ALWAYS remeasure via `measureContext`; never trust the
+ *     receipt's `after`.
+ */
+async function resolveAfterMeasurement(args: {
+  readonly receipt: CompactCompletionReceipt;
+  readonly bridge: HostCompactBridge;
+  readonly profile: CapabilityProfile;
+  readonly certification: ProviderCertification;
+  readonly sessionId: string;
+  readonly attemptId: string;
+  readonly generation: number;
+}): Promise<ContextMeasurementReading | null> {
+  const source = args.receipt.completionSource;
+  const canTrustEvent =
+    args.certification === 'certified-strong' &&
+    args.profile.completionSignal === 'event-with-measurement';
+  if (source === 'host-event') {
+    if (!canTrustEvent) return null;
+    return args.receipt.after;
+  }
+  // 'remeasure' source: contract requires a live remeasure regardless of
+  // what the receipt claims.
+  return args.bridge.measureContext({
+    kind: 'measure-context',
+    sessionId: args.sessionId,
+    attemptId: args.attemptId,
+    pathGeneration: args.generation
+  });
+}
+
+// Tiny helpers live above; bridgeCapsuleReplace was removed when dispatch
+// became async.

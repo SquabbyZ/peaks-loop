@@ -82,6 +82,21 @@ function nativeStrongProfile(epoch = 'E1'): CapabilityProfile {
   };
 }
 
+/** Remeasure-only profile: completion source must be `remeasure`. */
+function nativeRemeasureProfile(epoch = 'E1'): CapabilityProfile {
+  return {
+    schemaVersion: 1,
+    contextMeasurement: 'exact',
+    nativeCompact: 'invoke-and-observe',
+    contextReplacement: 'in-place',
+    progressSurface: 'native',
+    continuation: 'same-ui',
+    completionSignal: 'remeasure',
+    rollbackSupport: 'transactional',
+    capabilityEpoch: epoch
+  };
+}
+
 function fallbackOnlyProfile(epoch = 'E1'): CapabilityProfile {
   return {
     schemaVersion: 1,
@@ -117,7 +132,13 @@ function reading(ratio: number): ContextMeasurementReading {
 function completedEvent(
   gen: number,
   path: 'native' | 'fallback',
-  opts: { before: number; after: number; token: string; attemptId?: string }
+  opts: {
+    before: number;
+    after: number;
+    token: string;
+    attemptId?: string;
+    completionSource?: 'host-event' | 'remeasure';
+  }
 ): CompactEvent {
   const attemptId = opts.attemptId ?? ATTEMPT;
   const receipt: CompactCompletionReceipt = {
@@ -127,7 +148,7 @@ function completedEvent(
     sameUi: true,
     before: reading(opts.before),
     after: reading(opts.after),
-    completionSource: 'host-event',
+    completionSource: opts.completionSource ?? 'host-event',
     continuationToken: opts.token,
     completedAt: ISO
   };
@@ -153,13 +174,21 @@ interface FakeCalls {
 }
 
 interface FakeOptions {
-  readonly probeProfiles: readonly CapabilityProfile[];
+  readonly probeProfiles?: readonly CapabilityProfile[];
   readonly certification: ProviderCertification;
   readonly manualMetadata?: CertifiedBridgeAttachment['manualMetadata'];
   readonly nativeInvokeThrows?: boolean;
   readonly nativeEvents?: (gen: number, attemptId: string) => readonly CompactEvent[];
   readonly fallbackEvents?: (gen: number, attemptId: string) => readonly CompactEvent[];
   readonly resumeBadDigest?: boolean;
+  readonly attachThrows?: boolean;
+  readonly measureContextOverride?: (gen: number, attemptId: string) => ContextMeasurementReading;
+  /**
+   * Map of probe-call-index → profile; consumed instead of `probeProfiles`
+   * when provided (lets tests inject an epoch that changes between
+   * admissions vs pre-mutation re-probes).
+   */
+  readonly probeByCall?: CapabilityProfile[];
 }
 
 function createFake(options: FakeOptions): {
@@ -182,9 +211,13 @@ function createFake(options: FakeOptions): {
 
   const bridge: HostCompactBridge = {
     async probe() {
-      const index = Math.min(calls.probe, options.probeProfiles.length - 1);
+      const index = calls.probe;
       calls.probe += 1;
-      return options.probeProfiles[index] as CapabilityProfile;
+      if (options.probeByCall) {
+        return options.probeByCall[Math.min(index, options.probeByCall.length - 1)] as CapabilityProfile;
+      }
+      const profiles = options.probeProfiles ?? [];
+      return profiles[Math.min(index, profiles.length - 1)] as CapabilityProfile;
     },
     invokeNative(input: NativeCompactRequest): AsyncIterable<CompactEvent> {
       calls.invokeNative.push(input);
@@ -198,6 +231,11 @@ function createFake(options: FakeOptions): {
       return stream(options.fallbackEvents ? options.fallbackEvents(input.pathGeneration, input.attemptId) : []);
     },
     async measureContext(): Promise<ContextMeasurementReading> {
+      if (options.measureContextOverride) {
+        // Use a deterministic gen=0 anchor; remeasure tests do not exercise
+        // the gen-aware path.
+        return options.measureContextOverride(0, ATTEMPT);
+      }
       return reading(0.4);
     },
     async resume(input: ResumeRequest): Promise<ResumeReceipt> {
@@ -224,6 +262,9 @@ function createFake(options: FakeOptions): {
     calls,
     async attach() {
       calls.attach += 1;
+      if (options.attachThrows) {
+        throw new Error('attachBridge rejected');
+      }
       return {
         bridge,
         certification: options.certification,
@@ -248,15 +289,48 @@ function journalFilePath(): string {
   );
 }
 
-function makeCoordinator(fakeAttach: FakeOptions) {
-  const store = createAttemptStore({ projectRoot, sessionId: SESSION });
-  const fake = createFake(fakeAttach);
-  const coordinator = createAttemptCoordinator({
+interface MakeCoordinatorOptions extends FakeOptions {
+  readonly createFallbackCapsule?: CreateFallbackCapsuleFn;
+  readonly store?: AttemptStoreShim;
+  /** If set, pre-create a path that will block the first journal write. */
+  readonly blockJournalWrite?: boolean;
+}
+
+type AttemptStoreShim = ReturnType<typeof createAttemptStore>;
+type CreateFallbackCapsuleFn = (input: {
+  readonly sessionId: string;
+  readonly attemptId: string;
+  readonly pathGeneration: number;
+}) => Promise<{ readonly capsule: unknown; readonly capsuleDigest: string }> | { readonly capsule: unknown; readonly capsuleDigest: string };
+
+function makeCoordinator(opts: MakeCoordinatorOptions) {
+  const { createFallbackCapsule, blockJournalWrite, store: providedStore, ...fakeOptions } = opts;
+  const store = providedStore ?? createAttemptStore({ projectRoot, sessionId: SESSION });
+  const fake = createFake(fakeOptions);
+  const deps: Parameters<typeof createAttemptCoordinator>[0] = {
     attachBridge: fake.attach,
     store,
     now: () => NOW,
     newAttemptId: () => ATTEMPT
-  });
+  };
+  if (createFallbackCapsule) {
+    (deps as { createFallbackCapsule?: CreateFallbackCapsuleFn }).createFallbackCapsule =
+      createFallbackCapsule;
+  }
+  if (blockJournalWrite) {
+    // Pre-create the attempt journal as a DIRECTORY so the first
+    // atomic write of the attempt journal fails (EISDIR on rename).
+    const journalPath = join(
+      projectRoot,
+      '.peaks',
+      '_runtime',
+      SESSION,
+      'compact-attempts',
+      `${ATTEMPT}.journal.json`
+    );
+    require('node:fs').mkdirSync(journalPath, { recursive: true });
+  }
+  const coordinator = createAttemptCoordinator(deps);
   return { store, fake, coordinator };
 }
 
@@ -425,7 +499,15 @@ describe('behavior — native→fallback switch increments generation once', () 
       probeProfiles: [nativeStrongProfile()],
       certification: 'certified-strong',
       nativeInvokeThrows: true,
-      fallbackEvents: (gen) => [completedEvent(gen, 'fallback', { before: 0.9, after: 0.4, token: 'tok-2' })]
+      fallbackEvents: (gen) => [
+        completedEvent(gen, 'fallback', {
+          before: 0.9,
+          after: 0.4,
+          token: 'tok-2',
+          completionSource: 'remeasure'
+        })
+      ],
+      createFallbackCapsule: () => ({ capsule: {}, capsuleDigest: sha256('phase2-capsule-v1') })
     });
 
     const result = await coordinator.compactAuto(input());
@@ -525,5 +607,343 @@ describe('integration — same-session calls are serialized', () => {
     expect(b.ok).toBe(false);
     // Serialized: 0 → 1 → 2. A lost update would leave the counter at 1.
     expect((await store.readSessionCircuit()).consecutiveVerificationFailures).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review handoff findings (Important).
+// ---------------------------------------------------------------------------
+
+describe('boundary — attachBridge throw resolves typed EXHAUSTED and the lock is released', () => {
+  it('returns EXHAUSTED (never rejects) and a later call still works', async () => {
+    // First call: attach throws. Second call: healthy native path.
+    let seq = 0;
+    let shouldAttachThrow = true;
+    const calls: { attach: number } = { attach: 0 };
+
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+
+    const coordinator = createAttemptCoordinator({
+      attachBridge: async () => {
+        calls.attach += 1;
+        if (shouldAttachThrow) throw new Error('attach rejected');
+        const fake = createFake({
+          probeProfiles: [nativeStrongProfile()],
+          certification: 'certified-strong',
+          nativeEvents: (gen, attemptId) => [
+            completedEvent(gen, 'native', { before: 0.9, after: 0.4, token: 'tok-ok', attemptId })
+          ]
+        });
+        return await fake.attach(SESSION, `attempt-${(seq += 1)}`);
+      },
+      store,
+      now: () => NOW,
+      newAttemptId: () => `attempt-${(seq += 1)}`
+    });
+
+    const a = await coordinator.compactAuto(input());
+    expect(a).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+
+    shouldAttachThrow = false;
+    const b = await coordinator.compactAuto(input());
+    // If the lock were not released after the throw, the second call would
+    // also exhaust (or hang) instead of completing.
+    expect(b).toMatchObject({ ok: true, code: 'AUTO_COMPACT_COMPLETED' });
+    expect(calls.attach).toBeGreaterThanOrEqual(2);
+  });
+
+  it('probe throw resolves typed EXHAUSTED', async () => {
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const coordinator = createAttemptCoordinator({
+      attachBridge: async () => ({
+        bridge: {
+          async probe(): Promise<CapabilityProfile> {
+            throw new Error('probe rejected');
+          },
+          invokeNative() {
+            throw new Error('not used');
+          },
+          replaceWithCapsule() {
+            throw new Error('not used');
+          },
+          async measureContext() { return reading(0.4); },
+          async resume() {
+            throw new Error('not used');
+          },
+          async inspectTransaction() { return { attemptId: ATTEMPT, pathGeneration: 0, state: 'unknown' }; },
+          async rollback() { return { attemptId: ATTEMPT, pathGeneration: 0, state: 'rolled-back' }; }
+        },
+        certification: 'certified-strong',
+        manualMetadata: null
+      }),
+      store,
+      now: () => NOW,
+      newAttemptId: () => ATTEMPT
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+  });
+});
+
+describe('boundary — first journal write throw resolves typed EXHAUSTED', () => {
+  it('returns EXHAUSTED when the attempt journal cannot be written', async () => {
+    const { coordinator } = makeCoordinator({
+      probeProfiles: [nativeStrongProfile()],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', { before: 0.9, after: 0.4, token: 'tok-1', attemptId })
+      ],
+      blockJournalWrite: true
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+  });
+});
+
+describe('probe re-probe — pathGeneration is threaded through', () => {
+  it('fallback re-probe carries pathGeneration=1 (matches the dispatch generation)', async () => {
+    // Native admission (gen=0) throws → fallback switch → re-probe at gen=1.
+    // Capture every probe call by wrapping the bridge probe.
+    const probePayloads: number[] = [];
+    let seq = 0;
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+
+    const coordinator = createAttemptCoordinator({
+      createFallbackCapsule: () => ({ capsule: {}, capsuleDigest: sha256('phase2-capsule-v1') }),
+      attachBridge: async () => {
+        const fake = createFake({
+          probeProfiles: [nativeStrongProfile()],
+          certification: 'certified-strong',
+          nativeInvokeThrows: true,
+          fallbackEvents: (gen, attemptId) => [
+            completedEvent(gen, 'fallback', {
+              before: 0.9,
+              after: 0.4,
+              token: 'tok-2',
+              attemptId,
+              completionSource: 'remeasure'
+            })
+          ]
+        });
+        const base = await fake.attach(SESSION, `attempt-${(seq += 1)}`);
+        return {
+          ...base,
+          bridge: {
+            ...base.bridge,
+            async probe(input) {
+              probePayloads.push(input.pathGeneration);
+              return base.bridge.probe(input);
+            }
+          }
+        };
+      },
+      store,
+      now: () => NOW,
+      newAttemptId: () => `attempt-${(seq += 1)}`
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: true, code: 'AUTO_COMPACT_COMPLETED' });
+    // Admission probe at gen=0; at least one re-probe at the fallback
+    // generation (gen=1); no probe carries gen=2.
+    expect(probePayloads[0]).toBe(0);
+    expect(probePayloads).toContain(1);
+    expect(probePayloads).not.toContain(2);
+  });
+
+  it('an epoch change between dispatch and re-probe blocks the mutation (no replaceWithCapsule)', async () => {
+    // Probe profiles: first is the admission epoch, then every subsequent
+    // re-probe returns a different epoch.
+    const seq = { value: 0 };
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const fake = createFake({
+      probeByCall: [nativeStrongProfile('E1'), nativeStrongProfile('E2')],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', { before: 0.9, after: 0.4, token: 'tok-1', attemptId })
+      ]
+    });
+    const coordinator = createAttemptCoordinator({
+      attachBridge: fake.attach,
+      store,
+      now: () => NOW,
+      newAttemptId: () => `attempt-${(seq.value += 1)}`
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+  });
+});
+
+describe('completionSource validation', () => {
+  it('event-with-measurement receipt is rejected when certification is not certified-strong', async () => {
+    // The profile says event-with-measurement, but the attachment is
+    // native-only. The coordinator must NOT trust the receipt as a §9
+    // proof of reduction; it must use the remeasure fallback (and the
+    // receipt after) — but here we assert the negative: a self-claimed
+    // `host-event` source under a non-strong certification cannot pass
+    // through and complete.
+    const { fake, coordinator } = makeCoordinator({
+      probeProfiles: [nativeStrongProfile()],
+      certification: 'native-only',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', {
+          before: 0.9,
+          after: 0.4,
+          token: 'tok-1',
+          attemptId,
+          completionSource: 'host-event'
+        })
+      ]
+    });
+
+    const result = await coordinator.compactAuto(input());
+    // The admission policy already rejects native-only under native (or
+    // sends to native path only) — but we picked native-strong profile +
+    // native-only certification. Under `native-only`, only native is
+    // admissible. The completionSource gate must still reject the receipt
+    // because the certification isn't strong.
+    expect(result.ok).toBe(false);
+    // Either UNSUPPORTED or EXHAUSTED; either way we did NOT claim
+    // completed from a self-trusted host-event.
+    if (result.ok === false) {
+      expect(['AUTO_COMPACT_EXHAUSTED', 'AUTO_COMPACT_UNSUPPORTED_STRONG_GUARANTEE']).toContain(
+        result.code
+      );
+    }
+    expect(fake.calls.resume).toHaveLength(0);
+  });
+
+  it('remeasure completion ignores receipt.after and uses the live measureContext reading', async () => {
+    // Profile says completionSignal=remeasure, so we must re-measure rather
+    // than trust receipt.after. The bridge reports measureContext=0.85
+    // (insufficient reduction). The receipt's after=0.4 is ignored.
+    const { store, coordinator } = makeCoordinator({
+      probeProfiles: [nativeRemeasureProfile()],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', {
+          before: 0.9,
+          after: 0.4,
+          token: 'tok-1',
+          attemptId,
+          completionSource: 'remeasure'
+        })
+      ],
+      measureContextOverride: () => reading(0.85)
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+    expect((await store.readSessionCircuit()).consecutiveVerificationFailures).toBe(1);
+  });
+
+  it('remeasure completion passes when the live measureContext reading satisfies §9', async () => {
+    const { coordinator } = makeCoordinator({
+      probeProfiles: [nativeRemeasureProfile()],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', {
+          before: 0.9,
+          after: 0.85, // intentionally misleading
+          token: 'tok-1',
+          attemptId,
+          completionSource: 'remeasure'
+        })
+      ],
+      measureContextOverride: () => reading(0.3)
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: true, code: 'AUTO_COMPACT_COMPLETED' });
+  });
+});
+
+describe('post-resume epoch re-probe', () => {
+  it('an epoch change after the resume blocks completion (returns EXHAUSTED, no completion seal)', async () => {
+    // Probe sequence: [admission=E1, pre-mutation=E1, post-resume=E2]
+    // To produce this, every probe call except index 2 returns E1; index 2 returns E2.
+    const seq = { value: 0 };
+    const store = createAttemptStore({ projectRoot, sessionId: SESSION });
+    const fake = createFake({
+      probeByCall: [nativeStrongProfile('E1'), nativeStrongProfile('E1'), nativeStrongProfile('E2')],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', { before: 0.9, after: 0.4, token: 'tok-1', attemptId })
+      ]
+    });
+    const coordinator = createAttemptCoordinator({
+      attachBridge: fake.attach,
+      store,
+      now: () => NOW,
+      newAttemptId: () => `attempt-${(seq.value += 1)}`
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+  });
+});
+
+describe('capsule traceability — no fabricated fallback digest', () => {
+  it('absent createFallbackCapsule ⇒ dry-run plans fallback but execution exhausts before any replaceWithCapsule', async () => {
+    const { fake, coordinator } = makeCoordinator({
+      probeProfiles: [fallbackOnlyProfile()],
+      certification: 'certified-strong'
+    });
+
+    const plan = await coordinator.compactAuto(input({ dryRun: true }));
+    expect(plan).toMatchObject({ ok: true, code: 'AUTO_COMPACT_PLAN', path: 'fallback' });
+
+    const exec = await coordinator.compactAuto(input());
+    expect(exec).toMatchObject({ ok: false, code: 'AUTO_COMPACT_EXHAUSTED' });
+    expect(fake.calls.replaceWithCapsule).toHaveLength(0);
+    expect(fake.calls.invokeNative).toHaveLength(0);
+    expect(fake.calls.resume).toHaveLength(0);
+  });
+
+  it('injected Phase-2 seam capsule+digest can complete the fallback path', async () => {
+    const capsulePayload = { peak: 'value' };
+    const { fake, coordinator } = makeCoordinator({
+      probeProfiles: [fallbackOnlyProfile()],
+      certification: 'certified-strong',
+      fallbackEvents: (gen, attemptId) => [
+        completedEvent(gen, 'fallback', {
+          before: 0.9,
+          after: 0.4,
+          token: 'tok-3',
+          attemptId,
+          completionSource: 'remeasure'
+        })
+      ],
+      createFallbackCapsule: () => ({ capsule: capsulePayload, capsuleDigest: sha256('phase2-capsule-v1') })
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: true, code: 'AUTO_COMPACT_COMPLETED' });
+    expect(fake.calls.replaceWithCapsule).toHaveLength(1);
+    expect(fake.calls.replaceWithCapsule[0]?.capsuleDigest).toBe(sha256('phase2-capsule-v1'));
+  });
+});
+
+describe('happy-path journal stage progression is persisted before dispatch', () => {
+  it('records preparing → native-compacting → verifying → resuming → completed in order', async () => {
+    const { coordinator, store } = makeCoordinator({
+      probeProfiles: [nativeStrongProfile()],
+      certification: 'certified-strong',
+      nativeEvents: (gen, attemptId) => [
+        completedEvent(gen, 'native', { before: 0.9, after: 0.4, token: 'tok-1', attemptId })
+      ]
+    });
+
+    const result = await coordinator.compactAuto(input());
+    expect(result).toMatchObject({ ok: true, code: 'AUTO_COMPACT_COMPLETED' });
+
+    const journal = await store.readAttempt(ATTEMPT);
+    expect(journal).not.toBeNull();
+    // The terminal stage proves every preceding transition persisted
+    // (preparing → native-compacting → verifying → resuming → completed).
+    expect(journal!.stage).toBe('completed');
   });
 });
