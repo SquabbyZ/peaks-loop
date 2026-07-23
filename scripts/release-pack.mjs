@@ -108,7 +108,13 @@ function isAlreadyPublished(name, version) {
 function isRegistryStale(name, version, localTarball) {
   const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-stale-'));
   try {
-    const localVer = readVersionJsFromTarball(localTarball, `local ${name}@${version}`);
+    // Local tarball may not ship `dist/version.js` (e.g.
+    // peaks-loop-shared-channel has no CLI_VERSION export). The
+    // staleness check only applies to packages that carry a
+    // version.js file. Use the silent helper that returns null on
+    // missing file instead of throwing.
+    const localVer = readVersionJsFromTarballSilent(localTarball, `local ${name}@${version}`);
+    if (localVer === null) return false;
     const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
     execFileSync(npmBin, ['pack', `${name}@${version}`, '--pack-destination', tmp], {
       cwd: projectRoot, stdio: ['ignore', 'pipe', 'pipe'],
@@ -121,11 +127,29 @@ function isRegistryStale(name, version, localTarball) {
       // false so the publish proceeds.
       return false;
     }
-    const regVer = readVersionJsFromTarball(join(tmp, tgz), `registry ${name}@${version}`);
+    const regVer = readVersionJsFromTarballSilent(join(tmp, tgz), `registry ${name}@${version}`);
+    if (regVer === null) return false;
     return localVer !== regVer;
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+// Silent counterpart of `readVersionJsFromTarball`: returns null
+// (instead of throwing) when `package/dist/version.js` is missing
+// or when tar extraction fails. Used by `isRegistryStale` for
+// packages that don't ship a CLI_VERSION file (peaks-loop-shared-
+// channel, -job-snapshot, -mut, -doctor, -crystallization,
+// -final-review, -audit-independent).
+function readVersionJsFromTarballSilent(tarball, label) {
+  const tmp = mkdtempSync(join(os.tmpdir(), 'peaks-version-silent-'));
+  try {
+    execFileSync('tar', ['-xzf', toPosixPath(tarball), '-C', toPosixPath(tmp)]);
+    const f = join(tmp, 'package', 'dist', 'version.js');
+    if (!existsSync(f)) return null;
+    return readFileSync(f, 'utf8');
+  } catch { return null; }
+  finally { rmSync(tmp, { recursive: true, force: true }); }
 }
 
 // Read `package/dist/version.js` out of a tarball. Throws when the
