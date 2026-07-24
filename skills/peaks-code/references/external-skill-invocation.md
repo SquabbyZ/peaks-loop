@@ -70,3 +70,30 @@ When a skill body adds a new external reference, it must include the equivalent 
 3. add the capability discovery clause, the reference-only qualifier, the do-not-execute clause, and the Peaks-authoritative gate to that section;
 4. for MCP servers, point the LLM at the tool-list self-check (its own `mcp__<server>__*` namespace) instead of describing manual `~/.claude/settings.json` edits;
 5. rerun the audit.
+
+## Superpowers transition contract (effective 2026-07-24, slice 2026-07-24-peaks-code-bridge-002-rootcause)
+
+`peaks-code` cooperates with the **superpowers** skill family under the following contract. This contract sits alongside Stage 1–3 above and is binding on every peaks-code dispatch.
+
+### Trigger
+
+When the user (or the active IDE skill picker) suggests invoking `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:executing-plans`, or any other superpowers skill during a peaks-code request, the LLM MUST apply the transition steps below before continuing the peaks-code 11-step sequence.
+
+### Transition steps (binding)
+
+1. **Discovery** — confirm the superpowers skill is present via the LLM's own tool list / `peaks capabilities --source access-repo --json`. If absent, surface the install command (`claude install skill superpowers:<skill>`) and stop until the user installs.
+2. **Reference-only invocation** — invoke the superpowers skill as **reference material**. The output (a brainstorming map, a plan, a TDD recipe, etc.) is read; it is not executed as the workflow body. Quote the methods/surfaces the peaks-rd plan borrows; never persist or "execute" the superpowers output verbatim.
+3. **Re-author through peaks-rd** — re-author the borrowed plan as a peaks-rd artefact at `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`. peaks-rd owns the slice contract, the rollback plan, and the test plan. The superpowers output may inform the prose; it does not replace the peaks-rd envelope.
+4. **Continue peaks-code** — from Step 3 (sub-agent fan-out) onward. Do NOT call `superpowers:executing-plans` or `superpowers:subagent-driven-development` to run the resulting plan; use `peaks sub-agent dispatch rd` / `peaks sub-agent dispatch qa` instead.
+5. **Do not edit upstream** — the `superpowers:writing-plans` and `superpowers:brainstorming` upstream SKILL.md files are owned by the superpowers npm/Claude-Code skill distribution. Any direct edit is silently overwritten on the next `claude install skill superpowers:<skill>` refresh. If a user-facing bridge is needed, place it in `peaks-code/SKILL.md` (BRIDGE chapter), `peaks-code/references/runbook.md` (Step 2.7), `peaks-code/references/boundaries.md` (superpowers red lines), and this file (transition contract).
+6. **Mandatory closure** — when the request is complete, run `peaks request transition` through `spec-locked → implemented → qa-handoff → handed-off` and `peaks memory extract`. A half-finished state file under `.peaks/_runtime/<sessionId>/` is treated as pollution.
+
+### What peaks-code MUST NOT do
+
+- Dispatch `superpowers:executing-plans` or `superpowers:subagent-driven-development` to replace peaks-rd or peaks-qa.
+- Adopt superpowers' bare worktree convention (`~/.claude/worktrees/<branch>/`) inside peaks-code requests; peaks-loop uses `.peaks/_runtime/<sessionId>/<role>/...` (gitignored) and the active junction at `~/.claude/skills/peaks-*`.
+- Hand-author hook scripts at `~/.claude/skills/peaks-code/hooks/*`. Hook source MUST come from `src/services/hooks/*.sh` in the peaks-loop repo, distributed via `peaks hooks install` (which itself respects the existing `peaks gate enforce` entry and is append-only).
+
+### Phrase the audit looks for
+
+When a peaks-code skill body mentions a superpowers skill by name, the body MUST include all four: a "reference only" qualifier, a "do not auto-run" clause, a "re-author through peaks-rd" clause, and a "Peaks artefacts remain authoritative" clause. The `tests/unit/skills/peaks-code-superpowers-bridge.test.ts` guard test enforces this on every peaks-* SKILL.md.

@@ -44,6 +44,22 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 **Peaks-Loop Code is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-code → RD → QA → verdict`. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
 
+## Peaks-Loop Superpowers 协作边界 (BRIDGE — MANDATORY, effective 2026-07-24)
+
+This chapter pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Boundary is closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
+
+- superpowers skills are **reference material**, not workflows peaks-code runs. They may NOT auto-replace peaks-rd, peaks-qa, peaks-ui, peaks-sc, or peaks-txt.
+- When a user (or the IDE) suggests invoking `superpowers:brainstorming` or `superpowers:writing-plans`, peaks-code MUST:
+  1. Run the superpowers skill as a **reference** to seed its own PRD/RD artefacts.
+  2. Re-author the resulting plan as a peaks-rd PRD artefact under `.peaks/_runtime/<sessionId>/rd/requests/<rid>.md`.
+  3. Continue peaks-code's 11-step sequence from Step 3 (sub-agent fan-out) — never the superpowers plan execution.
+- `superpowers:writing-plans` and `superpowers:executing-plans` are **NOT** dispatched directly. peaks-rd is the only authoritative planner / executor pair. (`writing-plans` upstream SKILL.md is superpowers-owned and is intentionally NOT edited — peaks-code/SKILL.md + runbook + boundaries + external-skill-invocation carry the bridge.)
+- Any peaks-managed hook entry emitted by `peaks hooks install` MUST originate from `src/services/hooks/*.sh` in the peaks-loop repo. LLM-improvised hook scripts are forbidden (001-bridge root cause).
+- Before any LLM edit to `~/.claude/skills/<skill>/*`, verify the path is a junction (`fsutil reparsepoint query` on Windows / `readlink` on POSIX). If it is a real directory, STOP and re-route via `peaks skill sync` after a junction rebuild — never write to a real directory (would pollute the npm sync chain).
+- Mandatory closure: every peaks-code request MUST finish `peaks request transition` through `spec-locked → implemented → qa-handoff → handed-off` plus `peaks memory extract`. Half-finished state files are treated as pollution and the LLM MUST NOT exit without a transition note.
+
+**Self-check (read before any tool call):** *Is the tool I am about to call a superpowers auto-runner, or a peaks-rd / peaks-qa sub-agent dispatch?* If it would short-circuit peaks-rd, STOP and dispatch via `peaks sub-agent dispatch rd`.
+
 ## Peaks-Loop Startup sequence (MANDATORY — execute in order)
 
 Full content extracted to **`references/startup-sequence.md`** (Steps 0 / 0.5-0.87 / 1 / 2 / 2.3 / 2.5 / N / N+1 / N+2 + sub-agent sharing + boundaries). Read that file in full at session start; the sequence is MANDATORY.

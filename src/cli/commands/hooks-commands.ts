@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { Command } from 'commander';
 import { fail, ok } from 'peaks-loop-shared/result';
 
@@ -61,6 +62,43 @@ function listExpectedEntriesForIde(ide: IdeId, _skipProgress = false): ReadonlyA
   return [{ matcher: adapter.toolMatcher, sentinel: 'peaks gate enforce' }];
 }
 
+/**
+ * Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): copy the
+ * superpowers-bridge hook source from the peaks-loop repo
+ * (src/services/hooks/pre-tool-superpowers-bridge.sh) into the user-global
+ * `<userHome>/.claude/skills/peaks-code/hooks/` directory. The user-global
+ * copy is treated as a build artifact: it MUST be byte-identical to the
+ * repo source after install, and the source of truth is the repo file.
+ *
+ * Why this lives in the install command: the install is the single
+ * declared surface where the user-global directory is touched. Adding it
+ * here keeps the "hooks only ship from src/services/hooks/" invariant
+ * (G10 / AC10) — no other code path writes to `~/.claude/skills/peaks-code/hooks/`.
+ *
+ * Failure modes:
+ *   - Source file missing (build not run yet) → silently skip and emit a
+ *     warning. The settings.json install still succeeds; only the script
+ *     distribution is skipped. Matches the "release-pack silent skip
+ *     when tarball lacks dist/version.js" pattern from commit 08d93353.
+ *   - Target directory unwritable → throw so the user knows.
+ *   - Target file already exists with identical bytes → no-op.
+ *   - Target file exists with different bytes → overwrite (the repo
+ *     source is authoritative).
+ *
+ * Returns `{ copied, source, target }` so the install envelope can report
+ * it without forcing the caller to inspect the filesystem.
+ */
+function copyBridgeHookIfPresent(userHome: string): { copied: boolean; source: string; target: string } {
+  const source = resolve(__dirname, '..', '..', 'services', 'hooks', 'pre-tool-superpowers-bridge.sh');
+  const target = resolve(userHome, '.claude', 'skills', 'peaks-code', 'hooks', 'pre-tool-superpowers-bridge.sh');
+  if (!existsSync(source)) {
+    return { copied: false, source, target };
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
+  return { copied: true, source, target };
+}
+
 export function registerHooksCommands(program: Command, io: ProgramIO): void {
   const hooks = program
     .command('hooks')
@@ -88,6 +126,9 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       if (options.dryRun === true) {
         const plan = planHookInstall(scope, projectRoot, { ide, skipProgress });
         const dryRunEntries = listExpectedEntriesForIde(ide, skipProgress);
+        const bridgeCopy = scope === 'global'
+          ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+          : { copied: false, source: '', target: '' };
         printResult(
           io,
           ok(
@@ -98,10 +139,16 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
               applied: false,
               dryRun: true,
               skipProgress,
-              entries: dryRunEntries
+              entries: dryRunEntries,
+              bridgeHookCopy: bridgeCopy
             },
             [],
-            [`would install ${dryRunEntries.length} peaks-managed hook entries`]
+            [
+              `would install ${dryRunEntries.length} peaks-managed hook entries`,
+              bridgeCopy.copied
+                ? `would copy bridge hook from ${bridgeCopy.source} to ${bridgeCopy.target}`
+                : 'would not copy bridge hook (source missing or non-global scope)'
+            ]
           ),
           options.json
         );
@@ -115,12 +162,25 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
       // entry; the summary mirrors the install shape, NOT a hardcoded
       // expected list.
       const installedEntries = listExpectedEntriesForIde(ide, skipProgress);
+      // Slice 2026-07-24-peaks-code-bridge-002-rootcause (G6b / G10): when
+      // the install targets global scope, also copy the superpowers-bridge
+      // hook script from src/services/hooks/ to the user-global hooks
+      // directory. Project scope does not need this — project's
+      // .claude/skills/peaks-code is already a junction into the npm source.
+      const bridgeCopy = scope === 'global'
+        ? copyBridgeHookIfPresent(process.env.USERPROFILE ?? process.env.HOME ?? '')
+        : { copied: false, source: '', target: '' };
       const nextActions = result.applied
         ? [
             'Restart the IDE (or reload the workspace) so the hook entries take effect',
-            `Installed: ${installedEntries.map((e) => `${e.matcher}→${e.sentinel}`).join(', ')}`
+            `Installed: ${installedEntries.map((e) => `${e.matcher}→${e.sentinel}`).join(', ')}`,
+            bridgeCopy.copied
+              ? `Copied bridge hook: ${bridgeCopy.target}`
+              : 'Bridge hook not copied (source missing or non-global scope)'
           ]
-        : [];
+        : (bridgeCopy.copied
+            ? [`Bridge hook copied: ${bridgeCopy.target}`]
+            : []);
       printResult(
         io,
         ok(
@@ -130,7 +190,8 @@ export function registerHooksCommands(program: Command, io: ProgramIO): void {
             ide,
             dryRun: false,
             skipProgress,
-            entries: installedEntries.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel }))
+            entries: installedEntries.map((e) => ({ matcher: e.matcher, sentinel: e.sentinel })),
+            bridgeHookCopy: bridgeCopy
           },
           [],
           nextActions

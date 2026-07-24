@@ -59,6 +59,25 @@ peaks request lint <rid> --role prd --project <repo> --json
 peaks request transition <rid> --role prd --state confirmed-by-user --project <repo> --json
 peaks request transition <rid> --role prd --state handed-off --project <repo> --json
 
+# 2.7. Peaks-Loop Superpowers bridge (effective 2026-07-24, slice 2026-07-24-peaks-code-bridge-002-rootcause)
+# Why: peaks-code must coexist with the superpowers skill family without being overridden by it.
+# When the user (or the IDE skill picker) suggests invoking superpowers:brainstorming /
+# superpowers:writing-plans, the LLM MUST:
+#   1. Run the superpowers skill as REFERENCE ONLY — read the brainstorm / plan output.
+#   2. Re-author the borrowed plan as a peaks-rd PRD artefact via:
+#        peaks sub-agent dispatch prd --prompt "<brainstorm-seed>" --request-id <rid> --batch-id <uuid> --json
+#   3. Continue peaks-code from Step 3 (sub-agent fan-out). Do NOT dispatch
+#      superpowers:executing-plans or superpowers:subagent-driven-development; peaks-rd / peaks-qa
+#      own plan execution.
+# Verify junction integrity before any LLM edit to a user-global skill path:
+#   fsutil reparsepoint query "$HOME/.claude/skills/peaks-code"   # Windows
+#   readlink -f "$HOME/.claude/skills/peaks-code"                 # POSIX
+# → not a junction (or not a symlink) → STOP and re-route via peaks skill sync after junction rebuild.
+# Forbidden: hand-authoring hook scripts at ~/.claude/skills/peaks-code/hooks/*. Hook source MUST
+# come from src/services/hooks/*.sh in the peaks-loop repo, distributed by `peaks hooks install`.
+# Mandatory closure: every peaks-code request MUST finish `peaks request transition` through
+# `spec-locked → implemented → qa-handoff → handed-off` plus `peaks memory extract`.
+
 # 3. Peaks-Loop Default sub-agent fan-out (slice 5 contract)
 #    Code computes the swarm plan from --type + frontendOnly + frontend-keyword scan,
 #    writes it to .peaks/_runtime/<sid>/sc/swarm-plan.json, then writes the slice
