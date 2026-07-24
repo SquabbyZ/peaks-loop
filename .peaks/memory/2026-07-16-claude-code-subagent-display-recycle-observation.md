@@ -9,6 +9,7 @@ metadata:
   targetRelease: 4.0.0-beta.11
   scope: harness-level / non-actionable
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # Claude Code sub-agent display recycle — observation (NOT a fix)
 

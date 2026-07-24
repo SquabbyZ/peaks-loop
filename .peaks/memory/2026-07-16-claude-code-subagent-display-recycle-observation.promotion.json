@@ -1,0 +1,10 @@
+{
+  "name": "2026-07-16-claude-code-subagent-display-recycle-observation",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/2026-07-16-claude-code-subagent-display-recycle-observation.md"
+  ],
+  "promotedAt": "2026-07-24T02:08:34.689Z",
+  "promotedBy": "peaks-rd fork agent"
+}

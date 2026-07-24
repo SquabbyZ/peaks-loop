@@ -1,0 +1,10 @@
+{
+  "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
+  "layer": "A",
+  "layerDetail": "peaks-sop gate",
+  "generatedFiles": [
+    "sops/2026-07-16-slice-2-commander-12-hidden-api-drift.md"
+  ],
+  "promotedAt": "2026-07-24T02:08:40.489Z",
+  "promotedBy": "peaks-rd fork agent"
+}

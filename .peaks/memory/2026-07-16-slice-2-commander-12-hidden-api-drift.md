@@ -9,6 +9,7 @@ metadata:
   sessionId: 2026-07-16-session-651c20
   targetRelease: 4.0.0-beta.10
 ---
+<!-- peaks-feedback-promoted: layer=A -->
 
 # Slice 2 — Commander 12 `.hidden()` API drift (D-007)
 

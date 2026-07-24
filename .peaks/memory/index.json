@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-07-13T07:39:28.831Z",
+  "updatedAt": "2026-07-24T02:19:15.776Z",
   "hot": {
     "feedback": [
       {
@@ -26,6 +26,22 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-06-28-full-auto-boundary.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-06"
+      },
+      {
+        "name": "2026-07-16-claude-code-subagent-display-recycle-observation",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> Claude Code sub-agent display recycle — observation (NOT a fix) **Date:** 2...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-claude-code-subagent-display-recycle-observation.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-24"
+      },
+      {
+        "name": "2026-07-16-slice-2-commander-12-hidden-api-drift",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> Slice 2 — Commander 12  API drift (D-007) What we thought PRD v3 §Slice 2 +...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-commander-12-hidden-api-drift.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-24"
       },
       {
         "name": "active-skill-cli-routing",
@@ -60,6 +76,14 @@
         "updatedAt": "2026-06-30"
       },
       {
+        "name": "peaks-cli-version-shared-chicken-egg",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop CLI_VERSION shared chicken-egg (2026-07-22) 2026-07-22 04:15Z ic...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-cli-version-shared-chicken-egg.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-22"
+      },
+      {
         "name": "peaks-code-to-peaks-code-rename-session-directive",
         "kind": "feedback",
         "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-code → peaks-code rename 时的 user 硬约束(2026-07-05) > **Why:** user 在 4....",
@@ -82,6 +106,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-ide-skill-ac-10-audit-log-writer-is-a-thin-helper-not-a-separate-cli-primitive.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-06-session-22f08c/txt/handoff.md",
         "updatedAt": "2026-06-30"
+      },
+      {
+        "name": "peaks-release-4-0-2-published",
+        "kind": "feedback",
+        "description": "<!-- peaks-feedback-promoted: layer=A --> peaks-loop 4.0.2 — accidental publish (2026-07-22) 2026-07-22 published  + ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-release-4-0-2-published.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-22"
       },
       {
         "name": "peaks-skill-output-style",
@@ -414,12 +446,28 @@
         "updatedAt": "2026-07-09"
       },
       {
+        "name": "monorepo-test-fix-2026-07-20",
+        "kind": "lesson",
+        "description": "2026-07-20 monorepo 单元测试全绿战役 **会话**: 2026-07-20-session-a8211f (rotated from 2026-07-17-session-1d5ac0) **Job**: fix-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-20-monorepo-test-fix-sediment.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-20-session-a8211f/txt/handoff-monorepo-test-fix.md",
+        "updatedAt": "2026-07-20"
+      },
+      {
         "name": "openspec-peaks-code-peaks-runtime-source-of-truth",
         "kind": "lesson",
         "description": "peaks-code 与 OpenSpec 解耦(session 2026-07-08-session-17918f,2026-07-08)。 实施:删 SKILL.md Step 0.5 + references/openspec-...",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\openspec-peaks-code-peaks-runtime-source-of-truth.md",
         "sourceArtifact": ".peaks/_runtime/2026-07-08-session-17918f/txt/handoff.md",
         "updatedAt": "2026-07-09"
+      },
+      {
+        "name": "peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006",
+        "kind": "lesson",
+        "description": "session 2026-07-15-session-87a173 跑 cli-surface-cleanup 3-slice job 时实测发现 peaks sub-agent dispatch / peaks job checkp...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\peaks-code-runbook-4-0-0-beta-10-skill-md-cli-d-004-d-005-d-006.md",
+        "sourceArtifact": ".peaks/_runtime/2026-07-15-session-87a173/checkpoints/2026-07-15T17-48-30-573Z.json",
+        "updatedAt": "2026-07-16"
       },
       {
         "name": "peaks-code-runbook-4-0-0-beta-6-skill-md-cli-d-001-d-002-d-003-d-010",
@@ -534,12 +582,156 @@
         "updatedAt": "2026-07-11"
       },
       {
+        "name": "slice-014b-vitest-slowdown-real-cause-fork-accumulation",
+        "kind": "lesson",
+        "description": "Slice 014b — vitest slowdown + flakiness (the real root cause) **Date:** 2026-07-13 **Slice:** 014b — vitest slowdown...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-014b-vitest-slowdown-real-cause-fork-accumulation.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
         "name": "slice-015-fix-3-dogfood",
         "kind": "lesson",
         "description": "This is a test memory from slice #015 fix-3 dogfood.",
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-015-fix-3-dogfood.md",
         "sourceArtifact": ".peaks/_runtime/2026-06-07-session-84feb7/qa/test-reports/015-2026-06-07-fix-4-peaks-loop-self-bugs-and-md.md",
         "updatedAt": "2026-07-01"
+      },
+      {
+        "name": "slice-015-swarmplan-strict-standards-reach",
+        "kind": "lesson",
+        "description": "Slice 015 —  is reachable again **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 015-swarmplan-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-015-swarmplan-strict-standards-reach.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-015b-test-full-run-flake-evidence",
+        "kind": "lesson",
+        "description": "Slice 015b — post-merge  evidence (2026-07-14) TL;DR After commit  (Slice 015 main fix) ran the user executed  to ver...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-015b-test-full-run-flake-evidence.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016-g8-shared-channel-race-mode",
+        "kind": "lesson",
+        "description": "Slice 016 — g8-shared-channel race-mode flake, eliminated **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016-g8-shared-channel-race-mode.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016b-cli-command-branches-parallelism-budget",
+        "kind": "lesson",
+        "description": "Slice 016b —  parallelism timeout budget **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 016b ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016b-cli-command-branches-parallelism-budget.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016c-cli-program-workflow-parallelism-budget",
+        "kind": "lesson",
+        "description": "Slice 016c —  parallelism timeout budget **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 016c ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016c-cli-program-workflow-parallelism-budget.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016d-workflow-autonomous-resume-parallelism-budget",
+        "kind": "lesson",
+        "description": "Slice 016d —  parallelism timeout budget **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 016d ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016d-workflow-autonomous-resume-parallelism-budget.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016e-dispatch-record-truncation-lock-pressure",
+        "kind": "lesson",
+        "description": "Slice 016e —  truncation test, real lock-pressure fix **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **S...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016e-dispatch-record-truncation-lock-pressure.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-016f-cliff-rebump-and-slow-lane-need",
+        "kind": "lesson",
+        "description": "Slice 016f — Two more parallelism-content cliffs, and the slow-lane need **Date:** 2026-07-14 **Session:** 2026-07-14...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-016f-cliff-rebump-and-slow-lane-need.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-017-cli-default-subset-fast-default",
+        "kind": "lesson",
+        "description": "Slice 017 —  defaults to CLI subset (3 min instead of 37) **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-017-cli-default-subset-fast-default.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-017d-vitest-projects-slow-lane-split",
+        "kind": "lesson",
+        "description": "Slice 017d — two-project slow-lane split, the architectural 18-min fix **Date:** 2026-07-14 **Session:** 2026-07-14-s...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-017d-vitest-projects-slow-lane-split.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-018-orphan-scan-budget-fix",
+        "kind": "lesson",
+        "description": "Slice 018 —  real-workload budget fix **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 018 **Ou...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-018-orphan-scan-budget-fix.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-018-plan-pnpm-test-full-too-slow",
+        "kind": "lesson",
+        "description": "Slice 018 (DRAFT) —  is still 36+ min, individual files hit 150s **Status:** plan only; awaits the full per-file prof...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-018-plan-pnpm-test-full-too-slow.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-018d-io-heavy-vitest-project-split",
+        "kind": "lesson",
+        "description": "Slice 018 — vitest 三项目 io-heavy 拆分(38 min → 20-25 min) **Date:** 2026-07-15 **Session:** 2026-07-14-session-cebb2d **...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-018d-io-heavy-vitest-project-split.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-15"
+      },
+      {
+        "name": "slice-018e-maxworkers-4-to-8",
+        "kind": "lesson",
+        "description": "Slice 018e — vitest maxWorkers 4→8 实测(wall 改善 10.7%) **Date:** 2026-07-15 **Session:** 2026-07-14-session-cebb2d **Sl...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-018e-maxworkers-4-to-8.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-15"
+      },
+      {
+        "name": "slice-019-pnpm-test-full-budget-fixes",
+        "kind": "lesson",
+        "description": "Slice 019 — 3 more budget bumps + structural-reality hard data **Date:** 2026-07-14 **Session:** 2026-07-14-session-c...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-019-pnpm-test-full-budget-fixes.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-020-1-vitest-workspace-not-supported",
+        "kind": "lesson",
+        "description": "Slice 020+1 — Second slow-lane attempt (also rolled back) **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-020-1-vitest-workspace-not-supported.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
+      },
+      {
+        "name": "slice-020-attempt-vitest-projects-rollback",
+        "kind": "lesson",
+        "description": "Slice 020 —  slow-lane attempt (rolled back) **Date:** 2026-07-14 **Session:** 2026-07-14-session-cebb2d **Slice:** 0...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\slice-020-attempt-vitest-projects-rollback.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-14"
       },
       {
         "name": "static-scan-must-cover-skills-tree-not-just-src",
@@ -786,6 +978,126 @@
         "updatedAt": "2026-07-09"
       },
       {
+        "name": "2026-07-15-project-scan-bootstrap",
+        "kind": "project",
+        "description": "Slice 2026-07-15-project-scan-bootstrap — 完成 用户反馈 下游使用 peaks-loop 的项目反馈两点： 1.",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-15-project-scan-bootstrap.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-15"
+      },
+      {
+        "name": "2026-07-16-4-0-0-beta-11-PUBLISHED",
+        "kind": "project",
+        "description": "peaks-loop 4.0.0-beta.11 — **PUBLISHED** 🎉 **Date:** 2026-07-16 **Status:** ✅ **PUBLISHED** to npm registry with  **...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-4-0-0-beta-11-PUBLISHED.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-4-0-0-beta-11-ready-for-publish",
+        "kind": "project",
+        "description": "4.0.0-beta.11 — ready for publish **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 **HEAD:**  (chore(versi...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-4-0-0-beta-11-ready-for-publish.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-4-0-0-beta-12-PUBLISHED",
+        "kind": "project",
+        "description": "peaks-loop 4.0.0-beta.12 — **PUBLISHED** 🎉 **Date:** 2026-07-16 **Status:** ✅ **PUBLISHED** to npm registry **npm re...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-4-0-0-beta-12-PUBLISHED.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-beta-10-ice-cola-real-test-checkpoint",
+        "kind": "project",
+        "description": "4.0.0-beta.10 ice-cola 实测 + implement job 启动 — checkpoint **日期:** 2026-07-16 **会话:** 2026-07-16-session-019b0b (ice-c...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-beta-10-ice-cola-real-test-checkpoint.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-15"
+      },
+      {
+        "name": "2026-07-16-cli-surface-cleanup-slice-1-progress",
+        "kind": "project",
+        "description": "Slice 1 DONE — bridge to Slice 2 / Slice 3 / publish **Date:** 2026-07-16 **Session:** 2026-07-15-session-87a173 (rot...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-cli-surface-cleanup-slice-1-progress.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-d-013-wrapper-exit-code-fixed",
+        "kind": "project",
+        "description": "D-013 wrapper exit-code fix — RESOLVED (4.0.0-beta.12) **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 **...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-d-013-wrapper-exit-code-fixed.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-d-018-state-db-path-relocation",
+        "kind": "project",
+        "description": "D-018 state.db path relocation — RESOLVED (4.0.0-beta.13) **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-d-018-state-db-path-relocation.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-ice-cola-baseline-gate-green",
+        "kind": "project",
+        "description": "Ice-cola baseline gate — GREEN (27/27 PASS functionally) **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 ...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-ice-cola-baseline-gate-green.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-slice-2-hide-role-skills-progress",
+        "kind": "project",
+        "description": "Slice 2 DONE — bridge to Slice 3 + publish **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 (rotated cycle...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-2-hide-role-skills-progress.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-slice-3-on-demand-ecc-final-verdict",
+        "kind": "project",
+        "description": "Slice 3 — on-demand-ecc — DONE **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 **Job:** 2026-07-16-cli-su...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-3-on-demand-ecc-final-verdict.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-slice-3-on-demand-ecc-progress",
+        "kind": "project",
+        "description": "Slice 3 on-demand-ecc — RD COMPLETE / QA-PENDING **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 **Job:**...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-3-on-demand-ecc-progress.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-16-slice-3-rd-subagent-hang-sediment",
+        "kind": "project",
+        "description": "Slice 3 BLOCKED — RD sub-agent no-progress **Date:** 2026-07-16 **Session:** 2026-07-16-session-651c20 **Job:** 2026-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-16-slice-3-rd-subagent-hang-sediment.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-17-4-0-0-beta-14-PUBLISHED",
+        "kind": "project",
+        "description": "peaks-loop 4.0.0-beta.14 — **PUBLISHED** 🎉 **Date:** 2026-07-17 **Status:** ✅ **PUBLISHED** to npm registry **npm re...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-17-4-0-0-beta-14-PUBLISHED.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
+        "name": "2026-07-17-d-019-migrations-not-copied-RESOLVED",
+        "kind": "project",
+        "description": "D-019 migrations not copied to dist/ — RESOLVED (4.0.0-beta.14) **Date:** 2026-07-17 **Session:** 2026-07-16-session-...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\2026-07-17-d-019-migrations-not-copied-RESOLVED.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-16"
+      },
+      {
         "name": "4-0-0-beta-5-overview",
         "kind": "project",
         "description": "4.0.0-beta.5(发布日 2026-07-08,10 commits 增量,轴心 = **上线 peaks-solo dispatcher**)。 1.",
@@ -808,6 +1120,14 @@
         "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\4x-sediment-pool-reserves-desktop-client-entry-points.md",
         "sourceArtifact": null,
         "updatedAt": "2026-07-05"
+      },
+      {
+        "name": "cli-cleanup-on-demand-ecc-design-2026-07-16",
+        "kind": "project",
+        "description": "CLI surface cleanup + on-demand ECC — design sediment **日期:** 2026-07-16 **rid:**  **sessionId:**  **targetRelease:**...",
+        "sourcePath": "C:\\Users\\smallMark\\Desktop\\peaks-loop\\.peaks\\memory\\cli-cleanup-on-demand-ecc-design-2026-07-16.md",
+        "sourceArtifact": null,
+        "updatedAt": "2026-07-15"
       },
       {
         "name": "custom-sop-and-gate-metering",
