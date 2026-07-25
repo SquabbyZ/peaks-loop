@@ -47,6 +47,14 @@ describe('archiveOpenSpecChange (dry-run)', () => {
       archiveOpenSpecChange('.hidden', { openspecRoot: root })
     ).rejects.toThrowError(/changeId/);
   });
+
+  test('preserves the byte-for-byte format-error string from rid-009 sub-slice-1', async () => {
+    const root = await makeOpenSpecRoot();
+
+    await expect(
+      archiveOpenSpecChange('../escape', { openspecRoot: root })
+    ).rejects.toThrowError('changeId ../escape does not match [A-Za-z0-9][A-Za-z0-9._-]*');
+  });
 });
 
 describe('archiveOpenSpecChange (apply)', () => {

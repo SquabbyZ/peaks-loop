@@ -5,6 +5,8 @@ import { isDirectory, pathExists } from 'peaks-loop-shared/fs';
 
 import { validateAgainstSchema, type JsonSchemaIssue, type JsonSchemaNode } from '../../shared/json-schema-mini.js';
 
+import { validateChangeId } from './artifact-boundary.js';
+
 export type OpenSpecRenderTaskSection = {
   heading: string;
   todos: string[];
@@ -41,8 +43,6 @@ export type OpenSpecRenderOptions = {
   overwrite?: boolean;
   schemaPath?: string;
 };
-
-const CHANGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 function defaultOpenSpecRoot(): string {
   return join(process.cwd(), 'openspec');
@@ -167,8 +167,11 @@ export async function renderOpenSpecChange(
     if (!result.valid) {
       throw new OpenSpecRenderRequestInvalidError(result.errors);
     }
-  } else if (!CHANGE_ID_PATTERN.test(request.changeId)) {
-    throw new Error(`Invalid changeId: ${request.changeId} (expected letters, digits, dots, underscores, or dashes)`);
+  } else {
+    const changeIdResult = validateChangeId(request.changeId);
+    if (!changeIdResult.ok) {
+      throw new Error(`changeId ${request.changeId} does not match [A-Za-z0-9][A-Za-z0-9._-]*`);
+    }
   }
 
   const openspecRoot = options.openspecRoot ?? defaultOpenSpecRoot();

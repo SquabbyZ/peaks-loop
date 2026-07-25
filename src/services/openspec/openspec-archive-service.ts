@@ -2,6 +2,7 @@ import { mkdir, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
+import { validateChangeId } from './artifact-boundary.js';
 import type { OpenSpecScanOptions } from './openspec-scan-service.js';
 
 export type OpenSpecArchiveOptions = OpenSpecScanOptions & {
@@ -16,8 +17,6 @@ export type OpenSpecArchiveResult = {
   applied: boolean;
 };
 
-const CHANGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
 function defaultOpenSpecRoot(): string {
   return join(process.cwd(), 'openspec');
 }
@@ -26,8 +25,9 @@ export async function archiveOpenSpecChange(
   changeId: string,
   options: OpenSpecArchiveOptions = {}
 ): Promise<OpenSpecArchiveResult | null> {
-  if (!CHANGE_ID_PATTERN.test(changeId)) {
-    throw new Error(`Invalid changeId: ${changeId} (expected letters, digits, dots, underscores, or dashes)`);
+  const changeIdResult = validateChangeId(changeId);
+  if (!changeIdResult.ok) {
+    throw new Error(`changeId ${changeId} does not match [A-Za-z0-9][A-Za-z0-9._-]*`);
   }
 
   const openspecRoot = options.openspecRoot ?? defaultOpenSpecRoot();

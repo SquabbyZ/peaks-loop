@@ -225,6 +225,18 @@ describe('renderOpenSpecChange (schema validation)', () => {
     ).rejects.toThrowError(/changeId/);
   });
 
+  test('preserves the byte-for-byte format-error string from rid-009 sub-slice-1', async () => {
+    const root = await makeOpenSpecRoot();
+    const missingSchema = join(root, 'does-not-exist.schema.json');
+
+    await expect(
+      renderOpenSpecChange(
+        { ...fullRequest(), changeId: 'bad space' },
+        { openspecRoot: root, schemaPath: missingSchema }
+      )
+    ).rejects.toThrowError('changeId bad space does not match [A-Za-z0-9][A-Za-z0-9._-]*');
+  });
+
   test('reuses the loaded schema when called multiple times with the same path', async () => {
     const root = await makeOpenSpecRoot();
     const schemaPath = join(root, 'cached.schema.json');
