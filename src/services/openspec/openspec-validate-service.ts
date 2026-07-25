@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
 import { loadOpenSpecChange, type OpenSpecScanOptions } from './openspec-scan-service.js';
+import { validateChangeId } from './artifact-boundary.js';
 
 export type OpenSpecValidationLevel = 'error' | 'warning';
 
@@ -35,8 +36,6 @@ export type OpenSpecValidateOptions = OpenSpecScanOptions & {
   externalRunner?: ExternalRunner;
 };
 
-const CHANGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
-
 function defaultOpenSpecRoot(): string {
   return join(process.cwd(), 'openspec');
 }
@@ -48,11 +47,12 @@ async function defaultExternalRunner(_command: string, _args: string[]): Promise
 function buildInternalIssues(changeId: string, detail: Awaited<ReturnType<typeof loadOpenSpecChange>>): OpenSpecValidationIssue[] {
   const issues: OpenSpecValidationIssue[] = [];
 
-  if (!CHANGE_ID_PATTERN.test(changeId)) {
+  const changeIdResult = validateChangeId(changeId);
+  if (!changeIdResult.ok) {
     issues.push({
       level: 'error',
       rule: 'change-id-format',
-      message: `changeId ${changeId} does not match [A-Za-z0-9][A-Za-z0-9._-]*`
+      message: changeIdResult.error.message
     });
   }
 
