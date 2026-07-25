@@ -23,6 +23,15 @@ import { addJsonOption, failUnsupportedNonDryRun, getErrorMessage, isRecommendat
 // swarm.plan) so provider-config errors surface as `INVALID_PROVIDERS`
 // instead of being silently re-labelled `INVALID_GOAL`.
 import { mapServiceError } from './_cli-error-envelope.js';
+// Slice rid-012 — change-id-axis tech subcommands (`peaks tech plan-change-id` /
+// `peaks tech status-change-id`). Additive; the existing session-axis
+// `peaks tech plan` / `peaks tech status` registrations are untouched.
+import { registerTechCommands } from './tech-commands.js';
+import { registerSwarmCommands } from './swarm-commands.js';
+// Slice rid-014 — autonomous RD swarm planner (`peaks workflow autonomous`).
+// Additive; the existing rid-013 `registerSwarmCommands` and rid-012
+// `registerTechCommands` registrations are byte-for-byte untouched.
+import { registerAutonomousSwarmCommands } from './autonomous-swarm-commands.js';
 // Plan 1 / Task 9 — auto-build peaks-context before peaks-rd runs.
 import { buildContext } from '../../services/context/context-builder.js';
 // Plan 1 / Task 10 — production fetcher (replaces mockFetcher).
@@ -443,6 +452,10 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
   addTechStatusOptions(tech.command('status')).action((options: TechStatusOptions) => runTechStatus(io, options));
   addTechPlanOptions(program.command('tech-plan')).action((options: TechPlanOptions) => runTechPlan(io, options));
   addTechStatusOptions(program.command('tech-status')).action((options: TechStatusOptions) => runTechStatus(io, options));
+  // Slice rid-012 — add the change-id-axis tech subcommands
+  // (`peaks tech plan-change-id` / `peaks tech status-change-id`).
+  // Additive; the session-axis registrations above are byte-for-byte untouched.
+  registerTechCommands(program, io);
 
   const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
   addWorkflowRouteOptions(workflow.command('route'), 'Plan a workflow routing dry-run summary').action((options: WorkflowRouteOptions) => runWorkflowRoute(io, options));
@@ -546,9 +559,19 @@ export function registerWorkflowCommands(program: Command, io: ProgramIO): void 
     }
   });
 
+  // Slice rid-013 — `peaks swarm plan-change-id` is delegated to
+  // `registerSwarmCommands` (a thin wrapper around the new
+  // `planRdSwarmGraph` service). The legacy `peaks swarm plan` /
+  // `peaks swarm-plan` registrations above stay in-place for back-compat
+  // with the existing test suite (`tests/unit/cli-program.workflow.test.ts`).
   const swarm = program.command('swarm').description('Plan RD swarm dry-run graphs');
   addSwarmPlanOptions(swarm.command('plan'), true).action(async (options: SwarmPlanOptions) => { await runSwarmPlan(io, options); });
   addSwarmPlanOptions(program.command('swarm-plan'), false).action(async (options: SwarmPlanOptions) => { await runSwarmPlan(io, options); });
+  registerSwarmCommands(program, io);
+  // Slice rid-014 — autonomous RD swarm planner. Additive; the rid-013
+  // `registerSwarmCommands` and rid-012 `registerTechCommands` calls
+  // above are byte-for-byte untouched.
+  registerAutonomousSwarmCommands(program, io);
 
   // Slice #13 Swarm Algorithm Upgrade — 4 additional subcommands.
   // (peaks swarm plan above is slice #13.1; the 4 below are 13.2-13.5).
