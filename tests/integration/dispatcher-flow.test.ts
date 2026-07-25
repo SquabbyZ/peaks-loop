@@ -93,12 +93,9 @@ describe('peaks-solo dispatcher flow — dogfood: 获取 GitHub top 10', () => {
     const result = await cli(['skill', 'search', '--query', 'github']);
     expect(result.code).toBe(0);
     const parsed = parseSearch(result.stdout);
-    expect(parsed.length).toBeGreaterThan(0); // S0 returns substring hits, not literal zero
-    // No peak-* skill has a meaningful score for "github".
-    const meaningful = parsed.filter((s) => s.matchScore >= MEANINGFUL_MATCH_SCORE);
-    expect(meaningful.length).toBe(0);
-    // Top score is noise level (well below 0.05).
-    expect(parsed[0]!.matchScore).toBeLessThan(MEANINGFUL_MATCH_SCORE);
+    expect(parsed).toEqual([]);
+    // No peak-* skill matches "github", so the dispatcher takes the
+    // documented zero-candidate self-planning path.
   });
 
   test('T-4: peaks skill search for "code" returns peaks-code (positive case, threshold crossed)', async () => {

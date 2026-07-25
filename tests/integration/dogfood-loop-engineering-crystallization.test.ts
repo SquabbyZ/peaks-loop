@@ -28,7 +28,18 @@ import type Database from 'better-sqlite3';
 import { CrystallizationService } from 'peaks-loop-crystallization';
 import { buildEvidenceBrief } from 'peaks-loop-crystallization';
 import { LoopReleaseService } from '../../src/services/loop/loop-release-service.js';
+import { LoopReleaseSchema } from '../../src/services/loop/loop-release-types.js';
+import { insertLoopRelease } from '../../src/services/loop/loop-release-store.js';
 import { LoopBeeRelationService } from '../../src/services/loop/loop-bee-relation-service.js';
+import { LoopBeeRelationSchema } from '../../src/services/loop/loop-bee-relation-types.js';
+import { insertLoopBeeRelation } from '../../src/services/loop/loop-bee-relation-store.js';
+
+const crystallizationOptions: ConstructorParameters<typeof CrystallizationService>[1] = {
+  loopReleaseSchema: LoopReleaseSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]['loopReleaseSchema'],
+  loopBeeRelationSchema: LoopBeeRelationSchema as unknown as ConstructorParameters<typeof CrystallizationService>[1]['loopBeeRelationSchema'],
+  insertLoopRelease: insertLoopRelease as unknown as ConstructorParameters<typeof CrystallizationService>[1]['insertLoopRelease'],
+  insertLoopBeeRelation: insertLoopBeeRelation as unknown as ConstructorParameters<typeof CrystallizationService>[1]['insertLoopBeeRelation'],
+};
 
 function git(...args: string[]): string {
   return execSync(`git ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`, {
@@ -55,7 +66,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
   });
 
   it('gates crystallization when task status is not completed (pre-run block, RL-2)', () => {
-    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
+    const svc = new CrystallizationService(db, crystallizationOptions);
     const sourceShas = [git('rev-parse', 'HEAD')];
     const brief = buildEvidenceBrief({
       trace_id: 'm8-dogfood-pre-run-block',
@@ -78,7 +89,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
   });
 
   it('gates crystallization when gates_passed is false', () => {
-    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
+    const svc = new CrystallizationService(db, crystallizationOptions);
     const sourceShas = [git('rev-parse', 'HEAD')];
     const brief = buildEvidenceBrief({
       trace_id: 'm8-dogfood-gate-block',
@@ -150,7 +161,7 @@ describe('M8 dogfood: real crystallization of the Loop Engineering work', () => 
     expect(brief.what_learned.length).toBeGreaterThan(10);
     expect(brief.what_action.length).toBeGreaterThan(10);
 
-    const svc = new CrystallizationService(db, {} as unknown as import('peaks-loop-crystallization').CrystallizationOptions);
+    const svc = new CrystallizationService(db, crystallizationOptions);
     const result = svc.crystallize({
       task: { task_id: 'm8-dogfood-loop-engineering-2026-07-07', task_status: 'completed' as never, gates_passed: true, evidence_collected: true },
       loop_input: {
