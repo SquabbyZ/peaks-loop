@@ -38,6 +38,7 @@ interface Envelope {
   ok: boolean;
   command: string;
   code?: string;
+  message?: string;
   data: unknown;
   warnings: readonly unknown[];
   nextActions: readonly string[];
@@ -523,7 +524,9 @@ describe('peaks memory list (P2-B.3 orchestration e2e)', () => {
     };
     expect(data.total).toBeGreaterThan(0);
     expect(data.entries.length).toBeGreaterThan(0);
-    expect(data.entries[0].name.length).toBeGreaterThan(0);
+    const firstEntry = data.entries[0];
+    expect(firstEntry).toBeDefined();
+    expect(firstEntry!.name.length).toBeGreaterThan(0);
   });
 
   test('--kind rule filter narrows the result set to the requested kind', () => {
@@ -559,7 +562,9 @@ describe('peaks memory search (P2-B.3 orchestration e2e)', () => {
     };
     expect(data.query).toBe('peaks');
     expect(data.matches.length).toBeGreaterThan(0);
-    expect(data.matches[0].score).toBeGreaterThanOrEqual(1);
+    const firstMatch = data.matches[0];
+    expect(firstMatch).toBeDefined();
+    expect(firstMatch!.score).toBeGreaterThanOrEqual(1);
   });
 });
 
