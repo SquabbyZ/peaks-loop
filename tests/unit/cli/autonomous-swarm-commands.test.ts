@@ -25,7 +25,7 @@ function parseOutput(out: string[]): { ok: boolean; command?: string; code?: str
 
 describe('registerAutonomousSwarmCommands', () => {
   test('returns a successful JSON envelope for workflow autonomous-swarm', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'code', '--change-id', 'cli-as-1', '--goal', 'Plan a resumable autonomous RD swarm', '--max-workers', '40', '--dry-run', '--json'], { from: 'node' });
@@ -37,7 +37,7 @@ describe('registerAutonomousSwarmCommands', () => {
   });
 
   test('rejects invalid change-ids with change-id-format', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'code', '--change-id', '../escape', '--goal', 'x', '--max-workers', '40', '--dry-run', '--json'], { from: 'node' });
@@ -47,7 +47,7 @@ describe('registerAutonomousSwarmCommands', () => {
   });
 
   test('rejects empty goals with INVALID_GOAL', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'code', '--change-id', 'cli-as-2', '--goal', '   ', '--max-workers', '40', '--dry-run', '--json'], { from: 'node' });
@@ -57,7 +57,7 @@ describe('registerAutonomousSwarmCommands', () => {
   });
 
   test('blocks when --no-dry-run is requested with NON_DRY_RUN_UNSUPPORTED', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'code', '--change-id', 'cli-as-3', '--goal', 'x', '--max-workers', '40', '--no-dry-run', '--json'], { from: 'node' });
@@ -67,7 +67,7 @@ describe('registerAutonomousSwarmCommands', () => {
   });
 
   test('rejects unsupported modes with UNSUPPORTED_AUTONOMOUS_MODE', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'foo', '--change-id', 'cli-as-4', '--goal', 'x', '--max-workers', '40', '--dry-run', '--json'], { from: 'node' });
@@ -77,7 +77,7 @@ describe('registerAutonomousSwarmCommands', () => {
   });
 
   test('includes the /goal marker with nonDurable=true', async () => {
-    const { program, out } = makeProgram();
+    const { program, out, err } = makeProgram();
     const workflow = program.command('workflow').description('Plan workflow routing dry-run graphs');
     registerAutonomousSwarmCommands(program, { stdout: (text) => out.push(text), stderr: (text) => err.push(text) });
     await program.parseAsync(['node', 'peaks', 'workflow', 'autonomous-swarm', '--mode', 'code', '--change-id', 'cli-as-5', '--goal', 'Plan a resumable autonomous RD swarm', '--max-workers', '40', '--dry-run', '--json'], { from: 'node' });

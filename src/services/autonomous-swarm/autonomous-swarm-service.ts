@@ -422,7 +422,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(input.changeId, input.workspaceRoot),
       artifactRoot: `${input.changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', skipReason: input.requiresTechApproval === true ? undefined : 'tech-gate-not-required' },
+      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
       blockedReasons: [id.error.code],
       nextActions: [id.error.message],
       resumeInstructions: {
@@ -448,7 +448,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(id.value.changeId, input.workspaceRoot),
       artifactRoot: `${id.value.changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', skipReason: input.requiresTechApproval === true ? undefined : 'tech-gate-not-required' },
+      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
       blockedReasons: ['INVALID_GOAL'],
       nextActions: ['Use a non-empty goal'],
       resumeInstructions: {
@@ -477,7 +477,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       workerQueue: [],
       evidence: deriveEvidenceRequirements(changeId, input.workspaceRoot),
       artifactRoot: `${changeId}/swarm`,
-      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', skipReason: input.requiresTechApproval === true ? undefined : 'tech-gate-not-required' },
+      gateStatus: { techApprovalRequired: input.requiresTechApproval === true, techStatus: 'unavailable', ...(input.requiresTechApproval === true ? {} : { skipReason: 'tech-gate-not-required' }) },
       blockedReasons: ['INVALID_MAX_WORKERS'],
       nextActions: ['Use a positive integer for max-workers.'],
       resumeInstructions: {
@@ -515,7 +515,7 @@ export function planAutonomousRdSwarm(input: PlanAutonomousRdSwarmInput): Autono
       conflictGroups: [],
       artifactRoot: `${changeId}/swarm`,
       outputs: { taskGraph: `${changeId}/swarm/task-graph.json`, waveManifests: [], workerBriefs: [], reducerReport: `${changeId}/swarm/reducer-report.md` },
-      gateStatus: { techApprovalRequired: requiresTechApproval, techStatus: 'unavailable', skipReason: requiresTechApproval ? undefined : 'tech-gate-not-required' },
+      gateStatus: { techApprovalRequired: requiresTechApproval, techStatus: 'unavailable', ...(requiresTechApproval ? {} : { skipReason: 'tech-gate-not-required' }) },
       blockedReasons: [],
       nextActions: [],
     };

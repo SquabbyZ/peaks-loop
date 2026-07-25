@@ -196,8 +196,8 @@ function buildUnderstandRunner(): UnderstandRunner {
           id: `file:${filePath}`,
           type: 'file',
           name: filePath,
-          filePath
-        })),
+          filePath,
+          tags: []        })),
         edges: [],
         layers: [
           {
