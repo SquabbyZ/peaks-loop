@@ -13,25 +13,24 @@ afterEach(() => {
 });
 
 describe('ide-registry — built-in defaults', () => {
-  test('registers seven adapters in slice #2 + #0.7 + #12 + #13 + 2026-07-09-zcode (claude-code + trae + cursor + codex + hermes + openclaw + zcode) in insertion order', () => {
-    // 2.4.0: slice #12 (cursor) and slice #13 (codex) add two more built-in
-    // adapters to the slice #0.7 baseline.
-    // 2026-07-09-zcode: slice B (add-zcode-adapter) adds the 7th built-in
-    // adapter (zcode — VS Code-style desktop app, Anthropic-compatible).
-    // Insertion order is preserved.
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'zcode']);
+  test('registers nine adapters, including qoder and tongyi-lingma, in insertion order', () => {
+    // Qoder and Tongyi Lingma are placeholder adapters whose IDE-specific
+    // fields remain UNVERIFIED pending real-install dogfood.
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'qoder', 'tongyi-lingma', 'zcode']);
   });
 
-  test('listAdapters returns all seven adapter instances', () => {
+  test('listAdapters returns all nine adapter instances', () => {
     const adapters = listAdapters();
-    expect(adapters).toHaveLength(7);
+    expect(adapters).toHaveLength(9);
     expect(adapters[0]?.id).toBe('claude-code');
     expect(adapters[1]?.id).toBe('trae');
     expect(adapters[2]?.id).toBe('cursor');
     expect(adapters[3]?.id).toBe('codex');
     expect(adapters[4]?.id).toBe('hermes');
     expect(adapters[5]?.id).toBe('openclaw');
-    expect(adapters[6]?.id).toBe('zcode');
+    expect(adapters[6]?.id).toBe('qoder');
+    expect(adapters[7]?.id).toBe('tongyi-lingma');
+    expect(adapters[8]?.id).toBe('zcode');
   });
 
   test('getAdapter returns the Claude adapter for the registered id', () => {
@@ -59,10 +58,8 @@ describe('ide-registry — built-in defaults', () => {
     expect(adapter.envVar).toBe('CODEX_PROJECT_DIR');
   });
 
-  test('getAdapter throws for an unregistered IDE (e.g. qoder, deferred to slice #3+)', () => {
-    // slice #2 + #0.7 + #12 + #13 ship with 6 adapters. qoder / tongyi-lingma
-    // are post-2.4.0 adapters. Throwing is the expected behavior.
-    expect(() => getAdapter('qoder' as IdeId)).toThrow(/Unsupported IDE: qoder/);
+  test('getAdapter throws for a truly unregistered IDE', () => {
+    expect(() => getAdapter('fake-ide' as IdeId)).toThrow(/Unsupported IDE: fake-ide/);
   });
 });
 
@@ -94,13 +91,13 @@ describe('ide-registry — test seams', () => {
       installHints: [],
     };
     _setAdapterForTesting('qoder', fakeAdapter);
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'zcode', 'qoder']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'qoder', 'tongyi-lingma', 'zcode']);
     const got = getAdapter('qoder');
     expect(got.envVar).toBe('QODER_PROJECT_DIR');
     expect(got.toolMatcher).toBe('terminal');
   });
 
-  test('_resetAdaptersForTesting restores the 2026-07-09 default (7 built-in adapters)', () => {
+  test('_resetAdaptersForTesting restores the 2026-07-25 default (9 built-in adapters)', () => {
     _setAdapterForTesting('qoder', {
       id: 'qoder',
       displayName: 'Qoder (test fixture)',
@@ -121,6 +118,6 @@ describe('ide-registry — test seams', () => {
     });
     expect(listAdapterIds()).toContain('qoder');
     _resetAdaptersForTesting();
-    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'zcode']);
+    expect(listAdapterIds()).toEqual(['claude-code', 'trae', 'cursor', 'codex', 'hermes', 'openclaw', 'qoder', 'tongyi-lingma', 'zcode']);
   });
 });

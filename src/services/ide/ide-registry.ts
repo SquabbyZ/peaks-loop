@@ -5,6 +5,8 @@ import { CURSOR_ADAPTER } from './adapters/cursor-adapter.js';
 import { CODEX_ADAPTER } from './adapters/codex-adapter.js';
 import { HERMES_ADAPTER } from './adapters/hermes-adapter.js';
 import { OPENCLAW_ADAPTER } from './adapters/openclaw-adapter.js';
+import { QODER_ADAPTER } from './adapters/qoder-adapter.js';
+import { TONGYI_LINGMA_ADAPTER } from './adapters/tongyi-lingma-adapter.js';
 import { ZCODE_ADAPTER } from './adapters/zcode-adapter.js';
 
 /**
@@ -27,6 +29,8 @@ const ADAPTERS: ReadonlyMap<IdeId, IdeAdapter> = new Map<IdeId, IdeAdapter>([
   ['codex', CODEX_ADAPTER],
   ['hermes', HERMES_ADAPTER],
   ['openclaw', OPENCLAW_ADAPTER],
+  ['qoder', QODER_ADAPTER],
+  ['tongyi-lingma', TONGYI_LINGMA_ADAPTER],
   ['zcode', ZCODE_ADAPTER],
 ]);
 
@@ -66,5 +70,7 @@ export function _resetAdaptersForTesting(): void {
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('codex', CODEX_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('hermes', HERMES_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('openclaw', OPENCLAW_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('qoder', QODER_ADAPTER);
+  (ADAPTERS as Map<IdeId, IdeAdapter>).set('tongyi-lingma', TONGYI_LINGMA_ADAPTER);
   (ADAPTERS as Map<IdeId, IdeAdapter>).set('zcode', ZCODE_ADAPTER);
 }
