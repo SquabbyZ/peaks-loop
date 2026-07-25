@@ -13,13 +13,13 @@
  *
  * Test count budget (per `.peaks/_runtime/2026-07-24-session-f13da7/rd/requests/2026-07-24-rid-009-enforce-artifact-boundary-and-coverage.md`):
  *   - sub-slice 1 / task 1:  9 valid + 13 invalid  = 22 cases for the validator body
- *   - sub-slice 1 / task 4:  1 contract test (byte-for-byte preservation)
- *   - sub-slice 2 / task 5:  8 cases for planArtifactPath (a-h)
+ *   - sub-slice 1 / task 4:  2 contract/helper tests
+ *   - sub-slice 2 / task 5:  9 cases for planArtifactPath (a-h + custom template)
  *   - sub-slice 2 / task 7:  4 cases for the isPathInsideArtifactRoot re-export wiring
  *   - sub-slice 2 / task 9:  1 anti-regression test (tempdir mount guards target repo)
- *   - sub-slice 3 / task 10: 4 workspace-unavailable response-contract cases
+ *   - sub-slice 3 / task 10: 5 workspace-unavailable response-contract cases
  *   - sub-slice 3 / task 12: 2 OpenSpec scenario cases
- * Total = 42 cases.
+ * Total = 45 cases.
  */
 
 import { describe, expect, test } from 'vitest';
@@ -32,6 +32,7 @@ import {
   planArtifactPath,
   isPathInsideArtifactRoot,
   buildWorkspaceUnavailable,
+  isOk,
   type ChangeIdError,
   type BoundaryError
 } from '../../../../src/services/openspec/artifact-boundary.js';
@@ -278,6 +279,10 @@ describe('validateChangeId — contract (task 4, byte-for-byte preservation)', (
     expect(error.code).toBe('change-id-format');
     expect(error.message).toBe('changeId has space does not match [A-Za-z0-9][A-Za-z0-9._-]*');
   });
+  test('isOk narrows successful and failed validation results', () => {
+    expect(isOk(validateChangeId('add-foo'))).toBe(true);
+    expect(isOk(validateChangeId('has space'))).toBe(false);
+  });
 });
 
 /**
@@ -293,7 +298,7 @@ describe('validateChangeId — contract (task 4, byte-for-byte preservation)', (
  */
 const SUB_SLICE_2_WORKSPACE = resolve(process.cwd(), '.peaks');
 
-describe('planArtifactPath (task 5/6, 8 cases a–h)', () => {
+describe('planArtifactPath (task 5/6, 9 cases)', () => {
   const CHANGE_ID = 'enforce-artifact-boundary-and-coverage';
   const ROLE = 'rd';
   const REQUEST_ID = '2026-07-24-rid-009';
@@ -477,6 +482,25 @@ describe('planArtifactPath (task 5/6, 8 cases a–h)', () => {
       throw new Error('expected ok result, got err: ' + JSON.stringify(result.error));
     }
   });
+
+  test('custom template substitutes every placeholder occurrence', () => {
+    const result = planArtifactPath({
+      changeId: CHANGE_ID,
+      workspaceRoot: SUB_SLICE_2_WORKSPACE,
+      role: ROLE,
+      requestId: REQUEST_ID,
+      template: 'custom/<role>/<changeId>/<requestId>/<role>'
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        absolutePath: join(SUB_SLICE_2_WORKSPACE, 'custom', ROLE, CHANGE_ID, REQUEST_ID, ROLE),
+        relativePath: join('custom', ROLE, CHANGE_ID, REQUEST_ID, ROLE),
+        jsonSafeRelativePath: `custom/${ROLE}/${CHANGE_ID}/${REQUEST_ID}/${ROLE}`
+      }
+    });
+  });
 });
 
 /**
@@ -598,7 +622,7 @@ describe('planArtifactPath anti-regression — tempdir target repo (task 9)', ()
  * Dimension: render. These cases lock the returned structure and static,
  * human-readable next actions; no external boundary is involved.
  */
-describe('buildWorkspaceUnavailable response contract (task 10, 4 cases)', () => {
+describe('buildWorkspaceUnavailable response contract (task 10, 5 cases)', () => {
   test('preview-only response contains the artifact-workspace configuration action', () => {
     const response = buildWorkspaceUnavailable({ mode: 'preview-only' });
 
@@ -633,6 +657,17 @@ describe('buildWorkspaceUnavailable response contract (task 10, 4 cases)', () =>
       expect(nextActions.length).toBeGreaterThan(0);
       expect(nextActions.every((action) => typeof action === 'string' && action.length > 0)).toBe(true);
     }
+  });
+
+  test('nextActions arrays are independent between responses', () => {
+    const first = buildWorkspaceUnavailable({ mode: 'preview-only' });
+    const second = buildWorkspaceUnavailable({ mode: 'preview-only' });
+
+    first.nextActions.push('A caller-specific follow-up.');
+
+    expect(second.nextActions).toEqual([
+      'Configure artifact workspace by describing where Peaks should store artifacts.'
+    ]);
   });
 });
 
