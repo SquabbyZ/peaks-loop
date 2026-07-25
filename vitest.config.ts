@@ -115,7 +115,9 @@ const config: TestUserConfig = {
   // versions where the persistence path is fully wired, and is
   // runtime-accepted by vitest 4.1.10 (no errors). Revisit if a
   // future vitest upgrade resolves the persistence gap.
-  fsModuleCache: true,
+  experimental: {
+    fsModuleCache: true,
+  },
   test: {
     setupFiles: ['./tests/vitest.setup.ts'],
     // Runs once in the main process before any worker spawns (and restores
