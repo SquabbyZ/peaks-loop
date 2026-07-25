@@ -1,37 +1,46 @@
 # Tasks: fix-claude-settings-template-hook-node-wrapper
 
 > Execute with TDD. Every implementation step that adds behavior starts with a failing test. Do not widen scope to other settings-local hooks or unrelated workspace code in this change.
+>
+> **Status reconciliation (2026-07-24):** Tasks 1-5 are **already implemented** on HEAD (`e51797c3`). The original proposal named `buildBashHookCommand` (a function that pre-dates the v3.1.2 gate-step-08 refactor); the actual builders on HEAD are `buildWriteHookCommand()` (wrapped via `wrapAsNodeOneLiner`) and `buildBashGateStep08Command()` (intentionally NOT wrapped — CLI delegation). Tasks 1-5 below record the historical TDD plan and the commit refs that landed the implementation. Tasks 6-9 remain open.
 
 ## 1. Failing test for the wrapper prefix
 
-- [ ] Add unit test asserting `buildBashHookCommand()` returns a string starting with `node -e "` and ending with `"`.
-- [ ] Add unit test asserting `buildWriteHookCommand()` returns a string with the same shape.
-- [ ] Run `pnpm test -- tests/unit/workspace/claude-settings-template.test.ts` and confirm both tests fail (RED).
+- [x] **Already implemented** (commit `8411fe88`, 2026-06-13).
+- [x] Add unit test asserting `buildWriteHookCommand()` returns a string starting with `node -e "` and ending with `"`.
+- [x] Add unit test asserting the wrapped form preserves the `wrapAsNodeOneLiner(js)` contract.
+- [x] Run `pnpm test -- tests/unit/workspace/claude-settings-template.test.ts` — 18/18 pass (GREEN).
+- Note: the original task named `buildBashHookCommand()` which does not exist on HEAD; the equivalent Bash matcher is now `buildBashGateStep08Command()` and is **intentionally NOT wrapped** — see Task 5 addendum.
 
 ## 2. Failing test for JSON-escape contract
 
-- [ ] Add unit test asserting the embedded JS double quotes are escaped as `\\"` (backslash-quote) inside the wrapper.
-- [ ] Add unit test asserting the round-trip: `JSON.stringify(buildClaudeSettingsLocalJson())` produces a string where the `command` field, when split out and parsed, contains a node-executable payload (no raw `"` that would close the wrapper prematurely).
-- [ ] Run `pnpm test` and confirm the new tests fail (RED).
+- [x] **Already implemented** (commit `8411fe88`, 2026-06-13).
+- [x] Add unit test asserting the embedded JS double quotes are escaped as `\\"` (backslash-quote) inside the wrapper.
+- [x] Add unit test asserting the round-trip: `JSON.stringify(buildClaudeSettingsLocalJson())` produces a string where the Write/Edit/MultiEdit `command` field, when split out and parsed, contains a node-executable payload (no raw `"` that would close the wrapper prematurely).
+- [x] Run `pnpm test` — all tests pass (GREEN).
 
 ## 3. Failing test for argv index contract
 
-- [ ] Add unit test exercising the chosen argv index slot with a candidate command string and asserting the helper reads the candidate and decides allow vs deny correctly.
-- [ ] Run `pnpm test` and confirm the test fails (RED) on the current implementation.
+- [x] **Already implemented** (commit `8411fe88`, 2026-06-13).
+- [x] Add unit test exercising the chosen argv index slot with a candidate command string and asserting the helper reads the candidate and decides allow vs deny correctly. The slot is `process.argv[1]` per Node.js argv layout under `-e`.
+- [x] Run `pnpm test` — all tests pass (GREEN).
 
 ## 4. Implementation: wrap with `node -e`
 
-- [ ] Modify `buildBashHookCommand()` to wrap its inner JS in `node -e "<js>"`, JSON-escaping every embedded `"` as `\\"`.
-- [ ] Modify `buildWriteHookCommand()` to apply the same wrapper.
-- [ ] Update the docstring in `claude-settings-template.ts` to drop the `argv[2]` reference and standardize on `argv[1]` (or whichever slot Claude Code actually passes — confirm against `Claude Code` hook spec).
-- [ ] Update existing unit-test fixtures that asserted the old unwrapped form so they assert the wrapped form.
-- [ ] Run `pnpm test` and confirm all new + updated tests pass (GREEN).
+- [x] **Already implemented** (commit `8411fe88`, 2026-06-13).
+- [x] Modify `buildWriteHookCommand()` to wrap its inner JS in `node -e "<js>"`, JSON-escaping every embedded `"` as `\\"`.
+- [x] Update the docstring in `claude-settings-template.ts` to drop the `argv[2]` reference and standardize on `argv[1]` (line 200-201 of HEAD).
+- [x] Update existing unit-test fixtures that asserted the old unwrapped form so they assert the wrapped form.
+- [x] Run `pnpm test` — all new + updated tests pass (GREEN).
+- Note: the Bash matcher was **not** wrapped in `node -e`. The v3.1.2 refactor (commit `d9a1a098`, 2026-07-04) replaced the old `buildBashHookCommand` with `buildBashGateStep08Command()` which returns the literal `peaks code gate-step-08 --project "${CLAUDE_PROJECT_DIR}"` CLI invocation. CLI delegation is the load-bearing contract — wrapping would break the mechanical gate.
 
 ## 5. Refactor and shared helper
 
-- [ ] Extract a single internal helper `wrapAsNodeOneLiner(js: string): string` so the wrapper / escape contract lives in one place.
-- [ ] Confirm both `buildBashHookCommand` and `buildWriteHookCommand` go through the helper.
-- [ ] Confirm tests still pass.
+- [x] **Already implemented** (commit `8411fe88`, 2026-06-13).
+- [x] Extract a single internal helper `wrapAsNodeOneLiner(js: string): string` so the wrapper / escape contract lives in one place (lines 170-180 of HEAD).
+- [x] Confirm `buildWriteHookCommand` goes through the helper.
+- [x] Confirm tests still pass.
+- Addendum (v3.1.2, commit `d9a1a098`): `buildBashGateStep08Command` does NOT go through `wrapAsNodeOneLiner` — by design. The Bash matcher delegates to the CLI; exit code is the gate-step-08 signal (0 = allow, 2 = block). The no-wrapper decision is documented in the `buildBashGateStep08Command` docstring (lines 261-269 of HEAD).
 
 ## 6. Cross-platform dogfood
 
