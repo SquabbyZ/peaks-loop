@@ -1,5 +1,15 @@
 # Changelog
 
+## 4.0.0-beta.37 — 2026-07-25 (registry conflict bump + version skip)
+
+### Patch Changes
+
+- **chore(version)**: skip 4.0.0-beta.36 to land on 4.0.0-beta.37. Reason: 4.0.0-beta.35 was already published to npm by a prior session (2026-07-22T17:10:24Z); our HEAD bumped to 4.0.0-beta.35 in the 4.0.0-beta.35 CHANGELOG entry below (matching that on-disk state) but a `pnpm publish` of 4.0.0-beta.35 would fail as duplicate. The version-skip jump (35 → 37, skipping 36) avoids both the duplicate and the public-36 release, keeping the published beta-37 as the next publishable artifact. The 4.0.0-beta.35 on-disk state stays as the work-record version; the 4.0.0-beta.37 version reflects the registry-publishable state once the user runs `git tag v4.0.0-beta.37 && pnpm publish` per their own workflow. No functional change — just a version number for the next release.
+
+- **chore(version)**: `package.json` version 4.0.0-beta.35 → 4.0.0-beta.37. `packages/peaks-loop-shared/src/version.ts` `CLI_VERSION` matches. `pnpm-lock.yaml` resolved via `pnpm install --lockfile-only` (post-commit; user may run if their local lockfile is stale).
+
+- **chore(archive)**: 5 OpenSpec proposals retired to `openspec/changes/archive/` via `peaks openspec archive --apply` (commits `3e5ec4e9` + this version bump sequence): `enforce-artifact-boundary-and-coverage`, `add-tech-dry-run-gate`, `add-rd-swarm-dry-run-planner`, `add-autonomous-rd-swarm-resume`, `add-slice-topology-multipass`, `fix-claude-settings-template-hook-node-wrapper`. `openspec/changes/` now contains only the `archive/` subdirectory.
+
 ## 4.0.0-beta.35 — 2026-07-24 (claude-settings-template hook node-wrapper)
 
 ### Patch Changes
