@@ -30,11 +30,8 @@ import { afterEach, beforeAll, describe, expect, test } from 'vitest';
 // without any test-side drift.
 
 import { runPnpm, toPosixPath } from '../../../scripts/_release-shared.mjs';
-import {
-  extractCliVersion,
-  packAndInspectTarball,
-  readVersionJsFromTarball,
-} from '../../../scripts/release-pack.mjs';
+// @ts-expect-error -- release-pack.mjs is an executable JavaScript script without declarations.
+import { extractCliVersion, packAndInspectTarball, readVersionJsFromTarball } from '../../../scripts/release-pack.mjs';
 
 const projectRoot = resolve(__dirname, '..', '..', '..');
 const helperPath = resolve(projectRoot, 'scripts', 'bump-version.mjs');
