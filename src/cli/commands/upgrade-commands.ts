@@ -1,6 +1,8 @@
 /**
  * peaks upgrade * CLI surface — Slice: 1.x → 2.0 umbrella +
  * Slice 3: --detect-1x flag.
+ * Fix-4: reject dangerous probe names passed positionally and expose
+ * --gitignore-migrate as a read-only probe.
  *
  * Per the "one-key completion" + "minimal-user-operation" tenets
  * (2026-06-11), the user's typical upgrade path is
@@ -21,6 +23,7 @@
 import { Command } from 'commander';
 import { runUpgrade } from '../../services/upgrade/upgrade-service.js';
 import { detect1xProjectState } from '../../services/upgrade/1x-detector-service.js';
+import { migrateGitignoreFile } from '../../services/upgrade/gitignore-migrate-service.js';
 import { initWorkspace } from '../../services/workspace/workspace-service.js';
 import { ensureSessionWithRotation } from '../../services/session/session-manager.js';
 import { resolveCanonicalProjectRoot } from '../../services/config/config-service.js';
@@ -31,9 +34,21 @@ type UpgradeOptions = {
   project?: string;
   auto?: boolean;
   detect1x?: boolean;
+  gitignoreMigrate?: boolean;
   applyInit?: boolean;
   json?: boolean;
 };
+
+const REJECTED_POSITIONALS = {
+  '1x-detector': '--detect-1x',
+  'gitignore-migrate': '--gitignore-migrate'
+} as const;
+
+type RejectedPositional = keyof typeof REJECTED_POSITIONALS;
+
+function isRejectedPositional(value: string | undefined): value is RejectedPositional {
+  return value === '1x-detector' || value === 'gitignore-migrate';
+}
 
 export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
   addJsonOption(
@@ -46,9 +61,25 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root to upgrade (default: cwd)')
       .option('--auto', 'non-interactive: accept soft-fail on any sub-step (used by the postinstall hook)')
       .option('--detect-1x', 'read-only probe: returns the 1.x state as JSON (no file writes); consumed by peaks-code Step 0.55 to gate the AskUserQuestion')
+      .option('--gitignore-migrate', 'read-only probe: reports whether .gitignore needs the 1.x to 2.0 migration (no file writes)')
       .option('--apply-init', 'slice 4 (slice 2026-06-13-selfheal-claude-settings-template): run initWorkspace so the drift-driven self-heal fires on the consumer-project .claude/settings.local.json and the offline .peaks/.claude-settings-template.json. Idempotent. Use after a peaks-loop version bump if you do not otherwise re-run init. Mutually exclusive with --detect-1x.')
-  ).action(async (options: UpgradeOptions) => {
+  ).action(async (options: UpgradeOptions, command: Command) => {
     const projectRoot = options.project ?? process.cwd();
+    const positional = command.args[0];
+
+    if (isRejectedPositional(positional)) {
+      const replacementFlag = REJECTED_POSITIONALS[positional];
+      const message = `Positional \`${positional}\` is not supported because it could trigger the destructive upgrade umbrella. The documented read-only probe is \`${replacementFlag}\`.`;
+      printResult(
+        io,
+        fail('upgrade', 'UPGRADE_POSITIONAL_REJECTED', message, {}, [
+          `The LLM can coordinate the documented ${replacementFlag} read-only probe instead.`
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+      return;
+    }
 
     // Branch 1: --detect-1x (read-only probe)
     if (options.detect1x === true) {
@@ -81,7 +112,32 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
       return;
     }
 
-    // Branch 2: --apply-init (slice 4 — slice 2026-06-13-selfheal-claude-settings-template).
+    // Branch 2: --gitignore-migrate (read-only probe)
+    if (options.gitignoreMigrate === true) {
+      try {
+        const result = migrateGitignoreFile({ projectRoot, apply: false });
+        const envelope: ResultEnvelope<typeof result> = ok(
+          'upgrade.gitignore-migrate',
+          result,
+          [],
+          result.changed
+            ? ['The upgrade umbrella can coordinate the required .gitignore migration.']
+            : ['No .gitignore migration is required.']
+        );
+        printResult(io, envelope, options.json);
+      } catch (error) {
+        const message = getErrorMessage(error);
+        printResult(
+          io,
+          fail('upgrade.gitignore-migrate', 'GITIGNORE_MIGRATE_FAILED', message, { appliedWrite: false }, [message]),
+          options.json
+        );
+        process.exitCode = 1;
+      }
+      return;
+    }
+
+    // Branch 3: --apply-init (slice 4 — slice 2026-06-13-selfheal-claude-settings-template).
     //
     // The drift-driven self-heal inside initWorkspace only fires when
     // the user invokes init. After a peaks-loop version bump, users who
@@ -156,7 +212,7 @@ export function registerUpgradeCommands(program: Command, io: ProgramIO): void {
       return;
     }
 
-    // Branch 3: the umbrella (existing behavior)
+    // Branch 4: the umbrella (existing behavior)
     try {
       const result = runUpgrade({ projectRoot, auto: options.auto === true });
       const nextActions: string[] = [...result.nextActions];

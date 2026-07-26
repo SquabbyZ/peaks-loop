@@ -36,6 +36,7 @@ function parseEnvelope<T = Record<string, unknown>>(result: RunResult): {
   ok: boolean;
   command: string;
   code?: string;
+  message?: string;
   data: T;
   warnings: readonly unknown[];
   nextActions: readonly string[];
@@ -285,6 +286,33 @@ describe('peaks upgrade --detect-1x (P2-B.2 modify e2e)', () => {
   });
 });
 
+describe('peaks upgrade --gitignore-migrate (P2-B.2 modify e2e)', () => {
+  test('reports a read-only migration verdict without changing .gitignore', () => {
+    const project = makeProject('peaks-p2b2-upg-gim-flag-');
+    const gitignorePath = join(project, '.gitignore');
+    writeFileSync(gitignorePath, '/.peaks/\nnode_modules/\n', 'utf8');
+
+    const result = runCli(
+      ['upgrade', '--gitignore-migrate', '--project', project, '--json'],
+      project
+    );
+    expect(result.code).toBe(0);
+    const envelope = parseEnvelope<{
+      missing: boolean;
+      changed: boolean;
+      appliedWrite: boolean;
+      backupPath: string | null;
+      removedRules: readonly string[];
+    }>(result);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.command).toBe('upgrade.gitignore-migrate');
+    expect(envelope.data.changed).toBe(true);
+    expect(envelope.data.appliedWrite).toBe(false);
+    expect(envelope.data.backupPath).toBeNull();
+    expect(readFileSync(gitignorePath, 'utf8')).toBe('/.peaks/\nnode_modules/\n');
+  });
+});
+
 describe('peaks upgrade (P2-B.2 modify e2e)', () => {
   test('without --apply runs read-only verdict and emits a structured envelope', () => {
     const project = makeProject('peaks-p2b2-upg-readonly-');
@@ -300,37 +328,30 @@ describe('peaks upgrade (P2-B.2 modify e2e)', () => {
 });
 
 describe('peaks upgrade 1x-detector positional form (P2-B.2 modify e2e)', () => {
-  test('positional "1x-detector" silently routes to the umbrella (drift pointer)', () => {
-    // The documented entry point is `upgrade --detect-1x` (read-only probe).
-    // The undocumented positional form `upgrade 1x-detector ...` is currently
-    // accepted but executes the FULL upgrade umbrella — not a probe.
-    // This test asserts the drift so a future fix can fail loud.
+  test('rejects positional "1x-detector" and points to --detect-1x', () => {
     const project = makeProject('peaks-p2b2-upg-1xd-');
     const result = runCli(['upgrade', '1x-detector', '--project', project, '--json'], project);
-    expect(result.code).toBe(0);
-    const envelope = parseEnvelope<{ applied: boolean; command?: string; data?: unknown }>(result);
-    expect(envelope.ok).toBe(true);
-    // Drift assertion: the umbrella report carries the 7-step tree
-    // (config-migrate / standards-migrate / memory-extract / hooks-install /
-    // skill-sync / audit-verify / write-upgrade-record). If a future CLI change
-    // adds a real `upgrade 1x-detector` probe verb, this assertion will fail
-    // and force the test author to update the documented entry point.
-    const stdout = JSON.stringify(envelope);
-    expect(stdout).toContain('config-migrate');
+    expect(result.code).not.toBe(0);
+    const envelope = parseEnvelope<Record<string, never>>(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.command).toBe('upgrade');
+    expect(envelope.code).toBe('UPGRADE_POSITIONAL_REJECTED');
+    expect(envelope.message).toContain('--detect-1x');
+    expect(existsSync(join(project, '.peaks'))).toBe(false);
   });
 });
 
 describe('peaks upgrade gitignore-migrate positional form (P2-B.2 modify e2e)', () => {
-  test('positional "gitignore-migrate" silently routes to the umbrella (drift pointer)', () => {
-    // Same drift pattern as 1x-detector: the positional form executes the
-    // umbrella upgrade instead of the (presumed) read-only gitignore-migrate.
+  test('rejects positional "gitignore-migrate" and points to --gitignore-migrate', () => {
     const project = makeProject('peaks-p2b2-upg-gim-');
     const result = runCli(['upgrade', 'gitignore-migrate', '--project', project, '--json'], project);
-    expect(result.code).toBe(0);
-    const envelope = parseEnvelope<{ applied: boolean }>(result);
-    expect(envelope.ok).toBe(true);
-    const stdout = JSON.stringify(envelope);
-    expect(stdout).toContain('config-migrate');
+    expect(result.code).not.toBe(0);
+    const envelope = parseEnvelope<Record<string, never>>(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.command).toBe('upgrade');
+    expect(envelope.code).toBe('UPGRADE_POSITIONAL_REJECTED');
+    expect(envelope.message).toContain('--gitignore-migrate');
+    expect(existsSync(join(project, '.peaks'))).toBe(false);
   });
 });
 
@@ -425,5 +446,25 @@ describe('peaks preferences migrate (P2-B.2 modify e2e)', () => {
     expect(envelope.ok).toBe(true);
     expect(envelope.data.migrated).toBe(false);
     expect(envelope.data.reason).toBe('no-preferences-file');
+  });
+});
+
+describe('Fix-4 regression guard', () => {
+  test.each([
+    ['1x-detector', '--detect-1x'],
+    ['gitignore-migrate', '--gitignore-migrate']
+  ] as const)('rejects upgrade %s with no filesystem writes', (positional, replacementFlag) => {
+    const project = makeProject(`peaks-fix4-${positional}-`);
+    const result = runCli(
+      ['upgrade', positional, 'ignored-extra', '--project', project, '--json'],
+      project
+    );
+
+    expect(result.code).not.toBe(0);
+    const envelope = parseEnvelope<Record<string, never>>(result);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.code).toBe('UPGRADE_POSITIONAL_REJECTED');
+    expect(envelope.message).toContain(replacementFlag);
+    expect(existsSync(join(project, '.peaks'))).toBe(false);
   });
 });
