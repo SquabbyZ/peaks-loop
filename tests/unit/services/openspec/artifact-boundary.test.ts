@@ -501,6 +501,105 @@ describe('planArtifactPath (task 5/6, 9 cases)', () => {
       }
     });
   });
+
+  /**
+   * Additional cases for B1 coverage gap closure.
+   *
+   * Original c8 report (92.64% statements / 72.72% branches):
+   *   5 statements + 3 branches uncovered in artifact-boundary.ts.
+   * Targets below hit each candidate uncovered path empirically; if a case
+   * already overlaps with an existing test, the assertion still runs and
+   * adds redundancy without breaking the suite.
+   */
+
+  test('(i) absolute path inside workspace via POSIX leading slash exercises nodeIsAbsolute branch', () => {
+    // Forces the L178-180 `nodeIsAbsolute(normalized) ? resolve(normalized) : ...`
+    // branch: posix.normalize preserves the leading `/`, so the ternary picks
+    // `resolve(normalized)` — NOT `resolve(workspaceRoot, normalized)`.
+    // The path resolves to a sibling of `/`, then re-enters via posix re-rooting.
+    const absoluteCandidate = join(SUB_SLICE_2_WORKSPACE, 'changes', CHANGE_ID, ROLE, `${REQUEST_ID}.md`);
+    const result = planArtifactPath({
+      changeId: CHANGE_ID,
+      workspaceRoot: SUB_SLICE_2_WORKSPACE,
+      role: ROLE,
+      requestId: REQUEST_ID,
+      // Pass an absolute path on POSIX form (already-resolved under workspaceRoot)
+      absolutePath: absoluteCandidate
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.absolutePath).toBe(absoluteCandidate);
+      expect(result.value.relativePath).toBe(join('changes', CHANGE_ID, ROLE, `${REQUEST_ID}.md`));
+    }
+  });
+
+  test('(j) relative path with `..` that stays inside workspace returns ok', () => {
+    // The existing (e) test goes OUTSIDE workspace via `..`. This one uses
+    // a `..` that climbs then descends back into workspace — exercising the
+    // `posix.normalize` branch where the normalized path is shorter but
+    // still under workspaceRoot.
+    const result = planArtifactPath({
+      changeId: CHANGE_ID,
+      workspaceRoot: SUB_SLICE_2_WORKSPACE,
+      role: ROLE,
+      requestId: REQUEST_ID,
+      relativePath: 'changes/sub/../changes-back.md'
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.relativePath).toBe(join('changes', 'changes-back.md'));
+    }
+  });
+
+  test('(k) template with only some placeholders exercises interpolateTemplate partial-match branches', () => {
+    // Forces interpolateTemplate to return a string where 2 of 3
+    // .replaceAll calls found a match and 1 did not — exercises both branches
+    // of the implicit regex-match path inside .replaceAll (covered/no-op).
+    const result = planArtifactPath({
+      changeId: CHANGE_ID,
+      workspaceRoot: SUB_SLICE_2_WORKSPACE,
+      role: ROLE,
+      requestId: REQUEST_ID,
+      template: 'fixed/<role>/x'
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.jsonSafeRelativePath).toBe(`fixed/${ROLE}/x`);
+    }
+  });
+
+  test('(l) buildWorkspaceUnavailable is exercised separately for each mode (not via shared loop)', () => {
+    // The existing test loops over both modes in one body — c8 may collapse
+    // the branch back to single-coverage. Calling them in separate test
+    // bodies forces both branches to be evaluated independently.
+    const blocked = buildWorkspaceUnavailable({ mode: 'blocked' });
+    expect(blocked.mode).toBe('blocked');
+
+    const preview = buildWorkspaceUnavailable({ mode: 'preview-only' });
+    expect(preview.mode).toBe('preview-only');
+  });
+
+  test('(m) planArtifactPath with absolutePath AND template supplied picks absolutePath branch', () => {
+    // Forces the first ternary (L161-164) to take the absolutePath branch
+    // when both absolutePath and template are supplied — template is ignored.
+    const absoluteCandidate = join(SUB_SLICE_2_WORKSPACE, 'changes', CHANGE_ID, ROLE, `${REQUEST_ID}.md`);
+    const result = planArtifactPath({
+      changeId: CHANGE_ID,
+      workspaceRoot: SUB_SLICE_2_WORKSPACE,
+      role: ROLE,
+      requestId: REQUEST_ID,
+      absolutePath: absoluteCandidate,
+      template: 'unused/<changeId>/<role>/<requestId>'
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.absolutePath).toBe(absoluteCandidate);
+      // template MUST be ignored — jsonSafeRelativePath uses absolutePath
+      expect(result.value.jsonSafeRelativePath).toBe(
+        ['changes', CHANGE_ID, ROLE, `${REQUEST_ID}.md`].join('/')
+      );
+    }
+  });
 });
 
 /**
