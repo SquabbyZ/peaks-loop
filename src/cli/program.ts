@@ -5,101 +5,13 @@ import { skillsDir, repoRoot } from 'peaks-loop-shared/paths';
 
 import { CLI_VERSION } from 'peaks-loop-shared/version';
 
+import { autoRegisterAllCommands } from './commands/_register.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
-import { registerCodegraphCommands } from './commands/codegraph-commands.js';
-import { registerOpenSpecCommands } from './commands/openspec-commands.js';
-import { registerPerfCommands } from './commands/perf-commands.js';
-import { registerPreferencesCommands } from './commands/preferences-commands.js';
-// Slice #014: peaks progress * CLI surface deleted (replaced by sub-agent
-// dispatch + heartbeat, slice #009 + #010). Sub-agent progress is
-// surfaced via `peaks sub-agent dispatch|heartbeat|share`.
-import { registerProjectCommands } from './commands/project-commands.js';
-import { registerPrdCommands } from './commands/prd-commands.js';
-import { registerRequestCommands } from './commands/request-commands.js';
-import { registerRetrospectiveCommands } from './commands/retrospective-commands.js';
-import { registerScanCommands } from './commands/scan-commands.js';
-import { registerSliceCommands } from './commands/slice-commands.js';
-import { registerSopCommands } from './commands/sop-commands.js';
-// v2.15.0 slice 002 AC-3: feedback-promotion CLI (`peaks feedback promote`
-// + `peaks feedback check-unpromoted`). See
-// `sops/feedback-promotion-sop.md`.
-import { registerFeedbackCommands } from './commands/feedback-commands.js';
-import { registerForkCommands } from './commands/fork-commands.js';
-import { registerImpactCommands } from './commands/impact-commands.js';
-import { registerSmokeCommands } from './commands/smoke-commands.js';
-import { registerReleaseCommands } from './commands/release-commands.js';
-import { registerPrdBlocksCommands } from './commands/prd-blocks-commands.js';
-import { registerUserTouchpointCommands } from './commands/user-touchpoint-commands.js';
-import { registerSliceReviewCommands } from './commands/slice-review-commands.js';
-import { registerQaBusinessReviewCommands } from './commands/qa-business-review-commands.js';
-import { registerSliceIntegrateCommands } from './commands/slice-integrate-commands.js';
-import { registerDocCommands } from './commands/doc-commands.js';
-import { registerLegacyCommands } from './commands/legacy-commands.js';
-import { registerRoleCommands } from './commands/role-commands.js';
-import { registerComplexityCommands } from './commands/complexity-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
-import { registerSubAgentDispatchGuard } from './commands/sub-agent-dispatch-guard.js';
-import { registerGateCommands } from './commands/gate-commands.js';
-import { registerHookHandleCommand } from './commands/hook-handle.js';
-import { registerHooksCommands } from './commands/hooks-commands.js';
-import { registerStatusLineCommands } from './commands/statusline-commands.js';
-import { registerUnderstandCommands } from './commands/understand-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
-import { registerWorkflowPlanCommands } from './commands/workflow-plan-commands.js';
-import { registerAuditCommands } from './commands/audit-commands.js';
-import { registerFinalReviewCommands } from './commands/final-review-commands.js';
-import { registerClassifyCommands } from './commands/classify-classify-commands.js';
-import { registerContextCommands } from './commands/context-commands.js';
-import { registerContractCommands } from './commands/contract-commands.js';
-import { registerSkillConformanceCommands } from './commands/skill-conformance-commands.js';
-import { registerSkillLoopEngineeringReadinessCommands } from './commands/skill-loop-engineering-readiness-commands.js';
-import { registerLoopCommands } from './commands/loop-commands.js';
-import { registerWorkflowEvalCommands } from './commands/loop-eval-commands.js';
-import { registerEvolutionCommands } from './commands/evolution-commands.js';
-import { registerAssetCommands } from './commands/asset-commands.js';
-import { registerBeeCommands } from './commands/bee-commands.js';
-import { registerEccCommands } from './commands/ecc-commands.js';
-import { registerUpgradeCommands } from './commands/upgrade-commands.js';
-import { registerCodeReviewCommands } from './commands/code-review-commands.js';
-import { registerSecurityAuditCommands } from './commands/security-audit-commands.js';
-import { registerPerfAuditCommands } from './commands/perf-audit-commands.js';
-import { registerVerdictAggregateCommands } from './commands/verdict-aggregate-command.js';
-import { registerLogCommands } from './commands/log-commands.js';
-import { registerQaCommands } from './commands/qa-commands.js';
-import { registerTestCommands } from './commands/test-commands.js';
-import { registerPlaywrightCommands } from './commands/playwright-commands.js';
-import { registerCodeCommands } from './commands/code-commands.js';
-import { registerMutCommands } from './commands/mut-commands.js';
-import { registerFixtureCommands } from './commands/fixture-commands.js';
-import { registerReviewerCommands } from './commands/reviewer-commands.js';
-import { registerObservabilityCommands } from './commands/observability-commands.js';
-// Slice 2026-07-09 add-zcode-adapter (Slice C): `peaks ide model --current` —
-// read-only runtime model probe surfaced via the registered IDE adapter
-// chain. See src/services/ide/current-model-detector.ts.
-import { registerIdeCommands } from './commands/ide-commands.js';
-// Slice 2026-07-01-strategic-compact-cli: peaks compact
-// (suggest | recommend | survival | dry-run | force) — strategic-compact
-// CLI primitives. See src/services/compact/ and
-// src/cli/commands/compact-command.ts.
-import { registerCompactCommands } from './commands/compact-command.js';
-// Slice 2026-07-01-job-m3.1: `peaks job init|status|...` — Job orchestration CLI surface.
-import { registerJobCommands } from './commands/job-commands.js';
-// Slice 2026-07-04-cli-15a: `peaks skill sediment <verb>` + `peaks skill adapter <verb>`
-// — Task 15a 4-verb subset (add-segment / add-bee / list / rebuild-index).
-// 15b / 15c / 15d will extend sediment-commands.ts with the remaining 14 verbs.
-import { registerSedimentCommands } from './commands/sediment-commands.js';
-import { registerAdapterCommands } from './commands/adapter-commands.js';
-// Slice RD-2 S2-a: `peaks runtime *` (detect / list / compact) +
-// `peaks adapter *` (list / register). See src/services/runtime/ and
-// src/services/adapter/adapter-registry.ts. Coexists with the older
-// `peaks skill adapter` surface (slice 2026-07-04-cli-15a) which is
-// for skill materialization, not vendor-adapter registry.
-import { registerRuntimeCommands } from './commands/runtime-commands.js';
-import { registerAdapterS2ACommands } from './commands/adapter-commands-s2a.js';
-// Slice RD-2 S2-b: `peaks polyrepo *` (init / status / dispatch).
-import { registerPolyrepoCommands } from './commands/polyrepo-commands.js';
+import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
@@ -309,174 +221,15 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerCoreAndArtifactCommands(program, io);
  registerWorkflowCommands(program, io);
  registerCapabilityWorkerConfigAndSCCommands(program, io);
- registerCodegraphCommands(program, io);
- registerOpenSpecCommands(program, io);
- registerPerfCommands(program, io);
- registerPreferencesCommands(program);
- registerProjectCommands(program, io);
- registerPrdCommands(program, io);
- registerRequestCommands(program, io);
- registerRetrospectiveCommands(program, io);
- registerScanCommands(program, io);
- registerSliceCommands(program, io);
- registerSopCommands(program, io);
- // v2.15.0 slice 002 AC-3: feedback promotion CLI.
- registerFeedbackCommands(program, io);
- // v2.15.0 follow-up G11: fork sync CLI (status / upstream-check / sync-plan / sync / sync-verify).
- registerForkCommands(program, io);
- // v2.15.0 follow-up G13: impact scan CLI (scan / must-check).
- registerImpactCommands(program, io);
- // v2.15.0 follow-up G14: smoke regression CLI (define / run / run-and-repair / add-path).
- registerSmokeCommands(program, io);
- // v2.15.0 follow-up G15: release / hotfix CLI (plan / canary / promote / watch / done / rollback / hotfix).
- registerReleaseCommands(program, io);
- // v2.15.0 follow-up G3: prd 4 必填块 CLI (check-blocks).
- registerPrdBlocksCommands(program, io);
- // v2.15.0 follow-up G4: user touchpoint CLI (gate-classify / user-touchpoints / commit-boundary-actions).
- registerUserTouchpointCommands(program, io);
- // v2.15.0 follow-up G1: slice business review CLI (review / score / accept / reject).
- registerSliceReviewCommands(program, io);
- // v2.15.0 follow-up G5: QA business review CLI (business-review / score / accept / reject).
- registerQaBusinessReviewCommands(program, io);
- // v2.15.0 follow-up G6: slice cross-integration verifier (slice-integrate).
- registerSliceIntegrateCommands(program, io);
- // v2.15.0 follow-up G7: doc auto-generation (generate-skill / changelog-suggest).
- registerDocCommands(program, io);
- // v2.15.0 follow-up G8: legacy code smell detector (legacy-detect).
- registerLegacyCommands(program, io);
- // v2.15.0 follow-up G9: lightweight role registry (role list/add/grant/check).
- registerRoleCommands(program, io);
- // v2.15.0 follow-up G10: complexity estimator (complexity-estimate).
- registerComplexityCommands(program, io);
  registerSubAgentCommands(program, io);
-  registerContractCommands(program, io);
- // Slice #010 G9.5: register the hook-only internal atom. Hidden from
- // `peaks --help` (no description text); used by `peaks hooks install`
- // to wire the PreToolUse hook chain.
- registerSubAgentDispatchGuard(program);
- registerGateCommands(program, io);
- registerHookHandleCommand(program, io);
- registerHooksCommands(program, io);
- registerStatusLineCommands(program, io);
- registerUnderstandCommands(program, io);
  registerWorkspaceCommands(program, io);
- registerWorkflowPlanCommands(program, io);
- // Slice L2.1: peaks audit * — red-line audit framework.
- registerAuditCommands(program, io);
- // Slice 2026-06-25-slice-topology-multipass (Fix M2): peaks prepare-final-review CLI wrapper.
- registerFinalReviewCommands(program, io);
- // Slice #2: peaks classify * — L1a task classification + L1b per-level gate sets.
- registerClassifyCommands(program, io);
- // Slice #3: peaks context * — L1c context 4-layer loader.
- registerContextCommands(program, io);
- // Slice #12: peaks skills:audit-conformance — skill family alignment pass.
- registerSkillConformanceCommands(program, io);
- // M6 (2026-07-07 spec §7.5 / §8.4): peaks skill lint --category
- // loop-engineering-readiness — readiness gate for any new peaks-*
- // skill that participates in Loop Engineering.
- registerSkillLoopEngineeringReadinessCommands(program, io);
- // Slice #13: peaks swarm * — additional subcommands (pipeline /
- // dispatch / verify / loop) are added inline in workflow-commands.ts
- // alongside the existing swarm.plan. This avoids the duplicate top-level
- // command conflict (peaks-loop-when-adding-a-new-subcommand-check-for-existing-top-level-first).
- // Slice #14: peaks loop * + peaks goal compose — L4 Agent Loop sub-features.
- registerLoopCommands(program, io);
-  // Slice v3.0.0 loop-eng-native-code-a-b: peaks workflow run|plan|lint
-  // + peaks loop eval. Wraps the existing workflow + loop groups so the
-  // add-a-new-subcommand-check-for-existing-top-level-first rule is honoured.
-  registerWorkflowEvalCommands(program, io);
-  // M4 (2026-07-07 spec): `peaks evolution propose|evaluate|revert|status|mark-keep`
-  // — Darwin-style ratchet CLI surface.
-  registerEvolutionCommands(program, io);
-  // M5 (2026-07-07 spec): `peaks asset crystallize|dispose|status` —
-  // umbrella cross-asset crystallization surface.
-  registerAssetCommands(program, io);
-  // M7 (2026-07-07 spec §7A.2 / §10 RL-9): `peaks bee export|import`
-  // — cross-user share surface for bee_release rows.
-  registerBeeCommands(program, io);
- // Slice 3 (on-demand-ecc): `peaks ecc install|status|ls|show` replaces the
- // deleted `peaks agent run|list` subprocess surface.
- registerEccCommands(program, io);
- // Slice: 1.x → 2.0 umbrella (per "one-key completion" + "minimal-user-operation" tenets).
- registerUpgradeCommands(program, io);
- // Slice: ocr soft-optional integration (peaks-rd Gate B3 augmentation).
- registerCodeReviewCommands(program, io);
- // Slice v2.12.0 Group A Tier 2: `peaks security-audit` (independent security audit skill driver).
- registerSecurityAuditCommands(program, io);
- // Slice v2.12.0 Group A Tier 3: `peaks perf-audit` (independent perf audit skill driver).
- registerPerfAuditCommands(program, io);
- // Slice v2.13.2 AC-2: `peaks verdict aggregate` (cross-source verdict aggregator CLI surface).
- registerVerdictAggregateCommands(program, io);
- // Slice 2026-06-16-cli-logging (G4): `peaks log tail` / `peaks log ls`.
- registerLogCommands(program, io);
- // Slice 2026-06-16-playwright-restart-loop (G5 + AC4): `peaks qa run`.
- registerQaCommands(program, io);
- // Slice 2026-06-17-2.5.0-sub-fix-B: `peaks test` (user-invoked, smart
- // fingerprint-cache wrapper around jest/vitest/mocha).
- registerTestCommands(program, io);
- // Slice 2026-06-17-2.5.0-sub-fix-C: `peaks playwright start|ls|stop`
- // (multi-terminal Playwright MCP lifecycle).
- registerPlaywrightCommands(program, io);
- // Slice 2 (peaks-code fast mode): `peaks code plan [--fast] <change-id>`
- // v2.11.0 Group F (D5 + D7): also registers `peaks code should-pause` and
- // `peaks code post-compact-detect` for runtime-friction probes.
- registerCodeCommands(program, io);
- // Plan 2 / Task 6: `peaks mut run|mutants|asserts|report` — mutation
- // testing + assertion validity scan (spec §4.2 / §7). The
- // production Stryker invoker is wired here; tests use the
- // `createMutCommands({ invokeStryker })` factory directly with a
- // mock to keep @stryker-mutator/core out of the unit-test path.
- registerMutCommands(program, io);
-
- // Slice v2.14.0 G1 AC-1.4: `peaks fixture capture` — fixture-replay
- // anti-fake-green test suite producer. Sanitizes + checksums the
- // captured envelope and writes a co-located fixture.meta.json.
- registerFixtureCommands(program, io);
-
- // Slice v2.14.0 G4 AC-4.1: `peaks reviewer run|status` — third-party
- // reviewer CLI. The reviewer modelFamily MUST differ from the
- // karpathy-reviewer modelFamily (AC-4.4); see
- // src/services/reviewer/model-family.ts. The THIRD_PARTY_REVIEW prereq
- // is wired into src/services/artifacts/artifact-prerequisites.ts.
- registerReviewerCommands(program, io);
-
-  // Slice B of v2.11.1: `peaks observability status|slices|fanout|repair-cycles`
-  // (read-only queries over the JSONL metrics emitted from the
-  // peaks request transition hook in Slice A).
-  // Slice 2026-07-09 add-zcode-adapter (C.6): `peaks ide model --current`
-  // (read-only runtime model probe via the registered IDE adapter chain).
-  registerIdeCommands(program, io);
-  registerObservabilityCommands(program, io);
-
-  // Slice 2026-07-01-strategic-compact-cli: `peaks compact
-  // suggest|recommend|survival|dry-run|force` — strategic-compact CLI
-  // primitives. See src/cli/commands/compact-command.ts.
-  registerCompactCommands(program, io);
-
-  // Slice 2026-07-01-job-m3.1: `peaks job init|status|...` — Job
-  // orchestration CLI surface. M3.1 wires init + status + 2 stubs;
-  // the remaining 5 subcommands land in M3.2.
-  registerJobCommands(program, io);
-
-  // Slice 2026-07-04-cli-15a: `peaks skill sediment <verb>` — Task 15a
-  // 4-verb subset. Dispatches to runSediment; remaining verbs land in 15b/15c/15d.
-  registerSedimentCommands(program, io);
-  // Slice 2026-07-04-cli-15a: `peaks skill adapter <verb>` — adapter list / set-active.
-  registerAdapterCommands(program, io);
-  // Slice RD-2 S2-a: `peaks runtime *` (detect / list / compact) +
-  // `peaks adapter *` (list / register). Vendor verbs live ONLY in
-  // src/services/runtime/vendors/<vendor>.ts (AC-1 enforcement).
-  registerRuntimeCommands(program, io);
-  registerAdapterS2ACommands(program, io);
-  // Slice RD-2 S2-b: `peaks polyrepo *` (init / status / dispatch).
-  registerPolyrepoCommands(program, io);
-
-  // Slice 2026-07-05-peaks-code-to-peaks-code (Task 1): `peaks skill:visibility --list --json`
-  // — read .claude-plugin/marketplace.json and report each skill's
-  // visibility (public vs internal). Used to surface which skills are
-  // user-invocable vs LLM-only internal role skills. See
-  // src/cli/commands/skill-visibility.ts.
-  registerSkillVisibilityCommand(program, repoRoot);
+ registerSopCommands(program, io);
+ // Auto-route the remaining 60+ commands after the orchestrators so the
+ // lazy `skill` parent (used by adapter-commands / sediment-commands)
+ // finds the existing `peaks skill` group registered by
+ // registerCoreAndArtifactCommands instead of being created twice.
+ autoRegisterAllCommands(program, io);
+ registerSkillVisibilityCommand(program, repoRoot);
 
  return program;
 }

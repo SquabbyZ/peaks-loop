@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Command } from 'commander';
 
-import { registerContractCommands } from '../../../src/cli/commands/contract-commands.js';
+import { registerContractCommands } from '../../../src/cli/commands/governance-classify-contract-commands.js';
 import type { ProgramIO } from '../../../src/cli/cli-helpers.js';
 
 let projectRoot: string;
