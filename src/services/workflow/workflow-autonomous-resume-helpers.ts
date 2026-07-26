@@ -21,7 +21,7 @@ import { isAbsolute, relative, resolve } from 'node:path';
 // `.peaks/_runtime/<sessionId>/<role>/...` string is no longer
 // pre-built.
 import { getSessionDir } from '../session/getSessionDir.js';
-import type { AutonomousResumePlan } from './workflow-autonomous-service.js';
+import type { AutonomousResumePlan } from './workflow-autonomous-types.js';
 
 const MAX_RESUME_ARTIFACT_BYTES = 256_000;
 

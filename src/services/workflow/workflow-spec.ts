@@ -19,113 +19,34 @@
  * pair. Anything more elaborate (e.g. conditionals on outputs) belongs
  * in a future minor.
  *
- * File budget: ≤ 800 lines (Karpathy §2).
+ * File budget: ≤ 400 lines (rid-006 split). This file now holds the
+ * parser + private constants + private build helpers; types live in
+ * `workflow-spec-types.ts`; YAML field helpers live in
+ * `workflow-spec-yaml.ts`; lint lives in `workflow-spec-lint.ts`.
+ * The re-export shim at the bottom preserves the original public
+ * surface so external callers (`workflow-loader.ts`,
+ * `loop-eval-commands.ts`, `evaluator-dispatcher.ts`) compile
+ * unchanged.
  */
 
-/** A workflow phase = a single step the runtime executes. */
-export interface WorkflowPhase {
-  /** Stable id within the workflow (kebab-case). Used as the SOP gate key. */
-  readonly id: string;
-  /** peaks-* role that runs the phase (e.g. "peaks-rd"). */
-  readonly role: string;
-  /** Free-text prompt template sent to the role. */
-  readonly promptTemplate: string;
-  /** Phase-level gate references; runtime looks up the SOP gate by id. */
-  readonly gates: readonly string[];
-  /** Output contract — keys the runtime should expect in the role's verdict. */
-  readonly outputContract: readonly string[];
-  /** Optional ordered list of sibling phase ids that must complete first. */
-  readonly dependsOn?: readonly string[];
-  /** When true, runtime may run this phase in parallel with siblings at the same depth. */
-  readonly parallelGroup?: string;
-}
-
-/** A gate entry is a thin pointer to a peaks-sop gate; the gate definition
- *  itself lives in peaks-sop, never in the workflow yaml. */
-export interface WorkflowGate {
-  /** Gate id (matches peaks-sop gate-id). */
-  readonly id: string;
-  /** SOP id that owns the gate definition. */
-  readonly sopId: string;
-  /** Optional human-readable hint shown when the gate fails. */
-  readonly description?: string;
-}
-
-/** Native evaluator types — the 4 reviewer fan-out members + verdict aggregator
- *  + Slice C monotonic-improvement guard + Slice D G13/G14/G15 quality-loop
- *  primitives. Sketch-grade: the 3 quality-loop evaluators shell out to
- *  existing `peaks impact scan`, `peaks smoke run`, and
- *  `peaks release canary` CLI surfaces. The authoritative score
- *  conversion for the monotonic guard lives in
- *  `src/services/loop/monotonic-guard.ts`. */
-export type EvaluatorKind =
-  | 'karpathy'              // 4 Karpathy guidelines review
-  | 'code-review'           // peaks-rd code-reviewer
-  | 'security-review'       // peaks-security-audit
-  | 'perf-baseline'         // peaks-perf-audit
-  | 'verdict-aggregate'     // cross-source verdict merge
-  | 'monotonic-improvement' // Slice C: per-evaluator monotonic score check
-  | 'impact-scan'           // Slice D / G13: peaks impact scan
-  | 'smoke-run'             // Slice D / G14: peaks smoke run
-  | 'canary-watch';         // Slice D / G15: peaks release canary
-
-/** Evaluator binding — runtime calls `peaks loop eval` directly, no LLM scheduling. */
-export interface WorkflowEvaluator {
-  readonly type: EvaluatorKind;
-  /** Optional gate id this evaluator produces evidence for (e.g. "Gate B3"). */
-  readonly gate?: string;
-  /** Optional scope expression (path or glob) — kept as string for v3.0.0. */
-  readonly scope?: string;
-  /** Optional SLA threshold (evaluator-specific; evaluators interpret their own scale). */
-  readonly threshold?: string;
-}
-
-/** Context snapshot — files + scope the role/worker should preload. */
-export interface WorkflowContextSnapshot {
-  /** Files the role should read before running (paths, relative to project root). */
-  readonly files: readonly string[];
-  /** Optional memory anchors (e.g. ".peaks/memory/parked-peaks-workflow-primitive.md"). */
-  readonly memory: readonly string[];
-}
-
-/** Budget caps — runtime stops the loop when any cap is exceeded. */
-export interface WorkflowBudget {
-  /** Hard token cap (sum of role invocations + evaluator outputs). */
-  readonly tokens?: number;
-  /** Wall-clock cap in seconds. */
-  readonly wallSeconds?: number;
-  /** Cycle cap — maximum repair iterations before guard aborts. */
-  readonly cycles?: number;
-}
-
-export interface WorkflowSpec {
-  /** Schema version; always 1 for v3.0.0. */
-  readonly schemaVersion: 1;
-  /** Stable id (matches filename `<id>.yaml`). */
-  readonly id: string;
-  /** Human-readable label shown in `peaks workflow list`. */
-  readonly label: string;
-  /** Description; one short paragraph. */
-  readonly description: string;
-  /** Phases in declaration order; runtime may parallelize siblings within a group. */
-  readonly phases: readonly WorkflowPhase[];
-  /** Gates referenced by phases; runtime resolves them via peaks-sop. */
-  readonly gates: readonly WorkflowGate[];
-  /** Native evaluators the runtime should invoke. */
-  readonly evaluators: readonly WorkflowEvaluator[];
-  /** Context snapshot for the workflow. */
-  readonly contextSnapshot: WorkflowContextSnapshot;
-  /** Budget caps. */
-  readonly budget: WorkflowBudget;
-}
-
-/** Result of `lintWorkflowSpec` — pure data, never throws. */
-export interface WorkflowLintReport {
-  readonly ok: boolean;
-  readonly errors: readonly string[];
-  readonly warnings: readonly string[];
-  readonly normalizedSpec?: WorkflowSpec;
-}
+import {
+  arrayField,
+  leadingSpaces,
+  numberField,
+  objectField,
+  parseScalar,
+  stringArrayField,
+  stringField
+} from './workflow-spec-yaml.js';
+import type {
+  EvaluatorKind,
+  WorkflowBudget,
+  WorkflowContextSnapshot,
+  WorkflowEvaluator,
+  WorkflowGate,
+  WorkflowPhase,
+  WorkflowSpec
+} from './workflow-spec-types.js';
 
 const VALID_EVALUATORS: ReadonlySet<EvaluatorKind> = new Set<EvaluatorKind>([
   'karpathy',
@@ -402,141 +323,21 @@ function buildEvaluator(raw: unknown): WorkflowEvaluator {
   };
 }
 
-/** Lint a parsed spec — returns a report with semantic errors / warnings. */
-export function lintWorkflowSpec(spec: WorkflowSpec): WorkflowLintReport {
-  const errors: string[] = [];
-  const warnings: string[] = [];
+// ─── verbatim re-export shim (rid-006) ────────────────────────────────────
+// External callers (`workflow-loader.ts`, `loop-eval-commands.ts`,
+// `evaluator-dispatcher.ts`) import the public types and the lint
+// function from this module. Re-export them under their original names
+// so the call sites compile unchanged. The lint function moved to
+// `workflow-spec-lint.ts`; the types moved to `workflow-spec-types.ts`.
 
-  // Phase ids must be unique.
-  const seen = new Set<string>();
-  for (const phase of spec.phases) {
-    if (seen.has(phase.id)) errors.push(`duplicate phase id "${phase.id}"`);
-    seen.add(phase.id);
-  }
-
-  // Gate references in phases must exist in the gates list (or be a known
-  // built-in like "Gate B3").
-  const gateIds = new Set(spec.gates.map((g) => g.id));
-  for (const phase of spec.phases) {
-    for (const gateRef of phase.gates) {
-      if (!gateIds.has(gateRef) && !gateRef.startsWith('Gate ')) {
-        warnings.push(`phase "${phase.id}" references unknown gate "${gateRef}" (not in gates[] and not a built-in "Gate …" label)`);
-      }
-    }
-  }
-
-  // Evaluator gates must match a gate id when present.
-  for (const ev of spec.evaluators) {
-    if (ev.gate !== undefined && !gateIds.has(ev.gate) && !ev.gate.startsWith('Gate ')) {
-      warnings.push(`evaluator "${ev.type}" references unknown gate "${ev.gate}"`);
-    }
-  }
-
-  // dependsOn references must resolve.
-  const phaseIds = new Set(spec.phases.map((p) => p.id));
-  for (const phase of spec.phases) {
-    if (phase.dependsOn !== undefined) {
-      for (const dep of phase.dependsOn) {
-        if (!phaseIds.has(dep)) errors.push(`phase "${phase.id}" depends on missing phase "${dep}"`);
-      }
-    }
-  }
-
-  // Parallel groups must contain ≥2 phases.
-  const groupCounts = new Map<string, number>();
-  for (const phase of spec.phases) {
-    if (phase.parallelGroup !== undefined) {
-      groupCounts.set(phase.parallelGroup, (groupCounts.get(phase.parallelGroup) ?? 0) + 1);
-    }
-  }
-  for (const [group, count] of groupCounts) {
-    if (count < 2) warnings.push(`parallelGroup "${group}" has only ${count} phase(s); parallelism requires ≥2`);
-  }
-
-  // Budget sanity.
-  if (spec.budget.cycles !== undefined && spec.budget.cycles < 1) {
-    errors.push(`budget.cycles must be ≥1 when set (got ${spec.budget.cycles})`);
-  }
-  if (spec.budget.tokens !== undefined && spec.budget.tokens < 1) {
-    errors.push(`budget.tokens must be ≥1 when set (got ${spec.budget.tokens})`);
-  }
-  if (spec.budget.wallSeconds !== undefined && spec.budget.wallSeconds < 1) {
-    errors.push(`budget.wallSeconds must be ≥1 when set (got ${spec.budget.wallSeconds})`);
-  }
-
-  return {
-    ok: errors.length === 0,
-    errors,
-    warnings,
-    normalizedSpec: spec
-  };
-}
-
-// ─── yaml helper primitives ─────────────────────────────────────────────
-
-function leadingSpaces(line: string): number {
-  let n = 0;
-  for (const ch of line) {
-    if (ch === ' ') n++;
-    else break;
-  }
-  return n;
-}
-
-function parseScalar(raw: string): unknown {
-  if (raw === '') return '';
-  if (raw === 'true') return true;
-  if (raw === 'false') return false;
-  if (raw === 'null' || raw === '~') return null;
-  // Inline array form `[a, b, c]`
-  if (raw.startsWith('[') && raw.endsWith(']')) {
-    const inner = raw.slice(1, -1).trim();
-    if (inner === '') return [];
-    return inner.split(',').map((s) => parseScalar(s.trim()));
-  }
-  // Strip optional surrounding quotes.
-  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
-    return raw.slice(1, -1);
-  }
-  // Number?
-  if (/^-?\d+$/.test(raw)) return parseInt(raw, 10);
-  if (/^-?\d+\.\d+$/.test(raw)) return parseFloat(raw);
-  return raw;
-}
-
-function stringField(obj: Record<string, unknown>, key: string, fallback?: string): string {
-  const v = obj[key];
-  if (typeof v === 'string') return v;
-  if (fallback !== undefined) return fallback;
-  throw new Error(`workflow yaml: missing required string field "${key}"`);
-}
-
-function numberField(obj: Record<string, unknown>, key: string, fallback?: number): number {
-  const v = obj[key];
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (fallback !== undefined) return fallback;
-  throw new Error(`workflow yaml: missing required number field "${key}"`);
-}
-
-function arrayField(obj: Record<string, unknown>, key: string): unknown[] {
-  const v = obj[key];
-  if (v === undefined) return [];
-  if (!Array.isArray(v)) throw new Error(`workflow yaml: field "${key}" must be an array`);
-  return v;
-}
-
-function objectField(obj: Record<string, unknown>, key: string): Record<string, unknown> {
-  const v = obj[key];
-  if (v === undefined) return {};
-  if (v === null || typeof v !== 'object' || Array.isArray(v)) {
-    throw new Error(`workflow yaml: field "${key}" must be an object`);
-  }
-  return v as Record<string, unknown>;
-}
-
-function stringArrayField(obj: Record<string, unknown>, key: string): readonly string[] {
-  const v = obj[key];
-  if (v === undefined) return [];
-  if (!Array.isArray(v)) throw new Error(`workflow yaml: field "${key}" must be an array of strings`);
-  return v.map((s) => String(s));
-}
+export { lintWorkflowSpec } from './workflow-spec-lint.js';
+export type {
+  EvaluatorKind,
+  WorkflowBudget,
+  WorkflowContextSnapshot,
+  WorkflowEvaluator,
+  WorkflowGate,
+  WorkflowLintReport,
+  WorkflowPhase,
+  WorkflowSpec
+} from './workflow-spec-types.js';

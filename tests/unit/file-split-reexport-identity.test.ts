@@ -14,6 +14,8 @@ import * as sliceRunners from '../../src/services/slice/slice-decompose-runners.
 import * as sliceService from '../../src/services/slice/slice-decompose-service.js';
 import * as workflowResumeHelpers from '../../src/services/workflow/workflow-autonomous-resume-helpers.js';
 import * as workflowService from '../../src/services/workflow/workflow-autonomous-service.js';
+import * as workflowSpec from '../../src/services/workflow/workflow-spec.js';
+import * as workflowSpecLint from '../../src/services/workflow/workflow-spec-lint.js';
 import * as workspaceMaterializer from '../../src/services/workspace/workspace-claude-settings-materializer.js';
 import * as workspaceService from '../../src/services/workspace/workspace-service.js';
 
@@ -41,5 +43,12 @@ describe('v2.18.3 file-split re-export identity', () => {
 
   test('workspace-service re-exports claude-settings materializer (identity)', () => {
     expect(workspaceService.materializeClaudeSettingsLocal).toBe(workspaceMaterializer.materializeClaudeSettingsLocal);
+  });
+
+  // rid-006 — workflow-spec lint moved to workflow-spec-lint.ts; the
+  // slimmed workflow-spec.ts re-exports the function via a verbatim
+  // shim. Lock the identity here.
+  test('workflow-spec re-exports lintWorkflowSpec (identity, rid-006)', () => {
+    expect(workflowSpec.lintWorkflowSpec).toBe(workflowSpecLint.lintWorkflowSpec);
   });
 });
