@@ -14,24 +14,36 @@ import { getErrorMessage } from 'peaks-loop-shared/result';
 // positional token AND `--help`/`-h` are present. Bare `--help` (no
 // positional) is legitimate help → exit 0. Positional without `--help`
 // is handled by the root `.action()` in `program.ts`.
+//
+// Fix-5 (2026-07-26): skip the pre-check when the first positional token
+// matches a REGISTERED subcommand. `peaks slice --help` is legitimate
+// help on a registered command (slice IS in the program.commands list) —
+// the prior blind pre-check was a false positive that printed
+// `COMMAND_NOT_FOUND` + exit 1 alongside the slice help banner. We
+// still catch true unknowns (`peaks unknown-cmd --help`): `firstPositional`
+// won't be in the registered set, so the pre-check fires and exits 1.
 const argv = process.argv.slice(2);
 const hasHelp = argv.some((arg) => arg === '--help' || arg === '-h');
 const firstPositional = argv.find((arg) => !arg.startsWith('-'));
 if (hasHelp && firstPositional !== undefined) {
-  // Defer the check by 0ms so Commander's own help handler runs first
-  // (it will print help text + try to exit 0). We then override.
-  setImmediate(() => {
-    console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
-      ok: false,
-      command: 'cli',
-      code: 'COMMAND_NOT_FOUND',
-      message: `Unknown command: ${firstPositional}. Run \`peaks --help\` for available commands.`,
-      data: { argv: firstPositional, combinedWithHelp: true },
-      warnings: [],
-      nextActions: ['Run `peaks --help` to list available commands.']
-    }, null, 2));
-    process.exit(1);
-  });
+  const program = createProgram();
+  const registered = new Set(program.commands.map((c) => c.name()));
+  if (!registered.has(firstPositional)) {
+    // Defer the check by 0ms so Commander's own help handler runs first
+    // (it will print help text + try to exit 0). We then override.
+    setImmediate(() => {
+      console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
+        ok: false,
+        command: 'cli',
+        code: 'COMMAND_NOT_FOUND',
+        message: `Unknown command: ${firstPositional}. Run \`peaks --help\` for available commands.`,
+        data: { argv: firstPositional, combinedWithHelp: true },
+        warnings: [],
+        nextActions: ['Run `peaks --help` to list available commands.']
+      }, null, 2));
+      process.exit(1);
+    });
+  }
 }
 
 createProgram().parseAsync(process.argv).catch((error: unknown) => {

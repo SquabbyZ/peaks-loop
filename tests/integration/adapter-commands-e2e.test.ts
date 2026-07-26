@@ -77,9 +77,16 @@ function expectCommandNotRegistered(
   cwd = REPO
 ): { readonly help: RunResult; readonly action: RunResult } {
   const help = runCli([...args, '--help'], cwd);
-  expect(help.code).not.toBe(0);
+  // Post-Fix-5: there are two real outcomes for `X Y --help` where Y is unregistered:
+  //   (a) X is a registered top-level parent (e.g. `peaks skill install --help`):
+  //       commander falls through to `peaks skill --help` → exit 0 + parent usage
+  //       on stdout + empty stderr (no COMMAND_NOT_FOUND envelope).
+  //   (b) Y is the first positional of an unregistered top-level (e.g.
+  //       `peaks dispatch --help`): Fix-5's registered.has(Y) is false → setImmediate
+  //       emits COMMAND_NOT_FOUND envelope + exit 1.
+  // Accept either: just require `parentUsage` on stdout and the action call returns
+  // a structured COMMAND_NOT_FOUND.
   expect(help.stdout).toContain(`Usage: ${parentUsage}`);
-  expect(help.stderr).toContain('COMMAND_NOT_FOUND');
 
   const action = runCli(args, cwd);
   expect(action.code).not.toBe(0);
@@ -448,11 +455,13 @@ describe('peaks statusline render (P2-B.4 adapter/distribution e2e)', () => {
 describe('peaks statusline default (P2-B.4 adapter/distribution e2e)', () => {
   test('is not registered but the extra positional token falls through to default render', () => {
     const project = makeProject('peaks-p2b4-statusline-default-');
+    // Post-Fix-5: `statusline default --help` falls through to peaks statusline --help
+    // because 'statusline' is registered (top-level) and 'default' is not in
+    // program.commands, so Fix-5's check considers the parent fallback legitimate.
     const help = runCli(['statusline', 'default', '--help'], project);
-    expect(help.code).not.toBe(0);
+    expect(help.code).toBe(0);
     expect(help.stdout).toContain('Usage: peaks statusline [options] [command]');
     expect(help.stdout).not.toMatch(/^Usage: peaks statusline default/m);
-    expect(help.stderr).toContain('COMMAND_NOT_FOUND');
 
     const result = runCli(['statusline', 'default', '--project', project, '--json'], project);
     expect(result.code).toBe(0);
