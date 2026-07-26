@@ -166,9 +166,16 @@ describe('parseCoverageEvidence', () => {
 });
 
 describe('archiveOpenSpecChange (Pre-cond 2 coverage gate)', () => {
-  async function seedChangeWithSpecs(root: string, id: string, coverageBlock?: string): Promise<void> {
+  async function seedChangeWithSpecs(root: string, id: string, coverageBlock?: string | string[]): Promise<void> {
     const changeRoot = join(root, 'changes', id);
     await mkdir(join(changeRoot, 'specs', 'quality-gates'), { recursive: true });
+    const evidenceLines = coverageBlock !== undefined
+      ? (Array.isArray(coverageBlock) ? coverageBlock : coverageBlock.split('\n'))
+      : [
+          '| capability | requirement | status | testAnchor |',
+          '| --- | --- | --- | --- |',
+          '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |'
+        ];
     await writeFile(
       join(changeRoot, 'proposal.md'),
       [
@@ -180,11 +187,7 @@ describe('archiveOpenSpecChange (Pre-cond 2 coverage gate)', () => {
         '',
         '## Coverage Evidence',
         '',
-        ...(coverageBlock ?? [
-          '| capability | requirement | status | testAnchor |',
-          '| --- | --- | --- | --- |',
-          '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |'
-        ]),
+        ...evidenceLines,
         ''
       ].join('\n'),
       'utf8'
