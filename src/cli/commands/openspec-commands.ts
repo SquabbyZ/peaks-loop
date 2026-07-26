@@ -32,6 +32,7 @@ type OpenSpecValidateCommandOptions = OpenSpecListOptions & {
 type OpenSpecArchiveCommandOptions = OpenSpecListOptions & {
   apply?: boolean;
   force?: boolean;
+  coverageSummary?: string;
   archiveDir?: string;
 };
 
@@ -226,6 +227,7 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       .option('--project <path>', 'project root containing an openspec/ directory')
       .option('--apply', 'actually move the change directory')
       .option('--force', 'bypass the Pre-cond 2 Coverage Evidence gate (use only after confirming the gap is acceptable for this archive)')
+      .option('--coverage-summary <path>', 'override coverage-summary.json discovery (Fix-6B). Default: <projectRoot>/coverage/coverage-summary.json, then <projectRoot>/openspec/coverage-summary.json')
       .option('--archive-dir <name>', 'archive subdirectory name (default: archive)')
   ).action(async (changeId: string, options: OpenSpecArchiveCommandOptions) => {
     try {
@@ -240,6 +242,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       if (options.force === true) {
         archiveOptions.force = true;
       }
+      if (options.coverageSummary !== undefined) {
+        archiveOptions.coverageSummaryPath = options.coverageSummary;
+      }
       if (options.archiveDir !== undefined) {
         archiveOptions.archiveDirName = options.archiveDir;
       }
@@ -253,14 +258,23 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
         process.exitCode = 1;
         return;
       }
-      printResult(io, ok('openspec.archive', result, result.coverageGateBypassed === true ? ['Coverage gate bypassed via --force; archived with at least one uncovered requirement.'] : [], result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]), options.json);
+      const warnings: string[] = [];
+      if (result.coverageGateBypassed === true) {
+        warnings.push('Coverage gate bypassed via --force; archived with at least one uncovered requirement.');
+      }
+      if (result.coverageMismatchBypassed === true) {
+        warnings.push('Coverage summary mismatch bypassed via --force; archived with at least one capability below 100%.');
+      }
+      printResult(
+        io,
+        ok('openspec.archive', result, warnings, result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]),
+        options.json
+      );
     } catch (error) {
       if (error instanceof OpenSpecArchiveError) {
         printResult(
           io,
-          fail('openspec.archive', error.code, getErrorMessage(error), error.detail, error.code === 'OPENSPEC_COVERAGE_GATE_PARTIAL'
-            ? ['Update the Coverage Evidence table to mark each failing requirement as covered', 'Or re-run with --force to bypass the gate after confirming the gap is acceptable']
-            : ['Add a Coverage Evidence block to proposal.md listing every Requirement from specs/*/spec.md', 'Or re-run with --force to bypass the gate after confirming the gap is acceptable']),
+          fail('openspec.archive', error.code, getErrorMessage(error), error.detail, nextActionsForArchiveError(error.code)),
           options.json
         );
         process.exitCode = 1;
@@ -365,4 +379,46 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       process.exitCode = 1;
     }
   });
+}
+
+/**
+ * Per-error-code remediation hints for the archive gate.
+ * Centralized here so the catch block stays readable and the next-actions
+ * can be reviewed in isolation.
+ */
+function nextActionsForArchiveError(code: OpenSpecArchiveError['code']): string[] {
+  switch (code) {
+    case 'OPENSPEC_COVERAGE_GATE_PARTIAL':
+      return [
+        'Update the Coverage Evidence table to mark each failing requirement as covered',
+        'Or re-run with --force to bypass the gate after confirming the gap is acceptable'
+      ];
+    case 'OPENSPEC_COVERAGE_GATE_FAILED':
+      return [
+        'Add the missing Coverage Evidence or Capability Mapping block to proposal.md (see error.message)',
+        'Or re-run with --force to bypass the gate after confirming the gap is acceptable'
+      ];
+    case 'OPENSPEC_COVERAGE_EVIDENCE_MALFORMED':
+      return [
+        'Fix the proposal.md Coverage Evidence table — the heading exists but no parsable rows were found',
+        'Expected shape: | capability | requirement | status | testAnchor | with status in {covered, partial, uncovered}'
+      ];
+    case 'OPENSPEC_COVERAGE_EVIDENCE_MISSING':
+      return [
+        'Run `pnpm test:coverage` (which invokes scripts/coverage-c8.mjs) to generate coverage-summary.json',
+        'Or pass --coverage-summary <path> to point at an existing summary',
+        'Or re-run with --force to bypass the gate'
+      ];
+    case 'OPENSPEC_COVERAGE_EVIDENCE_STALE':
+      return [
+        'Re-run `pnpm test:coverage` to refresh coverage-summary.json',
+        'Or re-run with --force to bypass the gate after confirming the source delta is acceptable'
+      ];
+    case 'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH':
+      return [
+        'Inspect error.detail.mismatches[] — each entry lists the failing capability, file, and actual pct',
+        'Close the coverage gap (add tests or update the Capability Mapping block in proposal.md)',
+        'Or re-run with --force to bypass the gate after confirming the gap is acceptable'
+      ];
+  }
 }

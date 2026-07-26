@@ -1,9 +1,19 @@
 import { mkdir, readFile, rename, readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { isDirectory } from 'peaks-loop-shared/fs';
 
 import { validateChangeId } from './artifact-boundary.js';
 import type { OpenSpecScanOptions } from './openspec-scan-service.js';
+import {
+  findStaleChangeFiles,
+  parseCapabilityMapping,
+  readC8Summary,
+  resolveCoverageSummaryPath,
+  validateCapabilityCoverage,
+  type CapabilityCoverageMismatch,
+  type CapabilityMappingRow,
+  type CoverageSummary,
+} from './coverage-evidence-reader.js';
 
 export type OpenSpecArchiveOptions = OpenSpecScanOptions & {
   apply?: boolean;
@@ -13,6 +23,13 @@ export type OpenSpecArchiveOptions = OpenSpecScanOptions & {
    * for this archive operation. Default: false (gate enforced).
    */
   force?: boolean;
+  /**
+   * Override coverage-summary.json discovery (Fix-6B AC1.1).
+   * When omitted, discovery order is:
+   *   1. <projectRoot>/coverage/coverage-summary.json
+   *   2. <projectRoot>/openspec/coverage-summary.json
+   */
+  coverageSummaryPath?: string;
   archiveDirName?: string;
 };
 
@@ -34,6 +51,18 @@ export type CoverageEvidence = {
   rows: ReadonlyArray<CoverageRequirementRow>;
   /** True when a `## Coverage Evidence` block existed in the proposal. */
   present: boolean;
+  /** Rows parsed out of the `## Capability Mapping` block in proposal.md. */
+  capabilityRows: ReadonlyArray<CapabilityMappingRow>;
+  /** Resolved coverage-summary.json absolute path (Fix-6B). */
+  summaryPath?: string;
+  /** Freshness status of the c8 summary relative to change files. */
+  summaryStatus: 'missing' | 'stale' | 'fresh' | 'unavailable';
+  /** Per-capability validation outcome. */
+  capabilityValidation: 'ok' | 'mismatch' | 'no-mapping' | 'not-enforced';
+  /** Files under the change that are newer than the summary (only when stale). */
+  staleFiles: ReadonlyArray<string>;
+  /** Per-capability failing detail (only when mismatch). */
+  mismatches: ReadonlyArray<CapabilityCoverageMismatch>;
 };
 
 export type OpenSpecArchiveResult = {
@@ -44,6 +73,8 @@ export type OpenSpecArchiveResult = {
   coverage?: CoverageEvidence;
   /** Set when `applied === true` and the gate was bypassed via `--force`. */
   coverageGateBypassed?: boolean;
+  /** Set when `applied === true` and the Fix-6B mismatch gate was bypassed via `--force`. */
+  coverageMismatchBypassed?: boolean;
 };
 
 export class OpenSpecArchiveError extends Error {
@@ -51,7 +82,10 @@ export class OpenSpecArchiveError extends Error {
     public readonly code:
       | 'OPENSPEC_COVERAGE_GATE_FAILED'
       | 'OPENSPEC_COVERAGE_GATE_PARTIAL'
-      | 'OPENSPEC_COVERAGE_EVIDENCE_MALFORMED',
+      | 'OPENSPEC_COVERAGE_EVIDENCE_MALFORMED'
+      | 'OPENSPEC_COVERAGE_EVIDENCE_MISSING'
+      | 'OPENSPEC_COVERAGE_EVIDENCE_STALE'
+      | 'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH',
     message: string,
     public readonly detail: Record<string, unknown> = {}
   ) {
@@ -67,15 +101,13 @@ function defaultOpenSpecRoot(): string {
 /**
  * Parse the `## Coverage Evidence` block out of a proposal.md.
  *
- * Accepted shape (markdown table or fenced code block):
+ * Accepted shape (markdown table):
  *
  *     ## Coverage Evidence
  *
  *     | capability | requirement | status | testAnchor |
  *     | --- | --- | --- | --- |
  *     | quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |
- *
- *     | artifact-workspace | MVP implementation verification commands | covered | tests/unit/openspec-archive-service.test.ts |
  *
  * Returns `{ present: false }` when the heading is missing. Throws
  * `OpenSpecArchiveError` with `code: 'OPENSPEC_COVERAGE_EVIDENCE_MALFORMED'`
@@ -86,13 +118,29 @@ export async function parseCoverageEvidence(proposalPath: string): Promise<Cover
   try {
     raw = await readFile(proposalPath, 'utf8');
   } catch {
-    return { rows: [], present: false };
+    return {
+      rows: [],
+      present: false,
+      capabilityRows: [],
+      summaryStatus: 'unavailable',
+      capabilityValidation: 'not-enforced',
+      staleFiles: [],
+      mismatches: [],
+    };
   }
 
   const lines = raw.split(/\r?\n/);
   const headingIdx = lines.findIndex((line) => /^##\s+Coverage\s+Evidence\s*$/.test(line));
   if (headingIdx === -1) {
-    return { rows: [], present: false };
+    return {
+      rows: [],
+      present: false,
+      capabilityRows: [],
+      summaryStatus: 'unavailable',
+      capabilityValidation: 'not-enforced',
+      staleFiles: [],
+      mismatches: [],
+    };
   }
 
   const rows: CoverageRequirementRow[] = [];
@@ -122,7 +170,15 @@ export async function parseCoverageEvidence(proposalPath: string): Promise<Cover
     );
   }
 
-  return { rows, present: true };
+  return {
+    rows,
+    present: true,
+    capabilityRows: [],
+    summaryStatus: 'unavailable',
+    capabilityValidation: 'not-enforced',
+    staleFiles: [],
+    mismatches: [],
+  };
 }
 
 function parseTableRow(line: string): Omit<CoverageRequirementRow, 'line'> | null {
@@ -135,7 +191,6 @@ function parseTableRow(line: string): Omit<CoverageRequirementRow, 'line'> | nul
   const statusRaw = cells[2];
   const testAnchor = cells[3];
   if (capability === undefined || requirement === undefined || statusRaw === undefined) return null;
-  // Skip header (| capability | requirement | status | ...) and separator (| --- | --- |)
   if (capability.toLowerCase() === 'capability' && requirement.toLowerCase() === 'requirement') return null;
   if (/^-+$/.test(capability.replace(/\s+/g, ''))) return null;
   const status = statusRaw.toLowerCase();
@@ -176,7 +231,6 @@ async function changeHasSpecs(changeRoot: string): Promise<boolean> {
 }
 
 function evaluateGate(
-  changeId: string,
   evidence: CoverageEvidence
 ): { ok: true } | { ok: false; reason: string; failing: CoverageRequirementRow[] } {
   const failing = evidence.rows.filter((r) => r.status !== 'covered');
@@ -215,15 +269,21 @@ export async function archiveOpenSpecChange(
     return null;
   }
 
-  // Pre-cond 2: Coverage Evidence gate.
+  // Pre-cond 2 (Fix-6A + Fix-6B): Coverage Evidence gate.
   // Only enforce when the change declares at least one spec (otherwise there
   // are no requirements to gate on — backward-compat for design-only changes).
   let coverage: CoverageEvidence | undefined;
   let coverageGateBypassed: boolean | undefined;
+  let coverageMismatchBypassed: boolean | undefined;
+
   if (options.apply === true && (await changeHasSpecs(from))) {
     const proposalPath = join(from, 'proposal.md');
-    coverage = await parseCoverageEvidence(proposalPath);
-    if (!coverage.present) {
+
+    // --- Fix-6A: parse Coverage Evidence block (declarative half) ---
+    const evidence = await parseCoverageEvidence(proposalPath);
+    coverage = evidence;
+
+    if (!evidence.present) {
       throw new OpenSpecArchiveError(
         'OPENSPEC_COVERAGE_GATE_FAILED',
         `Refusing to archive "${changeId}": proposal.md is missing a "## Coverage Evidence" block. ` +
@@ -232,7 +292,7 @@ export async function archiveOpenSpecChange(
         { changeId, reason: 'no-coverage-evidence-block', coverage }
       );
     }
-    const verdict = evaluateGate(changeId, coverage);
+    const verdict = evaluateGate(evidence);
     if (!verdict.ok) {
       if (options.force === true) {
         coverageGateBypassed = true;
@@ -256,8 +316,124 @@ export async function archiveOpenSpecChange(
         );
       }
     }
+
+    // --- Fix-6B: parse Capability Mapping block + validate against c8 summary ---
+    const mapping = await parseCapabilityMapping(proposalPath);
+    coverage = {
+      ...coverage,
+      capabilityRows: mapping.rows,
+    };
+
+    if (mapping.rows.length === 0) {
+      // No mapping → cannot enforce per-capability. Refuse with the same
+      // gate-failed code but a distinct reason in detail (Fix-6B AC3).
+      throw new OpenSpecArchiveError(
+        'OPENSPEC_COVERAGE_GATE_FAILED',
+        `Refusing to archive "${changeId}": proposal.md is missing a "## Capability Mapping" block. ` +
+          'Add a Capability Mapping table listing each declared capability alongside its source file or subtree, ' +
+          'or re-run with --force to bypass the gate.',
+        { changeId, reason: 'no-capability-mapping-block', coverage }
+      );
+    }
+
+    // Discover coverage-summary.json
+    const projectRoot = resolve(openspecRoot, '..');
+    const summaryPathResult = await resolveCoverageSummaryPath({
+      projectRoot,
+      ...(options.coverageSummaryPath !== undefined ? { explicitPath: options.coverageSummaryPath } : {}),
+    });
+    if (!summaryPathResult.ok) {
+      // AC1: missing or not-readable
+      const triedPaths = summaryPathResult.error.code === 'missing' ? summaryPathResult.error.triedPaths : [summaryPathResult.error.path];
+      throw new OpenSpecArchiveError(
+        'OPENSPEC_COVERAGE_EVIDENCE_MISSING',
+        `Refusing to archive "${changeId}": no coverage-summary.json found at any of: ${triedPaths.join(', ')}. ` +
+          'Run `pnpm test:coverage` (which invokes scripts/coverage-c8.mjs) to generate one, ' +
+          'or pass --coverage-summary <path> to point at an existing summary, ' +
+          'or re-run with --force to bypass.',
+        {
+          changeId,
+          triedPaths,
+          coverage,
+        }
+      );
+    }
+
+    // Parse summary + check freshness (AC2)
+    let summary: CoverageSummary;
+    try {
+      summary = await readC8Summary(summaryPathResult.value);
+    } catch (error) {
+      throw new OpenSpecArchiveError(
+        'OPENSPEC_COVERAGE_EVIDENCE_MISSING',
+        `Refusing to archive "${changeId}": coverage-summary.json at ${summaryPathResult.value} is malformed (${(error as Error).message}). ` +
+          'Re-run `pnpm test:coverage` to regenerate, or pass --coverage-summary <path> to point at a valid summary.',
+        { changeId, path: summaryPathResult.value, coverage }
+      );
+    }
+    coverage = {
+      ...coverage,
+      summaryPath: summary.path,
+    };
+
+    const staleFiles = await findStaleChangeFiles({
+      projectRoot,
+      openspecRoot,
+      changeId,
+      summary,
+    });
+    if (staleFiles.length > 0) {
+      coverage = {
+        ...coverage,
+        summaryStatus: 'stale',
+        staleFiles,
+      };
+      throw new OpenSpecArchiveError(
+        'OPENSPEC_COVERAGE_EVIDENCE_STALE',
+        `Refusing to archive "${changeId}": coverage-summary.json is older than ${staleFiles.length} change file(s). ` +
+          'Re-run `pnpm test:coverage` to refresh, or re-run with --force to bypass.',
+        { changeId, staleFiles, summaryPath: summary.path, coverage }
+      );
+    }
+    coverage = {
+      ...coverage,
+      summaryStatus: 'fresh',
+    };
+
+    // Per-capability coverage check (AC4)
+    const validation = await validateCapabilityCoverage({
+      projectRoot,
+      summary,
+      rows: mapping.rows,
+    });
+    if (!validation.ok) {
+      coverage = {
+        ...coverage,
+        capabilityValidation: 'mismatch',
+        mismatches: validation.mismatches,
+      };
+      if (options.force === true) {
+        coverageMismatchBypassed = true;
+      } else {
+        throw new OpenSpecArchiveError(
+          'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH',
+          `Refusing to archive "${changeId}": ${validation.mismatches.length} capability row(s) claim "covered" in proposal.md but c8 reports < 100% coverage. ` +
+            'Re-run `pnpm test:coverage` after closing the gap, or re-run with --force to bypass.',
+          {
+            changeId,
+            mismatches: validation.mismatches,
+            coverage,
+          }
+        );
+      }
+    } else {
+      coverage = {
+        ...coverage,
+        capabilityValidation: 'ok',
+      };
+    }
   } else if (options.apply === true) {
-    // Spec-less change — try to surface evidence for visibility, but never fail.
+    // Spec-less change — surface coverage evidence for visibility, never fail.
     const proposalPath = join(from, 'proposal.md');
     coverage = await parseCoverageEvidence(proposalPath);
   }
@@ -286,5 +462,6 @@ export async function archiveOpenSpecChange(
     applied: true,
     ...(coverage !== undefined ? { coverage } : {}),
     ...(coverageGateBypassed === true ? { coverageGateBypassed: true } : {}),
+    ...(coverageMismatchBypassed === true ? { coverageMismatchBypassed: true } : {}),
   };
 }

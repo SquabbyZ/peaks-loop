@@ -1,6 +1,6 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, normalize as normalizePath } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { pathExists } from 'peaks-loop-shared/fs';
 
@@ -112,7 +112,15 @@ describe('parseCoverageEvidence', () => {
 
     const evidence = await parseCoverageEvidence(join(changeRoot, 'proposal.md'));
 
-    expect(evidence).toEqual({ rows: [], present: false });
+    expect(evidence).toEqual({
+      rows: [],
+      present: false,
+      capabilityRows: [],
+      summaryStatus: 'unavailable',
+      capabilityValidation: 'not-enforced',
+      staleFiles: [],
+      mismatches: [],
+    });
   });
 
   test('extracts rows from a Coverage Evidence table', async () => {
@@ -188,6 +196,12 @@ describe('archiveOpenSpecChange (Pre-cond 2 coverage gate)', () => {
         '## Coverage Evidence',
         '',
         ...evidenceLines,
+        '',
+        '## Capability Mapping',
+        '',
+        '| capability | source | testAnchor |',
+        '| --- | --- | --- |',
+        '| quality-gates | src/services/openspec/openspec-archive-service.ts | tests/unit/openspec-archive-service.test.ts |',
         ''
       ].join('\n'),
       'utf8'
@@ -197,6 +211,21 @@ describe('archiveOpenSpecChange (Pre-cond 2 coverage gate)', () => {
       '# Spec Delta: quality-gates\n\n## ADDED Requirements\n\n### Requirement: 100% coverage for included modules\n',
       'utf8'
     );
+
+    // Default to a clean coverage-summary.json so Fix-6B passes for the
+    // Fix-6A tests; individual tests can override via seedProject() helpers.
+    const coverageDir = join(root, '..', 'coverage');
+    await mkdir(coverageDir, { recursive: true });
+    const cleanSummary = JSON.stringify({
+      total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 100, covered: 5, total: 5 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+    await writeFile(join(coverageDir, 'coverage-summary.json'), cleanSummary, 'utf8');
   }
 
   test('apply refuses with OPENSPEC_COVERAGE_GATE_FAILED when no evidence block exists', async () => {
@@ -270,5 +299,308 @@ describe('archiveOpenSpecChange (Pre-cond 2 coverage gate)', () => {
 
     expect(result?.applied).toBe(false);
     expect(await pathExists(join(root, 'changes', 'dry-no-evidence'))).toBe(true);
+  });
+});
+
+describe('Fix-6B coverage-evidence-mismatch gate', () => {
+  /**
+   * Seed a project layout matching what archiveOpenSpecChange expects:
+   *   <projectRoot>/openspec/changes/<id>/{proposal.md,specs/<cap>/spec.md}
+   *   <projectRoot>/coverage/coverage-summary.json (optional)
+   *
+   * projectRoot in this test is the parent of openspec/, which is the default
+   * the gate resolves via `resolve(openspecRoot, '..')`.
+   */
+  async function seedProject(opts: {
+    coverageSummary?: Record<string, unknown> | null; // null = do not write
+    coverageSummaryAtProjectCoverage?: Record<string, unknown> | null;
+    coverageBlock?: string[];
+    capabilityBlock?: string[];
+    staleSpec?: boolean;
+  }): Promise<{ projectRoot: string; changeId: string; coverageSummaryPath?: string }> {
+    const projectRoot = await mkdtemp(join(tmpdir(), 'peaks-openspec-6b-'));
+    const openspecRoot = join(projectRoot, 'openspec');
+    const changeId = 'fix-6b-test';
+    const changeRoot = join(openspecRoot, 'changes', changeId);
+
+    await mkdir(join(changeRoot, 'specs', 'quality-gates'), { recursive: true });
+
+    const evidenceLines = opts.coverageBlock ?? [
+      '| capability | requirement | status | testAnchor |',
+      '| --- | --- | --- | --- |',
+      '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |'
+    ];
+    const capabilityLines = opts.capabilityBlock ?? [
+      '| capability | source | testAnchor |',
+      '| --- | --- | --- |',
+      '| quality-gates | src/services/openspec/openspec-archive-service.ts | tests/unit/openspec-archive-service.test.ts |'
+    ];
+    await writeFile(
+      join(changeRoot, 'proposal.md'),
+      [
+        `# Change: ${changeId}`,
+        '',
+        '## Acceptance Criteria',
+        '',
+        '- behavior',
+        '',
+        '## Coverage Evidence',
+        '',
+        ...evidenceLines,
+        '',
+        '## Capability Mapping',
+        '',
+        ...capabilityLines,
+        ''
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(changeRoot, 'specs', 'quality-gates', 'spec.md'),
+      '# Spec Delta: quality-gates\n\n## ADDED Requirements\n\n### Requirement: 100% coverage for included modules\n',
+      'utf8'
+    );
+
+    let coverageSummaryPath: string | undefined;
+    if (opts.coverageSummary !== undefined && opts.coverageSummary !== null) {
+      const dir = join(projectRoot, 'coverage');
+      await mkdir(dir, { recursive: true });
+      coverageSummaryPath = join(dir, 'coverage-summary.json');
+      await writeFile(coverageSummaryPath, JSON.stringify(opts.coverageSummary), 'utf8');
+    }
+
+    if (opts.staleSpec === true) {
+      // Make the spec file's mtime 1 minute in the future relative to the
+      // summary file (which we just wrote).
+      const future = new Date(Date.now() + 60_000);
+      await utimes(join(changeRoot, 'specs', 'quality-gates', 'spec.md'), future, future);
+    }
+
+    return { projectRoot, changeId, ...(coverageSummaryPath !== undefined ? { coverageSummaryPath } : {}) };
+  }
+
+  const cleanSummary = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+    total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+    'src/services/openspec/openspec-archive-service.ts': {
+      lines: { pct: 100, covered: 5, total: 5 },
+      statements: { pct: 100, covered: 5, total: 5 },
+      branches: { pct: 100, covered: 1, total: 1 },
+      functions: { pct: 100, covered: 1, total: 1 }
+    },
+    ...overrides
+  });
+
+  test('apply refuses with OPENSPEC_COVERAGE_EVIDENCE_MISSING when no coverage-summary.json exists', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: null });
+
+    await expect(archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true })).rejects.toMatchObject({
+      code: 'OPENSPEC_COVERAGE_EVIDENCE_MISSING'
+    });
+  });
+
+  test('apply discovers coverage-summary.json under <projectRoot>/coverage/', async () => {
+    const { projectRoot, changeId, coverageSummaryPath } = await seedProject({ coverageSummary: cleanSummary() });
+
+    const result = await archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true });
+
+    expect(result?.applied).toBe(true);
+    expect(normalizePath(result?.coverage?.summaryPath ?? '')).toBe(normalizePath(coverageSummaryPath ?? ''));
+    expect(await pathExists(join(projectRoot, 'openspec', 'changes', 'archive', changeId))).toBe(true);
+  });
+
+  test('--coverage-summary <path> overrides discovery', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: null });
+    const altDir = join(projectRoot, 'alt');
+    await mkdir(altDir, { recursive: true });
+    const altPath = join(altDir, 'summary.json');
+    await writeFile(altPath, JSON.stringify(cleanSummary()), 'utf8');
+
+    const result = await archiveOpenSpecChange(changeId, {
+      openspecRoot: join(projectRoot, 'openspec'),
+      apply: true,
+      coverageSummaryPath: altPath
+    });
+
+    expect(result?.applied).toBe(true);
+    expect(normalizePath(result?.coverage?.summaryPath ?? '')).toBe(normalizePath(altPath));
+  });
+
+  test('apply refuses with OPENSPEC_COVERAGE_EVIDENCE_STALE when spec file mtime > summary mtime', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: cleanSummary(), staleSpec: true });
+
+    await expect(archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true })).rejects.toMatchObject({
+      code: 'OPENSPEC_COVERAGE_EVIDENCE_STALE',
+      detail: expect.objectContaining({
+        staleFiles: expect.arrayContaining([
+          expect.stringMatching(/openspec\/changes\/fix-6b-test\/specs\/quality-gates\/spec\.md/)
+        ])
+      })
+    });
+  });
+
+  test('apply refuses with OPENSPEC_COVERAGE_GATE_FAILED (reason: no-capability-mapping-block) when mapping is missing', async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), 'peaks-openspec-6b-'));
+    const openspecRoot = join(projectRoot, 'openspec');
+    const changeId = 'no-mapping';
+    const changeRoot = join(openspecRoot, 'changes', changeId);
+    await mkdir(join(changeRoot, 'specs', 'quality-gates'), { recursive: true });
+    await writeFile(
+      join(changeRoot, 'proposal.md'),
+      [
+        '# Change: no-mapping',
+        '',
+        '## Coverage Evidence',
+        '',
+        '| capability | requirement | status | testAnchor |',
+        '| --- | --- | --- | --- |',
+        '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |'
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(join(changeRoot, 'specs', 'quality-gates', 'spec.md'), '# Spec Delta: quality-gates\n', 'utf8');
+    const coverageDir = join(projectRoot, 'coverage');
+    await mkdir(coverageDir, { recursive: true });
+    await writeFile(join(coverageDir, 'coverage-summary.json'), JSON.stringify(cleanSummary()), 'utf8');
+
+    await expect(archiveOpenSpecChange(changeId, { openspecRoot, apply: true })).rejects.toMatchObject({
+      code: 'OPENSPEC_COVERAGE_GATE_FAILED',
+      detail: expect.objectContaining({ reason: 'no-capability-mapping-block' })
+    });
+  });
+
+  test('apply refuses with OPENSPEC_COVERAGE_EVIDENCE_MISMATCH when capability source file is missing from c8 summary', async () => {
+    const { projectRoot, changeId } = await seedProject({
+      coverageSummary: cleanSummary(), // does not include 'src/services/x/missing.ts'
+      capabilityBlock: [
+        '| capability | source | testAnchor |',
+        '| --- | --- | --- |',
+        '| ghost | src/services/x/missing.ts | tests/unit/ghost.test.ts |'
+      ]
+    });
+
+    await expect(archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true })).rejects.toMatchObject({
+      code: 'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH',
+      detail: expect.objectContaining({
+        mismatches: expect.arrayContaining([
+          expect.objectContaining({
+            capability: 'ghost',
+            failingFiles: expect.arrayContaining([
+              expect.objectContaining({ path: 'src/services/x/missing.ts', reason: 'missing-from-summary' })
+            ])
+          })
+        ])
+      })
+    });
+  });
+
+  test('apply refuses with OPENSPEC_COVERAGE_EVIDENCE_MISMATCH when capability file has statements.pct < 100', async () => {
+    const partial = cleanSummary({
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 92, covered: 46, total: 50 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: partial });
+
+    await expect(archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true })).rejects.toMatchObject({
+      code: 'OPENSPEC_COVERAGE_EVIDENCE_MISMATCH',
+      detail: expect.objectContaining({
+        mismatches: expect.arrayContaining([
+          expect.objectContaining({
+            capability: 'quality-gates',
+            failingFiles: expect.arrayContaining([
+              expect.objectContaining({
+                path: 'src/services/openspec/openspec-archive-service.ts',
+                reason: 'below-threshold',
+                actual: expect.objectContaining({ statements: 92 })
+              })
+            ])
+          })
+        ])
+      })
+    });
+  });
+
+  test('apply succeeds when every capability passes all four metrics at 100%', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: cleanSummary() });
+
+    const result = await archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true });
+
+    expect(result?.applied).toBe(true);
+    expect(result?.coverage?.capabilityValidation).toBe('ok');
+  });
+
+  test('--force bypasses MISMATCH and marks coverageMismatchBypassed: true', async () => {
+    const partial = cleanSummary({
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 80, covered: 40, total: 50 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: partial });
+
+    const result = await archiveOpenSpecChange(changeId, {
+      openspecRoot: join(projectRoot, 'openspec'),
+      apply: true,
+      force: true
+    });
+
+    expect(result?.applied).toBe(true);
+    expect(result?.coverageMismatchBypassed).toBe(true);
+    expect(await pathExists(join(projectRoot, 'openspec', 'changes', 'archive', changeId))).toBe(true);
+  });
+
+  test('dry-run never blocks even when coverage summary is missing', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: null });
+
+    const result = await archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec') });
+
+    expect(result?.applied).toBe(false);
+    expect(await pathExists(join(projectRoot, 'openspec', 'changes', changeId))).toBe(true);
+  });
+
+  test('dry-run never blocks even when capability mismatches (no --apply)', async () => {
+    const partial = cleanSummary({
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 50, covered: 25, total: 50 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: partial });
+
+    const result = await archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec') });
+
+    expect(result?.applied).toBe(false);
+  });
+
+  test('spec-less change skips both Fix-6A and Fix-6B gates', async () => {
+    const projectRoot = await mkdtemp(join(tmpdir(), 'peaks-openspec-6b-'));
+    const openspecRoot = join(projectRoot, 'openspec');
+    const changeRoot = join(openspecRoot, 'changes', 'specless');
+    await mkdir(changeRoot, { recursive: true });
+    await writeFile(join(changeRoot, 'proposal.md'), '# Change: specless\n', 'utf8');
+    // No specs/*/spec.md; no coverage-summary.json. Both gates should skip.
+
+    const result = await archiveOpenSpecChange('specless', { openspecRoot, apply: true });
+
+    expect(result?.applied).toBe(true);
+    expect(result?.coverage?.summaryStatus).toBe('unavailable');
+    expect(result?.coverage?.capabilityValidation).toBe('not-enforced');
+  });
+
+  test('parses Capability Mapping table from proposal.md', async () => {
+    const { projectRoot, changeId } = await seedProject({ coverageSummary: cleanSummary() });
+    const result = await archiveOpenSpecChange(changeId, { openspecRoot: join(projectRoot, 'openspec'), apply: true });
+    expect(result?.coverage?.capabilityRows.length).toBeGreaterThan(0);
+    expect(result?.coverage?.capabilityRows[0]).toMatchObject({
+      capability: 'quality-gates',
+      source: 'src/services/openspec/openspec-archive-service.ts'
+    });
   });
 });

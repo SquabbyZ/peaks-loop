@@ -41,6 +41,7 @@ function seedChangeWithEvidence(opts: {
   changeId: string;
   coverageBlock?: string;
   hasSpecs?: boolean;
+  capabilityBlock?: string;
 }): void {
   const { projectRoot, changeId, hasSpecs = true } = opts;
   const coverageBlock = opts.coverageBlock ?? [
@@ -48,6 +49,11 @@ function seedChangeWithEvidence(opts: {
     '| --- | --- | --- | --- |',
     '| quality-gates | 100% coverage for included modules | covered | tests/unit/quality-gates.test.ts |',
     '| quality-gates | MVP implementation verification commands | covered | tests/unit/quality-gates.test.ts |'
+  ].join('\n');
+  const capabilityBlock = opts.capabilityBlock ?? [
+    '| capability | source | testAnchor |',
+    '| --- | --- | --- |',
+    '| quality-gates | src/services/openspec/openspec-archive-service.ts | tests/unit/openspec-archive-service.test.ts |'
   ].join('\n');
 
   const changeRoot = join(projectRoot, 'openspec', 'changes', changeId);
@@ -68,7 +74,11 @@ function seedChangeWithEvidence(opts: {
       '',
       '## Coverage Evidence',
       '',
-      ...coverageBlock.split('\n')
+      ...coverageBlock.split('\n'),
+      '',
+      '## Capability Mapping',
+      '',
+      ...capabilityBlock.split('\n')
     ].join('\n'),
     'utf8'
   );
@@ -81,7 +91,45 @@ function seedChangeWithEvidence(opts: {
       '# Spec Delta: quality-gates\n\n## ADDED Requirements\n\n### Requirement: 100% coverage for included modules\n\nBody.\n\n### Requirement: MVP implementation verification commands\n\nBody.\n',
       'utf8'
     );
+
+    // Default to a clean coverage-summary.json so Fix-6B does not refuse the
+    // gate for Fix-6A tests. Tests that want a specific summary state use
+    // seedCoverageSummary() explicitly (which overwrites).
+    const coverageDir = join(projectRoot, 'coverage');
+    fs.mkdirSync(coverageDir, { recursive: true });
+    fs.writeFileSync(
+      join(coverageDir, 'coverage-summary.json'),
+      JSON.stringify({
+        total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+        'src/services/openspec/openspec-archive-service.ts': {
+          lines: { pct: 100, covered: 5, total: 5 },
+          statements: { pct: 100, covered: 5, total: 5 },
+          branches: { pct: 100, covered: 1, total: 1 },
+          functions: { pct: 100, covered: 1, total: 1 }
+        }
+      }),
+      'utf8'
+    );
   }
+}
+
+function seedCoverageSummary(projectRoot: string, overrides: Record<string, unknown> = {}): string {
+  const fs = require('node:fs') as typeof import('node:fs');
+  const dir = join(projectRoot, 'coverage');
+  fs.mkdirSync(dir, { recursive: true });
+  const p = join(dir, 'coverage-summary.json');
+  const summary = {
+    total: { lines: { pct: 100, covered: 1, total: 1 }, statements: { pct: 100, covered: 1, total: 1 }, branches: { pct: 100, covered: 1, total: 1 }, functions: { pct: 100, covered: 1, total: 1 } },
+    'src/services/openspec/openspec-archive-service.ts': {
+      lines: { pct: 100, covered: 5, total: 5 },
+      statements: { pct: 100, covered: 5, total: 5 },
+      branches: { pct: 100, covered: 1, total: 1 },
+      functions: { pct: 100, covered: 1, total: 1 }
+    },
+    ...overrides
+  };
+  fs.writeFileSync(p, JSON.stringify(summary), 'utf8');
+  return p;
 }
 
 const tmpRoots: string[] = [];
@@ -239,5 +287,108 @@ describe('peaks openspec archive -- coverage gate (Pre-cond 2)', () => {
 
     expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(0);
     expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'specless'))).toBe(true);
+  });
+});
+
+describe('peaks openspec archive -- Fix-6B coverage summary mismatch gate', () => {
+  test('archive --apply with a clean coverage-summary.json succeeds', () => {
+    const projectRoot = makeProject();
+    tmpRoots.push(projectRoot);
+    seedChangeWithEvidence({ projectRoot, changeId: 'with-summary' });
+    seedCoverageSummary(projectRoot);
+
+    const result = runCli(
+      ['openspec', 'archive', 'with-summary', '--project', projectRoot, '--apply', '--json'],
+      projectRoot
+    );
+
+    expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(0);
+    expect(existsSync(join(projectRoot, 'openspec', 'changes', 'archive', 'with-summary'))).toBe(true);
+  });
+
+  test('archive --apply with stale coverage-summary.json refuses with OPENSPEC_COVERAGE_EVIDENCE_STALE', () => {
+    const projectRoot = makeProject();
+    tmpRoots.push(projectRoot);
+    seedChangeWithEvidence({ projectRoot, changeId: 'stale' });
+    seedCoverageSummary(projectRoot);
+
+    // Make the spec file's mtime 1 minute in the future relative to the summary
+    const fs = require('node:fs') as typeof import('node:fs');
+    const future = new Date(Date.now() + 60_000);
+    fs.utimesSync(
+      join(projectRoot, 'openspec', 'changes', 'stale', 'specs', 'quality-gates', 'spec.md'),
+      future,
+      future
+    );
+
+    const result = runCli(
+      ['openspec', 'archive', 'stale', '--project', projectRoot, '--apply', '--json'],
+      projectRoot
+    );
+
+    expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(1);
+    const json = JSON.parse(result.stdout) as { ok: boolean; code: string; data: { staleFiles: string[] } };
+    expect(json.ok).toBe(false);
+    expect(json.code).toBe('OPENSPEC_COVERAGE_EVIDENCE_STALE');
+    expect(json.data.staleFiles.length).toBeGreaterThan(0);
+  });
+
+  test('archive --apply with capability below 100% refuses with OPENSPEC_COVERAGE_EVIDENCE_MISMATCH', () => {
+    const projectRoot = makeProject();
+    tmpRoots.push(projectRoot);
+    seedChangeWithEvidence({ projectRoot, changeId: 'mismatch' });
+    seedCoverageSummary(projectRoot, {
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 80, covered: 40, total: 50 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+
+    const result = runCli(
+      ['openspec', 'archive', 'mismatch', '--project', projectRoot, '--apply', '--json'],
+      projectRoot
+    );
+
+    expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(1);
+    const json = JSON.parse(result.stdout) as {
+      ok: boolean;
+      code: string;
+      data: { mismatches: Array<{ capability: string; failingFiles: Array<{ actual: { statements: number } }> }> };
+    };
+    expect(json.ok).toBe(false);
+    expect(json.code).toBe('OPENSPEC_COVERAGE_EVIDENCE_MISMATCH');
+    expect(json.data.mismatches[0]?.failingFiles[0]?.actual.statements).toBe(80);
+  });
+
+  test('--force bypasses MISMATCH and emits a coverageMismatchBypassed warning', () => {
+    const projectRoot = makeProject();
+    tmpRoots.push(projectRoot);
+    seedChangeWithEvidence({ projectRoot, changeId: 'force-6b' });
+    seedCoverageSummary(projectRoot, {
+      'src/services/openspec/openspec-archive-service.ts': {
+        lines: { pct: 100, covered: 5, total: 5 },
+        statements: { pct: 50, covered: 25, total: 50 },
+        branches: { pct: 100, covered: 1, total: 1 },
+        functions: { pct: 100, covered: 1, total: 1 }
+      }
+    });
+
+    const result = runCli(
+      ['openspec', 'archive', 'force-6b', '--project', projectRoot, '--apply', '--force', '--json'],
+      projectRoot
+    );
+
+    expect(result.code, `stderr=${result.stderr}\nstdout=${result.stdout}`).toBe(0);
+    const json = JSON.parse(result.stdout) as {
+      ok: boolean;
+      data: { applied: boolean; coverageMismatchBypassed: boolean };
+      warnings: string[];
+    };
+    expect(json.ok).toBe(true);
+    expect(json.data.applied).toBe(true);
+    expect(json.data.coverageMismatchBypassed).toBe(true);
+    expect(json.warnings.some((w) => /Coverage summary mismatch bypassed via --force/.test(w))).toBe(true);
   });
 });
