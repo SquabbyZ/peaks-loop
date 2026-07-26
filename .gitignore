@@ -41,8 +41,4 @@ coverage/
 .playwright-mcp/
 # superpowers brainstorm ephemeral state — per-run process state (port/pid/instance id/stop marker).
 # content/*.html under <session-id>/ stays tracked (it is the user's brainstorm artifact catalog).
-.superpowers/brainstorm/.last-port
-.superpowers/brainstorm/.last-token
-.superpowers/brainstorm/*/state/server.pid
-.superpowers/brainstorm/*/state/server-instance-id
-.superpowers/brainstorm/*/state/server-stopped
+.superpowers/brainstorm/
