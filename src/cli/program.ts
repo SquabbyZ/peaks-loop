@@ -103,9 +103,26 @@ import { registerPolyrepoCommands } from './commands/polyrepo-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
-import type { ProgramIO } from './cli-helpers.js';
+import { printErrorEnvelope, type ProgramIO } from './cli-helpers.js';
 
-export { printResult, type ProgramIO } from './cli-helpers.js';
+export { printErrorEnvelope, printResult, type ProgramIO } from './cli-helpers.js';
+
+// Slice rid-001 (P0-1 envelope closure, fix #4): the prior default
+// `ProgramIO` funneled Commander's `configureOutput().writeErr` callback
+// through raw `console.error`, which bypassed the canonical envelope
+// path and left a `// TODO(g2): legacy console.error without envelope`
+// grace comment. Default io now routes stdout through `process.stdout`
+// and stderr through `process.stderr` (matching the `defaultIo` built
+// in `src/cli/index.ts`). When a caller passes its own `ProgramIO`
+// (vitest, programmatic dispatch) the closure-side `printErrorEnvelope`
+// helper in `src/cli/cli-helpers.ts` mints a real `fail()` envelope,
+// so the canonical shape is preserved end-to-end.
+function defaultStderrSink(text: string): void {
+  process.stderr.write(`${text}\n`);
+}
+function defaultStdoutSink(text: string): void {
+  process.stdout.write(`${text}\n`);
+}
 
 /**
  * Slice 2026-06-16-cli-logging (G1, G2, G3, G7). One structured
@@ -159,7 +176,7 @@ export function __resetBootstrapForTests(): void {
   bootstrapRan = false;
 }
 
-export function createProgram(io: ProgramIO = { stdout: (text) => console.log(text), stderr: (text) => console.error(text) }): Command { // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
+export function createProgram(io: ProgramIO = { stdout: defaultStdoutSink, stderr: defaultStderrSink }): Command {
  const program = new Command();
  program
  .name('peaks')

@@ -64,6 +64,47 @@ export function printCliEnvelope(io: ProgramIO, r: CliEnvelope): void {
   process.exitCode = 1;
 }
 
+/**
+ * Slice rid-001 (P0-1 envelope closure) — canonical envelope shim
+ * for `src/cli/index.ts`'s 3 raw `console.error(JSON.stringify(...))`
+ * sites, plus `src/cli/program.ts:162`'s default `ProgramIO.stderr`
+ * fallback.
+ *
+ * Replaces the hand-rolled JSON literal with a real `fail()` envelope
+ * from `peaks-loop-shared/result`. The helper:
+ *  - mints a fresh `errorId` per call (correlation handle for
+ *    downstream logs / LLM-side consumers);
+ *  - runs `message` through `redactSensitiveErrorMessage` BEFORE
+ *    serializing, so Bearer tokens, API keys, PAT strings, etc. never
+ *    reach the terminal;
+ *  - writes pretty JSON to stderr (single line is fine for `JSON.stringify`
+ *    without `null, 2`, but pretty is friendlier for human readers and
+ *    match the shape `peaks <cmd> --json` already produces);
+ *  - sets `process.exitCode = 1` so callers that throw through
+ *    Commander's exit-override still observe the correct exit code.
+ *
+ * Human-NL-Choice-Only compliance: the helper does NOT print any
+ * "Run peaks <command>" hints. `nextActions` is rendered verbatim
+ * (e.g. "Run `peaks --help` to list available commands") — those
+ * are LLMs-coordinated actions, never user-typed CLI verbs.
+ *
+ * The original `// TODO(g2): legacy console.error without envelope`
+ * grace comment carried in `src/cli/index.ts` (lines 35/73/87) and
+ * `src/cli/program.ts:162` is hereby resolved by this helper.
+ */
+export function printErrorEnvelope(
+  io: ProgramIO,
+  command: string,
+  code: string,
+  message: string,
+  data: Record<string, unknown>,
+  nextActions: string[]
+): void {
+  const envelope = fail(command, code, message, data, nextActions);
+  io.stderr(JSON.stringify(envelope, null, 2));
+  process.exitCode = 1;
+}
+
 export function isRecommendationWorkflow(value: string): value is RecommendationWorkflow {
   return value === 'code-refactor' || value === 'product-refactor' || value === 'frontend-design';
 }

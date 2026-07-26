@@ -2,6 +2,13 @@ import { CommanderError } from 'commander';
 import { createProgram } from './program.js';
 import { getErrorMessage } from 'peaks-loop-shared/result';
 
+import { printErrorEnvelope, type ProgramIO } from './cli-helpers.js';
+
+const defaultIo: ProgramIO = {
+  stdout: (text) => process.stdout.write(`${text}\n`),
+  stderr: (text) => process.stderr.write(`${text}\n`)
+};
+
 // D-013 wrapper exit-code fix (PART 2): Commander's `--help` short-circuit
 // fires BEFORE `commander.unknownCommand` is raised, so `peaks xxx --help`
 // (where `xxx` is not a registered command) prints the help banner and
@@ -32,15 +39,14 @@ if (hasHelp && firstPositional !== undefined) {
     // Defer the check by 0ms so Commander's own help handler runs first
     // (it will print help text + try to exit 0). We then override.
     setImmediate(() => {
-      console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
-        ok: false,
-        command: 'cli',
-        code: 'COMMAND_NOT_FOUND',
-        message: `Unknown command: ${firstPositional}. Run \`peaks --help\` for available commands.`,
-        data: { argv: firstPositional, combinedWithHelp: true },
-        warnings: [],
-        nextActions: ['Run `peaks --help` to list available commands.']
-      }, null, 2));
+      printErrorEnvelope(
+        defaultIo,
+        'cli',
+        'COMMAND_NOT_FOUND',
+        `Unknown command: ${firstPositional}. Run \`peaks --help\` for available commands.`,
+        { argv: firstPositional, combinedWithHelp: true },
+        ['Run `peaks --help` to list available commands.']
+      );
       process.exit(1);
     });
   }
@@ -70,28 +76,26 @@ createProgram().parseAsync(process.argv).catch((error: unknown) => {
       // default handler; we add a structured envelope for LLM-side
       // consumers (Human-NL-Choice-Only: don't tell the human to type
       // a CLI verb — say what the LLM can coordinate).
-      console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
-        ok: false,
-        command: 'cli',
-        code: 'COMMAND_NOT_FOUND',
-        message: getErrorMessage(error),
-        data: {},
-        warnings: [],
-        nextActions: ['Run `peaks --help` to list available commands.']
-      }, null, 2));
+      printErrorEnvelope(
+        defaultIo,
+        'cli',
+        'COMMAND_NOT_FOUND',
+        getErrorMessage(error),
+        {},
+        ['Run `peaks --help` to list available commands.']
+      );
       process.exitCode = 1;
       return;
     }
   }
 
-  console.error(JSON.stringify({ // TODO(g2): legacy console.error without envelope — grace: 1 minor release (v2.14.0)
-    ok: false,
-    command: 'cli',
-    code: 'UNHANDLED_ERROR',
-    message: getErrorMessage(error),
-    data: {},
-    warnings: [],
-    nextActions: []
-  }, null, 2));
+  printErrorEnvelope(
+    defaultIo,
+    'cli',
+    'UNHANDLED_ERROR',
+    getErrorMessage(error),
+    {},
+    []
+  );
   process.exitCode = 1;
 });
