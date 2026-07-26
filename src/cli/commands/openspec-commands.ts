@@ -4,7 +4,7 @@ import { loadOpenSpecChange, scanOpenSpec, type OpenSpecScanOptions } from '../.
 import { projectOpenSpecToRdInput } from '../../services/openspec/openspec-bridge-service.js';
 import { renderOpenSpecChange, type OpenSpecRenderOptions, type OpenSpecRenderRequest } from '../../services/openspec/openspec-render-service.js';
 import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../services/openspec/openspec-validate-service.js';
-import { archiveOpenSpecChange, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
+import { archiveOpenSpecChange, OpenSpecArchiveError, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
 import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
 import { proposeFromDoctor, type DoctorFinding } from '../../services/openspec/openspec-propose-from-doctor-service.js';
 import { runDoctor } from 'peaks-loop-doctor';
@@ -31,6 +31,7 @@ type OpenSpecValidateCommandOptions = OpenSpecListOptions & {
 
 type OpenSpecArchiveCommandOptions = OpenSpecListOptions & {
   apply?: boolean;
+  force?: boolean;
   archiveDir?: string;
 };
 
@@ -224,6 +225,7 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       .argument('<changeId>', 'OpenSpec change directory name under openspec/changes')
       .option('--project <path>', 'project root containing an openspec/ directory')
       .option('--apply', 'actually move the change directory')
+      .option('--force', 'bypass the Pre-cond 2 Coverage Evidence gate (use only after confirming the gap is acceptable for this archive)')
       .option('--archive-dir <name>', 'archive subdirectory name (default: archive)')
   ).action(async (changeId: string, options: OpenSpecArchiveCommandOptions) => {
     try {
@@ -234,6 +236,9 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
       }
       if (options.apply === true) {
         archiveOptions.apply = true;
+      }
+      if (options.force === true) {
+        archiveOptions.force = true;
       }
       if (options.archiveDir !== undefined) {
         archiveOptions.archiveDirName = options.archiveDir;
@@ -248,8 +253,19 @@ export function registerOpenSpecCommands(program: Command, io: ProgramIO): void 
         process.exitCode = 1;
         return;
       }
-      printResult(io, ok('openspec.archive', result, [], result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]), options.json);
+      printResult(io, ok('openspec.archive', result, result.coverageGateBypassed === true ? ['Coverage gate bypassed via --force; archived with at least one uncovered requirement.'] : [], result.applied ? [] : [`Re-run with --apply to move ${result.from} → ${result.to}`]), options.json);
     } catch (error) {
+      if (error instanceof OpenSpecArchiveError) {
+        printResult(
+          io,
+          fail('openspec.archive', error.code, getErrorMessage(error), error.detail, error.code === 'OPENSPEC_COVERAGE_GATE_PARTIAL'
+            ? ['Update the Coverage Evidence table to mark each failing requirement as covered', 'Or re-run with --force to bypass the gate after confirming the gap is acceptable']
+            : ['Add a Coverage Evidence block to proposal.md listing every Requirement from specs/*/spec.md', 'Or re-run with --force to bypass the gate after confirming the gap is acceptable']),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
       printResult(
         io,
         fail('openspec.archive', 'OPENSPEC_ARCHIVE_FAILED', getErrorMessage(error), { changeId }, ['Check the project path and openspec/ layout before retrying']),
