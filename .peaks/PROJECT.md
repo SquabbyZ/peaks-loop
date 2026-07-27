@@ -2,7 +2,7 @@
 
 > Auto-generated project memory. Peaks reads this at the start of each session to understand
 > the project's history, tech stack, conventions, and past decisions.
-> Last updated: 2026-07-26T09:46:52.700Z
+> Last updated: 2026-07-27T15:42:05.903Z
 
 ## Project: peaks-loop
 
@@ -44,13 +44,17 @@
 
 <!-- peaks-managed:session-history-start -->
 
-## Timeline (4 sessions)
+## Timeline (8 sessions)
 
 | Date | Directory | Title | What |
 |------|-----------|-------|------|
-| 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | - |
+| 2026-07-27 | `2026-07-27-session-507e95` | 完成 monorepo 发布代办 | schemaVersion: 2 |
+| 2026-07-27 | `2026-07-27-session-b4e485` | Untitled | - |
+| 2026-07-26 | `2026-07-26-session-0e9141` | Phase 2 编排层治理 | schemaVersion: 1 |
 | 2026-07-25 | `2026-07-25-session-6da9d9` | Untitled | $ ./node_modules/.bin/vitest run tests/integration/sub-agent-dispatch- |
 | 2026-07-24 | `2026-07-24-session-fafee4` | Untitled | peaks-rd |
 | 2026-07-24 | `2026-07-24-session-f13da7` | Untitled | **Date:** 2026-07-24 |
+| ? | `2026-06-11-session-edbe91` | Untitled | - |
+| ? | `2026-06-06-session-5b1095` | Untitled | - |
 
 <!-- peaks-managed:session-history-end -->
