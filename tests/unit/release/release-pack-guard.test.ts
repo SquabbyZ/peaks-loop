@@ -24,8 +24,12 @@ interface Spec { name: string; pkgDir: string; version: string; }
 
 const PACKAGES: { pkgDir: string }[] = [
   { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-shared') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-doctor') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-final-review') },
+  // rid-016 (2026-07-27) collapsed peaks-loop-doctor / -final-review
+  // into src/services/doctor and src/services/final-review; only
+  // peaks-loop-mut still ships a `workspace:*` dep on shared, so it
+  // replaces them as the canonical "internal consumer of peaks-loop-shared"
+  // tarball under test.
+  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-mut') },
   // Item (5): the root `peaks-loop` tarball must also be green.
   { pkgDir: projectRoot },
 ];
@@ -87,10 +91,10 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     for (const { pkgDir } of PACKAGES) {
       runPnpm(['pack', '--config.ignore-scripts=true', '--pack-destination', tarballDir], { cwd: pkgDir, stdio: 'pipe' });
     }
-    doctorTarball = join(tarballDir, `peaks-loop-doctor-${readSpec(PACKAGES[1]!.pkgDir).version}.tgz`);
-    finalReviewTarball = join(tarballDir, `peaks-loop-final-review-${readSpec(PACKAGES[2]!.pkgDir).version}.tgz`);
-    expect(existsSync(doctorTarball), `doctor tarball present at ${doctorTarball}`).toBe(true);
-    expect(existsSync(finalReviewTarball), `final-review tarball present at ${finalReviewTarball}`).toBe(true);
+    doctorTarball = join(tarballDir, `peaks-loop-mut-${readSpec(PACKAGES[1]!.pkgDir).version}.tgz`);
+    finalReviewTarball = join(tarballDir, `peaks-loop-${readSpec(PACKAGES[2]!.pkgDir).version}.tgz`);
+    expect(existsSync(doctorTarball), `mut tarball present at ${doctorTarball}`).toBe(true);
+    expect(existsSync(finalReviewTarball), `root tarball present at ${finalReviewTarball}`).toBe(true);
   }, 600_000);
 
   afterAll(() => {
@@ -136,7 +140,7 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     const internals = internalPackageSet();
     const tamperedPath = tamperedSpec(doctorTarball);
     expect(existsSync(tamperedPath), `tampered tarball at ${tamperedPath}`).toBe(true);
-    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1]!.pkgDir).version, internals);
+    const verdict = verifyTarball(tamperedPath, 'peaks-loop-mut', readSpec(PACKAGES[1]!.pkgDir).version, internals);
     expect(verdict.ok, 'tampered tarball MUST fail verification').toBe(false);
     expect(
       verdict.errors.join('\n'),
@@ -161,7 +165,7 @@ describe('release-pack.mjs verifyTarball guard (TDD regression gate)', () => {
     const sharedSpec = readSpec(resolve(projectRoot, 'packages', 'peaks-loop-shared'));
     const tamperedPath = tamperedSpec(doctorTarball, '0.0.99');
     expect(existsSync(tamperedPath), `version-drift tarball at ${tamperedPath}`).toBe(true);
-    const verdict = verifyTarball(tamperedPath, 'peaks-loop-doctor', readSpec(PACKAGES[1]!.pkgDir).version, internals);
+    const verdict = verifyTarball(tamperedPath, 'peaks-loop-mut', readSpec(PACKAGES[1]!.pkgDir).version, internals);
     expect(verdict.ok, 'version-drift tarball MUST fail verification').toBe(false);
     const driftRegex = new RegExp(sharedSpec.version.replace(/\./g, '\\.'));
     expect(
@@ -208,7 +212,20 @@ function tamperedSpec(sourceTarball: string, restore: string = 'workspace:*'): s
   execFileSync('tar', ['-xzf', toPosixPath(sourceTarball), '-C', toPosixPath(extracted)]);
   const manifestPath = join(extracted, 'package', 'package.json');
   const original = readFileSync(manifestPath, 'utf8');
-  const tampered = original.replace(/"peaks-loop-shared"\s*:\s*"[^"]*"/, `"peaks-loop-shared": "${restore}"`);
+  // Pick a `peaks-loop-*` dep key to rewrite: the helper is now used
+  // for shared (deps on nothing internal) and for mut (no longer deps
+  // on shared after rid-016), so we may need to inject a fake dep to
+  // make the tampered manifest interesting. Default behavior
+  // preserves the original: rewrite any existing peaks-loop-*-key or
+  // append a new entry with the requested restore string.
+  const peaksRegex = /"peaks-loop-[^"]+"\s*:\s*"[^"]*"/;
+  const tampered = peaksRegex.test(original)
+    ? original.replace(peaksRegex, `"peaks-loop-shared": "${restore}"`)
+    : (() => {
+        const parsed = JSON.parse(original) as { dependencies?: Record<string, string> };
+        parsed.dependencies = { ...(parsed.dependencies ?? {}), 'peaks-loop-shared': restore };
+        return JSON.stringify(parsed, null, 2) + '\n';
+      })();
   if (tampered === original) {
     throw new Error(`failed to inject '${restore}' into ${manifestPath}`);
   }

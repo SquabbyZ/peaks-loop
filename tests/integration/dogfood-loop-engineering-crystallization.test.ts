@@ -25,8 +25,8 @@ import { execSync } from 'node:child_process';
 
 import { openStateDb } from '../../src/services/skillhub/sqlite-store.js';
 import type Database from 'better-sqlite3';
-import { CrystallizationService } from 'peaks-loop-crystallization';
-import { buildEvidenceBrief } from 'peaks-loop-crystallization';
+import { CrystallizationService } from '../../src/services/crystallization/index.js';
+import { buildEvidenceBrief } from '../../src/services/crystallization/index.js';
 import { LoopReleaseService } from '../../src/services/loop/loop-release-service.js';
 import { LoopReleaseSchema } from '../../src/services/loop/loop-release-types.js';
 import { insertLoopRelease } from '../../src/services/loop/loop-release-store.js';

@@ -15,7 +15,7 @@ const mockedRunDoctor = vi.hoisted(() => vi.fn().mockResolvedValue({
   summary: { ok: true, passed: 1, failed: 0 }
 }));
 
-vi.mock('peaks-loop-doctor', () => ({
+vi.mock('../../src/services/doctor/index.js', () => ({
   runDoctor: mockedRunDoctor
 }));
 

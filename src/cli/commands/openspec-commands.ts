@@ -7,7 +7,7 @@ import { validateOpenSpecChange, type OpenSpecValidateOptions } from '../../serv
 import { archiveOpenSpecChange, OpenSpecArchiveError, type OpenSpecArchiveOptions } from '../../services/openspec/openspec-archive-service.js';
 import { executeOpenSpecInit, type OpenSpecInitOptions } from '../../services/openspec/openspec-init-service.js';
 import { proposeFromDoctor, type DoctorFinding } from '../../services/openspec/openspec-propose-from-doctor-service.js';
-import { runDoctor } from 'peaks-loop-doctor';
+import { runDoctor } from '../../services/doctor/index.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';

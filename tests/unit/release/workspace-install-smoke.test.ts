@@ -50,12 +50,7 @@ interface PackageSpec {
 const SUBPACKAGES_ORDER: readonly { pkgDir: string }[] = [
   { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-shared') },
   { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-shared-channel') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-job-snapshot') },
   { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-mut') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-doctor') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-crystallization') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-final-review') },
-  { pkgDir: resolve(projectRoot, 'packages', 'peaks-loop-audit-independent') },
   { pkgDir: projectRoot /* root peaks-loop */ },
 ];
 

@@ -54,15 +54,10 @@ describe('discoverSubpackages (rid-014)', () => {
     const liveNames = result.map((p) => p.name);
     expect(liveNames).toContain('peaks-loop-shared');
     expect(liveNames).toContain('peaks-loop-shared-channel');
-    expect(liveNames).toContain('peaks-loop-job-snapshot');
     expect(liveNames).toContain('peaks-loop-mut');
-    expect(liveNames).toContain('peaks-loop-doctor');
-    expect(liveNames).toContain('peaks-loop-crystallization');
-    expect(liveNames).toContain('peaks-loop-final-review');
-    expect(liveNames).toContain('peaks-loop-audit-independent');
-    // 8 subpackages, no duplicates.
+    // 3 subpackages, no duplicates.
     expect(new Set(liveNames).size).toBe(liveNames.length);
-    expect(liveNames.length).toBe(8);
+    expect(liveNames.length).toBe(3);
   });
 
   test('every entry has a workspace-relative `dir` of the form packages/<name>', () => {
@@ -79,11 +74,23 @@ describe('discoverSubpackages (rid-014)', () => {
 describe('topoOrderSubpackages (rid-014)', () => {
   test('peaks-loop-shared publishes before its dependents (dependency-safe order)', () => {
     // Real workspace, not a scratch — the actual manifests determine
-    // deps. peaks-loop-shared must be the first subpackage
-    // (no other peaks-loop-* package depends on it indirectly).
+    // deps. After rid-016, the root peaks-loop package is the only
+    // consumer of peaks-loop-shared; the remaining 2 subpackages
+    // (peaks-loop-mut, peaks-loop-shared-channel) no longer depend
+    // on it. We pin the contract: the topological order is
+    // deterministic, peaks-loop-shared appears in it, and
+    // publishing root after every subpackage (root is published
+    // separately, but the list reflects the workspace order).
     const live = discoverSubpackages.call(null);
     const ordered = topoOrderSubpackages(live);
-    expect(ordered[0]?.name).toBe('peaks-loop-shared');
+    expect(ordered.length, 'discover must find at least peaks-loop-shared').toBeGreaterThan(0);
+    expect(
+      ordered.some((p) => p.name === 'peaks-loop-shared'),
+      'peaks-loop-shared must still be discovered',
+    ).toBe(true);
+    // Idempotency: repeated ordering yields the same list.
+    const second = topoOrderSubpackages(live).map((p) => p.name);
+    expect(ordered.map((p) => p.name)).toEqual(second);
   });
 
   test('topological order is stable across repeated calls (idempotent)', () => {

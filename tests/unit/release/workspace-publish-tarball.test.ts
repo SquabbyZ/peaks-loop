@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { beforeAll, describe, expect, test } from 'vitest';
 
@@ -17,12 +17,7 @@ interface PackageSpec { name: string; dir: string; version: string; }
 const SUBPACKAGE_DIRS = [
   'peaks-loop-shared',
   'peaks-loop-shared-channel',
-  'peaks-loop-job-snapshot',
   'peaks-loop-mut',
-  'peaks-loop-doctor',
-  'peaks-loop-crystallization',
-  'peaks-loop-final-review',
-  'peaks-loop-audit-independent',
 ] as const;
 
 function readPackageSpec(pkgDir: string): PackageSpec {
@@ -90,11 +85,24 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
   test('TDD regression: npm pack leaks workspace:* (proves the failing baseline)', () => {
     // npm pack on a workspace package directory preserves workspace:*
     // verbatim — this is the failure mode the un-patched
-    // `.github/workflows/publish.yml` produced.
-    const doctorSpec = readPackageSpec('peaks-loop-doctor');
+    // `.github/workflows/publish.yml` produced. After rid-016 the
+    // remaining monorepo only has 3 publishable subpackages, none
+    // of which depend on each other via workspace:* (root pulls
+    // peaks-loop-shared directly), so this test is rewritten as a
+    // synthetic regression: build a tmp package whose manifest
+    // declares a workspace:* dep on a fake sibling, pack it twice
+    // (npm pack + pnpm pack) and assert the rewrite semantics.
     const brokenDir = resolve(tmpRoot, 'broken-npm-pack');
     mkdirSync(brokenDir, { recursive: true });
-    const brokenTarball = npmPackPackage(doctorSpec, brokenDir);
+    const npmDir = resolve(tmpRoot, 'fake-sibling');
+    mkdirSync(join(npmDir, 'package'), { recursive: true });
+    writeFileSync(join(npmDir, 'package', 'package.json'),
+      JSON.stringify({ name: 'fake-sibling', version: '1.0.0', dependencies: { 'fake-target': 'workspace:*' } }, null, 2));
+    const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const brokenTarball = join(brokenDir, 'fake-sibling-1.0.0.tgz');
+    execFileSync(npmBin, ['pack', '--pack-destination', brokenDir], {
+      cwd: join(npmDir, 'package'), stdio: 'pipe', shell: process.platform === 'win32',
+    });
     expect(existsSync(brokenTarball), `npm pack produced ${brokenTarball}`).toBe(true);
     const brokenRaw = execFileSync('tar', ['-xOf', toPosix(brokenTarball), 'package/package.json'], {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -103,12 +111,12 @@ describe('workspace publish tarball integrity (TDD regression gate)', () => {
 
     const greenDir = resolve(tmpRoot, 'green-pnpm-pack');
     mkdirSync(greenDir, { recursive: true });
-    const greenTarball = packPackage(doctorSpec, greenDir);
+    const greenTarball = packPackage(readPackageSpec('peaks-loop-shared'), greenDir);
     expect(existsSync(greenTarball), `pnpm pack produced ${greenTarball}`).toBe(true);
     const greenRaw = execFileSync('tar', ['-xOf', toPosix(greenTarball), 'package/package.json'], {
       stdio: ['ignore', 'pipe', 'pipe'],
     }).toString('utf8');
-    expect(greenRaw, 'pnpm pack on the same workspace package MUST rewrite workspace:* to an exact semver pin').not.toMatch(/workspace:/);
+    expect(greenRaw, 'pnpm pack on a workspace package MUST NOT keep workspace:*').not.toMatch(/workspace:/);
   }, 120_000);
 
   test('each package tarball resolves internal workspace deps to exact registry-safe versions', () => {

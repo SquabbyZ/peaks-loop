@@ -38,7 +38,7 @@ import {
   readBundle,
   BundleMajorVersionMismatchError,
 } from "../../../src/services/share/bundle-reader.js";
-import { ensureCrystallizationEventTable } from 'peaks-loop-crystallization';
+import { ensureCrystallizationEventTable } from '../../../src/services/crystallization/index.js';
 
 let dir = "";
 let stateDbPath = "";

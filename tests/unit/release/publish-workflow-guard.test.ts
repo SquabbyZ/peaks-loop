@@ -260,7 +260,7 @@ describe('publish.yml workflow guard (2026-07-22 CLI_VERSION alignment + reject-
     if (!existsSync(changesetsDir)) {
       return; // nothing to do; the no-op assertion is trivially true
     }
-    for (const f of [resolve(projectRoot, 'package.json'), ...['peaks-loop-shared', 'peaks-loop-shared-channel', 'peaks-loop-job-snapshot', 'peaks-loop-mut', 'peaks-loop-doctor', 'peaks-loop-crystallization', 'peaks-loop-final-review', 'peaks-loop-audit-independent'].map((s) => resolve(projectRoot, 'packages', s, 'package.json'))]) {
+    for (const f of [resolve(projectRoot, 'package.json'), ...['peaks-loop-shared', 'peaks-loop-shared-channel', 'peaks-loop-mut'].map((s) => resolve(projectRoot, 'packages', s, 'package.json'))]) {
       staleVersionFixtures.push({ file: f, originalContent: readFileSync(f, 'utf8') });
     }
     const rootPkg = JSON.parse(readFileSync(resolve(projectRoot, 'package.json'), 'utf8')) as { version: string };

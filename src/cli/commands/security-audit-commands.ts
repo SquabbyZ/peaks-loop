@@ -25,7 +25,7 @@ import {
   isSecurityAuditEnvelope,
   runSecurityAudit,
   type SecurityAuditEnvelope,
-} from 'peaks-loop-audit-independent';
+} from '../../services/audit-independent/index.js';
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 

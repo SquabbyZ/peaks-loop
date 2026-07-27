@@ -26,21 +26,6 @@ importers:
       headroom-ai:
         specifier: 0.22.4
         version: 0.22.4
-      peaks-loop-audit-independent:
-        specifier: workspace:*
-        version: link:packages/peaks-loop-audit-independent
-      peaks-loop-crystallization:
-        specifier: workspace:*
-        version: link:packages/peaks-loop-crystallization
-      peaks-loop-doctor:
-        specifier: workspace:*
-        version: link:packages/peaks-loop-doctor
-      peaks-loop-final-review:
-        specifier: workspace:*
-        version: link:packages/peaks-loop-final-review
-      peaks-loop-job-snapshot:
-        specifier: workspace:*
-        version: link:packages/peaks-loop-job-snapshot
       peaks-loop-mut:
         specifier: workspace:*
         version: link:packages/peaks-loop-mut
@@ -102,46 +87,6 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.2
         version: 3.25.2(zod@3.25.76)
-
-  packages/peaks-loop-audit-independent:
-    dependencies:
-      peaks-loop-shared:
-        specifier: workspace:*
-        version: link:../peaks-loop-shared
-
-  packages/peaks-loop-crystallization:
-    dependencies:
-      peaks-loop-shared:
-        specifier: workspace:*
-        version: link:../peaks-loop-shared
-      zod:
-        specifier: ^3.25.76
-        version: 3.25.76
-    devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.13
-        version: 7.6.13
-      better-sqlite3:
-        specifier: ^12.11.1
-        version: 12.11.1
-
-  packages/peaks-loop-doctor:
-    dependencies:
-      peaks-loop-shared:
-        specifier: workspace:*
-        version: link:../peaks-loop-shared
-
-  packages/peaks-loop-final-review:
-    dependencies:
-      peaks-loop-shared:
-        specifier: workspace:*
-        version: link:../peaks-loop-shared
-
-  packages/peaks-loop-job-snapshot:
-    devDependencies:
-      vitest:
-        specifier: ^4.1.0
-        version: 4.1.10(@types/node@22.19.19)(@vitest/coverage-istanbul@4.1.10)(@vitest/coverage-v8@4.1.10)(msw@2.14.6(@types/node@22.19.19)(typescript@5.9.3))(vite@6.4.3(@types/node@22.19.19)(tsx@4.22.0)(yaml@2.9.0))
 
   packages/peaks-loop-mut:
     dependencies:

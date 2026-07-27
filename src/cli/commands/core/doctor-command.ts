@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { runDoctor } from 'peaks-loop-doctor';
+import { runDoctor } from '../../../services/doctor/index.js';
 import { readBinding, dropStale, rebuildBindingFromLegacy } from '../../../services/session/binding-store.js';
 import { findProjectRoot } from '../../../services/config/config-safety.js';
 import { loadSkillRegistry } from '../../../services/skills/skill-registry.js';

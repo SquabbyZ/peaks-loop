@@ -120,11 +120,6 @@ const localSubpackages = [
   'peaks-loop-shared',
   'peaks-loop-shared-channel',
   'peaks-loop-mut',
-  'peaks-loop-doctor',
-  'peaks-loop-crystallization',
-  'peaks-loop-audit-independent',
-  'peaks-loop-final-review',
-  'peaks-loop-job-snapshot'
 ];
 for (const pkg of localSubpackages) {
   const srcPath = resolve(projectRoot, 'node_modules', pkg);

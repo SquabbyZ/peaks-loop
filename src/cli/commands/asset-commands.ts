@@ -56,7 +56,7 @@ import {
   type CrystallizationTrigger,
   type EvidenceBrief,
   parseEvidenceBrief,
-} from "peaks-loop-crystallization";
+} from "../../services/crystallization/index.js";
 import {
   LoopReleaseSchema,
 } from "../../services/loop/loop-release-types.js";

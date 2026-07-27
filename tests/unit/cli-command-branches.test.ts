@@ -17,7 +17,7 @@ const standardsState = vi.hoisted(() => ({
   summarizeProjectStandardsUpdateResult: vi.fn()
 }));
 
-vi.mock('peaks-loop-doctor', () => ({
+vi.mock('../../src/services/doctor/index.js', () => ({
   runDoctor: branchState.runDoctor
 }));
 
