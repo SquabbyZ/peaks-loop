@@ -22,6 +22,10 @@ import { registerSessionAutoCompactHookCommand } from '../session-auto-compact-h
 // `peaks session --help` for LLM `<TAB>`-discovery. See
 // src/services/migrate-skill-name/.
 import { registerSessionMigrateSkillNameCommand } from '../session-migrate-skill-name.js';
+// rid-020a: register `peaks session 24h-mode` eagerly so the
+// state-machine sub-actions (state / transition / attempts / reset)
+// appear in `peaks session --help` for LLM `<TAB>`-discovery.
+import { registerSession24hModeCommand } from '../session-24h-mode.js';
 import type { BindingSource } from './doctor-command.js';
 
 export function registerSessionCommand(program: Command, io: ProgramIO): void {
@@ -234,6 +238,8 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   // .peaks/_runtime/** for the rename; skipped paths recorded in
   // the response envelope. See src/services/migrate-skill-name/.
   registerSessionMigrateSkillNameCommand(session);
+  // rid-020a: peaks session 24h-mode — state machine backbone.
+  registerSession24hModeCommand(session, io);
 
   addJsonOption(
     session

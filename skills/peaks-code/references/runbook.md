@@ -263,4 +263,13 @@ peaks session auto-compact --execute --project <repo> --json
 # progress.json exists). Exit 2 = BLOCKED; LLM must call
 # `peaks code detect-job` first.
 peaks code gate-step-08 --project <repo> --json
+
+# rid-020a: 24h mode state machine. The CLI is the muscle; peaks-code
+# is the LLM that drives it. Sub-actions: state, transition, attempts,
+# reset. Persists to .peaks/_runtime/<sessionId>/24h-state.json. The
+# full SKILL.md chapter and rid-020b code-run sub-command ship next.
+peaks session 24h-mode state --project <repo> --session-id <sessionId> --json
+peaks session 24h-mode transition --state 24H_ACTIVE --project <repo> --session-id <sessionId> --json
+peaks session 24h-mode attempts --project <repo> --session-id <sessionId> --json
+peaks session 24h-mode reset --project <repo> --session-id <sessionId> --json
 ```
