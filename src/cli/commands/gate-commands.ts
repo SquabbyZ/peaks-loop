@@ -66,9 +66,14 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       // change required.
       const { toolName, command } = parseClaudeShapeStdin(parsedStdin);
       if (toolName !== adapter.toolMatcher || typeof command !== 'string' || command.trim().length === 0) {
-        // Not a guarded surface — allow (no output = normal permission flow).
+        // Not a guarded surface — allow. Emit minimal JSON on stdout so Claude
+        // Code's PreToolUse hook validator accepts the response. Empty stdout
+        // is rejected with "Hook JSON output validation failed — Invalid input"
+        // in Claude Code 2.x; `{}` is the canonical no-op marker.
         if (options.json === true) {
           printResult(io, ok('gate.enforce', { decision: 'allow', skipped: true }), true);
+        } else {
+          emitDecision(io, {});
         }
         return;
       }
@@ -93,8 +98,11 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       }
       if (options.json === true) {
         emitHint(io, JSON.stringify(ok('gate.enforce', decision)));
+      } else {
+        // allow: emit minimal JSON on stdout so Claude Code's PreToolUse hook
+        // validator accepts the response (see comment above).
+        emitDecision(io, {});
       }
-      // allow: emit nothing on stdout → normal permission flow.
     } catch (error) {
       // Fail-open: a bug in enforcement must not brick Claude Code.
       emitHint(io, `gate enforce: internal error, allowing command (${getErrorMessage(error)})`);
