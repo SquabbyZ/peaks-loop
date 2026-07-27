@@ -35,26 +35,76 @@ import {
 
 const projectRoot = resolve(fileURLToPath(import.meta.url), '..', '..');
 
-// Dependency-safe publish order: `peaks-loop-shared` publishes
-// first; dependents follow; root `peaks-loop` publishes last.
-const SUBPACKAGE_DIRECTORIES = [
-  'packages/peaks-loop-shared',
-  'packages/peaks-loop-shared-channel',
-  'packages/peaks-loop-job-snapshot',
-  'packages/peaks-loop-mut',
-  'packages/peaks-loop-doctor',
-  'packages/peaks-loop-crystallization',
-  'packages/peaks-loop-final-review',
-  'packages/peaks-loop-audit-independent',
-];
 const ROOT_DIR = '.';
 
 function readPackage(pkgDir) {
   return JSON.parse(readFileSync(resolve(projectRoot, pkgDir, 'package.json'), 'utf8'));
 }
 
+/**
+ * Discover every publishable subpackage by scanning `packages/`.
+ *
+ * 2026-07-27 rid-014: removed the hardcoded `SUBPACKAGE_DIRECTORIES` array
+ * (the pre-014 list lived in source and required a code edit + commit
+ * to add/remove a subpackage). The workspace contract is now the single
+ * source of truth: `pnpm-workspace.yaml` declares `./packages/*`, and
+ * each directory that ships a `package.json` with a `name` is a
+ * publishable subpackage. Hidden layouts — `node_modules`, dotfiles, the
+ * workspace root itself — are filtered out so `pnpm -r publish` and
+ * `release-pack.mjs` always agree.
+ */
+function discoverSubpackages() {
+  const packagesDir = resolve(projectRoot, 'packages');
+  const entries = readdirSync(packagesDir, { withFileTypes: true });
+  const out = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith('.')) continue;
+    const pkgJsonPath = resolve(packagesDir, entry.name, 'package.json');
+    if (!existsSync(pkgJsonPath)) continue;
+    const spec = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+    if (typeof spec.name !== 'string' || spec.name.length === 0) continue;
+    out.push({ dir: `packages/${entry.name}`, name: spec.name, version: spec.version });
+  }
+  return out;
+}
+
+/**
+ * Topologically order subpackages so dependents publish AFTER their
+ * `dependencies`. `peaks-loop-shared` has no workspace deps, so it sorts
+ * first; root `peaks-loop` (added separately) sorts last. Falls back
+ * to lexical name order on cycles so the behavior is stable.
+ */
+function topoOrderSubpackages(pkgs) {
+  const byName = new Map(pkgs.map((p) => [p.name, p]));
+  const depsByName = new Map(
+    pkgs.map((p) => [
+      p.name,
+      Object.keys({
+        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8')).dependencies ?? {}),
+        ...(JSON.parse(readFileSync(resolve(projectRoot, p.dir, 'package.json'), 'utf8')).devDependencies ?? {})
+      }).filter((n) => byName.has(n))
+    ])
+  );
+  const seen = new Set();
+  const out = [];
+  function visit(name) {
+    if (seen.has(name)) return;
+    seen.add(name);
+    for (const dep of depsByName.get(name) ?? []) visit(dep);
+    const pkg = byName.get(name);
+    if (pkg !== undefined) out.push(pkg);
+  }
+  for (const p of pkgs) visit(p.name);
+  return out;
+}
+
 function listInternalPackages() {
-  return SUBPACKAGE_DIRECTORIES.map((d) => ({ name: readPackage(d).name, version: readPackage(d).version }));
+  // Dependency-safe publish order: `peaks-loop-shared` publishes
+  // first; dependents follow; root `peaks-loop` publishes last. Order
+  // is derived from the on-disk manifests so adding a subpackage no
+  // longer requires editing this script.
+  return topoOrderSubpackages(discoverSubpackages()).map(({ name, version }) => ({ name, version }));
 }
 
 // Stage under os.tmpdir() via mkdtemp; auto-clean unless
@@ -284,7 +334,12 @@ function main() {
 
   try {
     if (!skipSub) {
-      for (const subDir of SUBPACKAGE_DIRECTORIES) publishOne(subDir, internalPackages);
+      // rid-014: enumerate + topologically order subpackages from disk
+      // so the publish order stays dependency-safe without hardcoded
+      // directory lists.
+      for (const pkg of topoOrderSubpackages(discoverSubpackages())) {
+        publishOne(pkg.dir, internalPackages);
+      }
     }
     if (!skipRoot) publishOne(ROOT_DIR, internalPackages);
   } finally {
@@ -328,6 +383,7 @@ export {
   packAndInspectTarball,
   isRegistryStale,
   extractCliVersion,
-  SUBPACKAGE_DIRECTORIES,
+  discoverSubpackages,
+  topoOrderSubpackages,
   ROOT_DIR,
 };
