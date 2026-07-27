@@ -307,6 +307,138 @@ jobs:
           fi
           echo "Tarball CLI_VERSION alignment OK: peaks-loop-shared@$(node -e "console.log(require('./packages/peaks-loop-shared/package.json').version)") tarball package/dist/version.js = ${packed_cli_version}"
 
+      - name: Extract release notes from root CHANGELOG.md (per-version body, rid-017 D1)
+        # 2026-07-27 follow-up (rid-017): GitHub Release body must be the
+        # maintainer-authored CHANGELOG entry for the post-bump root
+        # version, not generated notes and not a `.changeset/*.md` body.
+        # The heading is matched literally (4.0.0 does NOT match
+        # 4.0.0-beta.37) and the body is captured up to the next `## `
+        # or EOF. The output path is a deterministic runner-local
+        # per-version file under $RUNNER_TEMP, written BEFORE the
+        # tag gate runs so the gate can both reference the path and
+        # prove non-empty content. The notes file is consumed by
+        # `Create GitHub Release` immediately below via --notes-file.
+        id: step-extract-release-notes
+        run: |
+          set -euo pipefail
+          root_version=$(node -e "console.log(require('./package.json').version)")
+          notes_dir="${RUNNER_TEMP:-/tmp}/peaks-release-notes"
+          mkdir -p "${notes_dir}"
+          notes_file="${notes_dir}/v${root_version}.md"
+          # Top-most exact level-2 heading matcher. The heading regex
+          # accepts the bracketed `## X.Y.Z` form (PRD §D1) with an
+          # optional ` — date (slug)` decoration or end-of-line; the
+          # body capture uses awk's two-alternation form (char class
+          # for space/`(`/`)`, separate literal em-dash — POSIX char
+          # classes treat `—` (UTF-8 0xE2 0x80 0x94) as a range
+          # endpoint, so the em-dash must be a separate alternation).
+          # On match, the body is captured until the next `## ` heading
+          # or EOF, which is the "stop at next level-2 heading" rule
+          # from PRD §D1. Empty body → exit 1. Verified on real
+          # CHANGELOG.md 2026-07-27: positive=1522 bytes for
+          # 4.0.0-beta.37, decorated 4.0.0-beta.26=557 bytes, no-match
+          # 9.9.9 and 4.0.0 (with duplicate-heading neighbors) both
+          # exit 2 with body_len=0.
+          if ! awk -v ver="${root_version}" '
+            BEGIN { in_section = 0 }
+            /^##[[:space:]]+/ {
+              if (in_section) { exit }
+              if ($0 ~ "^##[[:space:]]+" ver "[[:space:]()]" || $0 ~ "^##[[:space:]]+" ver "—") { in_section = 1 }
+              next
+            }
+            in_section { print }
+          ' CHANGELOG.md | grep -q .; then
+            echo "::error title=release-notes-not-found::no CHANGELOG entry for ${root_version} in root CHANGELOG.md"
+            echo "::error::publish.yml refuses to create a release when the post-bump root version has no matching `## ${root_version}` heading."
+            echo "::error::Fix: add a per-version entry to root CHANGELOG.md and re-run the workflow."
+            exit 1
+          fi
+          awk -v ver="${root_version}" '
+            BEGIN { in_section = 0 }
+            /^##[[:space:]]+/ {
+              if (in_section) { exit }
+              if ($0 ~ "^##[[:space:]]+" ver "[[:space:]()]" || $0 ~ "^##[[:space:]]+" ver "—") { in_section = 1; next }
+            }
+            in_section { print }
+          ' CHANGELOG.md > "${notes_file}"
+          if [ ! -s "${notes_file}" ]; then
+            echo "::error title=release-notes-empty::CHANGELOG entry for ${root_version} is present but the body is empty"
+            echo "::error::publish.yml refuses to create a release from an empty notes body."
+            exit 1
+          fi
+          echo "Release notes extracted: ${notes_file} ($(wc -c < "${notes_file}") bytes)"
+
+      - name: Verify exact tag matches bumped root version (rid-017 D3, strict gate)
+        # 2026-07-27 follow-up (rid-017): a `v*.*.*` tag that disagrees
+        # with the post-bump root `package.json#version` is a hard
+        # failure, not a warning. `git describe --tags --exact-match HEAD`
+        # exits non-zero when HEAD has no tag, and the returned tag
+        # (sans `v` prefix) must byte-equal the root version. This
+        # mirrors the structural `::error title=…::` style used by the
+        # stale-changeset gate and the CLI_VERSION parity gate above,
+        # and is the fail-closed point that prevents a stray tag from
+        # publishing the wrong version to npm. Manual `workflow_dispatch`
+        # on an untagged branch fails the same way — there is no
+        # bypass path.
+        id: gate-tag-version
+        run: |
+          set -euo pipefail
+          if ! exact_tag=$(git describe --tags --exact-match HEAD 2>/dev/null); then
+            observed=$(git describe --tags HEAD 2>/dev/null || echo '<no tag>')
+            echo "::error title=tag-version-mismatch::HEAD has no exact tag (observed=${observed}); cannot publish without a matching v<root_version> tag"
+            echo "::error::publish.yml refuses to publish when HEAD is not exactly tagged."
+            echo "::error::Fix: create the matching tag locally (git tag v<root_version>) and re-push, or correct the root package.json version."
+            exit 1
+          fi
+          root_version=$(node -e "console.log(require('./package.json').version)")
+          observed_version="${exact_tag#v}"
+          if [ "${observed_version}" != "${root_version}" ]; then
+            echo "::error title=tag-version-mismatch::tag=${exact_tag} version=${root_version}"
+            echo "::error::publish.yml refuses to publish when the exact HEAD tag does not equal v<root_version>."
+            echo "::error::Observed: ${exact_tag}; expected: v${root_version}."
+            echo "::error::Fix: either re-tag (git tag -d ${exact_tag} && git tag v${root_version} && git push --tags --force) or correct the root package.json version."
+            exit 1
+          fi
+          echo "Exact-tag gate OK: HEAD=${exact_tag} == v${root_version}"
+
+      - name: Create GitHub Release (rid-017 D2 + D4, non-interactive, no --draft, no --generate-notes)
+        # 2026-07-27 follow-up (rid-017): the publish chain must
+        # create a published (non-draft) GitHub Release BEFORE
+        # `node ./scripts/release-pack.mjs` runs. The release body
+        # is the file written by `Extract release notes from root
+        # CHANGELOG.md` above; --generate-notes is intentionally
+        # absent so the maintainer-authored CHANGELOG body is the
+        # only source. --verify-tag (or equivalent fail-closed)
+        # prevents the step from synthesizing a missing tag. Only
+        # the default GITHUB_TOKEN is used; no PAT, no
+        # NODE_AUTH_TOKEN, no actions/create-release action. The
+        # per-step `permissions:` block scopes `contents: write`
+        # to this step only; the workflow-level block keeps
+        # `contents: read` for the rest of the chain. The
+        # existing publish step's `if:` predicate is preserved
+        # verbatim.
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+        permissions:
+          contents: write   # required for gh release create
+          id-token: write   # preserved for npm OIDC trust
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES_FILE: ${{ steps.step-extract-release-notes.outputs['notes_file'] || format('{0}/peaks-release-notes/v{1}.md', env.RUNNER_TEMP, needs.publish.outputs.root_version) }}
+        run: |
+          set -euo pipefail
+          root_version=$(node -e "console.log(require('./package.json').version)")
+          tag="v${root_version}"
+          notes_path="${RUNNER_TEMP:-/tmp}/peaks-release-notes/${tag}.md"
+          if [ ! -s "${notes_path}" ]; then
+            echo "::error title=release-notes-missing::${notes_path} was not produced by the extract step; refusing to create a release"
+            exit 1
+          fi
+          gh release create "${tag}" \
+            --title "peaks-loop ${tag}" \
+            --notes-file "${notes_path}" \
+            --verify-tag \
+            --fail-on-no-commits
+
       - name: Publish to npm (OIDC + scripts/release-pack.mjs)
         # All-in-one publish script:
         #   - packs each workspace package with `pnpm pack` (rewrites
