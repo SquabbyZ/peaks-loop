@@ -13,8 +13,8 @@ sessionId: 2026-07-26-session-0e9141
 | Context ratio 阈值 | LLM 行为 | 强制级别 |
 |---|---|---|
 | **< 0.85** | skip — LLM 继续工作,no action | 自由 |
-| **0.85 ≤ ratio < 0.95** | 显性告诉 user + LLM 跑 `peaks session auto-compact --execute` 压缩 *完成后当前任务* | **soft-mandatory** |
-| **≥ 0.95** | 立刻停下来 + LLM 跑 `peaks session auto-compact --execute` 压缩 | **hard-mandatory** |
+| **0.85 ≤ ratio < 0.95** | 单向通知 user(status line 形式,不需要 user 回应/决策/acknowledgement) + LLM 跑 `peaks session auto-compact --execute` 压缩 *完成后当前任务* | **soft-mandatory** |
+| **≥ 0.95** | 单向通知 user + 立刻停下来 + LLM 跑 `peaks session auto-compact --execute` 压缩 | **hard-mandatory** |
 
 ## Why
 
@@ -31,18 +31,21 @@ sessionId: 2026-07-26-session-0e9141
 LLM 流程:
 1. 检测到 ratio ≥0.85 (via harness strategic-compact hint 或 `peaks code context-now --enforce-job-mode` 返回 `action: 'auto-compact-now'`)
 2. **不立即** compact — 先完成当前 turn 的任务(或本 slice 的 commit)
-3. **显性告诉 user** — response 中显示类似:
-   > Context 已达 85%,本 task 收尾后将触发 `peaks session auto-compact --execute` 压缩
+3. **单向通知 user** — response 中显示 status line (notification 形式,**不需要 user 回应/决策/acknowledgement**):
+   > [context-notify] ratio=87% (≥85%),本 task 收尾后将自动 compact
 4. 完成 task 后立即 compact:运行 `peaks session auto-compact --execute --project <path>`
+5. **绝对不** AskUserQuestion 询问 user 是否 compact、是否继续、是否暂停 — LLM 自动决策
 
 ### >95% 阈值 (hard-mandatory, 立刻停下)
 
 LLM 流程:
 1. 检测到 ratio >0.95 (via `peaks code context-now --enforce-job-mode` 返回 `action: 'red-line'` 或 harness warning)
 2. **立即停止** 正在执行的任何 task(包括 RD/QA dispatch in-flight,sub-agent output pending)
-3. **不等 user 确认** — Karpathy §4 red-line exception:LLM 不能 opt out
-4. 立即 compact:运行 `peaks session auto-compact --execute --project <path>`
-5. compact 后恢复 task 时,**优先 sed-resume 而非重做** — 用 `peaks resume` 读 checkpoint
+3. **不等 user 确认** — Karpathy §4 red-line exception:LLM 不能 opt out;user 不能 opt-out
+4. **单向通知 user** — 一行 status,无问询:
+   > [context-red-line] ratio=96% (≥95%),立即 compact
+5. 立即 compact:运行 `peaks session auto-compact --execute --project <path>`
+6. compact 后恢复 task 时,**优先 sed-resume 而非重做** — 用 `peaks resume` 读 checkpoint
 
 ## CLI 实际可用性 (caveat)
 
@@ -66,11 +69,21 @@ Job mode (multi-slice sequence) 下:
 
 以下行为视为 regression,**禁止**:
 
-1. ❌ prompt user 跑 `/compact` 或 `peaks session auto-compact` (Human-NL-Choice-Only 违反)
-2. ❌ ratio ≥0.95 继续执行 task (Karpathy §4 例外违反)
-3. ❌ ratio ≥0.85 时半途打断 multi-step task (本 sediment 校准的目标)
-4. ❌ 写 prose 说"ask user to compact" / "user should run peaks session auto-compact manually" (auto-compact regression marker)
-5. ❌ legacy pre-v2.13.0 thresholds (mid / seventy-five / ninety percent tiers)
+1. ❌ AskUserQuestion 询问 user 是否 compact / 是否继续 / 是否暂停 — LLM 自动决策,user 仅接收单向通知
+2. ❌ prompt user 跑 `/compact` 或 `peaks session auto-compact` (Human-NL-Choice-Only 违反)
+3. ❌ ratio ≥0.95 继续执行 task (Karpathy §4 例外违反)
+4. ❌ ratio ≥0.85 时半途打断 multi-step task (本 sediment 校准的目标)
+5. ❌ 写 prose 说"ask user to compact" / "user should run peaks session auto-compact manually" / "confirm before proceeding" (auto-compact regression marker)
+6. ❌ legacy pre-v2.13.0 thresholds (mid / seventy-five / ninety percent tiers)
+
+## 通知 vs AskUserQuestion 区分 (binding)
+
+| 形式 | 触发 | user 角色 |
+|---|---|---|
+| **状态行通知** (LLM 输出文本) | ratio ≥0.85 / ≥0.95 | 接收者,无回应 |
+| **AskUserQuestion** (LLM 调用工具) | 仅在 user-driven decision tree | 决策者,**必须响应** |
+
+auto-compact 通知是**单向 status line**,**绝不**调用 AskUserQuestion。即 user 看到 `[context-notify]` 行后不需要回复、点击或确认任何东西,LLM 自动继续。
 
 ## 验证 (Karpathy §1)
 
