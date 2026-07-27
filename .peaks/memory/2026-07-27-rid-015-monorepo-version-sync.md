@@ -38,3 +38,4 @@ kind: project
 - rid-016 C: 删除 5 个纯内部子包（peaks-loop-job-snapshot / peaks-loop-mut / peaks-loop-doctor / peaks-loop-crystallization / peaks-loop-final-review / peaks-loop-audit-independent 中真正的 5 个）。
 - rid-017 A: publish.yml 顺序（changelog / README / GitHub Release / tag 在 `release-pack.mjs` 之前）。
 - rid-018: 4.0.0 发版（独立 session，在 17 之后）。
+- rid-016 (2026-07-27, commit c56fdf32): 5 pure-internal sub-packages deleted; src/services/{audit-independent,crystallization,doctor,final-review,job-snapshot}/ fold-in landed via single SquabbyZ sole-author commit; QA verdict pass; tidies the workspace to 3 publishable sub-packages (peaks-loop-shared, peaks-loop-shared-channel, peaks-loop-mut).
