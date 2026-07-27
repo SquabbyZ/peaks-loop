@@ -57,6 +57,7 @@ import {
   JOB_NOT_INITIALIZED,
   JOB_REMAINING_BLOCKED
 } from '../../services/code/emit-handoff.js';
+import { registerCodeRunCommand } from './code-run-command.js';
 
 export type CodeStepKind = 'memory' | 'preflight' | 'rd' | 'qa' | 'emit';
 export interface CodeStep {
@@ -1040,6 +1041,9 @@ export function registerCodeCommands(program: Command, io: ProgramIO): void {
       }
     }
   );
+
+  // rid-020b: peaks code run --24h — thin 24h-mode bridge for peaks-code.
+  registerCodeRunCommand(code, io);
 }
 
 function readActiveSid(projectRoot: string): string | null {

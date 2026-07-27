@@ -163,6 +163,27 @@ multiSelect: false
 | 用户主动说"沉淀这个" | **立即问** | `user_explicit` |
 | LLM 识别 ≥ 2 个 reuse signals | **附带 4-section brief 问** | `llm_suggested` |
 
+### 5.3 4-level precedence for keyword triage (rid-020b)
+
+When the user's NL description contains a 24h-mode keyword (`24h` / `通宵` / `夜跑` / `通宵跑` / `夜机` / `不计成本` / `不停机`) AND a code-domain keyword, apply the 4-level precedence table to pick the leaf:
+
+| # | Precedence | If matched | Routes to |
+|---|---|---|---|
+| 1 | peaks-* skill name (highest) | user names `/peaks-code` or `/peaks-content` or `/peaks-doctor` explicitly | named leaf, regardless of 24h keyword |
+| 2 | keyword match | `24h` / `通宵` / `夜跑` etc. present | add `code-domain-evidence` column to triage table; default to `/peaks-code` for code work |
+| 3 | code-domain evidence | change-id / src path / `peaks-code` mention in NL | `/peaks-code` (with `--24h` flag passed via `peaks code run --24h`) |
+| 4 | default (lowest) | none of the above | peaks-solo self-planning fallback (§4) |
+
+### 5.4 24h keyword sub-section (special cases)
+
+Three explicit edge cases — peaks-solo still routes to the named leaf, but the LLM MUST add the 24h flag at the right invocation:
+
+| 24h keyword NL snippet | Default leaf | 24h flag injection |
+|---|---|---|
+| `24h 跑 dispatcher` / `24h triage` | /peaks-solo (self) | — (peaks-solo has no 24h flag; record sediment) |
+| `24h 内容` / `24h 公众号` / `24h 博客` | /peaks-content | peaks-solo surfaces `AskUserQuestion` asking the user to add the 24h flag at the leaf dispatch |
+| `24h 体检` / `24h doctor` / `24h health` | /peaks-doctor | peaks-solo surfaces `AskUserQuestion` asking the user to add the 24h flag at the leaf dispatch |
+
 ---
 
 ## 6. Out of scope (HC-11 锁死)

@@ -16,6 +16,7 @@
 | 跑测试 / test / vitest / unit test | → | /peaks-test |
 | 恢复 / resume / 继续 / 接上次 | → | /peaks-resume |
 | 不知道 / 随便 / 帮我 / 你帮我决定 / 我想做点东西 | → | peaks-solo triage (this skill) |
+| 24h / 通宵 / 通宵跑 / 夜跑 / 夜机 / 不计成本 / 不停机 (code-domain-evidence) | → | /peaks-code (with `--24h` via `peaks code run --24h`; see SKILL.md §5.3) |
 | 切片 / slice / 拆解任务 / 大任务拆小 | → | /peaks-slice-decompose |
 | 想法 / brain-storm / 创意 / 探索思路 | → | /peaks-ide |
 | 最终审查 / final review / 验收 / 4-dim evidence | → | /peaks-final-review |
@@ -29,3 +30,8 @@
 3. **(e) "都不对" → 自规划兜底。** 走 SKILL.md §4。
 4. **空表条目:** "研究 / 信息查询 / GitHub trending / top 10" 等一次性信息查询,**当前 skill 池没有专属 leaf**,peaks-solo 直接走自规划(deep-search / WebSearch)。
 5. **本表是 opportunistic 表,**不是 exhaustive 表。S2/S3 后续可在 dogfood 中发现新关键词补行。
+6. **24h keyword row (rid-020b):** when the NL contains a 24h keyword AND code-domain evidence (e.g. `peaks-code` mentioned, a `src/` change-id, or `peaks code run`), add a `code-domain-evidence` column to the AskUserQuestion and pre-select `/peaks-code` with the `--24h` flag surfaced as a follow-up. The 4-level precedence in SKILL.md §5.3 wins on ties.
+7. **Special case rows (rid-020b):**
+   - `24h dispatcher` / `24h triage` → peaks-solo (self); record sediment after.
+   - `24h 内容` / `24h 公众号` / `24h 博客` → /peaks-content; surface AskUserQuestion asking the user to add the 24h flag.
+   - `24h 体检` / `24h doctor` → /peaks-doctor; surface AskUserQuestion asking the user to add the 24h flag.

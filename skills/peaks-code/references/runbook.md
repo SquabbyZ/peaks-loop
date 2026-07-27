@@ -203,6 +203,28 @@ peaks project dashboard --project <repo> --json
 peaks skill doctor --json
 ```
 
+## 24h mode — bridge surface (rid-020b)
+
+```bash
+# Inspect the current 24h-mode state snapshot (rid-020a backbone)
+peaks session 24h-mode state --json
+
+# Code-run with the 24h flag (T3/T4 auto-engage; otherwise brainstorming reference-only bridge)
+peaks code run <change-id> --24h --tier T3 --project <repo> --json
+peaks code run <change-id> --24h --tier T2 --project <repo> --json   # non-T3/T4 → Bucket B (reference-only)
+peaks code run <change-id> --24h --trigger T4 --project <repo> --json # T4 also auto-engages 24H_ACTIVE
+
+# Read-only 24h long-run indicator dashboard (5 indicator classes + boundary cases)
+peaks dashboard long-run --since 24h --project <repo> --json
+peaks dashboard long-run --since 8h  --project <repo> --json
+peaks dashboard long-run --since 30m --project <repo> --json
+peaks dashboard long-run --since 72h --project <repo> --json   # capped at 24h
+
+# Manual state transition (Bucket C — user-confirm path)
+peaks session 24h-mode transition --state 24H_ACTIVE --reason "T1 keyword match" --project <repo> --json
+peaks session 24h-mode transition --state HANDOFF --exit-condition user_abort --project <repo> --json
+```
+
 Repair loop details: see `## Mandatory RD QA repair loop` in SKILL.md for the full 5-step procedure and the 3-cycle cap. Append transition notes via `--reason` rather than rewriting artifacts during repair cycles.
 
 ```bash

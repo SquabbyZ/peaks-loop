@@ -44,6 +44,42 @@ This skill is the **primary surface**. The `peaks <cmd>` CLI is **auxiliary** �
 
 **Peaks-Loop Code is an orchestrator, NOT an implementer. You MUST NOT write, edit, or modify any application source code directly.** Every code change goes through `peaks-code → RD → QA → verdict`. **If you catch yourself about to write code, STOP.** Hand off to RD. Before declaring workflow complete, run `peaks workflow verify-pipeline --rid <rid> --project <repo> --json`.
 
+## 24h mode (orchestrator flag, NOT a new skill)
+
+> **Why this is a flag.** peaks-code is the orchestrator; 24h mode is a *flag* the orchestrator can flip, not a sibling skill. See `.peaks/memory/2026-07-28-peaks-code-loop-skill-proposal.md` for the RL-8 tension analysis. The 24h mode state machine is owned by `peaks session 24h-mode ...` (rid-020a). peaks-code is the consumer; it does not own a new top-level surface.
+
+### State machine (6 states, rid-020a shipped)
+
+`IDLE → BRAINSTORM → USER_CONFIRM → 24H_ACTIVE → WAITING_USER → HANDOFF`. The CLI surface is `peaks session 24h-mode {state,transition,attempts,reset}`; the LLM is the decision-maker. The persisted snapshot lives at `.peaks/_runtime/<sessionId>/24h-state.json` (read-only for peaks-code; write only via the CLI).
+
+### 5 auto-engage triggers (T1..T5)
+
+1. **T1** — user NL keyword: `24h / 通宵跑 / 通宵 / 夜跑 / 夜机 / 不计成本 / 不停机`.
+2. **T2** — at least 30 active slices AND ≥ 6h wall-clock since the last handoff.
+3. **T3** — ≥ 3 monotonic-guard fires AND ≥ 10 slices remaining.
+4. **T4** — session gap ≥ 4h (resume from a previous long-run).
+5. **T5** — ≥ 3 active slices for 24h-mode restart.
+
+T3 and T4 auto-engage 24H_ACTIVE. T1/T2/T5 surface for LLM judgement via `peaks session 24h-mode transition --state 24H_ACTIVE --reason <text>`.
+
+### 3 decision buckets
+
+- **Bucket A — auto-engage 24H_ACTIVE** (T3 / T4 only). No brainstorming gate; skip the reference-only bridge.
+- **Bucket B — reference-only brainstorming bridge** (non-T3/T4). Run the existing 11-step runbook through the brainstorming sub-step, then continue.
+- **Bucket C — user-confirm gate** (T1/T2/T5). Surface `peaks session 24h-mode transition --state USER_CONFIRM`; the LLM surfaces AskUserQuestion.
+
+### Integration surfaces (rid-020b)
+
+- `peaks code run --24h` — T3/T4 path auto-engages; non-T3/T4 routes through Bucket B.
+- `peaks dashboard long-run --since 24h` — read-only indicator view (dispatch / autoCompact / monotonicTrigger / subAgentFailure / checkpointFrequency).
+- `peaks session 24h-mode state|transition|attempts|reset` — state-machine backbone (rid-020a).
+
+### Red lines (peaks-code side)
+
+- No auto-compact prose ban. Never write "ask the user to compact" / "prompt the user to run `/compact`" / "the user should run `peaks session auto-compact` manually" / "the user is responsible for context management" / legacy 50/75/90 percent tiers. The 0.85 / 0.95 contract is mandatory.
+- SquabbyZ sole-author rule: no `Co-Authored-By: Claude/Anthropic` trailer in any commit.
+- 24h mode is a flag on `peaks-code`; it MUST NOT introduce a sibling `peaks-24h` skill or a competing CLI top-level verb.
+
 ## Peaks-Loop Superpowers 协作边界 (BRIDGE — MANDATORY, effective 2026-07-24)
 
 This chapter pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Boundary is closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
