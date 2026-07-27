@@ -105,7 +105,7 @@ describe('archiveScreenshots — peak-qa Contract 1 enforcement', () => {
     writeFileSync(join(tmp, 'b.png'), 'b');
     const target = join(tmp, 'screenshots');
     const env = archiveScreenshots({ sourceDir: tmp, targetDir: target });
-    expect(env.targetContentsAfter.sort()).toEqual(['a.png', 'b.png']);
-    expect(readdirSync(target).sort()).toEqual(['a.png', 'b.png']);
+    expect([...env.targetContentsAfter].sort()).toEqual(['a.png', 'b.png']);
+    expect([...readdirSync(target)].sort()).toEqual(['a.png', 'b.png']);
   });
 });

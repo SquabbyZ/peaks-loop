@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { afterEach, beforeAll, describe, expect, test } from 'vitest';
@@ -37,8 +37,20 @@ const helperPath = resolve(projectRoot, 'scripts', 'bump-version.mjs');
 const sharedPkgPath = resolve(projectRoot, 'packages', 'peaks-loop-shared', 'package.json');
 const sharedDistVersionPath = resolve(projectRoot, 'packages', 'peaks-loop-shared', 'dist', 'version.js');
 const rootPkgPath = resolve(projectRoot, 'package.json');
+const packagesDir = resolve(projectRoot, 'packages');
 
-interface Snapshot { rootContent: string; sharedContent: string; sharedDistContent: string; }
+// rid-015 widened bump-version.mjs from shared-only to every
+// publishable package under packages/. The tests below run the helper
+// against the REAL project root, so the restore set must cover every
+// workspace manifest the helper can now write — otherwise 7 extra
+// manifests leak into the worktree on every run.
+function workspaceManifestPaths(): string[] {
+  return readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(join(packagesDir, entry.name, 'package.json')))
+    .map((entry) => join(packagesDir, entry.name, 'package.json'));
+}
+
+interface Snapshot { rootContent: string; sharedContent: string; sharedDistContent: string; workspaceContents: Map<string, string>; }
 let baseline: Snapshot;
 let fakeBinDir: string;
 let fakeNpmScript: string;
@@ -48,6 +60,7 @@ beforeAll(() => {
     rootContent: readFileSync(rootPkgPath, 'utf8'),
     sharedContent: readFileSync(sharedPkgPath, 'utf8'),
     sharedDistContent: existsSync(sharedDistVersionPath) ? readFileSync(sharedDistVersionPath, 'utf8') : '',
+    workspaceContents: new Map(workspaceManifestPaths().map((p) => [p, readFileSync(p, 'utf8')])),
   };
 
   // Build a fake `npm` binary that returns a fixed
@@ -95,9 +108,13 @@ beforeAll(() => {
 
 afterEach(() => {
   // Restore manifests to the pre-test baseline so a re-run sees a
-  // clean tree.
+  // clean tree. Covers every workspace manifest (rid-015), not just
+  // root + shared.
   writeFileSync(rootPkgPath, baseline.rootContent, 'utf8');
   writeFileSync(sharedPkgPath, baseline.sharedContent, 'utf8');
+  for (const [path, content] of baseline.workspaceContents) {
+    writeFileSync(path, content, 'utf8');
+  }
   if (baseline.sharedDistContent) {
     writeFileSync(sharedDistVersionPath, baseline.sharedDistContent, 'utf8');
   }
@@ -129,13 +146,14 @@ describe('peaks-publish-stale fix (2026-07-23) regression gate', () => {
     // workflow_dispatch with the same INPUT_TARGET) MUST NOT
     // publish a redundant version. bump-version.mjs is the
     // load-bearing idempotency gate (AC7).
+    const currentRoot = (JSON.parse(readFileSync(rootPkgPath, 'utf8')) as { version: string }).version;
     const result = runBumpVersion({
-      PEAKS_TEST_NPM_LATEST: '4.0.0-beta.34', // matches root baseline
+      PEAKS_TEST_NPM_LATEST: currentRoot, // matches root baseline at run time
     });
     expect(result.status, `helper must exit 0; stderr=${result.stderr}`).toBe(0);
     expect(result.stdout, 'helper must announce a no-op').toMatch(/already on registry as latest; skipping bump|no-op/);
     const after = JSON.parse(readFileSync(rootPkgPath, 'utf8')) as { version: string };
-    expect(after.version, 'root version must remain at 4.0.0-beta.34').toBe('4.0.0-beta.34');
+    expect(after.version, 'root version must remain at the baseline').toBe(currentRoot);
   }, 60_000);
 
   test('AC6 — bump-version.mjs bumps peaks-loop-shared in lockstep with root', () => {

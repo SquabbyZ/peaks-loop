@@ -22,27 +22,30 @@
  *
  * After picking the target version, the script:
  *   1. Sets `package.json#version` to the target.
- *   2. Bumps `packages/peaks-loop-shared/package.json#version` in
- *      lockstep (AC6 of peaks-publish-stale-2026-07-23) so that the
- *      shared workspace tarball shipped on the next publish always
- *      carries a fresh `dist/version.js`. The shared package is
+ *   2. Bumps EVERY publishable workspace package under `packages/`
+ *      (8 today, discovered dynamically) in lockstep (AC6 of
+ *      peaks-publish-stale-2026-07-23, widened monorepo-wide by
+ *      rid-015) so that every workspace tarball shipped on the next
+ *      publish carries a fresh version. Each package is
  *      `private: false` and its version is what `pnpm pack` rewrites
- *      the `workspace:*` dependency to — leaving it stale is the
- *      Layer 1 root cause of the 4.0.0-beta.35 → CLI_VERSION lag.
+ *      the `workspace:*` dependency to — leaving any of them stale is
+ *      the Layer 1 root cause of the 4.0.0-beta.35 → CLI_VERSION lag.
+ *      Packages that are private, versionless, or carry a non-clean
+ *      x.y.z version are skipped with a log line.
  *   3. Re-prints the new version on stdout (the publish workflow
  *      greps this for the git tag).
  *
  * Idempotency (AC7): if `package.json#version` already equals
  * `npm view peaks-loop dist-tags.latest`, the script exits 0 with
- * a no-op log line and does NOT bump shared. This stops the publish
- * workflow from re-running the auto-bump on a re-pushed tag (which
- * was the root cause of the 33 → 35 version-skip on npm).
+ * a no-op log line and does NOT bump any package. This stops the
+ * publish workflow from re-running the auto-bump on a re-pushed tag
+ * (which was the root cause of the 33 → 35 version-skip on npm).
  *
  * Stops with non-zero exit code on any parse / range error so the
  * publish workflow can fail fast.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
@@ -113,26 +116,58 @@ function registryLatest() {
   }
 }
 
-// Bump the peaks-loop-shared subpackage version in lockstep with
-// root. Skipped when the existing shared version is NOT a clean
-// x.y.z SemVer (some test fixtures use markers like
-// `9.9.9-oldsub`); in that case, leave the version alone. Always
-// returns the (possibly unchanged) post-bump shared version so the
-// caller can log it.
-function bumpSharedVersion(rootNext) {
-  const sharedPkgPath = resolve('packages/peaks-loop-shared/package.json');
-  const sharedPkg = JSON.parse(readFileSync(sharedPkgPath, 'utf8'));
-  const sharedVersion = sharedPkg.version;
-  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(sharedVersion);
-  if (!m) {
-    console.log(`[bump-version] peaks-loop-shared version "${sharedVersion}" is not x.y.z; skipping auto-bump`);
-    return sharedVersion;
+// Bump ONE workspace subpackage's version in lockstep with root.
+// Skipped when the package is private, carries no version, or its
+// existing version is NOT a clean x.y.z SemVer (some test fixtures
+// use markers like `9.9.9-oldsub`); in those cases, leave the
+// manifest untouched. Always returns the (possibly unchanged)
+// post-bump version so the caller can log it.
+function bumpPackageVersion(pkgDir, rootNext) {
+  const subPkgPath = resolve('packages', pkgDir, 'package.json');
+  const subPkg = JSON.parse(readFileSync(subPkgPath, 'utf8'));
+  const label = subPkg.name ?? pkgDir;
+  const subVersion = subPkg.version;
+  if (subPkg.private === true) {
+    console.log(`[bump-version] ${label} is private; skipping auto-bump`);
+    return subVersion;
   }
-  const nextShared = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
-  sharedPkg.version = nextShared;
-  writeFileSync(sharedPkgPath, JSON.stringify(sharedPkg, null, 2) + '\n');
-  console.log(`[bump-version] peaks-loop-shared ${sharedVersion} -> ${nextShared} (root ${rootNext})`);
-  return nextShared;
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(subVersion ?? '');
+  if (!m) {
+    console.log(`[bump-version] ${label} version "${subVersion}" is not x.y.z; skipping auto-bump`);
+    return subVersion;
+  }
+  const nextSub = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+  subPkg.version = nextSub;
+  writeFileSync(subPkgPath, JSON.stringify(subPkg, null, 2) + '\n');
+  console.log(`[bump-version] ${label} ${subVersion} -> ${nextSub} (root ${rootNext})`);
+  return nextSub;
+}
+
+// Discover every workspace subpackage directory under packages/.
+// A directory qualifies only when it directly contains a
+// package.json — loose files (`.gitkeep`, `README.md`) and
+// scratch directories are ignored. Sorted for deterministic log
+// ordering. Returns [] when packages/ is absent.
+function discoverPackageDirs() {
+  const packagesRoot = resolve('packages');
+  if (!existsSync(packagesRoot)) return [];
+  return readdirSync(packagesRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && existsSync(resolve(packagesRoot, entry.name, 'package.json')))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+// Bump every publishable workspace subpackage in lockstep with root
+// (rid-015). Previously only peaks-loop-shared was synchronized, so
+// the other 7 publishable packages kept frozen versions and
+// `pnpm pack` rewrote each `workspace:*` dependency to a stale pin —
+// the same defect class as the 4.0.0-beta.35 CLI_VERSION lag, spread
+// across 7 additional tarballs. Discovery is dynamic so adding or
+// removing a package needs no edit here.
+function bumpWorkspacePackages(rootNext) {
+  const dirs = discoverPackageDirs();
+  for (const dir of dirs) bumpPackageVersion(dir, rootNext);
+  console.log(`[bump-version] synchronized ${dirs.length} workspace package(s) under packages/`);
 }
 
 const pkgPath = resolve('package.json');
@@ -184,9 +219,13 @@ if (next === current) {
 // produced stale shared tarballs because publish.yml set the env
 // only on the CI Build step). bump-version.mjs is now the single
 // owner of the shared/package.json#version bump.
+//
+// rid-015 widens AC6 from shared-only to EVERY publishable package
+// under packages/ (8 today), for the same reason: any package left
+// frozen ships a stale `workspace:*` pin on the next publish.
 pkg.version = next;
 writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
 
-bumpSharedVersion(next);
+bumpWorkspacePackages(next);
 
 console.log(`[bump-version] peaks-loop ${current} -> ${next}`);
