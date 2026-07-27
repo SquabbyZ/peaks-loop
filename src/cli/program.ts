@@ -6,6 +6,7 @@ import { skillsDir, repoRoot } from 'peaks-loop-shared/paths';
 import { CLI_VERSION } from 'peaks-loop-shared/version';
 
 import { autoRegisterAllCommands } from './commands/_register.js';
+import { registerSuperCommands } from './commands/_super.js';
 import { registerCoreAndArtifactCommands } from './commands/core-artifact-commands.js';
 import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
@@ -15,7 +16,7 @@ import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
 import { applyRetention, cleanupEccCache } from '../services/log/retention.js';
 import { writeLogEntry, maybeWriteStderr } from '../services/log/logger.js';
-import { printErrorEnvelope, type ProgramIO } from './cli-helpers.js';
+import { printErrorEnvelope, printSuperCommandCatalog, type ProgramIO } from './cli-helpers.js';
 
 export { printErrorEnvelope, printResult, type ProgramIO } from './cli-helpers.js';
 
@@ -188,33 +189,8 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  return;
  }
 
- // Count bundled skills by reading the skills dir directly (synchronous so
- // the quickstart renders instantly — no import/async overhead on startup).
- let skillCount =0;
- const skillsPath = skillsDir;
- try {
- if (existsSync(skillsPath)) {
- skillCount = readdirSync(skillsPath, { withFileTypes: true })
- .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
- .filter((entry) => existsSync(join(skillsPath, entry.name, 'SKILL.md')))
- .length;
- }
- } catch { /* disk read is best-effort; zero skills is still truthful */ } // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
+ printSuperCommandCatalog(io);
 
- io.stdout(`Peaks Loop ${CLI_VERSION} · ${skillCount} skills ready
-
- Peaks is a loop-engineering CLI + skill family for Claude Code.
- It turns "don't skip steps" into hard enforcement — gates that block
- advancement in-conversation, un-bypassably.
-
- Before diving into a project, two things worth doing now:
-
- peaks doctor check your environment in one glance
- peaks-sop <<< ask this skill to author your first SOP
-
- Or jump straight in:
- peaks sop init --id my-flow --apply && peaks hooks install
-`);
  })
  .exitOverride();
 
@@ -224,6 +200,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSubAgentCommands(program, io);
  registerWorkspaceCommands(program, io);
  registerSopCommands(program, io);
+ registerSuperCommands(program, io);
  // Auto-route the remaining 60+ commands after the orchestrators so the
  // lazy `skill` parent (used by adapter-commands / sediment-commands)
  // finds the existing `peaks skill` group registered by

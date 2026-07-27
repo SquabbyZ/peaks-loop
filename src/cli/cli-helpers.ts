@@ -33,6 +33,21 @@ export function printResult<T>(io: ProgramIO, result: ResultEnvelope<T>, asJson 
   }
 }
 
+export function printSuperCommandCatalog(io: ProgramIO): void {
+  io.stdout([
+    'Peaks super-command catalog',
+    'make — describe what to build or change',
+    'learn — describe a procedure, lesson, or memory to capture',
+    'check — describe a project, health, audit, or security target',
+    'run — describe a workflow, job, slice, or dispatch',
+    'share — hand off a sub-agent sharing operation',
+    'version — show the current Peaks version',
+    'ask — describe any natural-language question',
+    'status — show current workflow status',
+    'Choose a surface or describe your goal; the LLM coordinates the underlying operation.'
+  ].join('\n'));
+}
+
 export function addJsonOption(command: Command): Command {
   return command.option('--json', 'print machine-readable JSON envelope');
 }
