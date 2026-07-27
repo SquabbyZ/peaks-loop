@@ -276,6 +276,7 @@ jobs:
           fi
           echo "On-disk CLI_VERSION alignment OK: peaks-loop@${root_version} -> peaks-loop-shared@${shared_cli_version}"
 
+          # rid-010: precheck logic mirrors src/services/release/version-precheck-service.ts#runAllLayers (Layer A only; §(B) tarball-content gate below stays CI-only — AC-7 grep proof).
           # ---- (B) Tarball-content gate (AC4): pack shared, verify the
           # packed tarball's package/dist/version.js carries the same
           # CLI_VERSION. This is the Layer 5 fix — on-disk != tarball.
