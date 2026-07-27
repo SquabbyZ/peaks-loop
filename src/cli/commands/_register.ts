@@ -46,6 +46,7 @@ import { registerPrdBlocksCommands } from './prd-blocks-commands.js';
 import { registerPrdCommands } from './prd-commands.js';
 import { registerPreferencesCommands } from './preferences-commands.js';
 import { registerProjectCommands } from './project-commands.js';
+import { registerChangesetCommands } from './changeset-commands.js';
 import { registerQaBusinessReviewCommands } from './qa-business-review-commands.js';
 import { registerQaCommands } from './qa-commands.js';
 import { registerReleaseCommands } from './release-commands.js';
@@ -103,6 +104,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['sop-commands', registerSopCommands], ['feedback-commands', registerFeedbackCommands],
   ['fork-commands', registerForkCommands], ['impact-commands', registerImpactCommands],
   ['smoke-commands', registerSmokeCommands], ['release-commands', registerReleaseCommands],
+  ['changeset-commands', registerChangesetCommands],
   ['prd-blocks-commands', registerPrdBlocksCommands], ['user-touchpoint-commands', registerUserTouchpointCommands],
   ['slice-review-commands', registerSliceReviewCommands], ['qa-business-review-commands', registerQaBusinessReviewCommands],
   ['slice-integrate-commands', registerSliceIntegrateCommands], ['doc-commands', registerDocCommands],

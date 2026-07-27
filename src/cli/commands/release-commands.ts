@@ -32,6 +32,7 @@ import {
   type ReleaseStage
 } from '../../services/release/release-state.js';
 import { runAllLayers, type LayerResult } from '../../services/release/version-precheck-service.js';
+import { runChangesetHardGate } from '../../services/changeset/changeset-check-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
@@ -55,6 +56,10 @@ export function executeCanaryAction(
   blockerLayer?: { name: string; result: LayerResult };
 } {
   // rid-010 — precheck guard (Layer A or Layer B blocker refuses canary).
+  // rid-011 — changeset hard gate runs inline in the canary closure BEFORE
+  // this function is called (step 0 short-circuits with CHANGESET_BLOCKED).
+  // Layers C/D default warning → do not block canary; --strict upgrade would
+  // be a separate flag (out of scope for rid-011).
   // Layers C/D default warning → do not block canary; --strict upgrade would
   // be a separate flag (out of scope for rid-010).
   const precheck = runAllLayers({ projectRoot, strict: false });
@@ -158,6 +163,13 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((opts: { percent: string; note?: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    // rid-011 — changeset hard gate (step 0).
+    const gate = runChangesetHardGate(projectRoot);
+    if (gate.state === 'staged-present') {
+      process.exitCode = 1;
+      printResult(io, fail('release.canary', 'CHANGESET_BLOCKED', `${gate.stagedFiles.length} staged .changeset/*.md file(s) — refusing canary`, { projectRoot, state: gate.state, stagedFiles: [...gate.stagedFiles], snapshotAt: gate.snapshotAt }, [`Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`]), opts.json ?? false);
+      return;
+    }
     const result = executeCanaryAction(opts, io, projectRoot);
     if (result.status === 'PRECHECK_BLOCKER') {
       const layer = result.blockerLayer;
@@ -335,6 +347,13 @@ export function registerReleaseCommands(program: Command, io: ProgramIO): void {
       .option('--project <path>', 'project root (default: cwd)')
   ).action((version: string, opts: { note?: string; project?: string; json?: boolean }) => {
     const projectRoot = opts.project ?? findProjectRoot(process.cwd()) ?? process.cwd();
+    // rid-011 — changeset hard gate (step 0). No --skip-changeset-check override.
+    const changesetGate = runChangesetHardGate(projectRoot);
+    if (changesetGate.state === 'staged-present') {
+      process.exitCode = 1;
+      printResult(io, fail('release.hotfix', 'CHANGESET_BLOCKED', `${changesetGate.stagedFiles.length} staged .changeset/*.md file(s) — refusing to start hotfix`, { projectRoot, stagedFiles: [...changesetGate.stagedFiles], snapshotAt: changesetGate.snapshotAt }, [`Drain pending changesets (coordinating LLM: drain via the standard changeset consumption path), then re-run \`peaks changeset check --project ${projectRoot}\` to confirm clean state.`]), opts.json ?? false);
+      return;
+    }
     const state = readReleaseState(projectRoot);
     const result = hotfixRelease(state, version, opts.note);
     if ('error' in result) {

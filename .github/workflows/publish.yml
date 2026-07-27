@@ -231,6 +231,8 @@ jobs:
         # tagging).
         id: gate-changeset
         run: |
+          # rid-011: shared hard gate (mirror of src/services/changeset/changeset-check-service.ts#runChangesetHardGate).
+          node ./dist/cli/index.js changeset check --project . --json
           stale=$(ls .changeset 2>/dev/null \
             | grep -v '^config\.json$' \
             | grep -v '^README\.md$' \

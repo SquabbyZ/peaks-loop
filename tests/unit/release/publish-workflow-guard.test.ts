@@ -302,6 +302,41 @@ describe('publish.yml workflow guard (2026-07-22 CLI_VERSION alignment + reject-
     expect(onText).toMatch(/workflow_dispatch:/);
   });
 
+  // rid-011 — gate-changeset step now invokes the shared CLI before the
+  // verified shell fallback. The shell body (lines 234-243 of the
+  // pre-rid-011 source) must remain byte-identical.
+  test('rid-011: gate-changeset step invokes shared CLI before shell fallback', () => {
+    const stripped = workflowSource
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+    const gateBlock = stripped.split(/- name: Refuse to publish if any \.changeset\/\*\.md is staged/, 2)[1] || '';
+    expect(gateBlock.length, 'gate-changeset run block must exist').toBeGreaterThan(0);
+    // CLI invocation must precede the shell `stale=$(ls...)` body.
+    const cliIdx = gateBlock.indexOf('node ./dist/cli/index.js changeset check');
+    const shellIdx = gateBlock.indexOf('stale=$(ls .changeset');
+    expect(cliIdx, 'CLI invocation must exist').toBeGreaterThan(-1);
+    expect(shellIdx, 'shell fallback must remain').toBeGreaterThan(-1);
+    expect(cliIdx, 'CLI invocation must precede shell fallback').toBeLessThan(shellIdx);
+  });
+
+  test('rid-011: gate-changeset shell body preserves verified substrings', () => {
+    // Verified body uses `ls`-based detection, NOT `git status --porcelain`.
+    // RD §AC-6 explicitly pins this body so future refactors don't silently
+    // drift to a different predicate.
+    const stripped = workflowSource
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+    const gateBlock = stripped.split(/- name: Refuse to publish if any \.changeset\/\*\.md is staged/, 2)[1] || '';
+    expect(gateBlock).toMatch(/stale=\$\(ls \.changeset/);
+    expect(gateBlock).toMatch(/grep -v.*config[\\]?\.json/);
+    expect(gateBlock).toMatch(/grep -v.*README[\\]?\.md/);
+    expect(gateBlock).toMatch(/grep '\\\.\md\$'/);
+    expect(gateBlock).toMatch(/if \[ -n \"\$\{stale\}\" \]; then/);
+    expect(gateBlock).toMatch(/exit 1/);
+  });
+
   test('publish step carries the defensive per-step `if:` gate', () => {
     // Belt-and-braces: even if a future refactor of the `on:`
     // block accidentally re-enables push-to-main, the per-step
