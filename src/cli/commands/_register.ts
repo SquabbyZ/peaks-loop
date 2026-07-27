@@ -79,6 +79,7 @@ import { registerUserTouchpointCommands } from './user-touchpoint-commands.js';
 import { registerVerdictAggregateCommands } from './verdict-aggregate-command.js';
 import { registerWorkflowCommands } from './workflow-commands.js';
 import { registerWorkflowPlanCommands } from './workflow-plan-commands.js';
+import { registerWorktreeAuthCommand } from './worktree-auth-commands.js';
 import { registerWorkspaceCommands } from './workspace-commands.js';
 
 // Bivariant alias so stronger-typed register functions remain assignable
@@ -133,6 +134,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['job-commands', registerJobCommands], ['sediment-commands', registerSedimentCommands],
   ['adapter-commands', registerAdapterCommands], ['runtime-commands', registerRuntimeCommands],
   ['adapter-commands-s2a', registerAdapterS2ACommands], ['polyrepo-commands', registerPolyrepoCommands],
+  ['worktree-auth-commands', registerWorktreeAuthCommand],
 ];
 
 function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO): void {

@@ -1,9 +1,11 @@
 import { Command } from 'commander';
 import { enforceBashCommand, recordGateBypass, GateBypassError } from '../../services/sop/gate-enforce-service.js';
+import { evaluateWorktreeAuth, type ToolCallKind } from '../../services/hooks/worktree-authorization-gate.js';
+import { getCurrentSessionId } from '../../services/skills/skill-presence-service.js';
 import { fail, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../cli-helpers.js';
-import { detectIdeFromContext, parseClaudeShapeStdin } from '../../services/ide/hook-translator.js';
+import { detectIdeFromContext, parseClaudeShapeStdin, pluckObject, pluckString } from '../../services/ide/hook-translator.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import { emitBlock, emitDecision, emitHint } from '../../services/hooks/output.js';
 
@@ -33,6 +35,31 @@ async function readHookPayload(): Promise<string> {
     process.stdin.on('end', () => resolveStdin(data));
     process.stdin.on('error', () => resolveStdin(data));
   });
+}
+
+/**
+ * Map Claude Code tool name to the gate's internal `ToolCallKind`. Anything we don't recognize
+ * returns `'Other'` — the worktree gate is opt-in by tool, so unknown tools short-circuit to allow.
+ */
+function classifyTool(toolName: string | undefined): ToolCallKind {
+  if (toolName === 'Bash') return 'Bash';
+  if (toolName === 'Agent' || toolName === 'Task') return 'Agent';
+  if (toolName === 'EnterWorktree') return 'EnterWorktree';
+  if (toolName === 'Workflow') return 'Workflow';
+  return 'Other';
+}
+
+/**
+ * Best-effort extraction of the `isolation` field for `Agent` / `Task` tool calls. The Claude
+ * hook payload puts args under `tool_input`, the Cursor/Trae sibling puts them under `toolInput`.
+ * Both shapes are accepted; everything else returns null.
+ */
+function extractIsolation(parsed: unknown): string | null {
+  if (parsed === null || typeof parsed !== 'object') return null;
+  const input = pluckObject(parsed, ['tool_input']) ?? pluckObject(parsed, ['toolInput']);
+  if (input === undefined) return null;
+  const value = pluckString(input, ['isolation']);
+  return value === undefined ? null : value;
 }
 
 export function registerGateCommands(program: Command, io: ProgramIO): void {
@@ -77,6 +104,43 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
         }
         return;
       }
+
+      // slice 2026-07-27-worktree-user-auth: BEFORE the SOP gate runs, check the worktree
+      // authorization gate. The worktree gate is narrower than the SOP gate (it only inspects
+      // a small set of worktree-mutating operations) and is fail-CLOSED. The two layers are
+      // complementary: SOP gates decide "may this command run under this SOP's state", the
+      // worktree gate decides "did the user explicitly authorize this worktree-mutating operation
+      // in the current task". The worktree gate is cheap and self-contained, so it runs first
+      // to give the LLM a clear error reason before the SOP gate would otherwise allow.
+      //
+      // We extract the tool kind from the hook payload (Bash/Agent/EnterWorktree/Workflow).
+      // For Agent/Task we also pull `isolation` from the tool input — only "worktree" isolation
+      // is gated. For all other tool kinds the worktree gate is a no-op.
+      const toolKind = classifyTool(toolName);
+      if (toolKind !== 'Other') {
+        const sessionId = getCurrentSessionId(options.project) ?? 'unknown-sid';
+        const wtDecision = evaluateWorktreeAuth({
+          projectRoot: options.project,
+          sessionId,
+          toolName: toolKind,
+          command: toolKind === 'Bash' ? command : null,
+          isolation: toolKind === 'Agent' || toolKind === 'EnterWorktree' ? extractIsolation(parsedStdin) : null,
+          requestId: null
+        });
+        if (!wtDecision.allow) {
+          // Hard block: a worktree-mutating tool call without a current-task user grant.
+          // emitBlock writes the Claude Code permissionDecision:"deny" envelope and exits 2.
+          // The reason includes the remediation hint so the LLM can run `peaks worktree auth grant`
+          // and retry, and the user can read the deny text in the next-turn stderr.
+          emitBlock(io, `[worktree-gate:${wtDecision.code}] ${wtDecision.reason} — ${wtDecision.remediation}`);
+          if (options.json === true) {
+            emitHint(io, JSON.stringify(ok('gate.enforce', { decision: 'deny', layer: 'worktree-auth', ...wtDecision })));
+          }
+          return;
+        }
+        // allow: continue to the SOP gate (the regular enforcement path).
+      }
+
       const decision = await enforceBashCommand(options.project, command);
       if (decision.decision === 'deny') {
         // PRD#2 (2026-06-16-fact-forcing-gate-format): a true SOP gate failure is
