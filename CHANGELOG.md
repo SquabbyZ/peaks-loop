@@ -1,5 +1,28 @@
 # Changelog
 
+## 4.0.0 — 2026-07-28 (GA release)
+
+### Features
+
+- **One super-command CLI surface** (rid-009): `peaks code / audit / doctor / openspec / release / release-pack` replacing 73 leaf commands.
+- **peaks changeset check hard gate** (rid-011): mirrors publish.yml gate-changeset and refuses to publish when `.changeset/*.md` is staged.
+- **peaks release precheck** (rid-010): 4-layer version gate mirroring publish.yml §(A); ships with `tests/unit/release/version-precheck-service.test.ts` (13 cases).
+- **Dynamic workspace subpackage discovery** (rid-014): release-pack.mjs now derives publish order from `packages/*` and `pnpm-workspace.yaml` — adding/removing a subpackage needs no code edit.
+- **Monorepo-wide version lockstep** (rid-015): `scripts/bump-version.mjs` bumps every publishable subpackage in lockstep with root (no more 33→35 CLI_VERSION lag class).
+- **GitHub Release step + tag/version gate** (rid-017): publish.yml now runs `Extract release notes from root CHANGELOG.md` (per-version awk) → `Verify exact tag matches bumped root version` (hard `git describe --tags --exact-match` gate) → `Create GitHub Release` (non-draft, no `--generate-notes`).
+- **5 pure-internal sub-packages folded into `src/services/*`** (rid-016): deleted `peaks-loop-{audit-independent,crystallization,doctor,final-review,job-snapshot}` from `packages/`; behaviour preserved by re-exports.
+
+### Bug fixes
+
+- **CLI_VERSION drift closed** (peaks-publish-stale fix): `peaks-loop@<new>` no longer pins a stale `peaks-loop-shared@<old>` thanks to on-disk + tarball-content double guard in `gate-cli-version`.
+- **33→35 npm version-skip regression closed** (AC7): `peaks workspace init` + `bump-version.mjs` are now idempotent when local root equals `dist-tags.latest`.
+- **`workspace:*` protocol leak closed** (release-pack.mjs): every workspace tarball now ships with zero `workspace:` strings; each internal dep is pinned to the registry-safe version matched from the local manifest.
+- **shared auto-bump no longer requires env gate** (sync-version.mjs): the `PEAKS_AUTO_BUMP_SHARED` gate was the Layer 2 root cause of stale local shared tarballs; `bump-version.mjs` is now the single owner.
+
+### Breaking changes
+
+- The 73 leaf CLI commands have been collapsed to 5 super-commands (`code / audit / doctor / openspec / release / release-pack`). The pre-4.0.0 leaf commands are no longer present on `$PATH`; all users must migrate. Migration matrix and per-leaf replacement are documented in `docs/cli-migration-4-0-0.md` (added in this release; see link in the GitHub Release page for v4.0.0).
+
 ## 4.0.0-beta.37 — 2026-07-25 (registry conflict bump + version skip)
 
 ### Patch Changes
