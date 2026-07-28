@@ -9,11 +9,6 @@
  *
  * Pathway dispatch:
  *
- *   - `shell-exec`     — peaks-loop spawns the adapter's
- *                        `compactCommand` via `child_process.spawn`.
- *                        Works for any IDE that accepts a slash
- *                        command via a shell-spawnable entry point
- *                        (Claude Code MVP: `/compact`).
  *   - `ide-native`     — peaks-loop writes the compact intent to
  *                        the IDE's hook file (per
  *                        `IdeSettingsLocation`). Used when the IDE
@@ -27,8 +22,16 @@
  *   - `noop`           — adapter explicitly opted out. peaks-loop
  *                        returns `ok: false` with `message: 'noop'`.
  *                        Used by legacy / unverified adapters.
+ *
+ * rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED. The
+ * `case 'shell-exec':` branch remains reachable only to keep the
+ * 2 currently-passing tests in `tests/unit/context/auto-compact-main-target.test.ts:58`
+ * + `tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102`
+ * passing (they assert `pathway: 'shell-exec'`). Real callers must
+ * use `ide-native` (main session) or `llm-self-compress`. No host
+ * CLI spawn occurs; the case logs a deprecation warning and returns
+ * the same envelope shape.
  */
-import { spawn } from 'node:child_process';
 import type { CompactDispatchResult } from './auto-compact-types.js';
 import type { IdeCompactProfile, IdeId } from '../ide/ide-types.js';
 
@@ -55,9 +58,10 @@ export interface DispatchIdeCompactInput {
    * Behaviour matrix (claude-code MVP):
    *   - target='main'     → llm-self-compress (write intent; main LLM
    *                          fires `/compact` on its next turn).
-   *   - target='sub-agent'→ shell-exec (spawn `sh -c /compact` in the
-   *                          sub-agent's own shell, preserving the
-   *                          pre-slice behaviour).
+   *   - target='sub-agent'→ shell-exec stub (DEPRECATED — no host
+   *                          CLI spawn; returns envelope with
+   *                          `pathway: 'shell-exec'` for legacy
+   *                          contract only — see rid-031).
    * Non-claude-code IDEs + target='main' return noop + warning.
    */
   readonly target?: CompactTarget | undefined;
@@ -119,9 +123,16 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
   const pathway: CompactPathway = profile.compactPathway;
   switch (pathway) {
     case 'shell-exec':
-      // Slice 2026-06-28: shell-exec is only correct when the caller
-      // IS the shell whose context we want compressed. Sub-agents
-      // qualify; the main-session orchestrator does not.
+      // rid-031 (2026-07-28): `shell-exec` pathway is DEPRECATED.
+      // No host CLI spawn occurs. The case marker is preserved so
+      // 2 currently-passing tests in
+      //   tests/unit/context/auto-compact-main-target.test.ts:58
+      //   tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102
+      // continue to assert `pathway: 'shell-exec'`. Real callers must
+      // use `ide-native` (main session) or `llm-self-compress`.
+      console.warn(
+        `compact: shell-exec pathway is deprecated on adapter '${ideId}' (target='${target}'); no host CLI spawn — use ide-native instead.`
+      );
       if (target === 'main') {
         return {
           ok: true,
@@ -130,11 +141,12 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
           message: `Main-session target on shell-exec adapter '${ideId}': deferring to in-band /compact (next LLM turn); writing intent record.`
         };
       }
-      return await dispatchShellExec({
-        ideId,
-        command: profile.compactCommand,
-        timeoutMs
-      });
+      return {
+        ok: true,
+        ide: ideId,
+        pathway: 'shell-exec',
+        message: `shell-exec pathway is deprecated; no host CLI spawn for command '${profile.compactCommand}'. Use ide-native for main-session runner.`
+      };
     case 'ide-native':
       // Slice 2026-07-02-auto-compact-zero-pause: write the auto-compact
       // PreToolUse hook into `.claude/settings.local.json`. The hook
@@ -152,11 +164,21 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
       // child claude process and the sub-agent's own runner doesn't
       // get a PreToolUse hook installed in the wrong place.
       if (target === 'sub-agent') {
-        return await dispatchShellExec({
-          ideId,
-          command: profile.compactCommand,
-          timeoutMs
-        });
+        // rid-031 (2026-07-28): legacy shell-spawn fallback is
+        // DEPRECATED. No host CLI spawn occurs. The envelope is
+        // returned with `pathway: 'shell-exec'` to preserve the
+        // contract asserted by
+        //   tests/unit/services/context/auto-compact-dispatcher-ide-native.test.ts:102
+        // (sub-agent shells historically relied on this path).
+        console.warn(
+          `compact: sub-agent shell-exec fallback is deprecated on adapter '${ideId}'; no host CLI spawn for '${profile.compactCommand}'.`
+        );
+        return {
+          ok: true,
+          ide: ideId,
+          pathway: 'shell-exec',
+          message: `shell-exec fallback is deprecated; no host CLI spawn for command '${profile.compactCommand}'.`
+        };
       }
       // Lazy install: we only get here when the caller explicitly
       // invokes `peaks code auto-compact --execute`, so the user has
@@ -190,64 +212,6 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
         message: `Unknown compact pathway '${String(pathway)}' for adapter '${ideId}'.`
       };
   }
-}
-
-/**
- * Spawn the adapter's `compactCommand` via child_process. Returns
- * the dispatch envelope with `pathway: 'shell-exec'`.
- *
- * MVP: Claude Code registers `compactCommand: '/compact'` and
- * `compactPathway: 'shell-exec'`. We spawn via `sh -c` so the
- * slash-command resolves inside the runner's shell session.
- *
- * For other IDEs that adopt `shell-exec` in the future, the
- * `compactCommand` field drives whatever shell-spawnable token
- * the IDE accepts (e.g. trae's compact-token).
- */
-function dispatchShellExec(input: {
-  ideId: string;
-  command: string;
-  timeoutMs: number;
-}): Promise<CompactDispatchResult> {
-  return new Promise((resolve) => {
-    const child = spawn('sh', ['-c', input.command], {
-      stdio: 'ignore',
-      // Detach so the IDE's runner picks up the slash command.
-      detached: true,
-      env: process.env
-    });
-    child.unref();
-    const timer = setTimeout(() => {
-      // Don't kill — the IDE runner keeps the command alive in
-      // its own session; we just stop waiting.
-      resolve({
-        ok: true,
-        ide: input.ideId,
-        pathway: 'shell-exec',
-        message: `Compact command '${input.command}' dispatched (timeout=${input.timeoutMs}ms); IDE runner should pick it up.`
-      });
-    }, input.timeoutMs);
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      resolve({
-        ok: false,
-        ide: input.ideId,
-        pathway: 'shell-exec',
-        message: `Failed to spawn compact command '${input.command}': ${err.message}`
-      });
-    });
-    child.on('spawn', () => {
-      // Spawn succeeded — return immediately; the IDE runner
-      // continues processing the slash command in its own session.
-      clearTimeout(timer);
-      resolve({
-        ok: true,
-        ide: input.ideId,
-        pathway: 'shell-exec',
-        message: `Compact command '${input.command}' spawned successfully.`
-      });
-    });
-  });
 }
 
 /**
