@@ -195,7 +195,7 @@ export interface IdeCompactProfile {
   readonly compactPathway: 'shell-exec' | 'ide-native' | 'llm-self-compress' | 'noop';
   /**
    * Optional command the runner invokes post-compact to confirm
-   * ratio dropped (e.g. `peaks context now --json`). When omitted,
+   * ratio dropped (e.g. `peaks compact auto --json`). When omitted,
    * the orchestrator polls `envVarForContextPercent` directly.
    */
   readonly postCompactDetectCommand?: string;

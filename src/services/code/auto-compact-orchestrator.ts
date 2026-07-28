@@ -1,7 +1,7 @@
 /**
  * Auto-compact orchestrator (v2.13.0 AC-2 + AC-3 + AC-4).
  *
- * Closes the loop between `peaks context now` (AC-1) and the IDE's
+ * Closes the loop between `peaks compact auto` (AC-1) and the IDE's
  * native compact capability (AC-3). peaks-loop is project-aware: it
  * knows the current plan, open questions, recent decisions, in-flight
  * batches, todo state, git status, and active skills. That context is
@@ -16,7 +16,7 @@
  *   3. If 0.85 ≤ ratio < 0.95 (pre-compact zone): peaks-loop prepares
  *      the convergence toolkit (checkpoint + auto-decisions log +
  *      IDE-dispatch handle) and surfaces it to the LLM. The LLM
- *      DECIDES when to fire `peaks code auto-compact --execute`;
+ *      DECIDES when to fire `peaks compact auto --execute`;
  *      peaks-loop does NOT auto-fire. The toolkit is ready so the
  *      LLM doesn't lose context to a last-second `/compact` panic.
  *   4. If ratio < 0.85: skip — return a one-line info row.
@@ -397,12 +397,12 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     ? [
         'RED-LINE compact dispatched — further sub-agent dispatch BLOCKED until ratio < 0.85',
         'Post-compact resume picks up the convergence plan from auto-decisions.md',
-        'Next `peaks context now` probe will confirm ratio dropped below 0.85'
+        'Next `peaks compact auto` probe will confirm ratio dropped below 0.85'
       ]
     : [
         'Pre-compact dispatched — IDE compact in progress (async)',
         'Post-compact resume picks up the convergence plan from auto-decisions.md',
-        'Next `peaks context now` probe will confirm ratio dropped below 0.85'
+        'Next `peaks compact auto` probe will confirm ratio dropped below 0.85'
       ];
 
   const plan = buildConvergencePlan({

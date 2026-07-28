@@ -188,7 +188,7 @@ export function isHandoffState(s: State): boolean {
  * Slice 2026-07-28 (rid-027): resolve the auto-compact mode from
  * 24h-mode awareness. Returns `'partial'` when the session is
  * `24H_ACTIVE`, otherwise `'standard'`. This is the CLI-side default;
- * the explicit `--mode` flag in `peaks code auto-compact` overrides it.
+ * the explicit `--mode` flag in `peaks compact auto` overrides it.
  */
 export function getAutoCompactMode(projectRoot: string, sessionId: string): AutoCompactMode {
   try {

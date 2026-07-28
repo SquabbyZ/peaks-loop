@@ -52,7 +52,7 @@ export interface DispatchIdeCompactInput {
    * the compact should target. Default `'main'` — the orchestrator
    * (peaks-code body) runs in the main-session Claude Code window and
    * wants to compress *its* context, not a sub-agent's. Sub-agent
-   * shells that spawn their own `peaks code auto-compact` flow pass
+   * shells that spawn their own `peaks compact auto` flow pass
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
    *
    * Behaviour matrix (claude-code MVP):
@@ -74,7 +74,7 @@ export interface DispatchIdeCompactInput {
  * when the dispatch path completed without error — for
  * `llm-self-compress` the LLM still has to do the actual summary,
  * so the orchestrator MUST NOT treat `ok: true` as proof that the
- * context actually shrunk; the next `peaks context now` probe
+ * context actually shrunk; the next `peaks compact auto` probe
  * confirms.
  */
 export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promise<CompactDispatchResult> {
@@ -150,7 +150,7 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
     case 'ide-native':
       // Slice 2026-07-02-auto-compact-zero-pause: write the auto-compact
       // PreToolUse hook into `.claude/settings.local.json`. The hook
-      // command (`peaks session auto-compact-hook`) reads
+      // command (`peaks compact auto`) reads
       // `CLAUDE_CONTEXT_USAGE_PERCENT` on every subsequent Bash/Task
       // tool call from the runner and, at ratio ≥ 0.95, in-band spawns
       // `claude --compact` against the CURRENT runner (not a child
@@ -181,7 +181,7 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
         };
       }
       // Lazy install: we only get here when the caller explicitly
-      // invokes `peaks code auto-compact --execute`, so the user has
+      // invokes `peaks compact auto --execute`, so the user has
       // already opted in. No zero-touch surprise on workspace init.
       return await dispatchIdeNativeHook({
         projectRoot: input.projectRoot,
@@ -220,7 +220,7 @@ export async function dispatchIdeCompact(input: DispatchIdeCompactInput): Promis
  * into `.claude/settings.local.json` (idempotent; the install
  * service is a no-op if the hook is already present). On the next
  * Bash/Task tool call from the runner, the hook fires
- * `peaks session auto-compact-hook` which in-band spawns
+ * `peaks compact auto` which in-band spawns
  * `claude --compact` against the CURRENT runner session.
  *
  * Returns `ok: true, pathway: 'ide-native'` regardless of install

@@ -42,17 +42,16 @@ import { dirname, join } from 'node:path';
 export const AUTO_COMPACT_HOOK_MATCHER = 'Bash|Task';
 
 /**
- * Stable command the hook fires. Wraps `peaks session
- * auto-compact-hook` so the heavy lifting (ratio probe + in-band
- * `claude --compact` spawn) lives in the CLI surface, not inlined
- * into the hook.
+ * Stable command the hook fires. Wraps `peaks compact auto` so the
+ * heavy lifting (ratio probe + in-band `claude --compact` spawn)
+ * lives in the CLI surface, not inlined into the hook.
  *
  * `npx peaks` is deliberately omitted: the project-local install
  * puts `peaks` on PATH inside the consumer repo (postinstall step),
  * so the unqualified command works in the same shell the runner
  * is using.
  */
-export const AUTO_COMPACT_HOOK_COMMAND = 'peaks session auto-compact-hook';
+export const AUTO_COMPACT_HOOK_COMMAND = 'peaks compact auto';
 
 /**
  * Magic comment marker that fences the auto-compatchook block.

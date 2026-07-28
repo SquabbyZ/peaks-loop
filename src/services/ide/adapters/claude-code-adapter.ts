@@ -62,7 +62,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
   // Pathway = 'ide-native' (not 'shell-exec') so the dispatcher
   // routes main-session compacts through the PreToolUse hook in
   // `.claude/settings.local.json`. The hook fires
-  // `peaks session auto-compact-hook` on the NEXT Bash/Task tool
+  // `peaks compact auto` on the NEXT Bash/Task tool
   // call from the runner, which in-band spawns `claude --compact`
   // against the CURRENT runner — not a child process (the
   // shell-exec spawn-new-claude bug documented in
@@ -73,7 +73,7 @@ export const CLAUDE_CODE_ADAPTER: IdeAdapter = {
     envVarForContextPercent: 'CLAUDE_CONTEXT_USAGE_PERCENT',
     compactCommand: 'claude --compact',
     compactPathway: 'ide-native',
-    postCompactDetectCommand: 'peaks context now --json'
+    postCompactDetectCommand: 'peaks compact auto --json'
   },
   // Slice #011: standards profile. Claude Code reads its constitution at
   // CLAUDE.md + module-level rules under .claude/rules/**. The values mirror
