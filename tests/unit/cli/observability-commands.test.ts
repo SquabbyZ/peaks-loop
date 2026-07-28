@@ -229,3 +229,80 @@ describe('non-JSON stdout', () => {
     expect(joined).toContain('"status"');
   });
 });
+
+// rid-030 F-direction: new observability categories (cycle / token-usage /
+// post-compact / monotonic-trigger). These are read by `aggregateDashboardMetrics`
+// and surfaced via `peaks dashboard summary`. The emit helpers live in
+// observability-service.ts; below we verify they write the canonical event shape.
+
+describe('rid-030: new observability event categories', () => {
+  test('emitCycleEvent writes a "cycle" category event with cycle + status', async () => {
+    const { emitCycleEvent } = await import('../../../src/services/observability/observability-service.js');
+    const sid = 'rid-030-cycle';
+    const result = emitCycleEvent({ sessionId: sid, projectRoot, cycle: 1, status: 'started' });
+    expect(result.written).toBe(true);
+    const events = await import('../../../src/services/observability/observability-service.js')
+      .then((m) => m.readObservabilityEvents(projectRoot, sid));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.category).toBe('cycle');
+    expect((events[0]?.detail as { cycle?: number }).cycle).toBe(1);
+    expect((events[0]?.detail as { status?: string }).status).toBe('started');
+  });
+
+  test('emitTokenUsageEvent writes a "token-usage" event with totalTokens computed', async () => {
+    const { emitTokenUsageEvent, readObservabilityEvents } = await import('../../../src/services/observability/observability-service.js');
+    const sid = 'rid-030-tokens';
+    const result = emitTokenUsageEvent({ sessionId: sid, projectRoot, inputTokens: 100, outputTokens: 50 });
+    expect(result.written).toBe(true);
+    const events = readObservabilityEvents(projectRoot, sid);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.category).toBe('token-usage');
+    const detail = events[0]?.detail as { inputTokens: number; outputTokens: number; totalTokens: number };
+    expect(detail.inputTokens).toBe(100);
+    expect(detail.outputTokens).toBe(50);
+    expect(detail.totalTokens).toBe(150);
+  });
+
+  test('emitMonotonicTriggerEvent writes a "monotonic-trigger" event', async () => {
+    const { emitMonotonicTriggerEvent, readObservabilityEvents } = await import('../../../src/services/observability/observability-service.js');
+    const sid = 'rid-030-mono';
+    const result = emitMonotonicTriggerEvent({ sessionId: sid, projectRoot, report: 'warn', action: 'gate-block' });
+    expect(result.written).toBe(true);
+    const events = readObservabilityEvents(projectRoot, sid);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.category).toBe('monotonic-trigger');
+    const detail = events[0]?.detail as { report?: string; action?: string };
+    expect(detail.report).toBe('warn');
+    expect(detail.action).toBe('gate-block');
+  });
+
+  test('emitDispatchEvent writes a "dispatch" event with role + status', async () => {
+    const { emitDispatchEvent, readObservabilityEvents } = await import('../../../src/services/observability/observability-service.js');
+    const sid = 'rid-030-disp';
+    const result = emitDispatchEvent({ sessionId: sid, projectRoot, role: 'qa', status: 'done' });
+    expect(result.written).toBe(true);
+    const events = readObservabilityEvents(projectRoot, sid);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.category).toBe('dispatch');
+    expect(events[0]?.role).toBe('qa');
+    expect((events[0]?.detail as { status?: string }).status).toBe('done');
+  });
+
+  test('aggregateDashboardMetricsFromEvents sums all 5 metric classes', async () => {
+    const { emitCycleEvent, emitTokenUsageEvent, emitDispatchEvent, emitMonotonicTriggerEvent, readObservabilityEvents } = await import('../../../src/services/observability/observability-service.js');
+    const { aggregateDashboardMetricsFromEvents } = await import('../../../src/services/observability/aggregation.js');
+    const sid = 'rid-030-agg';
+    emitCycleEvent({ sessionId: sid, projectRoot, cycle: 1, status: 'started' });
+    emitTokenUsageEvent({ sessionId: sid, projectRoot, inputTokens: 10, outputTokens: 5 });
+    emitDispatchEvent({ sessionId: sid, projectRoot, role: 'rd' });
+    emitMonotonicTriggerEvent({ sessionId: sid, projectRoot, report: 'pass', action: 'gate' });
+    const events = readObservabilityEvents(projectRoot, sid);
+    const metrics = aggregateDashboardMetricsFromEvents(events, null);
+    expect(metrics.cycleCount).toBe(1);
+    expect(metrics.tokenCount).toBe(15);
+    expect(metrics.dispatchCount).toBe(1);
+    expect(metrics.monotonicTriggerCount).toBe(1);
+    // post-compact not emitted → 0
+    expect(metrics.compactCount).toBe(0);
+  });
+});

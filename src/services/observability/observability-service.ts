@@ -31,7 +31,10 @@ export const OBSERVABILITY_CATEGORIES = [
   'checkpoint',
   'mode-gate',
   'context-trigger',
-  'post-compact'
+  'post-compact',
+  'cycle',
+  'token-usage',
+  'monotonic-trigger'
 ] as const;
 export type ObservabilityCategory = typeof OBSERVABILITY_CATEGORIES[number];
 
@@ -146,3 +149,99 @@ export const OBSERVABILITY_CONSTANTS = {
   CATEGORIES: OBSERVABILITY_CATEGORIES,
   SUBAGENT_ROLES: OBSERVABILITY_SUBAGENT_ROLES
 } as const;
+
+/**
+ * rid-030 F-direction: per-cycle event (cycle started / completed / failed).
+ * Fire-and-forget; never throws. Tagging `kind` for downstream dashboards.
+ */
+export function emitCycleEvent(opts: {
+  sessionId: string;
+  projectRoot: string;
+  cycle: number;
+  status: 'started' | 'completed' | 'failed';
+}): EmitResult {
+  return emitObservabilityEvent(
+    {
+      schemaVersion: OBSERVABILITY_SCHEMA_VERSION,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'cycle',
+      detail: { cycle: opts.cycle, status: opts.status }
+    },
+    { projectRoot: opts.projectRoot }
+  );
+}
+
+/**
+ * rid-030 F-direction: per-token-usage event. `totalTokens` is the
+ * sum the dashboard cares about; `inputTokens`/`outputTokens` are kept
+ * for downstream drill-down.
+ */
+export function emitTokenUsageEvent(opts: {
+  sessionId: string;
+  projectRoot: string;
+  inputTokens: number;
+  outputTokens: number;
+}): EmitResult {
+  const totalTokens = Math.max(0, opts.inputTokens) + Math.max(0, opts.outputTokens);
+  return emitObservabilityEvent(
+    {
+      schemaVersion: OBSERVABILITY_SCHEMA_VERSION,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'token-usage',
+      detail: {
+        inputTokens: opts.inputTokens,
+        outputTokens: opts.outputTokens,
+        totalTokens
+      }
+    },
+    { projectRoot: opts.projectRoot }
+  );
+}
+
+/**
+ * rid-030 F-direction: per-monotonic-trigger event.
+ */
+export function emitMonotonicTriggerEvent(opts: {
+  sessionId: string;
+  projectRoot: string;
+  report: 'pass' | 'warn' | 'block';
+  action: string;
+}): EmitResult {
+  return emitObservabilityEvent(
+    {
+      schemaVersion: OBSERVABILITY_SCHEMA_VERSION,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'monotonic-trigger',
+      detail: { report: opts.report, action: opts.action }
+    },
+    { projectRoot: opts.projectRoot }
+  );
+}
+
+/**
+ * rid-030 F-direction: per-subagent-dispatch event. Reuses the
+ * existing `dispatch` category (rd/qa/reviewer/audit). Provides a
+ * canonical emit helper so dashboards don't have to hand-author the
+ * `ObservabilityEvent` envelope.
+ */
+export function emitDispatchEvent(opts: {
+  sessionId: string;
+  projectRoot: string;
+  role: ObservabilitySubagentRole;
+  status?: 'queued' | 'running' | 'done' | 'failed';
+}): EmitResult {
+  return emitObservabilityEvent(
+    {
+      schemaVersion: OBSERVABILITY_SCHEMA_VERSION,
+      ts: new Date().toISOString(),
+      sessionId: opts.sessionId,
+      category: 'dispatch',
+      role: opts.role,
+      detail: { status: opts.status ?? 'done' }
+    },
+    { projectRoot: opts.projectRoot }
+  );
+}

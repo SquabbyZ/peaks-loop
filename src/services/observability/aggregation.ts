@@ -273,3 +273,89 @@ export function readAllSessionEvents(projectRoot: string): ObservabilityEvent[] 
 export function readSessionEvents(projectRoot: string, sessionId: string): ObservabilityEvent[] {
   return readObservabilityEvents(projectRoot, sessionId);
 }
+
+// ----- rid-030 F-direction: 5-metric dashboard summary -----
+
+/**
+ * Cumulative 5-metric surface for the `peaks dashboard summary` CLI.
+ * All values are derived from raw observability events (per-event
+ * counting), not from state files — semantics differ from
+ * `peaks dashboard long-run`, which derives indicators from
+ * `.peaks/_runtime/<sid>/24h-state.json`.
+ */
+export type DashboardMetrics = {
+  readonly cycleCount: number;
+  readonly tokenCount: number;
+  readonly dispatchCount: number;
+  readonly compactCount: number;
+  readonly monotonicTriggerCount: number;
+};
+
+/**
+ * Aggregate the 5 dashboard metric classes for a single session, filtered
+ * to events with `ts >= since`. Events with unparseable timestamps are
+ * counted (best-effort, mirrors `readObservabilityEvents` behavior). The
+ * `token-usage` total is summed from `detail.totalTokens` (falling back to
+ * `inputTokens + outputTokens` when the aggregate field is missing).
+ */
+export function aggregateDashboardMetrics(
+  projectRoot: string,
+  sessionId: string,
+  since: Date
+): DashboardMetrics {
+  const events = readObservabilityEvents(projectRoot, sessionId);
+  const cutoff = since.getTime();
+  let cycleCount = 0;
+  let tokenCount = 0;
+  let dispatchCount = 0;
+  let compactCount = 0;
+  let monotonicTriggerCount = 0;
+  for (const event of events) {
+    const ts = Date.parse(event.ts);
+    if (Number.isFinite(cutoff) && Number.isFinite(ts) && ts < cutoff) continue;
+    if (event.category === 'cycle') cycleCount += 1;
+    else if (event.category === 'token-usage') {
+      const detail = event.detail as { totalTokens?: unknown; inputTokens?: unknown; outputTokens?: unknown };
+      const t = typeof detail.totalTokens === 'number'
+        ? detail.totalTokens
+        : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0)
+          + (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
+      tokenCount += t;
+    } else if (event.category === 'dispatch') dispatchCount += 1;
+    else if (event.category === 'post-compact') compactCount += 1;
+    else if (event.category === 'monotonic-trigger') monotonicTriggerCount += 1;
+  }
+  return { cycleCount, tokenCount, dispatchCount, compactCount, monotonicTriggerCount };
+}
+
+/**
+ * Pure-function variant used by tests: counts across an already-loaded
+ * event list. `since` may be null to count everything.
+ */
+export function aggregateDashboardMetricsFromEvents(
+  events: readonly ObservabilityEvent[],
+  since: Date | null = null
+): DashboardMetrics {
+  const cutoff = since?.getTime() ?? null;
+  let cycleCount = 0;
+  let tokenCount = 0;
+  let dispatchCount = 0;
+  let compactCount = 0;
+  let monotonicTriggerCount = 0;
+  for (const event of events) {
+    const ts = Date.parse(event.ts);
+    if (cutoff !== null && Number.isFinite(ts) && ts < cutoff) continue;
+    if (event.category === 'cycle') cycleCount += 1;
+    else if (event.category === 'token-usage') {
+      const detail = event.detail as { totalTokens?: unknown; inputTokens?: unknown; outputTokens?: unknown };
+      const t = typeof detail.totalTokens === 'number'
+        ? detail.totalTokens
+        : (typeof detail.inputTokens === 'number' ? detail.inputTokens : 0)
+          + (typeof detail.outputTokens === 'number' ? detail.outputTokens : 0);
+      tokenCount += t;
+    } else if (event.category === 'dispatch') dispatchCount += 1;
+    else if (event.category === 'post-compact') compactCount += 1;
+    else if (event.category === 'monotonic-trigger') monotonicTriggerCount += 1;
+  }
+  return { cycleCount, tokenCount, dispatchCount, compactCount, monotonicTriggerCount };
+}
