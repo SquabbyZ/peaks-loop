@@ -46,7 +46,7 @@ describe('Test Tool Detection — injection in dispatch-commands.ts (AC-2.1 / AC
 
   test('dispatch-commands.ts effectivePrompt preprends the block', () => {
     const body = readFileSync(DISPATCH_COMMANDS, 'utf8');
-    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{options\.prompt\}`/);
+    expect(body).toMatch(/let\s+effectivePrompt\s*=\s*`\$\{formatTestToolDetection\(\)\}\\n\\n\$\{memoryAugmentedBody\}`/);
   });
 
   test('dispatch-commands.ts envelopeVersion is bumped to 2.2.0', () => {

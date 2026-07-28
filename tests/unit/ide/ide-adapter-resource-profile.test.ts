@@ -83,8 +83,8 @@ describe('getStandardsProfile — single chokepoint accessor', () => {
     expect(getStandardsProfile('codex')).toBeNull();
   });
 
-  test('throws for an unregistered IDE (qoder, reserved for slice #3+)', () => {
-    expect(() => getStandardsProfile('qoder' as 'qoder')).toThrow(/Unsupported IDE: qoder/);
+  test('returns null for qoder (no standards profile declared, registered as placeholder)', () => {
+    expect(getStandardsProfile('qoder' as 'qoder')).toBeNull();
   });
 });
 
@@ -111,8 +111,8 @@ describe('getSkillInstall — single chokepoint accessor', () => {
     expect(getSkillInstall('codex')).toBeNull();
   });
 
-  test('throws for an unregistered IDE (qoder, reserved for slice #3+)', () => {
-    expect(() => getSkillInstall('qoder' as 'qoder')).toThrow(/Unsupported IDE: qoder/);
+  test('returns null for qoder (no skill-install profile declared, registered as placeholder)', () => {
+    expect(getSkillInstall('qoder' as 'qoder')).toBeNull();
   });
 });
 

@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -146,7 +147,7 @@ describe('projectOpenSpecToRdInput', () => {
     ]);
   });
 
-  test('projects a real project openspec change without throwing', async () => {
+  test.skipIf(!existsSync(join(process.cwd(), 'openspec')))('projects a real project openspec change without throwing', async () => {
     const projection = await projectOpenSpecToRdInput('add-tech-dry-run-gate');
 
     expect(projection).not.toBeNull();

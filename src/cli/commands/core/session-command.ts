@@ -15,7 +15,6 @@ import { addJsonOption, getErrorMessage, printResult, type ProgramIO } from '../
 // saw them — they were effectively hidden.
 import { registerSessionCheckpointCommand } from '../session-checkpoint-command.js';
 import { registerSessionResumeCommand } from '../session-resume-command.js';
-import { registerSessionAutoCompactHookCommand } from '../session-auto-compact-hook-command.js';
 // Slice 2 of the peaks-code → peaks-code rename plan: register the
 // `peaks session migrate-skill-name` subcommand eagerly alongside
 // checkpoint / resume / auto-compact-hook so it appears in
@@ -228,11 +227,6 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   // `<TAB>`-discovery and the LLM never saw them.
   registerSessionCheckpointCommand(session, io);
   registerSessionResumeCommand(session, io);
-  // Slice 2026-07-02-auto-compact-zero-pause: the Bash command the
-  // PreToolUse hook in `.claude/settings.local.json` fires. Keeping
-  // it eager (same fix as checkpoint + resume) so `peaks session --help`
-  // lists it for LLM `<TAB>`-discovery.
-  registerSessionAutoCompactHookCommand(session);
   // Slice 2 of the peaks-code → peaks-code rename plan:
   // `peaks session migrate-skill-name --from <old> --to <new>
   // [--apply] [--project <path>] [--json]`. Idempotent rewrite of
