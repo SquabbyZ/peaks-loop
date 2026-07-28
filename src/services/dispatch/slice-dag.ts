@@ -297,3 +297,69 @@ export function serializeDag(dag: SliceDag): string {
 export function hashDag(dag: SliceDag): string {
   return createHash('sha256').update(serializeDag(dag)).digest('hex');
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Slice 2026-07-28 — DAG wave + barrier types (rid-029 E direction).
+ *
+ * The E direction adds per-wave concurrency cap (default 6 leaves per
+ * wave) and artifact-pass (WaveArtifact envelope flowing into next wave's
+ * prompt). See dag-orchestrator.ts `planDispatchWaves` /
+ * `runWaveWithArtifacts` for usage.
+ *
+ * Backward compatibility: types are additive only. Existing
+ * `DispatchSpec` flows and `planDispatch(dag)` callers are untouched.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Knobs for wave planning + artifact-pass behaviour.
+ *
+ * - `maxConcurrency`: hard cap on how many slices a single Wave can hold.
+ *   Each topological level is chunked into Waves of at most this many
+ *   slice IDs (default 6 per `2026-07-28-24h-loop-audit.md` E direction).
+ * - `passArtifacts`: when true, each Wave's prompt is augmented with a
+ *   `WaveArtifact` envelope (contracts of preceding Waves). Default
+ *   false — the existing `runDag` ancestor-injection path already covers
+ *   per-slice contract coverage.
+ */
+export interface WaveOptions {
+  readonly maxConcurrency: number;
+  readonly passArtifacts: boolean;
+}
+
+/** Default wave options: 6 leaves per wave; artifact-pass off. */
+export const DEFAULT_MAX_CONCURRENCY = 6;
+
+export const DEFAULT_WAVE_OPTIONS: WaveOptions = {
+  maxConcurrency: DEFAULT_MAX_CONCURRENCY,
+  passArtifacts: false
+};
+
+/**
+ * Artifact envelope emitted when a Wave completes successfully.
+ *
+ * - `waveIndex`: sequential, 0-based across the whole plan.
+ * - `completedLeaves`: slice IDs that finished (`status: 'done'`). Failed
+ *    or cancelled leaves are NOT included.
+ * - `contracts`: per-slice public contract snapshot (sliceId → record).
+ *    Stored verbatim so a downstream Wave can re-inject this without
+ *    re-reading the disk-side contract store.
+ * - `passedAt`: ISO timestamp of Wave completion (caller-supplied to keep
+ *    the surface pure).
+ */
+export interface WaveArtifact {
+  readonly waveIndex: number;
+  readonly completedLeaves: readonly string[];
+  readonly contracts: Readonly<Record<string, unknown>>;
+  readonly passedAt: string;
+}
+
+/**
+ * A single dispatch Wave. Holds the slice IDs that must execute together,
+ * respecting `WaveOptions.maxConcurrency`. Waves are emitted in
+ * topological order; downstream consumers may treat `waveIndex` as a
+ * monotonic cursor.
+ */
+export interface Wave {
+  readonly waveIndex: number;
+  readonly slices: readonly string[];
+}

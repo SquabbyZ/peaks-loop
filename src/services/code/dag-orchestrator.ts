@@ -30,7 +30,12 @@ import {
   InvalidSliceDagError,
   topologicalLevels,
   validateDag,
-  type SliceDag
+  DEFAULT_MAX_CONCURRENCY,
+  DEFAULT_WAVE_OPTIONS,
+  type SliceDag,
+  type Wave,
+  type WaveArtifact,
+  type WaveOptions
 } from '../dispatch/slice-dag.js';
 import {
   formatContractInjection,
@@ -389,5 +394,135 @@ export async function runLayeredDag(
     failed,
     cancelled: cancelled.sort(),
     contracts
+  };
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Slice 2026-07-28 — DAG wave + barrier (rid-029 E direction).
+ *
+ * The original `runDag` + `runLayeredDag` above dispatch an ENTIRE
+ * topological level in one `Promise.all` burst. For 24-hour scenarios
+ * with >=20 sub-agents this saturates the host. The wave planner below
+ * chunks each level into Waves of at most `maxConcurrency` slice IDs,
+ * and `runWaveWithArtifacts` runs one Wave at a time, returning a
+ * `WaveArtifact` envelope that downstream Waves can consume.
+ *
+ * Backward-compat: the original flat-dispatch APIs above are untouched;
+ * `planDispatchWaves` + `runWaveWithArtifacts` are purely additive.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Plan a slice DAG into ordered dispatch Waves.
+ *
+ * Each topological level is split into chunks of at most
+ * `opts.maxConcurrency` slice IDs (default 6). Wave ordering follows
+ * topological level order; within each level, slices preserve
+ * `topologicalLevels`'s foundation / upstreamSync / id-asc priority sort.
+ */
+export function planDispatchWaves(
+  dag: SliceDag,
+  opts: WaveOptions = DEFAULT_WAVE_OPTIONS
+): readonly Wave[] {
+  validateDag(dag);
+  if (opts.maxConcurrency <= 0) {
+    throw new DagPlanError(
+      `WaveOptions.maxConcurrency must be > 0 (got ${opts.maxConcurrency})`
+    );
+  }
+  const levels = topologicalLevels(dag);
+  const waves: Wave[] = [];
+  let waveIndex = 0;
+  for (const level of levels) {
+    for (let i = 0; i < level.length; i += opts.maxConcurrency) {
+      const chunk = level.slice(i, i + opts.maxConcurrency);
+      waves.push({ waveIndex, slices: chunk });
+      waveIndex += 1;
+    }
+  }
+  return waves;
+}
+
+/**
+ * Backward-compat wrapper: flatten `planDispatchWaves(dag)` into a flat
+ * sequence of stub `DispatchSpec`s. The original `runDag` /
+ * `runLayeredDag` do NOT consume this; the wrapper exists only so
+ * external callers that imported `planDispatch(dag)` keep their shape.
+ */
+export function planDispatch(dag: SliceDag): readonly DispatchSpec[] {
+  const waves = planDispatchWaves(dag);
+  const out: DispatchSpec[] = [];
+  for (const w of waves) {
+    for (const sliceId of w.slices) {
+      out.push({ sliceId, role: '', label: null, prompt: '', contractBlock: '' });
+    }
+  }
+  return out;
+}
+
+/**
+ * Run a single Wave: dispatch `wave.slices` in parallel, return a
+ * `WaveArtifact` envelope on success. On any per-slice failure or
+ * cancellation, REJECTS with `DagPlanError` — caller treats the
+ * rejection as a barrier violation and rolls back siblings.
+ *
+ * `passArtifacts`: when true, the returned envelope includes each
+ * slice's public surface (callers splice into downstream Wave prompts).
+ *
+ * `priorArtifacts` is reserved for future artifact-injection. This MVP
+ * accepts the shape but does not yet splice it into the prompt.
+ */
+export async function runWaveWithArtifacts(
+  dag: SliceDag,
+  wave: Wave,
+  runner: (spec: DispatchSpec) => Promise<SliceOutcome>,
+  priorArtifacts: readonly WaveArtifact[] = [],
+  opts: WaveOptions = DEFAULT_WAVE_OPTIONS
+): Promise<WaveArtifact> {
+  validateDag(dag);
+  if (wave.slices.length === 0) {
+    throw new DagPlanError(
+      `runWaveWithArtifacts: wave ${wave.waveIndex} has no slices`
+    );
+  }
+
+  const collectedContracts: Record<string, unknown> = {};
+  const completedLeaves: string[] = [];
+
+  const settled = await Promise.all(
+    wave.slices.map(async (sliceId) => {
+      const spec = buildDispatchSpec(dag, sliceId, []);
+      try {
+        const outcome = await runner(spec);
+        return { sliceId, outcome };
+      } catch (err) {
+        return {
+          sliceId,
+          outcome: { status: 'failed' as const, reason: (err as Error).message }
+        };
+      }
+    })
+  );
+
+  for (const { sliceId, outcome } of settled) {
+    if (outcome.status === 'done') {
+      completedLeaves.push(sliceId);
+      if (opts.passArtifacts) {
+        collectedContracts[sliceId] = outcome.publicSurface;
+      }
+    } else {
+      void priorArtifacts;
+      throw new DagPlanError(
+        `wave ${wave.waveIndex} aborted on slice ${sliceId}: ${
+          outcome.status === 'failed' ? outcome.reason : outcome.status
+        }`
+      );
+    }
+  }
+
+  return {
+    waveIndex: wave.waveIndex,
+    completedLeaves,
+    contracts: collectedContracts,
+    passedAt: new Date().toISOString()
   };
 }

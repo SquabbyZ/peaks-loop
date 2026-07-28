@@ -539,3 +539,95 @@ export function registerClaudeCodeAwaiter(batchId: string, awaiter: Promise<read
  if (oldest !== undefined) claudeCodeBatchAwaiters.delete(oldest);
  }
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Slice 2026-07-28 — DAG wave barrier acceptance (rid-029 E direction).
+ *
+ * Adds the type-level acceptance for wave-based dispatch. The CLI surface
+ * consumes `Wave[]` + `priorArtifacts` via `dispatchFromWaves`, which is
+ * the per-IDE wrapper around `awaitBatch` that the wave planner drives.
+ *
+ * Backward-compat: ALL existing exports are unchanged. The new types +
+ * `dispatchFromWaves` helper are purely additive.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+export type SliceId = string;
+
+export interface DispatchFromWavesInput {
+ readonly ide: SubAgentDispatcher['label'];
+ readonly role: SubAgentRole;
+ readonly promptBuilder: (sliceId: SliceId) => { prompt: string };
+ readonly requestId: string;
+ readonly sessionId: string;
+ readonly batchId: string;
+ readonly waves: readonly { readonly waveIndex: number; readonly slices: readonly SliceId[] }[];
+ readonly priorArtifacts?: readonly unknown[];
+ readonly timeoutMs?: number;
+}
+
+export interface DispatchFromWavesResult {
+ readonly waveCount: number;
+ readonly dispatchCount: number;
+ readonly results: readonly SubAgentBatchResult[];
+}
+
+/**
+ * Slice 2026-07-28 — Wave-aware dispatch helper. Iterates `waves` in
+ * `waveIndex` order; for each wave, dispatches every slice and awaits
+ * the join barrier before moving to the next wave.
+ */
+export async function dispatchFromWaves(
+ input: DispatchFromWavesInput
+): Promise<DispatchFromWavesResult> {
+ const dispatcher = pickDispatcher(input.ide);
+ const results: SubAgentBatchResult[] = [];
+ if (input.waves.length === 0) {
+ return { waveCount: 0, dispatchCount: 0, results };
+ }
+ let cumulativeIdx = 0;
+ for (const wave of input.waves) {
+ for (const sliceId of wave.slices) {
+ dispatcher.buildToolCall({
+ role: input.role,
+ prompt: input.promptBuilder(sliceId).prompt,
+ requestId: input.requestId,
+ sessionId: input.sessionId
+ });
+ }
+ const recordPaths: string[] = wave.slices.map(() => '');
+ if (dispatcher.awaitBatch) {
+ const waveResults = await dispatcher.awaitBatch({
+ batchId: input.batchId,
+ dispatchCount: wave.slices.length,
+ recordPaths,
+ ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {})
+ });
+ for (const r of waveResults) {
+ results.push({ ...r, dispatchIndex: cumulativeIdx + r.dispatchIndex });
+ }
+ }
+ cumulativeIdx += wave.slices.length;
+ }
+ return {
+ waveCount: input.waves.length,
+ dispatchCount: results.length,
+ results
+ };
+}
+
+function pickDispatcher(label: string): SubAgentDispatcher {
+ switch (label) {
+ case 'claude-code':
+ return claudeCodeSubAgentDispatcher;
+ case 'trae':
+ return traeSubAgentDispatcher;
+ case 'trae-cn':
+ return traeCnSubAgentDispatcher;
+ case 'codex':
+ return codexSubAgentDispatcher;
+ case 'cursor':
+ return cursorSubAgentDispatcher;
+ default:
+ return nullSubAgentDispatcher;
+ }
+}
