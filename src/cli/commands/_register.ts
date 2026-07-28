@@ -28,6 +28,7 @@ import { registerForkCommands } from './fork-commands.js';
 import { registerGateCommands } from './gate-commands.js';
 import { registerClassifyCommands, registerContractCommands } from './governance-classify-contract-commands.js';
 import { registerHookHandleCommand } from './hook-handle.js';
+import { registerHeartbeatCommands } from './heartbeat-commands.js';
 import { registerHooksCommands } from './hooks-commands.js';
 import { registerIdeCommands } from './ide-commands.js';
 import { registerImpactCommands } from './impact-commands.js';
@@ -115,7 +116,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['governance-classify-contract-commands', registerContractCommands],
   ['sub-agent-dispatch-guard', registerSubAgentDispatchGuard], ['gate-commands', registerGateCommands],
   ['hook-handle', registerHookHandleCommand], ['hooks-commands', registerHooksCommands],
-  ['statusline-commands', registerStatusLineCommands], ['understand-commands', registerUnderstandCommands],
+  ['heartbeat-commands', registerHeartbeatCommands], ['statusline-commands', registerStatusLineCommands], ['understand-commands', registerUnderstandCommands],
   ['workspace-commands', registerWorkspaceCommands], ['workflow-plan-commands', registerWorkflowPlanCommands],
   ['audit-commands', registerAuditCommands], ['final-review-commands', registerFinalReviewCommands],
   ['governance-classify-contract-commands', registerClassifyCommands], ['context-commands', registerContextCommands],

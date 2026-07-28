@@ -29,9 +29,9 @@ import { getSessionIdCanonical } from '../../services/session/session-manager.js
 import {
   evaluateMainSessionThreshold,
   pickMainSessionTrigger,
-  formatMainSessionTriggerLogLine,
-  detectIdeFromEnv
+  formatMainSessionTriggerLogLine
 } from '../../services/context/main-session-monitor.js';
+import { detectIdeFromEnv } from '../../services/context/ide-detect.js';
 
 export type ContextLayer = 'L0' | 'L1' | 'L2' | 'L3';
 

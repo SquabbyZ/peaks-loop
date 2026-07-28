@@ -28,6 +28,7 @@ import {
   THRESHOLD_EMERGENCY_RATIO,
   evaluateThresholdTier
 } from './threshold.js';
+import { detectIdeFromEnv, type IdeKind } from './ide-detect.js';
 
 export type MainSessionTier = 'ok' | 'soft-warn' | 'near-limit' | 'emergency';
 
@@ -37,15 +38,6 @@ export const MAIN_SESSION_THRESHOLD_RATIOS: { readonly [K in MainSessionTier]: n
   'near-limit': THRESHOLD_NEAR_LIMIT_RATIO,
   emergency: THRESHOLD_EMERGENCY_RATIO
 };
-
-export type IdeKind = 'claude-code' | 'trae' | 'opencode' | 'unknown';
-
-export const IDE_KINDS: readonly IdeKind[] = [
-  'claude-code',
-  'trae',
-  'opencode',
-  'unknown'
-] as const;
 
 export type MainSessionTrigger =
   | { readonly kind: 'none' }
@@ -66,26 +58,6 @@ export interface MainSessionEvaluation {
   readonly bytesUsed: number;
   readonly capacityBytes: number;
   readonly warnings: readonly string[];
-}
-
-export function isIdeKind(value: string): value is IdeKind {
-  return (IDE_KINDS as readonly string[]).includes(value);
-}
-
-export function detectIdeFromEnv(env: NodeJS.ProcessEnv = process.env): IdeKind {
-  if (typeof env['CLAUDE_CODE_ENTRYPOINT'] === 'string' && env['CLAUDE_CODE_ENTRYPOINT'].length > 0) {
-    return 'claude-code';
-  }
-  if (typeof env['CLAUDE_SESSION_ID'] === 'string' && env['CLAUDE_SESSION_ID'].length > 0) {
-    return 'claude-code';
-  }
-  if (typeof env['TRAE_CLI'] === 'string' && env['TRAE_CLI'].length > 0) {
-    return 'trae';
-  }
-  if (typeof env['OPENCODE'] === 'string' && env['OPENCODE'].length > 0) {
-    return 'opencode';
-  }
-  return 'unknown';
 }
 
 /**

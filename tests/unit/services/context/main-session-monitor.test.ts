@@ -12,12 +12,11 @@ import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 import {
-  detectIdeFromEnv,
   evaluateMainSessionThreshold,
   formatMainSessionTriggerLogLine,
-  pickMainSessionTrigger,
-  type IdeKind
+  pickMainSessionTrigger
 } from '../../../../src/services/context/main-session-monitor.js';
+import { detectIdeFromEnv, type IdeKind } from '../../../../src/services/context/ide-detect.js';
 import { CONTEXT_CAPACITY_DEFAULT_BYTES } from '../../../../src/services/context/threshold.js';
 
 const PROMPT_50_PERCENT = Math.floor(CONTEXT_CAPACITY_DEFAULT_BYTES * 0.5);

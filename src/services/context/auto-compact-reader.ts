@@ -26,7 +26,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ContextPercentProbe } from './auto-compact-types.js';
-import { detectIdeFromEnv } from './main-session-monitor.js';
+import { detectIdeFromEnv } from './ide-detect.js';
 import { getAdapter } from '../ide/ide-registry.js';
 import type { IdeId } from '../ide/ide-types.js';
 

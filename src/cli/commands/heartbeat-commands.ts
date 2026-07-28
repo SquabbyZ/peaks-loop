@@ -16,6 +16,7 @@ import type { Command } from 'commander';
 import { fail, getErrorMessage, ok } from 'peaks-loop-shared/result';
 
 import { addJsonOption, printResult, type ProgramIO } from '../cli-helpers.js';
+import { registerHeartbeatWatchCommand } from './heartbeat-watch-command.js';
 import { appendHeartbeat, type HeartbeatStatus } from '../../services/dispatch/dispatch-record-writer.js';
 import { assertSafeDispatchRecordPath } from '../../services/security/safe-settings-path.js';
 import { writeLogEntry } from '../../services/log/logger.js';
@@ -23,6 +24,13 @@ import {
   HeartbeatOptions,
   HEARTBEAT_STATUSES
 } from './sub-agent-shared.js';
+
+export function registerHeartbeatCommands(program: Command, io: ProgramIO): void {
+  const heartbeat = program
+    .command('heartbeat')
+    .description('24h mode heartbeat utilities for independently watching a batch');
+  registerHeartbeatWatchCommand(heartbeat, io);
+}
 
 export function registerHeartbeatCommand(parent: Command, io: ProgramIO): void {
   addJsonOption(

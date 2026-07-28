@@ -36,7 +36,7 @@
 
 import { spawn } from 'node:child_process';
 import type { Command } from 'commander';
-import { detectIdeFromEnv } from '../../services/context/main-session-monitor.js';
+import { detectIdeFromEnv } from '../../services/context/ide-detect.js';
 import { getAdapter } from '../../services/ide/ide-registry.js';
 import type { IdeId } from '../../services/ide/ide-types.js';
 

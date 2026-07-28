@@ -33,7 +33,7 @@ import type { CompactDispatchResult } from './auto-compact-types.js';
 import type { IdeCompactProfile, IdeId } from '../ide/ide-types.js';
 
 type CompactPathway = IdeCompactProfile['compactPathway'];
-import { detectIdeFromEnv } from './main-session-monitor.js';
+import { detectIdeFromEnv } from './ide-detect.js';
 import { getAdapter } from '../ide/ide-registry.js';
 
 export type CompactTarget = 'main' | 'sub-agent';
