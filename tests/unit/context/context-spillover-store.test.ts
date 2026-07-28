@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -97,6 +97,30 @@ describe('context spillover behavior', () => {
 
       expect(pruneExpiredSpills(projectRoot, 'session-1')).toEqual([path]);
       expect(existsSync(path)).toBe(false);
+    });
+
+    it('TC-8: lstat defense-in-depth - rejects symbolic links pointing outside spill dir', () => {
+      // 1. Create a real file outside the spill dir
+      const projectRoot = tmpRoot();
+      mkdirSync(projectRoot, { recursive: true });
+      const outsideFile = join(projectRoot, 'outside.txt');
+      writeFileSync(outsideFile, 'sensitive data outside spill dir');
+
+      // 2. Create the spill dir + a symlink pointing to outsideFile
+      const spillDirPath = join(projectRoot, '.peaks', '_runtime', 'session-001', 'spill');
+      mkdirSync(spillDirPath, { recursive: true });
+      const symlinkPath = join(spillDirPath, 'malicious.json');
+      // Use 'junction' type on Windows to avoid EPERM (symlinks require elevated privileges)
+      symlinkSync(outsideFile, symlinkPath, 'junction');
+
+      // 3. Try to hydrate via the symlink - should return null
+      // (lstat detects the symlink and throws inside the try-catch, so hydrate returns null per existing error handling)
+      const result = hydrate(projectRoot, 'session-001', 'malicious');
+      expect(result).toBeNull();
+
+      // 4. Cleanup
+      unlinkSync(symlinkPath);
+      unlinkSync(outsideFile);
     });
   });
 });

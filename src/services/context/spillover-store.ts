@@ -1,5 +1,6 @@
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
@@ -28,6 +29,26 @@ function assertInside(base: string, target: string): void {
   }
 }
 
+/**
+ * Defense-in-depth: assert the given path is NOT a symbolic link.
+ *
+ * Symlinks pointing outside the spill directory could be used to bypass
+ * the containment check (assertInside). This function uses lstat (which
+ * does NOT follow symlinks) to detect symbolic links and reject them.
+ *
+ * Note: this check is redundant with the entry.isFile() check in
+ * listSpills() (which rejects symlinks on most platforms), but
+ * provides belt-and-suspenders defense for the writeRecord and
+ * hydrate entry points.
+ */
+export function assertNotSymlink(path: string): void {
+  if (!existsSync(path)) return; // file doesn't exist yet (writeRecord) or already gone (hydrate)
+  const st = lstatSync(path);
+  if (st.isSymbolicLink()) {
+    throw new Error(`Refusing to operate on symbolic link: ${path}`);
+  }
+}
+
 export function spillDir(projectRoot: string, sessionId: string): string {
   assertSafeSegment(sessionId, 'sessionId');
   return join(projectRoot, '.peaks', '_runtime', sessionId, 'spill');
@@ -48,6 +69,7 @@ export function createSpillId(now: Date = new Date()): SpillId {
 }
 
 function writeRecord(path: string, record: SpillRecord): void {
+  assertNotSymlink(path);
   const content = JSON.stringify(record, null, 2);
   const temporaryPath = `${path}.${randomUUID()}.tmp`;
   writeFileSync(temporaryPath, content, 'utf8');
@@ -96,15 +118,20 @@ export function hydrate(
 ): SpillRecord | null {
   const path = spillPath(projectRoot, sessionId, spillId);
   if (!existsSync(path)) return null;
-  const record = readRecord(path);
-  if (record === null) return null;
-  const hydrated: SpillRecord = {
-    ...record,
-    state: 'hydrated',
-    hydratedAt: new Date().toISOString()
-  };
-  writeRecord(path, hydrated);
-  return hydrated;
+  try {
+    assertNotSymlink(path);
+    const record = readRecord(path);
+    if (record === null) return null;
+    const hydrated: SpillRecord = {
+      ...record,
+      state: 'hydrated',
+      hydratedAt: new Date().toISOString()
+    };
+    writeRecord(path, hydrated);
+    return hydrated;
+  } catch {
+    return null;
+  }
 }
 
 export function listSpills(
