@@ -70,6 +70,7 @@ import { registerSliceReviewCommands } from './slice-review-commands.js';
 import { registerSmokeCommands } from './smoke-commands.js';
 import { registerSopCommands } from './sop-commands.js';
 import { registerStatusLineCommands } from './statusline-commands.js';
+import { registerSpillDemoCommand } from './spill-demo-command.js';
 import { registerSubAgentCommands } from './sub-agent-commands.js';
 import { registerSubAgentDispatchGuard } from './sub-agent-dispatch-guard.js';
 import { registerSwarmCommands } from './swarm-commands.js';
@@ -137,6 +138,7 @@ const REGISTRATIONS: readonly Registration[] = [
   ['adapter-commands', registerAdapterCommands], ['runtime-commands', registerRuntimeCommands],
   ['adapter-commands-s2a', registerAdapterS2ACommands], ['polyrepo-commands', registerPolyrepoCommands],
   ['worktree-auth-commands', registerWorktreeAuthCommand],
+  ['session-spill-demo', registerSpillDemoCommand],
 ];
 
 function dispatchRegister(register: RegisterFn, program: Command, io: ProgramIO): void {

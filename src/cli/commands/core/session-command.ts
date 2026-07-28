@@ -26,6 +26,7 @@ import { registerSessionMigrateSkillNameCommand } from '../session-migrate-skill
 // state-machine sub-actions (state / transition / attempts / reset)
 // appear in `peaks session --help` for LLM `<TAB>`-discovery.
 import { registerSession24hModeCommand } from '../session-24h-mode.js';
+import { registerSpillDemoCommand } from '../spill-demo-command.js';
 import type { BindingSource } from './doctor-command.js';
 
 export function registerSessionCommand(program: Command, io: ProgramIO): void {
@@ -240,6 +241,7 @@ export function registerSessionCommand(program: Command, io: ProgramIO): void {
   registerSessionMigrateSkillNameCommand(session);
   // rid-020a: peaks session 24h-mode — state machine backbone.
   registerSession24hModeCommand(session, io);
+  registerSpillDemoCommand(session, io);
 
   addJsonOption(
     session

@@ -80,6 +80,16 @@ T3 and T4 auto-engage 24H_ACTIVE. T1/T2/T5 surface for LLM judgement via `peaks 
 - SquabbyZ sole-author rule: no `Co-Authored-By: Claude/Anthropic` trailer in any commit.
 - 24h mode is a flag on `peaks-code`; it MUST NOT introduce a sibling `peaks-24h` skill or a competing CLI top-level verb.
 
+## 24h mode spill/hydrate (opt-in experimental, rid-032)
+
+When 24h mode is active and an in-flight sub-agent batch is detected, the LLM MAY persist its current turn context to disk through the `session spill-demo` helper, supplying the active session identifier and optionally the batch identifier.
+
+This creates a `SpillRecord` in `.peaks/_runtime/<sessionId>/spill/` with a sample payload. The LLM can coordinate richer payload support in a future slice. When the batch lands, the LLM MAY inspect the 24h-mode state through the existing session state surface and continue from the hydrated record.
+
+The hydrate round-trip is idempotent, and the existing in-flight deferral still works without spill/hydrate.
+
+**This is opt-in experimental.** The LLM is not required to call spill/hydrate. Real production behavior remains governed by the existing in-flight deferral branch in the orchestrator, which rid-032 does not modify.
+
 ## Peaks-Loop Superpowers 协作边界 (BRIDGE — MANDATORY, effective 2026-07-24)
 
 This chapter pins the boundary between `peaks-code` and the **superpowers** skill family (`brainstorming`, `writing-plans`, `executing-plans`, `subagent-driven-development`, `dispatching-parallel-agents`, `verification-before-completion`, `test-driven-development`, `systematic-debugging`, `requesting-code-review`, `receiving-code-review`, `using-superpowers`, `using-git-worktrees`, `finishing-a-development-branch`). Boundary is closed under slice 2026-07-24-peaks-code-bridge-002-rootcause.
