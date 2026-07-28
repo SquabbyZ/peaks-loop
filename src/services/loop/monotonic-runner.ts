@@ -5,19 +5,22 @@
  * cycle's score rows (per evaluator), invokes each evaluator against
  * the current rid + project, then compares adjacent cycles.
  *
- *  - current cycle score rows are stored at
- *      .peaks/_runtime/<sid>/loop/<rid>/cycle-<N>.json
- *  - previous cycle rows are loaded from the same directory
- *    (or from `.peaks/_sub_agents/<sid>/shared/cycle-<M>.json`
- *    if the slice directory is empty).
+ *  - current cycle score rows are appended to the per-session jsonl
+ *    store at `.peaks/_runtime/<sid>/metrics/slices.jsonl` with the
+ *    tag `{"kind":"monotonic-cycle","rid":"<rid>","cycle":N,"scores":[...]}`.
+ *  - previous cycle rows are read from the same jsonl store (last
+ *    matching tag, O(1) tail scan). When no jsonl record exists, the
+ *    reader falls back to the legacy `.peaks/_sub_agents/<sid>/shared/`
+ *    dir (still reads cycle-N.json) for cross-batch/session signal.
  *  - missing previous cycle → skip (not abort).
  *
- * Karpathy §2 Simplicity First: shell-out to existing
- * `dispatchEvaluator`, persist JSON to disk; no new deps.
+ * Karpathy §2 Simplicity First: reuse `appendMetricLine` +
+ * `readMetricLines` from `observability/jsonl-store.ts`. One append per
+ * cycle replaces N cycle-N.json files; tail scan replaces readdirSync +
+ * regex.
  *
  * File budget: ≤ 800 lines (Karpathy §2).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dispatchEvaluator, type EvaluatorVerdictEnvelope } from './evaluator-dispatcher.js';
 import {
@@ -28,10 +31,11 @@ import {
   type MonotonicScoreRow,
   type MonotonicReport
 } from './monotonic-guard.js';
+import { appendMetricLine, readMetricLines } from '../observability/jsonl-store.js';
 import { findProjectRoot } from '../config/config-safety.js';
 
-/** Local discriminated result for slice-dir IO. Internal callers
- *  coalesce `ok: false` to `null` so the public `loadPreviousCycle`
+/** Local discriminated result for IO. Internal callers coalesce
+ *  `ok: false` to `null` so the public `loadPreviousCycle`
  *  signature stays `MonotonicCycle | null` (BC — see
  *  `monotonic-guard.test.ts:199`). */
 type LoadResult<T> =
@@ -42,6 +46,17 @@ function classifyFsError(err: unknown): 'NOT_FOUND' | 'IO_ERROR' {
   const code = (err as { code?: string } | null)?.code;
   if (code === 'ENOENT') return 'NOT_FOUND';
   return 'IO_ERROR';
+}
+
+/** Tag for cycle lines in the jsonl-store. */
+const MONOTONIC_CYCLE_KIND = 'monotonic-cycle';
+
+interface MonotonicCycleLine {
+  readonly kind: typeof MONOTONIC_CYCLE_KIND;
+  readonly rid: string;
+  readonly cycle: number;
+  readonly persistedAt: string;
+  readonly scores: readonly MonotonicScoreRow[];
 }
 
 /** Set of evaluator kinds the loop walker actually scores — keeps the
@@ -78,40 +93,107 @@ export interface RunMonotonicResult {
   readonly persistedAt: string | null;
   readonly rows: readonly MonotonicScoreRow[];
   readonly report: MonotonicReport;
-  /** Additive surface for non-fatal persistence warnings (e.g. mkdir
+  /** Additive surface for non-fatal persistence warnings (e.g. append
    *  failure). Optional so existing destructures keep compiling. */
   readonly warnings?: readonly string[];
 }
 
-/** Resolve the slice dir used by both writer + reader — keeps tests
- *  insulated from real sessions. */
+/** Resolve the slice dir — kept for API/BC (run-driver.ts uses it to
+ *  derive `cyclesDir`). The monotonic-runner writer no longer writes
+ *  here; the jsonl-store is the new persistence layer. */
 export function sliceDir(projectRoot: string, sid: string, rid: string): string {
   return join(projectRoot, '.peaks', '_runtime', sid, 'loop', rid);
 }
 
-/** Load the most recent prior cycle (highest-N `cycle-N.json`) for
- *  `(sid, rid)` from the slice dir; falls back to the
- *  `.peaks/_sub_agents/<sid>/shared/` dir when no slice-level prior
- *  cycle exists. Returns `null` on any read error. */
+/** Load the most recent prior cycle for `(sid, rid)` from the
+ *  per-session jsonl store (tail scan, O(N) where N = total jsonl
+ *  lines, ~50-100 for a 24h run). Falls back to the legacy
+ *  `.peaks/_sub_agents/<sid>/shared/` dir for cross-session signal.
+ *  Returns `null` on any read error. */
 export function loadPreviousCycle(
   projectRoot: string,
   sid: string,
   rid: string
 ): MonotonicCycle | null {
-  return loadMostRecentCycle(sliceDir(projectRoot, sid, rid))
-    ?? loadMostRecentCycleFromSubAgents(projectRoot, sid);
+  return loadMostRecentCycleFromJsonl(projectRoot, sid, rid)
+    ?? loadMostRecentCycleFromSubAgents(projectRoot, sid, rid);
 }
 
-function loadMostRecentCycleFromSubAgents(projectRoot: string, sid: string): MonotonicCycle | null {
+/** Scan the jsonl-store from tail backwards for the most recent
+ *  `monotonic-cycle` line matching `rid`. Returns `null` when no
+ *  matching line exists or any line is malformed. */
+function loadMostRecentCycleFromJsonl(
+  projectRoot: string,
+  sid: string,
+  rid: string
+): MonotonicCycle | null {
+  const lines = readMetricLines(projectRoot, sid);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i] ?? '';
+    const parsed = parseCycleLine(line, rid);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function parseCycleLine(raw: string, rid: string): MonotonicCycle | null {
+  let obj: Record<string, unknown>;
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (v === null || typeof v !== 'object') return null;
+    obj = v as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (obj['kind'] !== MONOTONIC_CYCLE_KIND) return null;
+  if (typeof obj['rid'] !== 'string' || obj['rid'] !== rid) return null;
+  const cycle = typeof obj['cycle'] === 'number' ? obj['cycle'] : 0;
+  const scores = parseScoreRows(obj['scores']);
+  return { cycle, scores };
+}
+
+function parseScoreRows(raw: unknown): MonotonicScoreRow[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MonotonicScoreRow[] = [];
+  for (const s of raw) {
+    if (s === null || typeof s !== 'object') continue;
+    const r = s as Record<string, unknown>;
+    if (typeof r['evaluator'] !== 'string') continue;
+    const gate = r['gateAction'];
+    if (gate !== 'pass' && gate !== 'warn' && gate !== 'block') continue;
+    const observedAt = typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
+    out.push({
+      evaluator: r['evaluator'],
+      score: typeof r['score'] === 'number' ? r['score'] : (gate === 'pass' ? 1.0 : gate === 'warn' ? 0.5 : 0.0),
+      gateAction: gate,
+      degraded: r['degraded'] === true,
+      observedAt
+    });
+  }
+  return out;
+}
+
+/** Legacy fallback: read the most recent `cycle-N.json` from the
+ *  `.peaks/_sub_agents/<sid>/shared/` dir (cross-session signal).
+ *  Kept verbatim so existing cross-batch signals remain readable. */
+function loadMostRecentCycleFromSubAgents(
+  projectRoot: string,
+  sid: string,
+  rid: string
+): MonotonicCycle | null {
   const dir = join(projectRoot, '.peaks', '_sub_agents', sid, 'shared');
-  return loadMostRecentCycle(dir);
+  return loadMostRecentCycleFromDir(dir, rid);
 }
 
-function loadMostRecentCycle(dir: string): MonotonicCycle | null {
-  if (!existsSync(dir)) return null;
+function loadMostRecentCycleFromDir(dir: string, rid: string): MonotonicCycle | null {
+  // Lazily import so unit tests in non-windows environments don't pull
+  // node:fs through a static `import`.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('node:fs') as typeof import('node:fs');
+  if (!fs.existsSync(dir)) return null;
   const readdir: LoadResult<string[]> = (() => {
     try {
-      return { ok: true, value: require('node:fs').readdirSync(dir) as string[] };
+      return { ok: true, value: fs.readdirSync(dir) as string[] };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }
@@ -129,16 +211,21 @@ function loadMostRecentCycle(dir: string): MonotonicCycle | null {
   const target = join(dir, `cycle-${bestCycle}.json`);
   const readFile: LoadResult<string> = (() => {
     try {
-      return { ok: true, value: readFileSync(target, 'utf8') };
+      return { ok: true, value: fs.readFileSync(target, 'utf8') };
     } catch (err) {
       return { ok: false, reason: classifyFsError(err) };
     }
   })();
   if (!readFile.ok) return null;
-  return parseCycle(readFile.value, bestCycle);
+  const parsed = parseLegacyCycleFile(readFile.value, bestCycle);
+  // `rid` param retained for BC with the legacy dir shape (legacy
+  // files are shared across rids); include it in the parsed object so
+  // future cross-rid reads stay consistent.
+  void rid;
+  return parsed;
 }
 
-function parseCycle(raw: string, fallbackCycle: number): MonotonicCycle | null {
+function parseLegacyCycleFile(raw: string, fallbackCycle: number): MonotonicCycle | null {
   const parse: LoadResult<unknown> = (() => {
     try {
       return { ok: true, value: JSON.parse(raw) };
@@ -150,36 +237,24 @@ function parseCycle(raw: string, fallbackCycle: number): MonotonicCycle | null {
   const parsed = parse.value;
   if (parsed === null || typeof parsed !== 'object') return null;
   const obj = parsed as Record<string, unknown>;
-  const scores = Array.isArray(obj['scores']) ? obj['scores'] : [];
-  const rows: MonotonicScoreRow[] = [];
-  for (const s of scores) {
-    if (s === null || typeof s !== 'object') continue;
-    const r = s as Record<string, unknown>;
-    if (typeof r['evaluator'] !== 'string') continue;
-    const gate = r['gateAction'];
-    if (gate !== 'pass' && gate !== 'warn' && gate !== 'block') continue;
-    const observedAt = typeof r['observedAt'] === 'string' ? r['observedAt'] : new Date(0).toISOString();
-    rows.push({
-      evaluator: r['evaluator'],
-      score: typeof r['score'] === 'number' ? r['score'] : (gate === 'pass' ? 1.0 : gate === 'warn' ? 0.5 : 0.0),
-      gateAction: gate,
-      degraded: r['degraded'] === true,
-      observedAt
-    });
-  }
-  return { cycle: typeof obj['cycle'] === 'number' ? obj['cycle'] : fallbackCycle, scores: rows };
+  const scores = parseScoreRows(obj['scores']);
+  return { cycle: typeof obj['cycle'] === 'number' ? obj['cycle'] : fallbackCycle, scores };
 }
 
-/** Determine the next cycle index — `max(prior) + 1`, or `1` when none exist. */
+/** Determine the next cycle index — reads the most recent jsonl
+ *  cycle line's `cycle` field + 1 (or `1` when none exist). `rid`
+ *  retained for API compatibility — the jsonl-store is per-session,
+ *  but the line tag carries `rid` so the reader filters to this rid.
+ */
 export function nextCycleIndex(projectRoot: string, sid: string, rid: string): number {
   const prev = loadPreviousCycle(projectRoot, sid, rid);
   if (prev === null) return 1;
   return prev.cycle + 1;
 }
 
-/** Run the guard end-to-end: walk the 4 evaluators, persist the current
- *  cycle score rows, compare against the prior cycle, return a
- *  structured report. */
+/** Run the guard end-to-end: walk the 4 evaluators, persist the
+ *  current cycle to the jsonl store, compare against the prior cycle,
+ *  return a structured report. */
 export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicResult {
   const threshold = options.threshold ?? DEFAULT_MONOTONIC_THRESHOLD;
   const persist = options.persist !== false;
@@ -217,39 +292,19 @@ export function runMonotonicCheck(options: RunMonotonicOptions): RunMonotonicRes
   let persistedAt: string | null = null;
   const envelopeWarns: string[] = [];
   if (persist) {
-    const dir = sliceDir(options.projectRoot, options.sid, options.rid);
-    const mkdir: LoadResult<void> = (() => {
-      try {
-        mkdirSync(dir, { recursive: true });
-        return { ok: true, value: undefined };
-      } catch (err) {
-        return { ok: false, reason: classifyFsError(err) };
-      }
-    })();
-    if (!mkdir.ok) {
-      envelopeWarns.push(`mkdir-failed: ${dir} (${mkdir.reason})`);
-    }
-    const path = join(dir, `cycle-${cycle}.json`);
-    const payload = JSON.stringify({
-      cycle,
+    const line: MonotonicCycleLine = {
+      kind: MONOTONIC_CYCLE_KIND,
       rid: options.rid,
-      sid: options.sid,
+      cycle,
       persistedAt: new Date().toISOString(),
       scores: rows
-    });
-    const writeFile: LoadResult<void> = (() => {
-      try {
-        writeFileSync(path, payload, 'utf8');
-        return { ok: true, value: undefined };
-      } catch (err) {
-        return { ok: false, reason: classifyFsError(err) };
-      }
-    })();
-    if (writeFile.ok) {
-      persistedAt = path;
+    };
+    const ok = appendMetricLine(options.projectRoot, options.sid, JSON.stringify(line));
+    if (ok) {
+      persistedAt = `jsonl:${options.sid}#cycle=${cycle}`;
     } else {
       persistedAt = null;
-      envelopeWarns.push(`write-failed: ${path} (${writeFile.reason})`);
+      envelopeWarns.push(`append-failed: jsonl-store for sid=${options.sid} cycle=${cycle}`);
     }
   }
 

@@ -15,13 +15,30 @@ import {
   toScoreRow,
   loadCrossSessionSignal,
   DEFAULT_MONOTONIC_THRESHOLD,
-  type MonotonicCycle
+  type MonotonicCycle,
+  type MonotonicScoreRow
 } from '../../../src/services/loop/monotonic-guard.js';
 import {
   loadPreviousCycle,
   nextCycleIndex,
   sliceDir
 } from '../../../src/services/loop/monotonic-runner.js';
+import { appendMetricLine, metricsFilePath } from '../../../src/services/observability/jsonl-store.js';
+import { getSessionDir } from '../../../src/services/session/getSessionDir.js';
+
+/** Append a `monotonic-cycle` line to the per-session jsonl store. */
+function writeCycleLine(
+  tmpRoot: string,
+  sid: string,
+  rid: string,
+  cycle: number,
+  scores: readonly MonotonicScoreRow[] = []
+): void {
+  const line = JSON.stringify({ kind: 'monotonic-cycle', rid, cycle, scores });
+  mkdirSync(join(getSessionDir(tmpRoot, sid), 'metrics'), { recursive: true });
+  const ok = appendMetricLine(tmpRoot, sid, line);
+  if (!ok) throw new Error(`appendMetricLine failed for ${metricsFilePath(tmpRoot, sid)}`);
+}
 
 const ROW_PASS = (evaluator: string) => toScoreRow(evaluator, 'pass', false, '2026-06-30T00:00:00.000Z');
 const ROW_WARN = (evaluator: string) => toScoreRow(evaluator, 'warn', false, '2026-06-30T00:00:00.000Z');
@@ -167,7 +184,7 @@ describe('loadCrossSessionSignal — IO-error tolerance', () => {
   });
 });
 
-describe('loadPreviousCycle / nextCycleIndex — slice-dir persistence', () => {
+describe('loadPreviousCycle / nextCycleIndex — jsonl-store persistence', () => {
   let tmpRoot: string;
 
   beforeEach(() => {
@@ -177,17 +194,24 @@ describe('loadPreviousCycle / nextCycleIndex — slice-dir persistence', () => {
     rmSync(tmpRoot, { recursive: true, force: true });
   });
 
-  it('returns the highest-N cycle index from the slice dir', () => {
-    const dir = sliceDir(tmpRoot, 'sid', 'rid');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'cycle-1.json'), JSON.stringify({ cycle: 1, scores: [] }));
-    writeFileSync(join(dir, 'cycle-2.json'), JSON.stringify({ cycle: 2, scores: [] }));
+  it('returns the highest-N cycle index from the jsonl store', () => {
+    writeCycleLine(tmpRoot, 'sid', 'rid', 1);
+    writeCycleLine(tmpRoot, 'sid', 'rid', 2);
     expect(nextCycleIndex(tmpRoot, 'sid', 'rid')).toBe(3);
     const prev = loadPreviousCycle(tmpRoot, 'sid', 'rid');
     expect(prev?.cycle).toBe(2);
   });
 
-  it('falls back to .peaks/_sub_agents/<sid>/shared/ when the slice dir is empty', () => {
+  it('ignores monotonic-cycle lines belonging to other rids in the same session', () => {
+    writeCycleLine(tmpRoot, 'sid', 'other-rid', 1);
+    writeCycleLine(tmpRoot, 'sid', 'rid', 4);
+    expect(nextCycleIndex(tmpRoot, 'sid', 'rid')).toBe(5);
+    const prev = loadPreviousCycle(tmpRoot, 'sid', 'rid');
+    expect(prev?.cycle).toBe(4);
+  });
+
+  it('falls back to .peaks/_sub_agents/<sid>/shared/ when the jsonl store has no matching line', () => {
+    writeCycleLine(tmpRoot, 'sid', 'other-rid', 9);
     const sharedDir = join(tmpRoot, '.peaks', '_sub_agents', 'sid', 'shared');
     mkdirSync(sharedDir, { recursive: true });
     writeFileSync(join(sharedDir, 'cycle-5.json'), JSON.stringify({ cycle: 5, scores: [] }));
