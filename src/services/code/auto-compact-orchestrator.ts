@@ -43,6 +43,12 @@ import {
 } from '../context/auto-compact-types.js';
 
 import type { CompactTarget } from '../context/auto-compact-dispatcher.js';
+import {
+  type AutoCompactMode,
+  describeMode,
+  thresholdFor
+} from './auto-compact-modes.js';
+import { read24hState } from '../24h-mode/store.js';
 
 export interface AutoCompactInput {
   /** Project root for context (default cwd). */
@@ -71,6 +77,13 @@ export interface AutoCompactInput {
    * `'sub-agent'` to preserve the legacy shell-spawn behaviour.
    */
   readonly target?: CompactTarget | undefined;
+  /**
+   * Slice 2026-07-28 (rid-027): auto-compact mode. Default
+   * `'standard'` (v2.13.0 zero-pause contract, 0.85/0.95). `'partial'`
+   * fires earlier (0.70/0.85) for 24h long-run scenarios. CLI flag
+   * `--mode <mode>` overrides the 24h-mode auto-detection.
+   */
+  readonly mode?: AutoCompactMode | undefined;
 }
 
 const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
@@ -78,38 +91,44 @@ const PRE_COMPACT_REASON = 'pre-compact-auto' as const;
 /**
  * Map a context ratio to a `CompactTrigger` action. Pure; the side
  * effects (checkpoint + IDE dispatch) live in `runAutoCompact`. Two
- * tiers:
+ * tiers (standard mode; partial mode shifts both thresholds):
  *
- *   - ratio < 0.85 → 'none' or 'soft-warn'
- *   - ratio ≥ 0.85 → 'pre-compact' (async-friendly path)
- *   - ratio ≥ 0.95 → 'red-line' (synchronous gate)
+ *   - ratio < preCompact → 'none' or 'soft-warn'
+ *   - ratio ≥ preCompact → 'pre-compact' (async-friendly path)
+ *   - ratio ≥ redLine    → 'red-line' (synchronous gate)
+ *
+ * Slice 2026-07-28 (rid-027): `mode` selects the threshold table.
+ * Default `'standard'` (0.85/0.95). `'partial'` (0.70/0.85) is used
+ * when 24h long-run mode is active or `--mode partial` is passed.
  */
-export function evaluateCompactTrigger(ratio: number): CompactTrigger {
-  if (ratio < AUTO_COMPACT_PRE_COMPACT_RATIO) {
+export function evaluateCompactTrigger(ratio: number, mode: AutoCompactMode = 'standard'): CompactTrigger {
+  const preCompact = thresholdFor(mode, 'preCompact');
+  const redLine = thresholdFor(mode, 'redLine');
+  if (ratio < preCompact) {
     return ratio < 0.5
       ? { kind: 'none' }
       : {
           kind: 'soft-warn',
           ratio,
-          message: `Context at ${(ratio * 100).toFixed(1)}%; below the 85% pre-compact threshold.`
+          message: `Context at ${(ratio * 100).toFixed(1)}%; below the ${(preCompact * 100).toFixed(0)}% pre-compact threshold (mode=${mode}).`
         };
   }
-  if (ratio >= AUTO_COMPACT_RED_LINE_RATIO) {
+  if (ratio >= redLine) {
     return {
       kind: 'red-line',
       ratio,
-      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ 95% red line. Synchronous compact REQUIRED (LLM cannot opt out).`
+      message: `Context at ${(ratio * 100).toFixed(1)}% ≥ ${(redLine * 100).toFixed(0)}% red line (mode=${mode}). Synchronous compact REQUIRED (LLM cannot opt out).`
     };
   }
-  // 0.85 ≤ ratio < 0.95: pre-compact zone — peaks-loop fires
-  // `peaks session auto-compact --execute` AUTOMATICALLY (zero-pause
-  // contract, v2.13.0). The LLM does NOT decide; the orchestrator does.
-  // D6.e in-flight deferral below is the only reason to wait.
+  // pre-compact zone: peaks-loop fires the auto-compact pathway
+  // AUTOMATICALLY (zero-pause contract, v2.13.0). The LLM does NOT
+  // decide; the orchestrator does. D6.e in-flight deferral below is
+  // the only reason to wait.
   return {
     kind: 'pre-compact',
     ratio,
     toolkitReady: true,
-    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (0.85–0.95). peaks-loop will automatically fire \`peaks session auto-compact --execute\` (zero-pause contract).`
+    message: `Context at ${(ratio * 100).toFixed(1)}% in pre-compact zone (≥${(preCompact * 100).toFixed(0)}% / <${(redLine * 100).toFixed(0)}%, mode=${mode}). peaks-loop will automatically fire the auto-compact pathway (zero-pause contract).`
   };
 }
 
@@ -130,8 +149,9 @@ export function evaluateAutoCompactDecision(input: {
   inFlightBatch?: InFlightBatchProbe | undefined;
   force?: boolean | undefined;
   bypassRedLine?: boolean | undefined;
+  mode?: AutoCompactMode | undefined;
 }): { shouldCompact: boolean; reason: 'below-threshold' | 'in-flight-batch' | 'pre-compact' | 'red-line'; trigger: CompactTrigger } {
-  const trigger = evaluateCompactTrigger(input.ratio);
+  const trigger = evaluateCompactTrigger(input.ratio, input.mode ?? 'standard');
   if (trigger.kind === 'none' || trigger.kind === 'soft-warn') {
     return { shouldCompact: false, reason: 'below-threshold', trigger };
   }
@@ -282,6 +302,22 @@ function writePreCompactCheckpoint(input: {
 }
 
 /**
+ * Slice 2026-07-28 (rid-027): resolve the auto-compact mode from
+ * 24h-mode awareness. Returns `'partial'` when the session is
+ * `24H_ACTIVE`, otherwise `'standard'`. The CLI flag `--mode` takes
+ * precedence (caller passes `input.mode` directly), so this helper is
+ * only consulted when the flag is absent.
+ */
+function resolveAutoCompactMode(projectRoot: string, sessionId: string): AutoCompactMode {
+  try {
+    const snap = read24hState(projectRoot, sessionId);
+    return snap.state === '24H_ACTIVE' ? 'partial' : 'standard';
+  } catch {
+    return 'standard';
+  }
+}
+
+/**
  * Execute the auto-compact flow.
  *
  * Steps (orchestration):
@@ -310,6 +346,10 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       nextActions: ['Run `peaks workspace init --change-id <id>` to bind a session']
     };
   }
+  // Slice 2026-07-28 (rid-027): resolve mode. CLI flag `--mode` wins;
+  // 24h-mode awareness yields 'partial' when 24h_ACTIVE; default
+  // 'standard' preserves v2.13.0 zero-pause contract.
+  const mode: AutoCompactMode = input.mode ?? resolveAutoCompactMode(input.projectRoot, sessionId);
   // Lazy import to avoid the AC-1 module depending on the orchestrator.
   const { readContextPercent } = await import('../context/auto-compact-reader.js');
   const probe = readContextPercent({
@@ -322,7 +362,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
     ratio: probe.ratio,
     inFlightBatch: input.inFlightBatch,
     force: input.force,
-    bypassRedLine: input.bypassRedLine
+    bypassRedLine: input.bypassRedLine,
+    mode
   });
 
   if (!decision.shouldCompact) {
@@ -406,8 +447,8 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       : 'AUTO_COMPACT_DISPATCH_FAILED',
     message: dispatch.ok
       ? isRedLine
-        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
-        : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target}); checkpoint at ${checkpointPath}.`
+        ? `RED-LINE compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target} / mode=${mode} — ${describeMode(mode)}); checkpoint at ${checkpointPath}. Further sub-agent dispatch is BLOCKED until ratio < 0.85.`
+        : `Auto-compact dispatched (${dispatch.ide} / ${dispatch.pathway} / target=${target} / mode=${mode} — ${describeMode(mode)}); checkpoint at ${checkpointPath}.`
       : `Auto-compact checkpoint written but IDE dispatch failed: ${dispatch.message}`,
     data: {
       sessionId,
@@ -417,6 +458,7 @@ export async function runAutoCompact(input: AutoCompactInput): Promise<AutoCompa
       convergencePlan: plan,
       dispatch,
       target,
+      mode,
       redLineGated: isRedLine
     }
   };

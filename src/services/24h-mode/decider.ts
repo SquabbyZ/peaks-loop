@@ -17,6 +17,8 @@ import {
   type DecisionKey,
   type State
 } from './state.js';
+import { read24hState } from './store.js';
+import type { AutoCompactMode } from '../code/auto-compact-modes.js';
 
 export type AttemptsMap = Record<DecisionKey, number>;
 
@@ -180,4 +182,19 @@ export function isHandoffExitCondition(s: string): s is HandoffExitCondition {
 
 export function isHandoffState(s: State): boolean {
   return s === 'HANDOFF';
+}
+
+/**
+ * Slice 2026-07-28 (rid-027): resolve the auto-compact mode from
+ * 24h-mode awareness. Returns `'partial'` when the session is
+ * `24H_ACTIVE`, otherwise `'standard'`. This is the CLI-side default;
+ * the explicit `--mode` flag in `peaks code auto-compact` overrides it.
+ */
+export function getAutoCompactMode(projectRoot: string, sessionId: string): AutoCompactMode {
+  try {
+    const snap = read24hState(projectRoot, sessionId);
+    return snap.state === '24H_ACTIVE' ? 'partial' : 'standard';
+  } catch {
+    return 'standard';
+  }
 }

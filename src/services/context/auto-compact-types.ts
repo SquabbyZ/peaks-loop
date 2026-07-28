@@ -110,6 +110,13 @@ export type AutoCompactResult =
          * `/compact` in a child process (legacy behaviour).
          */
         readonly target?: 'main' | 'sub-agent';
+        /**
+         * Slice 2026-07-28 (rid-027): which mode's threshold table
+         * was used. Defaults to `'standard'` (0.85/0.95). `'partial'`
+         * (0.70/0.85) is selected when 24h mode is active or the
+         * caller passes `--mode partial`.
+         */
+        readonly mode?: 'standard' | 'partial';
         readonly redLineGated?: boolean;
       };
     };

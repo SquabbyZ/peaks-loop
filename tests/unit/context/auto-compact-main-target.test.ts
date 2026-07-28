@@ -119,4 +119,86 @@ describe('auto-compact target — slice 2026-06-28-code-mode-bypass-fix', () => 
       expect(existsSync(pendingPath)).toBe(false);
     });
   });
+
+  describe('runAutoCompact — auto-compact-modes (rid-027)', () => {
+    it('partial mode: ratio=0.72 triggers pre-compact (NOT skip, NOT red-line)', async () => {
+      const sid = 'partial-pre-compact';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.72' },
+        mode: 'partial',
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_DISPATCHED');
+      if (result.code === 'AUTO_COMPACT_DISPATCHED') {
+        expect(result.data.mode).toBe('partial');
+      }
+    });
+
+    it('partial mode: ratio=0.86 triggers red-line', async () => {
+      const sid = 'partial-red-line';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.86' },
+        mode: 'partial',
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_RED_LINE');
+    });
+
+    it('standard mode: ratio=0.86 triggers pre-compact (existing behavior)', async () => {
+      const sid = 'standard-pre-compact';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.86' },
+        mode: 'standard',
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_DISPATCHED');
+    });
+
+    it('standard mode: ratio=0.96 triggers red-line (existing behavior)', async () => {
+      const sid = 'standard-red-line';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.96' },
+        mode: 'standard',
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_RED_LINE');
+    });
+
+    it('default mode (no flag): ratio=0.50 returns skip; partial mode at 0.50 also returns skip', async () => {
+      const sid = 'default-skip';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.50' },
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_SKIP');
+    });
+
+    it('partial mode: ratio=0.50 returns skip (threshold is 0.70, not 0.50)', async () => {
+      const sid = 'partial-50';
+      const result = await runAutoCompact({
+        projectRoot,
+        sessionId: sid,
+        env: { ...CLAUDE_CODE_ENV, CLAUDE_CONTEXT_USAGE_PERCENT: '0.50' },
+        mode: 'partial',
+        now: new Date('2026-07-28T00:00:00Z')
+      });
+      expect(result.ok).toBe(true);
+      expect(result.code).toBe('AUTO_COMPACT_SKIP');
+    });
+  });
 });

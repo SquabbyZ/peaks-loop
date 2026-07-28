@@ -91,13 +91,16 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
           'checkpoint + convergence plan + auto-decisions log; ≥ 0.95 forces ' +
           'synchronous IDE-side compact. The LLM / runner keeps working with ' +
           'context < 95% without human intervention. pair with `peaks context ' +
-          'now` (AC-1) which feeds the ratio into this command.'
+          'now` (AC-1) which feeds the ratio into this command. rid-027 ' +
+          'adds `--mode <mode>`: `standard` (0.85/0.95) or `partial` (0.70/0.85 ' +
+          'for 24h long-run mode).'
       )
       .requiredOption('--project <path>', 'target project root')
       .option('--session-id <sid>', 'override session id (default: read from active presence)')
       .option('--in-flight-batch', 'defer if a sub-agent batch is in flight (D6.e)')
       .option('--force', 'force compact at any ratio (test seam)')
       .option('--bypass-red-line', 'skip the 95% red-line gate (test seam; never true in production)')
+      .option('--mode <mode>', 'auto-compact mode (standard | partial). Default: standard. 24h mode auto-selects partial.', 'standard')
   ).action(
     async (opts: {
       project: string;
@@ -105,9 +108,21 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
       inFlightBatch?: boolean;
       force?: boolean;
       bypassRedLine?: boolean;
+      mode?: string;
       json?: boolean;
     }) => {
       try {
+        const { isValidMode } = await import('../../services/code/auto-compact-modes.js');
+        const modeName = opts.mode ?? 'standard';
+        if (!isValidMode(modeName)) {
+          printResult(
+            io,
+            fail('code.auto-compact', 'AUTO_COMPACT_INVALID_MODE', `Invalid --mode '${modeName}'. Valid values: standard | partial.`, null, ['Re-run with --mode standard or --mode partial.']),
+            opts.json
+          );
+          process.exitCode = 1;
+          return;
+        }
         const result = await runAutoCompact({
           projectRoot: opts.project,
           sessionId: opts.sessionId ?? readActiveSid(opts.project) ?? undefined,
@@ -115,7 +130,8 @@ export function registerCodeRuntimeCommands(code: Command, io: ProgramIO): void 
             ? { hasInFlightBatch: true }
             : undefined,
           force: opts.force === true,
-          bypassRedLine: opts.bypassRedLine === true
+          bypassRedLine: opts.bypassRedLine === true,
+          mode: modeName
         });
         const code = result.code;
         const exitOk = result.ok || code === 'AUTO_COMPACT_SKIP' || code === 'AUTO_COMPACT_WAIT';
