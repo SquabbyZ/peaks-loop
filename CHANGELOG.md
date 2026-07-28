@@ -23,6 +23,21 @@
 
 - The 73 leaf CLI commands have been collapsed to 5 super-commands (`code / audit / doctor / openspec / release / release-pack`). The pre-4.0.0 leaf commands are no longer present on `$PATH`; all users must migrate. Migration matrix and per-leaf replacement are documented in `docs/cli-migration-4-0-0.md` (added in this release; see link in the GitHub Release page for v4.0.0).
 
+### Patch Changes
+
+- **rid-020b (24h mode integration)**: `peaks code run --24h` flag + dashboard long-run support; 10-file diff (+91/-1) including 3 NEW source (`code-run-command.ts` 120 / `dashboard-long-run.ts` 80 / `dashboard-commands.ts` parent) + 2 surgical edits + 2 NEW vitest (12/12 green) + 4 SKILL.md/ref edits.
+- **rid-024 (code-commands split)**: `code-commands.ts` 1058 → 165 lines (≤ 800 cap) + 3 NEW sibling files (`code-mode-gate-commands.ts` 275 / `code-job-shape-commands.ts` 248 / `code-runtime-commands.ts` 460, including moved `readActiveSid` helper); public API preserved.
+- **rid-025 (heartbeat watch + main-session-monitor ban)**: `peaks heartbeat watch --batch-id <id>` top-level CLI + main-session-monitor hard ban via per-symbol PreToolUse hook + scan test; 14 files (8 EDIT + 4 NEW + 3 NEW test).
+- **rid-026 (monotonic jsonl-store)**: 2-file refactor; cycle persistence moved from `cycle-N.json` N-file → single jsonl-store per-session (`monotonic-runner.ts` 280→334) + monotonic-guard test fixtures migrated.
+- **rid-027 (auto-compact partial mode)**: 7 files; `auto-compact-modes.ts` NEW (partial mode 0.70/0.85) + `--mode <mode>` CLI flag + `getAutoCompactMode` helper + 2 NEW tests (36 cases green).
+- **rid-028 (context spillover storage)**: 3 NEW files (minimal scope); `spillover-types.ts` + `spillover-store.ts` + `context-spillover-store.test.ts` (102 lines, 7 cases including traversal regression). `auto-compact-orchestrator.ts` D6.e branch byte-identical preserved.
+- **rid-029 (DAG wave + barrier)**: 4-file diff; `slice-dag.ts` Wave/WaveArtifact types + `dag-orchestrator.ts` `planDispatchWaves`/`runWaveWithArtifacts` + `sub-agent-dispatcher.ts` `dispatchFromWaves` + NEW test (6 cases). Existing `runDag`/`runLayeredDag`/`buildDispatchSpec` byte-identical preserved.
+- **rid-030 (dashboard summary)**: 6 files; `observability-service.ts` 3 new categories (cycle/token-usage/monotonic-trigger) + `aggregation.ts` `aggregateDashboardMetrics` + `peaks dashboard summary` CLI + 2 NEW tests (26 cases green).
+- **rid-031 (dispatcher deprecation)**: `src/services/context/auto-compact-dispatcher.ts` 285 → 249 lines; removed `node:child_process` import + `dispatchShellExec` function; `case 'shell-exec'` replaced with stub (returns same envelope shape pathway).
+- **rid-032 (session spill-demo CLI)**: 5 files; `spill-demo-command.ts` NEW (64 lines, `peaks session spill-demo` opt-in experimental LLM no-context mode demo) + SKILL.md 24h-mode spill/hydrate subsection + 4 NEW vitest cases.
+- **rid-033 (spillover-store lstat defense-in-depth)**: 2-file EDIT; `spillover-store.ts` adds `lstatSync` target symlink check + `assertNotSymlink` helper in `writeRecord` + `hydrate`; closes rid-028 defense-in-depth gap (now 4-layer defense: safe-segment + containment + lstat + entry.isFile).
+- **rid-034 (v2.13.0 contract cleanup + 4.0.0 GA version bump)**: this release. Retired `peaks session auto-compact-hook` CLI surface (v2.13.0 zero-pause contract). Replaced all retired command strings (`peaks session auto-compact --execute` / `peaks code auto-compact --execute` / `peaks context now` / `peaks session auto-compact-hook`) with `peaks compact auto` family across `src/**` + `skills/**`. Fixed 6 stale unit-test assertions (4 openspec self-host-only skipif guards + 1 test-tool-detection regex + 2 qoder resource-profile assertions) and removed `.peaks/_sub_agents/2026-06-23-session-heartbeat-test/` orphan dir. Version bumped to 4.0.0 GA with lockstep `CLI_VERSION` + CHANGELOG + `.changeset/4-0-0-ga.md`. **Note**: `peaks test` vitest-path fix deferred to rid-035.
+
 ## 4.0.0-beta.37 — 2026-07-25 (registry conflict bump + version skip)
 
 ### Patch Changes
