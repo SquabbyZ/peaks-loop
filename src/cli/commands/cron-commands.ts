@@ -142,9 +142,9 @@ function ensureLeaseGcEntry(file: ScheduleFile): ScheduleFile {
   if (file.entries.some((e) => e.id === 'lease-gc-daily')) return file;
   const entry: ScheduleEntry = {
     id: 'lease-gc-daily',
-    name: 'Daily lease gc — sweep orphan worktree leases',
+    name: 'Daily lease listing — refresh the alive-lease set; operators run peaks worktree gc --lease-id <id> manually on stale entries',
     command: 'worktree',
-    args: ['gc', '--all-sessions', '--dry-run'],
+    args: ['list'],
     intervalMs: DEFAULT_INTERVAL_MS,
     lastRunAt: null,
     enabled: true,

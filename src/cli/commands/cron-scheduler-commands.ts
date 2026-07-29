@@ -28,7 +28,7 @@
  * restart-on-crash.
  */
 
-import { execSync, spawn } from 'node:child_process';
+import { execSync, fork, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,12 +70,14 @@ function isPidAlive(pid: number): boolean {
 }
 
 function findSchedulerEntryPoint(): string {
-  // Resolve the peaks-cron-scheduler.js path relative to
-  // this CLI's dist (assumes both ship in the same package).
-  // Fall back to process.argv[1] so the scheduler can find
-  // the peaks binary on disk.
+  // The peaks-cron-scheduler.js entry shim lives in bin/ (not
+  // dist/, so the pnpm build does not overwrite it). It forwards
+  // to dist/cli/commands/cron-scheduler-commands.js with
+  // PEAKS_CRON_SCHEDULER_DAEMON=1 set; the CLI detects the env
+  // and runs runSchedulerLoop directly.
   const here = dirname(fileURLToPath(import.meta.url));
-  return resolve(here, '..', 'peaks-cron-scheduler.js');
+  // dist/cli/commands/cron-scheduler-commands.js → bin/peaks-cron-scheduler.js
+  return resolve(here, '..', '..', '..', 'bin', 'peaks-cron-scheduler.js');
 }
 
 export function registerCronSchedulerCommand(program: Command, io: ProgramIO): void {
@@ -103,17 +105,19 @@ export function registerCronSchedulerCommand(program: Command, io: ProgramIO): v
         );
         return;
       }
-      // Spawn detached. stdio:ignore keeps the scheduler out of
-      // the parent terminal's stdio. detached: true on POSIX
-      // creates a new process group; on Windows it detaches
-      // from the parent's console.
+      // Spawn detached via `peaks-cron-scheduler.js` — the
+      // child runs `runSchedulerLoop` (60s setInterval + due-task
+      // runner). The detached flag + stdio:ignore puts the
+      // scheduler in its own process group (POSIX) / detaches
+      // from the console (Windows). PEAKS_CRON_SCHEDULER_DAEMON
+      // env is the canonical "I'm the long-running child" signal.
       const entry = findSchedulerEntryPoint();
       const child = spawn(process.execPath, [entry, '--project', projectRoot], {
         cwd: projectRoot,
         stdio: 'ignore',
         detached: true,
         windowsHide: true,
-        env: { ...process.env, PEAKS_CRON_SCHEDULER: '1' }
+        env: { ...process.env, PEAKS_CRON_SCHEDULER: '1', PEAKS_CRON_SCHEDULER_DAEMON: '1' }
       });
       child.unref();
       if (typeof child.pid !== 'number') {
@@ -320,7 +324,11 @@ export async function runSchedulerLoop(args: { projectRoot: string; tickMs?: num
 // `node peaks-cron-scheduler.js`, the loop starts; when it is
 // imported (e.g. by the CLI), the export is used but the
 // loop is not started.
-if (process.argv[1] && process.argv[1].endsWith('peaks-cron-scheduler.js')) {
+if (process.env.PEAKS_CRON_SCHEDULER_DAEMON === '1') {
+  // Spawned by `peaks cron-scheduler start` as the long-running
+  // detached child. Run the loop until SIGTERM. Gated on the
+  // env var (not argv[1]) because on Windows a forked node
+  // process inherits the parent's argv[1] (which is bin/peaks.js).
   const projectRoot = (() => {
     const idx = process.argv.indexOf('--project');
     return idx >= 0 ? process.argv[idx + 1] as string : findProjectRoot(process.cwd()) ?? process.cwd();
