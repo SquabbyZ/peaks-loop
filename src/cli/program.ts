@@ -12,6 +12,7 @@ import { registerWorkflowCommands } from './commands/workflow-commands.js';
 import { registerCapabilityWorkerConfigAndSCCommands } from './commands/capability-worker-config-sc-commands.js';
 import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerLeaseMetricsCommand } from './commands/lease-metrics-commands.js';
+import { registerLeaseStatsCommand } from './commands/lease-stats-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
 import { registerSopCommands } from './commands/sop-commands.js';
 import { registerSkillVisibilityCommand } from './commands/skill-visibility.js';
@@ -203,6 +204,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerSopCommands(program, io);
  registerSuperCommands(program, io);
  registerLeaseMetricsCommand(program, io);
+ registerLeaseStatsCommand(program, io);
  // Auto-route the remaining 60+ commands after the orchestrators so the
  // lazy `skill` parent (used by adapter-commands / sediment-commands)
  // finds the existing `peaks skill` group registered by
