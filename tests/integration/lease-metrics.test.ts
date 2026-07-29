@@ -180,3 +180,101 @@ describe('peaks lease-metrics (Part 4.B)', () => {
     expect(env.data.leaseEvents).toBe(0);
   });
 });
+
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 5.B — rate + cross-session.
+ */
+interface RateEnvelope {
+  readonly ok: true;
+  readonly data: {
+    readonly mode: 'single-session' | 'all-sessions';
+    readonly rate?: {
+      readonly totalSpawn: number;
+      readonly totalTerminal: number;
+      readonly estimatedActive: number;
+      readonly estimatedLeaked: number;
+      readonly completedLifetimes: number;
+      readonly avgLifetimeMs: number | null;
+      readonly p99LifetimeMs: number | null;
+    };
+  };
+}
+
+describe('peaks lease-metrics --rate (Part 5.B)', () => {
+  test('full lifecycle (spawn+renew+release+gc) → estimatedActive=0, estimatedLeaked=0, lifetime paired', () => {
+    const project = initRepo();
+    const sessionId = '2026-07-29-p5b-rate-clean';
+    const rid = 'rid-2026-07-29-p5b-clean';
+
+    // spawn → renew → release → gc
+    const spawn = runCli(['worktree', 'spawn', '--rid', rid, '--role', 'rd', '--purpose', 'p5b', '--session', sessionId, '--project', project, '--json'], project);
+    expect(spawn.code).toBe(0);
+    const lid = (JSON.parse(spawn.stdout) as { data: { lease: { leaseId: string } } }).data.lease.leaseId;
+    expect(runCli(['worktree', 'renew', '--lease-id', lid, '--ttl', '60000', '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
+    expect(runCli(['worktree', 'release', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
+    expect(runCli(['worktree', 'gc', '--lease-id', lid, '--session', sessionId, '--project', project, '--json'], project).code).toBe(0);
+
+    const rate = runCli(['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'], project);
+    expect(rate.code).toBe(0);
+    const env = JSON.parse(rate.stdout) as RateEnvelope;
+    expect(env.data.rate).toBeDefined();
+    expect(env.data.rate?.totalSpawn).toBe(1);
+    // release + gc + autoRelease all count as terminal; we have 1 release + 1 gc
+    expect(env.data.rate?.totalTerminal).toBe(2);
+    expect(env.data.rate?.estimatedActive).toBe(0);
+    expect(env.data.rate?.estimatedLeaked).toBe(0);
+    // Lifetime: 1 completed lease, lifetime = release - spawn. The
+    // aggregator pairs first-spawn with first-terminal (release
+    // wins over gc), so completedLifetimes=1 with a non-null
+    // avg / p99.
+    expect(env.data.rate?.completedLifetimes).toBe(1);
+    expect(env.data.rate?.avgLifetimeMs).not.toBeNull();
+    expect(env.data.rate?.p99LifetimeMs).not.toBeNull();
+  });
+
+  test('only spawn (no release) → estimatedLeaked >= 1', () => {
+    const project = initRepo();
+    const sessionId = '2026-07-29-p5b-rate-leaked';
+    const spawn = runCli(['worktree', 'spawn', '--rid', 'rid-leak', '--role', 'rd', '--purpose', 'p5b-leak', '--session', sessionId, '--project', project, '--json'], project);
+    expect(spawn.code).toBe(0);
+    // (intentionally do NOT release or gc)
+    const rate = runCli(['lease-metrics', '--rate', '--session', sessionId, '--project', project, '--json'], project);
+    expect(rate.code).toBe(0);
+    const env = JSON.parse(rate.stdout) as RateEnvelope;
+    expect(env.data.rate?.totalSpawn).toBe(1);
+    expect(env.data.rate?.totalTerminal).toBe(0);
+    expect(env.data.rate?.estimatedActive).toBe(1);
+    expect(env.data.rate?.estimatedLeaked).toBe(1);
+    expect(env.data.rate?.completedLifetimes).toBe(0);
+    expect(env.data.rate?.avgLifetimeMs).toBeNull();
+    expect(env.data.rate?.p99LifetimeMs).toBeNull();
+  });
+});
+
+describe('peaks lease-metrics --all-sessions (Part 5.B)', () => {
+  test('aggregates across two sessions in the same project root', () => {
+    const project = initRepo();
+    const sidA = '2026-07-29-p5b-multi-A';
+    const sidB = '2026-07-29-p5b-multi-B';
+    // session A: 1 spawn + 1 release
+    const spawnA = runCli(['worktree', 'spawn', '--rid', 'rid-A', '--role', 'rd', '--purpose', 'A', '--session', sidA, '--project', project, '--json'], project);
+    expect(spawnA.code).toBe(0);
+    const lidA = (JSON.parse(spawnA.stdout) as { data: { lease: { leaseId: string } } }).data.lease.leaseId;
+    expect(runCli(['worktree', 'release', '--lease-id', lidA, '--session', sidA, '--project', project, '--json'], project).code).toBe(0);
+    // session B: 1 spawn only (a leak)
+    const spawnB = runCli(['worktree', 'spawn', '--rid', 'rid-B', '--role', 'qa', '--purpose', 'B', '--session', sidB, '--project', project, '--json'], project);
+    expect(spawnB.code).toBe(0);
+    // query cross-session with --rate
+    const cross = runCli(['lease-metrics', '--all-sessions', '--rate', '--project', project, '--json'], project);
+    expect(cross.code).toBe(0);
+    const env = JSON.parse(cross.stdout) as RateEnvelope & { data: { sessionCount: number; sessions: ReadonlyArray<{ sessionId: string; leaseEvents: number }> } };
+    expect(env.data.mode).toBe('all-sessions');
+    expect(env.data.sessionCount).toBe(2);
+    const sids = env.data.sessions.map((s) => s.sessionId).sort();
+    expect(sids).toEqual([sidA, sidB].sort());
+    expect(env.data.rate?.totalSpawn).toBe(2);
+    expect(env.data.rate?.totalTerminal).toBe(1);
+    expect(env.data.rate?.estimatedActive).toBe(1);
+    expect(env.data.rate?.estimatedLeaked).toBe(1);
+  });
+});
