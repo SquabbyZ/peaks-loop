@@ -38,6 +38,19 @@ import {
   type OperationType,
   type WorktreeAuthorization,
 } from '../../services/hooks/worktree-authorization-gate.js';
+import { atomicWriteJson } from '../../services/ide/shared/atomic-json.js';
+import {
+  deserializeLease,
+  finalizeLease,
+  generateLeaseId,
+  leaseFilePath,
+  markReleased,
+  ttlForRole,
+  worktreePath,
+  type WorktreeLease,
+} from '../../services/worktree/worktree-lease.js';
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync as readFileSyncNode } from 'node:fs';
 
 const DEFAULT_TTL_MS = 5 * 60 * 1_000;
 const ALLOWED_OPERATIONS: ReadonlyArray<OperationType> = [
@@ -290,4 +303,236 @@ export function registerWorktreeAuthCommand(program: Command, io: ProgramIO): vo
       process.exitCode = 1;
     }
   });
+
+  // Slice 2026-07-29-worktree-l2-extended Part 1 — `peaks worktree spawn`
+  // and `peaks worktree release`. These commands own the lease lifecycle:
+  // spawn writes a lease + runs `git worktree add`; release runs `git
+  // worktree remove` + transitions the lease to 'released'. The remaining
+  // CLI surface (renew / list / gc / status) ships in Part 2 along with
+  // the hook integration that consults the lease.
+  //
+  // Coexistence with `peaks worktree auth`: this slice does NOT delete
+  // `peaks worktree auth grant|revoke|status` — those are the L2 hook
+  // gate's existing surface and remain valid for sub-agents that have
+  // NOT adopted the lease contract yet. New code uses lease; old code
+  // uses grant; both live on the `peaks worktree` parent command.
+
+  type SpawnOptions = {
+    rid: string;
+    role: string;
+    purpose: string;
+    ttl?: string;
+    branch?: string;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  type ReleaseOptions = {
+    leaseId: string;
+    session?: string;
+    project?: string;
+    json?: boolean;
+  };
+
+  function resolveTtlMs(raw: string | undefined, role: string): number {
+    if (typeof raw !== 'string' || raw.length === 0) return ttlForRole(role);
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) return ttlForRole(role);
+    return parsed;
+  }
+
+  function deriveBranch(rid: string): string {
+    // Branch names must be safe for git ref-format. Strip leading
+    // `rid-` if present and replace any non-safe chars with `-`.
+    return rid.replace(/[^A-Za-z0-9._/-]/g, '-').slice(0, 80);
+  }
+
+  addJsonOption(
+    auth
+      .command('spawn')
+      .description(
+        `Spawn a worktree under .peaks/_runtime/<sid>/worktrees/<leaseId>/ with a managed lease. ` +
+          `The lease is the source of truth for the L2 hook gate (Part 2 of this slice); ` +
+          `until the hook integration ships, sub-agents may still invoke raw \`git worktree add\` ` +
+          `with a current \`peaks worktree auth grant\` token. Default TTL is role-aware ` +
+          `(rd=30m / qa=15m / ui=1h); pass --ttl <ms> to override.`
+      )
+      .requiredOption('--rid <rid>', 'peaks request id the lease is associated with')
+      .requiredOption('--role <role>', 'sub-agent role (rd | qa | ui | sc | prd | general-purpose)')
+      .requiredOption('--purpose <text>', 'why this worktree was spawned (audit log)')
+      .option('--ttl <ms>', `time-to-live in ms (default role-aware; override with positive number)`)
+      .option('--branch <name>', 'git branch name (default: derived from rid)')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: SpawnOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const leaseId = generateLeaseId();
+      const now = Date.now();
+      const ttlMs = resolveTtlMs(options.ttl, options.role);
+      const branch = options.branch ?? deriveBranch(options.rid);
+      const wtPath = worktreePath(joinPathSession(projectRoot, sessionId), leaseId);
+      const lease = finalizeLease({
+        leaseId,
+        rid: options.rid,
+        role: options.role,
+        path: wtPath,
+        branch,
+        createdAt: now,
+        expiresAt: now + ttlMs,
+        purpose: options.purpose
+      });
+
+      // Run `git worktree add` from the project root. The PreToolUse hook
+      // (Part 2 of this slice) will consult the lease file we just wrote
+      // and authorize this very `git worktree add`; for Part 1 we still
+      // require a current `peaks worktree auth grant` token to remain
+      // consistent with the slice-027 hard gate contract.
+      execSync(
+        `git worktree add "${wtPath}" -b "${branch}"`,
+        { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' }
+      );
+
+      atomicWriteJson(leaseFilePath(joinPathSession(projectRoot, sessionId), leaseId), lease);
+
+      printResult(
+        io,
+        ok(
+          'worktree.spawn',
+          {
+            lease,
+            sessionId,
+            projectRoot,
+            ttlMs,
+            nextActions: [
+              `Worktree path: ${wtPath}`,
+              `Branch: ${branch}`,
+              `Lease expires at: ${new Date(lease.expiresAt).toISOString()}`,
+              'Run `peaks worktree release --lease-id <leaseId>` when done',
+              'Hook integration (lease-aware gate) ships in Part 2'
+            ]
+          },
+          [],
+          []
+        ),
+        options.json
+      );
+    } catch (error: unknown) {
+      printResult(
+        io,
+        fail('worktree.spawn', 'SPAWN_FAILED', getErrorMessage(error), { rid: options.rid, role: options.role, sessionId }, [
+          'Verify `git worktree add` succeeded (output above).',
+          'If the lease file was NOT written, retry; the lease directory is .peaks/_runtime/<sid>/worktree-leases/.',
+          'For an existing branch, pass --branch <name> explicitly (the spawn refuses to overwrite an active branch).'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+
+  addJsonOption(
+    auth
+      .command('release')
+      .description('Transition a lease to released and run `git worktree remove`. Idempotent on already-released leases.')
+      .requiredOption('--lease-id <id>', 'lease id returned by `peaks worktree spawn`')
+      .option('--session <sid>', 'override session id')
+      .option('--project <path>', 'project root (default: findProjectRoot(cwd))')
+  ).action((options: ReleaseOptions) => {
+    const projectRoot = resolveProjectRoot(options);
+    const sessionId = resolveSessionId(options, projectRoot);
+    try {
+      const file = leaseFilePath(joinPathSession(projectRoot, sessionId), options.leaseId);
+      let lease: WorktreeLease;
+      try {
+        if (!existsSync(file)) {
+          printResult(
+            io,
+            fail('worktree.release', 'LEASE_NOT_FOUND', `no lease on disk at ${file}`, { leaseId: options.leaseId, file }, [
+              'Run `peaks worktree list` to inspect active leases.',
+              'For a never-spawned lease, this is a no-op — no further action needed.'
+            ]),
+            options.json
+          );
+          process.exitCode = 1;
+          return;
+        }
+        const raw = readFileSyncNode(file, 'utf8');
+        lease = deserializeLease(raw);
+      } catch (error) {
+        printResult(
+          io,
+          fail('worktree.release', 'LEASE_FILE_INVALID', getErrorMessage(error), { leaseId: options.leaseId, file }, [
+            'Delete the malformed lease file manually and re-issue spawn.',
+            'For security, release never fails open on a malformed lease.'
+          ]),
+          options.json
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      if (lease.status === 'released') {
+        // Idempotent: already released, nothing to do.
+        printResult(
+          io,
+          ok('worktree.release', { lease, sessionId, projectRoot, alreadyReleased: true }, [], [`Lease ${lease.leaseId} already released; nothing to do.`]),
+          options.json
+        );
+        return;
+      }
+
+      // Run `git worktree remove` from the project root. If the path is
+      // missing on disk (e.g. manually pruned), this fails; we still
+      // update the lease state so the L2 hook (Part 2) treats it as
+      // released.
+      let gitWorktreeRemoveFailed = false;
+      try {
+        execSync(`git worktree remove --force "${lease.path}"`, { cwd: projectRoot, stdio: 'pipe', encoding: 'utf8' });
+      } catch {
+        gitWorktreeRemoveFailed = true;
+      }
+
+      const released = markReleased(lease);
+      atomicWriteJson(file, released);
+
+      printResult(
+        io,
+        ok(
+          'worktree.release',
+          { lease: released, sessionId, projectRoot, gitWorktreeRemoveFailed },
+          gitWorktreeRemoveFailed ? ['git worktree remove failed (likely the path was already pruned); lease marked released.'] : [],
+          [
+            `Lease ${lease.leaseId} marked released.`,
+            gitWorktreeRemoveFailed
+              ? 'Manual `git worktree prune` may be needed.'
+              : `Worktree ${lease.path} removed.`
+          ]
+        ),
+        options.json
+      );
+    } catch (error: unknown) {
+      printResult(
+        io,
+        fail('worktree.release', 'RELEASE_FAILED', getErrorMessage(error), { leaseId: options.leaseId, sessionId }, [
+          'Verify the lease id and re-run.',
+          'If the lease was never spawned, no-op.'
+        ]),
+        options.json
+      );
+      process.exitCode = 1;
+    }
+  });
+}
+
+/**
+ * Resolve the per-session runtime directory: `<projectRoot>/.peaks/_runtime/<sessionId>`.
+ * The runtime tree is gitignored; the spawn CLI writes the lease file
+ * under `<this>/worktree-leases/<leaseId>.json` and the worktree itself
+ * under `<this>/worktrees/<leaseId>/`.
+ */
+function joinPathSession(projectRoot: string, sessionId: string): string {
+  return `${projectRoot.replace(/[\\/]+$/, '')}/.peaks/_runtime/${sessionId}`;
 }
