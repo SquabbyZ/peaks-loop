@@ -238,7 +238,7 @@ const SKILL_PRESENCE_MANDATORY: RedLineCatalogEntry = {
   id: 'rl-skill-presence-mandatory-001',
   rule: 'peaks-* bee SKILL.md must declare `## Skill presence (MANDATORY first action)` heading + body',
   markers: ['MANDATORY'],
-  phrases: ['skill presence (mandatory first action)', 'immediately run:'],
+  phrases: ['skill presence (mandatory first action)', 'skill presence ( first action', 'immediately run:'],
   enforcerRef: 'src/services/audit/enforcers/lint-skill-presence-mandatory.ts',
 };
 
