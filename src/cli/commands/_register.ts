@@ -28,7 +28,7 @@ import { registerForkCommands } from './fork-commands.js';
 import { registerGateCommands } from './gate-commands.js';
 import { registerClassifyCommands, registerContractCommands } from './governance-classify-contract-commands.js';
 import { registerHookHandleCommand } from './hook-handle.js';
-import { registerHeartbeatCommands } from './heartbeat-commands.js';
+import { registerHeartbeatCommand as registerHeartbeatCommands } from './heartbeat-commands.js';
 import { registerHooksCommands } from './hooks-commands.js';
 import { registerIdeCommands } from './ide-commands.js';
 import { registerImpactCommands } from './impact-commands.js';

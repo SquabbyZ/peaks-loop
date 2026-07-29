@@ -9,7 +9,7 @@
  *
  * Per-IDE contract: given a sub-agent role + prompt + request/session ids,
  * return a tool-call descriptor that the calling LLM should execute in
- * its native environment. The CLI is IDE-agnostic; per-IDE tool names
+ * its own environment. The CLI is IDE-agnostic; per-IDE tool names
  * (Claude Code's `Task`, Trae's UNVERIFIED placeholder) are encapsulated
  * here, never leaked to SKILL.md.
  *
@@ -27,6 +27,13 @@
  * Cross-reference: PRD #002 G1 (AC-1..AC-5); RD tech-doc-002 §2.
  */
 import { existsSync, readFileSync } from 'node:fs';
+// Slice 2026-07-29-dispatch-stall-governance / S4 — the two near-
+// identical poll loops in this file are now thin wrappers around
+// `awaitBatch` (the unified implementation in ./await-batch.ts). The
+// back-compat envelopes are preserved so the pre-S4 S3 character-
+// ization tests + the existing call sites do not have to migrate in
+// the same slice.
+import { awaitBatch as awaitBatchUnified } from './await-batch.js';
 
 /**
  * Role string namespace. Soft whitelist — the CLI does NOT hard-validate
@@ -367,52 +374,23 @@ const claudeCodeBatchAwaiters = new Map<string, Promise<readonly SubAgentBatchRe
 export async function awaitClaudeCodeBatch(
  input: SubAgentAwaitBatchInput
 ): Promise<readonly SubAgentBatchResult[]> {
- const { batchId, dispatchCount, recordPaths, timeoutMs } = input;
- if (dispatchCount <= 0 || recordPaths.length === 0) {
- return [];
- }
- const startedAt = Date.now();
- const pollIntervalMs = 50;
- const deadline = timeoutMs ?? 60_000;
- const capped = Math.min(deadline, 120_000);
-
- // MVP: race the deadline against a simple polling loop. Real per-IDE
- // implementations land in slice 1.3.
- const results: SubAgentBatchResult[] = [];
- const remaining = new Map<number, { recordPath: string; status: SubAgentBatchResult['status']; note: string | null; finishedAt: number | null }>();
- for (let i = 0; i < recordPaths.length; i += 1) {
- const recordPath = recordPaths[i] ?? '';
- remaining.set(i, { recordPath, status: 'timeout', note: null, finishedAt: null });
- }
-
- while (remaining.size > 0 && Date.now() - startedAt < capped) {
- for (const [idx, slot] of remaining) {
- if (slot.finishedAt !== null) continue;
- const outcome = readDispatchOutcome(slot.recordPath);
- if (outcome === null) continue;
- slot.status = outcome.status;
- slot.note = outcome.note;
- slot.finishedAt = Date.now();
- }
- if (Array.from(remaining.values()).every((s) => s.finishedAt !== null)) break;
- await new Promise((r) => setTimeout(r, pollIntervalMs));
- }
-
- for (const [idx, slot] of remaining) {
- const finishedAt = slot.finishedAt ?? startedAt + capped;
- results.push({
- dispatchIndex: idx,
- recordPath: slot.recordPath,
- status: slot.status,
- durationMs: finishedAt - startedAt,
- note: slot.note
- });
- }
- results.sort((a, b) => a.dispatchIndex - b.dispatchIndex);
- // Touch batchId so the parameter is "used" — keeps the linter happy when
- // the in-process queue (claudeCodeBatchAwaiters) is later wired up.
- void batchId;
- return results;
+ // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
+ // function is now a thin wrapper around the unified `awaitBatch`
+ // service. The back-compat envelope shape is preserved (one
+ // `SubAgentBatchResult` per record path) so the S3 characterization
+ // test stays green; the underlying loop is identical to the trae /
+ // trae-cn / codex / cursor wrappers below. The new typed outcome
+ // lives on the unified service; the S4 fail-fast test pins it.
+ const unified = await awaitBatchUnified(
+ input.dispatchCount,
+ input.recordPaths,
+ input.timeoutMs,
+ { defaultTimeoutMs: 60_000, notePrefix: 'claude-code awaitBatch' }
+ );
+ // Touch batchId so the parameter remains in scope for any future
+ // in-process queue wiring.
+ void input.batchId;
+ return unified.results;
 }
 
 /** Best-effort outcome read for a dispatch record. Returns null if pending. */
@@ -460,48 +438,23 @@ export async function pollDispatchRecords(
  input: SubAgentAwaitBatchInput,
  opts: PollDispatchRecordsOptions
 ): Promise<readonly SubAgentBatchResult[]> {
- const { dispatchCount, recordPaths, timeoutMs } = input;
- if (dispatchCount <= 0 || recordPaths.length === 0) {
- return [];
+ // Slice 2026-07-29-dispatch-stall-governance / S4 (G8) — this
+ // function is now a thin wrapper around the unified `awaitBatch`
+ // service. Pre-S4 it diverged from `awaitClaudeCodeBatch` in
+ // (a) the default-fallback source and (b) the `Math.max(deadline, 0)`
+ // step; the divergence is gone. The back-compat envelope (one
+ // `SubAgentBatchResult` per record path, with the IDE-prefixed
+ // note) is preserved.
+ const unified = await awaitBatchUnified(
+ input.dispatchCount,
+ input.recordPaths,
+ input.timeoutMs,
+ {
+ defaultTimeoutMs: opts.defaultTimeoutMs,
+ notePrefix: opts.notePrefix
  }
- const startedAt = Date.now();
- const pollIntervalMs = 50;
- const deadline = timeoutMs ?? opts.defaultTimeoutMs;
- const capped = Math.min(Math.max(deadline, 0), 120_000);
-
- const results: SubAgentBatchResult[] = [];
- const remaining = new Map<number, { recordPath: string; status: SubAgentBatchResult['status']; note: string | null; finishedAt: number | null }>();
- for (let i = 0; i < recordPaths.length; i += 1) {
- const recordPath = recordPaths[i] ?? '';
- remaining.set(i, { recordPath, status: 'timeout', note: null, finishedAt: null });
- }
-
- while (remaining.size > 0 && Date.now() - startedAt < capped) {
- for (const [idx, slot] of remaining) {
- if (slot.finishedAt !== null) continue;
- const outcome = readDispatchOutcome(slot.recordPath);
- if (outcome === null) continue;
- slot.status = outcome.status;
- slot.note = outcome.note;
- slot.finishedAt = Date.now();
- }
- if (Array.from(remaining.values()).every((s) => s.finishedAt !== null)) break;
- await new Promise((r) => setTimeout(r, pollIntervalMs));
- }
-
- for (const [idx, slot] of remaining) {
- const finishedAt = slot.finishedAt ?? startedAt + capped;
- const baseNote = slot.status === 'timeout' ? `${opts.notePrefix} (timeout)` : opts.notePrefix;
- results.push({
- dispatchIndex: idx,
- recordPath: slot.recordPath,
- status: slot.status,
- durationMs: finishedAt - startedAt,
- note: slot.note !== null ? `${baseNote} — ${slot.note}` : baseNote
- });
- }
- results.sort((a, b) => a.dispatchIndex - b.dispatchIndex);
- return results;
+ );
+ return unified.results;
 }
 
 /**
@@ -537,97 +490,5 @@ export function registerClaudeCodeAwaiter(batchId: string, awaiter: Promise<read
  if (claudeCodeBatchAwaiters.size > 32) {
  const oldest = claudeCodeBatchAwaiters.keys().next().value;
  if (oldest !== undefined) claudeCodeBatchAwaiters.delete(oldest);
- }
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
- * Slice 2026-07-28 — DAG wave barrier acceptance (rid-029 E direction).
- *
- * Adds the type-level acceptance for wave-based dispatch. The CLI surface
- * consumes `Wave[]` + `priorArtifacts` via `dispatchFromWaves`, which is
- * the per-IDE wrapper around `awaitBatch` that the wave planner drives.
- *
- * Backward-compat: ALL existing exports are unchanged. The new types +
- * `dispatchFromWaves` helper are purely additive.
- * ────────────────────────────────────────────────────────────────────────── */
-
-export type SliceId = string;
-
-export interface DispatchFromWavesInput {
- readonly ide: SubAgentDispatcher['label'];
- readonly role: SubAgentRole;
- readonly promptBuilder: (sliceId: SliceId) => { prompt: string };
- readonly requestId: string;
- readonly sessionId: string;
- readonly batchId: string;
- readonly waves: readonly { readonly waveIndex: number; readonly slices: readonly SliceId[] }[];
- readonly priorArtifacts?: readonly unknown[];
- readonly timeoutMs?: number;
-}
-
-export interface DispatchFromWavesResult {
- readonly waveCount: number;
- readonly dispatchCount: number;
- readonly results: readonly SubAgentBatchResult[];
-}
-
-/**
- * Slice 2026-07-28 — Wave-aware dispatch helper. Iterates `waves` in
- * `waveIndex` order; for each wave, dispatches every slice and awaits
- * the join barrier before moving to the next wave.
- */
-export async function dispatchFromWaves(
- input: DispatchFromWavesInput
-): Promise<DispatchFromWavesResult> {
- const dispatcher = pickDispatcher(input.ide);
- const results: SubAgentBatchResult[] = [];
- if (input.waves.length === 0) {
- return { waveCount: 0, dispatchCount: 0, results };
- }
- let cumulativeIdx = 0;
- for (const wave of input.waves) {
- for (const sliceId of wave.slices) {
- dispatcher.buildToolCall({
- role: input.role,
- prompt: input.promptBuilder(sliceId).prompt,
- requestId: input.requestId,
- sessionId: input.sessionId
- });
- }
- const recordPaths: string[] = wave.slices.map(() => '');
- if (dispatcher.awaitBatch) {
- const waveResults = await dispatcher.awaitBatch({
- batchId: input.batchId,
- dispatchCount: wave.slices.length,
- recordPaths,
- ...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {})
- });
- for (const r of waveResults) {
- results.push({ ...r, dispatchIndex: cumulativeIdx + r.dispatchIndex });
- }
- }
- cumulativeIdx += wave.slices.length;
- }
- return {
- waveCount: input.waves.length,
- dispatchCount: results.length,
- results
- };
-}
-
-function pickDispatcher(label: string): SubAgentDispatcher {
- switch (label) {
- case 'claude-code':
- return claudeCodeSubAgentDispatcher;
- case 'trae':
- return traeSubAgentDispatcher;
- case 'trae-cn':
- return traeCnSubAgentDispatcher;
- case 'codex':
- return codexSubAgentDispatcher;
- case 'cursor':
- return cursorSubAgentDispatcher;
- default:
- return nullSubAgentDispatcher;
  }
 }
