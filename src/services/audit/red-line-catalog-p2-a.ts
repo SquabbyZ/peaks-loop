@@ -290,6 +290,38 @@ const QA_RUNTIME_CONTRACT: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-qa-gateguard-and-runtime.ts',
 };
 
+const PEAKS_UI_SUPERPOWERS_CHAIN: RedLineCatalogEntry = {
+  id: 'rl-peaks-ui-superpowers-chain-001',
+  rule: 'peaks-ui SKILL.md must declare the superpowers chain refusal + reference-material contract',
+  markers: ['BLOCKING'],
+  phrases: ['MUST NOT follow the superpowers chain', 'superpowers skills remain available as reference material'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+};
+
+const PEAKS_UI_INVOLVEMENT: RedLineCatalogEntry = {
+  id: 'rl-peaks-ui-involvement-001',
+  rule: 'peaks-ui SKILL.md must declare the UI-involvement identification block',
+  markers: ['MANDATORY'],
+  phrases: ['identify ui involvement'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+};
+
+const PEAKS_TXT_UPSTREAM: RedLineCatalogEntry = {
+  id: 'rl-peaks-txt-upstream-001',
+  rule: 'peaks-txt SKILL.md must declare the upstream-inspection + memory-block contract',
+  markers: ['MANDATORY'],
+  phrases: ['inspect upstream skill content before applying any method', 'memory block embedding rule'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+};
+
+const PEAKS_PERF_AUDIT_SCOPE: RedLineCatalogEntry = {
+  id: 'rl-peaks-perf-audit-scope-001',
+  rule: 'peaks-perf-audit SKILL.md must declare the non-perf MUST NOT invoke clause',
+  markers: ['MUST NOT'],
+  phrases: ['MUST NOT invoke this skill', 'non-perf'],
+  enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -349,4 +381,11 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // transition gates + md-165 playwright + md-201 openspec).
   QA_GATEGUARD_PREFLIGHT,
   QA_RUNTIME_CONTRACT,
+  // Slice 2026-07-29-rid-prose-only-sweep-007: close six more
+  // discovered lines (3 peaks-ui + 2 peaks-txt + 1
+  // peaks-perf-audit) with four enforcers.
+  PEAKS_UI_SUPERPOWERS_CHAIN,
+  PEAKS_UI_INVOLVEMENT,
+  PEAKS_TXT_UPSTREAM,
+  PEAKS_PERF_AUDIT_SCOPE,
 ];
