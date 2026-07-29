@@ -322,6 +322,38 @@ const PEAKS_PERF_AUDIT_SCOPE: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-peaks-ui-sc-txt-runtime.ts',
 };
 
+const PEAKS_RD_RUNTIME_CONTRACT: RedLineCatalogEntry = {
+  id: 'rl-peaks-rd-runtime-contract-001',
+  rule: 'peaks-rd SKILL.md must declare the runtime contract (OpenSpec usage + Frontend project generation)',
+  markers: ['BLOCKING', 'MUST NOT'],
+  phrases: ['use openspec when the', 'rd work creates a frontend application'],
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+};
+
+const PEAKS_UI_TRANSITION_GATES: RedLineCatalogEntry = {
+  id: 'rl-peaks-ui-transition-gates-001',
+  rule: 'peaks-ui SKILL.md must declare the Transition verification gates section',
+  markers: ['MANDATORY'],
+  phrases: ['transition verification gates'],
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+};
+
+const PEAKS_SC_TRANSITION_GATES: RedLineCatalogEntry = {
+  id: 'rl-peaks-sc-transition-gates-001',
+  rule: 'peaks-sc SKILL.md must declare the Transition verification gates section',
+  markers: ['MANDATORY'],
+  phrases: ['transition verification gates'],
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+};
+
+const PEAKS_TXT_RUNTIME_CONTRACT: RedLineCatalogEntry = {
+  id: 'rl-peaks-txt-runtime-contract-001',
+  rule: 'peaks-txt SKILL.md must declare the runtime contract (Transition verification gates + Memory block embedding rule)',
+  markers: ['MANDATORY'],
+  phrases: ['transition verification gates', 'memory block embedding rule'],
+  enforcerRef: 'src/services/audit/enforcers/lint-bee-runtime-contract.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -388,4 +420,12 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_UI_INVOLVEMENT,
   PEAKS_TXT_UPSTREAM,
   PEAKS_PERF_AUDIT_SCOPE,
+  // Slice 2026-07-29-rid-prose-only-sweep-008: close six more
+  // discovered lines (2 peaks-rd + 1 peaks-sc + 1 peaks-txt +
+  // 1 peaks-ui + 1 peaks-ui) with four enforcers in
+  // lint-bee-runtime-contract.ts.
+  PEAKS_RD_RUNTIME_CONTRACT,
+  PEAKS_UI_TRANSITION_GATES,
+  PEAKS_SC_TRANSITION_GATES,
+  PEAKS_TXT_RUNTIME_CONTRACT,
 ];
