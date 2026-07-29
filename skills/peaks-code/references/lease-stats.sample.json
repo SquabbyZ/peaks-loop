@@ -1,0 +1,26 @@
+{
+  "ok": true,
+  "command": "lease.stats",
+  "data": {
+    "projectRoot": ".",
+    "sessionCount": 0,
+    "totalLeaseEvents": 0,
+    "rate": {
+      "totalSpawn": 0,
+      "totalTerminal": 0,
+      "estimatedActive": 0,
+      "estimatedLeaked": 0,
+      "completedLifetimes": 0,
+      "avgLifetimeMs": null,
+      "p99LifetimeMs": null
+    },
+    "perRid": [],
+    "perRole": [],
+    "perIsolation": []
+  },
+  "warnings": [],
+  "nextActions": [
+    "0 lease events across 0 session(s); 0 estimated active, 0 estimated leaked.",
+    "Pipe to `jq` or paste into a dashboard for visual rendering."
+  ]
+}

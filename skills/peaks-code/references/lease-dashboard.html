@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>peaks lease-stats dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --fg: #e6e6e6;
+    --muted: #9aa0a6;
+    --accent: #6cc4ff;
+    --ok: #6ee787;
+    --warn: #f0c674;
+    --err: #ff6b6b;
+    --card: #1a1d24;
+    --border: #2a2e36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+  }
+  header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  header h1 {
+    margin: 0 0 .25rem 0;
+    font-size: 1.1rem;
+    letter-spacing: .04em;
+  }
+  header .sub {
+    color: var(--muted);
+    font-size: .85rem;
+  }
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+    display: grid;
+    gap: 1.5rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+  }
+  .card h2 {
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: .35rem 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .stat:last-child { border-bottom: none; }
+  .stat .label { color: var(--muted); font-size: .9rem; }
+  .stat .value { font-size: 1.05rem; font-weight: 600; }
+  .stat .value.ok { color: var(--ok); }
+  .stat .value.warn { color: var(--warn); }
+  .stat .value.err { color: var(--err); }
+  .bar {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: .75rem;
+  }
+  .bar .fill { height: 100%; background: var(--accent); }
+  .bar .fill.warn { background: var(--warn); }
+  .bar .fill.err { background: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-style: italic; }
+  code { background: var(--bg); padding: 1px 6px; border-radius: 3px; font-size: .85em; }
+  .footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 2rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1>peaks lease-stats dashboard</h1>
+  <div class="sub">auto-refreshes every 30s. Source: <code>peaks lease-stats --json</code></div>
+</header>
+<main>
+  <section class="card" id="rates">
+    <h2>lease lifecycle (project-wide)</h2>
+    <div class="stat"><span class="label">leases spawned</span><span class="value" id="stat-spawn">—</span></div>
+    <div class="stat"><span class="label">leases released (manual)</span><span class="value" id="stat-release">—</span></div>
+    <div class="stat"><span class="label">leases auto-released</span><span class="value" id="stat-auto">—</span></div>
+    <div class="stat"><span class="label">leases gc'd</span><span class="value" id="stat-gc">—</span></div>
+    <div class="stat"><span class="label">auto-release failures</span><span class="value" id="stat-fail">—</span></div>
+  </section>
+
+  <section class="card" id="rate">
+    <h2>leak rate</h2>
+    <div class="stat"><span class="label">estimated active</span><span class="value" id="stat-active">—</span></div>
+    <div class="stat"><span class="label">estimated leaked</span><span class="value" id="stat-leaked">—</span></div>
+    <div class="bar"><div class="fill" id="bar-leaked"></div></div>
+    <div class="stat" id="row-lifetimes" style="display:none"><span class="label">avg lease lifetime</span><span class="value" id="stat-avglife">—</span></div>
+    <div class="stat" id="row-p99" style="display:none"><span class="label">p99 lease lifetime</span><span class="value" id="stat-p99">—</span></div>
+  </section>
+
+  <section class="card" id="rid-table">
+    <h2>top rids (by event count)</h2>
+    <table>
+      <thead><tr><th>rid</th><th class="num">events</th></tr></thead>
+      <tbody id="rid-body"><tr><td colspan="2" class="empty">no events recorded</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="role-table">
+    <h2>by role</h2>
+    <table>
+      <thead><tr><th>role</th><th class="num">events</th></tr></thead>
+      <tbody id="role-body"><tr><td colspan="2" class="empty">no events recorded</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="card" id="iso-table">
+    <h2>by isolation mode</h2>
+    <table>
+      <thead><tr><th>isolation</th><th class="num">events</th></tr></thead>
+      <tbody id="iso-body"><tr><td colspan="2" class="empty">no events recorded</td></tr></tbody>
+    </table>
+  </section>
+</main>
+<div class="footer">part 26 — open <code>lease-dashboard.html</code> in a browser served by a static file server</div>
+<script>
+  // Part 26 dashboard. Fetches the live peaks lease-stats
+  // envelope every 30s and re-renders the cards. The endpoint
+  // is a sibling field to `node bin/peaks.js audit red-lines`
+  // — any project root that has a populated .peaks/observability
+  // stream will render correctly.
+  //
+  // Use: serve this file via `python3 -m http.server 8080` and
+  // configure the peaks CLI to expose a JSON endpoint on the
+  // same port. (The simplest local setup is a tiny shell script
+  // that wraps `peaks lease-stats --project . --json | jq .`.)
+  async function refresh() {
+    try {
+      const res = await fetch('./lease-stats.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const env = await res.json();
+      render(env.data);
+    } catch (err) {
+      // Render a soft error: the page stays useful as a static
+      // reference even when the JSON endpoint is down.
+      document.getElementById('stat-spawn').textContent = 'err: ' + err.message;
+    }
+  }
+  function render(d) {
+    if (!d) return;
+    const c = d.counts || {};
+    document.getElementById('stat-spawn').textContent = c.spawn ?? '—';
+    document.getElementById('stat-release').textContent = c.release ?? '—';
+    document.getElementById('stat-auto').textContent = c.autoRelease ?? '—';
+    document.getElementById('stat-gc').textContent = c.gc ?? '—';
+    document.getElementById('stat-fail').textContent = c['autoRelease-failed'] ?? '—';
+    if (d.rate) {
+      const active = d.rate.estimatedActive ?? 0;
+      const leaked = d.rate.estimatedLeaked ?? 0;
+      const denom = Math.max(active, 1);
+      const pct = Math.round((leaked / denom) * 100);
+      const cls = leaked === 0 ? 'ok' : (pct < 10 ? 'warn' : 'err');
+      const aEl = document.getElementById('stat-active');
+      const lEl = document.getElementById('stat-leaked');
+      aEl.textContent = active;
+      aEl.className = 'value ' + cls;
+      lEl.textContent = leaked + ' (' + pct + '%)';
+      lEl.className = 'value ' + cls;
+      const bar = document.getElementById('bar-leaked');
+      bar.style.width = pct + '%';
+      bar.className = 'fill ' + cls;
+      if (d.rate.avgLifetimeMs !== null && d.rate.avgLifetimeMs !== undefined) {
+        document.getElementById('row-lifetimes').style.display = 'flex';
+        document.getElementById('stat-avglife').textContent = formatMs(d.rate.avgLifetimeMs);
+      }
+      if (d.rate.p99LifetimeMs !== null && d.rate.p99LifetimeMs !== undefined) {
+        document.getElementById('row-p99').style.display = 'flex';
+        document.getElementById('stat-p99').textContent = formatMs(d.rate.p99LifetimeMs);
+      }
+    }
+    fillTable('rid-body', d.perRid || [], (r) => [r.rid, r.count]);
+    fillTable('role-body', d.perRole || [], (r) => [r.role, r.count]);
+    fillTable('iso-body', d.perIsolation || [], (r) => [r.isolation, r.count]);
+  }
+  function fillTable(id, rows, mapper) {
+    const body = document.getElementById(id);
+    if (rows.length === 0) {
+      body.innerHTML = '<tr><td colspan="2" class="empty">no events recorded</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map((r) => {
+      const [a, b] = mapper(r);
+      return '<tr><td>' + escape(a) + '</td><td class="num">' + b + '</td></tr>';
+    }).join('');
+  }
+  function escape(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function formatMs(ms) {
+    if (ms < 1000) return ms + 'ms';
+    if (ms < 60_000) return (ms / 1000).toFixed(1) + 's';
+    if (ms < 3_600_000) return (ms / 60_000).toFixed(1) + 'm';
+    return (ms / 3_600_000).toFixed(1) + 'h';
+  }
+  refresh();
+  setInterval(refresh, 30_000);
+</script>
+</body>
+</html>
