@@ -234,6 +234,14 @@ const CATALOG_PROSE_ONLY_RATIO: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-catalog-governance.ts',
 };
 
+const SKILL_PRESENCE_MANDATORY: RedLineCatalogEntry = {
+  id: 'rl-skill-presence-mandatory-001',
+  rule: 'peaks-* bee SKILL.md must declare `## Skill presence (MANDATORY first action)` heading + body',
+  markers: ['MANDATORY'],
+  phrases: ['skill presence (mandatory first action)', 'immediately run:'],
+  enforcerRef: 'src/services/audit/enforcers/lint-skill-presence-mandatory.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -267,4 +275,10 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   PEAKS_DOCTOR_SKILL_ACKNOWLEDGED,
   CATALOG_TOTAL_LE_45,
   CATALOG_PROSE_ONLY_RATIO,
+  // Slice 2026-07-29-rid-prose-only-sweep-001: close the first
+  // discovered prose-only line. peaks-prd-skill-md-56 was a
+  // "MANDATORY first action" marker on a "Skill presence" heading
+  // in skills/bee/* SKILL.md. The MANDATORY marker + the heading
+  // are now enforced by lint-skill-presence-mandatory.ts.
+  SKILL_PRESENCE_MANDATORY,
 ];
