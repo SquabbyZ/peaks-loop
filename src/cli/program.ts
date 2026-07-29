@@ -14,6 +14,7 @@ import { registerSubAgentCommands } from './commands/sub-agent-commands.js';
 import { registerLeaseMetricsCommand } from './commands/lease-metrics-commands.js';
 import { registerLeaseStatsCommand } from './commands/lease-stats-commands.js';
 import { registerContainerCommand } from './commands/container-commands.js';
+import { registerVmCommand } from './commands/vm-commands.js';
 import { registerCronCommand } from './commands/cron-commands.js';
 import { registerCronSchedulerCommand } from './commands/cron-scheduler-commands.js';
 import { registerWorkspaceCommands } from './commands/workspace-commands.js';
@@ -209,6 +210,7 @@ Run peaks (no arguments) for a quickstart. You likely want one of:
  registerLeaseMetricsCommand(program, io);
  registerLeaseStatsCommand(program, io);
  registerContainerCommand(program, io);
+ registerVmCommand(program, io);
  registerCronCommand(program, io);
  registerCronSchedulerCommand(program, io);
  // Auto-route the remaining 60+ commands after the orchestrators so the
