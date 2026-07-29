@@ -108,6 +108,18 @@ export interface DispatchRecord {
   // empty string, so the watch surface can distinguish "no stage
   // ever emitted" from "stage: ''").
   readonly stage: string | null;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 3.A: the worktree
+   * lease id stamped on this dispatch (via `peaks sub-agent dispatch
+   * --isolation worktree`). The release hook (see markCompleted +
+   * `peaks sub-agent heartbeat --status done`) reads this field to
+   * auto-call `peaks worktree release` when the sub-agent
+   * finalizes. `null` means the dispatch did not request isolation
+   * and no release will fire. Persisted for audit + idempotency so
+   * a re-read of an old record still surfaces the lease id even if
+   * the on-disk lease file has since been gc'd.
+   */
+  readonly leaseId: string | null;
 }
 
 /** Input for the initial write. */
@@ -121,6 +133,15 @@ export type WriteInitialDispatchInput = {
   batchId: string;
   /** Override the timestamp (testing). */
   now?: () => Date;
+  /**
+   * Slice 2026-07-29-worktree-l2-extended Part 3.A: the worktree
+   * lease id this dispatch owns (set by `peaks sub-agent dispatch
+   * --isolation worktree`). Persisted so the finalize-time release
+   * hook in `markCompleted` can fire even after the dispatch
+   * process exits. Optional; absent when the dispatch did not
+   * request isolation.
+   */
+  leaseId?: string | null;
 };
 
 /** Heartbeat write input. */
@@ -194,7 +215,17 @@ export function writeInitialDispatchRecord(input: WriteInitialDispatchInput): {
     // Slice 2026-07-29-dispatch-stall-governance / S5 (AC-5.1) — new
     // records start with `stage: null`; the sub-agent promotes it
     // through `setStage` / the heartbeat CLI's `--stage` flag.
-    stage: null
+    stage: null,
+    // Slice 2026-07-29-worktree-l2-extended Part 3.A: when the
+    // dispatch was issued with --isolation worktree, persist the
+    // lease id so the finalize-time release hook in markCompleted
+    // can fire. Validation is the same 16-hex regex the gate uses
+    // (gate-commands.ts), so an attacker-controlled toolCall.env
+    // cannot inject a non-hex value and get the release path to
+    // misfire.
+    leaseId: typeof input.leaseId === 'string' && /^[a-f0-9]{16}$/.test(input.leaseId)
+      ? input.leaseId
+      : null
   };
 
   writeAtomic(safePath, record);
@@ -461,6 +492,79 @@ function mapStatusToAggregate(latest: HeartbeatStatus, current: DispatchRecordSt
   return latest;
 }
 
+/**
+ * Slice 2026-07-29-worktree-l2-extended Part 3.A: fire-and-forget
+ * auto-release for the lease owned by a dispatch. Called from
+ * `markCompleted` (terminal status) and from the heartbeat CLI
+ * (`--status done`).
+ *
+ * Design:
+ * - The release subprocess is spawned ASYNC and detached. The
+ *   finalize-time caller (heartbeat / share / dispatch reducer)
+ *   does NOT await it; the caller's job is to record the
+ *   finalization, not to wait for the lease cleanup.
+ * - Failures are swallowed (best-effort, same as `git worktree
+ *   remove` inside `peaks worktree release` itself). The next
+ *   `peaks worktree gc` pass is the safety net.
+ * - Idempotent: re-calling with the same leaseId is a no-op on
+ *   the release side (the CLI refuses to re-release an already-
+ *   released lease; see Part 1 release command).
+ * - The leaseId MUST be 16-hex (same regex the gate uses). Any
+ *   other value is silently ignored — we never shell out to
+ *   `peaks worktree release` with attacker-controlled input.
+ */
+export function tryAutoReleaseLease(args: {
+  projectRoot: string;
+  sessionId: string;
+  leaseId: string;
+  /** Best-effort logging hook (e.g. logger.writeLogEntry). Returns null on failure. */
+  logger?: (line: string) => void;
+}): void {
+  if (typeof args.leaseId !== 'string' || !/^[a-f0-9]{16}$/.test(args.leaseId)) {
+    return;
+  }
+  if (typeof args.projectRoot !== 'string' || args.projectRoot.length === 0) {
+    return;
+  }
+  // Spawn detached. The CLI itself runs `git worktree remove` and
+  // marks the lease released; we trust its at-least-once semantics.
+  try {
+    const child = spawnReleaseProcess(args);
+    child.on('error', () => { /* detached best-effort */ });
+    child.unref();
+  } catch {
+    /* detached best-effort */
+  }
+  // NB: we deliberately do NOT log per-call here — every heartbeat
+  // that reports done in a busy session would otherwise spam the
+  // log. The release CLI itself emits a structured envelope on
+  // success; that's the audit record.
+  if (args.logger !== undefined) {
+    args.logger(`peaks.worktree.autoRelease leaseId=${args.leaseId} sessionId=${args.sessionId}`);
+  }
+}
+
+function spawnReleaseProcess(args: { projectRoot: string; sessionId: string; leaseId: string }): import('node:child_process').ChildProcess {
+  // We import dynamically to avoid a top-level dep on node:child_process
+  // for callers that only need the synchronous writer API. The CLI
+  // writer path is hot during dispatch; deferring the require keeps
+  // the warm path fast.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  return spawn(
+    process.execPath,
+    [
+      process.argv[1] ?? '',
+      'worktree', 'release',
+      '--lease-id', args.leaseId,
+      '--project', args.projectRoot,
+      '--session', args.sessionId,
+      '--json'
+    ],
+    { stdio: 'ignore', windowsHide: true, detached: true }
+  );
+}
+
 /** Mark a record as completed (success / failed / cancelled / no-execution). */
 export function markCompleted(input: LifecycleInput): { record: DispatchRecord } {
   // Slice 2026-06-23-audit-3rd #3: lock + re-read so a concurrent
@@ -493,6 +597,24 @@ export function markCompleted(input: LifecycleInput): { record: DispatchRecord }
       });
     } catch { // TODO(g2): legacy silent catch — grace: 1 minor release (v2.14.0)
       /* best-effort */
+    }
+  }
+  // Slice 2026-07-29-worktree-l2-extended Part 3.A: finalize-time
+  // lease release. The terminal status (done/failed/cancelled/
+  // no-execution) means the sub-agent is no longer using the
+  // worktree; auto-release closes the loop. The release is detached
+  // and best-effort; a crash here cannot roll back the markCompleted
+  // write (we already returned from the lock). The next gc pass is
+  // the safety net.
+  if (result.record.leaseId !== null && typeof input.projectRoot === 'string' && input.projectRoot.length > 0) {
+    try {
+      tryAutoReleaseLease({
+        projectRoot: input.projectRoot,
+        sessionId: result.record.sessionId,
+        leaseId: result.record.leaseId
+      });
+    } catch { // best-effort; release is async anyway
+      /* swallow */
     }
   }
   return result;
@@ -655,7 +777,13 @@ function upgradeRecord(parsed: unknown): DispatchRecord {
     // round-trip through the writer — an empty stage is rejected by
     // `setStage`, but a record that round-tripped through a non-strict
     // tool would land here).
-    stage: typeof obj.stage === 'string' && obj.stage.length > 0 ? obj.stage : null
+    stage: typeof obj.stage === 'string' && obj.stage.length > 0 ? obj.stage : null,
+    // Slice 2026-07-29-worktree-l2-extended Part 3.A: legacy records
+    // have no `leaseId`; default to `null` so the auto-release hook
+    // in `markCompleted` is a clean no-op for them.
+    leaseId: typeof obj.leaseId === 'string' && /^[a-f0-9]{16}$/.test(obj.leaseId)
+      ? obj.leaseId
+      : null
   };
 }
 

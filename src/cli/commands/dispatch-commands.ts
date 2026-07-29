@@ -391,7 +391,13 @@ export function registerDispatchCommand(parent: Command, io: ProgramIO): void {
         role,
         prompt: effectivePrompt,
         toolCall,
-        batchId
+        batchId,
+        // Slice 2026-07-29-worktree-l2-extended Part 3.A: persist the
+        // lease id on the dispatch record so the finalize-time
+        // release hook (markCompleted / heartbeat --status done) can
+        // auto-fire `peaks worktree release` when the sub-agent
+        // completes. Null when --isolation was not requested.
+        leaseId
       });
       const counter = noteDispatched(projectRoot, sid, batchId);
       if (counter.warning) {

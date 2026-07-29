@@ -82,6 +82,11 @@ interface SubAgentDispatchEnvelope {
         readonly subagent_type?: string;
         readonly description?: string;
         readonly prompt?: string;
+        // Slice 2026-07-29-worktree-l2-extended Part 2.C: when
+        // --isolation worktree is set, the dispatch stamps these
+        // on toolCall.args.
+        readonly isolation?: string;
+        readonly env?: Record<string, string>;
       };
       readonly toolCallVersion?: string;
     };
@@ -90,6 +95,13 @@ interface SubAgentDispatchEnvelope {
     readonly contextImpact: {
       readonly contextWarning: string;
     };
+    // Part 2.C: envelope carries the lease handle for the LLM-side
+    // runner. Part 3.A: the same fields are needed to verify the
+    // auto-release path in tests/integration/dispatch-isolation-lifecycle.test.ts.
+    readonly isolation?: string | null;
+    readonly leaseId?: string | null;
+    readonly worktreePath?: string | null;
+    readonly worktreeBranch?: string | null;
   };
 }
 
