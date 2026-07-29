@@ -323,3 +323,19 @@ Use `peaks capabilities --source mcp-server --json` before recommending product 
 Do not implement code, run tests, install hooks, or modify runtime configuration. Use Peaks-Loop CLI reports and downstream artifacts instead.
 
 Reference: `references/workflow.md`.
+
+## L2 surface reference (post rid-l2-extended)
+
+For slices that touch the L2 surface, the canonical CLIs are:
+- `peaks worktree {spawn,renew,list,gc,lease-status,release}` — lease lifecycle (Part 1-2)
+- `peaks sub-agent dispatch --isolation worktree|container` — auto-spawns a lease (Part 2.C + Part 8 contract)
+- `peaks container {spawn,release}` — L4 container runtime (Part 12, docker)
+- `peaks lease-metrics [--rate] [--all-sessions]` — per-kind counts + leak rate (Part 4-5)
+- `peaks lease-stats` — project-wide summary (Part 6)
+- `peaks cron {init,list,run}` + `peaks cron-scheduler start` — periodic lease gc (Part 14-15)
+- `peaks audit red-lines --project .` — 119 catalog red-lines / 86 cli-backed enforcers / 51 discovered (Part 13)
+
+Verify the surface (no need to re-derive):
+1. `peaks audit red-lines --project .` reports `proseOnly: 0` for any shipped L2 surface.
+2. `peaks lease-metrics --rate` after a clean run reports `estimatedLeaked: 0`.
+3. `peaks worktree list` returns 0 active leases after a clean run.
