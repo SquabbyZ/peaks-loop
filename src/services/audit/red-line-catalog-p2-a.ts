@@ -258,6 +258,22 @@ const PRD_ARTIFACT_HANDOFF: RedLineCatalogEntry = {
   enforcerRef: 'src/services/audit/enforcers/lint-prd-artifact-handoff.ts',
 };
 
+const RD_HANDOFF_CONTRACT: RedLineCatalogEntry = {
+  id: 'rl-rd-handoff-contract-001',
+  rule: 'peaks-rd SKILL.md must declare the QA-handoff BLOCKING contract (tech-doc + perf-baseline)',
+  markers: ['BLOCKING'],
+  phrases: ['do not hand off to qa without', 'tech-doc', 'perf-baseline'],
+  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',
+};
+
+const RD_COVERAGE_DISCIPLINE: RedLineCatalogEntry = {
+  id: 'rl-rd-coverage-discipline-001',
+  rule: 'peaks-rd SKILL.md must declare the coverage discipline (100% target + no-padding rule)',
+  markers: ['MANDATORY'],
+  phrases: ['100% coverage target on testable files', 'must not write coverage-padding tests'],
+  enforcerRef: 'src/services/audit/enforcers/lint-rd-handoff-coverage.ts',
+};
+
 /**
  * The 25 P2-a entries, in stable display order. Appending to a single
  * readonly array keeps the catalog growable: future slices (L2.4, L3.x)
@@ -307,4 +323,9 @@ export const RED_LINE_CATALOG_P2_A: readonly RedLineCatalogEntry[] = [
   // one enforcer. The handoff contract requires preserved
   // behavior, step 5.5, and transition verification gates.
   PRD_ARTIFACT_HANDOFF,
+  // Slice 2026-07-29-rid-prose-only-sweep-005: close three
+  // peaks-rd discovered lines (md-121 / md-127 / md-162) with
+  // two enforcers (handoff + coverage discipline).
+  RD_HANDOFF_CONTRACT,
+  RD_COVERAGE_DISCIPLINE,
 ];
