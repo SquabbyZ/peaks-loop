@@ -528,3 +528,182 @@ describe('file shape', () => {
     }
   });
 });
+
+/**
+ * Part 2.B (slice 2026-07-29-worktree-l2-extended) — lease-aware gate.
+ * When `evaluateWorktreeAuth` is called with a `leaseId` and no grant
+ * file is present, the gate MUST fall back to the lease file and allow
+ * iff the lease is active (status='active' AND not past expiry) AND
+ * (when requestId is supplied) the lease rid matches. The malformed /
+ * inactive / rid-mismatch cases must fail-closed (deny), never
+ * silently fall through to allow.
+ *
+ * The auth-grant path is unchanged — when a grant matches, the
+ * lease is ignored (and vice versa). Coexistence is intentional.
+ */
+import { writeFileSync as writeFileSyncNode, mkdirSync as mkdirSyncNode } from 'node:fs';
+import { posix as pathPosix } from 'node:path';
+import {
+  finalizeLease,
+  generateLeaseId,
+  isLeaseGcEligible,
+  leaseFilePath,
+  markReleased,
+  type WorktreeLeaseDraft
+} from '../../../src/services/worktree/worktree-lease.js';
+
+function writeLease(projectRoot: string, sessionId: string, lease: object, leaseId: string): void {
+  // Use the same path-derivation helper the gate uses (`leaseFilePath`)
+  // so the on-disk path always matches. Without this, Windows mixed
+  // `path.join` back-slashes and the module's posix forward-slashes
+  // produce two different paths and the test fails spuriously.
+  const file = leaseFilePath(`${projectRoot}/.peaks/_runtime/${sessionId}`, leaseId);
+  const dir = pathPosix.dirname(file);
+  mkdirSyncNode(dir, { recursive: true });
+  writeFileSyncNode(file, JSON.stringify(lease, null, 2), 'utf8');
+}
+
+function makeLeaseDraft(overrides: Partial<WorktreeLeaseDraft> = {}): WorktreeLeaseDraft {
+  const now = Date.now();
+  return {
+    leaseId: 'a1b2c3d4e5f60718',
+    rid: 'rid-2026-07-29-test',
+    role: 'rd',
+    path: '/repo/.peaks/_runtime/sid/worktrees/a1b2c3d4e5f60718',
+    branch: 'rid-2026-07-29-test',
+    createdAt: now,
+    expiresAt: now + 30 * 60_000,
+    purpose: 'unit test',
+    ...overrides
+  };
+}
+
+describe('evaluateWorktreeAuth lease fallback (Part 2.B)', () => {
+  // NB: don't capture `tmpRoot` in a closed-over const — the outer
+  // `beforeEach` mutates it for every test, so each test must read it
+  // fresh. Use `makeBaseInput(sessionId)` per test to avoid the
+  // projectRoot/lease-store mismatch that would otherwise surface as
+  // spurious "no lease at <file>" denies.
+  const makeBaseInput = (sessionId: string) => ({
+    projectRoot: tmpRoot,
+    sessionId,
+    toolName: 'Bash' as const,
+    command: 'git worktree add /tmp/x -b feat',
+    isolation: null as string | null,
+    requestId: null as string | null
+  });
+
+  test('no grant file + no leaseId → deny WORKTREE_USER_AUTH_REQUIRED (existing behaviour)', () => {
+    const d = evaluateWorktreeAuth({ ...makeBaseInput('s-lease'), leaseId: null });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_USER_AUTH_REQUIRED');
+  });
+
+  test('no grant file + leaseId pointing at active lease → allow viaLease', () => {
+    const sid = 's-lease';
+    const lease = finalizeLease(makeLeaseDraft({ rid: 'rid-2026-07-29-test' }));
+    const lid = lease.leaseId;
+    writeLease(tmpRoot, sid, lease, lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid });
+    expect(d.allow).toBe(true);
+    if (d.allow) {
+      expect(d.viaLease).not.toBeNull();
+      expect(d.viaLease?.leaseId).toBe(lid);
+      expect(d.viaLease?.rid).toBe('rid-2026-07-29-test');
+      expect(d.authorization).toBeNull();
+    }
+  });
+
+  test('grant present + lease present → grant wins (viaLease is null)', () => {
+    const sid = 's-lease-both';
+    writeAuthorization(tmpRoot, sid, grant({ operation: 'git-worktree', reason: 'primary' }));
+    const lease = finalizeLease(makeLeaseDraft({ rid: 'rid-2026-07-29-test' }));
+    const lid = lease.leaseId;
+    writeLease(tmpRoot, sid, lease, lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid });
+    expect(d.allow).toBe(true);
+    if (d.allow) {
+      expect(d.viaLease).toBeNull();
+      expect(d.authorization).not.toBeNull();
+    }
+  });
+
+  test('lease file is missing → deny WORKTREE_USER_AUTH_REQUIRED (fallback exhausts gracefully)', () => {
+    const d = evaluateWorktreeAuth({ ...makeBaseInput('s-lease'), leaseId: 'ffffffffffffffff' });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_USER_AUTH_REQUIRED');
+  });
+
+  test('lease file is malformed → deny WORKTREE_LEASE_FILE_INVALID (fail-closed)', () => {
+    const sid = 's-lease-malformed';
+    const lid = '1234567890abcdef';
+    writeLease(tmpRoot, sid, { only: 'this' }, lid); // missing 8 required fields
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_LEASE_FILE_INVALID');
+  });
+
+  test('lease past expiresAt → deny WORKTREE_LEASE_NOT_ACTIVE', () => {
+    const sid = 's-lease-expired';
+    const lid = 'aabbccddeeff0011';
+    const lease = finalizeLease(makeLeaseDraft({ expiresAt: Date.now() - 1 }));
+    writeLease(tmpRoot, sid, lease, lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_LEASE_NOT_ACTIVE');
+  });
+
+  test('lease rid does not match requestId → deny WORKTREE_LEASE_REQUEST_MISMATCH', () => {
+    const sid = 's-lease-rid-mismatch';
+    const lid = '9988776655443322';
+    const lease = finalizeLease(makeLeaseDraft({ rid: 'rid-A' }));
+    writeLease(tmpRoot, sid, lease, lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid, requestId: 'rid-B' });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_LEASE_REQUEST_MISMATCH');
+  });
+
+  test('lease rid matches requestId → allow (the whole point)', () => {
+    const sid = 's-lease-rid-match';
+    const lease = finalizeLease(makeLeaseDraft({ rid: 'rid-shared' }));
+    const lid = lease.leaseId; // use the draft's leaseId so writeLease + leaseFilePath agree
+    writeLease(tmpRoot, sid, lease, lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid, requestId: 'rid-shared' });
+    expect(d.allow).toBe(true);
+    if (d.allow) expect(d.viaLease?.leaseId).toBe(lid);
+  });
+
+  test('released lease → deny WORKTREE_LEASE_NOT_ACTIVE', () => {
+    const sid = 's-lease-released';
+    const lid = 'deadbeefcafebabe';
+    const lease = finalizeLease(makeLeaseDraft());
+    writeLease(tmpRoot, sid, markReleased(lease), lid);
+    const d = evaluateWorktreeAuth({ ...makeBaseInput(sid), leaseId: lid });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_LEASE_NOT_ACTIVE');
+  });
+
+  test('leaseId undefined (legacy callers) → no crash, falls through to auth-only path', () => {
+    const d = evaluateWorktreeAuth({ ...makeBaseInput('s-lease'), leaseId: undefined as unknown as string | null });
+    expect(d.allow).toBe(false);
+    if (!d.allow) expect(d.code).toBe('WORKTREE_USER_AUTH_REQUIRED');
+  });
+
+  test('non-worktree-mutating command with no auth + no lease → allow (passthrough)', () => {
+    const d = evaluateWorktreeAuth({
+      ...makeBaseInput('s-lease'),
+      command: 'ls -la',
+      leaseId: null
+    });
+    expect(d.allow).toBe(true);
+    if (d.allow) expect(d.viaLease).toBeNull();
+  });
+});
+
+describe('isLeaseGcEligible (re-export sanity)', () => {
+  test('released lease is gc-eligible', () => {
+    const lid = generateLeaseId();
+    const lease = finalizeLease(makeLeaseDraft({ leaseId: lid }));
+    expect(isLeaseGcEligible(markReleased(lease))).toBe(true);
+  });
+});

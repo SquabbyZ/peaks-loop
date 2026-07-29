@@ -26,6 +26,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import { posix as path } from 'node:path';
 
 /**
  * Per-role default TTL. Sub-agent dispatch duration varies by role:
@@ -283,7 +284,13 @@ export function deserializeLease(raw: string): WorktreeLease {
   };
 }
 
-/** Internal: cross-platform path join (avoid pulling in node:path at module top-level). */
+/** Internal: normalize a path segment to forward slashes (Windows
+ *  callers pass `C:\Users\...`; posix.join sees the backslash and
+ *  silently mangles). Then posix-join. The CLI uses the same module
+ *  so reads + writes always agree. */
 function joinPath(...segments: ReadonlyArray<string>): string {
-  return segments.join('/').replace(/\/+/g, '/');
+  if (segments.length === 0) return '';
+  return segments
+    .map((s) => s.replace(/\\/g, '/'))
+    .reduce<string>((acc, s) => path.join(acc, s));
 }

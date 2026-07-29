@@ -119,13 +119,22 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
       const toolKind = classifyTool(toolName);
       if (toolKind !== 'Other') {
         const sessionId = getCurrentSessionId(options.project) ?? 'unknown-sid';
+        // slice 2026-07-29-worktree-l2-extended Part 2.B: the gate consults
+        // the lease file referenced by `PEAKS_WORKTREE_LEASE_ID` as a
+        // second authorization path when no `peaks worktree auth grant`
+        // is on file. Dispatch (Part 2.C) injects the env var on every
+        // sub-agent spawn so worktree-mutating tool calls from inside
+        // the sub-agent process auto-authorize via the lease instead
+        // of requiring a separate grant.
+        const leaseId = process.env.PEAKS_WORKTREE_LEASE_ID ?? null;
         const wtDecision = evaluateWorktreeAuth({
           projectRoot: options.project,
           sessionId,
           toolName: toolKind,
           command: toolKind === 'Bash' ? command : null,
           isolation: toolKind === 'Agent' || toolKind === 'EnterWorktree' ? extractIsolation(parsedStdin) : null,
-          requestId: null
+          requestId: null,
+          leaseId: leaseId !== null && /^[a-f0-9]{16}$/.test(leaseId) ? leaseId : null
         });
         if (!wtDecision.allow) {
           // Hard block: a worktree-mutating tool call without a current-task user grant.
@@ -139,6 +148,8 @@ export function registerGateCommands(program: Command, io: ProgramIO): void {
           return;
         }
         // allow: continue to the SOP gate (the regular enforcement path).
+        // wtDecision may have arrived via lease (viaLease != null); the SOP gate does not
+        // care which path granted, only that the worktree gate said allow.
       }
 
       const decision = await enforceBashCommand(options.project, command);

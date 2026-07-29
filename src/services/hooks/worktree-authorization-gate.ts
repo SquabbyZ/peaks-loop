@@ -37,6 +37,13 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import {
+  deserializeLease,
+  isLeaseActive,
+  leaseFilePath,
+  type WorktreeLease,
+} from '../worktree/worktree-lease.js';
+
 export const WORKTREE_AUTH_FILE = 'worktree-auth.json';
 
 /** The narrow surface the gate actually inspects. Keep this list in lock-step with the regex matchers below. */
@@ -76,7 +83,8 @@ export type WorktreeAuthorization = {
 
 /** Result of a gate check. `allow` permits the tool call; `deny` blocks it. */
 export type WorktreeAuthDecision =
-  | { readonly allow: true; readonly authorization: WorktreeAuthorization; readonly remaining: number }
+  | { readonly allow: true; readonly authorization: WorktreeAuthorization; readonly remaining: number; readonly viaLease: null }
+  | { readonly allow: true; readonly authorization: null; readonly remaining: 0; readonly viaLease: WorktreeLease }
   | { readonly allow: false; readonly reason: string; readonly code: WorktreeAuthDenyCode; readonly remediation: string };
 
 export type WorktreeAuthDenyCode =
@@ -89,7 +97,13 @@ export type WorktreeAuthDenyCode =
   /** Grant exists but was already consumed and the operation is single-use. */
   | 'WORKTREE_USER_AUTH_CONSUMED'
   /** The grant file is unreadable / malformed — fail-closed, never fail-open. */
-  | 'WORKTREE_USER_AUTH_FILE_INVALID';
+  | 'WORKTREE_USER_AUTH_FILE_INVALID'
+  /** Lease file referenced by the tool call is unreadable / malformed. */
+  | 'WORKTREE_LEASE_FILE_INVALID'
+  /** Lease exists but is not active (status != 'active' OR past expiresAt). */
+  | 'WORKTREE_LEASE_NOT_ACTIVE'
+  /** Lease exists but its rid does not match the current peaks request. */
+  | 'WORKTREE_LEASE_REQUEST_MISMATCH';
 
 export type ToolCallKind = 'Bash' | 'Agent' | 'EnterWorktree' | 'Workflow' | 'Other';
 
@@ -104,6 +118,17 @@ export type WorktreeAuthCheckInput = {
   readonly isolation: string | null;
   /** Optional rid scope from the calling peaks request artifact. */
   readonly requestId: string | null;
+  /**
+   * Optional lease id consulted as a SECOND authorization path when no
+   * `peaks worktree auth grant` token is on file. When set, the gate
+   * reads `.peaks/_runtime/<sid>/worktree-leases/<leaseId>.json` and
+   * permits the operation iff the lease is `isLeaseActive` and its
+   * `rid` matches the current peaks request. `PEAKS_WORKTREE_LEASE_ID`
+   * env is the canonical source (dispatch injects it; the hook reads
+   * it). When null, the lease fallback is skipped — the gate falls
+   * back to the existing `peaks worktree auth grant` only contract.
+   */
+  readonly leaseId: string | null;
 };
 
 /** Stable identifier of the current "user authorization" — derived from session + tool + key args. */
@@ -250,7 +275,7 @@ export function decideFromAuthorization(
     .filter((g) => Date.parse(g.expiresAt) > now)
     .find((g) => g.requestId === null || g.requestId === input.requestId);
   if (requestMatched !== undefined) {
-    return { allow: true, authorization: requestMatched, remaining: file.grants.length };
+    return { allow: true, authorization: requestMatched, remaining: file.grants.length, viaLease: null };
   }
   // No live grant matched the current rid (or the caller's rid is null). Diagnose why.
   const sameOpAnyState = file.grants.filter((g) => g.operation === operation);
@@ -309,7 +334,8 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
     return {
       allow: true,
       authorization: syntheticAllow(),
-      remaining: 0
+      remaining: 0,
+      viaLease: null
     };
   }
   let file: AuthorizationFile | null;
@@ -334,25 +360,86 @@ export function evaluateWorktreeAuth(input: WorktreeAuthCheckInput): WorktreeAut
     };
   }
   const decision = decideFromAuthorization(input, operation, file);
-  if (decision.allow && decision.authorization.consume) {
-    try {
-      markConsumed(input.projectRoot, input.sessionId, decision.authorization);
-    } catch (error) {
-      // Best-effort: the gate already issued an allow. We do NOT revoke; the next call will see the
-      // un-consumed grant and try again. This is preferable to denying a legitimate operation because
-      // of a write failure.
-      return {
-        allow: true,
-        authorization: decision.authorization,
-        remaining: 0,
-        ...({
-          // Surface the warning via the reason field on the next caller — keep the decision object
-          // strictly discriminated so consumers don't have to add fields.
-        } as Record<string, never>)
-      };
+  if (decision.allow) {
+    if (decision.authorization !== null && decision.authorization.consume) {
+      try {
+        markConsumed(input.projectRoot, input.sessionId, decision.authorization);
+      } catch (error) {
+        // Best-effort: the gate already issued an allow. We do NOT revoke; the next call will see the
+        // un-consumed grant and try again. This is preferable to denying a legitimate operation because
+        // of a write failure.
+        return {
+          allow: true,
+          authorization: decision.authorization,
+          remaining: 0,
+          viaLease: null
+        };
+      }
     }
+    return decision;
   }
-  return decision;
+  // Auth denied — try the lease fallback. The lease is a SECOND authorization path that sub-agents
+  // that have adopted the spawn/release CLI (Part 1 + 2.A) use; sub-agents that still rely on
+  // `peaks worktree auth grant` are unaffected (their grants already allowed above).
+  if (input.leaseId === null || input.leaseId === undefined || input.leaseId.length === 0) {
+    return decision;
+  }
+  return decideFromLease(input);
+}
+
+/**
+ * Pure: consult the lease file referenced by `input.leaseId` and decide
+ * whether the operation may proceed under the lease. Mirrors the
+ * `decideFromAuthorization` contract: malformed lease → fail-closed;
+ * rid mismatch → deny; non-active lease → deny.
+ */
+export function decideFromLease(input: WorktreeAuthCheckInput): WorktreeAuthDecision {
+  const leaseId = input.leaseId ?? '';
+  // `leaseFilePath` expects the per-session runtime dir as its first
+  // argument, NOT the project root. Compose the same path the spawn
+  // CLI writes to (`<projectRoot>/.peaks/_runtime/<sid>`).
+  const runtimeDir = `${input.projectRoot.replace(/[\\/]+$/, '')}/.peaks/_runtime/${input.sessionId}`;
+  const file = leaseFilePath(runtimeDir, leaseId);
+  if (!existsSync(file)) {
+    return {
+      allow: false,
+      code: 'WORKTREE_USER_AUTH_REQUIRED',
+      reason: `No worktree auth grant AND no lease at ${file} (leaseId=${leaseId}).`,
+      remediation:
+        `Either run \`peaks worktree auth grant --operation <op> --reason "<why>"\` or ` +
+        `run \`peaks worktree spawn --rid <rid> --role <role> --purpose "<why>"\` to create the lease.`
+    };
+  }
+  let lease: WorktreeLease;
+  try {
+    lease = deserializeLease(readFileSync(file, 'utf8'));
+  } catch (error) {
+    return {
+      allow: false,
+      code: 'WORKTREE_LEASE_FILE_INVALID',
+      reason: `Lease file at ${file} is unreadable/malformed: ${(error as Error).message}`,
+      remediation:
+        `Delete the malformed lease (\`rm ${file}\`) and re-spawn. The gate never fails open on a malformed lease.`
+    };
+  }
+  if (input.requestId !== null && lease.rid !== input.requestId) {
+    return {
+      allow: false,
+      code: 'WORKTREE_LEASE_REQUEST_MISMATCH',
+      reason: `Lease rid=${lease.rid} does not match current requestId=${input.requestId}.`,
+      remediation: `Either re-spawn a lease for the current rid, or operate under the lease's own rid.`
+    };
+  }
+  if (!isLeaseActive(lease)) {
+    return {
+      allow: false,
+      code: 'WORKTREE_LEASE_NOT_ACTIVE',
+      reason: `Lease ${lease.leaseId} is not active (status=${lease.status}, remainingMs=${lease.expiresAt - Date.now()}).`,
+      remediation:
+        `Run \`peaks worktree renew --lease-id ${lease.leaseId}\` to extend, or \`peaks worktree spawn ...\` to create a new lease.`
+    };
+  }
+  return { allow: true, authorization: null, remaining: 0, viaLease: lease };
 }
 
 /** Mark a single-use grant as consumed. Writes the whole file back atomically (write to .tmp + rename). */
