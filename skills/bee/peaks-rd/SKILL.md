@@ -274,3 +274,16 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/refactor-workflow.md` | Refactor hard gates + required artifacts. |
 | `references/skill-presence-and-title.md` | RD skill presence (main loop only). |
 | `references/v2-12-fanout-collapse.md` | v2.12.0 fan-out collapse. |
+## L2 surface reference (post rid-l2-extended)
+
+For RD slices that touch the lease / dispatch / observability stack, the canonical L2 surface is the L2 ecosystem shipped 2026-07-29 (commits `33aad895` through `075321af`). The high-leverage CLIs RD slices will encounter:
+
+- `peaks worktree spawn / renew / list / gc / lease-status / release` — lease lifecycle (source of truth for L2 hook gate)
+- `peaks sub-agent dispatch --isolation worktree|container` — auto-spawns a lease; `PEAKS_WORKTREE_LEASE_ID` env var is the gate's lookup key
+- `peaks container spawn / release` — L4 container runtime (Part 12); pairs with `--isolation container` on dispatch
+- `peaks lease-metrics [--rate] [--all-sessions]` — per-kind event counts + leak-rate + lifetime stats
+- `peaks lease-stats` — project-wide summary (per-rid / per-role / per-isolation breakdown)
+- `peaks cron init / list / run` — scheduled tasks (lease-gc-daily built-in); `peaks cron-scheduler start` for daemon mode
+- `peaks audit red-lines` — 119 catalog red-lines; 66 cli-backed enforcers (sweep 003) + 53 catalog
+
+The pre-existing SKILL.md reference set (this section is additive — not a replacement) covers the LLM-flow contracts. The CLIs above are operator / dashboard surfaces.

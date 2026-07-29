@@ -244,3 +244,18 @@ Index of every `references/` file in this skill. Read on demand.
 | `references/requirement-boundary-recheck.md` | 5-step requirement boundary recheck. |
 | `references/test-case-generation.md` | Test case categories + format + acceptance linkage. |
 | `references/test-report-output.md` | Test report minimum 8 sections. |
+## L2 surface reference (post rid-l2-extended)
+
+For QA slices that verify lease / dispatch / observability behavior, the L2 ecosystem (shipped 2026-07-29) provides these read-mostly surfaces:
+
+- `peaks lease-metrics [--rate] [--all-sessions]` — per-kind event counts (spawn/renew/release/gc/autoRelease/autoRelease-failed). QA can assert that an L2 test scenario emits the expected sequence.
+- `peaks lease-stats` — project-wide summary; verify per-rid / per-role / per-isolation breakdown matches the test plan
+- `peaks worktree list` — canonical "alive" set of leases (FS state). `lease-metrics` is a historical view; `peaks worktree list` is the source of truth for "is this lease still alive right now?"
+- `peaks audit red-lines` — 119 red lines / 66 cli-backed / 0 partial. QA can gate a release on `proseOnly === 0` + `cliBacked >= partial threshold`
+- `peaks container list` — L4 container leases (Part 12). Use to verify container-isolation scenarios when `--isolation container` is exercised
+
+QA contracts to assert on the L2 surface (a minimal acceptance test set):
+1. After `dispatch --isolation worktree` + `heartbeat --status done`, the lease file is `released` AND the worktree dir is gone.
+2. `peaks worktree list` reports 0 active leases after a clean run.
+3. `peaks lease-metrics --rate` after a 1-spawn / 0-release test reports `estimatedLeaked: 1, completedLifetimes: 0`.
+4. `peaks audit red-lines` reports `proseOnly: 0` and `partial: 0` for any shipped L2 surface.
